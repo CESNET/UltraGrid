@@ -1,0 +1,277 @@
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <assert.h>
+#include <malloc.h>
+#include <string.h>
+#include <unistd.h>
+#include "video_types.h"
+#include "video_compress.h"
+#include "libdxt.h"
+
+/* NOTE: These threads busy wait, so at *most* set this to one less than the
+ * total number of cores on your system (Also 3 threads will work)! Also, if
+ * you see tearing in the rendered image try increasing the number of threads
+ * by 1 (For a dual dual-core Opteron 285 3 threads work great). 
+ * -- iwsmith <iwsmith@cct.lsu.ed> 9 August 2007
+ */
+#define NUM_THREADS 3
+#define HD_HEIGHT 1080
+#define HD_WIDTH 1920
+
+/* Ok, we are going to decompose the problem into 2^n pieces (generally
+ * 2, 4, or 8). We will most likely need to do the following:
+ * 1. Convert 10-bit -> 8bit
+ * 2. Convert YUV 4:2:2 -> 8 bit RGB
+ * 3. Compress 8 bit RGB -> DXT
+ */
+
+struct video_compress {
+	unsigned char *buffer[NUM_THREADS];
+	unsigned char *output_data;
+	unsigned char *out;
+	pthread_mutex_t lock;
+	int thread_count,len[NUM_THREADS],go[NUM_THREADS];
+	pthread_t thread_ids[NUM_THREADS];
+};
+
+inline void comp_copyline128(unsigned char *d, unsigned char *s, int len);
+void compress_deinterlace(unsigned char *buffer);
+void compress_data(void *args, struct video_frame * tx);
+
+struct video_compress * initialize_video_compression(void)
+{
+	/* This function does the following:
+	 * 1. Allocate memory for buffers 
+	 * 2. Spawn compressor threads
+	 */
+	int x;
+	struct video_compress *compress;
+
+	compress=calloc(1,sizeof(struct video_compress));
+	for(x=0;x<NUM_THREADS;x++) {
+		compress->buffer[x]=(unsigned char*)malloc(1920*1080*4/NUM_THREADS);
+	}
+	compress->output_data=(unsigned char*)memalign(16,1920*1080*4);
+	compress->out=(unsigned char*)memalign(16,1920*1080*4);
+	memset(compress->output_data,0,1920*1080*4);
+	memset(compress->out,0,1920*1080*4/8);
+	compress->thread_count=0;
+	if(pthread_mutex_init(&(compress->lock),NULL)){
+		perror("Error initializing mutex!");
+		exit(x);
+	}
+
+	pthread_mutex_lock(&(compress->lock));
+
+	for(x=0;x<NUM_THREADS;x++){
+		if(pthread_create(&(compress->thread_ids[x]), NULL, (void *)compress_thread, (void *)compress)) {
+			perror("Unable to create compressor thread!");
+			exit(x);
+		}
+
+		compress->go[x]=0;
+		compress->len[x]=0;
+	} 
+	pthread_mutex_unlock(&(compress->lock));
+	return compress;	
+}
+
+inline void comp_copyline128(unsigned char *d, unsigned char *s, int len)
+{
+        register unsigned char *_d=d,*_s=s;
+
+        while(--len >= 0) {
+
+                asm ("movd %0, %%xmm4\n": : "r" (0xffffff));
+
+                asm volatile ("movdqa (%0), %%xmm0\n"
+                        "movdqa 16(%0), %%xmm5\n"
+                        "movdqa %%xmm0, %%xmm1\n"
+                        "movdqa %%xmm0, %%xmm2\n"
+                        "movdqa %%xmm0, %%xmm3\n"
+                        "pand  %%xmm4, %%xmm0\n"
+                        "movdqa %%xmm5, %%xmm6\n"
+                        "movdqa %%xmm5, %%xmm7\n"
+                        "movdqa %%xmm5, %%xmm8\n"
+                        "pand  %%xmm4, %%xmm5\n"
+                        "pslldq $4, %%xmm4\n"
+                        "pand  %%xmm4, %%xmm1\n"
+                        "pand  %%xmm4, %%xmm6\n"
+                        "pslldq $4, %%xmm4\n"
+                        "psrldq $1, %%xmm1\n"
+                        "psrldq $1, %%xmm6\n"
+                        "pand  %%xmm4, %%xmm2\n"
+                        "pand  %%xmm4, %%xmm7\n"
+                        "pslldq $4, %%xmm4\n"
+                        "psrldq $2, %%xmm2\n"
+                        "psrldq $2, %%xmm7\n"
+                        "pand  %%xmm4, %%xmm3\n"
+                        "pand  %%xmm4, %%xmm8\n"
+                        "por %%xmm1, %%xmm0\n"
+                        "psrldq $3, %%xmm3\n"
+                        "psrldq $3, %%xmm8\n"
+                        "por %%xmm2, %%xmm0\n"
+                        "por %%xmm6, %%xmm5\n"
+                        "por %%xmm3, %%xmm0\n"
+                        "por %%xmm7, %%xmm5\n"
+                        "movdq2q %%xmm0, %%mm0\n"
+                        "por %%xmm8, %%xmm5\n"
+                        "movdqa %%xmm5, %%xmm1\n"
+                        "pslldq $12, %%xmm5\n"
+                        "psrldq $4, %%xmm1\n"
+                        "por %%xmm5, %%xmm0\n"
+                        "psrldq $8, %%xmm0\n"
+                        "movq %%mm0, (%1)\n"
+                        "movdq2q %%xmm0, %%mm1\n"
+                        "movdq2q %%xmm1, %%mm2\n"
+                        "movq %%mm1, 8(%1)\n"
+                        "movq %%mm2, 16(%1)\n"
+                        :
+                        : "r" (_s), "r" (_d));
+                _s += 32;
+                _d += 24;
+        }
+}
+
+/* linear blend deinterlace */
+void compress_deinterlace(unsigned char *buffer)
+{
+        int i,j;
+        long pitch = 1920*2;
+        register long pitch2 = pitch*2;
+        unsigned char *bline1, *bline2, *bline3;
+        register unsigned char *line1, *line2, *line3;
+
+        bline1 = buffer;
+        bline2 = buffer + pitch;
+        bline3 = buffer + 3*pitch;
+        for(i=0; i < 1920*2; i+=16) {
+                /* preload first two lines */
+                asm volatile(
+                             "movdqa (%0), %%xmm0\n"
+                             "movdqa (%1), %%xmm1\n"
+                             :
+                             : "r" ((unsigned long *)bline1),
+                               "r" ((unsigned long *)bline2));
+                line1 = bline2;
+                line2 = bline2 + pitch;
+                line3 = bline3;
+                for(j=0; j < 1076; j+=2) {
+                        asm  volatile(
+                              "movdqa (%1), %%xmm2\n"
+                              "pavgb %%xmm2, %%xmm0\n"
+                              "pavgb %%xmm1, %%xmm0\n"
+                              "movdqa (%2), %%xmm1\n"
+                              "movdqa %%xmm0, (%0)\n"
+                              "pavgb %%xmm1, %%xmm0\n"
+                              "pavgb %%xmm2, %%xmm0\n"
+                              "movdqa %%xmm0, (%1)\n"
+                              :
+                              :"r" ((unsigned long *)line1),
+                               "r" ((unsigned long *)line2),
+                               "r" ((unsigned long *)line3)
+                              );
+                        line1 += pitch2;
+                        line2 += pitch2;
+                        line3 += pitch2;
+                }
+                bline1 += 16;
+                bline2 += 16;
+                bline3 += 16;
+        }
+}
+
+void compress_data(void *args, struct video_frame * tx)
+{
+	/* This thread will be called from main.c and handle the compress_threads */
+	struct video_compress * compress= (struct video_compress *)args;
+	int x,total=0;
+	unsigned char *line1,*line2;
+
+	line1=tx->data;
+	line2=compress->output_data;
+	/* First 10->8 bit conversion */
+	for(x=0;x<HD_HEIGHT;x+=2) { 
+            comp_copyline128(line2, line1, 5120/32);
+            comp_copyline128(line2+3840, line1+5120*540, 5120/32);
+            line1 += 5120;
+            line2 += 2*3840;
+        }
+	compress_deinterlace(compress->output_data);
+
+	for(x=0;x<NUM_THREADS;x++) {
+		compress->go[x]=1;
+	}
+
+	while(total!=1036800){
+		//This is just getting silly...
+		total=0;
+		for(x=0;x<NUM_THREADS;x++) {
+			total+=compress->len[x];
+		}
+	}
+
+	tx->data=compress->out;
+	tx->colour_mode=DXT_1080;
+	tx->data_len=total;
+}
+	
+
+static void compress_thread(void *args)
+{
+	struct video_compress * compress= (struct video_compress *)args;
+	int myId,myEnd,myStart,range,x;
+	unsigned char *retv, *input;
+
+	pthread_mutex_lock(&(compress->lock));
+	myId=compress->thread_count;
+	compress->thread_count++;
+	pthread_mutex_unlock(&(compress->lock));
+	range=1920*1080/NUM_THREADS;
+	myStart=myId*range;
+	myEnd=(myId+1)*range;
+	fprintf(stderr, "Thread %d online, handling elements %d - %d\n",myId,myStart,myEnd-1);
+
+
+	while(1) {
+		while(compress->go[myId]==0) {
+			//Busywait
+		}
+		retv=compress->buffer[myId];
+		input=(compress->output_data)+(myId*1920*1080*2/NUM_THREADS);
+		/* Repack the data to YUV 4:4:4 Format */
+		for(x=0;x<range;x+=2) {
+			retv[4*x]=input[2*x+1];		//Y1
+			retv[4*x+1]=input[2*x];		//U1
+			retv[4*x+2]=input[2*x+2];	//V1
+			retv[4*x+3]=255;		//Alpha
+
+			retv[4*x+4]=input[2*x+3];	//Y2
+			retv[4*x+5]=input[2*x];		//U1
+			retv[4*x+6]=input[2*x+2];	//V1
+			retv[4*x+7]=255;		//Alpha
+		}
+		compress->len[myId]=DirectDXT1(retv,(compress->out)+myId*1036800/(NUM_THREADS),1920,1080/NUM_THREADS);
+		compress->go[myId]=0;
+
+	}
+}
+
+void compress_exit(void *args)
+{
+	struct video_compress * compress= (struct video_compress *)args;
+	int x;
+
+	for(x=0;x<compress->thread_count;x++){
+		pthread_kill(compress->thread_ids[x],SIGKILL);
+	}
+
+	free(compress->buffer[0]);
+	free(compress->buffer[1]);
+	free(compress->buffer[2]);
+	free(compress->buffer[3]);
+}
+	
+	

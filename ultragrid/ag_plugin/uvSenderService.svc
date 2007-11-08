@@ -1,0 +1,12 @@
+[ServiceDescription]
+name = UltraGrid Sender
+description = UltraGrid based video service to send multicast video
+capabilities = Capability1
+executable = uvSenderService.py
+platform = linux2
+version = 1.0
+
+[Capability1]
+role = producer
+type = video
+

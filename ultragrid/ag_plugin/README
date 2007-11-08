@@ -1,0 +1,18 @@
+UltraGrid video service plugin for AccessGrid v2.2 
+==================================================
+
+The plugin will be built as part of the normal UltraGrid compilation.  
+
+To install the UltraGrid receiver, copy ag_plugin/uvReceiverService.zip into
+/etc/AccessGrid/NodeServices and restart AccessGrid. When VenueClient starts, 
+go into "Preferences -> Manage My Node" and add the "UltraGrid Receiver". 
+
+To install the UltraGrid sender, copy ag_plugin/uvSenderService.zip into
+/etc/AccessGrid/NodeServices and restart AccessGrid. When VenueClient starts,
+go into "Preferences -> Manage My Node" and add the "UltraGrid Sender". 
+
+When upgrading the plugin, be sure to remove any old versions installed in
+both /etc/AccessGrid/NodeServices and $HOME/.AccessGrid/local_services
+
+
+

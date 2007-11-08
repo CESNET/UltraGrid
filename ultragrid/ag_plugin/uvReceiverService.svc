@@ -1,0 +1,12 @@
+[ServiceDescription]
+name = UltraGrid Receiver
+description = UltraGrid based video service to receive multicast video
+capabilities = Capability1
+executable = uvReceiverService.py
+platform = linux2
+version = 1.0
+
+[Capability1]
+role = consumer
+type = video
+

@@ -1,0 +1,222 @@
+
+UltraGrid - A High Definition Collaboratory
+
+   Copyright (c) 2001-2004 University of Southern California 
+   Copyright (c) 2003-2004 University of Glasgow
+   All rights reserved.
+
+   This software is distributed under license, see the file COPYRIGHT for
+   full terms and conditions.
+
+
+About UltraGrid
+
+   UltraGrid is an experimental high-definition video teleconferencing
+   system. It was developed by the University of Southern California's
+   Information Sciences Institute, and by the Department of Computing
+   Science at the University of Glasgow. The project aims to demonstrate
+   high-quality video conferencing running over standard UDP/IP networks,
+   and to investigate adaptive congestion control for multimedia systems.
+
+   The contents of this directory are as follows:
+
+   	COPYRIGHT	Full license terms and conditions
+   	INSTALL		Installation instructions
+	MODS		Change log and modification history
+	README		This file
+	VERSION		Version number of the UltraGrid system
+	bin/		Compiled binaries
+	src/		Source code for the UltraGrid system
+	test/ 		Source code and binaries for test routines
+	Makefile.in	Build script
+	acconfig.h	"	"
+	config.guess	"	"
+	config.sub	"	"
+	configure	"	"
+	configure.in	"	"
+	install-sh	"	"
+
+
+Hardware and Software Requirements
+
+   The UltraGrid software has been developed on Linux and FreeBSD, but
+   should port to other Unix-like systems with relative ease (the main 
+   difficulty will be in porting the video capture and audio routines,
+   since there are few portable APIs in this area). We have no plans to
+   port the system to Microsoft Windows at this time.
+
+   The system depends on modified versions of Tcl-8.0 and Tk-8.0 which
+   should be included in the distribution. It will not work correctly 
+   with the standard Tcl/Uk versions.
+
+   The system can use the Xvideo extension to the X window system for
+   accelerated video display. Recent versions of XFree86 and the X.org
+   server provide the necessary support, depending on the capabilities
+   of your hardware.
+
+   HDTV capture and playback using a DVS HDstationOEM card is supported
+   on Linux provided the necessary hardware is installed and the SDK is
+   present. We have tested with version 2.5p3b of the DVS SDK, which 
+   should be installed in ../sdk2.5p3b. 
+   
+   Hosts used to capture and send high definition video need significant
+   I/O bandwidth: the minimum requirement is a PC with dual 64 bit/66MHz
+   PCI bus architecture (such as found on server-class motherboards).
+   Systems which have the HDTV capture card and network interface on the
+   same PCI bus will perform very poorly. 
+
+   Hosts used to receive and display high definition content have similar
+   requirements: if using a DVS HDstation card for display, it should be 
+   located on a separate PCI bus to the network card. Note that display
+   adaptors that connect to the AGP bus perform well, since this is 
+   separate to the PCI bus used for the network card.
+
+
+Using the UltraGrid System
+
+   The file INSTALL gives instructions for building the UltraGrid system. 
+   Once the system has been built, the "uv" binary will be present. This
+   can be invoked as follows:
+
+   	uv -d <display_device> -m <mtu> hostname	(on the receiver)
+	uv -t <capture_device> -m <mtu> -f <fps> hostname (on the sender)
+
+   The <display_device> is one of "hdtv" for the DVS HDstation display
+   card, "x11" for display using the X Window System and "xv" for display
+   using the X Window System with the Xvideo extension (the "xv" display
+   type provides better performance than "x11" if your hardware supports
+   the Xvideo extension). 
+
+   The <capture_device> is one of "hdtv" for the DVS HDstation capture
+   card, or "testcard" for a static test image.
+
+   The <mtu> specifies the maximum transfer unit of the network path from
+   sender to receiver (the default MTU is 1500 octets, suitable for use on
+   standard Ethernets). This parameter allows the application to make use
+   of networks with larger MTU, for example gigabit Ethernet using jumbo
+   frames. 
+
+   The desired video framerate is specified by the <fps> parameter. The
+   default, if not specified, is 60 frames per second.
+
+   As an example, if a user on host "ormal" wishes to send video captured
+   using a DVS HDstation card at 60 frames per second to another user on
+   host "curtis" with a display using the Xv driver, then the user on host
+   "ormal" would run:
+
+   	uv -t hdtv -f 60 curtis
+
+   while the user on "curtis" would run:
+
+   	uv -d xv ormal
+
+   The system requires access to UDP ports 5004 and 5005: you should open
+   these ports on any firewall on the network path. High definition video
+   formats require approximately 1 gigabit per second of network capacity.
+   An automatic cutoff will operate, shutting down the system, if network
+   congestion is detected.
+
+
+Performance Tuning: Network
+
+   To achieve optimum performance with high definition video, it may be
+   necessary to tune your system's network parameters to more aggressive
+   values than used by default.  
+
+   A key factor affecting performance is the path MTU. It is unlikely that
+   the system will sustain gigabit rates with the 1500 octet Ethernet MTU. 
+   If using a gigabit Ethernet you may be able to improve performance by
+   setting an 8192 octet MTU on the interface, provided all intermediate
+   hops on the path from sender to receiver support the large MTU. 
+
+   UltraGrid attempts to increase the UDP receive socket buffer from the
+   default value (typically 64 kilobytes) to 2 megabytes. If successful,
+   this will make the system more robust to scheduling variations and
+   better able to accept bursty packet arrivals. If you see the message:
+
+	WARNING: Unable to increase UDP recvbuffer
+
+   when starting the application, this means that the operating system did
+   not allow such a large buffer to be configured. On FreeBSD, the maximum
+   buffer that may be configured can be set using the "kern.ipc.maxsockbuf"
+   sysctl, for example:
+
+   	sysctl kern.ipc.maxsockbuf=2621440
+
+   Other operating systems may allow tuning of the maximum UDP buffer size
+   in different ways.
+
+   Interrupt processing load on the receiver host may be significant when
+   running at high rates. Depending on your network interface hardware it
+   may be possible to coalesce interrupts to reduce this load, although
+   the settings to do this are highly driver dependent. On FreeBSD, the
+   use of network device polling may also help performance: see the man
+   page for "polling" in section 4 of the manual.
+
+   In many cases, the performance of your network interface card may be
+   limited by host bus performance (this is particularly an issue at high
+   rates, for example when using HDTV format video).
+
+
+Performance Tuning: Display devices
+
+   If using a DVS HDstation card as a display device ("-d hdtv"), the
+   key factor limiting performance is PCI bus contention. Ensure that
+   the HDstation card is on a separate PCI bus to the network card --
+   this typically requires a server class motherboard. On Linux, the
+   PCI bus topology can be displayed using "lspci-tv", for example:
+
+	[root@ormal root]# lspci -tv
+	-+-[03]---06.0  Xilinx, Inc.: Unknown device d150
+	 +-[01]-+-02.0-[02]--+-04.0  Adaptec 7899P
+	 |      |            \-04.1  Adaptec 7899P
+	 |      \-0e.0  3Com Corporation 3c985 1000BaseSX
+	 \-[00]-+-00.0  ServerWorks CNB20HE
+		+-00.1  ServerWorks CNB20HE
+		+-00.2  ServerWorks: Unknown device 0006
+		+-00.3  ServerWorks: Unknown device 0006
+		+-04.0  Intel Corporation 82557 [Ethernet Pro 100]
+		+-0e.0  ATI Technologies Inc Rage XL
+		+-0f.0  ServerWorks OSB4
+		\-0f.1  ServerWorks: Unknown device 0211
+	[root@ormal root]# 
+
+   showing an HDstation card on PCI bus [03] (the card shows as a Xilinx
+   device) and a gigabit Ethernet card on PCI bus [02] (the 3Com entry).
+
+   If using the X window system display routines ("-d x11"), performance
+   will be poor. Performance of the conversion from native YUV format to 
+   the RGB display format is limited by the memory bandwidth of the CPU.
+   An implementation using SIMD instructions (e.g. MMX, AltiVec) would 
+   be significantly faster than the current software implementation.
+   Contributions of code are solicited.
+
+   If using the X window system display routines with Xvideo extensions
+   ("-d xv") performance should be good, although this depends on the
+   quality of the display drivers. There is little tuning that can be
+   performed, short of changing graphics card or updating the version
+   of the X window system on your host.
+
+
+Performance Tuning: Other Factors
+
+   The UltraGrid system will attempt to enable POSIX real-time scheduling
+   to improve performance.  If you see the message:
+
+	WARNING: Unable to set real-time scheduling
+
+   when starting the application, this means that the operating system did
+   not permit it to enable real-time scheduling. The application will run,
+   but with reduced performance. The most likely reason for failure to set
+   realtime scheduling is that the application has insufficient privilege:
+   it should either be run by root, or be made setuid root. A similar
+   message:
+
+   	WARNING: System does not support real-time scheduling
+
+   indicates that your operating system does not support POSIX real-time
+   scheduling. The application will still run, but performance may be less
+   than desired.
+
+				  - * - 
+

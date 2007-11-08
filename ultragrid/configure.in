@@ -1,0 +1,378 @@
+dnl Process this file with autoconf to produce a configure script.
+
+AC_INIT
+AC_CONFIG_SRCDIR([src/main.c])
+
+PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
+
+AC_CANONICAL_HOST
+AC_PROG_CC
+AC_PROG_CPP
+AC_HEADER_STDC
+AC_C_CONST
+AC_TYPE_SIZE_T
+AC_C_BIGENDIAN
+AC_C_CHAR_UNSIGNED
+
+AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
+
+# -------------------------------------------------------------------------------------------------
+# Check for standard size types.  The defaults are only valid on some
+# systems so we hope that <inttypes.h> exists when they're wrong.
+
+AC_CHECK_TYPE(int8_t,  signed char)
+AC_CHECK_TYPE(int16_t, short)
+AC_CHECK_TYPE(int32_t, long)
+AC_CHECK_TYPE(int64_t, long long)
+
+# Some systems have these in <stdint.h>, just to be difficult...
+AC_CACHE_CHECK(for uint8_t in <stdint.h>, ucl_cv_uint8_t_in_stdint_h,
+	AC_EGREP_HEADER(uint8_t,
+			stdint.h,
+			ucl_cv_uint8_t_in_stdint_h=yes,
+			ucl_cv_uint8_t_in_stdint_h=no))
+if test $ucl_cv_uint8_t_in_stdint_h = "no"
+then
+	 AC_CHECK_TYPE(uint8_t,  unsigned char)
+fi
+
+AC_CACHE_CHECK(for uint16_t in <stdint.h>, ucl_cv_uint16_t_in_stdint_h,
+	AC_EGREP_HEADER(uint16_t,
+			stdint.h,
+			ucl_cv_uint16_t_in_stdint_h=yes,
+			ucl_cv_uint16_t_in_stdint_h=no))
+if test $ucl_cv_uint16_t_in_stdint_h = "no"
+then
+	 AC_CHECK_TYPE(uint16_t,  unsigned short)
+fi
+
+AC_CACHE_CHECK(for uint32_t in <stdint.h>, ucl_cv_uint32_t_in_stdint_h,
+	AC_EGREP_HEADER(uint32_t,
+			stdint.h,
+			ucl_cv_uint32_t_in_stdint_h=yes,
+			ucl_cv_uint32_t_in_stdint_h=no))
+if test $ucl_cv_uint32_t_in_stdint_h = "no"
+then
+	 AC_CHECK_TYPE(uint32_t,  unsigned int)
+fi
+
+# -------------------------------------------------------------------------------------------------
+# GCC-specific warning flags
+if test "$GCC" = yes
+then
+        CFLAGS="$CFLAGS -pipe -W -Wall -Wcast-qual -Wcast-align -Wbad-function-cast -Wmissing-prototypes -Wmissing-declarations"
+	#CFLAGS="$CFLAGS -Werror"
+fi
+
+# -------------------------------------------------------------------------------------------------
+# Check for libraries
+
+AC_SEARCH_LIBS(socket, socket)
+AC_SEARCH_LIBS(inet_addr, nsl)
+
+AC_CHECK_LIB(rt, main, LIBS="$LIBS -lrt", LIBS="$LIBS")
+
+AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
+AC_CHECK_LIB(ieee, main, [MATHLIBS="-lieee $MATHLIBS"])
+AC_SUBST(MATHLIBS)
+
+# -------------------------------------------------------------------------------------------------
+# See if this system supports sched_setscheduler()
+
+AC_CHECK_FUNCS(sched_setscheduler)
+
+# -------------------------------------------------------------------------------------------------
+# Try to find the pthread library...
+
+case "$host" in
+	*-*-freebsd4*)
+		CFLAGS="$CFLAGS -pthread"
+		;;
+	*)
+		AC_CHECK_LIB(pthread, pthread_create, LIBS="$LIBS -lpthread", AC_MSG_ERROR([Require POSIX thread]))
+		;;
+esac
+
+# -------------------------------------------------------------------------------------------------
+AC_ARG_ENABLE(profile,
+	[  --enable-profile        enable profiling],
+	[if test $enableval = yes
+	then
+		if test "$GCC" = yes
+		then
+			CFLAGS="$CFLAGS -pg"
+		else
+			AC_MSG_ERROR([Don't know how to enable profiling for $CC])
+		fi
+	fi])
+
+AC_ARG_ENABLE(debug,
+	[  --enable-debug          enable debug messages and code],
+	[if test $enableval = yes
+	then
+		AC_DEFINE(DEBUG)
+	fi])
+
+AC_ARG_ENABLE(ipv6,
+	[  --enable-ipv6           enable ipv6],
+	[if test $enableval = yes
+	then
+		AC_DEFINE(HAVE_IPv6)
+	fi])
+
+# -------------------------------------------------------------------------------------------------
+# X Window System
+#
+# Use autoconf inbuilt X location.  Works v. nicely.  Substitution of X vars
+# comes after broken X11 header check and attempted fix.
+AC_PATH_XTRA
+
+if test ! $no_x ; then 
+	# Check if X headers are broken.  GCC 2.95 and up reject headers that don't
+	# have omit types, X11 headers have implicit int declarations on some systems
+	# (e.g. Solaris).
+	AC_CACHE_CHECK(whether X11 headers are broken, x11_cv_broken_headers, [
+		SAVED_CFLAGS=$CFLAGS
+		CFLAGS="$X_CFLAGS $CFLAGS"
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <X11/Xlib.h>
+		#include <X11/Xutil.h>]], [[return 0]])],[x11_cv_broken_headers=no],[x11_cv_broken_headers=yes])
+		CFLAGS=$SAVED_CFLAGS
+	]);
+
+	# If X headers look broken, check if we can use -istdinc.  If so replace 
+	# -IXDIR with -istdincXDIR to suppress warnings.  NB it is possible to use
+	# -fpermissive, but not in conjunction with -Werror since warnings are still
+	# generated.  Could pull local headers through:
+	#			 's/^\(extern\) \([[A-Za-z0-9]]*($\)/\1 int \2/' 
+	if test $x11_cv_broken_headers = yes -a $GCC = "yes" ; then
+		SAVED_X_CFLAGS=$X_CFLAGS
+		X_CFLAGS=`echo $X_CFLAGS | sed 's%-I%-istdinc%'`
+		AC_CACHE_CHECK(whether -istdinc fixes X11 headers, x11_cv_gcc_istdinc_works, [
+			SAVED_CFLAGS=$CFLAGS
+			CFLAGS="$X_CFLAGS $CFLAGS"
+			AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <X11/Xlib.h>
+			#include <X11/Xutil.h>]], [[return 0]])],[x11_cv_gcc_istdinc_works=yes],[x11_cv_gcc_istdinc_works=no])
+			CFLAGS=$SAVED_CFLAGS
+		])
+		if test $x11_cv_gcc_istdinc_works = no ; then
+			X_CFLAGS=$SAVED_X_CFLAGS
+		fi
+	fi
+fi
+
+AC_SUBST(X_CFLAGS)
+AC_SUBST(X_LIBS)
+AC_SUBST(X_EXTRA_LIBS)
+AC_SUBST(X_PRE_LIBS)
+
+# -------------------------------------------------------------------------------------------------
+# Audio device selection, derived from host type.  Could be smart and probe 
+# what's there, but can't guarantee that build host has an audio device. We
+# probe devices at startup from those compiled in, so this is not an issue
+# when re-distributing binaries.
+
+AUDIO_HW_INC=
+AUDIO_HW_LIB=
+AUDIO_HW_OBJ="src/audio_hw/null.o"
+
+case "$host_os" in
+*solaris*)
+        SUNAUDIOHOME="/usr/demo/SOUND"
+        O1KHOME="/opt/SUNWo1kp"
+        AC_ARG_WITH(sun-audio,    [  --with-sun-audio=DIR    specify Sun audio support home], SUNAUDIOHOME=$withval)
+        AUDIO_HW_INC="$AUDIO_HW_INC -I$SUNAUDIOHOME/include"
+        AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/sparc_util.o src/audio_hw/sparc.o" 
+        AC_DEFINE(HAVE_SPARC_AUDIO)
+        AC_ARG_WITH(osprey-audio, [  --with-osprey=DIR       specify Osprey (Sun video Plus PCI) support home], O1KHOME=$withval)
+        AC_CHECK_HEADER($O1KHOME/include/oti_audio_device.h,
+                [AUDIO_HW_INC="$AUDIO_HW_INC -I$O1KHOME/include"
+                 AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/solaris_osprey.o"
+                 AC_DEFINE(HAVE_OSPREY_AUDIO)])
+        ;;
+*linux*)
+        # Do we have telephony drivers?
+        AC_CHECK_HEADER(linux/telephony.h,[
+                AC_MSG_CHECKING([for recent telephony drivers])
+                AC_EGREP_HEADER(PHONE_CID, linux/telephony.h,[ 
+                        AC_MSG_RESULT(present)
+                        AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_ixj.o"
+                        AC_DEFINE(HAVE_IXJ_AUDIO)
+                ],AC_MSG_RESULT(missing))
+        ])
+        # Do we have ALSA?
+        AC_CHECK_HEADER(alsa/asoundlib.h,[
+                AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_alsa.o"
+                AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib64/libasound.a"
+                AC_DEFINE(HAVE_ALSA_AUDIO)
+                # HAVE_OSS_AUDIO is defined so that the ALSA OSS emulation
+                # works for those cards which are not supported natively
+                AC_DEFINE(HAVE_OSS_AUDIO)
+        ])
+        # Default is to use OSS drivers...
+        AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_oss.o"
+        AC_CHECK_HEADERS(sys/soundcard.h soundcard.h)
+        AC_DEFINE(HAVE_OSS_AUDIO)
+        ;;
+*freebsd*)
+        # PC Speaker device on FreeBSD
+        AC_CHECK_HEADERS(machine/pcaudioio.h)
+        if test $ac_cv_header_machine_h="yes" ; then
+                AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/freebsd_pca.o"
+                AC_DEFINE(HAVE_PCA_AUDIO)
+        fi
+        # Note luigi and newpcm have compatible soundcard.h files but
+        # mixer behaves differently under both systems.  During runtime
+        # only one of these modules will be used.
+        AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/freebsd_luigi.o src/audio_hw/freebsd_newpcm.o"
+        AC_DEFINE(HAVE_LUIGI_AUDIO) 
+        AC_DEFINE(HAVE_NEWPCM_AUDIO) 
+        ;;
+*irix*)
+        AUDIO_HW_LIB="$AUDIO_HW_LIB -laudio"
+        AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/irix.o"
+        AC_DEFINE(HAVE_SGI_AUDIO)
+        ;;
+*darwin*)
+        AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/macosx.o"
+	AUDIO_HW_LIB="$AUDIO_HW_LIB -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices "
+	AC_DEFINE(HAVE_MACOSX_AUDIO)
+	;;
+esac
+
+AC_SUBST(AUDIO_HW_OBJ)
+AC_SUBST(AUDIO_HW_INC)
+AC_SUBST(AUDIO_HW_LIB)
+
+# -------------------------------------------------------------------------------------------------
+# Do we have FireWire/DV support?
+
+case "$host_os" in
+*freebsd*)
+        AC_CHECK_HEADER(dev/firewire/firewire.h,[
+                AC_DEFINE(HAVE_FIREWIRE_DV_FREEBSD)
+        ])
+	;;
+esac
+
+# This should be conditional on finding libdv 
+AC_DEFINE(HAVE_DV_CODEC)
+
+# -------------------------------------------------------------------------------------------------
+# Try to find the SDK for the DVS HDstation card...
+
+AC_ARG_WITH(hdstation,           
+	[  --with-hdstation=DIR          specify location of DVS HDstation SDK],
+	[DVS_INC=$withval/development/header
+	 DVS_LIB=$withval/linux/lib],
+	[DVS_INC=${PARENT}/sdk3.0.1.6/development/header
+	 DVS_LIB=${PARENT}/sdk3.0.1.6/linux-x86_64/lib])
+
+AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS=yes, FOUND_DVS=no)
+AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS=yes, FOUND_DVS=no, -L${DVS_LIB})
+
+if test $FOUND_DVS = yes
+then
+	DVS_INC=-I${DVS_INC}
+	DVS_LIB=${DVS_LIB}/libdvsoem.a
+	AC_DEFINE(HAVE_HDSTATION)
+else
+	DVS_INC=
+	DVS_LIB=
+fi
+
+AC_SUBST(DVS_INC)
+AC_SUBST(DVS_LIB)
+
+# -------------------------------------------------------------------------------------------------
+# SDL Stuff
+
+AC_CHECK_HEADERS([SDL/SDL.h],
+		 [AC_CHECK_LIB(SDL, main, LIBS="$LIBS -lSDL", echo "SDL library not found or not usable.")],
+		 [echo "SDL.h not found."]
+		)
+
+# -------------------------------------------------------------------------------------------------
+# OpenGL stuff
+
+AC_CHECK_HEADERS([GL/gl.h GL/glu.h],
+		 [FOUND_GL_H=yes],
+		 [FOUND_GL_H=no],
+		)
+
+AC_CHECK_HEADERS([GL/glext.h],
+		 [FOUND_GL_H=yes],
+		 [FOUND_GL_H=no], 
+		 [
+	 	  #include <GL/gl.h>
+		  #include <GL/glext.h>
+		 ]
+		)
+
+if test $FOUND_GL_H = yes
+then
+	AC_CHECK_LIB(GL, glXChooseVisual, FOUND_GL_L=yes, FOUND_GL_L=no)
+	AC_CHECK_LIB(GLU, main, FOUND_GL_L=yes, FOUND_GL_L=no)
+
+	if test $FOUND_GL_L = yes
+	then
+		LIBS="$LIBS -lGL -lGLU"
+
+		AC_CHECK_HEADERS([GL/glew.h],
+				 [AC_CHECK_LIB(GLEW, main, LIBS="$LIBS -lGLEW", echo "GLEW library not found or not usable.")],
+				 [echo "GL/glew.h not found."]
+				)
+	else
+		echo "OpenGL libraries not found or not usable."
+	fi
+
+else
+	echo "OpenGL headers not found or not usable."
+fi
+# -------------------------------------------------------------------------------------------------
+# FastDXT stuff
+
+AC_ARG_WITH(fastdxt,
+	[  --with-fastdxt=DIR		specify location of FastDXT],
+	[DXT_INC=$withval
+	 DXT_LIB=$withval],
+	[DXT_INC=${PARENT}/FastDXT
+	 DXT_LIB=${PARENT}/FastDXT])
+
+AC_CHECK_HEADER(${DXT_INC}/libdxt.h, FOUND_DXT=yes, FOUND_DXT=no)
+AC_CHECK_LIB(dxt, main, FOUND_DXT=yes, FOUND_DXT=no, -I${DXT_INC} -L${DXT_LIB})
+
+if test $FOUND_DXT = yes
+then
+	DXT_INC=-I${DXT_INC}
+	DXT_LIB="-L${DXT_LIB} -ldxt"
+	AC_DEFINE(HAVE_FASTDXT)
+else
+	DXT_INC=
+	DXT_LIB=
+fi
+
+AC_SUBST(DXT_INC)
+AC_SUBST(DXT_LIB)
+
+# -------------------------------------------------------------------------------------------------
+# Tests needed by audio_codec/gsm_impl.c
+# 
+# Check if Signed arithmetic shift right (SASR).  If SASR then -1 >> 1 == 1.
+# Return value from test program of zero indicates success. 
+AC_CACHE_CHECK(signed arithmetic shift right, gsm_cv_sasr,
+        AC_RUN_IFELSE([AC_LANG_SOURCE([[int main() { return (-1 >> 1) != -1;}]])],[gsm_cv_sasr=yes],[gsm_cv_sasr=no],[]))
+if test $gsm_cv_sasr = yes ; then
+        AC_DEFINE(SASR)
+fi
+
+# GSM Options, almost certainly not sensible on all platforms, performance
+# tests in a configure script ?
+AC_DEFINE(FAST)
+AC_DEFINE(USE_FLOAT_MUL)
+
+# -------------------------------------------------------------------------------------------------
+# Finally, substitute things into the Makefile and config.h
+AC_CONFIG_HEADER(src/config.h)
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
+

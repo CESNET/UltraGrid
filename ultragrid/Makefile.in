@@ -1,0 +1,217 @@
+#
+# Copyright (c) 2001-2004 University of Southern California
+# All rights reserved. 
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, is permitted provided that the following conditions
+# are met:
+# 
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+# 
+# 3. All advertising materials mentioning features or use of this software
+#    must display the following acknowledgement:
+# 
+#      This product includes software developed by the University of Southern
+#      California Information Sciences Institute.
+# 
+# 4. Neither the name of the University nor of the Institute may be used
+#    to endorse or promote products derived from this software without
+#    specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+# BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+# EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# $Revision: 1.1 $
+# $Date: 2007/11/08 09:48:58 $
+#
+
+AR        = ar
+RANLIB    = ranlib
+CC        = @CC@
+CFLAGS    = @DEFS@ @CFLAGS@ @X_CFLAGS@
+LIBS      = @AUDIO_HW_LIB@ @DVS_LIB@ @DXT_LIB@ @X_PRE_LIBS@ @X_LIBS@ -lSDL -lX11 -lXext -lXv @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
+INC       = -Isrc -Itest @AUDIO_HW_INC@ @DVS_INC@ @DXT_INC@
+TARGET    = bin/uv
+
+OBJS      = src/bitstream.o \
+            src/debug.o \
+            src/ntp.o \
+	    src/pdb.o \
+            src/tv.o \
+            src/transmit.o \
+            src/tfrc.o \
+	    src/rtp/pbuf.o \
+	    src/rtp/decoders.o \
+	    src/rtp/ptime.o \
+            src/rtp/net_udp.o \
+            src/rtp/rtp.o \
+            src/rtp/rtp_callback.o \
+            src/crypto/crypt_aes.o \
+            src/crypto/crypt_aes_impl.o \
+            src/crypto/crypt_des.o \
+            src/crypto/md5.o \
+            src/crypto/random.o \
+            src/audio_hw.o \
+            src/audio_fmt.o \
+            @AUDIO_HW_OBJ@ \
+            src/audio_util.o \
+            src/audio_codec.o \
+            src/audio_codec/acm.o \
+            src/audio_codec/dvi.o \
+            src/audio_codec/dvi_impl.o \
+            src/audio_codec/g711.o \
+            src/audio_codec/l16.o \
+            src/audio_codec/l8.o \
+            src/audio_codec/vdvi.o \
+            src/audio_codec/vdvi_impl.o \
+            src/audio_codec/g726.o \
+            src/audio_codec/g726_impl.o \
+            src/audio_codec/g726_impl_16.o \
+            src/audio_codec/g726_impl_24.o \
+            src/audio_codec/g726_impl_32.o \
+            src/audio_codec/g726_impl_40.o \
+            src/audio_codec/lpc.o \
+            src/audio_codec/lpc_impl.o \
+            src/audio_codec/gsm.o \
+            src/audio_codec/gsm_impl.o \
+            src/video_codec.o \
+            src/video_codec/dv.o \
+            src/video_codec/uv_yuv.o \
+            src/video_capture.o \
+            src/video_capture/null.o \
+            src/video_capture/firewire_dv_freebsd.o \
+            src/video_capture/hdstation.o \
+            src/video_capture/testcard.o \
+            src/video_capture/testcard_image.o \
+            src/video_display.o \
+	    src/video_compress.o \
+            src/video_display/hdstation.o \
+            src/video_display/null.o \
+            src/video_display/x11.o \
+            src/video_display/xv.o \
+            src/video_display/sdl.o \
+            src/video_display/gl_sdl.o \
+            src/video_display/dxt.o
+
+# -------------------------------------------------------------------------------------------------
+all: $(TARGET) ag-plugins suggest-tests
+
+src/version.h: VERSION
+	@echo "Generating src/version.h"
+	@sed -e 's/.*/#define ULTRAGRID_VERSION "UltraGrid v&"/' VERSION > src/version.h
+
+$(TARGET): src/version.h $(OBJS) src/main.o 
+	$(CC) $(CFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+
+.c.o:
+	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+
+src/video_capture/testcard_image.o: src/video_capture/testcard_image.c
+	$(CC) -c -o src/video_capture/testcard_image.o src/video_capture/testcard_image.c
+
+src/video_capture/testcard_image.c: src/video_capture/make_testcard src/video_capture/testcard_image.yuv
+	src/video_capture/make_testcard src/video_capture/testcard_image.yuv src/video_capture/testcard_image.c
+
+src/video_capture/testcard_image.yuv: src/video_capture/testcard_image.jpg
+	convert src/video_capture/testcard_image.jpg uyvy:src/video_capture/testcard_image.yuv
+
+src/video_capture/make_testcard: src/video_capture/make_testcard.c
+	$(CC) -o src/video_capture/make_testcard src/video_capture/make_testcard.c
+
+# -------------------------------------------------------------------------------------------------
+TEST_OBJS = test/test_bitstream.o \
+	    test/test_aes.o \
+	    test/test_des.o \
+	    test/test_md5.o \
+	    test/test_random.o \
+	    test/test_codec_g711.o \
+	    test/test_codec_g726.o \
+	    test/test_codec_dvi.o \
+	    test/test_codec_vdvi.o \
+	    test/test_codec_l16.o \
+	    test/test_codec_l8.o \
+	    test/test_codec_lpc.o \
+	    test/test_codec_gsm.o \
+	    test/test_audio_hw.o \
+	    test/test_video_display.o \
+	    test/test_video_capture.o \
+	    test/test_tv.o \
+	    test/test_net_udp.o \
+	    test/test_rtp.o \
+	    test/run_tests.o
+
+test/run_tests: $(TEST_OBJS) $(OBJS) 
+	$(CC) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
+
+suggest-tests:
+	@echo ""
+	@echo "*** Now type \"make tests\" to run the test suite"
+	@echo ""
+
+tests: test/run_tests 
+	@test/run_tests
+
+# -------------------------------------------------------------------------------------------------
+ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+
+AG_PLUGIN_TX_SCRIPTS = ag_plugin/uvSenderService.py \
+                       ag_plugin/uvSenderService.svc \
+                       ag_plugin/uvSenderService.manifest
+
+ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+	@echo "Creating AccessGrid plugin: uvSenderService.zip"
+	@rm  -f ag_plugin/uvSenderService.zip 
+	@zip -j ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+
+AG_PLUGIN_RX_SCRIPTS = ag_plugin/uvReceiverService.py \
+                       ag_plugin/uvReceiverService.svc \
+                       ag_plugin/uvReceiverService.manifest
+
+ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
+	@rm  -f ag_plugin/uvReceiverService.zip 
+	@zip -j ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+
+# -------------------------------------------------------------------------------------------------
+clean:
+	-rm -f $(OBJS) src/main.o $(TARGET) src/version.h 
+	-rm -f src/video_capture/testcard_image.c src/video_capture/make_testcard
+	-rm -f $(TEST_OBJS) test/run_tests
+	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+
+distclean: clean
+	-rm -f Makefile config.status config.cache config.log src/config.h tags
+
+etags:
+	etags src/*.[ch] src/*/*.[ch]
+
+ctags:
+	ctags src/*.[ch] src/*/*.[ch]
+
+release:
+	cvs tag release-`cat VERSION | sed "s/\./-/g"`
+
+install:
+	cp -v $(TARGET) /usr/local/bin/
+	rm -rf /usr/local/share/uv-0.3.1
+	mkdir /usr/local/share/uv-0.3.1
+	cp -v share/uv_startup.bmp /usr/local/share/uv-0.3.1/
+	cp -v share/basic.glsl /usr/local/share/uv-0.3.1/
+	cp -v share/dxt.frag /usr/local/share/uv-0.3.1/
+	cp -v share/dxt.vert /usr/local/share/uv-0.3.1/
+	cp -v share/new.glsl /usr/local/share/uv-0.3.1/
