@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/13 16:29:28 $
  *
  */
 
@@ -338,6 +338,13 @@ display_sdl_init(void)
         SDL_Rect                splash_src;
         SDL_Rect                splash_dest;
 
+	int			itemp;
+	unsigned int		utemp;
+	Window			wtemp;
+
+	unsigned int		x_res_x;
+	unsigned int		x_res_y;
+
 	s = (struct state_sdl *) malloc(sizeof(struct state_sdl));
 	s->magic   = MAGIC_SDL;
 
@@ -370,8 +377,10 @@ display_sdl_init(void)
 		return NULL;
 	}
 
-	//s->sdl_screen = SDL_SetVideoMode(HD_WIDTH, HD_HEIGHT, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
-	s->sdl_screen = SDL_SetVideoMode(1920, 1200, 0, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_FULLSCREEN);
+	/* Get XWindows resolution */
+	ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+
+	s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 0, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_FULLSCREEN);
 
 	SDL_WM_SetCaption("Ultragrid", "Ultragrid");
 
@@ -389,9 +398,17 @@ display_sdl_init(void)
 	s->buffers[1] = malloc(HD_WIDTH*HD_HEIGHT*hd_color_bpp);
 
 	s->rect.w = HD_WIDTH;
-	s->rect.h = HD_HEIGHT-1;
-	s->rect.x = 0;
-	s->rect.y = 60;
+	s->rect.h = HD_HEIGHT;
+	if ((x_res_x - HD_WIDTH) > 0) {
+		s->rect.x = (x_res_x - HD_WIDTH) / 2;
+	} else {
+		s->rect.x = 0;
+	}
+	if ((x_res_y - HD_HEIGHT) > 0) {
+		s->rect.y = (x_res_y - HD_HEIGHT) / 2;
+	} else {
+		s->rect.y = 0;
+	}
 
 	s->image_network = 0;
         s->image_display = 1;
@@ -415,8 +432,8 @@ display_sdl_init(void)
                 splash_src.w = image->w;
                 splash_src.h = image->h;
  
-                splash_dest.x = (int)((HD_WIDTH - splash_src.w) / 2);
-                splash_dest.y = (int)((HD_HEIGHT - splash_src.h) / 2) + 60;
+                splash_dest.x = (int)((x_res_x - splash_src.w) / 2);
+                splash_dest.y = (int)((x_res_y - splash_src.h) / 2) + 60;
                 splash_dest.w = image->w;
                 splash_dest.h = image->h;
  
