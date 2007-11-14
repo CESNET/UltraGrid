@@ -111,27 +111,46 @@ void * display_gl_init(void)
 {
     struct state_sdl        *s;
 
+    int			ret;
+    int			itemp;
+    unsigned int	utemp;
+    Window		wtemp;
+
+    unsigned int	x_res_x;
+    unsigned int	x_res_y;
+
     s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
     s->magic   = MAGIC_GL;
 
-	if (!(s->display = XOpenDisplay(NULL))) {
-		printf("Unable to open display.\n");
-		return NULL;
-	}
+    if (!(s->display = XOpenDisplay(NULL))) {
+	printf("Unable to open display.\n");
+	return NULL;
+    }
     
+    /* Get XWindows resolution */
+    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+
     s->rect.w = HD_WIDTH;
-    s->rect.h =1079;    /* No idea why, but they use this... */
-    s->rect.x=0;
-    s->rect.y=60;
+    s->rect.h = HD_HEIGHT;
+    if ((x_res_x - HD_WIDTH) > 0) {
+	s->rect.x = (x_res_x - HD_WIDTH) / 2;
+    } else {
+	s->rect.x = 0;
+    }
+    if ((x_res_y - HD_HEIGHT) > 0) {
+	s->rect.y = (x_res_y - HD_HEIGHT) / 2;
+    } else {
+	s->rect.y = 0;
+    }
 
     s->buffers[0]=malloc(HD_WIDTH*HD_HEIGHT*3);
     s->buffers[1]=malloc(HD_WIDTH*HD_HEIGHT*3);
     s->outbuffer=malloc(HD_WIDTH*HD_HEIGHT*4);
     s->image_network=0;
     s->image_display=1;
-	s->y=malloc(HD_WIDTH*HD_HEIGHT);
-	s->u=malloc(HD_WIDTH*HD_HEIGHT);
-	s->v=malloc(HD_WIDTH*HD_HEIGHT);
+    s->y=malloc(HD_WIDTH*HD_HEIGHT);
+    s->u=malloc(HD_WIDTH*HD_HEIGHT);
+    s->v=malloc(HD_WIDTH*HD_HEIGHT);
 
     asm("emms\n");
 
@@ -173,33 +192,34 @@ void glsl_arb_init(void *arg)
 {
     struct state_sdl        *s = (struct state_sdl *) arg;
     char *log;
-	/* Set up program objects. */
+
+    /* Set up program objects. */
     s->PHandle=glCreateProgramObjectARB();
- //   s->VSHandle=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+    // s->VSHandle=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
     s->FSHandle=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
 
     /* Compile Shader */
-	assert(s->FProgram!=NULL);
-//	assert(s->VProgram!=NULL);
+    assert(s->FProgram!=NULL);
+    // assert(s->VProgram!=NULL);
     glShaderSourceARB(s->FSHandle,1,&(s->FProgram),NULL);
     glCompileShaderARB(s->FSHandle);
 
     /* Print compile log */
     log=calloc(32768,sizeof(char));
-   	glGetInfoLogARB(s->FSHandle,32768,NULL,log);
+    glGetInfoLogARB(s->FSHandle,32768,NULL,log);
     printf("Compile Log: %s\n", log);
-   	free(log);
+    free(log);
 #if 0
     glShaderSourceARB(s->VSHandle,1,&(s->VProgram),NULL);
     glCompileShaderARB(s->VSHandle);
     log=calloc(32768,sizeof(char));
-   	glGetInfoLogARB(s->VSHandle,32768,NULL,log);
+    glGetInfoLogARB(s->VSHandle,32768,NULL,log);
     printf("Compile Log: %s\n", log);
-   	free(log);
+    free(log);
 #endif
     /* Attach and link our program */
     glAttachObjectARB(s->PHandle,s->FSHandle);
-//    glAttachObjectARB(s->PHandle,s->VSHandle);
+    // glAttachObjectARB(s->PHandle,s->VSHandle);
     glLinkProgramARB(s->PHandle);
 
     /* Print link log. */
@@ -257,7 +277,14 @@ inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v)
 static void * display_thread_gl(void *arg)
 {
     struct state_sdl        *s = (struct state_sdl *) arg;
-    int j,i;
+    int j, i, ret;
+
+    int			itemp;
+    unsigned int	utemp;
+    Window		wtemp;
+
+    unsigned int	x_res_x;
+    unsigned int	x_res_y;
 
     const SDL_VideoInfo *videoInfo;
     int videoFlags;
@@ -269,6 +296,9 @@ static void * display_thread_gl(void *arg)
         fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError());
         exit(1);
     }
+
+    /* Get XWindows resolution */
+    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
 
     /* Fetch the video info */
     videoInfo = SDL_GetVideoInfo( );
@@ -298,7 +328,7 @@ static void * display_thread_gl(void *arg)
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );	//TODO: Is this necessary?
 
     /* get a SDL surface */
-    s->sdl_screen = SDL_SetVideoMode( HD_WIDTH, HD_HEIGHT, 32, videoFlags);
+    s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 32, videoFlags);
     if(!s->sdl_screen){
         fprintf(stderr,"Error setting video mode!\n");
         exit(128);
@@ -308,11 +338,47 @@ static void * display_thread_gl(void *arg)
 
     SDL_ShowCursor(SDL_DISABLE);
 
-	/* OpenGL Setup */
+    /* OpenGL Setup */
     glEnable( GL_TEXTURE_2D );
     glClearColor( 1.0f, 1.0f, 1.0f, 0.1f );
-    gl_resize_window(HD_WIDTH,HD_HEIGHT);
+    gl_resize_window(x_res_x, x_res_y);
     glGenTextures(4, s->texture);	//TODO: Is this necessary?
+
+    /* Display splash screen */
+    SDL_Surface		*temp;
+    GLuint texture;			// This is a handle to our texture object
+    temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
+    if (temp == NULL) {
+        temp = SDL_LoadBMP("/usr/local/share/uv-0.3.1/uv_startup.bmp");
+        if (temp == NULL) {
+            temp = SDL_LoadBMP("uv_startup.bmp");
+            if (temp == NULL) {
+                printf("Unable to load splash bitmap: uv_startup.bmp.\n");
+            }
+        }
+    }
+
+    if (temp != NULL) {
+	/* Display the SDL_surface as a OpenGL texture */
+        
+	// Have OpenGL generate a texture object handle for us
+	glGenTextures(1, &texture);
+ 
+	// Bind the texture object
+	glBindTexture(GL_TEXTURE_2D, texture);
+ 
+	// Set the texture's stretching properties
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+ 
+	// Edit the texture object's image data using the information SDL_Surface gives us
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, temp->w, temp->h, 0,
+                     GL_RGB, GL_UNSIGNED_BYTE, temp->pixels);
+
+	gl_draw();
+
+        glDeleteTextures( 1, &texture );
+    }
 
     /* Load shader */
     //TODO: Need a less breaky way to do this...
@@ -363,23 +429,6 @@ static void * display_thread_gl(void *arg)
     }else{
         fprintf(stderr, "ERROR: Neither OpenGL 2.0 nor ARB_fragment_shader are supported, try updating your drivers...\n");
         exit(65);
-    }
-
-    /* Display splash screen */
-    SDL_Surface		*temp;
-    temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
-    if (temp == NULL) {
-        temp = SDL_LoadBMP("/usr/local/share/uv-0.3.1/uv_startup.bmp");
-        if (temp == NULL) {
-            temp = SDL_LoadBMP("uv_startup.bmp");
-            if (temp == NULL) {
-                printf("Unable to load splash bitmap: uv_startup.bmp.\n");
-            }
-        }
-    }
-
-    if (temp != NULL) {
-	/* Display the SDL_surface as a OpenGL texture */
     }
 
     /* Check to see if we have data yet, if not, just chillax */
@@ -505,7 +554,7 @@ void gl_bind_texture(void *arg)
     struct state_sdl        *s = (struct state_sdl *) arg;
 	int i;
 
-	glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE1);
     i=glGetUniformLocationARB(s->PHandle,"Utex");
     glUniform1iARB(i,1); 
     glBindTexture(GL_TEXTURE_2D,1);
@@ -513,7 +562,7 @@ void gl_bind_texture(void *arg)
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
-	glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE2);
     i=glGetUniformLocationARB(s->PHandle,"Vtex");
     glUniform1iARB(i,2); 
     glBindTexture(GL_TEXTURE_2D,2);
@@ -521,7 +570,7 @@ void gl_bind_texture(void *arg)
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
-	glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(GL_TEXTURE0);
     i=glGetUniformLocationARB(s->PHandle,"Ytex");
     glUniform1iARB(i,0); 
     glBindTexture(GL_TEXTURE_2D,0);
@@ -529,24 +578,24 @@ void gl_bind_texture(void *arg)
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     //glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 #if 0
-	//TODO: does OpenGL use different stuff here?
-	glActiveTexture(GL_TEXTURE0);
+    //TODO: does OpenGL use different stuff here?
+    glActiveTexture(GL_TEXTURE0);
     i=glGetUniformLocationARB(s->PHandle,"yuvtex");
     glUniform1iARB(i,0); 
     glBindTexture(GL_TEXTURE_2D,0);
     glTexImage2D(GL_TEXTURE_2D,0,1,HD_WIDTH,HD_HEIGHT,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->outbuffer);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	gl_check_error();
+    gl_check_error();
 
-	glActiveTexture(GL_TEXTURE1);
+    glActiveTexture(GL_TEXTURE1);
     i=glGetUniformLocationARB(s->PHandle,"rawtex");
     glUniform1iARB(i,1); 
     glBindTexture(GL_TEXTURE_2D,1);
     glTexImage2D(GL_TEXTURE_2D,0,1,HD_WIDTH,HD_HEIGHT,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->outbuffer+1920*1080);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	gl_check_error();
+    gl_check_error();
 #endif
 }    
 
@@ -558,7 +607,7 @@ void gl_draw()
     glLoadIdentity( );
     glTranslatef( 0.0f, 0.0f, -1.35f );
 
-	gl_check_error();
+    gl_check_error();
     glBegin(GL_QUADS);
       /* Front Face */
       /* Bottom Left Of The Texture and Quad */
@@ -571,7 +620,7 @@ void gl_draw()
       glTexCoord2f( 0.0f, 0.0f ); glVertex2f( -1.0f,  0.5625f);
     glEnd( );
 
-	gl_check_error();
+    gl_check_error();
     /* Draw it to the screen */
     SDL_GL_SwapBuffers( );
 }

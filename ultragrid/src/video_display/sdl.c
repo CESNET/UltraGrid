@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/11/13 16:29:28 $
+ * $Revision: 1.3 $
+ * $Date: 2007/11/14 19:22:06 $
  *
  */
 
@@ -79,10 +79,6 @@ extern XvImage  *XvShmCreateImage(Display*, XvPortID, int, char*, int, int, XShm
 #define MAGIC_SDL	DISPLAY_SDL_ID
 
 extern long frame_begin[2];
-
-/*
-extern Tcl_Interp      *interp;
-*/
 
 struct state_sdl {
 	Display			*display;
@@ -382,7 +378,7 @@ display_sdl_init(void)
 
 	s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 0, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_FULLSCREEN);
 
-	SDL_WM_SetCaption("Ultragrid", "Ultragrid");
+	SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
 
 	SDL_ShowCursor(SDL_DISABLE);
 
