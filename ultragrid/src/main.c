@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/21 17:28:08 $
  *
  */
 
@@ -291,9 +291,11 @@ main(int argc, char *argv[])
 		return EXIT_FAIL_CAPTURE;
 	}
 
+#ifdef HAVE_FASTDXT
 	if (requested_compression) {
 		compression=initialize_video_compression();
 	}
+#endif /* HAVE_FASTDXT */
 
 	if ((network_device = initialize_network(argv[0], participants)) == NULL) {
 		printf("Unable to open network\n");
@@ -330,9 +332,11 @@ main(int argc, char *argv[])
 		rtp_update(network_device, curr_time);
 		rtp_send_ctrl(network_device, ts, 0, curr_time);
 
+#ifdef HAVE_SDL
 		if (strcmp(requested_display, "sdl") == 0) {
 			display_sdl_handle_events();
 		}
+#endif /* HAVE_SDL */
 
 		/* Receive packets from the network... The timeout is adjusted */
 		/* to match the video capture rate, so the transmitter works.  */
@@ -375,8 +379,10 @@ main(int argc, char *argv[])
 			toggel=0;
 			//TODO: Unghetto this
 				if(requested_compression) {
+#ifdef HAVE_FASTDXT
 					compress_data(compression,tx_frame);
 					dxt_tx_send(tx, tx_frame, network_device);
+#endif /* HAVE_FASTDXT */
 				}else{
 					tx_send(tx, tx_frame, network_device);
 				}

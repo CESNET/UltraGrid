@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/21 17:28:08 $
  *
  */
 
@@ -91,6 +91,7 @@ static display_table_t display_device_table[] = {
 		display_x11_putf,
 		display_x11_colour
 	},
+#ifdef HAVE_SDL
 	{	
 		0,
                 display_sdl_probe,
@@ -118,6 +119,7 @@ static display_table_t display_device_table[] = {
                 display_dxt_putf,
                 display_dxt_colour 
 	},
+#endif /* HAVE_SDL */
 #endif /* X_DISPLAY_MISSING */
 #ifdef HAVE_HDSTATION
 	{

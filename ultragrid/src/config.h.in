@@ -1,5 +1,10 @@
 /* src/config.h.in.  Generated from configure.in by autoheader.  */
 /*
+ * Define OS
+ */
+#undef HAVE_MACOSX
+
+/*
  * Define this if you want IPv6 support.
  */
 #undef HAVE_IPv6
@@ -167,7 +172,7 @@
 /* Define to `signed char' if <sys/types.h> does not define. */
 #undef int8_t
 
-/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to `unsigned short' if <sys/types.h> does not define. */

@@ -39,8 +39,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/21 17:28:08 $
  *
  */
 
@@ -60,6 +60,16 @@
 #define DXT_DEPTH 8
 
 extern long packet_rate;
+
+#if HAVE_MACOSX
+#define GET_STARTTIME gettimeofday(&start, NULL)
+#define GET_STOPTIME gettimeofday(&stop, NULL)
+#define GET_DELTA delta = (stop.tv_usec - start.tv_usec) * 1000L
+#else /* HAVE_MACOSX */
+#define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
+#define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
+#define GET_DELTA delta = stop.tv_nsec - start.tv_nsec
+#endif /* HAVE_MACOSX */
 
 struct video_tx {
 	uint32_t	 magic;
@@ -161,15 +171,19 @@ dxt_tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_sess
 
 		/* Is it time to send this packet? */
 		if ((y == (int)DXT_HEIGHT) || (payload_count == 10) || ((40u + data_len + (8u * (payload_count + 1)) + DXT_DEPTH) > tx->mtu)) {
+#if HAVE_MACOSX
+			struct timeval start, stop;
+#else /* HAVE_MACOSX */
 			struct timespec start, stop;
+#endif /* HAVE_MACOSX */
 			long delta;
 			payload_hdr[payload_count - 1].flags = htons(1<<15);
 			data = frame->data + (first_y * DXT_WIDTH * DXT_DEPTH) + (first_x * DXT_DEPTH);
-			clock_gettime(CLOCK_REALTIME, &start);
+			GET_STARTTIME;
 			rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0, (char *) payload_hdr, 8 * payload_count, data, data_len, 0, 0, 0);
 			do {
-				clock_gettime(CLOCK_REALTIME, &stop);
-				delta = stop.tv_nsec - start.tv_nsec;
+				GET_STOPTIME;
+				GET_DELTA;
 				if(delta < 0)
 					delta += 1000000000L;
 			} while(packet_rate - delta > 0);
@@ -237,15 +251,19 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
 		/* Is it time to send this packet? */
 		if ((y == (int)HD_HEIGHT) || (payload_count == 10) || ((40u + data_len + (8u * (payload_count + 1)) + HD_DEPTH) > tx->mtu)) {
+#if HAVE_MACOSX
+			struct timeval start, stop;
+#else /* HAVE_MACOSX */
 			struct timespec start, stop;
+#endif /* HAVE_MACOSX */
 			long delta;
 			payload_hdr[payload_count - 1].flags = htons(1<<15);
 			data = frame->data + (first_y * HD_WIDTH * HD_DEPTH) + (first_x * HD_DEPTH);
-			clock_gettime(CLOCK_REALTIME, &start);
+			GET_STARTTIME;
 			rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0, (char *) payload_hdr, 8 * payload_count, data, data_len, 0, 0, 0);
 			do {
-				clock_gettime(CLOCK_REALTIME, &stop);
-				delta = stop.tv_nsec - start.tv_nsec;
+				GET_STOPTIME;
+				GET_DELTA;
 				if(delta < 0)
 					delta += 1000000000L;
 			} while(packet_rate - delta > 0);

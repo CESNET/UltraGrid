@@ -7,8 +7,8 @@
  * Copyright (c) 1995-2001 University College London
  * All rights reserved.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:58 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/21 17:28:08 $
  */
  
 #include "config.h"
@@ -25,7 +25,9 @@
 #include "audio_hw/solaris.h"
 #include "audio_hw/solaris_osprey.h"
 #include "audio_hw/linux_oss.h"
+#ifdef HAVE_ALSA_AUDIO
 #include "audio_hw/linux_alsa.h"
+#endif /* HAVE_ALSA_AUDIO */
 #include "audio_hw/linux_ixj.h"
 #include "audio_hw/irix.h"
 #include "audio_hw/win32.h"

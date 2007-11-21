@@ -1,4 +1,9 @@
 /*
+ * Define OS
+ */
+#undef HAVE_MACOSX
+
+/*
  * Define this if you want IPv6 support.
  */
 #undef HAVE_IPv6

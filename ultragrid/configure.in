@@ -17,6 +17,14 @@ AC_C_CHAR_UNSIGNED
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
+
+case "$host_os" in
+	*darwin*)
+		AC_DEFINE(HAVE_MACOSX)
+	;;
+esac
+
+# -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some
 # systems so we hope that <inttypes.h> exists when they're wrong.
 
@@ -291,11 +299,20 @@ AC_SUBST(DVS_LIB)
 
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
-
-AC_CHECK_HEADERS([SDL/SDL.h],
-		 [AC_CHECK_LIB(SDL, main, LIBS="$LIBS -lSDL", echo "SDL library not found or not usable.")],
-		 [echo "SDL.h not found."]
-		)
+case "$host_os" in
+        *darwin*)
+        AC_CHECK_HEADERS([SDL/SDL.h],
+                         [AC_CHECK_FILE(/Library/Frameworks/SDL.framework/SDL, $LIBS="$LIBS -framework SDL", echo "SDL framework not found.")],
+                         [echo "SDL.h not found."]
+                        )
+        ;;
+        *)
+        AC_CHECK_HEADERS([SDL/SDL.h],
+                         [AC_CHECK_LIB(SDL, main, LIBS="$LIBS -lSDL", echo "SDL library not found or not usable.")],
+                         [echo "SDL.h not found."]
+                        )
+        ;;
+esac
 
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
