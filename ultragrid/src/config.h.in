@@ -59,6 +59,18 @@
 #undef DEBUG_MEM
 
 
+/* Define to 1 if you have the <GL/glew.h> header file. */
+#undef HAVE_GL_GLEW_H
+
+/* Define to 1 if you have the <GL/glext.h> header file. */
+#undef HAVE_GL_GLEXT_H
+
+/* Define to 1 if you have the <GL/glu.h> header file. */
+#undef HAVE_GL_GLU_H
+
+/* Define to 1 if you have the <GL/gl.h> header file. */
+#undef HAVE_GL_GL_H
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -70,6 +82,9 @@
 
 /* Define to 1 if you have the `sched_setscheduler' function. */
 #undef HAVE_SCHED_SETSCHEDULER
+
+/* Define to 1 if you have the <SDL/SDL.h> header file. */
+#undef HAVE_SDL_SDL_H
 
 /* Define to 1 if you have the <soundcard.h> header file. */
 #undef HAVE_SOUNDCARD_H
