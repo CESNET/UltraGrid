@@ -19,10 +19,10 @@ ifeq ($(ARCHITECTURE), i386)
 
 ifeq ($(OPTIM), 1)
 # MacPro
-# CXXFLAGS+=-march=nocona -msse3 -DDXT_INTR
-*.a 
+CXXFLAGS+=-march=nocona -msse3 -DDXT_INTR
+# *.a 
 # MacbookPro
-CXXFLAGS+=-march=i686 -msse2 -DDXT_INTR
+# CXXFLAGS+=-march=i686 -msse2 -DDXT_INTR
 
 else
 
