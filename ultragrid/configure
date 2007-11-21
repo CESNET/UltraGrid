@@ -1273,8 +1273,8 @@ Optional Features:
   --enable-profile        enable profiling
   --enable-debug          enable debug messages and code
   --enable-ipv6           enable ipv6
-  --enable-hdstation           enable HDStation or Centaurus cards
-  --enable-fastdxt           enable FastDXT
+  --enable-hdstation      enable HDStation or Centaurus cards
+  --enable-fastdxt        enable FastDXT
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1282,8 +1282,8 @@ Optional Packages:
   --with-x                use the X Window System
   --with-sun-audio=DIR    specify Sun audio support home
   --with-osprey=DIR       specify Osprey (Sun video Plus PCI) support home
-  --with-hdstation=DIR          specify location of DVS HDstation SDK
-  --with-fastdxt=DIR		specify location of FastDXT
+  --with-hdstation=DIR    specify location of DVS HDstation SDK
+  --with-fastdxt=DIR      specify location of FastDXT
 
 Some influential environment variables:
   CC          C compiler command

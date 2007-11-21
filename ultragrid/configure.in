@@ -260,14 +260,14 @@ AC_DEFINE(HAVE_DV_CODEC)
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS HDstation card...
 AC_ARG_ENABLE(hdstation,
-	[  --enable-hdstation           enable HDStation or Centaurus cards],
+	[  --enable-hdstation      enable HDStation or Centaurus cards],
 	[if test $enableval = yes
 	then
 		AC_DEFINE(HAVE_HDSTATION)
 	fi])
 
 AC_ARG_WITH(hdstation,           
-	[  --with-hdstation=DIR          specify location of DVS HDstation SDK],
+	[  --with-hdstation=DIR    specify location of DVS HDstation SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/linux/lib],
 	[DVS_INC=${PARENT}/sdk3.0.1.6/development/header
@@ -337,14 +337,14 @@ fi
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
 AC_ARG_ENABLE(fastdxt, 
-	[  --enable-fastdxt           enable FastDXT],
+	[  --enable-fastdxt        enable FastDXT],
 	[if test $enableval = yes
 	then
 		AC_DEFINE(HAVE_FASTDXT)
 	fi])
 
 AC_ARG_WITH(fastdxt,
-	[  --with-fastdxt=DIR		specify location of FastDXT],
+	[  --with-fastdxt=DIR      specify location of FastDXT],
 	[DXT_INC=$withval
 	 DXT_LIB=$withval],
 	[DXT_INC=${PARENT}/FastDXT
