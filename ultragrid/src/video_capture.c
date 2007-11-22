@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/22 14:22:20 $
  *
  */
 
@@ -51,6 +51,7 @@
 #include "video_capture.h"
 #include "video_capture/firewire_dv_freebsd.h"
 #include "video_capture/hdstation.h"
+#include "video_capture/quicktime.h"
 #include "video_capture/testcard.h"
 #include "video_capture/null.h"
 
@@ -89,6 +90,16 @@ struct vidcap_device_api vidcap_device_table[] = {
 		vidcap_hdstation_init,
 		vidcap_hdstation_done,
 		vidcap_hdstation_grab
+	},
+#endif
+#ifdef HAVE_MACOSX
+	{
+		/* The QuickTime API */
+		0,
+		vidcap_quicktime_probe,
+		vidcap_quicktime_init,
+		vidcap_quicktime_done,
+		vidcap_quicktime_grab
 	},
 #endif
 	{

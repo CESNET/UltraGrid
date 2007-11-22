@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/22 12:14:19 $
+ * $Revision: 1.2 $
+ * $Date: 2007/11/22 14:22:20 $
  *
  */
 
@@ -119,6 +119,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 			err = SGGetChannelSampleDescription(c, (Handle)imageDesc);
 
 			debug_msg("image %dx%d size=%d\n", (*imageDesc)->width, (*imageDesc)->height, (*imageDesc)->dataSize);
+			printf("image %dx%d size=%d\n", (*imageDesc)->width, (*imageDesc)->height, (*imageDesc)->dataSize);
 
 			// begin the process of decompressing a sequence of frames
 			// this is a set-up call and is only called once for
@@ -227,7 +228,7 @@ qt_open_grabber(struct qt_grabber_state *s)
 		debug_msg("Unable to set channel usage\n");
 		return 0;
 	}
-
+	
 	/****************************************************************************************/
 	/* Step ?: Set the data procedure, which processes the frames as they're captured.      */
 	SGSetDataProc(s->grabber, NewSGDataUPP (qt_data_proc), (long)s);
@@ -284,8 +285,8 @@ vidcap_quicktime_init (int fps)
 		s->seqID         = 0;
 		s->bounds.top    = 0;
 		s->bounds.left   = 0;
-		s->bounds.bottom = 575;
-		s->bounds.right  = 719;
+		s->bounds.bottom = hd_size_y - 1;
+		s->bounds.right  = hd_size_x - 1;
 
 		qt_open_grabber (s);
 	}
@@ -333,10 +334,10 @@ vidcap_quicktime_grab (void *state)
 	vf = malloc(sizeof(struct video_frame));
 	if (vf != NULL) {
 		vf->colour_mode = YUV_422;
-		vf->width       = 720;
-		vf->height      = 576;
+		vf->width       = hd_size_x;
+		vf->height      = hd_size_y;
 		vf->data        = (unsigned char *) GetPixBaseAddr(GetGWorldPixMap(s->gworld));
-		vf->data_len    = 720 * 576 * 2;
+		vf->data_len    = hd_size_x * hd_size_y * hd_color_bpp;
 	}
 	return vf;
 }
