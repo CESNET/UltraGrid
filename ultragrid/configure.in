@@ -295,14 +295,40 @@ if test $FOUND_DVS = yes
 then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
+	DVS_OBJ="src/video_capture/hdstation.o"
 	AC_DEFINE(HAVE_HDSTATION)
 else
 	DVS_INC=
 	DVS_LIB=
+	DVS_OBJ=
 fi
 
 AC_SUBST(DVS_INC)
 AC_SUBST(DVS_LIB)
+AC_SUBST(DVS_OBJ)
+
+# -------------------------------------------------------------------------------------------------
+# QuickTime Stuff
+QUICKTIME_INC=
+QUICKTIME_LIB=
+QUICKTIME_OBJ=
+
+case $host_os in
+	*darwin*)
+		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
+		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
+	
+		if test $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
+		then
+			QUICKTIME_INC=
+			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit"	
+			QUICKTIME_OBJ="src/video_capture/quicktime.o"
+		fi
+esac
+
+AC_SUBST(QUICKTIME_INC)
+AC_SUBST(QUICKTIME_LIB)
+AC_SUBST(QUICKTIME_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
