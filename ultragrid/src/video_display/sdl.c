@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2007/11/14 19:22:06 $
+ * $Revision: 1.4 $
+ * $Date: 2007/11/22 10:07:44 $
  *
  */
 
@@ -60,7 +60,11 @@
 #include <X11/extensions/Xvlib.h>
 #include <X11/extensions/XShm.h>
 #include <host.h>
+#ifdef HAVE_MACOSX
+#include <architecture/i386/io.h>
+#else
 #include <sys/io.h>
+#endif
 #include <sys/time.h>
 #include <semaphore.h>
 
@@ -209,6 +213,8 @@ copyline64(unsigned char *dst, unsigned char *src, int len)
 
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
+#ifndef HAVE_MACOSX
+
 inline void
 copyline128(unsigned char *d, unsigned char *s, int len)
 {
@@ -267,6 +273,8 @@ copyline128(unsigned char *d, unsigned char *s, int len)
 	}
 }
 
+#endif /* HAVE_MACOSX */
+
 
 static void*
 display_thread_sdl(void *arg)
@@ -288,8 +296,13 @@ display_thread_sdl(void *arg)
 		line2 = *s->vw_image->pixels;
 		
 		for(i=0; i<1080; i+=2) {
+#ifdef HAVE_MACOSX
+			copyline64(line2, line1, 5120/32);
+			copyline64(line2+3840, line1+5120*540, 5120/32);
+#else /* HAVE_MACOSX */
 			copyline128(line2, line1, 5120/32);
 			copyline128(line2+3840, line1+5120*540, 5120/32);
+#endif /* HAVE_MACOSX */
 			line1 += 5120;
 			line2 += 2*3840;
 		}

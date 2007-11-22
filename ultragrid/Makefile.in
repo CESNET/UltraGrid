@@ -36,15 +36,15 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.1 $
-# $Date: 2007/11/08 09:48:58 $
+# $Revision: 1.2 $
+# $Date: 2007/11/22 10:07:44 $
 #
 
 AR        = ar
 RANLIB    = ranlib
 CC        = @CC@
 CFLAGS    = @DEFS@ @CFLAGS@ @X_CFLAGS@
-LIBS      = @AUDIO_HW_LIB@ @DVS_LIB@ @DXT_LIB@ @X_PRE_LIBS@ @X_LIBS@ -lSDL -lX11 -lXext -lXv @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
+LIBS      = @AUDIO_HW_LIB@ @DVS_LIB@ @DXT_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
 INC       = -Isrc -Itest @AUDIO_HW_INC@ @DVS_INC@ @DXT_INC@
 TARGET    = bin/uv
 
@@ -99,14 +99,13 @@ OBJS      = src/bitstream.o \
             src/video_capture/testcard.o \
             src/video_capture/testcard_image.o \
             src/video_display.o \
-	    src/video_compress.o \
+	    @COMPRESS_OBJ@ \
             src/video_display/hdstation.o \
             src/video_display/null.o \
-            src/video_display/x11.o \
-            src/video_display/xv.o \
-            src/video_display/sdl.o \
-            src/video_display/gl_sdl.o \
-            src/video_display/dxt.o
+	    @X_OBJ@ \
+            @SDL_OBJ@ \
+            @GL_OBJ@ \
+            @DXT_OBJ@
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) ag-plugins suggest-tests

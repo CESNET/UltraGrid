@@ -133,6 +133,9 @@ AC_ARG_ENABLE(ipv6,
 #
 # Use autoconf inbuilt X location.  Works v. nicely.  Substitution of X vars
 # comes after broken X11 header check and attempted fix.
+X_LIBS=
+X_OBJ=
+
 AC_PATH_XTRA
 
 if test ! $no_x ; then 
@@ -166,12 +169,16 @@ if test ! $no_x ; then
 			X_CFLAGS=$SAVED_X_CFLAGS
 		fi
 	fi
+
+	X_LIBS="$X_LIBS -lX11 -lXext -lXv"
+	X_OBJ="$X_OBJ src/video_display/x11.o src/video_display/xv.o"
 fi
 
 AC_SUBST(X_CFLAGS)
 AC_SUBST(X_LIBS)
 AC_SUBST(X_EXTRA_LIBS)
 AC_SUBST(X_PRE_LIBS)
+AC_SUBST(X_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Audio device selection, derived from host type.  Could be smart and probe 
@@ -299,23 +306,39 @@ AC_SUBST(DVS_LIB)
 
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
+SDL_OBJ=
+
 case "$host_os" in
         *darwin*)
         AC_CHECK_HEADERS([SDL/SDL.h],
-                         [AC_CHECK_FILE(/Library/Frameworks/SDL.framework/SDL, $LIBS="$LIBS -framework SDL", echo "SDL framework not found.")],
+                         [AC_CHECK_FILE(/Library/Frameworks/SDL.framework/SDL, FOUND_SDL_L=yes, echo "SDL framework not found.")],
                          [echo "SDL.h not found."]
                         )
+	if test $FOUND_SDL_L = yes
+	then
+		LIBS="$LIBS -framework SDL"
+		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+	fi
         ;;
         *)
         AC_CHECK_HEADERS([SDL/SDL.h],
-                         [AC_CHECK_LIB(SDL, main, LIBS="$LIBS -lSDL", echo "SDL library not found or not usable.")],
+                         [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
                          [echo "SDL.h not found."]
                         )
+	if test $FOUND_SDL_L = yes
+	then
+		LIBS="$LIBS -lSDL"
+		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+	fi
         ;;
 esac
 
+AC_SUBST(SDL_OBJ)
+
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
+
+GL_OBJ=
 
 AC_CHECK_HEADERS([GL/gl.h GL/glu.h],
 		 [FOUND_GL_H=yes],
@@ -341,9 +364,14 @@ then
 		LIBS="$LIBS -lGL -lGLU"
 
 		AC_CHECK_HEADERS([GL/glew.h],
-				 [AC_CHECK_LIB(GLEW, main, LIBS="$LIBS -lGLEW", echo "GLEW library not found or not usable.")],
+				 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
 				 [echo "GL/glew.h not found."]
 				)
+		if test $FOUND_GLEW_L = yes
+		then
+			LIBS="$LIBS -lGLEW"
+			GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+		fi
 	else
 		echo "OpenGL libraries not found or not usable."
 	fi
@@ -351,8 +379,16 @@ then
 else
 	echo "OpenGL headers not found or not usable."
 fi
+
+AC_SUBST(GL_OBJ)
+
+
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
+
+DXT_OBJ=
+COMPRESS_OBJ=
+
 AC_ARG_ENABLE(fastdxt, 
 	[  --enable-fastdxt        enable FastDXT],
 	[if test $enableval = yes
@@ -374,6 +410,8 @@ if test $FOUND_DXT = yes
 then
 	DXT_INC=-I${DXT_INC}
 	DXT_LIB="-L${DXT_LIB} -ldxt"
+	DXT_OBJ="$DXT_OBJ src/video_display/dxt.o"
+	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
 	AC_DEFINE(HAVE_FASTDXT)
 else
 	DXT_INC=
@@ -382,6 +420,8 @@ fi
 
 AC_SUBST(DXT_INC)
 AC_SUBST(DXT_LIB)
+AC_SUBST(DXT_OBJ)
+AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Tests needed by audio_codec/gsm_impl.c

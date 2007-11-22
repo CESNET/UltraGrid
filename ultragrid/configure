@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP MATHLIBS X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS AUDIO_HW_OBJ AUDIO_HW_INC AUDIO_HW_LIB DVS_INC DVS_LIB DXT_INC DXT_LIB LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP MATHLIBS X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS X_OBJ AUDIO_HW_OBJ AUDIO_HW_INC AUDIO_HW_LIB DVS_INC DVS_LIB SDL_OBJ GL_OBJ DXT_INC DXT_LIB DXT_OBJ COMPRESS_OBJ LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -4722,6 +4722,9 @@ fi;
 #
 # Use autoconf inbuilt X location.  Works v. nicely.  Substitution of X vars
 # comes after broken X11 header check and attempted fix.
+X_LIBS=
+X_OBJ=
+
 echo "$as_me:$LINENO: checking for X" >&5
 echo $ECHO_N "checking for X... $ECHO_C" >&6
 
@@ -6246,7 +6249,11 @@ echo "${ECHO_T}$x11_cv_gcc_istdinc_works" >&6
 			X_CFLAGS=$SAVED_X_CFLAGS
 		fi
 	fi
+
+	X_LIBS="$X_LIBS -lX11 -lXext -lXv"
+	X_OBJ="$X_OBJ src/video_display/x11.o src/video_display/xv.o"
 fi
+
 
 
 
@@ -7535,6 +7542,8 @@ fi
 
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
+SDL_OBJ=
+
 case "$host_os" in
         *darwin*)
 
@@ -7700,7 +7709,7 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_file__Library_Frameworks_SDL_framework_SDL" >&5
 echo "${ECHO_T}$ac_cv_file__Library_Frameworks_SDL_framework_SDL" >&6
 if test $ac_cv_file__Library_Frameworks_SDL_framework_SDL = yes; then
-  $LIBS="$LIBS -framework SDL"
+  FOUND_SDL_L=yes
 else
   echo "SDL framework not found."
 fi
@@ -7712,6 +7721,11 @@ fi
 
 done
 
+	if test $FOUND_SDL_L = yes
+	then
+		LIBS="$LIBS -framework SDL"
+		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+	fi
         ;;
         *)
 
@@ -7918,7 +7932,7 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_lib_SDL_main" >&5
 echo "${ECHO_T}$ac_cv_lib_SDL_main" >&6
 if test $ac_cv_lib_SDL_main = yes; then
-  LIBS="$LIBS -lSDL"
+  FOUND_SDL_L=yes
 else
   echo "SDL library not found or not usable."
 fi
@@ -7930,11 +7944,20 @@ fi
 
 done
 
+	if test $FOUND_SDL_L = yes
+	then
+		LIBS="$LIBS -lSDL"
+		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+	fi
         ;;
 esac
 
+
+
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
+
+GL_OBJ=
 
 
 
@@ -8503,7 +8526,7 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_lib_GLEW_main" >&5
 echo "${ECHO_T}$ac_cv_lib_GLEW_main" >&6
 if test $ac_cv_lib_GLEW_main = yes; then
-  LIBS="$LIBS -lGLEW"
+  FOUND_GLEW_L=yes
 else
   echo "GLEW library not found or not usable."
 fi
@@ -8515,6 +8538,11 @@ fi
 
 done
 
+		if test $FOUND_GLEW_L = yes
+		then
+			LIBS="$LIBS -lGLEW"
+			GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+		fi
 	else
 		echo "OpenGL libraries not found or not usable."
 	fi
@@ -8522,8 +8550,16 @@ done
 else
 	echo "OpenGL headers not found or not usable."
 fi
+
+
+
+
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
+
+DXT_OBJ=
+COMPRESS_OBJ=
+
 # Check whether --enable-fastdxt or --disable-fastdxt was given.
 if test "${enable_fastdxt+set}" = set; then
   enableval="$enable_fastdxt"
@@ -8761,6 +8797,8 @@ if test $FOUND_DXT = yes
 then
 	DXT_INC=-I${DXT_INC}
 	DXT_LIB="-L${DXT_LIB} -ldxt"
+	DXT_OBJ="$DXT_OBJ src/video_display/dxt.o"
+	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
 	cat >>confdefs.h <<\_ACEOF
 #define HAVE_FASTDXT 1
 _ACEOF
@@ -8769,6 +8807,8 @@ else
 	DXT_INC=
 	DXT_LIB=
 fi
+
+
 
 
 
@@ -9479,13 +9519,18 @@ s,@X_CFLAGS@,$X_CFLAGS,;t t
 s,@X_PRE_LIBS@,$X_PRE_LIBS,;t t
 s,@X_LIBS@,$X_LIBS,;t t
 s,@X_EXTRA_LIBS@,$X_EXTRA_LIBS,;t t
+s,@X_OBJ@,$X_OBJ,;t t
 s,@AUDIO_HW_OBJ@,$AUDIO_HW_OBJ,;t t
 s,@AUDIO_HW_INC@,$AUDIO_HW_INC,;t t
 s,@AUDIO_HW_LIB@,$AUDIO_HW_LIB,;t t
 s,@DVS_INC@,$DVS_INC,;t t
 s,@DVS_LIB@,$DVS_LIB,;t t
+s,@SDL_OBJ@,$SDL_OBJ,;t t
+s,@GL_OBJ@,$GL_OBJ,;t t
 s,@DXT_INC@,$DXT_INC,;t t
 s,@DXT_LIB@,$DXT_LIB,;t t
+s,@DXT_OBJ@,$DXT_OBJ,;t t
+s,@COMPRESS_OBJ@,$COMPRESS_OBJ,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
