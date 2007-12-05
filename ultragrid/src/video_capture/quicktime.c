@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/11/22 14:22:20 $
+ * $Revision: 1.3 $
+ * $Date: 2007/12/05 15:31:15 $
  *
  */
 
@@ -42,6 +42,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "tv.h"
 #include "video_types.h"
 #include "video_capture.h"
 #include "video_capture/quicktime.h"
@@ -60,6 +61,9 @@ struct qt_grabber_state {
 	GWorldPtr		gworld;
 	ImageSequence		seqID;
 };
+
+int frames = 0;
+struct timeval t, t0;
 
 
 /*
@@ -108,6 +112,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 		return -1;
 	}
 
+	/*
 	if (c == s->video_channel) {
    		if (s->seqID == 0) {
 			debug_msg("DecompressSequenceBegin\n");
@@ -119,7 +124,6 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 			err = SGGetChannelSampleDescription(c, (Handle)imageDesc);
 
 			debug_msg("image %dx%d size=%d\n", (*imageDesc)->width, (*imageDesc)->height, (*imageDesc)->dataSize);
-			printf("image %dx%d size=%d\n", (*imageDesc)->width, (*imageDesc)->height, (*imageDesc)->dataSize);
 
 			// begin the process of decompressing a sequence of frames
 			// this is a set-up call and is only called once for
@@ -131,7 +135,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 			// the destination is specified as the GWorld
 
 			err = DecompressSequenceBegin(&(s->seqID), imageDesc, s->gworld, NULL, NULL,
-							NULL, srcCopy, NULL, 0, codecNormalQuality, bestSpeedCodec);
+							NULL, srcCopy, NULL, 0, codecLowQuality, bestSpeedCodec);
 			if (err != noErr) {
 				debug_msg("DecompressSequenceBeginS\n");
 				return err;
@@ -142,26 +146,66 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 
 		// decompress a frame into the window - can queue a frame for
 		// async decompression when passed in a completion proc
-		err = DecompressSequenceFrameS(s->seqID,
-						p,	// pointer to compressed image data
-						len,	// size of the buffer
-						0,	// in flags
-						&ignore,	// out flags
-						NULL);		// async completion proc
+		err = DecompressSequenceFrameWhen(s->seqID,
+						  p,		// pointer to compressed image data
+						  len,		// size of the buffer
+						  0,		// in flags
+						  &ignore,	// out flags
+						  NULL,		// async completion proc
+						  nil);		// decompress the frame imediatelly
 
 		if (err != noErr) {
 			debug_msg("DecompressSequenceFrameS\n");
 			return err;
 		}
 	}
+	*/
+
+	/* Low latency processing */
+	memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
+
+	frames++;
+	gettimeofday(&t, NULL);
+	double seconds = tv_diff(t, t0);	
+	if (seconds >= 5) {
+		float fps  = frames / seconds;
+		fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
+		t0 = t;
+		frames = 0;
+	}
+
+	SGUpdate(s->grabber, 0);
 
 	return 0;
+}
+
+static pascal Boolean
+SeqGrabberModalFilterProc (DialogPtr theDialog, const EventRecord *theEvent,
+	short *itemHit, long refCon)
+{
+#pragma unused(theDialog, itemHit)
+	// Ordinarily, if we had multiple windows we cared about, we'd handle
+	// updating them in here, but since we don't, we'll just clear out
+	// any update events meant for us
+	
+	Boolean	handled = false;
+	
+	if ((theEvent->what == updateEvt) && 
+		((WindowPtr) theEvent->message == (WindowPtr) refCon))
+	{
+		BeginUpdate ((WindowPtr) refCon);
+		EndUpdate ((WindowPtr) refCon);
+		handled = true;
+	}
+	return (handled);
 }
 
 /* Initialize the QuickTime grabber */
 static int
 qt_open_grabber(struct qt_grabber_state *s)
 {
+	SGModalFilterUPP	seqGragModalFilterUPP;
+
 	assert (s        != NULL);
 	assert (s->magic == MAGIC_QT_GRABBER);
 
@@ -224,11 +268,21 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
-	if (SGSetChannelUsage(s->video_channel, seqGrabRecord) != noErr) {
+	if (SGSetChannelUsage(s->video_channel, seqGrabRecord | seqGrabAlwaysUseTimeBase | seqGrabLowLatencyCapture) != noErr) {
 		debug_msg("Unable to set channel usage\n");
 		return 0;
 	}
-	
+
+	SGStartPreview(s->grabber);
+
+	if (s->video_channel) {
+	seqGragModalFilterUPP = (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc);
+		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0, seqGragModalFilterUPP, 0);
+	DisposeSGModalFilterUPP(seqGragModalFilterUPP);
+	}
+
+	SGUpdate(s->grabber, 0);	
+
 	/****************************************************************************************/
 	/* Step ?: Set the data procedure, which processes the frames as they're captured.      */
 	SGSetDataProc(s->grabber, NewSGDataUPP (qt_data_proc), (long)s);
@@ -244,6 +298,8 @@ qt_open_grabber(struct qt_grabber_state *s)
 		debug_msg("Unable to start recording\n");
 		return 0;
 	}
+
+	SGUpdate(s->grabber, 0);	
 
 	return 1;
 }
@@ -285,8 +341,8 @@ vidcap_quicktime_init (int fps)
 		s->seqID         = 0;
 		s->bounds.top    = 0;
 		s->bounds.left   = 0;
-		s->bounds.bottom = hd_size_y - 1;
-		s->bounds.right  = hd_size_x - 1;
+		s->bounds.bottom = hd_size_y;
+		s->bounds.right  = hd_size_x;
 
 		qt_open_grabber (s);
 	}
@@ -322,7 +378,6 @@ vidcap_quicktime_grab (void *state)
 
 	assert (s	 != NULL);
 	assert (s->magic == MAGIC_QT_GRABBER);
-
 
 	/* Run the QuickTime sequence grabber idle function, which provides */
 	/* processor time to out data proc running as a callback.           */
