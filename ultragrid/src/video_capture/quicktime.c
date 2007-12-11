@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2007/12/11 16:25:38 $
+ * $Revision: 1.5 $
+ * $Date: 2007/12/11 16:42:38 $
  *
  */
 
@@ -173,8 +173,6 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 		t0 = t;
 		frames = 0;
 	}
-
-	SGUpdate(s->grabber, 0);
 
 	return 0;
 }
@@ -391,20 +389,19 @@ vidcap_quicktime_grab (void *state)
 {
 	struct qt_grabber_state	*s	= (struct qt_grabber_state*) state;
 	struct video_frame	*vf;
+	int attempt;
+	int maxattempts = 5;
 
 	assert (s	 != NULL);
 	assert (s->magic == MAGIC_QT_GRABBER);
 
 	/* Run the QuickTime sequence grabber idle function, which provides */
 	/* processor time to out data proc running as a callback.           */
-	if (SGIdle(s->grabber) != noErr) {
-		debug_msg("Error in SGIDle\n");
-		return NULL;
-	}
-
-	if (SGIdle(s->grabber) != noErr) {
-		debug_msg("Error in SGIDle\n");
-		return NULL;
+	for (attempt = 0; attempt < maxattempts; attempt++) { 
+		if (SGIdle(s->grabber) != noErr) {
+			debug_msg("Error in SGIDle\n");
+			return NULL;
+		}
 	}
 
 	vf = malloc(sizeof(struct video_frame));
