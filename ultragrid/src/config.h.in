@@ -64,6 +64,9 @@
 #undef DEBUG_MEM
 
 
+/* Define to 1 if you have the <Carbon/Carbon.h> header file. */
+#undef HAVE_CARBON_CARBON_H
+
 /* Define to 1 if you have the <GL/glew.h> header file. */
 #undef HAVE_GL_GLEW_H
 
@@ -85,11 +88,14 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
+/* Define to 1 if you have the <QuickTime/QuickTime.h> header file. */
+#undef HAVE_QUICKTIME_QUICKTIME_H
+
 /* Define to 1 if you have the `sched_setscheduler' function. */
 #undef HAVE_SCHED_SETSCHEDULER
 
 /* Define to 1 if you have the <SDL/SDL.h> header file. */
-#undef HAVE_SDL_SDL_H
+#undef HAVE_SDL
 
 /* Define to 1 if you have the <soundcard.h> header file. */
 #undef HAVE_SOUNDCARD_H
@@ -172,7 +178,7 @@
 /* Define to `signed char' if <sys/types.h> does not define. */
 #undef int8_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to `unsigned short' if <sys/types.h> does not define. */

@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/11/22 14:22:20 $
+ * $Revision: 1.3 $
+ * $Date: 2007/12/11 19:16:45 $
  *
  */
 
@@ -81,7 +81,7 @@ struct vidcap_device_api vidcap_device_table[] = {
 		vidcap_dvbsd_done,
 		vidcap_dvbsd_grab
 	},
-#endif
+#endif /* HAVE_FIREWIRE_DV_FREEBSD */
 #ifdef HAVE_HDSTATION
 	{
 		/* The DVS HDstation capture card */
@@ -91,7 +91,7 @@ struct vidcap_device_api vidcap_device_table[] = {
 		vidcap_hdstation_done,
 		vidcap_hdstation_grab
 	},
-#endif
+#endif /* HAVE_HDSTATION */
 #ifdef HAVE_MACOSX
 	{
 		/* The QuickTime API */
@@ -101,7 +101,7 @@ struct vidcap_device_api vidcap_device_table[] = {
 		vidcap_quicktime_done,
 		vidcap_quicktime_grab
 	},
-#endif
+#endif /* HAVE_MACOSX */
 	{
 		/* Dummy sender for testing purposes */
 		0,

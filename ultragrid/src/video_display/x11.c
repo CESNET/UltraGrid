@@ -38,12 +38,11 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/12/11 19:16:45 $
  *
  */
 
-#define NDEF
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -84,7 +83,6 @@ struct state_x11 {
 void *
 display_x11_init(void)
 {
-#ifdef NDEF
 	struct state_x11	*s;
 
 	s = (struct state_x11 *) malloc(sizeof(struct state_x11));
@@ -149,7 +147,6 @@ display_x11_init(void)
 
 	printf ("X11 init done\n");
 	return (void *) s;
-#endif
 	return NULL;
 }
 

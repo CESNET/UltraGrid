@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/11/21 17:28:08 $
+ * $Revision: 1.3 $
+ * $Date: 2007/12/11 19:16:45 $
  *
  */
 
@@ -79,6 +79,7 @@ char		*frame_buffer = NULL;
 uint32_t        hd_size_x=1920;
 uint32_t	hd_size_y=1080;
 uint32_t	hd_color_bpp=3;
+uint32_t	bitdepth = 10;
 #ifdef HAVE_HDSTATION
 #include <dvs_clib.h>
 uint32_t	hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_NBIT_10BDVS | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
@@ -230,7 +231,7 @@ main(int argc, char *argv[])
 	struct sched_param	 sp;
 #endif
 
-	while ((ch = getopt(argc, argv, "d:t:m:f:vc")) != -1) {
+	while ((ch = getopt(argc, argv, "d:t:m:f:b:vc")) != -1) {
 		switch (ch) {
 		case 'd' :
 			requested_display = optarg;
@@ -245,6 +246,13 @@ main(int argc, char *argv[])
 			break;
 		case 'f' :
 			fps = atoi(optarg);
+			break;
+		case 'b' :
+			bitdepth = atoi(optarg);
+			if (bitdepth != 10 && bitdepth != 8) {
+				usage();
+				return EXIT_FAIL_USAGE;
+			}
 			break;
 		case 'v' :
         		printf("%s\n", ULTRAGRID_VERSION);

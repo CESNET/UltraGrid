@@ -7,4 +7,6 @@ extern unsigned int hd_color_bpp;
 
 extern unsigned int hd_video_mode;
 
+extern unsigned int bitdepth;
+
 #endif

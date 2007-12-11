@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "debug.h"
+#include "host.h"
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -68,6 +69,7 @@ void gl_draw();
 void loadShader(void *arg, char *filename);
 void glsl_gl_init(void *arg);
 void glsl_arb_init(void *arg);
+inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len);
 inline void gl_copyline128(GLubyte *d, GLubyte *s, int len);//unsigned
 void * display_gl_init(void);
 
@@ -444,15 +446,25 @@ static void * display_thread_gl(void *arg)
         display_gl_handle_events(s);
         sem_wait(&s->semaphore);
 
-        /* 10-bit YUV ->8 bit YUV [I think...] */
-        line1 = s->buffers[s->image_display];
-        line2 = s->outbuffer;
-        for(j=0;j<HD_HEIGHT;j+=2){
-            gl_copyline128(line2, line1, 5120/32);
-            gl_copyline128(line2+3840, line1+5120*540, 5120/32);
-            line1 += 5120;
-            line2 += 2*3840;
-        }
+	
+	/* 10-bit YUV ->8 bit YUV [I think...] */
+	line1 = s->buffers[s->image_display];
+	line2 = s->outbuffer;
+	if (bitdepth == 10) {	
+		for(j=0;j<HD_HEIGHT;j+=2){
+#ifdef HAVE_MACOSX
+		    gl_copyline64(line2, line1, 5120/32);
+		    gl_copyline64(line2+3840, line1+5120*540, 5120/32);
+#else /* HAVE_MACOSX */			
+		    gl_copyline128(line2, line1, 5120/32);
+		    gl_copyline128(line2+3840, line1+5120*540, 5120/32);
+#endif /* HAVE_MACOSX */ 		    
+		    line1 += 5120;
+		    line2 += 2*3840;
+		}
+	} else {
+		memcpy(line2, line1, hd_size_x*hd_size_y*2);
+	}
 
         // gl_deinterlace(s->outbuffer);
 	getY(s->outbuffer,s->y,s->u,s->v);
@@ -625,6 +637,31 @@ void gl_draw()
     SDL_GL_SwapBuffers( );
 }
 
+inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len)
+{
+        register unsigned long *d, *s;
+
+        register unsigned long a1,a2,a3,a4;
+
+        d = (unsigned long *)dst;
+        s = (unsigned long *)src;
+
+        while(len-- > 0) {
+		a1 = *(s++);
+                a2 = *(s++);
+                a3 = *(s++);
+                a4 = *(s++);
+
+                a1 = (a1 & 0xffffff) | ((a1 >> 8) & 0xffffff000000);
+                a2 = (a2 & 0xffffff) | ((a2 >> 8) & 0xffffff000000);
+                a3 = (a3 & 0xffffff) | ((a3 >> 8) & 0xffffff000000);
+                a4 = (a4 & 0xffffff) | ((a4 >> 8) & 0xffffff000000);
+
+                *(d++) = a1 | (a2 << 48);       /* 0xa2|a2|a1|a1|a1|a1|a1|a1 */
+                *(d++) = (a2 >> 16)|(a3 << 32); /* 0xa3|a3|a3|a3|a2|a2|a2|a2 */
+                *(d++) = (a3 >> 32)|(a4 << 16); /* 0xa4|a4|a4|a4|a4|a4|a3|a3 */
+	}
+}
 
 inline void gl_copyline128(GLubyte *d, GLubyte *s, int len)
 {

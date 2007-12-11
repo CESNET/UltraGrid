@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/12/11 19:16:45 $
  *
  */
 
@@ -101,4 +101,4 @@ char		*display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);
 display_colour_t display_get_colour_mode(struct display *d);
 
-#endif
+#endif /* _VIDEO_DISPLAY_H */

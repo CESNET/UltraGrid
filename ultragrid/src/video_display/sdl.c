@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2007/11/22 10:07:44 $
+ * $Revision: 1.5 $
+ * $Date: 2007/12/11 19:16:45 $
  *
  */
 
@@ -62,9 +62,9 @@
 #include <host.h>
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>
-#else
+#else /* HAVE_MACOSX */
 #include <sys/io.h>
-#endif
+#endif /* HAVE_MACOSX */
 #include <sys/time.h>
 #include <semaphore.h>
 
@@ -294,17 +294,21 @@ display_thread_sdl(void *arg)
 
 		line1 = s->buffers[s->image_display];
 		line2 = *s->vw_image->pixels;
-		
-		for(i=0; i<1080; i+=2) {
+	
+		if (bitdepth == 10) {	
+			for(i=0; i<1080; i+=2) {
 #ifdef HAVE_MACOSX
-			copyline64(line2, line1, 5120/32);
-			copyline64(line2+3840, line1+5120*540, 5120/32);
+				copyline64(line2, line1, 5120/32);
+				copyline64(line2+3840, line1+5120*540, 5120/32);
 #else /* HAVE_MACOSX */
-			copyline128(line2, line1, 5120/32);
-			copyline128(line2+3840, line1+5120*540, 5120/32);
+				copyline128(line2, line1, 5120/32);
+				copyline128(line2+3840, line1+5120*540, 5120/32);
 #endif /* HAVE_MACOSX */
-			line1 += 5120;
-			line2 += 2*3840;
+				line1 += 5120;
+				line2 += 2*3840;
+			}
+		} else {
+			memcpy(line2, line1, hd_size_x*hd_size_y*2);	
 		}
 
 		deinterlace(*s->vw_image->pixels);
@@ -471,6 +475,7 @@ display_sdl_getf(void *state)
 {
 	struct state_sdl *s = (struct state_sdl *) state;
 	assert(s->magic == MAGIC_SDL);
+	assert(s->buffers[s->image_network] != NULL);
 	return (char *)s->buffers[s->image_network];
 }
 
@@ -481,7 +486,7 @@ display_sdl_putf(void *state, char *frame)
 	struct state_sdl *s = (struct state_sdl *) state;
 
 	assert(s->magic == MAGIC_SDL);
-	UNUSED(frame);
+	assert(frame != NULL);
 
 	/* ...and give it more to do... */
 	tmp = s->image_display;

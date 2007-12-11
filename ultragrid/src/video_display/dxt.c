@@ -107,7 +107,7 @@ void dxt_check_error()
 	if(flag)
 		exit(1);
 }
-#endif
+#endif /* DEBUG */
 
 void * display_dxt_init(void)
 {

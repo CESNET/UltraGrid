@@ -295,7 +295,7 @@ if test $FOUND_DVS = yes
 then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
-	DVS_OBJ="src/video_capture/hdstation.o"
+	DVS_OBJ="src/video_capture/hdstation.o src/video_display/hdstation.o"
 	AC_DEFINE(HAVE_HDSTATION)
 else
 	DVS_INC=
@@ -344,6 +344,7 @@ case "$host_os" in
 	then
 		LIBS="$LIBS -framework SDL"
 		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+		AC_DEFINE(HAVE_SDL)
 	fi
         ;;
         *)
@@ -355,6 +356,7 @@ case "$host_os" in
 	then
 		LIBS="$LIBS -lSDL"
 		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+		AC_DEFINE(HAVE_SDL)
 	fi
         ;;
 esac

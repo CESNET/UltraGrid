@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2007/12/11 19:16:45 $
  *
  */
 
@@ -285,5 +285,5 @@ display_hdstation_probe(void)
 	return dtype;
 }
 
-#endif
+#endif /* HAVE_HDSTATION */
 
