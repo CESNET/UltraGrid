@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2007/12/11 19:16:45 $
+ * $Revision: 1.4 $
+ * $Date: 2007/12/11 19:34:16 $
  *
  */
 
@@ -103,7 +103,7 @@ signal_handler(int signal)
 static void 
 usage(void) 
 {
-	printf("Usage: uv [-d <display_device>] [-t <capture_device>] [-m <mtu>] [-f <framerate>] [-c] address\n");
+	printf("Usage: uv [-d <display_device>] [-t <capture_device>] [-m <mtu>] [-f <framerate>] [-c] [-b <8|10>] address\n");
 }
 
 static void

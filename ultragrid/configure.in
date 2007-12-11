@@ -399,6 +399,7 @@ then
 		then
 			LIBS="$LIBS -lGLEW"
 			GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+			AC_DEFINE(HAVE_GL)
 		fi
 	else
 		echo "OpenGL libraries not found or not usable."

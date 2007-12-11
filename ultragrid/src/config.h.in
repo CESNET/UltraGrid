@@ -4,6 +4,12 @@
  */
 #undef HAVE_MACOSX
 
+/* Define to 1 if you have SDL. */
+#undef HAVE_SDL
+
+/* Define to 1 if you have GL. */
+#undef HAVE_GL 
+
 /*
  * Define this if you want IPv6 support.
  */
@@ -93,9 +99,6 @@
 
 /* Define to 1 if you have the `sched_setscheduler' function. */
 #undef HAVE_SCHED_SETSCHEDULER
-
-/* Define to 1 if you have the <SDL/SDL.h> header file. */
-#undef HAVE_SDL
 
 /* Define to 1 if you have the <soundcard.h> header file. */
 #undef HAVE_SOUNDCARD_H
