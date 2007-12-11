@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2007/12/05 15:31:15 $
+ * $Revision: 1.4 $
+ * $Date: 2007/12/11 16:25:38 $
  *
  */
 
@@ -263,6 +263,22 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
+	/* Print available devices */
+	int i;
+	SGDeviceList deviceList;
+	if (SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) == noErr) {
+		fprintf(stdout, "Available capture devices:\n");
+		for(i = 0; i < (*deviceList)->count; i++) {
+			char* name;
+			name = malloc((*deviceList)->entry[i].name[0] + 1);
+			strncpy(name, (const char*)(*deviceList)->entry[i].name + 1, (*deviceList)->entry[i].name[0]);
+			name[(*deviceList)->entry[i].name[0]] = '\0';
+			fprintf(stdout, "  device %d: %s\n", i + 1, name);
+			free(name);
+		}
+		SGDisposeDeviceList(s->grabber, deviceList);
+	}
+
 	if (SGSetChannelBounds(s->video_channel, &(s->bounds)) != noErr) {
 		debug_msg("Unable to set channel bounds\n");
 		return 0;
@@ -381,6 +397,11 @@ vidcap_quicktime_grab (void *state)
 
 	/* Run the QuickTime sequence grabber idle function, which provides */
 	/* processor time to out data proc running as a callback.           */
+	if (SGIdle(s->grabber) != noErr) {
+		debug_msg("Error in SGIDle\n");
+		return NULL;
+	}
+
 	if (SGIdle(s->grabber) != noErr) {
 		debug_msg("Error in SGIDle\n");
 		return NULL;
