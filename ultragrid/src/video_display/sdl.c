@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.6 $
- * $Date: 2007/12/14 16:18:29 $
+ * $Revision: 1.7 $
+ * $Date: 2007/12/14 17:11:57 $
  *
  */
 
@@ -64,7 +64,6 @@
 #include <architecture/i386/io.h>
 #else /* HAVE_MACOSX */
 #include <sys/io.h>
-#include <AppKit/AppKit.h>
 #endif /* HAVE_MACOSX */
 #include <sys/time.h>
 #include <semaphore.h>

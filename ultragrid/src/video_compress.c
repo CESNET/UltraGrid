@@ -16,6 +16,10 @@
 #include "video_compress.h"
 #include "libdxt.h"
 
+#ifndef HAVE_MACOSX
+#define uint64_t 	unsigned long
+#endif /* HAVE_MACOSX */
+
 /* NOTE: These threads busy wait, so at *most* set this to one less than the
  * total number of cores on your system (Also 3 threads will work)! Also, if
  * you see tearing in the rendered image try increasing the number of threads
@@ -42,6 +46,7 @@ struct video_compress {
 	pthread_t thread_ids[NUM_THREADS];
 };
 
+inline void compress_copyline64(unsigned char *dst, unsigned char *src, int len);
 inline void comp_copyline128(unsigned char *d, unsigned char *s, int len);
 void compress_deinterlace(unsigned char *buffer);
 void compress_data(void *args, struct video_frame * tx);
@@ -237,6 +242,7 @@ void compress_data(void *args, struct video_frame * tx)
 	/* This thread will be called from main.c and handle the compress_threads */
 	struct video_compress * compress= (struct video_compress *)args;
 	int x,total=0;
+	int i;
 	unsigned char *line1,*line2;
 
 	line1=tx->data;
