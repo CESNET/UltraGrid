@@ -153,6 +153,9 @@ static void display(int w, int h)
 }
 
 /*---------------------------------------------------------------------------*/
+#ifdef __APPLE__
+#undef main
+#endif /* __APPLE__ */
 
 int main(int argc, char *argv[])
 {

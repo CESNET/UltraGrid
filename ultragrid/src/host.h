@@ -9,4 +9,6 @@ extern unsigned int hd_video_mode;
 
 extern unsigned int bitdepth;
 
+extern unsigned int progressive;
+
 #endif

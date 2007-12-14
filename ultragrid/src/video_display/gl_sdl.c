@@ -4,10 +4,18 @@
 //
 //
 
+#include "host.h"
+#include "config.h"
 #include <GL/glew.h>
+#ifdef HAVE_MACOSX
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#include <OpenGL/glext.h>
+#else /* HAVE_MACOSX */
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glext.h>
+#endif /* HAVE_MACOSX */
 #include <SDL/SDL.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -18,8 +26,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "debug.h"
-#include "host.h"
-#include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #include "video_display.h"
@@ -293,6 +299,13 @@ static void * display_thread_gl(void *arg)
     /* FPS */
     static GLint T0     = 0;
     static GLint Frames = 0;
+
+#ifdef HAVE_MACOSX
+            /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+    	    /* Avoids uncaught exception (1002)  when creating CGSWindow */
+            NSApplicationLoad();
+#endif
+
     /* initialize SDL */
     if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE ) < 0 ) {
         fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError());
@@ -332,11 +345,11 @@ static void * display_thread_gl(void *arg)
     /* get a SDL surface */
     s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 32, videoFlags);
     if(!s->sdl_screen){
-        fprintf(stderr,"Error setting video mode!\n");
+        fprintf(stderr,"Error setting video mode %dx%d!\n", x_res_x, x_res_y);
         exit(128);
     }
 
-    SDL_WM_SetCaption("Ultragrid - OpenGL Edition", "Ultragrid");
+    SDL_WM_SetCaption("Ultragrid - OpenGL Display", "Ultragrid");
 
     SDL_ShowCursor(SDL_DISABLE);
 
@@ -463,7 +476,16 @@ static void * display_thread_gl(void *arg)
 		    line2 += 2*3840;
 		}
 	} else {
-		memcpy(line2, line1, hd_size_x*hd_size_y*2);
+		if (progressive == 1) {
+			memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
+		} else {
+			for(i=0; i<1080; i+=2) {       
+				memcpy(line2, line1, hd_size_x*hd_color_bpp);
+				memcpy(line2+hd_size_x*hd_color_bpp, line1+hd_size_x*hd_color_bpp*540, hd_size_x*hd_color_bpp);
+				line1 += hd_size_x*hd_color_bpp;
+				line2 += 2*hd_size_x*hd_color_bpp;
+			}
+		}
 	}
 
         // gl_deinterlace(s->outbuffer);
@@ -639,12 +661,12 @@ void gl_draw()
 
 inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len)
 {
-        register unsigned long *d, *s;
+        register uint64_t *d, *s;
 
-        register unsigned long a1,a2,a3,a4;
+        register uint64_t a1,a2,a3,a4;
 
-        d = (unsigned long *)dst;
-        s = (unsigned long *)src;
+        d = (uint64_t *)dst;
+        s = (uint64_t *)src;
 
         while(len-- > 0) {
 		a1 = *(s++);
@@ -662,6 +684,8 @@ inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len)
                 *(d++) = (a3 >> 32)|(a4 << 16); /* 0xa4|a4|a4|a4|a4|a4|a3|a3 */
 	}
 }
+
+#ifndef HAVE_MACOSX
 
 inline void gl_copyline128(GLubyte *d, GLubyte *s, int len)
 {
@@ -719,6 +743,8 @@ inline void gl_copyline128(GLubyte *d, GLubyte *s, int len)
                 _d += 24;
         }
 }
+
+#endif /* HAVE_MACOSX */
 
 display_type_t *display_gl_probe(void)
 {

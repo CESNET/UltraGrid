@@ -1,9 +1,15 @@
+#include "host.h"
+#include "config.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <assert.h>
+#ifdef HAVE_MACOSX
+#include <malloc/malloc.h>
+#else /* HAVE_MACOSX */
 #include <malloc.h>
+#endif /* HAVE_MACOSX */
 #include <string.h>
 #include <unistd.h>
 #include "video_types.h"
@@ -53,8 +59,19 @@ struct video_compress * initialize_video_compression(void)
 	for(x=0;x<NUM_THREADS;x++) {
 		compress->buffer[x]=(unsigned char*)malloc(1920*1080*4/NUM_THREADS);
 	}
+#ifdef HAVE_MACOSX
+	compress->output_data=(unsigned char*)malloc(1920*1080*4);
+	compress->out=(unsigned char*)malloc(1920*1080*4);
+#else	
+	/*
+	 *  memalign doesn't exist on Mac OS. malloc always returns 16  
+	 *  bytes aligned memory
+	 *
+         *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
+	 */	 
 	compress->output_data=(unsigned char*)memalign(16,1920*1080*4);
 	compress->out=(unsigned char*)memalign(16,1920*1080*4);
+#endif /* HAVE_MACOSX */
 	memset(compress->output_data,0,1920*1080*4);
 	memset(compress->out,0,1920*1080*4/8);
 	compress->thread_count=0;
@@ -77,6 +94,9 @@ struct video_compress * initialize_video_compression(void)
 	pthread_mutex_unlock(&(compress->lock));
 	return compress;	
 }
+
+
+#ifndef HAVE_MACOSX
 
 inline void comp_copyline128(unsigned char *d, unsigned char *s, int len)
 {
@@ -134,6 +154,35 @@ inline void comp_copyline128(unsigned char *d, unsigned char *s, int len)
                 _d += 24;
         }
 }
+
+#endif
+
+inline void compress_copyline64(unsigned char *dst, unsigned char *src, int len)
+{
+        register uint64_t *d, *s;
+
+        register uint64_t a1,a2,a3,a4;
+
+        d = (uint64_t *)dst;
+        s = (uint64_t *)src;
+
+        while(len-- > 0) {
+                a1 = *(s++);
+                a2 = *(s++);
+                a3 = *(s++);
+                a4 = *(s++);
+
+                a1 = (a1 & 0xffffff) | ((a1 >> 8) & 0xffffff000000);
+                a2 = (a2 & 0xffffff) | ((a2 >> 8) & 0xffffff000000);
+                a3 = (a3 & 0xffffff) | ((a3 >> 8) & 0xffffff000000);
+                a4 = (a4 & 0xffffff) | ((a4 >> 8) & 0xffffff000000);
+
+                *(d++) = a1 | (a2 << 48);       /* 0xa2|a2|a1|a1|a1|a1|a1|a1 */
+                *(d++) = (a2 >> 16)|(a3 << 32); /* 0xa3|a3|a3|a3|a2|a2|a2|a2 */
+                *(d++) = (a3 >> 32)|(a4 << 16); /* 0xa4|a4|a4|a4|a4|a4|a3|a3 */
+        }
+}
+
 
 /* linear blend deinterlace */
 void compress_deinterlace(unsigned char *buffer)
@@ -193,12 +242,32 @@ void compress_data(void *args, struct video_frame * tx)
 	line1=tx->data;
 	line2=compress->output_data;
 	/* First 10->8 bit conversion */
-	for(x=0;x<HD_HEIGHT;x+=2) { 
-            comp_copyline128(line2, line1, 5120/32);
-            comp_copyline128(line2+3840, line1+5120*540, 5120/32);
-            line1 += 5120;
-            line2 += 2*3840;
-        }
+	if (bitdepth == 10) {
+		for(x=0;x<HD_HEIGHT;x+=2) {
+#ifdef HAVE_MACOSX
+                    compress_copyline64(line2, line1, 5120/32);
+		    compress_copyline64(line2+3840, line1+5120*540, 5120/32);
+								
+#else /* HAVE_MACOSX */
+		    comp_copyline128(line2, line1, 5120/32);
+		    comp_copyline128(line2+3840, line1+5120*540, 5120/32);
+#endif
+		    line1 += 5120;
+		    line2 += 2*3840;
+		}
+	} else {
+		if (progressive == 1) {
+			memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
+		} else {
+			for(i=0; i<1080; i+=2) {
+				memcpy(line2, line1, hd_size_x*hd_color_bpp);
+				memcpy(line2+hd_size_x*hd_color_bpp, line1+hd_size_x*hd_color_bpp*540, hd_size_x*hd_color_bpp);
+				line1 += hd_size_x*hd_color_bpp;
+				line2 += 2*hd_size_x*hd_color_bpp;
+			}
+		}
+	}
+
 	compress_deinterlace(compress->output_data);
 
 	for(x=0;x<NUM_THREADS;x++) {

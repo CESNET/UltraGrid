@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2007/12/11 19:34:16 $
+ * $Revision: 1.5 $
+ * $Date: 2007/12/14 16:18:29 $
  *
  */
 
@@ -80,6 +80,7 @@ uint32_t        hd_size_x=1920;
 uint32_t	hd_size_y=1080;
 uint32_t	hd_color_bpp=3;
 uint32_t	bitdepth = 10;
+uint32_t	progressive = 0;
 #ifdef HAVE_HDSTATION
 #include <dvs_clib.h>
 uint32_t	hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_NBIT_10BDVS | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
@@ -94,9 +95,9 @@ long frame_begin[2];
 static void
 signal_handler(int signal)
 {
-	debug_msg("Caught signal %d\n", signal);
-	should_exit = TRUE;
-	return;
+        debug_msg("Caught signal %d\n", signal);
+        should_exit = TRUE;
+        return;
 }
 #endif
 
@@ -231,7 +232,7 @@ main(int argc, char *argv[])
 	struct sched_param	 sp;
 #endif
 
-	while ((ch = getopt(argc, argv, "d:t:m:f:b:vc")) != -1) {
+	while ((ch = getopt(argc, argv, "d:t:m:f:b:vcp")) != -1) {
 		switch (ch) {
 		case 'd' :
 			requested_display = optarg;
@@ -253,12 +254,19 @@ main(int argc, char *argv[])
 				usage();
 				return EXIT_FAIL_USAGE;
 			}
+			hd_color_bpp = 2;
+#ifdef HAVE_HDSTATION
+			hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
+#endif /* HAVE_HDSTATION */
 			break;
 		case 'v' :
         		printf("%s\n", ULTRAGRID_VERSION);
 			return EXIT_SUCCESS;
 		case 'c' :
 			requested_compression=1;
+			break;
+		case 'p' :
+			progressive=1;
 			break;
 		default :
 			usage();

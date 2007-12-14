@@ -13,6 +13,8 @@ ifeq ($(MACHINE), Darwin)
 
 CXXFLAGS+=-I/opt/local/include
 LDLIBS+=-framework OpenGL
+GLEWLIB=/opt/local/lib/libGLEW.a
+SDLLIBS=-framework SDL -framework CoreFoundation -framework Carbon
 
 ifeq ($(ARCHITECTURE), i386)
 	# Intel Mac
@@ -29,6 +31,8 @@ else
 #
 CXXFLAGS+=
 CXXFLAGS=-g
+GLEWLIB=-lGLEW
+SDLLIBS=`sdl-config --libs`
 endif
 
 endif
@@ -64,16 +68,16 @@ default: main example 2dxt lib viewdxt playdxt
 
 main: dxt.o main.o util.o intrinsic.o
 example: example.o libdxt.o dxt.o util.o intrinsic.o
-lib: libdxt.o dxt.o
-	ar rcu libdxt.a libdxt.o dxt.o
+lib: libdxt.o dxt.o intrinsic.o
+	ar rcu libdxt.a libdxt.o dxt.o intrinsic.o
 2dxt: dxt.o 2dxt.o libdxt.o util.o intrinsic.o
 
 
 viewdxt:viewdxt.o glsl.o dxt.o
-	${CC} -o viewdxt viewdxt.o glsl.o dxt.o intrinsic.o `sdl-config --libs` $(LDLIBS) -lGLEW
+	${CC} -o viewdxt viewdxt.o glsl.o dxt.o intrinsic.o $(SDLLIBS) $(LDLIBS) $(GLEWLIB)
 
 playdxt:playdxt.o glsl.o dxt.o
-	${CC} -o playdxt playdxt.o glsl.o dxt.o intrinsic.o `sdl-config --libs` $(LDLIBS) -lGLEW
+	${CC} -o playdxt playdxt.o glsl.o dxt.o intrinsic.o $(SDLLIBS) $(LDLIBS) $(GLEWLIB)
 
 install: default
 	/bin/cp -f main example 2dxt playdxt viewdxt bin
@@ -81,3 +85,4 @@ install: default
 clean:
 	/bin/rm -f *.a *.o *~ main example 2dxt playdxt viewdxt *.rgba *.dxt out.*
 
+distclean: clean

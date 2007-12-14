@@ -4,10 +4,19 @@
 //
 //
 
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
 #include <GL/glew.h>
+#ifdef HAVE_MACOSX
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#include <OpenGL/glext.h>
+#else /* HAVE_MACOSX */
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glext.h>
+#endif /* HAVE_MACOSX */
 #include <SDL/SDL.h>
 #include <semaphore.h>
 #include <signal.h>
@@ -18,9 +27,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "debug.h"
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #include "video_display.h"
 #include "video_display/dxt.h"
 // #define glGetProcAddress(n) glXGetProcAddressARB((GLubyte *) n)

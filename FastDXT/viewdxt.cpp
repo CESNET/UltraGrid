@@ -129,21 +129,21 @@ void * aglGetProcAddress (char * pszProc)
                      pszProc, CFStringGetSystemEncoding (), NULL));
 }
 
-#endif
+#endif /* __APPLE__ */
 
 #ifdef __linux__
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include <GL/glext.h>
 #define glGetProcAddress(n) glXGetProcAddressARB((GLubyte *) n)
-#endif
+#endif /* __linux__ */
 
 #ifdef _WIN32
 #include <windows.h>
 #include <GL/gl.h>
 #include "glext.h"
 #define glGetProcAddress(n) wglGetProcAddress(n)
-#endif
+#endif /* _WIN32 */
 
 
 /*---------------------------------------------------------------------------*/
@@ -159,8 +159,8 @@ byte *ref_data;
 #ifdef __APPLE__
 static PFNGLGETCOMPRESSEDTEXIMAGEARBPROC  glGetCompressedTexImage;
 static PFNGLCOMPRESSEDTEXIMAGE2DARBPROC   glCompressedTexImage2D;
-#endif
-#endif
+#endif /* __APPLE__ */
+#endif /* GLSL_YCOCG */
 
 static void init_gl(void)
 {
@@ -169,7 +169,7 @@ static void init_gl(void)
                glGetProcAddress("glGetCompressedTexImageARB");
     glCompressedTexImage2D  = (PFNGLCOMPRESSEDTEXIMAGE2DARBPROC)
                glGetProcAddress("glCompressedTexImage2DARB");
-#endif
+#endif /* __APPLE__ */
 
     glEnable(GL_TEXTURE_2D);
 
@@ -300,6 +300,9 @@ static void display(int w, int h)
 }
 
 /*---------------------------------------------------------------------------*/
+#ifdef __APPLE__
+#undef main
+#endif /* __APPLE__ */
 
 int main(int argc, char *argv[])
 {

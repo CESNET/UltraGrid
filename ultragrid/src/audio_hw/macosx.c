@@ -12,7 +12,6 @@
 #include "audio_types.h"
 #include "audio_fmt.h"
 #include "audio_hw/macosx.h"
-#include "util.h"
 #include "decim_3528kHz_8kHz.h"
 
 #include <AudioToolbox/DefaultAudioOutput.h>

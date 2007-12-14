@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2007/12/11 16:42:38 $
+ * $Revision: 1.6 $
+ * $Date: 2007/12/14 16:18:29 $
  *
  */
 
@@ -97,11 +97,16 @@ struct timeval t, t0;
 static pascal OSErr
 qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValue time, short writeType, long refCon)
 {
+	/*
 	ComponentResult		 err		= noErr;
+	*/
 	struct qt_grabber_state	*s		= (struct qt_grabber_state*) refCon;
+	/*
 	CodecFlags		 ignore;
 	ImageDescriptionHandle	 imageDesc;
+	*/
 
+	UNUSED (c);
 	UNUSED (offset);
 	UNUSED (chRefCon);
 	UNUSED (time);

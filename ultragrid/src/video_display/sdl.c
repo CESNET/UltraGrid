@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2007/12/11 19:16:45 $
+ * $Revision: 1.6 $
+ * $Date: 2007/12/14 16:18:29 $
  *
  */
 
@@ -64,6 +64,7 @@
 #include <architecture/i386/io.h>
 #else /* HAVE_MACOSX */
 #include <sys/io.h>
+#include <AppKit/AppKit.h>
 #endif /* HAVE_MACOSX */
 #include <sys/time.h>
 #include <semaphore.h>
@@ -78,8 +79,6 @@ extern int      XShmQueryExtension(Display*);
 extern int      XShmGetEventBase(Display*);
 extern XvImage  *XvShmCreateImage(Display*, XvPortID, int, char*, int, int, XShmSegmentInfo*);
 
-#define HD_WIDTH 	hd_size_x
-#define HD_HEIGHT 	hd_size_y
 #define MAGIC_SDL	DISPLAY_SDL_ID
 
 extern long frame_begin[2];
@@ -187,12 +186,12 @@ deinterlace(unsigned char *buffer)
 inline void
 copyline64(unsigned char *dst, unsigned char *src, int len)
 {
-        register unsigned long *d, *s;
+        register uint64_t *d, *s;
 
-        register unsigned long a1,a2,a3,a4;
+        register uint64_t a1,a2,a3,a4;
 
-        d = (unsigned long *)dst;
-        s = (unsigned long *)src;
+        d = (uint64_t *)dst;
+        s = (uint64_t *)src;
 
         while(len-- > 0) {
 		a1 = *(s++);
@@ -280,8 +279,8 @@ static void*
 display_thread_sdl(void *arg)
 {
 	struct state_sdl        *s = (struct state_sdl *) arg;
-	struct timeval tv;
-	int tv1=0, tv2;
+	struct timeval tv, tv1;
+	int tv2;
 	int i;
 
 	while (1) {
@@ -295,6 +294,7 @@ display_thread_sdl(void *arg)
 		line1 = s->buffers[s->image_display];
 		line2 = *s->vw_image->pixels;
 	
+		gettimeofday(&tv1, NULL);
 		if (bitdepth == 10) {	
 			for(i=0; i<1080; i+=2) {
 #ifdef HAVE_MACOSX
@@ -308,32 +308,33 @@ display_thread_sdl(void *arg)
 				line2 += 2*3840;
 			}
 		} else {
-			memcpy(line2, line1, hd_size_x*hd_size_y*2);	
+			if (progressive == 1) {
+				memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
+			} else {
+				for(i=0; i<1080; i+=2) {
+					memcpy(line2, line1, hd_size_x*hd_color_bpp);	
+					memcpy(line2+hd_size_x*hd_color_bpp, line1+hd_size_x*hd_color_bpp*540, hd_size_x*hd_color_bpp);
+					line1 += hd_size_x*hd_color_bpp;
+					line2 += 2*hd_size_x*hd_color_bpp;
+				}
+			}
 		}
 
 		deinterlace(*s->vw_image->pixels);
-
-		gettimeofday(&tv, NULL);
-
-                tv2 = tv.tv_usec - tv1;
-		tv2 = tv.tv_usec - frame_begin[s->image_display];
-                tv1 = tv.tv_usec;
-                if(tv2 < 0)
-                        tv2 += 1000000;
-
-	//	printf("Frame ready to display: %d\n", tv2);
-        //      printf("Frame %f (%f fps)\n", tv2/1000.0, 1000000.0/tv2);
 
 		SDL_UnlockYUVOverlay(s->vw_image);
 
 		SDL_DisplayYUVOverlay(s->vw_image, &(s->rect));
 
 		SDL_LockYUVOverlay(s->vw_image);
+               
 		gettimeofday(&tv, NULL);
-		tv2 = tv.tv_usec - frame_begin[s->image_display];
+
+	       	tv2 = tv.tv_usec - tv1.tv_usec;
                 if(tv2 < 0)
                         tv2 += 1000000;
-	//	printf("Frame on screen: %d\n", tv2);
+
+                // printf("FPS: %f\n", 1000000.0/tv2);
 
 	}
 	return NULL;
@@ -372,10 +373,6 @@ display_sdl_init(void)
 	s->work_to_do     = FALSE;
 	s->boss_waiting   = FALSE;
 	s->worker_waiting = TRUE;
-	if (pthread_create(&(s->thread_id), NULL, display_thread_sdl, (void *) s) != 0) {
-		perror("Unable to create display thread\n");
-		return NULL;
-	}
 
 	debug_msg("Window initialized %p\n", s);
 
@@ -383,6 +380,12 @@ display_sdl_init(void)
                 printf("Unable to open display.\n");
                 return NULL;
 	}
+
+#ifdef HAVE_MACOSX
+	/* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+	/* Avoids uncaught exception (1002)  when creating CGSWindow */
+	NSApplicationLoad();
+#endif
 
 	ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
 	if (ret < 0) {
@@ -393,7 +396,13 @@ display_sdl_init(void)
 	/* Get XWindows resolution */
 	ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
 
+	
+        fprintf(stdout,"Setting video mode %dx%d.\n", x_res_x, x_res_y);
 	s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 0, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_FULLSCREEN);
+        if(s->sdl_screen == NULL){
+            fprintf(stderr,"Error setting video mode %dx%d!\n", x_res_x, x_res_y);
+            exit(128);
+        }
 
 	SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
 
@@ -401,27 +410,28 @@ display_sdl_init(void)
 
 #define FOURCC_UYVY  0x59565955
 
-	s->vw_image = SDL_CreateYUVOverlay(HD_WIDTH, HD_HEIGHT, FOURCC_UYVY, s->sdl_screen);
-	if (!s->vw_image) {
+	s->vw_image = SDL_CreateYUVOverlay(hd_size_x, hd_size_y, FOURCC_UYVY, s->sdl_screen);
+	if (s->vw_image == NULL) {
 		printf("SDL_overlay initialization failed.\n");
 		exit(127);
 	}
 
-	s->buffers[0] = malloc(HD_WIDTH*HD_HEIGHT*hd_color_bpp);
-	s->buffers[1] = malloc(HD_WIDTH*HD_HEIGHT*hd_color_bpp);
+	s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
+	s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
 
-	s->rect.w = HD_WIDTH;
-	s->rect.h = HD_HEIGHT;
-	if ((x_res_x - HD_WIDTH) > 0) {
-		s->rect.x = (x_res_x - HD_WIDTH) / 2;
+	s->rect.w = hd_size_x;
+	s->rect.h = hd_size_y;
+	if (x_res_x > hd_size_x) {
+		s->rect.x = (x_res_x - hd_size_x) / 2;
 	} else {
 		s->rect.x = 0;
 	}
-	if ((x_res_y - HD_HEIGHT) > 0) {
-		s->rect.y = (x_res_y - HD_HEIGHT) / 2;
+	if (x_res_y > hd_size_y) {
+		s->rect.y = (x_res_y - hd_size_y) / 2;
 	} else {
 		s->rect.y = 0;
 	}
+        fprintf(stdout,"Setting SDL rect %dx%d - %d,%d.\n", s->rect.w, s->rect.h, s->rect.x, s->rect.y);
 
 	s->image_network = 0;
         s->image_display = 1;
@@ -453,6 +463,11 @@ display_sdl_init(void)
                 SDL_BlitSurface(image, &splash_src, s->sdl_screen, &splash_dest);
                 SDL_Flip(s->sdl_screen);
         }
+
+	if (pthread_create(&(s->thread_id), NULL, display_thread_sdl, (void *) s) != 0) {
+		perror("Unable to create display thread\n");
+		return NULL;
+	}
 
 	return (void *)s;
 

@@ -8,6 +8,7 @@ PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
 AC_CANONICAL_HOST
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_CXX
 AC_HEADER_STDC
 AC_C_CONST
 AC_TYPE_SIZE_T
@@ -17,12 +18,19 @@ AC_C_CHAR_UNSIGNED
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
+LINKER=
 
 case "$host_os" in
 	*darwin*)
 		AC_DEFINE(HAVE_MACOSX)
+		LINKER=$CXX
+	;;
+	*)
+		LINKER=$CC
 	;;
 esac
+
+AC_SUBST(LINKER)
 
 # -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some
@@ -366,49 +374,103 @@ AC_SUBST(SDL_OBJ)
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
 
+GL_INC=
 GL_OBJ=
 
-AC_CHECK_HEADERS([GL/gl.h GL/glu.h],
-		 [FOUND_GL_H=yes],
-		 [FOUND_GL_H=no],
-		)
+case "$host_os" in
+	*darwin*)
+	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glu.h],
+			 [FOUND_GL_H=yes],
+			 [FOUND_GL_H=no],
+			)
 
-AC_CHECK_HEADERS([GL/glext.h],
-		 [FOUND_GL_H=yes],
-		 [FOUND_GL_H=no], 
-		 [
-	 	  #include <GL/gl.h>
-		  #include <GL/glext.h>
-		 ]
-		)
+	AC_CHECK_HEADERS([OpenGL/glext.h],
+			 [FOUND_GL_H=yes],
+			 [FOUND_GL_H=no], 
+			 [
+		 	  #include <OpenGL/gl.h>
+			  #include <OpenGL/glext.h>
+			 ]
+			)
 
-if test $FOUND_GL_H = yes
-then
-	AC_CHECK_LIB(GL, glXChooseVisual, FOUND_GL_L=yes, FOUND_GL_L=no)
-	AC_CHECK_LIB(GLU, main, FOUND_GL_L=yes, FOUND_GL_L=no)
-
-	if test $FOUND_GL_L = yes
+	if test $FOUND_GL_H = yes
 	then
-		LIBS="$LIBS -lGL -lGLU"
+                AC_CHECK_FILE(/System/Library/Frameworks/OpenGL.framework/OpenGL, FOUND_GL_L=yes, echo "OpenGL framework not found.")
 
-		AC_CHECK_HEADERS([GL/glew.h],
-				 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
-				 [echo "GL/glew.h not found."]
-				)
-		if test $FOUND_GLEW_L = yes
+		if test $FOUND_GL_L = yes
 		then
-			LIBS="$LIBS -lGLEW"
-			GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
-			AC_DEFINE(HAVE_GL)
+			LIBS="$LIBS -framework OpenGL"			
+
+			FOUND_GLEW_L=no
+			AC_CHECK_HEADERS([/opt/local/include/GL/glew.h],
+					 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.", -L/opt/local/lib)],
+					 [echo "GL/glew.h not found."]
+					)
+			if test $FOUND_GLEW_L = yes
+			then
+				LIBS="$LIBS /opt/local/lib/libGLEW.a"
+				GL_INC="$GL_INC -I/opt/local/include"
+				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+				AC_DEFINE(HAVE_GL)
+			else
+				echo "OpenGL (GLEW) libraries not found or not usable."
+			fi
+		else
+			echo "OpenGL libraries not found or not usable."
 		fi
+
 	else
-		echo "OpenGL libraries not found or not usable."
+		echo "OpenGL headers not found or not usable."
 	fi
+	;;
+	*) 
+	AC_CHECK_HEADERS([GL/gl.h GL/glu.h],
+			 [FOUND_GL_H=yes],
+			 [FOUND_GL_H=no],
+			)
 
-else
-	echo "OpenGL headers not found or not usable."
-fi
+	AC_CHECK_HEADERS([GL/glext.h],
+			 [FOUND_GL_H=yes],
+			 [FOUND_GL_H=no], 
+			 [
+		 	  #include <GL/gl.h>
+			  #include <GL/glext.h>
+			 ]
+			)
 
+	if test $FOUND_GL_H = yes
+	then
+		AC_CHECK_LIB(GL, glXChooseVisual, FOUND_GL_L=yes, FOUND_GL_L=no)
+		AC_CHECK_LIB(GLU, main, FOUND_GL_L=yes, FOUND_GL_L=no)
+
+		if test $FOUND_GL_L = yes
+		then
+			LIBS="$LIBS -lGL -lGLU"
+	
+			FOUND_GLEW_L=no
+			AC_CHECK_HEADERS([GL/glew.h],
+					 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
+					 [echo "GL/glew.h not found."]
+					)
+			if test $FOUND_GLEW_L = yes
+			then
+				LIBS="$LIBS -lGLEW"
+				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+				AC_DEFINE(HAVE_GL)
+			else
+				echo "OpenGL (GLEW) libraries not found or not usable."
+			fi
+		else
+			echo "OpenGL libraries not found or not usable."
+		fi
+
+	else
+		echo "OpenGL headers not found or not usable."
+	fi
+	;;
+esac
+
+AC_SUBST(GL_INC)
 AC_SUBST(GL_OBJ)
 
 
