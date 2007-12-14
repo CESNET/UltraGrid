@@ -4,6 +4,9 @@ LDFLAGS=-O3
 LDLIBS=-lpthread
 CXXFLAGS=-O3 -funroll-loops -fomit-frame-pointer 
 
+GLEWLIB=-lGLEW
+SDLLIBS=`sdl-config --libs`
+
 OPTIM=1
 
 MACHINE=$(shell uname -s)
@@ -31,8 +34,6 @@ else
 #
 CXXFLAGS+=
 CXXFLAGS=-g
-GLEWLIB=-lGLEW
-SDLLIBS=`sdl-config --libs`
 endif
 
 endif
