@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.6 $
-# $Date: 2007/12/14 16:18:28 $
+# $Revision: 1.7 $
+# $Date: 2008/01/10 07:11:14 $
 #
 
 AR        = ar
@@ -117,6 +117,7 @@ src/version.h: VERSION
 	@sed -e 's/.*/#define ULTRAGRID_VERSION "UltraGrid v&"/' VERSION > src/version.h
 
 $(TARGET): src/version.h $(OBJS) src/main.o 
+	@mkdir bin
 	$(LINKER) $(CFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
 .c.o:

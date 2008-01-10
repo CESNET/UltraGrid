@@ -42,7 +42,6 @@
 #include "memory.h"
 #include "video_types.h"
 #include "video_display.h"
-#include "ui/ui.h"
 #include "test_video_display.h"
 
 int 
@@ -57,12 +56,6 @@ test_video_display(void)
 	argv[0] = "run_tests";
 	
 	printf("Testing video hardware detection ......................................... "); 
-	if (ui_init(argc, argv) != 0) {
-		printf("FAIL\n");
-		printf("    Cannot initialize user interface\n");
-		return 1;
-	}
-
 	if (display_init_devices() != 0) {
 		printf("FAIL\n");
 		printf("    Cannot probe video devices\n");
@@ -105,7 +98,6 @@ test_video_display(void)
 		printf("\n");
 	}
 	display_free_devices();
-	ui_done();
 	return 0;
 }
 

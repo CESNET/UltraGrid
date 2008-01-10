@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2007/12/14 16:18:29 $
+ * $Revision: 1.6 $
+ * $Date: 2008/01/10 07:11:15 $
  *
  */
 
@@ -348,11 +348,13 @@ main(int argc, char *argv[])
 		rtp_update(network_device, curr_time);
 		rtp_send_ctrl(network_device, ts, 0, curr_time);
 
+#ifndef X_DISPLAY_MISSING		
 #ifdef HAVE_SDL
 		if (strcmp(requested_display, "sdl") == 0) {
 			display_sdl_handle_events();
 		}
 #endif /* HAVE_SDL */
+#endif /* X_DISPLAY_MISSING */		
 
 		/* Receive packets from the network... The timeout is adjusted */
 		/* to match the video capture rate, so the transmitter works.  */
