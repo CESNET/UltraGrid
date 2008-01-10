@@ -32,14 +32,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2008/01/10 11:07:42 $
  */
 
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "test_host.h"
 #include "test_aes.h"
 #include "test_audio_hw.h"
 #include "test_bitstream.h"
@@ -61,6 +62,16 @@
 #include "test_video_display.h"
 
 uint32_t	RTT;	/* FIXME: will be removed once the global in main.c is removed */
+
+/* These globals should be fixed in the future as well */
+uint32_t        hd_size_x=1920;
+uint32_t        hd_size_y=1080;
+uint32_t        hd_color_bpp=3;
+uint32_t        bitdepth = 10;
+uint32_t        progressive = 0;
+uint32_t        hd_video_mode;
+
+long            packet_rate = 13600;
 
 int
 main()
