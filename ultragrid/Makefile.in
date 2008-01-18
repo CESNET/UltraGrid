@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.8 $
-# $Date: 2008/01/16 19:19:21 $
+# $Revision: 1.9 $
+# $Date: 2008/01/18 12:40:38 $
 #
 
 AR        = ar
@@ -158,7 +158,7 @@ TEST_OBJS = test/test_bitstream.o \
 	    test/run_tests.o
 
 test/run_tests: $(TEST_OBJS) $(OBJS) 
-	$(CC) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
+	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
 
 suggest-tests:
 	@echo ""
