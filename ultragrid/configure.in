@@ -515,6 +515,48 @@ AC_SUBST(DXT_OBJ)
 AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# SAGE stuff
+
+SAGE_OBJ=
+SAGE_INC=
+SAGE_LIB=
+
+AC_ARG_ENABLE(sage, 
+	[  --enable-sage           enable SAGE display support],
+	[if test $enableval = yes
+	then
+		AC_DEFINE(HAVE_SAGE)
+	fi])
+
+AC_ARG_WITH(sage,
+	[  --with-sage=DIR      specify location of SAGE],
+	[SAGE_INC=$withval/include
+	 SAGE_LIB=$withval/lib],
+	[SAGE_INC=${PARENT}/sage3.0/include
+	 SAGE_LIB=${PARENT}/sage3.0/lib])
+
+AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE=yes, FOUND_SAGE=no)
+AC_CHECK_LIB(sail, main, FOUND_SAGE=yes, FOUND_SAGE=no, -I{SAGE_INC} -L ${SAGE_LIB})
+
+if test $FOUND_SAGE = yes
+then
+    SAGE_INC=-I${SAGE_INC}
+    SAGE_LIB=-"L${SAGE_LIB} -lsail"
+    SAGE_OBJ="$SAGE_OBJ src/video_display/sage.o src/video_display/sage_wrapper.o"
+    AC_DEFINE(HAVE_SAGE)
+    LINKER=$CXX
+else
+    SAGE_INC=
+    SAGE_LIB=
+    SAGE_OBJ=
+fi
+
+AC_SUBST(SAGE_INC)
+AC_SUBST(SAGE_LIB)
+AC_SUBST(SAGE_OBJ)
+AC_SUBST(LINKER)
+
+# -------------------------------------------------------------------------------------------------
 # Tests needed by audio_codec/gsm_impl.c
 # 
 # Check if Signed arithmetic shift right (SASR).  If SASR then -1 >> 1 == 1.

@@ -10,6 +10,9 @@
 /* Define to 1 if you have GL. */
 #undef HAVE_GL 
 
+/* Define to 1 if you have SAGE. */
+#undef HAVE_SAGE
+
 /*
  * Define this if you want IPv6 support.
  */

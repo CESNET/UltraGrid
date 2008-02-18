@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2007/12/11 19:34:16 $
+ * $Revision: 1.5 $
+ * $Date: 2008/02/18 18:06:41 $
  *
  */
 
@@ -55,6 +55,7 @@
 #include "video_display/hdstation.h"
 #include "video_display/gl_sdl.h"
 #include "video_display/dxt.h"
+#include "video_display/sage.h"
 
 /*
  * Interface to probing the valid display types. 
@@ -111,6 +112,17 @@ static display_table_t display_device_table[] = {
                 display_gl_putf,
                 display_gl_colour 
 	},
+#ifdef HAVE_SAGE
+	{
+        0,
+                display_sage_probe,
+                display_sage_init,
+                display_sage_done,
+                display_sage_getf,
+                display_sage_putf,
+                display_sage_colour
+	},
+#endif /* HAVE_SAGE */
 #ifdef HAVE_FASTDXT
 	{	
 		0,
