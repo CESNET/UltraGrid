@@ -40,7 +40,7 @@ void sage_shutdown()
 
 void sage_swapBuffer()
 {
-    sageInf.swapBuffer();
+    sageInf.swapBuffer(SAGE_NON_BLOCKING);
 }
 
 GLubyte * sage_getBuffer()

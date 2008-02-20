@@ -21,6 +21,7 @@
 #include <pthread.h>
 
 #include "video_display/sage_wrapper.h"
+#include <host.h>
 
 #define HD_WIDTH 	1920
 #define HD_HEIGHT 	1080
@@ -95,8 +96,15 @@ int display_sage_handle_events(void)
 void yuv2rgba(unsigned char *buffer, unsigned char *rgbBuf)
 {
     int i = 0;
+    int j = 0;
     for (i = 0; i < HD_WIDTH*HD_HEIGHT*2; i+=32)
     {
+        if (bitdepth == 8) {
+            j++; // interlace
+            if (j == 121) buffer += 2069760;
+            if (j == 241) { buffer -=2073600; j = 1; }
+        }
+
     asm (
         "psubq %%xmm5, %%xmm5\n"
         "movdqa (%0), %%xmm0\n"     // U0 Y0 V0 Y1 U1 Y2 V1 Y3 U2 Y4 V2 Y5 U3 Y6 V3 Y7
@@ -378,26 +386,6 @@ inline void sage_copyline128(unsigned char *d, unsigned char *s, int len)
 
 #endif /* HAVE_MACOSX */
 
-#if 0
-void sage_gl_resize_window(int width,int height)
-{
-    /* Height / width ration */
-    GLfloat ratio;
-
-    /* Protect against a divide by zero */
-    if ( height == 0 )
-        height = 1;
-
-    ratio = ( GLfloat )width / ( GLfloat )height;
-    glViewport( 0, 0, ( GLint )width, ( GLint )height );
-    glMatrixMode( GL_PROJECTION );
-    glLoadIdentity( );
-    gluPerspective( 45.0f, ratio, 0.1f, 100.0f );
-    glMatrixMode( GL_MODELVIEW );
-    glLoadIdentity( );
-}
-#endif
-
 
 static void* display_thread_sage(void *arg)
 {
@@ -411,26 +399,30 @@ static void* display_thread_sage(void *arg)
 		sem_wait(&s->semaphore);
 
 		assert(s->outBuffer != NULL);
-
-		line1 = s->buffers[s->image_display];
-		line2 = s->yuvBuffer;
-		//line2 = s->outBuffer;
-		
-		for(i=0; i<1080; i+=2) {
+        
+        if (bitdepth == 10)  {
+            line1 = s->buffers[s->image_display];
+            line2 = s->yuvBuffer;
+            
+            for(i=0; i<1080; i+=2) {
 #ifdef HAVE_MACOSX
-			sage_copyline64(line2, line1, 5120/32);
-			sage_copyline64(line2+3840, line1+5120*540, 5120/32);
+                sage_copyline64(line2, line1, 5120/32);
+                sage_copyline64(line2+3840, line1+5120*540, 5120/32);
 #else /* HAVE_MACOSX */
-			sage_copyline128(line2, line1, 5120/32);
-			sage_copyline128(line2+3840, line1+5120*540, 5120/32);
+                sage_copyline128(line2, line1, 5120/32);
+                sage_copyline128(line2+3840, line1+5120*540, 5120/32);
 #endif /* HAVE_MACOSX */
-			line1 += 5120;
-			line2 += 2*3840;
-		}
+                line1 += 5120;
+                line2 += 2*3840;
+            }
+            yuv2rgba(s->yuvBuffer, s->outBuffer);
+        } 
+        else  {
+            yuv2rgba(s->buffers[s->image_display], s->outBuffer);
+        }
 //        swapBytes(s->outBuffer, HD_WIDTH*HD_HEIGHT*2);
-        yuv2rgba(s->yuvBuffer, s->outBuffer);
 //		int i = open("/tmp/testcard_image.rgba_c", O_WRONLY|O_CREAT, 0644);
-//		write(i, s->outBuffer, HD_WIDTH*HD_HEIGHT*2);
+//		write(i,s->buffers[s->image_display], HD_WIDTH*HD_HEIGHT*2);
 //		close(i);
         sage_swapBuffer();
         s->outBuffer = sage_getBuffer();
