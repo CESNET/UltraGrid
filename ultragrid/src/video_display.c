@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2008/02/18 18:06:41 $
+ * $Revision: 1.6 $
+ * $Date: 2008/02/22 15:22:54 $
  *
  */
 
@@ -55,6 +55,7 @@
 #include "video_display/hdstation.h"
 #include "video_display/gl_sdl.h"
 #include "video_display/dxt.h"
+#include "video_display/kona.h"
 #include "video_display/sage.h"
 
 /*
@@ -148,6 +149,17 @@ static display_table_t display_device_table[] = {
 		display_hdstation_colour
 	},
 #endif /* HAVE_HDSTATION */
+#ifdef HAVE_MACOSX
+	{
+		0,
+		display_kona_probe,
+		display_kona_init,
+		display_kona_done,
+		display_kona_getf,
+		display_kona_putf,
+		display_kona_colour
+	},
+#endif /* HAVE_MACOSX */
 	{
 		0,
 		display_null_probe,

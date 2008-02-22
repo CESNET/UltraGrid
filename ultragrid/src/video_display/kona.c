@@ -1,0 +1,363 @@
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#include "debug.h"
+#include "host.h"
+#include "tv.h"
+
+#ifdef HAVE_MACOSX
+#include <Carbon/Carbon.h>
+#include <QuickTime/QuickTime.h>
+
+#include <semaphore.h>
+#include <signal.h>
+#include <pthread.h>
+#include <assert.h>
+
+#include "video_display.h"
+#include "video_display/kona.h"
+
+#define KONA_MAGIC 	DISPLAY_KONA_ID
+
+
+struct state_kona {
+	ComponentInstance	videoDisplayComponent;
+	GWorldPtr		gworld;
+	ImageSequence		seqID;
+
+	char			*buffers[2];
+	int			image_display, image_network;
+
+        /* Thread related information follows... */
+        pthread_t               thread_id;
+        pthread_mutex_t         lock;
+        pthread_cond_t          boss_cv;
+        pthread_cond_t          worker_cv;
+        sem_t                   semaphore;
+        int                     work_to_do;
+        int                     boss_waiting;
+        int                     worker_waiting;	
+
+	uint32_t		magic;
+};
+
+static void*
+display_thread_kona(void *arg)
+{
+	struct state_kona	*s = (struct state_kona *) arg;
+
+	ImageDescriptionHandle	imageDesc;
+	CodecFlags		ignore;
+	int			ret;
+
+	int			frames = 0;
+	struct			timeval t, t0;
+
+	
+	while (1) {
+		sem_wait(&s->semaphore);
+
+		/* TODO */
+		// memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), s->buffers[s->image_display], hd_size_x*hd_size_y*hd_color_bpp);
+
+		imageDesc = (ImageDescriptionHandle)NewHandle(0);
+		ret = DecompressSequenceBegin(&(s->seqID), imageDesc, s->gworld, NULL, NULL,
+						NULL, srcCopy, NULL, 0, codecNormalQuality, bestSpeedCodec);
+		if (ret != noErr) {
+			fprintf(stderr, "Failed DecompressSequenceBeginS\n");
+			return NULL;
+		}
+		DisposeHandle((Handle)imageDesc);
+
+		ret = DecompressSequenceFrameWhen(s->seqID,
+						  s->buffers[s->image_display],
+						  hd_size_x*hd_size_y*hd_color_bpp,
+						  0,
+						  &ignore,
+						  NULL,
+						  nil);
+		if (ret != noErr) {
+			fprintf(stderr, "Failed DecompressSequenceFrameWhen\n");
+			return NULL;
+		}
+
+		frames++;
+		gettimeofday(&t, NULL);
+		double seconds = tv_diff(t, t0);    
+		if (seconds >= 5) {
+			float fps  = frames / seconds;
+			fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
+			t0 = t;
+			frames = 0;
+		}
+
+	}
+
+	return NULL;
+}
+
+char *
+display_kona_getf(void *state)
+{
+        struct state_kona *s = (struct state_kona *) state;
+	assert(s->magic == KONA_MAGIC);
+	return (char *)s->buffers[s->image_network];
+
+}
+
+int
+display_kona_putf(void *state, char *frame)
+{
+        int              tmp;
+        struct state_kona *s = (struct state_kona *) state;
+
+	UNUSED(frame);
+        assert(s->magic == KONA_MAGIC);
+
+        /* ...and give it more to do... */
+        tmp = s->image_display;
+        s->image_display = s->image_network;
+        s->image_network = tmp;
+        s->work_to_do    = TRUE;
+                                                                    
+        /* ...and signal the worker */
+        sem_post(&s->semaphore);
+        sem_getvalue(&s->semaphore, &tmp);
+        if(tmp > 1)
+                printf("frame drop!\n");
+        return 0;
+
+}
+
+void *
+display_kona_init(void)	
+{
+
+	struct state_kona	*s;
+
+	ComponentDescription	cd;
+	Component		c = 0;
+	QTAtomContainer		modeListAtomContainer = NULL;
+
+	int			ret;
+	int			i;
+
+	s = (struct state_kona *) malloc(sizeof(struct state_kona));
+	s->magic = KONA_MAGIC;
+	s->videoDisplayComponent = 0;
+	s->seqID = 0;
+
+	InitCursor();
+	EnterMovies();
+
+	cd.componentType = QTVideoOutputComponentType;
+	cd.componentSubType = 0;
+	cd.componentManufacturer = 0;
+	cd.componentFlags = 0;
+	cd.componentFlagsMask = kQTVideoOutputDontDisplayToUser;
+	
+	/* Get video output component */
+	while ((c = FindNextComponent(c, &cd))) {
+		Handle componentNameHandle = NewHandle(0);
+		GetComponentInfo(c, &cd, componentNameHandle, NULL, NULL);
+		char *cName = *componentNameHandle;
+		DisposeHandle(componentNameHandle);
+
+		if (strcmp(cName, "AJA")) {
+			s->videoDisplayComponent = OpenComponent(c);
+			break;
+		}
+	}
+
+
+	/* Get display modes of selected video output component */
+	ret = QTVideoOutputGetDisplayModeList(s->videoDisplayComponent, &modeListAtomContainer);
+	if (ret == noErr && modeListAtomContainer != NULL) {
+		i = 1;
+		QTAtom          atomDisplay = 0, nextAtomDisplay = 0;
+		QTAtomType      type;
+		QTAtomID        id;
+
+		fprintf(stdout, "\nSupported video output modes:\n");
+		while (i < QTCountChildrenOfType(modeListAtomContainer, kParentAtomIsContainer, kQTVODisplayModeItem)) {
+
+			ret = QTNextChildAnyType(modeListAtomContainer, kParentAtomIsContainer, atomDisplay, &nextAtomDisplay);
+			// Make sure its a display atom
+			ret = QTGetAtomTypeAndID(modeListAtomContainer, nextAtomDisplay, &type, &id);
+			if (type != kQTVODisplayModeItem) continue;
+
+			atomDisplay = nextAtomDisplay;   
+
+			QTAtom		atom;
+			long		dataSize, *dataPtr;
+
+
+			fprintf(stdout, "%d:", i);
+
+			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVOName, 1, NULL);
+			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr*)&dataPtr);
+			fprintf(stdout, "  %s; ", (char *)dataPtr);
+
+			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVODimensions, 1, NULL);
+			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+			fprintf(stdout, "%dx%d px; ", (int)EndianS32_BtoN(dataPtr[0]), (int)EndianS32_BtoN(dataPtr[1]));
+
+			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVORefreshRate, 1, NULL);
+			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+			fprintf(stdout, "%ld Hz; ", EndianS32_BtoN(dataPtr[0]));
+
+			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVOPixelType, 1, NULL);
+			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+			fprintf(stdout, "%s\n", (char *)dataPtr);
+
+			i++;
+		}
+		fprintf(stdout, "\n");
+	} else {
+		fprintf(stderr, "Video output component AJA doesn't seem to provide any display mode!\n");
+		return NULL;
+	}
+
+	/* Set the display mode */
+	/* TODO: this is hardcoded right now */
+	ret = QTVideoOutputSetDisplayMode(s->videoDisplayComponent, 19);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to set video output display mode.\n");
+		return NULL;
+	}
+
+	/* We don't want to use the video output component instance echo port*/
+	ret = QTVideoOutputSetEchoPort(s->videoDisplayComponent, nil);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to set video output echo port.\n");
+		return NULL;
+	}
+	
+
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+        pthread_cond_init(&s->worker_cv, NULL);
+        sem_init(&s->semaphore, 0, 0);
+        s->work_to_do     = FALSE;
+        s->boss_waiting   = FALSE;
+        s->worker_waiting = TRUE;
+
+        s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
+        s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);	
+	
+	s->image_network = 0;
+	s->image_display = 1;
+
+        if (pthread_create(&(s->thread_id), NULL, display_thread_kona, (void *) s) != 0) {
+		perror("Unable to create display thread\n");
+		return NULL;
+	}
+
+	/* Register Ultragrid with instande of the video outpiut */
+	ret = QTVideoOutputSetClientName(s->videoDisplayComponent, (ConstStr255Param)"Ultragrid");
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to register Ultragrid with Kona3 video output instance.\n");
+		return NULL;
+	}
+
+	/* Call QTVideoOutputBegin to gain exclusive access to the video output */
+	ret = QTVideoOutputBegin(s->videoDisplayComponent);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to get exclusive access to Kona3 video output instance.\n");
+		return NULL;
+	}
+
+	/* Get a pointer to the gworld used by video output component */
+	ret = QTVideoOutputGetGWorld(s->videoDisplayComponent, &s->gworld);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to get Kona3 video output instance GWorld.\n");
+		return NULL;
+	}
+
+	return (void *) s;
+}
+
+void
+display_kona_done(void *state)
+{
+	struct state_kona *s = (struct state_kona *) state;
+	int		ret;
+
+	assert(s->magic == KONA_MAGIC);
+	ret = QTVideoOutputEnd(s->videoDisplayComponent);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to release the video output component.\n");
+	}
+
+	ret = CloseComponent(s->videoDisplayComponent);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to close the video output component.\n");
+	}
+}
+
+display_colour_t
+display_kona_colour(void *state)
+{
+        struct state_kona *s = (struct state_kona *) state;
+        assert(s->magic == KONA_MAGIC);
+        return DC_YUV;
+}
+
+display_type_t *
+display_kona_probe(void)
+{
+        display_type_t          *dtype;
+        display_format_t        *dformat;
+
+	ComponentDescription	cd;
+	Component		c = 0;
+	int			foundAJAKona = 0;
+
+	cd.componentType = QTVideoOutputComponentType;
+	cd.componentSubType = 0;
+	cd.componentManufacturer = 0;
+	cd.componentFlags = 0;
+	cd.componentFlagsMask = kQTVideoOutputDontDisplayToUser;
+	
+	while ((c = FindNextComponent(c, &cd))) {
+		Handle componentNameHandle = NewHandle(0);
+		GetComponentInfo(c, &cd, componentNameHandle, NULL, NULL);
+		// Print the component info
+		char *cName = *componentNameHandle;
+		if (strcmp(cName, "AJA")) {
+			foundAJAKona = 1;
+		}
+
+		int len = *cName++;
+		cName[len] = 0;
+		fprintf(stdout, "Found video output component: %s\n", cName);
+
+		DisposeHandle(componentNameHandle);
+	}
+
+	if (!foundAJAKona) {
+		fprintf(stderr, "AJA Kona3 not found!\n");
+		return NULL;
+	}
+
+        dformat = malloc(sizeof(display_format_t));
+        if (dformat == NULL) {
+                return NULL;
+        }
+        dformat->size        = DS_1920x1080;
+        dformat->colour_mode = DC_YUV;
+        dformat->num_images  = 1;
+
+        dtype = malloc(sizeof(display_type_t));
+        if (dtype != NULL) {
+                dtype->id          = DISPLAY_KONA_ID;
+                dtype->name        = "kona";
+                dtype->description = "AJA Kona3 (1080i/60 YUV 4:2:2)";
+                dtype->formats     = dformat;
+                dtype->num_formats = 1;
+        }
+        return dtype;
+}
+
+#endif /* HAVE_MACOSX */
+
