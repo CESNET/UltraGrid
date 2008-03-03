@@ -21,7 +21,8 @@
 
 
 struct state_kona {
-	ComponentInstance	videoDisplayComponent;
+	ComponentInstance	videoDisplayComponentInstance;
+	Component		videoDisplayComponent;
 	GWorldPtr		gworld;
 	ImageSequence		seqID;
 
@@ -144,7 +145,7 @@ display_kona_init(void)
 
 	s = (struct state_kona *) malloc(sizeof(struct state_kona));
 	s->magic = KONA_MAGIC;
-	s->videoDisplayComponent = 0;
+	s->videoDisplayComponentInstance = 0;
 	s->seqID = 0;
 
 	InitCursor();
@@ -164,14 +165,17 @@ display_kona_init(void)
 		DisposeHandle(componentNameHandle);
 
 		if (strcmp(cName, "AJA")) {
-			s->videoDisplayComponent = OpenComponent(c);
+			s->videoDisplayComponent = c;
+			s->videoDisplayComponentInstance = OpenComponent(s->videoDisplayComponent);
 			break;
 		}
 	}
 
 
+	long	displayMode = 0;
+
 	/* Get display modes of selected video output component */
-	ret = QTVideoOutputGetDisplayModeList(s->videoDisplayComponent, &modeListAtomContainer);
+	ret = QTVideoOutputGetDisplayModeList(s->videoDisplayComponentInstance, &modeListAtomContainer);
 	if (ret == noErr && modeListAtomContainer != NULL) {
 		i = 1;
 		QTAtom          atomDisplay = 0, nextAtomDisplay = 0;
@@ -191,12 +195,16 @@ display_kona_init(void)
 			QTAtom		atom;
 			long		dataSize, *dataPtr;
 
-
-			fprintf(stdout, "%d:", i);
+			fprintf(stdout, "%ld: ", id);
 
 			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVOName, 1, NULL);
 			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr*)&dataPtr);
 			fprintf(stdout, "  %s; ", (char *)dataPtr);
+
+			/* TODO: this is hardcoded right now */
+			if (strcmp((char *)dataPtr, "AJA Kona 1080i30 10 Bit") == 0) {
+				displayMode = id;
+			}
 
 			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVODimensions, 1, NULL);
 			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
@@ -219,15 +227,15 @@ display_kona_init(void)
 	}
 
 	/* Set the display mode */
-	/* TODO: this is hardcoded right now */
-	ret = QTVideoOutputSetDisplayMode(s->videoDisplayComponent, 19);
+
+	ret = QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance, displayMode);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to set video output display mode.\n");
 		return NULL;
 	}
 
 	/* We don't want to use the video output component instance echo port*/
-	ret = QTVideoOutputSetEchoPort(s->videoDisplayComponent, nil);
+	ret = QTVideoOutputSetEchoPort(s->videoDisplayComponentInstance, nil);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to set video output echo port.\n");
 		return NULL;
@@ -254,21 +262,21 @@ display_kona_init(void)
 	}
 
 	/* Register Ultragrid with instande of the video outpiut */
-	ret = QTVideoOutputSetClientName(s->videoDisplayComponent, (ConstStr255Param)"Ultragrid");
+	ret = QTVideoOutputSetClientName(s->videoDisplayComponentInstance, (ConstStr255Param)"Ultragrid");
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to register Ultragrid with Kona3 video output instance.\n");
 		return NULL;
 	}
 
 	/* Call QTVideoOutputBegin to gain exclusive access to the video output */
-	ret = QTVideoOutputBegin(s->videoDisplayComponent);
+	ret = QTVideoOutputBegin(s->videoDisplayComponentInstance);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to get exclusive access to Kona3 video output instance.\n");
 		return NULL;
 	}
 
 	/* Get a pointer to the gworld used by video output component */
-	ret = QTVideoOutputGetGWorld(s->videoDisplayComponent, &s->gworld);
+	ret = QTVideoOutputGetGWorld(s->videoDisplayComponentInstance, &s->gworld);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to get Kona3 video output instance GWorld.\n");
 		return NULL;
@@ -284,12 +292,12 @@ display_kona_done(void *state)
 	int		ret;
 
 	assert(s->magic == KONA_MAGIC);
-	ret = QTVideoOutputEnd(s->videoDisplayComponent);
+	ret = QTVideoOutputEnd(s->videoDisplayComponentInstance);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to release the video output component.\n");
 	}
 
-	ret = CloseComponent(s->videoDisplayComponent);
+	ret = CloseComponent(s->videoDisplayComponentInstance);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to close the video output component.\n");
 	}
