@@ -1,6 +1,9 @@
 #ifndef _SAGE_WRAPPER
 #define _SAGE_WRAPPER
 
+//switching between dircet sage YUV support and yuv2rgba conversion in ug 
+#define SAGE_GLSL_YUV 1
+
 // SAGE headers
 #ifdef __cplusplus
 extern "C" void initSage(int appID, int nodeID);

@@ -49,7 +49,6 @@ struct state_sdl {
 int *_0080;
 int *_00ff;
 
-//FIXME mplayeri pouzivaji jednu hodnotu typu uint64_t
 //Cb = U, Cr = V
 int *_YUV_Coef;
 #define RED_v   "0*16"    //+ 1.596
@@ -402,7 +401,11 @@ static void* display_thread_sage(void *arg)
         
         if (bitdepth == 10)  {
             line1 = s->buffers[s->image_display];
+#ifdef SAGE_GLSL_YUV
+            line2 = s->outBuffer;
+#else
             line2 = s->yuvBuffer;
+#endif
             
             for(i=0; i<1080; i+=2) {
 #ifdef HAVE_MACOSX
@@ -415,14 +418,27 @@ static void* display_thread_sage(void *arg)
                 line1 += 5120;
                 line2 += 2*3840;
             }
+#ifndef SAGE_GLSL_YUV
             yuv2rgba(s->yuvBuffer, s->outBuffer);
+#endif
         } 
         else  {
+#ifdef SAGE_GLSL_YUV
+            line1 = s->buffers[s->image_display];
+            line2 = s->outBuffer;
+            for(i=0; i<1080; i+=2){
+                memcpy(line2, line1, HD_WIDTH*2);
+                memcpy(line2+HD_WIDTH*2, line1+HD_WIDTH*2*540, HD_WIDTH*2);
+                line1 += HD_WIDTH*2;
+                line2 += HD_WIDTH*2*2;
+            }
+#else
             yuv2rgba(s->buffers[s->image_display], s->outBuffer);
+#endif
         }
 //        swapBytes(s->outBuffer, HD_WIDTH*HD_HEIGHT*2);
-//		int i = open("/tmp/testcard_image.rgba_c", O_WRONLY|O_CREAT, 0644);
-//		write(i,s->buffers[s->image_display], HD_WIDTH*HD_HEIGHT*2);
+//		int i = open("/tmp/testcard_image.yuv", O_WRONLY|O_CREAT, 0644);
+//		write(i,s->yuvBuffer, HD_WIDTH*HD_HEIGHT*2);
 //		close(i);
         sage_swapBuffer();
         s->outBuffer = sage_getBuffer();

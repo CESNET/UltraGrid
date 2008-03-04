@@ -24,8 +24,11 @@ void initSage(int appID, int nodeID)
     renderImageMap.top = 1.0;
 
     sailCfg.imageMap = renderImageMap;
-    //sailCfg.pixFmt = PIXFMT_YUV;
+#ifdef SAGE_GLSL_YUV
+    sailCfg.pixFmt = PIXFMT_YUV;
+#else
     sailCfg.pixFmt = PIXFMT_8888_INV;
+#endif
     //sailCfg.rowOrd = BOTTOM_TO_TOP;
     sailCfg.rowOrd = TOP_TO_BOTTOM;
     sailCfg.master = true;
