@@ -35,13 +35,7 @@ struct state_sdl {
 	int			 image_display, image_network;
 	/* Thread related information follows... */
 	pthread_t		 thread_id;
-	pthread_mutex_t		 lock;
-	pthread_cond_t		 boss_cv;
-	pthread_cond_t		 worker_cv;
 	sem_t			 semaphore;
-	int			 work_to_do;
-	int			 boss_waiting;
-	int			 worker_waiting;
 	/* For debugging... */
 	uint32_t		 magic;	
 };
@@ -68,24 +62,7 @@ void yuv2rgba(unsigned char *buffer, unsigned char *rgbBuf);
 
 int display_sage_handle_events(void)
 {
-#if 0
-	SDL_Event	sdl_event;
-	while (SDL_PollEvent(&sdl_event)) {
-		switch (sdl_event.type) {
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
-				if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
-					kill(0, SIGINT);
-				}
-				break;
-
-			default:
-				break;
-		}
-	}
-#endif
 	return 0;
-
 }
 
 /* TODO:
@@ -456,8 +433,6 @@ void * display_sage_init(void)
 
 	//iopl(3);
 
-	debug_msg("Window initialized %p\n", s);
-
     /** yuv2rgb constants init */
     posix_memalign((void *)&_YUV_Coef, 16, 80+32);
     _YUV_Coef[0] = _YUV_Coef[1] = _YUV_Coef[2] = _YUV_Coef[3] = 0x01990199;// RED_v 1.596
@@ -480,33 +455,19 @@ void * display_sage_init(void)
 
     /* sage init */
     //FIXME sem se musi propasovat ty spravne parametry argc argv
-    int appID;
-//	if (argc < 2)
-	    appID = 0;
-//	else
-//        appID = atoi(argv[1]);
-	   
-	int nodeID;
-//	if (argc < 3)
-        nodeID = 1;
-//	else
-//       nodeID = atoi(argv[2]);
+    int appID = 0;
+	int nodeID = 1;
     initSage(appID, nodeID);
     s->outBuffer = sage_getBuffer();
 
     /* thread init */
-	pthread_mutex_init(&s->lock, NULL);
-	pthread_cond_init(&s->boss_cv, NULL);
-	pthread_cond_init(&s->worker_cv, NULL);
 	sem_init(&s->semaphore, 0, 0);
-	s->work_to_do     = FALSE;
-	s->boss_waiting   = FALSE;
-	s->worker_waiting = TRUE;
 	if (pthread_create(&(s->thread_id), NULL, display_thread_sage, (void *) s) != 0) {
 		perror("Unable to create display thread\n");
 		return NULL;
 	}
 
+	debug_msg("Window initialized %p\n", s);
 	return (void *)s;
 }
 
@@ -537,7 +498,7 @@ int display_sage_putf(void *state, char *frame)
 	tmp = s->image_display;
 	s->image_display = s->image_network;
 	s->image_network = tmp;
-	s->work_to_do    = TRUE;
+	//s->work_to_do    = TRUE;
 
 	/* ...and signal the worker */
 	sem_post(&s->semaphore);
