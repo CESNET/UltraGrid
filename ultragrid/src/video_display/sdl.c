@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.7 $
- * $Date: 2007/12/14 17:11:57 $
+ * $Revision: 1.8 $
+ * $Date: 2008/03/05 18:29:24 $
  *
  */
 
@@ -96,13 +96,7 @@ struct state_sdl {
 	int			 xv_port;
 	/* Thread related information follows... */
 	pthread_t		 thread_id;
-	pthread_mutex_t		 lock;
-	pthread_cond_t		 boss_cv;
-	pthread_cond_t		 worker_cv;
-	sem_t			 semaphore;
-	int			 work_to_do;
-	int			 boss_waiting;
-	int			 worker_waiting;
+    sem_t                    semaphore;
 	/* For debugging... */
 	uint32_t		 magic;	
 
@@ -365,13 +359,7 @@ display_sdl_init(void)
 
 	asm("emms\n");
 
-	pthread_mutex_init(&s->lock, NULL);
-	pthread_cond_init(&s->boss_cv, NULL);
-	pthread_cond_init(&s->worker_cv, NULL);
 	sem_init(&s->semaphore, 0, 0);
-	s->work_to_do     = FALSE;
-	s->boss_waiting   = FALSE;
-	s->worker_waiting = TRUE;
 
 	debug_msg("Window initialized %p\n", s);
 
@@ -506,7 +494,6 @@ display_sdl_putf(void *state, char *frame)
 	tmp = s->image_display;
 	s->image_display = s->image_network;
 	s->image_network = tmp;
-	s->work_to_do    = TRUE;
 
 	/* ...and signal the worker */
 	sem_post(&s->semaphore);

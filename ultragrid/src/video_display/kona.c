@@ -31,13 +31,7 @@ struct state_kona {
 
         /* Thread related information follows... */
         pthread_t               thread_id;
-        pthread_mutex_t         lock;
-        pthread_cond_t          boss_cv;
-        pthread_cond_t          worker_cv;
         sem_t                   semaphore;
-        int                     work_to_do;
-        int                     boss_waiting;
-        int                     worker_waiting;	
 
 	uint32_t		magic;
 };
@@ -119,7 +113,6 @@ display_kona_putf(void *state, char *frame)
         tmp = s->image_display;
         s->image_display = s->image_network;
         s->image_network = tmp;
-        s->work_to_do    = TRUE;
                                                                     
         /* ...and signal the worker */
         sem_post(&s->semaphore);
@@ -242,16 +235,10 @@ display_kona_init(void)
 	}
 	
 
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->boss_cv, NULL);
-        pthread_cond_init(&s->worker_cv, NULL);
         ret = sem_init(&s->semaphore, 0, 0);
 	if (ret != 0) {
 		perror(sem_init);
 	}
-        s->work_to_do     = FALSE;
-        s->boss_waiting   = FALSE;
-        s->worker_waiting = TRUE;
 
         s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
         s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
