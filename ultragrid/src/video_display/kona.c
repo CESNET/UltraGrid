@@ -55,20 +55,21 @@ display_thread_kona(void *arg)
 	struct			timeval t, t0;
 
 	
-	while (1) {
-		sem_wait(&s->semaphore);
+	imageDesc = (ImageDescriptionHandle)NewHandle(0);
+	ret = DecompressSequenceBegin(&(s->seqID), imageDesc, s->gworld, NULL, NULL,
+					NULL, srcCopy, NULL, 0, codecNormalQuality, bestSpeedCodec);
+	if (ret != noErr) {
+		fprintf(stderr, "Failed DecompressSequenceBeginS\n");
+	}
+	DisposeHandle((Handle)imageDesc);
 
+	while (1) {
+		ret = sem_wait(&s->semaphore);
+		if (ret != 0) {
+			perror("sem_wait");
+		}
 		/* TODO */
 		// memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), s->buffers[s->image_display], hd_size_x*hd_size_y*hd_color_bpp);
-
-		imageDesc = (ImageDescriptionHandle)NewHandle(0);
-		ret = DecompressSequenceBegin(&(s->seqID), imageDesc, s->gworld, NULL, NULL,
-						NULL, srcCopy, NULL, 0, codecNormalQuality, bestSpeedCodec);
-		if (ret != noErr) {
-			fprintf(stderr, "Failed DecompressSequenceBeginS\n");
-			return NULL;
-		}
-		DisposeHandle((Handle)imageDesc);
 
 		ret = DecompressSequenceFrameWhen(s->seqID,
 						  s->buffers[s->image_display],
@@ -79,9 +80,8 @@ display_thread_kona(void *arg)
 						  nil);
 		if (ret != noErr) {
 			fprintf(stderr, "Failed DecompressSequenceFrameWhen\n");
-			return NULL;
 		}
-
+		
 		frames++;
 		gettimeofday(&t, NULL);
 		double seconds = tv_diff(t, t0);    
@@ -245,14 +245,17 @@ display_kona_init(void)
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
         pthread_cond_init(&s->worker_cv, NULL);
-        sem_init(&s->semaphore, 0, 0);
+        ret = sem_init(&s->semaphore, 0, 0);
+	if (ret != 0) {
+		perror(sem_init);
+	}
         s->work_to_do     = FALSE;
         s->boss_waiting   = FALSE;
         s->worker_waiting = TRUE;
 
         s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
-        s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);	
-	
+        s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
+
 	s->image_network = 0;
 	s->image_display = 1;
 
