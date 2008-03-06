@@ -11,7 +11,7 @@
 
 #include "compat/platform_semaphore.h"
 
-void platform_sem_init(void * semStructure, int pshared, int initialValue)
+inline void platform_sem_init(void * semStructure, int pshared, int initialValue)
 {
     #ifdef HAVE_MACOSX
     UNUSED(pshared);
@@ -21,7 +21,7 @@ void platform_sem_init(void * semStructure, int pshared, int initialValue)
     #endif /* HAVE_MACOSX */
 }
 
-void platform_sem_post(void * semStructure)
+inline void platform_sem_post(void * semStructure)
 {
     #ifdef HAVE_MACOSX
     semaphore_signal(*((semaphore_t *)semStructure));
@@ -30,7 +30,7 @@ void platform_sem_post(void * semStructure)
     #endif /* HAVE_MACOSX */
 }
 
-void platform_sem_wait(void * semStructure)
+inline void platform_sem_wait(void * semStructure)
 {
     #ifdef HAVE_MACOSX
     semaphore_wait(*((semaphore_t *)semStructure));
