@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.11 $
-# $Date: 2008/02/18 20:17:36 $
+# $Revision: 1.12 $
+# $Date: 2008/03/06 12:55:51 $
 #
 
 AR        = ar
@@ -63,6 +63,7 @@ OBJS      = src/bitstream.o \
             src/rtp/net_udp.o \
             src/rtp/rtp.o \
             src/rtp/rtp_callback.o \
+	    src/compat/platform_semaphore.o \
             src/crypto/crypt_aes.o \
             src/crypto/crypt_aes_impl.o \
             src/crypto/crypt_des.o \

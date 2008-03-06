@@ -9,7 +9,7 @@
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
 
-#include <semaphore.h>
+#include "compat/platform_semaphore.h"
 #include <signal.h>
 #include <pthread.h>
 #include <assert.h>
@@ -29,6 +29,7 @@ struct state_kona {
 	char			*buffers[2];
 	int			image_display, image_network;
 
+	int			frames_to_process;
         /* Thread related information follows... */
         pthread_t               thread_id;
         sem_t                   semaphore;
@@ -58,10 +59,9 @@ display_thread_kona(void *arg)
 	DisposeHandle((Handle)imageDesc);
 
 	while (1) {
-		ret = sem_wait(&s->semaphore);
-		if (ret != 0) {
-			perror("sem_wait");
-		}
+		platform_sem_wait(&s->semaphore);
+		s->frames_to_process--;
+
 		/* TODO */
 		// memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), s->buffers[s->image_display], hd_size_x*hd_size_y*hd_color_bpp);
 
@@ -85,7 +85,6 @@ display_thread_kona(void *arg)
 			t0 = t;
 			frames = 0;
 		}
-
 	}
 
 	return NULL;
@@ -115,9 +114,9 @@ display_kona_putf(void *state, char *frame)
         s->image_network = tmp;
                                                                     
         /* ...and signal the worker */
-        sem_post(&s->semaphore);
-        sem_getvalue(&s->semaphore, &tmp);
-        if(tmp > 1)
+        platform_sem_post(&s->semaphore);
+	s->frames_to_process++;
+        if(s->frames_to_process > 1)
                 printf("frame drop!\n");
         return 0;
 
@@ -140,6 +139,7 @@ display_kona_init(void)
 	s->magic = KONA_MAGIC;
 	s->videoDisplayComponentInstance = 0;
 	s->seqID = 0;
+	s->frames_to_process = 0;
 
 	InitCursor();
 	EnterMovies();
@@ -235,10 +235,7 @@ display_kona_init(void)
 	}
 	
 
-        ret = sem_init(&s->semaphore, 0, 0);
-	if (ret != 0) {
-		perror(sem_init);
-	}
+        platform_sem_init(&s->semaphore, 0, 0);
 
         s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
         s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);

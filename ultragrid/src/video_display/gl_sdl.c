@@ -17,7 +17,7 @@
 #include <GL/glext.h>
 #endif /* HAVE_MACOSX */
 #include <SDL/SDL.h>
-#include <semaphore.h>
+#include "compat/platform_semaphore.h"
 #include <signal.h>
 #include <assert.h>
 #include <pthread.h>
@@ -156,7 +156,7 @@ void * display_gl_init(void)
 
     asm("emms\n");
 
-    sem_init(&s->semaphore, 0, 0);
+    platform_sem_init(&s->semaphore, 0, 0);
     if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
         perror("Unable to create display thread\n");
         return NULL;
@@ -445,7 +445,7 @@ static void * display_thread_gl(void *arg)
     while(1) {
         GLubyte *line1, *line2;
         display_gl_handle_events(s);
-        sem_wait(&s->semaphore);
+        platform_sem_wait(&s->semaphore);
 
 	
 	/* 10-bit YUV ->8 bit YUV [I think...] */
@@ -797,7 +797,7 @@ int display_gl_putf(void *state, unsigned char *frame)
         s->image_network = tmp;
 
         /* ...and signal the worker */
-        sem_post(&s->semaphore);
+        platform_sem_post(&s->semaphore);
         sem_getvalue(&s->semaphore, &tmp);
         if(tmp > 1)
                 printf("frame drop!\n");

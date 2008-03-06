@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2008/03/06 12:55:51 $
  *
  */
 
@@ -88,8 +88,7 @@ process_rr(struct rtp *session, rtp_event *e)
 		/* other users of the network.                                   */
 		fract_lost = (r->fract_lost * 100.0) / 256.0;	/* percentage lost packets */
 		if (fract_lost > 20) {	
-			printf("Receiver 0x%08x reports excessive congestion, exiting\n", e->ssrc);
-			//exit(1);
+			printf("Receiver 0x%08x reports excessive congestion\n", e->ssrc);
 		}
 
 		/* Compute network round-trip time:                              */

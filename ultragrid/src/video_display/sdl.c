@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.8 $
- * $Date: 2008/03/05 18:29:24 $
+ * $Revision: 1.9 $
+ * $Date: 2008/03/06 12:55:51 $
  *
  */
 
@@ -66,7 +66,7 @@
 #include <sys/io.h>
 #endif /* HAVE_MACOSX */
 #include <sys/time.h>
-#include <semaphore.h>
+#include "compat/platform_semaphore.h"
 
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
@@ -96,7 +96,7 @@ struct state_sdl {
 	int			 xv_port;
 	/* Thread related information follows... */
 	pthread_t		 thread_id;
-    sem_t                    semaphore;
+    	sem_t                    semaphore;
 	/* For debugging... */
 	uint32_t		 magic;	
 
@@ -280,7 +280,7 @@ display_thread_sdl(void *arg)
 		char *line1, *line2;
 		display_sdl_handle_events();
 
-		sem_wait(&s->semaphore);
+		platform_sem_wait(&s->semaphore);
 
 		assert(s->vw_image != NULL);
 
@@ -359,7 +359,7 @@ display_sdl_init(void)
 
 	asm("emms\n");
 
-	sem_init(&s->semaphore, 0, 0);
+	platform_sem_init(&s->semaphore, 0, 0);
 
 	debug_msg("Window initialized %p\n", s);
 
@@ -496,7 +496,7 @@ display_sdl_putf(void *state, char *frame)
 	s->image_network = tmp;
 
 	/* ...and signal the worker */
-	sem_post(&s->semaphore);
+	platform_sem_post(&s->semaphore);
 	sem_getvalue(&s->semaphore, &tmp);
 	if(tmp > 1) 
 		printf("frame drop!\n");
