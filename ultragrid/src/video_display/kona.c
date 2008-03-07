@@ -37,6 +37,7 @@ struct state_kona {
 	uint32_t		magic;
 };
 
+
 static void*
 display_thread_kona(void *arg)
 {
@@ -51,8 +52,19 @@ display_thread_kona(void *arg)
 
 	
 	imageDesc = (ImageDescriptionHandle)NewHandle(0);
-	ret = DecompressSequenceBegin(&(s->seqID), imageDesc, s->gworld, NULL, NULL,
-					NULL, srcCopy, NULL, 0, codecNormalQuality, bestSpeedCodec);
+	ret = DecompressSequenceBeginS(&(s->seqID),
+				       imageDesc,
+				       NULL,
+				       NULL,
+				       s->gworld,
+				       NULL,
+				       NULL,
+				       NULL,
+				       srcCopy,
+				       NULL,
+				       NULL,
+				       codecNormalQuality,
+				       anyCodec);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed DecompressSequenceBeginS\n");
 	}
@@ -65,15 +77,14 @@ display_thread_kona(void *arg)
 		/* TODO */
 		// memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), s->buffers[s->image_display], hd_size_x*hd_size_y*hd_color_bpp);
 
-		ret = DecompressSequenceFrameWhen(s->seqID,
-						  s->buffers[s->image_display],
-						  hd_size_x*hd_size_y*hd_color_bpp,
-						  0,
-						  &ignore,
-						  NULL,
-						  nil);
+		ret = DecompressSequenceFrameS(s->seqID,
+					       s->buffers[s->image_display],
+					       hd_size_x*hd_size_y*hd_color_bpp,
+					       0,
+					       &ignore,
+					       nil);
 		if (ret != noErr) {
-			fprintf(stderr, "Failed DecompressSequenceFrameWhen\n");
+			fprintf(stderr, "Failed DecompressSequenceFrameS: %d\n", ret);
 		}
 		
 		frames++;
@@ -158,9 +169,13 @@ display_kona_init(void)
 		DisposeHandle(componentNameHandle);
 
 		if (strcmp(cName, "AJA")) {
+			fprintf(stdout, "Found video output component: %s\n", cName);
 			s->videoDisplayComponent = c;
 			s->videoDisplayComponentInstance = OpenComponent(s->videoDisplayComponent);
 			break;
+		} else {
+			fprintf(stderr, "AJA Kona3 not found!\n");
+			return NULL;
 		}
 	}
 
@@ -288,6 +303,8 @@ display_kona_done(void *state)
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to close the video output component.\n");
 	}
+
+	DisposeGWorld(s->gworld);
 }
 
 display_colour_t
@@ -325,13 +342,11 @@ display_kona_probe(void)
 
 		int len = *cName++;
 		cName[len] = 0;
-		fprintf(stdout, "Found video output component: %s\n", cName);
 
 		DisposeHandle(componentNameHandle);
 	}
 
 	if (!foundAJAKona) {
-		fprintf(stderr, "AJA Kona3 not found!\n");
 		return NULL;
 	}
 

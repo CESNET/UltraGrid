@@ -125,7 +125,7 @@ void * display_gl_init(void)
     s->magic   = MAGIC_GL;
 
     if (!(s->display = XOpenDisplay(NULL))) {
-	printf("Unable to open display.\n");
+	printf("Unable to open display GL: XOpenDisplay.\n");
 	return NULL;
     }
     
@@ -435,12 +435,15 @@ static void * display_thread_gl(void *arg)
     }
 
     /* Check to see if we have data yet, if not, just chillax */
+    /* TODO: we need some solution (TM) for sem_getvalue on MacOS X */
+#ifndef HAVE_MACOSX
     sem_getvalue(&s->semaphore,&i);
     while(i<1) {
   	display_gl_handle_events(s);
 	usleep(1000);
 	sem_getvalue(&s->semaphore,&i);
     }
+#endif /* HAVE_MACOSX */
 
     while(1) {
         GLubyte *line1, *line2;
