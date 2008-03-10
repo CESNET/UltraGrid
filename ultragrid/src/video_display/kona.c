@@ -51,11 +51,25 @@ display_thread_kona(void *arg)
 	struct			timeval t, t0;
 
 	
-	imageDesc = (ImageDescriptionHandle)NewHandle(0);
+	imageDesc = (ImageDescriptionHandle)NewHandle(sizeof(ImageDescription));
+	
+	platform_sem_wait(&s->semaphore);
+	s->frames_to_process--;
+
+	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
+	(**(ImageDescriptionHandle)imageDesc).cType = 'yuvu';
+	(**(ImageDescriptionHandle)imageDesc).hRes = 72;
+	(**(ImageDescriptionHandle)imageDesc).vRes = 72;
+	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x;
+	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
+	(**(ImageDescriptionHandle)imageDesc).frameCount = 1;
+	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y *hd_color_bpp * 8;
+	(**(ImageDescriptionHandle)imageDesc).depth = hd_color_bpp * 8; /* TODO: litle bit strange */
+
 	ret = DecompressSequenceBeginS(&(s->seqID),
 				       imageDesc,
-				       NULL,
-				       NULL,
+				       s->buffers[s->image_display],
+				       hd_size_x * hd_size_y * hd_color_bpp,
 				       s->gworld,
 				       NULL,
 				       NULL,
