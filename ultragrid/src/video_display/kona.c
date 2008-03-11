@@ -27,6 +27,7 @@ struct state_kona {
 	ImageSequence		seqID;
 
 	char			*buffers[2];
+	char			*outBuffer;
 	int			image_display, image_network;
 
 	int			frames_to_process;
@@ -46,6 +47,9 @@ display_thread_kona(void *arg)
 	ImageDescriptionHandle	imageDesc;
 	CodecFlags		ignore;
 	int			ret;
+	int			i;
+
+	char			*line1, *line2;
 
 	int			frames = 0;
 	struct			timeval t, t0;
@@ -57,18 +61,31 @@ display_thread_kona(void *arg)
 	s->frames_to_process--;
 
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
-	(**(ImageDescriptionHandle)imageDesc).cType = 'yuvu';
+	(**(ImageDescriptionHandle)imageDesc).cType = 'v210';
 	(**(ImageDescriptionHandle)imageDesc).hRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).vRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x;
 	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
 	(**(ImageDescriptionHandle)imageDesc).frameCount = 1;
-	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y *hd_color_bpp * 8;
-	(**(ImageDescriptionHandle)imageDesc).depth = hd_color_bpp * 8; /* TODO: litle bit strange */
+	/* dataSize is specified in bytes. Affects output resolution */
+	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp;
+	//(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange */
+	(**(ImageDescriptionHandle)imageDesc).clutID = -1;
+
+	
+	line1 = s->buffers[s->image_display];
+	line2 = s->outBuffer;
+	for (i = 0; i < 1080; i += 2) {
+		memcpy(line2, line1, hd_size_x * hd_color_bpp);
+		memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
+		line1 += hd_size_x * hd_color_bpp;
+		line2 += hd_size_x * hd_color_bpp * 2;
+	}
+	
 
 	ret = DecompressSequenceBeginS(&(s->seqID),
 				       imageDesc,
-				       s->buffers[s->image_display],
+				       s->outBuffer,
 				       hd_size_x * hd_size_y * hd_color_bpp,
 				       s->gworld,
 				       NULL,
@@ -77,8 +94,8 @@ display_thread_kona(void *arg)
 				       srcCopy,
 				       NULL,
 				       NULL,
-				       codecNormalQuality,
-				       anyCodec);
+				       codecLosslessQuality,
+				       bestSpeedCodec);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed DecompressSequenceBeginS\n");
 	}
@@ -88,14 +105,21 @@ display_thread_kona(void *arg)
 		platform_sem_wait(&s->semaphore);
 		s->frames_to_process--;
 
-		/* TODO */
-		// memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), s->buffers[s->image_display], hd_size_x*hd_size_y*hd_color_bpp);
+		line1 = s->buffers[s->image_display];
+		line2 = s->outBuffer;
+		for (i = 0; i < 1080; i += 2) {
+			memcpy(line2, line1, hd_size_x * hd_color_bpp);
+			memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
+			line1 += hd_size_x * hd_color_bpp;
+			line2 += hd_size_x * hd_color_bpp * 2;
+		}
 
-		ret = DecompressSequenceFrameS(s->seqID,
-					       s->buffers[s->image_display],
+		ret = DecompressSequenceFrameWhen(s->seqID,
+					       s->outBuffer,
 					       hd_size_x*hd_size_y*hd_color_bpp,
 					       0,
 					       &ignore,
+					       NULL,
 					       nil);
 		if (ret != noErr) {
 			fprintf(stderr, "Failed DecompressSequenceFrameS: %d\n", ret);
@@ -137,7 +161,7 @@ display_kona_putf(void *state, char *frame)
         tmp = s->image_display;
         s->image_display = s->image_network;
         s->image_network = tmp;
-                                                                    
+
         /* ...and signal the worker */
         platform_sem_post(&s->semaphore);
 	s->frames_to_process++;
@@ -224,7 +248,7 @@ display_kona_init(void)
 			fprintf(stdout, "  %s; ", (char *)dataPtr);
 
 			/* TODO: this is hardcoded right now */
-			if (strcmp((char *)dataPtr, "AJA Kona 1080i30 10 Bit") == 0) {
+			if (strcmp((char *)dataPtr, "AJA Kona 1080i29.97 10 Bit") == 0) {
 				displayMode = id;
 			}
 
@@ -239,6 +263,24 @@ display_kona_init(void)
 			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVOPixelType, 1, NULL);
 			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
 			fprintf(stdout, "%s\n", (char *)dataPtr);
+
+			QTAtom		decompressorsAtom;
+			int		j = 1;
+			while ((decompressorsAtom = QTFindChildByIndex(modeListAtomContainer, atomDisplay, kQTVODecompressors, j, NULL)) != 0) {
+				atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorType, 1, NULL);
+				ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+				fprintf(stdout, "        Decompressor: %s, ", (char *)dataPtr);
+
+				atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorComponent, 1, NULL);
+				ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+				fprintf(stdout, "%s, ", (char *)dataPtr);
+
+				atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorContinuous, 1, NULL);
+				ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+				fprintf(stdout, "%ld\n", EndianS32_BtoN(dataPtr[0]));
+
+				j++;
+			}
 
 			i++;
 		}
@@ -271,6 +313,8 @@ display_kona_init(void)
 
 	s->image_network = 0;
 	s->image_display = 1;
+
+	s->outBuffer = malloc(hd_size_x*hd_size_y*hd_color_bpp);
 
         if (pthread_create(&(s->thread_id), NULL, display_thread_kona, (void *) s) != 0) {
 		perror("Unable to create display thread\n");
