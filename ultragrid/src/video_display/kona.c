@@ -30,7 +30,6 @@ struct state_kona {
 	char			*outBuffer;
 	int			image_display, image_network;
 
-	int			frames_to_process;
         /* Thread related information follows... */
         pthread_t               thread_id;
         sem_t                   semaphore;
@@ -38,6 +37,30 @@ struct state_kona {
 	uint32_t		magic;
 };
 
+
+char * four_char_decode(int format)
+{
+	static char	fbuf0[32];
+	static char	fbuf1[32];
+	static int	count = 0;
+	char		*fbuf;
+
+	if (count & 1)
+		fbuf = fbuf1;
+	else
+		fbuf = fbuf0;
+	count++;
+
+	if ((unsigned)format < 64) 
+		sprintf(fbuf, "%d", format);
+	else {
+		fbuf[0] = (char)(format >> 24); 
+		fbuf[1] = (char)(format >> 16); 
+		fbuf[2] = (char)(format >> 8); 
+		fbuf[3] = (char)(format >> 0); 
+	}
+	return fbuf;
+}
 
 static void*
 display_thread_kona(void *arg)
@@ -58,21 +81,19 @@ display_thread_kona(void *arg)
 	imageDesc = (ImageDescriptionHandle)NewHandle(sizeof(ImageDescription));
 	
 	platform_sem_wait(&s->semaphore);
-	s->frames_to_process--;
 
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
-	(**(ImageDescriptionHandle)imageDesc).cType = 'v210';
+	(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy';
 	(**(ImageDescriptionHandle)imageDesc).hRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).vRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x;
 	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
-	(**(ImageDescriptionHandle)imageDesc).frameCount = 1;
+	(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
 	/* dataSize is specified in bytes. Affects output resolution */
 	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp;
-	//(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange */
+	(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange */
 	(**(ImageDescriptionHandle)imageDesc).clutID = -1;
 
-	
 	line1 = s->buffers[s->image_display];
 	line2 = s->outBuffer;
 	for (i = 0; i < 1080; i += 2) {
@@ -81,7 +102,6 @@ display_thread_kona(void *arg)
 		line1 += hd_size_x * hd_color_bpp;
 		line2 += hd_size_x * hd_color_bpp * 2;
 	}
-	
 
 	ret = DecompressSequenceBeginS(&(s->seqID),
 				       imageDesc,
@@ -93,9 +113,9 @@ display_thread_kona(void *arg)
 				       NULL,
 				       srcCopy,
 				       NULL,
-				       NULL,
+				       nil,
 				       codecLosslessQuality,
-				       bestSpeedCodec);
+				       anyCodec);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed DecompressSequenceBeginS\n");
 	}
@@ -103,7 +123,6 @@ display_thread_kona(void *arg)
 
 	while (1) {
 		platform_sem_wait(&s->semaphore);
-		s->frames_to_process--;
 
 		line1 = s->buffers[s->image_display];
 		line2 = s->outBuffer;
@@ -113,14 +132,13 @@ display_thread_kona(void *arg)
 			line1 += hd_size_x * hd_color_bpp;
 			line2 += hd_size_x * hd_color_bpp * 2;
 		}
-
-		ret = DecompressSequenceFrameWhen(s->seqID,
+		
+		ret = DecompressSequenceFrameS(s->seqID,
 					       s->outBuffer,
-					       hd_size_x*hd_size_y*hd_color_bpp,
+					       hd_size_x * hd_size_y * hd_color_bpp,
 					       0,
 					       &ignore,
-					       NULL,
-					       nil);
+					       NULL);
 		if (ret != noErr) {
 			fprintf(stderr, "Failed DecompressSequenceFrameS: %d\n", ret);
 		}
@@ -164,9 +182,6 @@ display_kona_putf(void *state, char *frame)
 
         /* ...and signal the worker */
         platform_sem_post(&s->semaphore);
-	s->frames_to_process++;
-        if(s->frames_to_process > 1)
-                printf("frame drop!\n");
         return 0;
 
 }
@@ -188,7 +203,6 @@ display_kona_init(void)
 	s->magic = KONA_MAGIC;
 	s->videoDisplayComponentInstance = 0;
 	s->seqID = 0;
-	s->frames_to_process = 0;
 
 	InitCursor();
 	EnterMovies();
@@ -228,6 +242,15 @@ display_kona_init(void)
 		QTAtomType      type;
 		QTAtomID        id;
 
+		char		*mode;
+
+		/* TODO: this is hardcoded right now */
+		if (bitdepth == 10) {
+			mode = strdup("AJA Kona 1080p29.97 10 Bit");
+		} else {
+			mode = strdup("AJA Kona 1080p29.97   8 Bit");
+		}
+
 		fprintf(stdout, "\nSupported video output modes:\n");
 		while (i < QTCountChildrenOfType(modeListAtomContainer, kParentAtomIsContainer, kQTVODisplayModeItem)) {
 
@@ -247,8 +270,7 @@ display_kona_init(void)
 			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr*)&dataPtr);
 			fprintf(stdout, "  %s; ", (char *)dataPtr);
 
-			/* TODO: this is hardcoded right now */
-			if (strcmp((char *)dataPtr, "AJA Kona 1080i29.97 10 Bit") == 0) {
+			if (strcmp((char *)dataPtr, mode) == 0) {
 				displayMode = id;
 			}
 
@@ -340,6 +362,26 @@ display_kona_init(void)
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to get Kona3 video output instance GWorld.\n");
 		return NULL;
+	}
+
+	ImageDescriptionHandle		gWorldImgDesc = NULL;
+	PixMapHandle			gWorldPixmap = (PixMapHandle)GetGWorldPixMap(s->gworld);
+
+	ret = MakeImageDescriptionForPixMap(gWorldPixmap, &gWorldImgDesc);
+	if (ret == noErr) {
+		fprintf(stdout, "\n\nKona3 gWorld settings:\n");
+		fprintf(stdout, "\tctype: '%s'\n", four_char_decode((**gWorldImgDesc).cType));
+		fprintf(stdout, "\tvendor: 0x%ld\n", (**gWorldImgDesc).vendor);
+		fprintf(stdout, "\twidth: %d\n", (**gWorldImgDesc).width);
+		fprintf(stdout, "\theight: %d\n", (**gWorldImgDesc).height);
+		fprintf(stdout, "\thRes: %ld\n", (**gWorldImgDesc).hRes);
+		fprintf(stdout, "\tvRes: %ld\n", (**gWorldImgDesc).vRes);
+		fprintf(stdout, "\tdataSize: %ld\n", (**gWorldImgDesc).dataSize);
+		fprintf(stdout, "\tframeCount: %d\n", (**gWorldImgDesc).frameCount);
+		fprintf(stdout, "\tname: %s\n", (**gWorldImgDesc).name);
+		fprintf(stdout, "\tdepth: %d\n", (**gWorldImgDesc).depth);
+		fprintf(stdout, "\tclutID: %d\n", (**gWorldImgDesc).clutID);
+		fprintf(stdout, "\n");
 	}
 
 	return (void *) s;
