@@ -37,6 +37,9 @@ struct state_kona {
 	uint32_t		magic;
 };
 
+/* Prototyping */
+char * four_char_decode(int format);
+
 
 char * four_char_decode(int format)
 {
@@ -83,14 +86,13 @@ display_thread_kona(void *arg)
 	platform_sem_wait(&s->semaphore);
 
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
-	(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy';
+	(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
 	(**(ImageDescriptionHandle)imageDesc).hRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).vRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x;
 	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
 	(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
-	/* dataSize is specified in bytes. Affects output resolution */
-	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp;
+	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp; // dataSize is specified in bytes
 	(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange */
 	(**(ImageDescriptionHandle)imageDesc).clutID = -1;
 
@@ -114,12 +116,17 @@ display_thread_kona(void *arg)
 				       srcCopy,
 				       NULL,
 				       nil,
-				       codecLosslessQuality,
-				       anyCodec);
+				       codecNormalQuality,
+				       bestSpeedCodec);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed DecompressSequenceBeginS\n");
 	}
 	DisposeHandle((Handle)imageDesc);
+
+	ICMFrameTimeRecord   frameTime = {{0}};
+
+	frameTime.recordSize = sizeof(frameTime);
+	frameTime.flags = icmFrameTimeDecodeImmediately;
 
 	while (1) {
 		platform_sem_wait(&s->semaphore);
@@ -133,12 +140,13 @@ display_thread_kona(void *arg)
 			line2 += hd_size_x * hd_color_bpp * 2;
 		}
 		
-		ret = DecompressSequenceFrameS(s->seqID,
+		ret = DecompressSequenceFrameWhen(s->seqID,
 					       s->outBuffer,
 					       hd_size_x * hd_size_y * hd_color_bpp,
 					       0,
 					       &ignore,
-					       NULL);
+					       -1, // If you set asyncCompletionProc to -1, the operation is performed asynchronously but the decompressor does not call the completion function.
+					       &frameTime);
 		if (ret != noErr) {
 			fprintf(stderr, "Failed DecompressSequenceFrameS: %d\n", ret);
 		}
