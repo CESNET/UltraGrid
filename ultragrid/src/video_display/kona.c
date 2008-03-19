@@ -86,23 +86,37 @@ display_thread_kona(void *arg)
 	platform_sem_wait(&s->semaphore);
 
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
-	(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
-	(**(ImageDescriptionHandle)imageDesc).hRes = 72; // Does setting hRes and vRes affect anything?
-	(**(ImageDescriptionHandle)imageDesc).vRes = 72;
-	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x;
+	if (bitdepth == 10) {
+		(**(ImageDescriptionHandle)imageDesc).cType = 'v210'; // v210 seems to be a little bit different than 10-bit 4:2:2 uyvy we are sending
+		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * 8/3; // dataSize is specified in bytes and is specified as height*width*bytes_per_luma_instant. v210 sets bytes_per_luma_instant to 8/3. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
+	} else {
+		(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
+		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp; // dataSize is specified in bytes 
+	}
+	(**(ImageDescriptionHandle)imageDesc).hRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
+	(**(ImageDescriptionHandle)imageDesc).vRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
+	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x; // Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs further investigation for 2K!
 	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
 	(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
-	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp; // dataSize is specified in bytes
-	(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange. WTF this means? */
-	(**(ImageDescriptionHandle)imageDesc).clutID = -1;
+	(**(ImageDescriptionHandle)imageDesc).depth = 24; // Given by the cType. See http://developer.apple.com/quicktime/icefloe/dispatch019.html
+	(**(ImageDescriptionHandle)imageDesc).clutID = -1; // We dont use any custom color table
 
 	line1 = s->buffers[s->image_display];
 	line2 = s->outBuffer;
-	for (i = 0; i < 1080; i += 2) {
-		memcpy(line2, line1, hd_size_x * hd_color_bpp);
-		memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
-		line1 += hd_size_x * hd_color_bpp;
-		line2 += hd_size_x * hd_color_bpp * 2;
+	if (bitdepth == 10) {
+		for (i = 0; i < 1080; i += 2) {
+			memcpy(line2, line1, 5120/32);
+			memcpy(line2+3840, line1+5120*540, 5120/32);
+			line1 += 5120;
+			line2 += 2*3840;			
+		}
+	} else {
+		for (i = 0; i < 1080; i += 2) {
+			memcpy(line2, line1, hd_size_x * hd_color_bpp);
+			memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
+			line1 += hd_size_x * hd_color_bpp;
+			line2 += hd_size_x * hd_color_bpp * 2;
+		}
 	}
 
 	ret = DecompressSequenceBeginS(&(s->seqID),
@@ -134,7 +148,7 @@ display_thread_kona(void *arg)
 	frameTime.recordSize = sizeof(frameTime);
 	frameTime.scale = 1000; // Units per second
 	frameTime.base = timeBase; // Specifying a timeBase means that DecompressSequenceFrameWhen must run asynchronously
-	frameTime.duration = 33; // Duration of one frame
+	frameTime.duration = 33; // Duration of one frame specified accordingly to the scale specified above
 	frameTime.frameNumber = 0; // We don't know the frame number
 	frameTime.flags = icmFrameTimeDecodeImmediately;
 
