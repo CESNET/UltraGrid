@@ -87,13 +87,13 @@ display_thread_kona(void *arg)
 
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
 	(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
-	(**(ImageDescriptionHandle)imageDesc).hRes = 72;
+	(**(ImageDescriptionHandle)imageDesc).hRes = 72; // Does setting hRes and vRes affect anything?
 	(**(ImageDescriptionHandle)imageDesc).vRes = 72;
 	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x;
 	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
 	(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
 	(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp; // dataSize is specified in bytes
-	(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange */
+	(**(ImageDescriptionHandle)imageDesc).depth = 24; /* TODO: litle bit strange. WTF this means? */
 	(**(ImageDescriptionHandle)imageDesc).clutID = -1;
 
 	line1 = s->buffers[s->image_display];
@@ -123,9 +123,19 @@ display_thread_kona(void *arg)
 	}
 	DisposeHandle((Handle)imageDesc);
 
-	ICMFrameTimeRecord   frameTime = {{0}};
+	ICMFrameTimeRecord	frameTime = {{0}};
+	TimeBase		timeBase;
+
+	timeBase = NewTimeBase();
+	SetTimeBaseRate(timeBase, 0);
+
+	memset(&frameTime, 0, sizeof(ICMFrameTimeRecord));
 
 	frameTime.recordSize = sizeof(frameTime);
+	frameTime.scale = 1000; // Units per second
+	frameTime.base = timeBase; // Specifying a timeBase means that DecompressSequenceFrameWhen must run asynchronously
+	frameTime.duration = 33; // Duration of one frame
+	frameTime.frameNumber = 0; // We don't know the frame number
 	frameTime.flags = icmFrameTimeDecodeImmediately;
 
 	while (1) {
@@ -140,6 +150,7 @@ display_thread_kona(void *arg)
 			line2 += hd_size_x * hd_color_bpp * 2;
 		}
 		
+		/* TODO: Running DecompressSequenceFrameWhen asynchronously in this way introduces a possible race condition! */
 		ret = DecompressSequenceFrameWhen(s->seqID,
 					       s->outBuffer,
 					       hd_size_x * hd_size_y * hd_color_bpp,
@@ -148,7 +159,7 @@ display_thread_kona(void *arg)
 					       -1, // If you set asyncCompletionProc to -1, the operation is performed asynchronously but the decompressor does not call the completion function.
 					       &frameTime);
 		if (ret != noErr) {
-			fprintf(stderr, "Failed DecompressSequenceFrameS: %d\n", ret);
+			fprintf(stderr, "Failed DecompressSequenceFrameWhen: %d\n", ret);
 		}
 		
 		frames++;
