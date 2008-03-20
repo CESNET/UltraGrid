@@ -101,28 +101,10 @@ display_thread_kona(void *arg)
 	(**(ImageDescriptionHandle)imageDesc).depth = 24; // Given by the cType. See http://developer.apple.com/quicktime/icefloe/dispatch019.html
 	(**(ImageDescriptionHandle)imageDesc).clutID = -1; // We dont use any custom color table
 
-	line1 = s->buffers[s->image_display];
-	line2 = s->outBuffer;
-	if (bitdepth == 10) {
-		for (i = 0; i < 1080; i += 2) {
-			memcpy(line2, line1, 5120/32);
-			memcpy(line2+3840, line1+5120*540, 5120/32);
-			line1 += 5120;
-			line2 += 2*3840;			
-		}
-	} else {
-		for (i = 0; i < 1080; i += 2) {
-			memcpy(line2, line1, hd_size_x * hd_color_bpp);
-			memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
-			line1 += hd_size_x * hd_color_bpp;
-			line2 += hd_size_x * hd_color_bpp * 2;
-		}
-	}
-
 	ret = DecompressSequenceBeginS(&(s->seqID),
 				       imageDesc,
-				       s->outBuffer,
-				       hd_size_x * hd_size_y * hd_color_bpp,
+				       s->buffers[s->image_display],
+				       hd_size_x * hd_size_y * hd_color_bpp, // Size of the buffer, not size of the actual frame data inside
 				       s->gworld,
 				       NULL,
 				       NULL,
@@ -148,7 +130,7 @@ display_thread_kona(void *arg)
 	frameTime.recordSize = sizeof(frameTime);
 	frameTime.scale = 1000; // Units per second
 	frameTime.base = timeBase; // Specifying a timeBase means that DecompressSequenceFrameWhen must run asynchronously
-	frameTime.duration = 33; // Duration of one frame specified accordingly to the scale specified above
+	frameTime.duration = 30; // Duration of one frame specified accordingly to the scale specified above
 	frameTime.frameNumber = 0; // We don't know the frame number
 	frameTime.flags = icmFrameTimeDecodeImmediately;
 
@@ -157,17 +139,27 @@ display_thread_kona(void *arg)
 
 		line1 = s->buffers[s->image_display];
 		line2 = s->outBuffer;
-		for (i = 0; i < 1080; i += 2) {
-			memcpy(line2, line1, hd_size_x * hd_color_bpp);
-			memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
-			line1 += hd_size_x * hd_color_bpp;
-			line2 += hd_size_x * hd_color_bpp * 2;
+		if (bitdepth == 10) {
+			for (i = 0; i < 1080; i += 2) {
+				memcpy(line2, line1, 5120);
+				memcpy(line2+5120, line1+5120*540, 5120);
+				line1 += 5120;
+				line2 += 2*5120;			
+			}
+		} else {
+			for (i = 0; i < 1080; i += 2) {
+				memcpy(line2, line1, hd_size_x * hd_color_bpp);
+				memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
+				line1 += hd_size_x * hd_color_bpp;
+				line2 += hd_size_x * hd_color_bpp * 2;
+			}
 		}
-		
+	
+
 		/* TODO: Running DecompressSequenceFrameWhen asynchronously in this way introduces a possible race condition! */
 		ret = DecompressSequenceFrameWhen(s->seqID,
 					       s->outBuffer,
-					       hd_size_x * hd_size_y * hd_color_bpp,
+					       hd_size_x * hd_size_y * hd_color_bpp, // Size of the buffer, not size of the actual frame data inside					       
 					       0,
 					       &ignore,
 					       -1, // If you set asyncCompletionProc to -1, the operation is performed asynchronously but the decompressor does not call the completion function.
