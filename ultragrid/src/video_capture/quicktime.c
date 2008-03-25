@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.6 $
- * $Date: 2007/12/14 16:18:29 $
+ * $Revision: 1.7 $
+ * $Date: 2008/03/25 09:13:14 $
  *
  */
 
@@ -220,8 +220,14 @@ qt_open_grabber(struct qt_grabber_state *s)
 	/****************************************************************************************/
 	/* Step 1: Create an off-screen graphics world object, into which we can capture video. */
 	/* Lock it into position, to prevent QuickTime from messing with it while capturing.    */
-	/* FIXME: maybe should be kYUVUPixelFormat?                                             */
-	if (QTNewGWorld(&(s->gworld), k2vuyPixelFormat, &(s->bounds), 0, NULL, 0) != noErr) {
+	OSType pixelFormat;
+	if (bitdepth == 10) {
+		pixelFormat = FOUR_CHAR_CODE('v210');
+	} else {
+		pixelFormat = k2vuyPixelFormat;
+	}
+
+	if (QTNewGWorld(&(s->gworld), pixelFormat, &(s->bounds), 0, NULL, 0) != noErr) {
 		debug_msg("Unable to create GWorld\n");
 		return 0;
 	}
