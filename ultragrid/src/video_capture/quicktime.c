@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.7 $
- * $Date: 2008/03/25 09:13:14 $
+ * $Revision: 1.8 $
+ * $Date: 2008/04/03 12:32:49 $
  *
  */
 
@@ -50,6 +50,7 @@
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
+#include <QuickTime/QuickTimeComponents.h>
 
 #define MAGIC_QT_GRABBER	VIDCAP_QUICKTIME_ID
 
@@ -60,6 +61,7 @@ struct qt_grabber_state {
 	Rect			bounds;
 	GWorldPtr		gworld;
 	ImageSequence		seqID;
+	int                     sg_idle_enough;
 };
 
 int frames = 0;
@@ -169,6 +171,8 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 	/* Low latency processing */
 	memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
 
+	s->sg_idle_enough = 1;
+
 	frames++;
 	gettimeofday(&t, NULL);
 	double seconds = tv_diff(t, t0);	
@@ -182,17 +186,22 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 	return 0;
 }
 
-static pascal Boolean
+static Boolean
 SeqGrabberModalFilterProc (DialogPtr theDialog, const EventRecord *theEvent,
 	short *itemHit, long refCon)
 {
-#pragma unused(theDialog, itemHit)
+	UNUSED(theDialog);
+	UNUSED(theEvent);
+	UNUSED(itemHit);
+	UNUSED(refCon);
+
 	// Ordinarily, if we had multiple windows we cared about, we'd handle
 	// updating them in here, but since we don't, we'll just clear out
 	// any update events meant for us
-	
+
+/*	
 	Boolean	handled = false;
-	
+
 	if ((theEvent->what == updateEvt) && 
 		((WindowPtr) theEvent->message == (WindowPtr) refCon))
 	{
@@ -201,13 +210,16 @@ SeqGrabberModalFilterProc (DialogPtr theDialog, const EventRecord *theEvent,
 		handled = true;
 	}
 	return (handled);
+*/
+	return false;
 }
 
 /* Initialize the QuickTime grabber */
 static int
 qt_open_grabber(struct qt_grabber_state *s)
 {
-	SGModalFilterUPP	seqGragModalFilterUPP;
+	WindowPtr		gMonitor;
+	SGModalFilterUPP	seqGrabModalFilterUPP;
 
 	assert (s        != NULL);
 	assert (s->magic == MAGIC_QT_GRABBER);
@@ -216,6 +228,8 @@ qt_open_grabber(struct qt_grabber_state *s)
 	/* Step 0: Initialise the QuickTime movie toolbox.                                      */
 	InitCursor();
 	EnterMovies();
+
+	gMonitor = (WindowPtr)GetNewDialog (1000, nil, (WindowPtr) -1L); // kMonitorDLOGID = 1000
 
 	/****************************************************************************************/
 	/* Step 1: Create an off-screen graphics world object, into which we can capture video. */
@@ -293,20 +307,24 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
-	if (SGSetChannelUsage(s->video_channel, seqGrabRecord | seqGrabAlwaysUseTimeBase | seqGrabLowLatencyCapture) != noErr) {
+	if (SGSetChannelUsage(s->video_channel, seqGrabRecord | seqGrabPreview | seqGrabAlwaysUseTimeBase | seqGrabLowLatencyCapture) != noErr) {
 		debug_msg("Unable to set channel usage\n");
 		return 0;
 	}
 
+	SGPause(s->grabber, true);
+
 	SGStartPreview(s->grabber);
 
 	if (s->video_channel) {
-	seqGragModalFilterUPP = (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc);
-		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0, seqGragModalFilterUPP, 0);
-	DisposeSGModalFilterUPP(seqGragModalFilterUPP);
+//		seqGrabModalFilterUPP = (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc);
+		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0L, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)(gMonitor));
+//		DisposeSGModalFilterUPP(seqGrabModalFilterUPP);
 	}
 
 	SGUpdate(s->grabber, 0);	
+
+	SGPause(s->grabber, true);
 
 	/****************************************************************************************/
 	/* Step ?: Set the data procedure, which processes the frames as they're captured.      */
@@ -368,6 +386,7 @@ vidcap_quicktime_init (int fps)
 		s->bounds.left   = 0;
 		s->bounds.bottom = hd_size_y;
 		s->bounds.right  = hd_size_x;
+		s->sg_idle_enough = 0;
 
 		qt_open_grabber (s);
 	}
@@ -386,8 +405,8 @@ vidcap_quicktime_done (void *state)
 	if (s!= NULL) {
 		assert(s->magic != MAGIC_QT_GRABBER);
 		SGStop(s->grabber);
-		CloseComponent (s->grabber);
 		UnlockPixels(GetPortPixMap(s->gworld));
+		CloseComponent(s->grabber);
 		DisposeGWorld(s->gworld);
 		ExitMovies();
 		free (s);
@@ -400,15 +419,17 @@ vidcap_quicktime_grab (void *state)
 {
 	struct qt_grabber_state	*s	= (struct qt_grabber_state*) state;
 	struct video_frame	*vf;
-	int attempt;
-	int maxattempts = 5;
 
 	assert (s	 != NULL);
 	assert (s->magic == MAGIC_QT_GRABBER);
 
 	/* Run the QuickTime sequence grabber idle function, which provides */
 	/* processor time to out data proc running as a callback.           */
-	for (attempt = 0; attempt < maxattempts; attempt++) { 
+
+	/* The while loop done in this way is also sort of nice bussy waiting */
+	/* and synchronizes capturing and sending.			      */
+	s->sg_idle_enough = 0;
+	while(!s->sg_idle_enough) {
 		if (SGIdle(s->grabber) != noErr) {
 			debug_msg("Error in SGIDle\n");
 			return NULL;
