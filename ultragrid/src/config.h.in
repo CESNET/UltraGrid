@@ -3,6 +3,7 @@
  * Define OS
  */
 #undef HAVE_MACOSX
+#undef HAVE_MACOSX_LEOPARD
 
 /* Define to 1 if you have SDL. */
 #undef HAVE_SDL

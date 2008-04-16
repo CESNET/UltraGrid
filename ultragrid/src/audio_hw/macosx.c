@@ -17,6 +17,9 @@
 #include <AudioToolbox/DefaultAudioOutput.h>
 #include <AudioToolbox/AudioConverter.h>
 #include <CoreAudio/CoreAudio.h>
+#ifdef HAVE_MACOSX_LEOPARD
+#include <AudioUnit/AUNTComponent.h>
+#endif /* HAVE_MACOSX_LEOPARD */
 
 struct device
 {

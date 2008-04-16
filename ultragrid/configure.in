@@ -21,8 +21,13 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 LINKER=
 
 case "$host_os" in
-	*darwin*)
+	*darwin8*)
 		AC_DEFINE(HAVE_MACOSX)
+		LINKER=$CXX
+	;;
+	*darwin9*)
+		AC_DEFINE(HAVE_MACOSX)
+		AC_DEFINE(HAVE_MACOSX_LEOPARD)
 		LINKER=$CXX
 	;;
 	*)
@@ -399,7 +404,14 @@ case "$host_os" in
 
 		if test $FOUND_GL_L = yes
 		then
-			LIBS="$LIBS -framework OpenGL"			
+			case "$host_os" in
+			*darwin8*)
+				LIBS="$LIBS -framework OpenGL"
+			;;
+			*darwin9*)
+				LIBS="$LIBS -framework OpenGL -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
+			;;
+			esac
 
 			FOUND_GLEW_L=no
 			AC_CHECK_HEADERS([/opt/local/include/GL/glew.h],
