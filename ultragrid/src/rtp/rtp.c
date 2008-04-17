@@ -12,10 +12,10 @@
  * the IETF audio/video transport working group. Portions of the code are
  * derived from the algorithms published in that specification.
  *
- * $Revision: 1.1 $ 
+ * $Revision: 1.2 $ 
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
- * $Date: 2007/11/08 09:48:59 $
+ * $Date: 2008/04/17 16:23:58 $
  * 
  * Copyright (c) 1998-2001 University College London
  * All rights reserved.
@@ -1370,7 +1370,7 @@ rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 		buffer   = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
 	}
 
-	buflen = udp_recv(session->rtp_socket, buffer, RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
+	buflen = udp_recv(session->rtp_socket, (char *)buffer, RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
 	if (buflen > 0) {
 		if (session->encryption_enabled) {
 			uint8_t 	 initVec[8] = {0,0,0,0,0,0,0,0};
@@ -1416,7 +1416,7 @@ rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 			packet->extn_len  = 0;
 			packet->extn_type = 0;
 		}
-		packet->data     = buffer_vlen + (packet->cc * 4);
+		packet->data     = (char *)(buffer_vlen + (packet->cc * 4));
 		packet->data_len = buflen -  (packet->cc * 4) - vlen;
 		if (packet->extn != NULL) {
 			packet->data += ((packet->extn_len + 1) * 4);
@@ -2013,7 +2013,7 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 		if (udp_fd_isset(session->rtcp_socket)) {
                         uint8_t		 buffer[RTP_MAX_PACKET_LEN];
                         int		 buflen;
-                        buflen = udp_recv(session->rtcp_socket, buffer, RTP_MAX_PACKET_LEN);
+                        buflen = udp_recv(session->rtcp_socket, (char *)buffer, RTP_MAX_PACKET_LEN);
 			ntp64_time(&tmp_sec, &tmp_frac);
 			rtp_process_ctrl(session, buffer, buflen);
 		}
@@ -2791,7 +2791,7 @@ static void send_rtcp(struct rtp *session, uint32_t rtp_ts,
 		}
  		(session->encrypt_func)(session, buffer, ptr - buffer, initVec); 
 	}
-	rc = udp_send(session->rtcp_socket, buffer, ptr - buffer);
+	rc = udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
 	if (rc == -1) {
 		perror("sending RTCP packet");
 	}
@@ -2978,7 +2978,7 @@ static void rtp_send_bye_now(struct rtp *session)
 		assert(((ptr - buffer) % session->encryption_pad_length) == 0);
 		(session->encrypt_func)(session, buffer, ptr - buffer, initVec);
 	}
-	udp_send(session->rtcp_socket, buffer, ptr - buffer);
+	udp_send(session->rtcp_socket, (char *)buffer, ptr - buffer);
 	/* Loop the data back to ourselves so local participant can */
 	/* query own stats when using unicast or multicast with no  */
 	/* loopback.                                                */
@@ -3041,7 +3041,7 @@ void rtp_send_bye(struct rtp *session)
 			udp_fd_set(session->rtcp_socket);
 			if ((udp_select(&timeout) > 0) && udp_fd_isset(session->rtcp_socket)) {
 				/* We woke up because an RTCP packet was received; process it... */
-				buflen = udp_recv(session->rtcp_socket, buffer, RTP_MAX_PACKET_LEN);
+				buflen = udp_recv(session->rtcp_socket, (char *)buffer, RTP_MAX_PACKET_LEN);
 				rtp_process_ctrl(session, buffer, buflen);
 			}
 			/* Is it time to send our BYE? */
@@ -3265,7 +3265,7 @@ static int des_initialize(struct rtp *session, u_char *hash, int hashlen)
 static int des_encrypt(struct rtp *session, unsigned char *data,
 		unsigned int size, unsigned char *initVec)
 {
-    qfDES_CBC_e(session->crypto_state.des.encryption_key,
+    qfDES_CBC_e((unsigned char *)session->crypto_state.des.encryption_key,
 		data, size, initVec);
     return TRUE;
 }
@@ -3273,7 +3273,7 @@ static int des_encrypt(struct rtp *session, unsigned char *data,
 static int des_decrypt(struct rtp *session, unsigned char *data,
 		unsigned int size, unsigned char *initVec)
 {
-    qfDES_CBC_d(session->crypto_state.des.encryption_key,
+    qfDES_CBC_d((unsigned char *)session->crypto_state.des.encryption_key,
 		data, size, initVec);
     return TRUE;
 }

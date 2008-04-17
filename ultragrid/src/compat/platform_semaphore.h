@@ -5,6 +5,8 @@
 #include <mach/task.h>
 
 typedef semaphore_t sem_t;
+#else
+#include <semaphore.h>
 #endif /* HAVE_MACOSX */
 
 inline void platform_sem_init(void * semStructure, int pshared, int initialValue);

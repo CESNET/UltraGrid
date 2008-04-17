@@ -80,7 +80,7 @@ OSStatus aglInitEntryPoints (void)
         //DebugStr ("\nCould not find frameworks folder");
         return err;
     }
-    err = PBMakeFSRefSync (&fileRefParam); // make FSRef for folder
+    err = PBGetCatalogInfoSync (&fileRefParam); // make FSRef for folder
     if (noErr != err) {
         //DebugStr ("\nCould make FSref to frameworks folder");
         return err;

@@ -245,7 +245,7 @@ void compress_data(void *args, struct video_frame * tx)
 	int i;
 	unsigned char *line1,*line2;
 
-	line1=tx->data;
+	line1=(unsigned char *)tx->data;
 	line2=compress->output_data;
 	/* First 10->8 bit conversion */
 	if (bitdepth == 10) {
@@ -288,7 +288,7 @@ void compress_data(void *args, struct video_frame * tx)
 		}
 	}
 
-	tx->data=compress->out;
+	tx->data=(char *)compress->out;
 	tx->colour_mode=DXT_1080;
 	tx->data_len=total;
 }

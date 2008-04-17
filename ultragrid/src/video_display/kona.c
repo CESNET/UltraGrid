@@ -111,7 +111,7 @@ display_thread_kona(void *arg)
 				       NULL,
 				       srcCopy,
 				       NULL,
-				       nil,
+				       (CodecFlags)NULL,
 				       codecNormalQuality,
 				       bestSpeedCodec);
 	if (ret != noErr) {

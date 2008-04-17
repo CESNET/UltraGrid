@@ -43,21 +43,21 @@ struct state_sdl {
         int             vw_depth;
         SDL_Overlay     *vw_image;
         GLubyte         *buffers[2];
-		GLubyte			*outbuffer;
-		GLubyte			*y, *u, *v;	//Guess what this might be...
-		char*			 VSHandle,FSHandle,PHandle;
+	GLubyte		*outbuffer;
+	GLubyte		*y, *u, *v;	//Guess what this might be...
+	GLhandleARB	VSHandle,FSHandle,PHandle;
         int             image_display, image_network;
-		GLuint  			texture[4];
+	GLuint  	texture[4];
         /* Thread related information follows... */
-        pthread_t                thread_id;
-        sem_t                    semaphore;
+        pthread_t       thread_id;
+        sem_t           semaphore;
         /* For debugging... */
-        uint32_t                 magic;
+        uint32_t        magic;
 
-        SDL_Surface             *sdl_screen;
-        SDL_Rect                rect;
+        SDL_Surface     *sdl_screen;
+        SDL_Rect        rect;
 
-	char *FProgram,*VProgram;
+	char		*FProgram,*VProgram;
 };
 
 /* Prototyping */
@@ -172,9 +172,9 @@ void dxt_arb_init(void *arg)
 
     /* Compile Shader */
     assert(s->FProgram!=NULL);
-    glShaderSourceARB(s->FSHandle,1,&(s->FProgram),NULL);
+    glShaderSourceARB(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
     glCompileShaderARB(s->FSHandle);
-    glShaderSourceARB(s->VSHandle,1,&(s->VProgram),NULL);
+    glShaderSourceARB(s->VSHandle,1,(const GLcharARB**)&(s->VProgram),NULL);
     glCompileShaderARB(s->VSHandle);
 
     /* Print compile log */
@@ -210,7 +210,7 @@ void glsl_dxt_init(void *arg)
 	s->PHandle=glCreateProgram();
 	s->FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
 
-	glShaderSource(s->FSHandle,1,&(s->FProgram),NULL);
+	glShaderSource(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
 	glCompileShader(s->FSHandle);
 
 	glAttachShader(s->PHandle,s->FSHandle);
@@ -431,7 +431,7 @@ static void * display_thread_dxt(void *arg)
                         if (t - T0 >= 5000) {
                         GLfloat seconds = (t - T0) / 1000.0;
                         GLfloat fps = Frames / seconds;
-                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n", Frames, seconds, fps);
+                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n", (int)Frames, seconds, fps);
                         T0 = t;
                         Frames = 0;
                         }
@@ -484,14 +484,14 @@ void display_dxt_done(void *state)
         SDL_Quit();
 }
 	
-unsigned char* display_dxt_getf(void *state)
+char* display_dxt_getf(void *state)
 {
         struct state_sdl *s = (struct state_sdl *) state;
         assert(s->magic == MAGIC_DXT);
-        return (unsigned char *)s->buffers[s->image_network];
+        return (char *)s->buffers[s->image_network];
 }
 
-int display_dxt_putf(void *state, unsigned char *frame)
+int display_dxt_putf(void *state, char *frame)
 {
         int tmp;
         struct state_sdl *s = (struct state_sdl *) state;

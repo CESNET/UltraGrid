@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.9 $
- * $Date: 2008/03/06 12:55:51 $
+ * $Revision: 1.10 $
+ * $Date: 2008/04/17 16:23:58 $
  *
  */
 
@@ -89,7 +89,7 @@ struct state_sdl {
 	int			 vw_depth;
 	Visual			*vw_visual;
 	SDL_Overlay		*vw_image;
-	char			*buffers[2];
+	unsigned char			*buffers[2];
 	XShmSegmentInfo		 vw_shm_segment[2];
 	int			 image_display, image_network;
 	XvAdaptorInfo		*ai;
@@ -277,7 +277,7 @@ display_thread_sdl(void *arg)
 	int i;
 
 	while (1) {
-		char *line1, *line2;
+		unsigned char *line1, *line2;
 		display_sdl_handle_events();
 
 		platform_sem_wait(&s->semaphore);
