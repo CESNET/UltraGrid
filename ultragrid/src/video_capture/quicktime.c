@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.8 $
- * $Date: 2008/04/03 12:32:49 $
+ * $Revision: 1.9 $
+ * $Date: 2008/04/18 15:34:53 $
  *
  */
 
@@ -323,8 +323,6 @@ qt_open_grabber(struct qt_grabber_state *s)
 	}
 
 	SGUpdate(s->grabber, 0);	
-
-	SGPause(s->grabber, true);
 
 	/****************************************************************************************/
 	/* Step ?: Set the data procedure, which processes the frames as they're captured.      */
