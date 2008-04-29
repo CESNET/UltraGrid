@@ -456,13 +456,13 @@ static void * display_thread_gl(void *arg)
 	line2 = s->outbuffer;
 	if (bitdepth == 10) {	
 		for(j=0;j<HD_HEIGHT;j+=2){
-#ifdef HAVE_MACOSX
+#if (HAVE_MACOSX || HAVE_32B_LINUX)
 		    gl_copyline64(line2, line1, 5120/32);
 		    gl_copyline64(line2+3840, line1+5120*540, 5120/32);
-#else /* HAVE_MACOSX */			
+#else /* (HAVE_MACOSX || HAVE_32B_LINUX) */			
 		    gl_copyline128(line2, line1, 5120/32);
 		    gl_copyline128(line2+3840, line1+5120*540, 5120/32);
-#endif /* HAVE_MACOSX */ 		    
+#endif /* HAVE_MACOSX || HAVE_32B_LINUX) */ 		    
 		    line1 += 5120;
 		    line2 += 2*3840;
 		}
@@ -676,7 +676,7 @@ inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len)
 	}
 }
 
-#ifndef HAVE_MACOSX
+#if !(HAVE_MACOSX || HAVE_32B_LINUX)
 
 inline void gl_copyline128(GLubyte *d, GLubyte *s, int len)
 {
@@ -735,7 +735,7 @@ inline void gl_copyline128(GLubyte *d, GLubyte *s, int len)
         }
 }
 
-#endif /* HAVE_MACOSX */
+#endif /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
 display_type_t *display_gl_probe(void)
 {

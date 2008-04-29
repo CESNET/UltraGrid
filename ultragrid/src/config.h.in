@@ -5,6 +5,9 @@
 #undef HAVE_MACOSX
 #undef HAVE_MACOSX_LEOPARD
 
+#undef HAVE_64B_LINUX
+#undef HAVE_32B_LINUX
+
 /* Define to 1 if you have SDL. */
 #undef HAVE_SDL
 

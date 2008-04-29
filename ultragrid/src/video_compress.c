@@ -47,7 +47,7 @@ struct video_compress {
 };
 
 inline void compress_copyline64(unsigned char *dst, unsigned char *src, int len);
-inline void comp_copyline128(unsigned char *d, unsigned char *s, int len);
+inline void compress_copyline128(unsigned char *d, unsigned char *s, int len);
 void compress_deinterlace(unsigned char *buffer);
 void compress_data(void *args, struct video_frame * tx);
 
@@ -101,9 +101,9 @@ struct video_compress * initialize_video_compression(void)
 }
 
 
-#ifndef HAVE_MACOSX
+#if !(HAVE_MACOSX || HAVE_32B_LINUX)
 
-inline void comp_copyline128(unsigned char *d, unsigned char *s, int len)
+inline void compress_copyline128(unsigned char *d, unsigned char *s, int len)
 {
         register unsigned char *_d=d,*_s=s;
 
@@ -160,7 +160,7 @@ inline void comp_copyline128(unsigned char *d, unsigned char *s, int len)
         }
 }
 
-#endif
+#endif /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
 inline void compress_copyline64(unsigned char *dst, unsigned char *src, int len)
 {
@@ -250,14 +250,14 @@ void compress_data(void *args, struct video_frame * tx)
 	/* First 10->8 bit conversion */
 	if (bitdepth == 10) {
 		for(x=0;x<HD_HEIGHT;x+=2) {
-#ifdef HAVE_MACOSX
+#if (HAVE_MACOSX || HAVE_32B_LINUX)
                     compress_copyline64(line2, line1, 5120/32);
 		    compress_copyline64(line2+3840, line1+5120*540, 5120/32);
 								
-#else /* HAVE_MACOSX */
-		    comp_copyline128(line2, line1, 5120/32);
-		    comp_copyline128(line2+3840, line1+5120*540, 5120/32);
-#endif
+#else /* (HAVE_MACOSX || HAVE_32B_LINUX) */
+		    compress_copyline128(line2, line1, 5120/32);
+		    compress_copyline128(line2+3840, line1+5120*540, 5120/32);
+#endif /* (HAVE_MACOSX || HAVE_32B_LINUX) */
 		    line1 += 5120;
 		    line2 += 2*3840;
 		}

@@ -4415,6 +4415,21 @@ _ACEOF
 	;;
 esac
 
+case "$host" in
+  	x86_64-*-linux-*)
+		cat >>confdefs.h <<\_ACEOF
+#define HAVE_64B_LINUX 1
+_ACEOF
+
+	;;
+	i*86-*-linux-*)
+		cat >>confdefs.h <<\_ACEOF
+#define HAVE_32B_LINUX 1
+_ACEOF
+
+	;;
+esac
+
 
 
 # -------------------------------------------------------------------------------------------------
@@ -7480,7 +7495,14 @@ fi
 if test $ac_cv_header_alsa_asoundlib_h = yes; then
 
                 AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_alsa.o"
-                AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib64/libasound.a"
+		case "$host" in
+			x86_64-*-linux-*)
+                		AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib64/libasound.a"
+			;;
+			i*86-*-linux-*)
+                		AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib/libasound.a"
+			;;
+		esac
                 cat >>confdefs.h <<\_ACEOF
 #define HAVE_ALSA_AUDIO 1
 _ACEOF

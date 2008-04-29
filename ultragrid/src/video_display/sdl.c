@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.10 $
- * $Date: 2008/04/17 16:23:58 $
+ * $Revision: 1.11 $
+ * $Date: 2008/04/29 09:43:49 $
  *
  */
 
@@ -205,7 +205,7 @@ copyline64(unsigned char *dst, unsigned char *src, int len)
 
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
-#ifndef HAVE_MACOSX
+#if !(HAVE_MACOSX || HAVE_32B_LINUX)
 
 inline void
 copyline128(unsigned char *d, unsigned char *s, int len)
@@ -265,7 +265,7 @@ copyline128(unsigned char *d, unsigned char *s, int len)
 	}
 }
 
-#endif /* HAVE_MACOSX */
+#endif /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
 
 static void*
@@ -290,13 +290,13 @@ display_thread_sdl(void *arg)
 		gettimeofday(&tv1, NULL);
 		if (bitdepth == 10) {	
 			for(i=0; i<1080; i+=2) {
-#ifdef HAVE_MACOSX
+#if (HAVE_MACOSX || HAVE_32B_LINUX)
 				copyline64(line2, line1, 5120/32);
 				copyline64(line2+3840, line1+5120*540, 5120/32);
-#else /* HAVE_MACOSX */
+#else /* (HAVE_MACOSX || HAVE_32B_LINUX) */
 				copyline128(line2, line1, 5120/32);
 				copyline128(line2+3840, line1+5120*540, 5120/32);
-#endif /* HAVE_MACOSX */
+#endif /* (HAVE_MACOSX || HAVE_32B_LINUX) */
 				line1 += 5120;
 				line2 += 2*3840;
 			}

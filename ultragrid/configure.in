@@ -35,6 +35,15 @@ case "$host_os" in
 	;;
 esac
 
+case "$host" in
+  	x86_64-*-linux-*)
+		AC_DEFINE(HAVE_64B_LINUX)
+	;;
+	i*86-*-linux-*)
+		AC_DEFINE(HAVE_32B_LINUX)
+	;;
+esac	
+
 AC_SUBST(LINKER)
 
 # -------------------------------------------------------------------------------------------------
@@ -230,7 +239,14 @@ case "$host_os" in
         # Do we have ALSA?
         AC_CHECK_HEADER(alsa/asoundlib.h,[
                 AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_alsa.o"
-                AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib64/libasound.a"
+		case "$host" in
+			x86_64-*-linux-*)
+                		AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib64/libasound.a"
+			;;
+			i*86-*-linux-*)
+                		AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib/libasound.a"
+			;;
+		esac
                 AC_DEFINE(HAVE_ALSA_AUDIO)
                 # HAVE_OSS_AUDIO is defined so that the ALSA OSS emulation
                 # works for those cards which are not supported natively

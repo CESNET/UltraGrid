@@ -301,7 +301,7 @@ inline void sage_copyline64(unsigned char *dst, unsigned char *src, int len)
 
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
-#ifndef HAVE_MACOSX
+#ifndef HAVE_MACOSX || HAVE_32B_LINUX
 
 inline void sage_copyline128(unsigned char *d, unsigned char *s, int len)
 {
@@ -385,7 +385,7 @@ static void* display_thread_sage(void *arg)
 #endif
             
             for(i=0; i<1080; i+=2) {
-#ifdef HAVE_MACOSX
+#ifdef HAVE_MACOSX || HAVE_32B_LINUX
                 sage_copyline64(line2, line1, 5120/32);
                 sage_copyline64(line2+3840, line1+5120*540, 5120/32);
 #else /* HAVE_MACOSX */
