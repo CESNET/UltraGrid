@@ -38,6 +38,9 @@
 
 struct state_sdl {
         Display         *display;
+	unsigned int	x_res_x;
+	unsigned int	x_res_y;
+
         int             vw_depth;
         SDL_Overlay     *vw_image;
         GLubyte         *buffers[2];
@@ -118,9 +121,6 @@ void * display_gl_init(void)
     unsigned int	utemp;
     Window		wtemp;
 
-    unsigned int	x_res_x;
-    unsigned int	x_res_y;
-
     s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
     s->magic   = MAGIC_GL;
 
@@ -130,17 +130,17 @@ void * display_gl_init(void)
     }
     
     /* Get XWindows resolution */
-    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &(s->x_res_x), &(s->x_res_y), &utemp, &utemp);
 
     s->rect.w = HD_WIDTH;
     s->rect.h = HD_HEIGHT;
-    if ((x_res_x - HD_WIDTH) > 0) {
-	s->rect.x = (x_res_x - HD_WIDTH) / 2;
+    if ((s->x_res_x - HD_WIDTH) > 0) {
+	s->rect.x = (s->x_res_x - HD_WIDTH) / 2;
     } else {
 	s->rect.x = 0;
     }
-    if ((x_res_y - HD_HEIGHT) > 0) {
-	s->rect.y = (x_res_y - HD_HEIGHT) / 2;
+    if ((s->x_res_y - HD_HEIGHT) > 0) {
+	s->rect.y = (s->x_res_y - HD_HEIGHT) / 2;
     } else {
 	s->rect.y = 0;
     }
@@ -273,14 +273,7 @@ inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v)
 static void * display_thread_gl(void *arg)
 {
     struct state_sdl        *s = (struct state_sdl *) arg;
-    int j, i, ret;
-
-    int			itemp;
-    unsigned int	utemp;
-    Window		wtemp;
-
-    unsigned int	x_res_x;
-    unsigned int	x_res_y;
+    int j, i;
 
     const SDL_VideoInfo *videoInfo;
     int videoFlags;
@@ -299,9 +292,6 @@ static void * display_thread_gl(void *arg)
         fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError());
         exit(1);
     }
-
-    /* Get XWindows resolution */
-    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
 
     /* Fetch the video info */
     videoInfo = SDL_GetVideoInfo( );
@@ -331,9 +321,9 @@ static void * display_thread_gl(void *arg)
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );	//TODO: Is this necessary?
 
     /* get a SDL surface */
-    s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 32, videoFlags);
+    s->sdl_screen = SDL_SetVideoMode(s->x_res_x, s->x_res_y, 32, videoFlags);
     if(!s->sdl_screen){
-        fprintf(stderr,"Error setting video mode %dx%d!\n", x_res_x, x_res_y);
+        fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_res_x, s->x_res_y);
         exit(128);
     }
 
@@ -344,7 +334,7 @@ static void * display_thread_gl(void *arg)
     /* OpenGL Setup */
     glEnable( GL_TEXTURE_2D );
     glClearColor( 1.0f, 1.0f, 1.0f, 0.1f );
-    gl_resize_window(x_res_x, x_res_y);
+    gl_resize_window(s->x_res_x, s->x_res_y);
     glGenTextures(4, s->texture);	//TODO: Is this necessary?
 
     /* Display splash screen */
@@ -553,6 +543,7 @@ void gl_resize_window(int width,int height)
 {
     /* Height / width ration */
     GLfloat ratio;
+    GLint   y = 0;
 
     /* Protect against a divide by zero */
     if ( height == 0 )
@@ -560,7 +551,12 @@ void gl_resize_window(int width,int height)
 
     ratio = ( GLfloat )width / ( GLfloat )height;
 
-    glViewport( 0, 0, ( GLint )width, ( GLint )height );
+    if (height > HD_HEIGHT) {
+      y = (height - HD_HEIGHT) / 2;
+      height = HD_HEIGHT;
+    }
+
+    glViewport( 0, y, ( GLint )width, ( GLint )height );
 
     glMatrixMode( GL_PROJECTION );
     glLoadIdentity( );

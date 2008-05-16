@@ -40,6 +40,9 @@
 
 struct state_sdl {
         Display         *display;
+	unsigned int    x_res_x;
+	unsigned int    x_res_y;
+
         int             vw_depth;
         SDL_Overlay     *vw_image;
         GLubyte         *buffers[2];
@@ -113,18 +116,34 @@ void * display_dxt_init(void)
 {
     struct state_sdl        *s;
 
+    int                 ret;
+    int                 itemp;
+    unsigned int        utemp;
+    Window              wtemp;
+
     s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
     s->magic   = MAGIC_DXT;
 
-	if (!(s->display = XOpenDisplay(NULL))) {
-		printf("Unable to open display.\n");
-		return NULL;
-	}
+    if (!(s->display = XOpenDisplay(NULL))) {
+	    printf("Unable to open display DXT: XOpenDisplay.\n");
+	    return NULL;
+    }
+
+    /* Get XWindows resolution */
+    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &(s->x_res_x), &(s->x_res_y), &utemp, &utemp);
     
     s->rect.w = HD_WIDTH;
-    s->rect.h =1079;    /* No idea why, but they use this... */
-    s->rect.x=0;
-    s->rect.y=60;
+    s->rect.h =HD_HEIGHT;
+    if ((s->x_res_x - HD_WIDTH) > 0) {
+        s->rect.x = (s->x_res_x - HD_WIDTH) / 2;
+    } else {
+        s->rect.x = 0;
+    }
+    if ((s->x_res_y - HD_HEIGHT) > 0) {
+        s->rect.y = (s->x_res_y - HD_HEIGHT) / 2;
+    } else {
+        s->rect.y = 0;
+    }
 
     s->buffers[0]=malloc(HD_WIDTH*HD_HEIGHT*3);
     s->buffers[1]=malloc(HD_WIDTH*HD_HEIGHT*3);
@@ -219,10 +238,11 @@ void glsl_dxt_init(void *arg)
 	glUseProgram(s->PHandle);
 }
 
-void dxt_resize_window(int width,int height)
+void dxt_resize_window(int width, int height)
 {
     /* Height / width ration */
     GLfloat ratio;
+    GLint   y = 0;
 
     /* Protect against a divide by zero */
     if ( height == 0 )
@@ -230,7 +250,12 @@ void dxt_resize_window(int width,int height)
 
     ratio = ( GLfloat )width / ( GLfloat )height;
 
-    glViewport( 0, 0, ( GLint )width, ( GLint )height );
+    if (height > HD_HEIGHT) {
+      y = (height - HD_HEIGHT) / 2;
+      height = HD_HEIGHT;
+    }
+
+    glViewport( 0, y, ( GLint )width, (GLint)height);
 
     glMatrixMode( GL_PROJECTION );
     glLoadIdentity( );
@@ -284,9 +309,10 @@ static void * display_thread_dxt(void *arg)
     int i;
     const SDL_VideoInfo *videoInfo;
     int videoFlags;
-        /* FPS */
+    /* FPS */
     static GLint T0     = 0;
     static GLint Frames = 0;
+
     /* initialize SDL */
     if ( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
         fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError());
@@ -326,9 +352,9 @@ static void * display_thread_dxt(void *arg)
     //    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,  16);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     /* get a SDL surface */
-    s->sdl_screen = SDL_SetVideoMode( HD_WIDTH, HD_HEIGHT, 32, videoFlags);
+    s->sdl_screen = SDL_SetVideoMode(s->x_res_x, s->x_res_y, 32, videoFlags);
     if(!s->sdl_screen){
-        fprintf(stderr,"Error setting video mode!\n");
+        fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_res_x, s->x_res_y);
         exit(128);
     }
 
@@ -343,7 +369,7 @@ static void * display_thread_dxt(void *arg)
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
     //glClearColor( 0, 1, 0, 0 );
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    dxt_resize_window(HD_WIDTH,HD_HEIGHT);
+    dxt_resize_window(s->x_res_x, s->x_res_y);
     glewInit();
     if(glewIsSupported("GL_VERSION_2_0")){
         fprintf(stderr, "OpenGL 2.0 is supported...\n");
