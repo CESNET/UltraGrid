@@ -26,11 +26,15 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <math.h>
 #include "debug.h"
 #include "video_display.h"
 #include "video_display/dxt.h"
 // #define glGetProcAddress(n) glXGetProcAddressARB((GLubyte *) n)
 
+
+#define degree_to_radian(x) ( M_PI * x / 180.0f )
+#define radian_to_degree(x) ( x * (180.0f / M_PI) )
 
 #define HD_WIDTH        1920
 #define HD_HEIGHT       1080
@@ -248,24 +252,22 @@ void dxt_resize_window(int width, int height)
     if ( height == 0 )
         height = 1;
 
-    ratio = ( GLfloat )width / ( GLfloat )height;
 
-    if (height > HD_HEIGHT) {
-      y = (height - HD_HEIGHT) / 2;
-      height = HD_HEIGHT;
+    if ((height > HD_HEIGHT) && (width >= HD_WIDTH)) {
+        y = (height - HD_HEIGHT) / 2;
+        height = HD_HEIGHT;
     }
+    ratio = ( GLfloat )width / ( GLfloat )(((float)(width * HD_HEIGHT))/((float)HD_WIDTH));
 
     glViewport( 0, y, ( GLint )width, (GLint)height);
 
     glMatrixMode( GL_PROJECTION );
     glLoadIdentity( );
 
-
-    gluPerspective( 45.0f, ratio, 0.1f, 100.0f );
-
+    glScalef(1, (((float)(width * HD_HEIGHT))/((float)HD_WIDTH))/((float)height), 1);
+    gluPerspective(45.0f, ratio, 0.1f, 100.0f);
 
     glMatrixMode( GL_MODELVIEW );
-
     glLoadIdentity( );
 }
 

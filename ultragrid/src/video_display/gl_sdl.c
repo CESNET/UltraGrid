@@ -549,12 +549,11 @@ void gl_resize_window(int width,int height)
     if ( height == 0 )
         height = 1;
 
-    ratio = ( GLfloat )width / ( GLfloat )height;
-
     if (height > HD_HEIGHT) {
       y = (height - HD_HEIGHT) / 2;
       height = HD_HEIGHT;
     }
+    ratio = ( GLfloat )width / ( GLfloat )(((float)(width * HD_HEIGHT))/((float)HD_WIDTH));
 
     glViewport( 0, y, ( GLint )width, ( GLint )height );
 
@@ -562,8 +561,8 @@ void gl_resize_window(int width,int height)
     glLoadIdentity( );
 
 
+    glScalef(1, (((float)(width * HD_HEIGHT))/((float)HD_WIDTH))/((float)height), 1);
     gluPerspective( 45.0f, ratio, 0.1f, 100.0f );
-
 
     glMatrixMode( GL_MODELVIEW );
 
