@@ -315,6 +315,12 @@ static void * display_thread_dxt(void *arg)
     static GLint T0     = 0;
     static GLint Frames = 0;
 
+#ifdef HAVE_MACOSX
+            /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+    	    /* Avoids uncaught exception (1002)  when creating CGSWindow */
+            NSApplicationLoad();
+#endif
+
     /* initialize SDL */
     if ( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
         fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError());
