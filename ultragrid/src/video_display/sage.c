@@ -403,11 +403,15 @@ static void* display_thread_sage(void *arg)
 #ifdef SAGE_GLSL_YUV
             line1 = s->buffers[s->image_display];
             line2 = s->outBuffer;
-            for(i=0; i<1080; i+=2){
-                memcpy(line2, line1, HD_WIDTH*2);
-                memcpy(line2+HD_WIDTH*2, line1+HD_WIDTH*2*540, HD_WIDTH*2);
-                line1 += HD_WIDTH*2;
-                line2 += HD_WIDTH*2*2;
+            if (progressive == 1) {
+                memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
+            } else {
+                 for(i=0; i<1080; i+=2){
+                     memcpy(line2, line1, HD_WIDTH*2);
+                     memcpy(line2+HD_WIDTH*2, line1+HD_WIDTH*2*540, HD_WIDTH*2);
+                     line1 += HD_WIDTH*2;
+                     line2 += HD_WIDTH*2*2;
+                 }
             }
 #else
             yuv2rgba(s->buffers[s->image_display], s->outBuffer);
@@ -459,6 +463,7 @@ void * display_sage_init(void)
 	int nodeID = 1;
     initSage(appID, nodeID);
     s->outBuffer = sage_getBuffer();
+
 
     /* thread init */
 	sem_init(&s->semaphore, 0, 0);
