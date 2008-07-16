@@ -376,11 +376,11 @@ static void * display_thread_gl(void *arg)
     /* Load shader */
     //TODO: Need a less breaky way to do this...
     struct stat file;
-    char *filename=strdup("../src/video_display/new.glsl");
+    char *filename=strdup("../src/video_display/gl_sdl.glsl");
     if ((stat(filename,&file)) == -1) {
-	filename=strdup("/usr/share/uv-0.3.1/new.glsl");
+	filename=strdup("/usr/share/uv-0.3.1/gl_sdl.glsl");
 	if ((stat(filename,&file)) == -1) {
-	    filename=strdup("/usr/local/share/uv-0.3.1/new.glsl");
+	    filename=strdup("/usr/local/share/uv-0.3.1/gl_sdl.glsl");
 	    if ((stat(filename,&file)) == -1) {
 		fprintf(stderr, "new.glsl not found. Giving up!\n");
 		exit(113);

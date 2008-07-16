@@ -2,7 +2,7 @@ uniform sampler2D yuvtex;
 
 void main(void)
 {
-  vec3 col = texture2D(yuvtex, gl_TexCoord[0].st);
+  vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);
 
   float Y = col[0];
   float U = col[1]-0.5;

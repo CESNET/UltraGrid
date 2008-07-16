@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.12 $
-# $Date: 2008/03/06 12:55:51 $
+# $Revision: 1.13 $
+# $Date: 2008/07/16 15:50:26 $
 #
 
 AR        = ar
@@ -218,7 +218,6 @@ install:
 	rm -rf /usr/local/share/uv-0.3.1
 	mkdir /usr/local/share/uv-0.3.1
 	cp -v share/uv_startup.bmp /usr/local/share/uv-0.3.1/
-	cp -v share/basic.glsl /usr/local/share/uv-0.3.1/
 	cp -v share/dxt.frag /usr/local/share/uv-0.3.1/
 	cp -v share/dxt.vert /usr/local/share/uv-0.3.1/
-	cp -v share/new.glsl /usr/local/share/uv-0.3.1/
+	cp -v share/gl_sdl.glsl /usr/local/share/uv-0.3.1/

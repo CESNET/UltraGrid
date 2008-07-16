@@ -308,7 +308,9 @@ void dxt_draw()
 static void * display_thread_dxt(void *arg)
 {
     struct state_sdl        *s = (struct state_sdl *) arg;
+#ifndef HAVE_MACOSX
     int i;
+#endif /* HAVE_MACOSX */
     const SDL_VideoInfo *videoInfo;
     int videoFlags;
     /* FPS */
@@ -443,13 +445,18 @@ static void * display_thread_dxt(void *arg)
         fprintf(stderr, "ERROR: Neither OpenGL 2.0 nor ARB_fragment_shader are supported, try updating your drivers...\n");
         exit(65);
     }
-        /* Check to see if we have data yet, if not, just chillax */
+
+    /* Check to see if we have data yet, if not, just chillax */
+    /* TODO: we need some solution (TM) for sem_getvalue on MacOS X */
+
+#ifndef HAVE_MACOSX
+    sem_getvalue(&s->semaphore,&i);
+    while(i<1) {
+        display_dxt_handle_events(s);
+        usleep(1000);
         sem_getvalue(&s->semaphore,&i);
-        while(i<1) {
-                display_dxt_handle_events(s);
-                usleep(1000);
-                sem_getvalue(&s->semaphore,&i);
-        }
+    }
+#endif /* HAVE_MACOSX */
 
     while(1) {
         display_dxt_handle_events(s);
