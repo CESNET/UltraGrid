@@ -382,7 +382,7 @@ static void * display_thread_gl(void *arg)
 	if ((stat(filename,&file)) == -1) {
 	    filename=strdup("/usr/local/share/uv-0.3.1/gl_sdl.glsl");
 	    if ((stat(filename,&file)) == -1) {
-		fprintf(stderr, "new.glsl not found. Giving up!\n");
+		fprintf(stderr, "gl_sdl.glsl not found. Giving up!\n");
 		exit(113);
 	    }
 	}
