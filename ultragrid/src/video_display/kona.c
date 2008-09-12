@@ -139,19 +139,23 @@ display_thread_kona(void *arg)
 
 		line1 = s->buffers[s->image_display];
 		line2 = s->outBuffer;
-		if (bitdepth == 10) {
-			for (i = 0; i < 1080; i += 2) {
-				memcpy(line2, line1, 5120);
-				memcpy(line2+5120, line1+5120*540, 5120);
-				line1 += 5120;
-				line2 += 2*5120;			
-			}
+		if (progressive == 1) {
+			memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
 		} else {
-			for (i = 0; i < 1080; i += 2) {
-				memcpy(line2, line1, hd_size_x * hd_color_bpp);
-				memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
-				line1 += hd_size_x * hd_color_bpp;
-				line2 += hd_size_x * hd_color_bpp * 2;
+			if (bitdepth == 10) {
+				for (i = 0; i < 1080; i += 2) {
+					memcpy(line2, line1, 5120);
+					memcpy(line2+5120, line1+5120*540, 5120);
+					line1 += 5120;
+					line2 += 2*5120;			
+				}
+			} else {
+				for (i = 0; i < 1080; i += 2) {
+					memcpy(line2, line1, hd_size_x * hd_color_bpp);
+					memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
+					line1 += hd_size_x * hd_color_bpp;
+					line2 += hd_size_x * hd_color_bpp * 2;
+				}
 			}
 		}
 	
@@ -245,7 +249,7 @@ display_kona_init(void)
 		char *cName = *componentNameHandle;
 		DisposeHandle(componentNameHandle);
 
-		if (strcmp(cName, "AJA")) {
+		if ((strstr(cName, "AJA")) != NULL) {
 			fprintf(stdout, "Found video output component: %s\n", cName);
 			s->videoDisplayComponent = c;
 			s->videoDisplayComponentInstance = OpenComponent(s->videoDisplayComponent);
