@@ -4417,12 +4417,14 @@ esac
 
 case "$host" in
   	x86_64-*-linux-*)
+		DVS_SDK_SUBDIR="linux-x86_64"
 		cat >>confdefs.h <<\_ACEOF
 #define HAVE_64B_LINUX 1
 _ACEOF
 
 	;;
 	i*86-*-linux-*)
+		DVS_SDK_SUBDIR="linux-x86"
 		cat >>confdefs.h <<\_ACEOF
 #define HAVE_32B_LINUX 1
 _ACEOF
@@ -8018,8 +8020,8 @@ if test "${with_hdstation+set}" = set; then
   withval=$with_hdstation; DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/linux/lib
 else
-  DVS_INC=${PARENT}/sdk3.0.1.6/development/header
-	 DVS_LIB=${PARENT}/sdk3.0.1.6/linux-x86_64/lib
+  DVS_INC=${PARENT}/sdk3.2.0.0/development/header
+	 DVS_LIB=${PARENT}/sdk3.2.0.0/${DVS_SDK_SUBDIR}/lib
 fi
 
 

@@ -37,9 +37,11 @@ esac
 
 case "$host" in
   	x86_64-*-linux-*)
+		DVS_SDK_SUBDIR="linux-x86_64"
 		AC_DEFINE(HAVE_64B_LINUX)
 	;;
 	i*86-*-linux-*)
+		DVS_SDK_SUBDIR="linux-x86"
 		AC_DEFINE(HAVE_32B_LINUX)
 	;;
 esac	
@@ -314,8 +316,8 @@ AC_ARG_WITH(hdstation,
 	[  --with-hdstation=DIR    specify location of DVS HDstation SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/linux/lib],
-	[DVS_INC=${PARENT}/sdk3.0.1.6/development/header
-	 DVS_LIB=${PARENT}/sdk3.0.1.6/linux-x86_64/lib])
+	[DVS_INC=${PARENT}/sdk3.2.0.0/development/header
+	 DVS_LIB=${PARENT}/sdk3.2.0.0/${DVS_SDK_SUBDIR}/lib])
 
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS=yes, FOUND_DVS=no)
 AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS=yes, FOUND_DVS=no, -L${DVS_LIB})
