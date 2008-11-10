@@ -1,0 +1,53 @@
+#!/bin/sh
+if ! [ -f dvsdriver.ko -o -f dvsdebug.ko ]; then
+  echo "Could not load dvsdriver - Final driver file missing."
+  echo "Perform post-compile step first, to create driver for this kernel."
+  echo "Typing the command 'driver_create' here will create the final"
+  echo "driver file."
+  exit 1
+fi
+
+if ! [ -f dvsdriver_sdio.ko -o -f dvsdebug_sdio.ko ]; then
+  echo "Could not load dvsdriver_sdio - Final driver file missing."
+  echo "Perform post-compile step first, to create driver for this kernel."
+  echo "Typing the command 'driver_create' here will create the final"
+  echo "driver file."
+  exit 1
+fi
+
+
+if [ "$1" != "" ]; then
+  if [ "$1" = "debug" ]; then
+    echo "- load dvsdebug driver"
+    insmod ./dvsdebug.ko hwpath=`pwd`
+  else
+    echo "usage: $0 [debug|help]"
+    echo "       driver_load        - load release driver"
+    echo "       driver_load debug  - load debug driver"
+    echo "       driver_load help   - this usage list"
+    exit 1
+  fi
+else
+  echo "- load dvsdriver"
+  insmod ./dvsdriver.ko hwpath=`pwd`
+fi
+
+if [ "$1" != "" ]; then
+  if [ "$1" = "debug" ]; then
+    echo "- load dvsdebug_sdio driver"
+    insmod ./dvsdebug_sdio.ko hwpath=`pwd`
+  else
+    echo "usage: $0 [debug|help]"
+    echo "       driver_load        - load release driver"
+    echo "       driver_load debug  - load debug driver"
+    echo "       driver_load help   - this usage list"
+    exit 1
+  fi
+else
+  echo "- load dvsdriver_sdio"
+  insmod ./dvsdriver_sdio.ko hwpath=`pwd`
+fi
+
+./mkdev
+
+exit 0
