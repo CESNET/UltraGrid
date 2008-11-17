@@ -354,13 +354,15 @@ static void * display_thread_dxt(void *arg)
         videoFlags |= SDL_HWACCEL;
 
     /* Sets up OpenGL double buffering */
-//    SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );      //TODO: Is this necessary?
+//   SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
+//   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,   8);
+//   SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,    8);
+//   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,  16);
+     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+#ifdef HAVE_SDL_1210
+     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
+#endif /* HAVE_SDL_1210 */
 
-    //    SDL_GL_SetAttribute(SDL_GL_RED_SIZE,     8);
-      //  SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,   8);
-        //SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,    8);
-    //    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,  16);
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     /* get a SDL surface */
     s->sdl_screen = SDL_SetVideoMode(s->x_res_x, s->x_res_y, 32, videoFlags);
     if(!s->sdl_screen){

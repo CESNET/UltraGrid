@@ -319,6 +319,9 @@ static void * display_thread_gl(void *arg)
 
     /* Sets up OpenGL double buffering */
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );	//TODO: Is this necessary?
+#ifdef HAVE_SDL_1210
+    SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1); 
+#endif /* HAVE_SDL_1210 */
 
     /* get a SDL surface */
     s->sdl_screen = SDL_SetVideoMode(s->x_res_x, s->x_res_y, 32, videoFlags);

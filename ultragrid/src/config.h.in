@@ -11,6 +11,9 @@
 /* Define to 1 if you have SDL. */
 #undef HAVE_SDL
 
+/* Define to 1 if you have SDL version newer than 1.2.10. */
+#undef HAVE_SDL_1210
+
 /* Define to 1 if you have GL. */
 #undef HAVE_GL 
 

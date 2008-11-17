@@ -239,21 +239,20 @@ case "$host_os" in
                 ],AC_MSG_RESULT(missing))
         ])
         # Do we have ALSA?
-        AC_CHECK_HEADER(alsa/asoundlib.h,[
-                AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_alsa.o"
-		case "$host" in
-			x86_64-*-linux-*)
-                		AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib64/libasound.a"
-			;;
-			i*86-*-linux-*)
-                		AUDIO_HW_LIB="$AUDIO_HW_LIB /usr/lib/libasound.a"
-			;;
-		esac
-                AC_DEFINE(HAVE_ALSA_AUDIO)
-                # HAVE_OSS_AUDIO is defined so that the ALSA OSS emulation
-                # works for those cards which are not supported natively
-                AC_DEFINE(HAVE_OSS_AUDIO)
-        ])
+        AC_CHECK_HEADER(alsa/asoundlib.h,
+			[AC_CHECK_LIB(asound, main, FOUND_ALSA_L=yes, FOUND_ALSA_L=no, -L${DVS_LIB})],
+			[echo "alsa/asoundlib.h not found."])
+
+	if test $FOUND_ALSA_L = yes
+	then
+		AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_alsa.o"
+		AUDIO_HW_LIB="$AUDIO_HW_LIB -lasound"
+		AC_DEFINE(HAVE_ALSA_AUDIO)
+		# HAVE_OSS_AUDIO is defined so that the ALSA OSS emulation
+		# works for those cards which are not supported natively
+		AC_DEFINE(HAVE_OSS_AUDIO)
+	fi
+
         # Default is to use OSS drivers...
         AUDIO_HW_OBJ="$AUDIO_HW_OBJ src/audio_hw/linux_oss.o"
         AC_CHECK_HEADERS(sys/soundcard.h soundcard.h)
@@ -376,6 +375,10 @@ case "$host_os" in
 		LIBS="$LIBS -framework SDL"
 		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
 		AC_DEFINE(HAVE_SDL)
+		SDL_VERSION=1.2.10
+		AM_PATH_SDL($SDL_VERSION,
+			    AC_DEFINE(HAVE_SDL_1210),
+			    :)
 	fi
         ;;
         *)
@@ -388,6 +391,10 @@ case "$host_os" in
 		LIBS="$LIBS -lSDL"
 		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
 		AC_DEFINE(HAVE_SDL)
+		SDL_VERSION=1.2.10
+		AM_PATH_SDL($SDL_VERSION,
+			    AC_DEFINE(HAVE_SDL_1210),
+			    :)
 	fi
         ;;
 esac
