@@ -38,10 +38,13 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/01/06 17:04:46 $
  *
  */
+
+#ifndef _VIDEO_TYPES_H_
+#define _VIDEO_TYPES_H_
 
 typedef enum {
 	RGB,
@@ -59,3 +62,4 @@ struct video_frame {
 	unsigned		 data_len;	/* Number of octets (8 bits, 1 byte) of data present */
 };
 
+#endif

@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.13 $
-# $Date: 2008/07/16 15:50:26 $
+# $Revision: 1.14 $
+# $Date: 2009/01/06 17:04:46 $
 #
 
 AR        = ar
@@ -99,6 +99,7 @@ OBJS      = src/bitstream.o \
 			src/video_capture/null.o \
             src/video_capture/firewire_dv_freebsd.o \
             @DVS_OBJ@ \
+            src/ihdtv/ihdtv.o \
             src/video_capture/testcard.o \
             src/video_capture/testcard_image.o \
             src/video_display.o \
