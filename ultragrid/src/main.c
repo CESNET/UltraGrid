@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.8 $
- * $Date: 2009/01/06 17:04:46 $
+ * $Revision: 1.9 $
+ * $Date: 2009/03/19 17:21:46 $
  *
  */
 
@@ -368,8 +368,8 @@ main(int argc, char *argv[])
 	uv->fps = 60;
 	uv->display_device = NULL;
 	uv->compression = NULL;
-	uv->requested_display = NULL;
-	uv->requested_capture = NULL;
+	uv->requested_display = "none";
+	uv->requested_capture = "none";
 	uv->requested_compression = 0;
 	uv->requested_mtu = 0;
 	uv->use_ihdtv_protocol = 0;
