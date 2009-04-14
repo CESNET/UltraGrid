@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.10 $
- * $Date: 2009/04/14 11:49:15 $
+ * $Revision: 1.11 $
+ * $Date: 2009/04/14 12:33:51 $
  *
  */
 
@@ -396,10 +396,12 @@ main(int argc, char *argv[])
 				usage();
 				return EXIT_FAIL_USAGE;
 			}
-			hd_color_bpp = 2;
+			if (bithdepth == 8) {
+				hd_color_bpp = 2;
 #ifdef HAVE_HDSTATION
-			hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
+				hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 #endif /* HAVE_HDSTATION */
+			}
 			break;
 		case 'v' :
         		printf("%s\n", ULTRAGRID_VERSION);
