@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.9 $
- * $Date: 2008/04/18 15:34:53 $
+ * $Revision: 1.10 $
+ * $Date: 2009/04/14 11:49:15 $
  *
  */
 
@@ -66,6 +66,9 @@ struct qt_grabber_state {
 
 int frames = 0;
 struct timeval t, t0;
+
+
+
 
 
 /*
@@ -191,15 +194,12 @@ SeqGrabberModalFilterProc (DialogPtr theDialog, const EventRecord *theEvent,
 	short *itemHit, long refCon)
 {
 	UNUSED(theDialog);
-	UNUSED(theEvent);
 	UNUSED(itemHit);
-	UNUSED(refCon);
 
 	// Ordinarily, if we had multiple windows we cared about, we'd handle
 	// updating them in here, but since we don't, we'll just clear out
 	// any update events meant for us
 
-/*	
 	Boolean	handled = false;
 
 	if ((theEvent->what == updateEvt) && 
@@ -210,16 +210,54 @@ SeqGrabberModalFilterProc (DialogPtr theDialog, const EventRecord *theEvent,
 		handled = true;
 	}
 	return (handled);
-*/
-	return false;
 }
+
+
+//  SGSettingsDialog with the "Compression" panel removed
+OSErr MinimalSGSettingsDialog(SeqGrabComponent seqGrab, SGChannel sgchanVideo, WindowPtr gMonitor)
+{
+    OSErr err;
+    Component *panelListPtr = NULL;
+    UInt8 numberOfPanels = 0;
+
+    ComponentDescription cd = {SeqGrabPanelType, VideoMediaType, 0, 0, 0 };
+    Component c = 0;
+    Component *cPtr = NULL;
+
+    numberOfPanels = CountComponents(&cd);
+    panelListPtr = (Component *)NewPtr(sizeof(Component) * (numberOfPanels + 1));
+
+    cPtr = panelListPtr;
+    numberOfPanels = 0;
+    CFStringRef compressionCFSTR = CFSTR("Compression");
+    do {
+        ComponentDescription compInfo;
+        c = FindNextComponent(c, &cd);
+        if (c) {
+            Handle hName = NewHandle(0);
+            GetComponentInfo(c, &compInfo, hName, NULL, NULL);
+            CFStringRef nameCFSTR = CFStringCreateWithPascalString(kCFAllocatorDefault, (unsigned char *)(*hName), kCFStringEncodingASCII);
+            if (CFStringCompare(nameCFSTR, compressionCFSTR, kCFCompareCaseInsensitive) !=  kCFCompareEqualTo) {
+              *cPtr++ = c;
+              numberOfPanels++;
+            }
+            DisposeHandle(hName);
+        }
+    } while (c);
+
+    if (err = SGSettingsDialog(seqGrab, sgchanVideo, numberOfPanels, panelListPtr, seqGrabSettingsPreviewOnly, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)gMonitor)) {
+        return err;
+    }
+}
+
 
 /* Initialize the QuickTime grabber */
 static int
 qt_open_grabber(struct qt_grabber_state *s)
 {
+	GrafPtr 		savedPort;
 	WindowPtr		gMonitor;
-	SGModalFilterUPP	seqGrabModalFilterUPP;
+	//SGModalFilterUPP	seqGrabModalFilterUPP;
 
 	assert (s        != NULL);
 	assert (s->magic == MAGIC_QT_GRABBER);
@@ -228,8 +266,6 @@ qt_open_grabber(struct qt_grabber_state *s)
 	/* Step 0: Initialise the QuickTime movie toolbox.                                      */
 	InitCursor();
 	EnterMovies();
-
-	gMonitor = (WindowPtr)GetNewDialog (1000, nil, (WindowPtr) -1L); // kMonitorDLOGID = 1000
 
 	/****************************************************************************************/
 	/* Step 1: Create an off-screen graphics world object, into which we can capture video. */
@@ -241,16 +277,6 @@ qt_open_grabber(struct qt_grabber_state *s)
 		pixelFormat = k2vuyPixelFormat;
 	}
 
-	if (QTNewGWorld(&(s->gworld), pixelFormat, &(s->bounds), 0, NULL, 0) != noErr) {
-		debug_msg("Unable to create GWorld\n");
-		return 0;
-	}
-
-	if (!LockPixels(GetPortPixMap(s->gworld))) {
-		debug_msg("Unable to lock pixels\n");
-		return 0;
-	}
-
 	/****************************************************************************************/
 	/* Step 2: Open and initialise the default sequence grabber.                            */
 	s->grabber = OpenDefaultComponent(SeqGrabComponentType, 0);
@@ -259,10 +285,17 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
+	gMonitor = GetDialogWindow(GetNewDialog(1000, NULL, (WindowPtr)-1L));
+
+	GetPort(&savedPort);
+	SetPort(gMonitor);
+
 	if (SGInitialize(s->grabber) != noErr) {
 		debug_msg("Unable to init grabber\n");
 		return 0;
 	}
+
+	SGSetGWorld(s->grabber, GetDialogPort(gMonitor), NULL);
 
 	/****************************************************************************************/
 	/* Specify the destination data reference for a record operation tell it */
@@ -276,13 +309,13 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
-	if (SGSetGWorld(s->grabber, s->gworld, GetMainDevice()) != noErr) {
-		debug_msg("Unable to set graphics world\n");
+	if (SGSetGWorld(s->grabber, NULL, NULL) != noErr) {
+		debug_msg("Unable to get gworld from grabber\n");
 		return 0;
 	}
 
 	if (SGNewChannel(s->grabber, VideoMediaType, &s->video_channel) != noErr) {
-		debug_msg ("Unable to open video channel\n");
+		debug_msg("Unable to open video channel\n");
 		return 0;
 	}
 
@@ -312,17 +345,40 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
-	SGPause(s->grabber, true);
+	if (SGSetChannelPlayFlags(s->video_channel, channelPlayAllData) != noErr) {
+		debug_msg("Unable to set channel flags\n");
+		return 0;
+	}
+
+//	SGPause(s->grabber, true);
 
 	SGStartPreview(s->grabber);
 
 	if (s->video_channel) {
 //		seqGrabModalFilterUPP = (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc);
-		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0L, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)(gMonitor));
+//		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0L, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)(gMonitor));
 //		DisposeSGModalFilterUPP(seqGrabModalFilterUPP);
+		MinimalSGSettingsDialog(s->grabber, s->video_channel, gMonitor);
 	}
 
-	SGUpdate(s->grabber, 0);	
+//	SGUpdate(s->grabber, 0);	
+
+	SetPort(savedPort);
+
+	if (QTNewGWorld(&(s->gworld), pixelFormat, &(s->bounds), 0, NULL, 0) != noErr) {
+		debug_msg("Unable to create GWorld\n");
+		return 0;
+	}
+
+	if (!LockPixels(GetPortPixMap(s->gworld))) {
+		debug_msg("Unable to lock pixels\n");
+		return 0;
+	}
+
+	if (SGSetGWorld(s->grabber, s->gworld, GetMainDevice()) != noErr) {
+		debug_msg("Unable to set graphics world\n");
+		return 0;
+	}
 
 	/****************************************************************************************/
 	/* Step ?: Set the data procedure, which processes the frames as they're captured.      */
@@ -340,7 +396,7 @@ qt_open_grabber(struct qt_grabber_state *s)
 		return 0;
 	}
 
-	SGUpdate(s->grabber, 0);	
+//	SGUpdate(s->grabber, 0);	
 
 	return 1;
 }

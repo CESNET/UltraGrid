@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.14 $
-# $Date: 2009/01/06 17:04:46 $
+# $Revision: 1.15 $
+# $Date: 2009/04/14 11:49:15 $
 #
 
 AR        = ar
@@ -49,6 +49,7 @@ CFLAGS    = @DEFS@ @CFLAGS@ @X_CFLAGS@
 LIBS      = @AUDIO_HW_LIB@ @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
 INC       = -Isrc -Itest @AUDIO_HW_INC@ @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @GL_INC@ @SAGE_INC@
 TARGET    = bin/uv
+BUNDLE    = uv.app
 
 OBJS      = src/bitstream.o \
             src/debug.o \
@@ -201,6 +202,7 @@ clean:
 	-rm -f src/video_capture/testcard_image.c src/video_capture/make_testcard
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+	-rm -rf $(BUNDLE)
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
@@ -213,6 +215,11 @@ ctags:
 
 release:
 	cvs tag release-`cat VERSION | sed "s/\./-/g"`
+
+bundle: all
+	mkdir -p $(BUNDLE)/Contents/MacOS
+	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
+	echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 install:
 	cp -v $(TARGET) /usr/local/bin/

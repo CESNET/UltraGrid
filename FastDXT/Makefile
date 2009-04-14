@@ -65,7 +65,11 @@ endif
 CFLAGS=$(CXXFLAGS) `sdl-config --cflags` -I/opt/local/include
 
 
-default: main example 2dxt lib viewdxt playdxt
+# We need just libdxt for ultragrid. Also, there are still some unresolved
+# issues building viewdxt and playdxt on some systems
+#
+# default: main example 2dxt lib viewdxt playdxt
+default: main example 2dxt lib
 
 main: dxt.o main.o util.o intrinsic.o
 example: example.o libdxt.o dxt.o util.o intrinsic.o

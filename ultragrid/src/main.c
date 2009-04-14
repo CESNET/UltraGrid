@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.9 $
- * $Date: 2009/03/19 17:21:46 $
+ * $Revision: 1.10 $
+ * $Date: 2009/04/14 11:49:15 $
  *
  */
 
@@ -601,7 +601,7 @@ main(int argc, char *argv[])
 #endif /* HAVE_SDL */
 #endif /* X_DISPLAY_MISSING */
 
-			usleep(200);
+			usleep(200000);
 
 		}
 	}
