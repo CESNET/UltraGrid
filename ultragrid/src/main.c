@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.12 $
- * $Date: 2009/04/14 14:00:36 $
+ * $Revision: 1.13 $
+ * $Date: 2009/04/16 12:34:44 $
  *
  */
 
@@ -267,7 +267,7 @@ ihdtv_sender_thread(void *arg)
 }
 
 static void *
-display_thread(void *arg)
+receiver_thread(void *arg)
 {
 	struct state_uv *uv = (struct state_uv *) arg;
 
@@ -279,10 +279,13 @@ display_thread(void *arg)
 
 	fr = 1;
 
-	timeout.tv_sec  = 0;
-	timeout.tv_usec = 999999 / 59.94;
-
 	while (!should_exit) {
+		/* Housekeeping and RTCP... */
+		gettimeofday(&uv->curr_time, NULL);
+		uv->ts = tv_diff(uv->curr_time, uv->start_time) * 90000;
+		rtp_update(uv->network_device, uv->curr_time);
+		rtp_send_ctrl(uv->network_device, uv->ts, 0, uv->curr_time);
+
 		/* Receive packets from the network... The timeout is adjusted */
 		/* to match the video capture rate, so the transmitter works.  */
 		if(fr) {
@@ -291,11 +294,15 @@ display_thread(void *arg)
 			fr=0;
 		}
 
+		timeout.tv_sec  = 0;
+		timeout.tv_usec = 999999 / 59.94;
 		ret = rtp_recv(uv->network_device, &timeout, uv->ts);
-
+		
+		/*
 		if (ret == FALSE) {
 			printf("Failed to receive data\n");
 		}
+		*/
 
 		/* Decode and render for each participant in the conference... */
 		cp = pdb_iter_init(uv->participants);
@@ -323,7 +330,7 @@ display_thread(void *arg)
 }
 
 static void *
-capture_thread(void *arg)
+sender_thread(void *arg)
 {
 	struct state_uv *uv = (struct state_uv *) arg;
 
@@ -360,7 +367,7 @@ main(int argc, char *argv[])
 	struct state_uv		*uv;
 
 	int			 ch;
-	pthread_t		 display_thread_id, capture_thread_id;
+	pthread_t		 receiver_thread_id, sender_thread_id;
 
 	uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
 
@@ -576,25 +583,19 @@ main(int argc, char *argv[])
 	}
 	else {
 		if (strcmp("none", uv->requested_display) != 0) {
-			if(pthread_create(&display_thread_id, NULL, display_thread, (void *) uv) != 0) {
+			if(pthread_create(&receiver_thread_id, NULL, receiver_thread, (void *) uv) != 0) {
 				perror("Unable to create display thread!\n");
 				should_exit = TRUE;
 			}
 		}
 		if (strcmp("none", uv->requested_capture) != 0) {
-			if(pthread_create(&capture_thread_id, NULL, capture_thread, (void *) uv) != 0) {
+			if(pthread_create(&sender_thread_id, NULL, sender_thread, (void *) uv) != 0) {
 				perror("Unable to create capture thread!\n");
 				should_exit = TRUE;
 			}
 		}
 
 		while (!should_exit) {
-			/* Housekeeping and RTCP... */
-			gettimeofday(&uv->curr_time, NULL);
-			uv->ts = tv_diff(uv->curr_time, uv->start_time) * 90000;
-			rtp_update(uv->network_device, uv->curr_time);
-			rtp_send_ctrl(uv->network_device, uv->ts, 0, uv->curr_time);
-
 #ifndef X_DISPLAY_MISSING		
 #ifdef HAVE_SDL
 			if (strcmp(uv->requested_display, "sdl") == 0) {
@@ -603,7 +604,7 @@ main(int argc, char *argv[])
 #endif /* HAVE_SDL */
 #endif /* X_DISPLAY_MISSING */
 
-			usleep(200000);
+			usleep(500000);
 
 		}
 	}
