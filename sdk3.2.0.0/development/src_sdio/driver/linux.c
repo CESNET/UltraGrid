@@ -1906,7 +1906,11 @@ INTERNAL donttag int dvs_linux_asyncready(int card, int magic, int timeout, int 
 */
 INTERNAL unsigned long * dvs_linux_timer(void)
 {
-  return (unsigned long *)(&xtime.tv_sec);
+  struct timeval tv;
+
+  /* xtime is only updated every 1/HZ second - so request exact time */
+  do_gettimeofday(&tv);
+  return (unsigned long *)(tv.tv_sec);
 }
 
 /*** driver file operations functions */
@@ -2245,7 +2249,11 @@ static struct file_operations dvsdriver_fops = {
 };
 
 static struct cdev dvsdriver_cdev = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+        .kobj   =       { DVS_DRIVERNAME },
+#else
         .kobj   =       {.name = DVS_DRIVERNAME, },
+#endif
         .owner  =       THIS_MODULE,
 };
 
@@ -2495,9 +2503,15 @@ int linux_request_irq( int card, struct pci_dev *pDev )
   if( (result==0) && !no_irq ) {
     DBG_INIT("%s: requesting irq:%d (allow_shirq=%d)\n", DVS_DRIVERNAME, irq, allow_shirq);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 24)
+    vector = !request_irq( irq, linux_device_irq,
+                           IRQF_DISABLED | (allow_shirq ? IRQF_SHARED : 0),
+                           DVS_DRIVERNAME, linuxmid_get_handle(card));
+#else
     vector = !request_irq( irq, linux_device_irq,
                            SA_INTERRUPT | (allow_shirq ? SA_SHIRQ : 0),
                            DVS_DRIVERNAME, linuxmid_get_handle(card));
+#endif
 
     if( !vector ) {
       printk("%s: could not map irq %d\n", DVS_DRIVERNAME, irq );
