@@ -40,12 +40,13 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.13 $
- * $Date: 2009/04/16 12:34:44 $
+ * $Revision: 1.14 $
+ * $Date: 2009/04/19 17:59:53 $
  *
  */
 
 #include <string.h>
+#include <getopt.h>
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -98,9 +99,9 @@ long            packet_rate = 13600;
 static int	should_exit = FALSE;
 uint32_t  	RTT = 0;    /* this is computed by handle_rr in rtp_callback */
 char		*frame_buffer = NULL;
-uint32_t        hd_size_x=1920;
-uint32_t	hd_size_y=1080;
-uint32_t	hd_color_bpp=3;
+uint32_t        hd_size_x = 1920;
+uint32_t	hd_size_y = 1080;
+uint32_t	hd_color_bpp = 3;
 uint32_t	bitdepth = 10;
 uint32_t	progressive = 0;
 #ifdef HAVE_HDSTATION
@@ -234,7 +235,7 @@ ihdtv_reciever_thread(void *arg)
 
         while(!should_exit)
         {
-                if( ihdtv_recieve(connection, frame_buffer, 1920 * 1080 * 3) )
+                if(ihdtv_recieve(connection, frame_buffer, hd_size_x * hd_size_y * 3))
                         return 0;       // we've got some error. probably empty buffer
                 display_put_frame(display_device, frame_buffer);
                 frame_buffer = display_get_frame(display_device);
@@ -341,14 +342,14 @@ sender_thread(void *arg)
 		tx_frame = vidcap_grab(uv->capture_device);
 		if (tx_frame != NULL) {
 			//TODO: Unghetto this
-				if(uv->requested_compression) {
+			if(uv->requested_compression) {
 #ifdef HAVE_FASTDXT
-					compress_data(uv->compression,tx_frame);
-					dxt_tx_send(uv->tx, tx_frame, uv->network_device);
+				compress_data(uv->compression,tx_frame);
+				dxt_tx_send(uv->tx, tx_frame, uv->network_device);
 #endif /* HAVE_FASTDXT */
-				}else{
-					tx_send(uv->tx, tx_frame, uv->network_device);
-				}
+			}else{
+				tx_send(uv->tx, tx_frame, uv->network_device);
+			}
 			free(tx_frame);
 		}
 	}
@@ -369,6 +370,20 @@ main(int argc, char *argv[])
 	int			 ch;
 	pthread_t		 receiver_thread_id, sender_thread_id;
 
+	static struct option 	 getopt_options[] = {
+		{"display", required_argument, 0, 'd'},
+		{"capture", required_argument, 0, 't'},
+		{"mtu", required_argument, 0, 'm'},
+		{"fps", required_argument, 0, 'f'},
+		{"bitdepth", required_argument, 0, 'b'},
+		{"version", no_argument, 0, 'v'},
+		{"compress", no_argument, 0, 'c'},
+		{"progressive", no_argument, 0, 'p'},
+		{"ihdtv", no_argument, 0, 'i'},
+		{0, 0, 0, 0}
+	};
+	int			 option_index = 0;
+
 	uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
 
 	uv->ts = 0;
@@ -381,7 +396,7 @@ main(int argc, char *argv[])
 	uv->requested_mtu = 0;
 	uv->use_ihdtv_protocol = 0;
 
-	while ((ch = getopt(argc, argv, "d:t:m:f:b:vcpi")) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:vcpi", getopt_options, &option_index)) != -1) {
 		switch (ch) {
 		case 'd' :
 			uv->requested_display = optarg;
@@ -422,6 +437,8 @@ main(int argc, char *argv[])
 		case 'i':
 			uv->use_ihdtv_protocol = 1;
 			printf("setting ihdtv protocol\n");
+			break;
+		case '?' :
 			break;
 		default :
 			usage();
@@ -481,24 +498,6 @@ main(int argc, char *argv[])
 		uv->compression = initialize_video_compression();
 	}
 #endif /* HAVE_FASTDXT */
-
-        if(uv->use_ihdtv_protocol == 0)
-        {
-                if ((uv->network_device = initialize_network(argv[0], uv->participants)) == NULL) {
-                        printf("Unable to open network\n");
-                        return EXIT_FAIL_NETWORK;
-                }
-
-                if(uv->requested_mtu == 0)  // mtu wasn't specified on the command line
-                {
-                        uv->requested_mtu = 1500;   // the default value for rpt
-                }
-
-                if ((uv->tx = initialize_transmit(uv->requested_mtu)) == NULL) {
-                        printf("Unable to initialize transmitter\n");
-                        return EXIT_FAIL_TRANSMIT;
-                }
-        }
 
 #ifndef WIN32
 	signal(SIGINT, signal_handler);
@@ -564,7 +563,7 @@ main(int argc, char *argv[])
                                 return EXIT_FAIL_USAGE;
                         }
 
-                        if( ihdtv_init_tx_session(&tx_connection, argv[0], (argc==2)?argv[1]:argv[0], uv->requested_mtu) != 0 )
+                        if(ihdtv_init_tx_session(&tx_connection, argv[0], (argc==2)?argv[1]:argv[0], uv->requested_mtu) != 0)
                         {
                                 fprintf(stderr, "Error initializing sender session\n");
                                 return 1;
@@ -582,6 +581,21 @@ main(int argc, char *argv[])
 
 	}
 	else {
+                if ((uv->network_device = initialize_network(argv[0], uv->participants)) == NULL) {
+                        printf("Unable to open network\n");
+                        return EXIT_FAIL_NETWORK;
+                }
+
+                if(uv->requested_mtu == 0)  // mtu wasn't specified on the command line
+                {
+                        uv->requested_mtu = 1500;   // the default value for rpt
+                }
+
+                if ((uv->tx = initialize_transmit(uv->requested_mtu)) == NULL) {
+                        printf("Unable to initialize transmitter\n");
+                        return EXIT_FAIL_TRANSMIT;
+                }
+
 		if (strcmp("none", uv->requested_display) != 0) {
 			if(pthread_create(&receiver_thread_id, NULL, receiver_thread, (void *) uv) != 0) {
 				perror("Unable to create display thread!\n");
