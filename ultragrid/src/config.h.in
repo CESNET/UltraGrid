@@ -20,6 +20,9 @@
 /* Define to 1 if you have SAGE. */
 #undef HAVE_SAGE
 
+/* Define to 1 if you have Portaudio. */
+#undef HAVE_AUDIO
+
 /*
  * Define this if you want IPv6 support.
  */

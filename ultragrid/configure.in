@@ -489,7 +489,7 @@ AC_ARG_WITH(sage,
 	 SAGE_LIB=${PARENT}/sage3.0/lib])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE=yes, FOUND_SAGE=no)
-AC_CHECK_LIB(sail, main, FOUND_SAGE=yes, FOUND_SAGE=no, -I{SAGE_INC} -L ${SAGE_LIB})
+AC_CHECK_LIB(sail, main, FOUND_SAGE=yes, FOUND_SAGE=no, -I${SAGE_INC} -L${SAGE_LIB})
 
 if test $FOUND_SAGE = yes
 then
@@ -510,20 +510,44 @@ AC_SUBST(SAGE_OBJ)
 AC_SUBST(LINKER)
 
 # -------------------------------------------------------------------------------------------------
-# Tests needed by audio_codec/gsm_impl.c
-# 
-# Check if Signed arithmetic shift right (SASR).  If SASR then -1 >> 1 == 1.
-# Return value from test program of zero indicates success. 
-AC_CACHE_CHECK(signed arithmetic shift right, gsm_cv_sasr,
-        AC_RUN_IFELSE([AC_LANG_SOURCE([[int main() { return (-1 >> 1) != -1;}]])],[gsm_cv_sasr=yes],[gsm_cv_sasr=no],[]))
-if test $gsm_cv_sasr = yes ; then
-        AC_DEFINE(SASR)
+# AUDIO stuff
+
+AUDIO_INC=
+AUDIO_LIB=
+AUDIO_OBJ=
+
+AC_ARG_ENABLE(portaudio, 
+	[  --enable-portaudio          enable Portaudio framework support],
+	[if test $enableval = yes
+	then
+		AC_DEFINE(HAVE_AUDIO)
+	fi])
+
+AC_ARG_WITH(sage,
+	[  --with-portaudio=DIR     specify location of Portaudio],
+	[AUDIO_INC=$withval/include
+	 AUDIO_LIB=$withval/lib],
+	[AUDIO_INC=${PARENT}/portaudio/include
+	 AUDIO_LIB=${PARENT}/portaudio/lib/.libs])
+
+AC_CHECK_FILE(${AUDIO_INC}/portaudio.h, FOUND_AUDIO=yes, FOUND_AUDIO=no)
+AC_CHECK_LIB(portaudio, main, FOUND_AUDIO=yes, FOUND_AUDIO=no, -I${AUDIO_INC} -L${AUDIO_LIB})
+
+if test $FOUND_AUDIO = yes
+then
+    AUDIO_INC=-I${AUDIO_INC}
+    AUDIO_LIB=-"L${AUDIO_LIB} -lportaudio"
+    AUDIO_OBJ=
+    AC_DEFINE(HAVE_AUDIO)
+else
+    SAGE_INC=
+    SAGE_LIB=
+    SAGE_OBJ=
 fi
 
-# GSM Options, almost certainly not sensible on all platforms, performance
-# tests in a configure script ?
-AC_DEFINE(FAST)
-AC_DEFINE(USE_FLOAT_MUL)
+AC_SUBST(AUDIO_INC)
+AC_SUBST(AUDIO_LIB)
+AC_SUBST(AUDIO_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

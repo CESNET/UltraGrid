@@ -36,8 +36,8 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 # EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $Revision: 1.16 $
-# $Date: 2009/04/14 12:14:49 $
+# $Revision: 1.17 $
+# $Date: 2009/04/27 13:32:29 $
 #
 
 AR        = ar
@@ -46,8 +46,8 @@ CC        = @CC@
 CXX	  = @CXX@
 LINKER	  = @LINKER@
 CFLAGS    = @DEFS@ @CFLAGS@ @X_CFLAGS@
-LIBS      = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
-INC       = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @GL_INC@ @SAGE_INC@
+LIBS      = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @AUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
+INC       = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@
 TARGET    = bin/uv
 BUNDLE    = uv.app
 
@@ -81,6 +81,7 @@ OBJS      = src/bitstream.o \
             src/video_capture/testcard.o \
             src/video_capture/testcard_image.o \
             src/video_display.o \
+            @AUDIO_OBJ@ \
 	    @COMPRESS_OBJ@ \
 	    @QUICKTIME_OBJ@ \
             src/video_display/null.o \
@@ -88,7 +89,7 @@ OBJS      = src/bitstream.o \
             @SDL_OBJ@ \
             @GL_OBJ@ \
             @DXT_OBJ@ \
-			@SAGE_OBJ@
+	    @SAGE_OBJ@
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) ag-plugins suggest-tests

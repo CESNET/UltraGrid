@@ -698,6 +698,9 @@ COMPRESS_OBJ
 SAGE_INC
 SAGE_LIB
 SAGE_OBJ
+AUDIO_INC
+AUDIO_LIB
+AUDIO_OBJ
 LIBOBJS
 LTLIBOBJS'
 ac_subst_files=''
@@ -1297,6 +1300,7 @@ Optional Features:
   --disable-sdltest       Do not try to compile and run a test SDL program
   --enable-fastdxt        enable FastDXT
   --enable-sage           enable SAGE display support
+  --enable-portaudio          enable Portaudio framework support
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1307,6 +1311,7 @@ Optional Packages:
   --with-sdl-exec-prefix=PFX Exec prefix where SDL is installed (optional)
   --with-fastdxt=DIR      specify location of FastDXT
   --with-sage=DIR      specify location of SAGE
+  --with-portaudio=DIR     specify location of Portaudio
 
 Some influential environment variables:
   CC          C compiler command
@@ -10116,7 +10121,7 @@ if test "${ac_cv_lib_sail_main+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lsail -I{SAGE_INC} -L ${SAGE_LIB} $LIBS"
+LIBS="-lsail -I${SAGE_INC} -L${SAGE_LIB} $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -10194,82 +10199,139 @@ fi
 
 
 # -------------------------------------------------------------------------------------------------
-# Tests needed by audio_codec/gsm_impl.c
-#
-# Check if Signed arithmetic shift right (SASR).  If SASR then -1 >> 1 == 1.
-# Return value from test program of zero indicates success.
-{ echo "$as_me:$LINENO: checking signed arithmetic shift right" >&5
-echo $ECHO_N "checking signed arithmetic shift right... $ECHO_C" >&6; }
-if test "${gsm_cv_sasr+set}" = set; then
+# AUDIO stuff
+
+AUDIO_INC=
+AUDIO_LIB=
+AUDIO_OBJ=
+
+# Check whether --enable-portaudio was given.
+if test "${enable_portaudio+set}" = set; then
+  enableval=$enable_portaudio; if test $enableval = yes
+	then
+		cat >>confdefs.h <<\_ACEOF
+#define HAVE_AUDIO 1
+_ACEOF
+
+	fi
+fi
+
+
+
+# Check whether --with-sage was given.
+if test "${with_sage+set}" = set; then
+  withval=$with_sage; AUDIO_INC=$withval/include
+	 AUDIO_LIB=$withval/lib
+else
+  AUDIO_INC=${PARENT}/portaudio/include
+	 AUDIO_LIB=${PARENT}/portaudio/lib/.libs
+fi
+
+
+as_ac_File=`echo "ac_cv_file_${AUDIO_INC}/portaudio.h" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for ${AUDIO_INC}/portaudio.h" >&5
+echo $ECHO_N "checking for ${AUDIO_INC}/portaudio.h... $ECHO_C" >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  if test "$cross_compiling" = yes; then
-  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
-See \`config.log' for more details." >&5
-echo "$as_me: error: cannot run test program while cross compiling
-See \`config.log' for more details." >&2;}
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
    { (exit 1); exit 1; }; }
+if test -r "${AUDIO_INC}/portaudio.h"; then
+  eval "$as_ac_File=yes"
 else
-  cat >conftest.$ac_ext <<_ACEOF
+  eval "$as_ac_File=no"
+fi
+fi
+ac_res=`eval echo '${'$as_ac_File'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_File'}'` = yes; then
+  FOUND_AUDIO=yes
+else
+  FOUND_AUDIO=no
+fi
+
+{ echo "$as_me:$LINENO: checking for main in -lportaudio" >&5
+echo $ECHO_N "checking for main in -lportaudio... $ECHO_C" >&6; }
+if test "${ac_cv_lib_portaudio_main+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lportaudio -I${AUDIO_INC} -L${AUDIO_LIB} $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-int main() { return (-1 >> 1) != -1;}
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
 _ACEOF
-rm -f conftest$ac_exeext
+rm -f conftest.$ac_objext conftest$ac_exeext
 if { (ac_try="$ac_link"
 case "(($ac_try" in
   *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
   *) ac_try_echo=$ac_try;;
 esac
 eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>&5
+  (eval "$ac_link") 2>conftest.er1
   ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
-  { (case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_try") 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  gsm_cv_sasr=yes
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_portaudio_main=yes
 else
-  echo "$as_me: program exited with status $ac_status" >&5
-echo "$as_me: failed program was:" >&5
+  echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-( exit $ac_status )
-gsm_cv_sasr=no
+	ac_cv_lib_portaudio_main=no
 fi
-rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_portaudio_main" >&5
+echo "${ECHO_T}$ac_cv_lib_portaudio_main" >&6; }
+if test $ac_cv_lib_portaudio_main = yes; then
+  FOUND_AUDIO=yes
+else
+  FOUND_AUDIO=no
 fi
 
 
-fi
-{ echo "$as_me:$LINENO: result: $gsm_cv_sasr" >&5
-echo "${ECHO_T}$gsm_cv_sasr" >&6; }
-if test $gsm_cv_sasr = yes ; then
-        cat >>confdefs.h <<\_ACEOF
-#define SASR 1
+if test $FOUND_AUDIO = yes
+then
+    AUDIO_INC=-I${AUDIO_INC}
+    AUDIO_LIB=-"L${AUDIO_LIB} -lportaudio"
+    AUDIO_OBJ=
+    cat >>confdefs.h <<\_ACEOF
+#define HAVE_AUDIO 1
 _ACEOF
 
+else
+    SAGE_INC=
+    SAGE_LIB=
+    SAGE_OBJ=
 fi
 
-# GSM Options, almost certainly not sensible on all platforms, performance
-# tests in a configure script ?
-cat >>confdefs.h <<\_ACEOF
-#define FAST 1
-_ACEOF
 
-cat >>confdefs.h <<\_ACEOF
-#define USE_FLOAT_MUL 1
-_ACEOF
+
 
 
 # -------------------------------------------------------------------------------------------------
@@ -10978,11 +11040,14 @@ COMPRESS_OBJ!$COMPRESS_OBJ$ac_delim
 SAGE_INC!$SAGE_INC$ac_delim
 SAGE_LIB!$SAGE_LIB$ac_delim
 SAGE_OBJ!$SAGE_OBJ$ac_delim
+AUDIO_INC!$AUDIO_INC$ac_delim
+AUDIO_LIB!$AUDIO_LIB$ac_delim
+AUDIO_OBJ!$AUDIO_OBJ$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 87; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 90; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
