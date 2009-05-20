@@ -47,8 +47,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/05/20 16:07:07 $
  */
 
 #include "config.h"
@@ -249,16 +249,16 @@ pdb_init(void)
 void
 pdb_destroy(struct pdb **db_p)
 {
-        struct pdb *db = *db_p;
+	struct pdb *db = *db_p;
 
 	pdb_validate(db);
-        if (db->root != NULL) {
-                printf("ERROR: participant database not empty - cannot destroy\n");
-		abort();
-        }
+   if (db->root != NULL) {
+		printf("WARNING: participant database not empty - cannot destroy\n");
+		// TODO: participants should be removed using pdb_remove() 
+   }
 
-        free(db);
-        *db_p = NULL;
+   free(db);
+   *db_p = NULL;
 }
 
 static struct pdb_e *
