@@ -39,8 +39,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/11/21 17:28:08 $
+ * $Revision: 1.3 $
+ * $Date: 2009/05/20 14:55:24 $
  *
  */
 
@@ -270,4 +270,21 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 			payload_count = 0;
 		}
 	} while (y < (int)HD_HEIGHT);
+}
+
+void
+audio_tx_send(struct rtp *rtp_session, audio_frame *buffer)
+{
+      audio_frame_to_network_buffer(buffer->tmp_buffer, buffer);
+
+      //uint32_t timestamp = get_local_mediatime();
+      static uint32_t timestamp;
+      timestamp++;
+
+      int marker_bit = 0;     // FIXME: probably should define last packet of a frame, but is payload dependand so...think this through
+      
+      rtp_send_data(rtp_session, timestamp, audio_payload_type, marker_bit,
+                      0, /* contributing sources */
+                      0, /* contributing sources length*/
+                      buffer->tmp_buffer, buffer->samples_per_channel * 3 * 8, 0, 0, 0);
 }

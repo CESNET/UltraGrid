@@ -12,10 +12,10 @@
  * the IETF audio/video transport working group. Portions of the code are
  * derived from the algorithms published in that specification.
  *
- * $Revision: 1.2 $ 
+ * $Revision: 1.3 $ 
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
- * $Date: 2008/04/17 16:23:58 $
+ * $Date: 2009/05/20 14:55:24 $
  * 
  * Copyright (c) 1998-2001 University College London
  * All rights reserved.
@@ -1358,9 +1358,9 @@ static void
 rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 {
 	/* This routine preprocesses an incoming RTP packet, deciding whether to process it. */
-	static rtp_packet	*packet   = NULL;
-	static uint8_t		*buffer   = NULL;
-	static uint8_t		*buffer_vlen = NULL;
+	rtp_packet		*packet   = NULL;
+	uint8_t			*buffer   = NULL;
+	uint8_t			*buffer_vlen = NULL;
 	int			 vlen     = 12;  /* vlen = 12 | 16 | 20 */
 	int			 buflen;
 	source			*s;
@@ -2305,8 +2305,8 @@ rtp_send_data_hdr(struct rtp *session,
                   char *extn, uint16_t extn_len, uint16_t extn_type)
 {
 	int			 vlen, buffer_len, i, rc, pad, pad_len;
-	static uint8_t		*buffer = NULL;
-	static rtp_packet	*packet = NULL;
+	uint8_t			*buffer = NULL;
+	rtp_packet		*packet = NULL;
 	uint8_t 		 initVec[8] = {0,0,0,0,0,0,0,0};
 	struct iovec		 send_vector[3];
 	int			 send_vector_len;
@@ -2436,6 +2436,8 @@ rtp_send_data_hdr(struct rtp *session,
 	if (rc == -1) {
 		perror("sending RTP packet");
 	}
+
+	free(buffer);
 
 	/* Update the RTCP statistics... */
 	session->we_sent     = TRUE;

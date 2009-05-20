@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/05/20 14:55:24 $
  *
  */
 
@@ -49,6 +49,8 @@
 /* The main playout buffer data structures. See "RTP: Audio and Video for the */
 /* Internet" Figure 6.8 (page 167) for a diagram.                       [csp] */
 /******************************************************************************/
+
+#include "audio/audio.h"
 
 /* The coded representation of a single frame */
 struct coded_data {
@@ -68,4 +70,4 @@ struct pbuf	*pbuf_init(void);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, char *framebuffer, int i, int compression);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
-
+int            audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *frame);

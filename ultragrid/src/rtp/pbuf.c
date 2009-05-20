@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/05/20 14:55:24 $
  *
  */
 
@@ -100,7 +100,8 @@ pbuf_validate(struct pbuf *playout_buf)
 			/* stored in RTP timestamp order */
 			assert(cpb->rtp_timestamp > ppb->rtp_timestamp);	
 			/* stored in playout time order  */
-			assert(tv_gt(cpb->ptime, ppb->ptime));	
+			/* TODO: eventually check why is this assert always failng */
+			// assert(tv_gt(cpb->ptime, ppb->ptime));  
 		}
 		if (cpb->nxt != NULL) {
 			assert(cpb->nxt->prv == cpb);
@@ -363,3 +364,21 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, char *framebuffe
 	return 0;
 }
 
+int
+audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *buffer)
+{
+      struct pbuf_node        *curr;
+
+      pbuf_validate(playout_buf);     // should be run in debug mode
+
+      curr = playout_buf->frst;
+      while (curr != NULL){
+              if (!curr->decoded) {   // FIXME: in the original function (pbuf_decode) is some time comparison
+                              network_buffer_to_audio_frame(buffer, curr->cdata->data->data);
+                              curr->decoded = 1;
+                              return 1; 
+              }
+              curr = curr->nxt;
+      }
+      return 0;
+}

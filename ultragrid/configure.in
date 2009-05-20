@@ -536,8 +536,8 @@ AC_CHECK_LIB(portaudio, main, FOUND_AUDIO=yes, FOUND_AUDIO=no, -I${AUDIO_INC} -L
 if test $FOUND_AUDIO = yes
 then
     AUDIO_INC=-I${AUDIO_INC}
-    AUDIO_LIB=-"L${AUDIO_LIB} -lportaudio"
-    AUDIO_OBJ=
+    AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+    AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
     AC_DEFINE(HAVE_AUDIO)
 else
     SAGE_INC=

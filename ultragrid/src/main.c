@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.14 $
- * $Date: 2009/04/19 17:59:53 $
+ * $Revision: 1.15 $
+ * $Date: 2009/05/20 14:55:23 $
  *
  */
 
@@ -67,6 +67,7 @@
 #include "version.h"
 #include "ihdtv/ihdtv.h"
 #include "compat/platform_semaphore.h"
+#include "audio/audio.h"
 
 #define EXIT_FAIL_USAGE		1
 #define EXIT_FAIL_UI   		2
@@ -78,9 +79,11 @@
 
 struct state_uv {
 	struct rtp		*network_device;
+	struct rtp		*audio_network_device;
 	struct vidcap		*capture_device;
 	struct timeval		 start_time, curr_time;
 	struct pdb		*participants;
+	struct pdb		*audio_participants;
 	uint32_t		 ts;
 	int			 fps;
 	struct video_tx		*tx;
@@ -92,7 +95,10 @@ struct state_uv {
 	int			 dxt_display;
 	unsigned 		 requested_mtu;
 
-	int                      use_ihdtv_protocol;
+	int	use_ihdtv_protocol;
+
+	int	audio_capture_device;
+	int	audio_playback_device;
 };
 
 long            packet_rate = 13600;
@@ -267,6 +273,132 @@ ihdtv_sender_thread(void *arg)
         return 0;
 }
 
+static struct rtp *
+initialize_audio_network(char *addr, struct pdb *participants)	// GiX
+{
+	struct rtp *r;
+	double	rtcp_bw = 1024*512;	// FIXME:  something about 5% for rtcp is said in rfc
+
+	r = rtp_init(addr, 5006, 5006, 255, rtcp_bw, FALSE, rtp_recv_callback, (void *) participants);
+	if(r != NULL)
+	{
+		pdb_add(participants, rtp_my_ssrc(r));
+		rtp_set_option(r, RTP_OPT_WEAK_VALIDATION,   TRUE);
+		rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL, ULTRAGRID_VERSION, strlen(ULTRAGRID_VERSION));
+	}
+
+	return r;
+}
+
+static void *
+audio_thread(void *arg)
+{
+	struct state_uv *uv = arg;
+	audio_init(uv->audio_playback_device, uv->audio_capture_device);
+
+	// we act as a receiver
+	if(uv->audio_playback_device != -2)
+	{
+		audio_frame_buffer buffer;
+		int size_of_frame_buffer = 5;
+		init_audio_frame_buffer(&buffer, size_of_frame_buffer);
+		int buffer_underrun = 1;	// so far we only use buffer at the beginning
+
+		// rtp variables
+		struct timeval timeout, curr_time;
+		uint32_t ts;
+		struct pdb_e	*cp;
+
+
+		audio_start_stream();
+		while(!should_exit)
+		{
+			timeout.tv_sec = 0;
+			timeout.tv_usec = 999999/((48000/audio_samples_per_frame)*2);
+			gettimeofday(&curr_time, NULL);
+			ts = tv_diff(curr_time, uv->start_time) * 90000;	// What is this?
+			rtp_update(uv->audio_network_device, curr_time);	// this is just some internal rtp housekeeping...nothing to worry about
+			rtp_send_ctrl(uv->audio_network_device, ts, 0, curr_time);	// strange..
+
+			// initially we wait to fill the buffer -- probably should be completely deleted..
+			/*
+			if(buffer_underrun)
+			{
+				while(!audio_buffer_full(&buffer))
+				{
+					gettimeofday(&curr_time, NULL);
+					ts = tv_diff(curr_time, uv->start_time) * 90000;
+					rtp_update(uv->audio_network_device, curr_time);
+					rtp_send_ctrl(uv->audio_network_device, ts, 0, curr_time);
+
+					timeout.tv_sec = 0;
+					timeout.tv_usec = 999999/((48000/audio_samples_per_frame)*2);
+					rtp_recv(uv->audio_network_device, &timeout, ts);
+					cp = pdb_iter_init(uv->audio_participants);
+
+					while((cp != NULL) && (!audio_buffer_full(&buffer)))
+					{
+						audio_frame *frame = audio_buffer_get_empty_frame(&buffer);
+						if(audio_pbuf_decode(cp->playout_buffer, curr_time, frame))
+							audio_buffer_mark_last_frame_full(&buffer);
+						pbuf_remove(cp->playout_buffer, curr_time);
+						cp = pdb_iter_next(uv->audio_participants);
+					}
+
+					pdb_iter_done(uv->audio_participants);
+				}
+
+				buffer_underrun = 0;
+				audio_start_stream();
+			}
+			*/
+
+			rtp_recv(uv->audio_network_device, &timeout, ts);
+			cp = pdb_iter_init(uv->audio_participants);
+
+			while((cp != NULL) && (!audio_buffer_full(&buffer)))
+			{
+				audio_frame *frame = audio_buffer_get_empty_frame(&buffer);
+				if(audio_pbuf_decode(cp->playout_buffer, curr_time, frame))
+					audio_buffer_mark_last_frame_full(&buffer);
+
+				pbuf_remove(cp->playout_buffer, curr_time);
+				cp = pdb_iter_next(uv->audio_participants);
+			}
+			pdb_iter_done(uv->audio_participants);
+
+			while(audio_ready_to_write() >= audio_samples_per_frame)
+			{
+				audio_frame *frame = audio_buffer_get_full_frame(&buffer);
+
+				if(frame != NULL)
+					audio_write(frame);
+
+				else
+					break;	// audio buffer is empty...nead to read some data
+			}
+		}
+		free_audio_frame_buffer(&buffer);
+	}
+
+	else	// we act as a sender
+	if(uv->audio_capture_device != -2)
+	{
+		audio_frame buffer;
+		init_audio_frame(&buffer, audio_samples_per_frame);
+		audio_start_stream();
+		while(!should_exit)
+		{
+			audio_read(&buffer);
+			audio_tx_send(uv->audio_network_device, &buffer);
+		}
+		free_audio_frame(&buffer);
+	}
+
+
+	return NULL;
+}
+
 static void *
 receiver_thread(void *arg)
 {
@@ -380,6 +512,8 @@ main(int argc, char *argv[])
 		{"compress", no_argument, 0, 'c'},
 		{"progressive", no_argument, 0, 'p'},
 		{"ihdtv", no_argument, 0, 'i'},
+		{"receive", required_argument, 0, 'r'},
+		{"send", required_argument, 0, 's'},
 		{0, 0, 0, 0}
 	};
 	int			 option_index = 0;
@@ -395,8 +529,10 @@ main(int argc, char *argv[])
 	uv->requested_compression = 0;
 	uv->requested_mtu = 0;
 	uv->use_ihdtv_protocol = 0;
+	uv->audio_capture_device = -2;	// no device
+	uv->audio_playback_device = -2;
 
-	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:vcpi", getopt_options, &option_index)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:r:s:vcpi", getopt_options, &option_index)) != -1) {
 		switch (ch) {
 		case 'd' :
 			uv->requested_display = optarg;
@@ -437,6 +573,20 @@ main(int argc, char *argv[])
 		case 'i':
 			uv->use_ihdtv_protocol = 1;
 			printf("setting ihdtv protocol\n");
+			break;
+		case 'r':
+			if(!strcmp("list", optarg)){
+				print_available_devices();
+				return EXIT_SUCCESS;
+			}
+			uv->audio_playback_device = atoi(optarg);
+			break;
+		case 's':
+			if(!strcmp("list", optarg)){
+				print_available_devices();
+				return EXIT_SUCCESS;
+			}
+			uv->audio_capture_device = atoi(optarg);
 			break;
 		case '?' :
 			break;
@@ -515,6 +665,23 @@ main(int argc, char *argv[])
 #else
 	printf("WARNING: System does not support real-time scheduling\n");
 #endif
+
+	pthread_t audio_thread_id;
+	if( (uv->audio_playback_device != -2) || (uv->audio_capture_device != -2))
+	{
+		uv->audio_participants = pdb_init();
+		if(( uv->audio_network_device = initialize_audio_network(argv[0], uv->audio_participants)) == NULL)
+		{
+			printf("Unable to open audio network\n");
+			return EXIT_FAIL_NETWORK;
+		}
+
+		if(pthread_create(&audio_thread_id, NULL, audio_thread, (void *) uv) != 0)
+		{
+			fprintf(stderr, "Error creating audio thread. Quitting\n");
+			return EXIT_FAILURE;
+		}
+	}
 
 	if(uv->use_ihdtv_protocol) {
                 ihdtv_connection tx_connection, rx_connection;

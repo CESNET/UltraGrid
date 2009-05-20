@@ -10318,8 +10318,8 @@ fi
 if test $FOUND_AUDIO = yes
 then
     AUDIO_INC=-I${AUDIO_INC}
-    AUDIO_LIB=-"L${AUDIO_LIB} -lportaudio"
-    AUDIO_OBJ=
+    AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+    AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_AUDIO 1
 _ACEOF
