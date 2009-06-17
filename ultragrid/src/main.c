@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.16 $
- * $Date: 2009/05/20 16:07:07 $
+ * $Revision: 1.17 $
+ * $Date: 2009/06/17 09:43:01 $
  *
  */
 
@@ -396,6 +396,7 @@
 		}
 
 
+		audio_close();
 		return NULL;
 	}
 

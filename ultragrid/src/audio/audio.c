@@ -121,6 +121,12 @@ int audio_init(int output_device, int input_device)
 	return 0;
 }
 
+int audio_close()	// closes and frees all audio resources
+{
+	Pa_StopStream(stream);	// may not be necessary
+	Pa_Terminate();
+}
+
 int audio_buffer_full(const audio_frame_buffer *buffer)
 {
 	return (buffer->occupation == buffer->total_number_of_frames);
