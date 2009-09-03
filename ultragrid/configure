@@ -10218,9 +10218,9 @@ fi
 
 
 
-# Check whether --with-sage was given.
-if test "${with_sage+set}" = set; then
-  withval=$with_sage; AUDIO_INC=$withval/include
+# Check whether --with-portaudio was given.
+if test "${with_portaudio+set}" = set; then
+  withval=$with_portaudio; AUDIO_INC=$withval/include
 	 AUDIO_LIB=$withval/lib
 else
   AUDIO_INC=${PARENT}/portaudio/include
@@ -10318,16 +10318,23 @@ fi
 if test $FOUND_AUDIO = yes
 then
     AUDIO_INC=-I${AUDIO_INC}
-    AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+case "$host_os" in
+        *darwin*)
+                AUDIO_LIB="${AUDIO_LIB}/libportaudio.a -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices"
+        ;;
+        *)
+                AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+        ;;
+esac
     AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
     cat >>confdefs.h <<\_ACEOF
 #define HAVE_AUDIO 1
 _ACEOF
 
 else
-    SAGE_INC=
-    SAGE_LIB=
-    SAGE_OBJ=
+    AUDIO_INC=
+    AUDIO_LIB=
+    AUDIO_OBJ=
 fi
 
 

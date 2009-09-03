@@ -523,7 +523,7 @@ AC_ARG_ENABLE(portaudio,
 		AC_DEFINE(HAVE_AUDIO)
 	fi])
 
-AC_ARG_WITH(sage,
+AC_ARG_WITH(portaudio,
 	[  --with-portaudio=DIR     specify location of Portaudio],
 	[AUDIO_INC=$withval/include
 	 AUDIO_LIB=$withval/lib],
@@ -536,13 +536,20 @@ AC_CHECK_LIB(portaudio, main, FOUND_AUDIO=yes, FOUND_AUDIO=no, -I${AUDIO_INC} -L
 if test $FOUND_AUDIO = yes
 then
     AUDIO_INC=-I${AUDIO_INC}
-    AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+case "$host_os" in
+        *darwin*)
+                AUDIO_LIB="${AUDIO_LIB}/libportaudio.a -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices"
+        ;;
+        *)
+                AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+        ;;
+esac
     AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
     AC_DEFINE(HAVE_AUDIO)
 else
-    SAGE_INC=
-    SAGE_LIB=
-    SAGE_OBJ=
+    AUDIO_INC=
+    AUDIO_LIB=
+    AUDIO_OBJ=
 fi
 
 AC_SUBST(AUDIO_INC)
