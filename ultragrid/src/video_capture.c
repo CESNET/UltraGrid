@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2007/12/11 19:16:45 $
+ * $Revision: 1.4 $
+ * $Date: 2009/09/29 10:03:36 $
  *
  */
 
@@ -54,6 +54,7 @@
 #include "video_capture/quicktime.h"
 #include "video_capture/testcard.h"
 #include "video_capture/null.h"
+#include "video_capture/decklink.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
@@ -92,6 +93,16 @@ struct vidcap_device_api vidcap_device_table[] = {
 		vidcap_hdstation_grab
 	},
 #endif /* HAVE_HDSTATION */
+#ifdef HAVE_DECKLINK
+	{
+		/* The Blackmagic DeckLink capture card */
+		0,
+		vidcap_decklink_probe,
+		vidcap_decklink_init,
+		vidcap_decklink_done,
+		vidcap_decklink_grab
+	},
+#endif /* HAVE_DECKLINK */
 #ifdef HAVE_MACOSX
 	{
 		/* The QuickTime API */
@@ -135,12 +146,16 @@ vidcap_init_devices(void)
 	assert(available_device_count == 0);
 
 	for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
+		//printf("probe: %d\n",i);
 		dt = vidcap_device_table[i].func_probe();
 		if (dt != NULL) {
 			vidcap_device_table[i].id = dt->id;
 			available_devices[available_device_count++] = dt;
 		}
 	}
+
+	printf("available_device_count: %d\n",available_device_count);
+
 	return 0;
 }
 

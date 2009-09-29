@@ -38,12 +38,10 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2009/05/20 14:55:24 $
+ * $Revision: 1.3 $
+ * $Date: 2009/09/29 10:03:36 $
  *
  */
-
-#include "audio/audio.h"
 
 struct video_tx;
 
@@ -51,4 +49,6 @@ struct video_tx *tx_init(unsigned mtu);
 void		 tx_done(struct video_tx *tx);
 void		 tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session);
 void		 dxt_tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session);
+#ifdef HAVE_AUDIO
 void             audio_tx_send(struct rtp *rtp_session, audio_frame *buffer);
+#endif /* HAVE_AUDIO */

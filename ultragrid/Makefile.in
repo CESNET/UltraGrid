@@ -1,95 +1,60 @@
 #
-# Copyright (c) 2001-2004 University of Southern California
-# All rights reserved. 
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, is permitted provided that the following conditions
-# are met:
-# 
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 
-# 3. All advertising materials mentioning features or use of this software
-#    must display the following acknowledgement:
-# 
-#      This product includes software developed by the University of Southern
-#      California Information Sciences Institute.
-# 
-# 4. Neither the name of the University nor of the Institute may be used
-#    to endorse or promote products derived from this software without
-#    specific prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
-# BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-# AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
-# EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
-# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-# $Revision: 1.17 $
-# $Date: 2009/04/27 13:32:29 $
+# $Revision: 1.18 $
+# $Date: 2009/09/29 10:03:36 $
 #
 
-AR        = ar
-RANLIB    = ranlib
-CC        = @CC@
-CXX	  = @CXX@
-LINKER	  = @LINKER@
-CFLAGS    = @DEFS@ @CFLAGS@ @X_CFLAGS@
-LIBS      = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @AUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
-INC       = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@
-TARGET    = bin/uv
-BUNDLE    = uv.app
+AR            = ar
+RANLIB        = ranlib
+CC            = @CC@
+CXX	      = @CXX@
+LINKER	      = @LINKER@
+CFLAGS        = @DEFS@ @CFLAGS@ @X_CFLAGS@
+LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @AUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
+INC           = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@
+DECKLINK_PATH = @DECKLINK_PATH@
+TARGET        = bin/uv
+BUNDLE        = uv.app
 
-OBJS      = src/bitstream.o \
-            src/debug.o \
-            src/ntp.o \
-	    src/pdb.o \
-            src/tv.o \
-            src/transmit.o \
-            src/tfrc.o \
-	    src/rtp/pbuf.o \
-	    src/rtp/decoders.o \
-	    src/rtp/ptime.o \
-            src/rtp/net_udp.o \
-            src/rtp/rtp.o \
-            src/rtp/rtp_callback.o \
-	    src/compat/platform_semaphore.o \
-            src/crypto/crypt_aes.o \
-            src/crypto/crypt_aes_impl.o \
-            src/crypto/crypt_des.o \
-            src/crypto/md5.o \
-            src/crypto/random.o \
-            src/video_codec.o \
-            src/video_codec/dv.o \
-            src/video_codec/uv_yuv.o \
-            src/video_capture.o \
-	    src/video_capture/null.o \
-            src/video_capture/firewire_dv_freebsd.o \
-            @DVS_OBJ@ \
-            src/ihdtv/ihdtv.o \
-            src/video_capture/testcard.o \
-            src/video_capture/testcard_image.o \
-            src/video_display.o \
-            @AUDIO_OBJ@ \
-	    @COMPRESS_OBJ@ \
-	    @QUICKTIME_OBJ@ \
-            src/video_display/null.o \
-	    @X_OBJ@ \
-            @SDL_OBJ@ \
-            @GL_OBJ@ \
-            @DXT_OBJ@ \
-	    @SAGE_OBJ@
+OBJS          = src/bitstream.o \
+		src/debug.o \
+		src/ntp.o \
+		src/pdb.o \
+		src/tv.o \
+		src/transmit.o \
+		src/tfrc.o \
+		src/rtp/pbuf.o \
+		src/rtp/decoders.o \
+		src/rtp/ptime.o \
+		src/rtp/net_udp.o \
+		src/rtp/rtp.o \
+		src/rtp/rtp_callback.o \
+		src/compat/platform_semaphore.o \
+		src/crypto/crypt_aes.o \
+		src/crypto/crypt_aes_impl.o \
+		src/crypto/crypt_des.o \
+		src/crypto/md5.o \
+		src/crypto/random.o \
+		src/video_codec.o \
+		src/video_codec/dv.o \
+		src/video_codec/uv_yuv.o \
+		src/video_capture.o \
+		src/video_capture/null.o \
+		src/video_capture/firewire_dv_freebsd.o \
+		@DVS_OBJ@ \
+		src/ihdtv/ihdtv.o \
+		src/video_capture/testcard.o \
+		src/video_capture/testcard_image.o \
+		src/video_display.o \
+		@AUDIO_OBJ@ \
+		@COMPRESS_OBJ@ \
+		@QUICKTIME_OBJ@ \
+		@DECKLINK_OBJ@ \
+		src/video_display/null.o \
+		@X_OBJ@ \
+		@SDL_OBJ@ \
+		@GL_OBJ@ \
+		@DXT_OBJ@ \
+		@SAGE_OBJ@
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) ag-plugins suggest-tests
@@ -116,6 +81,12 @@ src/video_capture/testcard_image.yuv: src/video_capture/testcard_image.jpg
 
 src/video_capture/make_testcard: src/video_capture/make_testcard.c
 	$(CC) -o src/video_capture/make_testcard src/video_capture/make_testcard.c
+
+src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+	$(CXX) -Wno-multichar -fno-rtti -O3 -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+
+src/video_capture/decklink.o: src/video_capture/decklink.cpp
+	$(CXX) -Wno-multichar -fno-rtti -O3 -c $(INC) -o src/video_capture/decklink.o src/video_capture/decklink.cpp
 
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) -Wno-deprecated -fPIC -O3 -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx

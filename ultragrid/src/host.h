@@ -1,6 +1,8 @@
 #ifndef __host_h
 #define __host_h
 
+extern 		int should_exit;
+
 extern unsigned int hd_size_x;
 extern unsigned int hd_size_y;
 extern unsigned int hd_color_bpp;

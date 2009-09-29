@@ -682,6 +682,9 @@ X_OBJ
 DVS_INC
 DVS_LIB
 DVS_OBJ
+DECKLINK_PATH
+DECKLINK_INC
+DECKLINK_OBJ
 QUICKTIME_INC
 QUICKTIME_LIB
 QUICKTIME_OBJ
@@ -1297,6 +1300,7 @@ Optional Features:
   --enable-debug          enable debug messages and code
   --enable-ipv6           enable ipv6
   --enable-hdstation      enable HDStation or Centaurus cards
+  --enable-decklink           enable Blackmagic DeckLink support
   --disable-sdltest       Do not try to compile and run a test SDL program
   --enable-fastdxt        enable FastDXT
   --enable-sage           enable SAGE display support
@@ -1307,6 +1311,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-x                use the X Window System
   --with-hdstation=DIR    specify location of DVS HDstation SDK
+  --with-decklink=DIR      specify location of DECKLINK
   --with-sdl-prefix=PFX   Prefix where SDL is installed (optional)
   --with-sdl-exec-prefix=PFX Exec prefix where SDL is installed (optional)
   --with-fastdxt=DIR      specify location of FastDXT
@@ -7439,6 +7444,169 @@ fi
 
 
 # -------------------------------------------------------------------------------------------------
+# Blackmagic stuff
+
+DECKLINK_OBJ=
+DECKLINK_INC=
+DECKLINK_PATH=
+
+# Check whether --enable-decklink was given.
+if test "${enable_decklink+set}" = set; then
+  enableval=$enable_decklink; if test $enableval = yes
+	then
+		cat >>confdefs.h <<\_ACEOF
+#define HAVE_DECKLINK 1
+_ACEOF
+
+	fi
+fi
+
+
+
+# Check whether --with-decklink was given.
+if test "${with_decklink+set}" = set; then
+  withval=$with_decklink; DECKLINK_INC=$withval/include
+
+else
+  DECKLINK_INC=${PARENT}/DeckLink/include
+
+fi
+
+
+as_ac_File=`echo "ac_cv_file_${DECKLINK_INC}/DeckLinkAPI.h" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for ${DECKLINK_INC}/DeckLinkAPI.h" >&5
+echo $ECHO_N "checking for ${DECKLINK_INC}/DeckLinkAPI.h... $ECHO_C" >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "${DECKLINK_INC}/DeckLinkAPI.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+ac_res=`eval echo '${'$as_ac_File'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_File'}'` = yes; then
+  FOUND_DECKLINK=yes
+else
+  FOUND_DECKLINK=no
+fi
+
+as_ac_File=`echo "ac_cv_file_${DECKLINK_INC}/DeckLinkAPIDispatch.cpp" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for ${DECKLINK_INC}/DeckLinkAPIDispatch.cpp" >&5
+echo $ECHO_N "checking for ${DECKLINK_INC}/DeckLinkAPIDispatch.cpp... $ECHO_C" >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "${DECKLINK_INC}/DeckLinkAPIDispatch.cpp"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+ac_res=`eval echo '${'$as_ac_File'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_File'}'` = yes; then
+  FOUND_DECKLINK=yes
+else
+  FOUND_DECKLINK=no
+fi
+
+{ echo "$as_me:$LINENO: checking for main in -lDeckLinkAPI" >&5
+echo $ECHO_N "checking for main in -lDeckLinkAPI... $ECHO_C" >&6; }
+if test "${ac_cv_lib_DeckLinkAPI_main+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lDeckLinkAPI  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_DeckLinkAPI_main=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_DeckLinkAPI_main=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_DeckLinkAPI_main" >&5
+echo "${ECHO_T}$ac_cv_lib_DeckLinkAPI_main" >&6; }
+if test $ac_cv_lib_DeckLinkAPI_main = yes; then
+  FOUND_DECKLINK=yes
+else
+  FOUND_DECKLINK=no
+fi
+
+
+
+if test $FOUND_DECKLINK = yes
+then
+    DECKLINK_PATH=${DECKLINK_INC}
+    DECKLINK_INC=-I${DECKLINK_INC}
+    DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o"
+    cat >>confdefs.h <<\_ACEOF
+#define HAVE_DECKLINK 1
+_ACEOF
+
+    LINKER=$CXX
+else
+    DECKLINK_PATH=
+    DECKLINK_INC=
+    DECKLINK_OBJ=
+fi
+
+
+
+
+
+# -------------------------------------------------------------------------------------------------
 # QuickTime Stuff
 QUICKTIME_INC=
 QUICKTIME_LIB=
@@ -11031,6 +11199,9 @@ X_OBJ!$X_OBJ$ac_delim
 DVS_INC!$DVS_INC$ac_delim
 DVS_LIB!$DVS_LIB$ac_delim
 DVS_OBJ!$DVS_OBJ$ac_delim
+DECKLINK_PATH!$DECKLINK_PATH$ac_delim
+DECKLINK_INC!$DECKLINK_INC$ac_delim
+DECKLINK_OBJ!$DECKLINK_OBJ$ac_delim
 QUICKTIME_INC!$QUICKTIME_INC$ac_delim
 QUICKTIME_LIB!$QUICKTIME_LIB$ac_delim
 QUICKTIME_OBJ!$QUICKTIME_OBJ$ac_delim
@@ -11054,7 +11225,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 90; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 93; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

@@ -254,6 +254,49 @@ AC_SUBST(DVS_LIB)
 AC_SUBST(DVS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# Blackmagic stuff
+
+DECKLINK_OBJ=
+DECKLINK_INC=
+DECKLINK_PATH=
+
+AC_ARG_ENABLE(decklink, 
+	[  --enable-decklink           enable Blackmagic DeckLink support],
+	[if test $enableval = yes
+	then
+		AC_DEFINE(HAVE_DECKLINK)
+	fi])
+
+AC_ARG_WITH(decklink,
+	[  --with-decklink=DIR      specify location of DECKLINK],
+	[DECKLINK_INC=$withval/include
+	],
+	[DECKLINK_INC=${PARENT}/DeckLink/include
+	])
+
+AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK=yes, FOUND_DECKLINK=no)
+AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK=yes, FOUND_DECKLINK=no)
+AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK=yes, FOUND_DECKLINK=no)
+
+
+if test $FOUND_DECKLINK = yes
+then
+    DECKLINK_PATH=${DECKLINK_INC}
+    DECKLINK_INC=-I${DECKLINK_INC}
+    DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o"
+    AC_DEFINE(HAVE_DECKLINK)
+    LINKER=$CXX
+else
+    DECKLINK_PATH=
+    DECKLINK_INC=
+    DECKLINK_OBJ=
+fi
+
+AC_SUBST(DECKLINK_PATH)
+AC_SUBST(DECKLINK_INC)
+AC_SUBST(DECKLINK_OBJ)
+AC_SUBST(LINKER)
+# -------------------------------------------------------------------------------------------------
 # QuickTime Stuff
 QUICKTIME_INC=
 QUICKTIME_LIB=

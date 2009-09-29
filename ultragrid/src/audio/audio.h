@@ -1,6 +1,7 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+#ifdef HAVE_AUDIO
 #include "portaudio.h"
 
 typedef struct
@@ -60,5 +61,7 @@ void network_buffer_to_audio_frame(audio_frame *pa_buffer, const char *network_b
 inline
 void audio_frame_to_interleaved_buffer(char *in_buffer, const audio_frame *pa_buffer, int num_channels);
 
+
+#endif /* HAVE_AUDIO */
 
 #endif

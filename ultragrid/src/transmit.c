@@ -39,8 +39,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2009/05/20 14:55:24 $
+ * $Revision: 1.4 $
+ * $Date: 2009/09/29 10:03:36 $
  *
  */
 
@@ -53,6 +53,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "host.h"
+#include "audio/audio.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 #define DXT_HEIGHT 1080/4
@@ -272,6 +273,7 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 	} while (y < (int)HD_HEIGHT);
 }
 
+#ifdef HAVE_AUDIO
 void
 audio_tx_send(struct rtp *rtp_session, audio_frame *buffer)
 {
@@ -288,3 +290,4 @@ audio_tx_send(struct rtp *rtp_session, audio_frame *buffer)
                       0, /* contributing sources length*/
                       buffer->tmp_buffer, buffer->samples_per_channel * 3 * 8, 0, 0, 0);
 }
+#endif /* HAVE_AUDIO */

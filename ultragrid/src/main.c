@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.17 $
- * $Date: 2009/06/17 09:43:01 $
+ * $Revision: 1.18 $
+ * $Date: 2009/09/29 10:03:36 $
  *
  */
 
@@ -102,7 +102,7 @@
 	};
 
 	long            packet_rate = 13600;
-	static int	should_exit = FALSE;
+	int	        should_exit = FALSE;
 	uint32_t  	RTT = 0;    /* this is computed by handle_rr in rtp_callback */
 	char		*frame_buffer = NULL;
 	uint32_t        hd_size_x = 1920;
@@ -116,7 +116,7 @@
 	//uint32_t	hd_video_mode=SV_MODE_SMPTE274_25P | SV_MODE_NBIT_10BDVS | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 #else
 	uint32_t	hd_video_mode=0;
-#endif
+#endif /* HAVE_HDSTATION */
 
 	long frame_begin[2];
 
@@ -128,7 +128,7 @@
 			  should_exit = TRUE;
 			  return;
 	}
-#endif
+#endif /* WIN32 */
 
 	static void 
 	usage(void) 
@@ -273,6 +273,7 @@
 			  return 0;
 	}
 
+#ifdef HAVE_AUDIO
 	static struct rtp *
 	initialize_audio_network(char *addr, struct pdb *participants)	// GiX
 	{
@@ -399,6 +400,7 @@
 		audio_close();
 		return NULL;
 	}
+#endif /* HAVE_AUDIO */
 
 	static void *
 	receiver_thread(void *arg)
@@ -536,7 +538,11 @@
 	uv->audio_participants = NULL;
 	uv->participants = NULL;
 
+#ifdef HAVE_AUDIO
 	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:r:s:vcpi", getopt_options, &option_index)) != -1) {
+#else
+	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:vcpi", getopt_options, &option_index)) != -1) {
+#endif /* HAVE_AUDIO */
 		switch (ch) {
 		case 'd' :
 			uv->requested_display = optarg;
@@ -578,6 +584,7 @@
 			uv->use_ihdtv_protocol = 1;
 			printf("setting ihdtv protocol\n");
 			break;
+#ifdef HAVE_AUDIO
 		case 'r':
 			if(!strcmp("list", optarg)){
 				print_available_devices();
@@ -592,6 +599,7 @@
 			}
 			uv->audio_capture_device = atoi(optarg);
 			break;
+#endif /* HAVE_AUDIO */
 		case '?' :
 			break;
 		default :
@@ -668,8 +676,9 @@
 	}
 #else
 	printf("WARNING: System does not support real-time scheduling\n");
-#endif
+#endif /* HAVE_SCHED_SETSCHEDULER */
 
+#ifdef HAVE_AUDIO
 	pthread_t audio_thread_id;
 	if( (uv->audio_playback_device != -2) || (uv->audio_capture_device != -2))
 	{
@@ -686,6 +695,7 @@
 			return EXIT_FAILURE;
 		}
 	}
+#endif /* HAVE_AUDIO */
 
 	if(uv->use_ihdtv_protocol) {
                 ihdtv_connection tx_connection, rx_connection;
@@ -797,8 +807,10 @@
 	if(strcmp("none", uv->requested_capture) != 0)
 		pthread_join(sender_thread_id, NULL);
 
+#ifdef HAVE_AUDIO
 	if((uv->audio_playback_device != -2) || (uv->audio_capture_device != -2))
 		pthread_join(audio_thread_id, NULL);
+#endif /* HAVE_AUDIO */
 
 	tx_done(uv->tx);
 	rtp_done(uv->network_device);

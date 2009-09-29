@@ -33,6 +33,11 @@
  */
 #undef HAVE_HDSTATION
 
+/* 
+ * Define this is you have a Blackmagic card
+ */
+#undef HAVE_DECKLINK
+
 /*
  * Define this if you want FastDXT support
  */

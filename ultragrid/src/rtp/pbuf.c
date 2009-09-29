@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2009/05/20 14:55:24 $
+ * $Revision: 1.3 $
+ * $Date: 2009/09/29 10:03:36 $
  *
  */
 
@@ -57,6 +57,7 @@
 #include "rtp/ptime.h"
 #include "rtp/pbuf.h"
 #include "rtp/decoders.h"
+#include "audio/audio.h"
 
 #define PBUF_MAGIC	0xcafebabe
 
@@ -364,6 +365,7 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, char *framebuffe
 	return 0;
 }
 
+#ifdef HAVE_AUDIO
 int
 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *buffer)
 {
@@ -382,3 +384,4 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_fram
       }
       return 0;
 }
+#endif /* HAVE_AUDIO */

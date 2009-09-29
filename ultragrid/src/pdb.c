@@ -47,8 +47,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2009/05/20 16:07:07 $
+ * $Revision: 1.3 $
+ * $Date: 2009/09/29 10:03:36 $
  */
 
 #include "config.h"
@@ -59,7 +59,7 @@
 #include "rtp/pbuf.h"
 #include "tfrc.h"
 #include "pdb.h"
- 
+
 #define PDB_MAGIC	0x10101010
 #define PDB_NODE_MAGIC	0x01010101
 
