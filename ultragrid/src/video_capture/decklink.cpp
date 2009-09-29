@@ -291,7 +291,7 @@ vidcap_decklink_init(int fps)
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
 	if (deckLinkIterator == NULL)
 	{
-		printf("A DeckLink iterator could not be created.  The DeckLink drivers may not be installed.\n");
+		printf("A DeckLink iterator could not be created. The DeckLink drivers may not be installed.\n");
 		return NULL;
 	}
 
@@ -568,8 +568,8 @@ vidcap_decklink_grab(void *state)
 		debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - newFrameReady: %d\n",s->delegate->newFrameReady); /* TOREMOVE */
 
 		if (rc != 0) { //(rc == ETIMEDOUT) {
-			printf("The timeout of waiting for new frame!\n");
-			debug_msg("The timeout of waiting for new framed!\n");
+			printf("Waiting for new frame timed out!\n");
+			debug_msg("Waiting for new frame timed out!\n");
 
 			// try to restart stream
 			/*
