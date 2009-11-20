@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/12/11 19:16:45 $
+ * $Revision: 1.3 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -154,16 +154,19 @@ vidcap_hdstation_probe(void)
 }
 
 void *
-vidcap_hdstation_init(int fps)
+vidcap_hdstation_init(struct vidcap_fmt *fmt)
 {
+	//int fps = atoi(fmt); //What is fps good for?
 	struct vidcap_hdstation_state	*s;
 	int 				 res;
 
 	//assert(fps == 60);
+    UNUSED(fmt);
 
 	s = (struct vidcap_hdstation_state *) malloc(sizeof(struct vidcap_hdstation_state));
 	if (s == NULL) {
-		debug_msg("Unable to allocate HDstation state\n",fps);
+	//	debug_msg("Unable to allocate HDstation state\n",fps);
+		debug_msg("Unable to allocate HDstation state\n");
 		return NULL;
 	}
 

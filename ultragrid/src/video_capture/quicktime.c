@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.10 $
- * $Date: 2009/04/14 11:49:15 $
+ * $Revision: 1.11 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -250,10 +250,18 @@ OSErr MinimalSGSettingsDialog(SeqGrabComponent seqGrab, SGChannel sgchanVideo, W
     }
 }
 
+void
+nprintf(char *str) {
+	char tmp[str[0]+1];
+
+	strncpy(tmp, &str[1], str[0]);
+	tmp[str[0]]=0;
+	fprintf(stdout, "%s", tmp);
+}
 
 /* Initialize the QuickTime grabber */
-static int
-qt_open_grabber(struct qt_grabber_state *s)
+int
+qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 {
 	GrafPtr 		savedPort;
 	WindowPtr		gMonitor;
@@ -321,18 +329,40 @@ qt_open_grabber(struct qt_grabber_state *s)
 
 	/* Print available devices */
 	int i;
+	int j;
+	SGDeviceInputList inputList;
 	SGDeviceList deviceList;
-	if (SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) == noErr) {
-		fprintf(stdout, "Available capture devices:\n");
-		for(i = 0; i < (*deviceList)->count; i++) {
-			char* name;
-			name = malloc((*deviceList)->entry[i].name[0] + 1);
-			strncpy(name, (const char*)(*deviceList)->entry[i].name + 1, (*deviceList)->entry[i].name[0]);
-			name[(*deviceList)->entry[i].name[0]] = '\0';
-			fprintf(stdout, "  device %d: %s\n", i + 1, name);
-			free(name);
+	if(fmt->help) {
+		if (SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) == noErr) {
+			fprintf(stdout, "Available capture devices:\n");
+			for(i = 0; i < (*deviceList)->count; i++) {
+				SGDeviceName *deviceEntry = &(*deviceList)->entry[i];
+				fprintf(stdout, " Device %d: ",i );
+				nprintf(deviceEntry->name);
+				if (deviceEntry->flags & sgDeviceNameFlagDeviceUnavailable){
+					fprintf(stdout, "  - ### NOT AVAILABLE ###");
+				}
+				if (i == (*deviceList)->selectedIndex){
+					fprintf(stdout, " - ### ACTIVE ###");
+				}
+				fprintf(stdout, "\n");
+				short activeInputIndex = 0;
+				inputList = deviceEntry->inputs;
+				if (inputList && (*inputList)->count >= 1) {
+					SGGetChannelDeviceAndInputNames(s->video_channel, NULL, NULL, &activeInputIndex);
+					for (j = 0; j < (*inputList)->count; j++){
+						fprintf(stdout, "\t");
+						fprintf(stdout, "- %d. ", j);
+						nprintf((&(*inputList)->entry[j].name));
+    					        if ((i == (*deviceList)->selectedIndex)&&(j == activeInputIndex))
+							fprintf(stdout, " - ### ACTIVE ###");
+						fprintf(stdout, "\n");
+					}
+				}		
+			}
+			SGDisposeDeviceList(s->grabber, deviceList);
 		}
-		SGDisposeDeviceList(s->grabber, deviceList);
+		return 0;
 	}
 
 	if (SGSetChannelBounds(s->video_channel, &(s->bounds)) != noErr) {
@@ -354,12 +384,35 @@ qt_open_grabber(struct qt_grabber_state *s)
 
 	SGStartPreview(s->grabber);
 
-	if (s->video_channel) {
+//	if (s->video_channel) { //IMHO, this should be always true, otherwise previous calls would failed
+    if (fmt->gui) { //Use gui to select input
 //		seqGrabModalFilterUPP = (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc);
 //		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0L, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)(gMonitor));
 //		DisposeSGModalFilterUPP(seqGrabModalFilterUPP);
 		MinimalSGSettingsDialog(s->grabber, s->video_channel, gMonitor);
-	}
+	} else { // Use input specified on cmd
+        /* Select device */
+		if (SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) {
+            debug_msg("Unable to get list of quicktime devices\n");
+            return 0;
+        }
+        SGDeviceName *deviceEntry = &(*deviceList)->entry[fmt->major];
+        printf("Quicktime: Setting device: ");
+        nprintf(deviceEntry->name);printf("\n");
+        if (SGSetChannelDevice (s->video_channel, deviceEntry->name) != noErr) {
+            debug_msg("Setting up the selected device failed\n");			
+            return 0;
+        }
+        
+        /* Select input */
+        inputList = deviceEntry->inputs;
+        printf("Quicktime: Setting input: ");
+        nprintf((&(*inputList)->entry[fmt->minor].name)); printf("\n");
+        if (SGSetChannelDeviceInput (s->video_channel, fmt->minor) != noErr) {
+            debug_msg("Setting up input on selected device failed\n");			
+            return 0;
+        }
+    }
 
 //	SGUpdate(s->grabber, 0);	
 
@@ -424,11 +477,9 @@ vidcap_quicktime_probe (void)
 
 /* Initialize the QuickTime grabbing system */
 void *
-vidcap_quicktime_init (int fps)
+vidcap_quicktime_init (struct vidcap_fmt *fmt)
 {
 	struct qt_grabber_state	*s;
-
-	UNUSED(fps);
 
 	s = (struct qt_grabber_state*) malloc (sizeof (struct qt_grabber_state));
 	if (s != NULL) {
@@ -442,7 +493,10 @@ vidcap_quicktime_init (int fps)
 		s->bounds.right  = hd_size_x;
 		s->sg_idle_enough = 0;
 
-		qt_open_grabber (s);
+		if(qt_open_grabber (s, fmt)==0) {
+			free(s);
+			return NULL;
+		}
 	}
 
 	return s;

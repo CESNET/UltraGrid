@@ -260,8 +260,10 @@ vidcap_decklink_probe(void)
 }
 
 void *
-vidcap_decklink_init(int fps)
+vidcap_decklink_init(struct vidcap_fmt *fmt)
 {
+	//int fps; //FIXME What is it good for?
+	//fps = atoi(fmt);
 
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
@@ -280,7 +282,8 @@ vidcap_decklink_init(int fps)
 
 	s = (struct vidcap_decklink_state *) malloc(sizeof(struct vidcap_decklink_state));
 	if (s == NULL) {
-		printf("Unable to allocate DeckLink state\n",fps);
+		//printf("Unable to allocate DeckLink state\n",fps);
+		printf("Unable to allocate DeckLink state\n");
 		return NULL;
 	}
 

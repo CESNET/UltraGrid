@@ -43,8 +43,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -59,9 +59,9 @@
 static int 	capture_state = 0;
 
 void *
-vidcap_null_init(int fps)
+vidcap_null_init(struct vidcap_fmt *fmt)
 {
-	UNUSED(fps);
+	UNUSED(fmt);
 	capture_state = 0;
 	return &capture_state;
 }

@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.19 $
- * $Date: 2009/11/18 15:54:00 $
+ * $Revision: 1.20 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -134,7 +134,7 @@ signal_handler(int signal)
 static void 
 usage(void) 
 {
-	printf("Usage: uv [-d <display_device>] [-t <capture_device>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] address\n\t -i  ... ihdtv\n");
+	printf("Usage: uv [-d <display_device>] [-g <cfg>] [-t <capture_device>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] address\n\t -i  ... ihdtv\n");
 }
 
 static void
@@ -193,7 +193,7 @@ initialize_video_display(const char *requested_display)
 }
 
 static struct vidcap *
-initialize_video_capture(const char *requested_capture, int fps)
+initialize_video_capture(const char *requested_capture, struct vidcap_fmt *fmt)
 {
 	struct vidcap_type	*vt;
 	vidcap_id_t		 id = vidcap_get_null_device_id();
@@ -208,7 +208,7 @@ initialize_video_capture(const char *requested_capture, int fps)
 	}
 	vidcap_free_devices();
 
-	return vidcap_init(id, fps);
+	return vidcap_init(id, fmt);
 }
 
 static struct rtp *
@@ -500,13 +500,14 @@ main(int argc, char *argv[])
 #ifdef HAVE_SCHED_SETSCHEDULER
 	struct sched_param	 sp;
 #endif
-
+	char                    *cfg=NULL;
 	struct state_uv		*uv;
 	int			 ch;
 	pthread_t		 receiver_thread_id, sender_thread_id;
 
 	static struct option 	 getopt_options[] = {
 		{"display", required_argument, 0, 'd'},
+		{"cfg", required_argument, 0, 'g'},
 		{"capture", required_argument, 0, 't'},
 		{"mtu", required_argument, 0, 'm'},
 		{"fps", required_argument, 0, 'f'},
@@ -539,9 +540,9 @@ main(int argc, char *argv[])
 	uv->participants = NULL;
 
 #ifdef HAVE_AUDIO
-	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:r:s:vcpi", getopt_options, &option_index)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:g:t:m:f:b:r:s:vcpi", getopt_options, &option_index)) != -1) {
 #else
-	while ((ch = getopt_long(argc, argv, "d:t:m:f:b:vcpi", getopt_options, &option_index)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:g:t:m:f:b:vcpi", getopt_options, &option_index)) != -1) {
 #endif /* HAVE_AUDIO */
 		switch (ch) {
 		case 'd' :
@@ -554,6 +555,9 @@ main(int argc, char *argv[])
 			break;
 		case 'm' :
 			uv->requested_mtu = atoi(optarg);
+			break;
+		case 'g' :
+			cfg = strdup(optarg);
 			break;
 		case 'f' :
 			uv->fps = atoi(optarg);
@@ -607,6 +611,12 @@ main(int argc, char *argv[])
 			return EXIT_FAIL_USAGE;
 		}
 	}
+
+	if(cfg == NULL) {
+		//cfg=malloc(4);
+		//snprintf(cfg, 4, "%d", uv->fps);
+        cfg = strdup("0:0"); //default configuration
+	}
 	argc -= optind;
 	argv += optind;
 
@@ -618,10 +628,27 @@ main(int argc, char *argv[])
 			return EXIT_FAIL_USAGE;
 		}
 	}
-	else if (argc != 1) {
+	else if (argc != 1 && strcmp(cfg, "help")!=0) {
 		usage();
 		return EXIT_FAIL_USAGE;
 	}
+
+	/* Video capture format configuration */
+	struct vidcap_fmt *cap_fmt = (struct vidcap_fmt*)calloc(1, sizeof(struct vidcap_fmt));
+    cap_fmt->fps = uv->fps;
+
+	if(strcmp(cfg, "help") == 0) {
+		cap_fmt->help = 1;
+	} else if (strcmp(cfg, "gui") == 0) {
+		cap_fmt->gui = 1;
+    }else {
+        cap_fmt->major = strtol(cfg, (char **) NULL, 10);
+        char * minor =  strstr(cfg, ":");
+        if (minor != NULL) {
+            cap_fmt->minor = strtol(minor+1, (char **) NULL, 10);
+        }
+    }
+    printf("Capture mode: %d:%d\n", cap_fmt->major, cap_fmt->minor);
 
 	printf("%s\n", ULTRAGRID_VERSION);
 	printf("Display device: %s\n", uv->requested_display);
@@ -643,7 +670,10 @@ main(int argc, char *argv[])
 	initialize_video_codecs();
 	uv->participants = pdb_init();
 
-	if ((uv->capture_device = initialize_video_capture(uv->requested_capture, uv->fps)) == NULL) {
+	if ((uv->capture_device = initialize_video_capture(uv->requested_capture, cap_fmt)) == NULL) {
+		if(cap_fmt->help) {
+			return 0;
+		}
 		printf("Unable to open capture device: %s\n", uv->requested_capture);
 		return EXIT_FAIL_CAPTURE;
 	}

@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -66,13 +66,13 @@ struct testcard_state {
 };
 
 void *
-vidcap_testcard_init(int fps)
+vidcap_testcard_init(struct vidcap_fmt *fmt)
 {
 	struct testcard_state	*s;
 
 	s = malloc(sizeof(struct testcard_state));
 	if (s != NULL) {
-		s->fps   = fps;
+		s->fps   = fmt->fps;
 		s->count = 0;
 		gettimeofday(&(s->last_frame_time), NULL);
 	}

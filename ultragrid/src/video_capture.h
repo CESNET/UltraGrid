@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -84,9 +84,17 @@ vidcap_id_t 		 vidcap_get_null_device_id(void);
  *
  */
 
+struct vidcap_fmt {
+	int major;
+	int minor;
+	int help;
+    int fps;
+    int gui;
+};
+
 struct vidcap;
 
-struct vidcap		*vidcap_init(vidcap_id_t id, int fps);
+struct vidcap		*vidcap_init(vidcap_id_t id, struct vidcap_fmt *fmt);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state);
 

@@ -38,15 +38,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
 #define VIDCAP_NULL_ID	0xb0a6a01a
 
 struct vidcap_type	*vidcap_null_probe(void);
-void			*vidcap_null_init(int fps);
+void			*vidcap_null_init(struct vidcap_fmt *fmt);
 void			 vidcap_null_done(void *state);
 struct video_frame	*vidcap_null_grab(void *state);
 

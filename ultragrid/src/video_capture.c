@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2009/09/29 10:03:36 $
+ * $Revision: 1.5 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -67,7 +67,7 @@ struct vidcap {
 struct vidcap_device_api {
 	vidcap_id_t		 id;
 	struct vidcap_type	*(*func_probe)(void);
-	void			*(*func_init)(int fps);
+	void			*(*func_init)(struct vidcap_fmt *fmt);
 	void			 (*func_done)(void *state);
 	struct video_frame	*(*func_grab)(void *state);
 };
@@ -195,7 +195,7 @@ vidcap_get_null_device_id(void)
 /* API for video capture **************************************************************************/
 
 struct vidcap *
-vidcap_init(vidcap_id_t id, int fps)
+vidcap_init(vidcap_id_t id, struct vidcap_fmt *fmt)
 {
 	unsigned int	i;
 
@@ -203,7 +203,7 @@ vidcap_init(vidcap_id_t id, int fps)
 		if (vidcap_device_table[i].id == id) {
 			struct vidcap *d = (struct vidcap *) malloc(sizeof(struct vidcap));
 			d->magic = VIDCAP_MAGIC;
-			d->state = vidcap_device_table[i].func_init(fps);
+			d->state = vidcap_device_table[i].func_init(fmt);
 			d->index = i;
 			if (d->state == NULL) {
 				debug_msg("Unable to start video capture device 0x%08lx\n", id);

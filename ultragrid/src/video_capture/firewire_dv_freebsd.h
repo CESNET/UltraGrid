@@ -37,15 +37,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
 #define VIDCAP_DVBSD_ID	0xa30bde4c;
 
 struct vidcap_type	*vidcap_dvbsd_probe(void);
-void			*vidcap_dvbsd_init(int fps);
+void			*vidcap_dvbsd_init(struct vidcap_fmt *fmt);
 void			 vidcap_dvbsd_done(void *state);
 struct video_frame	*vidcap_dvbsd_grab(void *state);
 

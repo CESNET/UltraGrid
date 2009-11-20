@@ -37,8 +37,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/11/20 19:38:23 $
  *
  */
 
@@ -57,12 +57,13 @@
 
 struct vidcap_dvbsd_state {
 	int	fd;	/* File descriptor for the device */
-	int	fps;
+//	int	fps;
 };
 
 void *
-vidcap_dvbsd_init(int fps)
+vidcap_dvbsd_init(struct vidcap_fmt *fmt)
 {
+	//int fps = atoi(fmt); //FIXME What is fps good for?
 	struct vidcap_dvbsd_state 	*s;
 	struct fw_isochreq 		 isoreq;
 	struct fw_isobufreq		 bufreq;
@@ -72,7 +73,7 @@ vidcap_dvbsd_init(int fps)
 		return NULL;
 	}
 
-	s->fps = fps;
+//	s->fps = fps;
 
 	s->fd  = open("/dev/fw0.0", O_RDWR);
 	if (s->fd < 0) {
