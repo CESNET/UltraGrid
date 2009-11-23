@@ -685,6 +685,9 @@ DVS_OBJ
 DECKLINK_PATH
 DECKLINK_INC
 DECKLINK_OBJ
+QUAD_PATH
+QUAD_INC
+QUAD_OBJ
 QUICKTIME_INC
 QUICKTIME_LIB
 QUICKTIME_OBJ
@@ -1300,23 +1303,25 @@ Optional Features:
   --enable-debug          enable debug messages and code
   --enable-ipv6           enable ipv6
   --enable-hdstation      enable HDStation or Centaurus cards
-  --enable-decklink           enable Blackmagic DeckLink support
+  --enable-decklink       enable Blackmagic DeckLink support
+  --enable-quad           enable HD-SDI Master Quad support
   --disable-sdltest       Do not try to compile and run a test SDL program
   --enable-fastdxt        enable FastDXT
   --enable-sage           enable SAGE display support
-  --enable-portaudio          enable Portaudio framework support
+  --enable-portaudio      enable Portaudio framework support
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-x                use the X Window System
   --with-hdstation=DIR    specify location of DVS HDstation SDK
-  --with-decklink=DIR      specify location of DECKLINK
+  --with-decklink=DIR     specify location of DECKLINK
+  --with-quad=DIR         specify location of QUAD
   --with-sdl-prefix=PFX   Prefix where SDL is installed (optional)
   --with-sdl-exec-prefix=PFX Exec prefix where SDL is installed (optional)
   --with-fastdxt=DIR      specify location of FastDXT
-  --with-sage=DIR      specify location of SAGE
-  --with-portaudio=DIR     specify location of Portaudio
+  --with-sage=DIR         specify location of SAGE
+  --with-portaudio=DIR    specify location of Portaudio
 
 Some influential environment variables:
   CC          C compiler command
@@ -7606,6 +7611,108 @@ fi
 
 
 
+
+# -------------------------------------------------------------------------------------------------
+# HD-SDI Master Quad stuff
+
+QUAD_PATH=
+QUAD_OBJ=
+QUAD_INC=
+
+# Check whether --enable-quad was given.
+if test "${enable_quad+set}" = set; then
+  enableval=$enable_quad; if test $enableval = yes
+	then
+		cat >>confdefs.h <<\_ACEOF
+#define HAVE_QUAD 1
+_ACEOF
+
+	fi
+fi
+
+
+
+# Check whether --with-decklink was given.
+if test "${with_decklink+set}" = set; then
+  withval=$with_decklink; QUAD_PATH=$withval
+
+else
+  QUAD_PATH=${PARENT}/quad
+
+fi
+
+
+QUAD_INC=${QUAD_PATH}/include
+
+as_ac_File=`echo "ac_cv_file_${QUAD_INC}/master.h" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for ${QUAD_INC}/master.h" >&5
+echo $ECHO_N "checking for ${QUAD_INC}/master.h... $ECHO_C" >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "${QUAD_INC}/master.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+ac_res=`eval echo '${'$as_ac_File'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_File'}'` = yes; then
+  FOUND_QUAD=yes
+else
+  FOUND_QUAD=no
+fi
+
+as_ac_File=`echo "ac_cv_file_${QUAD_INC}/sdi.h" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for ${QUAD_INC}/sdi.h" >&5
+echo $ECHO_N "checking for ${QUAD_INC}/sdi.h... $ECHO_C" >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "${QUAD_INC}/sdi.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+ac_res=`eval echo '${'$as_ac_File'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_File'}'` = yes; then
+  FOUND_QUAD=yes
+else
+  FOUND_QUAD=no
+fi
+
+
+if test $FOUND_QUAD = yes
+then
+    QUAD_INC=-I${QUAD_INC}
+    QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
+    cat >>confdefs.h <<\_ACEOF
+#define HAVE_QUAD 1
+_ACEOF
+
+else
+    QUAD_PATH=
+    QUAD_INC=
+    QUAD_OBJ=
+fi
+
+
+
+
+
 # -------------------------------------------------------------------------------------------------
 # QuickTime Stuff
 QUICKTIME_INC=
@@ -11202,6 +11309,9 @@ DVS_OBJ!$DVS_OBJ$ac_delim
 DECKLINK_PATH!$DECKLINK_PATH$ac_delim
 DECKLINK_INC!$DECKLINK_INC$ac_delim
 DECKLINK_OBJ!$DECKLINK_OBJ$ac_delim
+QUAD_PATH!$QUAD_PATH$ac_delim
+QUAD_INC!$QUAD_INC$ac_delim
+QUAD_OBJ!$QUAD_OBJ$ac_delim
 QUICKTIME_INC!$QUICKTIME_INC$ac_delim
 QUICKTIME_LIB!$QUICKTIME_LIB$ac_delim
 QUICKTIME_OBJ!$QUICKTIME_OBJ$ac_delim
@@ -11225,7 +11335,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 93; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 96; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
@@ -11244,7 +11354,7 @@ fi
 
 cat >>$CONFIG_STATUS <<_ACEOF
 cat >"\$tmp/subs-1.sed" <<\CEOF$ac_eof
-/@[a-zA-Z_][a-zA-Z_0-9]*@/!b end
+/@[a-zA-Z_][a-zA-Z_0-9]*@/!b
 _ACEOF
 sed '
 s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g
@@ -11257,8 +11367,6 @@ N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g; b n
 ' >>$CONFIG_STATUS <conf$$subs.sed
 rm -f conf$$subs.sed
 cat >>$CONFIG_STATUS <<_ACEOF
-:end
-s/|#_!!_#|//g
 CEOF$ac_eof
 _ACEOF
 
@@ -11501,7 +11609,7 @@ s&@builddir@&$ac_builddir&;t t
 s&@abs_builddir@&$ac_abs_builddir&;t t
 s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
 $ac_datarootdir_hack
-" $ac_file_inputs | sed -f "$tmp/subs-1.sed" >$tmp/out
+" $ac_file_inputs | sed -f "$tmp/subs-1.sed" | sed 's/|#_!!_#|//g' >$tmp/out
 
 test -z "$ac_datarootdir_hack$ac_datarootdir_seen" &&
   { ac_out=`sed -n '/\${datarootdir}/p' "$tmp/out"`; test -n "$ac_out"; } &&

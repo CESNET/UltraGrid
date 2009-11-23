@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Script to create DVB ASI device files.
+
+major=61
+
+# Transmit interfaces
+i=0
+while [ $i -lt 16 ]
+do
+  mknod /dev/asitx${i} c ${major} $(($i))
+  chmod 600 /dev/asitx${i}
+  i=$(($i+1))
+done
+
+# Receive interfaces
+i=0
+while [ $i -lt 16 ]
+do
+  mknod /dev/asirx${i} c ${major} $(($i+128))
+  chmod 600 /dev/asirx${i}
+  i=$(($i+1))
+done
+

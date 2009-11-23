@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.6 $
+ * $Date: 2009/11/23 12:10:34 $
  *
  */
 
@@ -103,6 +103,16 @@ struct vidcap_device_api vidcap_device_table[] = {
 		vidcap_decklink_grab
 	},
 #endif /* HAVE_DECKLINK */
+#ifdef HAVE_QUAD 
+        {
+                /* The HD-SDI Master Quad capture card */
+                0,
+                vidcap_quad_probe,
+                vidcap_quad_init,
+                vidcap_quad_done,
+                vidcap_quad_grab
+        },
+#endif /* HAVE_QUAD */ 
 #ifdef HAVE_MACOSX
 	{
 		/* The QuickTime API */
