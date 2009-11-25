@@ -215,6 +215,8 @@ display_kona_putf(void *state, char *frame)
 
 }
 
+void nprintf(char *str);
+
 void *
 display_kona_init(void)	
 {
@@ -232,6 +234,7 @@ display_kona_init(void)
 	s->magic = KONA_MAGIC;
 	s->videoDisplayComponentInstance = 0;
 	s->seqID = 0;
+	s->videoDisplayComponent = NULL;
 
 	InitCursor();
 	EnterMovies();
@@ -241,25 +244,38 @@ display_kona_init(void)
 	cd.componentManufacturer = 0;
 	cd.componentFlags = 0;
 	cd.componentFlagsMask = kQTVideoOutputDontDisplayToUser;
+
+	//fprintf(stdout, "Number of Quicktime Vido Display components %d\n", CountComponents (&cd));
 	
 	/* Get video output component */
 	while ((c = FindNextComponent(c, &cd))) {
 		Handle componentNameHandle = NewHandle(0);
 		GetComponentInfo(c, &cd, componentNameHandle, NULL, NULL);
+		HLock(componentNameHandle);
 		char *cName = *componentNameHandle;
-		DisposeHandle(componentNameHandle);
 
 		if ((strstr(cName, "AJA")) != NULL) {
 			fprintf(stdout, "Found video output component: %s\n", cName);
 			s->videoDisplayComponent = c;
 			s->videoDisplayComponentInstance = OpenComponent(s->videoDisplayComponent);
 			break;
-		} else {
-			fprintf(stderr, "AJA Kona3 not found!\n");
-			return NULL;
 		}
+
+		HUnlock(componentNameHandle);
+		DisposeHandle(componentNameHandle);
+
+		cd.componentType = QTVideoOutputComponentType;
+		cd.componentSubType = 0;
+		cd.componentManufacturer = 0;
+		cd.componentFlags = 0;
+		cd.componentFlagsMask = kQTVideoOutputDontDisplayToUser;
+
 	}
 
+	if (s->videoDisplayComponent == NULL) {
+		fprintf(stderr, "AJA Kona3 not found!\n");
+		return NULL;
+	}
 
 	long	displayMode = 0;
 

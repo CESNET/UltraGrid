@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.3 $
+ * $Date: 2009/11/25 11:46:21 $
  *
  */
 
@@ -87,6 +87,7 @@ vidcap_id_t 		 vidcap_get_null_device_id(void);
 struct vidcap_fmt {
 	int major;
 	int minor;
+	int codec;
 	int help;
     int fps;
     int gui;

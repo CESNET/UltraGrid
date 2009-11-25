@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.11 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.12 $
+ * $Date: 2009/11/25 11:46:21 $
  *
  */
 
@@ -106,6 +106,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 	ComponentResult		 err		= noErr;
 	*/
 	struct qt_grabber_state	*s		= (struct qt_grabber_state*) refCon;
+	//FILE *out;
 	/*
 	CodecFlags		 ignore;
 	ImageDescriptionHandle	 imageDesc;
@@ -173,6 +174,10 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 
 	/* Low latency processing */
 	memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
+
+/*	out = fopen("/tmp/dump", "w");
+	fwrite(p, len, 1, out);
+	fclose(out);*/
 
 	s->sg_idle_enough = 1;
 
@@ -285,6 +290,7 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 		pixelFormat = k2vuyPixelFormat;
 	}
 
+	pixelFormat = FOUR_CHAR_CODE('BGRA');
 	/****************************************************************************************/
 	/* Step 2: Open and initialise the default sequence grabber.                            */
 	s->grabber = OpenDefaultComponent(SeqGrabComponentType, 0);
@@ -361,14 +367,25 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 				}		
 			}
 			SGDisposeDeviceList(s->grabber, deviceList);
+			CodecNameSpecListPtr list;
+		    GetCodecNameList(&list, 1);
+			printf("Compression types:\n");
+			for(i=0; i < list->count; i++) {
+				int fcc = list->list[i].cType;
+				printf("\t%d) ", i);
+				nprintf(list->list[i].typeName);
+				printf(" - FCC (%c%c%c%c)",
+						fcc >> 24,
+						(fcc >> 16)&0xff,
+						(fcc >> 8)&0xff,
+						(fcc)&0xff);
+				printf("\n");
+			}
 		}
 		return 0;
 	}
 
-	if (SGSetChannelBounds(s->video_channel, &(s->bounds)) != noErr) {
-		debug_msg("Unable to set channel bounds\n");
-		return 0;
-	}
+
 
 	if (SGSetChannelUsage(s->video_channel, seqGrabRecord | seqGrabPreview | seqGrabAlwaysUseTimeBase | seqGrabLowLatencyCapture) != noErr) {
 		debug_msg("Unable to set channel usage\n");
@@ -414,6 +431,26 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
         }
     }
 
+	if(fmt->codec > 0) {
+	    CodecNameSpecListPtr list;
+    	GetCodecNameList(&list, 1);
+		printf("SetCompression: %d\n", SGSetVideoCompressor(s->video_channel, 0, list->list[fmt->codec].codec, 0, 0, 0));
+	}
+	
+
+	Rect gActiveVideoRect;
+	SGGetSrcVideoBounds (s->video_channel, &gActiveVideoRect);
+
+	hd_size_x = s->bounds.right = gActiveVideoRect.right - gActiveVideoRect.left;
+	hd_size_y = s->bounds.bottom = gActiveVideoRect.bottom - gActiveVideoRect.top;
+
+	printf("Video size: %dx%d\n", gActiveVideoRect.right - gActiveVideoRect.left, gActiveVideoRect.bottom - gActiveVideoRect.top);
+
+	if (SGSetChannelBounds(s->video_channel, &(s->bounds)) != noErr) {
+		debug_msg("Unable to set channel bounds\n");
+		return 0;
+	}
+
 //	SGUpdate(s->grabber, 0);	
 
 	SetPort(savedPort);
@@ -428,10 +465,10 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 		return 0;
 	}
 
-	if (SGSetGWorld(s->grabber, s->gworld, GetMainDevice()) != noErr) {
+	/*if (SGSetGWorld(s->grabber, s->gworld, GetMainDevice()) != noErr) {
 		debug_msg("Unable to set graphics world\n");
 		return 0;
-	}
+	}*/
 
 	/****************************************************************************************/
 	/* Step ?: Set the data procedure, which processes the frames as they're captured.      */

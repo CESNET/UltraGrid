@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.20 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.21 $
+ * $Date: 2009/11/25 11:46:21 $
  *
  */
 
@@ -107,8 +107,8 @@ uint32_t  	RTT = 0;    /* this is computed by handle_rr in rtp_callback */
 char		*frame_buffer = NULL;
 uint32_t        hd_size_x = 1920;
 uint32_t	hd_size_y = 1080;
-uint32_t	hd_color_bpp = 3;
-uint32_t	bitdepth = 10;
+uint32_t	hd_color_bpp = 4;
+uint32_t	bitdepth = 8;
 uint32_t	progressive = 0;
 
 #ifdef HAVE_HDSTATION
@@ -642,13 +642,20 @@ main(int argc, char *argv[])
 	} else if (strcmp(cfg, "gui") == 0) {
 		cap_fmt->gui = 1;
     }else {
-        cap_fmt->major = strtol(cfg, (char **) NULL, 10);
-        char * minor =  strstr(cfg, ":");
+		char * major = strtok(cfg, ":");
+	    if (major != NULL) {
+	        cap_fmt->major = strtol(major, (char **) NULL, 10);
+		}
+        char * minor =  strtok(NULL, ":");
         if (minor != NULL) {
-            cap_fmt->minor = strtol(minor+1, (char **) NULL, 10);
+            cap_fmt->minor = strtol(minor, (char **) NULL, 10);
         }
+		char * codec = strtok(NULL, ":");
+		if (codec != NULL) {
+			cap_fmt->codec = strtol(codec, (char **) NULL, 10);
+		}
     }
-    printf("Capture mode: %d:%d\n", cap_fmt->major, cap_fmt->minor);
+    printf("Capture mode: %d:%d:%d\n", cap_fmt->major, cap_fmt->minor, cap_fmt->codec);
 
 	printf("%s\n", ULTRAGRID_VERSION);
 	printf("Display device: %s\n", uv->requested_display);
