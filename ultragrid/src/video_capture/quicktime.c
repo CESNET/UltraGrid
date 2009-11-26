@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.12 $
- * $Date: 2009/11/25 11:46:21 $
+ * $Revision: 1.13 $
+ * $Date: 2009/11/26 19:13:03 $
  *
  */
 
@@ -99,6 +99,9 @@ struct timeval t, t0;
  * refCon - the reference constant you specified when you assigned your data
  *          function to the sequence grabber.
  */
+
+static int linesize=0;
+
 static pascal OSErr
 qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValue time, short writeType, long refCon)
 {
@@ -106,12 +109,13 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 	ComponentResult		 err		= noErr;
 	*/
 	struct qt_grabber_state	*s		= (struct qt_grabber_state*) refCon;
-	//FILE *out;
+	FILE *out;
 	/*
 	CodecFlags		 ignore;
 	ImageDescriptionHandle	 imageDesc;
 	*/
 
+	ImageDescriptionHandle   imageDesc;
 	UNUSED (c);
 	UNUSED (offset);
 	UNUSED (chRefCon);
@@ -173,12 +177,27 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 	*/
 
 	/* Low latency processing */
-	memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
 
-/*	out = fopen("/tmp/dump", "w");
-	fwrite(p, len, 1, out);
+/*	if(linesize == 0) {
+		imageDesc = (ImageDescriptionHandle)NewHandle(0);
+		SGGetChannelSampleDescription(c, (Handle)imageDesc);
+	    printf("image %dx%d size=%d\n", (*imageDesc)->width, (*imageDesc)->height, (*imageDesc)->dataSize);
+		linesize = (*imageDesc)->dataSize / (*imageDesc)->height;
+		DisposeHandle ((Handle)imageDesc);
+	}
+	
+	char *dst = GetPixBaseAddr(GetGWorldPixMap(s->gworld));
+	int i;
+	for(i=0; i < hd_size_y; i++) {
+		memcpy(dst + hd_size_x*8*i/3, p+linesize*i, hd_size_x*8/3);
+	}
+
+	out = fopen("/tmp/dump", "w");
+//	fwrite(dst, hd_size_y*hd_size_x*8/3, 1, out);
+	fwrite(p, hd_size_y*linesize, 1, out);
 	fclose(out);*/
 
+	memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
 	s->sg_idle_enough = 1;
 
 	frames++;
@@ -379,6 +398,8 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 						(fcc >> 16)&0xff,
 						(fcc >> 8)&0xff,
 						(fcc)&0xff);
+				printf(" - codec id %x", list->list[i].codec);
+				printf(" - cType %d", list->list[i].cType);
 				printf("\n");
 			}
 		}
@@ -431,26 +452,49 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
         }
     }
 
-	if(fmt->codec > 0) {
-	    CodecNameSpecListPtr list;
-    	GetCodecNameList(&list, 1);
-		printf("SetCompression: %d\n", SGSetVideoCompressor(s->video_channel, 0, list->list[fmt->codec].codec, 0, 0, 0));
-	}
-	
-
+	/* Set video size according to selected vide format */
 	Rect gActiveVideoRect;
 	SGGetSrcVideoBounds (s->video_channel, &gActiveVideoRect);
 
 	hd_size_x = s->bounds.right = gActiveVideoRect.right - gActiveVideoRect.left;
 	hd_size_y = s->bounds.bottom = gActiveVideoRect.bottom - gActiveVideoRect.top;
 
-	printf("Video size: %dx%d\n", gActiveVideoRect.right - gActiveVideoRect.left, gActiveVideoRect.bottom - gActiveVideoRect.top);
+	printf("Quicktime: Video size: %dx%d\n", s->bounds.right, s->bounds.bottom);
 
 	if (SGSetChannelBounds(s->video_channel, &(s->bounds)) != noErr) {
 		debug_msg("Unable to set channel bounds\n");
 		return 0;
 	}
 
+	/* Set selected fmt->codec and get pixel format of that codec */
+	int pixfmt;
+	if(fmt->codec > 0) {
+	    CodecNameSpecListPtr list;
+    	GetCodecNameList(&list, 1);
+		pixfmt = list->list[fmt->codec].cType;
+		printf("Quicktime: SetCompression: %d\n", SGSetVideoCompressor(s->video_channel, 0, list->list[fmt->codec].codec, 0, 0, 0));
+	} else {
+		int codec;
+		SGGetVideoCompressor(s->video_channel, NULL, &codec, NULL, NULL, NULL);
+		CodecNameSpecListPtr list;
+		GetCodecNameList(&list, 1);
+		for(i=0; i < list->count; i++) {
+			if (codec == list->list[i].codec) {
+				pixfmt = list->list[i].cType;
+				break;
+			}
+		}
+	}
+
+	/* In case of pixfmt == v210 (1983000880), hd_size_x needs to be divisible by 48 */
+	printf("Quicktime: Selected pixel format: %c%c%c%c\n",
+		pixfmt >> 24, (pixfmt >> 16)&0xff, (pixfmt >> 8)&0xff, (pixfmt)&0xff);
+	if (pixfmt == 1983000880) {
+		hd_size_x = ((hd_size_x + 47) / 48) * 48;
+		printf("Quicktime: Pixel format 'v210' was selected -> Setting hd_size_x to %d\n", hd_size_x);
+	}
+
+	
 //	SGUpdate(s->grabber, 0);	
 
 	SetPort(savedPort);

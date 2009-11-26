@@ -88,14 +88,14 @@ display_thread_kona(void *arg)
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
 	if (bitdepth == 10) {
 		(**(ImageDescriptionHandle)imageDesc).cType = 'v210'; // v210 seems to be a little bit different than 10-bit 4:2:2 uyvy we are sending
-		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * 8/3; // dataSize is specified in bytes and is specified as height*width*bytes_per_luma_instant. v210 sets bytes_per_luma_instant to 8/3. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
+		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * 3; // dataSize is specified in bytes and is specified as height*width*bytes_per_luma_instant. v210 sets bytes_per_luma_instant to 8/3. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
 	} else {
 		(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
 		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp; // dataSize is specified in bytes 
 	}
 	(**(ImageDescriptionHandle)imageDesc).hRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
 	(**(ImageDescriptionHandle)imageDesc).vRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
-	(**(ImageDescriptionHandle)imageDesc).width = hd_size_x; // Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs further investigation for 2K!
+	(**(ImageDescriptionHandle)imageDesc).width = 2048; // Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs further investigation for 2K!
 	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
 	(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
 	(**(ImageDescriptionHandle)imageDesc).depth = 24; // Given by the cType. See http://developer.apple.com/quicktime/icefloe/dispatch019.html
@@ -291,9 +291,15 @@ display_kona_init(void)
 
 		/* TODO: this is hardcoded right now */
 		if (bitdepth == 10) {
-			mode = strdup("AJA Kona 1080p29.97 10 Bit");
+			//mode = strdup("AJA Kona 1080p29.97 10 Bit");
+			//mode = strdup("AJA Kona 1080x2Kp24 10 Bit");
+			mode = strdup("AJA Kona 1080x2Kpsf23.98 10 Bit");
 		} else {
-			mode = strdup("AJA Kona 1080p29.97   8 Bit");
+			//mode = strdup("AJA Kona 1080p29.97   8 Bit");
+			//mode = strdup("AJA Kona 1080x2Kp24  8 Bit");
+			mode = strdup("AJA Kona 1080x2Kpsf23.98  8 Bit");
+			//mode = strdup("AJA Kona 1080p24   8 Bit");
+            
 		}
 
 		fprintf(stdout, "\nSupported video output modes:\n");

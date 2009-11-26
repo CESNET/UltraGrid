@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.21 $
- * $Date: 2009/11/25 11:46:21 $
+ * $Revision: 1.22 $
+ * $Date: 2009/11/26 19:13:03 $
  *
  */
 
@@ -105,9 +105,9 @@ long            packet_rate = 13600;
 int	        should_exit = FALSE;
 uint32_t  	RTT = 0;    /* this is computed by handle_rr in rtp_callback */
 char		*frame_buffer = NULL;
-uint32_t        hd_size_x = 1920;
+uint32_t        hd_size_x = 2048;
 uint32_t	hd_size_y = 1080;
-uint32_t	hd_color_bpp = 4;
+uint32_t	hd_color_bpp = 3;
 uint32_t	bitdepth = 8;
 uint32_t	progressive = 0;
 
