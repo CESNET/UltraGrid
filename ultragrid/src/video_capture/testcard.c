@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2009/12/02 13:44:40 $
+ * $Revision: 1.5 $
+ * $Date: 2009/12/02 14:27:43 $
  *
  */
 
@@ -479,10 +479,14 @@ vidcap_testcard_grab(void *arg)
 			vf->data        = state->frame;
 			vf->data_len	= state->size;
 			memcpy(line, state->frame, state->linesize*2+state->pan);
-			for(i=0; i < hd_size_y-2; i++) {
-				memcpy(state->frame+i*state->linesize, state->frame+(i+2)*state->linesize+state->pan, state->linesize);
+			for(i=0; i < hd_size_y-3; i++) {
+				memcpy(state->frame+i*state->linesize, 
+                                       state->frame+(i+2)*state->linesize+state->pan, state->linesize);
 			}
-			memcpy(state->frame+(hd_size_y-2)*state->linesize-state->pan, line, state->linesize*2+state->pan);
+                        memcpy(state->frame+i*state->linesize,
+                               state->frame+(i+2)*state->linesize+state->pan, state->linesize-state->pan);
+                        memcpy(state->frame+(hd_size_y-2)*state->linesize-state->pan, 
+                               line, state->linesize*2+state->pan);
 			/*if(!(state->count % 2)) {
 				unsigned int *p = state->frame;
 				for(i=0; i < state->linesize*hd_size_y/4; i++) {
