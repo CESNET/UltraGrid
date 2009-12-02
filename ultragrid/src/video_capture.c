@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.6 $
- * $Date: 2009/11/23 12:10:34 $
+ * $Revision: 1.7 $
+ * $Date: 2009/12/02 10:44:31 $
  *
  */
 
@@ -67,7 +67,7 @@ struct vidcap {
 struct vidcap_device_api {
 	vidcap_id_t		 id;
 	struct vidcap_type	*(*func_probe)(void);
-	void			*(*func_init)(struct vidcap_fmt *fmt);
+	void			*(*func_init)(char *fmt);
 	void			 (*func_done)(void *state);
 	struct video_frame	*(*func_grab)(void *state);
 };
@@ -205,7 +205,7 @@ vidcap_get_null_device_id(void)
 /* API for video capture **************************************************************************/
 
 struct vidcap *
-vidcap_init(vidcap_id_t id, struct vidcap_fmt *fmt)
+vidcap_init(vidcap_id_t id, char *fmt)
 {
 	unsigned int	i;
 

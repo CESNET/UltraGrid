@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.6 $
- * $Date: 2008/02/22 15:22:54 $
+ * $Revision: 1.7 $
+ * $Date: 2009/12/02 10:44:31 $
  *
  */
 
@@ -66,7 +66,7 @@
 typedef struct {
 	display_id_t		 id;
 	display_type_t 		*(*func_probe)(void);
-	void			*(*func_init)(void);
+	void			*(*func_init)(char *fmt);
 	void 			 (*func_done)(void *state);
 	char 			*(*func_getf)(void *state);
 	int  			 (*func_putf)(void *state, char *frame);
@@ -240,7 +240,7 @@ struct display {
 };
 
 struct display *
-display_init(display_id_t id)
+display_init(display_id_t id, char *fmt)
 {
 	unsigned int	i;
 
@@ -248,7 +248,7 @@ display_init(display_id_t id)
 		if (display_device_table[i].id == id) {
 			struct display *d = (struct display *) malloc(sizeof(struct display));
 			d->magic = DISPLAY_MAGIC;
-			d->state = display_device_table[i].func_init();
+			d->state = display_device_table[i].func_init(fmt);
 			d->index = i;
 			if (d->state == NULL) {
 				debug_msg("Unable to start display 0x%08lx\n", id);

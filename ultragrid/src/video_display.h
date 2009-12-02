@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2007/12/11 19:16:45 $
+ * $Revision: 1.3 $
+ * $Date: 2009/12/02 10:44:31 $
  *
  */
 
@@ -95,7 +95,7 @@ display_id_t 	 display_get_null_device_id(void);
 
 struct display;
 
-struct display	*display_init(display_id_t id);
+struct display	*display_init(display_id_t id, char *fmt);
 void 		 display_done(struct display *d);
 char		*display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);

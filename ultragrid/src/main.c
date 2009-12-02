@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.22 $
- * $Date: 2009/11/26 19:13:03 $
+ * $Revision: 1.23 $
+ * $Date: 2009/12/02 10:44:31 $
  *
  */
 
@@ -161,7 +161,7 @@ initialize_video_codecs(void)
 }
 
 static struct display *
-initialize_video_display(const char *requested_display)
+initialize_video_display(const char *requested_display, char *fmt)
 {
 	struct display		*d;
 	display_type_t		*dt;
@@ -185,7 +185,7 @@ initialize_video_display(const char *requested_display)
 	}
 	display_free_devices();
 
-	d = display_init(id);
+	d = display_init(id, fmt);
 	if (d != NULL) {
 		frame_buffer = display_get_frame(d);
 	}
@@ -193,7 +193,7 @@ initialize_video_display(const char *requested_display)
 }
 
 static struct vidcap *
-initialize_video_capture(const char *requested_capture, struct vidcap_fmt *fmt)
+initialize_video_capture(const char *requested_capture, char *fmt)
 {
 	struct vidcap_type	*vt;
 	vidcap_id_t		 id = vidcap_get_null_device_id();
@@ -613,9 +613,8 @@ main(int argc, char *argv[])
 	}
 
 	if(cfg == NULL) {
-		//cfg=malloc(4);
-		//snprintf(cfg, 4, "%d", uv->fps);
-        cfg = strdup("0:0"); //default configuration
+                cfg=malloc(4);
+		snprintf(cfg, 4, "%d", uv->fps);
 	}
 	argc -= optind;
 	argv += optind;
@@ -632,30 +631,6 @@ main(int argc, char *argv[])
 		usage();
 		return EXIT_FAIL_USAGE;
 	}
-
-	/* Video capture format configuration */
-	struct vidcap_fmt *cap_fmt = (struct vidcap_fmt*)calloc(1, sizeof(struct vidcap_fmt));
-    cap_fmt->fps = uv->fps;
-
-	if(strcmp(cfg, "help") == 0) {
-		cap_fmt->help = 1;
-	} else if (strcmp(cfg, "gui") == 0) {
-		cap_fmt->gui = 1;
-    }else {
-		char * major = strtok(cfg, ":");
-	    if (major != NULL) {
-	        cap_fmt->major = strtol(major, (char **) NULL, 10);
-		}
-        char * minor =  strtok(NULL, ":");
-        if (minor != NULL) {
-            cap_fmt->minor = strtol(minor, (char **) NULL, 10);
-        }
-		char * codec = strtok(NULL, ":");
-		if (codec != NULL) {
-			cap_fmt->codec = strtol(codec, (char **) NULL, 10);
-		}
-    }
-    printf("Capture mode: %d:%d:%d\n", cap_fmt->major, cap_fmt->minor, cap_fmt->codec);
 
 	printf("%s\n", ULTRAGRID_VERSION);
 	printf("Display device: %s\n", uv->requested_display);
@@ -677,16 +652,13 @@ main(int argc, char *argv[])
 	initialize_video_codecs();
 	uv->participants = pdb_init();
 
-	if ((uv->capture_device = initialize_video_capture(uv->requested_capture, cap_fmt)) == NULL) {
-		if(cap_fmt->help) {
-			return 0;
-		}
+	if ((uv->capture_device = initialize_video_capture(uv->requested_capture, cfg)) == NULL) {
 		printf("Unable to open capture device: %s\n", uv->requested_capture);
 		return EXIT_FAIL_CAPTURE;
 	}
 	printf("Video capture initialized-%s\n", uv->requested_capture);
 
-	if ((uv->display_device = initialize_video_display(uv->requested_display)) == NULL) {
+	if ((uv->display_device = initialize_video_display(uv->requested_display, cfg)) == NULL) {
 		printf("Unable to open display device: %s\n", uv->requested_display);
 		return EXIT_FAIL_DISPLAY;
 	}
@@ -828,7 +800,7 @@ main(int argc, char *argv[])
 #ifndef X_DISPLAY_MISSING		
 #ifdef HAVE_SDL
 			if (strcmp(uv->requested_display, "sdl") == 0) {
-				display_sdl_handle_events();
+				display_sdl_handle_events(uv->display_device);
 			}
 #endif /* HAVE_SDL */
 #endif /* X_DISPLAY_MISSING */
