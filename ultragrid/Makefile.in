@@ -1,6 +1,6 @@
 #
-# $Revision: 1.19 $
-# $Date: 2009/11/23 12:10:33 $
+# $Revision: 1.20 $
+# $Date: 2009/12/02 10:42:56 $
 #
 
 AR            = ar
@@ -10,7 +10,7 @@ CXX	      = @CXX@
 LINKER	      = @LINKER@
 CFLAGS        = @DEFS@ @CFLAGS@ @X_CFLAGS@
 LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @AUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
-INC           = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @QUAD_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@
+INC           = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
 BUNDLE        = uv.app
@@ -21,6 +21,7 @@ OBJS          = src/bitstream.o \
 		src/pdb.o \
 		src/tv.o \
 		src/transmit.o \
+		src/v_codec.o \
 		src/tfrc.o \
 		src/rtp/pbuf.o \
 		src/rtp/decoders.o \
@@ -43,13 +44,11 @@ OBJS          = src/bitstream.o \
 		@DVS_OBJ@ \
 		src/ihdtv/ihdtv.o \
 		src/video_capture/testcard.o \
-		src/video_capture/testcard_image.o \
 		src/video_display.o \
 		@AUDIO_OBJ@ \
 		@COMPRESS_OBJ@ \
 		@QUICKTIME_OBJ@ \
 		@DECKLINK_OBJ@ \
-		@QUAD_OBJ@ \
 		src/video_display/null.o \
 		@X_OBJ@ \
 		@SDL_OBJ@ \
@@ -70,18 +69,6 @@ $(TARGET): src/version.h $(OBJS) src/main.o
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
-
-src/video_capture/testcard_image.o: src/video_capture/testcard_image.c
-	$(CC) -c -o src/video_capture/testcard_image.o src/video_capture/testcard_image.c
-
-src/video_capture/testcard_image.c: src/video_capture/make_testcard src/video_capture/testcard_image.yuv
-	src/video_capture/make_testcard src/video_capture/testcard_image.yuv src/video_capture/testcard_image.c
-
-src/video_capture/testcard_image.yuv: src/video_capture/testcard_image.jpg
-	convert src/video_capture/testcard_image.jpg uyvy:src/video_capture/testcard_image.yuv
-
-src/video_capture/make_testcard: src/video_capture/make_testcard.c
-	$(CC) -o src/video_capture/make_testcard src/video_capture/make_testcard.c
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) -Wno-multichar -fno-rtti -O3 -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
@@ -140,7 +127,6 @@ ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 # -------------------------------------------------------------------------------------------------
 clean:
 	-rm -f $(OBJS) src/main.o $(TARGET) src/version.h 
-	-rm -f src/video_capture/testcard_image.c src/video_capture/make_testcard
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
