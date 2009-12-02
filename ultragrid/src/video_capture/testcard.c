@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2009/12/02 14:27:43 $
+ * $Revision: 1.6 $
+ * $Date: 2009/12/02 16:30:01 $
  *
  */
 
@@ -404,7 +404,7 @@ vidcap_testcard_init(char *fmt)
 				}
 			}
 			s->frame = s->surface->pixels;	
-			if(codec == UYVY || codec == v210) {
+			if(codec == UYVY || codec == v210 || codec == Vuy2) {
 				rgb2yuv422((unsigned char*)s->frame, s->width, s->height);
 			} 
 

@@ -35,8 +35,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.13 $
- * $Date: 2009/12/02 10:39:45 $
+ * $Revision: 1.14 $
+ * $Date: 2009/12/02 16:29:21 $
  *
  */
 
@@ -516,6 +516,7 @@ display_thread_sdl(void *arg)
                         break;
                 case DVS8:
                 case UYVY:
+                case Vuy2:
                         if(s->interlaced == 0) {
                                 for(i = 0; i < s->height; i++) {
                                         memcpy(line2, line1, s->dst_linesize);
