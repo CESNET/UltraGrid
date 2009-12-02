@@ -38,19 +38,19 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/12/02 10:39:45 $
  *
  */
 
 #define DISPLAY_SDL_ID	0xba370a2b
 
 display_type_t		*display_sdl_probe(void);
-void 			*display_sdl_init(void);
+void 			*display_sdl_init(char *fmt);
 void 			 display_sdl_done(void *state);
 char 			*display_sdl_getf(void *state);
 int  			 display_sdl_putf(void *state, char *frame);
 display_colour_t	 display_sdl_colour(void *state);
 
-int			 display_sdl_handle_events(void);
+int			 display_sdl_handle_events(void *s);
 
