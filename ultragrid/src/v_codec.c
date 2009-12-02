@@ -4,7 +4,7 @@
 const struct codec_info_t codec_info[] = {
         {RGBA, "RGBA", 0, 0, 4.0, 1},
         {UYVY, "UYVY", 846624121, 0, 2, 0},
-        {Vuy2, "2Vuy", 846624121, 0, 2, 0},
+        {Vuy2, "2vuy", 846624121, 0, 2, 0},
         {DVS8, "DVS8", 0, 0, 2, 0},
         {R10k, "R10k", 1378955371, 0, 4, 1},
         {v210, "v210", 1983000880, 48, 8.0/3.0, 0},
@@ -19,7 +19,7 @@ show_codec_help(void)
         printf("\t\t8bits\n");
         printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
         printf("\t\t\t'UYVY' - YUV 4:2:2\n");
-        printf("\t\t\t'2Vuy' - YUV 4:2:2\n");
+        printf("\t\t\t'2vuy' - YUV 4:2:2\n");
         printf("\t\t\t'DVS8' - Centaurus 8bit YUV 4:2:2\n");
         printf("\t\t10bits\n");
         printf("\t\t\t'R10k' - RGB 4:4:4\n");
