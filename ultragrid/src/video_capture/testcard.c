@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2009/12/02 10:37:30 $
+ * $Revision: 1.4 $
+ * $Date: 2009/12/02 13:44:40 $
  *
  */
 
@@ -74,6 +74,7 @@ struct testcard_state {
         int             size;
         char            *frame;
 		int				linesize;
+		int 			pan;
 		SDL_Surface     *surface;
 		struct timeval  t0;
 };
@@ -267,7 +268,8 @@ vidcap_testcard_init(char *fmt)
 
         if(strcmp(fmt, "help")==0) {
                 printf("testcard options:\n");
-                printf("\twidth:height:fps:codec[:filename]\n");
+                printf("\twidth:height:fps:codec[:filename][:p}\n");
+				printf("\tp - pan with frame\n");
                 show_codec_help();
                 return NULL;
         }
@@ -339,7 +341,7 @@ vidcap_testcard_init(char *fmt)
         s->size = hd_size_x*hd_size_y*hd_color_bpp;
 
         filename = strtok(NULL, ":");
-        if(filename) {
+        if(filename && strcmp(filename, "p") != 0) {
 	    	s->frame = malloc(s->size);
         	if(stat(filename, &sb)) {
             	    perror("stat");
@@ -369,6 +371,10 @@ vidcap_testcard_init(char *fmt)
 			SDL_Rect r;
 			int col_num=0;
 			s->surface = SDL_CreateRGBSurface(SDL_SWSURFACE, s->width, s->height, 32, 0xff, 0xff00, 0xff0000, 0xff000000);
+
+			if(filename && filename[0] == 'p') {
+				s->pan = 48;
+			}
 			
 			for(j=0; j < s->height; j+=rect_size) {
 				int grey=0xff010101;
@@ -408,6 +414,13 @@ vidcap_testcard_init(char *fmt)
 
 			if(codec == R10k) {
 				toR10k((unsigned char*)s->frame, s->width, s->height);
+			}
+		}
+
+		tmp = strtok(NULL, ":");
+		if(tmp) {
+			if(tmp[0] == 'p') {
+				s->pan = 48;
 			}
 		}
 
@@ -458,19 +471,19 @@ vidcap_testcard_grab(void *arg)
 
 		vf = (struct video_frame *) malloc(sizeof(struct video_frame));
 		if (vf != NULL) {
-			char line[state->linesize*2];
+			char line[state->linesize*2+state->pan];
 			unsigned int  i;
 			vf->colour_mode = YUV_422;
 			vf->width       = hd_size_x;
 			vf->height      = hd_size_y;
 			vf->data        = state->frame;
 			vf->data_len	= state->size;
-			memcpy(line, state->frame, state->linesize*2);
+			memcpy(line, state->frame, state->linesize*2+state->pan);
 			for(i=0; i < hd_size_y-2; i++) {
-				memcpy(state->frame+i*state->linesize, state->frame+(i+2)*state->linesize, state->linesize);
+				memcpy(state->frame+i*state->linesize, state->frame+(i+2)*state->linesize+state->pan, state->linesize);
 			}
-			memcpy(state->frame+(hd_size_y-2)*state->linesize, line, state->linesize*2);
-			/*if(!(state->count % 50)) {
+			memcpy(state->frame+(hd_size_y-2)*state->linesize-state->pan, line, state->linesize*2+state->pan);
+			/*if(!(state->count % 2)) {
 				unsigned int *p = state->frame;
 				for(i=0; i < state->linesize*hd_size_y/4; i++) {
 					*p = *p ^ 0x00ffffffL;
