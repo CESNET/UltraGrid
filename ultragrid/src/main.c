@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.23 $
- * $Date: 2009/12/02 10:44:31 $
+ * $Revision: 1.24 $
+ * $Date: 2009/12/02 18:09:43 $
  *
  */
 
@@ -107,7 +107,7 @@ uint32_t  	RTT = 0;    /* this is computed by handle_rr in rtp_callback */
 char		*frame_buffer = NULL;
 uint32_t        hd_size_x = 2048;
 uint32_t	hd_size_y = 1080;
-uint32_t	hd_color_bpp = 3;
+uint32_t	hd_color_bpp = 4;
 uint32_t	bitdepth = 8;
 uint32_t	progressive = 0;
 
@@ -627,7 +627,7 @@ main(int argc, char *argv[])
 			return EXIT_FAIL_USAGE;
 		}
 	}
-	else if (argc != 1 && strcmp(cfg, "help")!=0) {
+	else if (argc != 1 && strstr(cfg, "help")==0) {
 		usage();
 		return EXIT_FAIL_USAGE;
 	}

@@ -4,6 +4,7 @@
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
+#include "v_codec.h"
 
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>
@@ -21,24 +22,32 @@
 
 
 struct state_kona {
-	ComponentInstance	videoDisplayComponentInstance;
-	Component		videoDisplayComponent;
-	GWorldPtr		gworld;
-	ImageSequence		seqID;
+    ComponentInstance	videoDisplayComponentInstance;
+//    Component			videoDisplayComponent;
+    GWorldPtr			gworld;
+    ImageSequence		seqID;
 
-	char			*buffers[2];
-	char			*outBuffer;
-	int			image_display, image_network;
+    char			*buffers[2];
+    char			*outBuffer;
+    int				image_display, image_network;
+
+    int     device;
+    int     mode;
+    char   *codec;
+    const struct codec_info_t *cinfo;
+    int     width;
+    int     height;
 
         /* Thread related information follows... */
-        pthread_t               thread_id;
-        sem_t                   semaphore;
+    pthread_t               thread_id;
+    sem_t                   semaphore;
 
-	uint32_t		magic;
+    uint32_t		magic;
 };
 
 /* Prototyping */
 char * four_char_decode(int format);
+void nprintf(char *str);
 
 
 char * four_char_decode(int format)
@@ -73,7 +82,6 @@ display_thread_kona(void *arg)
 	ImageDescriptionHandle	imageDesc;
 	CodecFlags		ignore;
 	int			ret;
-	int			i;
 
 	char			*line1, *line2;
 
@@ -86,20 +94,16 @@ display_thread_kona(void *arg)
 	platform_sem_wait(&s->semaphore);
 
 	(**(ImageDescriptionHandle)imageDesc).idSize = sizeof(ImageDescription);
-	if (bitdepth == 10) {
-		(**(ImageDescriptionHandle)imageDesc).cType = 'v210'; // v210 seems to be a little bit different than 10-bit 4:2:2 uyvy we are sending
-		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * 3; // dataSize is specified in bytes and is specified as height*width*bytes_per_luma_instant. v210 sets bytes_per_luma_instant to 8/3. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
-	} else {
-		(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
-		(**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * hd_color_bpp; // dataSize is specified in bytes 
-	}
-	(**(ImageDescriptionHandle)imageDesc).hRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
-	(**(ImageDescriptionHandle)imageDesc).vRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
-	(**(ImageDescriptionHandle)imageDesc).width = 2048; // Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs further investigation for 2K!
-	(**(ImageDescriptionHandle)imageDesc).height = hd_size_y;
-	(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
-	(**(ImageDescriptionHandle)imageDesc).depth = 24; // Given by the cType. See http://developer.apple.com/quicktime/icefloe/dispatch019.html
-	(**(ImageDescriptionHandle)imageDesc).clutID = -1; // We dont use any custom color table
+    (**(ImageDescriptionHandle)imageDesc).cType = s->cinfo->fcc;
+    (**(ImageDescriptionHandle)imageDesc).dataSize = hd_size_x * hd_size_y * s->cinfo->bpp; // dataSize is specified in bytes and is specified as height*width*bytes_per_luma_instant. v210 sets bytes_per_luma_instant to 8/3. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
+	//(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
+	//(**(ImageDescriptionHandle)imageDesc).hRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
+	//(**(ImageDescriptionHandle)imageDesc).vRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
+	(**(ImageDescriptionHandle)imageDesc).width = s->width; // Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs further investigation for 2K!
+	(**(ImageDescriptionHandle)imageDesc).height = s->height;
+	//(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
+	//(**(ImageDescriptionHandle)imageDesc).depth = 24; // Given by the cType. See http://developer.apple.com/quicktime/icefloe/dispatch019.html
+	//(**(ImageDescriptionHandle)imageDesc).clutID = -1; // We dont use any custom color table
 
 	ret = DecompressSequenceBeginS(&(s->seqID),
 				       imageDesc,
@@ -119,46 +123,27 @@ display_thread_kona(void *arg)
 	}
 	DisposeHandle((Handle)imageDesc);
 
-	ICMFrameTimeRecord	frameTime = {{0}};
-	TimeBase		timeBase;
+	//ICMFrameTimeRecord	frameTime = {{0}};
+	//TimeBase		timeBase;
 
-	timeBase = NewTimeBase();
-	SetTimeBaseRate(timeBase, 0);
+	//timeBase = NewTimeBase();
+	//SetTimeBaseRate(timeBase, 0);
 
-	memset(&frameTime, 0, sizeof(ICMFrameTimeRecord));
-
-	frameTime.recordSize = sizeof(frameTime);
-	frameTime.scale = 1000; // Units per second
-	frameTime.base = timeBase; // Specifying a timeBase means that DecompressSequenceFrameWhen must run asynchronously
-	frameTime.duration = 30; // Duration of one frame specified accordingly to the scale specified above
-	frameTime.frameNumber = 0; // We don't know the frame number
-	frameTime.flags = icmFrameTimeDecodeImmediately;
+    /* TODO frametime probably not needed */
+	//memset(&frameTime, 0, sizeof(ICMFrameTimeRecord));
+	//frameTime.recordSize = sizeof(frameTime);
+	//frameTime.scale = 1000; // Units per second
+	//frameTime.base = timeBase; // Specifying a timeBase means that DecompressSequenceFrameWhen must run asynchronously
+	//frameTime.duration = 30; // Duration of one frame specified accordingly to the scale specified above
+	//frameTime.frameNumber = 0; // We don't know the frame number
+	//frameTime.flags = icmFrameTimeDecodeImmediately;
 
 	while (1) {
 		platform_sem_wait(&s->semaphore);
 
 		line1 = s->buffers[s->image_display];
 		line2 = s->outBuffer;
-		if (progressive == 1) {
-			memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
-		} else {
-			if (bitdepth == 10) {
-				for (i = 0; i < 1080; i += 2) {
-					memcpy(line2, line1, 5120);
-					memcpy(line2+5120, line1+5120*540, 5120);
-					line1 += 5120;
-					line2 += 2*5120;			
-				}
-			} else {
-				for (i = 0; i < 1080; i += 2) {
-					memcpy(line2, line1, hd_size_x * hd_color_bpp);
-					memcpy(line2 + hd_size_x * hd_color_bpp, line1 + hd_size_x * hd_color_bpp * hd_size_y / 2, hd_size_x * hd_color_bpp);
-					line1 += hd_size_x * hd_color_bpp;
-					line2 += hd_size_x * hd_color_bpp * 2;
-				}
-			}
-		}
-	
+        memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
 
 		/* TODO: Running DecompressSequenceFrameWhen asynchronously in this way introduces a possible race condition! */
 		ret = DecompressSequenceFrameWhen(s->seqID,
@@ -167,7 +152,8 @@ display_thread_kona(void *arg)
 					       0,
 					       &ignore,
 					       -1, // If you set asyncCompletionProc to -1, the operation is performed asynchronously but the decompressor does not call the completion function.
-					       &frameTime);
+					       NULL);
+					       //&frameTime);
 		if (ret != noErr) {
 			fprintf(stderr, "Failed DecompressSequenceFrameWhen: %d\n", ret);
 		}
@@ -189,55 +175,35 @@ display_thread_kona(void *arg)
 char *
 display_kona_getf(void *state)
 {
-        struct state_kona *s = (struct state_kona *) state;
+    struct state_kona *s = (struct state_kona *) state;
 	assert(s->magic == KONA_MAGIC);
 	return (char *)s->buffers[s->image_network];
-
 }
 
 int
 display_kona_putf(void *state, char *frame)
 {
-        int              tmp;
-        struct state_kona *s = (struct state_kona *) state;
+    int              tmp;
+    struct state_kona *s = (struct state_kona *) state;
 
 	UNUSED(frame);
-        assert(s->magic == KONA_MAGIC);
+    assert(s->magic == KONA_MAGIC);
 
-        /* ...and give it more to do... */
-        tmp = s->image_display;
-        s->image_display = s->image_network;
-        s->image_network = tmp;
+    /* ...and give it more to do... */
+    tmp = s->image_display;
+    s->image_display = s->image_network;
+    s->image_network = tmp;
 
-        /* ...and signal the worker */
-        platform_sem_post(&s->semaphore);
-        return 0;
-
+    /* ...and signal the worker */
+    platform_sem_post(&s->semaphore);
+    return 0;
 }
 
-void nprintf(char *str);
-
-void *
-display_kona_init(void)	
+static void
+print_modes(int fullhelp)
 {
-
-	struct state_kona	*s;
-
 	ComponentDescription	cd;
 	Component		c = 0;
-	QTAtomContainer		modeListAtomContainer = NULL;
-
-	int			ret;
-	int			i;
-
-	s = (struct state_kona *) malloc(sizeof(struct state_kona));
-	s->magic = KONA_MAGIC;
-	s->videoDisplayComponentInstance = 0;
-	s->seqID = 0;
-	s->videoDisplayComponent = NULL;
-
-	InitCursor();
-	EnterMovies();
 
 	cd.componentType = QTVideoOutputComponentType;
 	cd.componentSubType = 0;
@@ -247,63 +213,41 @@ display_kona_init(void)
 
 	//fprintf(stdout, "Number of Quicktime Vido Display components %d\n", CountComponents (&cd));
 	
-	/* Get video output component */
+    fprintf(stdout, "Available playback devices:\n");
+	/* Print relevant video output components */
 	while ((c = FindNextComponent(c, &cd))) {
 		Handle componentNameHandle = NewHandle(0);
 		GetComponentInfo(c, &cd, componentNameHandle, NULL, NULL);
 		HLock(componentNameHandle);
 		char *cName = *componentNameHandle;
 
-		if ((strstr(cName, "AJA")) != NULL) {
-			fprintf(stdout, "Found video output component: %s\n", cName);
-			s->videoDisplayComponent = c;
-			s->videoDisplayComponentInstance = OpenComponent(s->videoDisplayComponent);
-			break;
-		}
+        fprintf(stdout, " Device %d: ", (int)c);
+        nprintf(cName);
+        fprintf(stdout, "\n");
 
 		HUnlock(componentNameHandle);
 		DisposeHandle(componentNameHandle);
 
-		cd.componentType = QTVideoOutputComponentType;
-		cd.componentSubType = 0;
-		cd.componentManufacturer = 0;
-		cd.componentFlags = 0;
-		cd.componentFlagsMask = kQTVideoOutputDontDisplayToUser;
+        /* Get display modes of selected video output component */
+        QTAtomContainer		            modeListAtomContainer = NULL;
+        ComponentInstance	            videoDisplayComponentInstance;
 
-	}
+        videoDisplayComponentInstance = OpenComponent(c);
 
-	if (s->videoDisplayComponent == NULL) {
-		fprintf(stderr, "AJA Kona3 not found!\n");
-		return NULL;
-	}
+        int ret = QTVideoOutputGetDisplayModeList(videoDisplayComponentInstance, &modeListAtomContainer);
+        if (ret != noErr || modeListAtomContainer == NULL) {
+            fprintf(stdout, "\tNo output modes available\n");
+            CloseComponent(videoDisplayComponentInstance);
+            continue;
+        }
 
-	long	displayMode = 0;
+        int i = 1;
+        QTAtom          atomDisplay = 0, nextAtomDisplay = 0;
+        QTAtomType      type;
+        QTAtomID        id;
 
-	/* Get display modes of selected video output component */
-	ret = QTVideoOutputGetDisplayModeList(s->videoDisplayComponentInstance, &modeListAtomContainer);
-	if (ret == noErr && modeListAtomContainer != NULL) {
-		i = 1;
-		QTAtom          atomDisplay = 0, nextAtomDisplay = 0;
-		QTAtomType      type;
-		QTAtomID        id;
-
-		char		*mode;
-
-		/* TODO: this is hardcoded right now */
-		if (bitdepth == 10) {
-			//mode = strdup("AJA Kona 1080p29.97 10 Bit");
-			//mode = strdup("AJA Kona 1080x2Kp24 10 Bit");
-			mode = strdup("AJA Kona 1080x2Kpsf23.98 10 Bit");
-		} else {
-			//mode = strdup("AJA Kona 1080p29.97   8 Bit");
-			//mode = strdup("AJA Kona 1080x2Kp24  8 Bit");
-			mode = strdup("AJA Kona 1080x2Kpsf23.98  8 Bit");
-			//mode = strdup("AJA Kona 1080p24   8 Bit");
-            
-		}
-
-		fprintf(stdout, "\nSupported video output modes:\n");
-		while (i < QTCountChildrenOfType(modeListAtomContainer, kParentAtomIsContainer, kQTVODisplayModeItem)) {
+        /* Print modes of current display component */
+	    while (i < QTCountChildrenOfType(modeListAtomContainer, kParentAtomIsContainer, kQTVODisplayModeItem)) {
 
 			ret = QTNextChildAnyType(modeListAtomContainer, kParentAtomIsContainer, atomDisplay, &nextAtomDisplay);
 			// Make sure its a display atom
@@ -315,57 +259,145 @@ display_kona_init(void)
 			QTAtom		atom;
 			long		dataSize, *dataPtr;
 
-			fprintf(stdout, "%ld: ", id);
+            /* Print component ID */
+			fprintf(stdout, "\t - %ld: ", id);
 
+            /* Print component name */
 			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVOName, 1, NULL);
 			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr*)&dataPtr);
 			fprintf(stdout, "  %s; ", (char *)dataPtr);
 
-			if (strcmp((char *)dataPtr, mode) == 0) {
-				displayMode = id;
-			}
+			//if (strcmp((char *)dataPtr, mode) == 0) {
+			//	displayMode = id;
+			//}
 
+            /* Print component other info */
 			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVODimensions, 1, NULL);
 			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
-			fprintf(stdout, "%dx%d px; ", (int)EndianS32_BtoN(dataPtr[0]), (int)EndianS32_BtoN(dataPtr[1]));
+			fprintf(stdout, "%dx%d px\n", (int)EndianS32_BtoN(dataPtr[0]), (int)EndianS32_BtoN(dataPtr[1]));
 
-			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVORefreshRate, 1, NULL);
-			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
-			fprintf(stdout, "%ld Hz; ", EndianS32_BtoN(dataPtr[0]));
+            /* Do not print codecs */
+            if (!fullhelp) {
+                i++;
+                continue;
+            }
 
-			atom = QTFindChildByID(modeListAtomContainer, atomDisplay, kQTVOPixelType, 1, NULL);
-			ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
-			fprintf(stdout, "%s\n", (char *)dataPtr);
-
+            /* Print supported pixel formats */
+            fprintf(stdout, "\t\t - Codec: ");
 			QTAtom		decompressorsAtom;
 			int		j = 1;
+            int     codecsPerLine = 0;
 			while ((decompressorsAtom = QTFindChildByIndex(modeListAtomContainer, atomDisplay, kQTVODecompressors, j, NULL)) != 0) {
 				atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorType, 1, NULL);
 				ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
-				fprintf(stdout, "        Decompressor: %s, ", (char *)dataPtr);
+                if (!(codecsPerLine % 9)) {
+                    fprintf(stdout, "\n  \t\t\t");
+				    fprintf(stdout, "%s", (char *)dataPtr);
+                } else {
+				    fprintf(stdout, ", %s", (char *)dataPtr);
+                }
+                codecsPerLine++;
 
-				atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorComponent, 1, NULL);
-				ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
-				fprintf(stdout, "%s, ", (char *)dataPtr);
-
-				atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorContinuous, 1, NULL);
-				ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
-				fprintf(stdout, "%ld\n", EndianS32_BtoN(dataPtr[0]));
+				//atom = QTFindChildByID(modeListAtomContainer, decompressorsAtom, kQTVODecompressorComponent, 1, NULL);
+				//ret = QTGetAtomDataPtr(modeListAtomContainer, atom, &dataSize, (Ptr *)&dataPtr);
+				//fprintf(stdout, "%s\n", (char *)dataPtr);
 
 				j++;
 			}
+		    fprintf(stdout, "\n\n");
 
 			i++;
+            CloseComponent(videoDisplayComponentInstance);
 		}
 		fprintf(stdout, "\n");
-	} else {
-		fprintf(stderr, "Video output component AJA doesn't seem to provide any display mode!\n");
-		return NULL;
+
+		cd.componentType = QTVideoOutputComponentType;
+		cd.componentSubType = 0;
+		cd.componentManufacturer = 0;
+		cd.componentFlags = 0;
+		cd.componentFlagsMask = kQTVideoOutputDontDisplayToUser;
 	}
+}
+
+static void
+show_help(int full)
+{
+    printf("Quicktime output options:\n");
+    printf("\tdevice:mode:codec | help | fullhelp\n");
+    print_modes(full);    
+}
+
+
+void *
+display_kona_init(char *fmt)	
+{
+	struct state_kona	    *s;
+	int	                    ret;
+	int	                    i;
+
+	/* Parse fmt input */
+	s = (struct state_kona *) malloc(sizeof(struct state_kona));
+	s->magic = KONA_MAGIC;
+
+    if(fmt!=NULL) {
+        if(strcmp(fmt, "help") == 0) {
+            show_help(0);
+            free(s);
+            return NULL;
+        }
+        if(strcmp(fmt, "fullhelp") == 0) {
+            show_help(1);
+            free(s);
+            return NULL;
+        }
+        char *tmp = strdup(fmt);
+        char *tok;
+
+        tok = strtok(tmp, ":");
+        if(tok == NULL) {
+            show_help(0);
+            free(s);
+            free(tmp);
+            return NULL;
+        }
+        s->device = atol(tok);
+        tok = strtok(NULL, ":");
+        if(tok == NULL) {
+            show_help(0);
+            free(s);
+            free(tmp);
+            return NULL;
+        }
+        s->mode = atol(tok);
+        tok = strtok(NULL, ":");
+        if(tok == NULL) {
+            show_help(0);
+            free(s);
+            free(tmp);
+            return NULL;
+        }
+        s->codec = strdup(tok);
+    }
+
+    for(i = 0; codec_info[i].name != NULL; i++) {
+        if(strcmp(s->codec, codec_info[i].name) == 0) {
+            s->cinfo = &codec_info[i];
+        }
+    }
+
+    hd_color_bpp = ceil(s->cinfo->bpp);
+
+	s->videoDisplayComponentInstance = 0;
+	s->seqID = 0;
+
+    /* Open device */
+	s->videoDisplayComponentInstance = OpenComponent((Component)s->device);
+
+	InitCursor();
+	EnterMovies();
 
 	/* Set the display mode */
-
-	ret = QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance, displayMode);
+	ret = QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance, s->mode);
 	if (ret != noErr) {
 		fprintf(stderr, "Failed to set video output display mode.\n");
 		return NULL;
@@ -377,62 +409,59 @@ display_kona_init(void)
 		fprintf(stderr, "Failed to set video output echo port.\n");
 		return NULL;
 	}
-	
-
-        platform_sem_init(&s->semaphore, 0, 0);
-
-        s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
-        s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
-
-	s->image_network = 0;
-	s->image_display = 1;
-
-	s->outBuffer = malloc(hd_size_x*hd_size_y*hd_color_bpp);
-
-        if (pthread_create(&(s->thread_id), NULL, display_thread_kona, (void *) s) != 0) {
-		perror("Unable to create display thread\n");
-		return NULL;
-	}
 
 	/* Register Ultragrid with instande of the video outpiut */
 	ret = QTVideoOutputSetClientName(s->videoDisplayComponentInstance, (ConstStr255Param)"Ultragrid");
 	if (ret != noErr) {
-		fprintf(stderr, "Failed to register Ultragrid with Kona3 video output instance.\n");
+		fprintf(stderr, "Failed to register Ultragrid with selected video output instance.\n");
 		return NULL;
 	}
 
 	/* Call QTVideoOutputBegin to gain exclusive access to the video output */
 	ret = QTVideoOutputBegin(s->videoDisplayComponentInstance);
 	if (ret != noErr) {
-		fprintf(stderr, "Failed to get exclusive access to Kona3 video output instance.\n");
+		fprintf(stderr, "Failed to get exclusive access to selected video output instance.\n");
 		return NULL;
 	}
 
 	/* Get a pointer to the gworld used by video output component */
 	ret = QTVideoOutputGetGWorld(s->videoDisplayComponentInstance, &s->gworld);
 	if (ret != noErr) {
-		fprintf(stderr, "Failed to get Kona3 video output instance GWorld.\n");
+		fprintf(stderr, "Failed to get selected video output instance GWorld.\n");
 		return NULL;
 	}
 
 	ImageDescriptionHandle		gWorldImgDesc = NULL;
-	PixMapHandle			gWorldPixmap = (PixMapHandle)GetGWorldPixMap(s->gworld);
+	PixMapHandle	    		gWorldPixmap = (PixMapHandle)GetGWorldPixMap(s->gworld);
 
+    /* Determine width and height */
 	ret = MakeImageDescriptionForPixMap(gWorldPixmap, &gWorldImgDesc);
-	if (ret == noErr) {
-		fprintf(stdout, "\n\nKona3 gWorld settings:\n");
-		fprintf(stdout, "\tctype: '%s'\n", four_char_decode((**gWorldImgDesc).cType));
-		fprintf(stdout, "\tvendor: 0x%ld\n", (**gWorldImgDesc).vendor);
-		fprintf(stdout, "\twidth: %d\n", (**gWorldImgDesc).width);
-		fprintf(stdout, "\theight: %d\n", (**gWorldImgDesc).height);
-		fprintf(stdout, "\thRes: %ld\n", (**gWorldImgDesc).hRes);
-		fprintf(stdout, "\tvRes: %ld\n", (**gWorldImgDesc).vRes);
-		fprintf(stdout, "\tdataSize: %ld\n", (**gWorldImgDesc).dataSize);
-		fprintf(stdout, "\tframeCount: %d\n", (**gWorldImgDesc).frameCount);
-		fprintf(stdout, "\tname: %s\n", (**gWorldImgDesc).name);
-		fprintf(stdout, "\tdepth: %d\n", (**gWorldImgDesc).depth);
-		fprintf(stdout, "\tclutID: %d\n", (**gWorldImgDesc).clutID);
-		fprintf(stdout, "\n");
+	if (ret != noErr) {
+		fprintf(stderr, "Failed to determine width and height.\n");
+        return NULL;
+	}
+    hd_size_x = s->width  = (**gWorldImgDesc).width;
+	hd_size_y = s->height = (**gWorldImgDesc).height;
+
+    if (s->cinfo->h_align) {
+        hd_size_x = ((hd_size_x + s->cinfo->h_align -1) / s->cinfo->h_align) * s->cinfo->h_align;
+    }
+
+    fprintf(stdout, "Selected mode: %d(%d)x%d, %dbpp\n", s->width, hd_size_x, hd_size_y, hd_color_bpp);
+
+    platform_sem_init(&s->semaphore, 0, 0);
+
+    s->buffers[0] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
+    s->buffers[1] = malloc(hd_size_x*hd_size_y*hd_color_bpp);
+
+	s->image_network = 0;
+	s->image_display = 1;
+
+	s->outBuffer = malloc(hd_size_x*hd_size_y*hd_color_bpp);
+
+    if (pthread_create(&(s->thread_id), NULL, display_thread_kona, (void *) s) != 0) {
+        perror("Unable to create display thread\n");
+        return NULL;
 	}
 
 	return (void *) s;
@@ -461,16 +490,16 @@ display_kona_done(void *state)
 display_colour_t
 display_kona_colour(void *state)
 {
-        struct state_kona *s = (struct state_kona *) state;
-        assert(s->magic == KONA_MAGIC);
-        return DC_YUV;
+    struct state_kona *s = (struct state_kona *) state;
+    assert(s->magic == KONA_MAGIC);
+    return DC_YUV;
 }
 
 display_type_t *
 display_kona_probe(void)
 {
-        display_type_t          *dtype;
-        display_format_t        *dformat;
+    display_type_t          *dtype;
+    display_format_t        *dformat;
 
 	ComponentDescription	cd;
 	Component		c = 0;
