@@ -260,10 +260,10 @@ vidcap_decklink_probe(void)
 }
 
 void *
-vidcap_decklink_init(struct vidcap_fmt *fmt)
+vidcap_decklink_init(char *fmt)
 {
-	//int fps; //FIXME What is it good for?
-	//fps = atoi(fmt);
+	int fps; //FIXME What is it good for?
+	fps = atoi(fmt);
 
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 

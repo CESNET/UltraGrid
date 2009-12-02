@@ -32,15 +32,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.4 $
+ * $Date: 2009/12/02 10:37:30 $
  *
  */
 
 #define VIDCAP_QUICKTIME_ID	0xab4309e7
 
 struct vidcap_type	*vidcap_quicktime_probe(void);
-void			*vidcap_quicktime_init(struct vidcap_fmt *fmt);
+void			*vidcap_quicktime_init(char *fmt);
 void			 vidcap_quicktime_done(void *state);
 struct video_frame	*vidcap_quicktime_grab(void *state);
 

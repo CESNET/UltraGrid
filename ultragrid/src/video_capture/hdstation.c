@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.4 $
+ * $Date: 2009/12/02 10:37:30 $
  *
  */
 
@@ -154,9 +154,9 @@ vidcap_hdstation_probe(void)
 }
 
 void *
-vidcap_hdstation_init(struct vidcap_fmt *fmt)
+vidcap_hdstation_init(char *fmt)
 {
-	//int fps = atoi(fmt); //What is fps good for?
+	int fps = atoi(fmt); //What is fps good for?
 	struct vidcap_hdstation_state	*s;
 	int 				 res;
 

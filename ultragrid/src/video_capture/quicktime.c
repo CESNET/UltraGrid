@@ -33,8 +33,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.13 $
- * $Date: 2009/11/26 19:13:03 $
+ * $Revision: 1.14 $
+ * $Date: 2009/12/02 10:37:30 $
  *
  */
 
@@ -46,6 +46,8 @@
 #include "video_types.h"
 #include "video_capture.h"
 #include "video_capture/quicktime.h"
+#include "v_codec.h"
+#include <math.h>
 
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>
@@ -54,22 +56,28 @@
 
 #define MAGIC_QT_GRABBER	VIDCAP_QUICKTIME_ID
 
+void nprintf(char *str);
+intqt_open_grabber(struct qt_grabber_state *s, char *fmt);
+
 struct qt_grabber_state {
-	uint32_t		magic;
-	SeqGrabComponent	grabber;
-	SGChannel		video_channel;
-	Rect			bounds;
-	GWorldPtr		gworld;
-	ImageSequence		seqID;
-	int                     sg_idle_enough;
+    	uint32_t		magic;
+    	SeqGrabComponent	grabber;
+    	SGChannel		video_channel;
+    	Rect			bounds;
+    	GWorldPtr		gworld;
+    	ImageSequence		seqID;
+    	int                     sg_idle_enough;
+        int                     major;
+        int                     minor;
+        int                     width;
+        int                     height;
+        int                     codec;
+        struct codec_info_t     *c_info;
+        unsigned                gui:1;
 };
 
 int frames = 0;
 struct timeval t, t0;
-
-
-
-
 
 /*
  * Sequence grabber data procedure
@@ -191,10 +199,9 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon, TimeValu
 	for(i=0; i < hd_size_y; i++) {
 		memcpy(dst + hd_size_x*8*i/3, p+linesize*i, hd_size_x*8/3);
 	}
-
-	out = fopen("/tmp/dump", "w");
-//	fwrite(dst, hd_size_y*hd_size_x*8/3, 1, out);
-	fwrite(p, hd_size_y*linesize, 1, out);
+*/
+/*	out = fopen("/tmp/dump", "w");
+	fwrite(p, len, 1, out);
 	fclose(out);*/
 
 	memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
@@ -269,23 +276,24 @@ OSErr MinimalSGSettingsDialog(SeqGrabComponent seqGrab, SGChannel sgchanVideo, W
         }
     } while (c);
 
-    if (err = SGSettingsDialog(seqGrab, sgchanVideo, numberOfPanels, panelListPtr, seqGrabSettingsPreviewOnly, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)gMonitor)) {
+    if ((err = SGSettingsDialog(seqGrab, sgchanVideo, numberOfPanels, panelListPtr, seqGrabSettingsPreviewOnly, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)gMonitor))) {
         return err;
     }
 }
 
 void
-nprintf(char *str) {
-	char tmp[str[0]+1];
+nprintf(char *str) 
+{
+	char tmp[((int)str[0])+1];
 
 	strncpy(tmp, &str[1], str[0]);
-	tmp[str[0]]=0;
+	tmp[(int)str[0]]=0;
 	fprintf(stdout, "%s", tmp);
 }
 
 /* Initialize the QuickTime grabber */
 int
-qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
+qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 {
 	GrafPtr 		savedPort;
 	WindowPtr		gMonitor;
@@ -357,13 +365,13 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 	int j;
 	SGDeviceInputList inputList;
 	SGDeviceList deviceList;
-	if(fmt->help) {
+	if(strcmp(fmt, "help")==0) {
 		if (SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) == noErr) {
 			fprintf(stdout, "Available capture devices:\n");
 			for(i = 0; i < (*deviceList)->count; i++) {
 				SGDeviceName *deviceEntry = &(*deviceList)->entry[i];
 				fprintf(stdout, " Device %d: ",i );
-				nprintf(deviceEntry->name);
+				nprintf((char*)(deviceEntry->name));
 				if (deviceEntry->flags & sgDeviceNameFlagDeviceUnavailable){
 					fprintf(stdout, "  - ### NOT AVAILABLE ###");
 				}
@@ -378,7 +386,7 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 					for (j = 0; j < (*inputList)->count; j++){
 						fprintf(stdout, "\t");
 						fprintf(stdout, "- %d. ", j);
-						nprintf((&(*inputList)->entry[j].name));
+						nprintf((char*)((&(*inputList)->entry[j].name)));
     					        if ((i == (*deviceList)->selectedIndex)&&(j == activeInputIndex))
 							fprintf(stdout, " - ### ACTIVE ###");
 						fprintf(stdout, "\n");
@@ -392,20 +400,19 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 			for(i=0; i < list->count; i++) {
 				int fcc = list->list[i].cType;
 				printf("\t%d) ", i);
-				nprintf(list->list[i].typeName);
+				nprintf((char*)list->list[i].typeName);
 				printf(" - FCC (%c%c%c%c)",
 						fcc >> 24,
 						(fcc >> 16)&0xff,
 						(fcc >> 8)&0xff,
 						(fcc)&0xff);
-				printf(" - codec id %x", list->list[i].codec);
-				printf(" - cType %d", list->list[i].cType);
+				printf(" - codec id %x", (unsigned int)(list->list[i].codec));
+				printf(" - cType %x", (unsigned int)list->list[i].cType);
 				printf("\n");
 			}
 		}
 		return 0;
 	}
-
 
 
 	if (SGSetChannelUsage(s->video_channel, seqGrabRecord | seqGrabPreview | seqGrabAlwaysUseTimeBase | seqGrabLowLatencyCapture) != noErr) {
@@ -423,34 +430,56 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 	SGStartPreview(s->grabber);
 
 //	if (s->video_channel) { //IMHO, this should be always true, otherwise previous calls would failed
-    if (fmt->gui) { //Use gui to select input
+        if (strcmp(fmt, "gui") == 0) { //Use gui to select input
 //		seqGrabModalFilterUPP = (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc);
 //		SGSettingsDialog(s->grabber, s->video_channel, 0, nil, 0L, (SGModalFilterUPP)NewSGModalFilterUPP(SeqGrabberModalFilterProc), (long)(gMonitor));
 //		DisposeSGModalFilterUPP(seqGrabModalFilterUPP);
 		MinimalSGSettingsDialog(s->grabber, s->video_channel, gMonitor);
 	} else { // Use input specified on cmd
-        /* Select device */
+                /* Select device */
 		if (SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) {
-            debug_msg("Unable to get list of quicktime devices\n");
-            return 0;
-        }
-        SGDeviceName *deviceEntry = &(*deviceList)->entry[fmt->major];
-        printf("Quicktime: Setting device: ");
-        nprintf(deviceEntry->name);printf("\n");
-        if (SGSetChannelDevice (s->video_channel, deviceEntry->name) != noErr) {
-            debug_msg("Setting up the selected device failed\n");			
-            return 0;
-        }
+                        debug_msg("Unable to get list of quicktime devices\n");
+                        return 0;
+                }
+
+                char *tmp;
+
+                tmp = strtok(fmt, ":");
+                if(!tmp) {
+                    fprintf(stderr, "Wrong config %s\n", fmt);
+                    return 0;
+                }
+                s->major = atoi(tmp);
+                tmp = strtok(NULL, ":");
+                if(!tmp) {
+                    fprintf(stderr, "Wrong config %s\n", fmt);
+                    return 0;
+                }
+                s->minor = atoi(tmp);
+                tmp = strtok(NULL, ":");
+                if(!tmp) {
+                    fprintf(stderr, "Wrong config %s\n", fmt);
+                    return 0;
+                }
+                s->codec = atoi(tmp);
+
+                SGDeviceName *deviceEntry = &(*deviceList)->entry[s->major];
+                printf("Quicktime: Setting device: ");
+                nprintf((char*)deviceEntry->name);printf("\n");
+                if (SGSetChannelDevice (s->video_channel, deviceEntry->name) != noErr) {
+                    debug_msg("Setting up the selected device failed\n");			
+                    return 0;
+                }
         
-        /* Select input */
-        inputList = deviceEntry->inputs;
-        printf("Quicktime: Setting input: ");
-        nprintf((&(*inputList)->entry[fmt->minor].name)); printf("\n");
-        if (SGSetChannelDeviceInput (s->video_channel, fmt->minor) != noErr) {
-            debug_msg("Setting up input on selected device failed\n");			
-            return 0;
+                /* Select input */
+                inputList = deviceEntry->inputs;
+                printf("Quicktime: Setting input: ");
+                nprintf((char*)(&(*inputList)->entry[s->minor].name)); printf("\n");
+                if (SGSetChannelDeviceInput (s->video_channel, s->minor) != noErr) {
+                    debug_msg("Setting up input on selected device failed\n");			
+                    return 0;
+                }
         }
-    }
 
 	/* Set video size according to selected vide format */
 	Rect gActiveVideoRect;
@@ -468,32 +497,41 @@ qt_open_grabber(struct qt_grabber_state *s, struct vidcap_fmt *fmt)
 
 	/* Set selected fmt->codec and get pixel format of that codec */
 	int pixfmt;
-	if(fmt->codec > 0) {
-	    CodecNameSpecListPtr list;
-    	GetCodecNameList(&list, 1);
-		pixfmt = list->list[fmt->codec].cType;
-		printf("Quicktime: SetCompression: %d\n", SGSetVideoCompressor(s->video_channel, 0, list->list[fmt->codec].codec, 0, 0, 0));
+	if(s->codec > 0) {
+	        CodecNameSpecListPtr list;
+                GetCodecNameList(&list, 1);
+		pixfmt = list->list[s->codec].cType;
+		printf("Quicktime: SetCompression: %d\n", 
+                      (int)SGSetVideoCompressor(s->video_channel, 0, list->list[s->codec].codec, 0, 0, 0));
 	} else {
 		int codec;
 		SGGetVideoCompressor(s->video_channel, NULL, &codec, NULL, NULL, NULL);
 		CodecNameSpecListPtr list;
 		GetCodecNameList(&list, 1);
 		for(i=0; i < list->count; i++) {
-			if (codec == list->list[i].codec) {
+			if ((unsigned)codec == list->list[i].codec) {
 				pixfmt = list->list[i].cType;
 				break;
 			}
 		}
 	}
 
-	/* In case of pixfmt == v210 (1983000880), hd_size_x needs to be divisible by 48 */
+        for(i = 0; codec_info[i].name != NULL; i++) {
+                if((unsigned)pixfmt == codec_info[i].fcc) {
+                        s->c_info = &codec_info[i];
+                }
+        }
+
 	printf("Quicktime: Selected pixel format: %c%c%c%c\n",
 		pixfmt >> 24, (pixfmt >> 16)&0xff, (pixfmt >> 8)&0xff, (pixfmt)&0xff);
-	if (pixfmt == 1983000880) {
-		hd_size_x = ((hd_size_x + 47) / 48) * 48;
-		printf("Quicktime: Pixel format 'v210' was selected -> Setting hd_size_x to %d\n", hd_size_x);
-	}
-
+        int h_align = s->c_info->h_align;
+	if (h_align) {
+		hd_size_x = ((hd_size_x + h_align - 1) / h_align) * h_align;
+		printf("Quicktime: Pixel format 'v210' was selected -> Setting hd_size_x to %d\n", 
+                                hd_size_x);
+	} 
+        
+        hd_color_bpp = ceil(s->c_info->bpp);
 	
 //	SGUpdate(s->grabber, 0);	
 
@@ -558,7 +596,7 @@ vidcap_quicktime_probe (void)
 
 /* Initialize the QuickTime grabbing system */
 void *
-vidcap_quicktime_init (struct vidcap_fmt *fmt)
+vidcap_quicktime_init (char *fmt)
 {
 	struct qt_grabber_state	*s;
 
@@ -630,7 +668,7 @@ vidcap_quicktime_grab (void *state)
 		vf->colour_mode = YUV_422;
 		vf->width       = hd_size_x;
 		vf->height      = hd_size_y;
-		vf->data        = (unsigned char *) GetPixBaseAddr(GetGWorldPixMap(s->gworld));
+		vf->data        = (char *) GetPixBaseAddr(GetGWorldPixMap(s->gworld));
 		vf->data_len    = hd_size_x * hd_size_y * hd_color_bpp;
 	}
 	return vf;

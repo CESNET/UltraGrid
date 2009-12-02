@@ -38,15 +38,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2009/11/20 19:38:23 $
+ * $Revision: 1.3 $
+ * $Date: 2009/12/02 10:37:30 $
  *
  */
 
 #define VIDCAP_HDSTATION_ID	0x10203040
 
 struct vidcap_type	*vidcap_hdstation_probe(void);
-void			*vidcap_hdstation_init(struct vidcap_fmt *fmt);
+void			*vidcap_hdstation_init(char *fmt);
 void			 vidcap_hdstation_done(void *state);
 struct video_frame	*vidcap_hdstation_grab(void *state);
 
