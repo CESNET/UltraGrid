@@ -42,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.6 $
- * $Date: 2009/12/02 16:30:01 $
+ * $Revision: 1.7 $
+ * $Date: 2009/12/03 16:34:53 $
  *
  */
 
@@ -375,7 +375,7 @@ vidcap_testcard_init(char *fmt)
 			if(filename && filename[0] == 'p') {
 				s->pan = 48;
 			}
-			
+
 			for(j=0; j < s->height; j+=rect_size) {
 				int grey=0xff010101;
 				if(j==rect_size*2) {
@@ -392,6 +392,7 @@ vidcap_testcard_init(char *fmt)
 					r.h = rect_size;
 					r.x = i;
 					r.y = j;
+                    printf("Fill rect at %d,%d\n", r.x, r.y );
 					if(j!=rect_size*2) {
 						SDL_FillRect(s->surface, &r, rect_colors[col_num]);
 						col_num = (col_num+1)%COL_NUM;				
@@ -481,12 +482,12 @@ vidcap_testcard_grab(void *arg)
 			memcpy(line, state->frame, state->linesize*2+state->pan);
 			for(i=0; i < hd_size_y-3; i++) {
 				memcpy(state->frame+i*state->linesize, 
-                                       state->frame+(i+2)*state->linesize+state->pan, state->linesize);
+                       state->frame+(i+2)*state->linesize+state->pan, state->linesize);
 			}
-                        memcpy(state->frame+i*state->linesize,
-                               state->frame+(i+2)*state->linesize+state->pan, state->linesize-state->pan);
-                        memcpy(state->frame+(hd_size_y-2)*state->linesize-state->pan, 
-                               line, state->linesize*2+state->pan);
+            memcpy(state->frame+i*state->linesize,
+                        state->frame+(i+2)*state->linesize+state->pan, state->linesize-state->pan);
+			memcpy(state->frame+(hd_size_y-2)*state->linesize-state->pan, 
+                        line, state->linesize*2+state->pan);
 			/*if(!(state->count % 2)) {
 				unsigned int *p = state->frame;
 				for(i=0; i < state->linesize*hd_size_y/4; i++) {
