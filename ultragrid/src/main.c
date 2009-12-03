@@ -40,8 +40,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.24 $
- * $Date: 2009/12/02 18:09:43 $
+ * $Revision: 1.25 $
+ * $Date: 2009/12/03 17:23:16 $
  *
  */
 
@@ -134,7 +134,16 @@ signal_handler(int signal)
 static void 
 usage(void) 
 {
-	printf("Usage: uv [-d <display_device>] [-g <cfg>] [-t <capture_device>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] address\n\t -i  ... ihdtv\n");
+    /* TODO -c -p -b are deprecated options */
+	printf("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] address\n\n");
+    printf("\t-d <display_device>\tselect display device, use -d help to get\n");
+    printf("\t                   \tlist of devices availabe\n");
+    printf("\t-t <capture_device>\tselect capture device, use -t help to get\n");
+    printf("\t                   \tlist of devices availabe\n");
+    printf("\t-g <cfg>           \tconfigure capture/display device,\n");
+    printf("\t                   \tuse -g help with a device to get info about\n");
+    printf("\t                   \tsupported capture/display modes\n");
+    printf("\t-i                 \tiHDTV compatibility mode\n");
 }
 
 static void
@@ -158,6 +167,21 @@ initialize_video_codecs(void)
 			vcodec_map_payload(96, i);	/*  96 : Uncompressed YUV */
 		}
 	}
+}
+
+void
+list_video_display_devices()
+{
+    int i;
+	display_type_t		*dt;
+
+    printf("Available display devices:\n");
+	display_init_devices();
+	for (i = 0; i < display_get_device_count(); i++) {
+		dt = display_get_device_details(i);
+        printf("\t%s\n", dt->name); 
+	}
+	display_free_devices();
 }
 
 static struct display *
@@ -190,6 +214,21 @@ initialize_video_display(const char *requested_display, char *fmt)
 		frame_buffer = display_get_frame(d);
 	}
 	return d;
+}
+
+void
+list_video_capture_devices()
+{
+    int i;
+	struct vidcap_type	*vt;
+
+    printf("Available capture devices:\n");
+	vidcap_init_devices();
+	for (i = 0; i < vidcap_get_device_count(); i++) {
+		vt = vidcap_get_device_details(i);
+        printf("\t%s\n", vt->name); 
+	}
+	vidcap_free_devices();
 }
 
 static struct vidcap *
@@ -547,11 +586,19 @@ main(int argc, char *argv[])
 		switch (ch) {
 		case 'd' :
 			uv->requested_display = optarg;
+            if(!strcmp(uv->requested_display, "help")) {
+                list_video_display_devices();
+                return 0;
+            }
 			if(!strcmp(uv->requested_display,"dxt"))
 				uv->dxt_display = 1;
 			break;
 		case 't' :
 			uv->requested_capture = optarg;
+            if(!strcmp(uv->requested_capture, "help")) {
+                list_video_capture_devices();
+                return 0;
+            }
 			break;
 		case 'm' :
 			uv->requested_mtu = atoi(optarg);

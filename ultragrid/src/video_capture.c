@@ -38,8 +38,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.7 $
- * $Date: 2009/12/02 10:44:31 $
+ * $Revision: 1.8 $
+ * $Date: 2009/12/03 17:23:16 $
  *
  */
 
@@ -164,9 +164,7 @@ vidcap_init_devices(void)
 		}
 	}
 
-	printf("available_device_count: %d\n",available_device_count);
-
-	return 0;
+	return available_device_count;
 }
 
 void
