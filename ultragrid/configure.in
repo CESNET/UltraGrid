@@ -368,12 +368,12 @@ SDL_OBJ=
 case "$host_os" in
         *darwin*)
         AC_CHECK_HEADERS([SDL/SDL.h],
-                         [AC_CHECK_FILE(/Library/Frameworks/SDL.framework/SDL, FOUND_SDL_L=yes, echo "SDL framework not found.")],
+                         [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
                         )
 	if test $FOUND_SDL_L = yes
 	then
-		LIBS="$LIBS -framework SDL"
+		LIBS="$LIBS -L/opt/local/lib -lSDL"
 		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
 		AC_DEFINE(HAVE_SDL)
 		SDL_VERSION=1.2.10
