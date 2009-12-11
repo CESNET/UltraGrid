@@ -1,14 +1,14 @@
 /*
  * FILE:    main.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
+ * AUTHORS: Colin Perkins    <csp@csperkins.org>
+ *          Ladan Gharai     <ladan@isi.edu>
+ *          Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
  *          Milos Liska      <xliska@fi.muni.cz>
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          Colin Perkins    <csp@csperkins.org>
- *          Ladan Gharai     <ladan@isi.edu>
  *
  * Copyright (c) 2005-2209 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
@@ -49,8 +49,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.26 $
- * $Date: 2009/12/11 14:48:35 $
+ * $Revision: 1.27 $
+ * $Date: 2009/12/11 14:50:57 $
  *
  */
 
