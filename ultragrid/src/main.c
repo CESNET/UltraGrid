@@ -1,8 +1,16 @@
 /*
  * FILE:    main.c
- * AUTHORS: Colin Perkins <csp@csperkins.org>
- *          Ladan Gharai  <ladan@isi.edu>
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
+ *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *          Petr Holub       <hopet@ics.muni.cz>
+ *          Milos Liska      <xliska@fi.muni.cz>
+ *          Jiri Matela      <matela@ics.muni.cz>
+ *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *          Colin Perkins    <csp@csperkins.org>
+ *          Ladan Gharai     <ladan@isi.edu>
  *
+ * Copyright (c) 2005-2209 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -21,7 +29,8 @@
  *    must display the following acknowledgement:
  * 
  *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      California Information Sciences Institute. This product also includes
+ *      software developed by CESNET z.s.p.o.
  * 
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
@@ -40,8 +49,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.25 $
- * $Date: 2009/12/03 17:23:16 $
+ * $Revision: 1.26 $
+ * $Date: 2009/12/11 14:48:35 $
  *
  */
 
