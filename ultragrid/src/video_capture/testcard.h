@@ -1,6 +1,10 @@
 /*
- * FILE:   testcard.h
+ * FILE:   testcard.c
  * AUTHOR: Colin Perkins <csp@csperkins.org>
+ *
+ * A fake video capture device, used for systems that either have no capture
+ * hardware or do not wish to transmit. This fits the interface of the other
+ * capture devices, but never produces any video.
  *
  * Copyright (c) 2004 University of Glasgow
  *
@@ -38,8 +42,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2009/12/02 10:37:30 $
+ * $Revision: 1.4 $
+ * $Date: 2009/12/11 15:13:10 $
  *
  */
 
