@@ -10,7 +10,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2209 CESNET z.s.p.o.
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -49,8 +49,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.27 $
- * $Date: 2009/12/11 14:50:57 $
+ * $Revision: 1.28 $
+ * $Date: 2009/12/11 15:04:52 $
  *
  */
 
