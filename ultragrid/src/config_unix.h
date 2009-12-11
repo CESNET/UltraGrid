@@ -1,10 +1,18 @@
 /*
- * config-unix.h
- *
- * Unix specific definitions and includes for RAT.
+ * FILE:    main.c
+ * AUTHORS: Colin Perkins    <csp@csperkins.org>
+ *          Ladan Gharai     <ladan@isi.edu>
+ *          Martin Benes     <martinbenesh@gmail.com>
+ *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *          Petr Holub       <hopet@ics.muni.cz>
+ *          Milos Liska      <xliska@fi.muni.cz>
+ *          Jiri Matela      <matela@ics.muni.cz>
+ *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2001-2003 University of Southern California
  * Copyright (c) 1995-2001 University College London
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -21,11 +29,12 @@
  *    must display the following acknowledgement:
  * 
  *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      California Information Sciences Institute. This product also includes
+ *      software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
+ * 4. Neither the name of the University, Institute, CESNET nor the names of
+ *    its contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
  * 
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -40,8 +49,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2009/12/11 15:29:39 $
  */
 
 #ifndef WIN32
