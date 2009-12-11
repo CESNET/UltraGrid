@@ -1,6 +1,7 @@
 
 UltraGrid - A High Definition Collaboratory
 
+   Copyright (c) 2005-2010 CESNET z.s.p.o.
    Copyright (c) 2001-2004 University of Southern California 
    Copyright (c) 2003-2004 University of Glasgow
    Copyright (c) 1993-2001 University College London
@@ -30,7 +31,8 @@ UltraGrid - A High Definition Collaboratory
 
         This product includes software developed by the University of 
         Southern California/Information Sciences Institute and by the 
-        University of Glasgow.
+        University of Glasgow. This product also includes software 
+	developed by CESNET z.s.p.o.
 
    4. Neither the name of the University nor of the Institute may be used
       to endorse or promote products derived from this software without
