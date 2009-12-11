@@ -6,36 +6,47 @@
  *           Bill Fenner     <fenner@research.att.com>
  *           Timur Friedman  <timur@research.att.com>
  *           Ladan Gharai    <ladan@isi.edu>
+ *           Martin Benes     <martinbenesh@gmail.com>
+ *           Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *           Petr Holub       <hopet@ics.muni.cz>
+ *           Milos Liska      <xliska@fi.muni.cz>
+ *           Jiri Matela      <matela@ics.muni.cz>
+ *           Dalibor Matura   <255899@mail.muni.cz>
+ *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * The routines in this file implement the Real-time Transport Protocol,
  * RTP, as specified in RFC1889 with current updates under discussion in
  * the IETF audio/video transport working group. Portions of the code are
  * derived from the algorithms published in that specification.
  *
- * $Revision: 1.3 $ 
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
- * $Date: 2009/05/20 14:55:24 $
- * 
  * Copyright (c) 1998-2001 University College London
- * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions 
  * are met:
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
+ *
  *      This product includes software developed by the Computer Science
  *      Department at University College London and by the University of
- *      Southern California Information Sciences Institute.
- * 4. Neither the name of the University nor of the Department may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
+ *      Southern California Information Sciences Institute. This product also
+ *      includes software developed by CESNET z.s.p.o.
+ *
+ * 4. Neither the name of the University, Department, CESNET nor the names of
+ *    its contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *    
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -47,6 +58,7 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  *
  */
 
