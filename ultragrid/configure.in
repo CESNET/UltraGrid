@@ -92,8 +92,7 @@ fi
 # GCC-specific warning flags
 if test "$GCC" = yes
 then
-        CFLAGS="$CFLAGS -pipe -W -Wall -Wcast-qual -Wcast-align -Wbad-function-cast -Wmissing-prototypes -Wmissing-declarations"
-	#CFLAGS="$CFLAGS -Werror"
+    CFLAGS="$CFLAGS -pipe -W -Wall -Wcast-qual -Wcast-align -Wbad-function-cast -Wmissing-prototypes -Wmissing-declarations"
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -365,38 +364,111 @@ AC_SUBST(QUICKTIME_OBJ)
 # SDL Stuff
 SDL_OBJ=
 
+#
+# version comparison function that works for "." delimited version numbers (no alpha please)
+# returns 0 for logically equal version numbers (2 == 2.0.0)
+# returns 1 if the first param is later then the second param
+# returns 2 if the second param is later than the first param
+#
+# note the idiotic double brackets; m4 which is under the hood of autoconf swallows one pair of brackets
+function cmpversion()
+{
+    # just in case we get whole numbers, we append a .0 to the end of everything
+    p1="${1}.0"
+    p2="${2}.0"
+    val1=`echo $p1 | sed 's/\([[0-9]]*\)\..*/\1/'`
+    val2=`echo $p2 | sed 's/\([[0-9]]*\)\..*/\1/'`
+
+    winner=0
+    index=1
+    while ( test -n "$val1" ||  test -n "$val2" ) && test "$winner" -eq "0" && test "$index" -lt "10"
+    do
+      # null is the same as 0 if we are still trying to match something
+      if test -z "$val1"
+        then
+              val1=0
+      fi
+      if test -z "$val2"
+        then
+              val2=0
+      fi
+
+      # the greater number is always the winner at any equal tuple
+      if test "$val1" -gt "$val2"
+      then
+        winner=1;
+      fi
+      if test "$val2" -gt "$val1"
+      then
+        winner=2;
+      fi
+
+      # make sure we end this thing on bad input
+      if (echo $p1 | grep -q '^[[0-9]]*\.')
+      then
+        p1=`echo $p1 | sed 's/[[0-9]]*\.\(.*\)/\1/'`
+      else
+        p1=""
+      fi
+      if (echo $p2 | grep -q '^[[0-9]]*\.')
+      then
+        p2=`echo $p2 | sed 's/[[0-9]]*\.\(.*\)/\1/'`
+      else
+        p2=""
+      fi
+
+      let "index = $index + 1"
+      val1=`echo $p1 | sed 's/\([[0-9]]*\)\..*/\1/'`
+      val2=`echo $p2 | sed 's/\([[0-9]]*\)\..*/\1/'`
+
+    done
+
+    echo $winner
+}
+
 case "$host_os" in
         *darwin*)
         AC_CHECK_HEADERS([SDL/SDL.h],
                          [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
                         )
-	if test $FOUND_SDL_L = yes
-	then
-		LIBS="$LIBS -L/opt/local/lib -lSDL"
-		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
-		AC_DEFINE(HAVE_SDL)
-		SDL_VERSION=1.2.10
-		AM_PATH_SDL($SDL_VERSION,
-			    AC_DEFINE(HAVE_SDL_1210),
-			    :)
-	fi
+            if test $FOUND_SDL_L = yes
+            then
+                CFLAGS="$CFLAGS -D_GNU_SOURCE=1 -D_THREAD_SAFE -I/opt/local/include/SDL"
+                LIBS="$LIBS -L/opt/local/lib -lSDLmain -lSDL -Wl,-framework,Cocoa"
+                SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+                AC_DEFINE(HAVE_SDL)
+        		SDL_VERSION_REQUIRED=1.2.10
+                AC_CHECK_FILE(/opt/local/bin/sdl-config, FOUND_SDL_CONFIG=yes, echo "sdl-config not found.")
+                if test $FOUND_SDL_CONFIG = yes
+                then
+                    SDL_VERSION_FOUND=`/opt/local/bin/sdl-config --version`
+                    RESULT=`cmpversion $SDL_VERSION_FOUND $SDL_VERSION_REQUIRED`
+                    if test $RESULT = 1
+                    then
+                        echo "checking for SDL - version >= $SDL_VERSION_REQUIRED... yes ($SDL_VERSION_FOUND)";
+                        AC_DEFINE(HAVE_SDL_1210)
+                    else
+                        echo "checking for SDL - version >= $SDL_VERSION_REQUIRED... no ($SDL_VERSION_FOUND)";
+                    fi
+                fi
+            fi
         ;;
         *)
         AC_CHECK_HEADERS([SDL/SDL.h],
                          [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
                          [echo "SDL.h not found."]
                         )
-	if test $FOUND_SDL_L = yes
-	then
-		LIBS="$LIBS -lSDL"
-		SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
-		AC_DEFINE(HAVE_SDL)
-		SDL_VERSION=1.2.10
-		AM_PATH_SDL($SDL_VERSION,
-			    AC_DEFINE(HAVE_SDL_1210),
-			    :)
-	fi
+            if test $FOUND_SDL_L = yes
+            then
+                LIBS="$LIBS -lSDL"
+                SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
+                AC_DEFINE(HAVE_SDL)
+                SDL_VERSION=1.2.10
+                AM_PATH_SDL($SDL_VERSION,
+                        AC_DEFINE(HAVE_SDL_1210),
+                        :)
+            fi
         ;;
 esac
 
