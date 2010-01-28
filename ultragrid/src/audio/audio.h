@@ -46,6 +46,8 @@
  *
  */
 
+#include "config.h"
+
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
@@ -75,8 +77,9 @@ static const int audio_samples_per_frame = 32;	// number of samples (3B) each ch
 static const int audio_payload_type = 97;
 
 int audio_init(int playback_device, int capture_device);
-int audio_close();	// closes and frees all audio resources ( according to valgrind this is not true..  )
+void audio_close(void);	// closes and frees all audio resources ( according to valgrind this is not true..  )
 
+void audio_wait_for_reading(void);
 int audio_read(audio_frame *buffer);
 int audio_write(const audio_frame *buffer);
 

@@ -47,10 +47,14 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2009/12/11 15:29:39 $
+ * $Revision: 1.5 $
+ * $Date: 2010/01/28 10:06:59 $
  *
  */
+
+#ifdef HAVE_AUDIO
+#include "audio/audio.h"
+#endif /* HAVE_AUDIO */
 
 struct video_tx;
 

@@ -51,8 +51,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2009/12/11 15:35:22 $
+ * $Revision: 1.5 $
+ * $Date: 2010/01/28 10:06:59 $
  *
  */
 
@@ -379,6 +379,8 @@ int
 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *buffer)
 {
       struct pbuf_node        *curr;
+
+      UNUSED(curr_time);
 
       pbuf_validate(playout_buf);     // should be run in debug mode
 

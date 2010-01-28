@@ -52,9 +52,8 @@
 #include <string.h>
 
 #include "audio/audio.h"
-#include "portaudio.h"
 
-const int interleaved = 1;	// whether we use interleaved or non-interleaved input. ideally should get rid of this and use always non-interleaved mode...but there are some troubles with nonInterlevad support in MaxOSX(probably portaudio bug)
+const int interleaved = 1;	// whether we use interleaved or non-interleaved input. ideally should get rid of this and use always non-interleaved mode...but there are some troubles with nonInterlevad support in MacOS X (probably portaudio bug)
 
 PaStream *stream;	// portaudio stream defined globally
 
@@ -169,7 +168,7 @@ int audio_init(int output_device, int input_device)
 	return 0;
 }
 
-int audio_close()	// closes and frees all audio resources
+void audio_close()	// closes and frees all audio resources
 {
 	Pa_StopStream(stream);	// may not be necessary
 	Pa_Terminate();
