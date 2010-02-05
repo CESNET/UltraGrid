@@ -111,7 +111,6 @@ struct state_sdl {
         int frames;
 
         SDL_Surface *sdl_screen;
-        SDL_Rect src_rect;
         SDL_Rect dst_rect;
 
         int width;
@@ -135,7 +134,7 @@ void reconfigure_screen(void *s, unsigned int width, unsigned int height,
 
 extern int should_exit;
 
-int display_sdl_handle_events(void *arg)
+int display_sdl_handle_events(void *arg, int post)
 {
         SDL_Event sdl_event;
         struct state_sdl *s = arg;
@@ -143,11 +142,12 @@ int display_sdl_handle_events(void *arg)
                 switch (sdl_event.type) {
                 case SDL_KEYDOWN:
                 case SDL_KEYUP:
-                        if (!strcmp
-                            (SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
+                        if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
                                 should_exit = 1;
-                                SDL_SemPost(s->semaphore);
+                                if(post)
+                                        SDL_SemPost(s->semaphore);
                         }
+                        return 1;
                         break;
 
                 default:
@@ -172,7 +172,8 @@ static void *display_thread_sdl(void *arg)
         gettimeofday(&s->tv, NULL);
 
         while (!should_exit) {
-                display_sdl_handle_events(s);
+                if(display_sdl_handle_events(s, 0))
+                        break;
                 SDL_SemWait(s->semaphore);
 
                 if (s->deinterlace) {
@@ -323,9 +324,6 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         } else if ((int)x_res_y < s->height) {
                 s->dst_rect.h = x_res_y;
         }
-
-        s->src_rect.w = s->width;
-        s->src_rect.h = s->height;
 
         fprintf(stdout, "Setting SDL rect %dx%d - %d,%d.\n", s->dst_rect.w,
                 s->dst_rect.h, s->dst_rect.x, s->dst_rect.y);
