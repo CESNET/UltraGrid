@@ -567,33 +567,15 @@ void display_quicktime_done(void *state)
         DisposeGWorld(s->gworld);
 }
 
-display_colour_t display_quicktime_colour(void *state)
-{
-        struct state_quicktime *s = (struct state_quicktime *)state;
-        assert(s->magic == MAGIC_QT_DISPLAY);
-        return DC_YUV;
-}
-
 display_type_t *display_quicktime_probe(void)
 {
         display_type_t *dtype;
-        display_format_t *dformat;
-
-        dformat = malloc(sizeof(display_format_t));
-        if (dformat == NULL) {
-                return NULL;
-        }
-        dformat->size = DS_1920x1080;
-        dformat->colour_mode = DC_YUV;
-        dformat->num_images = 1;
 
         dtype = malloc(sizeof(display_type_t));
         if (dtype != NULL) {
                 dtype->id = DISPLAY_QUICKTIME_ID;
                 dtype->name = "quicktime";
                 dtype->description = "QuickTime display device";
-                dtype->formats = dformat;
-                dtype->num_formats = 1;
         }
         return dtype;
 }

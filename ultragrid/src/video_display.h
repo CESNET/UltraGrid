@@ -62,33 +62,10 @@
 
 typedef uint32_t	display_id_t;
 
-typedef enum {
-	DS_176x144,	/* Quarter CIF */
-	DS_352x288,	/* CIF         */
-	DS_702x576,	/* Super CIF   */
-	DS_1280x720,	/* SMPTE 296M  */
-	DS_1920x1080,	/* SMPTE 274M  */
-	DS_NONE,
-} display_size_t;
-
-typedef enum {
-	DC_YUV,
-	DC_RGB,
-	DC_NONE,
-} display_colour_t;
-
-typedef struct {
-	display_size_t		size;
-	display_colour_t	colour_mode;
-	int			num_images;	/* Maximum displayable images, -1 = unlimited */
-} display_format_t;
-
 typedef struct {
 	display_id_t		 id;
 	const char		*name;		/* Single word name 		*/
 	const char		*description;
-	display_format_t	*formats;	/* Array of supported formats 	*/
-	unsigned int		 num_formats;	/* Size of the array 		*/
 } display_type_t;
 
 int		 display_init_devices(void);
@@ -108,6 +85,5 @@ struct display	*display_init(display_id_t id, char *fmt);
 void 		 display_done(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);
-display_colour_t display_get_colour_mode(struct display *d);
 
 #endif /* _VIDEO_DISPLAY_H */

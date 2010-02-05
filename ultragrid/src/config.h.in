@@ -63,10 +63,6 @@
 #undef FAST
 #undef USE_FLOAT_MUL
 
-/* FireWire and DV */
-#undef HAVE_FIREWIRE_DV_FREEBSD
-#undef HAVE_DV_CODEC
-
 /*
  * If you don't have these types in <inttypes.h>, #define these to be
  * the types you do have.

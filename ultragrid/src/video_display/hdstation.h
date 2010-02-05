@@ -50,5 +50,4 @@ void                *display_hdstation_init(char *fmt);
 void                 display_hdstation_done(void *state);
 char                *display_hdstation_getf(void *state);
 int                  display_hdstation_putf(void *state, char *frame);
-display_colour_t     display_hdstation_colour(void *state);
 

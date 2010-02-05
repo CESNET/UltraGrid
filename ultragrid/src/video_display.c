@@ -77,7 +77,6 @@ typedef struct {
         void (*func_done) (void *state);
         char *(*func_getf) (void *state);
         int (*func_putf) (void *state, char *frame);
-         display_colour_t(*func_colour) (void *state);
 } display_table_t;
 
 static display_table_t display_device_table[] = {
@@ -90,7 +89,6 @@ static display_table_t display_device_table[] = {
          display_sdl_done,
          display_sdl_getf,
          display_sdl_putf,
-         display_sdl_colour,
          },
 #ifdef HAVE_GL
         {
@@ -100,7 +98,6 @@ static display_table_t display_device_table[] = {
          display_gl_done,
          display_gl_getf,
          display_gl_putf,
-         display_gl_colour,
          },
 #ifdef HAVE_SAGE
         {
@@ -110,7 +107,6 @@ static display_table_t display_device_table[] = {
          display_sage_done,
          display_sage_getf,
          display_sage_putf,
-         display_sage_colour,
          },
 #endif                          /* HAVE_SAGE */
 #ifdef HAVE_FASTDXT
@@ -121,7 +117,6 @@ static display_table_t display_device_table[] = {
          display_dxt_done,
          display_dxt_getf,
          display_dxt_putf,
-         display_dxt_colour,
          },
 #endif                          /* HAVE_FASTDXT */
 #endif                          /* HAVE_GL */
@@ -135,7 +130,6 @@ static display_table_t display_device_table[] = {
          display_hdstation_done,
          display_hdstation_getf,
          display_hdstation_putf,
-         display_hdstation_colour,
          },
 #endif                          /* HAVE_HDSTATION */
 #ifdef HAVE_MACOSX
@@ -146,7 +140,6 @@ static display_table_t display_device_table[] = {
          display_quicktime_done,
          display_quicktime_getf,
          display_quicktime_putf,
-         display_quicktime_colour,
          },
 #endif                          /* HAVE_MACOSX */
         {
@@ -156,7 +149,6 @@ static display_table_t display_device_table[] = {
          display_null_done,
          display_null_getf,
          display_null_putf,
-         display_null_colour,
          }
 };
 
@@ -263,10 +255,4 @@ void display_put_frame(struct display *d, char *frame)
 {
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_putf(d->state, frame);
-}
-
-display_colour_t display_get_colour_mode(struct display *d)
-{
-        assert(d->magic == DISPLAY_MAGIC);
-        return display_device_table[d->index].func_colour(d->state);
 }

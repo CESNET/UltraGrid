@@ -53,5 +53,4 @@ void                    *display_quicktime_init(char *fmt);
 void                     display_quicktime_done(void *state);
 char                    *display_quicktime_getf(void *state);
 int                      display_quicktime_putf(void *state, char *frame);
-display_colour_t         display_quicktime_colour(void *state);
 

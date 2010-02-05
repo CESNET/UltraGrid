@@ -85,8 +85,6 @@ struct vidcap_type *vidcap_null_probe(void)
                 vt->id = VIDCAP_NULL_ID;
                 vt->name = "null";
                 vt->description = "No video capture device";
-                vt->width = 0;
-                vt->height = 0;
         }
         return vt;
 }

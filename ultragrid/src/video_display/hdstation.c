@@ -304,44 +304,16 @@ void display_hdstation_done(void *state)
         free(s);
 }
 
-display_colour_t display_hdstation_colour(void *state)
-{
-        struct state_hdsp *s = (struct state_hdsp *)state;
-
-        assert(s->magic == HDSP_MAGIC);
-
-        return DC_YUV;
-}
-
 display_type_t *display_hdstation_probe(void)
 {
         display_type_t *dtype;
-        display_format_t *dformat;
         sv_handle *sv;
-
-        /* Probe the hardware... */
-        sv = sv_open("");
-        if (sv == NULL) {
-                debug_msg("Cannot probe HDTV display device\n");
-                return NULL;
-        }
-        sv_close(sv);
-
-        dformat = malloc(sizeof(display_format_t));
-        if (dformat == NULL) {
-                return NULL;
-        }
-        dformat->size = DS_1920x1080;
-        dformat->colour_mode = DC_YUV;
-        dformat->num_images = 1;
 
         dtype = malloc(sizeof(display_type_t));
         if (dtype != NULL) {
                 dtype->id = DISPLAY_HDSTATION_ID;
                 dtype->name = "hdtv";
                 dtype->description = "DVS HDstation (1080i/60 YUV 4:2:2)";
-                dtype->formats = dformat;
-                dtype->num_formats = 1;
         }
         return dtype;
 }

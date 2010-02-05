@@ -89,33 +89,15 @@ int display_null_putf(void *state, char *frame)
         return 0;
 }
 
-display_colour_t display_null_colour(void *state)
-{
-        struct state_null *s = (struct state_null *)state;
-        assert(s->magic == MAGIC_NULL);
-        return DC_NONE;
-}
-
 display_type_t *display_null_probe(void)
 {
         display_type_t *dt;
-        display_format_t *df;
-
-        df = malloc(sizeof(display_format_t));
-        if (df == NULL) {
-                return NULL;
-        }
-        df->size = DS_NONE;
-        df->colour_mode = DC_NONE;
-        df->num_images = 0;
 
         dt = malloc(sizeof(display_type_t));
         if (dt != NULL) {
                 dt->id = DISPLAY_NULL_ID;
                 dt->name = "none";
                 dt->description = "No display device";
-                dt->formats = df;
-                dt->num_formats = 1;
         }
         return dt;
 }

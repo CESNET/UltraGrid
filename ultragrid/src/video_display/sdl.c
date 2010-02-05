@@ -545,13 +545,6 @@ int display_sdl_putf(void *state, char *frame)
         return 0;
 }
 
-display_colour_t display_sdl_colour(void *state)
-{
-        struct state_sdl *s = (struct state_sdl *)state;
-        assert(s->magic == MAGIC_SDL);
-        return DC_YUV;
-}
-
 display_type_t *display_sdl_probe(void)
 {
         display_type_t *dt;

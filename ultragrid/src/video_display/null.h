@@ -50,5 +50,4 @@ void 			*display_null_init(void);
 void 			 display_null_done(void *state);
 char 			*display_null_getf(void *state);
 int 			 display_null_putf(void *state, char *frame);
-display_colour_t	 display_null_colour(void *state);
 

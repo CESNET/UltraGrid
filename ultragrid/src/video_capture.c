@@ -58,7 +58,6 @@
 #include "debug.h"
 #include "video_codec.h"
 #include "video_capture.h"
-#include "video_capture/firewire_dv_freebsd.h"
 #include "video_capture/hdstation.h"
 #include "video_capture/quicktime.h"
 #include "video_capture/testcard.h"
@@ -82,15 +81,6 @@ struct vidcap_device_api {
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
-#ifdef HAVE_FIREWIRE_DV_FREEBSD
-        {
-         /* A FireWire DV capture card, on FreeBSD */
-         0,
-         vidcap_dvbsd_probe,
-         vidcap_dvbsd_init,
-         vidcap_dvbsd_done,
-         vidcap_dvbsd_grab},
-#endif                          /* HAVE_FIREWIRE_DV_FREEBSD */
 #ifdef HAVE_HDSTATION
         {
          /* The DVS HDstation capture card */

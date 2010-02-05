@@ -815,29 +815,12 @@ inline void gl_copyline128(GLubyte * d, GLubyte * s, int len)
 display_type_t *display_gl_probe(void)
 {
         display_type_t *dt;
-        display_format_t *dformat;
-
-        dformat = malloc(4 * sizeof(display_format_t));
-        dformat[0].size = DS_176x144;
-        dformat[0].colour_mode = DC_YUV;
-        dformat[0].num_images = 1;
-        dformat[1].size = DS_352x288;
-        dformat[1].colour_mode = DC_YUV;
-        dformat[1].num_images = 1;
-        dformat[2].size = DS_702x576;
-        dformat[2].colour_mode = DC_YUV;
-        dformat[2].num_images = 1;
-        dformat[3].size = DS_1280x720;
-        dformat[3].colour_mode = DC_YUV;
-        dformat[3].num_images = 1;
 
         dt = malloc(sizeof(display_type_t));
         if (dt != NULL) {
                 dt->id = DISPLAY_GL_ID;
                 dt->name = "gl";
                 dt->description = "OpenGL using SDL";
-                dt->formats = dformat;
-                dt->num_formats = 4;
         }
         return dt;
 }
@@ -879,13 +862,6 @@ int display_gl_putf(void *state, char *frame)
         if (tmp > 1)
                 printf("frame drop!\n");
         return 0;
-}
-
-display_colour_t display_gl_colour(void *state)
-{
-        struct state_sdl *s = (struct state_sdl *)state;
-        assert(s->magic == MAGIC_GL);
-        return DC_YUV;
 }
 
 int display_gl_handle_events(void *state)
