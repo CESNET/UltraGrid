@@ -52,9 +52,6 @@
 #include "rtp/decoders.h"
 #include "video_codec.h"
 
-//#define DEBUG 1
-//#define DEBUG_TIMING 1
-
 void decode_frame(struct coded_data *cdata, struct video_frame *frame)
 {
         uint32_t width;
@@ -66,21 +63,9 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         unsigned char *source;
         payload_hdr_t *hdr;
         uint32_t data_pos;
-#ifdef DEBUG_TIMING
-        struct timeval tv, tv1;
-        int packets = 0;
-#endif
-#ifdef DEBUG
-        long pos = 0;
-#endif
-#ifdef DEBUG_TIMING
-        gettimeofday(&tv, NULL);
-#endif
+        int prints=0;
 
         while (cdata != NULL) {
-#ifdef DEBUG_TIMING
-                packets++;
-#endif
                 pckt = cdata->data;
                 hdr = (payload_hdr_t *) pckt->data;
                 width = ntohs(hdr->width);
@@ -102,56 +87,72 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 }
                 /* End of critical section */
 
-#ifdef DEBUG
-                fprintf(stdout,
-                        "Setup: src line size: %d, dst line size %d, pitch %d\n",
-                        frame->src_linesize, frame->dst_linesize,
-                        frame->dst_pitch);
-                int b = 0;
-#endif
-                /* MAGIC, don't touch it, you definitely break it */
+                /* MAGIC, don't touch it, you definitely break it 
+                 *  *source* is data from network, *destination* is frame buffer
+                 */
+
+                /* compute Y pos in source frame and convert it to 
+                 * byte offset in the destination frame
+                 */
                 int y = (data_pos / frame->src_linesize) * frame->dst_pitch;
+
+                /* compute X pos in source frame */
                 int s_x = data_pos % frame->src_linesize;
+
+                /* convert X pos from source frame into the destination frame.
+                 * it is byte offset from the beginning of a line. 
+                 */
                 int d_x = ((int)((s_x) / frame->src_bpp)) * frame->dst_bpp;
-                source = pckt->data + sizeof(payload_hdr_t);
-#ifdef DEBUG
-                fprintf(stdout, "Computed start x %d, %d (%d %d), start y %d\n",
-                        s_x, d_x, (int)(s_x / frame->src_bpp),
-                        (int)(d_x / frame->dst_bpp), y / frame->dst_linesize);
-#endif
+
+                /* pointer to data payload in packet */
+                source = (unsigned char*)(pckt->data + sizeof(payload_hdr_t));
+
+                /* copy whole packet that can span several lines. 
+                 * we need to clip data (v210 case) or center data (RGBA, R10k cases)
+                 */
                 while (len > 0) {
+                        /* len id payload length in source BPP
+                         * decoder needs len in destination BPP, so convert it 
+                         */                        
                         int l = ((int)(len / frame->src_bpp)) * frame->dst_bpp;
-                        if (l + d_x > frame->dst_linesize) {
+
+                        /* do not copy multiple lines, we need to 
+                         * copy (& clip, center) line by line 
+                         */
+                        if (l + d_x > (int)frame->dst_linesize) {
                                 l = frame->dst_linesize - d_x;
                         }
+
+                        /* compute byte offset in destination frame */
                         offset = y + d_x;
+
+                        /* watch the SEGV */
                         if (l + offset < frame->data_len) {
-#ifdef DEBUG
-                                if (b < 5) {
-                                        fprintf(stdout,
-                                                "Computed offset: %d, original offset %d, memcpy length %d (pixels %d), original length %d, stored length %d, next line %d\n",
-                                                offset, data_pos, l,
-                                                (int)(l / frame->dst_bpp), len,
-                                                pos, offset + l);
-                                        b++;
-                                }
-#endif
-                                frame->decoder(frame->data + offset, source, l,
+                                /*decode frame:
+                                 * we have offset for destination
+                                 * we update source contiguously
+                                 * we pass {r,g,b}shifts */
+                                frame->decoder((unsigned char*)frame->data + offset, source, l,
                                                frame->rshift, frame->gshift,
                                                frame->bshift);
+                                /* we decoded one line (or a part of one line) to the end of the line
+                                 * so decrease *source* len by 1 line (or that part of the line */
                                 len -= frame->src_linesize - s_x;
+                                /* jump in source by the same amount */
                                 source += frame->src_linesize - s_x;
-#ifdef DEBUG
-                                data_pos += frame->src_linesize - s_x;
-                                pos += l;
-#endif
                         } else {
-#ifdef DEBUG
-                                fprintf(stderr,
-                                        "Discarding data, framebuffer too small.\n");
-#endif
+                                /* this should not ever happen as we call reconfigure before each packet
+                                 * iff reconfigure is needed. But if it still happens, something is terribly wrong
+                                 * say it loudly 
+                                 */
+                                if((prints % 100) == 0) {
+                                        fprintf(stderr, "WARNING!! Discarding input data as frame buffer is too small.\n"
+                                                        "Well this should not happened. Expect troubles pretty soon.\n");
+                                }
+                                prints++;
                                 len = 0;
                         }
+                        /* each new line continues from the beginning */
                         d_x = 0;        /* next line from beginning */
                         s_x = 0;
                         y += frame->dst_pitch;  /* next line */
@@ -159,12 +160,4 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
 
                 cdata = cdata->nxt;
         }
-#ifdef DEBUG_TIMING
-        gettimeofday(&tv1, NULL);
-        fprintf(stdout, "Frame encoded in %fms, %d packets\n",
-                (tv1.tv_usec - tv.tv_usec) / 1000.0, packets);
-#endif
-#ifdef DEBUG
-        fprintf(stdout, "Frame end\n");
-#endif
 }
