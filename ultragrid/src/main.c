@@ -49,8 +49,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.28 $
- * $Date: 2009/12/11 15:04:52 $
+ * $Revision: 1.29 $
+ * $Date: 2010/02/05 12:55:43 $
  *
  */
 
@@ -63,7 +63,6 @@
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
-#include "video_types.h"
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -113,20 +112,12 @@ struct state_uv {
 long            packet_rate = 13600;
 int	        should_exit = FALSE;
 uint32_t  	RTT = 0;    /* this is computed by handle_rr in rtp_callback */
-char		*frame_buffer = NULL;
+struct video_frame *frame_buffer = NULL;
 uint32_t        hd_size_x = 2048;
 uint32_t	hd_size_y = 1080;
-uint32_t	hd_color_bpp = 4;
+uint32_t    hd_color_spc = 0;
 uint32_t	bitdepth = 8;
 uint32_t	progressive = 0;
-
-#ifdef HAVE_HDSTATION
-#include <dvs_clib.h>
-uint32_t	hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_NBIT_10BDVS | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
-//uint32_t	hd_video_mode=SV_MODE_SMPTE274_25P | SV_MODE_NBIT_10BDVS | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
-#else
-uint32_t	hd_video_mode=0;
-#endif /* HAVE_HDSTATION */
 
 long frame_begin[2];
 
@@ -153,29 +144,6 @@ usage(void)
     printf("\t                   \tuse -g help with a device to get info about\n");
     printf("\t                   \tsupported capture/display modes\n");
     printf("\t-i                 \tiHDTV compatibility mode\n");
-}
-
-static void
-initialize_video_codecs(void)
-{
-	int		nc, i;
-
-	vcodec_init();
-	nc = vcodec_get_num_codecs();
-	for (i = 0; i < nc; i++) {
-		if (vcodec_can_encode(i)) {
-			printf("Video encoder : %s\n", vcodec_get_description(i));
-		}
-		if (vcodec_can_decode(i)) {
-			printf("Video decoder : %s\n", vcodec_get_description(i));
-		}
-
-		/* Map static and "well-known" dynamic payload types */
-		//TODO: Is this where I would list DXT payload?
-		if (strcmp(vcodec_get_name(i), "uv_yuv") == 0) {
-			vcodec_map_payload(96, i);	/*  96 : Uncompressed YUV */
-		}
-	}
 }
 
 void
@@ -290,9 +258,9 @@ ihdtv_reciever_thread(void *arg)
 
 	while(!should_exit)
 	{
-		if(ihdtv_recieve(connection, frame_buffer, hd_size_x * hd_size_y * 3))
+		if(ihdtv_recieve(connection, frame_buffer->data, hd_size_x * hd_size_y * 3))
 			return 0;       // we've got some error. probably empty buffer
-		display_put_frame(display_device, frame_buffer);
+		display_put_frame(display_device, frame_buffer->data);
 		frame_buffer = display_get_frame(display_device);
 	}
 	return 0;
@@ -498,10 +466,10 @@ receiver_thread(void *arg)
 			}
 
 			/* Decode and render video... */
-			if (pbuf_decode(cp->playout_buffer, uv->curr_time, frame_buffer, i, uv->dxt_display)) {
+			if (pbuf_decode(cp->playout_buffer, uv->curr_time, frame_buffer, i)) {
 				gettimeofday(&uv->curr_time, NULL);
 				fr = 1;
-				display_put_frame(uv->display_device, frame_buffer);
+				display_put_frame(uv->display_device, frame_buffer->data);
 				i = (i + 1) % 2;
 				frame_buffer = display_get_frame(uv->display_device);
 			}
@@ -529,11 +497,9 @@ sender_thread(void *arg)
 			if(uv->requested_compression) {
 #ifdef HAVE_FASTDXT
 				compress_data(uv->compression,tx_frame);
-				dxt_tx_send(uv->tx, tx_frame, uv->network_device);
 #endif /* HAVE_FASTDXT */
-			}else{
-				tx_send(uv->tx, tx_frame, uv->network_device);
 			}
+			tx_send(uv->tx, tx_frame, uv->network_device);
 			free(tx_frame);
 		}
 	}
@@ -624,12 +590,6 @@ main(int argc, char *argv[])
 				usage();
 				return EXIT_FAIL_USAGE;
 			}
-			if (bitdepth == 8) {
-				hd_color_bpp = 2;
-#ifdef HAVE_HDSTATION
-			hd_video_mode=SV_MODE_SMPTE274_29I | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
-#endif /* HAVE_HDSTATION */
-			}
 			break;
 		case 'v' :
 			printf("%s\n", ULTRAGRID_VERSION);
@@ -668,10 +628,10 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if(cfg == NULL) {
-                cfg=malloc(4);
+/*	if(cfg == NULL) {
+        cfg=malloc(4);
 		snprintf(cfg, 4, "%d", uv->fps);
-	}
+	}*/
 	argc -= optind;
 	argv += optind;
 
@@ -705,7 +665,6 @@ main(int argc, char *argv[])
 
 	gettimeofday(&uv->start_time, NULL);
 
-	initialize_video_codecs();
 	uv->participants = pdb_init();
 
 	if ((uv->capture_device = initialize_video_capture(uv->requested_capture, cfg)) == NULL) {
@@ -880,7 +839,6 @@ main(int argc, char *argv[])
 	rtp_done(uv->network_device);
 	vidcap_done(uv->capture_device);
 	display_done(uv->display_device);
-	vcodec_done();
 	if(uv->participants != NULL)
 		pdb_destroy(&uv->participants);
 	if(uv->audio_participants != NULL)

@@ -51,8 +51,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2010/01/28 10:06:59 $
+ * $Revision: 1.6 $
+ * $Date: 2010/02/05 12:55:43 $
  *
  */
 
@@ -341,7 +341,7 @@ frame_complete(struct pbuf_node *frame)
 }
 
 int
-pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, char *framebuffer, int i, int compression)
+pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, struct video_frame *framebuffer, int i)
 {
 	/* Find the first complete frame that has reached it's playout */
 	/* time, and decode it into the framebuffer. Mark the frame as */
@@ -354,15 +354,7 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, char *framebuffe
         while (curr != NULL) {
 		if (!curr->decoded && tv_gt(curr_time, curr->playout_time)) {
 			if (frame_complete(curr)) {
-				struct timeval curr_t;
-				int temp;
-	
-				gettimeofday(&curr_t, NULL);
-                                temp = curr_t.tv_usec - frame_begin[i];
-                                if(temp < 0)
-                                        temp += 1000000;
-                                //printf("Frame receive time: %d\n", (int)temp);	
-				decode_frame(curr->cdata, framebuffer, compression);
+				decode_frame(curr->cdata, framebuffer);
 				curr->decoded = 1;
 				return 1; 
 			} else {
@@ -379,8 +371,6 @@ int
 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *buffer)
 {
       struct pbuf_node        *curr;
-
-      UNUSED(curr_time);
 
       pbuf_validate(playout_buf);     // should be run in debug mode
 

@@ -47,8 +47,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.8 $
- * $Date: 2009/12/11 15:29:39 $
+ * $Revision: 1.9 $
+ * $Date: 2010/02/05 12:55:43 $
  *
  */
 
@@ -64,7 +64,7 @@
 #include "video_display/hdstation.h"
 #include "video_display/gl_sdl.h"
 #include "video_display/dxt.h"
-#include "video_display/kona.h"
+#include "video_display/quicktime.h"
 #include "video_display/sage.h"
 
 /*
@@ -91,7 +91,7 @@ static display_table_t display_device_table[] = {
 		display_xv_done,
 		display_xv_getf,
 		display_xv_putf,
-		display_xv_colour
+		display_xv_colour,
 	},
 	{
 		0,
@@ -100,7 +100,7 @@ static display_table_t display_device_table[] = {
 		display_x11_done,
 		display_x11_getf,
 		display_x11_putf,
-		display_x11_colour
+		display_x11_colour,
 	},
 #ifdef HAVE_SDL
 	{	
@@ -110,7 +110,7 @@ static display_table_t display_device_table[] = {
                 display_sdl_done,
                 display_sdl_getf,
                 display_sdl_putf,
-                display_sdl_colour 
+                display_sdl_colour, 
 	},
 #ifdef HAVE_GL
 	{	
@@ -120,7 +120,7 @@ static display_table_t display_device_table[] = {
                 display_gl_done,
                 display_gl_getf,
                 display_gl_putf,
-                display_gl_colour 
+                display_gl_colour,
 	},
 #ifdef HAVE_SAGE
 	{
@@ -130,7 +130,7 @@ static display_table_t display_device_table[] = {
                 display_sage_done,
                 display_sage_getf,
                 display_sage_putf,
-                display_sage_colour
+                display_sage_colour,
 	},
 #endif /* HAVE_SAGE */
 #ifdef HAVE_FASTDXT
@@ -141,7 +141,7 @@ static display_table_t display_device_table[] = {
                 display_dxt_done,
                 display_dxt_getf,
                 display_dxt_putf,
-                display_dxt_colour 
+                display_dxt_colour, 
 	},
 #endif /* HAVE_FASTDXT */
 #endif /* HAVE_GL */
@@ -155,18 +155,18 @@ static display_table_t display_device_table[] = {
 		display_hdstation_done,
 		display_hdstation_getf,
 		display_hdstation_putf,
-		display_hdstation_colour
+		display_hdstation_colour,
 	},
 #endif /* HAVE_HDSTATION */
 #ifdef HAVE_MACOSX
 	{
 		0,
-		display_kona_probe,
-		display_kona_init,
-		display_kona_done,
-		display_kona_getf,
-		display_kona_putf,
-		display_kona_colour
+		display_quicktime_probe,
+		display_quicktime_init,
+		display_quicktime_done,
+		display_quicktime_getf,
+		display_quicktime_putf,
+		display_quicktime_colour,
 	},
 #endif /* HAVE_MACOSX */
 	{
@@ -176,7 +176,7 @@ static display_table_t display_device_table[] = {
 		display_null_done,
 		display_null_getf,
 		display_null_putf,
-		display_null_colour
+		display_null_colour,
 	}
 };
 
@@ -278,7 +278,7 @@ display_done(struct display *d)
 	display_device_table[d->index].func_done(d->state);
 }
 
-char *
+struct video_frame*
 display_get_frame(struct display *d)
 {
 	assert(d->magic == DISPLAY_MAGIC);
