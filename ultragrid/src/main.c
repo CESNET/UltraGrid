@@ -256,7 +256,7 @@ static void *ihdtv_reciever_thread(void *arg)
 
         while (!should_exit) {
                 if (ihdtv_recieve
-                    (connection, frame_buffer->data, hd_size_x * hd_size_y * 3))
+                    (connection, frame_buffer->data, frame_buffer->data_len))
                         return 0;       // we've got some error. probably empty buffer
                 display_put_frame(display_device, frame_buffer->data);
                 frame_buffer = display_get_frame(display_device);

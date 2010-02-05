@@ -75,14 +75,11 @@ struct testcard_state {
         struct timeval last_frame_time;
         int fps;
         int count;
-        unsigned int width;
-        unsigned int height;
         int size;
-        char *frame;
-        int linesize;
         int pan;
         SDL_Surface *surface;
         struct timeval t0;
+        struct video_frame frame;
 };
 
 const int rect_colors[] = {
@@ -267,7 +264,7 @@ void *vidcap_testcard_init(char *fmt)
         struct stat sb;
         unsigned int i, j;
         unsigned int rect_size = COL_NUM;
-        codec_t codec;
+        codec_t codec=0;
         int aligned_x;
 
         if (strcmp(fmt, "help") == 0) {
@@ -290,17 +287,16 @@ void *vidcap_testcard_init(char *fmt)
                 free(s);
                 return NULL;
         }
-        s->width = atoi(tmp);
+        s->frame.width = atoi(tmp);
         tmp = strtok(NULL, ":");
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
                 return NULL;
         }
-        s->height = atoi(tmp);
+        s->frame.height = atoi(tmp);
         tmp = strtok(NULL, ":");
         if (!tmp) {
-                free(s->frame);
                 free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 return NULL;
@@ -310,7 +306,6 @@ void *vidcap_testcard_init(char *fmt)
 
         tmp = strtok(NULL, ":");
         if (!tmp) {
-                free(s->frame);
                 free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 return NULL;
@@ -328,20 +323,25 @@ void *vidcap_testcard_init(char *fmt)
                 }
         }
 
-        aligned_x = s->width;
+        if(bpp == 0) {
+                fprintf(stderr, "Unknown codec '%s'\n", tmp);
+                return NULL;
+        }
+
+        aligned_x = s->frame.width;
         if (h_align) {
                 aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
         }
 
-        rect_size = (s->width + rect_size - 1) / rect_size;
+        rect_size = (s->frame.width + rect_size - 1) / rect_size;
 
-        s->linesize = aligned_x * bpp;
+        s->frame.src_linesize = aligned_x * bpp;
 
-        s->size = aligned_x * s->height * bpp;
+        s->size = aligned_x * s->frame.height * bpp;
 
         filename = strtok(NULL, ":");
         if (filename && strcmp(filename, "p") != 0) {
-                s->frame = malloc(s->size);
+                s->frame.data = malloc(s->size);
                 if (stat(filename, &sb)) {
                         perror("stat");
                         free(s);
@@ -354,14 +354,14 @@ void *vidcap_testcard_init(char *fmt)
                         fprintf(stderr, "Error wrong file size for selected "
                                 "resolution and codec. File size %d, "
                                 "computed size %d\n", (int)sb.st_size, s->size);
-                        free(s->frame);
+                        free(s->frame.data);
                         free(s);
                         return NULL;
                 }
 
-                if (!in || fread(s->frame, sb.st_size, 1, in) == 0) {
+                if (!in || fread(s->frame.data, sb.st_size, 1, in) == 0) {
                         fprintf(stderr, "Cannot read file %s\n", filename);
-                        free(s->frame);
+                        free(s->frame.data);
                         free(s);
                         return NULL;
                 }
@@ -371,17 +371,17 @@ void *vidcap_testcard_init(char *fmt)
                 SDL_Rect r;
                 int col_num = 0;
                 s->surface =
-                    SDL_CreateRGBSurface(SDL_SWSURFACE, aligned_x, s->height,
+                    SDL_CreateRGBSurface(SDL_SWSURFACE, aligned_x, s->frame.height,
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
                 if (filename && filename[0] == 'p') {
                         s->pan = 48;
                 }
 
-                for (j = 0; j < s->height; j += rect_size) {
+                for (j = 0; j < s->frame.height; j += rect_size) {
                         int grey = 0xff010101;
                         if (j == rect_size * 2) {
-                                r.w = s->width;
+                                r.w = s->frame.width;
                                 r.h = rect_size / 4;
                                 r.x = 0;
                                 r.y = j;
@@ -389,7 +389,7 @@ void *vidcap_testcard_init(char *fmt)
                                 r.y = j + rect_size * 3 / 4;
                                 SDL_FillRect(s->surface, &r, 0);
                         }
-                        for (i = 0; i < s->width; i += rect_size) {
+                        for (i = 0; i < s->frame.width; i += rect_size) {
                                 r.w = rect_size;
                                 r.h = rect_size;
                                 r.x = i;
@@ -407,20 +407,20 @@ void *vidcap_testcard_init(char *fmt)
                                 }
                         }
                 }
-                s->frame = s->surface->pixels;
+                s->frame.data = s->surface->pixels;
                 if (codec == UYVY || codec == v210 || codec == Vuy2) {
-                        rgb2yuv422((unsigned char *)s->frame, s->width,
-                                   s->height);
+                        rgb2yuv422((unsigned char *)s->frame.data, s->frame.width,
+                                   s->frame.height);
                 }
 
                 if (codec == v210) {
-                        s->frame =
-                            (char *)tov210((unsigned char *)s->frame, s->width,
-                                           aligned_x, s->height, bpp);
+                        s->frame.data =
+                            (char *)tov210((unsigned char *)s->frame.data, s->frame.width,
+                                           aligned_x, s->frame.height, bpp);
                 }
 
                 if (codec == R10k) {
-                        toR10k((unsigned char *)s->frame, s->width, s->height);
+                        toR10k((unsigned char *)s->frame.data, s->frame.width, s->frame.height);
                 }
         }
 
@@ -434,7 +434,10 @@ void *vidcap_testcard_init(char *fmt)
         s->count = 0;
         gettimeofday(&(s->last_frame_time), NULL);
 
-        printf("Testcard set to %dx%d, bpp %f\n", s->width, s->width, bpp);
+        printf("Testcard set to %dx%d, bpp %f\n", s->frame.width, s->frame.width, bpp);
+
+        s->frame.state = s;
+        s->frame.data_len = s->size;
 
         return s;
 }
@@ -442,8 +445,8 @@ void *vidcap_testcard_init(char *fmt)
 void vidcap_testcard_done(void *state)
 {
         struct testcard_state *s = state;
-        if (s->frame != s->surface->pixels)
-                free(s->frame);
+        if (s->frame.data != s->surface->pixels)
+                free(s->frame.data);
         if (s->surface)
                 SDL_FreeSurface(s->surface);
         free(s);
@@ -453,7 +456,6 @@ struct video_frame *vidcap_testcard_grab(void *arg)
 {
         struct timeval curr_time;
         struct testcard_state *state;
-        struct video_frame *vf;
 
         state = (struct testcard_state *)arg;
 
@@ -472,37 +474,31 @@ struct video_frame *vidcap_testcard_grab(void *arg)
                         state->count = 0;
                 }
 
-                vf = (struct video_frame *)malloc(sizeof(struct video_frame));
-                if (vf != NULL) {
-                        char line[state->linesize * 2 + state->pan];
-                        unsigned int i;
-                        vf->width = state->width;
-                        vf->height = state->height;
-                        vf->data = state->frame;
-                        vf->data_len = state->size;
-                        memcpy(line, state->frame,
-                               state->linesize * 2 + state->pan);
-                        for (i = 0; i < hd_size_y - 3; i++) {
-                                memcpy(state->frame + i * state->linesize,
-                                       state->frame + (i +
-                                                       2) * state->linesize +
-                                       state->pan, state->linesize);
-                        }
-                        memcpy(state->frame + i * state->linesize,
-                               state->frame + (i + 2) * state->linesize +
-                               state->pan, state->linesize - state->pan);
-                        memcpy(state->frame +
-                               (hd_size_y - 2) * state->linesize - state->pan,
-                               line, state->linesize * 2 + state->pan);
-                        /*if(!(state->count % 2)) {
-                           unsigned int *p = state->frame;
-                           for(i=0; i < state->linesize*hd_size_y/4; i++) {
-                           *p = *p ^ 0x00ffffffL;
-                           p++;
-                           }
-                           } */
+                char line[state->frame.src_linesize * 2 + state->pan];
+                unsigned int i;
+                memcpy(line, state->frame.data,
+                       state->frame.src_linesize * 2 + state->pan);
+                for (i = 0; i < state->frame.height - 3; i++) {
+                        memcpy(state->frame.data + i * state->frame.src_linesize,
+                               state->frame.data + (i + 2) * state->frame.src_linesize +
+                               state->pan, state->frame.src_linesize);
                 }
-                return vf;
+                memcpy(state->frame.data + i * state->frame.src_linesize,
+                       state->frame.data + (i + 2) * state->frame.src_linesize +
+                       state->pan, state->frame.src_linesize - state->pan);
+                memcpy(state->frame.data +
+                       (state->frame.height - 2) * state->frame.src_linesize - state->pan,
+                       line, state->frame.src_linesize * 2 + state->pan);
+#ifdef USE_EPILEPSY                        
+                if(!(state->count % 2)) {
+                        unsigned int *p = state->frame.data;
+                        for(i=0; i < state->frame.src_linesize*state->frame.height/4; i++) {
+                                *p = *p ^ 0x00ffffffL;
+                                p++;
+                        }
+                }
+#endif
+                return &state->frame;
         }
         return NULL;
 }

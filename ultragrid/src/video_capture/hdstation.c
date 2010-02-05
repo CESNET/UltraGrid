@@ -73,7 +73,6 @@ struct vidcap_hdstation_state {
         sv_fifo_buffer *dma_buffer;
         char *rtp_buffer;
         char *tmp_buffer;
-        int buffer_size;
         pthread_t thread_id;
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
@@ -85,7 +84,7 @@ struct vidcap_hdstation_state {
         int bufs_index;
         codec_t codec;
         uint32_t hd_video_mode;
-        double bpp;
+        struct video_frame frame;
 };
 
 static void *vidcap_hdstation_grab_thread(void *arg)
@@ -108,7 +107,7 @@ static void *vidcap_hdstation_grab_thread(void *arg)
                 }
                 s->bufs_index = (s->bufs_index + 1) % 2;
                 s->dma_buffer->dma.addr = s->bufs[s->bufs_index];
-                s->dma_buffer->dma.size = s->buffer_size;
+                s->dma_buffer->dma.size = s->frame.data_len;
 
                 res = sv_fifo_putbuffer(s->sv, s->fifo, s->dma_buffer, NULL);
                 if (res != SV_OK) {
@@ -140,25 +139,12 @@ static void *vidcap_hdstation_grab_thread(void *arg)
 struct vidcap_type *vidcap_hdstation_probe(void)
 {
         struct vidcap_type *vt;
-        sv_handle *sv;
-
-        sv = sv_open("");
-        if (sv == NULL) {
-                debug_msg("Cannot probe HDTV capture device\n");
-                return NULL;
-        }
-        sv_close(sv);
-
-        hd_size_x = 1920;
-        hd_size_y = 1080;
 
         vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_HDSTATION_ID;
                 vt->name = "hdtv";
                 vt->description = "DVS HDstation (SMPTE 274M/25i)";
-                vt->width = hd_size_x;
-                vt->height = hd_size_y;
         }
         return vt;
 }
@@ -169,6 +155,13 @@ void *vidcap_hdstation_init(char *fmt)
         struct vidcap_hdstation_state *s;
         int i;
         int res;
+
+        s = (struct vidcap_hdstation_state *)
+            malloc(sizeof(struct vidcap_hdstation_state));
+        if (s == NULL) {
+                debug_msg("Unable to allocate HDstation state\n");
+                return NULL;
+        }
 
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
@@ -195,7 +188,7 @@ void *vidcap_hdstation_init(char *fmt)
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(tmp, codec_info[i].name) == 0) {
                                 s->codec = codec_info[i].codec;
-                                s->bpp = codec_info[i].bpp;
+                                s->frame.src_bpp = codec_info[i].bpp;
                         }
                 }
                 if (s->codec == 0xffffffff) {
@@ -220,16 +213,9 @@ void *vidcap_hdstation_init(char *fmt)
                 return 0;
         }
 
-        hd_size_x = 1920;
-        hd_size_y = 1080;
-        hd_color_spc = s->codec;
-
-        s = (struct vidcap_hdstation_state *)
-            malloc(sizeof(struct vidcap_hdstation_state));
-        if (s == NULL) {
-                debug_msg("Unable to allocate HDstation state\n");
-                return NULL;
-        }
+        s->frame.width = 1920;
+        s->frame.height = 1080;
+        s->frame.color_spec = s->codec;
 
         s->sv = sv_open("");
         if (s->sv == NULL) {
@@ -260,16 +246,17 @@ void *vidcap_hdstation_init(char *fmt)
         pthread_cond_init(&(s->boss_cv), NULL);
         pthread_cond_init(&(s->worker_cv), NULL);
 
-        s->buffer_size = s->bpp * hd_size_x * hd_size_y;
+        s->frame.data_len = s->frame.src_bpp * s->frame.width * s->frame.height;
         s->rtp_buffer = NULL;
         s->dma_buffer = NULL;
         s->tmp_buffer = NULL;
         s->boss_waiting = FALSE;
         s->worker_waiting = FALSE;
         s->work_to_do = FALSE;
-        s->bufs[0] = malloc(s->buffer_size);
-        s->bufs[1] = malloc(s->buffer_size);
+        s->bufs[0] = malloc(s->frame.data_len);
+        s->bufs[1] = malloc(s->frame.data_len);
         s->bufs_index = 0;
+        s->frame.state = s;
 
         if (pthread_create
             (&(s->thread_id), NULL, vidcap_hdstation_grab_thread, s) != 0) {
@@ -300,7 +287,6 @@ struct video_frame *vidcap_hdstation_grab(void *state)
 {
         struct vidcap_hdstation_state *s =
             (struct vidcap_hdstation_state *)state;
-        struct video_frame *vf;
 
         pthread_mutex_lock(&(s->lock));
 
@@ -323,14 +309,8 @@ struct video_frame *vidcap_hdstation_grab(void *state)
         pthread_mutex_unlock(&(s->lock));
 
         if (s->rtp_buffer != NULL) {
-                vf = (struct video_frame *)malloc(sizeof(struct video_frame));
-                if (vf != NULL) {
-                        vf->width = hd_size_x;
-                        vf->height = hd_size_y;
-                        vf->data = s->rtp_buffer;
-                        vf->data_len = hd_size_x * hd_size_y * s->bpp;
-                }
-                return vf;
+                s->frame.data = s->rtp_buffer;
+                return &s->frame;
         }
         return NULL;
 }
