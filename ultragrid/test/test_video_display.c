@@ -44,60 +44,68 @@
 #include "video_display.h"
 #include "test_video_display.h"
 
-int 
-test_video_display(void)
+int test_video_display(void)
 {
-	display_type_t	*dt;
-	int		 i;
-	unsigned int	 j;
-	int		 argc = 0;
-	char		*argv[1];
+        display_type_t *dt;
+        int i;
+        unsigned int j;
+        int argc = 0;
+        char *argv[1];
 
-	argv[0] = "run_tests";
-	
-	printf("Testing video hardware detection ......................................... "); 
-	if (display_init_devices() != 0) {
-		printf("FAIL\n");
-		printf("    Cannot probe video devices\n");
-		return 1;
-	}
-	printf("Ok\n");
+        argv[0] = "run_tests";
 
-	for (i = 0; i < display_get_device_count(); i++) {
-		dt = display_get_device_details(i);
-		printf("    \"%s\"\n", dt->name);
-		printf("        description: %s\n", dt->description);
-		printf("        formats    :");
-		for (j = 0; j < dt->num_formats; j++) {
-			switch (dt->formats[j].size) {
-			case DS_176x144   : printf(" QCIF");
-			                    break;
-			case DS_352x288   : printf(" CIF");
-			                    break;
-			case DS_702x576   : printf(" SCIF");
-			                    break;
-			case DS_1920x1080 : printf(" 1080i");
-			                    break;
-			case DS_1280x720  : printf(" 720p");
-			                    break;
-			case DS_NONE  : printf(" NONE");
-					    continue;
-			}
-			switch (dt->formats[j].colour_mode) {
-			case DC_YUV  : printf("/YUV");
-			               break;
-			case DC_RGB  : printf("/RGB");
-			               break;
-			case DC_NONE : printf("/NONE");
-			               break;
-			}
-			if (dt->formats[j].num_images != -1) {
-				printf("/%d", dt->formats[j].num_images);
-			} 
-		}
-		printf("\n");
-	}
-	display_free_devices();
-	return 0;
+        printf
+            ("Testing video hardware detection ......................................... ");
+        if (display_init_devices() != 0) {
+                printf("FAIL\n");
+                printf("    Cannot probe video devices\n");
+                return 1;
+        }
+        printf("Ok\n");
+
+        for (i = 0; i < display_get_device_count(); i++) {
+                dt = display_get_device_details(i);
+                printf("    \"%s\"\n", dt->name);
+                printf("        description: %s\n", dt->description);
+                printf("        formats    :");
+                for (j = 0; j < dt->num_formats; j++) {
+                        switch (dt->formats[j].size) {
+                        case DS_176x144:
+                                printf(" QCIF");
+                                break;
+                        case DS_352x288:
+                                printf(" CIF");
+                                break;
+                        case DS_702x576:
+                                printf(" SCIF");
+                                break;
+                        case DS_1920x1080:
+                                printf(" 1080i");
+                                break;
+                        case DS_1280x720:
+                                printf(" 720p");
+                                break;
+                        case DS_NONE:
+                                printf(" NONE");
+                                continue;
+                        }
+                        switch (dt->formats[j].colour_mode) {
+                        case DC_YUV:
+                                printf("/YUV");
+                                break;
+                        case DC_RGB:
+                                printf("/RGB");
+                                break;
+                        case DC_NONE:
+                                printf("/NONE");
+                                break;
+                        }
+                        if (dt->formats[j].num_images != -1) {
+                                printf("/%d", dt->formats[j].num_images);
+                        }
+                }
+                printf("\n");
+        }
+        display_free_devices();
+        return 0;
 }
-

@@ -68,184 +68,171 @@
 #define VIDCAP_MAGIC	0x76ae98f0
 
 struct vidcap {
-	void			*state;
-	int			 index;
-	uint32_t		 magic;		/* For debugging */
+        void *state;
+        int index;
+        uint32_t magic;         /* For debugging */
 };
 
 struct vidcap_device_api {
-	vidcap_id_t		 id;
-	struct vidcap_type	*(*func_probe)(void);
-	void			*(*func_init)(char *fmt);
-	void			 (*func_done)(void *state);
-	struct video_frame	*(*func_grab)(void *state);
+        vidcap_id_t id;
+        struct vidcap_type *(*func_probe) (void);
+        void *(*func_init) (char *fmt);
+        void (*func_done) (void *state);
+        struct video_frame *(*func_grab) (void *state);
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
 #ifdef HAVE_FIREWIRE_DV_FREEBSD
-	{
-		/* A FireWire DV capture card, on FreeBSD */
-		0,
-		vidcap_dvbsd_probe,
-		vidcap_dvbsd_init,
-		vidcap_dvbsd_done,
-		vidcap_dvbsd_grab
-	},
-#endif /* HAVE_FIREWIRE_DV_FREEBSD */
-#ifdef HAVE_HDSTATION
-	{
-		/* The DVS HDstation capture card */
-		0,
-		vidcap_hdstation_probe,
-		vidcap_hdstation_init,
-		vidcap_hdstation_done,
-		vidcap_hdstation_grab
-	},
-#endif /* HAVE_HDSTATION */
-#ifdef HAVE_DECKLINK
-	{
-		/* The Blackmagic DeckLink capture card */
-		0,
-		vidcap_decklink_probe,
-		vidcap_decklink_init,
-		vidcap_decklink_done,
-		vidcap_decklink_grab
-	},
-#endif /* HAVE_DECKLINK */
-#ifdef HAVE_QUAD 
         {
-                /* The HD-SDI Master Quad capture card */
-                0,
-                vidcap_quad_probe,
-                vidcap_quad_init,
-                vidcap_quad_done,
-                vidcap_quad_grab
-        },
-#endif /* HAVE_QUAD */ 
+         /* A FireWire DV capture card, on FreeBSD */
+         0,
+         vidcap_dvbsd_probe,
+         vidcap_dvbsd_init,
+         vidcap_dvbsd_done,
+         vidcap_dvbsd_grab},
+#endif                          /* HAVE_FIREWIRE_DV_FREEBSD */
+#ifdef HAVE_HDSTATION
+        {
+         /* The DVS HDstation capture card */
+         0,
+         vidcap_hdstation_probe,
+         vidcap_hdstation_init,
+         vidcap_hdstation_done,
+         vidcap_hdstation_grab},
+#endif                          /* HAVE_HDSTATION */
+#ifdef HAVE_DECKLINK
+        {
+         /* The Blackmagic DeckLink capture card */
+         0,
+         vidcap_decklink_probe,
+         vidcap_decklink_init,
+         vidcap_decklink_done,
+         vidcap_decklink_grab},
+#endif                          /* HAVE_DECKLINK */
+#ifdef HAVE_QUAD
+        {
+         /* The HD-SDI Master Quad capture card */
+         0,
+         vidcap_quad_probe,
+         vidcap_quad_init,
+         vidcap_quad_done,
+         vidcap_quad_grab},
+#endif                          /* HAVE_QUAD */
 #ifdef HAVE_MACOSX
-	{
-		/* The QuickTime API */
-		0,
-		vidcap_quicktime_probe,
-		vidcap_quicktime_init,
-		vidcap_quicktime_done,
-		vidcap_quicktime_grab
-	},
-#endif /* HAVE_MACOSX */
-	{
-		/* Dummy sender for testing purposes */
-		0,
-		vidcap_testcard_probe,
-		vidcap_testcard_init,
-		vidcap_testcard_done,
-		vidcap_testcard_grab
-	},
-	{
-		0,
-		vidcap_null_probe,
-		vidcap_null_init,
-		vidcap_null_done,
-		vidcap_null_grab
-	}
+        {
+         /* The QuickTime API */
+         0,
+         vidcap_quicktime_probe,
+         vidcap_quicktime_init,
+         vidcap_quicktime_done,
+         vidcap_quicktime_grab},
+#endif                          /* HAVE_MACOSX */
+        {
+         /* Dummy sender for testing purposes */
+         0,
+         vidcap_testcard_probe,
+         vidcap_testcard_init,
+         vidcap_testcard_done,
+         vidcap_testcard_grab},
+        {
+         0,
+         vidcap_null_probe,
+         vidcap_null_init,
+         vidcap_null_done,
+         vidcap_null_grab}
 };
 
 #define VIDCAP_DEVICE_TABLE_SIZE (sizeof(vidcap_device_table)/sizeof(struct vidcap_device_api))
 
 /* API for probing capture devices ****************************************************************/
 
-static struct vidcap_type	*available_devices[VIDCAP_DEVICE_TABLE_SIZE];
-static int			 available_device_count = 0;
+static struct vidcap_type *available_devices[VIDCAP_DEVICE_TABLE_SIZE];
+static int available_device_count = 0;
 
-int
-vidcap_init_devices(void)
+int vidcap_init_devices(void)
 {
-	unsigned int		 i;
-	struct vidcap_type	*dt;
+        unsigned int i;
+        struct vidcap_type *dt;
 
-	assert(available_device_count == 0);
+        assert(available_device_count == 0);
 
-	for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
-		//printf("probe: %d\n",i);
-		dt = vidcap_device_table[i].func_probe();
-		if (dt != NULL) {
-			vidcap_device_table[i].id = dt->id;
-			available_devices[available_device_count++] = dt;
-		}
-	}
+        for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
+                //printf("probe: %d\n",i);
+                dt = vidcap_device_table[i].func_probe();
+                if (dt != NULL) {
+                        vidcap_device_table[i].id = dt->id;
+                        available_devices[available_device_count++] = dt;
+                }
+        }
 
-	return available_device_count;
+        return available_device_count;
 }
 
-void
-vidcap_free_devices(void)
+void vidcap_free_devices(void)
 {
-	int	i;
+        int i;
 
-	for (i = 0; i < available_device_count; i++) {
-		free(available_devices[i]);
-		available_devices[i] = NULL;
-	}
-	available_device_count = 0;
+        for (i = 0; i < available_device_count; i++) {
+                free(available_devices[i]);
+                available_devices[i] = NULL;
+        }
+        available_device_count = 0;
 }
 
-int
-vidcap_get_device_count(void)
+int vidcap_get_device_count(void)
 {
-	return available_device_count;
+        return available_device_count;
 }
 
-struct vidcap_type *
-vidcap_get_device_details(int index)
+struct vidcap_type *vidcap_get_device_details(int index)
 {
-	assert(index < available_device_count);
-	assert(available_devices[index] != NULL);
+        assert(index < available_device_count);
+        assert(available_devices[index] != NULL);
 
-	return available_devices[index];
+        return available_devices[index];
 }
 
-vidcap_id_t
-vidcap_get_null_device_id(void)
+vidcap_id_t vidcap_get_null_device_id(void)
 {
-	return VIDCAP_NULL_ID;
+        return VIDCAP_NULL_ID;
 }
 
 /* API for video capture **************************************************************************/
 
-struct vidcap *
-vidcap_init(vidcap_id_t id, char *fmt)
+struct vidcap *vidcap_init(vidcap_id_t id, char *fmt)
 {
-	unsigned int	i;
+        unsigned int i;
 
-	for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
-		if (vidcap_device_table[i].id == id) {
-			struct vidcap *d = (struct vidcap *) malloc(sizeof(struct vidcap));
-			d->magic = VIDCAP_MAGIC;
-			d->state = vidcap_device_table[i].func_init(fmt);
-			d->index = i;
-			if (d->state == NULL) {
-				debug_msg("Unable to start video capture device 0x%08lx\n", id);
-				free(d);
-				return NULL;
-			} 
-			return d;
-		}
-	}
-	debug_msg("Unknown video capture device: 0x%08x\n", id);
-	return NULL;
+        for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
+                if (vidcap_device_table[i].id == id) {
+                        struct vidcap *d =
+                            (struct vidcap *)malloc(sizeof(struct vidcap));
+                        d->magic = VIDCAP_MAGIC;
+                        d->state = vidcap_device_table[i].func_init(fmt);
+                        d->index = i;
+                        if (d->state == NULL) {
+                                debug_msg
+                                    ("Unable to start video capture device 0x%08lx\n",
+                                     id);
+                                free(d);
+                                return NULL;
+                        }
+                        return d;
+                }
+        }
+        debug_msg("Unknown video capture device: 0x%08x\n", id);
+        return NULL;
 }
 
-void 
-vidcap_done(struct vidcap *state)
+void vidcap_done(struct vidcap *state)
 {
-	assert(state->magic == VIDCAP_MAGIC);
-	vidcap_device_table[state->index].func_done(state->state);
-	free(state);
+        assert(state->magic == VIDCAP_MAGIC);
+        vidcap_device_table[state->index].func_done(state->state);
+        free(state);
 }
 
-struct video_frame *
-vidcap_grab(struct vidcap *state)
+struct video_frame *vidcap_grab(struct vidcap *state)
 {
-	assert(state->magic == VIDCAP_MAGIC);
-	return vidcap_device_table[state->index].func_grab(state->state);
+        assert(state->magic == VIDCAP_MAGIC);
+        return vidcap_device_table[state->index].func_grab(state->state);
 }
-

@@ -62,9 +62,7 @@
 #undef DEBUG
 #undef DEBUG_MEM
 
-@BOTTOM@
-
+@ BOTTOM @
 #ifndef WORDS_BIGENDIAN
 #define WORDS_SMALLENDIAN
 #endif
-

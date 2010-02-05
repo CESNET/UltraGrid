@@ -36,14 +36,12 @@
 #include "rtp/rtp.h"
 #include "test_rtp.h"
 
-int 
-test_rtp(void)
+int test_rtp(void)
 {
-	printf("Testing RTP .............................................................. "); 
-	fflush(stdout);
+        printf
+            ("Testing RTP .............................................................. ");
+        fflush(stdout);
 
-
-	printf("--\n");
-	return 0;
+        printf("--\n");
+        return 0;
 }
-

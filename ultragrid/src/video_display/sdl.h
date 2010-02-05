@@ -51,11 +51,10 @@
 
 #define DISPLAY_SDL_ID	0xba370a2b
 
-display_type_t		*display_sdl_probe(void);
-void 			*display_sdl_init(char *fmt);
-void 			 display_sdl_done(void *state);
-struct video_frame	*display_sdl_getf(void *state);
-int  			 display_sdl_putf(void *state, char *frame);
-display_colour_t	 display_sdl_colour(void *state);
-int			 display_sdl_handle_events(void *s);
-
+display_type_t *display_sdl_probe (void);
+void *display_sdl_init (char *fmt);
+void display_sdl_done (void *state);
+struct video_frame *display_sdl_getf (void *state);
+int display_sdl_putf (void *state, char *frame);
+display_colour_t display_sdl_colour (void *state);
+int display_sdl_handle_events (void *s);

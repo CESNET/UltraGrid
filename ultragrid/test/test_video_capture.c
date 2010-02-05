@@ -44,27 +44,26 @@
 #include "video_capture.h"
 #include "test_video_capture.h"
 
-int 
-test_video_capture(void)
+int test_video_capture(void)
 {
-	struct vidcap_type	*vt;
-	int			 i;
-	
-	printf("Testing video capture device detection ................................... "); 
-	if (vidcap_init_devices() != 0) {
-		printf("FAIL\n");
-		printf("    Cannot probe video capture devices\n");
-		return 1;
-	}
-	printf("Ok\n");
+        struct vidcap_type *vt;
+        int i;
 
-	for (i = 0; i < vidcap_get_device_count(); i++) {
-		vt = vidcap_get_device_details(i);
-		printf("    \"%s\"\n", vt->name);
-		printf("        description: %s\n", vt->description);
-		printf("        image size : %dx%d\n", vt->width, vt->height);
-	}
-	vidcap_free_devices();
-	return 0;
+        printf
+            ("Testing video capture device detection ................................... ");
+        if (vidcap_init_devices() != 0) {
+                printf("FAIL\n");
+                printf("    Cannot probe video capture devices\n");
+                return 1;
+        }
+        printf("Ok\n");
+
+        for (i = 0; i < vidcap_get_device_count(); i++) {
+                vt = vidcap_get_device_details(i);
+                printf("    \"%s\"\n", vt->name);
+                printf("        description: %s\n", vt->description);
+                printf("        image size : %dx%d\n", vt->width, vt->height);
+        }
+        vidcap_free_devices();
+        return 0;
 }
-

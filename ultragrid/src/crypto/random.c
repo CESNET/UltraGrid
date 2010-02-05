@@ -53,41 +53,38 @@
 
 static uint32_t randseed = 1;
 
-void
-lbl_srandom(uint32_t seed)
+void lbl_srandom(uint32_t seed)
 {
-	randseed = seed;
+        randseed = seed;
 }
 
-uint32_t
-lbl_random(void)
+uint32_t lbl_random(void)
 {
 #ifdef HAVE_DEV_URANDOM
-	int	fd, res, l;
+        int fd, res, l;
 
-	fd = open("/dev/urandom", O_RDONLY);
-	if (fd == -1) {
-		perror("Cannot open random sequence generator");
-		abort();
-	}
-	l = read(fd, &res, sizeof(res));
-	if (l != sizeof(res)) {
-		perror("Cannot read random data");
-		abort();
-	}
-	close(fd);
-	return res;
+        fd = open("/dev/urandom", O_RDONLY);
+        if (fd == -1) {
+                perror("Cannot open random sequence generator");
+                abort();
+        }
+        l = read(fd, &res, sizeof(res));
+        if (l != sizeof(res)) {
+                perror("Cannot read random data");
+                abort();
+        }
+        close(fd);
+        return res;
 #else
-	register uint32_t x = randseed;
-	register uint32_t hi, lo, t;
+        register uint32_t x = randseed;
+        register uint32_t hi, lo, t;
 
-	hi = x / 127773;
-	lo = x % 127773;
-	t = 16807 * lo - 2836 * hi;
-	if (t <= 0)
-		t += 0x7fffffff;
-	randseed = t;
-	return (t);
+        hi = x / 127773;
+        lo = x % 127773;
+        t = 16807 * lo - 2836 * hi;
+        if (t <= 0)
+                t += 0x7fffffff;
+        randseed = t;
+        return (t);
 #endif
 }
-

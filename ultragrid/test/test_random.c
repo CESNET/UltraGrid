@@ -43,10 +43,9 @@
 #include "crypto/random.h"
 #include "test_random.h"
 
-int 
-test_random(void)
+int test_random(void)
 {
-	printf("Testing random number generator .......................................... --\n"); 
-	return 0;
+        printf
+            ("Testing random number generator .......................................... --\n");
+        return 0;
 }
-

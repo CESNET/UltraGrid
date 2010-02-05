@@ -61,45 +61,61 @@
 #include "test_video_capture.h"
 #include "test_video_display.h"
 
-uint32_t	RTT;	/* FIXME: will be removed once the global in main.c is removed */
+uint32_t RTT;                   /* FIXME: will be removed once the global in main.c is removed */
 
 /* These globals should be fixed in the future as well */
-uint32_t        hd_size_x=1920;
-uint32_t        hd_size_y=1080;
-uint32_t        hd_color_bpp=3;
-uint32_t        bitdepth = 10;
-uint32_t        progressive = 0;
-uint32_t        hd_video_mode;
+uint32_t hd_size_x = 1920;
+uint32_t hd_size_y = 1080;
+uint32_t hd_color_bpp = 3;
+uint32_t bitdepth = 10;
+uint32_t progressive = 0;
+uint32_t hd_video_mode;
 
-long            packet_rate = 13600;
+long packet_rate = 13600;
 
-int
-main()
+int main()
 {
-	if (test_bitstream()  != 0) return 1;
-	if (test_codec_dvi()  != 0) return 1;
-	if (test_codec_g711() != 0) return 1;
-	if (test_codec_g726() != 0) return 1;
-	if (test_codec_gsm()  != 0) return 1;
-	if (test_codec_l16()  != 0) return 1;
-	if (test_codec_l8()   != 0) return 1;
-	if (test_codec_lpc()  != 0) return 1;
-	if (test_codec_vdvi() != 0) return 1;
-	if (test_des()        != 0) return 1;
-	if (test_aes()        != 0) return 1;
-	if (test_md5()        != 0) return 1;
-	if (test_random()     != 0) return 1;
-	if (test_tv()         != 0) return 1;
-	if (test_net_udp()    != 0) return 1;
-	if (test_rtp()        != 0) return 1;
+        if (test_bitstream() != 0)
+                return 1;
+        if (test_codec_dvi() != 0)
+                return 1;
+        if (test_codec_g711() != 0)
+                return 1;
+        if (test_codec_g726() != 0)
+                return 1;
+        if (test_codec_gsm() != 0)
+                return 1;
+        if (test_codec_l16() != 0)
+                return 1;
+        if (test_codec_l8() != 0)
+                return 1;
+        if (test_codec_lpc() != 0)
+                return 1;
+        if (test_codec_vdvi() != 0)
+                return 1;
+        if (test_des() != 0)
+                return 1;
+        if (test_aes() != 0)
+                return 1;
+        if (test_md5() != 0)
+                return 1;
+        if (test_random() != 0)
+                return 1;
+        if (test_tv() != 0)
+                return 1;
+        if (test_net_udp() != 0)
+                return 1;
+        if (test_rtp() != 0)
+                return 1;
 
 #ifdef TEST_AV_HW
-	if (test_audio_hw()      != 0) return 1;
-	if (test_video_capture() != 0) return 1;
-	if (test_video_display() != 0) return 1;
+        if (test_audio_hw() != 0)
+                return 1;
+        if (test_video_capture() != 0)
+                return 1;
+        if (test_video_display() != 0)
+                return 1;
 #endif
 
-	return 0;
+        return 0;
 }
-
-

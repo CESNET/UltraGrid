@@ -64,7 +64,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
-#include "rtp/rtp.h"		/* Needed by pbuf.h */
+#include "rtp/rtp.h"            /* Needed by pbuf.h */
 #include "rtp/pbuf.h"
 #include "tfrc.h"
 #include "pdb.h"
@@ -73,19 +73,19 @@
 #define PDB_NODE_MAGIC	0x01010101
 
 typedef struct s_pdb_node {
-        uint32_t           key;
-        void              *data;
+        uint32_t key;
+        void *data;
         struct s_pdb_node *parent;
         struct s_pdb_node *left;
         struct s_pdb_node *right;
-        uint32_t           magic;
+        uint32_t magic;
 } pdb_node_t;
 
-struct pdb  {
+struct pdb {
         pdb_node_t *root;
-	pdb_node_t *iter;
-        uint32_t    magic;
-        int         count;
+        pdb_node_t *iter;
+        uint32_t magic;
+        int count;
 };
 
 /*****************************************************************************/
@@ -97,10 +97,9 @@ struct pdb  {
 
 static int pdb_count;
 
-static void
-pdb_validate_node(pdb_node_t *node, pdb_node_t *parent)
+static void pdb_validate_node(pdb_node_t * node, pdb_node_t * parent)
 {
-        assert(node->magic  == BTREE_NODE_MAGIC);
+        assert(node->magic == BTREE_NODE_MAGIC);
         assert(node->parent == parent);
         pdb_count++;
         if (node->left != NULL) {
@@ -111,8 +110,7 @@ pdb_validate_node(pdb_node_t *node, pdb_node_t *parent)
         }
 }
 
-static void
-pdb_validate(struct pdb *t)
+static void pdb_validate(struct pdb *t)
 {
         assert(t->magic == BTREE_MAGIC);
 #ifdef DEBUG
@@ -124,25 +122,22 @@ pdb_validate(struct pdb *t)
 #endif
 }
 
-
 /*****************************************************************************/
 /* Utility functions                                                         */
 /*****************************************************************************/
 
-static pdb_node_t*
-pdb_min(pdb_node_t *x)
+static pdb_node_t *pdb_min(pdb_node_t * x)
 {
         if (x == NULL) {
                 return NULL;
         }
-        while(x->left) {
+        while (x->left) {
                 x = x->left;
         }
         return x;
 }
 
-static pdb_node_t*
-pdb_successor(pdb_node_t *x)
+static pdb_node_t *pdb_successor(pdb_node_t * x)
 {
         pdb_node_t *y;
 
@@ -159,8 +154,7 @@ pdb_successor(pdb_node_t *x)
         return y;
 }
 
-static pdb_node_t*
-pdb_search(pdb_node_t *x, uint32_t key)
+static pdb_node_t *pdb_search(pdb_node_t * x, uint32_t key)
 {
         while (x != NULL && key != x->key) {
                 if (key < x->key) {
@@ -169,14 +163,14 @@ pdb_search(pdb_node_t *x, uint32_t key)
                         x = x->right;
                 }
         }
-        return x; 
+        return x;
 }
 
-static void
-pdb_insert_node(struct pdb *tree, pdb_node_t *z) {
+static void pdb_insert_node(struct pdb *tree, pdb_node_t * z)
+{
         pdb_node_t *x, *y;
 
-	pdb_validate(tree);
+        pdb_validate(tree);
         y = NULL;
         x = tree->root;
         while (x != NULL) {
@@ -197,16 +191,15 @@ pdb_insert_node(struct pdb *tree, pdb_node_t *z) {
         } else {
                 y->right = z;
         }
-	tree->count++;
-	pdb_validate(tree);
+        tree->count++;
+        pdb_validate(tree);
 }
 
-static pdb_node_t*
-pdb_delete_node(struct pdb *tree, pdb_node_t *z)
+static pdb_node_t *pdb_delete_node(struct pdb *tree, pdb_node_t * z)
 {
         pdb_node_t *x, *y;
 
-	pdb_validate(tree);
+        pdb_validate(tree);
         if (z->left == NULL || z->right == NULL) {
                 y = z;
         } else {
@@ -231,109 +224,105 @@ pdb_delete_node(struct pdb *tree, pdb_node_t *z)
                 y->parent->right = x;
         }
 
-        z->key  = y->key;
+        z->key = y->key;
         z->data = y->data;
 
-	tree->count--;
+        tree->count--;
 
-	pdb_validate(tree);
+        pdb_validate(tree);
         return y;
 }
 
 /*****************************************************************************/
 
-struct pdb *
-pdb_init(void)
+struct pdb *pdb_init(void)
 {
-	struct pdb *db = malloc(sizeof(struct pdb));
-	if (db != NULL) {
-		db->magic = PDB_MAGIC;
-		db->count = 0;
-		db->root  = NULL;
-		db->iter  = NULL;
-	}
-	return db;
+        struct pdb *db = malloc(sizeof(struct pdb));
+        if (db != NULL) {
+                db->magic = PDB_MAGIC;
+                db->count = 0;
+                db->root = NULL;
+                db->iter = NULL;
+        }
+        return db;
 }
 
-void
-pdb_destroy(struct pdb **db_p)
+void pdb_destroy(struct pdb **db_p)
 {
-	struct pdb *db = *db_p;
+        struct pdb *db = *db_p;
 
-	pdb_validate(db);
-   if (db->root != NULL) {
-		printf("WARNING: participant database not empty - cannot destroy\n");
-		// TODO: participants should be removed using pdb_remove() 
-   }
+        pdb_validate(db);
+        if (db->root != NULL) {
+                printf
+                    ("WARNING: participant database not empty - cannot destroy\n");
+                // TODO: participants should be removed using pdb_remove() 
+        }
 
-   free(db);
-   *db_p = NULL;
+        free(db);
+        *db_p = NULL;
 }
 
-static struct pdb_e *
-pdb_create_item(uint32_t ssrc)
+static struct pdb_e *pdb_create_item(uint32_t ssrc)
 {
-	struct pdb_e *p = malloc(sizeof(struct pdb_e));
-	if (p != NULL) {
-		gettimeofday(&(p->creation_time), NULL);
-		p->ssrc                = ssrc;
-		p->sdes_cname          = NULL;
-		p->sdes_name           = NULL;
-		p->sdes_email          = NULL;
-		p->sdes_phone          = NULL;
-		p->sdes_loc            = NULL;
-		p->sdes_tool           = NULL;
-		p->sdes_note           = NULL;
-		p->video_decoder_state = NULL;
-		p->pt                  = 255;
-		p->playout_buffer      = pbuf_init();
-		p->tfrc_state          = tfrc_init(p->creation_time);
-	}
-	return p;
+        struct pdb_e *p = malloc(sizeof(struct pdb_e));
+        if (p != NULL) {
+                gettimeofday(&(p->creation_time), NULL);
+                p->ssrc = ssrc;
+                p->sdes_cname = NULL;
+                p->sdes_name = NULL;
+                p->sdes_email = NULL;
+                p->sdes_phone = NULL;
+                p->sdes_loc = NULL;
+                p->sdes_tool = NULL;
+                p->sdes_note = NULL;
+                p->video_decoder_state = NULL;
+                p->pt = 255;
+                p->playout_buffer = pbuf_init();
+                p->tfrc_state = tfrc_init(p->creation_time);
+        }
+        return p;
 }
 
-int
-pdb_add(struct pdb *db, uint32_t ssrc)
+int pdb_add(struct pdb *db, uint32_t ssrc)
 {
-	/* Add an item to the participant database, indexed by ssrc. */
-	/* Returns 0 on success, 1 if the participant is already in  */
-	/* the database, 2 for other failures.                       */
-	pdb_node_t	*x;
-	struct pdb_e	*i;
+        /* Add an item to the participant database, indexed by ssrc. */
+        /* Returns 0 on success, 1 if the participant is already in  */
+        /* the database, 2 for other failures.                       */
+        pdb_node_t *x;
+        struct pdb_e *i;
 
-	pdb_validate(db);
+        pdb_validate(db);
         x = pdb_search(db->root, ssrc);
         if (x != NULL) {
                 debug_msg("Item already exists - ssrc %x\n", ssrc);
                 return 1;
         }
 
-	i = pdb_create_item(ssrc);
-	if (i == NULL) {
-		debug_msg("Unable to create database entry - ssrc %x\n", ssrc);
-		return 2;
-	}
+        i = pdb_create_item(ssrc);
+        if (i == NULL) {
+                debug_msg("Unable to create database entry - ssrc %x\n", ssrc);
+                return 2;
+        }
 
         x = (pdb_node_t *) malloc(sizeof(pdb_node_t));
-        x->key    = ssrc;
-	x->data   = i;
+        x->key = ssrc;
+        x->data = i;
         x->parent = NULL;
-	x->left   = NULL;
-	x->right  = NULL;
-	x->magic  = BTREE_NODE_MAGIC;
+        x->left = NULL;
+        x->right = NULL;
+        x->magic = BTREE_NODE_MAGIC;
         pdb_insert_node(db, x);
-	debug_msg("Added participant %x\n", ssrc);
+        debug_msg("Added participant %x\n", ssrc);
         return 0;
 }
 
-struct pdb_e *
-pdb_get(struct pdb *db, uint32_t ssrc)
+struct pdb_e *pdb_get(struct pdb *db, uint32_t ssrc)
 {
-	/* Return a pointer to the item indexed by ssrc, or NULL if   */
-	/* the item is not present in the database.                   */
+        /* Return a pointer to the item indexed by ssrc, or NULL if   */
+        /* the item is not present in the database.                   */
         pdb_node_t *x;
 
-	pdb_validate(db);
+        pdb_validate(db);
         x = pdb_search(db->root, ssrc);
         if (x != NULL) {
                 return x->data;
@@ -341,13 +330,12 @@ pdb_get(struct pdb *db, uint32_t ssrc)
         return NULL;
 }
 
-int
-pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item)
+int pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item)
 {
-	/* Remove the item indexed by ssrc. Return zero on success.   */
+        /* Remove the item indexed by ssrc. Return zero on success.   */
         pdb_node_t *x;
 
-	pdb_validate(db);
+        pdb_validate(db);
         x = pdb_search(db->root, ssrc);
         if (x == NULL) {
                 debug_msg("Item not on tree - ssrc %ul\n", ssrc);
@@ -355,10 +343,10 @@ pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item)
                 return 1;
         }
 
-	/* Note value that gets freed is not necessarily the the same as node
-	 * that gets removed from tree since there is an optimization to avoid
-	 * pointer updates in tree which means sometimes we just copy key and
-	 * data from one node to another.  
+        /* Note value that gets freed is not necessarily the the same as node
+         * that gets removed from tree since there is an optimization to avoid
+         * pointer updates in tree which means sometimes we just copy key and
+         * data from one node to another.  
          */
         *item = x->data;
         x = pdb_delete_node(db, x);
@@ -366,35 +354,30 @@ pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item)
         return 0;
 }
 
-
 /* 
  * Iterator functions 
  */
 
-struct pdb_e *
-pdb_iter_init(struct pdb *db)
+struct pdb_e *pdb_iter_init(struct pdb *db)
 {
-	if (db->root == NULL) {
-		return NULL; 	/* The database is empty */
-	}
-	db->iter = pdb_min(db->root);
-	return db->iter->data;
+        if (db->root == NULL) {
+                return NULL;    /* The database is empty */
+        }
+        db->iter = pdb_min(db->root);
+        return db->iter->data;
 }
 
-struct pdb_e *
-pdb_iter_next(struct pdb *db)
+struct pdb_e *pdb_iter_next(struct pdb *db)
 {
-	assert(db->iter != NULL);
-	db->iter = pdb_successor(db->iter);
-	if (db->iter == NULL) {
-		return NULL;
-	}
-	return db->iter->data;
+        assert(db->iter != NULL);
+        db->iter = pdb_successor(db->iter);
+        if (db->iter == NULL) {
+                return NULL;
+        }
+        return db->iter->data;
 }
 
-void
-pdb_iter_done(struct pdb *db)
+void pdb_iter_done(struct pdb *db)
 {
-	db->iter = NULL;
+        db->iter = NULL;
 }
-

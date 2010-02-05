@@ -7,7 +7,7 @@
 double drand48(void)
 {
         unsigned int x = (rand() << 16) | rand();
-	return ((double)x / (double)0xffffffff);
+        return ((double)x / (double)0xffffffff);
 }
 
 #endif

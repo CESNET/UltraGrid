@@ -56,42 +56,37 @@
 #include "video_capture.h"
 #include "video_capture/null.h"
 
-static int 	capture_state = 0;
+static int capture_state = 0;
 
-void *
-vidcap_null_init(char *fmt)
+void *vidcap_null_init(char *fmt)
 {
-	UNUSED(fmt);
-	capture_state = 0;
-	return &capture_state;
+        UNUSED(fmt);
+        capture_state = 0;
+        return &capture_state;
 }
 
-void
-vidcap_null_done(void *state)
+void vidcap_null_done(void *state)
 {
-	assert(state == &capture_state);
+        assert(state == &capture_state);
 }
 
-struct video_frame *
-vidcap_null_grab(void *state)
+struct video_frame *vidcap_null_grab(void *state)
 {
-	assert(state == &capture_state);
-	return NULL;
+        assert(state == &capture_state);
+        return NULL;
 }
 
-struct vidcap_type *
-vidcap_null_probe(void)
+struct vidcap_type *vidcap_null_probe(void)
 {
-	struct vidcap_type	*vt;
+        struct vidcap_type *vt;
 
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->id          = VIDCAP_NULL_ID;
-		vt->name        = "null";
-		vt->description = "No video capture device";
-		vt->width       = 0;
-		vt->height      = 0;
-	}
-	return vt;
+        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
+        if (vt != NULL) {
+                vt->id = VIDCAP_NULL_ID;
+                vt->name = "null";
+                vt->description = "No video capture device";
+                vt->width = 0;
+                vt->height = 0;
+        }
+        return vt;
 }
-

@@ -303,171 +303,163 @@ _o1 |= (_i1 & B03) >> 28; /* 32 */ \
 }
 
 static
-Word s_p0[64] =
-{ /* Combined S-Box1 and permutation P */
-0x00808200, 0x00000000, 0x00008000, 0x00808202,
-0x00808002, 0x00008202, 0x00000002, 0x00008000,
-0x00000200, 0x00808200, 0x00808202, 0x00000200,
-0x00800202, 0x00808002, 0x00800000, 0x00000002,
-0x00000202, 0x00800200, 0x00800200, 0x00008200,
-0x00008200, 0x00808000, 0x00808000, 0x00800202,
-0x00008002, 0x00800002, 0x00800002, 0x00008002,
-0x00000000, 0x00000202, 0x00008202, 0x00800000,
-0x00008000, 0x00808202, 0x00000002, 0x00808000,
-0x00808200, 0x00800000, 0x00800000, 0x00000200,
-0x00808002, 0x00008000, 0x00008200, 0x00800002,
-0x00000200, 0x00000002, 0x00800202, 0x00008202,
-0x00808202, 0x00008002, 0x00808000, 0x00800202,
-0x00800002, 0x00000202, 0x00008202, 0x00808200,
-0x00000202, 0x00800200, 0x00800200, 0x00000000,
-0x00008002, 0x00008200, 0x00000000, 0x00808002
+Word s_p0[64] = {               /* Combined S-Box1 and permutation P */
+        0x00808200, 0x00000000, 0x00008000, 0x00808202,
+        0x00808002, 0x00008202, 0x00000002, 0x00008000,
+        0x00000200, 0x00808200, 0x00808202, 0x00000200,
+        0x00800202, 0x00808002, 0x00800000, 0x00000002,
+        0x00000202, 0x00800200, 0x00800200, 0x00008200,
+        0x00008200, 0x00808000, 0x00808000, 0x00800202,
+        0x00008002, 0x00800002, 0x00800002, 0x00008002,
+        0x00000000, 0x00000202, 0x00008202, 0x00800000,
+        0x00008000, 0x00808202, 0x00000002, 0x00808000,
+        0x00808200, 0x00800000, 0x00800000, 0x00000200,
+        0x00808002, 0x00008000, 0x00008200, 0x00800002,
+        0x00000200, 0x00000002, 0x00800202, 0x00008202,
+        0x00808202, 0x00008002, 0x00808000, 0x00800202,
+        0x00800002, 0x00000202, 0x00008202, 0x00808200,
+        0x00000202, 0x00800200, 0x00800200, 0x00000000,
+        0x00008002, 0x00008200, 0x00000000, 0x00808002
 };
 
 static
-Word s_p1[64] =
-{ /* Combined S-Box2 and permutation P */
-0x40084010, 0x40004000, 0x00004000, 0x00084010,
-0x00080000, 0x00000010, 0x40080010, 0x40004010,
-0x40000010, 0x40084010, 0x40084000, 0x40000000,
-0x40004000, 0x00080000, 0x00000010, 0x40080010,
-0x00084000, 0x00080010, 0x40004010, 0x00000000,
-0x40000000, 0x00004000, 0x00084010, 0x40080000,
-0x00080010, 0x40000010, 0x00000000, 0x00084000,
-0x00004010, 0x40084000, 0x40080000, 0x00004010,
-0x00000000, 0x00084010, 0x40080010, 0x00080000,
-0x40004010, 0x40080000, 0x40084000, 0x00004000,
-0x40080000, 0x40004000, 0x00000010, 0x40084010,
-0x00084010, 0x00000010, 0x00004000, 0x40000000,
-0x00004010, 0x40084000, 0x00080000, 0x40000010,
-0x00080010, 0x40004010, 0x40000010, 0x00080010,
-0x00084000, 0x00000000, 0x40004000, 0x00004010,
-0x40000000, 0x40080010, 0x40084010, 0x00084000
+Word s_p1[64] = {               /* Combined S-Box2 and permutation P */
+        0x40084010, 0x40004000, 0x00004000, 0x00084010,
+        0x00080000, 0x00000010, 0x40080010, 0x40004010,
+        0x40000010, 0x40084010, 0x40084000, 0x40000000,
+        0x40004000, 0x00080000, 0x00000010, 0x40080010,
+        0x00084000, 0x00080010, 0x40004010, 0x00000000,
+        0x40000000, 0x00004000, 0x00084010, 0x40080000,
+        0x00080010, 0x40000010, 0x00000000, 0x00084000,
+        0x00004010, 0x40084000, 0x40080000, 0x00004010,
+        0x00000000, 0x00084010, 0x40080010, 0x00080000,
+        0x40004010, 0x40080000, 0x40084000, 0x00004000,
+        0x40080000, 0x40004000, 0x00000010, 0x40084010,
+        0x00084010, 0x00000010, 0x00004000, 0x40000000,
+        0x00004010, 0x40084000, 0x00080000, 0x40000010,
+        0x00080010, 0x40004010, 0x40000010, 0x00080010,
+        0x00084000, 0x00000000, 0x40004000, 0x00004010,
+        0x40000000, 0x40080010, 0x40084010, 0x00084000
 };
 
 static
-Word s_p2[64] =
-{ /* Combined S-Box3 and permutation P */
-0x00000104, 0x04010100, 0x00000000, 0x04010004,
-0x04000100, 0x00000000, 0x00010104, 0x04000100,
-0x00010004, 0x04000004, 0x04000004, 0x00010000,
-0x04010104, 0x00010004, 0x04010000, 0x00000104,
-0x04000000, 0x00000004, 0x04010100, 0x00000100,
-0x00010100, 0x04010000, 0x04010004, 0x00010104,
-0x04000104, 0x00010100, 0x00010000, 0x04000104,
-0x00000004, 0x04010104, 0x00000100, 0x04000000,
-0x04010100, 0x04000000, 0x00010004, 0x00000104,
-0x00010000, 0x04010100, 0x04000100, 0x00000000,
-0x00000100, 0x00010004, 0x04010104, 0x04000100,
-0x04000004, 0x00000100, 0x00000000, 0x04010004,
-0x04000104, 0x00010000, 0x04000000, 0x04010104,
-0x00000004, 0x00010104, 0x00010100, 0x04000004,
-0x04010000, 0x04000104, 0x00000104, 0x04010000,
-0x00010104, 0x00000004, 0x04010004, 0x00010100
+Word s_p2[64] = {               /* Combined S-Box3 and permutation P */
+        0x00000104, 0x04010100, 0x00000000, 0x04010004,
+        0x04000100, 0x00000000, 0x00010104, 0x04000100,
+        0x00010004, 0x04000004, 0x04000004, 0x00010000,
+        0x04010104, 0x00010004, 0x04010000, 0x00000104,
+        0x04000000, 0x00000004, 0x04010100, 0x00000100,
+        0x00010100, 0x04010000, 0x04010004, 0x00010104,
+        0x04000104, 0x00010100, 0x00010000, 0x04000104,
+        0x00000004, 0x04010104, 0x00000100, 0x04000000,
+        0x04010100, 0x04000000, 0x00010004, 0x00000104,
+        0x00010000, 0x04010100, 0x04000100, 0x00000000,
+        0x00000100, 0x00010004, 0x04010104, 0x04000100,
+        0x04000004, 0x00000100, 0x00000000, 0x04010004,
+        0x04000104, 0x00010000, 0x04000000, 0x04010104,
+        0x00000004, 0x00010104, 0x00010100, 0x04000004,
+        0x04010000, 0x04000104, 0x00000104, 0x04010000,
+        0x00010104, 0x00000004, 0x04010004, 0x00010100
 };
 
 static
-Word s_p3[64] =
-{ /* Combined S-Box4 and permutation P */
-0x80401000, 0x80001040, 0x80001040, 0x00000040,
-0x00401040, 0x80400040, 0x80400000, 0x80001000,
-0x00000000, 0x00401000, 0x00401000, 0x80401040,
-0x80000040, 0x00000000, 0x00400040, 0x80400000,
-0x80000000, 0x00001000, 0x00400000, 0x80401000,
-0x00000040, 0x00400000, 0x80001000, 0x00001040,
-0x80400040, 0x80000000, 0x00001040, 0x00400040,
-0x00001000, 0x00401040, 0x80401040, 0x80000040,
-0x00400040, 0x80400000, 0x00401000, 0x80401040,
-0x80000040, 0x00000000, 0x00000000, 0x00401000,
-0x00001040, 0x00400040, 0x80400040, 0x80000000,
-0x80401000, 0x80001040, 0x80001040, 0x00000040,
-0x80401040, 0x80000040, 0x80000000, 0x00001000,
-0x80400000, 0x80001000, 0x00401040, 0x80400040,
-0x80001000, 0x00001040, 0x00400000, 0x80401000,
-0x00000040, 0x00400000, 0x00001000, 0x00401040
+Word s_p3[64] = {               /* Combined S-Box4 and permutation P */
+        0x80401000, 0x80001040, 0x80001040, 0x00000040,
+        0x00401040, 0x80400040, 0x80400000, 0x80001000,
+        0x00000000, 0x00401000, 0x00401000, 0x80401040,
+        0x80000040, 0x00000000, 0x00400040, 0x80400000,
+        0x80000000, 0x00001000, 0x00400000, 0x80401000,
+        0x00000040, 0x00400000, 0x80001000, 0x00001040,
+        0x80400040, 0x80000000, 0x00001040, 0x00400040,
+        0x00001000, 0x00401040, 0x80401040, 0x80000040,
+        0x00400040, 0x80400000, 0x00401000, 0x80401040,
+        0x80000040, 0x00000000, 0x00000000, 0x00401000,
+        0x00001040, 0x00400040, 0x80400040, 0x80000000,
+        0x80401000, 0x80001040, 0x80001040, 0x00000040,
+        0x80401040, 0x80000040, 0x80000000, 0x00001000,
+        0x80400000, 0x80001000, 0x00401040, 0x80400040,
+        0x80001000, 0x00001040, 0x00400000, 0x80401000,
+        0x00000040, 0x00400000, 0x00001000, 0x00401040
 };
 
 static
-Word s_p4[64] =
-{ /* Combined S-Box5 and permutation P */
-0x00000080, 0x01040080, 0x01040000, 0x21000080,
-0x00040000, 0x00000080, 0x20000000, 0x01040000,
-0x20040080, 0x00040000, 0x01000080, 0x20040080,
-0x21000080, 0x21040000, 0x00040080, 0x20000000,
-0x01000000, 0x20040000, 0x20040000, 0x00000000,
-0x20000080, 0x21040080, 0x21040080, 0x01000080,
-0x21040000, 0x20000080, 0x00000000, 0x21000000,
-0x01040080, 0x01000000, 0x21000000, 0x00040080,
-0x00040000, 0x21000080, 0x00000080, 0x01000000,
-0x20000000, 0x01040000, 0x21000080, 0x20040080,
-0x01000080, 0x20000000, 0x21040000, 0x01040080,
-0x20040080, 0x00000080, 0x01000000, 0x21040000,
-0x21040080, 0x00040080, 0x21000000, 0x21040080,
-0x01040000, 0x00000000, 0x20040000, 0x21000000,
-0x00040080, 0x01000080, 0x20000080, 0x00040000,
-0x00000000, 0x20040000, 0x01040080, 0x20000080
+Word s_p4[64] = {               /* Combined S-Box5 and permutation P */
+        0x00000080, 0x01040080, 0x01040000, 0x21000080,
+        0x00040000, 0x00000080, 0x20000000, 0x01040000,
+        0x20040080, 0x00040000, 0x01000080, 0x20040080,
+        0x21000080, 0x21040000, 0x00040080, 0x20000000,
+        0x01000000, 0x20040000, 0x20040000, 0x00000000,
+        0x20000080, 0x21040080, 0x21040080, 0x01000080,
+        0x21040000, 0x20000080, 0x00000000, 0x21000000,
+        0x01040080, 0x01000000, 0x21000000, 0x00040080,
+        0x00040000, 0x21000080, 0x00000080, 0x01000000,
+        0x20000000, 0x01040000, 0x21000080, 0x20040080,
+        0x01000080, 0x20000000, 0x21040000, 0x01040080,
+        0x20040080, 0x00000080, 0x01000000, 0x21040000,
+        0x21040080, 0x00040080, 0x21000000, 0x21040080,
+        0x01040000, 0x00000000, 0x20040000, 0x21000000,
+        0x00040080, 0x01000080, 0x20000080, 0x00040000,
+        0x00000000, 0x20040000, 0x01040080, 0x20000080
 };
 
 static
-Word s_p5[64] =
-{ /* Combined S-Box6 and permutation P */
-0x10000008, 0x10200000, 0x00002000, 0x10202008,
-0x10200000, 0x00000008, 0x10202008, 0x00200000,
-0x10002000, 0x00202008, 0x00200000, 0x10000008,
-0x00200008, 0x10002000, 0x10000000, 0x00002008,
-0x00000000, 0x00200008, 0x10002008, 0x00002000,
-0x00202000, 0x10002008, 0x00000008, 0x10200008,
-0x10200008, 0x00000000, 0x00202008, 0x10202000,
-0x00002008, 0x00202000, 0x10202000, 0x10000000,
-0x10002000, 0x00000008, 0x10200008, 0x00202000,
-0x10202008, 0x00200000, 0x00002008, 0x10000008,
-0x00200000, 0x10002000, 0x10000000, 0x00002008,
-0x10000008, 0x10202008, 0x00202000, 0x10200000,
-0x00202008, 0x10202000, 0x00000000, 0x10200008,
-0x00000008, 0x00002000, 0x10200000, 0x00202008,
-0x00002000, 0x00200008, 0x10002008, 0x00000000,
-0x10202000, 0x10000000, 0x00200008, 0x10002008
+Word s_p5[64] = {               /* Combined S-Box6 and permutation P */
+        0x10000008, 0x10200000, 0x00002000, 0x10202008,
+        0x10200000, 0x00000008, 0x10202008, 0x00200000,
+        0x10002000, 0x00202008, 0x00200000, 0x10000008,
+        0x00200008, 0x10002000, 0x10000000, 0x00002008,
+        0x00000000, 0x00200008, 0x10002008, 0x00002000,
+        0x00202000, 0x10002008, 0x00000008, 0x10200008,
+        0x10200008, 0x00000000, 0x00202008, 0x10202000,
+        0x00002008, 0x00202000, 0x10202000, 0x10000000,
+        0x10002000, 0x00000008, 0x10200008, 0x00202000,
+        0x10202008, 0x00200000, 0x00002008, 0x10000008,
+        0x00200000, 0x10002000, 0x10000000, 0x00002008,
+        0x10000008, 0x10202008, 0x00202000, 0x10200000,
+        0x00202008, 0x10202000, 0x00000000, 0x10200008,
+        0x00000008, 0x00002000, 0x10200000, 0x00202008,
+        0x00002000, 0x00200008, 0x10002008, 0x00000000,
+        0x10202000, 0x10000000, 0x00200008, 0x10002008
 };
 
 static
-Word s_p6[64] =
-{ /* Combined S-Box7 and permutation P */
-0x00100000, 0x02100001, 0x02000401, 0x00000000,
-0x00000400, 0x02000401, 0x00100401, 0x02100400,
-0x02100401, 0x00100000, 0x00000000, 0x02000001,
-0x00000001, 0x02000000, 0x02100001, 0x00000401,
-0x02000400, 0x00100401, 0x00100001, 0x02000400,
-0x02000001, 0x02100000, 0x02100400, 0x00100001,
-0x02100000, 0x00000400, 0x00000401, 0x02100401,
-0x00100400, 0x00000001, 0x02000000, 0x00100400,
-0x02000000, 0x00100400, 0x00100000, 0x02000401,
-0x02000401, 0x02100001, 0x02100001, 0x00000001,
-0x00100001, 0x02000000, 0x02000400, 0x00100000,
-0x02100400, 0x00000401, 0x00100401, 0x02100400,
-0x00000401, 0x02000001, 0x02100401, 0x02100000,
-0x00100400, 0x00000000, 0x00000001, 0x02100401,
-0x00000000, 0x00100401, 0x02100000, 0x00000400,
-0x02000001, 0x02000400, 0x00000400, 0x00100001
+Word s_p6[64] = {               /* Combined S-Box7 and permutation P */
+        0x00100000, 0x02100001, 0x02000401, 0x00000000,
+        0x00000400, 0x02000401, 0x00100401, 0x02100400,
+        0x02100401, 0x00100000, 0x00000000, 0x02000001,
+        0x00000001, 0x02000000, 0x02100001, 0x00000401,
+        0x02000400, 0x00100401, 0x00100001, 0x02000400,
+        0x02000001, 0x02100000, 0x02100400, 0x00100001,
+        0x02100000, 0x00000400, 0x00000401, 0x02100401,
+        0x00100400, 0x00000001, 0x02000000, 0x00100400,
+        0x02000000, 0x00100400, 0x00100000, 0x02000401,
+        0x02000401, 0x02100001, 0x02100001, 0x00000001,
+        0x00100001, 0x02000000, 0x02000400, 0x00100000,
+        0x02100400, 0x00000401, 0x00100401, 0x02100400,
+        0x00000401, 0x02000001, 0x02100401, 0x02100000,
+        0x00100400, 0x00000000, 0x00000001, 0x02100401,
+        0x00000000, 0x00100401, 0x02100000, 0x00000400,
+        0x02000001, 0x02000400, 0x00000400, 0x00100001
 };
 
 static
-Word s_p7[64] =
-{ /* Combined S-Box8 and permutation P */
-0x08000820, 0x00000800, 0x00020000, 0x08020820,
-0x08000000, 0x08000820, 0x00000020, 0x08000000,
-0x00020020, 0x08020000, 0x08020820, 0x00020800,
-0x08020800, 0x00020820, 0x00000800, 0x00000020,
-0x08020000, 0x08000020, 0x08000800, 0x00000820,
-0x00020800, 0x00020020, 0x08020020, 0x08020800,
-0x00000820, 0x00000000, 0x00000000, 0x08020020,
-0x08000020, 0x08000800, 0x00020820, 0x00020000,
-0x00020820, 0x00020000, 0x08020800, 0x00000800,
-0x00000020, 0x08020020, 0x00000800, 0x00020820,
-0x08000800, 0x00000020, 0x08000020, 0x08020000,
-0x08020020, 0x08000000, 0x00020000, 0x08000820,
-0x00000000, 0x08020820, 0x00020020, 0x08000020,
-0x08020000, 0x08000800, 0x08000820, 0x00000000,
-0x08020820, 0x00020800, 0x00020800, 0x00000820,
-0x00000820, 0x00020020, 0x08000000, 0x08020800
+Word s_p7[64] = {               /* Combined S-Box8 and permutation P */
+        0x08000820, 0x00000800, 0x00020000, 0x08020820,
+        0x08000000, 0x08000820, 0x00000020, 0x08000000,
+        0x00020020, 0x08020000, 0x08020820, 0x00020800,
+        0x08020800, 0x00020820, 0x00000800, 0x00000020,
+        0x08020000, 0x08000020, 0x08000800, 0x00000820,
+        0x00020800, 0x00020020, 0x08020020, 0x08020800,
+        0x00000820, 0x00000000, 0x00000000, 0x08020020,
+        0x08000020, 0x08000800, 0x00020820, 0x00020000,
+        0x00020820, 0x00020000, 0x08020800, 0x00000800,
+        0x00000020, 0x08020020, 0x00000800, 0x00020820,
+        0x08000800, 0x00000020, 0x08000020, 0x08020000,
+        0x08020020, 0x08000000, 0x00020000, 0x08000820,
+        0x00000000, 0x08020820, 0x00020020, 0x08000020,
+        0x08020000, 0x08000800, 0x08000820, 0x00000000,
+        0x08020820, 0x00020800, 0x00020800, 0x00000820,
+        0x00000820, 0x00020020, 0x08000000, 0x08020800
 };
 
 #define INITIAL_PERMUTATION(t, regL, regR) \
@@ -482,20 +474,20 @@ Word s_p7[64] =
 #define PC2(regC, regD, k) \
         PC2_AUX(regC, regD, k[0], k[1])
 
-unsigned char G_padChar = (char) 0; /* Default pad charcater */
+unsigned char G_padChar = (char)0;      /* Default pad charcater */
 
-static Word ROTATE_LEFT(Word x) 
+static Word ROTATE_LEFT(Word x)
 {
-	Word	a;
-	a = (x & 0x80000000) >> 27;
-	return (x << 1) | a;
+        Word a;
+        a = (x & 0x80000000) >> 27;
+        return (x << 1) | a;
 }
 
-static Word ROTATE_RIGHT(Word x) 
+static Word ROTATE_RIGHT(Word x)
 {
-	Word	a;
-	a = x & 0x00000010;
-	return (x >> 1) | (a << 27);
+        Word a;
+        a = x & 0x00000010;
+        return (x >> 1) | (a << 27);
 }
 
 /*
@@ -529,7 +521,6 @@ static Word ROTATE_RIGHT(Word x)
     FINAL_PERMUTATION(r, l, t); \
 }
 
-
 #define MAKE_LITTLE_ENDIAN(t, s) \
 { \
     register unsigned int z, l = s/4; \
@@ -537,7 +528,7 @@ static Word ROTATE_RIGHT(Word x)
     for(z = 0; z < l; ++z) tp[z] = htonl(tp[z]); \
 }
 
-#else /* WORDS_BIGENDIAN */
+#else                           /* WORDS_BIGENDIAN */
 
 #define DES(t, ik) \
 { \
@@ -561,256 +552,284 @@ static Word ROTATE_RIGHT(Word x)
     FINAL_PERMUTATION(r, l, t); \
 }
 
-#endif /* WORDS_BIGENDIAN */
+#endif                          /* WORDS_BIGENDIAN */
 
 int
-qfDES(unsigned char	*key,
-      unsigned char	*data,
-      unsigned int 	 size,
-const QFDES_what   	 what,
-const QFDES_mode   	 mode,
-      unsigned char	*initVec)
+qfDES(unsigned char *key,
+      unsigned char *data,
+      unsigned int size,
+      const QFDES_what what, const QFDES_mode mode, unsigned char *initVec)
 {
-    /* Store some info to optimise for multiple calls ... */
-    static unsigned char desKey[8], desKeys[128];
-    static Word 	*oldKey = (Word *) desKey,
-         		*keys   = (Word *) desKeys;
-    static QFDES_what 	oldWhat;
-    static QFDES_mode 	oldMode;
-    unsigned char 	b0[8], b1[8]; /* feedback blocks */
-    Word 		*newKey = (Word *) key, /* key from user */
-         		*text,                  /* text to be [en|de]crypted */
-         		*cb     = (Word *) b0,  /* the chained block in CBC mode */
-         		*cb1    = (Word *) b1;  /* a copy for use when decrypting */
+        /* Store some info to optimise for multiple calls ... */
+        static unsigned char desKey[8], desKeys[128];
+        static Word *oldKey = (Word *) desKey, *keys = (Word *) desKeys;
+        static QFDES_what oldWhat;
+        static QFDES_mode oldMode;
+        unsigned char b0[8], b1[8];     /* feedback blocks */
+        Word *newKey = (Word *) key,    /* key from user */
+            *text,              /* text to be [en|de]crypted */
+            *cb = (Word *) b0,  /* the chained block in CBC mode */
+            *cb1 = (Word *) b1; /* a copy for use when decrypting */
 
 #if !defined(WORDS_BIGENDIAN)
-    unsigned int origSize = size;
-    MAKE_LITTLE_ENDIAN(key, 8);
-    MAKE_LITTLE_ENDIAN(data, origSize);
+        unsigned int origSize = size;
+        MAKE_LITTLE_ENDIAN(key, 8);
+        MAKE_LITTLE_ENDIAN(data, origSize);
 #endif
 
-    /*
-    ** Check new key against old key
-    ** and set up intermediate keys.
-    */
-    if (newKey[0] != oldKey[0] || newKey[1] != oldKey[1]) {
-        Word c, d;  /* C and D registers */
-
-        oldKey[0] = newKey[0]; oldKey[1] = newKey[1];
-        oldWhat   = what;
-        oldMode   = mode;
-
-        PC1(newKey, c, d);
-
-        if ((what == qfDES_encrypt) || (mode == qfDES_cfb) || (mode == qfDES_ofb)) {
-		int 	 z;
-		Word	 r; 
-		Word	*k = keys; 
-		Word 	 rol[16] = {1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
-
-		for(z = 0; z < 16; z++, k += 2) { 
-			for (r = 0; r < rol[z]; r++) {
-				c = ROTATE_LEFT(c); 
-				d = ROTATE_LEFT(d);
-			}
-			PC2(c, d, k); 
-		}
-        } else {
-		int 	 z;
-		Word	 r; 
-		Word	*k = keys; 
-		Word 	 ror[16] = {0, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1};
-
-		for(z = 0; z < 16; z++, k += 2) { 
-			r = 0;
-			while (ror[z] > r) {
-				r++;
-				c = ROTATE_RIGHT(c); 
-				d = ROTATE_RIGHT(d);
-			}
-			PC2(c, d, k); 
-		} 
-	}
-    } else if ((what != oldWhat) && ((mode == qfDES_ecb) || (mode == qfDES_cbc))) {
         /*
-        ** Same key but different direction.
-        ** Reverse intermediate key sequence (ECB and CBC).
-        */
-        Word *ik1, *ik2, ik3[2];
+         ** Check new key against old key
+         ** and set up intermediate keys.
+         */
+        if (newKey[0] != oldKey[0] || newKey[1] != oldKey[1]) {
+                Word c, d;      /* C and D registers */
 
-        for(ik1 = keys, ik2 = &(keys[30]); ik1 < ik2; ik1 += 2, ik2 -= 2) {
-            ik3[0] = ik1[0]; ik3[1] = ik1[1];
-            ik1[0] = ik2[0]; ik1[1] = ik2[1];
-            ik2[0] = ik3[0]; ik2[1] = ik3[1];
+                oldKey[0] = newKey[0];
+                oldKey[1] = newKey[1];
+                oldWhat = what;
+                oldMode = mode;
+
+                PC1(newKey, c, d);
+
+                if ((what == qfDES_encrypt) || (mode == qfDES_cfb)
+                    || (mode == qfDES_ofb)) {
+                        int z;
+                        Word r;
+                        Word *k = keys;
+                        Word rol[16] =
+                            { 1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1 };
+
+                        for (z = 0; z < 16; z++, k += 2) {
+                                for (r = 0; r < rol[z]; r++) {
+                                        c = ROTATE_LEFT(c);
+                                        d = ROTATE_LEFT(d);
+                                }
+                                PC2(c, d, k);
+                        }
+                } else {
+                        int z;
+                        Word r;
+                        Word *k = keys;
+                        Word ror[16] =
+                            { 0, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1 };
+
+                        for (z = 0; z < 16; z++, k += 2) {
+                                r = 0;
+                                while (ror[z] > r) {
+                                        r++;
+                                        c = ROTATE_RIGHT(c);
+                                        d = ROTATE_RIGHT(d);
+                                }
+                                PC2(c, d, k);
+                        }
+                }
+        } else if ((what != oldWhat)
+                   && ((mode == qfDES_ecb) || (mode == qfDES_cbc))) {
+                /*
+                 ** Same key but different direction.
+                 ** Reverse intermediate key sequence (ECB and CBC).
+                 */
+                Word *ik1, *ik2, ik3[2];
+
+                for (ik1 = keys, ik2 = &(keys[30]); ik1 < ik2;
+                     ik1 += 2, ik2 -= 2) {
+                        ik3[0] = ik1[0];
+                        ik3[1] = ik1[1];
+                        ik1[0] = ik2[0];
+                        ik1[1] = ik2[1];
+                        ik2[0] = ik3[0];
+                        ik2[1] = ik3[1];
+                }
+
+                oldWhat = what;
         }
 
-        oldWhat = what;
-    }
+        /* Set up initilaisation vector */
+        if (mode != qfDES_ecb) {
+                if (initVec) {
+                        {
+                                cb[0] = ((Word *) initVec)[0];
+                                cb[1] = ((Word *) initVec)[1];
+                        }
+                } else {
+                        cb[0] = 0;
+                        cb[1] = 0;
+                }
+#if !defined(WORDS_BIGENDIAN)
+                MAKE_LITTLE_ENDIAN(cb, 8);
+#endif
+        }
 
-    /* Set up initilaisation vector */
-    if (mode != qfDES_ecb) {
+        /*
+         ** Lots of gotos and code duplication follow (arrgh) but it speeds
+         ** it up a wee bit!
+         ** What would be more useful is looking more carefully at the DES
+         ** permutations to produce more efficient versions of the macros
+         ** of the "auto-generated" versions used in qfDES-aux.c.
+         */
+
+        size >>= 3;             /* this is always a multpile of 8 */
+
+        if (what == qfDES_encrypt) {
+                switch ((int)mode) {
+                case ((int)qfDES_ecb):
+                        goto _ECB_;
+                case ((int)qfDES_cbc):
+                        goto _CBC_encrypt_;
+                case ((int)qfDES_cfb):
+                        goto _CFB_encrypt_;
+                case ((int)qfDES_ofb):
+                        goto _OFB_;
+                }
+        } else {
+                switch ((int)mode) {
+                case ((int)qfDES_ecb):
+                        goto _ECB_;
+                case ((int)qfDES_cbc):
+                        goto _CBC_decrypt_;
+                case ((int)qfDES_cfb):
+                        goto _CFB_decrypt_;
+                case ((int)qfDES_ofb):
+                        goto _OFB_;
+                }
+        }
+
+ _ECB_:
+
+        /* ECB */
+        for (text = (Word *) data; size; --size, text += 2) {
+                DES(text, keys);
+        }
+
+        goto _exit_qfDES_;
+
+ _CBC_encrypt_:
+
+        /* CBC Encryption */
+        for (text = (Word *) data; size; --size, text += 2) {
+
+                /* chaining block */
+                text[0] ^= cb[0];
+                text[1] ^= cb[1];
+
+                DES(text, keys);
+
+                /* set up chaining block for next round */
+                cb[0] = text[0];
+                cb[1] = text[1];
+        }
+
+        goto _initVec_;
+
+ _CBC_decrypt_:
+
+        /* CBC Decryption */
+        for (text = (Word *) data; size; --size, text += 2) {
+
+                /* set up chaining block */
+                /*
+                 ** The decryption is done in place so I need
+                 ** to copy this text block for the next round.
+                 */
+                cb1[0] = text[0];
+                cb1[1] = text[1];
+
+                DES(text, keys);
+
+                /* chaining block for next round */
+                text[0] ^= cb[0];
+                text[1] ^= cb[1];
+
+                /*
+                 ** Copy back the saved encrypted text - this makes
+                 ** CBC decryption slower than CBC encryption.
+                 */
+                cb[0] = cb1[0];
+                cb[1] = cb1[1];
+        }
+
+        goto _initVec_;
+
+ _CFB_encrypt_:
+
+        /* CFB Encryption */
+        for (text = (Word *) data; size; --size, text += 2) {
+
+                /* use cb as the feedback block */
+                DES(cb, keys);
+
+                text[0] ^= cb[0];
+                text[1] ^= cb[1];
+
+                /* set up feedback block for next round */
+                cb[0] = text[0];
+                cb[1] = text[1];
+        }
+
+        goto _initVec_;
+
+ _CFB_decrypt_:
+
+        /* CFB Decryption */
+        for (text = (Word *) data; size; --size, text += 2) {
+
+                /* set up feedback block */
+                /*
+                 ** The decryption is done in place so I need
+                 ** to copy this text block for the next round.
+                 */
+                cb1[0] = text[0];
+                cb1[1] = text[1];
+
+                /* use cb as the feedback block */
+                DES(cb, keys);
+
+                text[0] ^= cb[0];
+                text[1] ^= cb[1];
+
+                /* set up feedback block for next round */
+                cb[0] = cb1[0];
+                cb[1] = cb1[1];
+        }
+
+        goto _initVec_;
+
+ _OFB_:
+
+        /* OFB */
+        for (text = (Word *) data; size; --size, text += 2) {
+
+                /* use cb as the feed back block */
+                DES(cb, keys);
+
+                text[0] ^= cb[0];
+                text[1] ^= cb[1];
+        }
+
+ _initVec_:
+
+        /*
+         ** Copy the final chained block back to initVec (CBC, CFB and OFB).
+         ** This allows the [en|de]cryption of large amounts of data in small
+         ** chunks.
+         */
         if (initVec) {
-            { cb[0] = ((Word *) initVec)[0]; cb[1] = ((Word *) initVec)[1]; }
-        } else {
-            cb[0] = 0;
-	    cb[1] = 0;
-	}
+                ((Word *) initVec)[0] = cb[0];
+                ((Word *) initVec)[1] = cb[1];
+
 #if !defined(WORDS_BIGENDIAN)
-        MAKE_LITTLE_ENDIAN(cb, 8);
+                MAKE_LITTLE_ENDIAN(initVec, 8);
 #endif
-    }
-
-    /*
-    ** Lots of gotos and code duplication follow (arrgh) but it speeds
-    ** it up a wee bit!
-    ** What would be more useful is looking more carefully at the DES
-    ** permutations to produce more efficient versions of the macros
-    ** of the "auto-generated" versions used in qfDES-aux.c.
-    */
-
-    size >>= 3; /* this is always a multpile of 8 */
-
-    if (what == qfDES_encrypt) {
-        switch ((int) mode) {
-        case ((int) qfDES_ecb): goto _ECB_;
-        case ((int) qfDES_cbc): goto _CBC_encrypt_;
-        case ((int) qfDES_cfb): goto _CFB_encrypt_;
-        case ((int) qfDES_ofb): goto _OFB_;
         }
-    }
-    else {
-        switch ((int) mode) {
-        case ((int) qfDES_ecb): goto _ECB_;
-        case ((int) qfDES_cbc): goto _CBC_decrypt_;
-        case ((int) qfDES_cfb): goto _CFB_decrypt_;
-        case ((int) qfDES_ofb): goto _OFB_;
-        }
-    }
 
-_ECB_:
-
-    /* ECB */
-    for(text = (Word *) data; size; --size, text += 2)
-        { DES(text, keys); }
-
-    goto _exit_qfDES_;
-
-_CBC_encrypt_:
-
-    /* CBC Encryption */
-    for(text = (Word *) data; size; --size, text += 2) {
-
-        /* chaining block */
-        text[0] ^= cb[0]; text[1] ^= cb[1];
-
-        DES(text, keys);
-
-        /* set up chaining block for next round */
-        cb[0] = text[0]; cb[1] = text[1];
-    }
-
-    goto _initVec_;
-
-_CBC_decrypt_:
-
-    /* CBC Decryption */
-    for(text = (Word *) data; size; --size, text += 2) {
-
-        /* set up chaining block */
-        /*
-        ** The decryption is done in place so I need
-        ** to copy this text block for the next round.
-        */
-        cb1[0] = text[0]; cb1[1] = text[1];
-
-        DES(text, keys);
-
-        /* chaining block for next round */
-        text[0] ^= cb[0]; text[1] ^= cb[1];
-
-        /*
-        ** Copy back the saved encrypted text - this makes
-        ** CBC decryption slower than CBC encryption.
-        */
-        cb[0] = cb1[0]; cb[1] = cb1[1];
-    }
-
-    goto _initVec_;
-
-_CFB_encrypt_:
-
-    /* CFB Encryption */
-    for(text = (Word *) data; size; --size, text += 2) {
-
-        /* use cb as the feedback block */
-        DES(cb, keys);
-
-        text[0] ^= cb[0]; text[1] ^= cb[1];
-
-        /* set up feedback block for next round */
-        cb[0] = text[0]; cb[1] = text[1];
-    }
-
-    goto _initVec_;
-
-_CFB_decrypt_:
-
-    /* CFB Decryption */
-    for(text = (Word *) data; size; --size, text += 2) {
-
-        /* set up feedback block */
-        /*
-        ** The decryption is done in place so I need
-        ** to copy this text block for the next round.
-        */
-        cb1[0] = text[0]; cb1[1] = text[1];
-
-        /* use cb as the feedback block */
-        DES(cb, keys);
-
-        text[0] ^= cb[0]; text[1] ^= cb[1];
-
-        /* set up feedback block for next round */
-        cb[0] = cb1[0]; cb[1] = cb1[1];
-    }
-
-    goto _initVec_;
-
-_OFB_:
-
-    /* OFB */
-    for(text = (Word *) data; size; --size, text += 2) {
-
-        /* use cb as the feed back block */
-        DES(cb, keys);
-
-        text[0] ^= cb[0]; text[1] ^= cb[1];
-    }
-
-_initVec_:
-
-    /*
-    ** Copy the final chained block back to initVec (CBC, CFB and OFB).
-    ** This allows the [en|de]cryption of large amounts of data in small
-    ** chunks.
-    */
-    if (initVec) {
-        ((Word *) initVec)[0] = cb[0];
-        ((Word *) initVec)[1] = cb[1];
+ _exit_qfDES_:
 
 #if !defined(WORDS_BIGENDIAN)
-        MAKE_LITTLE_ENDIAN(initVec, 8);
-#endif
-    }
-
-_exit_qfDES_:
-
-#if !defined(WORDS_BIGENDIAN)
-    MAKE_LITTLE_ENDIAN(key, 8);
-    MAKE_LITTLE_ENDIAN(data, origSize);
+        MAKE_LITTLE_ENDIAN(key, 8);
+        MAKE_LITTLE_ENDIAN(data, origSize);
 #endif
 
-    return 0;
+        return 0;
 }
 
 /*
@@ -820,55 +839,60 @@ _exit_qfDES_:
 ** it may be useful to someone.
 */
 
-void qfDES_setParity(unsigned char *ptr, unsigned int size, const QFDES_parity parity)
+void qfDES_setParity(unsigned char *ptr, unsigned int size,
+                     const QFDES_parity parity)
 {
-    unsigned int i, mask, bits;
+        unsigned int i, mask, bits;
 
-    for(i = 0; i < size; ++i, ++ptr) {
-        for(mask = 0x80, bits = 0; mask > 0x01; mask >>= 1)
-            if (((unsigned int) *ptr) & mask) ++bits;
+        for (i = 0; i < size; ++i, ++ptr) {
+                for (mask = 0x80, bits = 0; mask > 0x01; mask >>= 1)
+                        if (((unsigned int)*ptr) & mask)
+                                ++bits;
 
-        *ptr |= bits % 2 == (unsigned int) parity ? 0x00 : 0x01;
-    }
+                *ptr |= bits % 2 == (unsigned int)parity ? 0x00 : 0x01;
+        }
 }
 
-unsigned int qfDES_checkParity(unsigned char *ptr, unsigned int size, const QFDES_parity parity)
+unsigned int qfDES_checkParity(unsigned char *ptr, unsigned int size,
+                               const QFDES_parity parity)
 {
-    unsigned int i, mask, bits, parityBit, parityErrors = 0;
+        unsigned int i, mask, bits, parityBit, parityErrors = 0;
 
-    for(i = 0; i < size; ++i, ++ptr) {
-        for(mask = 0x80, bits = 0; mask > 0x01; mask >>= 1)
-            if (((unsigned int) *ptr) & mask) ++bits;
+        for (i = 0; i < size; ++i, ++ptr) {
+                for (mask = 0x80, bits = 0; mask > 0x01; mask >>= 1)
+                        if (((unsigned int)*ptr) & mask)
+                                ++bits;
 
-        parityBit = bits % 2 == (unsigned int) parity ? 0 : 1;
+                parityBit = bits % 2 == (unsigned int)parity ? 0 : 1;
 
-        if ((((unsigned int) *ptr) & 0x1) != parityBit)
-            ++parityErrors;
-    }
+                if ((((unsigned int)*ptr) & 0x1) != parityBit)
+                        ++parityErrors;
+        }
 
-    return parityErrors;
+        return parityErrors;
 }
 
 static
 unsigned char weakKeys[18][8] =
-{{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
- {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
- {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
- {0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe},
- {0x1f, 0x1f, 0x1f, 0x1f, 0x0e, 0x0e, 0x0e, 0x0e},
- {0xe0, 0xe0, 0xe0, 0xe0, 0xf1, 0xf1, 0xf1, 0xf1},
- {0x01, 0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x01, 0xfe},
- {0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x01},
- {0x1f, 0xe0, 0x1f, 0xe0, 0x0e, 0xf1, 0x0e, 0xf1},
- {0xe0, 0x1f, 0xe0, 0x1f, 0xf1, 0x0e, 0xf1, 0x0e},
- {0x01, 0xe0, 0x01, 0xe0, 0x01, 0xf1, 0x01, 0xf1},
- {0xe0, 0x01, 0xe0, 0x01, 0xf1, 0x01, 0xf1, 0x01},
- {0x1f, 0xfe, 0x1f, 0xfe, 0x0e, 0xfe, 0x0e, 0xfe},
- {0xfe, 0x1f, 0xfe, 0x1f, 0xfe, 0x0e, 0xfe, 0x0e},
- {0x01, 0x1f, 0x01, 0x1f, 0x01, 0x0e, 0x01, 0x0e},
- {0x1f, 0x01, 0x1f, 0x01, 0x0e, 0x01, 0x0e, 0x01},
- {0xe0, 0xfe, 0xe0, 0xfe, 0xf1, 0xfe, 0xf1, 0xfe},
- {0xfe, 0xe0, 0xfe, 0xe0, 0xfe, 0xf1, 0xfe, 0xf1}};
+    { {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+{0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11},
+{0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+{0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe},
+{0x1f, 0x1f, 0x1f, 0x1f, 0x0e, 0x0e, 0x0e, 0x0e},
+{0xe0, 0xe0, 0xe0, 0xe0, 0xf1, 0xf1, 0xf1, 0xf1},
+{0x01, 0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x01, 0xfe},
+{0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x01, 0xfe, 0x01},
+{0x1f, 0xe0, 0x1f, 0xe0, 0x0e, 0xf1, 0x0e, 0xf1},
+{0xe0, 0x1f, 0xe0, 0x1f, 0xf1, 0x0e, 0xf1, 0x0e},
+{0x01, 0xe0, 0x01, 0xe0, 0x01, 0xf1, 0x01, 0xf1},
+{0xe0, 0x01, 0xe0, 0x01, 0xf1, 0x01, 0xf1, 0x01},
+{0x1f, 0xfe, 0x1f, 0xfe, 0x0e, 0xfe, 0x0e, 0xfe},
+{0xfe, 0x1f, 0xfe, 0x1f, 0xfe, 0x0e, 0xfe, 0x0e},
+{0x01, 0x1f, 0x01, 0x1f, 0x01, 0x0e, 0x01, 0x0e},
+{0x1f, 0x01, 0x1f, 0x01, 0x0e, 0x01, 0x0e, 0x01},
+{0xe0, 0xfe, 0xe0, 0xfe, 0xf1, 0xfe, 0xf1, 0xfe},
+{0xfe, 0xe0, 0xfe, 0xe0, 0xfe, 0xf1, 0xfe, 0xf1}
+};
 
 /*
 ** Although this is really only used by the key generation function below,
@@ -877,13 +901,14 @@ unsigned char weakKeys[18][8] =
 
 int qfDES_checkWeakKeys(unsigned char *key)
 {
-    unsigned char *bp;
-    int i;
+        unsigned char *bp;
+        int i;
 
-    for(bp = weakKeys[i = 0]; i < 18; bp = weakKeys[++i])
-        if (memcmp((void *) key, (void *) bp, 8) == 0) return -1;
+        for (bp = weakKeys[i = 0]; i < 18; bp = weakKeys[++i])
+                if (memcmp((void *)key, (void *)bp, 8) == 0)
+                        return -1;
 
-    return 0;
+        return 0;
 }
 
 /*
@@ -895,34 +920,35 @@ int qfDES_checkWeakKeys(unsigned char *key)
 
 unsigned char *qfDES_generate(const QFDES_generate what)
 {
-    static
-    unsigned char buffer[8];
-    static
-    int flag = 0;
+        static
+        unsigned char buffer[8];
+        static
+        int flag = 0;
 
-    unsigned char *bp;
-    int mask = what == qfDES_key ? 0xfe : 0xff;
+        unsigned char *bp;
+        int mask = what == qfDES_key ? 0xfe : 0xff;
 
-    /* Set up a seed - 42 is the answer ... */
-    if (!flag) {
-        lbl_srandom((int) (getpid() * 42) ^ (int) time((time_t *) 0));
-        flag = 1;
-    }
-    do {
+        /* Set up a seed - 42 is the answer ... */
+        if (!flag) {
+                lbl_srandom((int)(getpid() * 42) ^ (int)time((time_t *) 0));
+                flag = 1;
+        }
+        do {
 
-        for(bp = buffer; bp <= &(buffer[7]); *bp++ = (unsigned char) (lbl_random() & mask));
+                for (bp = buffer; bp <= &(buffer[7]);
+                     *bp++ = (unsigned char)(lbl_random() & mask)) ;
 
-        if (what ==  qfDES_key)
-            qfDES_setParity(buffer, 8, qfDES_odd);
+                if (what == qfDES_key)
+                        qfDES_setParity(buffer, 8, qfDES_odd);
 
-    } while(what == qfDES_key ? qfDES_checkWeakKeys(buffer) : 0);
+        } while (what == qfDES_key ? qfDES_checkWeakKeys(buffer) : 0);
 
-    return buffer;
+        return buffer;
 }
 
-unsigned char
-qfDES_setPad(unsigned char pad)
-{ 
-    unsigned char b = G_padChar; G_padChar = pad; return b; 
+unsigned char qfDES_setPad(unsigned char pad)
+{
+        unsigned char b = G_padChar;
+        G_padChar = pad;
+        return b;
 }
-

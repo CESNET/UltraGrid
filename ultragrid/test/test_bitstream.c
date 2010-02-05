@@ -43,54 +43,54 @@
 
 #define BUFSIZE 10
 
-int 
-test_bitstream(void)
+int test_bitstream(void)
 {
-	bitstream_t	*bs;
-	u_char		*buffer;
-	int		 buflen;
+        bitstream_t *bs;
+        u_char *buffer;
+        int buflen;
 
-	printf("Testing bitstreams ....................................................... "); fflush(stdout);
+        printf
+            ("Testing bitstreams ....................................................... ");
+        fflush(stdout);
 
-	buffer = malloc(BUFSIZE);
-	if (buffer == NULL) {
-		printf("FAIL\n");
-		return 1;
-	}
-	buflen = BUFSIZE;
+        buffer = malloc(BUFSIZE);
+        if (buffer == NULL) {
+                printf("FAIL\n");
+                return 1;
+        }
+        buflen = BUFSIZE;
 
-	bs_create(&bs);
-	bs_attach(bs, buffer, buflen);
-	bs_put(bs, 0x0f, 4);
-	bs_put(bs, 0x01, 1);
-	bs_put(bs, 0x02, 3);
-	bs_put(bs, 0xa8, 8);
-	bs_put(bs, 0xff, 1);
-	if (buffer[0] != 0xfa) {
-		printf("FAIL\n");
-		printf("  buffer[0] = 0x%02x\n", buffer[0]);
-		return 1;
-	}
-	if (buffer[1] != 0xa8) {
-		printf("FAIL\n");
-		printf("  buffer[1] = 0x%02x\n", buffer[1]);
-		return 1;
-	}
-	if (buffer[2] != 0x80) {
-		printf("FAIL\n");
-		printf("  buffer[2] = 0x%02x\n", buffer[2]);
-		return 1;
-	}
-	bs_put(bs, 0x01, 7);
-	if (buffer[2] != 0x81) {
-		printf("FAIL\n");
-		printf("  buffer[2] = 0x%02x\n", buffer[2]);
-		return 1;
-	}
+        bs_create(&bs);
+        bs_attach(bs, buffer, buflen);
+        bs_put(bs, 0x0f, 4);
+        bs_put(bs, 0x01, 1);
+        bs_put(bs, 0x02, 3);
+        bs_put(bs, 0xa8, 8);
+        bs_put(bs, 0xff, 1);
+        if (buffer[0] != 0xfa) {
+                printf("FAIL\n");
+                printf("  buffer[0] = 0x%02x\n", buffer[0]);
+                return 1;
+        }
+        if (buffer[1] != 0xa8) {
+                printf("FAIL\n");
+                printf("  buffer[1] = 0x%02x\n", buffer[1]);
+                return 1;
+        }
+        if (buffer[2] != 0x80) {
+                printf("FAIL\n");
+                printf("  buffer[2] = 0x%02x\n", buffer[2]);
+                return 1;
+        }
+        bs_put(bs, 0x01, 7);
+        if (buffer[2] != 0x81) {
+                printf("FAIL\n");
+                printf("  buffer[2] = 0x%02x\n", buffer[2]);
+                return 1;
+        }
 
-	bs_destroy(&bs);
+        bs_destroy(&bs);
 
-	printf("Ok\n");
-	return 0;
+        printf("Ok\n");
+        return 0;
 }
-

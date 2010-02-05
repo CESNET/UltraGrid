@@ -53,76 +53,69 @@
 #define MAGIC_NULL	0x17bad83f
 
 struct state_null {
-	uint32_t	magic;
+        uint32_t magic;
 };
 
-void *
-display_null_init(void)
+void *display_null_init(void)
 {
-	struct state_null *s;
+        struct state_null *s;
 
-	s = (struct state_null *) malloc(sizeof(struct state_null));
-	if (s != NULL) {
-		s->magic = MAGIC_NULL;
-	}
-	return s;
+        s = (struct state_null *)malloc(sizeof(struct state_null));
+        if (s != NULL) {
+                s->magic = MAGIC_NULL;
+        }
+        return s;
 }
 
-void
-display_null_done(void *state)
+void display_null_done(void *state)
 {
-	struct state_null *s = (struct state_null *) state;
-	assert(s->magic == MAGIC_NULL);
-	free(s);
+        struct state_null *s = (struct state_null *)state;
+        assert(s->magic == MAGIC_NULL);
+        free(s);
 }
 
-char *
-display_null_getf(void *state)
+char *display_null_getf(void *state)
 {
-	struct state_null *s = (struct state_null *) state;
-	assert(s->magic == MAGIC_NULL);
-	return NULL;
+        struct state_null *s = (struct state_null *)state;
+        assert(s->magic == MAGIC_NULL);
+        return NULL;
 }
 
-int
-display_null_putf(void *state, char *frame)
+int display_null_putf(void *state, char *frame)
 {
-	struct state_null *s = (struct state_null *) state;
-	assert(s->magic == MAGIC_NULL);
-	UNUSED(frame);
-	return 0;
+        struct state_null *s = (struct state_null *)state;
+        assert(s->magic == MAGIC_NULL);
+        UNUSED(frame);
+        return 0;
 }
 
-display_colour_t
-display_null_colour(void *state)
+display_colour_t display_null_colour(void *state)
 {
-	struct state_null *s = (struct state_null *) state;
-	assert(s->magic == MAGIC_NULL);
-	return DC_NONE;
+        struct state_null *s = (struct state_null *)state;
+        assert(s->magic == MAGIC_NULL);
+        return DC_NONE;
 }
 
-display_type_t *
-display_null_probe(void)
+display_type_t *display_null_probe(void)
 {
-	display_type_t		*dt;
-	display_format_t	*df;
+        display_type_t *dt;
+        display_format_t *df;
 
-	df = malloc(sizeof(display_format_t));
-	if (df == NULL) {
-		return NULL;
-	}
-	df->size        = DS_NONE;
-	df->colour_mode = DC_NONE;
-	df->num_images  = 0;
+        df = malloc(sizeof(display_format_t));
+        if (df == NULL) {
+                return NULL;
+        }
+        df->size = DS_NONE;
+        df->colour_mode = DC_NONE;
+        df->num_images = 0;
 
-	dt = malloc(sizeof(display_type_t));
-	if (dt != NULL) {
-		dt->id	        = DISPLAY_NULL_ID;
-		dt->name        = "none";
-		dt->description = "No display device";
-		dt->formats     = df;
-		dt->num_formats = 1;
-	}
-	return dt;
+        dt = malloc(sizeof(display_type_t));
+        if (dt != NULL) {
+                dt->id = DISPLAY_NULL_ID;
+                dt->name = "none";
+                dt->description = "No display device";
+                dt->formats = df;
+                dt->num_formats = 1;
+        }
+        return dt;
 }
-

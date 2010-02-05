@@ -51,14 +51,13 @@
 #include "crypto/random.h"
 #include "tv.h"
 
-uint32_t
-get_local_mediatime(void)
+uint32_t get_local_mediatime(void)
 {
-        static struct timeval   start_time;
-        static uint32_t         random_offset;
-        static int              first = 0;
-        
-        struct timeval          curr_time;
+        static struct timeval start_time;
+        static uint32_t random_offset;
+        static int first = 0;
+
+        struct timeval curr_time;
 
         if (first == 0) {
                 gettimeofday(&start_time, NULL);
@@ -70,41 +69,39 @@ get_local_mediatime(void)
         return (tv_diff(curr_time, start_time) * 90000) + random_offset;
 }
 
-
-double 
-tv_diff(struct timeval curr_time, struct timeval prev_time)
+double tv_diff(struct timeval curr_time, struct timeval prev_time)
 {
-    /* Return (curr_time - prev_time) in seconds */
-    double      ct, pt;
+        /* Return (curr_time - prev_time) in seconds */
+        double ct, pt;
 
-    ct = (double) curr_time.tv_sec + (((double) curr_time.tv_usec) / 1000000.0);
-    pt = (double) prev_time.tv_sec + (((double) prev_time.tv_usec) / 1000000.0);
-    return (ct - pt);
+        ct = (double)curr_time.tv_sec +
+            (((double)curr_time.tv_usec) / 1000000.0);
+        pt = (double)prev_time.tv_sec +
+            (((double)prev_time.tv_usec) / 1000000.0);
+        return (ct - pt);
 }
 
-uint32_t
-tv_diff_usec (struct timeval curr_time, struct timeval prev_time)
-{	
-	/* Return curr_time - prev_time in usec - i wonder if these numbers will be too big?*/
-	uint32_t tmp, tmp1, tmp2;
+uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time)
+{
+        /* Return curr_time - prev_time in usec - i wonder if these numbers will be too big? */
+        uint32_t tmp, tmp1, tmp2;
 
-	/* We return an unsigned, so fail is prev_time is later than curr_time */
-	assert(curr_time.tv_sec >= prev_time.tv_sec);
-	if (curr_time.tv_sec == prev_time.tv_sec) {
-		assert(curr_time.tv_usec >= prev_time.tv_usec);
-	}
+        /* We return an unsigned, so fail is prev_time is later than curr_time */
+        assert(curr_time.tv_sec >= prev_time.tv_sec);
+        if (curr_time.tv_sec == prev_time.tv_sec) {
+                assert(curr_time.tv_usec >= prev_time.tv_usec);
+        }
 
-	tmp1 = (curr_time.tv_sec - prev_time.tv_sec)*((uint32_t)1000000);
+        tmp1 = (curr_time.tv_sec - prev_time.tv_sec) * ((uint32_t) 1000000);
         tmp2 = curr_time.tv_usec - prev_time.tv_usec;
-        tmp  = tmp1+tmp2;
+        tmp = tmp1 + tmp2;
 
-	return tmp;
+        return tmp;
 }
 
-void 
-tv_add(struct timeval *ts, double offset_secs)
+void tv_add(struct timeval *ts, double offset_secs)
 {
-	unsigned int offset = (unsigned long) (offset_secs * 1000000.0);
+        unsigned int offset = (unsigned long)(offset_secs * 1000000.0);
 
         ts->tv_usec += offset;
         while (ts->tv_usec >= 1000000) {
@@ -113,8 +110,7 @@ tv_add(struct timeval *ts, double offset_secs)
         }
 }
 
-int 
-tv_gt(struct timeval a, struct timeval b)
+int tv_gt(struct timeval a, struct timeval b)
 {
         /* Returns (a>b) */
         if (a.tv_sec > b.tv_sec) {
@@ -126,4 +122,3 @@ tv_gt(struct timeval a, struct timeval b)
         assert(a.tv_sec == b.tv_sec);
         return a.tv_usec > b.tv_usec;
 }
-

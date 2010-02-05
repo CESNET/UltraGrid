@@ -45,10 +45,10 @@
 #ifndef HAVE_VSNPRINTF
 int vsnprintf(char *s, size_t buf_size, const char *format, va_list ap)
 {
-	/* Quick hack replacement for vsnprintf... note that this */
-	/* doesn't check for buffer overflows, and so is open to  */
-	/* many really nasty attacks!                             */
-	UNUSED(buf_size);
-        return vsprintf(s,format,ap);
+        /* Quick hack replacement for vsnprintf... note that this */
+        /* doesn't check for buffer overflows, and so is open to  */
+        /* many really nasty attacks!                             */
+        UNUSED(buf_size);
+        return vsprintf(s, format, ap);
 }
 #endif

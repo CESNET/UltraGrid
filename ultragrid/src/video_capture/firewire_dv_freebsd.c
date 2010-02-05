@@ -56,93 +56,87 @@
 #include "video_capture/firewire_dv_freebsd.h"
 
 struct vidcap_dvbsd_state {
-	int	fd;	/* File descriptor for the device */
-//	int	fps;
+        int fd;                 /* File descriptor for the device */
+//      int     fps;
 };
 
-void *
-vidcap_dvbsd_init(char *fmt)
+void *vidcap_dvbsd_init(char *fmt)
 {
-	int fps = atoi(fmt); //FIXME What is fps good for?
-	struct vidcap_dvbsd_state 	*s;
-	struct fw_isochreq 		 isoreq;
-	struct fw_isobufreq		 bufreq;
+        int fps = atoi(fmt);    //FIXME What is fps good for?
+        struct vidcap_dvbsd_state *s;
+        struct fw_isochreq isoreq;
+        struct fw_isobufreq bufreq;
 
-	s = malloc(sizeof(struct vidcap_dvbsd_state));
-	if (s == NULL) {
-		return NULL;
-	}
+        s = malloc(sizeof(struct vidcap_dvbsd_state));
+        if (s == NULL) {
+                return NULL;
+        }
+//      s->fps = fps;
 
-//	s->fps = fps;
+        s->fd = open("/dev/fw0.0", O_RDWR);
+        if (s->fd < 0) {
+                perror("Unable to open /dev/fw0.0");
+                free(s);
+                return NULL;
+        }
 
-	s->fd  = open("/dev/fw0.0", O_RDWR);
-	if (s->fd < 0) {
-		perror("Unable to open /dev/fw0.0");
-		free(s);
-		return NULL;
-	}
+        bufreq.rx.nchunk = 8;
+        bufreq.rx.npacket = 256;
+        bufreq.rx.psize = 512;
+        bufreq.tx.nchunk = 0;
+        bufreq.tx.npacket = 0;
+        bufreq.tx.psize = 0;
+        if (ioctl(s->fd, FW_SSTBUF, &bufreq) < 0) {
+                perror("Unable to configure IEEE-1394 capture device");
+                close(s->fd);
+                free(s);
+                return NULL;
+        }
 
-	bufreq.rx.nchunk  = 8;
-	bufreq.rx.npacket = 256;
-	bufreq.rx.psize   = 512;
-	bufreq.tx.nchunk  = 0;
-	bufreq.tx.npacket = 0;
-	bufreq.tx.psize   = 0;
-	if (ioctl(s->fd, FW_SSTBUF, &bufreq) < 0) {
-		perror("Unable to configure IEEE-1394 capture device");
-		close(s->fd);
-		free(s);
-		return NULL;
-	}
+        isoreq.ch = 63;
+        isoreq.tag = 1 << 6;
+        if (ioctl(s->fd, FW_SRSTREAM, &isoreq) < 0) {
+                perror("Unable to start IEEE-1394 capture device");
+                close(s->fd);
+                free(s);
+                return NULL;
+        }
 
-	isoreq.ch  = 63;
-	isoreq.tag = 1<<6;
-	if (ioctl(s->fd, FW_SRSTREAM, &isoreq) < 0) {
-		perror("Unable to start IEEE-1394 capture device");
-		close(s->fd);
-		free(s);
-		return NULL;
-	}
-
-	return s;
+        return s;
 }
 
-void
-vidcap_dvbsd_done(void *state)
+void vidcap_dvbsd_done(void *state)
 {
-	struct vidcap_dvbsd_state *s = (struct vidcap_dvbsd_state *) state;
+        struct vidcap_dvbsd_state *s = (struct vidcap_dvbsd_state *)state;
 
-	assert(s != NULL);
-	close(s->fd);
-	free(s);
+        assert(s != NULL);
+        close(s->fd);
+        free(s);
 }
 
-struct video_frame *
-vidcap_dvbsd_grab(void *state)
+struct video_frame *vidcap_dvbsd_grab(void *state)
 {
-	struct vidcap_dvbsd_state *s = (struct vidcap_dvbsd_state *) state;
+        struct vidcap_dvbsd_state *s = (struct vidcap_dvbsd_state *)state;
 
-	assert(s != NULL);
+        assert(s != NULL);
 
-	return NULL;
+        return NULL;
 }
 
-struct vidcap_type *
-vidcap_dvbsd_probe(void)
+struct vidcap_type *vidcap_dvbsd_probe(void)
 {
-        struct vidcap_type      *vt;
+        struct vidcap_type *vt;
 
-        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
         if (vt != NULL) {
-                vt->id          = VIDCAP_DVBSD_ID;
-                vt->name        = "dv";
+                vt->id = VIDCAP_DVBSD_ID;
+                vt->name = "dv";
                 vt->description = "IEEE-1394/DV";
-                vt->width       = 720;		/* PAL frame size */
-                vt->height      = 576;
+                vt->width = 720;        /* PAL frame size */
+                vt->height = 576;
                 vt->colour_mode = YUV_422;
         }
         return vt;
 }
 
-#endif /* HAVE_FIREWIRE_DV_FREEBSD */
-
+#endif                          /* HAVE_FIREWIRE_DV_FREEBSD */
