@@ -62,13 +62,12 @@
 #include "video_capture.h"
 #include "video_capture/testcard.h"
 #include "host.h"
-#include "v_codec.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL/SDL.h>
 
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
-unsigned char *tov210(unsigned char *in, unsigned int width,
+unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
                       unsigned int height, double bpp);
 void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 

@@ -58,8 +58,6 @@
 #include "debug.h"
 #include "video_display.h"
 #include "video_display/null.h"
-#include "video_display/xv.h"
-#include "video_display/x11.h"
 #include "video_display/sdl.h"
 #include "video_display/hdstation.h"
 #include "video_display/gl_sdl.h"
@@ -84,24 +82,6 @@ typedef struct {
 
 static display_table_t display_device_table[] = {
 #ifndef X_DISPLAY_MISSING
-        {
-         0,
-         display_xv_probe,
-         display_xv_init,
-         display_xv_done,
-         display_xv_getf,
-         display_xv_putf,
-         display_xv_colour,
-         },
-        {
-         0,
-         display_x11_probe,
-         display_x11_init,
-         display_x11_done,
-         display_x11_getf,
-         display_x11_putf,
-         display_x11_colour,
-         },
 #ifdef HAVE_SDL
         {
          0,

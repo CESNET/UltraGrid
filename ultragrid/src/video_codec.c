@@ -296,7 +296,7 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 {
         register unsigned char *_d = dst, *_s = src;
 
-        while (len > 0) {
+        while (src_len > 0) {
 
  asm("movd %0, %%xmm4\n": :"r"(0xffffff));
 
