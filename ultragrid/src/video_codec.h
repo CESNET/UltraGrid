@@ -58,6 +58,9 @@ typedef enum {
         DVS10,
 } codec_t;
 
+typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
+typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec);
+
 
 struct video_frame {
         codec_t              color_spec;
@@ -77,8 +80,8 @@ struct video_frame {
         int                  rshift;
         int                  gshift;
         int                  bshift;
-        void                 (*decoder)(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
-        void                 (*reconfigure)(void *state, int width, int height, codec_t color_spec);
+        decoder_t            decoder;
+        reconfigure_t        reconfigure;
         void                 *state;
 };
 

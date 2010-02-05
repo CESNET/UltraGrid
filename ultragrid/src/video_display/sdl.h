@@ -57,4 +57,4 @@ void display_sdl_done (void *state);
 struct video_frame *display_sdl_getf (void *state);
 int display_sdl_putf (void *state, char *frame);
 display_colour_t display_sdl_colour (void *state);
-int display_sdl_handle_events (void *s);
+int display_sdl_handle_events (void *s, int post);

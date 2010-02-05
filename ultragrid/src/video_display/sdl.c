@@ -90,17 +90,9 @@ void NSApplicationLoad();
 
 struct state_sdl {
         Display *display;
-        Window window;
-        GC gc;
-        int vw_depth;
-        Visual *vw_visual;
         SDL_Overlay *yuv_image;
         SDL_Surface *rgb_image;
         struct video_frame frame;
-        XShmSegmentInfo vw_shm_segment[2];
-        int image_display, image_network;
-        XvAdaptorInfo *ai;
-        int xv_port;
         /* Thread related information follows... */
         pthread_t thread_id;
         SDL_sem *semaphore;
@@ -113,14 +105,7 @@ struct state_sdl {
         SDL_Surface *sdl_screen;
         SDL_Rect dst_rect;
 
-        int width;
-        int height;
-        double bpp;
-        int src_linesize;
-        int dst_linesize;
-
-        codec_t codec;
-        const struct codec_info_t *c_info;
+        const struct codec_info_t *codec_info;
         unsigned rgb:1;
         unsigned interlaced:1;
         unsigned deinterlace:1;
@@ -162,12 +147,7 @@ int display_sdl_handle_events(void *arg, int post)
 static void *display_thread_sdl(void *arg)
 {
         struct state_sdl *s = (struct state_sdl *)arg;
-        struct timeval tv, tv1;
-        int i;
-        unsigned char *buff = NULL;
-        unsigned char *line1 = NULL, *line2;
-        int linesize = 0;
-        int height = 0;
+        struct timeval tv;
 
         gettimeofday(&s->tv, NULL);
 
@@ -180,10 +160,10 @@ static void *display_thread_sdl(void *arg)
                         if (s->rgb) {
                                 /*FIXME: this will not work! Should not deinterlace whole screen, just subwindow */
                                 vc_deinterlace(s->rgb_image->pixels,
-                                               s->dst_linesize, s->height);
+                                               s->frame.dst_linesize, s->frame.height);
                         } else {
                                 vc_deinterlace(*s->yuv_image->pixels,
-                                               s->dst_linesize, s->height);
+                                               s->frame.dst_linesize, s->frame.height);
                         }
                 }
 
@@ -196,7 +176,7 @@ static void *display_thread_sdl(void *arg)
                 } else {
                         SDL_UnlockYUVOverlay(s->yuv_image);
                         SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
-                        s->frame.data = (unsigned char *)*s->yuv_image->pixels;
+                        s->frame.data = (char *)*s->yuv_image->pixels;
                 }
 
                 s->frames++;
@@ -249,8 +229,8 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         fprintf(stdout, "Reconfigure to size %dx%d\n", width, height);
 
-        s->width = width;
-        s->height = height;
+        s->frame.width = width;
+        s->frame.height = height;
 
         ret =
             XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
@@ -263,8 +243,8 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                                      SDL_FULLSCREEN | SDL_HWSURFACE |
                                      SDL_DOUBLEBUF);
         else {
-                x_res_x = s->width;
-                x_res_y = s->height;
+                x_res_x = s->frame.width;
+                x_res_y = s->frame.height;
                 s->sdl_screen =
                     SDL_SetVideoMode(x_res_x, x_res_y, 0,
                                      SDL_HWSURFACE | SDL_DOUBLEBUF);
@@ -281,15 +261,15 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if (color_spec == codec_info[i].codec) {
-                        s->c_info = &codec_info[i];
+                        s->codec_info = &codec_info[i];
                         s->rgb = codec_info[i].rgb;
-                        s->bpp = codec_info[i].bpp;
+                        s->frame.src_bpp = codec_info[i].bpp;
                 }
         }
 
         if (s->rgb == 0) {
                 s->yuv_image =
-                    SDL_CreateYUVOverlay(s->width, s->height, FOURCC_UYVY,
+                    SDL_CreateYUVOverlay(s->frame.width, s->frame.height, FOURCC_UYVY,
                                          s->sdl_screen);
                 if (s->yuv_image == NULL) {
                         printf("SDL_overlay initialization failed.\n");
@@ -298,30 +278,29 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 }
         }
 
-        int w = s->width;
+        int w = s->frame.width;
 
-        if (s->c_info->h_align) {
-                w = ((w + s->c_info->h_align -
-                      1) / s->c_info->h_align) * s->c_info->h_align;
+        if (s->codec_info->h_align) {
+                w = ((w + s->codec_info->h_align -
+                      1) / s->codec_info->h_align) * s->codec_info->h_align;
         }
 
-        s->src_linesize = w * s->bpp;
         if (s->rgb)
-                s->dst_linesize = s->width * 4;
+                s->frame.dst_linesize = s->frame.width * 4;
         else
-                s->dst_linesize = s->width * 2;
+                s->frame.dst_linesize = s->frame.width * 2;
 
-        s->dst_rect.w = s->width;
-        s->dst_rect.h = s->height;
+        s->dst_rect.w = s->frame.width;
+        s->dst_rect.h = s->frame.height;
 
-        if ((int)x_res_x > s->width) {
-                s->dst_rect.x = (x_res_x - s->width) / 2;
-        } else if ((int)x_res_x < s->width) {
+        if (x_res_x > s->frame.width) {
+                s->dst_rect.x = (x_res_x - s->frame.width) / 2;
+        } else if (x_res_x < s->frame.width) {
                 s->dst_rect.w = x_res_x;
         }
-        if ((int)x_res_y > s->height) {
-                s->dst_rect.y = (x_res_y - s->height) / 2;
-        } else if ((int)x_res_y < s->height) {
+        if (x_res_y > s->frame.height) {
+                s->dst_rect.y = (x_res_y - s->frame.height) / 2;
+        } else if (x_res_y < s->frame.height) {
                 s->dst_rect.h = x_res_y;
         }
 
@@ -331,11 +310,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.rshift = s->sdl_screen->format->Rshift;
         s->frame.gshift = s->sdl_screen->format->Gshift;
         s->frame.bshift = s->sdl_screen->format->Bshift;
-        s->frame.color_spec = s->c_info->codec;
-        s->frame.width = s->width;
-        s->frame.height = s->height;
-        s->frame.src_bpp = s->bpp;
-        s->frame.dst_linesize = s->dst_linesize;
+        s->frame.color_spec = s->codec_info->codec;
 
         if (s->rgb) {
                 s->frame.data = s->sdl_screen->pixels +
@@ -350,29 +325,29 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 s->frame.dst_bpp = s->sdl_screen->format->BytesPerPixel;
                 s->frame.dst_pitch = s->sdl_screen->pitch;
         } else {
-                s->frame.data = (unsigned char *)*s->yuv_image->pixels;
-                s->frame.data_len = s->width * s->height * 2;
+                s->frame.data = (char *)*s->yuv_image->pixels;
+                s->frame.data_len = s->frame.width * s->frame.height * 2;
                 s->frame.dst_bpp = 2;
-                s->frame.dst_pitch = s->dst_linesize;
+                s->frame.dst_pitch = s->frame.dst_linesize;
         }
 
         switch (color_spec) {
         case R10k:
-                s->frame.decoder = vc_copyliner10k;
+                s->frame.decoder = (decoder_t)vc_copyliner10k;
                 break;
         case v210:
-                s->frame.decoder = vc_copylinev210;
+                s->frame.decoder = (decoder_t)vc_copylinev210;
                 break;
         case DVS10:
-                s->frame.decoder = vc_copylineDVS10;
+                s->frame.decoder = (decoder_t)vc_copylineDVS10;
                 break;
         case DVS8:
         case UYVY:
         case Vuy2:
-                s->frame.decoder = memcpy;
+                s->frame.decoder = (decoder_t)memcpy;
                 break;
         case RGBA:
-                s->frame.decoder = vc_copylineRGBA;
+                s->frame.decoder = (decoder_t)vc_copylineRGBA;
                 break;
 
         }
@@ -415,7 +390,7 @@ void *display_sdl_init(char *fmt)
                                 free(tmp);
                                 return NULL;
                         }
-                        s->width = atol(tok);
+                        s->frame.width = atol(tok);
                         tok = strtok(NULL, ":");
                         if (tok == NULL) {
                                 show_help();
@@ -423,7 +398,7 @@ void *display_sdl_init(char *fmt)
                                 free(tmp);
                                 return NULL;
                         }
-                        s->height = atol(tok);
+                        s->frame.height = atol(tok);
                         tok = strtok(NULL, ":");
                         if (tok == NULL) {
                                 show_help();
@@ -431,15 +406,13 @@ void *display_sdl_init(char *fmt)
                                 free(tmp);
                                 return NULL;
                         }
-                        s->codec = 0xffffffff;
                         for (i = 0; codec_info[i].name != NULL; i++) {
                                 if (strcmp(tok, codec_info[i].name) == 0) {
-                                        s->codec = codec_info[i].codec;
-                                        s->c_info = &codec_info[i];
+                                        s->codec_info = &codec_info[i];
                                         s->rgb = codec_info[i].rgb;
                                 }
                         }
-                        if (s->codec == 0xffffffff) {
+                        if (s->codec_info == NULL) {
                                 fprintf(stderr, "SDL: unknown codec: %s\n",
                                         tok);
                                 free(s);
@@ -459,16 +432,16 @@ void *display_sdl_init(char *fmt)
                         }
                         free(tmp);
 
-                        if (s->width <= 0 || s->height <= 0) {
+                        if (s->frame.width <= 0 || s->frame.height <= 0) {
                                 printf
                                     ("SDL: failed to parse config options: '%s'\n",
                                      fmt);
                                 free(s);
                                 return NULL;
                         }
-                        s->bpp = s->c_info->bpp;
-                        printf("SDL setup: %dx%d codec %s\n", s->width,
-                               s->height, s->c_info->name);
+                        s->frame.src_bpp = s->codec_info->bpp;
+                        printf("SDL setup: %dx%d codec %s\n", s->frame.width,
+                               s->frame.height, s->codec_info->name);
                 }
         }
 
@@ -494,17 +467,7 @@ void *display_sdl_init(char *fmt)
         }
 
         if (fmt != NULL) {
-                /*FIXME: kill hd_size at all, use another approach avoiding globals */
-                int w = s->width;
-
-                if (s->c_info->h_align) {
-                        w = ((w + s->c_info->h_align -
-                              1) / s->c_info->h_align) * s->c_info->h_align;
-                }
-
-                hd_size_x = w;
-                hd_size_y = s->height;
-                reconfigure_screen(s, w, s->height, s->c_info->codec);
+                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec);
                 temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
                 if (temp == NULL) {
                         temp =
@@ -528,9 +491,9 @@ void *display_sdl_init(char *fmt)
                         splash_src.w = image->w;
                         splash_src.h = image->h;
 
-                        splash_dest.x = (int)((s->width - splash_src.w) / 2);
+                        splash_dest.x = (int)((s->frame.width - splash_src.w) / 2);
                         splash_dest.y =
-                            (int)((s->height - splash_src.h) / 2) + 60;
+                            (int)((s->frame.height - splash_src.h) / 2) + 60;
                         splash_dest.w = image->w;
                         splash_dest.h = image->h;
 
@@ -538,13 +501,10 @@ void *display_sdl_init(char *fmt)
                                         &splash_dest);
                         SDL_Flip(s->sdl_screen);
                 }
-        }
+        } 
 
-        s->frame.width = 0;
-        s->frame.height = 0;
-        s->frame.color_spec = 0;
         s->frame.state = s;
-        s->frame.reconfigure = reconfigure_screen;
+        s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
 
         if (pthread_create(&(s->thread_id), NULL, display_thread_sdl, (void *)s)
             != 0) {
@@ -599,29 +559,12 @@ display_colour_t display_sdl_colour(void *state)
 display_type_t *display_sdl_probe(void)
 {
         display_type_t *dt;
-        display_format_t *dformat;
-
-        dformat = malloc(4 * sizeof(display_format_t));
-        dformat[0].size = DS_176x144;
-        dformat[0].colour_mode = DC_YUV;
-        dformat[0].num_images = 1;
-        dformat[1].size = DS_352x288;
-        dformat[1].colour_mode = DC_YUV;
-        dformat[1].num_images = 1;
-        dformat[2].size = DS_702x576;
-        dformat[2].colour_mode = DC_YUV;
-        dformat[2].num_images = 1;
-        dformat[3].size = DS_1280x720;
-        dformat[3].colour_mode = DC_YUV;
-        dformat[3].num_images = 1;
 
         dt = malloc(sizeof(display_type_t));
         if (dt != NULL) {
                 dt->id = DISPLAY_SDL_ID;
                 dt->name = "sdl";
                 dt->description = "SDL with Xvideo extension";
-                dt->formats = dformat;
-                dt->num_formats = 4;
         }
         return dt;
 }

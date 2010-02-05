@@ -193,8 +193,6 @@ if test ! $no_x ; then
 		fi
 	fi
 
-	X_LIBS="$X_LIBS -lX11 -lXext -lXv"
-	X_OBJ="$X_OBJ src/video_display/x11.o src/video_display/xv.o"
 fi
 
 AC_SUBST(X_CFLAGS)

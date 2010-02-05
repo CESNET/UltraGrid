@@ -832,7 +832,7 @@ int main(int argc, char *argv[])
 #ifndef X_DISPLAY_MISSING
 #ifdef HAVE_SDL
                         if (strcmp(uv->requested_display, "sdl") == 0) {
-                                display_sdl_handle_events(uv->display_device);
+                                display_sdl_handle_events(uv->display_device, 1);
                         }
 #endif                          /* HAVE_SDL */
 #endif                          /* X_DISPLAY_MISSING */
