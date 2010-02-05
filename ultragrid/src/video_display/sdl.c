@@ -130,8 +130,8 @@ int display_sdl_handle_events(void *arg, int post)
                                 should_exit = 1;
                                 if(post)
                                         SDL_SemPost(s->semaphore);
+                                return 1;
                         }
-                        return 1;
                         break;
 
                 default:
