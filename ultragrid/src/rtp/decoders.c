@@ -37,8 +37,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2010/02/05 12:55:43 $
+ * $Revision: 1.3 $
+ * $Date: 2010/02/05 14:06:17 $
  *
  */
 
@@ -50,112 +50,117 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/decoders.h"
-#include "video_codec.h"
 
-//#define DEBUG 1
-//#define DEBUG_TIMING 1
+#define DXT_WIDTH 1920/4
+#define DXT_DEPTH 8
+
+static void 
+copy_p2f (char *frame, rtp_packet *pckt)
+{
+	/* Copy 1 rtp packet to frame for uncompressed HDTV data. */
+	/* We limit packets to having up to 10 payload headers... */
+	char                    *offset;
+	payload_hdr_t		*curr_hdr;
+	payload_hdr_t		*hdr[10];
+	int			 hdr_count = 0, i;
+	int		 	 frame_offset = 0;
+	char 			*base;
+	int  			 len;
+
+	/* figure out how many headers ? */
+	curr_hdr = (payload_hdr_t *) pckt->data;
+	while (1) {
+		hdr[hdr_count++] = curr_hdr;
+		if ((ntohs(curr_hdr->flags) & (1<<15)) != 0) {
+				/* Last header... */
+				break;
+		}
+		if (hdr_count == 10) {
+				/* Out of space... */
+			break;
+		}
+		curr_hdr++;
+	}
+
+        /* OK, now we can copy the data */
+	offset=(char *) (pckt->data) + hdr_count * 8;
+	for (i = 1; i < hdr_count + 1; i++) {
+		unsigned int y=ntohs(hdr[i - 1]->y_offset);
+                /*if(y < HD_HEIGHT/2) {
+                        y = y *2;
+                } else {
+                        y = (y-HD_HEIGHT/2) * 2 + 1;
+                }*/
+		frame_offset = ((ntohs(hdr[i - 1]->x_offset) + y * HD_WIDTH)) * HD_DEPTH;
+		base = frame + frame_offset;
+		len  = ntohs(hdr[i - 1]->length);
+		memcpy(base,offset,len);
+		offset+=len;
+	}
+}
+
+static void 
+dxt_copy_p2f (char *frame, rtp_packet *pckt)
+{
+	/* Copy 1 rtp packet to frame for uncompressed HDTV data. */
+	/* We limit packets to having up to 10 payload headers... */
+	char                    *offset;
+	payload_hdr_t		*curr_hdr;
+	payload_hdr_t		*hdr[10];
+	int			 hdr_count = 0, i;
+	int		 	 frame_offset = 0;
+	char 			*base;
+	int  			 len;
+	unsigned int		 y=0;
+
+	/* figure out how many headers ? */
+	curr_hdr = (payload_hdr_t *) pckt->data;
+	while (1) {
+		hdr[hdr_count++] = curr_hdr;
+		if ((ntohs(curr_hdr->flags) & (1<<15)) != 0) {
+				/* Last header... */
+				break;
+		}
+		if (hdr_count == 10) {
+				/* Out of space... */
+			break;
+		}
+		curr_hdr++;
+	}
+
+        /* OK, now we can copy the data */
+	offset=(char *) (pckt->data) + hdr_count * 8;
+	for (i = 0; i < hdr_count ; i++) {
+		y=ntohs(hdr[i]->y_offset);
+                /*if(y < HD_HEIGHT/2) {
+                        y = y *2;
+                } else {
+                        y = (y-HD_HEIGHT/2) * 2 + 1;
+                }*/
+		frame_offset = ((ntohs(hdr[i]->x_offset) + y * DXT_WIDTH)) * DXT_DEPTH;
+		base = frame + frame_offset;
+		len  = ntohs(hdr[i]->length);
+		memcpy(base,offset,len);
+		offset+=len;
+	}
+}
 
 void
-decode_frame(struct coded_data *cdata, struct video_frame *frame)
+decode_frame(struct coded_data *cdata, char *frame, int compression)
 {
-        uint32_t width;
-        uint32_t height;
-        uint32_t offset;
-        int      len;
-        codec_t color_spec;
-        rtp_packet *pckt;
-        unsigned char *source;
-        payload_hdr_t   *hdr;
-        uint32_t data_pos;
-#ifdef DEBUG_TIMING
-        struct timeval tv,tv1;
-        int packets=0;
-#endif
-#ifdef DEBUG
-        long pos=0;
-#endif
-#ifdef DEBUG_TIMING
-        gettimeofday(&tv, NULL);
-#endif
-
-        while (cdata != NULL) {
-#ifdef DEBUG_TIMING
-                packets++;
-#endif
-                pckt = cdata->data;
-                hdr = (payload_hdr_t *)pckt->data;
-                width = ntohs(hdr->width);
-                height = ntohs(hdr->height);
-                color_spec = hdr->colorspc;
-                len = ntohs(hdr->length);
-                data_pos = ntohl(hdr->offset);
-
-                /* Critical section 
-                 * each thread *MUST* wait here if this condition is true
-                 */
-                if(!(frame->width == width &&
-                     frame->height == height &&
-                     frame->color_spec == color_spec)) {
-                        frame->reconfigure(frame->state, width, height, color_spec);
-                        frame->src_linesize = vc_getsrc_linesize(width, color_spec);
-                }
-                /* End of critical section */
-        
-#ifdef DEBUG
-                fprintf(stdout, "Setup: src line size: %d, dst line size %d, pitch %d\n",
-                        frame->src_linesize, frame->dst_linesize, frame->dst_pitch);
-                int b=0;
-#endif
-                /* MAGIC, don't touch it, you definitely break it */
-                int y = (data_pos / frame->src_linesize)*frame->dst_pitch;
-                int s_x = data_pos % frame->src_linesize;
-                int d_x = ((int)((s_x)/frame->src_bpp))*frame->dst_bpp;
-                source = pckt->data + sizeof(payload_hdr_t);
-#ifdef DEBUG
-                fprintf(stdout, "Computed start x %d, %d (%d %d), start y %d\n", s_x, d_x, (int)(s_x/frame->src_bpp),
-                        (int)(d_x/frame->dst_bpp),  y/frame->dst_linesize);
-#endif
-                while(len > 0){
-                        int l = ((int)(len/frame->src_bpp))*frame->dst_bpp;
-                        if(l + d_x > frame->dst_linesize) {
-                                l = frame->dst_linesize - d_x;
-                        }
-                        offset = y + d_x;
-                        if(l + offset < frame->data_len) {
-#ifdef DEBUG
-                                if(b < 5) {
-                                        fprintf(stdout, "Computed offset: %d, original offset %d, memcpy length %d (pixels %d), original length %d, stored length %d, next line %d\n",
-                                                        offset, data_pos, l, (int)(l/frame->dst_bpp), len, pos, offset + l);
-                                        b++;
-                                }   
-#endif
-                                frame->decoder(frame->data+offset, source, l, 
-                                              frame->rshift, frame->gshift, frame->bshift);
-                                len -= frame->src_linesize - s_x;
-                                source += frame->src_linesize - s_x;
-#ifdef DEBUG
-                                data_pos += frame->src_linesize - s_x;
-                                pos += l;
-#endif
-                        } else {
-#ifdef DEBUG
-                                fprintf(stderr, "Discarding data, framebuffer too small.\n");
-#endif
-                                len = 0;
-                        }
-                        d_x = 0; /* next line from beginning */
-                        s_x = 0;
-                        y += frame->dst_pitch; /* next line */
-                }
-
-		cdata = cdata->nxt;
+	/* Given a list of coded_data, try to decode it. This is mostly  */
+ 	/* a placeholder function: once we have multiple codecs, it will */
+	/* get considerably more content...                              */
+	if(compression) {
+		while (cdata != NULL) {
+			dxt_copy_p2f(frame, cdata->data);
+			cdata = cdata->nxt;
+		}
+	}else{
+		while (cdata != NULL) {
+			copy_p2f(frame, cdata->data);
+			cdata = cdata->nxt;
+		}
 	}
-#ifdef DEBUG_TIMING
-    gettimeofday(&tv1, NULL);
-    fprintf(stdout, "Frame encoded in %fms, %d packets\n", (tv1.tv_usec - tv.tv_usec)/1000.0, packets);
-#endif
-#ifdef DEBUG
-    fprintf(stdout, "Frame end\n");
-#endif
 }
 

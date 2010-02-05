@@ -44,8 +44,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.17 $
- * $Date: 2010/02/05 13:03:58 $
+ * $Revision: 1.18 $
+ * $Date: 2010/02/05 14:06:17 $
  *
  */
 
@@ -189,6 +189,7 @@ display_thread_sdl(void *arg)
                 s->frame.data = s->sdl_screen->pixels +
                     s->sdl_screen->pitch * s->dst_rect.y + s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
         } else {
+                SDL_UnlockYUVOverlay(s->yuv_image);
                 SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
                 s->frame.data = (unsigned char*)*s->yuv_image->pixels;
         }
@@ -475,12 +476,15 @@ display_sdl_init(char *fmt)
     }
 
     if(fmt != NULL) {
+        /*FIXME: kill hd_size at all, use another approach avoiding globals */
         int w = s->width;
 
         if(s->c_info->h_align) {
             w = ((w+s->c_info->h_align-1)/s->c_info->h_align)*s->c_info->h_align;
         }
 
+        hd_size_x = w;
+        hd_size_y = s->height;
         reconfigure_screen(s, w, s->height, s->c_info->codec);
         temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
         if (temp == NULL) {

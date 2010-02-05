@@ -1,13 +1,15 @@
 /*
- * FILE:    video_codec.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ * FILE:   video_codec.h
+ * AUTHOR: Colin Perkins <csp@csperkins.org>
+ *         Martin Benes     <martinbenesh@gmail.com>
+ *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *         Petr Holub       <hopet@ics.muni.cz>
+ *         Milos Liska      <xliska@fi.muni.cz>
+ *         Jiri Matela      <matela@ics.muni.cz>
+ *         Dalibor Matura   <255899@mail.muni.cz>
+ *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
+ * Copyright (c) 2004 University of Glasgow
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,14 +26,16 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
- *      This product includes software developed by CESNET z.s.p.o.
+ *      This product includes software developed by the University of Southern
+ *      California Information Sciences Institute. This product also includes
+ *      software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
- *    used to endorse or promote products derived from this software without
- *    specific prior written permission.
+ * 4. Neither the name of the University, Institute, CESNET nor the names of
+ *    its contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -43,66 +47,54 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * $Revision: 1.4 $
+ * $Date: 2010/02/05 14:06:17 $
+ *
  */
-#ifndef __video_codec_h
 
-#define __video_codec_h
+#ifndef _VCODEC_H
+#define _VCODEC_H
 
-typedef enum {
-        RGBA,
-        UYVY,
-        Vuy2,
-        DVS8,
-        R10k,
-        v210,
-        DVS10,
-} codec_t;
+typedef int vcodec_id_t;
 
+/*
+ * Initialisation, probing of available codecs, name and RTP 
+ * payload type mapping functions. 
+ */
 
-struct video_frame {
-        codec_t              color_spec;
-        unsigned int         width;
-        unsigned int         height;
-        char                 *data; /* this is not beginning of the frame buffer actually but beginning of displayed data,
-                                     * it is the case display is centered in larger window, 
-                                     * i.e., data = pixmap start + x_start + y_start*linesize
-                                     */
-        unsigned int         data_len; /* relative to data pos, not framebuffer size! */      
-        unsigned int         dst_linesize; /* framebuffer pitch */
-        unsigned int         dst_pitch; /* framebuffer pitch - it can be larger if SDL resolution is larger than data */
-        unsigned int         src_linesize; /* display data pitch */
-        unsigned int         dst_x_offset; /* X offset in frame buffer */
-        double               src_bpp;
-        double               dst_bpp;
-        int                  rshift;
-        int                  gshift;
-        int                  bshift;
-        void                 (*decoder)(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
-        void                 (*reconfigure)(void *state, int width, int height, codec_t color_spec);
-        void                 *state;
-};
+void        vcodec_init(void);
+void        vcodec_done(void);
+unsigned    vcodec_get_num_codecs (void);
 
+const char *vcodec_get_name       (unsigned id);	/* Single word name */
+const char *vcodec_get_description(unsigned id);	/* Descriptive text */
 
-struct codec_info_t {
-        codec_t codec;
-        const char *name;
-        unsigned int fcc;
-        int h_align;
-        double bpp;
-        unsigned rgb:1;
-} codec_info_t;
+int         vcodec_can_encode     (unsigned id);
+int         vcodec_can_decode     (unsigned id);
 
-extern const struct codec_info_t codec_info[];
+int         vcodec_map_payload    (uint8_t pt, unsigned id);
+int         vcodec_unmap_payload  (uint8_t pt);
+uint8_t     vcodec_get_payload    (unsigned id);
+unsigned    vcodec_get_by_payload (uint8_t pt);
 
-void show_codec_help(void);
-double get_bpp(codec_t codec);
+/*
+ * Video encoder and decoder functions. These operate on particular
+ * instances of a codec, identified by the "state" parameter.
+ */
 
-int vc_getsrc_linesize(unsigned int width, codec_t codec);
+struct vcodec_state;
 
-void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
-void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len);
-void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len);
-void vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
+struct vcodec_state *vcodec_encoder_create (unsigned id);
+void                 vcodec_encoder_destroy(struct vcodec_state *state);
+int                  vcodec_encode         (struct vcodec_state *state,
+                                            struct video_frame  *in,
+					    struct coded_data   *out);
 
-#endif
+struct vcodec_state *vcodec_decoder_create (unsigned id);
+void                 vcodec_decoder_destroy(struct vcodec_state *state);
+int                  vcodec_decode         (struct vcodec_state *state,
+					    struct coded_data   *in,
+                                            struct video_frame  *out);
+
+#endif /* _VCODEC_H */
+
