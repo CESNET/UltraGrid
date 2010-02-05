@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Script to create SMPTE 259M-C device files.
+
+major=121
+
+# Transmit interfaces
+i=0
+while [ $i -lt 16 ]
+do
+  mknod /dev/sditx${i} c ${major} $(($i))
+  chmod 600 /dev/sditx${i}
+  i=$(($i+1))
+done
+
+# Receive interfaces
+i=0
+while [ $i -lt 16 ]
+do
+  mknod /dev/sdirx${i} c ${major} $(($i+128))
+  chmod 600 /dev/sdirx${i}
+  i=$(($i+1))
+done
+

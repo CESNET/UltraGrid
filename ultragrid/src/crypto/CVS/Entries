@@ -1,0 +1,11 @@
+/crypt_aes.c/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/crypt_aes.h/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/crypt_aes_impl.c/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/crypt_aes_impl.h/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/crypt_des.c/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/crypt_des.h/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/md5.c/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/md5.h/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/random.c/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/random.h/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+D

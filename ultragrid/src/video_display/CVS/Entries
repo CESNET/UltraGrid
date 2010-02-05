@@ -1,0 +1,24 @@
+/dxt.c/1.12/Fri Dec 11 15:27:17 2009//Trework-patches
+/dxt.frag/1.2/Wed Jul 16 15:50:26 2008//Trework-patches
+/dxt.h/1.3/Fri Dec 11 15:27:17 2009//Trework-patches
+/dxt.vert/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/gl_sdl.c/1.15.2.2/Fri Jan 29 11:26:04 2010//Trework-patches
+/gl_sdl.glsl/1.1/Wed Jul 16 15:50:26 2008//Trework-patches
+/gl_sdl.h/1.3/Fri Dec 11 15:27:17 2009//Trework-patches
+/hdstation.c/1.3.2.2/Fri Jan 29 11:26:04 2010//Trework-patches
+/hdstation.h/1.1.2.1/Thu Jan 28 18:17:28 2010//Trework-patches
+/null.c/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/null.h/1.1/Thu Nov  8 09:48:59 2007//Trework-patches
+/quicktime.c/1.1.2.2/Fri Jan 29 11:26:04 2010//Trework-patches
+/quicktime.h/1.1.2.1/Thu Jan 28 18:17:28 2010//Trework-patches
+/sage.c/1.7/Fri Dec 11 15:27:17 2009//Trework-patches
+/sage.h/1.2/Fri Dec 11 15:27:17 2009//Trework-patches
+/sage_wrapper.cxx/1.4/Fri Dec 11 15:27:17 2009//Trework-patches
+/sage_wrapper.h/1.3/Fri Dec 11 15:27:17 2009//Trework-patches
+/x11.c/1.3/Fri Dec 11 15:27:18 2009//Trework-patches
+/x11.h/1.2/Fri Dec 11 15:27:18 2009//Trework-patches
+/xv.c/1.3/Fri Dec 11 15:27:18 2009//Trework-patches
+/xv.h/1.2/Fri Dec 11 15:27:18 2009//Trework-patches
+/sdl.c/1.15.2.10/Fri Feb  5 13:56:49 2010//Trework-patches
+/sdl.h/1.3.2.4/Fri Feb  5 13:56:49 2010//Trework-patches
+D

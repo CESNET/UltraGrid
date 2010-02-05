@@ -1,0 +1,33 @@
+This file briefly describes how the driver's transmit and receive
+buffers are managed.
+
+The Master driver allocates a circular queue of buffers
+for each interface it provides.
+
+Data is placed into the transmit queue through calls to write ().
+When half of the transmit buffers are full, DMA transfers to the board
+begin. If write () is called when the queue is full,
+the call blocks until a buffer is empty (unless non-blocking
+writes are used). DMA transfers end when the last full buffer
+is transferred, and do not start again until the
+transmit buffer queue is half-full.
+When the interface receives an fsync () or its usage count drops to zero,
+DMA transfers for any complete dwords of data still in the queue are setup,
+but are not performed unless DMA transfers are already in progress.
+
+The receive queue is continuously filled by DMA transfers from the board.
+Data is removed from the queue through calls to read ().
+If read () is called when there are no full buffers, the call blocks
+until a buffer is filled (unless non-blocking reads are used).
+If the queue is full when the board performs a DMA transfer,
+the buffer queue overruns and data is lost.
+When the interface receives an fsync (), any DMA transfer in progress
+is aborted and the buffers and onboard FIFOs are flushed.
+
+The number and size of the buffers in the queue may be adjusted
+based on the desired bitrate, interrupt rate, latency, and
+memory available. An interrupt is generated after the DMA transfer
+of each buffer. See doc/ASI/sysfs.txt and doc/SDI/sysfs.txt
+for information on how to view and change the number and size of buffers
+allocated to a particular interface.
+

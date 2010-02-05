@@ -1,0 +1,141 @@
+DVS SDK Linux README
+====================
+
+Loading and unloading the driver under Linux
+============================================
+
+Requirements
+------------
+The following minimum environment will be needed to ensure
+proper operation of the SDK:
+ - GLIBC 2.3
+ - gcc 3.2
+ - stable release kernel
+
+The SDK was developed for 'Red Hat 9' and 'Red Hat Enterprise Linux 3'.
+Other distributions should work as well. In some cases slight modifications
+might be necessary.
+
+
+1) Creating device nodes
+-------------------------
+First, after extracting the SDK you need to create the DVS driver
+device nodes:
+Change into the directory 'linux/driver' and enter the command:
+  ./mkdev
+
+After this script has finished, the device nodes are present and
+permanently available. The script only has to be executed once on
+a system.
+
+
+2) The post-compile step
+------------------------
+Be sure you already have configured your kernel before proceeding with this
+point.
+Change into the directory 'linux/driver'. Executing './driver_create' will
+perform the post-compile step and create the final loadable driver module
+files matching to your currently running kernel.
+Loading the driver without performing this step is not possible as the final
+driver file does not yet exist. There is deliberately no finished driver
+included in the SDK as the kernel configurations may vary from system
+to system. The Linux kernel is compile-time dependent, so it is not
+possible to build one all-around binary driver.
+For more information see the section 'The postcompilable driver' below.
+
+
+3) Loading the driver
+---------------------
+To load the driver change into the directory 'linux/driver and enter the
+command:
+  ./driver_load
+
+Loading the driver may take some seconds because of the hardware being
+programmed. Be sure you always call 'driver_load' directly from the
+'linux/driver' directory.
+
+To load the debug driver use the command:
+  ./driverload debug
+The debug driver is only for diagnostics in problem situations and should
+not be used for real operations.
+
+After the loading of the driver has finished you are ready to launch the
+example programs.
+
+
+4) Unloading the driver
+-----------------------
+Unloading the driver is performed by calling './driver_unload' in the
+'linux/driver' directory.
+
+
+Using High memory
+=================
+In general the driver is able to handle high memory when being used in 
+DMA mode.
+
+When using CONFIG_HIGHMEM64G, the DMA is implemented using bounce
+buffer copy which results into lower data rate and higher CPU load.
+
+On some default kernel configurations (e.g. the one in 2.4.21-4) the
+option CONFIG_HIGHMEM64G is enabled. This should be disabled to get
+a better performance.
+
+
+The postcompilable driver
+=========================
+
+The postcompilable driver is a new feature in the DVS SDK 2.5 which allows
+to create a driver that matches perfectly to a specific kernel version and/or
+kernel configuration. In the SDK there is a precompiled driver file supplied
+in binary format along with a few source files containing the Linux kernel-
+dependent code. The post-compile step can be easily done on the target
+machine and creates the final loadable driver for that special target
+machine.
+
+But the postcompilable driver feature does not solve all problems.
+Here is a list showing what is not possible or where to take care of
+some limitations:
+- No cross-compile. As the precompiled driver is created for one specific
+  architecture (e.g. i386) it is not possible to create a final driver for
+  the alpha or ia64 architecture when using a SDK with a precompiled driver
+  for the x86 architecture.
+- After each change to the kernel, i.e. every configuration change,
+  patching and the following kernel recompilation, you will have to perform
+  the post-compile step on the DVS driver again. Otherwise the proper
+  behavior of the driver cannot be guaranteed.
+- When kernel interface functions used by the DVS driver are changed from one
+  to another kernel version, it is not possible to post-compile the driver.
+
+In the SDK directory there will be the following additional files:
+  linux/driver/dvsdriver.pre		(precompiled release driver binary)
+  linux/driver/dvsdebug.pre		(precompiled debug driver binary)
+  development/src/driver/Makefile	(post-compile step makefile)
+  development/src/driver/linux.c	(linux kernel interface)
+  development/src/driver/ps_common.h	(common header)
+  development/src/driver/ps_debug.h	(debug header)
+
+During the post compile step, it will be automatically checked which kernel is
+currently running. At least a matching set of kernel header files need to be
+installed on your machine. These header files are pointed by
+'/lib/modules/<kernel_version>/build/include'
+
+Next, simply change into the SDK directory 'development/src/driver' and
+type 'make'. The source files will then be compiled and linked together with
+the precompiled driver binaries. As a result you will get the following files:
+  linux/driver/dvsdriver		(final release driver)
+  linux/driver/dvsdebug			(final debug driver)
+
+To rebuild the final driver files due to a kernel version or configuration
+change, use 'make clean' to delete all intermediate files and afterwards
+type 'make' again.
+
+You may also use the 'driver_create' script in 'linux/driver' which makes
+it even more easy. It recreates the driver automatically. Afterwards, loading
+the driver using 'driver_load' and unloading it using 'driver_unload'
+is possible as usual.
+
+Note: In the Red Hat distribution kernels (e.g. 2.4.18-3), there are
+normally some header files missing until the 'make dep' build step is
+performed in your kernel source. Prior to this the driver will not
+compile properly.

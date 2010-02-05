@@ -1,0 +1,217 @@
+/* src/config.h.in.  Generated from configure.in by autoheader.  */
+/*
+ * Define OS
+ */
+#undef HAVE_MACOSX
+#undef HAVE_MACOSX_LEOPARD
+
+#undef HAVE_64B_LINUX
+#undef HAVE_32B_LINUX
+
+/* Define to 1 if you have SDL. */
+#undef HAVE_SDL
+
+/* Define to 1 if you have SDL version newer than 1.2.10. */
+#undef HAVE_SDL_1210
+
+/* Define to 1 if you have GL. */
+#undef HAVE_GL 
+
+/* Define to 1 if you have SAGE. */
+#undef HAVE_SAGE
+
+/* Define to 1 if you have Portaudio. */
+#undef HAVE_AUDIO
+
+/*
+ * Define this if you want IPv6 support.
+ */
+#undef HAVE_IPv6
+
+/* 
+ * Define this is you have a DVS HDstation card
+ */
+#undef HAVE_HDSTATION
+
+/* 
+ * Define this is you have a Blackmagic card
+ */
+#undef HAVE_DECKLINK
+
+/*
+ * Define this if you want FastDXT support
+ */
+#undef HAVE_FASTDXT
+
+/* Audio device related */
+#undef HAVE_MACOSX_AUDIO
+#undef HAVE_SPARC_AUDIO
+#undef HAVE_SGI_AUDIO
+#undef HAVE_PCA_AUDIO
+#undef HAVE_LUIGI_AUDIO
+#undef HAVE_NEWPCM_AUDIO
+#undef HAVE_OSS_AUDIO
+#undef HAVE_HP_AUDIO
+#undef HAVE_NETBSD_AUDIO
+#undef HAVE_OSPREY_AUDIO
+#undef HAVE_MACHINE_PCAUDIOIO_H
+#undef HAVE_ALSA_AUDIO
+#undef HAVE_IXJ_AUDIO
+
+/* GSM related */
+#undef SASR
+#undef FAST
+#undef USE_FLOAT_MUL
+
+/* FireWire and DV */
+#undef HAVE_FIREWIRE_DV_FREEBSD
+#undef HAVE_DV_CODEC
+
+/*
+ * If you don't have these types in <inttypes.h>, #define these to be
+ * the types you do have.
+ */
+#undef int8_t
+#undef int16_t
+#undef int32_t
+#undef int64_t
+#undef uint8_t
+#undef uint16_t
+#undef uint32_t
+
+/*
+ * Debugging:
+ * DEBUG: general debugging
+ * DEBUG_MEM: debug memory allocation
+ */
+#undef DEBUG
+#undef DEBUG_MEM
+
+
+/* Define to 1 if you have the <Carbon/Carbon.h> header file. */
+#undef HAVE_CARBON_CARBON_H
+
+/* Define to 1 if you have the <GL/glew.h> header file. */
+#undef HAVE_GL_GLEW_H
+
+/* Define to 1 if you have the <GL/glext.h> header file. */
+#undef HAVE_GL_GLEXT_H
+
+/* Define to 1 if you have the <GL/glu.h> header file. */
+#undef HAVE_GL_GLU_H
+
+/* Define to 1 if you have the <GL/gl.h> header file. */
+#undef HAVE_GL_GL_H
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <machine/pcaudioio.h> header file. */
+#undef HAVE_MACHINE_PCAUDIOIO_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <QuickTime/QuickTime.h> header file. */
+#undef HAVE_QUICKTIME_QUICKTIME_H
+
+/* Define to 1 if you have the `sched_setscheduler' function. */
+#undef HAVE_SCHED_SETSCHEDULER
+
+/* Define to 1 if you have the <soundcard.h> header file. */
+#undef HAVE_SOUNDCARD_H
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the <stropts.h> header file. */
+#undef HAVE_STROPTS_H
+
+/* Define to 1 if you have the <sys/filio.h> header file. */
+#undef HAVE_SYS_FILIO_H
+
+/* Define to 1 if you have the <sys/soundcard.h> header file. */
+#undef HAVE_SYS_SOUNDCARD_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#undef HAVE_SYS_WAIT_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define to 1 if your processor stores words with the most significant byte
+   first (like Motorola and SPARC, unlike Intel and VAX). */
+#undef WORDS_BIGENDIAN
+
+/* Define to 1 if the X Window System is missing or not being used. */
+#undef X_DISPLAY_MISSING
+
+/* Define to 1 if type `char' is unsigned and you are not using gcc.  */
+#ifndef __CHAR_UNSIGNED__
+# undef __CHAR_UNSIGNED__
+#endif
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
+
+/* Define to `short' if <sys/types.h> does not define. */
+#undef int16_t
+
+/* Define to `long' if <sys/types.h> does not define. */
+#undef int32_t
+
+/* Define to `long long' if <sys/types.h> does not define. */
+#undef int64_t
+
+/* Define to `signed char' if <sys/types.h> does not define. */
+#undef int8_t
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef size_t
+
+/* Define to `unsigned short' if <sys/types.h> does not define. */
+#undef uint16_t
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef uint32_t
+
+/* Define to `unsigned char' if <sys/types.h> does not define. */
+#undef uint8_t
+
+#ifndef WORDS_BIGENDIAN
+#define WORDS_SMALLENDIAN
+#endif
+

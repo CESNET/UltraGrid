@@ -1,0 +1,74 @@
+MODIFICATIONS FILE
+------------------
+
+$Revision: 1.1 $
+$Date: 2007/11/08 09:48:58 $
+
+Copyright (c) 2001-2004 University of Southern California
+Copyright (c) 2003-2004 University of Glasgow
+All rights reserved. 
+
+This software is distributed under license, see the file COPYRIGHT for full
+terms and conditions.
+
+v0.0.1	- Initial version, HDTV receiver
+	* 14 August 2002
+
+v0.0.2	- Fix builds with --enable-debug
+	- Update display code
+	- Update capture code 
+	* 26 August 2002
+
+v0.0.3	- Add "-d <display>" option to select display device
+	- Add "-t <capture>" option to select capture device, and enable transmit
+	- Reduce RTCP housekeeping frequency
+	- Disable UI for now
+	* 27 August 2002
+
+v0.1.0	- Add "-m <mtu>" option to select transmit MTU
+	- Add TFRC code
+	- Display in a window using Xvideo (not cleanly implemented)
+	- Initial test suite (incomplete)
+	* 8 October 2002
+
+v0.1.1	- Performance optimizations for Xvideo display device
+	* 28 November 2002 (demonstrated at SuperComputing 2002)
+
+v0.2.0	- Source code reorganization; add audio code (unused)
+        * 18 August 2003
+
+v0.2.1  - Cleanup configure script, removing duplicate tests
+	- Update configure script to explicitly test for sched_setscheduler() 
+  	  since some platforms (e.g. MacOS X) don't have it.
+	- Update configure script and video display routines to partially
+	  support the case where X11 is not present.
+	- Fix -v option
+	- Rewrite playout buffer code
+	- Rewrite video display probing
+	- Removing scatter-read from the RTP code
+	- Framerate now tunable using "-f <rate>"
+	* 2 May 2004
+
+v0.2.2	- Check reported loss fraction, and abort if excessive
+	- Playout buffer now uses a fixed 32ms playout delay, equivalent
+	  to 2 frames at 60fps, instead of decoding frames immediately. 
+	* 10 May 2004
+
+v0.3.0	- Update documentation
+	- Add initial FireWire/DV support
+	- Add initial video codec API
+	- Add initial MacOS X audio driver (contributed to rat by Juraj Sucik)
+	- Add initial AccessGrid service plugins
+	- Add initial participant database framework, to eventually allow
+	  multiple participants
+	* 13 August 2004
+
+v0.3.1	- Fix crash in RTP code if getpwuid() fails (patch contributed to
+	  rat by <Grant.Likely@gdcanada.com>, and adapted for UltraGrid)
+	- Update AES code code to rijndael-fst-3.0.zip, taken from:  
+	  	http://www.esat.kuleuven.ac.be/~rijmen/rijndael/
+	  This now passes the official NIST AES test suite (included).
+	- Add initial TFRC code to RTP library
+	- Update ALSA code with Steve Smith's ALSA 0.9+/final audio driver
+	* 26 October 2004
+

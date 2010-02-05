@@ -1,0 +1,39 @@
+#!/bin/bash
+#
+# Script that creates the dvs device nodes
+#
+
+# Remove old device nodes
+#########################
+  rm -rf /dev/sdboard*
+  rm -rf /dev/iris*
+  rm -rf /dev/hugo*
+  rm -rf /dev/clipboard*
+  rm -rf /tmp/device_list
+
+# Create one tmp file with all devices
+######################################
+  for i in `find /proc/dvsdriver*/cards`
+  do
+    cat $i >> /tmp/device_list
+  done
+
+# Calculate how much lines are in this file
+###########################################
+  LINES=`wc /tmp/device_list | awk '{print $1}'`
+
+# Create all device nodes
+#########################
+  for((LINE=1, CLIP=0; $LINE <= $LINES; LINE++,CLIP++)); 
+  do
+    TMP=`cat /tmp/device_list | head -n $LINE | tail -n 1`
+    mknod `echo $TMP | awk '{print "-m 666 /dev/" $1 " c " $2 " " $3}'`
+    echo "Created device: `echo $TMP | awk '{print "/dev/" $1 " " $2 " " $3}'`"
+    
+    # Create old device nodes
+    ln -s `echo $TMP | awk '{print "/dev/" $1}'` /dev/clipboard$CLIP
+  done
+
+# Delete tmp file
+#################
+  rm -rf /tmp/device_list

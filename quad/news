@@ -1,0 +1,196 @@
+Version 2.5.1.2 (2008-10-08) - beta version:
+
+Modified capture.c to print out the 27 MHz counter and timestamp values.
+
+Added SDI_IOC_RXGET27COUNT and SDI_IOC_RXGETTIMESTAMP ioctls.
+
+Changed the mode supported by HD-SDI Q/i PCIe (raw, synchronization, and deinterlacing).
+
+=============
+
+Added support for DVB Master Quad-3in1out PCIe
+
+Fixed incorrect channel stopping in DVB Master PCI/PCIe Q/o driver
+
+Version 2.5.0 (2008-02-11)
+=============
+
+Added support for:
+	SDI Master Q/i
+	SDI Master Q/i PCIe
+	SDI Master Q/o PCIe
+	DVB Master Q/i LP PCIe
+	DVB Master Quad-2in2out LP PCIe
+	DVB Master Quad-1in3out PCIe
+
+Version 2.4.1 (2007-07-13)
+=============
+
+Added support for SDI Master LP PCIe.
+
+Fixed device node creation.
+
+Fixed a bug which prevented transmitter DMA from restarting
+on the DVB Master LP PCIe.
+
+Fixed append/prepend register addresses for DVB Master Quad-2in2out driver.
+
+Version 2.4.0 (2007-05-01)
+=============
+
+Added support for:
+	DVB Master II FD PCIe
+	DVB Master II FD-R PCIe
+	DVB Master Dual In PCIe
+	DVB Master FD PCIe
+	DVB Master FD-R PCIe
+	DVB Master FDB PCIe
+	DVB Master FDB-R PCIe
+	ATSC Master II FD PCIe
+	ATSC Master II FD-R PCIe
+	MultiMaster S/A PCIe
+	MultiMaster A/S PCIe
+	SDI Master PCIe
+	DVB Master III TX PCIe
+	DVB Master III RX PCIe
+	DVB Master LP PCIe
+	ATSC Master II FD-RS
+	DVB Master Q/i PCIe
+	DVB Master Q/o
+	DVB Master Q/o PCIe
+	DVB Master Q/o LP PCIe
+	DVB Master Quad-2in2out
+	DVB Master Quad-2in2out PCIe
+	SDI Master LP
+
+Added support for RP178 pattern generation in newer SDI Master firmware.
+
+Version 2.3.1 (2006-12-22)
+=============
+
+Fixed a bug when fsyncing LSDMA-based receivers.
+
+Removed the Big Kernel Lock from all ioctl calls.
+
+Merged changes from Linux kernels 2.6.18 and 2.6.19.
+
+Version 2.3.0 (2006-07-25)
+=============
+
+Merged the DVB Master Q/i into the dvbm module.
+
+Added support for the DVB Master Q/i (RoHS).
+
+Fixed a bug in blackburst_type.
+
+Changed the gpi and gpo sysfs values from decimal to hex.
+
+Added support for 32-bit ioctls on x86_64.
+
+Improved the PCI bus efficiency of PLX-based transmitters on some systems.
+
+Added support for transmitter prepended timestamps
+in newer DVB Master FD-U firmware.
+
+Changed the minimum DVB Master III Tx firmware needed for
+prepended timestamp support.
+
+Merged changes from Linux kernel 2.6.15.
+
+Version 2.2.0 (2006-01-31)
+=============
+
+Added support for DVB Master LP.
+
+Split the black burst mode setting into a separate control 
+accessible per board.
+
+Modified the watchdog timer to work in units of milliseconds.
+
+Added PCR departure timestamping and single-shot bitrate correction
+for new DVB Master FD-B and DVB Master II FD firmware.
+
+Added UID to the DVB Master II FD-RS.
+
+Merged changes from Linux kernel 2.6.13.
+
+Version 2.1.1 (2005-09-16)
+=============
+
+Added UID to the DVB Master II FD and ATSC Master II FD.
+
+Added a workaround for rarely-occurring hangs at close
+on PLX-based receivers.
+
+Clarified the licensing terms of the API header files.
+
+Changed the main loop of the txtest example program to remove
+unnecessary read () and write () calls with size zero.
+
+Version 2.1.0 (2005-06-24)
+=============
+
+Added bypass and GPO to the DVB Master II FD and ATSC Master II FD.
+
+Added support for the DVB Master Q/i, firmware version 0x0107.
+
+Fixed typo which broke ASI_IOC_RXGETPID0COUNT and ASI_IOC_RXGETPID2COUNT
+on the DVB Master Q/i.
+
+Version 2.0.0 (2005-05-17)
+=============
+
+Ported to Linux kernel 2.6.
+
+Moved parameters from procfs to sysfs.
+
+Version 1.1.0 (2005-04-01)
+=============
+
+Added fw_version, gpi, transport, and version procfs files.
+
+Added documentation for the bypass_mode, bypass_status, and watchdog
+procfs files.
+
+Added support for the DVB Master II FD and ATSC Master II FD.
+
+Added an ASI_CAP_RX_REDUNDANT capability.
+
+Added ASI_IOC_RXGETSTATUS2 and ASI_IOC_RXSETINPUT ioctls.
+
+Standardized the firmware version format.
+
+Version 1.0.0 (2004-11-19)
+=============
+
+Added mmap () support and the SDI_IOC_QBUF and SDI_IOC_DQBUF ioctls
+to the SMPTE 259M-C API.
+
+Fixed some bugs in DMA buffer allocation and synchronization.
+
+Changed the default SMPTE 259M-C buffer parameters.
+
+Added kernel modules which enable firmware upgrades.
+
+Version 0.9.0 (2004-11-04)
+=============
+
+First release; based on asi-0.7.3.
+
+Split the asi module into an asi API module and dvbm and dvbm_qi
+driver modules.
+
+Added support for an external PAL reference signal with
+ASI_CTL_TX_CLKSRC_EXT_PAL; check the ASI_CAP_TX_COMPOSITEREF capability.
+
+Added a directory in /proc/driver for each board.
+
+Added support for the DVB Master FD-B/R.
+
+Fixed a buffer overrun on interfaces with more than six sysctls.
+
+Removed the ASI_IOC_RXGETSTAMP ioctl.
+
+Added a SMPTE 259M-C API and drivers for
+the SDI Master, MultiMaster SDI-T, and MultiMaster SDI-R.
+

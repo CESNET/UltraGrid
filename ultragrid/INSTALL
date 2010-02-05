@@ -1,0 +1,37 @@
+
+UltraGrid installation instructions
+
+   Copyright (c) 2001-2004 University of Southern California 
+   Copyright (c) 2003-2004 University of Glasgow
+   All rights reserved.
+
+   This software is distributed under license, see the file COPYRIGHT for
+   full terms and conditions.
+
+
+Compiling from source code
+
+   The UltraGrid system depends on modified versions of Tcl-8.0 and Tk-8.0
+   which should be included in the distribution. It will not work correctly
+   with the standard Tcl/Uk versions.
+
+   On Unix like systems, you should build the tcl-8.0 and tk-8.0 packages
+   before trying to build UltraGrid:
+
+	cd ../tcl-8.0/unix
+	./configure
+	make
+	cd ../../tk-8.0/unix
+	./configure
+	make
+
+   Once this is complete, return to this directory and compile the
+   UltraGrid system:
+
+	./configure
+	make
+
+   This will detect the characteristics of the build host, compile the
+   system, and run a number of tests. The resulting binary will be the 
+   file "bin/uv".
+

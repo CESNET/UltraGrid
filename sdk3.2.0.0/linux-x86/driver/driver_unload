@@ -1,0 +1,34 @@
+#!/bin/sh
+if lsmod | grep dvsdriver.ko > /dev/null 2>&1 ; then
+  echo "- unload dvsdriver"
+  rmmod dvsdriver.ko
+elif lsmod | grep dvsdebug.ko > /dev/null 2>&1 ; then
+  echo "- unload dvsdebug"
+  rmmod dvsdebug.ko
+elif lsmod | grep dvsdriver > /dev/null 2>&1 ; then
+  echo "- unload dvsdriver"
+  rmmod dvsdriver
+elif lsmod | grep dvsdebug > /dev/null 2>&1 ; then
+  echo "- unload dvsdebug"
+  rmmod dvsdebug
+else
+  echo "dvsdriver not loaded."
+fi
+
+if lsmod | grep dvsdriver_sdio.ko > /dev/null 2>&1 ; then
+  echo "- unload dvsdriver_sdio"
+  rmmod dvsdriver_sdio.ko
+elif lsmod | grep dvsdebug_sdio.ko > /dev/null 2>&1 ; then
+  echo "- unload dvsdebug_sdio"
+  rmmod dvsdebug_sdio.ko
+elif lsmod | grep dvsdriver_sdio > /dev/null 2>&1 ; then
+  echo "- unload dvsdriver_sdio"
+  rmmod dvsdriver_sdio
+elif lsmod | grep dvsdebug_sdio > /dev/null 2>&1 ; then
+  echo "- unload dvsdebug_sdio"
+  rmmod dvsdebug_sdio
+else
+  echo "dvsdriver_sdio not loaded."
+fi
+
+exit 0

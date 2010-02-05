@@ -1,0 +1,218 @@
+Installation instructions for the Master Linux Software Development Kit
+=======================================================================
+
+
+Compiling the kernel modules and example programs
+-------------------------------------------------
+
+Kernel module compilation requires the kernel header files.
+No action is needed for some Fedora distributions
+which include these files in the kernel packages.
+Other distributions may need to install a separate
+kernel-sourcecode or kernel-devel package before continuing.
+
+Compile the kernel modules and the example programs by typing
+
+	make
+
+in the top-level directory of this archive.
+This should create the following files in the src directory:
+
+	asi.ko - DVB ASI API module
+	sdi.ko - SMPTE 259M-C API module
+
+	dvbm.ko - driver module for ATSC Master II FD and DVB Master boards
+	mmas.ko - MultiMaster SDI-T driver module
+	mmsa.ko - MultiMaster SDI-R driver module
+	sdim.ko - SDI Master driver module
+	sdilpm.ko - SDI Master LP driver module
+	sdiqoe.ko - SDI Master Q/o driver module
+	sdiqie.ko - SDI Master Q/i driver module
+
+	ls_as.ko - Active Serial firmware upgrade support module
+	ls_jtag.ko - JTAG firmware upgrade support module
+
+The example programs are in the Examples directory.
+
+If you receive an error message such as
+"/lib/modules/2.6.8-24.14-smp/build not found",
+the compiler cannot find the kernel header files.
+Typically /lib/modules/$(uname -r)/build is
+a symbolic link which points to the kernel source.
+If this link is missing, you can create it by typing
+
+	ln -s /usr/src/linux-$(uname -r) /lib/modules/$(uname -r)/build
+
+as root, assuming the kernel source is installed in
+/usr/src/linux-$(uname -r).
+
+
+Installing the kernel modules and example programs
+--------------------------------------------------
+
+The kernel modules and example programs may be copied to
+the appropriate system directories by typing
+
+	make install
+
+as root in the top-level directory of this archive.
+This copies the example programs to /usr/local/bin,
+copies the kernel modules to /lib/modules/$(uname -r)/master,
+and rebuilds the module dependency database.
+
+
+Creating device files
+---------------------
+
+A device file must exist for each interface you wish to use.
+Some systems will automatically create a device file for
+each interface when the driver module is loaded.
+Alternatively, scripts which create device files for
+sixteen transmit and sixteen receive interfaces
+have been provided for your convenience.
+To run these scripts, simply type
+
+	./mkdev.asi
+
+and/or
+
+	./mkdev.sdi
+
+as root.
+
+See doc/ASI/devices.txt and doc/SDI/devices.txt
+for a description of these device files.
+This would also be a good time to change the permissions
+on the device files; mkdev.asi and mkdev.sdi allow read and write access
+to the root user only. Users who need access to the hardware
+should be given read permission on the receiver device files and
+write permission on the transmitter device files.
+Mmap support on SMPTE 259M-C transmitters requires
+both read and write permission.
+
+
+Loading the kernel modules
+--------------------------
+
+Each board needs one driver module and at least one API module
+to be loaded before its interfaces can be used.
+The required modules for each supported board are listed below.
+If the kernel modules have been added to the module dependency database
+as described in "Installing the kernel modules and example programs",
+only the first module listed (the driver module) needs to be loaded
+explicitly; the modules in parentheses (the API modules) will be
+loaded automatically.
+
+	DVB Master Send - dvbm.ko (asi.ko)
+	DVB Master II Send - dvbm.ko (asi.ko)
+	DVB Master Receive - dvbm.ko (asi.ko)
+	DVB Master II Receive - dvbm.ko (asi.ko)
+	DVB Master FD - dvbm.ko (asi.ko)
+	DVB Master FD-U - dvbm.ko (asi.ko)
+	DVB Master FD-B - dvbm.ko (asi.ko)
+	DVB Master III Tx - dvbm.ko (asi.ko)
+	DVB Master III Rx - dvbm.ko (asi.ko)
+	DVB Master Dual In - dvbm.ko (asi.ko)
+	DVB Master LP - dvbm.ko (asi.ko)
+	DVB Master Q/i - dvbm.ko (asi.ko)
+	DVB Master Q/o - dvbm.ko (asi.ko)
+	DVB Master Q/io - dvbm.ko (asi.ko)
+	DVB Master Quad-2in2out - dvbm.ko (asi.ko)
+	DVB Master Quad-1in3out - dvbm.ko (asi.ko)
+	DVB Master Quad-3in1out - dvbm.ko (asi.ko)
+	ATSC Master II FD - dvbm.ko (asi.ko)
+	SDI Master - sdim.ko (sdi.ko)
+	MultiMaster SDI-T - mmas.ko (asi.ko, sdi.ko)
+	MultiMaster SDI-R - mmsa.ko (asi.ko, sdi.ko)
+	SDI Master LP - sdilpm.ko (sdi.ko)
+	SDI Master Q/o - sdiqoe.ko (sdi.ko)
+	SDI Master Q/i - sdiqie.ko (sdi.ko)
+
+As root, load the DVB Master driver module by typing
+
+	modprobe dvbm
+
+Then, type
+
+	lsmod
+
+to list the loaded modules.
+Both "dvbm" and "asi" should be listed.
+
+Type
+
+	dmesg
+
+to view the kernel message buffer;
+there should be banner messages from the kernel modules
+at the end of the buffer.
+
+
+Unloading the kernel modules
+----------------------------
+
+If you want to load a kernel module but
+a module with the same name has already been loaded
+(perhaps an older version), you need to unload the existing
+module first. For example, unload the DVB Master driver module with
+
+	modprobe -r dvbm
+
+
+Changing the API major number
+-----------------------------
+
+The DVB ASI API and SMPTE 259M-C API handle character device files with
+major numbers 61 and 121 by default.
+If these numbers conflict with other devices,
+you can specify a different number by
+loading the API module explicitly:
+
+	modprobe asi major=<major_number>
+
+The major numbers used in your system are listed in /proc/devices.
+Many major numbers are reserved;
+see http://www.lanana.org/ for details.
+You will also have to change the major number of the device files,
+either manually or by editing mkdev script and running it again.
+
+If you want to use dynamic major number allocation,
+load the module with
+
+	modprobe asi major=0
+
+and check the major number in /proc/devices.
+You will have to recreate the device files each time
+the module is loaded, if they are not automatically created.
+
+
+Loading the kernel modules at boot
+----------------------------------
+
+Some systems will automatically load the kernel modules at boot
+when the boards are detected.
+Modules can also be explicitly loaded when the system boots by adding
+
+	modprobe dvbm
+
+or a similar line for the driver module you wish to load
+to /etc/rc.d/rc.local (or any other file which is executed at boot).
+
+If you need to change the major number of one of the API modules, add
+
+	options asi major=<major_number>
+	options sdi major=<major_number>
+
+to /etc/modprobe.conf.
+
+
+Uninstalling the kernel modules and example programs
+----------------------------------------------------
+
+The kernel modules and example programs may be removed from
+the system directories by typing
+
+	make uninstall
+
+as root in the top-level directory of this archive.
+

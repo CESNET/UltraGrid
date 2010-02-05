@@ -1,0 +1,155 @@
+#
+# $Revision: 1.20.2.1 $
+# $Date: 2010/01/29 11:46:51 $
+#
+
+AR            = ar
+RANLIB        = ranlib
+CC            = @CC@
+CXX	      = @CXX@
+LINKER	      = @LINKER@
+CFLAGS        = @DEFS@ @CFLAGS@ @X_CFLAGS@
+LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @AUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @MATHLIBS@ @LIBS@ -lm
+INC           = -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@
+DECKLINK_PATH = @DECKLINK_PATH@
+TARGET        = bin/uv
+BUNDLE        = uv.app
+
+OBJS          = src/bitstream.o \
+		src/debug.o \
+		src/ntp.o \
+		src/pdb.o \
+		src/tv.o \
+		src/transmit.o \
+		src/tfrc.o \
+		src/rtp/pbuf.o \
+		src/rtp/decoders.o \
+		src/rtp/ptime.o \
+		src/rtp/net_udp.o \
+		src/rtp/rtp.o \
+		src/rtp/rtp_callback.o \
+		src/compat/platform_semaphore.o \
+		src/crypto/crypt_aes.o \
+		src/crypto/crypt_aes_impl.o \
+		src/crypto/crypt_des.o \
+		src/crypto/md5.o \
+		src/crypto/random.o \
+		src/video_codec.o \
+		src/video_capture.o \
+		src/video_capture/null.o \
+		src/video_capture/firewire_dv_freebsd.o \
+		@DVS_OBJ@ \
+		src/ihdtv/ihdtv.o \
+		src/video_capture/testcard.o \
+		src/video_display.o \
+		@AUDIO_OBJ@ \
+		@COMPRESS_OBJ@ \
+		@QUICKTIME_OBJ@ \
+		@DECKLINK_OBJ@ \
+		src/video_display/null.o \
+		@X_OBJ@ \
+		@SDL_OBJ@ \
+		@GL_OBJ@ \
+		@DXT_OBJ@ \
+		@SAGE_OBJ@
+
+# -------------------------------------------------------------------------------------------------
+all: $(TARGET) ag-plugins suggest-tests
+
+src/version.h: VERSION
+	@echo "Generating src/version.h"
+	@sed -e 's/.*/#define ULTRAGRID_VERSION "UltraGrid v&"/' VERSION > src/version.h
+
+$(TARGET): src/version.h $(OBJS) src/main.o 
+	@if [ ! -d bin ]; then mkdir bin; fi
+	$(LINKER) $(CFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+
+.c.o:
+	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+
+src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+	$(CXX) -Wno-multichar -fno-rtti -O3 -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+
+src/video_capture/decklink.o: src/video_capture/decklink.cpp
+	$(CXX) -Wno-multichar -fno-rtti -O3 -c $(INC) -o src/video_capture/decklink.o src/video_capture/decklink.cpp
+
+src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
+	$(CXX) -Wno-deprecated -fPIC -O3 -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
+
+# -------------------------------------------------------------------------------------------------
+TEST_OBJS = test/test_bitstream.o \
+	    test/test_aes.o \
+	    test/test_des.o \
+	    test/test_md5.o \
+	    test/test_random.o \
+	    test/test_video_display.o \
+	    test/test_video_capture.o \
+	    test/test_tv.o \
+	    test/test_net_udp.o \
+	    test/test_rtp.o \
+	    test/run_tests.o
+
+test/run_tests: $(TEST_OBJS) $(OBJS) 
+	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
+
+suggest-tests:
+	@echo ""
+	@echo "*** Now type \"make tests\" to run the test suite"
+	@echo ""
+
+tests: test/run_tests 
+	@test/run_tests
+
+# -------------------------------------------------------------------------------------------------
+ag-plugins: ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+
+AG_PLUGIN_TX_SCRIPTS = ag_plugin/uvSenderService.py \
+                       ag_plugin/uvSenderService.svc \
+                       ag_plugin/uvSenderService.manifest
+
+ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+	@echo "Creating AccessGrid plugin: uvSenderService.zip"
+	@rm  -f ag_plugin/uvSenderService.zip 
+	@zip -j ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
+
+AG_PLUGIN_RX_SCRIPTS = ag_plugin/uvReceiverService.py \
+                       ag_plugin/uvReceiverService.svc \
+                       ag_plugin/uvReceiverService.manifest
+
+ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
+	@rm  -f ag_plugin/uvReceiverService.zip 
+	@zip -j ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
+
+# -------------------------------------------------------------------------------------------------
+clean:
+	-rm -f $(OBJS) src/main.o $(TARGET) src/version.h 
+	-rm -f $(TEST_OBJS) test/run_tests
+	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
+	-rm -rf $(BUNDLE)
+
+distclean: clean
+	-rm -f Makefile config.status config.cache config.log src/config.h tags
+
+etags:
+	etags src/*.[ch] src/*/*.[ch]
+
+ctags:
+	ctags src/*.[ch] src/*/*.[ch]
+
+release:
+	cvs tag release-`cat VERSION | sed "s/\./-/g"`
+
+bundle: all
+	mkdir -p $(BUNDLE)/Contents/MacOS
+	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
+	echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
+
+install:
+	cp -v $(TARGET) /usr/local/bin/
+	rm -rf /usr/local/share/uv-0.3.1
+	mkdir /usr/local/share/uv-0.3.1
+	cp -v share/uv_startup.bmp /usr/local/share/uv-0.3.1/
+	cp -v share/dxt.frag /usr/local/share/uv-0.3.1/
+	cp -v share/dxt.vert /usr/local/share/uv-0.3.1/
+	cp -v share/gl_sdl.glsl /usr/local/share/uv-0.3.1/
