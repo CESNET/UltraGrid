@@ -89,27 +89,26 @@ void NSApplicationLoad();
 #define FOURCC_UYVY  0x59565955
 
 struct state_sdl {
-        Display *display;
-        SDL_Overlay *yuv_image;
-        SDL_Surface *rgb_image;
-        struct video_frame frame;
-        /* Thread related information follows... */
-        pthread_t thread_id;
-        SDL_sem *semaphore;
-        /* For debugging... */
-        uint32_t magic;
+        Display                 *display;
+        SDL_Overlay             *yuv_image;
+        SDL_Surface             *rgb_image;
+        struct video_frame      frame;
 
-        struct timeval tv;
-        int frames;
+        pthread_t               thread_id;
+        SDL_sem                 *semaphore;
+        uint32_t                magic;
 
-        SDL_Surface *sdl_screen;
-        SDL_Rect dst_rect;
+        struct timeval          tv;
+        int                     frames;
+
+        SDL_Surface             *sdl_screen;
+        SDL_Rect                dst_rect;
 
         const struct codec_info_t *codec_info;
-        unsigned rgb:1;
-        unsigned interlaced:1;
-        unsigned deinterlace:1;
-        unsigned fs:1;
+
+        unsigned                rgb:1;
+        unsigned                deinterlace:1;
+        unsigned                fs:1;
 };
 
 void show_help(void);
@@ -198,7 +197,6 @@ void show_help(void)
         printf("SDL options:\n");
         printf("\twidth:height:codec[:fs][:i][:d][:f:filename] | help\n");
         printf("\tfs - fullscreen\n");
-        printf("\ti - interlaced (deprecated)\n");
         printf("\td - deinterlace\n");
         printf("\tf filename - read frame content from the filename\n");
         show_codec_help();
@@ -423,8 +421,6 @@ void *display_sdl_init(char *fmt)
                         while (tok != NULL) {
                                 if (tok[0] == 'f' && tok[1] == 's') {
                                         s->fs = 1;
-                                } else if (tok[0] == 'i') {
-                                        s->interlaced = 1;
                                 } else if (tok[0] == 'd') {
                                         s->deinterlace = 1;
                                 }
@@ -506,8 +502,8 @@ void *display_sdl_init(char *fmt)
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
 
-        if (pthread_create(&(s->thread_id), NULL, display_thread_sdl, (void *)s)
-            != 0) {
+        if (pthread_create(&(s->thread_id), NULL, 
+                           display_thread_sdl, (void *)s) != 0) {
                 perror("Unable to create display thread\n");
                 return NULL;
         }
