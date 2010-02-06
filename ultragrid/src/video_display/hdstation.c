@@ -375,6 +375,7 @@ void *display_hdstation_init(char *fmt)
                 perror("Unable to create display thread\n");
                 return NULL;
         }
+        s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
         s->frame.decoder = (decoder_t)memcpy;
 
