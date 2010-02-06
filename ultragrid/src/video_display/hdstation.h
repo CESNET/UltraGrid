@@ -48,6 +48,6 @@
 display_type_t      *display_hdstation_probe(void);
 void                *display_hdstation_init(char *fmt);
 void                 display_hdstation_done(void *state);
-char                *display_hdstation_getf(void *state);
+struct video_frame  *display_hdstation_getf(void *state);
 int                  display_hdstation_putf(void *state, char *frame);
 

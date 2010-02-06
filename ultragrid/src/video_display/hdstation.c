@@ -70,27 +70,42 @@
 
 #define HDSP_MAGIC	0x12345678
 
+typedef struct {
+        char *name;
+        int mode;
+        double fps;
+        unsigned int width;
+        unsigned int height;
+        char interlaced;
+} hdsp_mode_table_t;
+
+const hdsp_mode_table_t hdsp_mode_table[] = {
+        {"SMPTE274", SV_MODE_SMPTE274_25P, 25, 1920, 1080, 0},
+        {"SMPTE274", SV_MODE_SMPTE274_29I, 29, 1920, 1080, 1},
+        {NULL, 0, 0, 0, 0, 0},
+};
+
 struct state_hdsp {
         pthread_t thread_id;
         sv_handle *sv;
         sv_fifo *fifo;
-        char *frame_buffer;
-        int frame_size;
         sv_fifo_buffer *fifo_buffer;
         sv_fifo_buffer *display_buffer;
         sv_fifo_buffer *tmp_buffer;
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
         pthread_cond_t worker_cv;
-        int work_to_do;
-        int boss_waiting;
-        int worker_waiting;
+volatile int work_to_do;
+volatile int boss_waiting;
+volatile int worker_waiting;
         uint32_t magic;
         char *bufs[2];
         int bufs_index;
-        codec_t codec;
         int hd_video_mode;
-        double bpp;
+        struct video_frame frame;
+        const hdsp_mode_table_t *mode;
+        unsigned interlaced:1;       
+        double fps;
 };
 
 static void *display_thread_hd(void *arg)
@@ -125,7 +140,8 @@ static void *display_thread_hd(void *arg)
         return NULL;
 }
 
-char *display_hdstation_getf(void *state)
+struct video_frame *
+display_hdstation_getf(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         int res;
@@ -139,14 +155,14 @@ char *display_hdstation_getf(void *state)
         if (res != SV_OK) {
                 debug_msg("Error %s\n", sv_geterrortext(res));
                 return NULL;
-        }
-        s->bufs_index = (s->bufs_index + 1) % 2;
-        s->frame_buffer = s->bufs[s->bufs_index];
-        s->frame_size = hd_size_x * hd_size_y * s->bpp;
-        s->fifo_buffer->dma.addr = s->frame_buffer;
-        s->fifo_buffer->dma.size = s->frame_size;
+        }      
 
-        return s->frame_buffer;
+        s->bufs_index = (s->bufs_index + 1) % 2;
+        s->frame.data = s->bufs[s->bufs_index];
+        s->fifo_buffer->dma.addr = s->frame.data;
+        s->fifo_buffer->dma.size = s->frame.data_len;
+
+        return &s->frame;
 }
 
 int display_hdstation_putf(void *state, char *frame)
@@ -179,97 +195,170 @@ int display_hdstation_putf(void *state, char *frame)
         return TRUE;
 }
 
-void *display_hdstation_init(char *fmt)
+static void
+reconfigure_screen(void *state, unsigned int width, unsigned int height,
+                                   codec_t color_spec)
 {
-        struct state_hdsp *s;
-        int fps;
-        int i;
-        int res;
+        struct state_hdsp *s = (struct state_hdsp *)state;
+        int i, res;
 
-        if (fmt != NULL) {
-                if (strcmp(fmt, "help") == 0) {
-                        printf("hdstation options:\n");
-                        printf("\tfps:codec\n");
+        /* Wait for the worker to finish... */
+        while (!s->worker_waiting);
 
-                        return 0;
-                }
-
-                char *tmp;
-
-                tmp = strtok(fmt, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                fps = atoi(tmp);
-                tmp = strtok(NULL, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                s->codec = 0xffffffff;
-                for (i = 0; codec_info[i].name != NULL; i++) {
-                        if (strcmp(tmp, codec_info[i].name) == 0) {
-                                s->codec = codec_info[i].codec;
-                                s->bpp = codec_info[i].bpp;
-                        }
-                }
-                if (s->codec == 0xffffffff) {
-                        fprintf(stderr, "hdstation: unknown codec: %s\n", tmp);
-                        free(s);
-                        free(tmp);
-                        return 0;
+        s->mode = NULL;
+        for(i=0; hdsp_mode_table[i].name != NULL; i++) {
+                if(hdsp_mode_table[i].width == width &&
+                   hdsp_mode_table[i].height == height &&
+                   s->interlaced == hdsp_mode_table[i].interlaced &&
+                   s->fps == hdsp_mode_table[i].fps) {
+                    s->mode = &hdsp_mode_table[i];
+                        break;
                 }
         }
+
+        if(s->mode == NULL) {
+                fprintf(stderr, "Reconfigure failed. Expect troubles pretty soon..\n"
+                                "\tRequested: %dx%d, color space %d, fps %f, interlaced: %d\n",
+                                width, height, color_spec, s->fps, s->interlaced);
+                return;
+        }
+
+        s->frame.color_spec = color_spec;
+        s->frame.width = width;
+        s->frame.height = height;
+        s->frame.dst_bpp = get_bpp(color_spec);
 
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 
-        if (s->codec == DVS10) {
+        if (s->frame.color_spec == DVS10) {
                 s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
-        if (fps == 25) {
-                s->hd_video_mode |= SV_MODE_SMPTE274_25P;
-        } else if (fps == 29) {
-                s->hd_video_mode |= SV_MODE_SMPTE274_29I;
-        } else {
-                fprintf(stderr, "Wrong framerate in config %s\n", fmt);
-                return 0;
-        }
 
-        /* Start the display thread... */
-        s = (struct state_hdsp *)malloc(sizeof(struct state_hdsp));
-        s->magic = HDSP_MAGIC;
-        s->frame_size = 0;
-        s->frame_buffer = 0;
+        s->hd_video_mode |= s->mode->mode;
 
-        s->sv = sv_open("");
-        if (s->sv == NULL) {
-                debug_msg("Cannot open HDTV display device\n");
-                return NULL;
-        }
         res = sv_videomode(s->sv, s->hd_video_mode | SV_MODE_AUDIO_NOAUDIO);
         if (res != SV_OK) {
                 debug_msg("Cannot set videomode %s\n", sv_geterrortext(res));
-                return NULL;
+                return;
         }
         res = sv_sync_output(s->sv, SV_SYNCOUT_BILEVEL);
         if (res != SV_OK) {
                 debug_msg("Cannot enable sync-on-green %s\n",
                           sv_geterrortext(res));
-                return NULL;
+                return;
         }
+
+        if(s->fifo)
+                sv_fifo_free(s->sv, s->fifo);
 
         res = sv_fifo_init(s->sv, &s->fifo, 0, 1, 1, 0, 0);
         if (res != SV_OK) {
                 debug_msg("Cannot initialize video display FIFO %s\n",
                           sv_geterrortext(res));
-                return NULL;
+                return;
         }
         res = sv_fifo_start(s->sv, s->fifo);
         if (res != SV_OK) {
                 debug_msg("Cannot start video display FIFO  %s\n",
                           sv_geterrortext(res));
+                return;
+        }
+
+        s->frame.data_len = s->frame.width * s->frame.height * s->frame.dst_bpp;
+        s->frame.dst_linesize = s->frame.width * s->frame.dst_bpp;
+
+        free(s->bufs[0]);
+        free(s->bufs[1]);
+        s->bufs[0] = malloc(s->frame.data_len);
+        s->bufs[1] = malloc(s->frame.data_len);
+        s->bufs_index = 0;
+        memset(s->bufs[0], 0, s->frame.data_len);
+        memset(s->bufs[1], 0, s->frame.data_len);
+}
+
+
+void *display_hdstation_init(char *fmt)
+{
+        struct state_hdsp *s;
+        double fps;
+        int i;
+
+        s = (struct state_hdsp *)calloc(1, sizeof(struct state_hdsp));
+        s->magic = HDSP_MAGIC;
+
+        if (fmt != NULL) {
+                if (strcmp(fmt, "help") == 0) {
+                        printf("hdstation options:\n");
+                        printf("\tfps:[mode:[codec:[i|p]]]\n");
+
+                        return 0;
+                }
+
+                char *tmp;
+                char *mode;
+
+                tmp = strtok(fmt, ":");
+
+                if (!tmp) {
+                        fprintf(stderr, "Wrong config %s\n", fmt);
+                        free(s);
+                        return 0;
+                }
+                fps = atof(tmp);
+                tmp = strtok(NULL, ":");
+                if (tmp) {
+                        mode = tmp;
+                        tmp = strtok(NULL, ":");
+                        if (!tmp) {
+                                fprintf(stderr, "Wrong config %s\n", fmt);
+                                free(s);
+                                return 0;
+                        }
+                        s->frame.color_spec = 0xffffffff;
+                        for (i = 0; codec_info[i].name != NULL; i++) {
+                                if (strcmp(tmp, codec_info[i].name) == 0) {
+                                        s->frame.color_spec = codec_info[i].codec;
+                                        s->frame.src_bpp = codec_info[i].bpp;
+                                }
+                        }
+                        if (s->frame.color_spec == 0xffffffff) {
+                                fprintf(stderr, "hdstation: unknown codec: %s\n", tmp);
+                                free(s);
+                                return 0;
+                        }
+                        tmp = strtok(NULL, ":");
+                        if(tmp) {
+                                if(tmp[0] == 'i') {
+                                        s->interlaced = 1;
+                                } else if(tmp[0] == 'p') {
+                                        s->interlaced = 0;                               
+                                }
+                         }
+                        for(i=0; hdsp_mode_table[i].name != NULL; i++) {
+                                if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
+                                   s->interlaced == hdsp_mode_table[i].interlaced &&
+                                   fps == hdsp_mode_table[i].fps) {
+                                        s->mode = &hdsp_mode_table[i];
+                                        break;
+                                }
+                        }
+                        if(s->mode == NULL) {
+                                fprintf(stderr, "hdstation: unknown video mode: %s\n", mode);
+                                free(s);
+                                return 0;
+                       }
+                }
+        }
+
+        /* Start the display thread... */
+        s->sv = sv_open("");
+        if (s->sv == NULL) {
+                debug_msg("Cannot open HDTV display device\n");
                 return NULL;
+        }
+
+        if(s->mode) {
+                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec);
         }
 
         pthread_mutex_init(&s->lock, NULL);
@@ -280,17 +369,13 @@ void *display_hdstation_init(char *fmt)
         s->worker_waiting = FALSE;
         s->display_buffer = NULL;
 
-        s->bufs[0] = malloc(hd_size_x * hd_size_y * s->bpp);
-        s->bufs[1] = malloc(hd_size_x * hd_size_y * s->bpp);
-        s->bufs_index = 0;
-        memset(s->bufs[0], 0, hd_size_x * hd_size_y * s->bpp);
-        memset(s->bufs[1], 0, hd_size_x * hd_size_y * s->bpp);
-
         if (pthread_create(&(s->thread_id), NULL, display_thread_hd, (void *)s)
             != 0) {
                 perror("Unable to create display thread\n");
                 return NULL;
         }
+        s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
+        s->frame.decoder = (decoder_t)memcpy;
 
         return (void *)s;
 }
@@ -307,7 +392,6 @@ void display_hdstation_done(void *state)
 display_type_t *display_hdstation_probe(void)
 {
         display_type_t *dtype;
-        sv_handle *sv;
 
         dtype = malloc(sizeof(display_type_t));
         if (dtype != NULL) {
