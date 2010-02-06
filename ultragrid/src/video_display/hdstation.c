@@ -266,6 +266,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         s->frame.data_len = s->frame.width * s->frame.height * s->frame.dst_bpp;
         s->frame.dst_linesize = s->frame.width * s->frame.dst_bpp;
+        s->frame.dst_pitch = s->frame.dst_linesize;
 
         free(s->bufs[0]);
         free(s->bufs[1]);
