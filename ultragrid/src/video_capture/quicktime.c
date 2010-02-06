@@ -80,15 +80,13 @@ struct qt_grabber_state {
         int sg_idle_enough;
         int major;
         int minor;
-        int width;
-        int height;
-        int codec;
+        struct video_frame *frame;
         struct codec_info_t *c_info;
         unsigned gui:1;
+        int frames = 0;
+        struct timeval t0;
 };
 
-int frames = 0;
-struct timeval t, t0;
 
 /*
  * Sequence grabber data procedure
@@ -124,6 +122,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
              TimeValue time, short writeType, long refCon)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)refCon;
+        struct timeval t;
 
         UNUSED(c);
         UNUSED(offset);
@@ -136,18 +135,18 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
                 return -1;
         }
 
-        memcpy(GetPixBaseAddr(GetGWorldPixMap(s->gworld)), p, len);
+        memcpy(s->frame.data, p, len);
         s->sg_idle_enough = 1;
 
-        frames++;
+        s->frames++;
         gettimeofday(&t, NULL);
-        double seconds = tv_diff(t, t0);
+        double seconds = tv_diff(t, s->t0);
         if (seconds >= 5) {
-                float fps = frames / seconds;
-                fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames,
+                float fps = s->frames / seconds;
+                fprintf(stderr, "%d frames in %g seconds = %g FPS\n", s->frames,
                         seconds, fps);
-                t0 = t;
-                frames = 0;
+                s->t0 = t;
+                s->frames = 0;
         }
 
         return 0;
@@ -441,9 +440,9 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         Rect gActiveVideoRect;
         SGGetSrcVideoBounds(s->video_channel, &gActiveVideoRect);
 
-        hd_size_x = s->bounds.right =
+        s->frame.width = s->bounds.right =
             gActiveVideoRect.right - gActiveVideoRect.left;
-        hd_size_y = s->bounds.bottom =
+        s->frame.height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
 
         printf("Quicktime: Video size: %dx%d\n", s->bounds.right,
@@ -488,33 +487,21 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff,
                (pixfmt) & 0xff);
 
-        hd_color_spc = s->codec;
+        s->frame.color_spec = s->codec;
 
         int h_align = s->c_info->h_align;
+        int aligned_x=s->frame.width;
         if (h_align) {
-                hd_size_x = ((hd_size_x + h_align - 1) / h_align) * h_align;
+                aligned_x = ((s->frame.width + h_align - 1) / h_align) * h_align;
                 printf
                     ("Quicktime: Pixel format 'v210' was selected -> Setting hd_size_x to %d\n",
-                     hd_size_x);
+                     aligned_x);
         }
+
+        s->frame.data_len = aligned_x * s->frame.height * s->c_info->bpp;
+        s->frame.data = malloc(s->frame.data_len);
 
         SetPort(savedPort);
-
-        if (QTNewGWorld(&(s->gworld), pixelFormat, &(s->bounds), 0, NULL, 0) !=
-            noErr) {
-                debug_msg("Unable to create GWorld\n");
-                return 0;
-        }
-
-        if (!LockPixels(GetPortPixMap(s->gworld))) {
-                debug_msg("Unable to lock pixels\n");
-                return 0;
-        }
-
-        /*if (SGSetGWorld(s->grabber, s->gworld, GetMainDevice()) != noErr) {
-           debug_msg("Unable to set graphics world\n");
-           return 0;
-           } */
 
         /****************************************************************************************/
         /* Step ?: Set the data procedure, which processes the frames as they're captured.      */
@@ -602,7 +589,6 @@ void vidcap_quicktime_done(void *state)
 struct video_frame *vidcap_quicktime_grab(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
-        struct video_frame *vf;
 
         assert(s != NULL);
         assert(s->magic == MAGIC_QT_GRABBER);
@@ -620,14 +606,7 @@ struct video_frame *vidcap_quicktime_grab(void *state)
                 }
         }
 
-        vf = malloc(sizeof(struct video_frame));
-        if (vf != NULL) {
-                vf->width = hd_size_x;
-                vf->height = hd_size_y;
-                vf->data = (char *)GetPixBaseAddr(GetGWorldPixMap(s->gworld));
-                vf->data_len = hd_size_x * hd_size_y * s->c_info->bpp;
-        }
-        return vf;
+        return &s->frame;
 }
 
 #endif                          /* HAVE_MACOSX */
