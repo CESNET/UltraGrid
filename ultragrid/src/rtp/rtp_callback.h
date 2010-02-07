@@ -57,6 +57,7 @@ typedef struct {
     uint16_t    length;     /* octets */
     uint8_t     colorspc;
     uint8_t     flags;
+    uint32_t    fps;        /* fixed point fps. take care! */
 } payload_hdr_t;
 
 /* FIXME: this is only needed because fdisplay() takes "struct display" as a parameter */

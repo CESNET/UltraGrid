@@ -127,6 +127,7 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
         payload_hdr.width = htons(frame->width);
         payload_hdr.height = htons(frame->height);
         payload_hdr.colorspc = frame->color_spec;
+        payload_hdr.fps = htonl((int)(frame->fps * 65536));
 
         do {
                 payload_hdr.offset = htonl(pos);

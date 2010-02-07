@@ -42,6 +42,7 @@
  * $Date: 2010/01/28 18:17:28 $
  *
  */
+#include <video_display.h>
 
 #define DISPLAY_HDSTATION_ID	0x74ac3e0f
 

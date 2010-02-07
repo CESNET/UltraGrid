@@ -114,7 +114,7 @@ struct state_sdl {
 void show_help(void);
 void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
-                        codec_t codec);
+                        codec_t codec, double fps);
 
 extern int should_exit;
 
@@ -211,7 +211,7 @@ void cleanup_screen(struct state_sdl *s)
 
 void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                   codec_t color_spec)
+                   codec_t color_spec, double fps)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         int itemp;
@@ -229,6 +229,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         s->frame.width = width;
         s->frame.height = height;
+        s->frame.fps = fps;
 
         ret =
             XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
@@ -463,7 +464,7 @@ void *display_sdl_init(char *fmt)
         }
 
         if (fmt != NULL) {
-                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec);
+                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec, s->frame.fps);
                 temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
                 if (temp == NULL) {
                         temp =

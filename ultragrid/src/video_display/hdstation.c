@@ -70,15 +70,6 @@
 
 #define HDSP_MAGIC	0x12345678
 
-typedef struct {
-        char *name;
-        int mode;
-        double fps;
-        unsigned int width;
-        unsigned int height;
-        char interlaced;
-} hdsp_mode_table_t;
-
 const hdsp_mode_table_t hdsp_mode_table[] = {
         {"SMPTE274", SV_MODE_SMPTE274_25P, 25, 1920, 1080, 0},
         {"SMPTE274", SV_MODE_SMPTE274_29I, 29, 1920, 1080, 1},
@@ -105,7 +96,6 @@ volatile int worker_waiting;
         struct video_frame frame;
         const hdsp_mode_table_t *mode;
         unsigned interlaced:1;       
-        double fps;
 };
 
 static void *display_thread_hd(void *arg)
@@ -197,7 +187,7 @@ int display_hdstation_putf(void *state, char *frame)
 
 static void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                                   codec_t color_spec)
+                                   codec_t color_spec, double fps)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         int i, res;
@@ -210,7 +200,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 if(hdsp_mode_table[i].width == width &&
                    hdsp_mode_table[i].height == height &&
                    s->interlaced == hdsp_mode_table[i].interlaced &&
-                   s->fps == hdsp_mode_table[i].fps) {
+                   fps == hdsp_mode_table[i].fps) {
                     s->mode = &hdsp_mode_table[i];
                         break;
                 }
@@ -219,7 +209,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         if(s->mode == NULL) {
                 fprintf(stderr, "Reconfigure failed. Expect troubles pretty soon..\n"
                                 "\tRequested: %dx%d, color space %d, fps %f, interlaced: %d\n",
-                                width, height, color_spec, s->fps, s->interlaced);
+                                width, height, color_spec, fps, s->interlaced);
                 return;
         }
 
@@ -227,6 +217,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.width = width;
         s->frame.height = height;
         s->frame.dst_bpp = get_bpp(color_spec);
+        s->frame.fps = fps;
 
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 
@@ -290,7 +281,7 @@ void *display_hdstation_init(char *fmt)
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
                         printf("hdstation options:\n");
-                        printf("\tfps:[mode:[codec:[i|p]]]\n");
+                        printf("\t[fps:[mode:[codec:[i|p]]]]\n");
 
                         return 0;
                 }
@@ -359,7 +350,7 @@ void *display_hdstation_init(char *fmt)
         }
 
         if(s->mode) {
-                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec);
+                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec, s->mode->fps);
         }
 
         pthread_mutex_init(&s->lock, NULL);
@@ -377,7 +368,7 @@ void *display_hdstation_init(char *fmt)
         }
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
-        s->frame.decoder = (decoder_t)memcpy;
+        s->frame.decoder = (decoder_t)memcpy;     
 
         return (void *)s;
 }

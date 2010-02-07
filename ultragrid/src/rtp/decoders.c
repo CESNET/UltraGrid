@@ -64,6 +64,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         payload_hdr_t *hdr;
         uint32_t data_pos;
         int prints=0;
+        double fps;
 
         while (cdata != NULL) {
                 pckt = cdata->data;
@@ -73,15 +74,17 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 color_spec = hdr->colorspc;
                 len = ntohs(hdr->length);
                 data_pos = ntohl(hdr->offset);
+                fps = ntohl(hdr->fps)/65536.0;
 
                 /* Critical section 
                  * each thread *MUST* wait here if this condition is true
                  */
                 if (!(frame->width == width &&
                       frame->height == height &&
-                      frame->color_spec == color_spec)) {
+                      frame->color_spec == color_spec &&
+                      frame->fps == fps)) {
                         frame->reconfigure(frame->state, width, height,
-                                           color_spec);
+                                           color_spec, fps);
                         frame->src_linesize =
                             vc_getsrc_linesize(width, color_spec);
                 }
