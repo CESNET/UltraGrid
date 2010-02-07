@@ -45,6 +45,17 @@
 
 #define DISPLAY_HDSTATION_ID	0x74ac3e0f
 
+typedef struct {
+        char *name;
+        int mode;
+        double fps;
+        unsigned int width;
+        unsigned int height;
+        char interlaced;
+} hdsp_mode_table_t;
+
+extern const hdsp_mode_table_t hdsp_mode_table[];
+
 display_type_t      *display_hdstation_probe(void);
 void                *display_hdstation_init(char *fmt);
 void                 display_hdstation_done(void *state);

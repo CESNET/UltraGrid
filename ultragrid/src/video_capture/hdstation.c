@@ -62,6 +62,7 @@
 #include "debug.h"
 #include "video_capture.h"
 #include "video_capture/hdstation.h"
+#include "video_display/hdstation.h"
 #include "video_codec.h"
 #include "tv.h"
 #include "dvs_clib.h"           /* From the DVS SDK */
@@ -85,6 +86,7 @@ struct vidcap_hdstation_state {
         codec_t codec;
         uint32_t hd_video_mode;
         struct video_frame frame;
+        const hdsp_mode_table_t *mode;
 };
 
 static void *vidcap_hdstation_grab_thread(void *arg)
