@@ -364,7 +364,7 @@ void *display_sdl_init(char *fmt)
 
         unsigned int i;
 
-        s = (struct state_sdl *)calloc(sizeof(struct state_sdl), 1);
+        s = (struct state_sdl *)calloc(1, sizeof(struct state_sdl));
         s->magic = MAGIC_SDL;
 
         if (fmt != NULL) {

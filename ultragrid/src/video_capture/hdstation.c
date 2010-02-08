@@ -159,7 +159,7 @@ void *vidcap_hdstation_init(char *fmt)
         int res;
 
         s = (struct vidcap_hdstation_state *)
-            malloc(sizeof(struct vidcap_hdstation_state));
+            calloc(1, sizeof(struct vidcap_hdstation_state));
         if (s == NULL) {
                 debug_msg("Unable to allocate HDstation state\n");
                 return NULL;

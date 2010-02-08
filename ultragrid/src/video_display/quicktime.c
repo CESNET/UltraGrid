@@ -404,7 +404,7 @@ void *display_quicktime_init(char *fmt)
         int i;
 
         /* Parse fmt input */
-        s = (struct state_quicktime *)malloc(sizeof(struct state_quicktime));
+        s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
         s->magic = MAGIC_QT_DISPLAY;
 
         if (fmt != NULL) {

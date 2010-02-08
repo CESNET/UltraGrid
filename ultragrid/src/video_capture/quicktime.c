@@ -543,8 +543,6 @@ struct vidcap_type *vidcap_quicktime_probe(void)
                 vt->id = VIDCAP_QUICKTIME_ID;
                 vt->name = "quicktime";
                 vt->description = "QuickTime capture device";
-                vt->width = hd_size_x;
-                vt->height = hd_size_y;
         }
 
         return vt;

@@ -274,7 +274,7 @@ void *vidcap_testcard_init(char *fmt)
                 return NULL;
         }
 
-        s = malloc(sizeof(struct testcard_state));
+        s = calloc(1, sizeof(struct testcard_state));
         if (!s)
                 return NULL;
 
