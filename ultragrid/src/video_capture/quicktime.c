@@ -80,12 +80,14 @@ struct qt_grabber_state {
         int sg_idle_enough;
         int major;
         int minor;
-        struct video_frame *frame;
-        struct codec_info_t *c_info;
+        struct video_frame frame;
+        const struct codec_info_t *c_info;
         unsigned gui:1;
-        int frames = 0;
+        int frames;
         struct timeval t0;
 };
+
+void nprintf(char *str);
 
 
 /*
@@ -411,7 +413,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
-                s->codec = atoi(tmp);
+                s->frame.color_spec = atoi(tmp);
 
                 SGDeviceName *deviceEntry = &(*deviceList)->entry[s->major];
                 printf("Quicktime: Setting device: ");
@@ -455,13 +457,13 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
         /* Set selected fmt->codec and get pixel format of that codec */
         int pixfmt;
-        if (s->codec > 0) {
+        if (s->frame.color_spec > 0) {
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
-                pixfmt = list->list[s->codec].cType;
+                pixfmt = list->list[s->frame.color_spec].cType;
                 printf("Quicktime: SetCompression: %d\n",
                        (int)SGSetVideoCompressor(s->video_channel, 0,
-                                                 list->list[s->codec].codec, 0,
+                                                 list->list[s->frame.color_spec].codec, 0,
                                                  0, 0));
         } else {
                 int codec;
@@ -470,7 +472,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
                 for (i = 0; i < list->count; i++) {
-                        if ((unsigned)codec == list->list[i].codec) {
+                        if (codec == list->list[i].codec) {
                                 pixfmt = list->list[i].cType;
                                 break;
                         }
@@ -494,8 +496,6 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         printf("Quicktime: Selected pixel format: %c%c%c%c\n",
                pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff,
                (pixfmt) & 0xff);
-
-        s->frame.color_spec = s->codec;
 
         int h_align = s->c_info->h_align;
         int aligned_x=s->frame.width;
