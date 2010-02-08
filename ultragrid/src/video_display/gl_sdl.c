@@ -523,6 +523,7 @@ static void *display_thread_gl(void *arg)
                                 line2 += 2 * 3840;
                         }
                 } else {
+                        /*
                         if (progressive == 1) {
                                 memcpy(line2, line1,
                                        hd_size_x * hd_size_y * bpp);
@@ -537,7 +538,7 @@ static void *display_thread_gl(void *arg)
                                         line1 += (int)(hd_size_x * bpp);
                                         line2 += (int)(2 * hd_size_x * bpp);
                                 }
-                        }
+                        }*/
                 }
 
                 // gl_deinterlace(s->outbuffer);
