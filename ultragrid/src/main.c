@@ -494,7 +494,6 @@ static void *sender_thread(void *arg)
 #endif                          /* HAVE_FASTDXT */
                         }
                         tx_send(uv->tx, tx_frame, uv->network_device);
-                        free(tx_frame);
                 }
         }
 
