@@ -483,6 +483,14 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 }
         }
 
+        Fixed fps;
+
+        SGGetFrameRate(s->video_channel, &fps);
+
+        s->frame.fps = FixedToFloat(fps);
+
+        printf("Quicktime: Source FPS: %f\n", s->frame.fps);
+
         printf("Quicktime: Selected pixel format: %c%c%c%c\n",
                pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff,
                (pixfmt) & 0xff);
