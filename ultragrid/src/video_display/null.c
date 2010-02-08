@@ -60,7 +60,7 @@ void *display_null_init(void)
 {
         struct state_null *s;
 
-        s = (struct state_null *)malloc(sizeof(struct state_null));
+        s = (struct state_null *)calloc(1, sizeof(struct state_null));
         if (s != NULL) {
                 s->magic = MAGIC_NULL;
         }
