@@ -73,7 +73,6 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 
 struct testcard_state {
         struct timeval last_frame_time;
-        int fps;
         int count;
         int size;
         int pan;
@@ -302,7 +301,7 @@ void *vidcap_testcard_init(char *fmt)
                 return NULL;
         }
 
-        s->fps = atoi(tmp);
+        s->frame.fps = atof(tmp);
 
         tmp = strtok(NULL, ":");
         if (!tmp) {
@@ -461,7 +460,7 @@ struct video_frame *vidcap_testcard_grab(void *arg)
 
         gettimeofday(&curr_time, NULL);
         if (tv_diff(curr_time, state->last_frame_time) >
-            1.0 / (double)state->fps) {
+            1.0 / (double)state->frame.fps) {
                 state->last_frame_time = curr_time;
                 state->count++;
 
