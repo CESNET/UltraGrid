@@ -9,3 +9,4 @@ config.log
 config.status
 src/version.h
 *.swp
+ag_plugin
