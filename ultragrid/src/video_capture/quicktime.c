@@ -457,7 +457,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
         /* Set selected fmt->codec and get pixel format of that codec */
         int pixfmt;
-        if (s->frame.color_spec > 0) {
+        if (s->frame.color_spec != 0xffffffff) {
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
                 pixfmt = list->list[s->frame.color_spec].cType;
@@ -483,6 +483,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 if ((unsigned)pixfmt == codec_info[i].fcc) {
                         s->c_info = &codec_info[i];
                 }
+                s->frame.color_spec = s->c_info->codec;
         }
 
         Fixed fps;
@@ -554,7 +555,7 @@ void *vidcap_quicktime_init(char *fmt)
 {
         struct qt_grabber_state *s;
 
-        s = (struct qt_grabber_state *)malloc(sizeof(struct qt_grabber_state));
+        s = (struct qt_grabber_state *)calloc(1,sizeof(struct qt_grabber_state));
         if (s != NULL) {
                 s->magic = MAGIC_QT_GRABBER;
                 s->grabber = 0;
@@ -565,6 +566,7 @@ void *vidcap_quicktime_init(char *fmt)
                 s->bounds.bottom = hd_size_y;
                 s->bounds.right = hd_size_x;
                 s->sg_idle_enough = 0;
+                s->frame.color_spec = 0xffffffff;
 
                 if (qt_open_grabber(s, fmt) == 0) {
                         free(s);
