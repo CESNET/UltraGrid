@@ -87,7 +87,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                       frame->aux == aux &&
                       frame->fps == fps)) {
                         frame->reconfigure(frame->state, width, height,
-                                           color_spec, fps);
+                                           color_spec, fps, aux);
                         frame->src_linesize =
                             vc_getsrc_linesize(width, color_spec);
                 }
