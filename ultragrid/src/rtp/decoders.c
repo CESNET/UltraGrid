@@ -67,6 +67,9 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         int prints=0;
         double fps;
 
+        if(!frame)
+                return;
+
         while (cdata != NULL) {
                 pckt = cdata->data;
                 hdr = (payload_hdr_t *) pckt->data;
