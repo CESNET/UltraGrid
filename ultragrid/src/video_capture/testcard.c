@@ -1,5 +1,5 @@
 /*
- * FILE:   quicktime.c
+ * FILE:   testcard.c
  * AUTHOR: Colin Perkins <csp@csperkins.org
  *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
  *         Martin Benes     <martinbenesh@gmail.com>
@@ -433,7 +433,7 @@ void *vidcap_testcard_init(char *fmt)
         s->count = 0;
         gettimeofday(&(s->last_frame_time), NULL);
 
-        printf("Testcard set to %dx%d, bpp %f\n", s->frame.width, s->frame.width, bpp);
+        printf("Testcard capture set to %dx%d, bpp %f\n", s->frame.width, s->frame.height, bpp);
 
         s->frame.state = s;
         s->frame.data_len = s->size;

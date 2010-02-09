@@ -1,0 +1,16 @@
+configure
+Makefile
+config.h
+*.o
+*.lo
+uv
+aclocal.m4
+autom4te.cache
+config.log
+config.status
+src/version.h
+*.swp
+ag_plugin
+bin*
+lib*
+*.pc

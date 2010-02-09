@@ -83,6 +83,7 @@ struct vidcap_hdstation_state {
         int work_to_do;
         char *bufs[2];
         int bufs_index;
+	int size;
         codec_t codec;
         uint32_t hd_video_mode;
         struct video_frame frame;
@@ -155,6 +156,8 @@ void *vidcap_hdstation_init(char *fmt)
 {
         int fps = 29;
         struct vidcap_hdstation_state *s;
+	int h_align = 0;
+	int aligned_x;
         int i;
         int res;
 
@@ -186,11 +189,13 @@ void *vidcap_hdstation_init(char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
+
                 s->codec = 0xffffffff;
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(tmp, codec_info[i].name) == 0) {
                                 s->codec = codec_info[i].codec;
                                 s->frame.src_bpp = codec_info[i].bpp;
+				h_align = codec_info[i].h_align;
                         }
                 }
                 if (s->codec == 0xffffffff) {
@@ -218,6 +223,13 @@ void *vidcap_hdstation_init(char *fmt)
         s->frame.width = 1920;
         s->frame.height = 1080;
         s->frame.color_spec = s->codec;
+
+	aligned_x = s->frame.width;
+	if (h_align) {
+		aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
+	}
+	s->frame.src_linesize = aligned_x * s->frame.src_bpp;
+	s->size = aligned_x * s->frame.height * s->frame.src_bpp;
 
         s->sv = sv_open("");
         if (s->sv == NULL) {
@@ -259,12 +271,15 @@ void *vidcap_hdstation_init(char *fmt)
         s->bufs[1] = malloc(s->frame.data_len);
         s->bufs_index = 0;
         s->frame.state = s;
+	s->frame.data_len = s->size;
 
         if (pthread_create
             (&(s->thread_id), NULL, vidcap_hdstation_grab_thread, s) != 0) {
                 perror("Unable to create grabbing thread");
                 return NULL;
         }
+
+        printf("Testcard capture set to %dx%d, bpp %f\n", s->frame.width, s->frame.height, s->frame.src_bpp);
 
         debug_msg("HDstation capture device enabled\n");
         return s;
