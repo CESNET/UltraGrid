@@ -57,6 +57,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         uint32_t width;
         uint32_t height;
         uint32_t offset;
+        uint32_t aux;
         int len;
         codec_t color_spec;
         rtp_packet *pckt;
@@ -65,6 +66,9 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         uint32_t data_pos;
         int prints=0;
         double fps;
+
+        if(!frame)
+                return;
 
         while (cdata != NULL) {
                 pckt = cdata->data;
@@ -75,6 +79,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 len = ntohs(hdr->length);
                 data_pos = ntohl(hdr->offset);
                 fps = ntohl(hdr->fps)/65536.0;
+                aux = ntohl(hdr->aux);
 
                 /* Critical section 
                  * each thread *MUST* wait here if this condition is true
@@ -82,9 +87,10 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 if (!(frame->width == width &&
                       frame->height == height &&
                       frame->color_spec == color_spec &&
+                      frame->aux == aux &&
                       frame->fps == fps)) {
                         frame->reconfigure(frame->state, width, height,
-                                           color_spec, fps);
+                                           color_spec, fps, aux);
                         frame->src_linesize =
                             vc_getsrc_linesize(width, color_spec);
                 }

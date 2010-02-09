@@ -187,7 +187,7 @@ int display_hdstation_putf(void *state, char *frame)
 
 static void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                                   codec_t color_spec, double fps)
+                                   codec_t color_spec, double fps, int aux;)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         int i, res;
@@ -218,6 +218,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.height = height;
         s->frame.dst_bpp = get_bpp(color_spec);
         s->frame.fps = fps;
+        s->frame.aux = aux;
 
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 

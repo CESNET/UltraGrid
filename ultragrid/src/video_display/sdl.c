@@ -114,7 +114,7 @@ struct state_sdl {
 void show_help(void);
 void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
-                        codec_t codec, double fps);
+                        codec_t codec, double fps, int aux);
 
 extern int should_exit;
 
@@ -211,7 +211,7 @@ void cleanup_screen(struct state_sdl *s)
 
 void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                   codec_t color_spec, double fps)
+                   codec_t color_spec, double fps, int aux)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         int itemp;
@@ -230,6 +230,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.width = width;
         s->frame.height = height;
         s->frame.fps = fps;
+        s->frame.aux = aux;
 
         ret =
             XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,

@@ -59,7 +59,7 @@ typedef enum {
 } codec_t;
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
-typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps);
+typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux);
 
 
 struct video_frame {
@@ -84,6 +84,7 @@ struct video_frame {
         reconfigure_t        reconfigure;
         void                 *state;
         double               fps;
+        int                  aux;
 };
 
 
