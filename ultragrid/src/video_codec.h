@@ -84,6 +84,7 @@ struct video_frame {
         reconfigure_t        reconfigure;
         void                 *state;
         double               fps;
+        int                  aux;
 };
 
 
