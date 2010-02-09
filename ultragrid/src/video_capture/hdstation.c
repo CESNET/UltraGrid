@@ -83,7 +83,6 @@ struct vidcap_hdstation_state {
         int work_to_do;
         char *bufs[2];
         int bufs_index;
-	int size;
         codec_t codec;
         uint32_t hd_video_mode;
         struct video_frame frame;
@@ -229,7 +228,7 @@ void *vidcap_hdstation_init(char *fmt)
 		aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
 	}
 	s->frame.src_linesize = aligned_x * s->frame.src_bpp;
-	s->size = aligned_x * s->frame.height * s->frame.src_bpp;
+	s->frame.data_len = aligned_x * s->frame.height * s->frame.src_bpp;
 
         s->sv = sv_open("");
         if (s->sv == NULL) {
@@ -260,7 +259,6 @@ void *vidcap_hdstation_init(char *fmt)
         pthread_cond_init(&(s->boss_cv), NULL);
         pthread_cond_init(&(s->worker_cv), NULL);
 
-        s->frame.data_len = s->frame.src_bpp * s->frame.width * s->frame.height;
         s->rtp_buffer = NULL;
         s->dma_buffer = NULL;
         s->tmp_buffer = NULL;
@@ -271,7 +269,6 @@ void *vidcap_hdstation_init(char *fmt)
         s->bufs[1] = malloc(s->frame.data_len);
         s->bufs_index = 0;
         s->frame.state = s;
-	s->frame.data_len = s->size;
 
         if (pthread_create
             (&(s->thread_id), NULL, vidcap_hdstation_grab_thread, s) != 0) {
