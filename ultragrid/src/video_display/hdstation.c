@@ -187,7 +187,7 @@ int display_hdstation_putf(void *state, char *frame)
 
 static void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                                   codec_t color_spec, double fps, int aux;)
+                                   codec_t color_spec, double fps, int aux)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         int i, res;
