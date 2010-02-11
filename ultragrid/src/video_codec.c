@@ -288,6 +288,27 @@ vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift,
         }
 }
 
+void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len)
+{
+        unsigned int *d, *s1;
+        register unsigned int a,b;
+        d = dst;
+        s1 = src;
+
+        while(dst_len > 0) {
+                a = b = *s1++;
+                b = ((b >> 24) * 0x00010101) & 0x00300c03;
+                a <<= 2;
+                b |= a & (0xff<<2);
+                a <<= 2;
+                b |= a & (0xff00<<4);
+                a <<= 2;
+                b |= a & (0xff0000<<6);
+                *d++ = b;
+                dst_len -= 4;
+        }
+}
+
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
 #if !(HAVE_MACOSX || HAVE_32B_LINUX)
