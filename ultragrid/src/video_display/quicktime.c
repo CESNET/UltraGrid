@@ -74,10 +74,6 @@ struct state_quicktime {
         GWorldPtr gworld;
         ImageSequence seqID;
 
-        char *buffers[2];
-        char *outBuffer;
-        int image_display, image_network;
-
         int device;
         int mode;
         char *codec;
@@ -88,6 +84,8 @@ struct state_quicktime {
         /* Thread related information follows... */
         pthread_t thread_id;
         sem_t semaphore;
+
+        struct video_frame frame;
 
         uint32_t magic;
 };
@@ -132,6 +130,7 @@ static void *display_thread_quicktime(void *arg)
 
         int frames = 0;
         struct timeval t, t0;
+        int h_align;
 
         imageDesc =
             (ImageDescriptionHandle) NewHandle(sizeof(ImageDescription));
@@ -141,17 +140,28 @@ static void *display_thread_quicktime(void *arg)
         (**(ImageDescriptionHandle) imageDesc).idSize =
             sizeof(ImageDescription);
         (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
-        (**(ImageDescriptionHandle) imageDesc).dataSize = hd_size_x * hd_size_y * s->cinfo->bpp;        // dataSize is specified in bytes and is specified as height*width*bytes_per_luma_instant. v210 sets bytes_per_luma_instant to 8/3. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
-        //(**(ImageDescriptionHandle)imageDesc).cType = '2Vuy'; // QuickTime specifies '2vuy' codec, however Kona3 reports it as '2Vuy'
-        //(**(ImageDescriptionHandle)imageDesc).hRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
-        //(**(ImageDescriptionHandle)imageDesc).vRes = 72; // not used actually. Set to 72. See http://developer.apple.com/quicktime/icefloe/dispatch019.html#imagedesc
-        (**(ImageDescriptionHandle) imageDesc).width = s->width;        // Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs further investigation for 2K!
+        /* 
+         * dataSize is specified in bytes and is specified as 
+         * height*width*bytes_per_luma_instant. v210 sets 
+         * bytes_per_luma_instant to 8/3. 
+         * See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
+         */       
+        (**(ImageDescriptionHandle) imageDesc).dataSize = s->frame.data_len;
+        /* 
+         * Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy
+         * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
+         * further investigation for 2K!
+         */
+        h_align = s->frame.width;
+        if(s->cinfo->h_align) {
+                h_align = ((h_align + s->cinfo->h_align - 1) / s->cinfo->h_align) * s->cinfo->h_align;
+        }
+        (**(ImageDescriptionHandle) imageDesc).width = h_align;
         (**(ImageDescriptionHandle) imageDesc).height = s->height;
-        //(**(ImageDescriptionHandle)imageDesc).frameCount = 0;
-        //(**(ImageDescriptionHandle)imageDesc).depth = 24; // Given by the cType. See http://developer.apple.com/quicktime/icefloe/dispatch019.html
-        //(**(ImageDescriptionHandle)imageDesc).clutID = -1; // We dont use any custom color table
 
-        ret = DecompressSequenceBeginS(&(s->seqID), imageDesc, s->buffers[s->image_display], hd_size_x * hd_size_y * s->cinfo->bpp,     // Size of the buffer, not size of the actual frame data inside
+        ret = DecompressSequenceBeginS(&(s->seqID), imageDesc, s->frame.data, 
+                                       // Size of the buffer, not size of the actual frame data inside
+                                       s->frame.data_len,    
                                        s->gworld,
                                        NULL,
                                        NULL,
@@ -165,33 +175,21 @@ static void *display_thread_quicktime(void *arg)
         }
         DisposeHandle((Handle) imageDesc);
 
-        //ICMFrameTimeRecord    frameTime = {{0}};
-        //TimeBase              timeBase;
-
-        //timeBase = NewTimeBase();
-        //SetTimeBaseRate(timeBase, 0);
-
-        /* TODO frametime probably not needed */
-        //memset(&frameTime, 0, sizeof(ICMFrameTimeRecord));
-        //frameTime.recordSize = sizeof(frameTime);
-        //frameTime.scale = 1000; // Units per second
-        //frameTime.base = timeBase; // Specifying a timeBase means that DecompressSequenceFrameWhen must run asynchronously
-        //frameTime.duration = 30; // Duration of one frame specified accordingly to the scale specified above
-        //frameTime.frameNumber = 0; // We don't know the frame number
-        //frameTime.flags = icmFrameTimeDecodeImmediately;
-
         while (1) {
                 platform_sem_wait(&s->semaphore);
 
-                line1 = s->buffers[s->image_display];
-                line2 = s->outBuffer;
-                memcpy(line2, line1, hd_size_x * hd_size_y * s->cinfo->bpp);
-
-                /* TODO: Running DecompressSequenceFrameWhen asynchronously in this way introduces a possible race condition! */
-                ret = DecompressSequenceFrameWhen(s->seqID, s->outBuffer, hd_size_x * hd_size_y * s->cinfo->bpp,        // Size of the buffer, not size of the actual frame data inside                                          
-                                                  0, &ignore, -1,       // If you set asyncCompletionProc to -1, the operation is performed asynchronously but the decompressor does not call the completion function.
+                /* TODO: Running DecompressSequenceFrameWhen asynchronously 
+                 * in this way introduces a possible race condition! 
+                 */
+                ret = DecompressSequenceFrameWhen(s->seqID, s->frame.data, 
+                                                s->frame.data_len,
+                                               /* If you set asyncCompletionProc to -1, 
+                                                *  the operation is performed asynchronously but 
+                                                * the decompressor does not call the completion 
+                                                * function. 
+                                                */
+                                               0, &ignore, -1,       
                                                   NULL);
-                //&frameTime);
                 if (ret != noErr) {
                         fprintf(stderr,
                                 "Failed DecompressSequenceFrameWhen: %d\n",
@@ -213,11 +211,12 @@ static void *display_thread_quicktime(void *arg)
         return NULL;
 }
 
-char *display_quicktime_getf(void *state)
+struct video_frame *
+display_quicktime_getf(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
         assert(s->magic == MAGIC_QT_DISPLAY);
-        return (char *)s->buffers[s->image_network];
+        return &s->frame;
 }
 
 int display_quicktime_putf(void *state, char *frame)
@@ -227,11 +226,6 @@ int display_quicktime_putf(void *state, char *frame)
 
         UNUSED(frame);
         assert(s->magic == MAGIC_QT_DISPLAY);
-
-        /* ...and give it more to do... */
-        tmp = s->image_display;
-        s->image_display = s->image_network;
-        s->image_network = tmp;
 
         /* ...and signal the worker */
         platform_sem_post(&s->semaphore);
@@ -515,27 +509,31 @@ void *display_quicktime_init(char *fmt)
                 fprintf(stderr, "Failed to determine width and height.\n");
                 return NULL;
         }
-        hd_size_x = s->width = (**gWorldImgDesc).width;
-        hd_size_y = s->height = (**gWorldImgDesc).height;
+        s->frame.width = (**gWorldImgDesc).width;
+        s->frame.height = (**gWorldImgDesc).height;
+
+        int aligned_x=s->frame.width;
 
         if (s->cinfo->h_align) {
-                hd_size_x =
-                    ((hd_size_x + s->cinfo->h_align -
+                aligned_x =
+                    ((aligned_x + s->cinfo->h_align -
                       1) / s->cinfo->h_align) * s->cinfo->h_align;
         }
 
-        fprintf(stdout, "Selected mode: %d(%d)x%d, %fbpp\n", s->width,
-                hd_size_x, hd_size_y, s->cinfo->bpp);
+        s->frame.dst_bpp = s->cinfo->bpp;
+        s->frame.dst_pitch = aligned_x;
+        s->frame.state = s;
+        s->frame.dst_linesize = aligned_x * s->cinfo->bpp;
+        s->frame.decoder = (decoder_t)memcpy;
+        s->frame.color_spec = s->cinfo->codec;
+
+        fprintf(stdout, "Selected mode: %d(%d)x%d, %fbpp\n", s->frame.width,
+                aligned_x, s->frame.height, s->cinfo->bpp);
 
         platform_sem_init(&s->semaphore, 0, 0);
 
-        s->buffers[0] = malloc(hd_size_x * hd_size_y * s->cinfo->bpp);
-        s->buffers[1] = malloc(hd_size_x * hd_size_y * s->cinfo->bpp);
-
-        s->image_network = 0;
-        s->image_display = 1;
-
-        s->outBuffer = malloc(hd_size_x * hd_size_y * s->cinfo->bpp);
+        s->frame.data_len = s->frame.dst_linesize * s->frame.height;
+        s->frame.data = calloc(s->frame.data_len, 1);
 
         if (pthread_create
             (&(s->thread_id), NULL, display_thread_quicktime, (void *)s) != 0) {
