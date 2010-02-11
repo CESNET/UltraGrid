@@ -465,7 +465,7 @@ void *display_sdl_init(char *fmt)
         }
 
         if (fmt != NULL) {
-                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec, s->frame.fps);
+                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec, s->frame.fps, s->frame.aux);
                 temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
                 if (temp == NULL) {
                         temp =

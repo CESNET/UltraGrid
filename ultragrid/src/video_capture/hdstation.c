@@ -83,10 +83,10 @@ struct vidcap_hdstation_state {
         int work_to_do;
         char *bufs[2];
         int bufs_index;
-        codec_t codec;
         uint32_t hd_video_mode;
         struct video_frame frame;
         const hdsp_mode_table_t *mode;
+        unsigned interlaced:1;
 };
 
 static void *vidcap_hdstation_grab_thread(void *arg)
@@ -153,12 +153,12 @@ struct vidcap_type *vidcap_hdstation_probe(void)
 
 void *vidcap_hdstation_init(char *fmt)
 {
-        int fps = 29;
         struct vidcap_hdstation_state *s;
 	int h_align = 0;
 	int aligned_x;
         int i;
         int res;
+        char *mode;
 
         s = (struct vidcap_hdstation_state *)
             calloc(1, sizeof(struct vidcap_hdstation_state));
@@ -170,7 +170,7 @@ void *vidcap_hdstation_init(char *fmt)
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
                         printf("hdstation options:\n");
-                        printf("\tfps:codec\n");
+                        printf("\tfps:mode:codec[:i]\n");
 
                         return 0;
                 }
@@ -182,46 +182,71 @@ void *vidcap_hdstation_init(char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
-                fps = atoi(tmp);
+                s->frame.fps = atof(tmp);
+                tmp = strtok(NULL, ":");
+                if (!tmp) {
+                        fprintf(stderr, "Wrong config %s\n", fmt);
+                        return 0;
+                }
+                mode = tmp;    
                 tmp = strtok(NULL, ":");
                 if (!tmp) {
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
 
-                s->codec = 0xffffffff;
+                s->frame.color_spec = 0xffffffff;
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(tmp, codec_info[i].name) == 0) {
-                                s->codec = codec_info[i].codec;
+                                s->frame.color_spec = codec_info[i].codec;
                                 s->frame.src_bpp = codec_info[i].bpp;
 				h_align = codec_info[i].h_align;
                         }
                 }
-                if (s->codec == 0xffffffff) {
+                if (s->frame.color_spec == 0xffffffff) {
                         fprintf(stderr, "hdstation: unknown codec: %s\n", tmp);
                         free(tmp);
                         return 0;
                 }
+
+                tmp = strtok(NULL, ":");
+                if (tmp) {
+                        if(tmp[0] == 'i') {
+                                s->interlaced = 1;
+                        }
+                }
+
+                for(i=0; hdsp_mode_table[i].name != NULL; i++) {
+                        if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
+                                  s->interlaced == hdsp_mode_table[i].interlaced &&
+                                  s->frame.fps == hdsp_mode_table[i].fps) {
+                                  s->mode = &hdsp_mode_table[i];
+                                break;
+                        }
+                }
+                if(s->mode == NULL) {
+                        fprintf(stderr, "hdstation: unknown video mode: %s\n", mode);
+                        free(s);
+                        return 0;
+                }
+
+        } else {
+                printf("hdstation options:\n");
+                printf("\tfps:mode:codec[:i]\n");
+                return 0;
         }
 
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 
-        if (s->codec == DVS10) {
+        if (s->frame.color_spec == DVS10) {
                 s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
 
-        if (fps == 25) {
-                s->hd_video_mode |= SV_MODE_SMPTE274_25P;
-        } else if (fps == 29) {
-                s->hd_video_mode |= SV_MODE_SMPTE274_29I;
-        } else {
-                fprintf(stderr, "Wrong framerate in config %s\n", fmt);
-                return 0;
-        }
+        s->hd_video_mode |= s->mode->mode;
 
-        s->frame.width = 1920;
-        s->frame.height = 1080;
-        s->frame.color_spec = s->codec;
+        s->frame.width = s->mode->width;
+        s->frame.height = s->mode->height;
+        s->frame.aux = s->interlaced;
 
 	aligned_x = s->frame.width;
 	if (h_align) {

@@ -199,7 +199,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         for(i=0; hdsp_mode_table[i].name != NULL; i++) {
                 if(hdsp_mode_table[i].width == width &&
                    hdsp_mode_table[i].height == height &&
-                   s->interlaced == hdsp_mode_table[i].interlaced &&
+                   aux == hdsp_mode_table[i].interlaced &&
                    fps == hdsp_mode_table[i].fps) {
                     s->mode = &hdsp_mode_table[i];
                         break;
@@ -219,6 +219,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.dst_bpp = get_bpp(color_spec);
         s->frame.fps = fps;
         s->frame.aux = aux;
+        s->interlaced = aux;
 
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 
@@ -326,7 +327,7 @@ void *display_hdstation_init(char *fmt)
                                 } else if(tmp[0] == 'p') {
                                         s->interlaced = 0;                               
                                 }
-                         }
+                        }
                         for(i=0; hdsp_mode_table[i].name != NULL; i++) {
                                 if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
                                    s->interlaced == hdsp_mode_table[i].interlaced &&
@@ -351,7 +352,7 @@ void *display_hdstation_init(char *fmt)
         }
 
         if(s->mode) {
-                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec, s->mode->fps);
+                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec, s->mode->fps, s->interlaced);
         }
 
         pthread_mutex_init(&s->lock, NULL);
