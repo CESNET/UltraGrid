@@ -65,17 +65,21 @@ const struct codec_info_t codec_info[] = {
         {0, NULL, 0, 0, 0.0, 0}
 };
 
-void show_codec_help(void)
+void show_codec_help(char *module)
 {
-        printf("\tSupported codecs:\n");
+        printf("\tSupported codecs (%s):\n", module);
         printf("\t\t8bits\n");
-        printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
-        printf("\t\t\t'UYVY' - YUV 4:2:2\n");
-        printf("\t\t\t'2vuy' - YUV 4:2:2\n");
+	if (strcmp(module, "hdstation")) {
+		printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
+		printf("\t\t\t'UYVY' - YUV 4:2:2\n");
+		printf("\t\t\t'2vuy' - YUV 4:2:2\n");
+	}
         printf("\t\t\t'DVS8' - Centaurus 8bit YUV 4:2:2\n");
         printf("\t\t10bits\n");
-        printf("\t\t\t'R10k' - RGB 4:4:4\n");
-        printf("\t\t\t'v210' - YUV 4:2:2\n");
+	if (strcmp(module, "hdstation")) {
+		printf("\t\t\t'R10k' - RGB 4:4:4\n");
+		printf("\t\t\t'v210' - YUV 4:2:2\n");
+	}
         printf("\t\t\t'DVS10' - Centaurus 10bit YUV 4:2:2\n");
 }
 

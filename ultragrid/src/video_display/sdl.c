@@ -111,7 +111,7 @@ struct state_sdl {
         unsigned                fs:1;
 };
 
-void show_help(void);
+static void show_help(void);
 void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
                         codec_t codec, double fps, int aux);
@@ -192,14 +192,14 @@ static void *display_thread_sdl(void *arg)
         return NULL;
 }
 
-void show_help(void)
+static void show_help(void)
 {
         printf("SDL options:\n");
         printf("\twidth:height:codec[:fs][:i][:d][:f:filename] | help\n");
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
         printf("\tf filename - read frame content from the filename\n");
-        show_codec_help();
+        show_codec_help(strdup("sdl"));
 }
 
 void cleanup_screen(struct state_sdl *s)

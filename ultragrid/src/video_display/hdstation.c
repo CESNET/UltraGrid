@@ -98,6 +98,17 @@ volatile int worker_waiting;
         unsigned interlaced:1;       
 };
 
+static void show_help(void);
+
+static void show_help(void)
+{
+	printf("hdstation options:\n");
+	printf("\t[fps:[mode:[codec:[i|p]]]]\n");
+	printf("\tSupported modes:\n");
+	printf("\t\tSMPTE274\n");
+	show_codec_help(strdup("hdstation"));
+}
+
 static void *display_thread_hd(void *arg)
 {
         struct state_hdsp *s = (struct state_hdsp *)arg;
@@ -282,8 +293,7 @@ void *display_hdstation_init(char *fmt)
 
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
-                        printf("hdstation options:\n");
-                        printf("\t[fps:[mode:[codec:[i|p]]]]\n");
+			show_help();
 
                         return 0;
                 }

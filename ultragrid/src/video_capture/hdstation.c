@@ -86,8 +86,9 @@ struct vidcap_hdstation_state {
         uint32_t hd_video_mode;
         struct video_frame frame;
         const hdsp_mode_table_t *mode;
-        unsigned interlaced:1;
 };
+
+static void show_help(void);
 
 static void *vidcap_hdstation_grab_thread(void *arg)
 {
@@ -136,6 +137,15 @@ static void *vidcap_hdstation_grab_thread(void *arg)
         return NULL;
 }
 
+static void show_help(void)
+{	
+	printf("hdstation options:\n");
+	printf("\tfps:mode:codec | help\n");
+	printf("\tSupported modes:\n");
+	printf("\t\tSMPTE274\n");
+	show_codec_help(strdup("hdstation"));
+}
+
 /* External API ***********************************************************************************/
 
 struct vidcap_type *vidcap_hdstation_probe(void)
@@ -169,9 +179,7 @@ void *vidcap_hdstation_init(char *fmt)
 
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
-                        printf("hdstation options:\n");
-                        printf("\tfps:mode:codec[:i]\n");
-
+			show_help();
                         return 0;
                 }
 
@@ -189,6 +197,19 @@ void *vidcap_hdstation_init(char *fmt)
                         return 0;
                 }
                 mode = tmp;    
+                for(i=0; hdsp_mode_table[i].name != NULL; i++) {
+                        if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
+                                  s->frame.fps == hdsp_mode_table[i].fps) {
+                                  s->mode = &hdsp_mode_table[i];
+                                break;
+                        }
+                }
+                if(s->mode == NULL) {
+                        fprintf(stderr, "hdstation: unknown video mode: %s\n", mode);
+                        free(s);
+                        return 0;
+                }
+
                 tmp = strtok(NULL, ":");
                 if (!tmp) {
                         fprintf(stderr, "Wrong config %s\n", fmt);
@@ -208,31 +229,9 @@ void *vidcap_hdstation_init(char *fmt)
                         free(tmp);
                         return 0;
                 }
-
-                tmp = strtok(NULL, ":");
-                if (tmp) {
-                        if(tmp[0] == 'i') {
-                                s->interlaced = 1;
-                        }
-                }
-
-                for(i=0; hdsp_mode_table[i].name != NULL; i++) {
-                        if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
-                                  s->interlaced == hdsp_mode_table[i].interlaced &&
-                                  s->frame.fps == hdsp_mode_table[i].fps) {
-                                  s->mode = &hdsp_mode_table[i];
-                                break;
-                        }
-                }
-                if(s->mode == NULL) {
-                        fprintf(stderr, "hdstation: unknown video mode: %s\n", mode);
-                        free(s);
-                        return 0;
-                }
-
+	
         } else {
-                printf("hdstation options:\n");
-                printf("\tfps:mode:codec[:i]\n");
+		show_help();
                 return 0;
         }
 
@@ -246,7 +245,7 @@ void *vidcap_hdstation_init(char *fmt)
 
         s->frame.width = s->mode->width;
         s->frame.height = s->mode->height;
-        s->frame.aux = s->interlaced;
+        s->frame.aux = s->mode->interlaced;
 
 	aligned_x = s->frame.width;
 	if (h_align) {

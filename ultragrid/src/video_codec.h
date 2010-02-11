@@ -99,7 +99,7 @@ struct codec_info_t {
 
 extern const struct codec_info_t codec_info[];
 
-void show_codec_help(void);
+void show_codec_help(char *mode);
 double get_bpp(codec_t codec);
 
 int vc_getsrc_linesize(unsigned int width, codec_t codec);
