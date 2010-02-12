@@ -109,5 +109,6 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len);
 void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len);
 void vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
+void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len);
 
 #endif

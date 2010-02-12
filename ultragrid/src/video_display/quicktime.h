@@ -51,6 +51,6 @@
 display_type_t          *display_quicktime_probe(void);
 void                    *display_quicktime_init(char *fmt);
 void                     display_quicktime_done(void *state);
-char                    *display_quicktime_getf(void *state);
+struct video_frame      *display_quicktime_getf(void *state);
 int                      display_quicktime_putf(void *state, char *frame);
 
