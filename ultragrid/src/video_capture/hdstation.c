@@ -143,7 +143,7 @@ static void show_help(void)
 	printf("\tfps:mode:codec | help\n");
 	printf("\tSupported modes:\n");
 	printf("\t\tSMPTE274\n");
-	show_codec_help(strdup("hdstation"));
+	show_codec_help("hdstation");
 }
 
 /* External API ***********************************************************************************/

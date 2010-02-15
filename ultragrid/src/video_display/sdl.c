@@ -199,7 +199,7 @@ static void show_help(void)
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
         printf("\tf filename - read frame content from the filename\n");
-        show_codec_help(strdup("sdl"));
+        show_codec_help("sdl");
 }
 
 void cleanup_screen(struct state_sdl *s)

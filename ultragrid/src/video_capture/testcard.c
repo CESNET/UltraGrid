@@ -270,7 +270,7 @@ void *vidcap_testcard_init(char *fmt)
                 printf("testcard options:\n");
                 printf("\twidth:height:fps:codec[:filename][:p}\n");
                 printf("\tp - pan with frame\n");
-                show_codec_help(strdup("testcard"));
+                show_codec_help("testcard");
                 return NULL;
         }
 
