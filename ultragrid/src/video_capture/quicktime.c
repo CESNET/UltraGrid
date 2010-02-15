@@ -60,6 +60,7 @@
 #include "tv.h"
 #include "video_capture.h"
 #include "video_capture/quicktime.h"
+#include "video_display/quicktime.h"
 #include "video_codec.h"
 #include <math.h>
 

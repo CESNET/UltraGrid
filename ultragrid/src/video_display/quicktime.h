@@ -64,6 +64,8 @@ typedef struct {
         int             aux;
 } quicktime_mode_t;
 
+extern const quicktime_mode_t quicktime_modes[];
+
 display_type_t          *display_quicktime_probe(void);
 void                    *display_quicktime_init(char *fmt);
 void                     display_quicktime_done(void *state);
