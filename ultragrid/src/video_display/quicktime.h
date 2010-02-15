@@ -51,7 +51,7 @@
 #define AUX_INTERLACED  1<<0
 #define AUX_PROGRESSIVE 1<<1
 #define AUX_SF          1<<2
-#define AUX_RGB         1<<3 /* if no RGB or YUV is set, mode accepts both */
+#define AUX_RGB         1<<3 /* if device supports both, set both */
 #define AUX_YUV         1<<4 
 #define AUX_10Bit       1<<5
 
