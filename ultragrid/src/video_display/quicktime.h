@@ -48,6 +48,22 @@
 
 #define DISPLAY_QUICKTIME_ID    0xba370f2f
 
+#define AUX_INTERLACED  1<<0
+#define AUX_PROGRESSIVE 1<<1
+#define AUX_SF          1<<2
+#define AUX_RGB         1<<3 /* if no RGB or YUV is set, mode accepts both */
+#define AUX_YUV         1<<4 
+#define AUX_10Bit       1<<5
+
+typedef struct {
+        char            *device;
+        char            *mode;
+        unsigned int    width;
+        unsigned int    height;
+        double          fps;
+        int             aux;
+} quicktime_mode_t;
+
 display_type_t          *display_quicktime_probe(void);
 void                    *display_quicktime_init(char *fmt);
 void                     display_quicktime_done(void *state);
