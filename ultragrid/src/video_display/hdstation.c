@@ -230,7 +230,10 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.dst_bpp = get_bpp(color_spec);
         s->frame.fps = fps;
         s->frame.aux = aux;
-        s->interlaced = aux;
+        if(aux & AUX_INTERLACED)
+                s->interlaced = 1;
+        else
+                s->interlaced = 0;
 
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
 

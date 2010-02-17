@@ -245,7 +245,10 @@ void *vidcap_hdstation_init(char *fmt)
 
         s->frame.width = s->mode->width;
         s->frame.height = s->mode->height;
-        s->frame.aux = s->mode->interlaced;
+        if(s->mode->interlaced)
+                s->frame.aux = AUX_INTERLACED;
+        else
+                s->frame.aux = AUX_PROGRESSIVE;
 
 	aligned_x = s->frame.width;
 	if (h_align) {
