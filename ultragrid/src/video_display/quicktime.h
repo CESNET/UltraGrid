@@ -50,7 +50,7 @@
 
 typedef struct {
         char            *device;
-        char            *mode;
+        char            *input;
         unsigned int    width;
         unsigned int    height;
         double          fps;
