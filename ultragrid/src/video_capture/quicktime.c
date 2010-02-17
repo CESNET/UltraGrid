@@ -86,6 +86,7 @@ struct qt_grabber_state {
         unsigned gui:1;
         int frames;
         struct timeval t0;
+        quicktime_mode_t *qt_mode;
 };
 
 void nprintf(char *str);
@@ -447,6 +448,36 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
             gActiveVideoRect.right - gActiveVideoRect.left;
         s->frame.height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
+
+        Str255 deviceName;
+        Str255 inputName;
+        short  inputNumber;
+
+        if (SGGetChannelDeviceAndInputNames(s->video_channel, deviceName, inputName, &inputNumber)!=noErr) {
+                debug_msg("Unable to query channel settings\n");
+                return 0;
+        }
+
+        for(i=0; quicktime_modes[i].device != NULL; i++) {
+                if((strncmp(quicktime_mode[i].device,
+                           &deviceName[1], deviceName[0])) == 0 &&
+                   (strncmp(quicktime_mode[i].mode,
+                           &inputName[1], inputName[0])) == 0) {
+                        s->qt_mode = &quicktime_mode[i];
+                        printf("Quicktime: mode should be: %dx%d@%ffps, flags: %x\n",
+                                        s->qt_mode->witdh,
+                                        s->qt_mode->height,
+                                        s->qt_mode->fps,
+                                        s->qt_mode->aux);
+                        s->frame.fps = s->qt_mode->fps;
+                        s->frame.aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
+                        break;
+                }
+        }
+        if (s->qt_mode == NULL) {
+                fprintf(stderr, "\n\nQuicktime WARNING: device %s with input %s was not found in mode table.\n"
+                                "\tPlease report it to xhejtman@ics.muni.cz\n\n", nprint(deviceName), nprint(inputName));
+        }
 
         printf("Quicktime: Video size: %dx%d\n", s->bounds.right,
                s->bounds.bottom);
