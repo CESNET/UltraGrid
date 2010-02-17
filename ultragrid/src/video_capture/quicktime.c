@@ -238,8 +238,49 @@ void nprintf(char *str)
         fprintf(stdout, "%s", tmp);
 }
 
+void shrink(char *str)
+{
+        int i, j;
+        j=1;
+        for(i=1; i <= str[0]; i++) {
+           while((str[i] == '\t' ||
+                 str[i] == ' ') && i < str[0])
+                i++; 
+           if(i <= str[0]) {
+                if(str[i] >= 'a' && str[i] <= 'z')
+                    str[j] = str[i] - ('a'-'A');
+                else
+                    str[j] = str[i];
+                j++;
+            }
+        }
+        str[0] = j-1;
+}
+
+char * 
+shrink2(char *str)
+{
+        int i, j;
+        int len = strlen(str);
+        str = strdup(str);
+        j=0;
+        for(i=0; i < len; i++) {
+           while((str[i] == '\t' ||
+                 str[i] == ' ') && i < str[0])
+                i++; 
+           if(i < len) {
+                if(str[i] >= 'a' && str[i] <= 'z')
+                    str[j] = str[i] - ('a'-'A');
+                else
+                    str[j] = str[i];
+                j++;
+            }
+        }
+        return str;
+}
+
 /* Initialize the QuickTime grabber */
-static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
+int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 {
         GrafPtr savedPort;
         WindowPtr gMonitor;
@@ -450,35 +491,52 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         s->frame.height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
 
-        Str255 deviceName;
-        Str255 inputName;
+        char *deviceName;
+        char *inputName;
         short  inputNumber;
 
-        if (SGGetChannelDeviceAndInputNames(s->video_channel, deviceName, inputName, &inputNumber)!=noErr) {
+        if ((SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) ||
+            (SGGetChannelDeviceAndInputNames(s->video_channel, NULL, NULL, &inputNumber)!=noErr)) {
                 debug_msg("Unable to query channel settings\n");
                 return 0;
         }
 
+        SGDeviceName *deviceEntry = &(*deviceList)->entry[(*deviceList)->selectedIndex];
+        inputList = deviceEntry->inputs;
+
+        deviceName = deviceEntry->name;
+        inputName = &(*inputList)->entry[inputNumber].name;
+
+        shrink(deviceName);
+        shrink(inputName);
+
         for(i=0; quicktime_modes[i].device != NULL; i++) {
-                if((strncmp(quicktime_modes[i].device,
+                char *device = shrink2(quicktime_modes[i].device);                
+                char *input = shrink2(quicktime_modes[i].mode);                
+
+                if((strncmp(device,
                            &deviceName[1], deviceName[0])) == 0 &&
-                   (strncmp(quicktime_modes[i].mode,
+                   (strncmp(input,
                            &inputName[1], inputName[0])) == 0) {
                         s->qt_mode = &quicktime_modes[i];
-                        printf("Quicktime: mode should be: %dx%d@%ffps, flags: %x\n",
+                        printf("Quicktime: mode should be: %dx%d@%0.2ffps, flags: 0x%x\n",
                                         s->qt_mode->width,
                                         s->qt_mode->height,
                                         s->qt_mode->fps,
                                         s->qt_mode->aux);
                         s->frame.fps = s->qt_mode->fps;
                         s->frame.aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
+                        free(device);
+                        free(input);
                         break;
                 }
+                free(device);
+                free(input);
         }
         if (s->qt_mode == NULL) {
                 fprintf(stdout, "\n\nQuicktime WARNING: device ");
                 nprintf(deviceName);
-                fprintf(stdout, " with input ");
+                fprintf(stdout, " \n\twith input ");
                 nprintf(inputName);
                 fprintf(stdout, " was not found in mode table.\n"
                                 "\tPlease report it to xhejtman@ics.muni.cz\n\n");
