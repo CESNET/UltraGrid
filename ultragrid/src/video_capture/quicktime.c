@@ -511,13 +511,11 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         shrink(inputName);
 
         for(i=0; quicktime_modes[i].device != NULL; i++) {
-                char *device = shrink2(quicktime_modes[i].device);                
-                char *input = shrink2(quicktime_modes[i].mode);                
+                char *device = shrink2(quicktime_modes[i].device);
+                char *input = shrink2(quicktime_modes[i].input);
 
-                if((strncmp(device,
-                           &deviceName[1], deviceName[0])) == 0 &&
-                   (strncmp(input,
-                           &inputName[1], inputName[0])) == 0) {
+                if((strncmp(device, &deviceName[1], deviceName[0])) == 0 &&
+                   (strncmp(input, &inputName[1], inputName[0])) == 0) {
                         s->qt_mode = &quicktime_modes[i];
                         printf("Quicktime: mode should be: %dx%d@%0.2ffps, flags: 0x%x\n",
                                         s->qt_mode->width,
