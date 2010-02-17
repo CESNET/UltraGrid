@@ -164,8 +164,9 @@ const quicktime_mode_t quicktime_modes[] = {
         {"Blackmagic HD 720", "Blackmagic HD 720p 50 - RGB 10 Bit", 1280, 720, 50, AUX_PROGRESSIVE|AUX_RGB|AUX_10Bit},
         {"Blackmagic HD 720", "Blackmagic HD 720p 59.94 - RGB 10 Bit", 1280, 720, 59.94, AUX_PROGRESSIVE|AUX_RGB|AUX_10Bit},
         {"Blackmagic HD 720", "Blackmagic HD 720p 60 - RGB 10 Bit", 1280, 720, 60, AUX_PROGRESSIVE|AUX_RGB|AUX_10Bit},
-        {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 8 Bit", 720, 486, , AUX_PROGRESSIVE|AUX_YUV},
-        {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 10 Bit", 720, 486, , AUX_PROGRESSIVE|AUX_10Bit|AUX_YUV},
+        {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 8 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_YUV},
+        {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 10 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_10Bit|AUX_YUV},
+        {NULL, NULL, 0, 0, 0, 0},
 };        
 
 struct state_quicktime {
