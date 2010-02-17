@@ -58,6 +58,7 @@
 #include "config_unix.h"
 #include "debug.h"
 #include "tv.h"
+#include "video_display.h"
 #include "video_capture.h"
 #include "video_capture/quicktime.h"
 #include "video_display/quicktime.h"
@@ -459,13 +460,13 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         }
 
         for(i=0; quicktime_modes[i].device != NULL; i++) {
-                if((strncmp(quicktime_mode[i].device,
+                if((strncmp(quicktime_modes[i].device,
                            &deviceName[1], deviceName[0])) == 0 &&
-                   (strncmp(quicktime_mode[i].mode,
+                   (strncmp(quicktime_modes[i].mode,
                            &inputName[1], inputName[0])) == 0) {
-                        s->qt_mode = &quicktime_mode[i];
+                        s->qt_mode = &quicktime_modes[i];
                         printf("Quicktime: mode should be: %dx%d@%ffps, flags: %x\n",
-                                        s->qt_mode->witdh,
+                                        s->qt_mode->width,
                                         s->qt_mode->height,
                                         s->qt_mode->fps,
                                         s->qt_mode->aux);
@@ -475,8 +476,12 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 }
         }
         if (s->qt_mode == NULL) {
-                fprintf(stderr, "\n\nQuicktime WARNING: device %s with input %s was not found in mode table.\n"
-                                "\tPlease report it to xhejtman@ics.muni.cz\n\n", nprint(deviceName), nprint(inputName));
+                fprintf(stdout, "\n\nQuicktime WARNING: device ");
+                nprintf(deviceName);
+                fprintf(stdout, " with input ");
+                nprintf(inputName);
+                fprintf(stdout, " was not found in mode table.\n"
+                                "\tPlease report it to xhejtman@ics.muni.cz\n\n");
         }
 
         printf("Quicktime: Video size: %dx%d\n", s->bounds.right,
@@ -535,7 +540,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         if (h_align) {
                 aligned_x = ((s->frame.width + h_align - 1) / h_align) * h_align;
                 printf
-                    ("Quicktime: Pixel format 'v210' was selected -> Setting hd_size_x to %d\n",
+                    ("Quicktime: Pixel format 'v210' was selected -> Setting width to %d\n",
                      aligned_x);
         }
 
@@ -593,8 +598,6 @@ void *vidcap_quicktime_init(char *fmt)
                 s->seqID = 0;
                 s->bounds.top = 0;
                 s->bounds.left = 0;
-                s->bounds.bottom = hd_size_y;
-                s->bounds.right = hd_size_x;
                 s->sg_idle_enough = 0;
                 s->frame.color_spec = 0xffffffff;
 
