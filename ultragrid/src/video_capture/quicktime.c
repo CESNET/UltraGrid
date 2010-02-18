@@ -665,7 +665,7 @@ void vidcap_quicktime_done(void *state)
         assert(s != NULL);
 
         if (s != NULL) {
-                assert(s->magic != MAGIC_QT_GRABBER);
+                assert(s->magic == MAGIC_QT_GRABBER);
                 SGStop(s->grabber);
                 CloseComponent(s->grabber);
                 ExitMovies();
