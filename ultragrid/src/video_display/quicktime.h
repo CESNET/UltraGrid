@@ -49,8 +49,8 @@
 #define DISPLAY_QUICKTIME_ID    0xba370f2f
 
 typedef struct {
-        char            *device;
-        char            *input;
+        unsigned char   *device;
+        unsigned char   *input;
         unsigned int    width;
         unsigned int    height;
         double          fps;

@@ -87,11 +87,8 @@ struct qt_grabber_state {
         unsigned gui:1;
         int frames;
         struct timeval t0;
-        quicktime_mode_t *qt_mode;
+        const quicktime_mode_t *qt_mode;
 };
-
-void nprintf(char *str);
-
 
 /*
  * Sequence grabber data procedure
@@ -227,18 +224,21 @@ static OSErr MinimalSGSettingsDialog(SeqGrabComponent seqGrab,
                               (long)gMonitor))) {
                 return err;
         }
+        return 0;
 }
 
-void nprintf(char *str)
+static void 
+nprintf(unsigned char *str)
 {
         char tmp[((int)str[0]) + 1];
 
-        strncpy(tmp, &str[1], str[0]);
+        strncpy(tmp, (char*)(&str[1]), str[0]);
         tmp[(int)str[0]] = 0;
         fprintf(stdout, "%s", tmp);
 }
 
-void shrink(char *str)
+static void 
+shrink(unsigned char *str)
 {
         int i, j;
         j=1;
@@ -257,12 +257,12 @@ void shrink(char *str)
         str[0] = j-1;
 }
 
-char * 
-shrink2(char *str)
+static unsigned char * 
+shrink2(unsigned char *str)
 {
         int i, j;
-        int len = strlen(str);
-        str = strdup(str);
+        int len = strlen((char*)str);
+        str = (unsigned char*)strdup((char*)str);
         j=0;
         for(i=0; i < len; i++) {
            while((str[i] == '\t' ||
@@ -280,7 +280,7 @@ shrink2(char *str)
 }
 
 /* Initialize the QuickTime grabber */
-int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
+static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 {
         GrafPtr savedPort;
         WindowPtr gMonitor;
@@ -310,14 +310,14 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         gMonitor = GetDialogWindow(GetNewDialog(1000, NULL, (WindowPtr) - 1L));
 
         GetPort(&savedPort);
-        SetPort(gMonitor);
+        SetPort((GrafPtr)gMonitor);
 
         if (SGInitialize(s->grabber) != noErr) {
                 debug_msg("Unable to init grabber\n");
                 return 0;
         }
 
-        SGSetGWorld(s->grabber, GetDialogPort(gMonitor), NULL);
+        SGSetGWorld(s->grabber, GetDialogPort((DialogPtr)gMonitor), NULL);
 
         /****************************************************************************************/
         /* Specify the destination data reference for a record operation tell it */
@@ -356,7 +356,7 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                 SGDeviceName *deviceEntry =
                                     &(*deviceList)->entry[i];
                                 fprintf(stdout, " Device %d: ", i);
-                                nprintf((char *)(deviceEntry->name));
+                                nprintf(deviceEntry->name);
                                 if (deviceEntry->flags &
                                     sgDeviceNameFlagDeviceUnavailable) {
                                         fprintf(stdout,
@@ -376,10 +376,8 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                              j++) {
                                                 fprintf(stdout, "\t");
                                                 fprintf(stdout, "- %d. ", j);
-                                                nprintf((char
-                                                         *)((&
-                                                             (*inputList)->entry
-                                                             [j].name)));
+                                                nprintf((unsigned char*)&(*inputList)->entry
+                                                             [j].name);
                                                 if ((i ==
                                                      (*deviceList)->selectedIndex)
                                                     && (j == activeInputIndex))
@@ -396,7 +394,7 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         for (i = 0; i < list->count; i++) {
                                 int fcc = list->list[i].cType;
                                 printf("\t%d) ", i);
-                                nprintf((char *)list->list[i].typeName);
+                                nprintf(list->list[i].typeName);
                                 printf(" - FCC (%c%c%c%c)",
                                        fcc >> 24,
                                        (fcc >> 16) & 0xff,
@@ -461,7 +459,7 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
                 SGDeviceName *deviceEntry = &(*deviceList)->entry[s->major];
                 printf("Quicktime: Setting device: ");
-                nprintf((char *)deviceEntry->name);
+                nprintf(deviceEntry->name);
                 printf("\n");
                 if (SGSetChannelDevice(s->video_channel, deviceEntry->name) !=
                     noErr) {
@@ -472,7 +470,7 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 /* Select input */
                 inputList = deviceEntry->inputs;
                 printf("Quicktime: Setting input: ");
-                nprintf((char *)(&(*inputList)->entry[s->minor].name));
+                nprintf((unsigned char *)(&(*inputList)->entry[s->minor].name));
                 printf("\n");
                 if (SGSetChannelDeviceInput(s->video_channel, s->minor) !=
                     noErr) {
@@ -491,8 +489,8 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         s->frame.height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
 
-        char *deviceName;
-        char *inputName;
+        unsigned char *deviceName;
+        unsigned char *inputName;
         short  inputNumber;
 
         if ((SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) ||
@@ -505,17 +503,17 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         inputList = deviceEntry->inputs;
 
         deviceName = deviceEntry->name;
-        inputName = &(*inputList)->entry[inputNumber].name;
+        inputName = (unsigned char*)&(*inputList)->entry[inputNumber].name;
 
         shrink(deviceName);
         shrink(inputName);
 
         for(i=0; quicktime_modes[i].device != NULL; i++) {
-                char *device = shrink2(quicktime_modes[i].device);
-                char *input = shrink2(quicktime_modes[i].input);
+                unsigned char *device = shrink2(quicktime_modes[i].device);
+                unsigned char *input = shrink2(quicktime_modes[i].input);
 
-                if((strncmp(device, &deviceName[1], deviceName[0])) == 0 &&
-                   (strncmp(input, &inputName[1], inputName[0])) == 0) {
+                if((strncmp((char*)device, (char*)&deviceName[1], deviceName[0])) == 0 &&
+                   (strncmp((char*)input, (char*)&inputName[1], inputName[0])) == 0) {
                         s->qt_mode = &quicktime_modes[i];
                         printf("Quicktime: mode should be: %dx%d@%0.2ffps, flags: 0x%x\n",
                                         s->qt_mode->width,
@@ -559,7 +557,7 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                                  list->list[s->frame.color_spec].codec, 0,
                                                  0, 0));
         } else {
-                int codec;
+                CompressorComponent  codec;
                 SGGetVideoCompressor(s->video_channel, NULL, &codec, NULL, NULL,
                                      NULL);
                 CodecNameSpecListPtr list;
@@ -575,17 +573,10 @@ int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if ((unsigned)pixfmt == codec_info[i].fcc) {
                         s->c_info = &codec_info[i];
+                        s->frame.color_spec = s->c_info->codec;
+                        break;
                 }
-                s->frame.color_spec = s->c_info->codec;
         }
-
-        Fixed fps;
-
-        SGGetFrameRate(s->video_channel, &fps);
-
-        s->frame.fps = FixedToFloat(fps);
-
-        printf("Quicktime: Source FPS: %f\n", s->frame.fps);
 
         printf("Quicktime: Selected pixel format: %c%c%c%c\n",
                pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff,
@@ -676,9 +667,7 @@ void vidcap_quicktime_done(void *state)
         if (s != NULL) {
                 assert(s->magic != MAGIC_QT_GRABBER);
                 SGStop(s->grabber);
-                UnlockPixels(GetPortPixMap(s->gworld));
                 CloseComponent(s->grabber);
-                DisposeGWorld(s->gworld);
                 ExitMovies();
                 free(s);
         }

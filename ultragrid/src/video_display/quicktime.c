@@ -193,7 +193,17 @@ struct state_quicktime {
 
 /* Prototyping */
 char *four_char_decode(int format);
-void nprintf(char *str);
+
+static void
+nprintf(unsigned char *str)
+{
+        char tmp[((int)str[0]) + 1];
+
+        strncpy(tmp, (char*)(&str[1]), str[0]);
+        tmp[(int)str[0]] = 0;
+        fprintf(stdout, "%s", tmp);
+}
+
 
 char *four_char_decode(int format)
 {
