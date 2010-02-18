@@ -552,10 +552,10 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
                 pixfmt = list->list[s->frame.color_spec].cType;
-                printf("Quicktime: SetCompression: %d\n",
+                printf("Quicktime: SetCompression: %s\n",
                        (int)SGSetVideoCompressor(s->video_channel, 0,
                                                  list->list[s->frame.color_spec].codec, 0,
-                                                 0, 0));
+                                                 0, 0)==0?"OK":"Failed!");
         } else {
                 CompressorComponent  codec;
                 SGGetVideoCompressor(s->video_channel, NULL, &codec, NULL, NULL,
