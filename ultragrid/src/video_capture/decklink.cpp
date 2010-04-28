@@ -220,6 +220,9 @@ decklink_help()
 	IDeckLink*			deckLink;
 	int				numDevices = 0;
 	HRESULT				result;
+
+	printf("Decklink options:\n");
+	printf("\tdevice:mode\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -234,8 +237,6 @@ decklink_help()
 	{
 		char *		deviceNameString = NULL;
 		
-		// Increment the total number of DeckLink cards found
-		numDevices++;
 		
 		// *** Print the model name of the DeckLink card
 		result = deckLink->GetModelName((const char **) &deviceNameString);
@@ -245,6 +246,9 @@ decklink_help()
 			free(deviceNameString);
 		}
 		
+		// Increment the total number of DeckLink cards found
+		numDevices++;
+	
 		// ** List the video output display modes supported by the card
 		print_output_modes(deckLink);
 				

@@ -129,7 +129,7 @@ int audio_init(int output_device, int input_device)
 	if(input_device != -2)
 	{
 		inputParameters.channelCount = 1;
-		inputParameters.sampleFormat = paInt24;
+		inputParameters.sampleFormat = paInt16;
 		if(!interleaved)
 			inputParameters.sampleFormat |= paNonInterleaved;
 
@@ -141,7 +141,7 @@ int audio_init(int output_device, int input_device)
 	if(output_device != -2)
 	{
 		outputParameters.channelCount = 1;	// output channels
-		outputParameters.sampleFormat = paInt24;
+		outputParameters.sampleFormat = paInt16;
 		if(!interleaved)
 			outputParameters.sampleFormat |= paNonInterleaved;
 		outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultHighOutputLatency;
