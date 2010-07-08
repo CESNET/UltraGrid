@@ -47,8 +47,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5 $
- * $Date: 2009/12/11 15:13:10 $
+ * $Revision: 1.6 $
+ * $Date: 2010/07/08 11:14:08 $
  *
  */
 
@@ -67,6 +67,7 @@
 #include "dvs_clib.h"		/* From the DVS SDK */
 #include "dvs_fifo.h"		/* From the DVS SDK */
 
+
 struct vidcap_hdstation_state {
 	sv_handle 	*sv;
 	sv_fifo	 	*fifo;
@@ -83,6 +84,7 @@ struct vidcap_hdstation_state {
 	int		 work_to_do;
 	char		*bufs[2];
 	int		 bufs_index;
+	int 		 mode;
 };
 
 static void *
@@ -132,6 +134,98 @@ vidcap_hdstation_grab_thread(void *arg)
 }
 
 /* External API ***********************************************************************************/
+
+/* HELP */
+
+int
+hdstation_help(struct vidcap_hdstation_state *s)
+{
+
+        sv_handle               *sv = s->sv;
+        sv_rasterheader         current;
+
+        int nrasters;
+        int res;
+        int i;
+	
+	
+	printf("set -g  mode:colormode(8|10) \n");
+        res = sv_raster_status(sv, -1, &current, sizeof(current), &nrasters, 0);
+        for(i = 0; (res == SV_OK) && (i < nrasters); i++) {
+                sv_rasterheader raster;
+                res = sv_raster_status(sv, i, &raster, sizeof(raster), NULL, 0);
+                if(res == SV_OK) {
+                        //pozriet aj raster.svind
+                        printf("mode:%d  SV_MODE__%s\n",raster.svind,raster.name);
+                }
+         }
+        
+	return res;
+        
+}                    
+
+int set_xy_size(sv_handle *sv){
+	sv_info info;
+	int res;
+
+	res=sv_status(sv,&info);
+	if(res==SV_OK){
+		printf("Current video size %dx%d \n",info.xsize,info.ysize);
+		hd_size_x=info.xsize;
+		hd_size_y=info.ysize;
+	}
+	else {
+		printf("Error:sv_status{} failed %d '%s' \n",res,sv_geterrortext(res));
+	}
+
+	return res;
+}                                       
+
+/* SETTINGS  */
+
+int
+settings_init(struct vidcap_hdstation_state *s, char *fmt)
+{
+
+        if(strcmp(fmt, "help") == 0) {
+                hdstation_help(s);
+                return 0;
+        }
+
+
+        char *tmp;
+
+	//set mode
+        tmp = strtok(fmt, ":");
+        if(!tmp) {
+                fprintf(stderr, "Wrong config %s\n", fmt);
+                return 0;
+        }
+        s->mode = atoi(tmp);
+
+        tmp = strtok(NULL, ":");		
+        if(!tmp) {
+		printf("set -g  mode:colormode(8|10) \n");
+                fprintf(stderr, "Wrong config %s\n", fmt);
+                return 0;
+        }
+	if (atoi(tmp) == 8){
+		hd_color_bpp=2;
+		printf("Current colormode %d \n",hd_color_bpp);
+	}
+	else if(atoi(tmp) == 10){ 
+		hd_color_bpp=3;
+		printf("Current colormode %d \n",hd_color_bpp);
+	}
+	else{
+		printf("wrong colormode set -g mode:colormode(8 or 10) \n");
+                fprintf(stderr, "Wrong config %s\n", tmp);
+		return 0;
+	} 
+	
+
+        return 1;
+}
 
 struct vidcap_type *
 vidcap_hdstation_probe(void)
@@ -186,7 +280,20 @@ vidcap_hdstation_init(char *fmt)
 		return NULL;
 	}
 
+	//SET UP mode
+	if(settings_init(s, fmt) == 0) {
+                free(s);
+                return NULL;
+        }
+
+	//DO not use SV_MODE_FLAG_PACKED, SV_MODE_STORAGE_FRAME. They are not supported
+	hd_video_mode  = s->mode | SV_MODE_NBIT_8B | SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER  ;
+
+
+	//set video mode
 	res = sv_videomode(s->sv, hd_video_mode | SV_MODE_AUDIO_NOAUDIO);
+	
+	
 	if (res != SV_OK) {
 		goto error;
 	}
@@ -207,6 +314,9 @@ vidcap_hdstation_init(char *fmt)
 	pthread_cond_init(&(s->boss_cv), NULL);
 	pthread_cond_init(&(s->worker_cv), NULL);
 
+	//set hd_size_x, hd_size_y
+	set_xy_size(s->sv);
+	
 	s->buffer_size    = hd_color_bpp * hd_size_x * hd_size_y;
 	s->rtp_buffer     = NULL;
 	s->dma_buffer     = NULL;

@@ -33,8 +33,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  * 
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
+ * $Revision: 1.2 $
+ * $Date: 2010/07/08 11:14:08 $
  *
  */
 
@@ -921,6 +921,9 @@ int udp_fd_isset(socket_udp *s)
  **/
 int udp_select(struct timeval *timeout)
 {
+	assert(timeout!=NULL);
+	if(timeout->tv_usec==0)
+		timeout->tv_usec = 333;
 	return select(max_fd + 1, &rfd, NULL, NULL, timeout);
 }
 
