@@ -47,8 +47,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.9 $
- * $Date: 2009/12/11 15:29:39 $
+ * $Revision: 1.10 $
+ * $Date: 2010/07/09 15:21:58 $
  *
  */
 
@@ -64,6 +64,7 @@
 #include "video_capture/testcard.h"
 #include "video_capture/null.h"
 #include "video_capture/decklink.h"
+#include "video_capture/quad.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
 

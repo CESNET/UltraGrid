@@ -49,12 +49,12 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#ifndef HAVE_MACOSX
-#ifdef HAVE_QUAD		/* From config.h */
-
 #include "debug.h"
 #include "video_types.h"
 #include "video_capture.h"
+
+#ifndef HAVE_MACOSX
+#ifdef HAVE_QUAD		/* From config.h */
 
 #include "video_capture/quad.h"
 
