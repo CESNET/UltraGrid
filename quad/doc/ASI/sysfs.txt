@@ -1,0 +1,104 @@
+This file briefly explains how the DVB ASI API uses the
+sysfs virtual filesystem.
+
+While most interface parameters are configured through ioctl calls,
+a few are controlled through sysfs. These include the
+interface operating mode, number and size of buffers, transmitter
+clock source, 27 MHz counter mode, packet timestamping mode,
+and null packet insertion mode.
+These parameters may be changed by the root user
+while the associated interface is not open.
+Their values persist as long as the driver module is loaded.
+Any user may read the parameters at any time.
+
+For example,
+
+	cat /sys/class/asi/asirx0/buffers
+
+displays the number of buffers allocated by the first receive interface,
+while
+
+	echo 19176 > /sys/class/asi/asitx1/bufsize
+
+sets the size of the buffers on the second transmit interface to 19176 bytes.
+
+An example program called asicfg is also provided in the Examples/ASI directory
+which demonstrates how an application can read or change the parameters.
+
+Each parameter has certain limits on the values it can take.
+These limits are described below. If a parameter does not exist
+on a given interface, that parameter is omitted.
+Some interfaces do not support all possible values.
+
+buffers
+	Number of buffers in the driver buffer queue.
+	Valid values:	2...32768
+
+bufsize
+	Size of each buffer in the driver buffer queue in bytes.
+	Valid values:
+		For transmitters,
+			N * granularity,
+			N = (1024 / granularity)...(67108864 / granularity)
+		For receivers,
+			N * granularity, N = 1...(67108864 / granularity)
+
+clock_source
+	Transmitter clock source.
+	Valid values:
+		0 - onboard oscillator (default)
+		1 - external clock reference
+		2 - recovered receive clock
+		3 - external clock reference 2
+
+count27
+	Enable or disable a 32-bit, 27 MHz counter.
+	Valid values:
+		0 - disable (default)
+		non-zero - enable
+
+granularity
+	Granularity of bufsize in bytes; read-only.
+	Valid values:	4, 8
+
+mode
+	Interface operating mode.
+	Valid values:
+		For transmitters,
+			0 - assume 188-byte packets (default)
+			1 - assume 204-byte packets
+			2 - append sixteen 0x00 bytes to each 188-byte packet
+		For receivers,
+			0 - raw mode
+			1 - synchronize on 188-byte packets (default)
+			2 - synchronize on 204-byte packets
+			3 - synchronize on detected packet size
+			4 - synchronize on detected packet size and
+				strip the last sixteen bytes
+				from 204-byte packets
+			5 - synchronize on 204-byte packets and
+				strip the last sixteen bytes from each packet
+
+null_packets
+	Enable or disable null packet insertion on transmitter or PID filter.
+	Valid values:
+		0 - disable (default)
+		non-zero - enable
+
+timestamps
+	Packet timestamping mode; has no effect in raw mode.
+	Valid values:
+		0 - disable (default)
+		1 - enable appended PCR-format timestamps
+		2 - enable prepended 63-bit timestamps
+
+transport
+	Transport type; read-only.
+	Valid values:
+		0 - DVB ASI
+		1 - SMPTE 310M
+
+Many methods of writing sysfs parameters do not check for errors.
+Confirming the change by reading the value after a write is recommended
+in these cases. Asicfg checks for write errors.
+

@@ -1,0 +1,39 @@
+The example programs in the Examples directory are described below.
+
+
+Mastercfg
+---------
+
+NAME
+	mastercfg - configure a Linear Systems Ltd. digital television board
+
+SYNOPSIS
+	mastercfg [OPTION]... DRIVER BOARD_ID
+
+DESCRIPTION
+	Mastercfg uses the sysfs virtual filesystem
+	to configure certain parameters of device BOARD_ID
+	handled by DRIVER. If no options are given,
+	mastercfg displays the current configuration of the device.
+
+OPTIONS
+	-b BYPASS
+		Set the bypass mode to BYPASS.
+		Possible values are
+		0 (bypass)
+		1 (normal)
+		2 (enable and reset the watchdog timer)
+	-g BLACKBURST
+		Set the black burst type to BLACKBURST.
+		Possible values are
+		0 (NTSC)
+		1 (PAL)
+	-h
+		Display a help message and quit.
+	-o OUTPUT
+		Set the general purpose output value to OUTPUT.
+	-t TIMEOUT
+		Set the watchdog timeout to TIMEOUT milliseconds.
+	-V
+		Display the version information and quit.
+

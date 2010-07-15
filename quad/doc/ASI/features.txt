@@ -1,0 +1,122 @@
+This file describes some of the major features provided by the DVB Master
+ASI interface boards and the Linux driver.
+
+What features does my board support?
+====================================
+
+The ASI_IOC_TXGETCAP and ASI_IOC_RXGETCAP ioctls
+return bitfields which describe the capabilities of that interface.
+
+Transmitter features
+====================
+
+Bitrate control
+---------------
+
+The basic bitrate control method is to transmit data at
+a constant rate, using a 27 MHz clock signal as a reference.
+A set of numbers given to the device, called "stuffing parameters",
+determines the ratio between the bitrate and the reference
+frequency. The calcstuff example program can
+calculate stuffing parameters for a given bitrate.
+These stuffing parameters are passed to the device using the
+ASI_IOC_TXSETSTUFFING ioctl.
+
+By default, the onboard oscillator is used as a reference signal
+for the bitrate control algorithm. The external clock input
+or the recovered receiver clock, if any, can also be selected
+as a reference with the clock_source sysfs parameter.
+
+The stuffing parameters allow the relative timing of bytes
+within a single transport stream packet to be adjusted.
+This is typically used to select ASI burst mode, in which
+each transport stream packet is transmitted without any spacing
+between its bytes, or a more continuous mode.
+Some equipment is sensitive to this timing.
+Note that this ability implies that different sets of
+stuffing parameters may produce the same bitrate.
+Calcstuff will provide one set of stuffing parameters
+for ASI burst mode, and one set for the most continuous mode.
+
+The DVB Master stuffing parameters have limited precision.
+As a result, it is not possible to achieve all bitrates exactly.
+Calcstuff tries to provide stuffing parameters which give
+the closest possible bitrate.
+
+The first two stuffing parameters provide the crudest bitrate control.
+The second two stuffing parameters are called finetuning parameters
+and give much more precision in setting the bitrate.
+The final two stuffing parameters are called interleaved finetuning
+parameters and are used to reduce network jitter introduced by
+some combinations of finetuning parameters.
+The interleaved finetuning parameters do not affect the bitrate.
+Network jitter is the variation in the arrival time of the
+transport stream packets from their ideal, periodic arrival.
+
+An alternative method of bitrate control is variously called
+"packet release", or "timed release", or "scheduled transmission".
+This method uses a header prepended to each packet to determine
+when to transmit that packet. This mode of operation is enabled
+with the timestamps sysfs parameter.
+
+The prepended header is eight bytes long. The header may be considered
+a 64-bit integer in little-endian (Intel) byte order.
+If the most significant bit is zero, the packet is transmitted
+when a 27 MHz counter internal to the device is equal to or greater than
+the timestamp given in the 63 least significant bits.
+If the most significant bit is one, the 63 least significant bits
+of the header are loaded into the internal counter.
+
+Packet size
+-----------
+
+Transmitters must be told the size of the transport stream packets.
+This is 188 bytes by default. Sometimes a sixteen-byte Reed-Solomon
+error correction code is appended to each packet. In this case,
+the 204-byte packet mode can be selected with the mode sysfs parameter.
+
+Null packet insertion
+---------------------
+
+Some transmitters can insert null transport stream packets when they
+have no data to transmit. This mode of operation is enabled with the
+null_packets sysfs parameter.
+
+Receiver features
+=================
+
+Packet synchronization
+----------------------
+
+Receivers can discard packets which do not have a synchronization
+character in the appropriate place. This depends on the packet size,
+which is controlled by the mode sysfs parameter.
+
+PID filtering
+-------------
+
+Some receivers can selectively discard packets based on their
+packet ID (PID). A 8192-bit lookup table must be passed to
+the device with the ASI_IOC_RXSETPF ioctl. Each bit represents one PID;
+if a bit is zero, packets with that PID are discarded.
+The fsync() function should be called to flush the buffers
+after changing the PID filter lookup table.
+Note that a transport stream which is filtered in this way
+cannot later be retransmitted by a DVB Master with the correct timing.
+
+The null_packets sysfs parameter can instruct the PID filter to replace
+discarded packets with null packets.
+
+Timestamping
+------------
+
+Some receivers can add a timestamp to every packet they receive.
+This timestamp represents the arrival time of the eleventh byte
+of the packet. The frequency reference for these timestamps
+is the onboard 27 MHz oscillator.
+An eight-byte trailer can be appended which contains a PCR-format
+timestamp in the first six bytes, or an eight-byte header
+can be prepended which contains a zero bit and a 63-bit integer
+in little-endian (Intel) byte order.
+This is controlled by the timestamps sysfs parameter.
+

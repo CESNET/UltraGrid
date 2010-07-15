@@ -1,0 +1,15 @@
+This file describes some of the major features provided by
+Linear Systems Ltd.'s SMPTE 292M interface boards and the Linux driver.
+
+What features does my board support?
+====================================
+
+The SDIVIDEO_IOC_TXGETCAP and SDIVIDEO_IOC_RXGETCAP ioctls
+return bitfields which describe the capabilities of that interface.
+
+Packing
+=======
+
+By default, video samples are packed in uyvy format.
+Other formats can be selected by changing the mode sysfs parameter.
+

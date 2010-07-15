@@ -1,0 +1,55 @@
+This document describes the function calls available to an application.
+More information can be found in the man and info pages for each function.
+
+open()
+	Allocate a file descriptor and driver buffers for an interface.
+	This file descriptor identifies the interface to the other functions.
+	Interfaces may be opened multiple times by a single user,
+	or by the superuser.
+	An interface's sysfs parameters are read-only if
+	any file descriptors are assigned to that interface.
+
+read()
+	Copy data from the driver buffers to a user buffer.
+	Returns the number of bytes copied, which may be
+	less than the number of bytes requested
+	if the end of a driver buffer is reached.
+	A single read will not span multiple driver buffers.
+
+write()
+	Copy data from a user buffer to the driver buffers.
+	Returns the number of bytes copied, which may be
+	less than the number of bytes requested
+	if the end of a driver buffer is reached.
+	A single write will not span multiple driver buffers.
+
+fsync()
+	For transmitter interfaces, flush the driver buffers
+	and onboard FIFO.
+	For receiver interfaces, reset the driver buffers
+	and onboard FIFO.
+
+poll()
+	Wait for an event to occur.
+	Possible events are:
+		POLLIN - data is available for reading
+		POLLPRI - one or more events flags have been set
+		POLLOUT - data may now be written
+	Multiple file descriptors may be waited on at the same time.
+
+ioctl()
+	General-purpose function call,
+	used for checking interface status and giving commands.
+	See doc/ASI/ioctls.txt and doc/SDI/ioctls.txt for more information.
+	Not all ioctls are supported on all interfaces.
+
+mmap()
+	SMPTE 259M-C and SMPTE 292M interfaces only;
+	map the driver buffers into an application's memory space.
+	The first buffer begins at offset zero.
+	Successive buffers begin at the start of the page
+	following the previous buffer.
+
+close()
+	Release a file descriptor and driver buffers.
+

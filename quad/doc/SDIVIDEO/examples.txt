@@ -1,0 +1,170 @@
+Several example programs are provided in the Examples/SDIVIDEO directory
+and are described below.
+
+
+Videocapture
+------------
+
+NAME
+	videocapture, mvideocapture - example SMPTE 292M video receiver application
+
+SYNOPSIS
+	videocapture [OPTION]... DEVICE_FILE
+
+	mvideocapture [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Videocapture reads data from DEVICE_FILE
+	and writes it to standard output,
+	while monitoring for SMPTE 292M video receiver events.
+
+	Mvideocapture uses mmap instead of read.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-n TIME
+		Stop after TIME seconds.
+	-V
+		Display the version information and quit.
+
+
+Videoplayout
+------------
+
+NAME
+	videoplayout, mvideoplayout - example SMPTE 292M video transmitter application
+
+SYNOPSIS
+	videoplayout [OPTION]... DEVICE_FILE
+
+	mvideoplayout [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	videoplayout reads data from standard input
+	and writes it to DEVICE_FILE,
+	while monitoring for SMPTE 292M video transmitter events.
+
+	At end-of-file, playout issues a fsync () to the interface.
+
+	Mvideoplayout uses mmap instead of write.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-n TIME
+		Stop after TIME seconds.
+	-V
+		Display the version information and quit.
+
+
+Sdivideocfg
+-----------
+
+NAME
+	sdivideocfg - configure a SMPTE 292M video interface
+
+SYNOPSIS
+	sdivideocfg [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Sdivideocfg uses the sysfs virtual filesystem
+	to configure certain parameters
+	of a SMPTE 292M video interface. If no options are given, sdivideocfg
+	displays the current configuration of the interface.
+
+OPTIONS
+	-b BUFFERS
+		Set the number of driver buffers on DEVICE_FILE to BUFFERS.
+		There must be at least two buffers.
+	-f FRMODE
+		Set the frame mode of DEVICE_FILE to FRMODE.
+		This is valid only for transmitters.
+		Possible values are
+		1 (SMPTE 125M 486i 59.94 Hz),
+		2 (ITU-R BT.601 720x576i 50 Hz).
+		3 (SMPTE 267M 960x486i 59.94 Hz),
+		5 (SMPTE 260M 1035i 60 Hz),
+		6 (SMPTE 260M 1035i 59.94 Hz),
+		8 (SMPTE 274M 1080i 60 Hz),
+		9 (SMPTE 274M 1080psf 30 Hz),
+		10 (SMPTE 274M 1080i 59.94 Hz),
+		11 (SMPTE 274M 1080psf 29.97 Hz),
+		12 (SMPTE 274M 1080i 50 Hz),
+		13 (SMPTE 274M 1080psf 25 Hz),
+		14 (SMPTE 274M 1080psf 24 Hz),
+		15 (SMPTE 274M 1080psf 23.98 Hz),
+		16 (SMPTE 274M 1080p 30 Hz),
+		17 (SMPTE 274M 1080p 29.97 Hz),
+		18 (SMPTE 274M 1080p 25 Hz),
+		19 (SMPTE 274M 1080p 24 Hz),
+		20 (SMPTE 274M 1080p 23.98 Hz),
+		21 (SMPTE 296M 720p 60 Hz),
+		22 (SMPTE 296M 720p 59.94 Hz),
+		23 (SMPTE 296M 720p 50 Hz),
+		24 (SMPTE 296M 720p 30 Hz),
+		25 (SMPTE 296M 720p 29.96 Hz),
+		26 (SMPTE 296M 720p 25 Hz),
+		27 (SMPTE 296M 720p 24 Hz),
+		28 (SMPTE 296M 720p 23.98 Hz).
+	-h
+		Display a help message and quit.
+	-m MODE
+		Set the operating mode of DEVICE_FILE to MODE.
+		Possible values are
+		0 (uyvy 8-bit mode),
+		1 (v210 10-bit mode),
+		2 (v210 10-bit deinterlaced mode),
+		3 (raw).
+	-s BUFSIZE
+		Set the size of the driver buffers on DEVICE_FILE to
+		BUFSIZE bytes. This must be a positive multiple of four.
+	-V
+		Display the version information and quit.
+
+
+Sdivideorxcfg
+-------------
+
+NAME
+	sdivideorxcfg - interactively issue SMPTE 292M video receiver ioctls
+
+SYNOPSIS
+	sdivideorxcfg [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Sdivideorxcfg is a simple program which demonstrates
+	the SMPTE 292M video receiver ioctl commands.
+	It can be used interactively to control or monitor
+	a SMPTE 292M video receiver, or noninteractively
+	with a script piped to its standard input.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-V
+		Display the version information and quit.
+
+
+Sdivideotxcfg
+-------------
+
+NAME
+	sdivideotxcfg - interactively issue SMPTE 292M video transmitter ioctls
+
+SYNOPSIS
+	sdivideotxcfg [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Sdivideotxcfg is a simple program which demonstrates
+	the SMPTE 292M video transmitter ioctl commands.
+	It can be used interactively to control or monitor
+	a  SMPTE 292M video transmitter, or noninteractively
+	with a script piped to its standard input.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-V
+		Display the version information and quit.
+

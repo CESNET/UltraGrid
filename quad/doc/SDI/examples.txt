@@ -1,0 +1,143 @@
+Several example programs are provided in the Examples/SDI directory
+and are described below.
+
+
+Capture
+-------
+
+NAME
+	capture, mcapture - example SMPTE 259M-C receiver application
+
+SYNOPSIS
+	capture [OPTION]... DEVICE_FILE
+
+	mcapture [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Capture reads data from DEVICE_FILE
+	and writes it to standard output,
+	while monitoring for SMPTE 259M-C receiver events.
+
+	Mcapture uses mmap instead of read.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-n TIME
+		Stop after TIME seconds.
+	-V
+		Display the version information and quit.
+
+
+Playout
+-------
+
+NAME
+	playout, mplayout - example SMPTE 259M-C transmitter application
+
+SYNOPSIS
+	playout [OPTION]... DEVICE_FILE
+
+	mplayout [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Playout reads data from standard input and writes it to DEVICE_FILE,
+	while monitoring for SMPTE 259M-C transmitter events.
+
+	At end-of-file, playout issues a fsync () to the interface.
+
+	Mplayout uses mmap instead of write.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-n TIME
+		Stop after TIME seconds.
+	-V
+		Display the version information and quit.
+
+
+Sdicfg
+------
+
+NAME
+	sdicfg - configure a SMPTE 259M-C interface
+
+SYNOPSIS
+	sdicfg [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Sdicfg uses the sysfs virtual filesystem to configure certain parameters
+	of a SMPTE 259M-C interface. If no options are given, sdicfg
+	displays the current configuration of the interface.
+
+OPTIONS
+	-b BUFFERS
+		Set the number of driver buffers on DEVICE_FILE to BUFFERS.
+		There must be at least two buffers.
+	-h
+		Display a help message and quit.
+	-m MODE
+		Set the operating mode of DEVICE_FILE to MODE.
+		Possible values are
+		0 (8-bit precision),
+		1 (pack four 10-bit words into five bytes).
+	-s BUFSIZE
+		Set the size of the driver buffers on DEVICE_FILE to
+		BUFSIZE bytes. This must be a positive multiple of four.
+	-V
+		Display the version information and quit.
+	-x CLKSRC
+		Set the clock source of DEVICE_FILE to CLKSRC.
+		This is valid only for transmitters.
+		Possible values are
+		0 (onboard oscillator),
+		1 (external reference clock),
+		2 (recovered receive clock).
+
+
+Sdirxcfg
+--------
+
+NAME
+	sdirxcfg - interactively issue SMPTE 259M-C receiver ioctls
+
+SYNOPSIS
+	sdirxcfg [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Sdirxcfg is a simple program which demonstrates
+	the SMPTE 259M-C receiver ioctl commands.
+	It can be used interactively to control or monitor
+	a SMPTE 259M-C receiver, or noninteractively
+	with a script piped to its standard input.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-V
+		Display the version information and quit.
+
+
+Sditxcfg
+--------
+
+NAME
+	sditxcfg - interactively issue SMPTE 259M-C transmitter ioctls
+
+SYNOPSIS
+	sditxcfg [OPTION]... DEVICE_FILE
+
+DESCRIPTION
+	Sditxcfg is a simple program which demonstrates
+	the SMPTE 259M-C transmitter ioctl commands.
+	It can be used interactively to control or monitor
+	a SMPTE 259M-C transmitter, or noninteractively
+	with a script piped to its standard input.
+
+OPTIONS
+	-h
+		Display a help message and quit.
+	-V
+		Display the version information and quit.
+

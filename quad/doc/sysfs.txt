@@ -1,0 +1,81 @@
+This file briefly explains how the Master Linux driver modules
+use the sysfs virtual filesystem.
+
+Parameters which affect the behaviour of multiple interfaces
+are controlled through sysfs files for each device.
+These parameters may be read by any user and
+changed by the root user.
+
+For example,
+
+	cat /sys/class/dvbm/0/fw_version
+
+displays the firmware version of the first device detected by
+the dvbm.ko driver module, while
+
+	echo 1 > /sys/class/dvbm/1/bypass_mode
+
+disables the bypass mode of the second device detected by
+the dvbm.ko driver module.
+
+An example program called mastercfg is provided in the Examples/ directory
+which demonstrates how an application can read or change the parameters.
+
+Each parameter has limits on the values it can have.
+These limits are described below. If a parameter is not relevant
+for a given interface, that parameter will be omitted.
+
+blackburst_type
+	Black burst clock reference type.
+	Valid values:
+		0 - NTSC
+		1 - PAL
+
+bypass_mode
+	Bypass mode.
+	Valid values:
+		0 - bypass (default)
+		1 - normal
+		If the watchdog is supported,
+			2 - enable and reset the watchdog timer
+
+bypass_status
+	Bypass status; read-only.
+	Valid values:
+		0 - enabled
+		1 - disabled
+
+fw_version
+	Firmware version; read-only.
+
+gpi
+	General purpose input status; read-only.
+	Valid values: 0x0...0x3F
+		Each bit represents one input pin.
+		0 = closed,
+		1 = open.
+
+gpo
+	General purpose output value.
+	Valid values:
+		0x0 - open
+		0x1 - closed
+
+uid
+	Unique ID value; read-only.
+
+watchdog
+	Watchdog timer timeout value.
+	Valid values: 0...100000
+		Timeout value is in milliseconds.
+
+Each driver module also provides the following sysfs parameters
+which pertain to the entire module.
+
+version
+	Kernel module version; read-only.
+
+Many methods of writing sysfs parameters do not check for errors.
+Confirming the change by reading the value after a write is recommended
+in these cases. Mastercfg checks for write errors.
+

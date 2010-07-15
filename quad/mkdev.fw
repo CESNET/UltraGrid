@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Create device files for Active Serial firmware upgrades.
+
+major=123
+
+rm -f /dev/lsa*
+
+i=0
+while [ $i -lt 8 ]
+do
+  mknod /dev/lsa${i} c ${major} $(($i))
+  chmod 600 /dev/lsa${i}
+  i=$(($i+1))
+done
+
+# Create device files for JTAG firmware upgrades.
+
+major=122
+
+rm -f /dev/lsj*
+
+i=0
+while [ $i -lt 8 ]
+do
+  mknod /dev/lsj${i} c ${major} $(($i))
+  chmod 600 /dev/lsj${i}
+  i=$(($i+1))
+done
+

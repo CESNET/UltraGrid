@@ -1,0 +1,23 @@
+This file describes some of the major features provided by
+Linear Systems Ltd.'s SMPTE 292M interface boards and the Linux driver.
+
+What features does my board support?
+====================================
+
+The SDIAUDIO_IOC_TXGETCAP and SDIAUDIO_IOC_RXGETCAP ioctls
+return bitfields which describe the capabilities of that interface.
+
+Packing
+=======
+
+By default, two channels of audio are packed into
+pairs of signed 16-bit little-endian words.
+Other formats can be selected by changing the channels and sample_size
+sysfs parameters.
+
+Non-audio
+=========
+
+Non-PCM data such as AC-3 can be transmitted by setting the non_audio
+sysfs parameter for each non-PCM channel.
+

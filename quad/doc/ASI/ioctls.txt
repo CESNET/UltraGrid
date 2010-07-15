@@ -1,0 +1,437 @@
+This document describes the ioctls available to an application.
+To use the ioctls in a C program, #include the asi.h header file.
+
+
+General purpose ioctls
+----------------------
+
+ASI_IOC_GETID
+	Get the board's PCI device ID.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:
+		0x7629 - DVB Master Send or DVB Master II Send
+		0x7630 - DVB Master Receive or DVB Master II Receive
+		0x7643 - DVB Master FD
+		0x0065 - DVB Master FD-U
+		0x0066 - DVB Master FD-UR
+		0x0067 - DVB Master III Tx
+		0x0068 - DVB Master III Rx
+		0x0069 - DVB Master Q/i
+		0x006a - MultiMaster SDI-R
+		0x006c - MultiMaster SDI-T
+		0x006d - DVB Master FD-B
+		0x006e - DVB Master FD-BR
+		0x0070 - DVB Master II FD-R
+		0x0071 - ATSC Master II FD-R
+		0x0072 - DVB Master Dual In
+		0x0073 - DVB Master II FD
+		0x0074 - ATSC Master II FD
+		0x0075 - DVB Master LP
+		0x0077 - DVB Master Q/i (RoHS)
+		0x0089 - DVB Master II FD-R PCIe
+		0x008A - ATSC Master II FD-R PCIe
+		0x008B - DVB Master Dual In PCIe
+		0x008C - DVB Master II FD PCIe
+		0x008D - ATSC Master II FD PCIe
+		0x008F - DVB Master LP FD PCIe
+		0x0099 - DVB Master FD PCIe
+		0x009A - DVB Master FD-R PCIe
+		0x009B - DVB Master III Tx PCIe
+		0x009C - DVB Master III Rx PCIe
+		0x009D - DVB Master FD-B PCIe
+		0x009E - DVB Master FD-BR PCIe
+		0x00A3 - ATSC Master II FD-RS
+		0x0084 - DVB Master Q/i PCIe
+		0x007C - DVB Master Q/o
+		0x0085 - DVB Master Q/o PCIe
+		0x0095 - DVB Master Q/o LP PCIe
+		0x007D - DVB Master Quad-2in2out
+		0x0086 - DVB Master Quad-2in2out PCIe
+		0x00B9 - DVB Master Q/i LP PCIe
+		0x0096 - DVB Master Quad-2in2out LP PCIe
+		0x00AD - DVB Master Quad-2in2out LP PCIe Mini BNC
+		0x0087 - DVB Master Quad-1in3out PCIe
+		0x0088 - DVB Master Quad-3in1out PCIe
+		0x00C0 - DVB Master III Tx LP PCIe
+		0x00BF - DVB Master III Rx LP PCIe
+
+ASI_IOC_GETVERSION
+	Get the board's firmware revision level.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..65535
+
+
+Transmitter ioctls
+------------------
+
+ASI_IOC_TXGETCAP
+	Get the interface's capabilities flags; contains
+		  ASI_CAP_TX_MAKE204: Conversion of 188-byte packets
+		    to 204-byte packets by adding sixteen 0x00 bytes
+		  ASI_CAP_TX_FINETUNING: Precise control
+		    of the average bitrate by modulating the
+		    interpacket stuffing between two consecutive values
+		  ASI_CAP_TX_BYTECOUNTER: Count the number of
+		    bytes transmitted
+		  ASI_CAP_TX_SETCLKSRC: External clock input
+		  ASI_CAP_TX_FIFOUNDERRUN: Onboard FIFO underrun events
+		  ASI_CAP_TX_LARGEIB: Large interbyte stuffing values
+		  ASI_CAP_TX_INTERLEAVING: Reduced PCR jitter
+		    from finetuning
+		  ASI_CAP_TX_DATA: Transmit data status
+		  ASI_CAP_TX_RXCLKSRC: Recovered receive clock input
+		  ASI_CAP_TX_PCRSTAMP: PCR departure timestamping
+		  ASI_CAP_TX_CHANGENEXTIP: Single-shot bitrate correction
+		  ASI_CAP_TX_27COUNTER: 27 MHz counter
+		  ASI_CAP_TX_BYTESOR27: Byte counter and
+		    27 MHz counter are mutually exclusive
+		  ASI_CAP_TX_TIMESTAMPS: Strip eight bytes
+		    from the end of every packet
+		  ASI_CAP_TX_PTIMESTAMPS: Release each packet based on
+		    a prepended 63-bit timestamp
+		  ASI_CAP_TX_NULLPACKETS: Null packet insertion
+		  ASI_CAP_TX_EXTCLKSRC2: External clock input 2
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_TXGETEVENTS
+	Get and reset the transmitter event flags; contains
+		ASI_EVENT_TX_BUFFER: Driver buffer queue underrun
+		If ASI_CAP_TX_FIFOUNDERRUN,
+			ASI_EVENT_TX_FIFO: Onboard FIFO underrun
+		If ASI_CAP_TX_DATA,
+			ASI_EVENT_TX_DATA: Transmit data status change
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_TXGETBUFLEVEL
+	Get the driver transmit buffer queue length.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:	0..(number of buffers - 1)
+
+ASI_IOC_TXSETSTUFFING
+	If this is a DVB ASI interface,
+		set the interbyte and interpacket stuffing parameters.
+	The default after reset is ib = 0, ip = 0,
+	  normal_ip = 0, big_ip = 0, il_normal = 0, il_big = 0.
+	If either normal_ip or big_ip is zero,
+	  both are ignored.
+	If either il_normal or il_big is zero,
+	  both are ignored.
+	Argument type:	pointer to struct asi_txstuffing
+	Read/write:	write
+	Valid values:
+		If ASI_CAP_TX_LARGEIB,
+			ib = 0..65535
+		else
+			ib = 0..255
+		ip = 0..16777215
+		If ASI_CAP_TX_FINETUNING,
+			normal_ip = 0..255
+			big_ip = 0..255
+		If ASI_CAP_TX_INTERLEAVING,
+			il_normal + il_big = 0..15
+			il_normal = 0..normal_ip
+			il_big = 0..big_ip
+
+ASI_IOC_TXGETBYTECOUNT
+	If (ASI_CAP_TX_BYTECOUNTER and not ASI_CAP_TX_BYTESOR27) or
+	  (ASI_CAP_TX_BYTECOUNTER and ASI_CAP_TX_BYTESOR27 and
+	  count27 = disabled),
+		get and reset the transmitted byte counter.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_TXGETTXD
+	If ASI_CAP_TX_DATA,
+		get the transmit data status.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:
+		0 - not transmitting
+		1 - transmitting
+
+ASI_IOC_TXGET27COUNT
+	If (ASI_CAP_TX_27COUNTER and not ASI_CAP_TX_BYTESOR27) or
+	  (ASI_CAP_TX_27COUNTER and ASI_CAP_TX_BYTESOR27 and
+	  count27 = enabled),
+		get the current value of the 27 MHz counter.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_TXSETPID
+	If ASI_CAP_TX_PCRSTAMP,
+		set a PID to watch.
+	Argument type:	pointer to unsigned int
+	Read/write:	write
+	Valid values:	0..8191
+
+ASI_IOC_TXGETPCRSTAMP
+	If ASI_CAP_TX_PCRSTAMP,
+		get the departure timestamp of
+		  the last PCR transmitted in a previously selected PID.
+	Argument type:	pointer to struct asi_pcrstamp
+	Read/write:	read
+
+ASI_IOC_TXCHANGENEXTIP
+	If ASI_CAP_TX_CHANGENEXTIP and
+	  (ip + argument) = 0..16777215 and
+	  a change request is not already pending,
+		request a change in the number of interpacket stuffing bytes
+		  between the next two packets.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:	-1..1
+
+
+Receiver ioctls
+---------------
+
+ASI_IOC_RXGETCAP
+	Get the interface's capabilities flags; contains
+		  ASI_CAP_RX_SYNC: Packet synchronization
+		  ASI_CAP_RX_MAKE188: Conversion of 204-byte packets
+		    to 188-byte packets by stripping the last 16 bytes
+		  ASI_CAP_RX_BYTECOUNTER: Count the number of
+		    bytes received
+		  ASI_CAP_RX_INVSYNC: Synchronization on inverted
+		    packet synchronization bytes
+		  ASI_CAP_RX_CD: Carrier detect
+		  ASI_CAP_RX_DSYNC: Synchronization after two
+		    packet synchronization bytes
+		  ASI_CAP_RX_DATA: Receive data status
+		  ASI_CAP_RX_PIDFILTER: Selectively discard packets
+		  ASI_CAP_RX_PIDCOUNTER: Count instances of one PID
+		  ASI_CAP_RX_4PIDCOUNTER: Count instances of four PIDs
+		  ASI_CAP_RX_FORCEDMA: Force DMA transfer
+		  ASI_CAP_RX_27COUNTER: 27 MHz counter
+		  ASI_CAP_RX_BYTESOR27: Byte counter and
+		    27 MHz counter are mutually exclusive
+		  ASI_CAP_RX_TIMESTAMPS: Append eight bytes
+		    to each packet, where the first six bytes
+		    contain a locally generated timestamp
+		    in PCR format for the arrival time
+		    of the eleventh byte of the packet
+		  ASI_CAP_RX_PTIMESTAMPS: Prepend eight bytes
+		    to each packet which contain a 63-bit
+		    locally generated timestamp for the arrival time
+		    of the eleventh byte of the packet
+		  ASI_CAP_RX_NULLPACKETS: Replace filtered packets
+		    with null packets
+		  ASI_CAP_RX_REDUNDANT: Redundant input
+		  ASI_CAP_RX_DATA2: Redundant input receive data status
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXGETEVENTS
+	Get and reset the receiver event flags; contains
+		ASI_EVENT_RX_BUFFER: Driver buffer queue overrun
+		ASI_EVENT_RX_FIFO: Onboard FIFO overrun
+		If ASI_CAP_RX_CD,
+			ASI_EVENT_RX_CARRIER: Carrier detect status change
+		If ASI_CAP_RX_SYNC,
+			ASI_EVENT_RX_AOS: Packet synchronization acquired
+			ASI_EVENT_RX_LOS: Packet synchronization lost
+		If ASI_CAP_RX_DATA,
+			ASI_EVENT_RX_DATA: Receive data status change
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXGETBUFLEVEL
+	Get the driver receive buffer queue length.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:	0..(number of buffers - 1)
+
+ASI_IOC_RXGETSTATUS
+	Get the receiver status.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:
+		1 - passing data in raw mode
+		If ASI_CAP_RX_SYNC,
+			0 - blocking data
+			188 - passing 188-byte packets
+			204 - passing 204-byte packets
+
+ASI_IOC_RXGETBYTECOUNT
+	If (ASI_CAP_RX_BYTECOUNTER and not ASI_CAP_RX_BYTESOR27) or
+	  (ASI_CAP_RX_BYTECOUNTER and ASI_CAP_RX_BYTESOR27 and
+	  count27 = disabled),
+		get and reset the received byte counter.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXSETINVSYNC
+	If ASI_CAP_RX_SYNC,
+		enable or disable synchronization on
+		  inverted packet synchronization bytes (0xB8);
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:
+		0 - disabled (default)
+		If ASI_CAP_RX_INVSYNC,
+			1 - enabled
+
+ASI_IOC_RXGETCARRIER
+	If ASI_CAP_RX_CD,
+		get the carrier detect status.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:
+		0 - no carrier
+		1 - carrier detected
+
+ASI_IOC_RXSETDSYNC
+	If ASI_CAP_RX_SYNC,
+		enable or disable synchronization after
+		  two packet synchronization bytes.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:
+		0 - disabled
+		If ASI_CAP_RX_DSYNC,
+			1 - enabled (default if supported)
+
+ASI_IOC_RXGETRXD
+	If ASI_CAP_RX_DATA,
+		get the receive data status.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:
+		0 - no data
+		1 - receiving data
+
+ASI_IOC_RXSETPF
+	If ASI_CAP_RX_PIDFILTER,
+		program the PID filter lookup table.
+		  Each bit in the table represents one PID;
+		  the least significant bit of the first unsigned int
+		  represents PID 0, while the most significant bit of
+		  the last unsigned int represents PID 8191.
+		  0 = block,
+		  1 = pass.
+		  The default after reset is to pass all PIDs.
+		  The PID filter is disabled in raw mode.
+	Argument type:	pointer to unsigned int [256]
+	Read/write:	write
+	Valid values:	0..4294967295
+
+ASI_IOC_RXSETPID0
+	If ASI_CAP_RX_PIDCOUNTER,
+		set the PID to be counted by PID counter 0,
+		  and reset the count.
+		  The default after reset is PID 0.
+		  The PID counter is disabled in raw mode.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:	0..8191
+
+ASI_IOC_RXGETPID0COUNT
+	If ASI_CAP_RX_PIDCOUNTER,
+		get and reset the value of PID counter 0.
+		  The value is undefined in raw mode.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXSETPID1
+	If ASI_CAP_RX_4PIDCOUNTER,
+		set the PID to be counted by PID counter 1,
+		  and reset the count.
+		  The default after reset is PID 0.
+		  The PID counter is disabled in raw mode.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:	0..8191
+
+ASI_IOC_RXGETPID1COUNT
+	If ASI_CAP_RX_4PIDCOUNTER,
+		get and reset the value of PID counter 1.
+		  The value is undefined in raw mode.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXSETPID2
+	If ASI_CAP_RX_4PIDCOUNTER,
+		set the PID to be counted by PID counter 2,
+		  and reset the count.
+		  The default after reset is PID 0.
+		  The PID counter is disabled in raw mode.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:	0..8191
+
+ASI_IOC_RXGETPID2COUNT
+	If ASI_CAP_RX_4PIDCOUNTER,
+		get and reset the value of PID counter 2.
+		  The value is undefined in raw mode.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXSETPID3
+	If ASI_CAP_RX_4PIDCOUNTER,
+		set the PID to be counted by PID counter 3,
+		  and reset the count.
+		  The default after reset is PID 0.
+		  The PID counter is disabled in raw mode.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:	0..8191
+
+ASI_IOC_RXGETPID3COUNT
+	If ASI_CAP_RX_4PIDCOUNTER,
+		get and reset the value of PID counter 3.
+		  The value is undefined in raw mode.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXGET27COUNT
+	If (ASI_CAP_RX_27COUNTER and not ASI_CAP_RX_BYTESOR27) or
+	  (ASI_CAP_RX_27COUNTER and ASI_CAP_RX_BYTESOR27 and
+	  count27 = enabled),
+		get the current value of the 27 MHz counter.
+	Argument type:	pointer to unsigned int
+	Read/write:	read
+	Valid values:	0..4294967295
+
+ASI_IOC_RXGETSTATUS2
+	If ASI_CAP_RX_REDUNDANT,
+		get the inactive input status.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:
+		1 - passing data
+		If ASI_CAP_RX_SYNC,
+			0 - blocking data
+
+ASI_IOC_RXSETINPUT
+	Select the active input port.
+	Argument type:	pointer to int
+	Read/write:	write
+	Valid values:
+		0 - Port A (default)
+		If ASI_CAP_RX_REDUNDANT,
+			1 - Port B
+
+ASI_IOC_RXGETRXD2
+    If ASI_CAP_RX_DATA2,
+		get the inactive input receive data status.
+	Argument type:	pointer to int
+	Read/write:	read
+	Valid values:
+		0 - no data
+		1 - receiving data
