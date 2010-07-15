@@ -295,8 +295,8 @@ vidcap_quad_grab(void *state)
 	time_sec = tv.tv_sec + (double)tv.tv_usec / 1000000;
 	dt = time_sec - lasttime;
 		
-	/* Only for HD-SDI, display timestamp and counter */
-
+	/* Only for HD-SDI, display timestamp and counter */	
+	/* TODO: This is currently not working. Something has changed in Quad SDK 2.7.1. SDI_IOC_RXGET27COUNT and SDI_IOC_RXGETTIMESTAMP are lost now.
 	if(dt >= 5) {	
 		if(ioctl (fd, SDI_IOC_RXGET27COUNT, &frames) < 0) {
 			fprintf (stderr, "%s: ", device);
@@ -347,6 +347,7 @@ vidcap_quad_grab(void *state)
 			
 		lasttime = time_sec;
 	}
+	*/
 
 	if(s->data != NULL) {
 		vf = (struct video_frame *) malloc(sizeof(struct video_frame));

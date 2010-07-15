@@ -44,9 +44,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.19 $
- * $Date: 2010/02/05 15:14:14 $
- *
+ * $Revision: 1.20 $
+ * $Date: 2010/07/15 12:25:59 $
+ * 
  */
 
 #include "config.h"
@@ -85,6 +85,9 @@ void NSApplicationLoad();
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
 
+/* splashscreen (xsedmik) */
+#include "video_display/splashscreen.h"
+
 #define MAGIC_SDL   DISPLAY_SDL_ID
 #define FOURCC_UYVY  0x59565955
 
@@ -111,11 +114,12 @@ struct state_sdl {
     int                 frames;
 
     SDL_Surface         *sdl_screen;
-    SDL_Rect            src_rect;
     SDL_Rect            dst_rect;
 
-    int                 width;
-    int                 height;
+    int			width;
+    int			height;
+    unsigned int	x_width;
+    unsigned int	x_height;
     double              bpp;
     int                 src_linesize;
     int                 dst_linesize;
@@ -129,6 +133,8 @@ struct state_sdl {
     unsigned            fs:1;
 };
 
+inline int toggleFullscreen(struct state_sdl *s);
+inline void loadSplashscreen(struct state_sdl *s);
 inline void copyline64(unsigned char *dst, unsigned char *src, int len);
 inline void copyline128(unsigned char *dst, unsigned char *src, int len);
 inline void copylinev210(unsigned char *dst, unsigned char *src, int len);
@@ -136,31 +142,186 @@ inline void copyliner10k(struct state_sdl *s, unsigned char *dst, unsigned char 
 void copylineRGBA(struct state_sdl *s, unsigned char *dst, unsigned char *src, int len);
 void deinterlace(struct state_sdl *s, unsigned char *buffer);
 void show_help(void);
-
 extern int should_exit;
 
-int
-display_sdl_handle_events(void *arg)
-{
-    SDL_Event   sdl_event;
-    struct state_sdl *s = arg;
-    while (SDL_PollEvent(&sdl_event)) {
-        switch (sdl_event.type) {
-            case SDL_KEYDOWN:
-            case SDL_KEYUP:
-                if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
-                    should_exit = 1;
-                    platform_sem_post(&s->semaphore);
-                }
-                break;
 
-            default:
-                break;
+/** 
+ * Load splashscreen
+ * Function loads graphic data from header file "splashscreen.h", where are
+ * stored splashscreen data in RGB format. Thereafter are data written into
+ * the temporary SDL_Surface. At the end of the function are displayed on 
+ * the screen. 
+ * 
+ * @since 18-02-2010, xsedmik
+ * @param s Structure contains the current settings
+ */
+void loadSplashscreen(struct state_sdl *s) {
+
+	unsigned int 	x_coord;
+	unsigned int 	y_coord;
+	char 		pixel[3];
+	SDL_Surface*	image;
+	SDL_Rect 	splash_src;
+	SDL_Rect	splash_dest;
+
+	// create a temporary SDL_Surface with the settings of displaying surface
+	image = SDL_DisplayFormat(s->sdl_screen);
+	SDL_LockSurface(image);
+
+	// load splash data
+	for (y_coord = 0; y_coord < splash_height; y_coord++) {
+		for (x_coord = 0; x_coord < splash_width; x_coord++) {
+
+			HEADER_PIXEL(splash_data,pixel);
+			Uint32 color = SDL_MapRGB(image->format, pixel[0], pixel[1], pixel[2]);
+
+			switch(image->format->BytesPerPixel) {
+				case 1: // Assuming 8-bpp 
+				{
+					Uint8 *bufp;
+					bufp = (Uint8 *)image->pixels + y_coord*image->pitch + x_coord;
+					*bufp = color;
+				}
+				break;
+
+				case 2: // Probably 15-bpp or 16-bpp 
+				{
+					Uint16 *bufp;
+					bufp = (Uint16 *)image->pixels + y_coord*image->pitch/2 + x_coord;
+					*bufp = color;
+				}
+				break;
+
+				case 3: // Slow 24-bpp mode, usually not used 
+				{
+					Uint8 *bufp;
+					bufp = (Uint8 *)image->pixels + y_coord*image->pitch +
+						x_coord*image->format->BytesPerPixel;
+					*(bufp+image->format->Rshift/8) = pixel[0];
+					*(bufp+image->format->Gshift/8) = pixel[1];
+					*(bufp+image->format->Bshift/8) = pixel[2];
+				}
+				break;
+
+				case 4: // Probably 32-bpp 
+				{
+					Uint32 *bufp;
+					bufp = (Uint32 *)image->pixels + y_coord*image->pitch/4 + x_coord;
+					*bufp = color;
+				}
+				break;
+			}
+		}
+	}
+
+	SDL_UnlockSurface(image);
+
+	// place loaded splash on the right position (center of screen)
+	splash_src.x = 0;
+	splash_src.y = 0;
+	splash_src.w = splash_width;
+	splash_src.h = splash_height;
+
+	if (s->fs) {
+		splash_dest.x = (int)((s->x_width - splash_src.w) / 2);
+		splash_dest.y = (int)((s->x_height - splash_src.h) / 2);
+	
+	}
+	else {
+		splash_dest.x = (int)((s->width - splash_src.w) / 2);
+		splash_dest.y = (int)((s->height - splash_src.h) / 2);
+	
+	}
+	splash_dest.w = splash_width;
+	splash_dest.h = splash_height;
+
+        SDL_BlitSurface(image, &splash_src, s->sdl_screen, &splash_dest);
+        SDL_Flip(s->sdl_screen);
+	SDL_FreeSurface(image);
+}
+
+
+/**
+ * Function toggles between fullscreen and window display mode
+ *
+ * @since 23-03-2010, xsedmik
+ * @param s Structure contains the current settings
+ * @return zero value everytime
+ */
+int toggleFullscreen(struct state_sdl *s) {
+      
+	if(s->fs) {
+                fprintf(stdout,"Setting video mode %dx%d.\n", s->width, s->height);
+                s->sdl_screen = SDL_SetVideoMode(s->width, s->height, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
+
+		// Set the begining of the video rectangle
+		s->dst_rect.y = 0;
+		s->dst_rect.x = 0;
+
+		s->fs = 0;
         }
-    }
+        else {
+                fprintf(stdout,"Setting video mode %dx%d.\n", s->x_width, s->x_height);
+                s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 0, SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
 
-    return 0;
+		// Set the begining of the video rectangle
+		if ((int)s->x_height > s->height) {
+			s->dst_rect.y = (s->x_height - s->height) / 2;
+		}
+		if ((int)s->x_width > s->width) {
+			s->dst_rect.x = (s->x_width - s->width) / 2;
+		}
 
+		s->fs = 1;
+        }
+        if(s->sdl_screen == NULL){
+                fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
+                free(s);
+                exit(128);
+        }
+
+        return 0;
+}
+
+
+/**
+ * Handles outer events like a keyboard press
+ * Responds to key:<br/>
+ * <table>
+ * <td><tr>q</tr><tr>terminates program</tr></td>
+ * <td><tr>f</tr><tr>toggles between fullscreen and windowed display mode</tr></td>
+ * </table>
+ *
+ * @since 08-04-2010, xsedmik
+ * @param arg Structure (state_sdl) contains the current settings
+ * @return zero value everytime
+ */
+int display_sdl_handle_events(void * arg) {
+
+   	struct state_sdl * s = (struct state_sdl *) arg;
+
+	SDL_Event sdl_event;
+
+	while (SDL_PollEvent(&sdl_event)) {
+        	switch (sdl_event.type) {
+		case SDL_KEYDOWN:
+			if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
+				should_exit = 1;
+				platform_sem_post(&s->semaphore);
+			}
+			if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
+				toggleFullscreen(s);
+			}
+			break;
+
+		case SDL_QUIT:
+			should_exit = 1;
+			platform_sem_post(&s->semaphore);
+			break;
+		}
+	}
+
+	return 0;
 }
 
 
@@ -179,7 +340,7 @@ deinterlace(struct state_sdl *s, unsigned char *buffer)
     bline3 = buffer + 3*pitch; 
         for(i=0; i < s->dst_linesize; i+=16) {
         /* preload first two lines */
-        asm volatile(
+ 	       asm volatile(
                  "movdqa (%0), %%xmm0\n"
                  "movdqa (%1), %%xmm1\n"
                  :
@@ -439,7 +600,7 @@ display_thread_sdl(void *arg)
     int height=0;
 
     if(s->use_file && s->filename) {
-            FILE *in;
+           FILE *in;
             buff = (unsigned char*)malloc(s->src_linesize*s->height);
             in = fopen(s->filename, "r");
             if(!in || fread(buff, s->src_linesize*s->height, 1, in) == 0) {
@@ -464,6 +625,7 @@ display_thread_sdl(void *arg)
     }
 
     while (!should_exit) {
+
         display_sdl_handle_events(s);
 
         if(!(s->use_file && buff)) {
@@ -562,7 +724,6 @@ display_thread_sdl(void *arg)
                         break;
 
         }
-
  
         if(s->deinterlace) {
                 if(s->rgb) {
@@ -612,23 +773,15 @@ show_help(void)
         show_codec_help();
 }
 
-void *
-display_sdl_init(char *fmt)
-{
+
+void * display_sdl_init(char *fmt) {
+    
     struct state_sdl    *s;
     int                 ret;
-
-    SDL_Surface         *image;
-    SDL_Surface         *temp;
-    SDL_Rect            splash_src;
-    SDL_Rect            splash_dest;
 
     int                 itemp;
     unsigned int        utemp;
     Window              wtemp;
-
-    unsigned int        x_res_x;
-    unsigned int        x_res_y;
 
     const struct codec_info_t *c_info=NULL;
 
@@ -737,19 +890,17 @@ display_sdl_init(char *fmt)
 
     /* Get XWindows resolution */
     ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, 
-                    &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+                    &itemp, &s->x_width, &s->x_height, &utemp, &utemp);
 
-    
-    fprintf(stdout,"Setting video mode %dx%d.\n", x_res_x, x_res_y);
-    if(s->fs)
-        s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 0, SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
-    else {
-        x_res_x = s->width;
-        x_res_y = s->height;
-        s->sdl_screen = SDL_SetVideoMode(x_res_x, x_res_y, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
+    if(s->fs) {
+        s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 0, SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
+	fprintf(stdout,"Setting video mode %dx%d.\n", s->x_width, s->x_height);
+    } else {
+        s->sdl_screen = SDL_SetVideoMode(s->width, s->height, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	fprintf(stdout,"Setting video mode %dx%d.\n", s->width, s->height);
     }
     if(s->sdl_screen == NULL){
-        fprintf(stderr,"Error setting video mode %dx%d!\n", x_res_x, x_res_y);
+        fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
         free(s);
         exit(128);
     }
@@ -793,19 +944,17 @@ display_sdl_init(char *fmt)
     s->dst_rect.w = s->width;
     s->dst_rect.h = s->height;
 
-    if ((int)x_res_x > s->width) {
-        s->dst_rect.x = (x_res_x - s->width) / 2;
-    } else if((int)x_res_x < s->width){
-        s->dst_rect.w = x_res_x;
-    }
-    if ((int)x_res_y > s->height) {
-        s->dst_rect.y = (x_res_y - s->height) / 2;
-    } else if((int)x_res_y < s->height) {
-        s->dst_rect.h = x_res_y;
-    }
 
-    s->src_rect.w = s->width;
-    s->src_rect.h = s->height;
+    if (((int)s->x_width > s->width) && (s->fs)) {
+        s->dst_rect.x = (s->x_width - s->width) / 2;
+    } else if((int)s->x_width < s->width){
+        s->dst_rect.w = s->x_width;
+    }
+    if (((int)s->x_height > s->height) && (s->fs)) {
+       s->dst_rect.y = (s->x_height - s->height) / 2;
+    } else if((int)s->x_height < s->height) {
+        s->dst_rect.h = s->x_height;
+    }
 
     fprintf(stdout,"Setting SDL rect %dx%d - %d,%d.\n", s->dst_rect.w, s->dst_rect.h, s->dst_rect.x, 
                     s->dst_rect.y);
@@ -813,34 +962,8 @@ display_sdl_init(char *fmt)
     s->image_network = 0;
     s->image_display = 1;
 
-    temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
-    if (temp == NULL) {
-        temp = SDL_LoadBMP("/usr/local/share/uv-0.3.1/uv_startup.bmp");
-        if (temp == NULL) {
-            temp = SDL_LoadBMP("uv_startup.bmp");
-            if (temp == NULL) {
-                printf("Unable to load splash bitmap: uv_startup.bmp.\n");
-            }
-        }
-    }
-    
-    if (temp != NULL) {
-        image = SDL_DisplayFormat(temp);
-        SDL_FreeSurface(temp);
- 
-        splash_src.x = 0;
-        splash_src.y = 0;
-        splash_src.w = image->w;
-        splash_src.h = image->h;
- 
-        splash_dest.x = (int)((x_res_x - splash_src.w) / 2);
-        splash_dest.y = (int)((x_res_y - splash_src.h) / 2) + 60;
-        splash_dest.w = image->w;
-        splash_dest.h = image->h;
- 
-        SDL_BlitSurface(image, &splash_src, s->sdl_screen, &splash_dest);
-        SDL_Flip(s->sdl_screen);
-    }
+    // load splashscreen (xsedmik)
+    loadSplashscreen(s);
 
     if (pthread_create(&(s->thread_id), NULL, display_thread_sdl, (void *) s) != 0) {
         perror("Unable to create display thread\n");

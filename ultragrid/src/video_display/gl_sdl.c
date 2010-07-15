@@ -73,50 +73,270 @@
 #include "video_display.h"
 #include "video_display/gl_sdl.h"
 
+// splash screen (xsedmik)
+#include "video_display/splashscreen.h"
+
 #define HD_WIDTH        1920
 #define HD_HEIGHT       1080
-#define MAGIC_GL       DISPLAY_GL_ID
+#define MAGIC_GL	DISPLAY_GL_ID
 
 
 struct state_sdl {
         Display         *display;
-	unsigned int	x_res_x;
-	unsigned int	x_res_y;
+	unsigned int	x_width;
+	unsigned int	x_height;
 
         int             vw_depth;
         SDL_Overlay     *vw_image;
         GLubyte         *buffers[2];
-		GLubyte			*outbuffer;
-		GLubyte			*y, *u, *v;	//Guess what this might be...
-		char*			 VSHandle,FSHandle,PHandle;
+	GLubyte		*outbuffer;
+	GLubyte		*y, *u, *v;	//Guess what this might be...
+	char*		VSHandle,FSHandle,PHandle;
         int             image_display, image_network;
-		GLuint  			texture[4];
+	GLuint		texture[4];
+
         /* Thread related information follows... */
-        pthread_t                thread_id;
-        sem_t                    semaphore;
+        pthread_t	thread_id;
+        sem_t		semaphore;
+
         /* For debugging... */
-        uint32_t                 magic;
+        uint32_t	magic;
 
-        SDL_Surface             *sdl_screen;
-        SDL_Rect                rect;
+        SDL_Surface	*sdl_screen;
+        SDL_Rect	rect;
 
-		char *VProgram,*FProgram;
+	char 		*VProgram,*FProgram;
+
+	unsigned	fs:1;
 };
 
 /* Prototyping */
+inline int gl_video_flags(void * arg);
+void gl_draw();
+inline void gl_load_splashscreen(void *arg);
+inline int gl_toggle_fullscreen(void *arg);
+void gl_show_help(void);
+
 static void * display_thread_gl(void *arg);
 void gl_deinterlace(GLubyte *buffer);//unsigned
 void extrapolate(GLubyte *input, GLubyte *output);
 inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v);
 void gl_resize_window(int width, int height);
 void gl_bind_texture(void *args);
-void gl_draw();
-void loadShader(void *arg, char *filename);
 void glsl_gl_init(void *arg);
 void glsl_arb_init(void *arg);
 inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len);
 inline void gl_copyline128(GLubyte *d, GLubyte *s, int len);//unsigned
-void * display_gl_init(void);
+void * display_gl_init(char *fmt);
+
+
+/**
+ * Prepares the flags for SDL_SetVideoMode
+ *
+ * @since 21-03-2010, xsedmik
+ * @param arg
+ * @return integral
+ */
+int gl_video_flags(void * arg) {
+
+	struct state_sdl        *s = (struct state_sdl *) arg;
+	const SDL_VideoInfo * videoInfo;
+	int videoFlags;
+
+	// Fetch the video info
+	videoInfo = SDL_GetVideoInfo();
+
+	if (!videoInfo) {
+		fprintf(stderr, "Video query failed: %s\n", SDL_GetError());
+		exit(1);
+	}
+
+	// the flags to pass to SDL_SetVideoMode
+	videoFlags  = SDL_OPENGL;		// Enable OpenGL in SDL
+	videoFlags |= SDL_GL_DOUBLEBUFFER;	// Enable double buffering
+	videoFlags |= SDL_HWPALETTE;		// Store the palette in hardware
+	if (s->fs) {
+	videoFlags |= SDL_FULLSCREEN;		// Fullscreen
+	}
+
+	// This checks to see if surfaces can be stored in memory
+	if ( videoInfo->hw_available ) {
+		videoFlags |= SDL_HWSURFACE;
+	}
+        else {
+        	videoFlags |= SDL_SWSURFACE;
+	}
+
+	// This checks if hardware blits can be done
+	if ( videoInfo->blit_hw ) {
+		videoFlags |= SDL_HWACCEL;
+	}
+
+	return videoFlags;
+}
+
+/**
+ * Show help
+ * @since 23-03-2010, xsedmik
+ */
+void gl_show_help(void) {
+        printf("GL(SDL) options:\n");
+	printf("\t[fs] | help\n");
+        printf("\tfs - fullscreen\n");
+}
+
+/**
+ * Load splashscreen
+ * Function loads graphic data from header file "splashscreen.h", where are
+ * stored splashscreen data in RGB format. Thereafter are data written into
+ * the temporary SDL_Surface. At the end of the function are displayed on
+ * the screen.
+ *
+ * @since 29-03-2010, xsedmik
+ * @param s Structure contains the current settings
+ */
+void gl_load_splashscreen(void *arg) {
+
+	struct state_sdl        *s = (struct state_sdl *) arg;
+	unsigned int		x_coord;
+        unsigned int		y_coord;
+        char			pixel[3];
+	GLuint			texture; // This is a handle to our texture object
+	SDL_Surface		*image;
+
+	image = SDL_CreateRGBSurface(SDL_HWSURFACE ,splash_width, splash_height, 24,
+				     s->sdl_screen->format->Rmask, s->sdl_screen->format->Gmask,
+				     s->sdl_screen->format->Bmask, s->sdl_screen->format->Amask);
+
+	for (y_coord = 0; y_coord < splash_height; y_coord++) {
+        	for (x_coord = 0; x_coord < splash_width; x_coord++) {
+                 
+			HEADER_PIXEL(splash_data,pixel);
+         
+			// 24-bpp               
+			Uint8 *bufp;
+                        bufp = (Uint8 *)image->pixels + y_coord*image->pitch +
+                        	x_coord*image->format->BytesPerPixel;
+                                *(bufp+image->format->Rshift/8) = pixel[0];
+                                *(bufp+image->format->Gshift/8) = pixel[1];
+                                *(bufp+image->format->Bshift/8) = pixel[2];
+               }
+        }
+
+
+	if (image != NULL) {
+		// Display the SDL_surface as a OpenGL texture
+
+		// Have OpenGL generate a texture object handle for us
+		glGenTextures(1, &texture);
+
+		// Bind the texture object
+		glBindTexture(GL_TEXTURE_2D, texture);
+
+		// Set the texture's stretching properties
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		// Edit the texture object's image data using the information SDL_Surface gives us
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, image->w, image->h, 0, GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
+		SDL_FreeSurface(image);
+		
+		gl_draw();
+		glDeleteTextures( 1, &texture );
+	}
+}
+
+
+/**
+ * Function toggles between fullscreen and window display mode
+ *  
+ * @since 29-03-2010, xsedmik
+ * @param arg Structure contains the current settings
+ * @return zero value everytime
+ */
+int gl_toggle_fullscreen(void *arg) {
+
+	struct	state_sdl * s = (struct state_sdl *) arg;
+
+	if(s->fs) {
+		s->fs = 0;
+		fprintf(stdout,"Setting video mode %dx%d.\n", HD_WIDTH, HD_HEIGHT);
+		s->sdl_screen = SDL_SetVideoMode(HD_WIDTH, HD_HEIGHT, 32, gl_video_flags(s));
+		s->fs = 0;
+
+		// Set the begining of the video rectangle and resize
+		s->rect.y = 0;
+		s->rect.x = 0;
+		gl_resize_window(HD_WIDTH, HD_HEIGHT);
+	}
+	else {
+		s->fs = 1;
+		fprintf(stdout,"Setting video mode %dx%d.\n", s->x_width, s->x_height);
+		s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 32, gl_video_flags(s));
+		s->fs = 1;
+
+		// Set the begining of the video rectangle and resize
+		if ((int)s->x_height > HD_HEIGHT) {
+			s->rect.y = (s->x_height - HD_HEIGHT) / 2;
+		}
+		else {
+			s->rect.y = 0;
+		}
+		if ((int)s->x_width > HD_WIDTH) {
+			s->rect.x = (s->x_width - HD_WIDTH) / 2;
+		}
+		else {
+			s->rect.x = 0;
+		}
+		gl_resize_window(s->x_width, s->x_height);
+	}
+	if(s->sdl_screen == NULL){
+		fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
+		free(s);
+		exit(128);
+	}
+
+	return 0;
+}
+
+
+/**
+ * Handles outer events like a keyboard press
+ * Responds to key:<br/>
+ * <table>
+ * <td><tr>q</tr><tr>terminates program</tr></td>
+ * <td><tr>f</tr><tr>toggles between fullscreen and windowed display mode</tr></td>
+ * </table>
+ *
+ * @since 08-04-2010, xsedmik
+ * @param state Structure (state_sdl) contains the current settings
+ * @return zero value everytime
+ */
+int display_gl_handle_events(void *state) {
+
+	SDL_Event	sdl_event;
+	
+	while (SDL_PollEvent(&sdl_event)) {
+		switch (sdl_event.type) {
+                case SDL_KEYDOWN:
+                	if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
+				kill(0, SIGINT);
+			}
+			if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
+				gl_toggle_fullscreen(state);
+			}
+			break;
+		case SDL_QUIT:
+			kill(0, SIGINT);
+			break;
+
+			default: break;
+		}
+	}
+
+	return 0;
+}
+
 
 void gl_check_error()
 {
@@ -154,82 +374,96 @@ void gl_check_error()
 		exit(1);
 }
 
-void * display_gl_init(void)
-{
-    struct state_sdl        *s;
+void * display_gl_init(char *fmt) {
 
-    int			ret;
-    int			itemp;
-    unsigned int	utemp;
-    Window		wtemp;
+	struct state_sdl        *s;
+	int			ret;
+	int			itemp;
+	unsigned int		utemp;
+	Window			wtemp;
 
-    s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
-    s->magic   = MAGIC_GL;
-
-    if (!(s->display = XOpenDisplay(NULL))) {
-	printf("Unable to open display GL: XOpenDisplay.\n");
-	return NULL;
-    }
-    
-    /* Get XWindows resolution */
-    ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &(s->x_res_x), &(s->x_res_y), &utemp, &utemp);
-
-    s->rect.w = HD_WIDTH;
-    s->rect.h = HD_HEIGHT;
-    if ((s->x_res_x - HD_WIDTH) > 0) {
-	s->rect.x = (s->x_res_x - HD_WIDTH) / 2;
-    } else {
-	s->rect.x = 0;
-    }
-    if ((s->x_res_y - HD_HEIGHT) > 0) {
-	s->rect.y = (s->x_res_y - HD_HEIGHT) / 2;
-    } else {
-	s->rect.y = 0;
-    }
-
-    s->buffers[0]=malloc(HD_WIDTH*HD_HEIGHT*3);
-    s->buffers[1]=malloc(HD_WIDTH*HD_HEIGHT*3);
-    s->outbuffer=malloc(HD_WIDTH*HD_HEIGHT*4);
-    s->image_network=0;
-    s->image_display=1;
-    s->y=malloc(HD_WIDTH*HD_HEIGHT);
-    s->u=malloc(HD_WIDTH*HD_HEIGHT);
-    s->v=malloc(HD_WIDTH*HD_HEIGHT);
-
-    asm("emms\n");
-
-    platform_sem_init(&s->semaphore, 0, 0);
-    if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
-        perror("Unable to create display thread\n");
-        return NULL;
-    }
-
-    return (void*)s;
-}
-
-void loadShader(void *arg, char *filename)
-{
-	struct state_sdl        *s = (struct state_sdl *) arg;
-	struct stat file;
-	
 	s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
+	s->magic   = MAGIC_GL;
 
-	stat(filename,&file);
-	s->FProgram=calloc(file.st_size+1,sizeof(char));
-	FILE *fh;
-	fh=fopen(filename, "r");
-	if(!fh){
-		perror(filename);
-		exit(113);
+	// parse parameters
+	if (fmt != NULL) {
+		if (strcmp(fmt, "help") == 0) {
+			gl_show_help();
+			free(s);
+			return NULL;
+		}
+
+		char *tmp = strdup(fmt);
+		char *tok;
+		
+		tok = strtok(tmp, ":");
+		if ((tok != NULL) && (tok[0] == 'f') && (tok[1] == 's')) {
+			s->fs=1;
+		}
+		else {
+			s->fs=0;
+		}
+
+		free(tmp);
 	}
-	fread(s->FProgram,sizeof(char),file.st_size,fh);
-	fclose(fh);
+
+	if (s->fs) {
+		fprintf(stdout,"GL(SDL) setup: %dx%d, fullscreen: on\n", HD_WIDTH, HD_HEIGHT);
+	}
+	else {
+		fprintf(stdout,"GL(SDL) setup: %dx%d, fullscreen: off\n", HD_WIDTH, HD_HEIGHT);
+	}
+
+	if (!(s->display = XOpenDisplay(NULL))) {
+		printf("Unable to open display GL: XOpenDisplay.\n");
+		return NULL;
+    	}
+    
+	// get XWindows resolution
+    	ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &(s->x_width), &(s->x_height), &utemp, &utemp);
+
+	// set video rectangle's position and size
+	s->rect.w = HD_WIDTH;
+	s->rect.h = HD_HEIGHT;
+	if ((int)s->x_width > HD_WIDTH) {
+		s->rect.x = (s->x_width - HD_WIDTH) / 2;
+	}
+	else {
+		s->rect.w = s->x_width;
+	}
+	if (((int)s->x_height > HD_HEIGHT) && (s->fs)) {
+		s->rect.y = (s->x_height - HD_HEIGHT) / 2;
+	}
+	else if ((int)s->x_height < HD_HEIGHT){
+		s->rect.h = s->x_height;
+	}
+
+	fprintf(stdout,"Setting SDL rect %dx%d, %d,%d.\n", s->rect.w, s->rect.h, s->rect.x, s->rect.y);
+
+	s->buffers[0]=malloc(HD_WIDTH*HD_HEIGHT*3);
+	s->buffers[1]=malloc(HD_WIDTH*HD_HEIGHT*3);
+	s->outbuffer=malloc(HD_WIDTH*HD_HEIGHT*4);
+	s->image_network=0;
+	s->image_display=1;
+	s->y=malloc(HD_WIDTH*HD_HEIGHT);
+	s->u=malloc(HD_WIDTH*HD_HEIGHT);
+	s->v=malloc(HD_WIDTH*HD_HEIGHT);
+
+	asm("emms\n");
+
+	platform_sem_init(&s->semaphore, 0, 0);
+	if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
+		perror("Unable to create display thread\n");
+		return NULL;
+	}
+
+	return (void*)s;
 }
 
 void glsl_arb_init(void *arg)
 {
-    struct state_sdl        *s = (struct state_sdl *) arg;
-    char *log;
+    struct state_sdl	*s = (struct state_sdl *) arg;
+    char 		*log;
 
     /* Set up program objects. */
     s->PHandle=glCreateProgramObjectARB();
@@ -270,10 +504,10 @@ void glsl_arb_init(void *arg)
     glUseProgramObjectARB(s->PHandle);
 }
 
-void glsl_gl_init(void *arg)
-{
+void glsl_gl_init(void *arg) {
+
 	//TODO: Add log
-        struct state_sdl        *s = (struct state_sdl *) arg;
+	struct state_sdl	*s = (struct state_sdl *) arg;
 
 	s->PHandle=glCreateProgram();
 	s->FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
@@ -317,7 +551,6 @@ static void * display_thread_gl(void *arg)
     struct state_sdl        *s = (struct state_sdl *) arg;
     int j, i;
 
-    const SDL_VideoInfo *videoInfo;
     int videoFlags;
     /* FPS */
     static GLint T0     = 0;
@@ -335,40 +568,24 @@ static void * display_thread_gl(void *arg)
         exit(1);
     }
 
-    /* Fetch the video info */
-    videoInfo = SDL_GetVideoInfo( );
-
-    if ( !videoInfo ) {
-        fprintf( stderr, "Video query failed: %s\n",SDL_GetError());
-        exit(1);
-    }
-
     /* the flags to pass to SDL_SetVideoMode */
-    videoFlags  = SDL_OPENGL;          /* Enable OpenGL in SDL */
-    videoFlags |= SDL_GL_DOUBLEBUFFER; /* Enable double buffering */
-    videoFlags |= SDL_HWPALETTE;       /* Store the palette in hardware */
-    videoFlags |= SDL_FULLSCREEN;      /* Fullscreen */
-
-    /* This checks to see if surfaces can be stored in memory */
-    if ( videoInfo->hw_available )
-        videoFlags |= SDL_HWSURFACE;
-    else
-        videoFlags |= SDL_SWSURFACE;
-
-    /* This checks if hardware blits can be done */
-    if ( videoInfo->blit_hw )
-        videoFlags |= SDL_HWACCEL;
+    videoFlags = gl_video_flags(s);
 
     /* Sets up OpenGL double buffering */
-    SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );	//TODO: Is this necessary?
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1 );	//TODO: Is this necessary?
 #ifdef HAVE_SDL_1210
     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1); 
 #endif /* HAVE_SDL_1210 */
 
     /* get a SDL surface */
-    s->sdl_screen = SDL_SetVideoMode(s->x_res_x, s->x_res_y, 32, videoFlags);
+    if (s->fs) {
+	s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 32, videoFlags);
+    }
+    else {
+	s->sdl_screen = SDL_SetVideoMode(HD_WIDTH, HD_HEIGHT, 32, videoFlags);
+    }
     if(!s->sdl_screen){
-        fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_res_x, s->x_res_y);
+        fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
         exit(128);
     }
 
@@ -379,80 +596,19 @@ static void * display_thread_gl(void *arg)
     /* OpenGL Setup */
     glEnable( GL_TEXTURE_2D );
     glClearColor( 1.0f, 1.0f, 1.0f, 0.1f );
-    gl_resize_window(s->x_res_x, s->x_res_y);
+    if (s->fs) {
+    	gl_resize_window(s->x_width, s->x_height);
+    }
+    else {
+	gl_resize_window(HD_WIDTH, HD_HEIGHT);
+    }
     glGenTextures(4, s->texture);	//TODO: Is this necessary?
 
-    /* Display splash screen */
-    SDL_Surface		*temp;
-    GLuint texture;			// This is a handle to our texture object
-    temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
-    if (temp == NULL) {
-        temp = SDL_LoadBMP("/usr/local/share/uv-0.3.1/uv_startup.bmp");
-        if (temp == NULL) {
-            temp = SDL_LoadBMP("uv_startup.bmp");
-            if (temp == NULL) {
-                printf("Unable to load splash bitmap: uv_startup.bmp.\n");
-            }
-        }
-    }
+    //load shader (xsedmik, 13-02-2010)
+    s->FProgram = glsl;
 
-    if (temp != NULL) {
-	/* Display the SDL_surface as a OpenGL texture */
-        
-	// Have OpenGL generate a texture object handle for us
-	glGenTextures(1, &texture);
- 
-	// Bind the texture object
-	glBindTexture(GL_TEXTURE_2D, texture);
- 
-	// Set the texture's stretching properties
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
- 
-	// Edit the texture object's image data using the information SDL_Surface gives us
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, temp->w, temp->h, 0,
-                     GL_RGB, GL_UNSIGNED_BYTE, temp->pixels);
-
-	gl_draw();
-
-        glDeleteTextures( 1, &texture );
-    }
-
-    /* Load shader */
-    //TODO: Need a less breaky way to do this...
-    struct stat file;
-    char *filename=strdup("../src/video_display/gl_sdl.glsl");
-    if ((stat(filename,&file)) == -1) {
-	filename=strdup("/usr/share/uv-0.3.1/gl_sdl.glsl");
-	if ((stat(filename,&file)) == -1) {
-	    filename=strdup("/usr/local/share/uv-0.3.1/gl_sdl.glsl");
-	    if ((stat(filename,&file)) == -1) {
-		fprintf(stderr, "gl_sdl.glsl not found. Giving up!\n");
-		exit(113);
-	    }
-	}
-    }
-    s->FProgram=calloc(file.st_size+1,sizeof(char));
-    FILE *fh;
-    fh=fopen(filename, "r");
-    if(!fh){
-    	perror(filename);
-	exit(113);
-    }
-    fread(s->FProgram,sizeof(char),file.st_size,fh);
-    fclose(fh);
-#if 0
-    char filename2[]="../src/video_display/gl.vert";
-    stat(filename2,&file);
-    s->VProgram=calloc(file.st_size+1,sizeof(char));
-    fh=fopen(filename2, "r");
-    if(!fh){
-    	perror(filename2);
- 	exit(113);
-    }
-    fread(s->VProgram,sizeof(char),file.st_size,fh);
-    fclose(fh);
-#endif
+    //load splash screen (xsedmik, 08-03-2010)
+    gl_load_splashscreen(s);
 
     /* Check to see if OpenGL 2.0 is supported, if not use ARB (if supported) */
     glewInit();
@@ -517,7 +673,7 @@ static void * display_thread_gl(void *arg)
         // gl_deinterlace(s->outbuffer);
 	getY(s->outbuffer,s->y,s->u,s->v);
         gl_bind_texture(s);
-        gl_draw(s);
+        gl_draw();
 
 		/* FPS Data, this is pretty ghetto though.... */
 		Frames++;
@@ -854,26 +1010,3 @@ display_colour_t display_gl_colour(void *state)
         return DC_YUV;
 }
 
-int display_gl_handle_events(void *state)
-{
-        SDL_Event       sdl_event;
-	
-	UNUSED(state);
-	
-        while (SDL_PollEvent(&sdl_event)) {
-                switch (sdl_event.type) {
-                        case SDL_KEYDOWN:
-                        case SDL_KEYUP:
-                                if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
-                                        kill(0, SIGINT);
-								}
-                                break;
-
-                        default:
-                                break;
-                }
-        }
-
-        return 0;
-
-}

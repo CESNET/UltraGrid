@@ -117,7 +117,6 @@ void dxt_draw();
 void * display_dxt_init(void);
 void dxt_arb_init(void *arg);
 void glsl_dxt_init(void *arg);
-void dxt_loadShader(void *arg, char *filename);
 void dxt_draw();
 	
 #ifdef DEBUG
@@ -206,24 +205,6 @@ void * display_dxt_init(void)
     }
 
     return (void*)s;
-}
-
-void dxt_loadShader(void *arg, char *filename)
-{
-    struct state_sdl        *s = (struct state_sdl *) arg;
-	struct stat file;
-    s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
-
-	stat(filename,&file);
-	s->FProgram=calloc(file.st_size+1,sizeof(char));
-	FILE *fh;
-	fh=fopen(filename, "r");
-	if(!fh){
-		perror(filename);
-		exit(113);
-	}
-	fread(s->FProgram,sizeof(char),file.st_size,fh);
-	fclose(fh);
 }
 
 void dxt_arb_init(void *arg)
@@ -428,52 +409,14 @@ static void * display_thread_dxt(void *arg)
     if(glewIsSupported("GL_VERSION_2_0")){
         fprintf(stderr, "OpenGL 2.0 is supported...\n");
 	}
-    /* Load shader */
-    //TODO: Need a less breaky way to do this...
-	struct stat file;
-	char *filename=strdup("../src/video_display/dxt.frag");
-	if (stat(filename,&file) != 0) {
-	    filename=strdup("/usr/share/uv-0.3.1/dxt.frag");
-	    if (stat(filename,&file) != 0) {
-		filename=strdup("/usr/local/share/uv-0.3.1/dxt.frag");
-		if (stat(filename,&file) != 0) {
-		    fprintf(stderr, "dxt.frag not found. Giving up!\n");
-		    exit(113);
-		}
-	    }
-	}
-        s->FProgram=calloc(file.st_size+1,sizeof(char));
-	
-        FILE *fh;
-        fh=fopen(filename, "r");
-        if(!fh){
-                perror(filename);
-                exit(113);
-        }
-        fread(s->FProgram,sizeof(char),file.st_size,fh);
-        fclose(fh);
 
-	char *filename2=strdup("../src/video_display/dxt.vert");
-        if (stat(filename2,&file) != 0) {
-	    filename2=strdup("/usr/share/uv-0.3.1/dxt.vert");
-	    if (stat(filename2,&file) != 0) {
-		filename2=strdup("/usr/local/share/uv-0.3.1/dxt.vert");
-		if (stat(filename2,&file) != 0) {
-		    fprintf(stderr, "dxt.vert not found. Giving up!\n");
-		    exit(113);
-		}
-	    }
-	    
-	}
-        s->VProgram=calloc(file.st_size+1,sizeof(char));
-	
-        fh=fopen(filename2, "r");
-        if(!fh){
-                perror(filename2);
-                exit(113);
-        }
-        fread(s->VProgram,sizeof(char),file.st_size,fh);
-        fclose(fh);
+
+    /* load shader 
+     * modified: xsedmik, 13-02-2010
+     */
+    s->FProgram = frag;
+    s->VProgram = vert;
+
 
     /* Check to see if OpenGL 2.0 is supported, if not use ARB (if supported) */
     glewInit();
