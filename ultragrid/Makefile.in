@@ -1,6 +1,6 @@
 #
-# $Revision: 1.22 $
-# $Date: 2010/07/08 11:40:22 $
+# $Revision: 1.23 $
+# $Date: 2010/07/15 11:45:03 $
 #
 
 AR            = ar
@@ -151,9 +151,3 @@ bundle: all
 
 install:
 	cp -v $(TARGET) /usr/local/bin/
-	rm -rf /usr/local/share/uv-0.3.1
-	mkdir /usr/local/share/uv-0.3.1
-	cp -v share/uv_startup.bmp /usr/local/share/uv-0.3.1/
-	cp -v share/dxt.frag /usr/local/share/uv-0.3.1/
-	cp -v share/dxt.vert /usr/local/share/uv-0.3.1/
-	cp -v share/gl_sdl.glsl /usr/local/share/uv-0.3.1/
