@@ -324,7 +324,7 @@ AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD=yes, FOUND_QUAD=no)
 
 if test $FOUND_QUAD = yes
 then
-    QUAD_INC=-I${QUAD_INC}
+    QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
     QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
     AC_DEFINE(HAVE_QUAD)
 else
