@@ -91,19 +91,19 @@ struct vidcap_quad_state {
     int                 fd;
     struct              pollfd pfd;
 	unsigned char*		data;
-	unsigned long int 	bufsize;
 };
 
-int frames = 0;
-struct timeval t, t0;
+int                 frames = 0;
+struct              timeval t, t0;
 
+unsigned long int 	bufsize;
 
 static void
 get_carrier (int fd)
 {
     int val;
 
-    printf ("Getting the carrier status :  ");
+    printf ("\tGetting the carrier status :  ");
     if (ioctl (fd, SDIVIDEO_IOC_RXGETCARRIER, &val) < 0) {
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the carrier status");
@@ -116,54 +116,116 @@ get_carrier (int fd)
 }
 
 
+static void
+get_video_standard (int fd)
+{
+	unsigned int val;
+
+	if (ioctl (fd, SDIVIDEO_IOC_RXGETVIDSTATUS, &val) < 0) {
+		fprintf (stderr, "%s: ", device);
+		perror ("\tunable to get the receive video standard detected");
+	} else {
+		switch (val) {
+		case SDIVIDEO_CTL_UNLOCKED:
+			printf ("\tNo video standard locked.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_125M_486I_59_94HZ:
+			printf ("\tSMPTE 125M 486i 59.94 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_BT_601_576I_50HZ:
+			printf ("\tITU-R BT.601 720x576i 50 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_260M_1035I_60HZ:
+			printf ("\tSMPTE 260M 1035i 60 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_260M_1035I_59_94HZ:
+			printf ("\tSMPTE 260M 1035i 59.94 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_295M_1080I_50HZ:
+			printf ("\tSMPTE 295M 1080i 50 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080I_60HZ:
+		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_30HZ:
+			printf ("\tSMPTE 274M 1080i 60 Hz or 1080psf 30 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080I_59_94HZ:
+		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_29_97HZ:
+			printf ("\tSMPTE 274M 1080i 59.94 Hz or 1080psf 29.97 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080I_50HZ:
+		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_25HZ:
+			printf ("\tSMPTE 274M 1080i 50 Hz or 1080psf 25 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_24HZ:
+			printf ("\tSMPTE 274M 1080psf 24 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_23_98HZ:
+			printf ("\tSMPTE 274M 1080psf 23.98 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080P_30HZ:
+			printf ("\tSMPTE 274M 1080p 30 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080P_29_97HZ:
+			printf ("\tSMPTE 274M 1080p 29.97 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080P_25HZ:
+			printf ("\tSMPTE 274M 1080p 25 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080P_24HZ:
+			printf ("\tSMPTE 274M 1080p 24 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_274M_1080P_23_98HZ:
+			printf ("\tSMPTE 274M 1080p 23.98 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_60HZ:
+			printf ("\tSMPTE 296M 720p 60 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_59_94HZ:
+			printf ("\tSMPTE 296M 720p 59.94 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_50HZ:
+			printf ("\tSMPTE 296M 720p 50 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_30HZ:
+			printf ("\tSMPTE 296M 720p 30 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_29_97HZ:
+			printf ("\tSMPTE 296M 720p 29.97 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_25HZ:
+			printf ("\tSMPTE 296M 720p 25 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_24HZ:
+			printf ("\tSMPTE 296M 720p 24 Hz detected.\n");
+			break;
+		case SDIVIDEO_CTL_SMPTE_296M_720P_23_98HZ:
+			printf ("\tSMPTE 296M 720p 23.98 Hz detected.\n");
+			break;
+		default:
+			printf ("\tUnknown video standard detected.\n");
+			break;
+		}
+	}
+	return;
+}
+
 struct vidcap_type *
 vidcap_quad_probe(void)
 {
 	printf("vidcap_quad_probe\n");
 
 	struct vidcap_type*		vt;
-
+	struct stat             buf;
+	char                    name[MAXLEN];
+    char                    data[MAXLEN];
+    char                    type;
+    char                    *endptr;
+	int                     num;
+    unsigned long int       mode;
+    unsigned long int       buffers;
+    
 	/* CHECK IF QUAD CAN WORK CORRECTLY */
-
-	
-
-	/* END OF CHECK IF QUAD CAN WORK CORRECTLY */
-
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->id          = VIDCAP_QUAD_ID;
-		vt->name        = "quad";
-		vt->description = "HD-SDI Maste Quad/i PCIe card";
-		vt->width       = hd_size_x;
-		vt->height      = hd_size_y;
-		vt->colour_mode = YUV_422;
-	}
-	return vt;
-}
-
-void *
-vidcap_quad_init(void)
-{
-	struct vidcap_quad_state *s;
-
-	struct stat        buf;
-	char               name[MAXLEN];
-    char               data[MAXLEN];
-    char               type;
-    char               *endptr;
-	int                num;
-    unsigned long int  mode;
-    unsigned long int  buffers;
-    unsigned int       cap;
-    unsigned int       val;
-
-    s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
-	if(s == NULL) {
-		printf("Unable to allocate Quad state\n");
-		return NULL;
-	}
-
-
+    
     /*Printing current settings from the sysfs info */
 
     /* Stat the file, fills the structure with info about the file
@@ -192,18 +254,18 @@ vidcap_quad_init(void)
     /* Get the receiver or transmitter number */
 	num = buf.st_rdev & 0x007f;
 
-   /* Build the path to sysfs file */
-   snprintf (name, sizeof (name), fmt, type, num, "dev");
+    /* Build the path to sysfs file */
+    snprintf (name, sizeof (name), fmt, type, num, "dev");
     
-   memset (data, 0,sizeof(data));
-   /* Read sysfs file (dev) */
-   if (util_read (name,data, sizeof (data)) < 0) {
+    memset (data, 0,sizeof(data));
+    /* Read sysfs file (dev) */
+    if (util_read (name,data, sizeof (data)) < 0) {
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the device number");
 		goto NO_STAT;
     }
 
-   /* Compare the major number taken from sysfs file to the one taken from device node */
+    /* Compare the major number taken from sysfs file to the one taken from device node */
     if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
         fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", device);
 		goto NO_STAT;
@@ -213,22 +275,7 @@ vidcap_quad_init(void)
         fprintf (stderr, "%s: error reading %s\n", device, name);
 	    goto NO_STAT;
     }
-    
-    snprintf (name, sizeof (name),fmt, type, num, "buffers");
-    if (util_strtoul (name, &buffers) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the number of buffers");
-	    goto NO_STAT;
-    }
 
-    snprintf (name, sizeof (name),fmt, type, num, "bufsize");
-    if (util_strtoul (name, &(s->bufsize)) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the buffer size");
-	    goto NO_STAT;
-    }
-    printf ("\t%lu x %lu-byte buffers\n", buffers, s->bufsize);
-    
     snprintf (name, sizeof (name),fmt, type, num, "mode");
     if (util_strtoul (name, &mode) < 0) {
         fprintf (stderr, "%s: ", device);
@@ -255,12 +302,62 @@ vidcap_quad_init(void)
             break;
     }
 
+    snprintf (name, sizeof (name),fmt, type, num, "buffers");
+    if (util_strtoul (name, &buffers) < 0) {
+        fprintf (stderr, "%s: ", device);
+        perror ("unable to get the number of buffers");
+	    goto NO_STAT;
+    }
+
+    snprintf (name, sizeof (name),fmt, type, num, "bufsize");
+    if (util_strtoul (name, &(bufsize)) < 0) {
+        fprintf (stderr, "%s: ", device);
+        perror ("unable to get the buffer size");
+	    goto NO_STAT;
+    }
+    printf ("\t%lux%lu-byte buffers\n", buffers, bufsize);
+    
+
+	/* END OF CHECK IF QUAD CAN WORK CORRECTLY */
+
+	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	if (vt != NULL) {
+		vt->id          = VIDCAP_QUAD_ID;
+		vt->name        = "quad";
+		vt->description = "HD-SDI Maste Quad/i PCIe card";
+		vt->width       = hd_size_x;
+		vt->height      = hd_size_y;
+		vt->colour_mode = YUV_422;
+	}
+	return vt;
+
+NO_STAT:
+	return NULL;
+}
+
+void *
+vidcap_quad_init(void)
+{
+	struct vidcap_quad_state *s;
+
+    unsigned int       cap;
+    unsigned int       val;
+
+	printf("vidcap_quad_init\n");
+    
+    s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
+	if(s == NULL) {
+		printf("Unable to allocate Quad state\n");
+		return NULL;
+	}
+
     /* Open the file */
-	if((s->fd = open (device, O_RDONLY)) < 0) {
+	if((s->fd = open (device, O_RDONLY,0)) < 0) {
 		fprintf (stderr, "%s: ", device);
 		perror ("unable to open file for reading");
 		goto NO_STAT;
 	}
+    
 
     /* Get the receiver capabilities */
     if (ioctl (s->fd, SDIVIDEO_IOC_RXGETCAP, &cap) < 0) {
@@ -270,15 +367,17 @@ vidcap_quad_init(void)
 		goto NO_STAT;
     }
 
+    /*Get carrier*/
     if(cap & SDIVIDEO_CAP_RX_CD) {
         get_carrier (s->fd);
     } 
 
+    
     if(ioctl (s->fd, SDIVIDEO_IOC_RXGETSTATUS, &val) < 0) {
                 fprintf (stderr, "%s: ", device);
                 perror ("unable to get the receiver status");
         }else {
-        fprintf (stderr, "Receiver is ");
+        fprintf (stderr, "\tReceiver is ");
         if (val) {
             //printf ("passing data.\n");
             fprintf (stderr, "passing data\n");
@@ -288,9 +387,11 @@ vidcap_quad_init(void)
         }
     }
 
-
-	/* Allocate some memory */
-	if((s->data = (unsigned char *)malloc (s->bufsize)) == NULL) {
+    /*Get video standard*/
+    get_video_standard (s->fd);    
+	
+    /* Allocate some memory */
+	if((s->data = (unsigned char *)malloc (bufsize)) == NULL) {
 		fprintf (stderr, "%s: ", device);
 		fprintf (stderr, "unable to allocate memory\n");
 		goto NO_BUFS;
@@ -347,7 +448,7 @@ vidcap_quad_grab(void *state)
 	}
 
 	if(s->pfd.revents & POLLIN) {
-		if ((read_ret = read (s->fd, s->data, s->bufsize)) < 0) {
+		if ((read_ret = read (s->fd, s->data, bufsize)) < 0) {
 			fprintf (stderr, "%s: ", device);
 			perror ("unable to read from device file");
 			goto NO_RUN;
@@ -396,7 +497,7 @@ vidcap_quad_grab(void *state)
 			vf->width	    = hd_size_x;
 			vf->height	    = hd_size_y;
 			vf->data	    = (char*) s->data;
-			vf->data_len	= s->bufsize;
+			vf->data_len	= bufsize;
 		}
 
         frames++;
