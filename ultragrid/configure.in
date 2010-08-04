@@ -303,35 +303,40 @@ QUAD_PATH=
 QUAD_OBJ=
 QUAD_INC=
 
-AC_ARG_ENABLE(quad, 
-	[  --enable-quad           enable HD-SDI Master Quad support],
-	[if test $enableval = yes
-	then
-		AC_DEFINE(HAVE_QUAD)
-	fi])
+case $host in
+    *-linux-*)
 
-AC_ARG_WITH(decklink,
-	[  --with-quad=DIR         specify location of QUAD],
-	[QUAD_PATH=$withval
-	],
-	[QUAD_PATH=${PARENT}/quad
-	])
+        AC_ARG_ENABLE(quad, 
+            [  --enable-quad           enable HD-SDI Master Quad support],
+            [if test $enableval = yes
+            then
+                AC_DEFINE(HAVE_QUAD)
+            fi])
 
-QUAD_INC=${QUAD_PATH}/include
+        AC_ARG_WITH(decklink,
+            [  --with-quad=DIR         specify location of QUAD],
+            [QUAD_PATH=$withval
+            ],
+            [QUAD_PATH=${PARENT}/quad
+            ])
 
-AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD=yes, FOUND_QUAD=no)
-AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD=yes, FOUND_QUAD=no)
+        QUAD_INC=${QUAD_PATH}/include
 
-if test $FOUND_QUAD = yes
-then
-    QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
-    QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
-    AC_DEFINE(HAVE_QUAD)
-else
-    QUAD_PATH=
-    QUAD_INC=
-    QUAD_OBJ=
-fi
+        AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD=yes, FOUND_QUAD=no)
+        AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD=yes, FOUND_QUAD=no)
+
+        if test $FOUND_QUAD = yes
+        then
+            QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
+            QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
+            AC_DEFINE(HAVE_QUAD)
+        else
+            QUAD_PATH=
+            QUAD_INC=
+            QUAD_OBJ=
+        fi
+    ;;
+esac
 
 AC_SUBST(QUAD_PATH)
 AC_SUBST(QUAD_INC)
@@ -354,6 +359,7 @@ case $host_os in
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit"	
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/kona.o"
 		fi
+    ;;
 esac
 
 AC_SUBST(QUICKTIME_INC)
