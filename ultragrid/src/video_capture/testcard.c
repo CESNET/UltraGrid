@@ -322,6 +322,8 @@ void *vidcap_testcard_init(char *fmt)
                 }
         }
 
+        s->frame.color_spec = codec;
+
         if(bpp == 0) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
                 return NULL;
