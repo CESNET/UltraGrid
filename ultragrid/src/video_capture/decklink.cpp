@@ -264,7 +264,7 @@ decklink_help()
 		return 0;
 	} else {
                 printf("Available Colorspaces:\n");
-                printf("\tVuy2\n");
+                printf("\t2vuy\n");
                 printf("\tv210\n");
                 printf("\tRGBA\n");
                 printf("\tR10k\n");
