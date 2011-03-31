@@ -305,6 +305,7 @@ settings_init(void *state, char *fmt)
 	s->mode = atoi(tmp);
 
 	tmp = strtok(NULL, ":");
+        s->c_info = 0;
         if(!tmp) {
                 int i;
                 for(i=0; codec_info[i].name != NULL; i++) {
@@ -320,6 +321,10 @@ settings_init(void *state, char *fmt)
                          s->c_info = &codec_info[i];
                          break;
                     }
+                }
+                if(s->c_info == 0) {
+			fprintf(stderr, "Wrong config. Unknown color space %s\n", tmp);
+                	return 0;
                 }
         }
 
