@@ -137,7 +137,7 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                 data = frame->data + pos;
                 data_len = tx->mtu - 40 - (sizeof(payload_hdr_t));
                 data_len = (data_len / 48) * 48;
-                if (pos + data_len > frame->data_len) {
+                if (pos + data_len >= frame->data_len) {
                         m = 1;
                         data_len = frame->data_len - pos;
                 }
