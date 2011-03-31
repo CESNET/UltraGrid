@@ -56,8 +56,8 @@ extern "C" {
 #include "tv.h"
 
 #include "debug.h"
-#include "video_types.h"
 #include "video_capture.h"
+#include "video_codec.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -70,8 +70,6 @@ extern "C" {
 #include "DeckLinkAPI.h" /* From DeckLink SDK */ 
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
-
-#define HD_COLOR_BPP 2
 
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
@@ -143,12 +141,13 @@ struct vidcap_decklink_state {
 	int			device;
 	int			mode;
 	// void*			rtp_buffer;
-	int			buffer_size;
 	VideoDelegate*		delegate;
 	unsigned int		next_frame_time; // avarege time between frames
 	pthread_mutex_t	 	lock;
 	pthread_cond_t	 	boss_cv;
 	int		 	boss_waiting;
+        struct video_frame      frame;
+        const struct codec_info_t *c_info;
 };
 
 /* DeckLink SDK objects */
@@ -169,7 +168,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 	{
 		if (arrivedFrame->GetFlags() & bmdFrameHasNoInputSource)
 		{
-			fprintf(stderr, "Frame received (#%lu) - No input signal detected\n", frames);
+			fprintf(stderr, "Frame received (#%d) - No input signal detected\n", frames);
 		}
 		else{
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, arrivedFrame->GetRowBytes() * arrivedFrame->GetHeight());
@@ -263,7 +262,13 @@ decklink_help()
 	{
 		printf("\nNo Blackmagic Design devices were found.\n");
 		return 0;
-	}
+	} else {
+                printf("Available Colorspaces:\n");
+                printf("\tVuy2\n");
+                printf("\tv210\n");
+                printf("\tRGBA\n");
+                printf("\tR10k\n");
+        }
 	printf("\n");
 
 	return 1;
@@ -299,6 +304,25 @@ settings_init(void *state, char *fmt)
 	}
 	s->mode = atoi(tmp);
 
+	tmp = strtok(NULL, ":");
+        if(!tmp) {
+                int i;
+                for(i=0; codec_info[i].name != NULL; i++) {
+                    if(codec_info[i].codec == Vuy2) {
+                        s->c_info = &codec_info[i];
+                        break;
+                    }
+                }
+        } else {
+                int i;
+                for(i=0; codec_info[i].name != NULL; i++) {
+                    if(strcmp(codec_info[i].name, tmp) == 0) {
+                         s->c_info = &codec_info[i];
+                         break;
+                    }
+                }
+        }
+
 	return 1;	
 }
 
@@ -315,9 +339,6 @@ vidcap_decklink_probe(void)
 		vt->id          = VIDCAP_DECKLINK_ID;
 		vt->name        = "decklink";
 		vt->description = "Blackmagic DeckLink card";
-		vt->width       = hd_size_x;
-		vt->height      = hd_size_y;
-		vt->colour_mode = YUV_422;
 	}
 	return vt;
 }
@@ -325,9 +346,6 @@ vidcap_decklink_probe(void)
 void *
 vidcap_decklink_init(char *fmt)
 {
-	int fps; //FIXME What is it good for?
-	fps = atoi(fmt);
-
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
 	struct vidcap_decklink_state *s;
@@ -343,15 +361,12 @@ vidcap_decklink_init(char *fmt)
 	IDeckLinkDisplayMode*		displayMode = NULL;
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
 
-	s = (struct vidcap_decklink_state *) malloc(sizeof(struct vidcap_decklink_state));
+	s = (struct vidcap_decklink_state *) calloc(1, sizeof(struct vidcap_decklink_state));
 	if (s == NULL) {
 		//printf("Unable to allocate DeckLink state\n",fps);
 		printf("Unable to allocate DeckLink state\n");
 		return NULL;
 	}
-
-	s->deckLink = NULL;
-	s->deckLinkInput = NULL;
 
 	// SET UP device and mode
 	if(settings_init(s, fmt) == 0) {
@@ -435,21 +450,36 @@ vidcap_decklink_init(char *fmt)
 				result = displayMode->GetName(&displayModeString);
 				if (result == S_OK)
 				{
-					BMDPixelFormat pf = bmdFormat8BitYUV;
-
+					BMDPixelFormat pf;
+					switch(s->c_info->codec) {
+                                          case RGBA:
+						pf = bmdFormat8BitBGRA;
+						break;
+					  case Vuy2:
+						pf = bmdFormat8BitYUV;
+                                                break;
+					  case R10k:
+						pf = bmdFormat10BitRGB;
+						break;
+					  case v210:
+						pf = bmdFormat10BitYUV;
+						break;
+					  default:
+						printf("Unsupported codec! %s\n", s->c_info->name);
+					}
 					// get avarage time between frames
 					BMDTimeValue	frameRateDuration;
 					BMDTimeScale	frameRateScale;
 					double				fps;
 
 					// Obtain the display mode's properties
-					hd_size_x = displayMode->GetWidth();
-					hd_size_y = displayMode->GetHeight();
+					s->frame.width = displayMode->GetWidth();
+					s->frame.height = displayMode->GetHeight();
 
 					displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-					fps = (double)frameRateScale / (double)frameRateDuration;
+					s->frame.fps = (double)frameRateScale / (double)frameRateDuration;
 					s->next_frame_time = (int) (1000000 / fps); // in microseconds
-					debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString, hd_size_x, hd_size_y, fps, s->next_frame_time); /* TOREMOVE */  
+					debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString, s->frame.width, s->frame.height, s->frame.fps, s->next_frame_time); /* TOREMOVE */  
 
 					deckLinkInput->StopStreams();
 
@@ -549,12 +579,16 @@ vidcap_decklink_init(char *fmt)
 	pthread_mutex_init(&(s->lock), NULL);
 	pthread_cond_init(&(s->boss_cv), NULL);
 	
-	s->boss_waiting = FALSE;
+	s->boss_waiting = FALSE;        	
 
-	// setup rtp_buffer
-	hd_color_bpp = HD_COLOR_BPP;
-	s->buffer_size = hd_size_x * hd_size_y * hd_color_bpp;
-	// s->rtp_buffer = malloc(s->buffer_size);
+	if(s->c_info->h_align) {
+           s->frame.src_linesize = ((s->frame.width + s->c_info->h_align - 1) / s->c_info->h_align) * 
+                s->c_info->h_align;
+        } else {
+             s->frame.src_linesize = s->frame.width;
+        }
+        s->frame.src_linesize *= s->c_info->bpp;
+        s->frame.data_len = s->frame.src_linesize * s->frame.height;
 
 	printf("DeckLink capture device enabled\n");
 
@@ -697,23 +731,11 @@ vidcap_decklink_grab(void *state)
 	pthread_mutex_unlock(&(s->lock));
 
 	if (s->delegate->pixelFrame != NULL) {
-		vf = (struct video_frame *) malloc(sizeof(struct video_frame));
-		if (vf != NULL) {
-			vf->colour_mode	= YUV_422;
-			vf->width				= hd_size_x;
-			vf->height			= hd_size_y;
-			vf->data				= (char*) s->delegate->pixelFrame;
-			vf->data_len		= s->buffer_size;
-		}
-
-		// testing write of frames into the files
-		/*
-		FILE *g=fopen("_frames/frame_001.yuv", "w+");
-		fwrite(vf->data, 1, vf->data_len, g);
-		fclose(g);
-		*/
-
-		return vf;
+                s->frame.data = (char*)s->delegate->pixelFrame;
+                if(s->c_info->codec == RGBA) {
+                    vc_copylineRGBA((unsigned char*)s->frame.data, (unsigned char*)s->frame.data, s->frame.data_len, 16, 8, 0);
+                }
+                return &s->frame;
 	}
 	return NULL;
 }
