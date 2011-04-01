@@ -311,6 +311,7 @@ settings_init(void *state, char *fmt)
                 for(i=0; codec_info[i].name != NULL; i++) {
                     if(codec_info[i].codec == Vuy2) {
                         s->c_info = &codec_info[i];
+                        s->frame.color_spec = codec_info[i].codec;
                         break;
                     }
                 }
@@ -319,6 +320,7 @@ settings_init(void *state, char *fmt)
                 for(i=0; codec_info[i].name != NULL; i++) {
                     if(strcmp(codec_info[i].name, tmp) == 0) {
                          s->c_info = &codec_info[i];
+                         s->frame.color_spec = codec_info[i].codec;
                          break;
                     }
                 }
@@ -483,7 +485,7 @@ vidcap_decklink_init(char *fmt)
 
 					displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
 					s->frame.fps = (double)frameRateScale / (double)frameRateDuration;
-					s->next_frame_time = (int) (1000000 / fps); // in microseconds
+					s->next_frame_time = (int) (1000000 / s->frame.fps); // in microseconds
 					debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString, s->frame.width, s->frame.height, s->frame.fps, s->next_frame_time); /* TOREMOVE */  
 
 					deckLinkInput->StopStreams();
