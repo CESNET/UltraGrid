@@ -2,7 +2,7 @@
  *
  * Demonstrate DVB ASI transmitter ioctls.
  *
- * Copyright (C) 2000-2006 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2000-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -106,6 +106,9 @@ show_cap (unsigned int cap)
 
 	str[1] = (cap & ASI_CAP_TX_CHANGENEXTIP) ? 'X' : ' ';
 	printf ("%sSingle-shot bitrate correction\n", str);
+
+	str[1] = (cap & ASI_CAP_TX_EXTCLKSRC2) ? 'X' : ' ';
+	printf ("%sExternal clock reference 2\n", str);
 
 	printf ("\nPress Enter to continue: ");
 	fgets (str, TMP_BUFLEN, stdin);
@@ -382,7 +385,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2000-2006 "
+			printf ("\nCopyright (C) 2000-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "

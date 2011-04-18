@@ -15,18 +15,15 @@ bindir = $(exec_prefix)/bin
 
 CFLAGS = -O2 -Wall -W -I$(INCLUDEDIR) -D_LARGEFILE_SOURCE \
 	$(shell getconf LFS_CFLAGS; getconf LFS_LDFLAGS; getconf LFS_LIBS)
-TARGETS = capture eg1 mcapture mplayout playout sdicfg sdirxcfg sditxcfg bitrate hdsdicfg
+TARGETS = bt801 capture eg1 mcapture mplayout playout sdicfg sdirxcfg sditxcfg
 
 .c:
 	$(CC) $(CFLAGS) -o $@ $@.c
 
 all: $(TARGETS)
 
+bt801: bt801.c $(INCLUDEDIR)/master.h
 capture: capture.c $(INCLUDEDIR)/sdi.h $(INCLUDEDIR)/master.h ../util.o
-	$(CC) $(CFLAGS) -o $@ $@.c ../util.o
-hdrate: capture.c $(INCLUDEDIR)/sdi.h $(INCLUDEDIR)/master.h ../util.o
-	$(CC) $(CFLAGS) -o $@ $@.c ../util.o
-bitrate: capture.c $(INCLUDEDIR)/sdi.h $(INCLUDEDIR)/master.h ../util.o
 	$(CC) $(CFLAGS) -o $@ $@.c ../util.o
 eg1: eg1.c $(INCLUDEDIR)/master.h
 mcapture: mcapture.c $(INCLUDEDIR)/master.h ../util.o
@@ -36,8 +33,6 @@ mplayout: mplayout.c $(INCLUDEDIR)/master.h ../util.o
 playout: playout.c $(INCLUDEDIR)/master.h ../util.o
 	$(CC) $(CFLAGS) -o $@ $@.c ../util.o
 sdicfg: sdicfg.c $(INCLUDEDIR)/sdi.h $(INCLUDEDIR)/master.h ../util.o
-	$(CC) $(CFLAGS) -o $@ $@.c ../util.o
-hdsdicfg: hdsdicfg.c $(INCLUDEDIR)/sdi.h $(INCLUDEDIR)/master.h ../util.o
 	$(CC) $(CFLAGS) -o $@ $@.c ../util.o
 sdirxcfg: sdirxcfg.c $(INCLUDEDIR)/sdi.h $(INCLUDEDIR)/master.h ../util.o
 	$(CC) $(CFLAGS) -o $@ $@.c ../util.o

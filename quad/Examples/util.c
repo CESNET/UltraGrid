@@ -3,7 +3,7 @@
  * Utility functions for
  * the Master Linux Software Development Kit example programs.
  *
- * Copyright (C) 2004-2008 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2004-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -262,6 +262,11 @@ static struct util_info info[] = {
 		.flags = UTIL_ASITX
 	},
 	{
+		.id = PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC,
+		.name = "DVB Master Q/o LP PCIe Mini BNC",
+		.flags = UTIL_ASITX
+	},	
+	{
 		.id = PCI_DEVICE_ID_LINSYS_DVBQDUAL,
 		.name = "DVB Master Quad-2in2out",
 		.flags = UTIL_ASITX | UTIL_ASIRX
@@ -307,6 +312,11 @@ static struct util_info info[] = {
 		.flags = UTIL_ASITX | UTIL_ASIRX
 	},
 	{
+		.id = PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC,
+		.name = "DVB Master Quad-2in2out LP PCIe Mini BNC",
+		.flags = UTIL_ASITX | UTIL_ASIRX
+	},
+	{
 		.id = PCI_DEVICE_ID_LINSYS_DVBQ3IOE,
 		.name = "DVB Master Quad 1in3out PCIe",
 		.flags = UTIL_ASITX | UTIL_ASIRX
@@ -317,8 +327,28 @@ static struct util_info info[] = {
 		.flags = UTIL_ASITX | UTIL_ASIRX
 	},
 	{
+		.id = PCI_DEVICE_ID_LINSYS_DVBLPTXE,
+		.name = "DVB Master III Tx LP PCIe",
+		.flags = UTIL_ASITX
+	},
+	{
+		.id = PCI_DEVICE_ID_LINSYS_DVBLPRXE,
+		.name = "DVB Master III Rx LP PCIe",
+		.flags = UTIL_ASIRX
+	},
+	{
+		.id = PCI_DEVICE_ID_LINSYS_HDSDITXE,
+		.name = "VidPort SD/HD O",
+		.flags = UTIL_SDITX
+	},
+	{
 		.id = PCI_DEVICE_ID_LINSYS_HDSDIQI,
-		.name = "HD-SDI Q/i",
+		.name = "VidPort Q/i",
+		.flags = UTIL_SDIRX
+	},
+	{
+		.id = PCI_DEVICE_ID_LINSYS_HDSDIRXE,
+		.name = "VidPort SD/HD I",
 		.flags = UTIL_SDIRX
 	}
 };

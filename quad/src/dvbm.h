@@ -3,7 +3,7 @@
  * Header file for the Linux driver for
  * Linear Systems Ltd. DVB Master ASI interface boards.
  *
- * Copyright (C) 2004-2005 Linear Systems Ltd.
+ * Copyright (C) 2004-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,19 +26,21 @@
 #ifndef _DVBM_H
 #define _DVBM_H
 
-#include <linux/list.h> /* list_head */
 #include <linux/pci.h> /* pci_dev */
-#include <linux/device.h> /* class */
+#include <linux/init.h> /* __devinit */
+
+#include "mdev.h"
 
 /* External variables */
 
 extern char dvbm_driver_name[];
-extern struct list_head dvbm_card_list;
-extern struct class dvbm_class;
 
 /* External function prototypes */
 
-void dvbm_pci_remove (struct pci_dev *dev);
+int dvbm_pci_probe_generic (struct pci_dev *pdev) __devinit;
+void dvbm_pci_remove_generic (struct pci_dev *pdev);
+int dvbm_register (struct master_dev *card);
+void dvbm_unregister_all (struct master_dev *card);
 
 #endif
 

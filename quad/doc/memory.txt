@@ -39,7 +39,7 @@ Memory for all of the buffers is allocated with get_free_page().
 For DVB ASI, the "tails" of buffers which are not integer multiples
 of the page size are "packed" into pages at the end of this memory;
 ie. several buffers may share a single page.
-For SMPTE 259M-C, each tail has its own page.
+For SMPTE 259M-C and SMPTE 292M, each tail has its own page.
 The pointers to these pages are stored in a kmalloc'd array.
 Another kmalloc'd array is used to store pointers to each page
 and tail in the order they will be accessed.

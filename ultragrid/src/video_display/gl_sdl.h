@@ -21,7 +21,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  * 
- * 3. All advertising materials mentioning features or use of this software
+ * 3. All rertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
  *      This product includes software developed by CESNET z.s.p.o.
@@ -49,9 +49,32 @@
 #define DISPLAY_GL_ID  0xba370a2a
 
 display_type_t          *display_gl_probe(void);
-void                    *display_gl_init(void);
+void                    *display_gl_init(char *fmt);
 void                     display_gl_done(void *state);
 char                    *display_gl_getf(void *state);
 int                      display_gl_putf(void *state, char *frame);
 
 int                      display_gl_handle_events(void *arg);
+
+
+// source code for a shader unit (xsedmik)
+static char * glsl = "\
+uniform sampler2D Ytex;\
+uniform sampler2D Utex,Vtex;\
+\
+void main(void) {\
+float nx,ny,r,g,b,y,u,v;\
+vec4 txl,ux,vx;\
+nx=gl_TexCoord[0].x;\
+ny=gl_TexCoord[0].y;\
+y=texture2D(Ytex,vec2(nx,ny)).r;\
+u=texture2D(Utex,vec2(nx,ny)).r;\
+v=texture2D(Vtex,vec2(nx,ny)).r;\
+y=1.1643*(y-0.0625);\
+u=u-0.5;\
+v=v-0.5;\
+r=y+1.5958*v;\
+g=y-0.39173*u-0.81290*v;\
+b=y+2.017*u;\
+gl_FragColor=vec4(r,g,b,1.0);\
+}";

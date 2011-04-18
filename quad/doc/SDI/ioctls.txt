@@ -7,7 +7,7 @@ General purpose ioctls
 
 SDI_IOC_GETID
 	Get the board's PCI device ID.
-	Argument type:	unsigned int
+	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:
 		0x006a - MultiMaster SDI-R
@@ -21,11 +21,10 @@ SDI_IOC_GETID
 		0x00B4 - SDI Master Q/o LP PCIe
 		0x00B1 - SDI Master Q/i
 		0x00A7 - SDI Master Q/i PCIe
-		0x00B6 - HD-SDI Master Q/i PCIe
 
 SDI_IOC_GETVERSION
 	Get the board's firmware revision level.
-	Argument type:	unsigned int
+	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:	0..65535
 
@@ -48,7 +47,7 @@ Transmitter ioctls
 SDI_IOC_TXGETCAP
 	Get the interface's capabilities flags; contains
 		  SDI_CAP_TX_RXCLKSRC: Recovered receive clock input
-	Argument type:	unsigned int
+	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:	0..4294967295
 
@@ -57,19 +56,19 @@ SDI_IOC_TXGETEVENTS
 		SDI_EVENT_TX_BUFFER: Driver buffer queue underrun
 		SDI_EVENT_TX_FIFO: Onboard FIFO underrun
 		SDI_EVENT_TX_DATA: Transmit data status change
-	Argument type:	unsigned int
+	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:	0..4294967295
 
 SDI_IOC_TXGETBUFLEVEL
 	Get the driver transmit buffer queue length.
-	Argument type:	int
+	Argument type:	pointer to int
 	Read/write:	read
 	Valid values:	0..(number of buffers - 1)
 
 SDI_IOC_TXGETTXD
 	Get the transmit data status.
-	Argument type:	int
+	Argument type:	pointer to int
 	Read/write:	read
 	Valid values:
 		0 - not transmitting
@@ -81,7 +80,7 @@ Receiver ioctls
 
 SDI_IOC_RXGETCAP
 	Get the interface's capabilities flags.
-	Argument type:	unsigned int
+	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:	0..4294967295
 
@@ -90,19 +89,19 @@ SDI_IOC_RXGETEVENTS
 		SDI_EVENT_RX_BUFFER: Driver buffer queue overrun
 		SDI_EVENT_RX_FIFO: Onboard FIFO overrun
 		SDI_EVENT_RX_CARRIER: Carrier detect status change
-	Argument type:	unsigned int
+	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:	0..4294967295
 
 SDI_IOC_RXGETBUFLEVEL
 	Get the driver receive buffer queue length.
-	Argument type:	int
+	Argument type:	pointer to int
 	Read/write:	read
 	Valid values:	0..(number of buffers - 1)
 
 SDI_IOC_RXGETCARRIER
 	Get the carrier detect status.
-	Argument type:	int
+	Argument type:	pointer to int
 	Read/write:	read
 	Valid values:
 		0 - no carrier
@@ -110,20 +109,9 @@ SDI_IOC_RXGETCARRIER
 
 SDI_IOC_RXGETSTATUS
 	Get the receiver status.
-	Argument type:	int
+	Argument type:	pointer to int
 	Read/write:	read
 	Valid values:
 		0 - blocking data
 		1 - passing data
-		
-SDI_IOC_RXGET27COUNT
-	Get the current value of the 27 MHz counter.
-	Argument type:	unsigned int
-	Read/write:	read
-	Valid values:	0..4294967295
 
-SDI_IOC_RXGETTIMESTAMP
-	Get the frame arrival timestamp
-	Argument type: unsigned int
-	Read/write: read
-	Valid values:	0..4294967295

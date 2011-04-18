@@ -63,6 +63,7 @@
 #include "video_capture/testcard.h"
 #include "video_capture/null.h"
 #include "video_capture/decklink.h"
+#include "video_capture/quad.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
 

@@ -2,7 +2,7 @@
  *
  * Linear Systems Ltd PCI device IDs.
  *
- * Copyright (C) 2004-2008 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2004-2009 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,15 +86,22 @@
 #define PCI_DEVICE_ID_LINSYS_SDIQIE 0x00A7
 #define PCI_DEVICE_ID_LINSYS_DVBQDUALE 0x0086
 #define PCI_DEVICE_ID_LINSYS_DVBLPQOE 0x0095
+#define PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC 0x00AC
 #define PCI_DEVICE_ID_LINSYS_DVBQOE 0x0085
 #define PCI_DEVICE_ID_LINSYS_DVBQIE 0x0084
 #define PCI_DEVICE_ID_LINSYS_DVBLPQDUALE 0x0096
+#define PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC 0x00AD
 #define PCI_DEVICE_ID_LINSYS_DVBLPQLF 0x00B9
 #define PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC 0x00BA
 #define PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER 0x00BB
 #define PCI_DEVICE_ID_LINSYS_DVBQ3IOE 0x0087
 #define PCI_DEVICE_ID_LINSYS_DVBQ3INOE 0x0088
-#define PCI_DEVICE_ID_LINSYS_HDSDIQI	0x00B6
+#define PCI_DEVICE_ID_LINSYS_DVBLPTXE 0x00C0
+#define PCI_DEVICE_ID_LINSYS_DVBLPRXE 0x00BF
+#define PCI_DEVICE_ID_LINSYS_HDSDITXE 0x00C1
+#define PCI_DEVICE_ID_LINSYS_HDSDIQI 0x00B6
+#define PCI_DEVICE_ID_LINSYS_HDSDIRXE 0x00C8
+
 
 #endif
 

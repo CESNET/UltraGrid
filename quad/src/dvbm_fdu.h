@@ -2,7 +2,7 @@
  *
  * Header file for the Linear Systems Ltd. DVB Master FD-U.
  *
- * Copyright (C) 2003-2008 Linear Systems Ltd.
+ * Copyright (C) 2003-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -29,7 +29,7 @@
 #include <linux/pci.h> /* pci_dev */
 #include <linux/init.h> /* __devinit */
 
-#include "mdev.h"
+#include "miface.h"
 
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU 0x0065
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU_R 0x0066
@@ -67,17 +67,17 @@
 #define ATSCM_NAME_2FD "ATSC Master II FD"
 #define ATSCM_NAME_2FD_R "ATSC Master II FD-R"
 #define ATSCM_NAME_2FD_RS "ATSC Master II FD-RS"
-#define DVBM_PCI_NAME_2FDE "DVB Master II FD PCIe"
-#define DVBM_PCI_NAME_2FDE_R "DVB Master II FD-R PCIe"
-#define DVBM_PCI_NAME_2FDE_RS "DVB Master Dual In PCIe"
-#define DVBM_PCI_NAME_FDE "DVB Master FD PCIe"
-#define DVBM_PCI_NAME_FDE_R "DVB Master FD-R PCIe"
-#define DVBM_PCI_NAME_FDEB "DVB Master FD-B PCIe"
-#define DVBM_PCI_NAME_FDEB_R "DVB Master FD-BR PCIe"
+#define DVBM_NAME_2FDE "DVB Master II FD PCIe"
+#define DVBM_NAME_2FDE_R "DVB Master II FD-R PCIe"
+#define DVBM_NAME_2FDE_RS "DVB Master Dual In PCIe"
+#define DVBM_NAME_FDE "DVB Master FD PCIe"
+#define DVBM_NAME_FDE_R "DVB Master FD-R PCIe"
+#define DVBM_NAME_FDEB "DVB Master FD-B PCIe"
+#define DVBM_NAME_FDEB_R "DVB Master FD-BR PCIe"
 #define DVBM_NAME_TXE "DVB Master III Tx PCIe"
 #define DVBM_NAME_RXE "DVB Master III Rx PCIe"
-#define ATSCM_PCI_NAME_2FDE "ATSC Master II FD PCIe"
-#define ATSCM_PCI_NAME_2FDE_R "ATSC Master II FD-R PCIe"
+#define ATSCM_NAME_2FDE "ATSC Master II FD PCIe"
+#define ATSCM_NAME_2FDE_R "ATSC Master II FD-R PCIe"
 
 /* DVB Master FD-U configuration */
 #define DVBM_FDU_RDMATL	0x010
@@ -154,6 +154,7 @@
 #define DVBM_FDU_ICSR_RXLOSIE	0x00000004 /* Rx Loss of Sync. Int. Enable */
 #define DVBM_FDU_ICSR_RXOIE	0x00000002 /* Rx FIFO Overrun Int. Enable */
 #define DVBM_FDU_ICSR_TXUIE	0x00000001 /* Tx FIFO Underrun Int. Enable */
+#define DVBM_FDU_ICSR_RXD2	0x20000000 /* Rx Redundant Data */
 
 #define DVBM_FDU_ICSR_TXCTRL_MASK	0x00000041
 #define DVBM_FDU_ICSR_TXSTAT_MASK	0x08414100
@@ -213,14 +214,21 @@
 
 extern struct file_operations dvbm_fdu_txfops;
 extern struct file_operations dvbm_fdu_rxfops;
-extern struct class_device_attribute class_device_attr_uid;
+extern struct master_iface_operations dvbm_fdu_txops;
+extern struct master_iface_operations dvbm_fdu_rxops;
 
 /* External function prototypes */
 
-int dvbm_fdu_pci_probe (struct pci_dev *dev) __devinit;
-int dvbm_txu_pci_probe (struct pci_dev *dev) __devinit;
-int dvbm_rxu_pci_probe (struct pci_dev *dev) __devinit;
-void dvbm_fdu_pci_remove (struct master_dev *card);
+ssize_t dvbm_fdu_show_uid (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+int dvbm_fdu_pci_probe (struct pci_dev *pdev) __devinit;
+int dvbm_txu_pci_probe (struct pci_dev *pdev) __devinit;
+int dvbm_rxu_pci_probe (struct pci_dev *pdev) __devinit;
+void dvbm_fdu_pci_remove (struct pci_dev *pdev);
+
+#define dvbm_txu_pci_remove(pdev) dvbm_fdu_pci_remove(pdev)
+#define dvbm_rxu_pci_remove(pdev) dvbm_fdu_pci_remove(pdev)
 
 #endif
 

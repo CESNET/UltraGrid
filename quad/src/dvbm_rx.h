@@ -2,7 +2,7 @@
  *
  * Header file for the Linear Systems Ltd. DVB Master Receive.
  *
- * Copyright (C) 2001-2004 Linear Systems Ltd.
+ * Copyright (C) 2001-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -91,7 +91,8 @@
 
 /* External function prototypes */
 
-int dvbm_rx_pci_probe (struct pci_dev *dev) __devinit;
+int dvbm_rx_pci_probe (struct pci_dev *pdev) __devinit;
+void dvbm_rx_pci_remove (struct pci_dev *pdev);
 
 #endif
 

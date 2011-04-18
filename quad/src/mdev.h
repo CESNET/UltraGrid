@@ -2,7 +2,7 @@
  *
  * Definitions for Linear Systems Ltd. Master devices.
  *
- * Copyright (C) 2005-2008 Linear Systems Ltd.
+ * Copyright (C) 2005-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,31 +25,29 @@
 #ifndef _MDEV_H
 #define _MDEV_H
 
-#include <linux/kernel.h> /* container_of () */
 #include <linux/version.h> /* LINUX_VERSION_CODE */
 
-#include <linux/init.h> /* __init */
 #include <linux/spinlock.h> /* spinlock_t */
-#include <linux/pci.h> /* pci_dev */
 #include <linux/list.h> /* list_head */
 #include <linux/interrupt.h> /* irqreturn_t */
-#include <linux/device.h> /* class_device */
+#include <linux/device.h> /* device */
+#include <linux/mutex.h> /* mutex */
 
-#include <asm/semaphore.h> /* semaphore */
 #include <asm/io.h> /* inl () */
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18))
 typedef unsigned long resource_size_t;
 #endif
 
-#define to_master_dev(cd) container_of(cd,struct master_dev,class_dev)
-
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19))
 #define IRQ_HANDLER(name,irq,dev_id,regs) \
 	name (int irq, void *dev_id, struct pt_regs *regs)
-#if !defined RHEL_RELEASE_VERSION || \
-RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(4,5) || \
+#if defined RHEL_RELEASE_VERSION
+#if RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(4,5) || \
 RHEL_RELEASE_CODE == RHEL_RELEASE_VERSION(5,0)
+typedef irqreturn_t (*irq_handler_t)(int, void *, struct pt_regs *);
+#endif
+#else
 typedef irqreturn_t (*irq_handler_t)(int, void *, struct pt_regs *);
 #endif
 #else
@@ -63,50 +61,49 @@ typedef irqreturn_t (*irq_handler_t)(int, void *, struct pt_regs *);
  * @bridge_addr: PCI bridge or DMA Controller base address
  * @core: device core base address
  * @name: marketing name of this device
+ * @id: device ID
  * @version: firmware version
+ * @irq: interrupt line
  * @irq_handler: pointer to interrupt handler
  * @iface_list: linked list of interfaces
  * @capabilities: capabilities flags
- * @class_dev: class device structure
+ * @dev: pointer to device structure
  * @irq_lock: lock for shared board registers accessed in interrupt context
  * @reg_lock: lock for all other shared board registers
- * @users_sem: lock for iface[].users
- * @pdev: PCI device
+ * @users_mutex: mutex for iface[].users
+ * @parent: parent device
  **/
 struct master_dev {
 	struct list_head list;
-	void *bridge_addr;
+	void __iomem *bridge_addr;
 	union {
-		void *addr;
+		void __iomem *addr;
 		resource_size_t port;
 	} core;
 	const char *name;
+	unsigned int id;
 	unsigned int version;
+	unsigned int irq;
 	irq_handler_t irq_handler;
 	struct list_head iface_list;
 	unsigned int capabilities;
-	struct class_device class_dev;
+	struct device *dev;
 	spinlock_t irq_lock;
 	spinlock_t reg_lock;
-	struct semaphore users_sem;
-	struct pci_dev *pdev;
+	struct mutex users_mutex;
+	struct device *parent;
 };
 
 /* External function prototypes */
 
-unsigned int mdev_users (struct master_dev *card);
 unsigned int mdev_index (struct master_dev *card, struct list_head *list);
-void mdev_class_device_release (struct class_device *cd);
 int mdev_register (struct master_dev *card,
 	struct list_head *devlist,
 	char *driver_name,
 	struct class *cls);
-void mdev_unregister (struct master_dev *card);
-int mdev_init_module (struct pci_driver *pci_drv,
-	struct class *cls,
-	char *name) __init;
-void mdev_cleanup_module (struct pci_driver *pci_drv,
-	struct class *cls) __exit;
+void mdev_unregister (struct master_dev *card, struct class *cls);
+struct class *mdev_init (char *name);
+void mdev_cleanup (struct class *cls);
 
 /* Inline functions */
 
@@ -114,11 +111,6 @@ void mdev_cleanup_module (struct pci_driver *pci_drv,
 	inl((card)->core.port+(offset))
 #define master_outl(card,offset,val) \
 	outl((val),(card)->core.port+(offset))
-
-#define master_readl(card,offset) \
-	readl((card)->core.addr+(offset))
-#define master_writel(card,offset,val) \
-	writel((val),(card)->core.addr+(offset))
 
 #endif
 

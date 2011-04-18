@@ -37,7 +37,7 @@ bypass_mode
 		0 - bypass (default)
 		1 - normal
 		If the watchdog is supported,
-			2 - enable watchdog timer
+			2 - enable and reset the watchdog timer
 
 bypass_status
 	Bypass status; read-only.

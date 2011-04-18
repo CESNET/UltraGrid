@@ -28,43 +28,6 @@ OPTIONS
 	-V
 		Display the version information and quit.
 
-bitrate
-------
-
-NAME
-	bitrate - example HD-SDI receiver application
-
-SYNOPSIS
-	bitrate [OPTION]... DEVICE_FILE [FILE]
-
-DESCRIPTION
-	bitrate reads data from DEVICE_FILE
-	and optionally writes the received data to FILE.
-	If FILE is not specified, the data is discarded.
-
-	Any events which are reported by the receiver are
-	sent to standard output, unless the -q option is used.
-
-	If the -s option is used, bitrate will periodically display
-	the bitrate between it and the driver.
-
-OPTIONS
-
-	-h
-		Display a help message and quit.
-
-	-p PID
-		Count packets with the given PID.
-	-q
-		Quiet operation; no output.
-	-s PERIOD
-		Display status every PERIOD seconds.
-	-v
-		Verbose output; display additional information
-		at startup.
-	-V
-		Display the version information and quit.
-
 
 Playout
 -------
@@ -131,28 +94,6 @@ OPTIONS
 		0 (onboard oscillator),
 		1 (external reference clock),
 		2 (recovered receive clock).
-
-hdsdicfg
---------
-
-NAME
-	hdsdicfg - configure a SMPTE 274M interface
-
-SYNOPSIS
-	hdsdicfg [OPTION]---DEVICE_FILE
-
-DESCRIPTION
-	hdsdicfg uses the sysfs virtual filesystem to configure certain parameters
-	of a SMPTE 274M interface. If no options are given, hdsdicfg
-	displays the current configuration of the interface.
-
-OPTIONS
-	-b BUFFERS    set the number of buffers
-  	-h display this help and exit
-  	-m MODE set the operating mode
-  	-s BUFSIZE set the buffer size
-  	-V output version information and exit
-  	-x CLKSRC set the clock source
 
 
 Sdirxcfg

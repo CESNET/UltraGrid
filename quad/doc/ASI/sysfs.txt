@@ -49,6 +49,7 @@ clock_source
 		0 - onboard oscillator (default)
 		1 - external clock reference
 		2 - recovered receive clock
+		3 - external clock reference 2
 
 count27
 	Enable or disable a 32-bit, 27 MHz counter.

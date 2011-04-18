@@ -2,7 +2,7 @@
  *
  * Linux driver functions for Linear Systems Ltd. DVB Master Q/i RoHS.
  *
- * Copyright (C) 2003-2008 Linear Systems Ltd.
+ * Copyright (C) 2003-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,28 +27,26 @@
 
 #include <linux/fs.h> /* inode, file, file_operations */
 #include <linux/sched.h> /* pt_regs */
-#include <linux/pci.h> /* pci_dev */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/pci.h> /* pci_resource_start () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/list.h> /* INIT_LIST_HEAD () */
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
-#include <linux/device.h> /* class_device_create_file () */
+#include <linux/device.h> /* device_create_file () */
+#include <linux/mutex.h> /* mutex_init () */
 
-#include <asm/semaphore.h> /* sema_init () */
 #include <asm/uaccess.h> /* put_user () */
 #include <asm/bitops.h> /* set_bit () */
 
 #include "asicore.h"
 #include "../include/master.h"
-#include "miface.h"
 #include "mdev.h"
+#include "mdma.h"
 #include "dvbm.h"
 #include "plx9080.h"
-#include "masterplx.h"
 #include "lsdma.h"
-#include "masterlsdma.h"
 #include "dvbm_qlf.h"
 
 static const char dvbm_qlf_name[] = DVBM_NAME_QLF;
@@ -56,190 +54,180 @@ static const char dvbm_qie_name[] = DVBM_NAME_QIE;
 static const char dvbm_lpqlf_name[] = DVBM_NAME_LPQLF;
 
 /* Static function prototypes */
-static ssize_t dvbm_qlf_show_uid (struct class_device *cd, char *buf);
+static ssize_t dvbm_qlf_show_uid (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
 static irqreturn_t IRQ_HANDLER(dvbm_qlf_irq_handler,irq,dev_id,regs);
 static void dvbm_qlf_init (struct master_iface *iface);
 static void dvbm_qlf_start (struct master_iface *iface);
 static void dvbm_qlf_stop (struct master_iface *iface);
 static void dvbm_qlf_exit (struct master_iface *iface);
-static int dvbm_qlf_open (struct inode *inode, struct file *filp);
 static long dvbm_qlf_unlocked_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-static int dvbm_qlf_ioctl (struct inode *inode,
-	struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 static int dvbm_qlf_fsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_qlf_release (struct inode *inode, struct file *filp);
 
-struct file_operations dvbm_qlf_fops = {
+static struct file_operations dvbm_qlf_fops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.read = masterlsdma_read,
-	.poll = masterlsdma_rxpoll,
-	.ioctl = dvbm_qlf_ioctl,
-#ifdef HAVE_UNLOCKED_IOCTL
+	.read = asi_read,
+	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_qlf_unlocked_ioctl,
-#endif
-#ifdef HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_qlf_open,
-	.release = dvbm_qlf_release,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_qlf_fsync,
 	.fasync = NULL
 };
 
+static struct master_iface_operations dvbm_qlf_ops = {
+	.init = dvbm_qlf_init,
+	.start = dvbm_qlf_start,
+	.stop = dvbm_qlf_stop,
+	.exit = dvbm_qlf_exit
+};
+
 /**
  * dvbm_qlf_show_uid - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
 static ssize_t
-dvbm_qlf_show_uid (struct class_device *cd,
+dvbm_qlf_show_uid (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	return snprintf (buf, PAGE_SIZE, "0x%08X%08X\n",
 		readl (card->core.addr + DVBM_QLF_UIDR_HI),
 		readl (card->core.addr + DVBM_QLF_UIDR_LO));
 }
 
-static CLASS_DEVICE_ATTR(uid,S_IRUGO,
+static DEVICE_ATTR(uid,S_IRUGO,
 	dvbm_qlf_show_uid,NULL);
 
 /**
  * dvbm_qlf_pci_probe - PCI insertion handler for a DVB Master Q/i RoHS
- * @dev: PCI device
+ * @pdev: PCI device
  *
  * Handle the insertion of a DVB Master Q/i RoHS.
  * Returns a negative error code on failure and 0 on success.
  **/
 int __devinit
-dvbm_qlf_pci_probe (struct pci_dev *dev)
+dvbm_qlf_pci_probe (struct pci_dev *pdev)
 {
 	int err;
-	unsigned int i, cap, transport;
+	unsigned int i, cap;
 	struct master_dev *card;
-	const char *name;
+	void __iomem *p;
+
+	err = dvbm_pci_probe_generic (pdev);
+	if (err < 0) {
+		goto NO_PCI;
+	}
+
+	/* Initialize the driver_data pointer so that dvbm_qlf_pci_remove()
+	 * doesn't try to free it if an error occurs */
+	pci_set_drvdata (pdev, NULL);
 
 	/* Allocate a board info structure */
 	if ((card = (struct master_dev *)
-		kmalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
+		kzalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
 	/* Initialize the board info structure */
-	memset (card, 0, sizeof (*card));
-	/* PLX 9056 */
-	switch (dev->device) {
+	switch (pdev->device) {
+	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF4:
+		/* DMA Controller */
 		card->bridge_addr = ioremap_nocache
-			(pci_resource_start (dev, 0),
-			pci_resource_len (dev, 0));
+			(pci_resource_start (pdev, 3),
+			pci_resource_len (pdev, 3));
+		/* ASI Core */
+		card->core.addr = ioremap_nocache
+			(pci_resource_start (pdev, 2),
+			pci_resource_len (pdev, 2));
+		card->name = dvbm_qlf_name;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
+		/* DMA Controller */
+		card->bridge_addr = ioremap_nocache
+			(pci_resource_start (pdev, 3),
+			pci_resource_len (pdev, 3));
+		/* ASI Core */
+		card->core.addr = ioremap_nocache
+			(pci_resource_start (pdev, 2),
+			pci_resource_len (pdev, 2));
+		card->name = dvbm_qie_name;
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER:
+		/* DMA Controller */
 		card->bridge_addr = ioremap_nocache
-			(pci_resource_start (dev, 2),
-			pci_resource_len (dev, 2));
-		break;
-	}
-
-	/* ASI Core */
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF4:
+			(pci_resource_start (pdev, 2),
+			pci_resource_len (pdev, 2));
+		/* ASI Core */
 		card->core.addr = ioremap_nocache
-			(pci_resource_start (dev, 2),
-			pci_resource_len (dev, 2));
-		break;
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER:
-		card->core.addr = ioremap_nocache
-			(pci_resource_start (dev, 0),
-			pci_resource_len (dev, 0));
+			(pci_resource_start (pdev, 0),
+			pci_resource_len (pdev, 0));
+		card->name = dvbm_lpqlf_name;
 		break;
 	}
 	card->version = readl (card->core.addr + DVBM_QLF_FPGAID) & 0xffff;
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF4:
-		name = dvbm_qlf_name;
-		break;
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
-		name = dvbm_qie_name;
-		break;
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER:
-		name = dvbm_lpqlf_name;
-		break;
-	default:
-		name = "";
-		break;
-	}
-	card->name = name;
+	card->id = pdev->device;
+	card->irq = pdev->irq;
 	card->irq_handler = dvbm_qlf_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
-	switch (dev->device) {
-	default:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF4:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER:
-		card->capabilities = MASTER_CAP_UID;
-		break;
-	}
+	card->capabilities = MASTER_CAP_UID;
 	/* Lock for LSDMA_CSR, ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for PFLUT, RCR */
 	spin_lock_init (&card->reg_lock);
-	sema_init (&card->users_sem, 1);
-	card->pdev = dev;
+	mutex_init (&card->users_mutex);
+	card->parent = &pdev->dev;
 
 	/* Print the firmware version */
 	printk (KERN_INFO "%s: %s detected, firmware version %u.%u (0x%04X)\n",
-		dvbm_driver_name, name,
+		dvbm_driver_name, card->name,
 		card->version >> 8, card->version & 0x00ff, card->version);
 
 	/* Store the pointer to the board info structure
 	 * in the PCI info structure */
-	pci_set_drvdata (dev, card);
+	pci_set_drvdata (pdev, card);
 
-	switch (dev->device) {
+	switch (pdev->device) {
+	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF4:
+		/* PCI 9056 */
+		p = ioremap_nocache (pci_resource_start (pdev, 0),
+			pci_resource_len (pdev, 0));
+
 		/* Reset the PCI 9056 */
-		masterplx_reset_bridge (card);
+		plx_reset_bridge (p);
 
 		/* Setup the PCI 9056 */
 		writel (PLX_INTCSR_PCIINT_ENABLE |
 			PLX_INTCSR_PCILOCINT_ENABLE,
-			card->bridge_addr + PLX_INTCSR);
+			p + PLX_INTCSR);
 		/* Dummy read to flush PCI posted writes */
-		readl (card->bridge_addr + PLX_INTCSR);
+		readl (p + PLX_INTCSR);
 
-		/* Remap bridge address to the DMA controller */
-		iounmap (card->bridge_addr);
-		/* LS DMA Controller */
-		card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 3),
-			pci_resource_len (dev, 3));
+		/* Unmap PCI 9056 */
+		iounmap (p);
 		break;
-	default:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER:
 		break;
 	}
 
@@ -262,49 +250,36 @@ dvbm_qlf_pci_probe (struct pci_dev *dev)
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
 
-	/* Register a Master device */
-	if ((err = mdev_register (card,
-		&dvbm_card_list,
-		dvbm_driver_name,
-		&dvbm_class)) < 0) {
+	/* Register a DVB Master device */
+	if ((err = dvbm_register (card)) < 0) {
 		goto NO_DEV;
 	}
 
-	/* Add class_device attributes */
+	/* Add device attributes */
 	if (card->capabilities & MASTER_CAP_UID) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_uid)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_uid)) < 0) {
 			printk (KERN_WARNING
 				"%s: Unable to create file 'uid'\n",
 				dvbm_driver_name);
 		}
 	}
 
-	/* Setup device capabilities */
-	cap = ASI_CAP_RX_DATA;
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQIE:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQLF4:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_MINIBNC:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF_HEADER:
-		cap |= ASI_CAP_RX_SYNC | ASI_CAP_RX_CD | ASI_CAP_RX_MAKE188 |
+	/* Register receiver interfaces */
+	cap = ASI_CAP_RX_DATA |
+		ASI_CAP_RX_SYNC | ASI_CAP_RX_CD | ASI_CAP_RX_MAKE188 |
 		ASI_CAP_RX_BYTECOUNTER | ASI_CAP_RX_PIDFILTER |
 		ASI_CAP_RX_TIMESTAMPS | ASI_CAP_RX_INVSYNC |
 		ASI_CAP_RX_PTIMESTAMPS | ASI_CAP_RX_PIDCOUNTER |
 		ASI_CAP_RX_4PIDCOUNTER | ASI_CAP_RX_NULLPACKETS |
 		ASI_CAP_RX_27COUNTER;
-		break;
-	default:
-		transport = 0xff;
-		break;
-	}
-	/* Register receiver interfaces */
 	for (i = 0; i < 4; i++) {
 		if ((err = asi_register_iface (card,
+			&lsdma_dma_ops,
+			0,
 			MASTER_DIRECTION_RX,
 			&dvbm_qlf_fops,
+			&dvbm_qlf_ops,
 			cap,
 			4,
 			ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
@@ -315,22 +290,35 @@ dvbm_qlf_pci_probe (struct pci_dev *dev)
 	return 0;
 
 NO_IFACE:
-	dvbm_pci_remove (dev);
 NO_DEV:
 NO_MEM:
+	dvbm_qlf_pci_remove (pdev);
+NO_PCI:
 	return err;
 }
 
 /**
  * dvbm_qlf_pci_remove - PCI removal handler for a DVB Master Q/i RoHS
- * @card: Master device
+ * @pdev: PCI device
  *
  * Handle the removal of a DVB Master Q/i RoHS.
+ * This function may be called during PCI probe error handling,
+ * so don't mark it as __devexit.
  **/
 void
-dvbm_qlf_pci_remove (struct master_dev *card)
+dvbm_qlf_pci_remove (struct pci_dev *pdev)
 {
-	iounmap (card->core.addr);
+	struct master_dev *card = pci_get_drvdata (pdev);
+
+	if (card) {
+		/* Unregister the device and all interfaces */
+		dvbm_unregister_all (card);
+
+		iounmap (card->core.addr);
+		iounmap (card->bridge_addr);
+		kfree (card);
+	}
+	dvbm_pci_remove_generic (pdev);
 	return;
 }
 
@@ -398,8 +386,8 @@ IRQ_HANDLER(dvbm_qlf_irq_handler,irq,dev_id,regs)
 
 			/* Increment the buffer pointer */
 			if (status & LSDMA_CH_CSR_INTSRCBUFFER) {
-				lsdma_advance (iface->dma);
-				if (lsdma_rx_isempty (iface->dma)) {
+				mdma_advance (iface->dma);
+				if (mdma_rx_isempty (iface->dma)) {
 					set_bit (ASI_EVENT_RX_BUFFER_ORDER,
 						&iface->events);
 				}
@@ -525,12 +513,15 @@ static void
 dvbm_qlf_start (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
+	struct master_dma *dma = iface->dma;
 	const unsigned int channel = mdev_index (card, &iface->list);
 	unsigned int reg;
 
 	/* Enable and start DMA */
-	writel (lsdma_dma_to_desc_low (lsdma_head_desc_bus_addr (iface->dma)),
+	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(channel));
+	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC_H(channel));
 	clear_bit (0, &iface->dma_done);
 	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
@@ -620,24 +611,6 @@ dvbm_qlf_exit (struct master_iface *iface)
 }
 
 /**
- * dvbm_qlf_open - DVB Master Q/i RoHS receiver open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_qlf_open (struct inode *inode, struct file *filp)
-{
-	return masterlsdma_open (inode,
-		filp,
-		dvbm_qlf_init,
-		dvbm_qlf_start,
-		0,
-		0);
-}
-
-/**
  * dvbm_qlf_unlocked_ioctl - DVB Master Q/i RoHS receiver unlocked_ioctl() method
  * @filp: file
  * @cmd: ioctl command
@@ -654,15 +627,9 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 	struct master_dev *card = iface->card;
 	const unsigned int channel = mdev_index (card, &iface->list);
 	int val;
-	unsigned int reg = 0, pflut[256], i;
+	unsigned int reg = 0, *pflut, i;
 
 	switch (cmd) {
-	case ASI_IOC_RXGETBUFLEVEL:
-		if (put_user (lsdma_rx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_RXGETSTATUS:
 		/* Atomic reads of ICSR and RCR, so we don't need to lock */
 		reg = readl (card->core.addr + DVBM_QLF_ICSR(channel));
@@ -687,7 +654,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		default:
 			return -EIO;
 		}
-		if (put_user (val, (int *)arg)) {
+		if (put_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -697,12 +664,12 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_QLF_RXBCOUNTR(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETINVSYNC:
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		switch (val) {
@@ -725,15 +692,26 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user (
 			(readl (card->core.addr + DVBM_QLF_ICSR(channel)) &
-			DVBM_QLF_ICSR_RXCD) ? 1 : 0, (int *)arg)) {
+			DVBM_QLF_ICSR_RXCD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
+		}
+		break;
+	case ASI_IOC_RXSETDSYNC:
+	case ASI_IOC_RXSETINPUT_DEPRECATED:
+	case ASI_IOC_RXSETINPUT:
+		/* Dummy ioctl; only zero is valid */
+		if (get_user (val, (int __user *)arg)) {
+			return -EFAULT;
+		}
+		if (val) {
+			return -EINVAL;
 		}
 		break;
 	case ASI_IOC_RXGETRXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user (
 			(readl (card->core.addr + DVBM_QLF_ICSR(channel)) &
-			DVBM_QLF_ICSR_RXD) ? 1 : 0, (int *)arg)) {
+			DVBM_QLF_ICSR_RXD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -741,8 +719,14 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_PIDFILTER)) {
 			return -ENOTTY;
 		}
-		if (copy_from_user (pflut, (unsigned int *)arg,
+		pflut = (unsigned int *)
+			kmalloc (sizeof (unsigned int [256]), GFP_KERNEL);
+		if (pflut == NULL) {
+			return -ENOMEM;
+		}
+		if (copy_from_user (pflut, (unsigned int __user *)arg,
 			sizeof (unsigned int [256]))) {
+			kfree (pflut);
 			return -EFAULT;
 		}
 		spin_lock (&card->reg_lock);
@@ -755,12 +739,13 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 			readl (card->core.addr + DVBM_QLF_FPGAID);
 		}
 		spin_unlock (&card->reg_lock);
+		kfree (pflut);
 		break;
 	case ASI_IOC_RXSETPID0:
 		if (!(iface->capabilities & ASI_CAP_RX_PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -776,7 +761,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_QLF_PIDCOUNTR0(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -784,7 +769,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -800,7 +785,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_QLF_PIDCOUNTR1(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -808,7 +793,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -824,7 +809,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_QLF_PIDCOUNTR2(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -832,7 +817,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -848,7 +833,7 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_QLF_PIDCOUNTR3(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -857,32 +842,14 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (readl (card->core.addr + DVBM_QLF_27COUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_rxioctl (iface, cmd, arg);
+		return asi_rxioctl (filp, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * dvbm_qlf_ioctl - DVB Master Q/i RoHS receiver ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_qlf_ioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_qlf_unlocked_ioctl (filp, cmd, arg);
 }
 
 /**
@@ -903,9 +870,7 @@ dvbm_qlf_fsync (struct file *filp,
 	const unsigned int channel = mdev_index (card, &iface->list);
 	unsigned int reg;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 
 	/* Stop the receiver */
 	dvbm_qlf_stop (iface);
@@ -924,22 +889,7 @@ dvbm_qlf_fsync (struct file *filp,
 	/* Start the receiver */
 	dvbm_qlf_start (iface);
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_qlf_release - DVB Master Q/i RoHS receiver release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_qlf_release (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterlsdma_release (iface, dvbm_qlf_stop, dvbm_qlf_exit);
 }
 

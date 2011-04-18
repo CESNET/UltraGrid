@@ -1,4 +1,4 @@
-/*
+/* capture.c
  * 
  * Capture example for Linear Systems Ltd. SMPTE 259M-C boards.
  *
@@ -64,12 +64,9 @@ main (int argc, char **argv)
 	unsigned char *data;
 	struct pollfd pfd;
 	struct timeval tv;
-	double lasttime, time_sec, dt, status_time;
+	double lasttime, time_sec;
 	unsigned int val;
-	
-	int period;
 
-	period = 1;
 	/* Parse the command line */
 	seconds = -1;
 	while ((opt = getopt (argc, argv, "hn:V")) != -1) {
@@ -177,7 +174,6 @@ main (int argc, char **argv)
 	}
 
 	/* Receive the data and check for errors */
-	status_time = 0.0;
 	pfd.fd = fd;
 	pfd.events = POLLIN | POLLPRI;
 	if (gettimeofday (&tv, NULL) < 0) {
@@ -235,73 +231,18 @@ main (int argc, char **argv)
 					"change detected\n");
 			}
 		}
-		gettimeofday (&tv, NULL);
-		time_sec = tv.tv_sec + (double)tv.tv_usec / 1000000;
-                dt = time_sec - lasttime;
-                if (dt >= 1) {
-                        status_time += dt;
-                        lasttime = time_sec;
-                        if (seconds > 0) {
-                                seconds--;
-                        }
-                }
-		
-		/* Only for HD-SDI, display timestamp and counter */
-		
-		if ((period > 0) && (status_time >= period)) {	
-		
-			fprintf (stderr, "In %f seconds ", status_time);
-			
-			if (ioctl (fd, SDI_IOC_RXGET27COUNT, &val) < 0) {
-				fprintf (stderr, "%s: ", argv[0]);
-				perror ("unable to get "
-					"the counter");
-				free (data);
-				close (fd);
-				return -1;
-			}
-			
-			fprintf (stderr, "Counter = %u,",val);
-			
-			if (ioctl (fd, SDI_IOC_RXGETTIMESTAMP, &val) < 0) { 
-				fprintf (stderr, "%s: ", argv[0]);
-				perror ("unable to get "
-					"the timestamp");
-				free (data);
-				close (fd);
-				return -1;
-			}
-			
-			fprintf (stderr, "Timestamp = %u, ", val);
-			
-			
-			if (ioctl(fd, SDI_IOC_RXGETCARRIER, &val) < 0){
-				fprintf (stderr, "%s: ", argv[0]);
-				perror ("unable to get the carrier status");
-			} else if (val) {
-				fprintf (stderr, "Carrier detected, ");
-			} else {
-				fprintf (stderr, "No carrier, ");
-			}
-			
-			if (ioctl (fd, SDI_IOC_RXGETSTATUS, &val) < 0) {
-                		fprintf (stderr, "%s: ", argv[0]);
-                		perror ("unable to get the receiver status");
-        		} else {
-                		fprintf (stderr, "Receiver is ");
-                		if (val) {
-                        		//printf ("passing data.\n");
-                			fprintf (stderr, "passing data\n");
-                		} else {
-                        		//printf ("blocking data.\n");
-					
-                			fprintf (stderr, "blocking data\n");
-                		}
-        		}
-			
-			status_time = 0.0;
+		if (gettimeofday (&tv, NULL) < 0) {
+			fprintf (stderr, "%s: ", argv[0]);
+			perror ("unable to get time");
+			goto NO_RUN;
 		}
-		
+		time_sec = tv.tv_sec + (double)tv.tv_usec / 1000000;
+		if ((time_sec - lasttime) >= 1) {
+			lasttime = time_sec;
+			if (seconds > 0) {
+				seconds--;
+			}
+		}
 	}
 	free (data);
 	close (fd);

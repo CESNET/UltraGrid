@@ -2,7 +2,7 @@
  *
  * Header file for eeprom.c.
  *
- * Copyright (C) 2005 Linear Systems Ltd.
+ * Copyright (C) 2005, 2009 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,10 +27,10 @@
 
 /* External function prototypes */
 
-void ee_ewds (void *addr);
-void ee_ewen (void *addr);
-unsigned int ee_read (void *addr, unsigned short int word);
-void ee_write (void *addr, unsigned short int val, unsigned short int word);
+void ee_ewds (void __iomem *addr);
+void ee_ewen (void __iomem *addr);
+unsigned int ee_read (void __iomem *addr, unsigned short int word);
+void ee_write (void __iomem *addr, unsigned short int val, unsigned short int word);
 
 #endif
 

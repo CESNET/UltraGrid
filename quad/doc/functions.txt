@@ -44,7 +44,7 @@ ioctl()
 	Not all ioctls are supported on all interfaces.
 
 mmap()
-	SMPTE 259M-C interfaces only;
+	SMPTE 259M-C and SMPTE 292M interfaces only;
 	map the driver buffers into an application's memory space.
 	The first buffer begins at offset zero.
 	Successive buffers begin at the start of the page

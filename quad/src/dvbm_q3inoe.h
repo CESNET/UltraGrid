@@ -1,8 +1,8 @@
-/* dvbm_q3ino.h
+/* dvbm_q3inoe.h
  *
  * Header file for the Linear Systems Ltd. DVB Master Quad-3in1out.
  *
- * Copyright (C) 2008 Linear Systems Ltd.
+ * Copyright (C) 2008-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -28,8 +28,6 @@
 #include <linux/pci.h> /* pci_dev */
 #include <linux/init.h> /* __devinit */
 
-#include "mdev.h"
-
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBQ3INOE 0x0088
 
 #define DVBM_NAME_Q3INOE "DVB Master Quad-3in1out"
@@ -40,12 +38,12 @@
 #define DVBM_Q3INO_TDMATL	0xfdf /* Transmit DMA Trigger Level */
 
 /* Register addresses */
-#define DVBM_Q3INO_FPGAID 	0x400 /* FPGA ID */
-#define DVBM_Q3INO_HL2CSR 	0x404 /* HOTLink II Control and status */
-#define DVBM_Q3INO_27COUNTR 	0x408 /* 27 MHz Counter */
-#define DVBM_Q3INO_SSN_HI 	0x40C /* Silicon serial number, High */
-#define DVBM_Q3INO_SSN_LO 	0x410 /* Silicon serial number, low */
-#define DVBM_Q3INO_ASMIR 	0x414 /* ASMI */
+#define DVBM_Q3INO_FPGAID	0x400 /* FPGA ID */
+#define DVBM_Q3INO_HL2CSR	0x404 /* HOTLink II Control and status */
+#define DVBM_Q3INO_27COUNTR	0x408 /* 27 MHz Counter */
+#define DVBM_Q3INO_SSN_HI	0x40C /* Silicon serial number, High */
+#define DVBM_Q3INO_SSN_LO	0x410 /* Silicon serial number, low */
+#define DVBM_Q3INO_ASMIR	0x414 /* ASMI */
 
 /* Receiver Registers */
 #define DVBM_Q3INO_RCSR(c)		((c)*0x100+0x004) /* Receive Control/Status */
@@ -84,8 +82,8 @@
 #define DVBM_Q3INO_RCSR_RSS		0x00000008 /* Reed-Solomon Strip */
 #define DVBM_Q3INO_RCSR_RXE		0x00000010 /* Receiver Enable */
 #define DVBM_Q3INO_RCSR_RXRST		0x00000020 /* Receiver Reset */
-#define DVBM_Q3INO_RCSR_INVSYNC		0x00000080 /* Inverted Sync Byte Enable*/
-#define DVBM_Q3INO_RCSR_RNP 		0x00002000 /* Null Packet Replacement */
+#define DVBM_Q3INO_RCSR_INVSYNC		0x00000080 /* Inverted Sync Byte Enable */
+#define DVBM_Q3INO_RCSR_RNP		0x00002000 /* Null Packet Replacement */
 #define DVBM_Q3INO_RCSR_PFE		0x00001000 /* PID Filter Enable */
 #define DVBM_Q3INO_RCSR_188		0x00000001 /* 188 Byte Packet */
 #define DVBM_Q3INO_RCSR_204		0x00000002 /* 204 Byte Packet */
@@ -101,7 +99,7 @@
 #define DVBM_Q3INO_ICSR_TXD	0x00004000 /* Tx Data */
 #define DVBM_Q3INO_ICSR_TXUIS	0x00010000 /* Tx FIFO Underrun Int. Status */
 #define DVBM_Q3INO_ICSR_TXDIS	0x00400000 /* Tx Data Interrupt Status */
-#define DVBM_Q3INO_ICSR_PMS 	0x04000000 /* Packet Maturity Status */
+#define DVBM_Q3INO_ICSR_PMS	0x04000000 /* Packet Maturity Status */
 #define DVBM_Q3INO_ICSR_NOSIG	0x08000000 /* No Signal */
 #define DVBM_Q3INO_ICSR_RXOIE	0x00000001 /* Rx FIFO Overrun Int. Enable */
 #define DVBM_Q3INO_ICSR_RXLOSIE	0x00000002 /* Rx Loss of Sync. Int. Enable */
@@ -109,7 +107,7 @@
 #define DVBM_Q3INO_ICSR_RXCDIE	0x00000008 /* Rx Carrier Detect Int. Enable */
 #define DVBM_Q3INO_ICSR_RXDIE	0x00000010 /* Rx Data Int. Enable */
 #define DVBM_Q3INO_ICSR_RXO	0x00000100 /* Rx FIFO Overrun Status */
-#define DVBM_Q3INO_ICSR_RXPASSING  0x00000200 /* Rx sync status same as SYNC*/
+#define DVBM_Q3INO_ICSR_RXPASSING  0x00000200 /* Rx sync status same as SYNC */
 #define DVBM_Q3INO_ICSR_RXCD	0x00000800 /* Rx Carrier Detect Status */
 #define DVBM_Q3INO_ICSR_RXD	0x00001000 /* Rx Data */
 #define DVBM_Q3INO_ICSR_RXOIS	0x00010000 /* Rx FIFO Overrun Int. Status */
@@ -122,14 +120,12 @@
 /* Transmit Control and Status (TCSR) */
 
 #define DVBM_Q3INO_TCSR_188	0x0 /* 188 Byte Packet */
-#define DVBM_Q3INO_TCSR_204 	0x1 /* 204 Byte Packet */
+#define DVBM_Q3INO_TCSR_204	0x1 /* 204 Byte Packet */
 #define DVBM_Q3INO_TCSR_MAKE204 0x2 /* Make 204 */
 #define DVBM_Q3INO_TCSR_TXE	0x00000010 /* Transmit Enable */
 #define DVBM_Q3INO_TCSR_TXRST	0x00000020 /* Transmit Reset */
-#define DVBM_Q3INO_TCSR_TXCS	0x000000c0 /* Transmit Clock Source add two more*/
-#define DVBM_Q3INO_TCSR_EXTCLK  0x00000040 /* External clock Blackburst */
-
-
+#define DVBM_Q3INO_TCSR_TXCS	0x000000c0 /* Transmit Clock Source add two more */
+#define DVBM_Q3INO_TCSR_EXTCLK	0x00000040 /* External clock Blackburst */
 #define DVBM_Q3INO_TCSR_TTSS	0x00000100 /* Transmit Timestamp Strip */
 #define DVBM_Q3INO_TCSR_TNP	0x00000200 /* Transmit Null Packet */
 #define DVBM_Q3INO_TCSR_TPRC	0x00000400 /* Transmit Packet Release */
@@ -166,8 +162,8 @@
 
 /* External function prototypes */
 
-int dvbm_q3ino_pci_probe (struct pci_dev *dev) __devinit;
-void dvbm_q3ino_pci_remove (struct master_dev *card);
+int dvbm_q3ino_pci_probe (struct pci_dev *pdev) __devinit;
+void dvbm_q3ino_pci_remove (struct pci_dev *pdev);
 
 #endif
 

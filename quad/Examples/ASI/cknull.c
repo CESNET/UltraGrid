@@ -2,7 +2,7 @@
  * 
  * MPEG-2 transport stream testing utility.
  *
- * Copyright (C) 2001-2005 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2001-2009 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,7 +72,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2001-2005 "
+			printf ("\nCopyright (C) 2001-2009 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -104,10 +104,7 @@ main (int argc, char **argv)
 	/* Allocate some memory */
 	if ((data = (unsigned char *)malloc (BUFSIZ)) == NULL) {
 		fprintf (stderr, "%s: unable to allocate memory\n", argv[0]);
-		if (argc - optind) {
-			close (fd);
-		}
-		return -1;
+		goto NO_DATA;
 	}
 
 	started = 0;
@@ -119,10 +116,7 @@ main (int argc, char **argv)
 		if (retcode < 0) {
 			fprintf (stderr, "%s: ", argv[0]);
 			perror ("unable to read from file");
-			if (argc - optind) {
-				close (fd);
-			}
-			return -1;
+			goto NO_READ;
 		}
 		i = 0;
 		/* Search for the first packet and get the
@@ -275,6 +269,14 @@ main (int argc, char **argv)
 
 USAGE:
 	fprintf (stderr, "Try '%s -h' for more information.\n", argv[0]);
+	return -1;
+
+NO_READ:
+	free (data);
+NO_DATA:
+	if (argc - optind) {
+		close (fd);
+	}
 	return -1;
 }
 

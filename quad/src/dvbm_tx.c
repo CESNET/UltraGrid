@@ -3,7 +3,7 @@
  * Linux driver functions for Linear Systems Ltd. DVB Master Send.
  *
  * Copyright (C) 1999 Tony Bolger <d7v@indigo.ie>
- * Copyright (C) 2000-2006 Linear Systems Ltd.
+ * Copyright (C) 2000-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -28,25 +28,25 @@
 
 #include <linux/fs.h> /* inode, file, file_operations */
 #include <linux/sched.h> /* pt_regs */
-#include <linux/pci.h> /* pci_dev */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/pci.h> /* pci_resource_start () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/list.h> /* INIT_LIST_HEAD () */
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
+#include <linux/mutex.h> /* mutex_init () */
+#include <linux/delay.h> /* msleep () */
 
-#include <asm/semaphore.h> /* sema_init () */
 #include <asm/uaccess.h> /* put_user () */
 #include <asm/bitops.h> /* set_bit () */
 
 #include "asicore.h"
 #include "../include/master.h"
-#include "miface.h"
 #include "mdev.h"
+#include "mdma.h"
 #include "dvbm.h"
 #include "plx9080.h"
-#include "masterplx.h"
 #include "dvbm_tx.h"
 
 static const char dvbm_tx_name[] = DVBM_NAME_TX;
@@ -56,87 +56,91 @@ static irqreturn_t IRQ_HANDLER(dvbm_tx_irq_handler,irq,dev_id,regs);
 static void dvbm_tx_init (struct master_iface *iface);
 static void dvbm_tx_start (struct master_iface *iface);
 static void dvbm_tx_stop (struct master_iface *iface);
-static int dvbm_tx_open (struct inode *inode, struct file *filp);
+static void dvbm_tx_start_tx_dma (struct master_iface *iface);
 static long dvbm_tx_unlocked_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-static int dvbm_tx_ioctl (struct inode *inode,
-	struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 static int dvbm_tx_fsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_tx_release (struct inode *inode, struct file *filp);
 
 static struct file_operations dvbm_tx_fops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.write = masterplx_write,
-	.poll = masterplx_txpoll,
-	.ioctl = dvbm_tx_ioctl,
-#ifdef HAVE_UNLOCKED_IOCTL
+	.write = asi_write,
+	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_tx_unlocked_ioctl,
-#endif
-#ifdef HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_tx_open,
-	.release = dvbm_tx_release,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_tx_fsync,
 	.fasync = NULL
 };
 
+static struct master_iface_operations dvbm_tx_ops = {
+	.init = dvbm_tx_init,
+	.start = dvbm_tx_start,
+	.stop = dvbm_tx_stop,
+	.exit = NULL,
+	.start_tx_dma = dvbm_tx_start_tx_dma
+};
+
 /**
  * dvbm_tx_pci_probe - PCI insertion handler for a DVB Master Send
- * @dev: PCI device
+ * @pdev: PCI device
  *
  * Handle the insertion of a DVB Master Send.
  * Returns a negative error code on failure and 0 on success.
  **/
 int __devinit
-dvbm_tx_pci_probe (struct pci_dev *dev)
+dvbm_tx_pci_probe (struct pci_dev *pdev)
 {
 	int err;
 	unsigned int version, cap;
 	struct master_dev *card;
 
+	err = dvbm_pci_probe_generic (pdev);
+	if (err < 0) {
+		goto NO_PCI;
+	}
+
+	/* Initialize the driver_data pointer so that dvbm_tx_pci_remove()
+	 * doesn't try to free it if an error occurs */
+	pci_set_drvdata (pdev, NULL);
+
 	/* Print the firmware version */
-	version = inl (pci_resource_start (dev, 2) + DVBM_TX_STATUS) >> 24;
+	version = inl (pci_resource_start (pdev, 2) + DVBM_TX_STATUS) >> 24;
 	printk (KERN_INFO "%s: %s detected, firmware version %u (0x%02X)\n",
 		dvbm_driver_name, dvbm_tx_name, version, version);
 
-	/* Allocate a board info structure */
+	/* Allocate and initialize a board info structure */
 	if ((card = (struct master_dev *)
-		kmalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
+		kzalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
-	/* Initialize the board info structure */
-	memset (card, 0, sizeof (*card));
-	card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 0),
-		pci_resource_len (dev, 0));
-	card->core.port = pci_resource_start (dev, 2);
+	card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, 0),
+		pci_resource_len (pdev, 0));
+	card->core.port = pci_resource_start (pdev, 2);
 	card->version = version << 8;
 	card->name = dvbm_tx_name;
+	card->id = pdev->device;
+	card->irq = pdev->irq;
 	card->irq_handler = dvbm_tx_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
 	spin_lock_init (&card->irq_lock); /* Unused */
 	/* Lock for STUFFING, FINETUNE */
 	spin_lock_init (&card->reg_lock);
-	sema_init (&card->users_sem, 1);
-	card->pdev = dev;
+	mutex_init (&card->users_mutex);
+	card->parent = &pdev->dev;
 
 	/* Store the pointer to the board info structure
 	 * in the PCI info structure */
-	pci_set_drvdata (dev, card);
+	pci_set_drvdata (pdev, card);
 
-	/* Register a Master device */
-	if ((err = mdev_register (card,
-		&dvbm_card_list,
-		dvbm_driver_name,
-		&dvbm_class)) < 0) {
+	/* Register a DVB Master device */
+	if ((err = dvbm_register (card)) < 0) {
 		goto NO_DEV;
 	}
 
@@ -151,8 +155,11 @@ dvbm_tx_pci_probe (struct pci_dev *dev)
 			ASI_CAP_TX_BYTESOR27;
 	}
 	if ((err = asi_register_iface (card,
+		&plx_dma_ops,
+		DVBM_TX_FIFO,
 		MASTER_DIRECTION_TX,
 		&dvbm_tx_fops,
+		&dvbm_tx_ops,
 		cap,
 		4,
 		ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
@@ -162,10 +169,35 @@ dvbm_tx_pci_probe (struct pci_dev *dev)
 	return 0;
 
 NO_IFACE:
-	dvbm_pci_remove (dev);
 NO_DEV:
 NO_MEM:
+	dvbm_tx_pci_remove (pdev);
+NO_PCI:
 	return err;
+}
+
+/**
+ * dvbm_tx_pci_remove - PCI removal handler for a DVB Master Send
+ * @pdev: PCI device
+ *
+ * Handle the removal of a DVB Master Send.
+ * This function may be called during PCI probe error handling,
+ * so don't mark it as __devexit.
+ **/
+void
+dvbm_tx_pci_remove (struct pci_dev *pdev)
+{
+	struct master_dev *card = pci_get_drvdata (pdev);
+
+	if (card) {
+		/* Unregister the device and all interfaces */
+		dvbm_unregister_all (card);
+
+		iounmap (card->bridge_addr);
+		kfree (card);
+	}
+	dvbm_pci_remove_generic (pdev);
+	return;
 }
 
 /**
@@ -189,7 +221,7 @@ IRQ_HANDLER(dvbm_tx_irq_handler,irq,dev_id,regs)
 			card->bridge_addr + PLX_DMACSR0);
 
 		/* Increment the buffer pointer */
-		plx_advance (iface->dma);
+		mdma_advance (iface->dma);
 
 		/* Flag end-of-chain */
 		if (status & PLX_DMACSR_DONE) {
@@ -232,7 +264,7 @@ dvbm_tx_init (struct master_iface *iface)
 	master_outl (card, DVBM_TX_CFG, reg);
 
 	/* Reset the PCI 9080 */
-	masterplx_reset_bridge (card);
+	plx_reset_bridge (card->bridge_addr);
 
 	/* Setup the PCI 9080 */
 	writel (PLX_INTCSR_PCIINT_ENABLE |
@@ -319,7 +351,7 @@ static void
 dvbm_tx_stop (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
-	struct plx_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 
 	plx_tx_link_all (dma);
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
@@ -333,8 +365,8 @@ dvbm_tx_stop (struct master_iface *iface)
 	if (iface->capabilities & ASI_CAP_TX_BYTECOUNTER) {
 		master_outl (card, DVBM_TX_CFG,
 			(master_inl (card, DVBM_TX_STATUS) &
-			 ~DVBM_TX_STATUS_27MHZ &
-			 ~DVBM_TX_STATUS_VERSIONMASK));
+			~DVBM_TX_STATUS_27MHZ &
+			~DVBM_TX_STATUS_VERSIONMASK));
 
 		/* Clear the counter, which will
 		 * (hopefully) guarantee that the counter
@@ -348,8 +380,7 @@ dvbm_tx_stop (struct master_iface *iface)
 		 * so the byte counter should change
 		 * if data is flowing. */
 		do {
-			set_current_state (TASK_UNINTERRUPTIBLE);
-			schedule_timeout (1 + HZ / 10);
+			msleep (100);
 		} while (master_inl (card, DVBM_TX_COUNTR));
 	}
 
@@ -363,21 +394,24 @@ dvbm_tx_stop (struct master_iface *iface)
 }
 
 /**
- * dvbm_tx_open - DVB Master Send open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
+ * dvbm_tx_start_tx_dma - start transmit DMA
+ * @iface: interface
  **/
-static int
-dvbm_tx_open (struct inode *inode, struct file *filp)
+static void
+dvbm_tx_start_tx_dma (struct master_iface *iface)
 {
-	return masterplx_open (inode,
-		filp,
-		dvbm_tx_init,
-		dvbm_tx_start,
-		DVBM_TX_FIFO,
-		0);
+	struct master_dev *card = iface->card;
+
+	writel (plx_head_desc_bus_addr (iface->dma) |
+		PLX_DMADPR_DLOC_PCI,
+		card->bridge_addr + PLX_DMADPR0);
+	clear_bit (0, &iface->dma_done);
+	wmb ();
+	writeb (PLX_DMACSR_ENABLE | PLX_DMACSR_START,
+		card->bridge_addr + PLX_DMACSR0);
+	/* Dummy read to flush PCI posted writes */
+	readb (card->bridge_addr + PLX_DMACSR0);
+	return;
 }
 
 /**
@@ -398,14 +432,9 @@ dvbm_tx_unlocked_ioctl (struct file *filp,
 	struct asi_txstuffing stuffing;
 
 	switch (cmd) {
-	case ASI_IOC_TXGETBUFLEVEL:
-		if (put_user (plx_tx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_TXSETSTUFFING:
-		if (copy_from_user (&stuffing, (struct asi_txstuffing *)arg,
+		if (copy_from_user (&stuffing,
+			(struct asi_txstuffing __user *)arg,
 			sizeof (stuffing))) {
 			return -EFAULT;
 		}
@@ -434,7 +463,7 @@ dvbm_tx_unlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_TX_COUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -443,32 +472,14 @@ dvbm_tx_unlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_TX_COUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_txioctl (iface, cmd, arg);
+		return asi_txioctl (filp, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * dvbm_tx_ioctl - DVB Master Send ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_tx_ioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_tx_unlocked_ioctl (filp, cmd, arg);
 }
 
 /**
@@ -485,11 +496,9 @@ dvbm_tx_fsync (struct file *filp,
 	int datasync)
 {
 	struct master_iface *iface = filp->private_data;
-	struct plx_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 	plx_tx_link_all (dma);
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
 	plx_reset (dma);
@@ -497,22 +506,7 @@ dvbm_tx_fsync (struct file *filp,
 	/* The onboard FIFOs may not be empty yet,
 	 * but there's nothing we can do about it */
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_tx_release - DVB Master Send release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_tx_release (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterplx_release (iface, dvbm_tx_stop, NULL);
 }
 

@@ -598,10 +598,6 @@ main (int argc, char **argv)
 				}
 			}
 		}
-
-
-
-
 		if ((pfd.revents & POLLPRI) && !quiet) {
 			if (ioctl (fd, ASI_IOC_RXGETEVENTS, &val) < 0) {
 				fprintf (stderr, "%s: ", argv0);
@@ -645,7 +641,6 @@ main (int argc, char **argv)
 					"change detected\n");
 			}
 		}
-
 		gettimeofday (&tv, NULL);
 		time_sec = tv.tv_sec + (double)tv.tv_usec / 1000000;
 		dt = time_sec - lasttime;

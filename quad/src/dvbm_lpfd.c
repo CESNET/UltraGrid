@@ -2,7 +2,7 @@
  *
  * Linux driver functions for Linear Systems Ltd. DVB Master LP FD.
  *
- * Copyright (C) 2003-2007 Linear Systems Ltd.
+ * Copyright (C) 2003-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,49 +27,46 @@
 
 #include <linux/fs.h> /* inode, file, file_operations */
 #include <linux/sched.h> /* pt_regs */
-#include <linux/pci.h> /* pci_dev */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/pci.h> /* pci_resource_start () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/list.h> /* INIT_LIST_HEAD () */
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
-#include <linux/device.h> /* class_device_create_file () */
+#include <linux/device.h> /* device_create_file () */
+#include <linux/mutex.h> /* mutex_init () */
 
-#include <asm/semaphore.h> /* sema_init () */
 #include <asm/uaccess.h> /* put_user () */
 #include <asm/bitops.h> /* set_bit () */
 
 #include "asicore.h"
 #include "../include/master.h"
-#include "miface.h"
 #include "mdev.h"
+#include "mdma.h"
 #include "dvbm.h"
 #include "lsdma.h"
-#include "masterlsdma.h"
 #include "dvbm_lpfd.h"
 
 static const char dvbm_lpfd_name[] = DVBM_NAME_LPFD;
 static const char dvbm_lpfde_name[] = DVBM_NAME_LPFDE;
 
 /* Static function prototypes */
-static ssize_t dvbm_lpfd_show_bypass_mode (struct class_device *cd,
+static ssize_t dvbm_lpfd_show_bypass_mode (struct device *dev,
+	struct device_attribute *attr,
 	char *buf);
-static ssize_t dvbm_lpfd_store_bypass_mode (struct class_device *cd,
+static ssize_t dvbm_lpfd_store_bypass_mode (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count);
-static ssize_t dvbm_lpfd_show_bypass_status (struct class_device *cd,
+static ssize_t dvbm_lpfd_show_bypass_status (struct device *dev,
+	struct device_attribute *attr,
 	char *buf);
-static ssize_t dvbm_lpfd_show_blackburst_type (struct class_device *cd,
+static ssize_t dvbm_lpfd_show_watchdog (struct device *dev,
+	struct device_attribute *attr,
 	char *buf);
-static ssize_t dvbm_lpfd_store_blackburst_type (struct class_device *cd,
-	const char *buf,
-	size_t count);
-static ssize_t dvbm_lpfd_show_uid (struct class_device *cd,
-	char *buf);
-static ssize_t dvbm_lpfd_show_watchdog (struct class_device *cd,
-	char *buf);
-static ssize_t dvbm_lpfd_store_watchdog (struct class_device *cd,
+static ssize_t dvbm_lpfd_store_watchdog (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count);
 static irqreturn_t IRQ_HANDLER(dvbm_lpfd_irq_handler,irq,dev_id,regs);
@@ -77,49 +74,33 @@ static void dvbm_lpfd_txinit (struct master_iface *iface);
 static void dvbm_lpfd_txstart (struct master_iface *iface);
 static void dvbm_lpfd_txstop (struct master_iface *iface);
 static void dvbm_lpfd_txexit (struct master_iface *iface);
-static int dvbm_lpfd_txopen (struct inode *inode, struct file *filp);
+static void dvbm_lpfd_start_tx_dma (struct master_iface *iface);
 static long dvbm_lpfd_txunlocked_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-static int dvbm_lpfd_txioctl (struct inode *inode,
-	struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 static int dvbm_lpfd_txfsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_lpfd_txrelease (struct inode *inode, struct file *filp);
 static void dvbm_lpfd_rxinit (struct master_iface *iface);
 static void dvbm_lpfd_rxstart (struct master_iface *iface);
 static void dvbm_lpfd_rxstop (struct master_iface *iface);
 static void dvbm_lpfd_rxexit (struct master_iface *iface);
-static int dvbm_lpfd_rxopen (struct inode *inode, struct file *filp);
 static long dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-static int dvbm_lpfd_rxioctl (struct inode *inode,
-	struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 static int dvbm_lpfd_rxfsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_lpfd_rxrelease (struct inode *inode, struct file *filp);
 
 struct file_operations dvbm_lpfd_txfops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.write = masterlsdma_write,
-	.poll = masterlsdma_txpoll,
-	.ioctl = dvbm_lpfd_txioctl,
-#ifdef HAVE_UNLOCKED_IOCTL
+	.write = asi_write,
+	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_lpfd_txunlocked_ioctl,
-#endif
-#ifdef HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_lpfd_txopen,
-	.release = dvbm_lpfd_txrelease,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_lpfd_txfsync,
 	.fasync = NULL
 };
@@ -127,31 +108,43 @@ struct file_operations dvbm_lpfd_txfops = {
 struct file_operations dvbm_lpfd_rxfops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.read = masterlsdma_read,
-	.poll = masterlsdma_rxpoll,
-	.ioctl = dvbm_lpfd_rxioctl,
-#ifdef HAVE_UNLOCKED_IOCTL
+	.read = asi_read,
+	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_lpfd_rxunlocked_ioctl,
-#endif
-#ifdef HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_lpfd_rxopen,
-	.release = dvbm_lpfd_rxrelease,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_lpfd_rxfsync,
 	.fasync = NULL
 };
 
+struct master_iface_operations dvbm_lpfd_txops = {
+	.init = dvbm_lpfd_txinit,
+	.start = dvbm_lpfd_txstart,
+	.stop = dvbm_lpfd_txstop,
+	.exit = dvbm_lpfd_txexit,
+	.start_tx_dma = dvbm_lpfd_start_tx_dma
+};
+
+struct master_iface_operations dvbm_lpfd_rxops = {
+	.init = dvbm_lpfd_rxinit,
+	.start = dvbm_lpfd_rxstart,
+	.stop = dvbm_lpfd_rxstop,
+	.exit = dvbm_lpfd_rxexit
+};
+
 /**
  * dvbm_lpfd_show_bypass_mode - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
 static ssize_t
-dvbm_lpfd_show_bypass_mode (struct class_device *cd,
+dvbm_lpfd_show_bypass_mode (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	/* Atomic read of CSR, so we don't lock */
 	return snprintf (buf, PAGE_SIZE, "%u\n",
@@ -161,16 +154,18 @@ dvbm_lpfd_show_bypass_mode (struct class_device *cd,
 
 /**
  * dvbm_lpfd_store_bypass_mode - interface attribute write handler
- * @cd: class_device being written
+ * @dev: device being written
+ * @attr: device attribute
  * @buf: input buffer
  * @count:
  **/
 static ssize_t
-dvbm_lpfd_store_bypass_mode (struct class_device *cd,
+dvbm_lpfd_store_bypass_mode (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 	char *endp;
 	unsigned long val = simple_strtoul (buf, &endp, 0);
 	const unsigned long max = (card->capabilities & MASTER_CAP_WATCHDOG) ?
@@ -191,14 +186,16 @@ dvbm_lpfd_store_bypass_mode (struct class_device *cd,
 
 /**
  * dvbm_lpfd_show_bypass_status - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
 static ssize_t
-dvbm_lpfd_show_bypass_status (struct class_device *cd,
+dvbm_lpfd_show_bypass_status (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	return snprintf (buf, PAGE_SIZE, "%u\n",
 		(readl (card->core.addr + DVBM_LPFD_ICSR) &
@@ -207,14 +204,16 @@ dvbm_lpfd_show_bypass_status (struct class_device *cd,
 
 /**
  * dvbm_lpfd_show_blackburst_type - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
-static ssize_t
-dvbm_lpfd_show_blackburst_type (struct class_device *cd,
+ssize_t
+dvbm_lpfd_show_blackburst_type (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	return snprintf (buf, PAGE_SIZE, "%u\n",
 		(readl (card->core.addr + DVBM_LPFD_TCSR) &
@@ -223,16 +222,18 @@ dvbm_lpfd_show_blackburst_type (struct class_device *cd,
 
 /**
  * dvbm_lpfd_store_blackburst_type - interface attribute write handler
- * @cd: class_device being written
+ * @dev: device being written
+ * @attr: device attribute
  * @buf: input buffer
  * @count:
  **/
-static ssize_t
-dvbm_lpfd_store_blackburst_type (struct class_device *cd,
+ssize_t
+dvbm_lpfd_store_blackburst_type (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 	char *endp;
 	unsigned long val = simple_strtoul (buf, &endp, 0);
 	unsigned int reg;
@@ -251,14 +252,16 @@ dvbm_lpfd_store_blackburst_type (struct class_device *cd,
 
 /**
  * dvbm_lpfd_show_uid - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
-static ssize_t
-dvbm_lpfd_show_uid (struct class_device *cd,
+ssize_t
+dvbm_lpfd_show_uid (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	return snprintf (buf, PAGE_SIZE, "0x%08X%08X\n",
 		readl (card->core.addr + DVBM_LPFD_UIDR_HI),
@@ -267,14 +270,16 @@ dvbm_lpfd_show_uid (struct class_device *cd,
 
 /**
  * dvbm_lpfd_show_watchdog - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
 static ssize_t
-dvbm_lpfd_show_watchdog (struct class_device *cd,
+dvbm_lpfd_show_watchdog (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	/* convert 27Mhz ticks to milliseconds */
 	return snprintf (buf, PAGE_SIZE, "%u\n",
@@ -283,16 +288,18 @@ dvbm_lpfd_show_watchdog (struct class_device *cd,
 
 /**
  * dvbm_lpfd_store_watchdog - interface attribute write handler
- * @cd: class_device being written
+ * @dev: device being written
+ * @attr: device attribute
  * @buf: input buffer
  * @count:
  **/
 static ssize_t
-dvbm_lpfd_store_watchdog (struct class_device *cd,
+dvbm_lpfd_store_watchdog (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 	char *endp;
 	unsigned long val = simple_strtoul (buf, &endp, 0);
 	const unsigned long max = MASTER_WATCHDOG_MAX;
@@ -309,96 +316,87 @@ dvbm_lpfd_store_watchdog (struct class_device *cd,
 	return retcode;
 }
 
-static CLASS_DEVICE_ATTR(bypass_mode,S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(bypass_mode,S_IRUGO|S_IWUSR,
 	dvbm_lpfd_show_bypass_mode,dvbm_lpfd_store_bypass_mode);
-static CLASS_DEVICE_ATTR(bypass_status,S_IRUGO,
+static DEVICE_ATTR(bypass_status,S_IRUGO,
 	dvbm_lpfd_show_bypass_status,NULL);
-static CLASS_DEVICE_ATTR(blackburst_type,S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(blackburst_type,S_IRUGO|S_IWUSR,
 	dvbm_lpfd_show_blackburst_type,dvbm_lpfd_store_blackburst_type);
-static CLASS_DEVICE_ATTR(uid,S_IRUGO,
+static DEVICE_ATTR(uid,S_IRUGO,
 	dvbm_lpfd_show_uid,NULL);
-static CLASS_DEVICE_ATTR(watchdog,S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(watchdog,S_IRUGO|S_IWUSR,
 	dvbm_lpfd_show_watchdog,dvbm_lpfd_store_watchdog);
 
 /**
  * dvbm_lpfd_pci_probe - PCI insertion handler for a DVB Master LP FD
- * @dev: PCI device
+ * @pdev: PCI device
  *
  * Handle the insertion of a DVB Master LP FD.
  * Returns a negative error code on failure and 0 on success.
  **/
 int __devinit
-dvbm_lpfd_pci_probe (struct pci_dev *dev)
+dvbm_lpfd_pci_probe (struct pci_dev *pdev)
 {
 	int err;
-	unsigned int cap, transport;
-	const char *name;
+	unsigned int cap;
 	struct master_dev *card;
 
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFD:
-		name = dvbm_lpfd_name;
-		break;
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFDE:
-		name = dvbm_lpfde_name;
-		break;
-	default:
-		name = "";
-		break;
+	err = dvbm_pci_probe_generic (pdev);
+	if (err < 0) {
+		goto NO_PCI;
 	}
+
+	/* Initialize the driver_data pointer so that dvbm_lpfd_pci_remove()
+	 * doesn't try to free it if an error occurs */
+	pci_set_drvdata (pdev, NULL);
 
 	/* Allocate a board info structure */
 	if ((card = (struct master_dev *)
-		kmalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
+		kzalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
 	/* Initialize the board info structure */
-	memset (card, 0, sizeof (*card));
 	/* LS DMA Controller */
-	switch (dev->device) {
-        case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFD:
-		card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 1),
-			pci_resource_len (dev, 1));
-		break;
-        case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFDE:
-		card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 2),
-			pci_resource_len (dev, 2));
-		break;
+	switch (pdev->device) {
 	default:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFD:
+		card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, 1),
+			pci_resource_len (pdev, 1));
+		card->name = dvbm_lpfd_name;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFDE:
+		card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, 2),
+			pci_resource_len (pdev, 2));
+		card->name = dvbm_lpfde_name;
 		break;
 	}
 	/* ASI Core */
-	card->core.addr = ioremap_nocache (pci_resource_start (dev, 0),
-		pci_resource_len (dev, 0));
+	card->core.addr = ioremap_nocache (pci_resource_start (pdev, 0),
+		pci_resource_len (pdev, 0));
 	card->version = readl (card->core.addr + DVBM_LPFD_CSR) >> 16;
-	card->name = name;
+	card->id = pdev->device;
+	card->irq = pdev->irq;
 	card->irq_handler = dvbm_lpfd_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
-	switch (dev->device) {
-	default:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFD:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFDE:
-		card->capabilities = MASTER_CAP_BYPASS | MASTER_CAP_BLACKBURST |
-			MASTER_CAP_UID | MASTER_CAP_WATCHDOG;
-		break;
-	}
+	card->capabilities = MASTER_CAP_BYPASS | MASTER_CAP_BLACKBURST |
+		MASTER_CAP_UID | MASTER_CAP_WATCHDOG;
 	/* Lock for ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for IBSTR, IPSTR, FTR, PFLUT, TCSR, RCSR */
 	spin_lock_init (&card->reg_lock);
-	sema_init (&card->users_sem, 1);
-	card->pdev = dev;
+	mutex_init (&card->users_mutex);
+	card->parent = &pdev->dev;
 
 	/* Print the firmware version */
 	printk (KERN_INFO "%s: %s detected, firmware version %u.%u (0x%04X)\n",
-		dvbm_driver_name, name,
+		dvbm_driver_name, card->name,
 		card->version >> 8, card->version & 0x00ff, card->version);
 
 	/* Store the pointer to the board info structure
 	 * in the PCI info structure */
-	pci_set_drvdata (dev, card);
+	pci_set_drvdata (pdev, card);
 
 	/* Reset the FPGA */
 	writel (DVBM_LPFD_TCSR_RST, card->core.addr + DVBM_LPFD_TCSR);
@@ -415,48 +413,45 @@ dvbm_lpfd_pci_probe (struct pci_dev *dev)
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
 
-	/* Register a Master device */
-	if ((err = mdev_register (card,
-		&dvbm_card_list,
-		dvbm_driver_name,
-		&dvbm_class)) < 0) {
+	/* Register a DVB Master device */
+	if ((err = dvbm_register (card)) < 0) {
 		goto NO_DEV;
 	}
 
-	/* Add class_device attributes */
+	/* Add device attributes */
 	if (card->capabilities & MASTER_CAP_BYPASS) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_bypass_mode)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_bypass_mode)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'bypass_mode'\n",
 				dvbm_driver_name);
 		}
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_bypass_status)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_bypass_status)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'bypass_status'\n",
 				dvbm_driver_name);
 		}
 	}
 	if (card->capabilities & MASTER_CAP_BLACKBURST) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_blackburst_type)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_blackburst_type)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'blackburst_type'\n",
 				dvbm_driver_name);
 		}
 	}
 	if (card->capabilities & MASTER_CAP_UID) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_uid)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_uid)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'uid'\n",
 				dvbm_driver_name);
 		}
 	}
 	if (card->capabilities & MASTER_CAP_WATCHDOG) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_watchdog)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_watchdog)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'watchdog'\n",
 				dvbm_driver_name);
@@ -466,8 +461,16 @@ dvbm_lpfd_pci_probe (struct pci_dev *dev)
 	/* Register a transmit interface */
 	cap = ASI_CAP_TX_SETCLKSRC | ASI_CAP_TX_FIFOUNDERRUN |
 		ASI_CAP_TX_DATA | ASI_CAP_TX_RXCLKSRC;
-	switch (dev->device) {
+	switch (pdev->device) {
+	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFD:
+		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
+			ASI_CAP_TX_LARGEIB |
+			ASI_CAP_TX_INTERLEAVING |
+			ASI_CAP_TX_TIMESTAMPS |
+			ASI_CAP_TX_NULLPACKETS |
+			ASI_CAP_TX_PTIMESTAMPS;
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFDE:
 		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
 			ASI_CAP_TX_LARGEIB |
@@ -475,25 +478,35 @@ dvbm_lpfd_pci_probe (struct pci_dev *dev)
 			ASI_CAP_TX_TIMESTAMPS |
 			ASI_CAP_TX_NULLPACKETS |
 			ASI_CAP_TX_PTIMESTAMPS;
-		transport = ASI_CTL_TRANSPORT_DVB_ASI;
-		break;
-	default:
-		transport = 0xff;
+		if (card->version >= 0x0101) {
+			cap |= ASI_CAP_TX_27COUNTER | ASI_CAP_TX_BYTECOUNTER;
+		}
 		break;
 	}
 	if ((err = asi_register_iface (card,
+		&lsdma_dma_ops,
+		DVBM_LPFD_FIFO,
 		MASTER_DIRECTION_TX,
 		&dvbm_lpfd_txfops,
+		&dvbm_lpfd_txops,
 		cap,
 		4,
-		transport)) < 0) {
+		ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
 		goto NO_IFACE;
 	}
 
 	/* Register a receive interface */
 	cap = ASI_CAP_RX_SYNC | ASI_CAP_RX_INVSYNC | ASI_CAP_RX_CD;
-	switch (dev->device) {
+	switch (pdev->device) {
+	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFD:
+		cap |= ASI_CAP_RX_MAKE188 |
+			ASI_CAP_RX_DATA |
+			ASI_CAP_RX_PIDFILTER |
+			ASI_CAP_RX_TIMESTAMPS |
+			ASI_CAP_RX_PTIMESTAMPS |
+			ASI_CAP_RX_NULLPACKETS;
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPFDE:
 		cap |= ASI_CAP_RX_MAKE188 |
 			ASI_CAP_RX_DATA |
@@ -501,43 +514,58 @@ dvbm_lpfd_pci_probe (struct pci_dev *dev)
 			ASI_CAP_RX_TIMESTAMPS |
 			ASI_CAP_RX_PTIMESTAMPS |
 			ASI_CAP_RX_NULLPACKETS;
-		transport = ASI_CTL_TRANSPORT_DVB_ASI;
-		break;
-	default:
-		transport = 0xff;
+		if (card->version >= 0x0101) {
+			cap |= ASI_CAP_RX_27COUNTER | ASI_CAP_RX_BYTECOUNTER;
+		}
 		break;
 	}
 	if ((err = asi_register_iface (card,
+		&lsdma_dma_ops,
+		DVBM_LPFD_FIFO,
 		MASTER_DIRECTION_RX,
 		&dvbm_lpfd_rxfops,
+		&dvbm_lpfd_rxops,
 		cap,
 		4,
-		transport)) < 0) {
+		ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
 		goto NO_IFACE;
 	}
 
 	return 0;
 
 NO_IFACE:
-	dvbm_pci_remove (dev);
 NO_DEV:
 NO_MEM:
+	dvbm_lpfd_pci_remove (pdev);
+NO_PCI:
 	return err;
 }
 
 /**
  * dvbm_lpfd_pci_remove - PCI removal handler for a DVB Master LP FD
- * @card: Master device
+ * @pdev: PCI device
  *
  * Handle the removal of a DVB Master LP FD.
+ * This function may be called during PCI probe error handling,
+ * so don't mark it as __devexit.
  **/
 void
-dvbm_lpfd_pci_remove (struct master_dev *card)
+dvbm_lpfd_pci_remove (struct pci_dev *pdev)
 {
-	if (card->capabilities & MASTER_CAP_BYPASS) {
-		writel (0, card->core.addr + DVBM_LPFD_CSR);
+	struct master_dev *card = pci_get_drvdata (pdev);
+
+	if (card) {
+		/* Unregister the device and all interfaces */
+		dvbm_unregister_all (card);
+
+		if (card->capabilities & MASTER_CAP_BYPASS) {
+			writel (0, card->core.addr + DVBM_LPFD_CSR);
+		}
+		iounmap (card->core.addr);
+		iounmap (card->bridge_addr);
+		kfree (card);
 	}
-	iounmap (card->core.addr);
+	dvbm_pci_remove_generic (pdev);
 	return;
 }
 
@@ -567,7 +595,7 @@ IRQ_HANDLER(dvbm_lpfd_irq_handler,irq,dev_id,regs)
 
 		/* Increment the buffer pointer */
 		if (status & LSDMA_CH_CSR_INTSRCBUFFER) {
-			lsdma_advance (txiface->dma);
+			mdma_advance (txiface->dma);
 		}
 
 		/* Flag end-of-chain */
@@ -586,7 +614,7 @@ IRQ_HANDLER(dvbm_lpfd_irq_handler,irq,dev_id,regs)
 	}
 
 	if (dmaintsrc & LSDMA_INTSRC_CH(1)) {
-		struct lsdma_dma *dma = rxiface->dma;
+		struct master_dma *dma = rxiface->dma;
 
 		/* Read the interrupt type and clear it */
 		spin_lock (&card->irq_lock);
@@ -596,8 +624,8 @@ IRQ_HANDLER(dvbm_lpfd_irq_handler,irq,dev_id,regs)
 
 		/* Increment the buffer pointer */
 		if (status & LSDMA_CH_CSR_INTSRCBUFFER) {
-			lsdma_advance (dma);
-			if (lsdma_rx_isempty (dma)) {
+			mdma_advance (dma);
+			if (mdma_rx_isempty (dma)) {
 				set_bit (ASI_EVENT_RX_BUFFER_ORDER,
 					&rxiface->events);
 			}
@@ -719,13 +747,14 @@ dvbm_lpfd_txinit (struct master_iface *iface)
 		reg |= DVBM_LPFD_TCSR_RXCLK;
 		break;
 	}
-	/* There will be no races on IBSTR, IPSTR, FTR, and TCSR
-	 * until this code returns, so we don't need to lock them */
+	spin_lock (&card->reg_lock);
+	reg |= readl (card->core.addr + DVBM_LPFD_TCSR) & DVBM_LPFD_TCSR_PAL;
 	writel (reg | DVBM_LPFD_TCSR_RST, card->core.addr + DVBM_LPFD_TCSR);
-	wmb ();
 	writel (reg, card->core.addr + DVBM_LPFD_TCSR);
-	wmb ();
+	spin_unlock (&card->reg_lock);
 	writel (DVBM_LPFD_TFSL << 16, card->core.addr + DVBM_LPFD_TFCR);
+	/* There will be no races on IBSTR, IPSTR, and FTR
+	 * until this code returns, so we don't need to lock them */
 	writel (0, card->core.addr + DVBM_LPFD_IBSTR);
 	writel (0, card->core.addr + DVBM_LPFD_IPSTR);
 	writel (0, card->core.addr + DVBM_LPFD_FTR);
@@ -754,11 +783,12 @@ dvbm_lpfd_txstart (struct master_iface *iface)
 	reg |= DVBM_LPFD_ICSR_TXUIE | DVBM_LPFD_ICSR_TXDIE;
 	writel (reg, card->core.addr + DVBM_LPFD_ICSR);
 	spin_unlock_irq (&card->irq_lock);
-	/* Enable the transmitter.
-	 * There will be no races on TCSR
-	 * until this code returns, so we don't need to lock it */
+
+	/* Enable the transmitter */
+	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_TCSR);
 	writel (reg | DVBM_LPFD_TCSR_EN, card->core.addr + DVBM_LPFD_TCSR);
+	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -771,7 +801,7 @@ static void
 dvbm_lpfd_txstop (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
-	struct lsdma_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 	unsigned int reg;
 
 	lsdma_tx_link_all (dma);
@@ -786,11 +816,11 @@ dvbm_lpfd_txstop (struct master_iface *iface)
 			DVBM_LPFD_ICSR_TXD));
 	}
 
-	/* Disable the transmitter.
-	 * There will be no races on TCSR here,
-	 * so we don't need to lock it */
+	/* Disable the transmitter */
+	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_TCSR);
 	writel (reg & ~DVBM_LPFD_TCSR_EN, card->core.addr + DVBM_LPFD_TCSR);
+	spin_unlock (&card->reg_lock);
 
 	/* Disable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
@@ -816,29 +846,44 @@ static void
 dvbm_lpfd_txexit (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
+	unsigned int reg;
 
 	/* Reset the transmitter */
-	writel (DVBM_LPFD_TCSR_RST, card->core.addr + DVBM_LPFD_TCSR);
+	spin_lock (&card->reg_lock);
+	reg = readl (card->core.addr + DVBM_LPFD_TCSR);
+	writel (reg | DVBM_LPFD_TCSR_RST, card->core.addr + DVBM_LPFD_TCSR);
+	spin_unlock (&card->reg_lock);
 
 	return;
 }
 
 /**
- * dvbm_lpfd_txopen - DVB Master LP FD transmitter open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
+ * dvbm_lpfd_start_tx_dma - start transmit DMA
+ * @iface: interface
  **/
-static int
-dvbm_lpfd_txopen (struct inode *inode, struct file *filp)
+static void
+dvbm_lpfd_start_tx_dma (struct master_iface *iface)
 {
-	return masterlsdma_open (inode,
-		filp,
-		dvbm_lpfd_txinit,
-		dvbm_lpfd_txstart,
-		DVBM_LPFD_FIFO,
-		0);
+	struct master_dev *card = iface->card;
+	struct master_dma *dma = iface->dma;
+
+	writel (LSDMA_CH_CSR_INTDONEENABLE |
+		LSDMA_CH_CSR_INTSTOPENABLE,
+		card->bridge_addr + LSDMA_CSR(0));
+	wmb ();
+	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC(0));
+	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC_H(0));
+	clear_bit (0, &iface->dma_done);
+	wmb ();
+	writel (LSDMA_CH_CSR_INTDONEENABLE |
+		LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_ENABLE,
+		card->bridge_addr + LSDMA_CSR(0));
+	/* Dummy read to flush PCI posted writes */
+	readl (card->bridge_addr + LSDMA_INTMSK);
+	return;
 }
 
 /**
@@ -859,17 +904,12 @@ dvbm_lpfd_txunlocked_ioctl (struct file *filp,
 	struct asi_txstuffing stuffing;
 
 	switch (cmd) {
-	case ASI_IOC_TXGETBUFLEVEL:
-		if (put_user (lsdma_tx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_TXSETSTUFFING:
 		if (iface->transport != ASI_CTL_TRANSPORT_DVB_ASI) {
 			return -ENOTTY;
 		}
-		if (copy_from_user (&stuffing, (struct asi_txstuffing *)arg,
+		if (copy_from_user (&stuffing,
+			(struct asi_txstuffing __user *)arg,
 			sizeof (stuffing))) {
 			return -EFAULT;
 		}
@@ -894,32 +934,32 @@ dvbm_lpfd_txunlocked_ioctl (struct file *filp,
 	case ASI_IOC_TXGETTXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((readl (card->core.addr + DVBM_LPFD_ICSR) &
-			DVBM_LPFD_ICSR_TXD) ? 1 : 0, (int *)arg)) {
+			DVBM_LPFD_ICSR_TXD) ? 1 : 0, (int __user *)arg)) {
+			return -EFAULT;
+		}
+		break;
+	case ASI_IOC_TXGET27COUNT:
+		if (!(iface->capabilities & ASI_CAP_TX_27COUNTER)) {
+			return -ENOTTY;
+		}
+		if (put_user (readl (card->core.addr + DVBM_LPFD_27COUNTR),
+			(unsigned int __user *)arg)) {
+			return -EFAULT;
+		}
+		break;
+	case ASI_IOC_TXGETBYTECOUNT:
+		if (!(iface->capabilities & ASI_CAP_TX_BYTECOUNTER)) {
+			return -ENOTTY;
+		}
+		if (put_user (readl (card->core.addr + DVBM_LPFD_TXBCOUNTR),
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_txioctl (iface, cmd, arg);
+		return asi_txioctl (filp, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * dvbm_lpfd_txioctl - DVB Master LP FD transmitter ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_lpfd_txioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_lpfd_txunlocked_ioctl (filp, cmd, arg);
 }
 
 /**
@@ -936,11 +976,9 @@ dvbm_lpfd_txfsync (struct file *filp,
 	int datasync)
 {
 	struct master_iface *iface = filp->private_data;
-	struct lsdma_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 	lsdma_tx_link_all (dma);
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
 	lsdma_reset (dma);
@@ -955,23 +993,8 @@ dvbm_lpfd_txfsync (struct file *filp,
 			DVBM_LPFD_ICSR_TXD));
 	}
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_lpfd_txrelease - DVB Master LP FD transmitter release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_lpfd_txrelease (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterlsdma_release (iface, dvbm_lpfd_txstop, dvbm_lpfd_txexit);
 }
 
 /**
@@ -1048,11 +1071,14 @@ static void
 dvbm_lpfd_rxstart (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
+	struct master_dma *dma = iface->dma;
 	unsigned int reg;
 
 	/* Enable and start DMA */
-	writel (lsdma_dma_to_desc_low (lsdma_head_desc_bus_addr (iface->dma)),
+	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(1));
+	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC_H(1));
 	clear_bit (0, &iface->dma_done);
 	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
@@ -1146,24 +1172,6 @@ dvbm_lpfd_rxexit (struct master_iface *iface)
 }
 
 /**
- * dvbm_lpfd_rxopen - DVB Master LP FD receiver open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_lpfd_rxopen (struct inode *inode, struct file *filp)
-{
-	return masterlsdma_open (inode,
-		filp,
-		dvbm_lpfd_rxinit,
-		dvbm_lpfd_rxstart,
-		DVBM_LPFD_FIFO,
-		0);
-}
-
-/**
  * dvbm_lpfd_rxunlocked_ioctl - DVB Master LP FD receiver unlocked_ioctl() method
  * @filp: file
  * @cmd: ioctl command
@@ -1179,15 +1187,9 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
 	int val;
-	unsigned int reg = 0, pflut[256], i;
+	unsigned int reg = 0, *pflut, i;
 
 	switch (cmd) {
-	case ASI_IOC_RXGETBUFLEVEL:
-		if (put_user (lsdma_rx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_RXGETSTATUS:
 		/* Atomic reads of ICSR and RCSR, so we don't need to lock */
 		reg = readl (card->core.addr + DVBM_LPFD_ICSR);
@@ -1212,12 +1214,21 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 		default:
 			return -EIO;
 		}
-		if (put_user (val, (int *)arg)) {
+		if (put_user (val, (int __user *)arg)) {
+			return -EFAULT;
+		}
+		break;
+	case ASI_IOC_RXGETBYTECOUNT:
+		if (!(iface->capabilities & ASI_CAP_RX_BYTECOUNTER)) {
+			return -ENOTTY;
+		}
+		if (put_user (readl (card->core.addr + DVBM_LPFD_RXBCOUNTR),
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETINVSYNC:
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		switch (val) {
@@ -1239,12 +1250,15 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 	case ASI_IOC_RXGETCARRIER:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((readl (card->core.addr + DVBM_LPFD_ICSR) &
-			DVBM_LPFD_ICSR_RXCD) ? 1 : 0, (int *)arg)) {
+			DVBM_LPFD_ICSR_RXCD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETDSYNC:
-		if (get_user (val, (int *)arg)) {
+	case ASI_IOC_RXSETINPUT_DEPRECATED:
+	case ASI_IOC_RXSETINPUT:
+		/* Dummy ioctl; only zero is valid */
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if (val) {
@@ -1254,7 +1268,7 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 	case ASI_IOC_RXGETRXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((readl (card->core.addr + DVBM_LPFD_ICSR) &
-			DVBM_LPFD_ICSR_RXD) ? 1 : 0, (int *)arg)) {
+			DVBM_LPFD_ICSR_RXD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1262,8 +1276,14 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_PIDFILTER)) {
 			return -ENOTTY;
 		}
-		if (copy_from_user (pflut, (unsigned int *)arg,
+		pflut = (unsigned int *)
+			kmalloc (sizeof (unsigned int [256]), GFP_KERNEL);
+		if (pflut == NULL) {
+			return -ENOMEM;
+		}
+		if (copy_from_user (pflut, (unsigned int __user *)arg,
 			sizeof (unsigned int [256]))) {
+			kfree (pflut);
 			return -EFAULT;
 		}
 		spin_lock (&card->reg_lock);
@@ -1274,29 +1294,21 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 			wmb ();
 		}
 		spin_unlock (&card->reg_lock);
+		kfree (pflut);
+		break;
+	case ASI_IOC_RXGET27COUNT:
+		if (!(iface->capabilities & ASI_CAP_RX_27COUNTER)) {
+			return -ENOTTY;
+		}
+		if (put_user (readl (card->core.addr + DVBM_LPFD_27COUNTR),
+			(unsigned int __user *)arg)) {
+			return -EFAULT;
+		}
 		break;
 	default:
-		return asi_rxioctl (iface, cmd, arg);
+		return asi_rxioctl (filp, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * dvbm_lpfd_rxioctl - DVB Master LP FD receiver ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_lpfd_rxioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_lpfd_rxunlocked_ioctl (filp, cmd, arg);
 }
 
 /**
@@ -1316,9 +1328,7 @@ dvbm_lpfd_rxfsync (struct file *filp,
 	struct master_dev *card = iface->card;
 	unsigned int reg;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 
 	/* Stop the receiver */
 	dvbm_lpfd_rxstop (iface);
@@ -1336,22 +1346,7 @@ dvbm_lpfd_rxfsync (struct file *filp,
 	/* Start the receiver */
 	dvbm_lpfd_rxstart (iface);
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_lpfd_rxrelease - DVB Master LP FD receiver release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_lpfd_rxrelease (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterlsdma_release (iface, dvbm_lpfd_rxstop, dvbm_lpfd_rxexit);
 }
 

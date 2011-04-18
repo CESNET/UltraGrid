@@ -2,7 +2,7 @@
  *
  * Linux driver functions for Linear Systems Ltd. DVB Master Quad-1in3out.
  *
- * Copyright (C) 2007-2008 Linear Systems Ltd.
+ * Copyright (C) 2007-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,24 +22,22 @@
  *
  */
 
-#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h> /* KERN_INFO */
 #include <linux/module.h> /* THIS_MODULE */
 
 #include <linux/fs.h> /* inode, file, file_operations */
 #include <linux/sched.h> /* pt_regs */
-#include <linux/pci.h> /* pci_dev */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/pci.h> /* pci_resource_start () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/list.h> /* INIT_LIST_HEAD () */
-#include <linux/poll.h> /* poll_table */
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
-#include <linux/device.h> /* class_device_create_file () */
-#include <linux/delay.h>
+#include <linux/device.h> /* device_create_file () */
+#include <linux/delay.h> /* udelay () */
+#include <linux/mutex.h> /* mutex_init () */
 
-#include <asm/semaphore.h> /* sema_init () */
 #include <asm/uaccess.h> /* put_user () */
 #include <asm/bitops.h> /* set_bit () */
 
@@ -47,201 +45,190 @@
 #include "../include/master.h"
 #include "mdev.h"
 #include "dvbm.h"
-#include "miface.h"
+#include "mdma.h"
 #include "dvbm_q3ioe.h"
 #include "plx9080.h"
-#include "masterplx.h"
 #include "lsdma.h"
-#include "masterlsdma.h"
 
 static const char dvbm_q3ioe_name[] = DVBM_NAME_Q3IOE;
 
 /* static function prototypes */
-static ssize_t dvbm_q3io_show_uid (struct class_device *cd,
+static ssize_t dvbm_q3io_show_uid (struct device *dev,
+	struct device_attribute *attr,
 	char *buf);
-
 static irqreturn_t IRQ_HANDLER (dvbm_q3io_irq_handler, irq, dev_id, regs);
 static void dvbm_q3io_txinit (struct master_iface *iface);
 static void dvbm_q3io_txstart (struct master_iface *iface);
 static void dvbm_q3io_txstop (struct master_iface *iface);
 static void dvbm_q3io_txexit (struct master_iface *iface);
-static int dvbm_q3io_txopen (struct inode *inode, struct file *filp);
+static void dvbm_q3io_start_tx_dma (struct master_iface *iface);
 static long dvbm_q3io_txunlocked_ioctl (struct file *filp,
 		unsigned int cmd,
 		unsigned long arg);
-static int dvbm_q3io_txioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
 static int dvbm_q3io_txfsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_q3io_txrelease (struct inode *inode, struct file *filp);
 static void dvbm_q3io_rxinit (struct master_iface *iface);
 static void dvbm_q3io_rxstart (struct master_iface *iface);
 static void dvbm_q3io_rxstop (struct master_iface *iface);
 static void dvbm_q3io_rxexit (struct master_iface *iface);
-static int dvbm_q3io_rxopen (struct inode *inode, struct file *filp);
 static long dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		unsigned int cmd,
 		unsigned long arg);
-static int dvbm_q3io_rxioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
 static int dvbm_q3io_rxfsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_q3io_rxrelease (struct inode *inode, struct file *filp);
 
-struct file_operations dvbm_q3io_txfops = {
+static struct file_operations dvbm_q3io_txfops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.write = masterlsdma_write,
-	.poll = masterlsdma_txpoll,
-	.ioctl = dvbm_q3io_txioctl,
-#ifdef  HAVE_UNLOCKED_IOCTL
+	.write = asi_write,
+	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_q3io_txunlocked_ioctl,
-#endif
-#ifdef  HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_q3io_txopen,
-	.release = dvbm_q3io_txrelease,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_q3io_txfsync,
 	.fasync = NULL
 };
 
-struct file_operations dvbm_q3io_rxfops = {
+static struct file_operations dvbm_q3io_rxfops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.read = masterlsdma_read,
-	.poll = masterlsdma_rxpoll,
-	.ioctl = dvbm_q3io_rxioctl,
-#ifdef  HAVE_UNLOCKED_IOCTL
+	.read = asi_read,
+	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_q3io_rxunlocked_ioctl,
-#endif
-#ifdef  HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_q3io_rxopen,
-	.release = dvbm_q3io_rxrelease,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_q3io_rxfsync,
 	.fasync = NULL
 };
 
+static struct master_iface_operations dvbm_q3io_txops = {
+	.init = dvbm_q3io_txinit,
+	.start = dvbm_q3io_txstart,
+	.stop = dvbm_q3io_txstop,
+	.exit = dvbm_q3io_txexit,
+	.start_tx_dma = dvbm_q3io_start_tx_dma
+};
+
+static struct master_iface_operations dvbm_q3io_rxops = {
+	.init = dvbm_q3io_rxinit,
+	.start = dvbm_q3io_rxstart,
+	.stop = dvbm_q3io_rxstop,
+	.exit = dvbm_q3io_rxexit
+};
 
 /**
  * dvbm_q3io_show_uid - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
 static ssize_t
-dvbm_q3io_show_uid (struct class_device *cd,
+dvbm_q3io_show_uid (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct master_dev *card = to_master_dev(cd);
+	struct master_dev *card = dev_get_drvdata(dev);
 
 	return snprintf (buf, PAGE_SIZE, "0x%08X%08X\n",
 		readl (card->core.addr + DVBM_Q3IO_SSN_HI),
 		readl (card->core.addr + DVBM_Q3IO_SSN_LO));
 }
 
-static CLASS_DEVICE_ATTR(uid,S_IRUGO,
+static DEVICE_ATTR(uid,S_IRUGO,
 	dvbm_q3io_show_uid,NULL);
-
 
 /**
  * dvbm_q3io_pci_probe - PCI insertion handler for a DVB Master Quad-1in3out
- * @dev: PCI device
+ * @pdev: PCI device
  *
  * Handle the insertion of a DVB Master Quad-1in3out.
  * Returns a negative error code on failure and 0 on success.
  **/
 
 int __devinit
-dvbm_q3io_pci_probe (struct pci_dev *dev)
+dvbm_q3io_pci_probe (struct pci_dev *pdev)
 {
 	int err, i;
-	unsigned int cap, transport;
-	const char *name;
+	unsigned int cap;
 	struct master_dev *card;
+	void __iomem *p;
 
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQ3IOE:
-		name = dvbm_q3ioe_name;
-		break;
-	default:
-		name = "";
-		break;
+	err = dvbm_pci_probe_generic (pdev);
+	if (err < 0) {
+		goto NO_PCI;
 	}
+
+	/* Initialize the driver_data pointer so that dvbm_q3io_pci_remove()
+	 * doesn't try to free it if an error occurs */
+	pci_set_drvdata (pdev, NULL);
 
 	/* Allocate a board info structure */
 	if ((card = (struct master_dev *)
-		kmalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
+		kzalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
 	/* Initialize the board info structure */
-	memset (card, 0, sizeof (*card));
 	/* LS DMA Controller */
-	card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 0),
-		pci_resource_len (dev, 0));
+	card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, 3),
+		pci_resource_len (pdev, 3));
 	/* ASI Core */
-	card->core.addr = ioremap_nocache (pci_resource_start (dev, 2),
-		pci_resource_len (dev, 2));
+	card->core.addr = ioremap_nocache (pci_resource_start (pdev, 2),
+		pci_resource_len (pdev, 2));
 	card->version = readl(card->core.addr + DVBM_Q3IO_FPGAID) & 0xffff;
-	card->name = name;
+	card->name = dvbm_q3ioe_name;
+	card->id = pdev->device;
+	card->irq = pdev->irq;
 	card->irq_handler = dvbm_q3io_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
-	switch (dev->device) {
-	default:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQ3IOE:
-		card->capabilities = MASTER_CAP_UID;
-		break;
-	}
+	card->capabilities = MASTER_CAP_UID;
 	/* Lock for ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for IBSTR, IPSTR, FTR, PFLUT, TCSR, RCSR */
 	spin_lock_init (&card->reg_lock);
-	sema_init (&card->users_sem, 1);
-	card->pdev = dev;
+	mutex_init (&card->users_mutex);
+	card->parent = &pdev->dev;
 
 	/* Print the firmware version */
 	printk (KERN_INFO "%s: %s detected, firmware version %u.%u (0x%04X)\n",
-		dvbm_driver_name, name,
+		dvbm_driver_name, card->name,
 		card->version >> 8, card->version & 0x00ff, card->version);
 
 	/* Store the pointer to the board info structure
 	 * in the PCI info structure */
-	pci_set_drvdata (dev, card);
+	pci_set_drvdata (pdev, card);
+
+	/* PLX */
+	p = ioremap_nocache (pci_resource_start (pdev, 0),
+		pci_resource_len (pdev, 0));
 
 	/* Reset PCI 9056 */
-	masterplx_reset_bridge(card);
+	plx_reset_bridge(p);
 
 	/* Setup the PCI 9056 */
 	writel(PLX_INTCSR_PCIINT_ENABLE |
-		   PLX_INTCSR_PCILOCINT_ENABLE, card->bridge_addr + PLX_INTCSR);
+		PLX_INTCSR_PCILOCINT_ENABLE, p + PLX_INTCSR);
 
 	/* Dummy read to flush PCI posted wires */
-	readl(card->bridge_addr + PLX_INTCSR);
+	readl(p + PLX_INTCSR);
 
-	/* Remap bridge address to the DMA controller */
-	iounmap (card->bridge_addr);
-
-	/* LS DMA Controller */
-	card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 3),pci_resource_len (dev, 3));
+	/* Unmap PLX */
+	iounmap (p);
 
 	/* Reset the FPGA */
-
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < 3; i++) {
 		writel (DVBM_Q3IO_TCSR_TXRST, card->core.addr + DVBM_Q3IO_TCSR(i));
-
-	for (i = 3; i < 4; i++)
+	}
+	for (i = 3; i < 4; i++) {
 		writel (DVBM_Q3IO_RCSR_RXRST, card->core.addr + DVBM_Q3IO_RCSR(i));
+	}
 
-	/* Setup the LS DMA Controller*/
+	/* Setup the LS DMA Controller */
 	writel (LSDMA_INTMSK_CH(0) | LSDMA_INTMSK_CH(1) | LSDMA_INTMSK_CH(2)
 		| LSDMA_INTMSK_CH(3),
 		card->bridge_addr + LSDMA_INTMSK);
@@ -253,18 +240,15 @@ dvbm_q3io_pci_probe (struct pci_dev *dev)
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
 
-	/* Register a Master device */
-	if ((err = mdev_register (card,
-		&dvbm_card_list,
-		dvbm_driver_name,
-		&dvbm_class)) < 0) {
+	/* Register a DVB Master device */
+	if ((err = dvbm_register (card)) < 0) {
 		goto NO_DEV;
 	}
 
-	/* Add class_device attributes */
+	/* Add device attributes */
 	if (card->capabilities & MASTER_CAP_UID) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_uid)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_uid)) < 0) {
 			printk(KERN_WARNING
 				"%s: Unable to create file 'uid'\n",
 				card->name);
@@ -273,59 +257,47 @@ dvbm_q3io_pci_probe (struct pci_dev *dev)
 
 	/* Register a transmit interface */
 	cap = ASI_CAP_TX_SETCLKSRC | ASI_CAP_TX_FIFOUNDERRUN |
-		ASI_CAP_TX_DATA | ASI_CAP_TX_RXCLKSRC;
-	switch (dev->device) {
-		case DVBM_PCI_DEVICE_ID_LINSYS_DVBQ3IOE:
-			cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
-			ASI_CAP_TX_BYTECOUNTER |
-			ASI_CAP_TX_LARGEIB |
-			ASI_CAP_TX_INTERLEAVING |
-			ASI_CAP_TX_TIMESTAMPS |
-			ASI_CAP_TX_NULLPACKETS |
-			ASI_CAP_TX_PTIMESTAMPS;
-		transport = ASI_CTL_TRANSPORT_DVB_ASI;
-		break;
-	default:
-		transport = 0xff;
-		break;
-	}
-
+		ASI_CAP_TX_DATA | ASI_CAP_TX_RXCLKSRC |
+		ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
+		ASI_CAP_TX_BYTECOUNTER |
+		ASI_CAP_TX_LARGEIB |
+		ASI_CAP_TX_INTERLEAVING |
+		ASI_CAP_TX_TIMESTAMPS |
+		ASI_CAP_TX_NULLPACKETS |
+		ASI_CAP_TX_PTIMESTAMPS;
 	for (i = 0; i < 3; i++) {
 		if ((err = asi_register_iface (card,
+			&lsdma_dma_ops,
+			0,
 			MASTER_DIRECTION_TX,
 			&dvbm_q3io_txfops,
+			&dvbm_q3io_txops,
 			cap,
 			4,
-			transport)) < 0) {
+			ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
 			goto NO_IFACE;
 		}
 	}
 
 	/* Register a receive interface */
-	cap = ASI_CAP_RX_SYNC | ASI_CAP_RX_INVSYNC | ASI_CAP_RX_CD;
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQ3IOE:
-		cap |= ASI_CAP_RX_MAKE188 |
-			ASI_CAP_RX_BYTECOUNTER |
-			ASI_CAP_RX_DATA |
-			ASI_CAP_RX_PIDFILTER |
-			ASI_CAP_RX_TIMESTAMPS |
-			ASI_CAP_RX_PTIMESTAMPS |
-			ASI_CAP_RX_NULLPACKETS;
-		transport = ASI_CTL_TRANSPORT_DVB_ASI;
-		break;
-	default:
-		transport = 0xff;
-		break;
-	}
-
+	cap = ASI_CAP_RX_SYNC | ASI_CAP_RX_INVSYNC | ASI_CAP_RX_CD |
+		ASI_CAP_RX_MAKE188 |
+		ASI_CAP_RX_BYTECOUNTER |
+		ASI_CAP_RX_DATA |
+		ASI_CAP_RX_PIDFILTER |
+		ASI_CAP_RX_TIMESTAMPS |
+		ASI_CAP_RX_PTIMESTAMPS |
+		ASI_CAP_RX_NULLPACKETS;
 	for (i = 3; i < 4; i++) {
 		if ((err = asi_register_iface (card,
+			&lsdma_dma_ops,
+			0,
 			MASTER_DIRECTION_RX,
 			&dvbm_q3io_rxfops,
+			&dvbm_q3io_rxops,
 			cap,
 			4,
-			transport)) < 0) {
+			ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
 			goto NO_IFACE;
 		}
 	}
@@ -333,30 +305,40 @@ dvbm_q3io_pci_probe (struct pci_dev *dev)
 	return 0;
 
 NO_IFACE:
-	dvbm_pci_remove (dev);
 NO_DEV:
 NO_MEM:
+	dvbm_q3io_pci_remove (pdev);
+NO_PCI:
 	return err;
 }
 
 /**
  * dvbm_q3io_pci_remove - PCI removal handler for a DVB Master Quad-1in3out
- * @card: Master device
+ * @pdev: PCI device
  *
  * Handle the removal of a DVB Master Quad-1in3out.
+ * This function may be called during PCI probe error handling,
+ * so don't mark it as __devexit.
  **/
 void
-dvbm_q3io_pci_remove (struct master_dev *card)
+dvbm_q3io_pci_remove (struct pci_dev *pdev)
 {
-	int i;
-	for (i = 0; i< 4; i++) {
-		if (card->capabilities) {
+	struct master_dev *card = pci_get_drvdata (pdev);
+
+	if (card) {
+		int i;
+
+		/* Unregister the device and all interfaces */
+		dvbm_unregister_all (card);
+
+		for (i = 0; i < 4; i++) {
 			writel (0, card->core.addr + DVBM_Q3IO_ICSR(i));
 		}
+		iounmap (card->core.addr);
+		iounmap (card->bridge_addr);
+		kfree (card);
 	}
-
-	iounmap (card->core.addr);
-
+	dvbm_pci_remove_generic (pdev);
 	return;
 }
 
@@ -389,118 +371,115 @@ IRQ_HANDLER (dvbm_q3io_irq_handler, irq, dev_id, regs)
 			spin_unlock (&card->irq_lock);
 			/* Increment the buffer pointer */
 			if (status & LSDMA_CH_CSR_INTSRCBUFFER) {
-				lsdma_advance (iface->dma);
+				mdma_advance (iface->dma);
+			}
+
+			/* Flag end-of-chain */
+			if (status & LSDMA_CH_CSR_INTSRCDONE) {
+				set_bit (ASI_EVENT_TX_BUFFER_ORDER, &iface->events);
+				set_bit (0, &iface->dma_done);
+			}
+			/* Flag DMA abort */
+			if (status & LSDMA_CH_CSR_INTSRCSTOP) {
+				set_bit (0, &iface->dma_done);
+			}
+
+			interrupting_iface |= 0x1 << i;
 		}
 
-		/* Flag end-of-chain */
-		if (status & LSDMA_CH_CSR_INTSRCDONE) {
-			set_bit (ASI_EVENT_TX_BUFFER_ORDER, &iface->events);
-			set_bit (0, &iface->dma_done);
+		spin_lock (&card->irq_lock);
+		status = readl (card->core.addr + DVBM_Q3IO_ICSR(i));
+		writel (status, card->core.addr + DVBM_Q3IO_ICSR(i));
+
+		if (status & DVBM_Q3IO_ICSR_TXUIS) {
+			set_bit (ASI_EVENT_TX_FIFO_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x1 << i;
 		}
-		/* Flag DMA abort */
-		if (status & LSDMA_CH_CSR_INTSRCSTOP) {
-			set_bit (0, &iface->dma_done);
+		if (status & DVBM_Q3IO_ICSR_TXDIS) {
+			set_bit (ASI_EVENT_TX_DATA_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x1 << i;
 		}
+		spin_unlock (&card->irq_lock);
 
-		interrupting_iface |= 0x1 << i;
-
-	}
-
-	spin_lock (&card->irq_lock);
-	status = readl (card->core.addr + DVBM_Q3IO_ICSR(i));
-	writel (status, card->core.addr + DVBM_Q3IO_ICSR(i));
-
-	if (status & DVBM_Q3IO_ICSR_TXUIS) {
-		set_bit (ASI_EVENT_TX_FIFO_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x1 << i;
-	}
-	if (status & DVBM_Q3IO_ICSR_TXDIS) {
-		set_bit (ASI_EVENT_TX_DATA_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x1 << i;
-	}
-	spin_unlock (&card->irq_lock);
-
-	if (interrupting_iface & 0x1 << i) {
+		if (interrupting_iface & 0x1 << i) {
 			wake_up (&iface->queue);
 		}
-
 	}
 
 	for (i = 3; i < 4; i++) {
 		p = p->next;
 		iface = list_entry(p, struct master_iface, list);
 
-	if (dmaintsrc & LSDMA_INTSRC_CH(i)) {
-		struct lsdma_dma *dma = iface->dma;
+		if (dmaintsrc & LSDMA_INTSRC_CH(i)) {
+			struct master_dma *dma = iface->dma;
 
-		/* Read the interrupt type and clear it */
-		spin_lock (&card->irq_lock);
-		status = readl (card->bridge_addr + LSDMA_CSR(i));
-		writel (status, card->bridge_addr + LSDMA_CSR(i));
-		spin_unlock (&card->irq_lock);
+			/* Read the interrupt type and clear it */
+			spin_lock (&card->irq_lock);
+			status = readl (card->bridge_addr + LSDMA_CSR(i));
+			writel (status, card->bridge_addr + LSDMA_CSR(i));
+			spin_unlock (&card->irq_lock);
 
-		/* Increment the buffer pointer */
-		if (status & LSDMA_CH_CSR_INTSRCBUFFER) {
-			lsdma_advance (dma);
-			if (lsdma_rx_isempty (dma)) {
-				set_bit (ASI_EVENT_RX_BUFFER_ORDER,
-					&iface->events);
+			/* Increment the buffer pointer */
+			if (status & LSDMA_CH_CSR_INTSRCBUFFER) {
+				mdma_advance (dma);
+				if (mdma_rx_isempty (dma)) {
+					set_bit (ASI_EVENT_RX_BUFFER_ORDER,
+						&iface->events);
+				}
 			}
+
+			/* Flag end-of-chain */
+			if (status & LSDMA_CH_CSR_INTSRCDONE) {
+				set_bit (0, &iface->dma_done);
+			}
+
+			/* Flag DMA abort */
+			if (status & LSDMA_CH_CSR_INTSRCSTOP) {
+				set_bit (0, &iface->dma_done);
+			}
+
+			interrupting_iface |= 0x2;
 		}
 
-		/* Flag end-of-chain */
-		if (status & LSDMA_CH_CSR_INTSRCDONE) {
-			set_bit (0, &iface->dma_done);
+		spin_lock (&card->irq_lock);
+		status = readl (card->core.addr + DVBM_Q3IO_ICSR(i));
+		writel (status, card->core.addr + DVBM_Q3IO_ICSR(i));
+
+		if (status & DVBM_Q3IO_ICSR_RXCDIS) {
+			set_bit (ASI_EVENT_RX_CARRIER_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x2;
+		}
+		if (status & DVBM_Q3IO_ICSR_RXAOSIS) {
+			set_bit (ASI_EVENT_RX_AOS_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x2;
+		}
+		if (status & DVBM_Q3IO_ICSR_RXLOSIS) {
+			set_bit (ASI_EVENT_RX_LOS_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x2;
+		}
+		if (status & DVBM_Q3IO_ICSR_RXOIS) {
+			set_bit (ASI_EVENT_RX_FIFO_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x2;
+		}
+		if (status & DVBM_Q3IO_ICSR_RXDIS) {
+			set_bit (ASI_EVENT_RX_DATA_ORDER,
+				&iface->events);
+			interrupting_iface |= 0x2;
 		}
 
-		/* Flag DMA abort */
-		if (status & LSDMA_CH_CSR_INTSRCSTOP) {
-			set_bit (0, &iface->dma_done);
+		if (interrupting_iface & 0x2) {
+			wake_up (&iface->queue);
 		}
-
-		interrupting_iface |= 0x2;
+		spin_unlock (&card->irq_lock);
 	}
 
-	spin_lock (&card->irq_lock);
-	status = readl (card->core.addr + DVBM_Q3IO_ICSR(i));
-	writel (status, card->core.addr + DVBM_Q3IO_ICSR(i));
-
-	if (status & DVBM_Q3IO_ICSR_RXCDIS) {
-		set_bit (ASI_EVENT_RX_CARRIER_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x2;
-	}
-	if (status & DVBM_Q3IO_ICSR_RXAOSIS) {
-		set_bit (ASI_EVENT_RX_AOS_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x2;
-	}
-	if (status & DVBM_Q3IO_ICSR_RXLOSIS) {
-		set_bit (ASI_EVENT_RX_LOS_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x2;
-	}
-	if (status & DVBM_Q3IO_ICSR_RXOIS) {
-		set_bit (ASI_EVENT_RX_FIFO_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x2;
-	}
-	if (status & DVBM_Q3IO_ICSR_RXDIS) {
-		set_bit (ASI_EVENT_RX_DATA_ORDER,
-			&iface->events);
-		interrupting_iface |= 0x2;
-	}
-
-	if (interrupting_iface & 0x2) {
-		wake_up (&iface->queue);
-	}
-	 spin_unlock (&card->irq_lock);
-	}
-
-
-	/* Check and clear the source of the interrupt*/
+	/* Check and clear the source of the interrupt */
 	if (interrupting_iface) {
 		/* Dummy read to flush PCI posted writes */
 		readl (card->bridge_addr + LSDMA_INTMSK);
@@ -559,11 +538,13 @@ dvbm_q3io_txinit (struct master_iface *iface)
 
 	/* There will be no races on IBSTR, IPSTR, FTR, and TCSR
 	 * until this code returns, so we don't need to lock them */
-	writel (reg | DVBM_Q3IO_TCSR_TXRST, card->core.addr + DVBM_Q3IO_TCSR(channel));
+	writel (reg | DVBM_Q3IO_TCSR_TXRST,
+		card->core.addr + DVBM_Q3IO_TCSR(channel));
 	wmb ();
 	writel (reg, card->core.addr + DVBM_Q3IO_TCSR(channel));
 	wmb ();
-	writel ((DVBM_Q3IO_TFL << 16) | DVBM_Q3IO_TDMATL, card->core.addr + DVBM_Q3IO_TFCR(channel));
+	writel ((DVBM_Q3IO_TFL << 16) | DVBM_Q3IO_TDMATL,
+		card->core.addr + DVBM_Q3IO_TFCR(channel));
 	writel (0, card->core.addr + DVBM_Q3IO_IBSTREG(channel));
 	writel (0, card->core.addr + DVBM_Q3IO_IPSTREG(channel));
 	writel (0, card->core.addr + DVBM_Q3IO_FTREG(channel));
@@ -594,11 +575,11 @@ dvbm_q3io_txstart (struct master_iface *iface)
 	/* Enable the transmitter */
 	spin_lock(&card->reg_lock);
 	reg = readl(card->core.addr + DVBM_Q3IO_TCSR(channel));
-	writel(reg | DVBM_Q3IO_TCSR_TXE, card->core.addr + DVBM_Q3IO_TCSR(channel));
+	writel(reg | DVBM_Q3IO_TCSR_TXE,
+		card->core.addr + DVBM_Q3IO_TCSR(channel));
 	spin_unlock(&card->reg_lock);
 
 	return;
-
 }
 
 /**
@@ -617,7 +598,8 @@ dvbm_q3io_txstop (struct master_iface *iface)
 	 * so we don't need to lock it */
 	spin_lock(&card->reg_lock);
 	reg = readl(card->core.addr + DVBM_Q3IO_TCSR(channel));
-	writel(reg & ~DVBM_Q3IO_TCSR_TXE, card->core.addr + DVBM_Q3IO_TCSR(channel));
+	writel(reg & ~DVBM_Q3IO_TCSR_TXE,
+		card->core.addr + DVBM_Q3IO_TCSR(channel));
 	spin_unlock(&card->reg_lock);
 
 	/* Disable transmitter interrupts */
@@ -641,7 +623,6 @@ dvbm_q3io_txstop (struct master_iface *iface)
 	udelay (10L);
 
 	return;
-
 }
 
 /**
@@ -655,27 +636,40 @@ dvbm_q3io_txexit (struct master_iface *iface)
 	const unsigned int channel = mdev_index (card, &iface->list);
 
 	/* Reset the transmitter */
-	writel (DVBM_Q3IO_TCSR_TXRST, card->core.addr + DVBM_Q3IO_TCSR(channel));
+	writel (DVBM_Q3IO_TCSR_TXRST,
+		card->core.addr + DVBM_Q3IO_TCSR(channel));
 
 	return;
 }
 
 /**
- * dvbm_q3io_txopen - DVB Master Quad-1in3out transmitter open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
+ * dvbm_q3io_start_tx_dma - start transmit DMA
+ * @iface: interface
  **/
-static int
-dvbm_q3io_txopen (struct inode *inode, struct file *filp)
+static void
+dvbm_q3io_start_tx_dma (struct master_iface *iface)
 {
-	return masterlsdma_open (inode,
-		filp,
-		dvbm_q3io_txinit,
-		dvbm_q3io_txstart,
-		0,
-		0);
+	struct master_dev *card = iface->card;
+	struct master_dma *dma = iface->dma;
+	const unsigned int dma_channel = mdev_index (card, &iface->list);
+
+	writel (LSDMA_CH_CSR_INTDONEENABLE |
+		LSDMA_CH_CSR_INTSTOPENABLE,
+		card->bridge_addr + LSDMA_CSR(dma_channel));
+	wmb ();
+	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC(dma_channel));
+	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC_H(dma_channel));
+	clear_bit (0, &iface->dma_done);
+	wmb ();
+	writel (LSDMA_CH_CSR_INTDONEENABLE |
+		LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_ENABLE,
+		card->bridge_addr + LSDMA_CSR(dma_channel));
+	/* Dummy read to flush PCI posted writes */
+	readl (card->bridge_addr + LSDMA_INTMSK);
+	return;
 }
 
 /**
@@ -697,17 +691,12 @@ dvbm_q3io_txunlocked_ioctl (struct file *filp,
 	const unsigned int channel = mdev_index (card, &iface->list);
 
 	switch (cmd) {
-	case ASI_IOC_TXGETBUFLEVEL:
-		if (put_user (lsdma_tx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_TXSETSTUFFING:
 		if (iface->transport != ASI_CTL_TRANSPORT_DVB_ASI) {
 			return -ENOTTY;
 		}
-		if (copy_from_user (&stuffing, (struct asi_txstuffing *)arg,
+		if (copy_from_user (&stuffing,
+			(struct asi_txstuffing __user *)arg,
 			sizeof (stuffing))) {
 			return -EFAULT;
 		}
@@ -734,42 +723,22 @@ dvbm_q3io_txunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (readl (card->core.addr + DVBM_Q3IO_TXBCOUNT(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_TXGETTXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((readl (card->core.addr + DVBM_Q3IO_ICSR(channel)) &
-			DVBM_Q3IO_ICSR_TXD) ? 1 : 0, (int *)arg)) {
+			DVBM_Q3IO_ICSR_TXD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_txioctl (iface, cmd, arg);
+		return asi_txioctl (filp, cmd, arg);
 	}
 	return 0;
 }
-
-/**
- * dvbm_q3io_txioctl- DVB Master Quad-1in3out transmitter ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-
-static int
-dvbm_q3io_txioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_q3io_txunlocked_ioctl (filp, cmd, arg);
-}
-
 
 /**
  * dvbm_q3io_txfsync - DVB Master Quad-1in3out transmitter fsync() method
@@ -786,21 +755,17 @@ dvbm_q3io_txfsync (struct file *filp,
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
-	struct lsdma_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 	struct master_iface *txiface = list_entry (card->iface_list.next,
 		struct master_iface, list);
 	const unsigned int channel = mdev_index (card, &iface->list);
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 	lsdma_tx_link_all (dma);
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
 	lsdma_reset (dma);
 
 	if (!txiface->null_packets) {
-		struct master_dev *card = iface->card;
-
 		/* Wait for the onboard FIFOs to empty */
 		/* Atomic read of ICSR, so we don't need to lock */
 		wait_event (iface->queue,
@@ -808,23 +773,8 @@ dvbm_q3io_txfsync (struct file *filp,
 			DVBM_Q3IO_ICSR_TXD));
 	}
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_q3io_txrelease - DVB Master Quad-1in3out transmitter release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_q3io_txrelease (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterlsdma_release (iface, dvbm_q3io_txstop, dvbm_q3io_txexit);
 }
 
 /**
@@ -875,7 +825,6 @@ dvbm_q3io_rxinit (struct master_iface *iface)
 		break;
 	}
 
-
 	/* There will be no races on RCSR
 	 * until this code returns, so we don't need to lock it */
 	writel (reg | DVBM_Q3IO_RCSR_RXRST, card->core.addr + DVBM_Q3IO_RCSR(channel));
@@ -887,9 +836,9 @@ dvbm_q3io_rxinit (struct master_iface *iface)
 	/* Reset byte counter */
 	readl (card->core.addr + DVBM_Q3IO_RXBCOUNT(channel));
 
-	 /* Reset PID Filter.
-	  * There will be no races on PFLUT
-	  * until this code returns, so we don't need to lock it */
+	/* Reset PID Filter.
+	 * There will be no races on PFLUT
+	 * until this code returns, so we don't need to lock it */
 	for (i = 0; i < 256; i++) {
 		writel (i, card->core.addr + DVBM_Q3IO_PFLUTWA(channel));
 		/* Dummy read to flush PCI posted writes */
@@ -922,12 +871,15 @@ static void
 dvbm_q3io_rxstart (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
+	struct master_dma *dma = iface->dma;
 	const unsigned int channel = mdev_index (card, &iface->list);
 	unsigned int reg;
 
 	/* Enable and start DMA */
-	writel (lsdma_dma_to_desc_low (lsdma_head_desc_bus_addr (iface->dma)),
+	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(channel));
+	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
+		card->bridge_addr + LSDMA_DESC_H(channel));
 	clear_bit (0, &iface->dma_done);
 	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
@@ -970,7 +922,8 @@ dvbm_q3io_rxstop (struct master_iface *iface)
 	/* Disable the receiver */
 	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_Q3IO_RCSR(channel));
-	writel (reg & ~DVBM_Q3IO_RCSR_RXE, card->core.addr + DVBM_Q3IO_RCSR(channel));
+	writel (reg & ~DVBM_Q3IO_RCSR_RXE,
+		card->core.addr + DVBM_Q3IO_RCSR(channel));
 	spin_unlock (&card->reg_lock);
 
 	/* Disable receiver interrupts */
@@ -1022,24 +975,6 @@ dvbm_q3io_rxexit (struct master_iface *iface)
 }
 
 /**
- * dvbm_q3io_rxopen - DVB Master Quad-1in3out receiver open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_q3io_rxopen (struct inode *inode, struct file *filp)
-{
-	return masterlsdma_open (inode,
-		filp,
-		dvbm_q3io_rxinit,
-		dvbm_q3io_rxstart,
-		0,
-		0);
-}
-
-/**
  * dvbm_q3io_rxunlocked_ioctl - DVB Master Quad-1in3out receiver unlocked_ioctl() method
  * @filp: file
  * @cmd: ioctl command
@@ -1056,20 +991,13 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 	struct master_dev *card = iface->card;
 	const unsigned int channel = mdev_index (card, &iface->list);
 	int val;
-	unsigned int reg = 0, pflut[256], i;
+	unsigned int reg = 0, *pflut, i;
 
 	switch (cmd) {
-	case ASI_IOC_RXGETBUFLEVEL:
-		if (put_user (lsdma_rx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_RXGETSTATUS:
 		/* Atomic reads of ICSR and RCSR, so we don't need to lock */
 		reg = readl (card->core.addr + DVBM_Q3IO_ICSR(channel));
-		switch (readl (card->core.addr + DVBM_Q3IO_RCSR(channel))  & DVBM_Q3IO_RCSR_SYNC_MASK)
-			{
+		switch (readl (card->core.addr + DVBM_Q3IO_RCSR(channel)) & DVBM_Q3IO_RCSR_SYNC_MASK) {
 		case 0:
 			val = 1;
 			break;
@@ -1090,7 +1018,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		default:
 			return -EIO;
 		}
-		if (put_user (val, (int *)arg)) {
+		if (put_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1099,12 +1027,12 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (readl (card->core.addr + DVBM_Q3IO_RXBCOUNT(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETINVSYNC:
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		switch (val) {
@@ -1126,12 +1054,15 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 	case ASI_IOC_RXGETCARRIER:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((readl (card->core.addr + DVBM_Q3IO_ICSR(channel)) &
-			DVBM_Q3IO_ICSR_RXCD) ? 1 : 0, (int *)arg)) {
+			DVBM_Q3IO_ICSR_RXCD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETDSYNC:
-		if (get_user (val, (int *)arg)) {
+	case ASI_IOC_RXSETINPUT_DEPRECATED:
+	case ASI_IOC_RXSETINPUT:
+		/* Dummy ioctl; only zero is valid */
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if (val) {
@@ -1141,7 +1072,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 	case ASI_IOC_RXGETRXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((readl (card->core.addr + DVBM_Q3IO_ICSR(channel)) &
-			DVBM_Q3IO_ICSR_RXD) ? 1 : 0, (int *)arg)) {
+			DVBM_Q3IO_ICSR_RXD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1149,8 +1080,14 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_PIDFILTER)) {
 			return -ENOTTY;
 		}
-		if (copy_from_user (pflut, (unsigned int *)arg,
+		pflut = (unsigned int *)
+			kmalloc (sizeof (unsigned int [256]), GFP_KERNEL);
+		if (pflut == NULL) {
+			return -ENOMEM;
+		}
+		if (copy_from_user (pflut, (unsigned int __user *)arg,
 			sizeof (unsigned int [256]))) {
+			kfree (pflut);
 			return -EFAULT;
 		}
 		spin_lock (&card->reg_lock);
@@ -1161,12 +1098,13 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 			wmb ();
 		}
 		spin_unlock (&card->reg_lock);
+		kfree (pflut);
 		break;
 	case ASI_IOC_RXSETPID0:
 		if (!(iface->capabilities & ASI_CAP_RX_PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1182,7 +1120,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_Q3IO_PIDCOUNT0(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1190,7 +1128,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1206,7 +1144,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_Q3IO_PIDCOUNT1(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1214,7 +1152,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1230,7 +1168,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_Q3IO_PIDCOUNT2(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1238,7 +1176,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1254,7 +1192,7 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 		}
 		if (put_user (readl (card->core.addr +
 			DVBM_Q3IO_PIDCOUNT3(channel)),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1263,35 +1201,15 @@ dvbm_q3io_rxunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (readl (card->core.addr + DVBM_Q3IO_27COUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_rxioctl (iface, cmd, arg);
+		return asi_rxioctl (filp, cmd, arg);
 	}
 	return 0;
 }
-
-/**
- * dvbm_q3io_rxioctl- DVB Master Quad-1in3out Receiver ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-
-static int
-dvbm_q3io_rxioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_q3io_rxunlocked_ioctl (filp, cmd, arg);
-}
-
 
 /**
  * dvbm_q3io_rxfsync - DVB Master Quad-1in3out receiver fsync() method
@@ -1311,9 +1229,7 @@ dvbm_q3io_rxfsync (struct file *filp,
 	const unsigned int channel = mdev_index (card, &iface->list);
 	unsigned int reg;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 
 	/* Stop the receiver */
 	dvbm_q3io_rxstop (iface);
@@ -1321,7 +1237,8 @@ dvbm_q3io_rxfsync (struct file *filp,
 	/* Reset the onboard FIFO and driver buffers */
 	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_Q3IO_RCSR(channel));
-	writel (reg | DVBM_Q3IO_RCSR_RXRST, card->core.addr + DVBM_Q3IO_RCSR(channel));
+	writel (reg | DVBM_Q3IO_RCSR_RXRST,
+		card->core.addr + DVBM_Q3IO_RCSR(channel));
 	wmb ();
 	writel (reg, card->core.addr + DVBM_Q3IO_RCSR(channel));
 	spin_unlock (&card->reg_lock);
@@ -1331,22 +1248,7 @@ dvbm_q3io_rxfsync (struct file *filp,
 	/* Start the receiver */
 	dvbm_q3io_rxstart (iface);
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_q3io_rxrelease - DVB Master Quad-1in3out receiver release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_q3io_rxrelease (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterlsdma_release (iface, dvbm_q3io_rxstop, dvbm_q3io_rxexit);
 }
 

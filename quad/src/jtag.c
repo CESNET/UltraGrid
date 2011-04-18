@@ -3,7 +3,7 @@
  * Linux driver for the JTAG interface on
  * some Linear Systems Ltd. boards.
  *
- * Copyright (C) 2003-2008 Linear Systems Ltd.
+ * Copyright (C) 2003-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -33,12 +33,12 @@
 #include <linux/pci.h> /* pci_register_driver () */
 #include <linux/errno.h> /* error codes */
 #include <linux/list.h> /* list_add_tail () */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/types.h> /* u32 */
 #include <linux/cdev.h> /* cdev_init () */
 #include <linux/device.h> /* class_create () */
+#include <linux/mutex.h> /* mutex_init () */
 
-#include <asm/semaphore.h> /* down_interruptible () */
 #include <asm/io.h> /* readl () */
 #include <asm/uaccess.h> /* put_user () */
 
@@ -53,34 +53,22 @@
 #include "dvbm_qo.h"
 #include "dvbm_qlf.h"
 #include "dvbm_qdual.h"
-#include "hdsdi_qie.h"
-// Temporary fix for Linux kernel 2.6.21
-#include "eeprom.c"
+#include "eeprom.h"
+#include "hdsdim_txe.h"
+#include "hdsdim_rxe.h"
+#include "hdsdim_qie.h"
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,8))
-static inline int
-nonseekable_open (struct inode *inode, struct file *filp)
-{
-	return 0;
-}
+#ifndef DEFINE_PCI_DEVICE_TABLE
+#define DEFINE_PCI_DEVICE_TABLE(_table) \
+	const struct pci_device_id _table[]
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,13))
-#define class_create class_simple_create
-#define class_destroy class_simple_destroy
-#define class_device_destroy(cls,devt) class_simple_device_remove(devt)
-static struct class_simple *lsj_class;
-#else
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27))
+#define device_create(cls,parent,devt,drvdata,fmt,...) \
+	device_create(cls,parent,devt,fmt,##__VA_ARGS__)
+#endif
+
 static struct class *lsj_class;
-#endif
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,13))
-#define class_device_create(cls,parent,devt,fmt,...) \
-	class_simple_device_add(cls,devt,fmt,##__VA_ARGS__)
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,15))
-#define class_device_create(cls,parent,devt,fmt,...) \
-	class_device_create(cls,devt,fmt,##__VA_ARGS__)
-#endif
 
 /**
  * struct lsj - Linear Systems Ltd. device
@@ -88,20 +76,20 @@ static struct class *lsj_class;
  * @core_addr: address of memory region
  * @data_addr: JTAG port address
  * @bridge_addr: address of bridge memory region
- * @sem: mutex
+ * @lock: mutex
  * @pdev: PCI device
- * @class_dev: pointer to class_device
+ * @dev: pointer to device
  * @cdev: character device structure
  * @users: usage count
  **/
 struct lsj {
 	struct list_head list;
-	void *core_addr;
-	void *data_addr;
-	void *bridge_addr;
-	struct semaphore sem;
+	void __iomem *core_addr;
+	void __iomem *data_addr;
+	void __iomem *bridge_addr;
+	struct mutex lock;
 	struct pci_dev *pdev;
-	struct class_device *class_dev;
+	struct device *dev;
 	struct cdev cdev;
 	int users;
 };
@@ -119,9 +107,11 @@ static ssize_t lsj_write (struct file *filp,
 	loff_t *offset);
 static int lsj_register (struct lsj *card);
 static void lsj_unregister (struct lsj *card);
-static ssize_t lsj_show_range (struct class_device *cd,
+static ssize_t lsj_show_range (struct device *dev,
+	struct device_attribute *attr,
 	char *buf);
-static ssize_t lsj_store_range (struct class_device *cd,
+static ssize_t lsj_store_range (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count);
 static int lsj_pci_probe (struct pci_dev *pdev,
@@ -143,12 +133,9 @@ static const unsigned int count = 256;
 MODULE_AUTHOR("Linear Systems Ltd.");
 MODULE_DESCRIPTION("JTAG driver");
 MODULE_LICENSE("GPL");
-
-#ifdef MODULE_VERSION
 MODULE_VERSION(MASTER_DRIVER_VERSION);
-#endif
 
-static struct pci_device_id lsj_pci_id_table[] = {
+static DEFINE_PCI_DEVICE_TABLE(lsj_pci_id_table) = {
 	{
 		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
 			DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU)
@@ -199,6 +186,10 @@ static struct pci_device_id lsj_pci_id_table[] = {
 	},
 	{
 		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
+			DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC)
+	},
+	{
+		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
 			SDIM_PCI_DEVICE_ID_LINSYS_SDILPFD)
 	},
 	{
@@ -215,6 +206,10 @@ static struct pci_device_id lsj_pci_id_table[] = {
 	},
 	{
 		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
+			DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC)
+	},
+	{
+		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
 			DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF)
 	},
 	{
@@ -227,7 +222,23 @@ static struct pci_device_id lsj_pci_id_table[] = {
 	},
 	{
 		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
-			HDSDI_PCI_DEVICE_ID_LINSYS)
+			DVBM_PCI_DEVICE_ID_LINSYS_DVBLPTXE)
+	},
+	{
+		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
+			DVBM_PCI_DEVICE_ID_LINSYS_DVBLPRXE)
+	},
+	{
+		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
+			HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDITXE)
+	},
+	{
+		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
+			HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDIRXE)
+	},
+	{
+		PCI_DEVICE(MASTER_PCI_VENDOR_ID_LINSYS,
+			HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDIQIE)
 	},
 	{0, }
 };
@@ -247,7 +258,8 @@ static struct file_operations lsj_fops = {
 	.read = lsj_read,
 	.write = lsj_write,
 	.poll = NULL,
-	.ioctl = NULL,
+	.unlocked_ioctl = NULL,
+	.compat_ioctl = NULL,
 	.open = lsj_open,
 	.release = lsj_release,
 	.fsync = NULL,
@@ -269,15 +281,13 @@ lsj_open (struct inode *inode, struct file *filp)
 	struct lsj *card = container_of(inode->i_cdev,struct lsj,cdev);
 
 	filp->private_data = card;
-	if (down_interruptible (&card->sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&card->lock);
 	if (card->users) {
-		up (&card->sem);
+		mutex_unlock (&card->lock);
 		return -EBUSY;
 	}
 	card->users++;
-	up (&card->sem);
+	mutex_unlock (&card->lock);
 	return nonseekable_open (inode, filp);
 }
 
@@ -293,11 +303,9 @@ lsj_release (struct inode *inode, struct file *filp)
 {
 	struct lsj *card = filp->private_data;
 
-	if (down_interruptible (&card->sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&card->lock);
 	card->users--;
-	up (&card->sem);
+	mutex_unlock (&card->lock);
 	return 0;
 }
 
@@ -320,21 +328,14 @@ lsj_read (struct file *filp,
 	struct lsj *card = filp->private_data;
 	ssize_t retcode = 1;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,8))
-	if (offset != &filp->f_pos) {
-		return -ESPIPE;
-	}
-#endif
 	if (length == 0) {
 		return 0;
 	}
-	if (down_interruptible (&card->sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&card->lock);
 	if (put_user (readl (card->data_addr), data)) {
 		retcode = -EFAULT;
 	}
-	up (&card->sem);
+	mutex_unlock (&card->lock);
 	return retcode;
 }
 
@@ -357,19 +358,12 @@ lsj_write (struct file *filp,
 	struct lsj *card = filp->private_data;
 	u32 reg;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,8))
-	if (offset != &filp->f_pos) {
-		return -ESPIPE;
-	}
-#endif
 	if (length == 0) {
 		return 0;
 	}
-	if (down_interruptible (&card->sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&card->lock);
 	if (get_user (reg, data)) {
-		up (&card->sem);
+		mutex_unlock (&card->lock);
 		return -EFAULT;
 	}
 	writel (reg, card->data_addr);
@@ -377,7 +371,7 @@ lsj_write (struct file *filp,
 	/* Dummy read to flush PCI posted writes */
 	readl (card->data_addr);
 
-	up (&card->sem);
+	mutex_unlock (&card->lock);
 	return 1;
 }
 
@@ -423,17 +417,17 @@ lsj_register (struct lsj *card)
 	/* Add this device to the list */
 	list_add_tail (&card->list, &lsj_list);
 
-	/* Register the class_device */
-	card->class_dev = class_device_create (lsj_class,
+	/* Register the device */
+	card->dev = device_create (lsj_class,
 		NULL,
 		MKDEV(major,minor),
-		&card->pdev->dev,
+		card,
 		"lsj%u", minor);
-	if (IS_ERR(card->class_dev)) {
-		err = PTR_ERR(card->class_dev);
-		goto NO_CLASSDEV;
+	if (IS_ERR(card->dev)) {
+		err = PTR_ERR(card->dev);
+		goto NO_DEV;
 	}
-	class_set_devdata (card->class_dev, card);
+	dev_set_drvdata (card->dev, card);
 
 	/* Activate the cdev */
 	if ((err = cdev_add (&card->cdev, MKDEV(major,minor), 1)) < 0) {
@@ -447,8 +441,8 @@ lsj_register (struct lsj *card)
 	return 0;
 
 NO_CDEV:
-	class_device_destroy (lsj_class, MKDEV(major,minor));
-NO_CLASSDEV:
+	device_destroy (lsj_class, MKDEV(major,minor));
+NO_DEV:
 	list_del (&card->list);
 NO_MINOR:
 	return err;
@@ -464,45 +458,47 @@ static void
 lsj_unregister (struct lsj *card)
 {
 	cdev_del (&card->cdev);
-	class_device_destroy (lsj_class, card->cdev.dev);
+	device_destroy (lsj_class, card->cdev.dev);
 	list_del (&card->list);
 	return;
 }
 
 /**
  * lsj_show_range - interface attribute read handler
- * @cd: class_device being read
+ * @dev: device being read
+ * @attr: device attribute
  * @buf: output buffer
  **/
 static ssize_t
-lsj_show_range (struct class_device *cd,
+lsj_show_range (struct device *dev,
+	struct device_attribute *attr,
 	char *buf)
 {
-	struct lsj *card = class_get_devdata (cd);
+	struct lsj *card = dev_get_drvdata (dev);
 	int retcode;
 
-	if (down_interruptible (&card->sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&card->lock);
 	retcode = snprintf (buf, PAGE_SIZE, "%u\n",
 		~(ee_read (card->bridge_addr + PLX_CNTRL, 0x14 >> 1) & ~0x3) + 1);
-	up (&card->sem);
+	mutex_unlock (&card->lock);
 
 	return retcode;
 }
 
 /**
  * lsj_store_range - interface attribute write handler
- * @cd: class_device being written
+ * @dev: device being written
+ * @attr: device attribute
  * @buf: input buffer
  * @count:
  **/
 static ssize_t
-lsj_store_range (struct class_device *cd,
+lsj_store_range (struct device *dev,
+	struct device_attribute *attr,
 	const char *buf,
 	size_t count)
 {
-	struct lsj *card = class_get_devdata (cd);
+	struct lsj *card = dev_get_drvdata (dev);
 	char *endp;
 	unsigned long val = simple_strtoul (buf, &endp, 0), goodval = 4;
 	int retcode = count;
@@ -517,18 +513,16 @@ lsj_store_range (struct class_device *cd,
 		goodval <<= 1;
 	}
 	val = (~val + 1) | PLX_LASRR_IO;
-	if (down_interruptible (&card->sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&card->lock);
 	ee_ewen (card->bridge_addr + PLX_CNTRL);
 	ee_write (card->bridge_addr + PLX_CNTRL, val >> 16, 0x14 >> 1);
 	ee_write (card->bridge_addr + PLX_CNTRL, val & 0xffff, 0x16 >> 1);
 	ee_ewds (card->bridge_addr + PLX_CNTRL);
-	up (&card->sem);
+	mutex_unlock (&card->lock);
 	return retcode;
 }
 
-static CLASS_DEVICE_ATTR(range,S_IRUGO|S_IWUSR,
+static DEVICE_ATTR(range,S_IRUGO|S_IWUSR,
 	lsj_show_range,lsj_store_range);
 
 /**
@@ -565,13 +559,12 @@ lsj_pci_probe (struct pci_dev *pdev,
 	}
 
 	/* Allocate a board info structure */
-	if (!(card = (struct lsj *)kmalloc (sizeof (*card), GFP_KERNEL))) {
+	if (!(card = (struct lsj *)kzalloc (sizeof (*card), GFP_KERNEL))) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
 	/* Initialize the board info structure and select the BAR */
-	memset (card, 0, sizeof (*card));
 	switch (id->device) {
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU:
 		board_name = DVBM_NAME_FDU;
@@ -651,8 +644,26 @@ lsj_pci_probe (struct pci_dev *pdev,
 		jtag_addr = DVBM_LPFD_JTAGR;
 		bridge_bar = 2;
 		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPTXE:
+		board_name = DVBM_NAME_LPTXE;
+		core_bar = 0;
+		jtag_addr = DVBM_LPFD_JTAGR;
+		bridge_bar = 2;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPRXE:
+		board_name = DVBM_NAME_LPRXE;
+		core_bar = 0;
+		jtag_addr = DVBM_LPFD_JTAGR;
+		bridge_bar = 2;
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE:
 		board_name = DVBM_NAME_LPQOE;
+		core_bar = 0;
+		jtag_addr = DVBM_QO_JTAGR;
+		bridge_bar = 2;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC:
+		board_name = DVBM_NAME_LPQOE_MINIBNC;
 		core_bar = 0;
 		jtag_addr = DVBM_QO_JTAGR;
 		bridge_bar = 2;
@@ -669,10 +680,10 @@ lsj_pci_probe (struct pci_dev *pdev,
 		jtag_addr = DVBM_QDUAL_JTAGR;
 		bridge_bar = 2;
 		break;
-	case HDSDI_PCI_DEVICE_ID_LINSYS:
-		board_name = HDSDI_NAME;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC:
+		board_name = DVBM_NAME_LPQDUALE_MINIBNC;
 		core_bar = 0;
-		jtag_addr = HDSDI_QI_JTAG;
+		jtag_addr = DVBM_QDUAL_JTAGR;
 		bridge_bar = 2;
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQLF:
@@ -683,19 +694,39 @@ lsj_pci_probe (struct pci_dev *pdev,
 		jtag_addr = DVBM_QLF_JTAGR;
 		bridge_bar = 2;
 		break;
+	case HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDITXE:
+		board_name = HDSDIM_NAME_TXE;
+		core_bar = 0;
+		jtag_addr = HDSDIM_TXE_JTAGR;
+		bridge_bar = DEVICE_COUNT_RESOURCE;
+		break;
+	case HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDIRXE:
+		board_name = HDSDIM_NAME_RXE;
+		core_bar = 0;
+		jtag_addr = HDSDIM_RXE_JTAGR;
+		bridge_bar = DEVICE_COUNT_RESOURCE;
+		break;
+	case HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDIQIE:
+		board_name = HDSDIM_NAME_QIE;
+		core_bar = 0;
+		jtag_addr = HDSDIM_QIE_JTAGR;
+		bridge_bar = 2;
+		break;
 	default:
 		board_name = "Unknown device";
 		core_bar = 0;
 		jtag_addr = 0;
-		bridge_bar = 0;
+		bridge_bar = DEVICE_COUNT_RESOURCE;
 		break;
 	}
 	card->core_addr = ioremap_nocache (pci_resource_start (pdev, core_bar),
 		pci_resource_len (pdev, core_bar));
 	card->data_addr = card->core_addr + jtag_addr;
-	card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, bridge_bar),
-		pci_resource_len (pdev, bridge_bar));
-	sema_init (&card->sem, 1);
+	if (bridge_bar < DEVICE_COUNT_RESOURCE) {
+		card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, bridge_bar),
+			pci_resource_len (pdev, bridge_bar));
+	}
+	mutex_init (&card->lock);
 	card->pdev = pdev;
 	cdev_init (&card->cdev, &lsj_fops);
 	card->cdev.owner = THIS_MODULE;
@@ -711,7 +742,7 @@ lsj_pci_probe (struct pci_dev *pdev,
 		goto NO_DEV;
 	}
 
-	/* Add class_device attributes */
+	/* Add device attributes */
 	switch (id->device) {
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU_R:
@@ -725,8 +756,8 @@ lsj_pci_probe (struct pci_dev *pdev,
 		/* Allow the PCI I/O address range to be changed
 		 * on boards which have new firmware which
 		 * exceeds the original address range */
-		if ((err = class_device_create_file (card->class_dev,
-			&class_device_attr_range)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_range)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'range'\n",
 				lsj_module_name);
@@ -764,7 +795,9 @@ lsj_pci_remove (struct pci_dev *pdev)
 				break;
 			}
 		}
-		iounmap (card->bridge_addr);
+		if (card->bridge_addr) {
+			iounmap (card->bridge_addr);
+		}
 		iounmap (card->core_addr);
 		kfree (card);
 		pci_set_drvdata (pdev, NULL);

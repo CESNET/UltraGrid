@@ -2,7 +2,7 @@
  *
  * Header file for gt64131.c.
  *
- * Copyright (C) 2003-2004 Linear Systems Ltd.
+ * Copyright (C) 2003-2009 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -177,38 +177,9 @@
 
 #define GT64_ICR_DMACOMP(c)	(0x00000010<<(c))
 
-#include <linux/types.h> /* size_t, u32 */
-#include <linux/pci.h> /* pci_dev, pci_pool */
+#include <linux/types.h> /* u32 */
 
-/**
- * gt64_dma - DMA information structure
- * @pdev: PCI device
- * @buffers: number of buffers
- * @bufsize: number of bytes in each buffer
- * @pointers_per_buf: number of descriptors per buffer
- * @direction: direction of data flow
- * @desc_pool: DMA-coherent memory pool
- * @desc: pointer to an array of pointers to DMA descriptors
- * @page: pointer to an array of pointers to memory pages
- * @vpage: pointer to an array of pointers to DMA buffer fragments
- * @dev_buffer: buffer being accessed by the device
- * @cpu_buffer: buffer being accessed by the CPU
- * @cpu_offset: offset of the CPU access point within cpu_buffer
- **/
-struct gt64_dma {
-	struct pci_dev *pdev;
-	unsigned int buffers;
-	unsigned int bufsize;
-	unsigned int pointers_per_buf;
-	unsigned int direction;
-	struct pci_pool *desc_pool;
-	struct gt64_desc **desc;
-	unsigned long *page;
-	unsigned char **vpage;
-	volatile size_t dev_buffer;
-	size_t cpu_buffer;
-	size_t cpu_offset;
-};
+#include "mdma.h"
 
 /**
  * gt64_desc - GT-64131 DMA descriptor
@@ -224,62 +195,14 @@ struct gt64_desc {
 	u32 next_desc;
 };
 
+/* External variables */
+
+extern struct master_dma_operations gt64_dma_ops;
+
 /* External function prototypes */
 
-struct gt64_dma *gt64_alloc (struct pci_dev *pdev,
-	u32 data_addr,
-	unsigned int buffers,
-	unsigned int bufsize,
-	unsigned int direction);
-void gt64_free (struct gt64_dma *dma);
-ssize_t gt64_read (struct gt64_dma *dma, char *data, size_t length);
-u32 gt64_head_desc_bus_addr (struct gt64_dma *dma);
-void gt64_reset (struct gt64_dma *dma);
-
-/* Inline functions */
-
-/**
- * gt64_rx_buflevel - return the number of receive buffers in use
- * @dma: DMA buffer management structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-gt64_rx_buflevel (struct gt64_dma *dma)
-{
-	return ((dma->dev_buffer + dma->buffers - dma->cpu_buffer) %
-		dma->buffers);
-}
-
-/**
- * gt64_rx_isempty - return true if the receive buffers are empty
- * @dma: DMA buffer management structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-gt64_rx_isempty (struct gt64_dma *dma)
-{
-	return (dma->cpu_buffer == dma->dev_buffer);
-}
-
-/**
- * gt64_advance - increment the device buffer pointer
- * @dma: DMA buffer management structure
- *
- * We don't lock because this function is the only
- * dev_buffer writer, it should only be called from
- * a single interrupt service routine,
- * and dev_buffer reads should be atomic.
- **/
-static inline void
-gt64_advance (struct gt64_dma *dma)
-{
-	dma->dev_buffer = (dma->dev_buffer + 1) % dma->buffers;
-	return;
-}
+u32 gt64_head_desc_bus_addr (struct master_dma *dma);
+void gt64_reset (struct master_dma *dma);
 
 #endif
 

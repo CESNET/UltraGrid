@@ -2,7 +2,7 @@
  *
  * Functions related to the PCI 9056 serial EEPROM.
  *
- * Copyright (C) 2005 Linear Systems Ltd.
+ * Copyright (C) 2005, 2009 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -31,8 +31,8 @@
 #include "eeprom.h"
 
 /* Static function prototypes */
-static void ee_clk (void *addr);
-static unsigned int ee_instruction (void *addr,
+static void ee_clk (void __iomem *addr);
+static unsigned int ee_instruction (void __iomem *addr,
 	unsigned char opcode,
 	unsigned short int word);
 
@@ -41,7 +41,7 @@ static unsigned int ee_instruction (void *addr,
  * @addr: address of the serial EEPROM control register
  **/
 static void
-ee_clk (void *addr)
+ee_clk (void __iomem *addr)
 {
 	unsigned int reg = readl (addr);
 
@@ -63,7 +63,7 @@ ee_clk (void *addr)
  * and the other EEPROM bits clear.
  **/
 static unsigned int
-ee_instruction (void *addr,
+ee_instruction (void __iomem *addr,
 	unsigned char opcode,
 	unsigned short int word)
 {
@@ -105,7 +105,7 @@ ee_instruction (void *addr,
  * @addr: address of the serial EEPROM control register
  **/
 void
-ee_ewds (void *addr)
+ee_ewds (void __iomem *addr)
 {
 	unsigned int reg = ee_instruction (addr, 0x00, 0x3f);
 
@@ -122,7 +122,7 @@ ee_ewds (void *addr)
  * @addr: address of the serial EEPROM control register
  **/
 void
-ee_ewen (void *addr)
+ee_ewen (void __iomem *addr)
 {
 	unsigned int reg = ee_instruction (addr, 0x00, 0xff);
 
@@ -140,7 +140,7 @@ ee_ewen (void *addr)
  * @word: serial EEPROM word address
  **/
 unsigned int
-ee_read (void *addr, unsigned short int word)
+ee_read (void __iomem *addr, unsigned short int word)
 {
 	unsigned int reg = ee_instruction (addr, 0x02, word);
 	unsigned int range = 0;
@@ -173,7 +173,7 @@ ee_read (void *addr, unsigned short int word)
  * @word: serial EEPROM word address
  **/
 void
-ee_write (void *addr, unsigned short int val, unsigned short int word)
+ee_write (void __iomem *addr, unsigned short int val, unsigned short int word)
 {
 	unsigned int reg = ee_instruction (addr, 0x01, word);
 	int i;

@@ -2,7 +2,7 @@
  *
  * Master configuration program.
  *
- * Copyright (C) 2004-2006 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2004-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,8 +42,8 @@
 #include "util.h"
 
 #define MAXLEN 256
-#define BYPASS_FLAG		0x00000001
-#define GPO_FLAG		0x00000002
+#define BYPASS_FLAG	0x00000001
+#define GPO_FLAG	0x00000002
 #define WATCHDOG_FLAG	0x00000004
 #define BLACKBURST_FLAG	0x00000008
 
@@ -107,7 +107,7 @@ main (int argc, char **argv)
 			printf ("\nBYPASS may be:\n");
 			printf ("\t0 (bypass)\n");
 			printf ("\t1 (normal)\n");
-			printf ("\t2 (enable watchdog timer)\n");
+			printf ("\t2 (enable and reset the watchdog timer)\n");
 			printf ("\nBLACKBURST may be:\n");
 			printf ("\t0 (NTSC)\n");
 			printf ("\t1 (PAL)\n");
@@ -138,7 +138,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2004-2006 "
+			printf ("\nCopyright (C) 2004-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "

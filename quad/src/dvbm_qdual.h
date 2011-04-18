@@ -2,7 +2,7 @@
  *
  * Header file for the Linear Systems Ltd. DVB Master Quad-2in2out.
  *
- * Copyright (C) 2006-2008 Linear Systems Ltd.
+ * Copyright (C) 2006-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -28,15 +28,15 @@
 #include <linux/pci.h> /* pci_dev */
 #include <linux/init.h> /* __devinit */
 
-#include "mdev.h"
-
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUAL 0x007d
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUALE 0x0086
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE 0x0096
+#define DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC 0x00ad
 
 #define DVBM_NAME_QDUAL "DVB Master Quad-2in2out"
 #define DVBM_NAME_QDUALE "DVB Master Quad-2in2out PCIe"
 #define DVBM_NAME_LPQDUALE "DVB Master Quad-2in2out LP PCIe"
+#define DVBM_NAME_LPQDUALE_MINIBNC "DVB Master Quad-2in2out LP PCIe Mini BNC"
 
 /* DVB Quad-2in2out configuration */
 #define DVBM_QDUAL_TFL			0x200 /* Transmit FIFO Start Level */
@@ -44,13 +44,13 @@
 #define DVBM_QDUAL_TDMATL		0xfdf /* Transmit DMA Trigger Level */
 
 /* Register addresses */
-#define DVBM_QDUAL_FPGAID 		0x400 /* FPGA ID */
-#define DVBM_QDUAL_HL2CSR 		0x404 /* HOTLink II Control and status */
-#define DVBM_QDUAL_27COUNTR 		0x408 /* 27 MHz Counter */
-#define DVBM_QDUAL_SSN_HI 		0x40c /* Silicon serial number, High */
-#define DVBM_QDUAL_SSN_LO 		0x410 /* Silicon serial number, low */
-#define DVBM_QDUAL_ASMIR 		0x414 /* ASMI */
-#define DVBM_QDUAL_JTAGR 		0x414 /* JTAG */
+#define DVBM_QDUAL_FPGAID		0x400 /* FPGA ID */
+#define DVBM_QDUAL_HL2CSR		0x404 /* HOTLink II Control and status */
+#define DVBM_QDUAL_27COUNTR		0x408 /* 27 MHz Counter */
+#define DVBM_QDUAL_SSN_HI		0x40c /* Silicon serial number, High */
+#define DVBM_QDUAL_SSN_LO		0x410 /* Silicon serial number, low */
+#define DVBM_QDUAL_ASMIR		0x414 /* ASMI */
+#define DVBM_QDUAL_JTAGR		0x414 /* JTAG */
 
 /* Receiver Registers */
 #define DVBM_QDUAL_RCSR(c)		((c)*0x100+0x004) /* Receive Control/Status */
@@ -89,11 +89,11 @@
 #define DVBM_QDUAL_RCSR_RSS		0x00000008 /* Reed-Solomon Strip */
 #define DVBM_QDUAL_RCSR_RXE		0x00000010 /* Receiver Enable */
 #define DVBM_QDUAL_RCSR_RXRST		0x00000020 /* Receiver Reset */
-#define DVBM_QDUAL_RCSR_INVSYNC		0x00000080 /* Inverted Sync Byte Enable*/
+#define DVBM_QDUAL_RCSR_INVSYNC		0x00000080 /* Inverted Sync Byte Enable */
 #define DVBM_QDUAL_RCSR_TSE		0x00000100 /* Appended Timestamp Enable */
 #define DVBM_QDUAL_RCSR_PTSE		0x00000200 /* Prepended Timestamp Enable */
 #define DVBM_QDUAL_RCSR_PFE		0x00001000 /* PID Filter Enable */
-#define DVBM_QDUAL_RCSR_RNP 		0x00002000 /* Null Packet Replacement */
+#define DVBM_QDUAL_RCSR_RNP		0x00002000 /* Null Packet Replacement */
 
 /* Interrupt Control/Status Register bit locations */
 #define DVBM_QDUAL_ICSR_TXUIE	0x00000001 /* Tx FIFO Underrun Int. Enable */
@@ -102,7 +102,7 @@
 #define DVBM_QDUAL_ICSR_TXD	0x00004000 /* Tx Data */
 #define DVBM_QDUAL_ICSR_TXUIS	0x00010000 /* Tx FIFO Underrun Int. Status */
 #define DVBM_QDUAL_ICSR_TXDIS	0x00400000 /* Tx Data Interrupt Status */
-#define DVBM_QDUAL_ICSR_PMS 	0x04000000 /* Packet Maturity Status */
+#define DVBM_QDUAL_ICSR_PMS	0x04000000 /* Packet Maturity Status */
 #define DVBM_QDUAL_ICSR_NOSIG	0x08000000 /* No Signal */
 #define DVBM_QDUAL_ICSR_RXOIE	0x00000001 /* Rx FIFO Overrun Int. Enable */
 #define DVBM_QDUAL_ICSR_RXLOSIE	0x00000002 /* Rx Loss of Sync. Int. Enable */
@@ -110,7 +110,7 @@
 #define DVBM_QDUAL_ICSR_RXCDIE	0x00000008 /* Rx Carrier Detect Int. Enable */
 #define DVBM_QDUAL_ICSR_RXDIE	0x00000010 /* Rx Data Int. Enable */
 #define DVBM_QDUAL_ICSR_RXO	0x00000100 /* Rx FIFO Overrun Status */
-#define DVBM_QDUAL_ICSR_RXPASSING  0x00000200 /* Rx sync status same as SYNC*/
+#define DVBM_QDUAL_ICSR_RXPASSING  0x00000200 /* Rx sync status same as SYNC */
 #define DVBM_QDUAL_ICSR_RXCD	0x00000800 /* Rx Carrier Detect Status */
 #define DVBM_QDUAL_ICSR_RXD	0x00001000 /* Rx Data */
 #define DVBM_QDUAL_ICSR_RXOIS	0x00010000 /* Rx FIFO Overrun Int. Status */
@@ -121,23 +121,17 @@
 #define DVBM_QDUAL_ICSR_RX204	0x01000000 /* Rx 204-byte packets */
 
 /* Transmit Control and Status (TCSR) */
-#define DVBM_QDUAL_TCSR_188	0x0 /* 188 Byte Packet */
-#define DVBM_QDUAL_TCSR_204 	0x1 /* 204 Byte Packet */
-#define DVBM_QDUAL_TCSR_MAKE204 0x2 /* Make 204 */
+#define DVBM_QDUAL_TCSR_188	0x00000000 /* 188 Byte Packet */
+#define DVBM_QDUAL_TCSR_204	0x00000001 /* 204 Byte Packet */
+#define DVBM_QDUAL_TCSR_MAKE204 0x00000002 /* Make 204 */
 #define DVBM_QDUAL_TCSR_TXE	0x00000010 /* Transmit Enable */
 #define DVBM_QDUAL_TCSR_TXRST	0x00000020 /* Transmit Reset */
 #define DVBM_QDUAL_TCSR_EXTCLK	0x00000040 /* External clock Blackburst */
 #define DVBM_QDUAL_TCSR_RXCLK	0x00000080 /* Recovered Rx Clock */
+#define DVBM_QDUAL_TCSR_EXTCLK2	0x000008c0 /* External Clock 27 MHz */
 #define DVBM_QDUAL_TCSR_TTSS	0x00000100 /* Transmit Timestamp Strip */
 #define DVBM_QDUAL_TCSR_TNP	0x00000200 /* Transmit Null Packet */
 #define DVBM_QDUAL_TCSR_TPRC	0x00000400 /* Transmit Packet Release */
-
-/* Interrupt Control/Status Register bitmasks */
-#define DVBM_QDUAL_ICSR_TX_IEIS_MASK	(DVBM_QDUAL_ICSR_TXUIE|DVBM_QDUAL_ICSR_TXDIE|DVBM_QDUAL_ICSR_TXU|DVBM_QDUAL_ICSR_TXD|DVBM_QDUAL_ICSR_TXUIS|DVBM_QDUAL_ICSR_TXDIS)
-/* Interrupt status bits */
-#define DVBM_QDUAL_ICSR_TX_IS_MASK		(DVBM_QDUAL_ICSR_TUIS|DVBM_QDUAL_ICSR_TXDIS)
-/* Interrupt enable bits */
-#define DVBM_QDUAL_ICSR_TX_IE_MASK		(DVBM_QDUAL_ICSR_TUIE|DVBM_QDUAL_ICSR_TXDIE) /* Interrupt Enable BitMask */
 
 /* Finetuning Register bit locations */
 #define DVBM_QDUAL_FTR_ILBIG_MASK		0x0f000000
@@ -152,19 +146,12 @@
 #define DVBM_QDUAL_RCSR_SYNC_MASK	0x00000003
 
 /* Transmit Control/Status Register bitmasks */
-#define DVBM_QDUAL_TCSR_CLK_MASK	0x000020c0
+#define DVBM_QDUAL_TCSR_CLK_MASK	0x0000d8c0
 #define DVBM_QDUAL_TCSR_MODE_MASK	0x00000003
 
-/* Mask to reset all IE options in ICSR */
-#define DVBM_QDUAL_ICSR_RX_IE_MASK	(DVBM_QDUAL_ICSR_RXOIE|DVBM_QDUAL_ICSR_RXLOSIE|DVBM_QDUAL_ICSR_RXAOSIE|DVBM_QDUAL_ICSR_RXCDIE|DVBM_QDUAL_ICSR_RXDIE)
-/* The interrupts that are enabled */
-#define DVBM_QDUAL_ICSR_RX_IE	(DVBM_QDUAL_ICSR_RXOIE|DVBM_QDUAL_ICSR_RXLOSIE|DVBM_QDUAL_ICSR_RXAOSIE|DVBM_QDUAL_ICSR_RXCDIE)
-/* Interrupt Status bits in ICSR */
-#define DVBM_QDUAL_ICSR_RX_IS_BITS (DVBM_QDUAL_ICSR_ROIS|DVBM_QDUAL_ICSR_LOSIS|DVBM_QDUAL_ICSR_ASIS|DVBM_QDUAL_ICSR_CDIS|DVBM_QDUAL_ICSR_RXDIS)
-
 /* External function prototypes */
-int dvbm_qdual_pci_probe (struct pci_dev *dev) __devinit;
-void dvbm_qdual_pci_remove (struct master_dev *card);
+int dvbm_qdual_pci_probe (struct pci_dev *pdev) __devinit;
+void dvbm_qdual_pci_remove (struct pci_dev *pdev);
 
 #endif
 

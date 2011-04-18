@@ -3,7 +3,7 @@
  * Shared header file for the Linux user-space API for
  * Linear Systems Ltd. SMPTE 259M-C interface boards.
  *
- * Copyright (C) 2004-2005 Linear Systems Ltd.
+ * Copyright (C) 2004-2010 Linear Systems Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -76,13 +76,16 @@
 #define SDI_IOC_RXGETCARRIER	_IOR(SDI_IOC_MAGIC, 68, int)
 #define SDI_IOC_RXGETSTATUS	_IOR(SDI_IOC_MAGIC, 69, int)
 
-#define SDI_IOC_RXGET27COUNT 	_IOR(SDI_IOC_MAGIC, 70, unsigned int) 
-#define SDI_IOC_RXGETTIMESTAMP 	_IOR(SDI_IOC_MAGIC, 71, unsigned int)
-
 #define SDI_IOC_GETID		_IOR(SDI_IOC_MAGIC, 129, unsigned int)
 #define SDI_IOC_GETVERSION	_IOR(SDI_IOC_MAGIC, 130, unsigned int)
-#define SDI_IOC_QBUF		_IOR(SDI_IOC_MAGIC, 131, unsigned int)
-#define SDI_IOC_DQBUF		_IOR(SDI_IOC_MAGIC, 132, unsigned int)
+/* Provide compatibility with applications compiled for older API */
+#define SDI_IOC_QBUF_DEPRECATED		_IOR(SDI_IOC_MAGIC, 131, unsigned int)
+#define SDI_IOC_QBUF_DEPRECATED2	_IOW(SDI_IOC_MAGIC, 131, unsigned int)
+#define SDI_IOC_QBUF		_IO(SDI_IOC_MAGIC, 131)
+/* Provide compatibility with applications compiled for older API */
+#define SDI_IOC_DQBUF_DEPRECATED	_IOR(SDI_IOC_MAGIC, 132, unsigned int)
+#define SDI_IOC_DQBUF_DEPRECATED2	_IOW(SDI_IOC_MAGIC, 132, unsigned int)
+#define SDI_IOC_DQBUF		_IO(SDI_IOC_MAGIC, 132)
 
 /* Transmitter event flag bit locations */
 #define SDI_EVENT_TX_BUFFER_ORDER	0
@@ -103,10 +106,6 @@
 /* Interface capabilities */
 #define SDI_CAP_TX_RXCLKSRC	0x00000001
 
-#define SDI_CAP_RX_27COUNTER	0x00000004
-#define SDI_CAP_RX_TIMESTAMP	0x00000008
-
-
 /* Transmitter clock source settings */
 #define SDI_CTL_TX_CLKSRC_ONBOARD	0
 #define SDI_CTL_TX_CLKSRC_EXT		1
@@ -115,11 +114,6 @@
 /* Mode settings */
 #define SDI_CTL_MODE_8BIT	0
 #define SDI_CTL_MODE_10BIT	1
-
-/* Mode settings for HD-SDI card */
-#define HDSDI_CTL_MODE_RAW 0
-#define HDSDI_CTL_MODE_SYNC 1
-#define HDSDI_CTL_MODE_DEINTERLACE 2
 
 #endif
 

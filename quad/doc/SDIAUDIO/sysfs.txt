@@ -1,0 +1,71 @@
+This file briefly explains how the SMPTE 292M audio API uses the
+sysfs virtual filesystem.
+
+Some interface parameters are controlled through sysfs.
+These include the number and size of buffers, number of audio channels,
+sample packing, transmitter sampling rate, and transmitter non-audio bits.
+These parameters may be changed by the root user
+while the associated interface is not open.
+Their values persist as long as the driver module is loaded.
+Any user may read the parameters at any time.
+
+For example,
+
+	cat /sys/class/sdiaudio/sdiaudiorx0/buffers
+
+displays the number of buffers allocated by the first receive interface,
+while
+
+	echo 6400 > /sys/class/sdiaudio/sdiaudiotx1/bufsize
+
+sets the size of the buffers on the second transmit interface to 6400 bytes.
+
+An example program called sdiaudiocfg is also provided
+in the Examples/SDIAUDIO directory
+which demonstrates how an application can read or change the parameters.
+
+Each parameter has certain limits on the values it can take.
+These limits are described below. If a parameter does not exist
+on a given interface, that parameter is omitted.
+Some interfaces do not support all possible values.
+
+buffers
+	Number of buffers in the driver buffer queue.
+	Valid values:	2...32768
+
+bufsize
+	Size of each buffer in the driver buffer queue in bytes.
+	Valid values:
+		For transmitters,
+			1024, 1028, 1032,...67108864
+		For receivers,
+			4, 8, 12,...67108864
+
+channels
+	Number of audio channels.
+	Valid values:	2 (default), 4, 6, 8
+
+non_audio
+	Transmitter AES3 non-audio flags.
+	Each bit controls the non-audio setting for one channel,
+	where 0 is PCM and 1 is non-audio data.
+	Valid values:	0..255
+
+sample_size
+	Audio sample packing.
+	Valid values:
+		16 - pack each sample into a signed 16-bit little-endian word (default)
+		24 - pack each sample into a signed 24-bit little-endian word
+		32 - pack each sample into a signed 32-bit little-endian word
+
+sample_rate
+	Transmitter sample rate.
+	Valid values:
+		32000 - 32 kHz
+		44100 - 44.1 kHz
+		48000 - 48 kHz (default)
+
+Many methods of writing sysfs parameters do not check for errors.
+Confirming the change by reading the value after a write is recommended
+in these cases. Sdiaudiocfg checks for write errors.
+

@@ -2,7 +2,7 @@
  *
  * DVB ASI configuration program.
  *
- * Copyright (C) 2001-2006 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2001-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -124,7 +124,8 @@ main (int argc, char **argv)
 				"may be:\n"
 				"\t0 (onboard oscillator)\n"
 				"\t1 (external reference clock)\n"
-				"\t2 (recovered receive clock)\n");
+				"\t2 (recovered receive clock)\n"
+				"\t3 (external reference clock 2)\n");
 			printf ("\nFor transmitters, MODE may be:\n"
 				"\t0 (assume 188-byte packets)\n"
 				"\t1 (assume 204-byte packets)\n"
@@ -194,7 +195,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2001-2006 "
+			printf ("\nCopyright (C) 2001-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -300,6 +301,9 @@ main (int argc, char **argv)
 				break;
 			case ASI_CTL_TX_CLKSRC_RX:
 				printf ("\tUsing recovered receive clock.\n");
+				break;
+			case ASI_CTL_TX_CLKSRC_EXT2:
+				printf ("\tUsing external reference clock 2.\n");
 				break;
 			default:
 				printf ("\tSet clock source = %lu.\n", clksrc);
@@ -541,6 +545,9 @@ main (int argc, char **argv)
 					break;
 				case ASI_CTL_TX_CLKSRC_RX:
 					printf ("(recovered receive clock)\n");
+					break;
+				case ASI_CTL_TX_CLKSRC_EXT2:
+					printf ("(external reference 2)\n");
 					break;
 				default:
 					printf ("(unknown)\n");

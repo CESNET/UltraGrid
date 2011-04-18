@@ -2,7 +2,7 @@
  *
  * Header file for the Linear Systems Ltd. SDI Master.
  *
- * Copyright (C) 2004-2008 Linear Systems Ltd.
+ * Copyright (C) 2004-2009 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -38,7 +38,7 @@
 #define SDIM_RDMATL	0x010
 #define SDIM_TDMATL	0x1ef
 #define SDIM_TFSL	0x100
-#define SDIME_TDMATL 	0x7f8
+#define SDIME_TDMATL	0x7f8
 #define SDIME_TFSL	0x400
 
 /* Register addresses */
@@ -80,6 +80,7 @@
 #define SDIM_ICSR_RXSTATMASK	0x00323600
 
 /* Transmit Control/Status Register bit locations */
+#define SDIM_TCSR_RP178	0x00004000 /* RP178 SDI Pattern Generation Disable */
 #define SDIM_TCSR_PAL		0x00000200 /* PAL External Clock */
 #define SDIM_TCSR_RXCLK		0x00000080 /* Recovered Rx Clock */
 #define SDIM_TCSR_EXTCLK	0x00000040 /* External Clock */
@@ -91,7 +92,6 @@
 #define SDIM_TCSR_CLKMASK	0x000002c0
 
 /* Receive Control/Status Register bit locations */
-#define SDIM_TCSR_RP178	0x00004000 /* RP178 SDI Pattern Generation Disable*/
 #define SDIM_RCSR_RST	0x00000020 /* Reset */
 #define SDIM_RCSR_EN	0x00000010 /* Enable */
 #define SDIM_RCSR_10BIT	0x00000001 /* 10-bit data */

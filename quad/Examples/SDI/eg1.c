@@ -2,7 +2,7 @@
  * 
  * SMPTE EG 1 color bar generator for Linear Systems Ltd. SMPTE 259M-C boards.
  *
- * Copyright (C) 2004 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2004, 2008 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,6 @@
 
 /* Static function prototypes */
 static int mkline (unsigned short int *buf,
-	size_t count,
 	int field,
 	int active);
 static uint8_t *pack8 (uint8_t *outbuf,
@@ -76,16 +75,12 @@ static const char progname[] = "eg1";
  **/
 static int
 mkline (unsigned short int *buf,
-	size_t count,
 	int field,
 	int active)
 {
 	const unsigned int b = 205;
 	unsigned short int *p = buf, sav, eav;
 
-	if (count < TOTAL_SAMPLES) {
-		return -EINVAL;
-	}
 	switch (field) {
 	case FIELD_1:
 		switch (active) {
@@ -366,7 +361,7 @@ int
 main (int argc, char **argv)
 {
 	int opt, frames;
-	unsigned char *(*pack)(unsigned char *outbuf,
+	uint8_t *(*pack)(uint8_t *outbuf,
 		unsigned short int *inbuf,
 		size_t count);
 	char *endptr;
@@ -431,64 +426,64 @@ main (int argc, char **argv)
 
 	/* Generate a frame */
 	for (i = 10; i <= 11; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, VERT_BLANKING);
+		mkline (buf, FIELD_1, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 12; i <= 19; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, VERT_BLANKING);
+		mkline (buf, FIELD_1, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 20; i <= 182; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, ACTIVE_MAIN);
+		mkline (buf, FIELD_1, ACTIVE_MAIN);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 183; i <= 202; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, ACTIVE_CHROMA_SET);
+		mkline (buf, FIELD_1, ACTIVE_CHROMA_SET);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 203; i <= 263; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, ACTIVE_BLACK_SET);
+		mkline (buf, FIELD_1, ACTIVE_BLACK_SET);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 264; i <= 265; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, VERT_BLANKING);
+		mkline (buf, FIELD_1, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 266; i <= 271; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, VERT_BLANKING);
+		mkline (buf, FIELD_2, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
-	mkline (buf, TOTAL_SAMPLES, FIELD_2, VERT_BLANKING);
+	mkline (buf, FIELD_2, VERT_BLANKING);
 	p = pack (p, buf, TOTAL_SAMPLES);
 	for (i = 273; i <= 274; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, VERT_BLANKING);
+		mkline (buf, FIELD_2, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 275; i <= 282; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, VERT_BLANKING);
+		mkline (buf, FIELD_2, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 283; i <= 445; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, ACTIVE_MAIN);
+		mkline (buf, FIELD_2, ACTIVE_MAIN);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 446; i <= 464; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, ACTIVE_CHROMA_SET);
+		mkline (buf, FIELD_2, ACTIVE_CHROMA_SET);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 465; i <= 525; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, ACTIVE_BLACK_SET);
+		mkline (buf, FIELD_2, ACTIVE_BLACK_SET);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 1; i <= 3; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_2, VERT_BLANKING);
+		mkline (buf, FIELD_2, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
 	for (i = 4; i <= 8; i++) {
-		mkline (buf, TOTAL_SAMPLES, FIELD_1, VERT_BLANKING);
+		mkline (buf, FIELD_1, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
 	}
-	mkline (buf, TOTAL_SAMPLES, FIELD_1, VERT_BLANKING);
+	mkline (buf, FIELD_1, VERT_BLANKING);
 	p = pack (p, buf, TOTAL_SAMPLES);
 
 	while (frames) {

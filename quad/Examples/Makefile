@@ -16,7 +16,7 @@ bindir = $(exec_prefix)/bin
 CFLAGS = -O2 -Wall -W -I$(INCLUDEDIR) -D_LARGEFILE_SOURCE \
 	$(shell getconf LFS_CFLAGS; getconf LFS_LDFLAGS; getconf LFS_LIBS)
 TARGETS = mastercfg
-SUBDIRS = ASI SDI
+SUBDIRS = ASI SDI SDIAUDIO SDIVIDEO
 
 .c:
 	$(CC) $(CFLAGS) -o $@ $@.c

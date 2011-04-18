@@ -1,0 +1,112 @@
+This file briefly explains how the SMPTE 292M video API uses the
+sysfs virtual filesystem.
+
+Some interface parameters are controlled through sysfs.
+These include the interface operating mode, number and size of buffers,
+and transmitter frame mode.
+These parameters may be changed by the root user
+while the associated interface is not open.
+Their values persist as long as the driver module is loaded.
+Any user may read the parameters at any time.
+
+For example,
+
+	cat /sys/class/sdivideo/sdivideorx0/buffers
+
+displays the number of buffers allocated by the first receive interface,
+while
+
+	echo 1843200 > /sys/class/sdivideo/sdivideotx1/bufsize
+
+sets the size of the buffers on the second transmit interface to 1843200 bytes.
+
+An example program called sdivideocfg is also provided
+in the Examples/SDIVIDEO directory
+which demonstrates how an application can read or change the parameters.
+
+Each parameter has certain limits on the values it can take.
+These limits are described below. If a parameter does not exist
+on a given interface, that parameter is omitted.
+Some interfaces do not support all possible values.
+
+buffers
+	Number of buffers in the driver buffer queue.
+	Valid values:	2...32768
+
+bufsize
+	Size of each buffer in the driver buffer queue in bytes.
+	Valid values:
+		For transmitters,
+			1024, 1028, 1032,...67108864
+		For receivers,
+			4, 8, 12,...67108864
+
+clock_source
+	Transmitter clock source.
+	Valid values:
+		0 - onboard oscillator (default)
+		1 - external 525i or NTSC reference
+		2 - external 625i or PAL reference
+		3 - external 525p reference
+		4 - external 625p reference
+		5 - external 720p/60 reference
+		6 - external 720p/59.94 reference
+		7 - external 720p/50 reference
+		8 - external 720p/30 reference
+		9 - external 720p/29.97 reference
+		10 - external 720p/25 reference
+		11 - external 720p/24 reference
+		12 - external 720p/23.98 reference
+		13 - external 1080p/60 reference
+		14 - external 1080p/59.94 reference
+		15 - external 1080p/50 reference
+		16 - external 1080p/30 reference
+		17 - external 1080p/29.97 reference
+		18 - external 1080p/25 reference
+		19 - external 1080p/24 reference
+		20 - external 1080p/23.98 reference
+		21 - external 1080i/60 reference
+		22 - external 1080i/59.94 reference
+		23 - external 1080i/50 reference
+
+frame_mode
+	Transmitter frame mode.
+	Valid values:
+		1 - SMPTE 125M 486i 59.94 Hz
+		2 - ITU-R BT.601 720x576i 50 Hz
+		5 - SMPTE 260M 1035i 60 Hz
+		6 - SMPTE 260M 1035i 59.94 Hz
+		8 - SMPTE 274M 1080i 60 Hz
+		9 - SMPTE 274M 1080psf 30 Hz
+		10 - SMPTE 274M 1080i 59.94 Hz
+		11 - SMPTE 274M 1080psf 29.97 Hz
+		12 - SMPTE 274M 1080i 50 Hz
+		13 - SMPTE 274M 1080psf 25 Hz
+		14 - SMPTE 274M 1080psf 24 Hz
+		15 - SMPTE 274M 1080psf 23.98 Hz
+		16 - SMPTE 274M 1080p 30 Hz
+		17 - SMPTE 274M 1080p 29.97 Hz
+		18 - SMPTE 274M 1080p 25 Hz
+		19 - SMPTE 274M 1080p 24 Hz
+		20 - SMPTE 274M 1080p 23.98 Hz
+		21 - SMPTE 296M 720p 60 Hz
+		22 - SMPTE 296M 720p 59.94 Hz (default)
+		23 - SMPTE 296M 720p 50 Hz
+		24 - SMPTE 296M 720p 30 Hz
+		25 - SMPTE 296M 720p 29.96 Hz
+		26 - SMPTE 296M 720p 25 Hz
+		27 - SMPTE 296M 720p 24 Hz
+		28 - SMPTE 296M 720p 23.98 Hz
+
+mode
+	Interface operating mode.
+	Valid values:
+		0 - uyvy (default)
+		1 - v210
+		2 - v210 deinterlaced
+		3 - raw
+
+Many methods of writing sysfs parameters do not check for errors.
+Confirming the change by reading the value after a write is recommended
+in these cases. Sdivideocfg checks for write errors.
+

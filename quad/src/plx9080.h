@@ -3,7 +3,7 @@
  * Header file for plx9080.c.
  *
  * Copyright (C) 1999 Tony Bolger <d7v@indigo.ie>
- * Copyright (C) 2000-2006 Linear Systems Ltd.
+ * Copyright (C) 2000-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -149,43 +149,9 @@
 #define PLX_DMADPR_EOC_ORDER	1 /* log2 (PLX_DMADPR_EOC) */
 #define PLX_DMADPR_INT_ORDER	2 /* log2 (PLX_DMADPR_INT) */
 
-#include <linux/types.h> /* size_t, u32 */
-#include <linux/pci.h> /* pci_dev, pci_pool */
-#include <linux/mm.h> /* vm_operations_struct */
+#include <linux/types.h> /* u32 */
 
-#define PLX_MMAP 0x00000001
-
-/**
- * plx_dma - DMA information structure
- * @pdev: PCI device
- * @buffers: number of buffers
- * @bufsize: number of bytes in each buffer
- * @pointers_per_buf: number of descriptors per buffer
- * @direction: direction of data flow
- * @desc_pool: DMA-coherent memory pool
- * @desc: pointer to an array of pointers to DMA descriptors
- * @page: pointer to an array of pointers to memory pages
- * @vpage: pointer to an array of pointers to DMA buffer fragments
- * @dev_buffer: buffer being accessed by the device
- * @cpu_buffer: buffer being accessed by the CPU
- * @cpu_offset: offset of the CPU access point within cpu_buffer
- * @flags: allocation flags
- **/
-struct plx_dma {
-	struct pci_dev *pdev;
-	unsigned int buffers;
-	unsigned int bufsize;
-	unsigned int pointers_per_buf;
-	unsigned int direction;
-	struct pci_pool *desc_pool;
-	struct plx_desc **desc;
-	unsigned long *page;
-	unsigned char **vpage;
-	volatile size_t dev_buffer;
-	size_t cpu_buffer;
-	size_t cpu_offset;
-	unsigned int flags;
-};
+#include "mdma.h"
 
 /**
  * plx_desc - PLX 9080 DMA descriptor
@@ -203,99 +169,14 @@ struct plx_desc {
 
 /* External variables */
 
-extern struct vm_operations_struct plx_vm_ops;
+extern struct master_dma_operations plx_dma_ops;
 
 /* External function prototypes */
 
-struct plx_dma *plx_alloc (struct pci_dev *pdev,
-	u32 data_addr,
-	unsigned int buffers,
-	unsigned int bufsize,
-	unsigned int direction,
-	unsigned int flags);
-void plx_free (struct plx_dma *dma);
-ssize_t plx_read (struct plx_dma *dma, char *data, size_t length);
-ssize_t plx_write (struct plx_dma *dma, const char *data, size_t length);
-u32 plx_head_desc_bus_addr (struct plx_dma *dma);
-void plx_tx_link_all (struct plx_dma *dma);
-void plx_reset (struct plx_dma *dma);
-ssize_t plx_txdqbuf (struct plx_dma *dma, size_t bufnum);
-ssize_t plx_txqbuf (struct plx_dma *dma, size_t bufnum);
-ssize_t plx_rxdqbuf (struct plx_dma *dma, size_t bufnum);
-ssize_t plx_rxqbuf (struct plx_dma *dma, size_t bufnum);
-
-/* Inline functions */
-
-/**
- * plx_tx_buflevel - return the number of transmit buffers in use
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-plx_tx_buflevel (struct plx_dma *dma)
-{
-	return ((dma->cpu_buffer + dma->buffers - dma->dev_buffer) %
-		dma->buffers);
-}
-
-/**
- * plx_tx_isfull - return true if the transmit buffers are full
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-plx_tx_isfull (struct plx_dma *dma)
-{
-	return (dma->dev_buffer ==
-		((dma->cpu_buffer + 1) % dma->buffers));
-}
-
-/**
- * plx_rx_buflevel - return the number of receive buffers in use
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-plx_rx_buflevel (struct plx_dma *dma)
-{
-	return ((dma->dev_buffer + dma->buffers - dma->cpu_buffer) %
-		dma->buffers);
-}
-
-/**
- * plx_rx_isempty - return true if the receive buffers are empty
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-plx_rx_isempty (struct plx_dma *dma)
-{
-	return (dma->cpu_buffer == dma->dev_buffer);
-}
-
-/**
- * plx_advance - increment the device buffer pointer
- * @dma: DMA information structure
- *
- * We don't lock because this function is the only
- * dev_buffer writer, it should only be called from
- * a single interrupt service routine,
- * and dev_buffer reads should be atomic.
- **/
-static inline void
-plx_advance (struct plx_dma *dma)
-{
-	dma->dev_buffer = (dma->dev_buffer + 1) % dma->buffers;
-	return;
-}
+void plx_reset_bridge (void __iomem *addr);
+u32 plx_head_desc_bus_addr (struct master_dma *dma);
+void plx_tx_link_all (struct master_dma *dma);
+void plx_reset (struct master_dma *dma);
 
 #endif
 

@@ -2,7 +2,7 @@
  *
  * Example program for DVB ASI transmitters.
  *
- * Copyright (C) 2000-2006 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2000-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,6 +64,7 @@ main (int argc, char **argv)
 	struct stat buf;
 	unsigned char *data;
 	struct asi_txstuffing stuffing;
+	unsigned long int bypass_status;
 	struct timeval tv;
 	unsigned int cap, bytes_written, bytes_read, bytes;
 	struct pollfd pfd;
@@ -130,7 +131,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2000-2006 "
+			printf ("\nCopyright (C) 2000-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -489,6 +490,18 @@ main (int argc, char **argv)
 			bitrate);
 	}
 	bytes_per_sec = bitrate / 8;
+
+	/* Check the bypass status */
+	snprintf (name, sizeof (name),
+		fmt, num, "device/bypass_status");
+	if (util_strtoul (name, &bypass_status) > 0) {
+		/* Don't complain on an error,
+		 * since this parameter may not exist. */
+		if (!bypass_status && !quiet) {
+			printf ("WARNING: Bypass enabled, "
+				"data will not be transmitted.\n");
+		}
+	}
 
 	/* Allocate some memory */
 	if (bufsize < BUFSIZ) {

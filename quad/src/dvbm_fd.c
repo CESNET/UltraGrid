@@ -2,7 +2,7 @@
  *
  * Linux driver functions for Linear Systems Ltd. DVB Master FD.
  *
- * Copyright (C) 2001-2006 Linear Systems Ltd.
+ * Copyright (C) 2001-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,25 +27,24 @@
 
 #include <linux/fs.h> /* inode, file, file_operations */
 #include <linux/sched.h> /* pt_regs */
-#include <linux/pci.h> /* pci_dev */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/pci.h> /* pci_resource_start () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/list.h> /* INIT_LIST_HEAD () */
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
+#include <linux/mutex.h> /* mutex_init () */
 
-#include <asm/semaphore.h> /* sema_init () */
 #include <asm/uaccess.h> /* put_user () */
 #include <asm/bitops.h> /* set_bit () */
 
 #include "asicore.h"
 #include "../include/master.h"
-#include "miface.h"
 #include "mdev.h"
+#include "mdma.h"
 #include "dvbm.h"
 #include "plx9080.h"
-#include "masterplx.h"
 #include "dvbm_fd.h"
 
 static const char dvbm_fd_name[] = DVBM_NAME_FD;
@@ -55,48 +54,32 @@ static irqreturn_t IRQ_HANDLER(dvbm_fd_irq_handler,irq,dev_id,regs);
 static void dvbm_fd_txinit (struct master_iface *iface);
 static void dvbm_fd_txstart (struct master_iface *iface);
 static void dvbm_fd_txstop (struct master_iface *iface);
-static int dvbm_fd_txopen (struct inode *inode, struct file *filp);
+static void dvbm_fd_start_tx_dma (struct master_iface *iface);
 static long dvbm_fd_txunlocked_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-static int dvbm_fd_txioctl (struct inode *inode,
-	struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 static int dvbm_fd_txfsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_fd_txrelease (struct inode *inode, struct file *filp);
 static void dvbm_fd_rxinit (struct master_iface *iface);
 static void dvbm_fd_rxstart (struct master_iface *iface);
 static void dvbm_fd_rxstop (struct master_iface *iface);
-static int dvbm_fd_rxopen (struct inode *inode, struct file *filp);
 static long dvbm_fd_rxunlocked_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-static int dvbm_fd_rxioctl (struct inode *inode,
-	struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 static int dvbm_fd_rxfsync (struct file *filp,
 	struct dentry *dentry,
 	int datasync);
-static int dvbm_fd_rxrelease (struct inode *inode, struct file *filp);
 
 static struct file_operations dvbm_fd_txfops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.write = masterplx_write,
-	.poll = masterplx_txpoll,
-	.ioctl = dvbm_fd_txioctl,
-#ifdef HAVE_UNLOCKED_IOCTL
+	.write = asi_write,
+	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_fd_txunlocked_ioctl,
-#endif
-#ifdef HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_fd_txopen,
-	.release = dvbm_fd_txrelease,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_fd_txfsync,
 	.fasync = NULL
 };
@@ -104,72 +87,91 @@ static struct file_operations dvbm_fd_txfops = {
 static struct file_operations dvbm_fd_rxfops = {
 	.owner = THIS_MODULE,
 	.llseek = no_llseek,
-	.read = masterplx_read,
-	.poll = masterplx_rxpoll,
-	.ioctl = dvbm_fd_rxioctl,
-#ifdef HAVE_UNLOCKED_IOCTL
+	.read = asi_read,
+	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_fd_rxunlocked_ioctl,
-#endif
-#ifdef HAVE_COMPAT_IOCTL
 	.compat_ioctl = asi_compat_ioctl,
-#endif
-	.open = dvbm_fd_rxopen,
-	.release = dvbm_fd_rxrelease,
+	.open = asi_open,
+	.release = asi_release,
 	.fsync = dvbm_fd_rxfsync,
 	.fasync = NULL
 };
 
+static struct master_iface_operations dvbm_fd_txops = {
+	.init = dvbm_fd_txinit,
+	.start = dvbm_fd_txstart,
+	.stop = dvbm_fd_txstop,
+	.exit = NULL,
+	.start_tx_dma = dvbm_fd_start_tx_dma
+};
+
+static struct master_iface_operations dvbm_fd_rxops = {
+	.init = dvbm_fd_rxinit,
+	.start = dvbm_fd_rxstart,
+	.stop = dvbm_fd_rxstop,
+	.exit = NULL
+};
+
 /**
  * dvbm_fd_pci_probe - PCI insertion handler for a DVB Master FD
- * @dev: PCI device
+ * @pdev: PCI device
  *
  * Handle the insertion of a DVB Master FD.
  * Returns a negative error code on failure and 0 on success.
  **/
 int __devinit
-dvbm_fd_pci_probe (struct pci_dev *dev)
+dvbm_fd_pci_probe (struct pci_dev *pdev)
 {
 	int err;
 	unsigned int version, cap;
 	struct master_dev *card;
 
+	err = dvbm_pci_probe_generic (pdev);
+	if (err < 0) {
+		goto NO_PCI;
+	}
+
+	/* Initialize the driver_data pointer so that dvbm_fd_pci_remove()
+	 * doesn't try to free it if an error occurs */
+	pci_set_drvdata (pdev, NULL);
+
 	/* Print the firmware version */
-	version = inl (pci_resource_start (dev, 2) + DVBM_FD_CSR) >> 24;
+	version = inl (pci_resource_start (pdev, 2) + DVBM_FD_CSR) >> 24;
 	printk (KERN_INFO "%s: %s detected, firmware version %u (0x%02X)\n",
 		dvbm_driver_name, dvbm_fd_name, version, version);
 
-	/* Allocate a board info structure */
+	/* Allocate and initialize a board info structure */
 	if ((card = (struct master_dev *)
-		kmalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
+		kzalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
-	/* Initialize the board info structure */
-	memset (card, 0, sizeof (*card));
-	card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 0),
-		pci_resource_len (dev, 0));
-	card->core.port = pci_resource_start (dev, 2);
+	card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, 0),
+		pci_resource_len (pdev, 0));
+	card->core.port = pci_resource_start (pdev, 2);
 	card->version = version << 8;
 	card->name = dvbm_fd_name;
+	card->id = pdev->device;
+	card->irq = pdev->irq;
 	card->irq_handler = dvbm_fd_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
 	/* Lock for ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for CSR, STR, FTR, DMATLR, PFLUT */
 	spin_lock_init (&card->reg_lock);
-	sema_init (&card->users_sem, 1);
-	card->pdev = dev;
+	mutex_init (&card->users_mutex);
+	card->parent = &pdev->dev;
 
 	/* Store the pointer to the board info structure
 	 * in the PCI info structure */
-	pci_set_drvdata (dev, card);
+	pci_set_drvdata (pdev, card);
 
 	/* Reset the FPGA */
 	master_outl (card, DVBM_FD_CSR, DVBM_FD_CSR_RXRST | DVBM_FD_CSR_TXRST);
 
 	/* Reset the PCI 9080 */
-	masterplx_reset_bridge (card);
+	plx_reset_bridge (card->bridge_addr);
 
 	/* Setup the PCI 9080 */
 	writel (PLX_INTCSR_PCIINT_ENABLE |
@@ -195,11 +197,8 @@ dvbm_fd_pci_probe (struct pci_dev *dev)
 		(DVBM_FD_RDMATL << 16) | DVBM_FD_TDMATL);
 	master_outl (card, DVBM_FD_TFSLR, DVBM_FD_TFSL);
 
-	/* Register a Master device */
-	if ((err = mdev_register (card,
-		&dvbm_card_list,
-		dvbm_driver_name,
-		&dvbm_class)) < 0) {
+	/* Register a DVB Master device */
+	if ((err = dvbm_register (card)) < 0) {
 		goto NO_DEV;
 	}
 
@@ -219,8 +218,11 @@ dvbm_fd_pci_probe (struct pci_dev *dev)
 		}
 	}
 	if ((err = asi_register_iface (card,
+		&plx_dma_ops,
+		DVBM_FD_FIFO,
 		MASTER_DIRECTION_TX,
 		&dvbm_fd_txfops,
+		&dvbm_fd_txops,
 		cap,
 		4,
 		ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
@@ -251,8 +253,11 @@ dvbm_fd_pci_probe (struct pci_dev *dev)
 		break;
 	}
 	if ((err = asi_register_iface (card,
+		&plx_dma_ops,
+		DVBM_FD_FIFO,
 		MASTER_DIRECTION_RX,
 		&dvbm_fd_rxfops,
+		&dvbm_fd_rxops,
 		cap,
 		4,
 		ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
@@ -262,10 +267,35 @@ dvbm_fd_pci_probe (struct pci_dev *dev)
 	return 0;
 
 NO_IFACE:
-	dvbm_pci_remove (dev);
 NO_DEV:
 NO_MEM:
+	dvbm_fd_pci_remove (pdev);
+NO_PCI:
 	return err;
+}
+
+/**
+ * dvbm_fd_pci_remove - PCI removal handler for a DVB Master FD
+ * @pdev: PCI device
+ *
+ * Handle the removal of a DVB Master FD.
+ * This function may be called during PCI probe error handling,
+ * so don't mark it as __devexit.
+ **/
+void
+dvbm_fd_pci_remove (struct pci_dev *pdev)
+{
+	struct master_dev *card = pci_get_drvdata (pdev);
+
+	if (card) {
+		/* Unregister the device and all interfaces */
+		dvbm_unregister_all (card);
+
+		iounmap (card->bridge_addr);
+		kfree (card);
+	}
+	dvbm_pci_remove_generic (pdev);
+	return;
 }
 
 /**
@@ -292,7 +322,7 @@ IRQ_HANDLER(dvbm_fd_irq_handler,irq,dev_id,regs)
 			card->bridge_addr + PLX_DMACSR0);
 
 		/* Increment the buffer pointer */
-		plx_advance (txiface->dma);
+		mdma_advance (txiface->dma);
 
 		/* Flag end-of-chain */
 		if (status & PLX_DMACSR_DONE) {
@@ -303,7 +333,7 @@ IRQ_HANDLER(dvbm_fd_irq_handler,irq,dev_id,regs)
 		interrupting_iface |= 0x1;
 	}
 	if (intcsr & PLX_INTCSR_DMA1INT_ACTIVE) {
-		struct plx_dma *dma = rxiface->dma;
+		struct master_dma *dma = rxiface->dma;
 
 		/* Read the interrupt type and clear it */
 		status = readb (card->bridge_addr + PLX_DMACSR1);
@@ -311,9 +341,9 @@ IRQ_HANDLER(dvbm_fd_irq_handler,irq,dev_id,regs)
 			card->bridge_addr + PLX_DMACSR1);
 
 		/* Increment the buffer pointer */
-		plx_advance (dma);
+		mdma_advance (dma);
 
-		if (plx_rx_isempty (dma)) {
+		if (mdma_rx_isempty (dma)) {
 			set_bit (ASI_EVENT_RX_BUFFER_ORDER, &rxiface->events);
 		}
 
@@ -478,7 +508,7 @@ static void
 dvbm_fd_txstop (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
-	struct plx_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 	unsigned int reg;
 
 	plx_tx_link_all (dma);
@@ -511,21 +541,24 @@ dvbm_fd_txstop (struct master_iface *iface)
 }
 
 /**
- * dvbm_fd_txopen - DVB Master FD transmitter open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
+ * dvbm_fd_start_tx_dma - start transmit DMA
+ * @iface: interface
  **/
-static int
-dvbm_fd_txopen (struct inode *inode, struct file *filp)
+static void
+dvbm_fd_start_tx_dma (struct master_iface *iface)
 {
-	return masterplx_open (inode,
-		filp,
-		dvbm_fd_txinit,
-		dvbm_fd_txstart,
-		DVBM_FD_FIFO,
-		0);
+	struct master_dev *card = iface->card;
+
+	writel (plx_head_desc_bus_addr (iface->dma) |
+		PLX_DMADPR_DLOC_PCI,
+		card->bridge_addr + PLX_DMADPR0);
+	clear_bit (0, &iface->dma_done);
+	wmb ();
+	writeb (PLX_DMACSR_ENABLE | PLX_DMACSR_START,
+		card->bridge_addr + PLX_DMACSR0);
+	/* Dummy read to flush PCI posted writes */
+	readb (card->bridge_addr + PLX_DMACSR0);
+	return;
 }
 
 /**
@@ -546,14 +579,9 @@ dvbm_fd_txunlocked_ioctl (struct file *filp,
 	struct asi_txstuffing stuffing;
 
 	switch (cmd) {
-	case ASI_IOC_TXGETBUFLEVEL:
-		if (put_user (plx_tx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_TXSETSTUFFING:
-		if (copy_from_user (&stuffing, (struct asi_txstuffing *)arg,
+		if (copy_from_user (&stuffing,
+			(struct asi_txstuffing __user *)arg,
 			sizeof (stuffing))) {
 			return -EFAULT;
 		}
@@ -587,14 +615,14 @@ dvbm_fd_txunlocked_ioctl (struct file *filp,
 		break;
 	case ASI_IOC_TXGETBYTECOUNT:
 		if (put_user (master_inl (card, DVBM_FD_TXBCOUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_TXGETTXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((master_inl (card, DVBM_FD_ICSR) &
-			DVBM_FD_ICSR_TXD) ? 1 : 0, (int *)arg)) {
+			DVBM_FD_ICSR_TXD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -603,32 +631,14 @@ dvbm_fd_txunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_FD_27COUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_txioctl (iface, cmd, arg);
+		return asi_txioctl (filp, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * dvbm_fd_txioctl - DVB Master FD transmitter ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_fd_txioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_fd_txunlocked_ioctl (filp, cmd, arg);
 }
 
 /**
@@ -646,11 +656,9 @@ dvbm_fd_txfsync (struct file *filp,
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
-	struct plx_dma *dma = iface->dma;
+	struct master_dma *dma = iface->dma;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 	plx_tx_link_all (dma);
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
 	plx_reset (dma);
@@ -660,23 +668,8 @@ dvbm_fd_txfsync (struct file *filp,
 	wait_event (iface->queue,
 		!(master_inl (card, DVBM_FD_ICSR) & DVBM_FD_ICSR_TXD));
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_fd_txrelease - DVB Master FD transmitter release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_fd_txrelease (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterplx_release (iface, dvbm_fd_txstop, NULL);
 }
 
 /**
@@ -846,24 +839,6 @@ dvbm_fd_rxstop (struct master_iface *iface)
 }
 
 /**
- * dvbm_fd_rxopen - DVB Master FD receiver open() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_fd_rxopen (struct inode *inode, struct file *filp)
-{
-	return masterplx_open (inode,
-		filp,
-		dvbm_fd_rxinit,
-		dvbm_fd_rxstart,
-		DVBM_FD_FIFO,
-		0);
-}
-
-/**
  * dvbm_fd_rxunlocked_ioctl - DVB Master FD receiver unlocked_ioctl() method
  * @filp: file
  * @cmd: ioctl command
@@ -879,15 +854,9 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
 	int val;
-	unsigned int reg = 0, pflut[256], i;
+	unsigned int reg = 0, *pflut, i;
 
 	switch (cmd) {
-	case ASI_IOC_RXGETBUFLEVEL:
-		if (put_user (plx_rx_buflevel (iface->dma),
-			(unsigned int *)arg)) {
-			return -EFAULT;
-		}
-		break;
 	case ASI_IOC_RXGETSTATUS:
 		/* Atomic reads of CSR and ICSR, so we don't need to lock */
 		reg = master_inl (card, DVBM_FD_ICSR);
@@ -914,19 +883,21 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 		default:
 			return -EIO;
 		}
-		if (put_user (val, (int *)arg)) {
+		if (put_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXGETBYTECOUNT:
 		if (put_user (master_inl (card, DVBM_FD_RXBCOUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETINVSYNC:
+	case ASI_IOC_RXSETINPUT_DEPRECATED:
 	case ASI_IOC_RXSETINPUT:
-		if (get_user (val, (int *)arg)) {
+		/* Dummy ioctl; only zero is valid */
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if (val) {
@@ -936,12 +907,12 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 	case ASI_IOC_RXGETCARRIER:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((master_inl (card, DVBM_FD_ICSR) &
-			DVBM_FD_ICSR_RXCD) ? 1 : 0, (int *)arg)) {
+			DVBM_FD_ICSR_RXCD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	case ASI_IOC_RXSETDSYNC:
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		switch (val) {
@@ -963,7 +934,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 	case ASI_IOC_RXGETRXD:
 		/* Atomic read of ICSR, so we don't need to lock */
 		if (put_user ((master_inl (card, DVBM_FD_ICSR) &
-			DVBM_FD_ICSR_RXD) ? 1 : 0, (int *)arg)) {
+			DVBM_FD_ICSR_RXD) ? 1 : 0, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -971,8 +942,14 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_PIDFILTER)) {
 			return -ENOTTY;
 		}
-		if (copy_from_user (pflut, (unsigned int *)arg,
+		pflut = (unsigned int *)
+			kmalloc (sizeof (unsigned int [256]), GFP_KERNEL);
+		if (pflut == NULL) {
+			return -ENOMEM;
+		}
+		if (copy_from_user (pflut, (unsigned int __user *)arg,
 			sizeof (unsigned int [256]))) {
+			kfree (pflut);
 			return -EFAULT;
 		}
 		spin_lock (&card->reg_lock);
@@ -983,9 +960,10 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 			wmb ();
 		}
 		spin_unlock (&card->reg_lock);
+		kfree (pflut);
 		break;
 	case ASI_IOC_RXSETPID0:
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -997,7 +975,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 		break;
 	case ASI_IOC_RXGETPID0COUNT:
 		if (put_user (master_inl (card, DVBM_FD_PIDCOUNTR0),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1005,7 +983,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1020,7 +998,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_FD_PIDCOUNTR1),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1028,7 +1006,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1043,7 +1021,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_FD_PIDCOUNTR2),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1051,7 +1029,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 		if (!(iface->capabilities & ASI_CAP_RX_4PIDCOUNTER)) {
 			return -ENOTTY;
 		}
-		if (get_user (val, (int *)arg)) {
+		if (get_user (val, (int __user *)arg)) {
 			return -EFAULT;
 		}
 		if ((val < 0) || (val > 0x00001fff)) {
@@ -1066,7 +1044,7 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_FD_PIDCOUNTR3),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
@@ -1075,32 +1053,14 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 			return -ENOTTY;
 		}
 		if (put_user (master_inl (card, DVBM_FD_27COUNTR),
-			(unsigned int *)arg)) {
+			(unsigned int __user *)arg)) {
 			return -EFAULT;
 		}
 		break;
 	default:
-		return asi_rxioctl (iface, cmd, arg);
+		return asi_rxioctl (filp, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * dvbm_fd_rxioctl - DVB Master FD receiver ioctl() method
- * @inode: inode
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_fd_rxioctl (struct inode *inode,
-	struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	return dvbm_fd_rxunlocked_ioctl (filp, cmd, arg);
 }
 
 /**
@@ -1120,9 +1080,7 @@ dvbm_fd_rxfsync (struct file *filp,
 	struct master_dev *card = iface->card;
 	unsigned int reg;
 
-	if (down_interruptible (&iface->buf_sem)) {
-		return -ERESTARTSYS;
-	}
+	mutex_lock (&iface->buf_mutex);
 
 	/* Stop the receiver */
 	dvbm_fd_rxstop (iface);
@@ -1140,22 +1098,7 @@ dvbm_fd_rxfsync (struct file *filp,
 	/* Start the receiver */
 	dvbm_fd_rxstart (iface);
 
-	up (&iface->buf_sem);
+	mutex_unlock (&iface->buf_mutex);
 	return 0;
-}
-
-/**
- * dvbm_fd_rxrelease - DVB Master FD receiver release() method
- * @inode: inode
- * @filp: file
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-static int
-dvbm_fd_rxrelease (struct inode *inode, struct file *filp)
-{
-	struct master_iface *iface = filp->private_data;
-
-	return masterplx_release (iface, dvbm_fd_rxstop, NULL);
 }
 

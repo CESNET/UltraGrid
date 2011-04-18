@@ -3,7 +3,7 @@
  * Header file for the Linux user-space API for
  * Linear Systems Ltd. SMPTE 259M-C interface boards.
  *
- * Copyright (C) 2004-2006 Linear Systems Ltd.
+ * Copyright (C) 2004-2009 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,9 +27,12 @@
 #define _SDICORE_H
 
 #include <linux/fs.h> /* file_operations */
+#include <linux/poll.h> /* poll_table */
+#include <linux/mm.h> /* vm_area_struct */
 
 #include "mdev.h"
 #include "miface.h"
+#include "mdma.h"
 #include "../include/sdi.h"
 
 #define SDI_BUFFERS_MAX (131072 / sizeof (void *))
@@ -37,18 +40,34 @@
 
 /* External function prototypes */
 
-int sdi_txioctl (struct master_iface *iface,
+int sdi_open (struct inode *inode, struct file *filp);
+ssize_t sdi_write (struct file *filp,
+	const char __user *data,
+	size_t length,
+	loff_t *offset);
+ssize_t sdi_read (struct file *filp,
+	char __user *data,
+	size_t length,
+	loff_t *offset);
+unsigned int sdi_txpoll (struct file *filp, poll_table *wait);
+unsigned int sdi_rxpoll (struct file *filp, poll_table *wait);
+long sdi_txioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-int sdi_rxioctl (struct master_iface *iface,
+long sdi_rxioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 long sdi_compat_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
+int sdi_mmap (struct file *filp, struct vm_area_struct *vma);
+int sdi_release (struct inode *inode, struct file *filp);
 int sdi_register_iface (struct master_dev *card,
+	struct master_dma_operations *dma_ops,
+	u32 data_addr,
 	unsigned int direction,
 	struct file_operations *fops,
+	struct master_iface_operations *iface_ops,
 	unsigned int cap,
 	unsigned int granularity);
 void sdi_unregister_iface (struct master_iface *iface);

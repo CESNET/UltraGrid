@@ -4,7 +4,7 @@
  * Linear Systems Ltd. DVB Master ASI interface boards.
  *
  * Copyright (C) 1999 Tony Bolger <d7v@indigo.ie>
- * Copyright (C) 2000-2007 Linear Systems Ltd.
+ * Copyright (C) 2000-2010 Linear Systems Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,9 +74,13 @@
 /* #define ASI_IOC_TXGETFIFO	_IOR(ASI_IOC_MAGIC, 6, int) */
 #define ASI_IOC_TXGETTXD	_IOR(ASI_IOC_MAGIC, 7, int)
 #define ASI_IOC_TXGET27COUNT	_IOR(ASI_IOC_MAGIC, 8, unsigned int)
-#define ASI_IOC_TXSETPID	_IOR(ASI_IOC_MAGIC, 9, unsigned int)
+/* Provide compatibility with applications compiled for older API */
+#define ASI_IOC_TXSETPID_DEPRECATED	_IOR(ASI_IOC_MAGIC, 9, unsigned int)
+#define ASI_IOC_TXSETPID	_IOW(ASI_IOC_MAGIC, 9, unsigned int)
 #define ASI_IOC_TXGETPCRSTAMP	_IOR(ASI_IOC_MAGIC, 10, struct asi_pcrstamp)
-#define ASI_IOC_TXCHANGENEXTIP	_IOR(ASI_IOC_MAGIC, 11, int)
+/* Provide compatibility with applications compiled for older API */
+#define ASI_IOC_TXCHANGENEXTIP_DEPRECATED	_IOR(ASI_IOC_MAGIC, 11, int)
+#define ASI_IOC_TXCHANGENEXTIP	_IOW(ASI_IOC_MAGIC, 11, int)
 
 #define ASI_IOC_RXGETCAP	_IOR(ASI_IOC_MAGIC, 65, unsigned int)
 #define ASI_IOC_RXGETEVENTS	_IOR(ASI_IOC_MAGIC, 66, unsigned int)
@@ -102,7 +106,10 @@
 /* #define ASI_IOC_RXGETSTAMP	_IOR(ASI_IOC_MAGIC, 86, unsigned int) */
 #define ASI_IOC_RXGET27COUNT	_IOR(ASI_IOC_MAGIC, 87, unsigned int)
 #define ASI_IOC_RXGETSTATUS2	_IOR(ASI_IOC_MAGIC, 88, int)
-#define ASI_IOC_RXSETINPUT	_IOR(ASI_IOC_MAGIC, 89, int)
+/* Provide compatibility with applications compiled for older API */
+#define ASI_IOC_RXSETINPUT_DEPRECATED	_IOR(ASI_IOC_MAGIC, 89, int)
+#define ASI_IOC_RXSETINPUT	_IOW(ASI_IOC_MAGIC, 89, int)
+#define ASI_IOC_RXGETRXD2	_IOR(ASI_IOC_MAGIC, 90, int)
 
 #define ASI_IOC_GETID		_IOR(ASI_IOC_MAGIC, 129, unsigned int)
 #define ASI_IOC_GETVERSION	_IOR(ASI_IOC_MAGIC, 130, unsigned int)
@@ -195,6 +202,7 @@ struct asi_pcrstamp {
 #define ASI_CAP_TX_TIMESTAMPS	0x00010000
 #define ASI_CAP_TX_PTIMESTAMPS	0x00020000
 #define ASI_CAP_TX_NULLPACKETS	0x00040000
+#define ASI_CAP_TX_EXTCLKSRC2	0x00080000
 
 #define ASI_CAP_RX_SYNC		0x00000004
 #define ASI_CAP_RX_MAKE188	0x00000008
@@ -214,12 +222,13 @@ struct asi_pcrstamp {
 #define ASI_CAP_RX_PTIMESTAMPS	0x00020000
 #define ASI_CAP_RX_NULLPACKETS	0x00040000
 #define ASI_CAP_RX_REDUNDANT	0x00080000
+#define ASI_CAP_RX_DATA2	0x00100000
 
 /* Transmitter clock source settings */
 #define ASI_CTL_TX_CLKSRC_ONBOARD	0
 #define ASI_CTL_TX_CLKSRC_EXT		1
 #define ASI_CTL_TX_CLKSRC_RX		2
-/* #define ASI_CTL_TX_CLKSRC_EXT_PAL	3 */
+#define ASI_CTL_TX_CLKSRC_EXT2		3
 
 /* Transmitter mode settings */
 #define ASI_CTL_TX_MODE_188	0

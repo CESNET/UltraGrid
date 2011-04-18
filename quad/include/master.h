@@ -3,7 +3,7 @@
  * Global definitions for Linear Systems Ltd.
  * digital television-related boards.
  *
- * Copyright (C) 2004-2008 Linear Systems Ltd.
+ * Copyright (C) 2004-2010 Linear Systems Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,18 +38,18 @@
 #ifndef _MASTER_H
 #define _MASTER_H
 
-#define MASTER_DRIVER_VERSION "2.5.0"
-#define MASTER_DRIVER_VERSION_CODE 0x020500
-#define MASTER_DRIVER_DATE "2008-02-11"
+#define MASTER_DRIVER_VERSION "2.7.1"
+#define MASTER_DRIVER_VERSION_CODE 0x020701
+#define MASTER_DRIVER_DATE "2010-03-23"
 
 #define MASTER_PCI_VENDOR_ID_LINSYS 0x1254
 
 /* Device capabilities */
-#define MASTER_CAP_BYPASS		0x00000001
-#define MASTER_CAP_WATCHDOG		0x00000002
-#define MASTER_CAP_GPI			0x00000004
-#define MASTER_CAP_GPO			0x00000008
-#define MASTER_CAP_UID			0x00000010
+#define MASTER_CAP_BYPASS	0x00000001
+#define MASTER_CAP_WATCHDOG	0x00000002
+#define MASTER_CAP_GPI		0x00000004
+#define MASTER_CAP_GPO		0x00000008
+#define MASTER_CAP_UID		0x00000010
 #define MASTER_CAP_BLACKBURST	0x00000020
 
 /* Bypass mode settings */
@@ -58,8 +58,8 @@
 #define MASTER_CTL_BYPASS_WATCHDOG	2
 
 /* Black burst type settings */
-#define MASTER_CTL_BLACKBURST_NTSC		0
-#define MASTER_CTL_BLACKBURST_PAL		1
+#define MASTER_CTL_BLACKBURST_NTSC	0
+#define MASTER_CTL_BLACKBURST_PAL	1
 
 /* Maximum watchdog timeout in milliseconds.
  * Limited to 32 bits at 40 MHz or 27 MHz */

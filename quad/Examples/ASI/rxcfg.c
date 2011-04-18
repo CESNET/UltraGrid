@@ -2,7 +2,7 @@
  * 
  * Demonstrate DVB ASI receiver ioctls.
  *
- * Copyright (C) 2000-2006 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2000-2008 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -358,65 +358,89 @@ get_data (int fd)
 static void
 set_filter (int fd)
 {
-	unsigned int i, val, mask, pflut[256];
-	char str[TMP_BUFLEN];
+	unsigned int i, val, mask, pflut[256], pidcount = 0;
+	char str[TMP_BUFLEN], *endptr;
 
-	printf ("\t 1. Discard one PID and pass all others\n");
-	printf ("\t 2. Pass one PID and discard all others\n");
+	printf ("\t 1. Discard some PIDs and pass all others\n");
+	printf ("\t 2. Pass some PIDs and discard all others\n");
 	printf ("\nEnter choice: ");
 	fgets (str, TMP_BUFLEN, stdin);
 	printf ("\n");
 	switch (strtol (str, NULL, 0)) {
 	case 1:
-		printf ("Enter the PID to discard: ");
-		fgets (str, TMP_BUFLEN, stdin);
-		val = strtol (str, NULL, 0);
-		printf ("\n");
-		if (val <= 0x1fff) {
-			mask = ~(0x00000001 << (val & 0x1f));
-			for (i = 0; i < 256; i++) {
-				if ((val & ~0x0000001f) == (i * 0x20)) {
-					pflut[i] = mask;
-				} else {
-					pflut[i] = 0xffffffff;
+		for (i = 0; i < 256; i++) {
+			pflut[i] = 0xffffffff;
+		}
+		do {
+			printf ("Enter the PID to discard "
+				"or press Enter to continue: ");
+			fgets (str, TMP_BUFLEN, stdin);
+			val = strtoul (str, &endptr, 0);
+			printf ("\n");
+			if (!strcmp (str, "\n")) {
+				break;
+			}
+			if (*endptr != '\n' || val > 0x1fff) {
+				printf ("Invalid PID.\n");
+				return;
+			}
+			mask = 0x00000001 << (val & 0x1f);
+			pflut[val >> 5] = pflut[val >> 5] & ~mask;
+		} while (1);
+		printf ("Setting the PID filter.\n");
+		if (ioctl (fd, ASI_IOC_RXSETPF, pflut) < 0) {
+			fprintf (stderr, "%s: ", argv0);
+			perror ("unable to set the PID filter");
+		} else {
+			printf ("Discarding the following PIDs (");
+			for (i = 0; i < 8192; i++) {
+				if ((pflut[i >> 5] & (1 << (i & 0x1f))) == 0) {
+					if (pidcount > 0) {
+						printf (", ");
+					}
+					printf ("%i", i);
+					pidcount++;
 				}
 			}
-			printf ("Setting the PID filter.\n");
-			if (ioctl (fd, ASI_IOC_RXSETPF, pflut) < 0) {
-				fprintf (stderr, "%s: ", argv0);
-				perror ("unable to set the PID filter");
-			} else {
-				printf ("Discarding PID %Xh "
-					"and passing all others.\n", val);
-			}
-		} else {
-			printf ("Invalid PID.\n");
+			printf (") and passing all others.\n");
 		}
 		break;
 	case 2:
-		printf ("Enter the PID to pass: ");
-		fgets (str, TMP_BUFLEN, stdin);
-		val = strtol (str, NULL, 0);
-		printf ("\n");
-		if (val <= 0x1fff) {
+		for (i = 0; i < 256; i++) {
+			pflut[i] = 0x00000000;
+		}
+		do {
+			printf ("Enter the PID to pass "
+				"or press Enter to continue: ");
+			fgets (str, TMP_BUFLEN, stdin);
+			val = strtoul (str, &endptr, 0);
+			printf ("\n");
+			if (!strcmp (str, "\n")) {
+				break;
+			}
+			if (*endptr != '\n' || val > 0x1fff) {
+				printf ("Invalid PID.\n");
+				return;
+			}
 			mask = 0x00000001 << (val & 0x1f);
-			for (i = 0; i < 256; i++) {
-				if ((val & ~0x0000001f) == (i * 0x20)) {
-					pflut[i] = mask;
-				} else {
-					pflut[i] = 0x00000000;
+			pflut[val >> 5] = pflut[val >> 5] | mask;
+		} while (1);
+		printf ("Setting the PID filter.\n");
+		if (ioctl (fd, ASI_IOC_RXSETPF, pflut) < 0) {
+			fprintf (stderr, "%s: ", argv0);
+			perror ("unable to set the PID filter");
+		} else {
+			printf ("Passing the following PIDs (");
+			for (i = 0; i < 8192; i++) {
+				if ((pflut[i >> 5] & (1 << (i & 0x1f))) != 0) {
+					if (pidcount > 0) {
+						printf (", ");
+					}
+					printf ("%i", i);
+					pidcount++;
 				}
 			}
-			printf ("Setting the PID filter.\n");
-			if (ioctl (fd, ASI_IOC_RXSETPF, pflut) < 0) {
-				fprintf (stderr, "%s: ", argv0);
-				perror ("unable to set the PID filter");
-			} else {
-				printf ("Passing PID %Xh "
-					"and discarding all others.\n", val);
-			}
-		} else {
-			printf ("Invalid PID.\n");
+			printf (") and discarding all others.\n");
 		}
 		break;
 	default:
@@ -820,7 +844,7 @@ main (int argc, char **argv)
 			printf ("\t10.\n");
 		}
 		if (cap & ASI_CAP_RX_PIDFILTER) {
-			printf ("\t11. Set a PID to filter\n");
+			printf ("\t11. Set PID filter\n");
 		} else {
 			printf ("\t11.\n");
 		}

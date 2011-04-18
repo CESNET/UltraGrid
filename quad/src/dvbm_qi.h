@@ -2,7 +2,7 @@
  *
  * Header file for the Linear Systems Ltd. DVB Master Q/i.
  *
- * Copyright (C) 2003-2006 Linear Systems Ltd.
+ * Copyright (C) 2003-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,8 +27,6 @@
 
 #include <linux/pci.h> /* pci_dev */
 #include <linux/init.h> /* __devinit */
-
-#include "mdev.h"
 
 #define DVBM_PCI_DEVICE_ID_LINSYS_DVBQI 0x0069
 #define DVBM_NAME_DVBQI "DVB Master Q/i"
@@ -127,8 +125,8 @@
 
 /* External function prototypes */
 
-int dvbm_qi_pci_probe (struct pci_dev *dev) __devinit;
-void dvbm_qi_pci_remove (struct master_dev *card);
+int dvbm_qi_pci_probe (struct pci_dev *pdev) __devinit;
+void dvbm_qi_pci_remove (struct pci_dev *pdev);
 
 #endif
 

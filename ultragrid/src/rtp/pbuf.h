@@ -49,8 +49,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4.2.3 $
- * $Date: 2010/01/30 20:11:45 $
+ * $Revision: 1.5 $
+ * $Date: 2010/01/28 10:06:59 $
  *
  */
 
@@ -60,8 +60,11 @@
 /******************************************************************************/
 
 #include "config.h"
-#include "audio/audio.h"
 #include "video_display.h"
+
+#ifdef HAVE_AUDIO
+#include "audio/audio.h"
+#endif /* HAVE_AUDIO */
 
 /* The coded representation of a single frame */
 struct coded_data {

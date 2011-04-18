@@ -44,9 +44,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.15.2.10 $
- * $Date: 2010/02/05 13:56:49 $
- *
+ * $Revision: 1.20 $
+ * $Date: 2010/07/15 12:25:59 $
+ * 
  */
 
 #include "config.h"
@@ -85,6 +85,9 @@ void NSApplicationLoad();
 #include <SDL/SDL_syswm.h>
 #include <SDL/SDL_mutex.h>
 
+/* splashscreen (xsedmik) */
+#include "video_display/splashscreen.h"
+
 #define MAGIC_SDL   DISPLAY_SDL_ID
 #define FOURCC_UYVY  0x59565955
 
@@ -106,11 +109,24 @@ struct state_sdl {
 
         const struct codec_info_t *codec_info;
 
+        unsigned int            x_width;
+        unsigned int            x_height;
+
         unsigned                rgb:1;
         unsigned                deinterlace:1;
         unsigned                fs:1;
 };
 
+extern int should_exit;
+
+inline int toggleFullscreen(struct state_sdl *s);
+inline void loadSplashscreen(struct state_sdl *s);
+inline void copyline64(unsigned char *dst, unsigned char *src, int len);
+inline void copyline128(unsigned char *dst, unsigned char *src, int len);
+inline void copylinev210(unsigned char *dst, unsigned char *src, int len);
+inline void copyliner10k(struct state_sdl *s, unsigned char *dst, unsigned char *src, int len);
+void copylineRGBA(struct state_sdl *s, unsigned char *dst, unsigned char *src, int len);
+void deinterlace(struct state_sdl *s, unsigned char *buffer);
 static void show_help(void);
 void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
@@ -118,6 +134,155 @@ void reconfigure_screen(void *s, unsigned int width, unsigned int height,
 
 extern int should_exit;
 
+/** 
+ * Load splashscreen
+ * Function loads graphic data from header file "splashscreen.h", where are
+ * stored splashscreen data in RGB format. Thereafter are data written into
+ * the temporary SDL_Surface. At the end of the function are displayed on 
+ * the screen. 
+ * 
+ * @since 18-02-2010, xsedmik
+ * @param s Structure contains the current settings
+ */
+void loadSplashscreen(struct state_sdl *s) {
+
+	unsigned int 	x_coord;
+	unsigned int 	y_coord;
+	char 		pixel[3];
+	SDL_Surface*	image;
+	SDL_Rect 	splash_src;
+	SDL_Rect	splash_dest;
+
+	// create a temporary SDL_Surface with the settings of displaying surface
+	image = SDL_DisplayFormat(s->sdl_screen);
+	SDL_LockSurface(image);
+
+	// load splash data
+	for (y_coord = 0; y_coord < splash_height; y_coord++) {
+		for (x_coord = 0; x_coord < splash_width; x_coord++) {
+
+			HEADER_PIXEL(splash_data,pixel);
+			Uint32 color = SDL_MapRGB(image->format, pixel[0], pixel[1], pixel[2]);
+
+			switch(image->format->BytesPerPixel) {
+				case 1: // Assuming 8-bpp 
+				{
+					Uint8 *bufp;
+					bufp = (Uint8 *)image->pixels + y_coord*image->pitch + x_coord;
+					*bufp = color;
+				}
+				break;
+
+				case 2: // Probably 15-bpp or 16-bpp 
+				{
+					Uint16 *bufp;
+					bufp = (Uint16 *)image->pixels + y_coord*image->pitch/2 + x_coord;
+					*bufp = color;
+				}
+				break;
+
+				case 3: // Slow 24-bpp mode, usually not used 
+				{
+					Uint8 *bufp;
+					bufp = (Uint8 *)image->pixels + y_coord*image->pitch +
+						x_coord*image->format->BytesPerPixel;
+					*(bufp+image->format->Rshift/8) = pixel[0];
+					*(bufp+image->format->Gshift/8) = pixel[1];
+					*(bufp+image->format->Bshift/8) = pixel[2];
+				}
+				break;
+
+				case 4: // Probably 32-bpp 
+				{
+					Uint32 *bufp;
+					bufp = (Uint32 *)image->pixels + y_coord*image->pitch/4 + x_coord;
+					*bufp = color;
+				}
+				break;
+			}
+		}
+	}
+
+	SDL_UnlockSurface(image);
+
+	// place loaded splash on the right position (center of screen)
+	splash_src.x = 0;
+	splash_src.y = 0;
+	splash_src.w = splash_width;
+	splash_src.h = splash_height;
+
+	if (s->fs) {
+		splash_dest.x = ((int) s->x_width - splash_src.w) / 2;
+		splash_dest.y = ((int) s->x_height - splash_src.h) / 2;
+	
+	}
+	else {
+		splash_dest.x = ((int) s->frame.width - splash_src.w) / 2;
+		splash_dest.y = ((int) s->frame.height - splash_src.h) / 2;
+	
+	}
+	splash_dest.w = splash_width;
+	splash_dest.h = splash_height;
+
+        SDL_BlitSurface(image, &splash_src, s->sdl_screen, &splash_dest);
+        SDL_Flip(s->sdl_screen);
+	SDL_FreeSurface(image);
+}
+
+
+/**
+ * Function toggles between fullscreen and window display mode
+ *
+ * @since 23-03-2010, xsedmik
+ * @param s Structure contains the current settings
+ * @return zero value everytime
+ */
+int toggleFullscreen(struct state_sdl *s) {
+	if(s->fs) {
+                fprintf(stdout,"Setting video mode %dx%d.\n", s->frame.width, s->frame.height);
+                s->sdl_screen = SDL_SetVideoMode(s->frame.width, s->frame.height, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
+
+		// Set the begining of the video rectangle
+		s->dst_rect.y = 0;
+		s->dst_rect.x = 0;
+
+		s->fs = 0;
+        }
+        else {
+                fprintf(stdout,"Setting video mode %dx%d.\n", s->x_width, s->x_height);
+                s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 0, SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
+
+		// Set the begining of the video rectangle
+		if (s->x_height > s->frame.height) {
+			s->dst_rect.y = ((int) s->x_height - s->frame.height) / 2;
+		}
+		if (s->x_width > s->frame.width) {
+			s->dst_rect.x = ((int) s->x_width - s->frame.width) / 2;
+		}
+
+		s->fs = 1;
+        }
+        if(s->sdl_screen == NULL){
+                fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
+                free(s);
+                exit(128);
+        }
+
+        return 0;
+}
+
+/**
+ * Handles outer events like a keyboard press
+ * Responds to key:<br/>
+ * <table>
+ * <td><tr>q</tr><tr>terminates program</tr></td>
+ * <td><tr>f</tr><tr>toggles between fullscreen and windowed display mode</tr></td>
+ * </table>
+ *
+ * @since 08-04-2010, xsedmik
+ * @param arg Structure (state_sdl) contains the current settings
+ * @return zero value everytime
+ */
 int display_sdl_handle_events(void *arg, int post)
 {
         SDL_Event sdl_event;
@@ -125,16 +290,21 @@ int display_sdl_handle_events(void *arg, int post)
         while (SDL_PollEvent(&sdl_event)) {
                 switch (sdl_event.type) {
                 case SDL_KEYDOWN:
-                case SDL_KEYUP:
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
                                 should_exit = 1;
                                 if(post)
                                         SDL_SemPost(s->semaphore);
                                 return 1;
                         }
-                        break;
 
-                default:
+                        if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
+                                toggleFullscreen(s);
+                        }
+                        break;
+                case SDL_QUIT:
+                        should_exit = 1;
+                        if(post)
+                                SDL_SemPost(s->semaphore);
                         break;
                 }
         }
@@ -218,8 +388,8 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         unsigned int utemp;
         Window wtemp;
 
-        unsigned int x_res_x;
-        unsigned int x_res_y;
+
+        unsigned int x_res_x, x_res_y;
 
         int ret, i;
 
@@ -235,6 +405,8 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         ret =
             XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
                          &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+        s->x_width = x_res_x;
+        s->x_height = x_res_y;
 
         fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
         if (s->fs)
@@ -294,12 +466,12 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->dst_rect.h = s->frame.height;
 
         if (x_res_x > s->frame.width) {
-                s->dst_rect.x = (x_res_x - s->frame.width) / 2;
+                s->dst_rect.x = ((int) x_res_x - s->frame.width) / 2;
         } else if (x_res_x < s->frame.width) {
                 s->dst_rect.w = x_res_x;
         }
         if (x_res_y > s->frame.height) {
-                s->dst_rect.y = (x_res_y - s->frame.height) / 2;
+                s->dst_rect.y = ((int) x_res_y - s->frame.height) / 2;
         } else if (x_res_y < s->frame.height) {
                 s->dst_rect.h = x_res_y;
         }
@@ -317,7 +489,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                     s->sdl_screen->pitch * s->dst_rect.y +
                     s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
                 s->frame.data_len =
-                    s->sdl_screen->pitch * x_res_y -
+                    (int) s->sdl_screen->pitch * x_res_y -
                     s->sdl_screen->pitch * s->dst_rect.y +
                     s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
                 s->frame.dst_x_offset =
@@ -357,11 +529,6 @@ void *display_sdl_init(char *fmt)
 {
         struct state_sdl *s;
         int ret;
-
-        SDL_Surface *image;
-        SDL_Surface *temp;
-        SDL_Rect splash_src;
-        SDL_Rect splash_dest;
 
         unsigned int i;
 
@@ -466,39 +633,7 @@ void *display_sdl_init(char *fmt)
 
         if (fmt != NULL) {
                 reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec, s->frame.fps, s->frame.aux);
-                temp = SDL_LoadBMP("/usr/share/uv-0.3.1/uv_startup.bmp");
-                if (temp == NULL) {
-                        temp =
-                            SDL_LoadBMP
-                            ("/usr/local/share/uv-0.3.1/uv_startup.bmp");
-                        if (temp == NULL) {
-                                temp = SDL_LoadBMP("uv_startup.bmp");
-                                if (temp == NULL) {
-                                        printf
-                                            ("Unable to load splash bitmap: uv_startup.bmp.\n");
-                                }
-                        }
-                }
-
-                if (temp != NULL) {
-                        image = SDL_DisplayFormat(temp);
-                        SDL_FreeSurface(temp);
-
-                        splash_src.x = 0;
-                        splash_src.y = 0;
-                        splash_src.w = image->w;
-                        splash_src.h = image->h;
-
-                        splash_dest.x = (int)((s->frame.width - splash_src.w) / 2);
-                        splash_dest.y =
-                            (int)((s->frame.height - splash_src.h) / 2) + 60;
-                        splash_dest.w = image->w;
-                        splash_dest.h = image->h;
-
-                        SDL_BlitSurface(image, &splash_src, s->sdl_screen,
-                                        &splash_dest);
-                        SDL_Flip(s->sdl_screen);
-                }
+                loadSplashscreen(s);	
         } 
 
         s->frame.state = s;

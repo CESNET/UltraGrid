@@ -2,7 +2,7 @@
  *
  * Definitions for Linear Systems Ltd. Master interfaces.
  *
- * Copyright (C) 2005, 2007 Linear Systems Ltd.
+ * Copyright (C) 2005-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -25,23 +25,41 @@
 #ifndef _MIFACE_H
 #define _MIFACE_H
 
-#include <linux/kernel.h> /* container_of () */
-
 #include <linux/types.h> /* uid_t */
 #include <linux/list.h> /* list_head */
 #include <linux/wait.h> /* wait_queue_head_t */
-#include <linux/device.h> /* class_device */
+#include <linux/device.h> /* device */
 #include <linux/fs.h>
 #include <linux/cdev.h> /* cdev */
-
-#include <asm/semaphore.h> /* semaphore */
+#include <linux/mutex.h> /* mutex */
+#include <linux/poll.h> /* poll_table */
+#include <linux/mm.h> /* vm_area_struct */
 
 #include "mdev.h"
+#include "mdma.h"
 
 #define MASTER_MINORBITS	8
 
 #define MASTER_DIRECTION_TX	0
 #define MASTER_DIRECTION_RX	1
+
+struct master_iface;
+
+/**
+ * master_iface_operations - Master interface helper functions
+ * @init: Master interface initialization function
+ * @start: Master interface activation function
+ * @stop: Master interface deactivation function
+ * @exit: Master interface cleanup function
+ * @start_tx: transmit DMA start function
+ **/
+struct master_iface_operations {
+	void (*init) (struct master_iface *iface);
+	void (*start) (struct master_iface *iface);
+	void (*stop) (struct master_iface *iface);
+	void (*exit) (struct master_iface *iface);
+	void (*start_tx_dma) (struct master_iface *iface);
+};
 
 /**
  * master_iface - generic Master interface
@@ -56,17 +74,30 @@
  * @count27: 27 MHz counter flag
  * @granularity: buffer size granularity in bytes
  * @mode: operating mode
+ * @frmode: frame mode
+ * @sample_size: audio sample size
+ * @sample_rate: audio sample rate
+ * @channels: enable audio channel
+ * @vb1cnt: vertical blanking interval 1 count
+ * @vb1ln1: vertical blanking interval 1 line 1
+ * @vb2cnt: vertical blanking interval 2 count
+ * @vb2ln1: vertical blanking interval 1 line 1
+ * @nonaudio: other than linear PCM samples
  * @null_packets: null packet insertion flag
  * @timestamps: packet timestamping flag
  * @transport: transport type
- * @class_dev: pointer to the class device structure
+ * @dev: pointer to the device structure
+ * @ops: pointer to Master interface helper functions
  * @users: usage count
  * @owner: UID of owner
  * @events: events flags
+ * @dma_ops: pointer to DMA helper functions
+ * @data_addr: local bus address of the FIFO
+ * @dma_flags: DMA buffer allocation flags
  * @dma: pointer to the DMA buffer management structure
  * @dma_done: DMA done flag
  * @queue: wait queue
- * @buf_sem: lock for cpu_buffer
+ * @buf_mutex: mutex for cpu_buffer
  * @card: pointer to the board information structure
  **/
 struct master_iface {
@@ -81,42 +112,110 @@ struct master_iface {
 	unsigned int count27;
 	unsigned int granularity;
 	unsigned int mode;
-	unsigned int standard;
+	unsigned int frmode;
+	unsigned int sample_size;
+	unsigned int sample_rate;
+	unsigned int channels;
+	unsigned int vb1cnt;
+	unsigned int vb1ln1;
+	unsigned int vb2cnt;
+	unsigned int vb2ln1;
+	unsigned int nonaudio;
 	unsigned int null_packets;
 	unsigned int timestamps;
 	unsigned int transport;
-	struct class_device *class_dev;
+	struct device *dev;
+	struct master_iface_operations *ops;
 	unsigned int users;
 	uid_t owner;
 	volatile unsigned long events;
+	struct master_dma_operations *dma_ops;
+	u32 data_addr;
+	unsigned int dma_flags;
 	void *dma;
 	volatile unsigned long dma_done;
 	wait_queue_head_t queue;
-	struct semaphore buf_sem;
+	struct mutex buf_mutex;
 	struct master_dev *card;
 };
 
 /* External function prototypes */
+
 ssize_t miface_show_version (struct class *cls, char *buf);
-ssize_t miface_show_buffers (struct class_device *cd, char *buf);
-ssize_t miface_show_bufsize (struct class_device *cd, char *buf);
-ssize_t miface_show_clksrc (struct class_device *cd, char *buf);
-ssize_t miface_show_count27 (struct class_device *cd, char *buf);
-ssize_t miface_show_granularity (struct class_device *cd, char *buf);
-ssize_t miface_show_mode (struct class_device *cd, char *buf);
-ssize_t miface_show_standard (struct class_device *cd, char *buf);
-ssize_t miface_show_null_packets (struct class_device *cd, char *buf);
-ssize_t miface_show_timestamps (struct class_device *cd, char *buf);
-ssize_t miface_show_transport (struct class_device *cd, char *buf);
-void miface_set_boolean_minmaxmult (struct master_iface *iface,
-	unsigned long *min, unsigned long *max, unsigned long *mult);
+ssize_t miface_show_buffers (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_bufsize (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_clksrc (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_count27 (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_granularity (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_mode (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_frmode (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_sample_size (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_sample_rate (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_channels (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_vb1cnt (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_vb1ln1 (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_vb2cnt (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_vb2ln1 (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_nonaudio (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_null_packets (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_timestamps (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_transport (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
 ssize_t miface_store (struct master_iface *iface,
 	unsigned int *var,
-	const char *buf,
-	size_t count,
-	unsigned long min,
-	unsigned long max,
-	unsigned long mult);
+	unsigned long val);
+int miface_open (struct inode *inode, struct file *filp);
+ssize_t miface_write (struct file *filp,
+	const char __user *data,
+	size_t length,
+	loff_t *offset);
+ssize_t miface_read (struct file *filp,
+	char __user *data,
+	size_t length,
+	loff_t *offset);
+unsigned int miface_txpoll (struct file *filp, poll_table *wait);
+unsigned int miface_rxpoll (struct file *filp, poll_table *wait);
+int miface_mmap (struct file *filp, struct vm_area_struct *vma);
+int miface_release (struct inode *inode, struct file *filp);
+int miface_txdqbuf (struct file *filp, unsigned int arg);
+int miface_txqbuf (struct file *filp, unsigned int arg);
+int miface_rxdqbuf (struct file *filp, unsigned int arg);
+int miface_rxqbuf (struct file *filp, unsigned int arg);
 
 #endif
 

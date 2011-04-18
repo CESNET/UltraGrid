@@ -1,9 +1,9 @@
 /* lsdma.h
  *
  * Header file for Linear Systems DMA controller.
-  *
+ *
  * Copyright (C) 1999 Tony Bolger <d7v@indigo.ie>
- * Copyright (C) 2000-2007 Linear Systems Ltd.
+ * Copyright (C) 2000-2009 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -45,11 +45,11 @@
 #define LSDMA_INTSRC_CH(i)	(1 << (i))
 
 /* Linear Systems DMA Channel Control/Status register bit locations */
-#define LSDMA_CH_CSR_INTSRCSTOP		0x01000000	/* DMA Abort Completed Int Src*/
+#define LSDMA_CH_CSR_INTSRCSTOP		0x01000000	/* DMA Abort Completed Int Src */
 #define LSDMA_CH_CSR_INTSRCBUFFER	0x00800000	/* Descriptor Buffer Int Src */
 #define LSDMA_CH_CSR_INTSRCDESC		0x00400000	/* Descriptor Done Int Src */
 #define LSDMA_CH_CSR_INTSRCDONE		0x00200000	/* DMA Done (EOL) Int Src */
-#define LSDMA_CH_CSR_INTSRCERR		0x00100000	/* DMA Error Int Src*/
+#define LSDMA_CH_CSR_INTSRCERR		0x00100000	/* DMA Error Int Src */
 #define LSDMA_CH_CSR_INTDESCENABLE	0x00080000	/* Descriptor Done Int Enable */
 #define LSDMA_CH_CSR_INTDONEENABLE	0x00040000	/* DMA Done Int Enable */
 #define LSDMA_CH_CSR_INTERRENABLE	0x00020000	/* DMA Error Int Enable */
@@ -57,6 +57,7 @@
 #define LSDMA_CH_CSR_ERR		0x00001000	/* DMA Error Status */
 #define LSDMA_CH_CSR_DONE		0x00000800	/* DMA Done Status */
 #define LSDMA_CH_CSR_STOP		0x00000200	/* DMA Abort */
+#define LSDMA_CH_CSR_64BIT		0x00000080	/* 64-bit DMA */
 #define LSDMA_CH_CSR_DIRECTION		0x00000002	/* Xfer Direction - Card to System when set */
 #define LSDMA_CH_CSR_ENABLE		0x00000001	/* DMA Enable */
 
@@ -72,43 +73,9 @@
 #define LSDMA_DESC_CSR_EOL_ORDER	20
 #define LSDMA_DESC_CSR_INT_ORDER	21
 
-#include <linux/types.h> /* size_t, u32 */
-#include <linux/pci.h> /* pci_dev, pci_pool */
-#include <linux/mm.h> /* vm_operations_struct */
+#include <linux/types.h> /* u32 */
 
-#define LSDMA_MMAP	0x00000001
-
-/**
- * lsdma_dma - DMA information structure
- * @pdev: PCI device
- * @buffers: number of buffers
- * @bufsize: number of bytes in each buffer
- * @pointers_per_buf: number of descriptors per buffer
- * @direction: direction of data flow
- * @desc_pool: DMA-coherent memory pool
- * @desc: pointer to an array of pointers to DMA descriptors
- * @page: pointer to an array of pointers to memory pages
- * @vpage: pointer to an array of pointers to DMA buffer fragments
- * @dev_buffer: buffer being accessed by the device
- * @cpu_buffer: buffer being accessed by the CPU
- * @cpu_offset: offset of the CPU access point within cpu_buffer
- * @flags: allocation flags
- **/
-struct lsdma_dma {
-	struct pci_dev *pdev;
-	unsigned int buffers;
-	unsigned int bufsize;
-	unsigned int pointers_per_buf;
-	unsigned int direction;
-	struct pci_pool *desc_pool;
-	struct lsdma_desc **desc;
-	unsigned long *page;
-	unsigned char **vpage;
-	volatile size_t dev_buffer;
-	size_t cpu_buffer;
-	size_t cpu_offset;
-	unsigned int flags;
-};
+#include "mdma.h"
 
 /**
  * lsdma_desc - Linear Systems DMA descriptor
@@ -131,140 +98,13 @@ struct lsdma_desc {
 
 /* External variables */
 
-extern struct vm_operations_struct lsdma_vm_ops;
+extern struct master_dma_operations lsdma_dma_ops;
 
 /* External function prototypes */
 
-struct lsdma_dma *lsdma_alloc (struct pci_dev *pdev,
-	u32 data_addr,
-	unsigned int buffers,
-	unsigned int bufsize,
-	unsigned int direction,
-	unsigned int flags);
-void lsdma_free (struct lsdma_dma *dma);
-ssize_t lsdma_read (struct lsdma_dma *dma, char *data, size_t length);
-ssize_t lsdma_write (struct lsdma_dma *dma, const char *data, size_t length);
-dma_addr_t lsdma_head_desc_bus_addr (struct lsdma_dma *dma);
-void lsdma_tx_link_all (struct lsdma_dma *dma);
-void lsdma_reset (struct lsdma_dma *dma);
-ssize_t lsdma_txdqbuf (struct lsdma_dma *dma, size_t bufnum);
-ssize_t lsdma_txqbuf (struct lsdma_dma *dma, size_t bufnum);
-ssize_t lsdma_rxdqbuf (struct lsdma_dma *dma, size_t bufnum);
-ssize_t lsdma_rxqbuf (struct lsdma_dma *dma, size_t bufnum);
-
-/* Inline functions */
-
-/**
- * lsdma_tx_buflevel - return the number of transmit buffers in use
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-lsdma_tx_buflevel (struct lsdma_dma *dma)
-{
-	return ((dma->cpu_buffer + dma->buffers - dma->dev_buffer) %
-		dma->buffers);
-}
-
-/**
- * lsdma_tx_isfull - return true if the transmit buffers are full
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-lsdma_tx_isfull (struct lsdma_dma *dma)
-{
-	return (dma->dev_buffer ==
-		((dma->cpu_buffer + 1) % dma->buffers));
-}
-
-/**
- * lsdma_rx_buflevel - return the number of receive buffers in use
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-lsdma_rx_buflevel (struct lsdma_dma *dma)
-{
-	return ((dma->dev_buffer + dma->buffers - dma->cpu_buffer) %
-		dma->buffers);
-}
-
-/**
- * lsdma_rx_isempty - return true if the receive buffers are empty
- * @dma: DMA information structure
- *
- * We don't lock dma->dev_buffer here because
- * simple reads and writes should be atomic.
- **/
-static inline int
-lsdma_rx_isempty (struct lsdma_dma *dma)
-{
-	return (dma->cpu_buffer == dma->dev_buffer);
-}
-
-/**
- * lsdma_advance - increment the device buffer pointer
- * @dma: DMA information structure
- *
- * We don't lock because this function is the only
- * dev_buffer writer, it should only be called from
- * a single interrupt service routine,
- * and dev_buffer reads should be atomic.
- **/
-static inline void
-lsdma_advance (struct lsdma_dma *dma)
-{
-	dma->dev_buffer = (dma->dev_buffer + 1) % dma->buffers;
-	return;
-}
-
-/**
- * lsdma_desc_to_dma - return a dma address from a descriptor address
- * @desc_low: low 32 bits of descriptor pointer
- * @desc_high: high 32 bits of descriptor pointer
- *
- * Handles 32 and 64 bit addresses.
- **/
-static inline dma_addr_t
-lsdma_desc_to_dma (u32 desc_low, u32 desc_high)
-{
-	if (sizeof (dma_addr_t) == 4) {
-		return (dma_addr_t)desc_low;
-	} else {
-		return (dma_addr_t)((((u64)desc_high) << 32) | desc_low);
-	}
-}
-
-/**
- * lsdma_dma_to_desc_low - return the low 32 bits of a dma address
- * @dma_addr: dma address
- *
- * Handles 32 and 64 bit addresses.
- **/
-static inline u32
-lsdma_dma_to_desc_low (dma_addr_t dma_addr)
-{
-	return (u32)(dma_addr & 0xffffffff);
-}
-
-/**
- * lsdma_dma_to_desc_high - return the high 32 bits of a dma address
- * @dma_addr: dma address
- *
- * Handles 32 and 64 bit addresses.
- **/
-static inline u32
-lsdma_dma_to_desc_high (dma_addr_t dma_addr)
-{
-	return (u32)((((u64)dma_addr) >> 32) & 0xffffffff);
-}
+dma_addr_t lsdma_head_desc_bus_addr (struct master_dma *dma);
+void lsdma_tx_link_all (struct master_dma *dma);
+void lsdma_reset (struct master_dma *dma);
 
 #endif
 

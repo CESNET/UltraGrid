@@ -2,7 +2,7 @@
  *
  * Linux driver functions for Linear Systems Ltd. DVB Master III Tx.
  *
- * Copyright (C) 2003-2007 Linear Systems Ltd.
+ * Copyright (C) 2003-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -26,24 +26,23 @@
 
 #include <linux/fs.h> /* inode, file, file_operations */
 #include <linux/sched.h> /* pt_regs */
-#include <linux/pci.h> /* pci_dev */
-#include <linux/slab.h> /* kmalloc () */
+#include <linux/pci.h> /* pci_resource_start () */
+#include <linux/slab.h> /* kzalloc () */
 #include <linux/list.h> /* INIT_LIST_HEAD () */
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
+#include <linux/mutex.h> /* mutex_init () */
 
-#include <asm/semaphore.h> /* sema_init () */
 #include <asm/bitops.h> /* set_bit () */
 
 #include "asicore.h"
 #include "../include/master.h"
-#include "miface.h"
 #include "mdev.h"
+#include "mdma.h"
 #include "dvbm.h"
 #include "plx9080.h"
-#include "masterplx.h"
 #include "dvbm_fdu.h"
 
 static const char dvbm_txu_name[] = DVBM_NAME_TXU;
@@ -52,82 +51,79 @@ static const char dvbm_txe_name[] = DVBM_NAME_TXE;
 /* Static function prototypes */
 static irqreturn_t IRQ_HANDLER(dvbm_txu_irq_handler,irq,dev_id,regs);
 
+static DEVICE_ATTR(uid,S_IRUGO,
+	dvbm_fdu_show_uid,NULL);
+
 /**
  * dvbm_txu_pci_probe - PCI insertion handler for a DVB Master III Tx
- * @dev: PCI device
+ * @pdev: PCI device
  *
  * Handle the insertion of a DVB Master III Tx.
  * Returns a negative error code on failure and 0 on success.
  **/
 int __devinit
-dvbm_txu_pci_probe (struct pci_dev *dev)
+dvbm_txu_pci_probe (struct pci_dev *pdev)
 {
 	int err;
-	unsigned int version, cap;
-	const char *name;
+	unsigned int cap;
 	struct master_dev *card;
 
-	/* Print the firmware version */
-	switch (dev->device) {
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBTXU:
-		name = dvbm_txu_name;
-		break;
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBTXE:
-		name = dvbm_txe_name;
-		break;
-	default:
-		name = "";
-		break;
+	err = dvbm_pci_probe_generic (pdev);
+	if (err < 0) {
+		goto NO_PCI;
 	}
-	version = inl (pci_resource_start (dev, 2) + DVBM_FDU_CSR) >> 16;
 
-	printk (KERN_INFO "%s: %s detected, firmware version %u.%u (0x%04X)\n",
-	dvbm_driver_name, name,
-	version >> 8, version & 0x00ff, version);
+	/* Initialize the driver_data pointer so that dvbm_txu_pci_remove()
+	 * doesn't try to free it if an error occurs */
+	pci_set_drvdata (pdev, NULL);
 
-	/* Allocate a board info structure */
+	/* Allocate and initialize a board info structure */
 	if ((card = (struct master_dev *)
-		kmalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
+		kzalloc (sizeof (*card), GFP_KERNEL)) == NULL) {
 		err = -ENOMEM;
 		goto NO_MEM;
 	}
 
-	/* Initialize the board info structure */
-	memset (card, 0, sizeof (*card));
-	card->bridge_addr = ioremap_nocache (pci_resource_start (dev, 0),
-		pci_resource_len (dev, 0));
-	card->core.port = pci_resource_start (dev, 2);
-	card->version = version;
-	card->name = name;
-	card->irq_handler = dvbm_txu_irq_handler;
-	INIT_LIST_HEAD(&card->iface_list);
-
-	switch (dev->device) {
+	card->bridge_addr = ioremap_nocache (pci_resource_start (pdev, 0),
+		pci_resource_len (pdev, 0));
+	card->core.port = pci_resource_start (pdev, 2);
+	card->version = master_inl (card, DVBM_FDU_CSR) >> 16;
+	switch (pdev->device) {
 	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBTXU:
+		card->name = dvbm_txu_name;
 		card->capabilities = 0;
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBTXE:
+		card->name = dvbm_txe_name;
 		card->capabilities = MASTER_CAP_UID;
 		break;
 	}
-
+	card->id = pdev->device;
+	card->irq = pdev->irq;
+	card->irq_handler = dvbm_txu_irq_handler;
+	INIT_LIST_HEAD(&card->iface_list);
 	/* Lock for ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for IBSTR, IPSTR, FTR, TCSR */
 	spin_lock_init (&card->reg_lock);
-	sema_init (&card->users_sem, 1);
-	card->pdev = dev;
+	mutex_init (&card->users_mutex);
+	card->parent = &pdev->dev;
+
+	/* Print the firmware version */
+	printk (KERN_INFO "%s: %s detected, firmware version %u.%u (0x%04X)\n",
+		dvbm_driver_name, card->name,
+		card->version >> 8, card->version & 0x00ff, card->version);
 
 	/* Store the pointer to the board info structure
 	 * in the PCI info structure */
-	pci_set_drvdata (dev, card);
+	pci_set_drvdata (pdev, card);
 
 	/* Reset the FPGA */
 	master_outl (card, DVBM_FDU_TCSR, DVBM_FDU_TCSR_RST);
 
 	/* Reset the PCI 9056 */
-	masterplx_reset_bridge (card);
+	plx_reset_bridge (card->bridge_addr);
 
 	/* Setup the PCI 9056 */
 	writel (PLX_INTCSR_PCIINT_ENABLE |
@@ -142,18 +138,15 @@ dvbm_txu_pci_probe (struct pci_dev *dev)
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + PLX_INTCSR);
 
-	/* Register a Master device */
-	if ((err = mdev_register (card,
-		&dvbm_card_list,
-		dvbm_driver_name,
-		&dvbm_class)) < 0) {
+	/* Register a DVB Master device */
+	if ((err = dvbm_register (card)) < 0) {
 		goto NO_DEV;
 	}
 
-	/* Add class_device attributes */
+	/* Add device attributes */
 	if (card->capabilities & MASTER_CAP_UID) {
-		if ((err = class_device_create_file (&card->class_dev,
-			&class_device_attr_uid)) < 0) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_uid)) < 0) {
 			printk (KERN_WARNING
 				"%s: unable to create file 'uid'\n",
 				dvbm_driver_name);
@@ -168,12 +161,15 @@ dvbm_txu_pci_probe (struct pci_dev *dev)
 		ASI_CAP_TX_27COUNTER |
 		ASI_CAP_TX_TIMESTAMPS |
 		ASI_CAP_TX_NULLPACKETS;
-	if (version >= 0x0e07) {
+	if (card->version >= 0x0e07) {
 		cap |= ASI_CAP_TX_PTIMESTAMPS;
 	}
 	if ((err = asi_register_iface (card,
+		&plx_dma_ops,
+		DVBM_FDU_FIFO,
 		MASTER_DIRECTION_TX,
 		&dvbm_fdu_txfops,
+		&dvbm_fdu_txops,
 		cap,
 		4,
 		ASI_CTL_TRANSPORT_DVB_ASI)) < 0) {
@@ -183,9 +179,10 @@ dvbm_txu_pci_probe (struct pci_dev *dev)
 	return 0;
 
 NO_IFACE:
-	dvbm_pci_remove (dev);
 NO_DEV:
 NO_MEM:
+	dvbm_txu_pci_remove (pdev);
+NO_PCI:
 	return err;
 }
 
@@ -211,7 +208,7 @@ IRQ_HANDLER(dvbm_txu_irq_handler,irq,dev_id,regs)
 			card->bridge_addr + PLX_DMACSR0);
 
 		/* Increment the buffer pointer */
-		plx_advance (iface->dma);
+		mdma_advance (iface->dma);
 
 		/* Flag end-of-chain */
 		if (status & PLX_DMACSR_DONE) {

@@ -22,7 +22,7 @@ OPTIONS
 		Possible values are
 		0 (bypass)
 		1 (normal)
-		2 (enable watchdog timer)
+		2 (enable and reset the watchdog timer)
 	-g BLACKBURST
 		Set the black burst type to BLACKBURST.
 		Possible values are
