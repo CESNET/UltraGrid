@@ -826,18 +826,6 @@ int main(int argc, char *argv[])
                                 should_exit = TRUE;
                         }
                 }
-
-                while (!should_exit) {
-#ifndef X_DISPLAY_MISSING
-#ifdef HAVE_SDL
-                        if (strcmp(uv->requested_display, "sdl") == 0) {
-                                display_sdl_handle_events(uv->display_device, 1);
-                        }
-#endif                          /* HAVE_SDL */
-#endif                          /* X_DISPLAY_MISSING */
-                        usleep(500000);
-
-                }
         }
 
         if (strcmp("none", uv->requested_display) != 0)

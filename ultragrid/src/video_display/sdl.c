@@ -109,9 +109,6 @@ struct state_sdl {
 
         const struct codec_info_t *codec_info;
 
-        unsigned int            x_width;
-        unsigned int            x_height;
-
         unsigned                rgb:1;
         unsigned                deinterlace:1;
         unsigned                fs:1;
@@ -119,8 +116,8 @@ struct state_sdl {
 
 extern int should_exit;
 
-inline int toggleFullscreen(struct state_sdl *s);
-inline void loadSplashscreen(struct state_sdl *s);
+static void toggleFullscreen(struct state_sdl *s);
+static void loadSplashscreen(struct state_sdl *s);
 inline void copyline64(unsigned char *dst, unsigned char *src, int len);
 inline void copyline128(unsigned char *dst, unsigned char *src, int len);
 inline void copylinev210(unsigned char *dst, unsigned char *src, int len);
@@ -144,7 +141,7 @@ extern int should_exit;
  * @since 18-02-2010, xsedmik
  * @param s Structure contains the current settings
  */
-void loadSplashscreen(struct state_sdl *s) {
+static void loadSplashscreen(struct state_sdl *s) {
 
 	unsigned int 	x_coord;
 	unsigned int 	y_coord;
@@ -152,6 +149,16 @@ void loadSplashscreen(struct state_sdl *s) {
 	SDL_Surface*	image;
 	SDL_Rect 	splash_src;
 	SDL_Rect	splash_dest;
+        unsigned int x_res_x, x_res_y;
+        int itemp;
+        unsigned int utemp;
+        Window wtemp;
+
+        if(splash_height > s->frame.height || splash_width > s->frame.width)
+                return;
+
+        XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
+                &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
 
 	// create a temporary SDL_Surface with the settings of displaying surface
 	image = SDL_DisplayFormat(s->sdl_screen);
@@ -212,8 +219,8 @@ void loadSplashscreen(struct state_sdl *s) {
 	splash_src.h = splash_height;
 
 	if (s->fs) {
-		splash_dest.x = ((int) s->x_width - splash_src.w) / 2;
-		splash_dest.y = ((int) s->x_height - splash_src.h) / 2;
+		splash_dest.x = ((int) x_res_x - splash_src.w) / 2;
+		splash_dest.y = ((int) x_res_y - splash_src.h) / 2;
 	
 	}
 	else {
@@ -237,38 +244,15 @@ void loadSplashscreen(struct state_sdl *s) {
  * @param s Structure contains the current settings
  * @return zero value everytime
  */
-int toggleFullscreen(struct state_sdl *s) {
+static void toggleFullscreen(struct state_sdl *s) {
 	if(s->fs) {
-                fprintf(stdout,"Setting video mode %dx%d.\n", s->frame.width, s->frame.height);
-                s->sdl_screen = SDL_SetVideoMode(s->frame.width, s->frame.height, 0, SDL_HWSURFACE | SDL_DOUBLEBUF);
-
-		// Set the begining of the video rectangle
-		s->dst_rect.y = 0;
-		s->dst_rect.x = 0;
-
 		s->fs = 0;
+                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec, s->frame.fps, s->frame.aux);
         }
         else {
-                fprintf(stdout,"Setting video mode %dx%d.\n", s->x_width, s->x_height);
-                s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 0, SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
-
-		// Set the begining of the video rectangle
-		if (s->x_height > s->frame.height) {
-			s->dst_rect.y = ((int) s->x_height - s->frame.height) / 2;
-		}
-		if (s->x_width > s->frame.width) {
-			s->dst_rect.x = ((int) s->x_width - s->frame.width) / 2;
-		}
-
 		s->fs = 1;
+                reconfigure_screen(s, s->frame.width, s->frame.height, s->codec_info->codec, s->frame.fps, s->frame.aux);
         }
-        if(s->sdl_screen == NULL){
-                fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
-                free(s);
-                exit(128);
-        }
-
-        return 0;
 }
 
 /**
@@ -299,13 +283,16 @@ int display_sdl_handle_events(void *arg, int post)
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
                                 toggleFullscreen(s);
+                                if(post)
+                                        SDL_SemPost(s->semaphore);
+                                return 1;
                         }
                         break;
                 case SDL_QUIT:
                         should_exit = 1;
                         if(post)
                                 SDL_SemPost(s->semaphore);
-                        break;
+                        return 1;
                 }
         }
 
@@ -322,8 +309,9 @@ static void *display_thread_sdl(void *arg)
 
         while (!should_exit) {
                 if(display_sdl_handle_events(s, 0))
-                        break;
-                SDL_SemWait(s->semaphore);
+                        continue;
+                if(SDL_SemWaitTimeout(s->semaphore, 500) == SDL_MUTEX_TIMEDOUT)
+                        continue;
 
                 if (s->deinterlace) {
                         if (s->rgb) {
@@ -405,8 +393,6 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         ret =
             XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
                          &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
-        s->x_width = x_res_x;
-        s->x_height = x_res_y;
 
         fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
         if (s->fs)
