@@ -50,13 +50,15 @@
 #include "config_win32.h"
 
 #include "debug.h"
-#include "video_types.h"
+#include "video_codec.h"
 #include "video_capture.h"
 
 #include "tv.h"
 
 #ifndef HAVE_MACOSX
 #ifdef HAVE_QUAD		/* From config.h */
+
+#define FMODE_MAGIC             0x9B7DA07u
 
 #include "video_capture/quad.h"
 
@@ -87,16 +89,108 @@ static const char progname[] = "videocapture";
 const char fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
 const char  device[] = "/dev/sdivideorx0";
 
+struct frame_mode {
+        char  * const    name;
+        unsigned int     width;
+        unsigned int     height;
+        double           fps;
+        int              interlacing; /* AUX_* */
+        unsigned int     magic;
+};
+
+static const struct frame_mode frame_modes[] = {
+        [SDIVIDEO_CTL_UNLOCKED] =
+                { "Unset", 0u, 0u, 0.0, 0, FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_125M_486I_59_94HZ] =
+                { "SMPTE 125M 486i 59.94 Hz", 720u, 486u , 59.94, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_BT_601_576I_50HZ] =
+                { "ITU-R BT.601 720x576i 50 Hz", 720u, 576u, 50.0, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_260M_1035I_60HZ] =
+                { "SMPTE 260M 1035i 60 Hz", 1920u, 1035u, 60.0, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_260M_1035I_59_94HZ] =
+                { "SMPTE 260M 1035i 59.94 Hz", 1920u, 1035u, 59.94, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_295M_1080I_50HZ] =
+                { "SMPTE 295M 1080i 50 Hz", 1920u, 1080u, 50.0, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080I_60HZ] =
+                { "SMPTE 274M 1080i 60 Hz", 1920u, 1080u, 60.0, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080PSF_30HZ] =
+                { "SMPTE 274M 1080psf 30 Hz", 1920u, 1080u, 30.0, AUX_SF,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080I_59_94HZ] =
+                { "SMPTE 274M 1080i 59.94 Hz", 1920u, 1080u, 59.94, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080PSF_29_97HZ] =
+                { "SMPTE 274M 1080psf 29.97 Hz", 1920u, 1080u, 29.97, AUX_SF,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080I_50HZ] =
+                { "SMPTE 274M 1080i 50 Hz", 1920u, 1080u, 50.0, AUX_INTERLACED,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080PSF_25HZ] =
+                { "SMPTE 274M 1080psf 25 Hz", 1920u, 1080u, 25.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080PSF_24HZ] =
+                { "SMPTE 274M 1080psf 24 Hz", 1920u, 1080u, 24.0, AUX_SF,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080PSF_23_98HZ] =
+                { "SMPTE 274M 1080psf 23.98 Hz", 1920u, 1080u, 23.98, AUX_SF,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080P_30HZ] =
+                { "SMPTE 274M 1080p 30 Hz", 1920u, 1080u, 30.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080P_29_97HZ] =
+                { "SMPTE 274M 1080p 29.97 Hz", 1920u, 1080u, 29.97, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080P_25HZ] =
+                { "SMPTE 274M 1080p 25 Hz", 1920u, 1080u, 25.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080P_24HZ] =
+                { "SMPTE 274M 1080p 24 Hz", 1920u, 1080u, 24.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_274M_1080P_23_98HZ] =
+                { "SMPTE 274M 1080p 23.98 Hz", 1920u, 1080u, 23.98, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_60HZ] =
+                { "SMPTE 296M 720p 60 Hz", 1280u, 720u, 60.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_59_94HZ] =
+                { "SMPTE 296M 720p 59.94 Hz", 1280u, 720u, 59.94, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_50HZ] =
+                { "SMPTE 296M 720p 50 Hz", 1280u, 720u, 50.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_30HZ] =
+                { "SMPTE 296M 720p 30 Hz", 1280u, 720u, 30.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_29_97HZ] =
+                { "SMPTE 296M 720p 29.97 Hz", 1280u, 720u, 29.97, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_25HZ] =
+                { "SMPTE 296M 720p 25 Hz", 1280u, 720u, 25.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_24HZ] =
+                { "SMPTE 296M 720p 24 Hz", 1280u, 720u, 24.0, AUX_PROGRESSIVE,
+                        FMODE_MAGIC },
+        [SDIVIDEO_CTL_SMPTE_296M_720P_23_98HZ] =
+                { "SMPTE 296M 720p 23.98 Hz", 1280u, 720u, 23.98, AUX_PROGRESSIVE,
+                        FMODE_MAGIC }
+};
+
 struct vidcap_quad_state {
-    int                 fd;
-    struct              pollfd pfd;
-	unsigned char*		data;
+        int                 fd;
+        struct              pollfd pfd;
+        unsigned long int   bufsize;
+        unsigned long int   buffers;
+        struct video_frame  frame;
 };
 
 int                 frames = 0;
 struct              timeval t, t0;
-
-unsigned long int 	bufsize;
 
 static void
 get_carrier (int fd)
@@ -116,114 +210,69 @@ get_carrier (int fd)
 }
 
 
-static void
-get_video_standard (int fd)
+static const struct frame_mode * get_video_standard (int fd)
 {
 	unsigned int val;
 
 	if (ioctl (fd, SDIVIDEO_IOC_RXGETVIDSTATUS, &val) < 0) {
 		fprintf (stderr, "%s: ", device);
-		perror ("\tunable to get the receive video standard detected");
+		perror ("\tunable to get the receive video standard "
+                        "detected.");
+                return NULL;
 	} else {
-		switch (val) {
-		case SDIVIDEO_CTL_UNLOCKED:
-			printf ("\tNo video standard locked.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_125M_486I_59_94HZ:
-			printf ("\tSMPTE 125M 486i 59.94 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_BT_601_576I_50HZ:
-			printf ("\tITU-R BT.601 720x576i 50 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_260M_1035I_60HZ:
-			printf ("\tSMPTE 260M 1035i 60 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_260M_1035I_59_94HZ:
-			printf ("\tSMPTE 260M 1035i 59.94 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_295M_1080I_50HZ:
-			printf ("\tSMPTE 295M 1080i 50 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080I_60HZ:
-		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_30HZ:
-			printf ("\tSMPTE 274M 1080i 60 Hz or 1080psf 30 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080I_59_94HZ:
-		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_29_97HZ:
-			printf ("\tSMPTE 274M 1080i 59.94 Hz or 1080psf 29.97 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080I_50HZ:
-		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_25HZ:
-			printf ("\tSMPTE 274M 1080i 50 Hz or 1080psf 25 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_24HZ:
-			printf ("\tSMPTE 274M 1080psf 24 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080PSF_23_98HZ:
-			printf ("\tSMPTE 274M 1080psf 23.98 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080P_30HZ:
-			printf ("\tSMPTE 274M 1080p 30 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080P_29_97HZ:
-			printf ("\tSMPTE 274M 1080p 29.97 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080P_25HZ:
-			printf ("\tSMPTE 274M 1080p 25 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080P_24HZ:
-			printf ("\tSMPTE 274M 1080p 24 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_274M_1080P_23_98HZ:
-			printf ("\tSMPTE 274M 1080p 23.98 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_60HZ:
-			printf ("\tSMPTE 296M 720p 60 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_59_94HZ:
-			printf ("\tSMPTE 296M 720p 59.94 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_50HZ:
-			printf ("\tSMPTE 296M 720p 50 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_30HZ:
-			printf ("\tSMPTE 296M 720p 30 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_29_97HZ:
-			printf ("\tSMPTE 296M 720p 29.97 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_25HZ:
-			printf ("\tSMPTE 296M 720p 25 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_24HZ:
-			printf ("\tSMPTE 296M 720p 24 Hz detected.\n");
-			break;
-		case SDIVIDEO_CTL_SMPTE_296M_720P_23_98HZ:
-			printf ("\tSMPTE 296M 720p 23.98 Hz detected.\n");
-			break;
-		default:
-			printf ("\tUnknown video standard detected.\n");
-			break;
-		}
+                if(val >= sizeof(frame_modes)/sizeof(struct frame_mode)
+                                || frame_modes[val].magic != FMODE_MAGIC) {
+                        printf("\t%s video mode detected.\n",
+                                        frame_modes[val].name);
+                        return &frame_modes[val];
+                } else {
+                        fprintf(stderr, "Unknown video standard detected!");
+                        return NULL;
+                }
 	}
-	return;
 }
 
 struct vidcap_type *
 vidcap_quad_probe(void)
 {
-	printf("vidcap_quad_probe\n");
-
 	struct vidcap_type*		vt;
-	struct stat             buf;
-	char                    name[MAXLEN];
-    char                    data[MAXLEN];
-    char                    type;
-    char                    *endptr;
-	int                     num;
-    unsigned long int       mode;
-    unsigned long int       buffers;
     
+	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+	if (vt != NULL) {
+		vt->id          = VIDCAP_QUAD_ID;
+		vt->name        = "quad";
+		vt->description = "HD-SDI Maste Quad/i PCIe card";
+	}
+	return vt;
+}
+
+void *
+vidcap_quad_init(void)
+{
+	struct vidcap_quad_state *s;
+
+        unsigned int              cap;
+        unsigned int              val;
+	struct stat               buf;
+	char                      name[MAXLEN];
+        char                      data[MAXLEN];
+        const char                *codec_name;
+        int                       codec_index;
+        char                      type;
+        char                      *endptr;
+        int                       num;
+        unsigned long int         mode;
+        const struct codec_info_t *c_info;
+        const struct frame_mode   *frame_mode;
+
+	printf("vidcap_quad_init\n");
+
+        s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
+	if(s == NULL) {
+		printf("Unable to allocate Quad state\n");
+		return NULL;
+	}
+
 	/* CHECK IF QUAD CAN WORK CORRECTLY */
     
     /*Printing current settings from the sysfs info */
@@ -235,17 +284,17 @@ vidcap_quad_probe(void)
     if(stat (device, &buf) < 0) {
 		fprintf (stderr, "%s: ", device);
 		perror ("unable to get the file status");
-		goto NO_STAT;
+                return NULL;
 	}
 
     /* Check if it is a character device or not */
     if(!S_ISCHR (buf.st_mode)) {
 		fprintf (stderr, "%s: not a character device\n", device);
-		goto NO_STAT;
+                return NULL;
 	}
 	if(!(buf.st_rdev & 0x0080)) {
 		fprintf (stderr, "%s: not a receiver\n", device);
-		goto NO_STAT;
+                return NULL;
 	}
 
     /* Check the minor number to determine if it is a receive or transmit device */
@@ -262,100 +311,91 @@ vidcap_quad_probe(void)
     if (util_read (name,data, sizeof (data)) < 0) {
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the device number");
-		goto NO_STAT;
+        return NULL;
     }
 
     /* Compare the major number taken from sysfs file to the one taken from device node */
     if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
         fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", device);
-		goto NO_STAT;
+        return NULL;
     }
 
     if (*endptr != ':') {
         fprintf (stderr, "%s: error reading %s\n", device, name);
-	    goto NO_STAT;
+        return NULL;
     }
 
     snprintf (name, sizeof (name),fmt, type, num, "mode");
     if (util_strtoul (name, &mode) < 0) {
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the pixel mode");
-	    goto NO_STAT;
+        return NULL;
     }
 
     printf ("\tMode: %lu ", mode);
     switch (mode) {
         case SDIVIDEO_CTL_MODE_UYVY:
             printf ("(assume 8-bit uyvy data)\n");
+            codec_name = "UYVY";
             break;
         case SDIVIDEO_CTL_MODE_V210:
             printf ("(assume 10-bit v210 synchronized data)\n");
+            codec_name = "v210";
             break;
         case SDIVIDEO_CTL_MODE_V210_DEINTERLACE:
             printf ("(assume 10-bit v210 deinterlaced data)\n");
+            codec_name = "v210";
             break;
         case SDIVIDEO_CTL_MODE_RAW:
             printf ("(assume raw data)\n");
-            break;
+            fprintf(stderr, "Raw data not (yet) supported!");
+            return NULL;
         default:
             printf ("(unknown)\n");
-            break;
+            fprintf(stderr, "Unknown colour space not (yet) supported!");
+            return NULL;
     }
 
+        c_info = NULL;
+        for(codec_index = 0; codec_info[codec_index].name != NULL;
+                        codec_index++) {
+                if(strcmp(codec_info[codec_index].name, codec_name) == 0) {
+                        c_info = &codec_info[codec_index];
+                        break;
+                }
+        }
+
+        if(c_info == NULL) {
+                fprintf(stderr, "Wrong config. Unknown color space %s\n", codec_name);
+                return NULL;
+        }
+
+
+
     snprintf (name, sizeof (name),fmt, type, num, "buffers");
-    if (util_strtoul (name, &buffers) < 0) {
+    if (util_strtoul (name, &s->buffers) < 0) {
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the number of buffers");
-	    goto NO_STAT;
+        return NULL;
     }
 
     snprintf (name, sizeof (name),fmt, type, num, "bufsize");
-    if (util_strtoul (name, &(bufsize)) < 0) {
+    if (util_strtoul (name, &s->bufsize) < 0) {
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the buffer size");
-	    goto NO_STAT;
+        return NULL;
     }
-    printf ("\t%lux%lu-byte buffers\n", buffers, bufsize);
+    printf ("\t%lux%lu-byte buffers\n", s->buffers, s->bufsize);
     
 
 	/* END OF CHECK IF QUAD CAN WORK CORRECTLY */
 
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->id          = VIDCAP_QUAD_ID;
-		vt->name        = "quad";
-		vt->description = "HD-SDI Maste Quad/i PCIe card";
-		vt->width       = hd_size_x;
-		vt->height      = hd_size_y;
-		vt->colour_mode = YUV_422;
-	}
-	return vt;
-
-NO_STAT:
-	return NULL;
-}
-
-void *
-vidcap_quad_init(void)
-{
-	struct vidcap_quad_state *s;
-
-    unsigned int       cap;
-    unsigned int       val;
-
-	printf("vidcap_quad_init\n");
     
-    s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
-	if(s == NULL) {
-		printf("Unable to allocate Quad state\n");
-		return NULL;
-	}
-
     /* Open the file */
 	if((s->fd = open (device, O_RDONLY,0)) < 0) {
 		fprintf (stderr, "%s: ", device);
 		perror ("unable to open file for reading");
-		goto NO_STAT;
+                return NULL;
 	}
     
 
@@ -364,7 +404,7 @@ vidcap_quad_init(void)
         fprintf (stderr, "%s: ", device);
         perror ("unable to get the receiver capabilities");
         close (s->fd);
-		goto NO_STAT;
+        return NULL;
     }
 
     /*Get carrier*/
@@ -388,13 +428,45 @@ vidcap_quad_init(void)
     }
 
     /*Get video standard*/
-    get_video_standard (s->fd);    
+        frame_mode = get_video_standard (s->fd);
+        if(frame_mode == NULL) {
+                close(s->fd);
+                return NULL;
+        }
+        if(frame_mode == &frame_modes[SDIVIDEO_CTL_UNLOCKED]) {
+                fprintf(stderr, "Please setup correct video mode "
+                                "via sysfs.");
+                close(s->fd);
+                return NULL;
+        }
+
 	
+        s->frame.color_spec = c_info->codec;
+        s->frame.width = frame_mode->width;
+        s->frame.height = frame_mode->height;
+        s->frame.fps = frame_mode->fps;
+        if(c_info->h_align) {
+           s->frame.src_linesize = ((s->frame.width + c_info->h_align - 1) / c_info->h_align) * 
+                c_info->h_align;
+        } else {
+             s->frame.src_linesize = s->frame.width;
+        }
+        s->frame.src_linesize *= c_info->bpp;
+        s->frame.data_len = s->frame.src_linesize * s->frame.height;
+        s->frame.aux = frame_mode->interlacing;
+        if(strcasecmp(c_info->name, "UYVY") == 0)
+                s->frame.aux |= AUX_YUV;
+        if(strcasecmp(c_info->name, "v210") == 0) {
+                s->frame.aux |= AUX_YUV | AUX_10Bit;
+        }
+
+
     /* Allocate some memory */
-	if((s->data = (unsigned char *)malloc (bufsize)) == NULL) {
+	if((s->frame.data = (char *) malloc (s->frame.data_len)) == NULL) {
 		fprintf (stderr, "%s: ", device);
 		fprintf (stderr, "unable to allocate memory\n");
-		goto NO_BUFS;
+	        close(s->fd);
+	        return NULL;
 	}
 
     
@@ -402,17 +474,7 @@ vidcap_quad_init(void)
 	s->pfd.fd = s->fd;
 	s->pfd.events = POLLIN | POLLPRI;
 
-    hd_size_x=1920;
-    hd_size_y=1080;
-    hd_color_bpp=2;
-
 	return s;
-
-NO_STAT:
-	return NULL;
-NO_BUFS:
-	close(s->fd);
-	return NULL;
 }
 
 void
@@ -422,8 +484,8 @@ vidcap_quad_done(void *state)
 
 	assert(s != NULL);
 
-	if(s!= NULL) {
-		free(s->data);
+	if (s != NULL) {
+		free(s->frame.data);
 		close(s->fd);
 	}
 }
@@ -433,7 +495,6 @@ vidcap_quad_grab(void *state)
 {
 
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
-	struct video_frame		    *vf;
 
     unsigned int val;
     ssize_t      read_ret;
@@ -444,16 +505,20 @@ vidcap_quad_grab(void *state)
 	if(poll (&(s->pfd), 1, 1000) < 0) {
 		fprintf (stderr, "%s: ", device);
 		perror ("unable to poll device file");
-		goto NO_RUN;
+		return NULL;
 	}
 
 	if(s->pfd.revents & POLLIN) {
-		if ((read_ret = read (s->fd, s->data, bufsize)) < 0) {
-			fprintf (stderr, "%s: ", device);
-			perror ("unable to read from device file");
-			goto NO_RUN;
-		}
 		bytes = 0;
+		while(bytes < s->frame.data_len) {
+			if ((read_ret = read (s->fd, &s->frame.data[bytes], 
+							s->bufsize)) < 0) {
+				fprintf (stderr, "%s: ", device);
+				perror ("unable to read from device file");
+				return NULL;
+			}
+			bytes += read_ret;
+		}
 
 	}
 
@@ -461,7 +526,7 @@ vidcap_quad_grab(void *state)
 		if (ioctl (s->fd,SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
 			fprintf (stderr, "%s: ", device);
 			perror ("unable to get receiver event flags");
-			goto NO_RUN;
+			return NULL;
 		}
 		if (val & SDIVIDEO_EVENT_RX_BUFFER) {
 			fprinttime (stderr, "");
@@ -490,15 +555,6 @@ vidcap_quad_grab(void *state)
 
 	}
 
-	if(s->data != NULL) {
-		vf = (struct video_frame *) malloc(sizeof(struct video_frame));
-		if (vf != NULL) {
-			vf->colour_mode	= YUV_422;
-			vf->width	    = hd_size_x;
-			vf->height	    = hd_size_y;
-			vf->data	    = (char*) s->data;
-			vf->data_len	= bufsize;
-		}
 
         frames++;
         gettimeofday(&t, NULL);
@@ -510,13 +566,7 @@ vidcap_quad_grab(void *state)
             frames = 0;
         }  
 
-		return vf;
-	}
-
-	return NULL;
-
-NO_RUN:
-	return NULL;
+	return &s->frame;
 }
 
 
