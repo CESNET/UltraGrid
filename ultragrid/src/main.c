@@ -84,8 +84,13 @@
 #define EXIT_FAIL_NETWORK	5
 #define EXIT_FAIL_TRANSMIT	6
 
+#define PORT_BASE               5004
+#define PORT_AUDIO              5006
+
 struct state_uv {
-        struct rtp *network_device;
+        struct rtp **network_devices;
+        unsigned int connections_count;
+        int split_frames;
         struct rtp *audio_network_device;
         struct vidcap *capture_device;
         struct timeval start_time, curr_time;
@@ -131,7 +136,7 @@ static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf
-            ("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] address\n\n");
+            ("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] [-S] address(es)\n\n");
         printf
             ("\t-d <display_device>\tselect display device, use -d help to get\n");
         printf("\t                   \tlist of devices availabe\n");
@@ -143,6 +148,10 @@ static void usage(void)
             ("\t                   \tuse -g help with a device to get info about\n");
         printf("\t                   \tsupported capture/display modes\n");
         printf("\t-i                 \tiHDTV compatibility mode\n");
+        printf("\t-S                 \tsplit frame (multilink mode)\n");
+        printf("\taddresses          \tcomma-separated list of destination interfaces'\n");
+        printf("\t                   \taddresses (splitted frame or tiled video)\n");
+        printf("\t                   \tfirst case implies '-S' argument\n");
 }
 
 void list_video_display_devices()
@@ -226,20 +235,71 @@ static struct vidcap *initialize_video_capture(const char *requested_capture,
         return vidcap_init(id, fmt);
 }
 
-static struct rtp *initialize_network(char *addr, struct pdb *participants)
+static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 {
-        struct rtp *r;
+	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
+	int ttl = 255;
+	char *saveptr;
+	char *addr;
+	char *tmp;
+	int required_connections, index;
+        int port = PORT_BASE;
 
-        r = rtp_init(addr, 5004, 5004, 255, rtcp_bw, FALSE, rtp_recv_callback,
-                     (void *)participants);
-        if (r != NULL) {
-                pdb_add(participants, rtp_my_ssrc(r));
-                rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
-                rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
-                             ULTRAGRID_VERSION, strlen(ULTRAGRID_VERSION));
-        }
-        return r;
+	tmp = strdup(addrs);
+	if(strtok_r(tmp, ",", &saveptr) == NULL) {
+		free(tmp);
+		return NULL;
+	}
+	else required_connections = 1;
+	while(strtok_r(NULL, ",", &saveptr) != NULL)
+		++required_connections;
+
+	free(tmp);
+	tmp = strdup(addrs);
+
+	devices = (struct rtp **) 
+		malloc((required_connections + 1) * sizeof(struct rtp *));
+
+	for(index = 0, addr = strtok_r(addrs, ",", &saveptr); 
+		index < required_connections;
+		++index, addr = strtok_r(NULL, ",", &saveptr), port += 2)
+	{
+                if (port == PORT_AUDIO)
+                        port += 2;
+		devices[index] = rtp_init(addr, port, port, ttl, rtcp_bw, 
+                                FALSE, rtp_recv_callback, 
+                                (void *)participants);
+		if (devices[index] != NULL) {
+			rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION, 
+				TRUE);
+			rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
+				RTCP_SDES_TOOL,
+				ULTRAGRID_VERSION, strlen(ULTRAGRID_VERSION));
+			pdb_add(participants, rtp_my_ssrc(devices[index]));
+		}
+		else {
+			int index_nest;
+			for(index_nest = 0; index_nest < index; ++index_nest) {
+				rtp_done(devices[index_nest]);
+			}
+			free(devices);
+			devices = NULL;
+		}
+	}
+	if(devices != NULL) devices[index] = NULL;
+	free(tmp);
+        
+        return devices;
+}
+
+static void destroy_devices(struct rtp ** network_devices)
+{
+	struct rtp ** current = network_devices;
+	while(current != NULL) {
+		rtp_done(*current++);
+	}
+	free(network_devices);
 }
 
 static struct video_tx *initialize_transmit(unsigned requested_mtu)
@@ -426,8 +486,8 @@ static void *receiver_thread(void *arg)
                 /* Housekeeping and RTCP... */
                 gettimeofday(&uv->curr_time, NULL);
                 uv->ts = tv_diff(uv->curr_time, uv->start_time) * 90000;
-                rtp_update(uv->network_device, uv->curr_time);
-                rtp_send_ctrl(uv->network_device, uv->ts, 0, uv->curr_time);
+                rtp_update(uv->network_devices[0], uv->curr_time);
+                rtp_send_ctrl(uv->network_devices[0], uv->ts, 0, uv->curr_time);
 
                 /* Receive packets from the network... The timeout is adjusted */
                 /* to match the video capture rate, so the transmitter works.  */
@@ -439,7 +499,7 @@ static void *receiver_thread(void *arg)
 
                 timeout.tv_sec = 0;
                 timeout.tv_usec = 999999 / 59.94;
-                ret = rtp_recv(uv->network_device, &timeout, uv->ts);
+                ret = rtp_recv_poll(uv->network_devices, &timeout, uv->ts);
 
                 /*
                    if (ret == FALSE) {
@@ -483,6 +543,19 @@ static void *sender_thread(void *arg)
 
         struct video_frame *tx_frame;
 
+        struct video_frame *splitted_frames = NULL;
+        struct tile_info t_info;
+        int net_dev = 0;
+
+        if(uv->split_frames) {
+                /* it is simply stripping frame */
+                t_info.x_count = 1u;
+                t_info.y_count = uv->connections_count;
+                splitted_frames = (struct video_frame *)
+                        malloc(uv->connections_count *
+                                        sizeof(struct video_frame));
+        }
+
         while (!should_exit) {
                 /* Capture and transmit video... */
                 tx_frame = vidcap_grab(uv->capture_device);
@@ -493,9 +566,22 @@ static void *sender_thread(void *arg)
                                 compress_data(uv->compression, tx_frame);
 #endif                          /* HAVE_FASTDXT */
                         }
-                        tx_send(uv->tx, tx_frame, uv->network_device);
+                        if(!uv->split_frames) {
+                                tx_send(uv->tx, tx_frame,
+                                                uv->network_devices[net_dev]);
+                                net_dev = (net_dev + 1) % uv->connections_count;
+                        } else { /* split */
+                                int i;
+                                vf_split_horizontal(splitted_frames, tx_frame,
+                                               t_info.y_count);
+                                for (i = 0; i < uv->connections_count; ++i) {
+                                        tx_send(uv->tx, &splitted_frames[i],
+                                                        uv->network_devices[i]);
+                                }
+                        }
                 }
         }
+        free(splitted_frames);
 
         return 0;
 }
@@ -524,6 +610,8 @@ int main(int argc, char *argv[])
                 {"ihdtv", no_argument, 0, 'i'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
+                {"split", no_argument, 0, 'S'},
+                {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -544,14 +632,15 @@ int main(int argc, char *argv[])
         uv->audio_playback_device = -2;
         uv->audio_participants = NULL;
         uv->participants = NULL;
+        uv->split_frames = 0;
 
 #ifdef HAVE_AUDIO
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:f:b:r:s:vcpi", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:f:b:r:s:vcpihS", getopt_options,
                             &option_index)) != -1) {
 #else
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:f:b:vcpi", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:f:b:vcpihS", getopt_options,
                             &option_index)) != -1) {
 #endif                          /* HAVE_AUDIO */
                 switch (ch) {
@@ -616,6 +705,12 @@ int main(int argc, char *argv[])
                         uv->audio_capture_device = atoi(optarg);
                         break;
 #endif                          /* HAVE_AUDIO */
+		case 'S':
+			uv->split_frames = 1;
+			break;
+		case 'h':
+			usage();
+			return 0;
                 case '?':
                         break;
                 default:
@@ -703,14 +798,20 @@ int main(int argc, char *argv[])
         pthread_t audio_thread_id;
         if ((uv->audio_playback_device != -2)
             || (uv->audio_capture_device != -2)) {
-                uv->audio_participants = pdb_init();
+		char *tmp;
+                char *addr;
+		tmp = strdup(argv[0]);
+		uv->audio_participants = pdb_init();
+		addr = strtok_r(tmp, NULL, NULL);
                 if ((uv->audio_network_device =
-                     initialize_audio_network(argv[0],
+                     initialize_audio_network(addr,
                                               uv->audio_participants)) ==
                     NULL) {
                         printf("Unable to open audio network\n");
+			free(tmp);
                         return EXIT_FAIL_NETWORK;
                 }
+		free(tmp);
 
                 if (pthread_create
                     (&audio_thread_id, NULL, audio_thread, (void *)uv) != 0) {
@@ -794,10 +895,15 @@ int main(int argc, char *argv[])
                         sleep(1);
 
         } else {
-                if ((uv->network_device =
+                if ((uv->network_devices =
                      initialize_network(argv[0], uv->participants)) == NULL) {
                         printf("Unable to open network\n");
                         return EXIT_FAIL_NETWORK;
+                } else {
+                        struct rtp **item;
+                        uv->connections_count = 0;
+                        for(item = uv->network_devices; *item != NULL; ++item)
+                                ++uv->connections_count;
                 }
 
                 if (uv->requested_mtu == 0)     // mtu wasn't specified on the command line
@@ -841,7 +947,7 @@ int main(int argc, char *argv[])
 #endif                          /* HAVE_AUDIO */
 
         tx_done(uv->tx);
-        rtp_done(uv->network_device);
+	destroy_devices(uv->network_devices);
         vidcap_done(uv->capture_device);
         display_done(uv->display_device);
         if (uv->participants != NULL)

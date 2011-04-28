@@ -2156,6 +2156,48 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 }
 
 /**
+ * rtp_recv_poll:
+ * The meaning is as above with except that this function polls for first
+ * nonempty stream and returns data.
+ *
+ * @param sessions null-terminated list of rtp sessions.
+ * @param timeout timeout
+ * @param cur_rtp_ts list null-terminated of timestamps for each session
+ */
+int rtp_recv_poll(struct rtp **sessions, struct timeval *timeout, uint32_t curr_rtp_ts)
+{
+        struct rtp **current;
+
+        udp_fd_zero();
+
+        for(current = sessions; *current != NULL; ++current) {
+                check_database(*current);
+                udp_fd_set((*current)->rtp_socket);
+                udp_fd_set((*current)->rtcp_socket);
+        }
+        if (udp_select(timeout) > 0) {
+                for(current = sessions; *current != NULL; ++current) {
+                        if (udp_fd_isset((*current)->rtp_socket)) {
+                                rtp_recv_data(*current, curr_rtp_ts);
+                        }
+                        if (udp_fd_isset((*current)->rtcp_socket)) {
+                                uint8_t buffer[RTP_MAX_PACKET_LEN];
+                                int buflen;
+                                buflen =
+                                    udp_recv((*current)->rtcp_socket, (char *)buffer,
+                                             RTP_MAX_PACKET_LEN);
+                                ntp64_time(&tmp_sec, &tmp_frac);
+                                rtp_process_ctrl(*current, buffer, buflen);
+                        }
+                        check_database(*current);
+                }
+                return TRUE;
+        }
+        //check_database(session);
+        return FALSE;
+}
+
+/**
  * rtp_add_csrc:
  * @session: the session pointer (returned by rtp_init()) 
  * @csrc: Constributing SSRC identifier

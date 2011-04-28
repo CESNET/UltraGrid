@@ -222,6 +222,8 @@ int 		 rtp_get_option(struct rtp *session, rtp_option optname, int *optval);
 
 int 		 rtp_recv(struct rtp *session, 
 			  struct timeval *timeout, uint32_t curr_rtp_ts);
+int 		 rtp_recv_poll(struct rtp **sessions, 
+			  struct timeval *timeout, uint32_t curr_rtp_ts);
 
 int 		 rtp_send_data(struct rtp *session, 
 			       uint32_t rtp_ts, char pt, int m, 

@@ -55,11 +55,11 @@
 #include "video_codec.h"
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", 0, 0, 4.0, 1},
-        {UYVY, "UYVY", 846624121, 0, 2, 0},
-        {Vuy2, "2vuy", '2vuy', 0, 2, 0},
-        {DVS8, "DVS8", 0, 0, 2, 0},
-        {R10k, "R10k", 1378955371, 0, 4, 1},
+        {RGBA, "RGBA", 0, 1, 4.0, 1},
+        {UYVY, "UYVY", 846624121, 1, 2, 0},
+        {Vuy2, "2vuy", '2vuy', 1, 2, 0},
+        {DVS8, "DVS8", 0, 1, 2, 0},
+        {R10k, "R10k", 1378955371, 1, 4, 1},
         {v210, "v210", 1983000880, 48, 8.0 / 3.0, 0},
         {DVS10, "DVS10", 0, 48, 8.0 / 3.0, 0},
         {0, NULL, 0, 0, 0.0, 0}
@@ -406,3 +406,4 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 }
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
+

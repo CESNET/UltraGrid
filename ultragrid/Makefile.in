@@ -35,6 +35,7 @@ OBJS          = src/bitstream.o \
 		src/crypto/md5.o \
 		src/crypto/random.o \
 		src/video_codec.o \
+		src/tile.o \
 		src/video_capture.o \
 		src/video_capture/null.o \
 		@DVS_OBJ@ \

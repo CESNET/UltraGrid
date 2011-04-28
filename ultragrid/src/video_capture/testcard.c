@@ -79,6 +79,8 @@ struct testcard_state {
         SDL_Surface *surface;
         struct timeval t0;
         struct video_frame frame;
+        struct video_frame *tiles;
+        int last_tile_sent;
 };
 
 const int rect_colors[] = {
@@ -255,10 +257,37 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height)
         }
 }
 
+static int configure_tiling(struct testcard_state *s, const char *fmt)
+{
+        char *tmp, *token, *saveptr;
+
+        if(fmt[1] != '=') return 1;
+        s->frame.aux |= AUX_TILED;
+        tmp = strdup(&fmt[2]);
+        token = strtok_r(tmp, "x", &saveptr);
+        s->frame.tile_info.x_count = atoi(token);
+        token = strtok_r(NULL, "x", &saveptr);
+        s->frame.tile_info.y_count = atoi(token);
+        free(tmp);
+        if(s->frame.tile_info.x_count < 1u ||
+                        s->frame.tile_info.y_count < 1u) {
+                fprintf(stderr, "There must be at least 1x1 tile.\n");
+                return 1;
+        }
+        s->tiles = (struct video_frame *) 
+                malloc(s->frame.tile_info.x_count *
+                                s->frame.tile_info.y_count *
+                        sizeof(struct video_frame));
+        vf_split(s->tiles, &s->frame, s->frame.tile_info.x_count,
+                        s->frame.tile_info.y_count, 1); /*prealloc*/
+        return 0;
+}
+
 void *vidcap_testcard_init(char *fmt)
 {
         struct testcard_state *s;
         char *filename;
+        const char *strip_fmt = NULL;
         FILE *in;
         struct stat sb;
         unsigned int i, j;
@@ -268,8 +297,9 @@ void *vidcap_testcard_init(char *fmt)
 
         if (strcmp(fmt, "help") == 0) {
                 printf("testcard options:\n");
-                printf("\twidth:height:fps:codec[:filename][:p}\n");
+                printf("\twidth:height:fps:codec[:filename][:p][:s=XxY]\n");
                 printf("\tp - pan with frame\n");
+                printf("\ts - split the frames into XxY separate tiles\n");
                 show_codec_help("testcard");
                 return NULL;
         }
@@ -341,7 +371,8 @@ void *vidcap_testcard_init(char *fmt)
         s->size = aligned_x * s->frame.height * bpp;
 
         filename = strtok(NULL, ":");
-        if (filename && strcmp(filename, "p") != 0) {
+        if (filename && strcmp(filename, "p") != 0
+                        && strncmp(filename, "s=", 2ul) != 0) {
                 s->frame.data = malloc(s->size);
                 if (stat(filename, &sb)) {
                         perror("stat");
@@ -375,8 +406,11 @@ void *vidcap_testcard_init(char *fmt)
                     SDL_CreateRGBSurface(SDL_SWSURFACE, aligned_x, s->frame.height,
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
-                if (filename && filename[0] == 'p') {
-                        s->pan = 48;
+                if (filename) {
+                        if(filename[0] == 'p')
+                                s->pan = 48;
+                        else if(filename[0] == 's')
+                                strip_fmt = filename;
                 }
 
                 for (j = 0; j < s->frame.height; j += rect_size) {
@@ -429,6 +463,14 @@ void *vidcap_testcard_init(char *fmt)
         if (tmp) {
                 if (tmp[0] == 'p') {
                         s->pan = 48;
+                } else if (tmp[0] == 's') {
+                        strip_fmt = tmp;
+                }
+        }
+        tmp = strtok(NULL, ":");
+        if (tmp) {
+                if (tmp[0] == 's') {
+                        strip_fmt = tmp;
                 }
         }
 
@@ -440,6 +482,13 @@ void *vidcap_testcard_init(char *fmt)
         s->frame.state = s;
         s->frame.data_len = s->size;
 
+        if(strip_fmt != NULL) {
+                if(configure_tiling(s, strip_fmt) != 0)
+                        return NULL;
+        } else {
+                s->frame.aux &= ~AUX_TILED;
+        }
+
         return s;
 }
 
@@ -450,6 +499,14 @@ void vidcap_testcard_done(void *state)
                 free(s->frame.data);
         if (s->surface)
                 SDL_FreeSurface(s->surface);
+        if (s->frame.aux & AUX_TILED)
+        {
+                unsigned int i;
+                for (i = 0u; i < s->frame.tile_info.x_count *
+                                s->frame.tile_info.y_count; ++i)
+                        free(s->tiles[i].data);
+                free(s->tiles);
+        }
         free(s);
 }
 
@@ -459,6 +516,12 @@ struct video_frame *vidcap_testcard_grab(void *arg)
         struct testcard_state *state;
 
         state = (struct testcard_state *)arg;
+
+        if (state->frame.aux & AUX_TILED) {
+                if (state->last_tile_sent < state->tiles->tile_info.x_count *
+                                state->tiles->tile_info.y_count - 1)
+                        return &state->tiles[++state->last_tile_sent];
+        }
 
         gettimeofday(&curr_time, NULL);
         if (tv_diff(curr_time, state->last_frame_time) >
@@ -499,6 +562,16 @@ struct video_frame *vidcap_testcard_grab(void *arg)
                         }
                 }
 #endif
+                if (state->frame.aux & AUX_TILED && state->last_tile_sent ==
+                                state->tiles->tile_info.x_count *
+                                state->tiles->tile_info.y_count
+                                - 1) {
+                        vf_split(state->tiles, &state->frame,
+                                       state->frame.tile_info.x_count,
+                                       state->frame.tile_info.y_count, 0);
+                        state->last_tile_sent = 0;
+                        return state->tiles;
+                }
                 return &state->frame;
         }
         return NULL;

@@ -47,6 +47,7 @@
 #ifndef __video_codec_h
 
 #define __video_codec_h
+#include "tile.h"
 
 typedef enum {
         RGBA,
@@ -59,7 +60,11 @@ typedef enum {
 } codec_t;
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
-typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux);
+typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux, struct tile_info tileinfo);
+/**
+ * function of this type should return buffer corresponding to the given tile_info struct
+ */
+typedef  struct video_frame * (*get_tile_buffer_t)(void *state, struct tile_info tile_info);
 
 
 struct video_frame {
@@ -74,7 +79,7 @@ struct video_frame {
         unsigned int         dst_linesize; /* framebuffer pitch */
         unsigned int         dst_pitch; /* framebuffer pitch - it can be larger if SDL resolution is larger than data */
         unsigned int         src_linesize; /* display data pitch */
-        unsigned int         dst_x_offset; /* X offset in frame buffer */
+        unsigned int         dst_x_offset; /* X offset in frame buffer in bytes */
         double               src_bpp;
         double               dst_bpp;
         int                  rshift;
@@ -82,9 +87,11 @@ struct video_frame {
         int                  bshift;
         decoder_t            decoder;
         reconfigure_t        reconfigure;
+        get_tile_buffer_t    get_tile_buffer;
         void                 *state;
         double               fps;
         int                  aux;
+        struct tile_info     tile_info;
 };
 
 
@@ -117,6 +124,7 @@ void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len)
 #define AUX_RGB         1<<3 /* if device supports both, set both */
 #define AUX_YUV         1<<4 
 #define AUX_10Bit       1<<5
-
+#define AUX_TILED       1<<6
 
 #endif
+
