@@ -49,8 +49,6 @@
 #define __tile_h
 
 struct video_frame;
-struct codec_info_t;
-enum codec_t;
 
 struct tile_info {
         unsigned int h_reserved:8;
