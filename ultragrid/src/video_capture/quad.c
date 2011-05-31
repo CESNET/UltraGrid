@@ -307,7 +307,10 @@ vidcap_quad_init(char *init_fmt)
         if((item = strtok_r(NULL, ":", &save_ptr)) != NULL)
         {
 	        s->device_cnt = atoi(item);
+        } else {
+                s->device_cnt = 1;
         }
+
         free(fmt_dup);
 
 	/* CHECK IF QUAD CAN WORK CORRECTLY */
