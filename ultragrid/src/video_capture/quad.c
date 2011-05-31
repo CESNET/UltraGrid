@@ -59,6 +59,7 @@
 #ifdef HAVE_QUAD		/* From config.h */
 
 #define FMODE_MAGIC             0x9B7DA07u
+#define MAX_TILES               4
 
 #include "video_capture/quad.h"
 
@@ -71,6 +72,7 @@
 #include <sys/poll.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <math.h>
 
 /* 
    QUAD SDK includes. We are also using a couple of utility functions from the
@@ -86,8 +88,8 @@
 extern int	should_exit;
 
 static const char progname[] = "videocapture";
-const char fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
-const char  device[] = "/dev/sdivideorx0";
+static const char sys_fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
+static const char devfile_fmt[] = "/dev/sdivideorx%1u";
 
 struct frame_mode {
         char  * const    name;
@@ -182,11 +184,13 @@ static const struct frame_mode frame_modes[] = {
 };
 
 struct vidcap_quad_state {
-        int                 fd;
-        struct              pollfd pfd;
+        int                 device_cnt;
+        int                 fd[MAX_TILES];
+        struct              pollfd pfd[MAX_TILES];
         unsigned long int   bufsize;
         unsigned long int   buffers;
-        struct video_frame  frame;
+        struct video_frame  frame[MAX_TILES];
+        int                 cur_dev;
 };
 
 static int          frames = 0;
@@ -195,7 +199,7 @@ static struct       timeval t, t0;
 static void print_output_modes();
 
 static void
-get_carrier (int fd)
+get_carrier (int fd, const char *device)
 {
     int val;
 
@@ -212,7 +216,7 @@ get_carrier (int fd)
 }
 
 
-static const struct frame_mode * get_video_standard (int fd)
+static const struct frame_mode * get_video_standard (int fd, const char *device)
 {
 	unsigned int val;
 
@@ -266,7 +270,11 @@ vidcap_quad_init(char *init_fmt)
         unsigned long int         mode;
         const struct codec_info_t *c_info;
         const struct frame_mode   *frame_mode;
-	int 			  frame_mode_number;
+        int                       frame_mode_number;
+        int                       i;
+        char                      *save_ptr;
+        char                      *fmt_dup, *item;
+        char                      dev_name[MAXLEN];
 
 	printf("vidcap_quad_init\n");
 
@@ -276,214 +284,239 @@ vidcap_quad_init(char *init_fmt)
 		return NULL;
 	}
 
-	/* CHECK IF QUAD CAN WORK CORRECTLY */
-    
-    /*Printing current settings from the sysfs info */
-
-    /* Stat the file, fills the structure with info about the file
-    * Get the major number from device node
-    */
-	memset (&buf, 0, sizeof (buf));
-    if(stat (device, &buf) < 0) {
-		fprintf (stderr, "%s: ", device);
-		perror ("unable to get the file status");
-                return NULL;
-	}
-
-    /* Check if it is a character device or not */
-    if(!S_ISCHR (buf.st_mode)) {
-		fprintf (stderr, "%s: not a character device\n", device);
-                return NULL;
-	}
-	if(!(buf.st_rdev & 0x0080)) {
-		fprintf (stderr, "%s: not a receiver\n", device);
-                return NULL;
-	}
-
-    /* Check the minor number to determine if it is a receive or transmit device */
-    type = (buf.st_rdev & 0x0080) ? 'r' : 't';
-
-    /* Get the receiver or transmitter number */
-	num = buf.st_rdev & 0x007f;
-
-    /* Build the path to sysfs file */
-    snprintf (name, sizeof (name), fmt, type, num, "dev");
-    
-    memset (data, 0,sizeof(data));
-    /* Read sysfs file (dev) */
-    if (util_read (name,data, sizeof (data)) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the device number");
-        return NULL;
-    }
-
-    /* Compare the major number taken from sysfs file to the one taken from device node */
-    if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
-        fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", device);
-        return NULL;
-    }
-
-    if (*endptr != ':') {
-        fprintf (stderr, "%s: error reading %s\n", device, name);
-        return NULL;
-    }
-
-    snprintf (name, sizeof (name),fmt, type, num, "mode");
-    if (util_strtoul (name, &mode) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the pixel mode");
-        return NULL;
-    }
-
-    printf ("\tMode: %lu ", mode);
-    switch (mode) {
-        case SDIVIDEO_CTL_MODE_UYVY:
-            printf ("(assume 8-bit uyvy data)\n");
-            codec_name = "UYVY";
-            break;
-        case SDIVIDEO_CTL_MODE_V210:
-            printf ("(assume 10-bit v210 synchronized data)\n");
-            codec_name = "v210";
-            break;
-        case SDIVIDEO_CTL_MODE_V210_DEINTERLACE:
-            printf ("(assume 10-bit v210 deinterlaced data)\n");
-            codec_name = "v210";
-            break;
-        case SDIVIDEO_CTL_MODE_RAW:
-            printf ("(assume raw data)\n");
-            fprintf(stderr, "Raw data not (yet) supported!");
-            return NULL;
-        default:
-            printf ("(unknown)\n");
-            fprintf(stderr, "Unknown colour space not (yet) supported!");
-            return NULL;
-    }
-
-        c_info = NULL;
-        for(codec_index = 0; codec_info[codec_index].name != NULL;
-                        codec_index++) {
-                if(strcmp(codec_info[codec_index].name, codec_name) == 0) {
-                        c_info = &codec_info[codec_index];
-                        break;
-                }
-        }
-
-        if(c_info == NULL) {
-                fprintf(stderr, "Wrong config. Unknown color space %s\n", codec_name);
-                return NULL;
-        }
-
-
-
-    snprintf (name, sizeof (name),fmt, type, num, "buffers");
-    if (util_strtoul (name, &s->buffers) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the number of buffers");
-        return NULL;
-    }
-
-    snprintf (name, sizeof (name),fmt, type, num, "bufsize");
-    if (util_strtoul (name, &s->bufsize) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the buffer size");
-        return NULL;
-    }
-    printf ("\t%lux%lu-byte buffers\n", s->buffers, s->bufsize);
-    
-
-	/* END OF CHECK IF QUAD CAN WORK CORRECTLY */
-
-    
-    /* Open the file */
-	if((s->fd = open (device, O_RDONLY,0)) < 0) {
-		fprintf (stderr, "%s: ", device);
-		perror ("unable to open file for reading");
-                return NULL;
-	}
-    
-
-    /* Get the receiver capabilities */
-    if (ioctl (s->fd, SDIVIDEO_IOC_RXGETCAP, &cap) < 0) {
-        fprintf (stderr, "%s: ", device);
-        perror ("unable to get the receiver capabilities");
-        close (s->fd);
-        return NULL;
-    }
-
-    /*Get carrier*/
-    if(cap & SDIVIDEO_CAP_RX_CD) {
-        get_carrier (s->fd);
-    } 
-
-    
-    if(ioctl (s->fd, SDIVIDEO_IOC_RXGETSTATUS, &val) < 0) {
-                fprintf (stderr, "%s: ", device);
-                perror ("unable to get the receiver status");
-        }else {
-        fprintf (stderr, "\tReceiver is ");
-        if (val) {
-            //printf ("passing data.\n");
-            fprintf (stderr, "passing data\n");
-        }else {
-            //printf ("blocking data.\n");
-            fprintf (stderr, "blocking data\n");
-        }
-    }
-
-    /*Get video standard*/
-        //frame_mode = get_video_standard (s->fd);
         if(strcmp(init_fmt, "help") == 0) {
                 print_output_modes();
                 return NULL;
         }
-	frame_mode_number = atoi(init_fmt);
+
+        fmt_dup = strdup(init_fmt);
+        item = strtok_r(fmt_dup, ":", &save_ptr);
+
+	frame_mode_number = atoi(item);
 	if(frame_mode_number < 0 || 
-                        frame_mode_number >= 
+                        (unsigned int) frame_mode_number >= 
                         sizeof(frame_modes)/sizeof(struct frame_mode)) {
-                close(s->fd);
                 return NULL;
         }
         frame_mode = &frame_modes[frame_mode_number];
         if(frame_mode == &frame_modes[SDIVIDEO_CTL_UNLOCKED]) {
                 fprintf(stderr, "Please setup correct video mode "
                                 "via sysfs.");
-                close(s->fd);
                 return NULL;
         }
-
-	
-        s->frame.color_spec = c_info->codec;
-        s->frame.width = frame_mode->width;
-        s->frame.height = frame_mode->height;
-        s->frame.fps = frame_mode->fps;
-        if(c_info->h_align) {
-           s->frame.src_linesize = ((s->frame.width + c_info->h_align - 1) / c_info->h_align) * 
-                c_info->h_align;
-        } else {
-             s->frame.src_linesize = s->frame.width;
+        if((item = strtok_r(NULL, ":", &save_ptr)) != NULL)
+        {
+	        s->device_cnt = atoi(item);
         }
-        s->frame.src_linesize *= c_info->bpp;
-        s->frame.data_len = s->frame.src_linesize * s->frame.height;
-        s->frame.aux = frame_mode->interlacing;
-        if(strcasecmp(c_info->name, "UYVY") == 0)
-                s->frame.aux |= AUX_YUV;
-        if(strcasecmp(c_info->name, "v210") == 0) {
-                s->frame.aux |= AUX_YUV | AUX_10Bit;
-        }
+        free(fmt_dup);
+
+	/* CHECK IF QUAD CAN WORK CORRECTLY */
+    
+        /*Printing current settings from the sysfs info */
+
+        /* Stat the file, fills the structure with info about the file
+        * Get the major number from device node
+        */
+
+        memset((void *) s->fd, 0, sizeof(s->fd));
+        memset((void *) s->frame, 0, sizeof(s->frame));
+
+        for(i = 0; i < s->device_cnt; ++i) {
+                snprintf(dev_name, sizeof(dev_name), devfile_fmt, i);
+
+                memset (&buf, 0, sizeof (buf));
+                if(stat (dev_name, &buf) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the file status");
+                        return NULL;
+                }
+
+                /* Check if it is a character device or not */
+                if(!S_ISCHR (buf.st_mode)) {
+                        fprintf (stderr, "%s: not a character device\n", dev_name);
+                        return NULL;
+                }
+                if(!(buf.st_rdev & 0x0080)) {
+                        fprintf (stderr, "%s: not a receiver\n", dev_name);
+                        return NULL;
+                }
+
+                /* Check the minor number to determine if it is a receive or transmit device */
+                type = (buf.st_rdev & 0x0080) ? 'r' : 't';
+
+                /* Get the receiver or transmitter number */
+                num = buf.st_rdev & 0x007f;
+
+                /* Build the path to sysfs file */
+                snprintf (name, sizeof (name), sys_fmt, type, num, "dev");
+    
+                memset (data, 0,sizeof(data));
+                /* Read sysfs file (dev) */
+                if (util_read (name,data, sizeof (data)) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the device number");
+                        return NULL;
+                }
+
+                /* Compare the major number taken from sysfs file to the one taken from device node */
+                if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
+                        fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", dev_name);
+                        return NULL;
+                }
+
+                if (*endptr != ':') {
+                        fprintf (stderr, "%s: error reading %s\n", dev_name, name);
+                        return NULL;
+                }
+
+                snprintf (name, sizeof (name), sys_fmt, type, num, "mode");
+                if (util_strtoul (name, &mode) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the pixel mode");
+                        return NULL;
+                }
+
+               printf ("\tMode: %lu ", mode);
+               switch (mode) {
+                   case SDIVIDEO_CTL_MODE_UYVY:
+                       printf ("(assume 8-bit uyvy data)\n");
+                       codec_name = "UYVY";
+                       break;
+                   case SDIVIDEO_CTL_MODE_V210:
+                       printf ("(assume 10-bit v210 synchronized data)\n");
+                       codec_name = "v210";
+                       break;
+                   case SDIVIDEO_CTL_MODE_V210_DEINTERLACE:
+                       printf ("(assume 10-bit v210 deinterlaced data)\n");
+                       codec_name = "v210";
+                       break;
+                   case SDIVIDEO_CTL_MODE_RAW:
+                       printf ("(assume raw data)\n");
+                       fprintf(stderr, "Raw data not (yet) supported!");
+                       return NULL;
+                   default:
+                       printf ("(unknown)\n");
+                       fprintf(stderr, "Unknown colour space not (yet) supported!");
+                       return NULL;
+               }
+
+                c_info = NULL;
+                for(codec_index = 0; codec_info[codec_index].name != NULL;
+                                codec_index++) {
+                        if(strcmp(codec_info[codec_index].name, codec_name) == 0) {
+                                c_info = &codec_info[codec_index];
+                                break;
+                        }
+                }
+
+                if(c_info == NULL) {
+                        fprintf(stderr, "Wrong config. Unknown color space %s\n", codec_name);
+                        return NULL;
+                }
 
 
-    /* Allocate some memory */
-	if((s->frame.data = (char *) malloc (s->frame.data_len)) == NULL) {
-		fprintf (stderr, "%s: ", device);
-		fprintf (stderr, "unable to allocate memory\n");
-	        close(s->fd);
-	        return NULL;
-	}
+
+                snprintf (name, sizeof (name), sys_fmt, type, num, "buffers");
+                if (util_strtoul (name, &s->buffers) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the number of buffers");
+                        return NULL;
+                }
+
+                snprintf (name, sizeof (name), sys_fmt, type, num, "bufsize");
+                if (util_strtoul (name, &s->bufsize) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the buffer size");
+                        return NULL;
+                }
+                printf ("\t%lux%lu-byte buffers\n", s->buffers, s->bufsize);
+
+
+                /* END OF CHECK IF QUAD CAN WORK CORRECTLY */
 
     
-    /* SET SOME VARIABLES*/
-	s->pfd.fd = s->fd;
-	s->pfd.events = POLLIN | POLLPRI;
+                /* Open the file */
+                if((s->fd[i] = open (dev_name, O_RDONLY,0)) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to open file for reading");
+                        return NULL;
+                }
+    
+
+                /* Get the receiver capabilities */
+                if (ioctl (s->fd[i], SDIVIDEO_IOC_RXGETCAP, &cap) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the receiver capabilities");
+                        vidcap_quad_done(s);
+                        return NULL;
+                }
+
+                /*Get carrier*/
+                if(cap & SDIVIDEO_CAP_RX_CD) {
+                        get_carrier (s->fd[i], name);
+                } 
+
+    
+                if(ioctl (s->fd[i], SDIVIDEO_IOC_RXGETSTATUS, &val) < 0) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        perror ("unable to get the receiver status");
+                } else {
+                        fprintf (stderr, "\tReceiver is ");
+                        if (val) {
+                                //printf ("passing data.\n");
+                                fprintf (stderr, "passing data\n");
+                        } else {
+                                //printf ("blocking data.\n");
+                                fprintf (stderr, "blocking data\n");
+                        }
+                }
+
+                /*Get video standard*/
+                //frame_mode = get_video_standard (s->fd);
+
+	
+                s->frame[i].color_spec = c_info->codec;
+                s->frame[i].width = frame_mode->width;
+                s->frame[i].height = frame_mode->height;
+                s->frame[i].fps = frame_mode->fps;
+                if(c_info->h_align) {
+                   s->frame[i].src_linesize = ((s->frame[i].width + c_info->h_align - 1) / c_info->h_align) * 
+                        c_info->h_align;
+                } else {
+                     s->frame[i].src_linesize = s->frame[i].width;
+                }
+                s->frame[i].src_linesize *= c_info->bpp;
+                s->frame[i].data_len = s->frame[i].src_linesize * s->frame[i].height;
+                s->frame[i].aux = frame_mode->interlacing;
+                if(strcasecmp(c_info->name, "UYVY") == 0)
+                        s->frame[i].aux |= AUX_YUV;
+                if(strcasecmp(c_info->name, "v210") == 0) {
+                        s->frame[i].aux |= AUX_YUV | AUX_10Bit;
+                }
+                if(s->device_cnt > 1) {
+                        int size;
+
+                        s->frame[i].aux |= AUX_TILED;
+                        size = sqrt(s->device_cnt);
+                        s->frame[i].tile_info.x_count = size;
+                        s->frame[i].tile_info.y_count = size;
+                        s->frame[i].tile_info.pos_x = i % size;
+                        s->frame[i].tile_info.pos_y = i / size;
+                }
+
+
+            /* Allocate some memory */
+                if((s->frame[i].data = (char *) malloc (s->frame[i].data_len)) == NULL) {
+                        fprintf (stderr, "%s: ", dev_name);
+                        fprintf (stderr, "unable to allocate memory\n");
+                        vidcap_quad_done(s);
+                        return NULL;
+                }
+                /* SET SOME VARIABLES*/
+                s->pfd[i].fd = s->fd[i];
+                s->pfd[i].events = POLLIN | POLLPRI;
+        }
+        s->cur_dev = 0;
 
 	return s;
 }
@@ -496,8 +529,13 @@ vidcap_quad_done(void *state)
 	assert(s != NULL);
 
 	if (s != NULL) {
-		free(s->frame.data);
-		close(s->fd);
+                int i;
+                for (i = 0; i < s->device_cnt; ++i) {
+                        if(s->frame[i].data != NULL)
+                                free(s->frame[i].data);
+                        if(s->fd[i] != 0)
+                                close(s->fd[i]);
+                }
 	}
 }
 
@@ -509,29 +547,33 @@ vidcap_quad_grab(void *state)
 
     unsigned int val;
     ssize_t      read_ret = 0ul;
-    ssize_t      bytes;
+    int          last_frame;
     
     /* Receive the data and check for errors */
 	
-    while(read_ret < s->frame.data_len)
+    while(read_ret < s->frame[s->cur_dev].data_len)
     {
-	if(poll (&(s->pfd), 1, 1000) < 0) {
-		fprintf (stderr, "%s: ", device);
+	if(poll (&(s->pfd[s->cur_dev]), 1, 1000) < 0) {
+		//fprintf (stderr, "%s: ", device);
 		perror ("unable to poll device file");
 		return NULL;
 	}
 
-	if(s->pfd.revents & POLLIN) {
-                if ((read_ret += read (s->fd, s->frame.data + read_ret, s->frame.data_len - read_ret)) < 0) {
-                        fprintf (stderr, "%s: ", device);
+	if(s->pfd[s->cur_dev].revents & POLLIN) {
+                if ((read_ret += read (s->fd[s->cur_dev], 
+                                                s->frame[s->cur_dev].data +
+                                                read_ret,
+                                                s->frame[s->cur_dev].data_len -
+                                                read_ret)) < 0) {
+                        //fprintf (stderr, "%s: ", device);
                         perror ("unable to read from device file");
                         return NULL;
                 }
 	}
 
-	if(s->pfd.revents & POLLPRI) {
-		if (ioctl (s->fd,SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
-			fprintf (stderr, "%s: ", device);
+	if(s->pfd[s->cur_dev].revents & POLLPRI) {
+		if (ioctl (s->fd[s->cur_dev],SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
+			//fprintf (stderr, "%s: ", device);
 			perror ("unable to get receiver event flags");
 			return NULL;
 		}
@@ -564,22 +606,27 @@ vidcap_quad_grab(void *state)
     }
 
 
-        frames++;
-        gettimeofday(&t, NULL);
-        double seconds = tv_diff(t, t0);    
-        if (seconds >= 5) {
-            float fps  = frames / seconds;
-            fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
-            t0 = t;
-            frames = 0;
-        }  
+        last_frame = s->cur_dev++;
+        if(s->cur_dev == s->device_cnt)
+        {
+                s->cur_dev = 0;
+                frames++;
+                gettimeofday(&t, NULL);
+                double seconds = tv_diff(t, t0);    
+                if (seconds >= 5) {
+                    float fps  = frames / seconds;
+                    fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
+                    t0 = t;
+                    frames = 0;
+                }  
+        }
 
-	return &s->frame;
+	return &s->frame[last_frame];
 }
 
 static void print_output_modes()
 {
-        int i;
+        unsigned int i;
         printf("usage: -g <mode>\n\twhere mode is one of following.\n");
         printf("Available output modes:\n");
         for(i = 0; i < sizeof(frame_modes)/sizeof(struct frame_mode); ++i) {
