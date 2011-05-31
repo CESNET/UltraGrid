@@ -3,7 +3,7 @@
  * ITU-R BT.801-1 625-line, 50 field/s, 100/0/75/0 colour bar generator for
  * Linear Systems Ltd. SMPTE 259M-C boards.
  *
- * Copyright (C) 2008-2009 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2008-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,10 @@
 
 #include "master.h"
 
+#if __BYTE_ORDER == __BIG_ENDIAN
+#error Big endian architecture not supported
+#endif
+
 #define TOTAL_SAMPLES 1728
 #define ACTIVE_SAMPLES 1440
 #define TOTAL_LINES 625
@@ -55,22 +59,22 @@ struct trs {
 	unsigned short int eav;
 };
 
-const struct trs FIELD_1_ACTIVE = {
+static const struct trs FIELD_1_ACTIVE = {
 	.sav = 0x200,
 	.eav = 0x274
 };
 
-const struct trs FIELD_1_VERT_BLANKING = {
+static const struct trs FIELD_1_VERT_BLANKING = {
 	.sav = 0x2ac,
 	.eav = 0x2d8
 };
 
-const struct trs FIELD_2_ACTIVE = {
+static const struct trs FIELD_2_ACTIVE = {
 	.sav = 0x31c,
 	.eav = 0x368
 };
 
-const struct trs FIELD_2_VERT_BLANKING = {
+static const struct trs FIELD_2_VERT_BLANKING = {
 	.sav = 0x3b0,
 	.eav = 0x3c4
 };
@@ -86,7 +90,14 @@ unsigned short int cb[360];
 
 /* Static function prototypes */
 static int mkline (unsigned short int *buf,
-	const struct line_info *info);
+	const struct line_info *info,
+	int black);
+static int mkframe (uint8_t *p,
+	struct line_info info,
+	int black,
+	uint8_t *(*pack)(uint8_t *outbuf,
+		unsigned short int *inbuf,
+		size_t count));
 static uint8_t *pack_v210 (uint8_t *outbuf,
 	unsigned short int *inbuf,
 	size_t count);
@@ -96,44 +107,49 @@ static uint8_t *pack_uyvy (uint8_t *outbuf,
 static uint8_t *pack10 (uint8_t *outbuf,
 	unsigned short int *inbuf,
 	size_t count);
+static uint8_t *pack_v216 (uint8_t *outbuf,
+	unsigned short int *inbuf,
+	size_t count);
 
 /**
  * mkline - generate one line
  * @buf: pointer to a buffer
  * @info: pointer to a line information structure
+ * @black: black frame flag
  *
  * Returns a negative error code on failure and zero on success.
  **/
 static int
 mkline (unsigned short int *buf,
-	const struct line_info *info)
+	const struct line_info *info,
+	int black)
 {
 	unsigned short int *p = buf;
-	unsigned short int *py = y, *pcr = cr, *pcb = cb;
-	unsigned int samples = info->blanking ? TOTAL_SAMPLES : ACTIVE_SAMPLES;
+	unsigned short int *py = y, *pcr = cr, *pcb = cb, sum;
+	unsigned int samples = ACTIVE_SAMPLES;
 
-	if (info->blanking) {
-		/* EAV */
-		*p++ = 0x3ff;
-		*p++ = 0x000;
-		*p++ = 0x000;
-		*p++ = info->xyz->eav;
-		/* Horizontal blanking */
-		while (p < (buf + 284)) {
+	if (black) {
+		while (p < (buf + samples)) {
 			*p++ = 0x200;
 			*p++ = 0x040;
 			*p++ = 0x200;
 			*p++ = 0x040;
 		}
-		/* SAV */
-		*p++ = 0x3ff;
-		*p++ = 0x000;
-		*p++ = 0x000;
-		*p++ = info->xyz->sav;
-	}
-	/* Active region */
-	if ((info->xyz == &FIELD_1_VERT_BLANKING) ||
+	} else if ((info->xyz == &FIELD_1_VERT_BLANKING) ||
 		(info->xyz == &FIELD_2_VERT_BLANKING)) {
+		/* Ancillary data packet marked for deletion */
+		*p++ = 0;
+		*p++ = 0x3ff;
+		*p++ = 0x3ff;
+		*p++ = 0x180; sum = 0x180 & 0x1ff; /* DID */
+		*p++ = 0x200; sum += 0x200 & 0x1ff;
+		*p++ = 0x203; sum += 0x203 & 0x1ff; /* DC */
+		*p++ = 0x18a; sum += 0x18a & 0x1ff;
+		*p++ = 0x180; sum += 0x180 & 0x1ff;
+		*p++ = 0x180; sum += 0x180 & 0x1ff;
+		*p++ = (sum & 0x1ff) | ((sum & 0x100) ? 0 : 0x200);
+		*p++ = 0x200;
+		*p++ = 0x040;
 		while (p < (buf + samples)) {
 			*p++ = 0x200;
 			*p++ = 0x040;
@@ -146,6 +162,77 @@ mkline (unsigned short int *buf,
 			*p++ = *py++ << 2;
 			*p++ = *pcr++ << 2;
 			*p++ = *py++ << 2;
+		}
+	}
+	return 0;
+}
+
+/**
+ * mkframe - generate one frame
+ * @p: pointer to a buffer
+ * @info: line information structure
+ * @black: black frame flag
+ * @pack: pointer to packing function
+ *
+ * Returns a negative error code on failure and zero on success.
+ **/
+static int
+mkframe (uint8_t *p,
+	struct line_info info,
+	int black,
+	uint8_t *(*pack)(uint8_t *outbuf,
+		unsigned short int *inbuf,
+		size_t count))
+{
+	uint8_t *(*vanc_pack)(uint8_t *outbuf,
+		unsigned short int *inbuf,
+		size_t count);
+	unsigned short int buf[TOTAL_SAMPLES];
+	size_t elements = ACTIVE_SAMPLES;
+	unsigned int i;
+
+	if (pack == pack_v210) {
+		vanc_pack = pack_v210;
+	} else {
+		vanc_pack = pack_v216;
+	}
+	memset (buf, 0, sizeof (buf));
+	if (info.blanking) {
+		info.xyz = &FIELD_1_VERT_BLANKING;
+		for (i = 1; i <= 21; i++) {
+			mkline (buf, &info, 1);
+			p = vanc_pack (p, buf, elements);
+		}
+		mkline (buf, &info, 0);
+		p = vanc_pack (p, buf, elements);
+	}
+	info.xyz = &FIELD_1_ACTIVE;
+	for (i = 23; i <= 310; i++) {
+		mkline (buf, &info, black);
+		p = pack (p, buf, elements);
+	}
+	if (info.blanking) {
+		info.xyz = &FIELD_1_VERT_BLANKING;
+		for (i = 311; i <= 312; i++) {
+			mkline (buf, &info, 1);
+			p = vanc_pack (p, buf, elements);
+		}
+		info.xyz = &FIELD_2_VERT_BLANKING;
+		for (i = 313; i <= 335; i++) {
+			mkline (buf, &info, 1);
+			p = vanc_pack (p, buf, elements);
+		}
+	}
+	info.xyz = &FIELD_2_ACTIVE;
+	for (i = 336; i <= 623; i++) {
+		mkline (buf, &info, black);
+		p = pack (p, buf, elements);
+	}
+	if (info.blanking) {
+		info.xyz = &FIELD_2_VERT_BLANKING;
+		for (i = 624; i <= 625; i++) {
+			mkline (buf, &info, 1);
+			p = vanc_pack (p, buf, elements);
 		}
 	}
 	return 0;
@@ -167,7 +254,7 @@ pack_v210 (uint8_t *outbuf,
 	unsigned short int *inp = inbuf;
 	uint8_t *outp = outbuf;
 
-	count = (count / 96) * 96 + ((count % 96) ? 96 : 0);
+	count = (count / 48) * 48 + ((count % 48) ? 48 : 0);
 	while (inp < (inbuf + count)) {
 		*outp++ = *inp & 0xff;
 		*outp = *inp++ >> 8;
@@ -231,29 +318,50 @@ pack10 (uint8_t *outbuf,
 	return outp;
 }
 
+/**
+ * pack_v216 - pack a line of v216 data
+ * @outbuf: pointer to the output buffer
+ * @inbuf: pointer to the input buffer
+ * @count: number of elements in the buffer
+ *
+ * Returns a pointer to the next output location.
+ **/
+static uint8_t *
+pack_v216 (uint8_t *outbuf,
+	unsigned short int *inbuf,
+	size_t count)
+{
+	unsigned short int *inp = inbuf;
+	uint16_t *outp = (uint16_t *)outbuf;
+
+	while (inp < (inbuf + count)) {
+		*outp++ = *inp++ << 6; /* Little endian only */
+	}
+	return (uint8_t *)outp;
+}
+
 int
 main (int argc, char **argv)
 {
-	int opt, frames;
+	int opt, frames, avsync_period;
 	uint8_t *(*pack)(uint8_t *outbuf,
 		unsigned short int *inbuf,
 		size_t count);
 	struct line_info info;
 	char *endptr;
-	unsigned short int buf[TOTAL_SAMPLES];
-	uint8_t data[TOTAL_SAMPLES*4/3*TOTAL_LINES], *p = data;
-	size_t samples, framesize, bytes;
+	uint8_t *data, *black_frame, *p;
+	size_t framesize, bytes;
+	unsigned int black, avsync_sum, n, d;
 	int i, ret;
 
+	avsync_period = 0;
 	frames = -1; /* Generate an infinite number of frames */
 	pack = pack_uyvy;
 	info.blanking = 0;
-	samples = ACTIVE_SAMPLES;
-	while ((opt = getopt (argc, argv, "bhn:p:V")) != -1) {
+	while ((opt = getopt (argc, argv, "ahm:n:p:V")) != -1) {
 		switch (opt) {
-		case 'b':
+		case 'a':
 			info.blanking = 1;
-			samples = TOTAL_SAMPLES;
 			break;
 		case 'h':
 			printf ("Usage: %s [OPTION]...\n", argv[0]);
@@ -262,8 +370,10 @@ main (int argc, char **argv)
 				"for transmission by "
 				"a Linear Systems Ltd. "
 				"SMPTE 259M-C board.\n\n");
-			printf ("  -b\t\tadd blanking\n");
+			printf ("  -a\t\tinclude vertical ancillary space\n");
 			printf ("  -h\t\tdisplay this help and exit\n");
+			printf ("  -m PERIOD\tswitch between bars and black "
+				"every PERIOD seconds\n");
 			printf ("  -n NUM\tstop after NUM frames\n");
 			printf ("  -p PACKING\tpixel packing\n");
 			printf ("  -V\t\toutput version information "
@@ -274,6 +384,16 @@ main (int argc, char **argv)
 				"\traw\n");
 			printf ("\nReport bugs to <support@linsys.ca>.\n");
 			return 0;
+		case 'm':
+			avsync_period = strtol (optarg, &endptr, 0);
+			if ((*endptr != '\0') ||
+				(avsync_period > 35000)) {
+				fprintf (stderr,
+					"%s: invalid period: %s\n",
+					argv[0], optarg);
+				return -1;
+			}
+			break;
 		case 'n':
 			frames = strtol (optarg, &endptr, 0);
 			if (*endptr != '\0') {
@@ -301,7 +421,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2008-2009 "
+			printf ("\nCopyright (C) 2008-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -420,51 +540,15 @@ main (int argc, char **argv)
 	cb[310] = 137;
 	for (i = 311; i <= 359; i++) cb[i] = 128;
 
-	/* Generate a frame */
-	if (info.blanking) {
-		info.xyz = &FIELD_1_VERT_BLANKING;
-		for (i = 1; i <= 22; i++) {
-			mkline (buf, &info);
-			p = pack (p, buf, samples);
-		}
-	}
-	info.xyz = &FIELD_1_ACTIVE;
-	for (i = 23; i <= 310; i++) {
-		mkline (buf, &info);
-		p = pack (p, buf, samples);
-	}
-	if (info.blanking) {
-		info.xyz = &FIELD_1_VERT_BLANKING;
-		for (i = 311; i <= 312; i++) {
-			mkline (buf, &info);
-			p = pack (p, buf, samples);
-		}
-		info.xyz = &FIELD_2_VERT_BLANKING;
-		for (i = 313; i <= 335; i++) {
-			mkline (buf, &info);
-			p = pack (p, buf, samples);
-		}
-	}
-	info.xyz = &FIELD_2_ACTIVE;
-	for (i = 336; i <= 623; i++) {
-		mkline (buf, &info);
-		p = pack (p, buf, samples);
-	}
-	if (info.blanking) {
-		info.xyz = &FIELD_2_VERT_BLANKING;
-		for (i = 624; i <= 625; i++) {
-			mkline (buf, &info);
-			p = pack (p, buf, samples);
-		}
-	}
-
+	/* Calculate the frame size */
 	if (info.blanking) {
 		if (pack == pack_v210) {
-			framesize = TOTAL_SAMPLES * 4 / 3 * TOTAL_LINES;
+			framesize = ACTIVE_SAMPLES * 4 / 3 * TOTAL_LINES;
 		} else if (pack == pack_uyvy) {
-			framesize = TOTAL_SAMPLES * TOTAL_LINES;
+			framesize = ACTIVE_SAMPLES * ACTIVE_LINES +
+				ACTIVE_SAMPLES * (TOTAL_LINES - ACTIVE_LINES) * 2;
 		} else {
-			framesize = TOTAL_SAMPLES * 10 / 8 * TOTAL_LINES;
+			framesize = ACTIVE_SAMPLES * 10 / 8 * TOTAL_LINES;
 		}
 	} else {
 		if (pack == pack_v210) {
@@ -475,22 +559,67 @@ main (int argc, char **argv)
 			framesize = ACTIVE_SAMPLES * 10 / 8 * ACTIVE_LINES;
 		}
 	}
+
+	/* Allocate memory */
+	data = malloc (framesize);
+	if (!data) {
+		fprintf (stderr, "%s: unable to allocate memory\n", argv[0]);
+		return -1;
+	}
+
+	/* Generate a frame */
+	mkframe (data, info, 0, pack);
+
+	if (avsync_period > 0) {
+		/* Allocate memory */
+		black_frame = malloc (framesize);
+		if (!black_frame) {
+			fprintf (stderr, "%s: unable to allocate memory\n",
+				argv[0]);
+			free (data);
+			return -1;
+		}
+
+		/* Generate a black frame */
+		mkframe (black_frame, info, 1, pack);
+	} else {
+		black_frame = NULL;
+	}
+
+	black = 0;
+	avsync_sum = 0;
+	n = 25 * avsync_period;
+	d = 1;
+	p = data;
 	while (frames) {
 		/* Output the frame */
 		bytes = 0;
 		while (bytes < framesize) {
 			if ((ret = write (STDOUT_FILENO,
-				data + bytes, framesize - bytes)) < 0) {
+				p + bytes, framesize - bytes)) < 0) {
 				fprintf (stderr, "%s: ", argv[0]);
 				perror ("unable to write");
+				free (data);
+				free (black_frame);
 				return -1;
 			}
 			bytes += ret;
+		}
+		if (avsync_period > 0) {
+			if (avsync_sum >= n) {
+				avsync_sum = avsync_sum - n + d;
+				black = !black;
+				p = black ? black_frame : data;
+			} else {
+				avsync_sum += d;
+			}
 		}
 		if (frames > 0) {
 			frames--;
 		}
 	}
+	free (data);
+	free (black_frame);
 	return 0;
 
 USAGE:

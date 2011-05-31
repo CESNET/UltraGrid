@@ -93,7 +93,6 @@ EXPORT_SYMBOL(sdi_txpoll);
 EXPORT_SYMBOL(sdi_rxpoll);
 EXPORT_SYMBOL(sdi_txioctl);
 EXPORT_SYMBOL(sdi_rxioctl);
-EXPORT_SYMBOL(sdi_compat_ioctl);
 EXPORT_SYMBOL(sdi_mmap);
 EXPORT_SYMBOL(sdi_release);
 EXPORT_SYMBOL(sdi_register_iface);
@@ -324,24 +323,6 @@ sdi_rxioctl (struct file *filp,
 		return sdi_ioctl (iface, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * sdi_compat_ioctl - 32-bit ioctl handler
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-long
-sdi_compat_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	struct inode *inode = filp->f_dentry->d_inode;
-
-	return filp->f_op->ioctl (inode, filp, cmd, arg);
 }
 
 /**

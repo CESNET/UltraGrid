@@ -58,18 +58,14 @@ static void dvbm_fd_start_tx_dma (struct master_iface *iface);
 static long dvbm_fd_txunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_fd_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_fd_txfsync,filp,datasync);
 static void dvbm_fd_rxinit (struct master_iface *iface);
 static void dvbm_fd_rxstart (struct master_iface *iface);
 static void dvbm_fd_rxstop (struct master_iface *iface);
 static long dvbm_fd_rxunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_fd_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_fd_rxfsync,filp,datasync);
 
 static struct file_operations dvbm_fd_txfops = {
 	.owner = THIS_MODULE,
@@ -77,7 +73,7 @@ static struct file_operations dvbm_fd_txfops = {
 	.write = asi_write,
 	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_fd_txunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_fd_txunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_fd_txfsync,
@@ -90,7 +86,7 @@ static struct file_operations dvbm_fd_rxfops = {
 	.read = asi_read,
 	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_fd_rxunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_fd_rxunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_fd_rxfsync,
@@ -644,15 +640,12 @@ dvbm_fd_txunlocked_ioctl (struct file *filp,
 /**
  * dvbm_fd_txfsync - DVB Master FD transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_fd_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_fd_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -1066,15 +1059,12 @@ dvbm_fd_rxunlocked_ioctl (struct file *filp,
 /**
  * dvbm_fd_rxfsync - DVB Master FD receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_fd_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_fd_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

@@ -6,7 +6,7 @@ Videocapture
 ------------
 
 NAME
-	videocapture, mvideocapture - example SMPTE 292M video receiver application
+	videocapture, mvideocapture - example SDI video receiver application
 
 SYNOPSIS
 	videocapture [OPTION]... DEVICE_FILE
@@ -16,7 +16,7 @@ SYNOPSIS
 DESCRIPTION
 	Videocapture reads data from DEVICE_FILE
 	and writes it to standard output,
-	while monitoring for SMPTE 292M video receiver events.
+	while monitoring for SDI video receiver events.
 
 	Mvideocapture uses mmap instead of read.
 
@@ -33,7 +33,7 @@ Videoplayout
 ------------
 
 NAME
-	videoplayout, mvideoplayout - example SMPTE 292M video transmitter application
+	videoplayout, mvideoplayout - example SDI video transmitter application
 
 SYNOPSIS
 	videoplayout [OPTION]... DEVICE_FILE
@@ -43,7 +43,7 @@ SYNOPSIS
 DESCRIPTION
 	videoplayout reads data from standard input
 	and writes it to DEVICE_FILE,
-	while monitoring for SMPTE 292M video transmitter events.
+	while monitoring for SDI video transmitter events.
 
 	At end-of-file, playout issues a fsync () to the interface.
 
@@ -62,7 +62,7 @@ Sdivideocfg
 -----------
 
 NAME
-	sdivideocfg - configure a SMPTE 292M video interface
+	sdivideocfg - configure an SDI video interface
 
 SYNOPSIS
 	sdivideocfg [OPTION]... DEVICE_FILE
@@ -70,10 +70,14 @@ SYNOPSIS
 DESCRIPTION
 	Sdivideocfg uses the sysfs virtual filesystem
 	to configure certain parameters
-	of a SMPTE 292M video interface. If no options are given, sdivideocfg
+	of an SDI video interface. If no options are given, sdivideocfg
 	displays the current configuration of the interface.
 
 OPTIONS
+	-a
+		Enable vertical ancillary space on DEVICE_FILE.
+	-A
+		Disable vertical ancillary space on DEVICE_FILE.
 	-b BUFFERS
 		Set the number of driver buffers on DEVICE_FILE to BUFFERS.
 		There must be at least two buffers.
@@ -83,7 +87,6 @@ OPTIONS
 		Possible values are
 		1 (SMPTE 125M 486i 59.94 Hz),
 		2 (ITU-R BT.601 720x576i 50 Hz).
-		3 (SMPTE 267M 960x486i 59.94 Hz),
 		5 (SMPTE 260M 1035i 60 Hz),
 		6 (SMPTE 260M 1035i 59.94 Hz),
 		8 (SMPTE 274M 1080i 60 Hz),
@@ -121,22 +124,50 @@ OPTIONS
 		BUFSIZE bytes. This must be a positive multiple of four.
 	-V
 		Display the version information and quit.
+	-x CLKSRC
+		Set the clock source to CLKSRC.
+		This is valid only for transmitters.
+		Possible values are
+		0 (onboard oscillator)
+		1 (external 525i or NTSC reference)
+		2 (external 625i or PAL reference)
+		3 (external 525p reference)
+		4 (external 625p reference)
+		5 (external 720p/60 reference)
+		6 (external 720p/59.94 reference)
+		7 (external 720p/50 reference)
+		8 (external 720p/30 reference)
+		9 (external 720p/29.97 reference)
+		10 (external 720p/25 reference)
+		11 (external 720p/24 reference)
+		12 (external 720p/23.98 reference)
+		13 (external 1080p/60 reference)
+		14 (external 1080p/59.94 reference)
+		15 (external 1080p/50 reference)
+		16 (external 1080p/30 reference)
+		17 (external 1080p/29.97 reference)
+		18 (external 1080p/25 reference)
+		19 (external 1080p/24 reference)
+		20 (external 1080p/23.98 reference)
+		21 (external 1080i/60 reference)
+		22 (external 1080i/59.94 reference)
+		23 (external 1080i/50 reference)
 
 
 Sdivideorxcfg
 -------------
 
 NAME
-	sdivideorxcfg - interactively issue SMPTE 292M video receiver ioctls
+	sdivideorxcfg - interactively issue SDI video receiver ioctls
 
 SYNOPSIS
 	sdivideorxcfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sdivideorxcfg is a simple program which demonstrates
-	the SMPTE 292M video receiver ioctl commands.
+	the SDI video receiver ioctl commands.
 	It can be used interactively to control or monitor
-	a SMPTE 292M video receiver, or noninteractively
+	an SDI video receiver, or noninteractively
 	with a script piped to its standard input.
 
 OPTIONS
@@ -150,16 +181,16 @@ Sdivideotxcfg
 -------------
 
 NAME
-	sdivideotxcfg - interactively issue SMPTE 292M video transmitter ioctls
+	sdivideotxcfg - interactively issue SDI video transmitter ioctls
 
 SYNOPSIS
 	sdivideotxcfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sdivideotxcfg is a simple program which demonstrates
-	the SMPTE 292M video transmitter ioctl commands.
+	the SDI video transmitter ioctl commands.
 	It can be used interactively to control or monitor
-	a  SMPTE 292M video transmitter, or noninteractively
+	an SDI video transmitter, or noninteractively
 	with a script piped to its standard input.
 
 OPTIONS

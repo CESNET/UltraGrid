@@ -116,12 +116,12 @@ main (int argc, char **argv)
 				"\tset the packet timestamping mode\n");
 			printf ("  -V\t\toutput version information "
 				"and exit\n");
-			printf ("  -x CLKSRC\tset the clock source\n");
+			printf ("  -x CLKSRC\tset the clock source "
+				"(transmitters only)\n");
 			printf ("\nIf no options are specified, "
 				"the current configuration is displayed.\n");
 			printf ("\nBUFFERS must be two or more.\n");
-			printf ("\nCLKSRC is valid only for transmitters and "
-				"may be:\n"
+			printf ("\nCLKSRC may be:\n"
 				"\t0 (onboard oscillator)\n"
 				"\t1 (external reference clock)\n"
 				"\t2 (recovered receive clock)\n"
@@ -243,8 +243,8 @@ main (int argc, char **argv)
 	snprintf (name, sizeof (name), fmt, type, num, "dev");
 	memset (data, 0, sizeof (data));
 	if (util_read (name, data, sizeof (data)) < 0) {
-		fprintf (stderr, "%s: ", argv[0]);
-		perror ("unable to get the device number");
+		fprintf (stderr, "%s: error reading %s: ", argv[0], name);
+		perror (NULL);
 		return -1;
 	}
 	if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
@@ -283,6 +283,12 @@ main (int argc, char **argv)
 			printf ("\tSet buffer size = %lu bytes.\n", bufsize);
 		}
 		if (write_flags & CLKSRC_FLAG) {
+			if (type == 'r') {
+				fprintf (stderr, "%s: "
+					"unable to set the clock source: "
+					"Not a transmitter\n", argv[0]);
+				return -1;
+			}
 			snprintf (name, sizeof (name),
 				fmt, type, num, "clock_source");
 			snprintf (data, sizeof (data), "%lu\n", clksrc);

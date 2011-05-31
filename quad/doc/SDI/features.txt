@@ -1,5 +1,5 @@
 This file describes some of the major features provided by
-Linear Systems Ltd.'s SMPTE 259M-C interface boards and the Linux driver.
+Linear Systems Ltd.'s raw SDI API.
 
 What features does my board support?
 ====================================

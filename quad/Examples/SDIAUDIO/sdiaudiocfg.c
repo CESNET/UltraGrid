@@ -1,8 +1,8 @@
 /* sdiaudiocfg.c
  *
- * SMPTE 292M and SMPTE 259M-C audio configuration program.
+ * SDI audio configuration program.
  *
- * Copyright (C) 2009 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2009-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -101,12 +101,14 @@ main (int argc, char **argv)
 		case 'h':
 			printf ("Usage: %s [OPTION]... DEVICE_FILE\n",
 				argv[0]);
-			printf ("Configure an audio interface.\n\n");
+			printf ("Configure an SDI audio interface.\n\n");
 			printf ("  -b BUFFERS\tset the number of buffers\n");
 			printf ("  -c CHANNELS\tset the audio channel enable\n");
 			printf ("  -h\t\tdisplay this help and exit\n");
-			printf ("  -n NONAUDIO\tset PCM or non-audio\n");
-			printf ("  -r SAMPLERATE\tset the audio sample rate\n");
+			printf ("  -n NONAUDIO\tset PCM or non-audio "
+				"(transmitters only)\n");
+			printf ("  -r SAMPLERATE\tset the audio sample rate "
+				"(transmitters only)\n");
 			printf ("  -s BUFSIZE\tset the buffer size\n");
 			printf ("  -V\t\toutput version information "
 				"and exit\n");
@@ -120,13 +122,11 @@ main (int argc, char **argv)
 				"\t4 (4 channels)\n"
 				"\t6 (6 channels)\n"
 				"\t8 (8 channels)\n");
-			printf ("\nNONAUDIO is valid only for transmitters "
-				"and may be:\n"
+			printf ("\nNONAUDIO may be:\n"
 				"\t0x0000 (PCM)\n"
 				"\t0x00ff (non-audio)\n"
 				"\tbetween 0x0000 and 0x00ff (mixed audio and data)\n");
-			printf ("\nSAMPLERATE is valid only for transmitters "
-				"and may be:\n"
+			printf ("\nSAMPLERATE may be:\n"
 				"\t32000 (32 kHz)\n"
 				"\t44100 (44.1 kHz)\n"
 				"\t48000 (48 kHz)\n");
@@ -173,7 +173,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2009 "
+			printf ("\nCopyright (C) 2009-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -221,12 +221,12 @@ main (int argc, char **argv)
 	snprintf (name, sizeof (name), fmt, type, num, "dev");
 	memset (data, 0, sizeof (data));
 	if (util_read (name, data, sizeof (data)) < 0) {
-		fprintf (stderr, "%s: ", argv[0]);
-		perror ("unable to get the device number");
+		fprintf (stderr, "%s: error reading %s: ", argv[0], name);
+		perror (NULL);
 		return -1;
 	}
 	if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
-		fprintf (stderr, "%s: not an audio device\n", argv[0]);
+		fprintf (stderr, "%s: not an SDI audio device\n", argv[0]);
 		return -1;
 	}
 	if (*endptr != ':') {
@@ -288,6 +288,13 @@ main (int argc, char **argv)
 			}
 		}
 		if (write_flags & SAMPLERATE_FLAG) {
+			if (type == 'r') {
+				fprintf (stderr, "%s: "
+					"unable to set the "
+					"interface audio sample rate: "
+					"Not a transmitter\n", argv[0]);
+				return -1;
+			}
 			snprintf (name, sizeof (name),
 				fmt, type, num, "sample_rate");
 			snprintf (data, sizeof (data), "%lu\n", samplerate);
@@ -346,6 +353,13 @@ main (int argc, char **argv)
 			}
 		}
 		if (write_flags & NONAUDIO_FLAG) {
+			if (type == 'r') {
+				fprintf (stderr, "%s: "
+					"unable to set the "
+					"interface non-audio: "
+					"Not a transmitter\n", argv[0]);
+				return -1;
+			}
 			snprintf (name, sizeof (name),
 				fmt, type, num, "non_audio");
 			snprintf (data, sizeof (data), "0x%04lX\n", nonaudio);

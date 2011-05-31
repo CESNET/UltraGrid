@@ -51,8 +51,6 @@ static const char dvbm_lprxe_name[] = DVBM_NAME_LPRXE;
 /* Static function prototypes */
 static irqreturn_t IRQ_HANDLER(dvbm_lprxe_irq_handler,irq,dev_id,regs);
 
-static DEVICE_ATTR(blackburst_type,S_IRUGO|S_IWUSR,
-	dvbm_lpfd_show_blackburst_type,dvbm_lpfd_store_blackburst_type);
 static DEVICE_ATTR(uid,S_IRUGO,
 	dvbm_lpfd_show_uid,NULL);
 
@@ -99,7 +97,7 @@ dvbm_lprxe_pci_probe (struct pci_dev *pdev)
 	card->irq = pdev->irq;
 	card->irq_handler = dvbm_lprxe_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
-	card->capabilities = MASTER_CAP_BLACKBURST | MASTER_CAP_UID;
+	card->capabilities = MASTER_CAP_UID;
 	/* Lock for ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for IBSTR, IPSTR, FTR, PFLUT, TCSR, RCSR */
@@ -134,14 +132,6 @@ dvbm_lprxe_pci_probe (struct pci_dev *pdev)
 	}
 
 	/* Add device attributes */
-	if (card->capabilities & MASTER_CAP_BLACKBURST) {
-		if ((err = device_create_file (card->dev,
-			&dev_attr_blackburst_type)) < 0) {
-			printk (KERN_WARNING
-				"%s: unable to create file 'blackburst_type'\n",
-				dvbm_driver_name);
-		}
-	}
 	if (card->capabilities & MASTER_CAP_UID) {
 		if ((err = device_create_file (card->dev,
 			&dev_attr_uid)) < 0) {

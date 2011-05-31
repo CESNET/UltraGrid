@@ -1,8 +1,8 @@
 /* sdicfg.c
  *
- * SMPTE 259M-C configuration program.
+ * Raw SDI configuration program.
  *
- * Copyright (C) 2004-2005 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2004-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,19 +87,19 @@ main (int argc, char **argv)
 		case 'h':
 			printf ("Usage: %s [OPTION]... DEVICE_FILE\n",
 				argv[0]);
-			printf ("Configure a SMPTE 259M-C interface.\n\n");
+			printf ("Configure a raw SDI interface.\n\n");
 			printf ("  -b BUFFERS\tset the number of buffers\n");
 			printf ("  -h\t\tdisplay this help and exit\n");
 			printf ("  -m MODE\tset the operating mode\n");
 			printf ("  -s BUFSIZE\tset the buffer size\n");
 			printf ("  -V\t\toutput version information "
 				"and exit\n");
-			printf ("  -x CLKSRC\tset the clock source\n");
+			printf ("  -x CLKSRC\tset the clock source "
+				"(transmitters only)\n");
 			printf ("\nIf no options are specified, "
 				"the current configuration is displayed.\n");
 			printf ("\nBUFFERS must be two or more.\n");
-			printf ("\nCLKSRC is valid only for transmitters and "
-				"may be:\n"
+			printf ("\nCLKSRC may be:\n"
 				"\t0 (onboard oscillator)\n"
 				"\t1 (external reference)\n"
 				"\t2 (recovered receive clock)\n");
@@ -136,7 +136,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2004-2005 "
+			printf ("\nCopyright (C) 2004-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -184,12 +184,12 @@ main (int argc, char **argv)
 	snprintf (name, sizeof (name), fmt, type, num, "dev");
 	memset (data, 0, sizeof (data));
 	if (util_read (name, data, sizeof (data)) < 0) {
-		fprintf (stderr, "%s: ", argv[0]);
-		perror ("unable to get the device number");
+		fprintf (stderr, "%s: error reading %s: ", argv[0], name);
+		perror (NULL);
 		return -1;
 	}
 	if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
-		fprintf (stderr, "%s: not a SMPTE 259M-C device\n", argv[0]);
+		fprintf (stderr, "%s: not a raw SDI device\n", argv[0]);
 		return -1;
 	}
 	if (*endptr != ':') {
@@ -225,6 +225,12 @@ main (int argc, char **argv)
 			printf ("\tSet buffer size = %lu bytes.\n", bufsize);
 		}
 		if (write_flags & CLKSRC_FLAG) {
+			if (type == 'r') {
+				fprintf (stderr, "%s: "
+					"unable to set the clock source: "
+					"Not a transmitter\n", argv[0]);
+				return -1;
+			}
 			snprintf (name, sizeof (name),
 				fmt, type, num, "clock_source");
 			snprintf (data, sizeof (data), "%lu\n", clksrc);

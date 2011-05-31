@@ -54,10 +54,13 @@ static const char fmt_x[] = "0x%04X\n";
 /**
  * miface_show_version - class attribute read handler
  * @cls: class being read
+ * @attr: class attribute
  * @buf: output buffer
  **/
 ssize_t
-miface_show_version (struct class *cls, char *buf)
+miface_show_version (struct class *cls,
+	struct class_attribute *attr,
+	char *buf)
 {
 	return snprintf (buf, PAGE_SIZE, "%s\n", MASTER_DRIVER_VERSION);
 }
@@ -82,6 +85,7 @@ MIFACE_SHOW(clksrc,fmt_u)
 MIFACE_SHOW(count27,fmt_u)
 MIFACE_SHOW(granularity,fmt_u)
 MIFACE_SHOW(mode,fmt_u)
+MIFACE_SHOW(vanc,fmt_u)
 MIFACE_SHOW(null_packets,fmt_u)
 MIFACE_SHOW(timestamps,fmt_u)
 MIFACE_SHOW(transport,fmt_u)
@@ -190,7 +194,7 @@ miface_open (struct inode *inode, struct file *filp)
 			(request_irq (card->irq,
 				card->irq_handler,
 				IRQF_SHARED,
-				card->name,
+				filp->f_op->owner->name,
 				card) != 0)) {
 			mdma_free (iface->dma);
 			mutex_unlock (&card->users_mutex);

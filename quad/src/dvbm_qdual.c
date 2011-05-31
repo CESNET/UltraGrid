@@ -36,7 +36,6 @@
 #include <linux/errno.h> /* error codes */
 #include <linux/interrupt.h> /* irqreturn_t */
 #include <linux/device.h> /* device_create_file () */
-#include <linux/delay.h> /* udelay () */
 #include <linux/mutex.h> /* mutex_init () */
 
 #include <asm/uaccess.h> /* put_user () */
@@ -57,6 +56,13 @@ static const char dvbm_lpqduale_name[] = DVBM_NAME_LPQDUALE;
 static const char dvbm_lpqduale_minibnc_name[] = DVBM_NAME_LPQDUALE_MINIBNC;
 
 /* static function prototypes */
+static ssize_t dvbm_qdual_show_blackburst_type (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+static ssize_t dvbm_qdual_store_blackburst_type (struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t count);
 static ssize_t dvbm_qdual_show_uid (struct device *dev,
 	struct device_attribute *attr,
 	char *buf);
@@ -69,9 +75,7 @@ static void dvbm_qdual_start_tx_dma (struct master_iface *iface);
 static long dvbm_qdual_txunlocked_ioctl (struct file *filp,
 		unsigned int cmd,
 		unsigned long arg);
-static int dvbm_qdual_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_qdual_txfsync,filp,datasync);
 static void dvbm_qdual_rxinit (struct master_iface *iface);
 static void dvbm_qdual_rxstart (struct master_iface *iface);
 static void dvbm_qdual_rxstop (struct master_iface *iface);
@@ -79,9 +83,7 @@ static void dvbm_qdual_rxexit (struct master_iface *iface);
 static long dvbm_qdual_rxunlocked_ioctl (struct file *filp,
 		unsigned int cmd,
 		unsigned long arg);
-static int dvbm_qdual_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_qdual_rxfsync,filp,datasync);
 
 static struct file_operations dvbm_qdual_txfops = {
 	.owner = THIS_MODULE,
@@ -89,7 +91,7 @@ static struct file_operations dvbm_qdual_txfops = {
 	.write = asi_write,
 	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_qdual_txunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_qdual_txunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_qdual_txfsync,
@@ -102,7 +104,7 @@ static struct file_operations dvbm_qdual_rxfops = {
 	.read = asi_read,
 	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_qdual_rxunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_qdual_rxunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_qdual_rxfsync,
@@ -125,6 +127,67 @@ static struct master_iface_operations dvbm_qdual_rxops = {
 };
 
 /**
+ * dvbm_qdual_show_blackburst_type - interface attribute read handler
+ * @dev: device being read
+ * @attr: device_attribute
+ * @buf: output buffer
+ **/
+static ssize_t
+dvbm_qdual_show_blackburst_type (struct device *dev,
+	struct device_attribute *attr,
+	char *buf)
+{
+	struct master_dev *card = dev_get_drvdata(dev);
+
+	return snprintf (buf, PAGE_SIZE, "%u\n",
+		(readl (card->core.addr + DVBM_QDUAL_HL2CSR) & DVBM_QDUAL_HL2CSR_PLLFS) >> 2);
+}
+
+/**
+ * dvbm_qdual_store_blackburst_type - interface attribute write handler
+ * @dev: device being written
+ * @attr: device attribute
+ * @buf: input buffer
+ * @count:
+ **/
+static ssize_t
+dvbm_qdual_store_blackburst_type (struct device *dev,
+	struct device_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	struct master_dev *card = dev_get_drvdata(dev);
+	char *endp;
+	unsigned long val = simple_strtoul (buf, &endp, 0);
+	unsigned int reg;
+	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
+	int retcode = count;
+	struct list_head *p = &card->iface_list;
+	struct master_iface *iface;
+	unsigned int i;
+	unsigned int tx_users = 0;
+
+	if ((endp == buf) || (val > max)) {
+		return -EINVAL;
+	}
+	mutex_lock (&card->users_mutex);
+	for (i = 0; i < 2; i++) {
+		p = p->next;
+		iface = list_entry (p, struct master_iface, list);
+		tx_users += iface->users;
+	}
+	if (tx_users) {
+		retcode = -EBUSY;
+		goto OUT;
+	}
+	reg = readl (card->core.addr + DVBM_QDUAL_HL2CSR) & ~DVBM_QDUAL_HL2CSR_PLLFS;
+	writel (reg | (val << 2), card->core.addr + DVBM_QDUAL_HL2CSR);
+OUT:
+	mutex_unlock (&card->users_mutex);
+	return retcode;
+}
+
+/**
  * dvbm_qdual_show_uid - interface attribute read handler
  * @dev: device being read
  * @attr: device attribute
@@ -142,6 +205,8 @@ dvbm_qdual_show_uid (struct device *dev,
 		readl (card->core.addr + DVBM_QDUAL_SSN_LO));
 }
 
+static DEVICE_ATTR(blackburst_type,S_IRUGO|S_IWUSR,
+	dvbm_qdual_show_blackburst_type,dvbm_qdual_store_blackburst_type);
 static DEVICE_ATTR(uid,S_IRUGO,
 	dvbm_qdual_show_uid,NULL);
 
@@ -226,7 +291,7 @@ dvbm_qdual_pci_probe (struct pci_dev *pdev)
 	card->irq = pdev->irq;
 	card->irq_handler = dvbm_qdual_irq_handler;
 	INIT_LIST_HEAD(&card->iface_list);
-	card->capabilities = MASTER_CAP_UID;
+	card->capabilities = MASTER_CAP_BLACKBURST | MASTER_CAP_UID;
 	/* Lock for ICSR */
 	spin_lock_init (&card->irq_lock);
 	/* Lock for IBSTR, IPSTR, FTR, PFLUT, TCSR, RCSR */
@@ -286,7 +351,12 @@ dvbm_qdual_pci_probe (struct pci_dev *pdev)
 		| LSDMA_INTMSK_CH(3),
 		card->bridge_addr + LSDMA_INTMSK);
 
-	for (i = 0; i< 4; i++) {
+	for (i = 0; i < 2; i++) {
+		writel (LSDMA_CH_CSR_INTDONEENABLE |
+			LSDMA_CH_CSR_INTSTOPENABLE,
+			card->bridge_addr + LSDMA_CSR(i));
+	}
+	for (i = 2; i < 4; i++) {
 		writel (LSDMA_CH_CSR_INTDONEENABLE |
 			LSDMA_CH_CSR_INTSTOPENABLE | LSDMA_CH_CSR_DIRECTION,
 			card->bridge_addr + LSDMA_CSR(i));
@@ -300,6 +370,14 @@ dvbm_qdual_pci_probe (struct pci_dev *pdev)
 	}
 
 	/* Add device attributes */
+	if (card->capabilities & MASTER_CAP_BLACKBURST) {
+		if ((err = device_create_file (card->dev,
+			&dev_attr_blackburst_type)) < 0) {
+			printk (KERN_WARNING
+				"%s: unable to create file 'blackburst_type'\n",
+				dvbm_driver_name);
+		}
+	}
 	if (card->capabilities & MASTER_CAP_UID) {
 		if ((err = device_create_file (card->dev,
 			&dev_attr_uid)) < 0) {
@@ -322,6 +400,11 @@ dvbm_qdual_pci_probe (struct pci_dev *pdev)
 	switch (pdev->device) {
 	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUAL:
+		cap |= ASI_CAP_TX_RXCLKSRC | ASI_CAP_TX_27COUNTER;
+		if (card->version >= 0x0301) {
+			cap |= ASI_CAP_TX_EXTCLKSRC2;
+		}
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUALE:
 		cap |= ASI_CAP_TX_RXCLKSRC;
 		if (card->version >= 0x0301) {
@@ -329,7 +412,11 @@ dvbm_qdual_pci_probe (struct pci_dev *pdev)
 		}
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE:
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC:
+		if (card->version >= 0x0102) {
+			cap |= ASI_CAP_TX_27COUNTER;
+		}
 		break;
 	}
 	for (i = 0; i < 2; i++) {
@@ -355,6 +442,20 @@ dvbm_qdual_pci_probe (struct pci_dev *pdev)
 		ASI_CAP_RX_TIMESTAMPS |
 		ASI_CAP_RX_PTIMESTAMPS |
 		ASI_CAP_RX_NULLPACKETS;
+	switch (pdev->device) {
+	default:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUAL:
+		cap |= ASI_CAP_RX_27COUNTER;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUALE:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE:
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE_MINIBNC:
+		if (card->version >= 0x0102) {
+			cap |= ASI_CAP_RX_27COUNTER;
+		}
+		break;
+	}
 	for (i = 2; i < 4; i++) {
 		if ((err = asi_register_iface (card,
 			&lsdma_dma_ops,
@@ -580,7 +681,6 @@ dvbm_qdual_txinit (struct master_iface *iface)
 		reg |= DVBM_QDUAL_TCSR_TPRC;
 		break;
 	}
-
 	switch (iface->mode) {
 	default:
 	case ASI_CTL_TX_MODE_188:
@@ -613,9 +713,7 @@ dvbm_qdual_txinit (struct master_iface *iface)
 	 * until this code returns, so we don't need to lock them */
 	writel (reg | DVBM_QDUAL_TCSR_TXRST,
 		card->core.addr + DVBM_QDUAL_TCSR(channel));
-	wmb ();
 	writel (reg, card->core.addr + DVBM_QDUAL_TCSR(channel));
-	wmb ();
 	writel ((DVBM_QDUAL_TFL << 16) | DVBM_QDUAL_TDMATL,
 		card->core.addr + DVBM_QDUAL_TFCR(channel));
 	writel (0, card->core.addr + DVBM_QDUAL_IBSTREG(channel));
@@ -639,17 +737,14 @@ dvbm_qdual_txstart (struct master_iface *iface)
 
 	/* Enable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
-	reg = readl (card->core.addr + DVBM_QDUAL_ICSR(channel));
-	reg |= DVBM_QDUAL_ICSR_TXUIE | DVBM_QDUAL_ICSR_TXDIE;
-	writel (reg, card->core.addr + DVBM_QDUAL_ICSR(channel));
+	writel (DVBM_QDUAL_ICSR_TXUIE | DVBM_QDUAL_ICSR_TXDIE,
+		card->core.addr + DVBM_QDUAL_ICSR(channel));
 	spin_unlock_irq(&card->irq_lock);
 
 	/* Enable the transmitter */
-	spin_lock(&card->reg_lock);
 	reg = readl(card->core.addr + DVBM_QDUAL_TCSR(channel));
 	writel(reg | DVBM_QDUAL_TCSR_TXE,
 		card->core.addr + DVBM_QDUAL_TCSR(channel));
-	spin_unlock(&card->reg_lock);
 
 	return;
 }
@@ -663,34 +758,38 @@ dvbm_qdual_txstop (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
 	const unsigned int channel = mdev_index (card, &iface->list);
+	struct master_dma *dma = iface->dma;
 	unsigned int reg;
+
+	lsdma_tx_link_all (dma);
+	wait_event (iface->queue, test_bit (0, &iface->dma_done));
+	lsdma_reset (dma);
+
+	if (!iface->null_packets) {
+		/* Wait for the onboard FIFOs to empty */
+		/* Atomic read of ICSR, so we don't need to lock */
+		wait_event (iface->queue,
+			!(readl (card->core.addr + DVBM_QDUAL_ICSR(channel)) &
+			DVBM_QDUAL_ICSR_TXD));
+	}
 
 	/* Disable the transmitter.
 	 * There will be no races on TCSR here,
 	 * so we don't need to lock it */
-	spin_lock(&card->reg_lock);
 	reg = readl(card->core.addr + DVBM_QDUAL_TCSR(channel));
 	writel(reg & ~DVBM_QDUAL_TCSR_TXE,
 		card->core.addr + DVBM_QDUAL_TCSR(channel));
-	spin_unlock(&card->reg_lock);
 
 	/* Disable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
 	writel (DVBM_QDUAL_ICSR_TXUIS | DVBM_QDUAL_ICSR_TXDIS,
 		card->core.addr + DVBM_QDUAL_ICSR(channel));
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP),
-		card->bridge_addr + LSDMA_CSR(channel));
-
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
 	spin_unlock_irq (&card->irq_lock);
-	wait_event (iface->queue, test_bit (0, &iface->dma_done));
 
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE) &
-		~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(channel));
-	udelay (10L);
 
 	return;
 }
@@ -726,13 +825,11 @@ dvbm_qdual_start_tx_dma (struct master_iface *iface)
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(dma_channel));
-	wmb ();
 	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(dma_channel));
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(dma_channel));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_ENABLE,
@@ -809,6 +906,15 @@ dvbm_qdual_txunlocked_ioctl (struct file *filp,
 			return -EFAULT;
 		}
 		break;
+	case ASI_IOC_TXGET27COUNT:
+		if (!(iface->capabilities & ASI_CAP_TX_27COUNTER)) {
+			return -ENOTTY;
+		}
+		if (put_user (readl (card->core.addr + DVBM_QDUAL_27COUNTR),
+			(unsigned int __user *)arg)) {
+			return -EFAULT;
+		}
+		break;
 	default:
 		return asi_txioctl (filp, cmd, arg);
 	}
@@ -818,15 +924,12 @@ dvbm_qdual_txunlocked_ioctl (struct file *filp,
 /**
  * dvbm_qdual_txfsync - DVB Master Quad-2in2out transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_qdual_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_qdual_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -875,7 +978,6 @@ dvbm_qdual_rxinit (struct master_iface *iface)
 		reg |= DVBM_QDUAL_RCSR_PTSE;
 		break;
 	}
-
 	switch (iface->mode) {
 	default:
 	case ASI_CTL_RX_MODE_RAW:
@@ -904,9 +1006,7 @@ dvbm_qdual_rxinit (struct master_iface *iface)
 	 * until this code returns, so we don't need to lock it */
 	writel (reg | DVBM_QDUAL_RCSR_RXRST,
 		card->core.addr + DVBM_QDUAL_RCSR(channel));
-	wmb ();
 	writel (reg, card->core.addr + DVBM_QDUAL_RCSR(channel));
-	wmb ();
 	writel (DVBM_QDUAL_RDMATL,
 		card->core.addr + DVBM_QDUAL_RFCR(channel));
 
@@ -923,8 +1023,6 @@ dvbm_qdual_rxinit (struct master_iface *iface)
 		readl (card->core.addr + DVBM_QDUAL_FPGAID);
 		writel (0xffffffff,
 			card->core.addr + DVBM_QDUAL_PFLUT(channel));
-		/* Dummy read to flush PCI posted writes */
-		readl (card->core.addr + DVBM_QDUAL_FPGAID);
 	}
 
 	/* Clear PID registers */
@@ -960,7 +1058,6 @@ dvbm_qdual_rxstart (struct master_iface *iface)
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(channel));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_ENABLE,
 		card->bridge_addr + LSDMA_CSR(channel));
@@ -970,19 +1067,16 @@ dvbm_qdual_rxstart (struct master_iface *iface)
 
 	/* Enable receiver interrupts */
 	spin_lock_irq (&card->irq_lock);
-	reg = readl (card->core.addr + DVBM_QDUAL_ICSR(channel));
-	reg |= DVBM_QDUAL_ICSR_RXCDIE | DVBM_QDUAL_ICSR_RXAOSIE |
+	writel (DVBM_QDUAL_ICSR_RXCDIE | DVBM_QDUAL_ICSR_RXAOSIE |
 		DVBM_QDUAL_ICSR_RXLOSIE | DVBM_QDUAL_ICSR_RXOIE |
-		DVBM_QDUAL_ICSR_RXDIE;
-	writel (reg, card->core.addr + DVBM_QDUAL_ICSR(channel));
+		DVBM_QDUAL_ICSR_RXDIE,
+		card->core.addr + DVBM_QDUAL_ICSR(channel));
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Enable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_QDUAL_RCSR(channel));
 	writel (reg | DVBM_QDUAL_RCSR_RXE,
 		card->core.addr + DVBM_QDUAL_RCSR(channel));
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -999,30 +1093,30 @@ dvbm_qdual_rxstop (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Disable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_QDUAL_RCSR(channel));
 	writel (reg & ~DVBM_QDUAL_RCSR_RXE,
 		card->core.addr + DVBM_QDUAL_RCSR(channel));
-	spin_unlock (&card->reg_lock);
 
 	/* Disable receiver interrupts */
 	spin_lock_irq (&card->irq_lock);
 	writel (DVBM_QDUAL_ICSR_RXCDIS | DVBM_QDUAL_ICSR_RXAOSIS |
 		DVBM_QDUAL_ICSR_RXLOSIS | DVBM_QDUAL_ICSR_RXOIS |
-		DVBM_QDUAL_ICSR_RXDIS, card->core.addr + DVBM_QDUAL_ICSR(channel));
+		DVBM_QDUAL_ICSR_RXDIS,
+		card->core.addr + DVBM_QDUAL_ICSR(channel));
+	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable and abort DMA */
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(channel));
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(channel));
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
-	spin_unlock_irq (&card->irq_lock);
+
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
+
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(channel));
@@ -1173,10 +1267,10 @@ dvbm_qdual_rxunlocked_ioctl (struct file *filp,
 		for (i = 0; i < 256; i++) {
 			writel (i,
 				card->core.addr + DVBM_QDUAL_PFLUTWA(channel));
-			wmb ();
+			/* Dummy read to flush PCI posted writes */
+			readl (card->core.addr + DVBM_QDUAL_FPGAID);
 			writel (pflut[i],
 				card->core.addr + DVBM_QDUAL_PFLUT(channel));
-			wmb ();
 		}
 		spin_unlock (&card->reg_lock);
 		kfree (pflut);
@@ -1295,15 +1389,12 @@ dvbm_qdual_rxunlocked_ioctl (struct file *filp,
 /**
  * dvbm_qdual_rxfsync - DVB Master Quad-2in2out receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_qdual_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_qdual_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -1320,7 +1411,6 @@ dvbm_qdual_rxfsync (struct file *filp,
 	reg = readl (card->core.addr + DVBM_QDUAL_RCSR(channel));
 	writel (reg | DVBM_QDUAL_RCSR_RXRST,
 		card->core.addr + DVBM_QDUAL_RCSR(channel));
-	wmb ();
 	writel (reg, card->core.addr + DVBM_QDUAL_RCSR(channel));
 	spin_unlock (&card->reg_lock);
 	iface->events = 0;

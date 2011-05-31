@@ -65,9 +65,7 @@ static void dvbm_qlf_exit (struct master_iface *iface);
 static long dvbm_qlf_unlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_qlf_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_qlf_fsync,filp,datasync);
 
 static struct file_operations dvbm_qlf_fops = {
 	.owner = THIS_MODULE,
@@ -75,7 +73,7 @@ static struct file_operations dvbm_qlf_fops = {
 	.read = asi_read,
 	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_qlf_unlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_qlf_unlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_qlf_fsync,
@@ -470,9 +468,7 @@ dvbm_qlf_init (struct master_iface *iface)
 	 * until this code returns, so we don't need to lock it */
 	writel (reg | DVBM_QLF_RCR_RST,
 		card->core.addr + DVBM_QLF_RCR(channel));
-	wmb ();
 	writel (reg, card->core.addr + DVBM_QLF_RCR(channel));
-	wmb ();
 	writel (DVBM_QLF_RDMATL, card->core.addr + DVBM_QLF_RDMATLR(channel));
 
 	/* Reset the byte counter */
@@ -486,8 +482,6 @@ dvbm_qlf_init (struct master_iface *iface)
 		/* Dummy read to flush PCI posted writes */
 		readl (card->core.addr + DVBM_QLF_FPGAID);
 		writel (0xffffffff, card->core.addr + DVBM_QLF_PFLUTR(channel));
-		/* Dummy read to flush PCI posted writes */
-		readl (card->core.addr + DVBM_QLF_FPGAID);
 	}
 
 	/* Clear PID registers */
@@ -523,7 +517,6 @@ dvbm_qlf_start (struct master_iface *iface)
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(channel));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_ENABLE,
 		card->bridge_addr + LSDMA_CSR(channel));
@@ -539,11 +532,9 @@ dvbm_qlf_start (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Enable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_QLF_RCR(channel));
 	writel (reg | DVBM_QLF_RCR_EN,
 		card->core.addr + DVBM_QLF_RCR(channel));
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -560,11 +551,9 @@ dvbm_qlf_stop (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Disable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_QLF_RCR(channel));
 	writel (reg & ~DVBM_QLF_RCR_EN,
 		card->core.addr + DVBM_QLF_RCR(channel));
-	spin_unlock (&card->reg_lock);
 
 	/* Disable receiver interrupts */
 	spin_lock_irq (&card->irq_lock);
@@ -572,19 +561,20 @@ dvbm_qlf_stop (struct master_iface *iface)
 		DVBM_QLF_ICSR_RXLOSIS | DVBM_QLF_ICSR_RXOIS |
 		DVBM_QLF_ICSR_RXDIS,
 		card->core.addr + DVBM_QLF_ICSR(channel));
+	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable and abort DMA */
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(channel));
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(channel));
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
-	spin_unlock_irq (&card->irq_lock);
+
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
+
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(channel));
@@ -735,8 +725,6 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 			/* Dummy read to flush PCI posted writes */
 			readl (card->core.addr + DVBM_QLF_FPGAID);
 			writel (pflut[i], card->core.addr + DVBM_QLF_PFLUTR(channel));
-			/* Dummy read to flush PCI posted writes */
-			readl (card->core.addr + DVBM_QLF_FPGAID);
 		}
 		spin_unlock (&card->reg_lock);
 		kfree (pflut);
@@ -855,15 +843,12 @@ dvbm_qlf_unlocked_ioctl (struct file *filp,
 /**
  * dvbm_qlf_fsync - DVB Master Q/i RoHS receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_qlf_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_qlf_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -880,7 +865,6 @@ dvbm_qlf_fsync (struct file *filp,
 	reg = readl (card->core.addr + DVBM_QLF_RCR(channel));
 	writel (reg | DVBM_QLF_RCR_RST,
 		card->core.addr + DVBM_QLF_RCR(channel));
-	wmb ();
 	writel (reg, card->core.addr + DVBM_QLF_RCR(channel));
 	spin_unlock (&card->reg_lock);
 	iface->events = 0;

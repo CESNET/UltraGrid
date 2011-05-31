@@ -12,12 +12,12 @@ Table of Contents
  5. Installation
  6. Capturing an MPEG-2 transport stream over DVB ASI or SMPTE 310M
  7. Playing an MPEG-2 transport stream over DVB ASI or SMPTE 310M
- 8. Capturing 4:2:2 component digital video over SMPTE 259M-C
- 9. Playing 4:2:2 component digital video over SMPTE 259M-C
-10. Capturing 4:2:2 component digital video over SMPTE 292M
-11. Capturing audio over SMPTE 292M
-12. Playing 4:2:2 component digital video over SMPTE 292M
-13. Playing audio over SMPTE 292M
+ 8. Capturing SMPTE 259M-C with SDI Master
+ 9. Playing SMPTE 259M-C with SDI Master
+10. Capturing 4:2:2 component digital video over SDI
+11. Capturing audio over SDI
+12. Playing 4:2:2 component digital video over SDI
+13. Playing audio over SDI
 14. Driver limitations and known bugs
 
 
@@ -67,7 +67,7 @@ This SDK supports the following products:
 	DVB Master Quad-3in1out PCIe
 	DVB Master III Tx LP
 	DVB Master III Rx LP
-	VidPort Q/i
+	QuadPort H/i
 	VidPort SD/HD O
 	VidPort SD/HD I
 
@@ -263,8 +263,8 @@ If you receive an error message, make sure you have write permission
 on the device file. Press Ctrl+C to quit mknull.
 
 
- 8. Capturing 4:2:2 component digital video over SMPTE 259M-C
--------------------------------------------------------------
+ 8. Capturing SMPTE 259M-C with SDI Master
+------------------------------------------
 
 Connect a SMPTE 259M-C source to your board's receive port
 with a 75 ohm cable.
@@ -291,7 +291,7 @@ Use
 
 to view information about other options.
 
-Capture one second of video to a file called test.sdi by typing
+Capture one second to a file called test.sdi by typing
 
 	capture -n1 /dev/sdirx0 > test.sdi
 
@@ -301,8 +301,8 @@ without overrunning the driver's buffers will probably require
 a disk array.
 
 
- 9. Playing 4:2:2 component digital video over SMPTE 259M-C
------------------------------------------------------------
+ 9. Playing SMPTE 259M-C with SDI Master
+----------------------------------------
 
 Connect a SMPTE 259M-C receiver to your board's transmit port
 with a 75 ohm cable.
@@ -327,7 +327,7 @@ Use
 
 to view information about other options.
 
-If you have a video file, transmit it with
+If you have a file, transmit it with
 
 	playout /dev/sditx0 < test.sdi
 
@@ -343,10 +343,12 @@ If you receive an error message, make sure you have write permission
 on the device file. Press Ctrl+C to quit eg1.
 
 
-10. Capturing 4:2:2 component digital video over SMPTE 292M
------------------------------------------------------------
+10. Capturing 4:2:2 component digital video over SDI
+----------------------------------------------------
 
-Connect a SMPTE 292M source to your board's receive port
+This section applies to QuadPort and VidPort boards, not SDI Master.
+
+Connect an SDI source to your board's receive port
 with a 75 ohm cable.
 
 Assuming that you are using the first receive port
@@ -377,7 +379,11 @@ on the device file. Capturing longer segments to disk
 without overrunning the driver's buffers will probably require
 a disk array.
 
-You can also use VideoLAN, MPlayer, or FFmpeg to display the captured video.
+You can also use FFmpeg, MPlayer, or VideoLAN to display the captured video.
+
+Display 720p video with UYVY packing format with FFmpeg by typing
+
+	ffplay -f rawvideo -s 1280x720 -pix_fmt uyvy422 /dev/sdivideorx0
 
 Display 720p video with UYVY packing format with MPlayer by typing
 
@@ -387,15 +393,13 @@ Display 720p video with UYVY packing format with VideoLAN by typing
 
 	vlc --demux rawvideo --rawvid-width 1280 --rawvid-height 720 --rawvid-chroma=UYVY --zoom 0.25 --rawvid-fps 60 /dev/sdivideorx0
 
-Display 720p video with UYVY packing format with FFmpeg by typing
 
-	ffplay -f rawvideo -s 1280x720 -pix_fmt uyvy422 /dev/sdivideorx0
+11. Capturing audio over SDI
+----------------------------
 
+This section applies to QuadPort and VidPort boards, not SDI Master.
 
-11. Capturing audio over SMPTE 292M
------------------------------------
-
-Connect a SMPTE 292M source to your board's receive port
+Connect an SDI source to your board's receive port
 with a 75 ohm cable.
 
 Assuming that you are using the first receive port
@@ -408,7 +412,7 @@ Other interfaces may be viewed by providing the appropriate device file name.
 By default, the interface is set to capture 2-channel audio.
 If you want to capture 8-channel audio, change the mode by typing
 
-	sdiaudiocfg -c3 /dev/sdiaudiorx0
+	sdiaudiocfg -c8 /dev/sdiaudiorx0
 
 as root.
 Use
@@ -424,21 +428,27 @@ Capture one second of audio to a file called test.raw by typing
 If you receive an error message, make sure you have read permission
 on the device file.
 
-Play back 2 channel, 16-bit audio with 48000 Hz sample rate with MPlayer
+Listen to 2 channel, 16-bit audio with 48000 Hz sample rate with MPlayer
 by typing
 
 	mplayer -demuxer rawaudio -rawaudio channels=2:rate=48000:samplesize=2 /dev/sdiaudiorx0
 
-Play back 2 channel, 16-bit audio with 48000 Hz sample rate with VideoLAN
+Listen to 2 channel, 16-bit audio with 48000 Hz sample rate with VideoLAN
 by typing
 
 	vlc --demux rawaud --rawaud-channels 2 --rawaud-samplerate 48000 --rawaud-fourcc s16l /dev/sdiaudiorx0
 
+Display video and listen to audio with MPlayer by typing
 
-12. Playing 4:2:2 component digital video over SMPTE 292M
----------------------------------------------------------
+	mplayer -demuxer rawvideo -rawvideo w=1280:h=720:format=uyvy:fps=60 /dev/sdivideorx0 -audio-demuxer rawaudio -rawaudio channels=2:rate=48000:samplesize=2 -audiofile /dev/sdiaudiorx0
 
-Connect a SMPTE 292M receiver to your board's transmit port
+
+12. Playing 4:2:2 component digital video over SDI
+--------------------------------------------------
+
+This section applies to VidPort boards, not SDI Master.
+
+Connect an SDI receiver to your board's transmit port
 with a 75 ohm cable.
 
 Assuming that you are using the first transmit port
@@ -467,7 +477,11 @@ If you have a video file, transmit it with
 Playing long files from disk without underrunning the driver's buffers
 will probably require a disk array.
 
-Transmit a compressed video file with MPlayer with
+Transmit a compressed video file with FFmpeg by typing
+
+	ffmpeg -y -i test.ts -f rawvideo -pix_fmt uyvy422 /dev/sdivideotx0
+
+Transmit a compressed video file with MPlayer by typing
 
 	mencoder -nosound -ovc raw -vf format=uyvy -of rawvideo -o /dev/sdivideotx0 test.ts
 
@@ -487,10 +501,12 @@ If you receive an error message, make sure you have write permission
 on the device file. Press Ctrl+C to quit rp219.
 
 
-13. Playing audio over SMPTE 292M
----------------------------------
+13. Playing audio over SDI
+--------------------------
 
-Connect a SMPTE 292M receiver to your board's transmit port
+This section applies to VidPort boards, not SDI Master.
+
+Connect an SDI receiver to your board's transmit port
 with a 75 ohm cable.
 
 Assuming that you are using the first transmit port
@@ -503,10 +519,9 @@ Other interfaces may be viewed by providing the appropriate device file name.
 By default, the interface assumes 2-channel audio.
 If you want to play 8-channel audio data, change the mode by typing
 
-	sdiaudiocfg -c3 /dev/sdiaudiotx0
+	sdiaudiocfg -c8 /dev/sdiaudiotx0
 
-as root. This process will block until video data is also provided;
-this can be used to synchronize audio and video.
+as root.
 Use
 
 	sdiaudiocfg -h
@@ -516,6 +531,18 @@ to view information about other options.
 If you have an audio file, transmit it with
 
 	audioplayout /dev/sdiaudiotx0 < test.raw
+
+This process will block until video data is also provided;
+this can be used to synchronize audio and video.
+
+Transmit 2 channel, 16-bit audio with 48 kHz sampling rate
+from a compressed audio file with FFmpeg by typing
+
+	ffmpeg -y -i test.ts -f s16le -ar 48000 -ac 2 /dev/sdiaudiotx0
+
+Transmit video and audio from a compressed file with FFmpeg by typing
+
+	ffmpeg -y -i test.ts -f rawvideo -pix_fmt uyvy422 /dev/sdivideotx0 -f s16le /dev/sdiaudiotx0
 
 If you don't have a file, it is possible to transmit
 a SMPTE RP155 tone.

@@ -60,7 +60,7 @@ Audiocapture
 ------------
 
 NAME
-	audiocapture - example SMPTE 292M audio receiver application
+	audiocapture - example SDI audio receiver application
 
 SYNOPSIS
 	audiocapture [OPTION]... DEVICE_FILE
@@ -68,7 +68,7 @@ SYNOPSIS
 DESCRIPTION
 	Audiocapture reads data from DEVICE_FILE
 	and writes it to standard output,
-	while monitoring for SMPTE 292M audio receiver events.
+	while monitoring for SDI audio receiver events.
 
 OPTIONS
 	-h
@@ -83,7 +83,7 @@ Audioplayout
 ------------
 
 NAME
-	audioplayout - example SMPTE 292M audio transmitter application
+	audioplayout - example SDI audio transmitter application
 
 SYNOPSIS
 	audioplayout [OPTION]... DEVICE_FILE
@@ -91,7 +91,7 @@ SYNOPSIS
 DESCRIPTION
 	audioplayout reads data from standard input
 	and writes it to DEVICE_FILE,
-	while monitoring for SMPTE 292M audio transmitter events.
+	while monitoring for SDI audio transmitter events.
 
 	At end-of-file, playout issues a fsync () to the interface.
 
@@ -108,7 +108,7 @@ Sdiaudiocfg
 -----------
 
 NAME
-	sdiaudiocfg - configure a SMPTE 292M audio interface
+	sdiaudiocfg - configure an SDI audio interface
 
 SYNOPSIS
 	sdiaudiocfg [OPTION]... DEVICE_FILE
@@ -116,7 +116,7 @@ SYNOPSIS
 DESCRIPTION
 	Sdiaudiocfg uses the sysfs virtual filesystem
 	to configure certain parameters
-	of a SMPTE 292M audio interface. If no options are given, sdiaudiocfg
+	of an SDI audio interface. If no options are given, sdiaudiocfg
 	displays the current configuration of the interface.
 
 OPTIONS
@@ -157,16 +157,16 @@ Sdiaudiorxcfg
 -------------
 
 NAME
-	sdiaudiorxcfg - interactively issue SMPTE 292M audio receiver ioctls
+	sdiaudiorxcfg - interactively issue SDI audio receiver ioctls
 
 SYNOPSIS
 	sdiaudiorxcfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sdiaudiorxcfg is a simple program which demonstrates
-	the SMPTE 292M audio receiver ioctl commands.
+	the SDI audio receiver ioctl commands.
 	It can be used interactively to control or monitor
-	a SMPTE 292M audio receiver, or noninteractively
+	an SDI audio receiver, or noninteractively
 	with a script piped to its standard input.
 
 OPTIONS
@@ -180,16 +180,16 @@ Sdiaudiotxcfg
 -------------
 
 NAME
-	sdiaudiotxcfg - interactively issue SMPTE 292M audio transmitter ioctls
+	sdiaudiotxcfg - interactively issue SDI audio transmitter ioctls
 
 SYNOPSIS
 	sdiaudiotxcfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sdiaudiotxcfg is a simple program which demonstrates
-	the SMPTE 292M audio transmitter ioctl commands.
+	the SDI audio transmitter ioctl commands.
 	It can be used interactively to control or monitor
-	a  SMPTE 292M audio transmitter, or noninteractively
+	an SDI audio transmitter, or noninteractively
 	with a script piped to its standard input.
 
 OPTIONS

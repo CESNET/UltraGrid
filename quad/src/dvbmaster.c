@@ -44,10 +44,9 @@
 #include "dvbm_lpfd.h"
 #include "dvbm_qlf.h"
 #include "dvbm_qi.h"
-#include "dvbm_qo.h"
+#include "dvbm_qio.h"
+#include "dvbm_lpqo.h"
 #include "dvbm_qdual.h"
-#include "dvbm_q3ioe.h"
-#include "dvbm_q3inoe.h"
 
 #ifndef DEFINE_PCI_DEVICE_TABLE
 #define DEFINE_PCI_DEVICE_TABLE(_table) \
@@ -381,9 +380,10 @@ dvbm_pci_probe (struct pci_dev *pdev,
 		return dvbm_qi_pci_probe (pdev);
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQO:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQOE:
+		return dvbm_qo_pci_probe (pdev);
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC:
-		return dvbm_qo_pci_probe (pdev);
+		return dvbm_lpqo_pci_probe (pdev);
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUAL:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUALE:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQDUALE:
@@ -484,9 +484,11 @@ dvbm_pci_remove (struct pci_dev *pdev)
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQO:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQOE:
+		dvbm_qo_pci_remove (pdev);
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC:
-		dvbm_qo_pci_remove (pdev);
+		dvbm_lpqo_pci_remove (pdev);
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUAL:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBQDUALE:

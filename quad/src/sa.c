@@ -22,7 +22,6 @@
  *
  */
 
-#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h> /* KERN_INFO */
 #include <linux/module.h> /* MODULE_LICENSE */
 
@@ -86,9 +85,7 @@ static void mmsa_start_tx_dma (struct master_iface *iface);
 static long mmsa_txunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int mmsa_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(mmsa_txfsync,filp,datasync);
 static void mmsa_rxinit (struct master_iface *iface);
 static void mmsa_rxstart (struct master_iface *iface);
 static void mmsa_rxstop (struct master_iface *iface);
@@ -96,9 +93,7 @@ static void mmsa_rxexit (struct master_iface *iface);
 static long mmsa_rxunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int mmsa_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(mmsa_rxfsync,filp,datasync);
 static int mmsa_init_module (void) __init;
 static void mmsa_cleanup_module (void) __exit;
 
@@ -136,7 +131,7 @@ static struct file_operations mmsa_txfops = {
 	.write = asi_write,
 	.poll = asi_txpoll,
 	.unlocked_ioctl = mmsa_txunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = mmsa_txunlocked_ioctl,
 	.mmap = NULL,
 	.open = asi_open,
 	.release = asi_release,
@@ -150,7 +145,7 @@ static struct file_operations mmsa_rxfops = {
 	.read = sdi_read,
 	.poll = sdi_rxpoll,
 	.unlocked_ioctl = mmsa_rxunlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.compat_ioctl = mmsa_rxunlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -213,14 +208,23 @@ mmsa_store_blackburst_type (struct device *dev,
 	unsigned int reg;
 	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
 	int retcode = count;
+	struct master_iface *txiface = list_entry (card->iface_list.next,
+		struct master_iface, list);
 
 	if ((endp == buf) || (val > max)) {
 		return -EINVAL;
+	}
+	mutex_lock (&card->users_mutex);
+	if (txiface->users) {
+		retcode = -EBUSY;
+		goto OUT;
 	}
 	spin_lock (&card->reg_lock);
 	reg = master_inl (card, MMSA_TCSR) & ~MMSA_TCSR_PAL;
 	master_outl (card, MMSA_TCSR, reg | (val << 13));
 	spin_unlock (&card->reg_lock);
+OUT:
+	mutex_unlock (&card->users_mutex);
 	return retcode;
 }
 
@@ -396,7 +400,17 @@ mmsa_pci_probe (struct pci_dev *pdev,
 		ASI_CAP_TX_27COUNTER |
 		ASI_CAP_TX_TIMESTAMPS | ASI_CAP_TX_PTIMESTAMPS |
 		ASI_CAP_TX_NULLPACKETS;
-	cap |= (card->version >= 0x0302) ? ASI_CAP_TX_RXCLKSRC : 0;
+	switch (pdev->device) {
+	default:
+	case MMSA_PCI_DEVICE_ID_LINSYS:
+		if (card->version >= 0x0302) {
+			cap |= ASI_CAP_TX_RXCLKSRC;
+		}
+		break;
+	case MMSAE_PCI_DEVICE_ID_LINSYS:
+		cap |= ASI_CAP_TX_RXCLKSRC;
+		break;
+	}
 	if ((err = asi_register_iface (card,
 		&plx_dma_ops,
 		MMSA_FIFO,
@@ -818,15 +832,12 @@ mmsa_txunlocked_ioctl (struct file *filp,
 /**
  * mmsa_txfsync - MultiMaster SDI-R transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-mmsa_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(mmsa_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dma *dma = iface->dma;
@@ -1014,15 +1025,12 @@ mmsa_rxunlocked_ioctl (struct file *filp,
 /**
  * mmsa_rxfsync - MultiMaster SDI-R receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-mmsa_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(mmsa_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

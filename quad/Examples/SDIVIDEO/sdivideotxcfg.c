@@ -55,11 +55,8 @@ show_cap (unsigned int cap)
 {
 	char str[TMP_BUFLEN] = "[ ] ";
 
-	if (cap) {
-		printf ("Unknown capabilities.\n");
-	} else {
-		printf ("No capabilities.\n");
-	}
+	str[1] = (cap & SDIVIDEO_CAP_TX_VANC) ? 'X' : ' ';
+	printf ("%sVertical ancillary space\n", str);
 
 	printf ("\nPress Enter to continue: ");
 	fgets (str, TMP_BUFLEN, stdin);

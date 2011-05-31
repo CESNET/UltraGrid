@@ -69,9 +69,7 @@ static long hdsdim_rxe_unlocked_ioctl (struct file *filp,
 static long hdsdim_rxe_unlocked_audioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int hdsdim_rxe_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(hdsdim_rxe_fsync,filp,datasync);
 
 static struct file_operations hdsdim_rxe_vidfops = {
 	.owner = THIS_MODULE,
@@ -79,7 +77,7 @@ static struct file_operations hdsdim_rxe_vidfops = {
 	.read = sdivideo_read,
 	.poll = sdivideo_rxpoll,
 	.unlocked_ioctl = hdsdim_rxe_unlocked_ioctl,
-	.compat_ioctl = sdivideo_compat_ioctl,
+	.compat_ioctl = hdsdim_rxe_unlocked_ioctl,
 	.mmap = sdivideo_mmap,
 	.open = sdivideo_open,
 	.release = sdivideo_release,
@@ -93,7 +91,7 @@ static struct file_operations hdsdim_rxe_audfops = {
 	.read = sdiaudio_read,
 	.poll = sdiaudio_rxpoll,
 	.unlocked_ioctl = hdsdim_rxe_unlocked_audioctl,
-	.compat_ioctl = sdiaudio_compat_ioctl,
+	.compat_ioctl = hdsdim_rxe_unlocked_audioctl,
 	.mmap = sdiaudio_mmap,
 	.open = sdiaudio_open,
 	.release = sdiaudio_release,
@@ -147,7 +145,7 @@ int __devinit
 hdsdim_rxe_pci_probe (struct pci_dev *pdev)
 {
 	int err;
-	unsigned int vidcap, audcap;
+	unsigned int cap;
 	struct master_dev *card;
 
 	err = hdsdim_pci_probe_generic (pdev);
@@ -212,7 +210,10 @@ hdsdim_rxe_pci_probe (struct pci_dev *pdev)
 		}
 	}
 
-	vidcap = 0;
+	cap = 0;
+	if (card->version >= 0x0102) {
+		cap |= SDIVIDEO_CAP_RX_VANC;
+	}
 	/* Register a video receive interface */
 	if ((err = sdivideo_register_iface (card,
 		&lsdma_dma_ops,
@@ -220,12 +221,12 @@ hdsdim_rxe_pci_probe (struct pci_dev *pdev)
 		MASTER_DIRECTION_RX,
 		&hdsdim_rxe_vidfops,
 		&hdsdim_rxe_vidops,
-		vidcap,
+		cap,
 		4)) < 0) { //4 is the dma alignment, means dma transfer has to begin and end on 4 byte alignment
 		goto NO_IFACE;
 	}
 
-	audcap = SDIAUDIO_CAP_RX_NONAUDIO;
+	cap = SDIAUDIO_CAP_RX_NONAUDIO;
 	/* Register an audio receive interface */
 	if ((err = sdiaudio_register_iface (card,
 		&lsdma_dma_ops,
@@ -233,7 +234,7 @@ hdsdim_rxe_pci_probe (struct pci_dev *pdev)
 		MASTER_DIRECTION_RX,
 		&hdsdim_rxe_audfops,
 		&hdsdim_rxe_audops,
-		audcap,
+		cap,
 		4)) < 0) { //4 is the dma alignment, means dma transfer has to begin and end on 4 byte alignment
 		goto NO_IFACE;
 	}
@@ -305,10 +306,13 @@ IRQ_HANDLER(hdsdim_rxe_irq_handler,irq,dev_id,regs)
 		/* Increment the buffer pointer */
 		mdma_advance (vid_iface->dma);
 
-		/* Flag end-of-chain */ //stop also have to wait until the end of chain
-		if (dmacsr & LSDMA_CH_CSR_DONE) {
+		if (mdma_rx_isempty (vid_iface->dma)) {
 			set_bit (SDIVIDEO_EVENT_RX_BUFFER_ORDER,
 				&vid_iface->events);
+		}
+
+		/* Flag end-of-chain */ //stop also have to wait until the end of chain
+		if (dmacsr & LSDMA_CH_CSR_DONE) {
 			set_bit (0, &vid_iface->dma_done);
 		}
 
@@ -336,10 +340,13 @@ IRQ_HANDLER(hdsdim_rxe_irq_handler,irq,dev_id,regs)
 		/* Increment the buffer pointer */
 		mdma_advance (aud_iface->dma);
 
-		/* Flag end-of-chain */ //stop also have to wait until the end of chain
-		if (dmacsr & LSDMA_CH_CSR_DONE) {
+		if (mdma_rx_isempty (aud_iface->dma)) {
 			set_bit (SDIAUDIO_EVENT_RX_BUFFER_ORDER,
 				&aud_iface->events);
+		}
+
+		/* Flag end-of-chain */ //stop also have to wait until the end of chain
+		if (dmacsr & LSDMA_CH_CSR_DONE) {
 			set_bit (0, &aud_iface->dma_done);
 		}
 
@@ -434,6 +441,9 @@ hdsdim_rxe_init (struct master_iface *iface)
 	case SDIVIDEO_CTL_MODE_V210:
 		reg |= HDSDIM_RXE_CTRL_FOURCC_V210;
 		break;
+	}
+	if (iface->vanc) {
+		reg |= HDSDIM_RXE_CTRL_VANC;
 	}
 
 	/* There will be no races on CSR
@@ -532,6 +542,11 @@ hdsdim_rxe_stop (struct master_iface *iface)
 	writel(reg | HDSDIM_RXE_CTRL_SWRST,
 		card->core.addr + HDSDIM_RXE_CTRL);
 
+	/* Disable receiver non-DMA interrupts */
+	writel (HDSDIM_RXE_INT_RVOI |
+		HDSDIM_RXE_INT_RVDI | HDSDIM_RXE_INT_RSTDI,
+		card->core.addr + HDSDIM_RXE_IMC);
+
 	/* Disable and abort DMA */
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_64BIT | LSDMA_CH_CSR_DIRECTION,
@@ -540,14 +555,13 @@ hdsdim_rxe_stop (struct master_iface *iface)
 		LSDMA_CH_CSR_64BIT | LSDMA_CH_CSR_DIRECTION |
 		LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(3));
-
-	/* Disable receiver interrupts */
-	writel (HDSDIM_RXE_INT_DMA3 | HDSDIM_RXE_INT_RVOI |
-		HDSDIM_RXE_INT_RVDI | HDSDIM_RXE_INT_RSTDI,
-		card->core.addr + HDSDIM_RXE_IMC);
-
 	/* Dummy read to flush PCI posted writes */
 	readl(card->core.addr + HDSDIM_RXE_FPGAID);
+
+	wait_event (iface->queue, test_bit (0, &iface->dma_done));
+
+	/* Disable receiver DMA interrupts */
+	writel (HDSDIM_RXE_INT_DMA3, card->core.addr + HDSDIM_RXE_IMC);
 
 	return;
 }
@@ -561,6 +575,10 @@ hdsdim_rxe_audstop (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
 
+	/* Disable receiver non-DMA interrupts */
+	writel (HDSDIM_RXE_INT_RAOI | HDSDIM_RXE_INT_RADI,
+		card->core.addr + HDSDIM_RXE_IMC);
+
 	/* Disable and abort DMA */
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_64BIT | LSDMA_CH_CSR_DIRECTION,
@@ -569,14 +587,13 @@ hdsdim_rxe_audstop (struct master_iface *iface)
 		LSDMA_CH_CSR_64BIT | LSDMA_CH_CSR_DIRECTION |
 		LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(4));
-
-	/* Disable receiver interrupts */
-	writel (HDSDIM_RXE_INT_DMA4 | HDSDIM_RXE_INT_RAOI |
-		HDSDIM_RXE_INT_RADI,
-		card->core.addr + HDSDIM_RXE_IMC);
-
 	/* Dummy read to flush PCI posted writes */
 	readl(card->core.addr + HDSDIM_RXE_FPGAID);
+
+	wait_event (iface->queue, test_bit (0, &iface->dma_done));
+
+	/* Disable receiver DMA interrupts */
+	writel (HDSDIM_RXE_INT_DMA4, card->core.addr + HDSDIM_RXE_IMC);
 
 	return;
 }
@@ -593,8 +610,7 @@ hdsdim_rxe_exit (struct master_iface *iface)
 	/* Reset the receiver.
 	 * There will be no races on CSR here,
 	 * so we don't need to lock it */
-	writel (HDSDIM_RXE_CTRL_SWRST,
-		card->core.addr + HDSDIM_RXE_CTRL);
+	writel (HDSDIM_RXE_CTRL_SWRST, card->core.addr + HDSDIM_RXE_CTRL);
 
 	return;
 }
@@ -777,15 +793,12 @@ hdsdim_rxe_unlocked_audioctl (struct file *filp,
 /**
  * hdsdim_rxe_fsync - VidPort SD/HD I Video fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-hdsdim_rxe_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(hdsdim_rxe_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -794,20 +807,19 @@ hdsdim_rxe_fsync (struct file *filp,
 	mutex_lock (&iface->buf_mutex);
 
 	/* Stop the receiver */
-	hdsdim_rxe_stop (iface);
+	iface->ops->stop (iface);
 
 	/* Reset the onboard FIFO and driver buffers */
 	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + HDSDIM_RXE_CTRL);
 	writel (reg | HDSDIM_RXE_CTRL_SWRST, card->core.addr + HDSDIM_RXE_CTRL);
-	wmb ();
 	writel (reg, card->core.addr + HDSDIM_RXE_CTRL);
 	spin_unlock (&card->reg_lock);
 	iface->events = 0;
 	lsdma_reset (iface->dma);
 
 	/* Start the receiver */
-	hdsdim_rxe_start (iface);
+	iface->ops->start (iface);
 
 	mutex_unlock (&iface->buf_mutex);
 	return 0;

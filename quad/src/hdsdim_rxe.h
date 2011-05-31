@@ -64,6 +64,7 @@
 #define HDSDIM_RXE_CTRL_SWRST		0x00000001 /* Reset */
 #define HDSDIM_RXE_CTRL_CLKRST		0x00000008 /* Clock Reset */
 #define HDSDIM_RXE_CTRL_FOURCC_V210	0x00010000 /* UYVY if not set */
+#define HDSDIM_RXE_CTRL_VANC		0x01000000 /* Vertical Ancillary Space */
 
 /* Status Register (STATUS) bit locations */
 #define HDSDIM_RXE_STATUS_RXSTD		0x000f0000 /* Receive Video Standard */

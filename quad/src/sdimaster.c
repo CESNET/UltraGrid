@@ -22,7 +22,6 @@
  *
  */
 
-#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h> /* KERN_INFO */
 #include <linux/module.h> /* MODULE_LICENSE */
 
@@ -84,9 +83,7 @@ static void sdim_start_tx_dma (struct master_iface *iface);
 static long sdim_txunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int sdim_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(sdim_txfsync,filp,datasync);
 static void sdim_rxinit (struct master_iface *iface);
 static void sdim_rxstart (struct master_iface *iface);
 static void sdim_rxstop (struct master_iface *iface);
@@ -94,9 +91,7 @@ static void sdim_rxexit (struct master_iface *iface);
 static long sdim_rxunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int sdim_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(sdim_rxfsync,filp,datasync);
 static int sdim_init_module (void) __init;
 static void sdim_cleanup_module (void) __exit;
 
@@ -134,7 +129,7 @@ static struct file_operations sdim_txfops = {
 	.write = sdi_write,
 	.poll = sdi_txpoll,
 	.unlocked_ioctl = sdim_txunlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.compat_ioctl = sdim_txunlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -148,7 +143,7 @@ static struct file_operations sdim_rxfops = {
 	.read = sdi_read,
 	.poll = sdi_rxpoll,
 	.unlocked_ioctl = sdim_rxunlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.compat_ioctl = sdim_rxunlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -211,14 +206,23 @@ sdim_store_blackburst_type (struct device *dev,
 	unsigned int reg;
 	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
 	int retcode = count;
+	struct master_iface *txiface = list_entry (card->iface_list.next,
+		struct master_iface, list);
 
 	if ((endp == buf) || (val > max)) {
 		return -EINVAL;
+	}
+	mutex_lock (&card->users_mutex);
+	if (txiface->users) {
+		retcode = -EBUSY;
+		goto OUT;
 	}
 	spin_lock (&card->reg_lock);
 	reg = master_inl (card, SDIM_TCSR) & ~SDIM_TCSR_PAL;
 	master_outl (card, SDIM_TCSR, reg | (val << 9));
 	spin_unlock (&card->reg_lock);
+OUT:
+	mutex_unlock (&card->users_mutex);
 	return retcode;
 }
 
@@ -752,15 +756,12 @@ sdim_txunlocked_ioctl (struct file *filp,
 /**
  * sdim_txfsync - SDI Master transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-sdim_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(sdim_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -945,15 +946,12 @@ sdim_rxunlocked_ioctl (struct file *filp,
 /**
  * sdim_rxfsync - SDI Master receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-sdim_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(sdim_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

@@ -1,17 +1,17 @@
 This file briefly explains how the device files are used.
 
-When the driver module is loaded, each SMPTE 259M-C transmit interface
+When the driver module is loaded, each raw SDI transmit interface
 is assigned a number between 0 and 127.
-Similarly, each SMPTE 259M-C receive interface
+Similarly, each raw SDI receive interface
 is assigned a number. The first interface detected in each case
 is called interface 0, the second is called interface 1, and so on.
 
 Each interface is represented by a device file.
 Device files have characteristic major and minor numbers.
 The major number determines which driver responds to activity directed
-at that file. SMPTE 259M-C drivers respond to activity directed at
+at that file. Raw SDI drivers respond to activity directed at
 files with major number 121 by default. The minor number may be used
-by the driver for any purpose. The SMPTE 259M-C API uses it to
+by the driver for any purpose. The raw SDI API uses it to
 identify the interface associated with that file.
 The 7 least significant bits of the minor number hold the interface number,
 while bit 8 is zero for transmitters and one for receivers.

@@ -189,8 +189,10 @@ struct vidcap_quad_state {
         struct video_frame  frame;
 };
 
-int                 frames = 0;
-struct              timeval t, t0;
+static int          frames = 0;
+static struct       timeval t, t0;
+
+static void print_output_modes();
 
 static void
 get_carrier (int fd)
@@ -220,8 +222,8 @@ static const struct frame_mode * get_video_standard (int fd)
                         "detected.");
                 return NULL;
 	} else {
-                if(val >= sizeof(frame_modes)/sizeof(struct frame_mode)
-                                || frame_modes[val].magic != FMODE_MAGIC) {
+                if(val < sizeof(frame_modes)/sizeof(struct frame_mode)
+                                && frame_modes[val].magic == FMODE_MAGIC) {
                         printf("\t%s video mode detected.\n",
                                         frame_modes[val].name);
                         return &frame_modes[val];
@@ -247,7 +249,7 @@ vidcap_quad_probe(void)
 }
 
 void *
-vidcap_quad_init(void)
+vidcap_quad_init(char *init_fmt)
 {
 	struct vidcap_quad_state *s;
 
@@ -264,6 +266,7 @@ vidcap_quad_init(void)
         unsigned long int         mode;
         const struct codec_info_t *c_info;
         const struct frame_mode   *frame_mode;
+	int 			  frame_mode_number;
 
 	printf("vidcap_quad_init\n");
 
@@ -428,11 +431,19 @@ vidcap_quad_init(void)
     }
 
     /*Get video standard*/
-        frame_mode = get_video_standard (s->fd);
-        if(frame_mode == NULL) {
+        //frame_mode = get_video_standard (s->fd);
+        if(strcmp(init_fmt, "help") == 0) {
+                print_output_modes();
+                return NULL;
+        }
+	frame_mode_number = atoi(init_fmt);
+	if(frame_mode_number < 0 || 
+                        frame_mode_number >= 
+                        sizeof(frame_modes)/sizeof(struct frame_mode)) {
                 close(s->fd);
                 return NULL;
         }
+        frame_mode = &frame_modes[frame_mode_number];
         if(frame_mode == &frame_modes[SDIVIDEO_CTL_UNLOCKED]) {
                 fprintf(stderr, "Please setup correct video mode "
                                 "via sysfs.");
@@ -497,11 +508,13 @@ vidcap_quad_grab(void *state)
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
 
     unsigned int val;
-    ssize_t      read_ret;
+    ssize_t      read_ret = 0ul;
     ssize_t      bytes;
     
     /* Receive the data and check for errors */
 	
+    while(read_ret < s->frame.data_len)
+    {
 	if(poll (&(s->pfd), 1, 1000) < 0) {
 		fprintf (stderr, "%s: ", device);
 		perror ("unable to poll device file");
@@ -509,17 +522,11 @@ vidcap_quad_grab(void *state)
 	}
 
 	if(s->pfd.revents & POLLIN) {
-		bytes = 0;
-		while(bytes < s->frame.data_len) {
-			if ((read_ret = read (s->fd, &s->frame.data[bytes], 
-							s->bufsize)) < 0) {
-				fprintf (stderr, "%s: ", device);
-				perror ("unable to read from device file");
-				return NULL;
-			}
-			bytes += read_ret;
-		}
-
+                if ((read_ret += read (s->fd, s->frame.data + read_ret, s->frame.data_len - read_ret)) < 0) {
+                        fprintf (stderr, "%s: ", device);
+                        perror ("unable to read from device file");
+                        return NULL;
+                }
 	}
 
 	if(s->pfd.revents & POLLPRI) {
@@ -554,6 +561,7 @@ vidcap_quad_grab(void *state)
            }
 
 	}
+    }
 
 
         frames++;
@@ -567,6 +575,17 @@ vidcap_quad_grab(void *state)
         }  
 
 	return &s->frame;
+}
+
+static void print_output_modes()
+{
+        int i;
+        printf("usage: -g <mode>\n\twhere mode is one of following.\n");
+        printf("Available output modes:\n");
+        for(i = 0; i < sizeof(frame_modes)/sizeof(struct frame_mode); ++i) {
+                if(frame_modes[i].magic == FMODE_MAGIC)
+                        printf("\t%2u: %s\n", i, frame_modes[i].name);
+        }
 }
 
 

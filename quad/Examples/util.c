@@ -343,7 +343,7 @@ static struct util_info info[] = {
 	},
 	{
 		.id = PCI_DEVICE_ID_LINSYS_HDSDIQI,
-		.name = "VidPort Q/i",
+		.name = "QuadPort H/i",
 		.flags = UTIL_SDIRX
 	},
 	{

@@ -2,7 +2,7 @@
  *
  * SMPTE RP 155 tone generator for Linear Systems Ltd. SMPTE 292M boards.
  *
- * Copyright (C) 2009 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2009-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,9 +43,6 @@
 
 #include "master.h"
 
-#define MAX_CHANNELS 8
-#define MAX_SAMPLING_RATE 48000
-#define MAX_SAMPLE_SIZE 32
 #define PI 3.141592654
 
 static const char progname[] = "rp155";
@@ -56,17 +53,17 @@ main (int argc, char **argv)
 	int opt, seconds;
 	char *endptr;
 	unsigned int channels, sampling_rate, sample_size, i, j;
-	uint8_t data[MAX_CHANNELS * MAX_SAMPLING_RATE * MAX_SAMPLE_SIZE];
-	int32_t *p32 = (int32_t *)data;
-	int16_t *p16 = (int16_t *)data;
+	unsigned int avsync_period, silent, avsync_count;
+	uint8_t *data, *silence, *p;
 	size_t wavelength, bytes;
 	int ret;
 
 	channels = 2;
+	avsync_period = 0;
 	seconds = -1; /* Loop forever */
 	sampling_rate = 48000;
 	sample_size = 16;
-	while ((opt = getopt (argc, argv, "c:hn:r:s:V")) != -1) {
+	while ((opt = getopt (argc, argv, "c:hm:n:r:s:V")) != -1) {
 		switch (opt) {
 		case 'c':
 			channels = strtoul (optarg, &endptr, 0);
@@ -87,6 +84,8 @@ main (int argc, char **argv)
 				"SMPTE 292M board.\n\n");
 			printf ("  -c CHANNELS\tnumber of channels\n");
 			printf ("  -h\t\tdisplay this help and exit\n");
+			printf ("  -m PERIOD\tswitch between tone and silence "
+				"every PERIOD seconds\n");
 			printf ("  -n NUM\tstop after NUM seconds\n");
 			printf ("  -r RATE\tsampling rate in Hz\n");
 			printf ("  -s SIZE\tsample size in bits\n");
@@ -100,6 +99,15 @@ main (int argc, char **argv)
 				"\t16 (default), or 32\n");
 			printf ("\nReport bugs to <support@linsys.ca>.\n");
 			return 0;
+		case 'm':
+			avsync_period = strtol (optarg, &endptr, 0);
+			if (*endptr != '\0') {
+				fprintf (stderr,
+					"%s: invalid period: %s\n",
+					argv[0], optarg);
+				return -1;
+			}
+			break;
 		case 'n':
 			seconds = strtol (optarg, &endptr, 0);
 			if (*endptr != '\0') {
@@ -136,7 +144,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2009 "
+			printf ("\nCopyright (C) 2009-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -155,8 +163,15 @@ main (int argc, char **argv)
 		goto USAGE;
 	}
 
-	/* Generate one second */
+	/* Generate one second of data */
+	data = malloc (channels * sampling_rate * sample_size / 8);
+	if (!data) {
+		fprintf (stderr, "%s: unable to allocate memory\n", argv[0]);
+		return -1;
+	}
 	if (sample_size == 16) {
+		int16_t *p16 = (int16_t *)data;
+
 		for (i = 0; i < sampling_rate; i++) {
 			for (j = 0; j < channels; j++) {
 				*p16++ = (int)(0x0ccd * sin (2 * PI * i / sampling_rate * 1000) + 0.5);
@@ -164,6 +179,8 @@ main (int argc, char **argv)
 		}
 		wavelength = channels * sampling_rate * sizeof (*p16);
 	} else {
+		int32_t *p32 = (int32_t *)data;
+
 		for (i = 0; i < sampling_rate; i++) {
 			for (j = 0; j < channels; j++) {
 				*p32++ = (int)(0x0cccd * sin (2 * PI * i / sampling_rate * 1000) + 0.5) << 12;
@@ -172,22 +189,47 @@ main (int argc, char **argv)
 		wavelength = channels * sampling_rate * sizeof (*p32);
 	}
 
+	/* Generate one second of silence */
+	silence = malloc (channels * sampling_rate * sample_size / 8);
+	if (!silence) {
+		fprintf (stderr, "%s: unable to allocate memory\n", argv[0]);
+		free (data);
+		return -1;
+	}
+	memset (silence, 0, sizeof (silence));
+
+	silent = 0;
+	avsync_count = 1;
+	p = data;
 	while (seconds) {
 		/* Output one second */
 		bytes = 0;
 		while (bytes < wavelength) {
 			if ((ret = write (STDOUT_FILENO,
-				data + bytes, wavelength - bytes)) < 0) {
+				p + bytes, wavelength - bytes)) < 0) {
 				fprintf (stderr, "%s: ", argv[0]);
 				perror ("unable to write");
+				free (data);
+				free (silence);
 				return -1;
 			}
 			bytes += ret;
+		}
+		if (avsync_period > 0) {
+			if (avsync_count == avsync_period) {
+				avsync_count = 1;
+				silent = !silent;
+				p = silent ? silence : data;
+			} else {
+				avsync_count++;
+			}
 		}
 		if (seconds > 0) {
 			seconds--;
 		}
 	}
+	free (data);
+	free (silence);
 	return 0;
 
 USAGE:

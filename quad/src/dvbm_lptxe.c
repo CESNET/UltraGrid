@@ -159,6 +159,9 @@ dvbm_lptxe_pci_probe (struct pci_dev *pdev)
 		ASI_CAP_TX_TIMESTAMPS |
 		ASI_CAP_TX_NULLPACKETS |
 		ASI_CAP_TX_PTIMESTAMPS;
+	if (card->version >= 0x0101) {
+		cap |= ASI_CAP_TX_27COUNTER;
+	}
 	if ((err = asi_register_iface (card,
 		&lsdma_dma_ops,
 		DVBM_LPFD_FIFO,

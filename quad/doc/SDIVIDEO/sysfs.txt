@@ -1,4 +1,4 @@
-This file briefly explains how the SMPTE 292M video API uses the
+This file briefly explains how the SDI video API uses the
 sysfs virtual filesystem.
 
 Some interface parameters are controlled through sysfs.
@@ -105,6 +105,12 @@ mode
 		1 - v210
 		2 - v210 deinterlaced
 		3 - raw
+
+vanc
+	Enable or disable vertical ancillary space.
+	Valid values:
+		0 - disable (default)
+		non-zero - enable
 
 Many methods of writing sysfs parameters do not check for errors.
 Confirming the change by reading the value after a write is recommended

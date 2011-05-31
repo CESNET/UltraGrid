@@ -78,9 +78,7 @@ static void dvbm_lpfd_start_tx_dma (struct master_iface *iface);
 static long dvbm_lpfd_txunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_lpfd_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_lpfd_txfsync,filp,datasync);
 static void dvbm_lpfd_rxinit (struct master_iface *iface);
 static void dvbm_lpfd_rxstart (struct master_iface *iface);
 static void dvbm_lpfd_rxstop (struct master_iface *iface);
@@ -88,9 +86,7 @@ static void dvbm_lpfd_rxexit (struct master_iface *iface);
 static long dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_lpfd_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_lpfd_rxfsync,filp,datasync);
 
 struct file_operations dvbm_lpfd_txfops = {
 	.owner = THIS_MODULE,
@@ -98,7 +94,7 @@ struct file_operations dvbm_lpfd_txfops = {
 	.write = asi_write,
 	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_lpfd_txunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_lpfd_txunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_lpfd_txfsync,
@@ -111,7 +107,7 @@ struct file_operations dvbm_lpfd_rxfops = {
 	.read = asi_read,
 	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_lpfd_rxunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_lpfd_rxunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_lpfd_rxfsync,
@@ -239,14 +235,21 @@ dvbm_lpfd_store_blackburst_type (struct device *dev,
 	unsigned int reg;
 	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
 	int retcode = count;
+	struct master_iface *txiface = list_entry (card->iface_list.next,
+		struct master_iface, list);
 
 	if ((endp == buf) || (val > max)) {
 		return -EINVAL;
 	}
-	spin_lock (&card->reg_lock);
+	mutex_lock (&card->users_mutex);
+	if (txiface->users) {
+		retcode = -EBUSY;
+		goto OUT;
+	}
 	reg = readl (card->core.addr + DVBM_LPFD_TCSR) & ~DVBM_LPFD_TCSR_PAL;
 	writel (reg | (val << 13), card->core.addr + DVBM_LPFD_TCSR);
-	spin_unlock (&card->reg_lock);
+OUT:
+	mutex_unlock (&card->users_mutex);
 	return retcode;
 }
 
@@ -747,11 +750,9 @@ dvbm_lpfd_txinit (struct master_iface *iface)
 		reg |= DVBM_LPFD_TCSR_RXCLK;
 		break;
 	}
-	spin_lock (&card->reg_lock);
 	reg |= readl (card->core.addr + DVBM_LPFD_TCSR) & DVBM_LPFD_TCSR_PAL;
 	writel (reg | DVBM_LPFD_TCSR_RST, card->core.addr + DVBM_LPFD_TCSR);
 	writel (reg, card->core.addr + DVBM_LPFD_TCSR);
-	spin_unlock (&card->reg_lock);
 	writel (DVBM_LPFD_TFSL << 16, card->core.addr + DVBM_LPFD_TFCR);
 	/* There will be no races on IBSTR, IPSTR, and FTR
 	 * until this code returns, so we don't need to lock them */
@@ -772,10 +773,6 @@ dvbm_lpfd_txstart (struct master_iface *iface)
 	struct master_dev *card = iface->card;
 	unsigned int reg;
 
-	/* Enable DMA */
-	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
-		card->bridge_addr + LSDMA_CSR(0));
-
 	/* Enable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_ICSR) &
@@ -785,10 +782,8 @@ dvbm_lpfd_txstart (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Enable the transmitter */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_TCSR);
 	writel (reg | DVBM_LPFD_TCSR_EN, card->core.addr + DVBM_LPFD_TCSR);
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -817,10 +812,8 @@ dvbm_lpfd_txstop (struct master_iface *iface)
 	}
 
 	/* Disable the transmitter */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_TCSR);
 	writel (reg & ~DVBM_LPFD_TCSR_EN, card->core.addr + DVBM_LPFD_TCSR);
-	spin_unlock (&card->reg_lock);
 
 	/* Disable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
@@ -831,8 +824,7 @@ dvbm_lpfd_txstop (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable DMA */
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE) &
-		~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(0));
 
 	return;
@@ -849,10 +841,8 @@ dvbm_lpfd_txexit (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Reset the transmitter */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_TCSR);
 	writel (reg | DVBM_LPFD_TCSR_RST, card->core.addr + DVBM_LPFD_TCSR);
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -870,13 +860,11 @@ dvbm_lpfd_start_tx_dma (struct master_iface *iface)
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(0));
-	wmb ();
 	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(0));
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(0));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_ENABLE,
@@ -965,15 +953,12 @@ dvbm_lpfd_txunlocked_ioctl (struct file *filp,
 /**
  * dvbm_lpfd_txfsync - DVB Master LP FD transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_lpfd_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_lpfd_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dma *dma = iface->dma;
@@ -1047,7 +1032,6 @@ dvbm_lpfd_rxinit (struct master_iface *iface)
 	/* There will be no races on RCSR
 	 * until this code returns, so we don't need to lock it */
 	writel (reg | DVBM_LPFD_RCSR_RST, card->core.addr + DVBM_LPFD_RCSR);
-	wmb ();
 	writel (reg, card->core.addr + DVBM_LPFD_RCSR);
 
 	/* Reset PID filter.
@@ -1055,9 +1039,9 @@ dvbm_lpfd_rxinit (struct master_iface *iface)
 	 * until this code returns, so we don't need to lock it */
 	for (i = 0; i < 256; i++) {
 		writel (i, card->core.addr + DVBM_LPFD_PFLUTAR);
-		wmb ();
+		/* Dummy read to flush PCI posted writes */
+		readl (card->core.addr + DVBM_LPFD_PFLUTAR);
 		writel (0xffffffff, card->core.addr + DVBM_LPFD_PFLUTR);
-		wmb ();
 	}
 
 	return;
@@ -1080,7 +1064,6 @@ dvbm_lpfd_rxstart (struct master_iface *iface)
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(1));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_ENABLE,
 		card->bridge_addr + LSDMA_CSR(1));
@@ -1099,11 +1082,8 @@ dvbm_lpfd_rxstart (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Enable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_RCSR);
 	writel (reg | DVBM_LPFD_RCSR_EN, card->core.addr + DVBM_LPFD_RCSR);
-
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -1119,10 +1099,8 @@ dvbm_lpfd_rxstop (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Disable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_RCSR);
 	writel (reg & ~DVBM_LPFD_RCSR_EN, card->core.addr + DVBM_LPFD_RCSR);
-	spin_unlock (&card->reg_lock);
 
 	/* Disable receiver interrupts */
 	spin_lock_irq (&card->irq_lock);
@@ -1135,18 +1113,17 @@ dvbm_lpfd_rxstop (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable and abort DMA */
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION) & ~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(1));
-	wmb ();
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP) &
-		~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(1));
-
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
+
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
+
 	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION) & ~LSDMA_CH_CSR_ENABLE,
 		card->bridge_addr + LSDMA_CSR(1));
@@ -1289,9 +1266,9 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 		spin_lock (&card->reg_lock);
 		for (i = 0; i < 256; i++) {
 			writel (i, card->core.addr + DVBM_LPFD_PFLUTAR);
-			wmb ();
+			/* Dummy read to flush PCI posted writes */
+			readl (card->core.addr + DVBM_LPFD_PFLUTAR);
 			writel (pflut[i], card->core.addr + DVBM_LPFD_PFLUTR);
-			wmb ();
 		}
 		spin_unlock (&card->reg_lock);
 		kfree (pflut);
@@ -1314,15 +1291,12 @@ dvbm_lpfd_rxunlocked_ioctl (struct file *filp,
 /**
  * dvbm_lpfd_rxfsync - DVB Master LP FD receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_lpfd_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_lpfd_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -1337,7 +1311,6 @@ dvbm_lpfd_rxfsync (struct file *filp,
 	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + DVBM_LPFD_RCSR);
 	writel (reg | DVBM_LPFD_RCSR_RST, card->core.addr + DVBM_LPFD_RCSR);
-	wmb ();
 	writel (reg, card->core.addr + DVBM_LPFD_RCSR);
 	spin_unlock (&card->reg_lock);
 	iface->events = 0;

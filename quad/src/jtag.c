@@ -50,7 +50,7 @@
 #include "mmsa.h"
 #include "sdim.h"
 #include "sdim_qoe.h"
-#include "dvbm_qo.h"
+#include "dvbm_lpqo.h"
 #include "dvbm_qlf.h"
 #include "dvbm_qdual.h"
 #include "eeprom.h"
@@ -659,13 +659,13 @@ lsj_pci_probe (struct pci_dev *pdev,
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE:
 		board_name = DVBM_NAME_LPQOE;
 		core_bar = 0;
-		jtag_addr = DVBM_QO_JTAGR;
+		jtag_addr = DVBM_LPQO_JTAGR;
 		bridge_bar = 2;
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBLPQOE_MINIBNC:
 		board_name = DVBM_NAME_LPQOE_MINIBNC;
 		core_bar = 0;
-		jtag_addr = DVBM_QO_JTAGR;
+		jtag_addr = DVBM_LPQO_JTAGR;
 		bridge_bar = 2;
 		break;
 	case SDIM_PCI_DEVICE_ID_LINSYS_SDIQOE:

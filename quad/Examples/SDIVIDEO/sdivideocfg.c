@@ -1,6 +1,6 @@
 /* sdivideocfg.c
  *
- * SMPTE 292M and SMPTE 259M-C configuration program.
+ * SDI video configuration program.
  *
  * Copyright (C) 2009-2010 Linear Systems Ltd. All rights reserved.
  *
@@ -51,9 +51,9 @@
 #define CLKSRC_FLAG	0x00000004
 #define MODE_FLAG	0x00000008
 #define FRMODE_FLAG	0x00000010
+#define VANC_FLAG	0x00000020
 
 static const char progname[] = "sdivideocfg";
-
 
 int
 main (int argc, char **argv)
@@ -64,7 +64,7 @@ main (int argc, char **argv)
 	struct stat buf;
 	int num;
 	char type, name[MAXLEN], data[MAXLEN];
-	unsigned long int buffers, bufsize, clksrc, mode, frmode;
+	unsigned long int buffers, bufsize, clksrc, mode, frmode, vanc;
 	int retcode;
 	char *endptr;
 
@@ -75,8 +75,17 @@ main (int argc, char **argv)
 	clksrc = 0;
 	mode = 0;
 	frmode = 0;
-	while ((opt = getopt (argc, argv, "b:f:hm:s:Vx:")) != -1) {
+	vanc = 0;
+	while ((opt = getopt (argc, argv, "aAb:f:hm:s:Vx:")) != -1) {
 		switch (opt) {
+		case 'a':
+			write_flags |= VANC_FLAG;
+			vanc = 1;
+			break;
+		case 'A':
+			write_flags |= VANC_FLAG;
+			vanc = 0;
+			break;
 		case 'b':
 			write_flags |= BUFFERS_FLAG;
 			buffers = strtoul (optarg, &endptr, 0);
@@ -100,20 +109,23 @@ main (int argc, char **argv)
 		case 'h':
 			printf ("Usage: %s [OPTION]... DEVICE_FILE\n",
 				argv[0]);
-			printf ("Configure a video interface.\n\n");
+			printf ("Configure an SDI video interface.\n\n");
+			printf ("  -a\t\tenable vertical ancillary space\n");
+			printf ("  -A\t\tdisable vertical ancillary space\n");
 			printf ("  -b BUFFERS\tset the number of buffers\n");
-			printf ("  -f FRMODE\tset the frame mode\n");
+			printf ("  -f FRMODE\tset the frame mode "
+				"(transmitters only)\n");
 			printf ("  -h\t\tdisplay this help and exit\n");
 			printf ("  -m MODE\tset the operating mode\n");
 			printf ("  -s BUFSIZE\tset the buffer size\n");
 			printf ("  -V\t\toutput version information "
 				"and exit\n");
-			printf ("  -x CLKSRC\tset the clock source\n");
+			printf ("  -x CLKSRC\tset the clock source "
+				"(transmitters only)\n");
 			printf ("\nIf no options are specified, "
 				"the current configuration is displayed.\n");
 			printf ("\nBUFFERS must be two or more.\n");
-			printf ("\nCLKSRC is valid only for transmitters and "
-				"may be:\n"
+			printf ("\nCLKSRC may be:\n"
 				"\t0 (onboard oscillator)\n"
 				"\t1 (external 525i or NTSC reference)\n"
 				"\t2 (external 625i or PAL reference)\n"
@@ -138,8 +150,7 @@ main (int argc, char **argv)
 				"\t21 (external 1080i/60 reference)\n"
 				"\t22 (external 1080i/59.94 reference)\n"
 				"\t23 (external 1080i/50 reference)\n");
-			printf ("\nFRMODE is valid only for transmitters and "
-				"may be:\n"
+			printf ("\nFRMODE may be:\n"
 				"\t1 (SMPTE 125M 486i 59.94 Hz)\n"
 				"\t2 (ITU-R BT.601 720x576i 50 Hz)\n"
 				"\t5 (SMPTE 260M 1035i 60 Hz)\n"
@@ -161,7 +172,7 @@ main (int argc, char **argv)
 				"\t22 (SMPTE 296M 720p 59.94 Hz)\n"
 				"\t23 (SMPTE 296M 720p 50 Hz)\n"
 				"\t24 (SMPTE 296M 720p 30 Hz)\n"
-				"\t25 (SMPTE 296M 720p 29.96 Hz)\n"
+				"\t25 (SMPTE 296M 720p 29.97 Hz)\n"
 				"\t26 (SMPTE 296M 720p 25 Hz)\n"
 				"\t27 (SMPTE 296M 720p 24 Hz)\n"
 				"\t28 (SMPTE 296M 720p 23.98 Hz)\n");
@@ -255,13 +266,13 @@ main (int argc, char **argv)
 	memset (data, 0, sizeof (data));
 	/* Read sysfs file (dev) */
 	if (util_read (name, data, sizeof (data)) < 0) {
-		fprintf (stderr, "%s: ", argv[0]);
-		perror ("unable to get the device number");
+		fprintf (stderr, "%s: error reading %s: ", argv[0], name);
+		perror (NULL);
 		return -1;
 	}
 	/* Compare the major number taken from sysfs file to the one taken from device node */
 	if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
-		fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", argv[0]);
+		fprintf (stderr, "%s: not an SDI video device\n", argv[0]);
 		return -1;
 	}
 	if (*endptr != ':') {
@@ -297,6 +308,12 @@ main (int argc, char **argv)
 			printf ("\tSet buffer size = %lu bytes.\n", bufsize);
 		}
 		if (write_flags & CLKSRC_FLAG) {
+			if (type == 'r') {
+				fprintf (stderr, "%s: "
+					"unable to set the clock source: "
+					"Not a transmitter\n", argv[0]);
+				return -1;
+			}
 			snprintf (name, sizeof (name),
 				fmt, type, num, "clock_source");
 			snprintf (data, sizeof (data), "%lu\n", clksrc);
@@ -419,6 +436,12 @@ main (int argc, char **argv)
 			}
 		}
 		if (write_flags & FRMODE_FLAG) {
+			if (type == 'r') {
+				fprintf (stderr, "%s: "
+					"unable to set the interface frame mode: "
+					"Not a transmitter\n", argv[0]);
+				return -1;
+			}
 			snprintf (name, sizeof (name),
 				fmt, type, num, "frame_mode");
 			snprintf (data, sizeof (data), "%lu\n", frmode);
@@ -539,6 +562,24 @@ main (int argc, char **argv)
 				break;
 			}
 		}
+		if (write_flags & VANC_FLAG) {
+			snprintf (name, sizeof (name),
+				fmt, type, num, "vanc");
+			snprintf (data, sizeof (data), "%lu\n", vanc);
+			if (util_write (name, data, sizeof (data)) < 0) {
+				fprintf (stderr, "%s: ", argv[0]);
+				if (vanc) {
+					perror ("unable to enable "
+						"vertical ancillary space");
+				} else {
+					perror ("unable to disable "
+						"vertical ancillary space");
+				}
+				return -1;
+			}
+			printf ("\t%sabled vertical ancillary space.\n",
+				vanc ? "En" : "Dis");
+		}
 	} else {
 		snprintf (name, sizeof (name),
 			fmt, type, num, "buffers");
@@ -585,11 +626,14 @@ main (int argc, char **argv)
 			break;
 		}
 
-		snprintf (name, sizeof (name),
-			fmt, type, num, "frame_mode");
-		if (util_strtoul (name, &frmode) > 0) {
-			/* Don't complain on an error,
-			 * since this parameter may not exist. */
+		if (type == 't') {
+			snprintf (name, sizeof (name),
+				fmt, type, num, "frame_mode");
+			if (util_strtoul (name, &frmode) < 0) {
+				fprintf (stderr, "%s: ", argv[0]);
+				perror ("unable to get the frame mode");
+				retcode = -1;
+			}
 			printf ("\tFrame mode: %lu ", frmode);
 			switch (frmode) {
 			case SDIVIDEO_CTL_SMPTE_125M_486I_59_94HZ:
@@ -702,11 +746,14 @@ main (int argc, char **argv)
 			}
 		}
 
-		snprintf (name, sizeof (name),
-			fmt, type, num, "clock_source");
-		if (util_strtoul (name, &clksrc) > 0) {
-			/* Don't complain on an error,
-			 * since this parameter may not exist. */
+		if (type == 't') {
+			snprintf (name, sizeof (name),
+				fmt, type, num, "clock_source");
+			if (util_strtoul (name, &clksrc) < 0) {
+				fprintf (stderr, "%s: ", argv[0]);
+				perror ("unable to get the clock source");
+				retcode = -1;
+			}
 			printf ("\tClock source: %lu ", clksrc);
 			switch (clksrc) {
 			case SDIVIDEO_CTL_TX_CLKSRC_ONBOARD:
@@ -785,6 +832,15 @@ main (int argc, char **argv)
 				printf ("(unknown)\n");
 				break;
 			}
+		}
+
+		snprintf (name, sizeof (name),
+			fmt, type, num, "vanc");
+		if (util_strtoul (name, &vanc) > 0) {
+			/* Don't complain on an error,
+			 * since this parameter may not exist. */
+			printf ("\tVertical ancillary space: %sabled\n",
+				vanc ? "en" : "dis");
 		}
 	}
 	return retcode;

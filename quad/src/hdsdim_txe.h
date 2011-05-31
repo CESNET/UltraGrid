@@ -84,6 +84,8 @@
 #define HDSDIM_TXE_CTRL_TXSTD_296M_720p_24	0x00000c00 /* SMPTE 296M 720p24 */
 #define HDSDIM_TXE_CTRL_TXSTD_125M_486i		0x00000000 /* SMPTE 125M 486i29.97 */
 #define HDSDIM_TXE_CTRL_TXSTD_BT601_576i	0x00000400 /* ITU-R BT.601 720x576i25 */
+#define HDSDIM_TXE_CTRL_VPID	0x00100000 /* Video Payload Identifier */
+#define HDSDIM_TXE_CTRL_VANC	0x01000000 /* Vertical Ancillary Space */
 
 /* Status Register (STATUS) bit locations */
 #define HDSDIM_TXE_STATUS_REF_LOST	0x00000001 /* Reference Lost */

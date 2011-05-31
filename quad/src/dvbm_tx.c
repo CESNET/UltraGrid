@@ -60,9 +60,7 @@ static void dvbm_tx_start_tx_dma (struct master_iface *iface);
 static long dvbm_tx_unlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_tx_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_tx_fsync,filp,datasync);
 
 static struct file_operations dvbm_tx_fops = {
 	.owner = THIS_MODULE,
@@ -70,7 +68,7 @@ static struct file_operations dvbm_tx_fops = {
 	.write = asi_write,
 	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_tx_unlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_tx_unlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_tx_fsync,
@@ -485,15 +483,12 @@ dvbm_tx_unlocked_ioctl (struct file *filp,
 /**
  * dvbm_tx_fsync - DVB Master Send fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_tx_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_tx_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dma *dma = iface->dma;

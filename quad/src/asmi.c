@@ -48,8 +48,7 @@
 #include "dvbm_qi.h"
 #include "dvbm_fdu.h"
 #include "dvbm_qlf.h"
-#include "dvbm_qo.h"
-#include "dvbm_q3ioe.h"
+#include "dvbm_qio.h"
 #include "eeprom.h"
 #include "dvbm_qdual.h"
 #include "dvbm_qlf.h"
@@ -57,7 +56,6 @@
 #include "mmsa.h"
 #include "sdim.h"
 #include "sdim_qie.h"
-#include "dvbm_q3inoe.h"
 
 #ifndef DEFINE_PCI_DEVICE_TABLE
 #define DEFINE_PCI_DEVICE_TABLE(_table) \
@@ -626,7 +624,7 @@ lsa_pci_probe (struct pci_dev *pdev,
 		name = DVBM_NAME_QO;
 		card->flash_addr = ioremap_nocache (pci_resource_start (pdev, 2),
 			pci_resource_len (pdev, 2));
-		card->data_addr = card->flash_addr + DVBM_QO_ASMIR;
+		card->data_addr = card->flash_addr + DVBM_QIO_ASMIR;
 		card->bridge_addr = ioremap_nocache (
 			pci_resource_start(pdev, 0),
 			pci_resource_len (pdev, 0));
@@ -635,7 +633,7 @@ lsa_pci_probe (struct pci_dev *pdev,
 		name = DVBM_NAME_QOE;
 		card->flash_addr = ioremap_nocache (pci_resource_start (pdev, 2),
 			pci_resource_len (pdev, 2));
-		card->data_addr = card->flash_addr + DVBM_QO_ASMIR;
+		card->data_addr = card->flash_addr + DVBM_QIO_ASMIR;
 		card->bridge_addr = ioremap_nocache (
 			pci_resource_start(pdev, 0),
 			pci_resource_len (pdev, 0));
@@ -887,7 +885,7 @@ lsa_pci_probe (struct pci_dev *pdev,
 		name = DVBM_NAME_Q3IOE;
 		card->flash_addr = ioremap_nocache (pci_resource_start (pdev, 2),
 			pci_resource_len (pdev, 2));
-		card->data_addr = card->flash_addr + DVBM_Q3IO_ASMIR;
+		card->data_addr = card->flash_addr + DVBM_QIO_ASMIR;
 		card->bridge_addr = ioremap_nocache (
 			pci_resource_start(pdev, 0),
 			pci_resource_len (pdev, 0));
@@ -896,7 +894,7 @@ lsa_pci_probe (struct pci_dev *pdev,
 		name = DVBM_NAME_Q3INOE;
 		card->flash_addr = ioremap_nocache (pci_resource_start (pdev, 2),
 			pci_resource_len (pdev, 2));
-		card->data_addr = card->flash_addr + DVBM_Q3INO_ASMIR;
+		card->data_addr = card->flash_addr + DVBM_QIO_ASMIR;
 		card->bridge_addr = ioremap_nocache (
 			pci_resource_start(pdev, 0),
 			pci_resource_len (pdev, 0));

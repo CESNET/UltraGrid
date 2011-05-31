@@ -1,6 +1,6 @@
 /* sdiaudiocore.c
  *
- * Linear Systems Ltd. SMPTE 292M and SMPTE 259M-C Audio API.
+ * Linear Systems Ltd. SDI audio API.
  *
  * Copyright (C) 2009-2010 Linear Systems Ltd.
  *
@@ -103,7 +103,6 @@ EXPORT_SYMBOL(sdiaudio_txpoll);
 EXPORT_SYMBOL(sdiaudio_rxpoll);
 EXPORT_SYMBOL(sdiaudio_txioctl);
 EXPORT_SYMBOL(sdiaudio_rxioctl);
-EXPORT_SYMBOL(sdiaudio_compat_ioctl);
 EXPORT_SYMBOL(sdiaudio_mmap);
 EXPORT_SYMBOL(sdiaudio_release);
 EXPORT_SYMBOL(sdiaudio_register_iface);
@@ -330,24 +329,6 @@ sdiaudio_rxioctl (struct file *filp,
 		return sdiaudio_ioctl (iface, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * sdiaudio_compat_ioctl - 32-bit ioctl handler
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-long
-sdiaudio_compat_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	struct inode *inode = filp->f_dentry->d_inode;
-
-	return filp->f_op->ioctl (inode, filp, cmd, arg);
 }
 
 /**

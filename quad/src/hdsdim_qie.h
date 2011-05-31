@@ -1,6 +1,6 @@
 /* hdsdim_qie.h
  *
- * Header file for the Linear Systems Ltd. VidPort Q/i card.
+ * Header file for the Linear Systems Ltd. QuadPort H/i card.
  *
  * Copyright (C) 2009-2010 Linear Systems Ltd.
  *
@@ -29,7 +29,7 @@
 #include <linux/init.h> /* __devinit */
 
 #define HDSDIM_PCI_DEVICE_ID_LINSYS_HDSDIQIE	0x00B6
-#define HDSDIM_NAME_QIE		"VidPort Q/i"
+#define HDSDIM_NAME_QIE		"QuadPort H/i"
 
 /* HD-SDI configuration */
 #define HDSDIM_QIE_RCSR(c)	((c)*0x100+0x004) /* Receiver Control and Status Register */

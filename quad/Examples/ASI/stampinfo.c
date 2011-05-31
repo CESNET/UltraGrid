@@ -3,7 +3,7 @@
  *
  * Read the timestamps attached to each MPEG-2 transport stream packet.
  *
- * Copyright (C) 2005 Linear Systems Ltd.
+ * Copyright (C) 2005-2010 Linear Systems Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,6 @@
 #include <netinet/in.h>
 #include <limits.h>
 #include <signal.h>
-#include <endian.h>
 
 #include "master.h"
 #include "../util.h"
@@ -60,9 +59,7 @@
 #define TIMESTAMP_SIZE 8
 
 #if __BYTE_ORDER == __BIG_ENDIAN
-#define ltohll(x) (((uint64_t)ntohl(x)) << 32 + ntohl((x) >> 32))
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
-#define ltohll(x) (x)
+#error Big endian architecture not supported
 #endif
 
 static const char progname[] = "stampinfo";
@@ -177,7 +174,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2005 "
+			printf ("\nCopyright (C) 2005-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -232,7 +229,7 @@ main (int argc, char **argv)
 		i++;
 		ts = append ?
 			getpcr (stamp) :
-			ltohll (*(uint64_t *)stamp);
+			*(uint64_t *)stamp; /* Little endian only */
 		if (verbose) {
 			printf ("%u: hdr=%08X ts=%"PRIu64"\n",
 				i,
@@ -270,7 +267,7 @@ main (int argc, char **argv)
 		i++;
 		ts = append ?
 			getpcr (stamp) :
-			ltohll (*(uint64_t *)stamp);
+			*(uint64_t *)stamp; /* Little endian only */
 		diff = ts - oldts;
 		if (verbose) {
 			printf ("%u: hdr=%08X ts=%"PRIu64" diff=%lli\n",

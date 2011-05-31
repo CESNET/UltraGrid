@@ -19,9 +19,9 @@ in the top-level directory of this archive.
 This should create the following files in the src directory:
 
 	asi.ko - DVB ASI API module
-	sdi.ko - SMPTE 259M-C API module
-	sdivideo.ko - SMPTE 292M video API module
-	sdiaudio.ko - SMPTE 292M audio API module
+	sdi.ko - raw SDI API module
+	sdivideo.ko - SDI video API module
+	sdiaudio.ko - SDI audio API module
 
 	dvbm.ko - driver module for ATSC Master II FD and DVB Master boards
 	mmas.ko - MultiMaster SDI-T driver module
@@ -84,7 +84,7 @@ for DVB ASI, and
 
 	./mkdev.sdi
 
-for SMPTE 259M-C. You must be root to create these device files.
+for raw SDI. You must be root to create these device files.
 
 See doc/ASI/devices.txt and doc/SDI/devices.txt
 for a description of these device files.
@@ -93,7 +93,7 @@ on the device files; mkdev.asi and mkdev.sdi allow read and write access
 to the root user only. Users who need access to the hardware
 should be given read permission on the receiver device files and
 write permission on the transmitter device files.
-Mmap support on SMPTE 259M-C and SMPTE 292M interfaces requires
+Mmap support on raw SDI and SDI audio/video interfaces requires
 both read and write permission.
 If your system uses udev, you can create a rule to change the permission.
 For example, creating a file called
@@ -101,7 +101,7 @@ For example, creating a file called
 
 KERNEL=="sdivideo[rt]x[0-9]*",NAME="%k",MODE="0666",OPTIONS="last_rule"
 
-will give all SMPTE 292M video interfaces global read and write permissions.
+will give all SDI video interfaces global read and write permissions.
 
 
 Loading the kernel modules
@@ -142,7 +142,7 @@ loaded automatically.
 	SDI Master Q/i - sdiqie.ko (sdi.ko)
 	DVB Master III Tx LP - dvbm.ko (asi.ko)
 	DVB Master III Rx LP - dvbm.ko (asi.ko)
-	VidPort Q/i - hdsdim.ko (sdivideo.ko, sdiaudio.ko)
+	QuadPort H/i - hdsdim.ko (sdivideo.ko, sdiaudio.ko)
 	VidPort SD/HD - hdsdim.ko (sdivideo.ko, sdiaudio.ko)
 
 As root, load the DVB Master driver module by typing
@@ -179,9 +179,9 @@ module first. For example, unload the DVB Master driver module with
 Changing the API major number
 -----------------------------
 
-The DVB ASI API and SMPTE 259M-C API handle character device files with
+The DVB ASI API and raw SDI API handle character device files with
 major numbers 61 and 121 by default.
-The SMPTE 292M API uses dynamically assigned major numbers.
+The SDI video/audio API uses dynamically assigned major numbers.
 If these numbers conflict with other devices,
 you can specify a different number by
 loading the API module explicitly:

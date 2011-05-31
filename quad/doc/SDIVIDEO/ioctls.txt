@@ -10,7 +10,7 @@ SDIVIDEO_IOC_GETID
 	Argument type:	pointer to unsigned int
 	Read/write:	read
 	Valid values:
-		0x00b6 - VidPort Q/i
+		0x00b6 - QuadPort H/i
 		0x00c1 - VidPort SD/HD O
 		0x00c8 - VidPort SD/HD I
 

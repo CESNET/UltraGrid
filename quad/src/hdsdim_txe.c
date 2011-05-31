@@ -77,8 +77,7 @@ static long hdsdim_txe_unlocked_ioctl (struct file *filp,
 static long hdsdim_txe_unlocked_audioctl (struct file *filp,
 		unsigned int cmd,
 		unsigned long arg);
-static int hdsdim_txe_fsync (struct file *filp,
-		struct dentry *dentry, int datasync);
+static int FSYNC_HANDLER(hdsdim_txe_fsync,filp,datasync);
 
 static struct file_operations hdsdim_txe_vidfops = {
 	.owner = THIS_MODULE,
@@ -86,7 +85,7 @@ static struct file_operations hdsdim_txe_vidfops = {
 	.write = sdivideo_write,
 	.poll = sdivideo_txpoll,
 	.unlocked_ioctl = hdsdim_txe_unlocked_ioctl,
-	.compat_ioctl = sdivideo_compat_ioctl,
+	.compat_ioctl = hdsdim_txe_unlocked_ioctl,
 	.mmap = sdivideo_mmap,
 	.open = sdivideo_open,
 	.release = sdivideo_release,
@@ -100,7 +99,7 @@ static struct file_operations hdsdim_txe_audfops = {
 	.write = sdiaudio_write,
 	.poll = sdiaudio_txpoll,
 	.unlocked_ioctl = hdsdim_txe_unlocked_audioctl,
-	.compat_ioctl = sdivideo_compat_ioctl,
+	.compat_ioctl = hdsdim_txe_unlocked_audioctl,
 	.mmap = sdiaudio_mmap,
 	.open = sdiaudio_open,
 	.release = sdiaudio_release,
@@ -302,6 +301,7 @@ int __devinit
 hdsdim_txe_pci_probe (struct pci_dev *pdev)
 {
 	int err;
+	unsigned int cap;
 	struct master_dev *card;
 
 	err = hdsdim_pci_probe_generic (pdev);
@@ -369,13 +369,17 @@ hdsdim_txe_pci_probe (struct pci_dev *pdev)
 	}
 
 	/* Register a video transmit interface */
+	cap = 0;
+	if (card->version >= 0x0202) {
+		cap |= SDIVIDEO_CAP_TX_VANC;
+	}
 	if ((err = sdivideo_register_iface (card,
 		&lsdma_dma_ops,
 		0,
 		MASTER_DIRECTION_TX,
 		&hdsdim_txe_vidfops,
 		&hdsdim_txe_vidops,
-		0,
+		cap,
 		4)) < 0) { //4 is the dma alignment, means dma transfer has to begin and end on 4 byte alignment
 		goto NO_IFACE;
 	}
@@ -1008,7 +1012,6 @@ hdsdim_txe_init (struct master_iface *iface)
 		tof_offset = 562;
 		break;
 	}
-
 	switch (iface->mode) {
 	default:
 	case SDIVIDEO_CTL_MODE_UYVY:
@@ -1017,6 +1020,9 @@ hdsdim_txe_init (struct master_iface *iface)
 	case SDIVIDEO_CTL_MODE_V210:
 		reg |= HDSDIM_TXE_CTRL_FOURCC_V210;
 		break;
+	}
+	if (iface->vanc) {
+		reg |= HDSDIM_TXE_CTRL_VANC;
 	}
 
 	/* Enable the clock generator */
@@ -1362,13 +1368,11 @@ hdsdim_txe_start_tx_dma (struct master_iface *iface)
 		LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_64BIT,
 		card->bridge_addr + LSDMA_CSR(dma_channel));
-	wmb ();
 	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(dma_channel));
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(dma_channel));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_64BIT |
@@ -1431,15 +1435,12 @@ hdsdim_txe_unlocked_audioctl (struct file *filp,
 /**
  * hdsdim_txe_fsync - VidPort SD/HD O fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-hdsdim_txe_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(hdsdim_txe_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dma *dma = iface->dma;

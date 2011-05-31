@@ -104,7 +104,6 @@ EXPORT_SYMBOL(asi_txpoll);
 EXPORT_SYMBOL(asi_rxpoll);
 EXPORT_SYMBOL(asi_txioctl);
 EXPORT_SYMBOL(asi_rxioctl);
-EXPORT_SYMBOL(asi_compat_ioctl);
 EXPORT_SYMBOL(asi_mmap);
 EXPORT_SYMBOL(asi_release);
 EXPORT_SYMBOL(asi_register_iface);
@@ -319,24 +318,6 @@ asi_rxioctl (struct file *filp,
 		return asi_ioctl (iface, cmd, arg);
 	}
 	return 0;
-}
-
-/**
- * asi_compat_ioctl - 32-bit ioctl handler
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-long
-asi_compat_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	struct inode *inode = filp->f_dentry->d_inode;
-
-	return filp->f_op->ioctl (inode, filp, cmd, arg);
 }
 
 /**

@@ -22,7 +22,6 @@
  *
  */
 
-#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h> /* KERN_INFO */
 #include <linux/module.h> /* THIS_MODULE */
 
@@ -35,7 +34,6 @@
 #include <linux/spinlock.h> /* spin_lock_init () */
 #include <linux/init.h> /* __devinit */
 #include <linux/errno.h> /* error codes */
-#include <linux/delay.h> /* udelay () */
 #include <linux/interrupt.h> /* irqreturn_t */
 #include <linux/device.h> /* device_create_file */
 #include <linux/mutex.h> /* mutex_init () */
@@ -85,8 +83,7 @@ static void sdim_qoe_start_tx_dma (struct master_iface *iface);
 static long sdim_qoe_unlocked_ioctl (struct file *filp,
 		unsigned int cmd,
 		unsigned long arg);
-static int sdim_qoe_fsync (struct file *filp,
-		struct dentry *dentry, int datasync);
+static int FSYNC_HANDLER(sdim_qoe_fsync,filp,datasync);
 static int sdim_qoe_init_module (void) __init;
 static void sdim_qoe_cleanup_module (void) __exit;
 
@@ -119,8 +116,8 @@ static struct file_operations sdim_qoe_fops = {
 	.llseek = no_llseek,
 	.write = sdi_write,
 	.poll = sdi_txpoll,
-	.unlocked_ioctl=sdim_qoe_unlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.unlocked_ioctl = sdim_qoe_unlocked_ioctl,
+	.compat_ioctl = sdim_qoe_unlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -176,14 +173,26 @@ sdim_qoe_store_blackburst_type (struct device *dev,
 	unsigned int reg;
 	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
 	int retcode = count;
+	struct list_head *p;
+	struct master_iface *iface;
+	unsigned int total_users = 0;
 
 	if ((endp == buf) || (val > max)) {
 		return -EINVAL;
 	}
-	spin_lock (&card->reg_lock);
+	mutex_lock (&card->users_mutex);
+	list_for_each (p, &card->iface_list) {
+		iface = list_entry (p, struct master_iface, list);
+		total_users += iface->users;
+	}
+	if (total_users) {
+		retcode = -EBUSY;
+		goto OUT;
+	}
 	reg = readl (card->core.addr + SDIM_QOE_CSR) & ~SDIM_QOE_CSR_PAL;
 	writel (reg | (val << 2), card->core.addr + SDIM_QOE_CSR);
-	spin_unlock (&card->reg_lock);
+OUT:
+	mutex_unlock (&card->users_mutex);
 	return retcode;
 }
 
@@ -433,11 +442,11 @@ IRQ_HANDLER (sdim_qoe_irq_handler, irq, dev_id, regs)
 			}
 
 			/* Flag DMA abort */
-			if (status &LSDMA_CH_CSR_INTSRCSTOP) {
+			if (status & LSDMA_CH_CSR_INTSRCSTOP) {
 				set_bit(0, &iface->dma_done);
 			}
 
-			interrupting_iface |= (0x1 << i );
+			interrupting_iface |= 0x1 << i;
 		}
 
 		/* Check and clear the source of the interrupts */
@@ -478,7 +487,9 @@ sdim_qoe_init (struct master_iface *iface)
 {
 	struct master_dev *card = iface->card;
 	const unsigned int channel = mdev_index (card, &iface->list);
-	unsigned int reg = 0, clkreg = readl (card->core.addr + SDIM_QOE_CSR);
+	unsigned int reg = 0;
+	unsigned int clkreg =
+		readl (card->core.addr + SDIM_QOE_CSR) & ~SDIM_QOE_CSR_EXTCLK;
 
 	switch (iface->mode) {
 	default:
@@ -489,7 +500,6 @@ sdim_qoe_init (struct master_iface *iface)
 		reg |= SDIM_TCSR_10BIT;
 		break;
 	}
-
 	switch (iface->clksrc) {
 	default:
 	case SDI_CTL_TX_CLKSRC_ONBOARD:
@@ -505,15 +515,14 @@ sdim_qoe_init (struct master_iface *iface)
 	 */
 	writel (reg | SDIM_QOE_TCSR_TXRST,
 		card->core.addr + SDIM_QOE_TCSR(channel));
-	wmb();
-	/* Set the transmit clock source (shared by all 4 channels) */
+	/* XXX Set the transmit clock source (shared by all 4 channels)
+	 * This is broken because each channel can set a different clock source
+	 * for all channels */
 	writel (clkreg, card->core.addr + SDIM_QOE_CSR);
-	wmb();
-	writel (reg, card->core.addr + SDIM_QOE_TCSR(channel));
-	wmb();
-
 	/* Dummy read to flush PCI posted writes */
-	readl (card->core.addr + SDIM_QOE_ICSR(channel));
+	readl (card->core.addr + SDIM_QOE_FPGAID);
+	writel (reg, card->core.addr + SDIM_QOE_TCSR(channel));
+
 	writel (SDIM_QOE_TFSL << 16,
 		card->core.addr + SDIM_QOE_TFCR(channel));
 	/* Disable RP178 pattern generation.
@@ -536,15 +545,10 @@ sdim_qoe_start (struct master_iface *iface)
 	const unsigned int channel = mdev_index (card, &iface->list);
 	unsigned int reg = 0;
 
-	/* Enabling Channel DMA Explicitly */
-	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
-		card->bridge_addr + LSDMA_CSR(channel));
-
 	/* Enable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
-	reg |= SDIM_QOE_ICSR_TUIE | SDIM_QOE_ICSR_TXDIE;
-	writel(reg, card->core.addr + SDIM_QOE_ICSR(channel));
-	readl(card->core.addr + SDIM_QOE_FPGAID);
+	writel(SDIM_QOE_ICSR_TUIE | SDIM_QOE_ICSR_TXDIE,
+		card->core.addr + SDIM_QOE_ICSR(channel));
 	spin_unlock_irq(&card->irq_lock);
 
 	/* Enable the transmitter
@@ -580,7 +584,6 @@ sdim_qoe_stop (struct master_iface *iface)
 		SDIM_QOE_ICSR_TXD));
 
 	/* Disable the Transmitter */
-	/* Races will be taken care of here */
 	reg = readl(card->core.addr + SDIM_QOE_TCSR(channel));
 	writel(reg & ~SDIM_QOE_TCSR_TXE,
 		card->core.addr + SDIM_QOE_TCSR(channel));
@@ -589,14 +592,12 @@ sdim_qoe_stop (struct master_iface *iface)
 	spin_lock_irq (&card->irq_lock);
 	reg = SDIM_QOE_ICSR_TUIS | SDIM_QOE_ICSR_TXDIS;
 	writel (reg, card->core.addr + SDIM_QOE_ICSR(channel));
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_STOP) & ~LSDMA_CH_CSR_ENABLE,
-		card->bridge_addr + LSDMA_CSR(channel));
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
 	spin_unlock_irq (&card->irq_lock);
 
-	udelay (10L);
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
+		card->bridge_addr + LSDMA_CSR(channel));
 	return;
 }
 
@@ -633,13 +634,11 @@ sdim_qoe_start_tx_dma (struct master_iface *iface)
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(dma_channel));
-	wmb ();
 	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(dma_channel));
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(dma_channel));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_ENABLE,
@@ -686,15 +685,12 @@ sdim_qoe_unlocked_ioctl (struct file *filp,
 /**
  * sdim_qoe_fsync - SDI Master Q/o fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-sdim_qoe_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(sdim_qoe_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

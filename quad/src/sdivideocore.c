@@ -1,6 +1,6 @@
 /* sdivideocore.c
  *
- * Linear Systems Ltd. SMPTE 292M and SMPTE 259M-C API
+ * Linear Systems Ltd. SDI video API
  *
  * Copyright (C) 2009-2010 Linear Systems Ltd.
  *
@@ -83,6 +83,9 @@ static ssize_t sdivideo_store_frmode (struct device *dev,
 static ssize_t sdivideo_store_mode (struct device *dev,
 	struct device_attribute *attr,
 	const char *buf, size_t count);
+static ssize_t sdivideo_store_vanc (struct device *dev,
+	struct device_attribute *attr,
+	const char *buf, size_t count);
 static ssize_t sdivideo_store_vb1cnt (struct device *dev,
 	struct device_attribute *attr,
 	const char *buf, size_t count);
@@ -118,7 +121,6 @@ EXPORT_SYMBOL(sdivideo_txpoll);
 EXPORT_SYMBOL(sdivideo_rxpoll);
 EXPORT_SYMBOL(sdivideo_txioctl);
 EXPORT_SYMBOL(sdivideo_rxioctl);
-EXPORT_SYMBOL(sdivideo_compat_ioctl);
 EXPORT_SYMBOL(sdivideo_mmap);
 EXPORT_SYMBOL(sdivideo_release);
 EXPORT_SYMBOL(sdivideo_register_iface);
@@ -348,24 +350,6 @@ sdivideo_rxioctl (struct file *filp,
 }
 
 /**
- * sdivideo_compat_ioctl - 32-bit ioctl handler
- * @filp: file
- * @cmd: ioctl command
- * @arg: ioctl argument
- *
- * Returns a negative error code on failure and 0 on success.
- **/
-long
-sdivideo_compat_ioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg)
-{
-	struct inode *inode = filp->f_dentry->d_inode;
-
-	return filp->f_op->ioctl (inode, filp, cmd, arg);
-}
-
-/**
  * sdivideo_mmap - SMPTE 292M and SMPTE 259M-C video interface mmap() method
  * @filp: file
  * @vma: VMA
@@ -515,6 +499,8 @@ sdivideo_validate_mode (struct master_iface *iface,
 	return 0;
 }
 
+#define sdivideo_validate_vanc(iface,val) (0)
+
 /**
  * sdivideo_validate_vb1cnt - validate a vb1cnt attribute value
  * @iface: interface being written
@@ -619,6 +605,7 @@ SDIVIDEO_STORE(bufsize)
 SDIVIDEO_STORE(clksrc)
 SDIVIDEO_STORE(frmode)
 SDIVIDEO_STORE(mode)
+SDIVIDEO_STORE(vanc)
 SDIVIDEO_STORE(vb1cnt)
 SDIVIDEO_STORE(vb1ln1)
 SDIVIDEO_STORE(vb2cnt)
@@ -634,6 +621,8 @@ static DEVICE_ATTR(frame_mode,S_IRUGO|S_IWUSR,
 	miface_show_frmode,sdivideo_store_frmode);
 static DEVICE_ATTR(mode,S_IRUGO|S_IWUSR,
 	miface_show_mode,sdivideo_store_mode);
+static DEVICE_ATTR(vanc,S_IRUGO|S_IWUSR,
+	miface_show_vanc,sdivideo_store_vanc);
 static DEVICE_ATTR(vb1_cnt,S_IRUGO|S_IWUSR,
 	miface_show_vb1cnt,sdivideo_store_vb1cnt);
 static DEVICE_ATTR(vb1_ln1,S_IRUGO|S_IWUSR,
@@ -704,6 +693,7 @@ sdivideo_register_iface (struct master_dev *card,
 	}
 	iface->granularity = granularity;
 	iface->mode = SDIVIDEO_CTL_MODE_UYVY;
+	iface->vanc = 0;
 	iface->ops = iface_ops;
 	iface->dma_ops = dma_ops;
 	iface->data_addr = data_addr;
@@ -798,8 +788,24 @@ sdivideo_register_iface (struct master_dev *card,
 				"%s: unable to create file 'frame_mode'\n",
 				sdivideo_driver_name);
 		}
+		if (iface->capabilities & SDIVIDEO_CAP_TX_VANC) {
+			if ((err = device_create_file (iface->dev,
+				&dev_attr_vanc)) < 0) {
+				printk (KERN_WARNING
+					"%s: unable to create file 'vanc'\n",
+					sdivideo_driver_name);
+			}
+		}
 	}
 	if (iface->direction == MASTER_DIRECTION_RX) {
+		if (iface->capabilities & SDIVIDEO_CAP_RX_VANC) {
+			if ((err = device_create_file (iface->dev,
+				&dev_attr_vanc)) < 0) {
+				printk (KERN_WARNING
+					"%s: unable to create file 'vanc'\n",
+					sdivideo_driver_name);
+			}
+		}
 		if (iface->capabilities & SDIVIDEO_CAP_RX_VBI) {
 			if ((err = device_create_file (iface->dev,
 				&dev_attr_vb1_cnt)) < 0) {

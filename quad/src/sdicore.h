@@ -3,7 +3,7 @@
  * Header file for the Linux user-space API for
  * Linear Systems Ltd. SMPTE 259M-C interface boards.
  *
- * Copyright (C) 2004-2009 Linear Systems Ltd.
+ * Copyright (C) 2004-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -55,9 +55,6 @@ long sdi_txioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 long sdi_rxioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-long sdi_compat_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 int sdi_mmap (struct file *filp, struct vm_area_struct *vma);

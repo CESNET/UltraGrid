@@ -2,7 +2,7 @@
  * 
  * SMPTE EG 1 color bar generator for Linear Systems Ltd. SMPTE 259M-C boards.
  *
- * Copyright (C) 2004, 2008 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2004-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 #include "master.h"
 
@@ -366,7 +367,7 @@ main (int argc, char **argv)
 		size_t count);
 	char *endptr;
 	unsigned short int buf[TOTAL_SAMPLES];
-	uint8_t data[TOTAL_SAMPLES*10/8*TOTAL_LINES], *p = data;
+	uint8_t *data, *p;
 	size_t framesize, bytes;
 	int i, ret;
 
@@ -401,7 +402,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2004 "
+			printf ("\nCopyright (C) 2004-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -424,7 +425,16 @@ main (int argc, char **argv)
 		goto USAGE;
 	}
 
+	/* Allocate memory */
+	data = malloc (framesize);
+	if (!data) {
+		fprintf (stderr, "%s: unable to allocate memory\n", argv[0]);
+		return -1;
+	}
+
 	/* Generate a frame */
+	memset (buf, 0, sizeof (buf));
+	p = data;
 	for (i = 10; i <= 11; i++) {
 		mkline (buf, FIELD_1, VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
@@ -494,6 +504,7 @@ main (int argc, char **argv)
 				data + bytes, framesize - bytes)) < 0) {
 				fprintf (stderr, "%s: ", argv[0]);
 				perror ("unable to write");
+				free (data);
 				return -1;
 			}
 			bytes += ret;
@@ -502,6 +513,7 @@ main (int argc, char **argv)
 			frames--;
 		}
 	}
+	free (data);
 	return 0;
 
 USAGE:

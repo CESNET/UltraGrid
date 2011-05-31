@@ -50,7 +50,12 @@ dev_name(struct device *dev)
 static ssize_t mdev_show_fw_version (struct device *dev,
 	struct device_attribute *attr,
 	char *buf);
-static ssize_t mdev_show_version (struct class *cls, char *buf);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
+#define mdev_show_version(cls,attr,buf) mdev_show_version(cls,buf)
+#endif
+static ssize_t mdev_show_version (struct class *cls,
+	struct class_attribute *attr,
+	char *buf);
 
 /**
  * mdev_index - return the index of an interface
@@ -180,10 +185,13 @@ mdev_unregister (struct master_dev *card, struct class *cls)
 /**
  * mdev_show_version - class attribute read handler
  * @cls: class being read
+ * @attr: class attribute
  * @buf: output buffer
  **/
 static ssize_t
-mdev_show_version (struct class *cls, char *buf)
+mdev_show_version (struct class *cls,
+	struct class_attribute *attr,
+	char *buf)
 {
 	return snprintf (buf, PAGE_SIZE, "%s\n", MASTER_DRIVER_VERSION);
 }

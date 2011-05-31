@@ -22,7 +22,6 @@
  *
  */
 
-#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h> /* KERN_INFO */
 #include <linux/module.h> /* THIS_MODULE */
 
@@ -78,9 +77,7 @@ static void sdim_qie_exit (struct master_iface *iface);
 static long sdim_qie_unlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int sdim_qie_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(sdim_qie_fsync,filp,datasync);
 static int sdim_qie_init_module (void) __init;
 static void sdim_qie_cleanup_module (void) __exit;
 
@@ -118,7 +115,7 @@ static struct file_operations sdim_qie_fops = {
 	.read = sdi_read,
 	.poll = sdi_rxpoll,
 	.unlocked_ioctl = sdim_qie_unlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.compat_ioctl = sdim_qie_unlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -464,9 +461,7 @@ sdim_qie_init (struct master_iface *iface)
 	/* There will be no races on RCR
 	 * until this code returns, so we don't need to lock it */
 	writel (reg | SDIM_QIE_RCSR_RST, card->core.addr + SDIM_QIE_RCR(channel));
-	wmb ();
 	writel (reg, card->core.addr + SDIM_QIE_RCR(channel));
-	wmb ();
 	writel(SDIM_QIE_RDMATL, card->core.addr + SDIM_QIE_RDMATLR(channel));
 
 	return;
@@ -490,7 +485,6 @@ sdim_qie_start (struct master_iface *iface)
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(channel));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_ENABLE,
 		card->bridge_addr + LSDMA_CSR(channel));
@@ -504,10 +498,9 @@ sdim_qie_start (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Enable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_QIE_RCR(channel));
-	writel (reg | SDIM_QIE_RCSR_EN, card->core.addr + SDIM_QIE_RCR(channel));
-	spin_unlock (&card->reg_lock);
+	writel (reg | SDIM_QIE_RCSR_EN,
+		card->core.addr + SDIM_QIE_RCR(channel));
 
 	return;
 }
@@ -524,31 +517,30 @@ sdim_qie_stop (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Disable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_QIE_RCR(channel));
-	writel (reg & ~SDIM_QIE_RCSR_EN, card->core.addr + SDIM_QIE_RCR(channel));
-	spin_unlock (&card->reg_lock);
+	writel (reg & ~SDIM_QIE_RCSR_EN,
+		card->core.addr + SDIM_QIE_RCR(channel));
 
 	/* Disable receiver interrupts */
 	spin_lock_irq (&card->irq_lock);
 	writel (SDIM_QIE_ICSR_RXCDIS | SDIM_QIE_ICSR_RXOIS |
 		SDIM_QIE_ICSR_RXDIS, card->core.addr + SDIM_QIE_ICSR(channel));
+	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable and abort DMA */
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP) & ~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(channel));
-	wmb ();
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP) & ~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(channel));
-
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
-	spin_unlock_irq (&card->irq_lock);
+
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP) & ~LSDMA_CH_CSR_ENABLE,
+
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(channel));
 
 	return;
@@ -614,15 +606,12 @@ sdim_qie_unlocked_ioctl (struct file *filp,
 /**
  * sdim_qie_fsync - SDI Master Q/i receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-sdim_qie_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(sdim_qie_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -635,12 +624,9 @@ sdim_qie_fsync (struct file *filp,
 	sdim_qie_stop (iface);
 
 	/* Reset the onboard FIFO and driver buffers */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_QIE_RCR(channel));
 	writel (reg | SDIM_QIE_RCSR_RST, card->core.addr + SDIM_QIE_RCR(channel));
-	wmb ();
 	writel (reg, card->core.addr + SDIM_QIE_RCR(channel));
-	spin_unlock (&card->reg_lock);
 	iface->events = 0;
 	lsdma_reset (iface->dma);
 

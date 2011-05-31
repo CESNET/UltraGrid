@@ -25,6 +25,8 @@
 #ifndef _MIFACE_H
 #define _MIFACE_H
 
+#include <linux/version.h> /* LINUX_VERSION_CODE */
+
 #include <linux/types.h> /* uid_t */
 #include <linux/list.h> /* list_head */
 #include <linux/wait.h> /* wait_queue_head_t */
@@ -37,6 +39,14 @@
 
 #include "mdev.h"
 #include "mdma.h"
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35))
+#define FSYNC_HANDLER(name,filp,datasync) \
+	name (struct file *filp, struct dentry *dentry, int datasync)
+#else
+#define FSYNC_HANDLER(name,filp,datasync) \
+	name (struct file *filp, int datasync)
+#endif
 
 #define MASTER_MINORBITS	8
 
@@ -75,6 +85,7 @@ struct master_iface_operations {
  * @granularity: buffer size granularity in bytes
  * @mode: operating mode
  * @frmode: frame mode
+ * @vanc: vertical ancillary space
  * @sample_size: audio sample size
  * @sample_rate: audio sample rate
  * @channels: enable audio channel
@@ -113,6 +124,7 @@ struct master_iface {
 	unsigned int granularity;
 	unsigned int mode;
 	unsigned int frmode;
+	unsigned int vanc;
 	unsigned int sample_size;
 	unsigned int sample_rate;
 	unsigned int channels;
@@ -141,7 +153,12 @@ struct master_iface {
 
 /* External function prototypes */
 
-ssize_t miface_show_version (struct class *cls, char *buf);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34))
+#define miface_show_version(cls,attr,buf) miface_show_version(cls,buf)
+#endif
+ssize_t miface_show_version (struct class *cls,
+	struct class_attribute *attr,
+	char *buf);
 ssize_t miface_show_buffers (struct device *dev,
 	struct device_attribute *attr,
 	char *buf);
@@ -158,6 +175,9 @@ ssize_t miface_show_granularity (struct device *dev,
 	struct device_attribute *attr,
 	char *buf);
 ssize_t miface_show_mode (struct device *dev,
+	struct device_attribute *attr,
+	char *buf);
+ssize_t miface_show_vanc (struct device *dev,
 	struct device_attribute *attr,
 	char *buf);
 ssize_t miface_show_frmode (struct device *dev,

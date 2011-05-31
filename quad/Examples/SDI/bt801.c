@@ -3,7 +3,7 @@
  * ITU-R BT.801-1 625-line, 50 field/s, 100/0/75/0 colour bar generator for
  * Linear Systems Ltd. SMPTE 259M-C boards.
  *
- * Copyright (C) 2008 Linear Systems Ltd. All rights reserved.
+ * Copyright (C) 2008-2010 Linear Systems Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "master.h"
 
@@ -52,22 +53,22 @@ struct trs {
 	unsigned short int eav;
 };
 
-const struct trs FIELD_1_ACTIVE = {
+static const struct trs FIELD_1_ACTIVE = {
 	.sav = 0x200,
 	.eav = 0x274
 };
 
-const struct trs FIELD_1_VERT_BLANKING = {
+static const struct trs FIELD_1_VERT_BLANKING = {
 	.sav = 0x2ac,
 	.eav = 0x2d8
 };
 
-const struct trs FIELD_2_ACTIVE = {
+static const struct trs FIELD_2_ACTIVE = {
 	.sav = 0x31c,
 	.eav = 0x368
 };
 
-const struct trs FIELD_2_VERT_BLANKING = {
+static const struct trs FIELD_2_VERT_BLANKING = {
 	.sav = 0x3b0,
 	.eav = 0x3c4
 };
@@ -198,7 +199,7 @@ main (int argc, char **argv)
 		size_t count);
 	char *endptr;
 	unsigned short int buf[TOTAL_SAMPLES];
-	uint8_t data[TOTAL_SAMPLES*10/8*TOTAL_LINES], *p = data;
+	uint8_t *data, *p;
 	size_t framesize, bytes;
 	int i, ret;
 
@@ -234,7 +235,7 @@ main (int argc, char **argv)
 			printf ("%s from master-%s (%s)\n", progname,
 				MASTER_DRIVER_VERSION,
 				MASTER_DRIVER_DATE);
-			printf ("\nCopyright (C) 2008 "
+			printf ("\nCopyright (C) 2008-2010 "
 				"Linear Systems Ltd.\n"
 				"This is free software; "
 				"see the source for copying conditions.  "
@@ -357,7 +358,16 @@ main (int argc, char **argv)
 	cb[310] = 137;
 	for (i = 311; i <= 359; i++) cb[i] = 128;
 
+	/* Allocate memory */
+	data = malloc (framesize);
+	if (!data) {
+		fprintf (stderr, "%s: unable to allocate memory\n", argv[0]);
+		return -1;
+	}
+
 	/* Generate a frame */
+	memset (buf, 0, sizeof (buf));
+	p = data;
 	for (i = 1; i <= 22; i++) {
 		mkline (buf, &FIELD_1_VERT_BLANKING);
 		p = pack (p, buf, TOTAL_SAMPLES);
@@ -391,6 +401,7 @@ main (int argc, char **argv)
 				data + bytes, framesize - bytes)) < 0) {
 				fprintf (stderr, "%s: ", argv[0]);
 				perror ("unable to write");
+				free (data);
 				return -1;
 			}
 			bytes += ret;
@@ -399,6 +410,7 @@ main (int argc, char **argv)
 			frames--;
 		}
 	}
+	free (data);
 	return 0;
 
 USAGE:

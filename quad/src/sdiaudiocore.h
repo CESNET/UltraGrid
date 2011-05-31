@@ -1,9 +1,9 @@
 /* sdiaudiocore.h
  *
- * Header file for the Linux user-space API for
- * Linear Systems Ltd. SMPTE 292M and SMPTE 259M-C interface boards.
+ * Header file for the Linux user-space audio API for
+ * Linear Systems Ltd. SDI interface boards.
  *
- * Copyright (C) 2009 Linear Systems Ltd.
+ * Copyright (C) 2009-2010 Linear Systems Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -55,9 +55,6 @@ long sdiaudio_txioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 long sdiaudio_rxioctl (struct file *filp,
-	unsigned int cmd,
-	unsigned long arg);
-long sdiaudio_compat_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
 int sdiaudio_mmap (struct file *filp, struct vm_area_struct *vma);

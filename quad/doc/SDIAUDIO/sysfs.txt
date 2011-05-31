@@ -1,4 +1,4 @@
-This file briefly explains how the SMPTE 292M audio API uses the
+This file briefly explains how the SDI audio API uses the
 sysfs virtual filesystem.
 
 Some interface parameters are controlled through sysfs.

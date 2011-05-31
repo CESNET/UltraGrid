@@ -6,7 +6,7 @@ Capture
 -------
 
 NAME
-	capture, mcapture - example SMPTE 259M-C receiver application
+	capture, mcapture - example raw SDI receiver application
 
 SYNOPSIS
 	capture [OPTION]... DEVICE_FILE
@@ -16,7 +16,7 @@ SYNOPSIS
 DESCRIPTION
 	Capture reads data from DEVICE_FILE
 	and writes it to standard output,
-	while monitoring for SMPTE 259M-C receiver events.
+	while monitoring for raw SDI receiver events.
 
 	Mcapture uses mmap instead of read.
 
@@ -33,7 +33,7 @@ Playout
 -------
 
 NAME
-	playout, mplayout - example SMPTE 259M-C transmitter application
+	playout, mplayout - example raw SDI transmitter application
 
 SYNOPSIS
 	playout [OPTION]... DEVICE_FILE
@@ -42,7 +42,7 @@ SYNOPSIS
 
 DESCRIPTION
 	Playout reads data from standard input and writes it to DEVICE_FILE,
-	while monitoring for SMPTE 259M-C transmitter events.
+	while monitoring for raw SDI transmitter events.
 
 	At end-of-file, playout issues a fsync () to the interface.
 
@@ -61,14 +61,14 @@ Sdicfg
 ------
 
 NAME
-	sdicfg - configure a SMPTE 259M-C interface
+	sdicfg - configure a raw SDI interface
 
 SYNOPSIS
 	sdicfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sdicfg uses the sysfs virtual filesystem to configure certain parameters
-	of a SMPTE 259M-C interface. If no options are given, sdicfg
+	of a raw SDI interface. If no options are given, sdicfg
 	displays the current configuration of the interface.
 
 OPTIONS
@@ -100,16 +100,16 @@ Sdirxcfg
 --------
 
 NAME
-	sdirxcfg - interactively issue SMPTE 259M-C receiver ioctls
+	sdirxcfg - interactively issue raw SDI receiver ioctls
 
 SYNOPSIS
 	sdirxcfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sdirxcfg is a simple program which demonstrates
-	the SMPTE 259M-C receiver ioctl commands.
+	the raw SDI receiver ioctl commands.
 	It can be used interactively to control or monitor
-	a SMPTE 259M-C receiver, or noninteractively
+	a raw SDI receiver, or noninteractively
 	with a script piped to its standard input.
 
 OPTIONS
@@ -123,16 +123,16 @@ Sditxcfg
 --------
 
 NAME
-	sditxcfg - interactively issue SMPTE 259M-C transmitter ioctls
+	sditxcfg - interactively issue raw SDI transmitter ioctls
 
 SYNOPSIS
 	sditxcfg [OPTION]... DEVICE_FILE
 
 DESCRIPTION
 	Sditxcfg is a simple program which demonstrates
-	the SMPTE 259M-C transmitter ioctl commands.
+	the raw SDI transmitter ioctl commands.
 	It can be used interactively to control or monitor
-	a SMPTE 259M-C transmitter, or noninteractively
+	a raw SDI transmitter, or noninteractively
 	with a script piped to its standard input.
 
 OPTIONS

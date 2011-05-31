@@ -1,5 +1,5 @@
 This file describes some of the major features provided by
-Linear Systems Ltd.'s SMPTE 292M interface boards and the Linux driver.
+Linear Systems Ltd.'s SDI audio API.
 
 What features does my board support?
 ====================================

@@ -59,9 +59,7 @@ static void dvbm_qi_exit (struct master_iface *iface);
 static long dvbm_qi_unlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_qi_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_qi_fsync,filp,datasync);
 
 static struct file_operations dvbm_qi_fops = {
 	.owner = THIS_MODULE,
@@ -69,7 +67,7 @@ static struct file_operations dvbm_qi_fops = {
 	.read = asi_read,
 	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_qi_unlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_qi_unlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_qi_fsync,
@@ -806,15 +804,12 @@ dvbm_qi_unlocked_ioctl (struct file *filp,
 /**
  * dvbm_qi_fsync - DVB Master Q/i fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_qi_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_qi_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

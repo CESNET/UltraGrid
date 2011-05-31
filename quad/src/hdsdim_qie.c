@@ -1,6 +1,6 @@
 /* hdsdim_qie.c
  *
- * Linux driver functions for Linear Systems Ltd. VidPort Q/i.
+ * Linux driver functions for Linear Systems Ltd. QuadPort H/i.
  *
  * Copyright (C) 2009-2010 Linear Systems Ltd.
  *
@@ -66,9 +66,7 @@ static long hdsdim_qie_unlocked_ioctl (struct file *filp,
 static long hdsdim_qie_unlocked_audioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int hdsdim_qie_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(hdsdim_qie_fsync,filp,datasync);
 
 static struct file_operations hdsdim_qie_vidfops = {
 	.owner = THIS_MODULE,
@@ -76,7 +74,7 @@ static struct file_operations hdsdim_qie_vidfops = {
 	.read = sdivideo_read,
 	.poll = sdivideo_rxpoll,
 	.unlocked_ioctl = hdsdim_qie_unlocked_ioctl,
-	.compat_ioctl = sdivideo_compat_ioctl,
+	.compat_ioctl = hdsdim_qie_unlocked_ioctl,
 	.mmap = sdivideo_mmap,
 	.open = sdivideo_open,
 	.release = sdivideo_release,
@@ -90,7 +88,7 @@ static struct file_operations hdsdim_qie_audfops = {
 	.read = sdiaudio_read,
 	.poll = sdiaudio_rxpoll,
 	.unlocked_ioctl = hdsdim_qie_unlocked_audioctl,
-	.compat_ioctl = sdiaudio_compat_ioctl,
+	.compat_ioctl = hdsdim_qie_unlocked_audioctl,
 	.mmap = sdiaudio_mmap,
 	.open = sdiaudio_open,
 	.release = sdiaudio_release,
@@ -127,10 +125,10 @@ static DEVICE_ATTR(uid,S_IRUGO,
 	hdsdim_qie_show_uid,NULL);
 
 /**
- * hdsdim_qie_pci_probe - PCI insertion handler for a VidPort Q/i
+ * hdsdim_qie_pci_probe - PCI insertion handler for a QuadPort H/i
  * @pdev: PCI device
  *
- * Handle the insertion of a VidPort Q/i.
+ * Handle the insertion of a QuadPort H/i.
  * Returns a negative error code on failure and 0 on success.
  **/
 int __devinit
@@ -271,10 +269,10 @@ NO_PCI:
 }
 
 /**
- * hdsdim_qie_pci_remove - PCI removal handler for a VidPort Q/i.
+ * hdsdim_qie_pci_remove - PCI removal handler for a QuadPort H/i.
  * @pdev: PCI device
  *
- * Handle the removal of a VidPort Q/i.
+ * Handle the removal of a QuadPort H/i.
  * This function may be called during PCI probe error handling,
  * so don't mark it as __devexit.
  **/
@@ -296,7 +294,7 @@ hdsdim_qie_pci_remove (struct pci_dev *pdev)
 }
 
 /**
- * hdsdim_qie_irq_handler - VidPort Q/i interrupt service routine
+ * hdsdim_qie_irq_handler - QuadPort H/i interrupt service routine
  * @irq: interrupt number
  * @dev_id: pointer to the device data structure
  * @regs: processor context
@@ -373,7 +371,7 @@ IRQ_HANDLER(hdsdim_qie_irq_handler,irq,dev_id,regs)
 }
 
 /**
- * hdsdim_qie_init - Initialize a VidPort Q/i receiver
+ * hdsdim_qie_init - Initialize a QuadPort H/i receiver
  * @iface: interface
  **/
 static void
@@ -462,7 +460,7 @@ hdsdim_qie_init (struct master_iface *iface)
 }
 
 /**
- * hdsdim_qie_start - Activate the VidPort Q/i receiver
+ * hdsdim_qie_start - Activate the QuadPort H/i receiver
  * @iface: interface
  **/
 static void
@@ -505,7 +503,7 @@ hdsdim_qie_start (struct master_iface *iface)
 }
 
 /**
- * hdsdim_qie_stop - Deactivate the VidPort Q/i receiver
+ * hdsdim_qie_stop - Deactivate the QuadPort H/i receiver
  * @iface: interface
  **/
 static void
@@ -550,7 +548,7 @@ hdsdim_qie_stop (struct master_iface *iface)
 }
 
 /**
- * hdsdim_qie_exit - Clean up the VidPort Q/i receiver
+ * hdsdim_qie_exit - Clean up the QuadPort H/i receiver
  * @iface: interface
  **/
 static void
@@ -569,7 +567,7 @@ hdsdim_qie_exit (struct master_iface *iface)
 }
 
 /**
- * hdsdim_qie_unlocked_ioctl - VidPort Q/i receiver unlocked_ioctl() method
+ * hdsdim_qie_unlocked_ioctl - QuadPort H/i receiver unlocked_ioctl() method
  * @filp: file
  * @cmd: ioctl command
  * @arg: ioctl argument
@@ -677,7 +675,7 @@ hdsdim_qie_unlocked_ioctl (struct file *filp,
 }
 
 /**
- * hdsdim_qie_unlocked_audioctl - VidPort Q/i receiver audio unlocked_ioctl() method
+ * hdsdim_qie_unlocked_audioctl - QuadPort H/i receiver audio unlocked_ioctl() method
  * @filp: file
  * @cmd: ioctl command
  * @arg: ioctl argument
@@ -737,17 +735,14 @@ hdsdim_qie_unlocked_audioctl (struct file *filp,
 }
 
 /**
- * hdsdim_qie_fsync - VidPort Q/i receiver fsync() method
+ * hdsdim_qie_fsync - QuadPort H/i receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-hdsdim_qie_fsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(hdsdim_qie_fsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

@@ -113,9 +113,7 @@ static void dvbm_fdu_start_tx_dma (struct master_iface *iface);
 static long dvbm_fdu_txunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_fdu_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_fdu_txfsync,filp,datasync);
 static void dvbm_fdu_rxinit (struct master_iface *iface);
 static void dvbm_fdu_rxstart (struct master_iface *iface);
 static void dvbm_fdu_rxstop (struct master_iface *iface);
@@ -123,9 +121,7 @@ static void dvbm_fdu_rxexit (struct master_iface *iface);
 static long dvbm_fdu_rxunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int dvbm_fdu_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(dvbm_fdu_rxfsync,filp,datasync);
 
 struct file_operations dvbm_fdu_txfops = {
 	.owner = THIS_MODULE,
@@ -133,7 +129,7 @@ struct file_operations dvbm_fdu_txfops = {
 	.write = asi_write,
 	.poll = asi_txpoll,
 	.unlocked_ioctl = dvbm_fdu_txunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_fdu_txunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_fdu_txfsync,
@@ -146,7 +142,7 @@ struct file_operations dvbm_fdu_rxfops = {
 	.read = asi_read,
 	.poll = asi_rxpoll,
 	.unlocked_ioctl = dvbm_fdu_rxunlocked_ioctl,
-	.compat_ioctl = asi_compat_ioctl,
+	.compat_ioctl = dvbm_fdu_rxunlocked_ioctl,
 	.open = asi_open,
 	.release = asi_release,
 	.fsync = dvbm_fdu_rxfsync,
@@ -271,14 +267,23 @@ dvbm_fdu_store_blackburst_type (struct device *dev,
 	unsigned int reg;
 	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
 	int retcode = count;
+	struct master_iface *txiface = list_entry (card->iface_list.next,
+		struct master_iface, list);
 
 	if ((endp == buf) || (val > max)) {
 		return -EINVAL;
+	}
+	mutex_lock (&card->users_mutex);
+	if (txiface->users) {
+		retcode = -EBUSY;
+		goto OUT;
 	}
 	spin_lock (&card->reg_lock);
 	reg = master_inl (card, DVBM_FDU_TCSR) & ~DVBM_FDU_TCSR_PAL;
 	master_outl (card, DVBM_FDU_TCSR, reg | (val << 13));
 	spin_unlock (&card->reg_lock);
+OUT:
+	mutex_unlock (&card->users_mutex);
 	return retcode;
 }
 
@@ -705,8 +710,6 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU_R:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE_R:
 		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
 			ASI_CAP_TX_BYTECOUNTER |
 			ASI_CAP_TX_LARGEIB |
@@ -719,8 +722,23 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 		}
 		transport = ASI_CTL_TRANSPORT_DVB_ASI;
 		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE_R:
+		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
+			ASI_CAP_TX_BYTECOUNTER |
+			ASI_CAP_TX_LARGEIB |
+			ASI_CAP_TX_INTERLEAVING |
+			ASI_CAP_TX_CHANGENEXTIP |
+			ASI_CAP_TX_27COUNTER |
+			ASI_CAP_TX_TIMESTAMPS |
+			ASI_CAP_TX_PTIMESTAMPS |
+			ASI_CAP_TX_NULLPACKETS;
+		if (pci_resource_len (pdev, 2) == 256) {
+			cap |= ASI_CAP_TX_PCRSTAMP;
+		}
+		transport = ASI_CTL_TRANSPORT_DVB_ASI;
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDB:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB:
 		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
 			ASI_CAP_TX_BYTECOUNTER |
 			ASI_CAP_TX_LARGEIB |
@@ -739,8 +757,22 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 		}
 		transport = ASI_CTL_TRANSPORT_DVB_ASI;
 		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB:
+		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
+			ASI_CAP_TX_BYTECOUNTER |
+			ASI_CAP_TX_LARGEIB |
+			ASI_CAP_TX_INTERLEAVING |
+			ASI_CAP_TX_CHANGENEXTIP |
+			ASI_CAP_TX_27COUNTER |
+			ASI_CAP_TX_TIMESTAMPS |
+			ASI_CAP_TX_PTIMESTAMPS |
+			ASI_CAP_TX_NULLPACKETS;
+		if (pci_resource_len (pdev, 2) == 256) {
+			cap |= ASI_CAP_TX_PCRSTAMP;
+		}
+		transport = ASI_CTL_TRANSPORT_DVB_ASI;
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDB_R:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB_R:
 		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
 			ASI_CAP_TX_BYTECOUNTER |
 			ASI_CAP_TX_LARGEIB |
@@ -750,6 +782,21 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 			ASI_CAP_TX_NULLPACKETS;
 		if (card->version >= 0x0e00) {
 			cap |= ASI_CAP_TX_PTIMESTAMPS;
+		}
+		transport = ASI_CTL_TRANSPORT_DVB_ASI;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB_R:
+		cap |= ASI_CAP_TX_MAKE204 | ASI_CAP_TX_FINETUNING |
+			ASI_CAP_TX_BYTECOUNTER |
+			ASI_CAP_TX_LARGEIB |
+			ASI_CAP_TX_INTERLEAVING |
+			ASI_CAP_TX_CHANGENEXTIP |
+			ASI_CAP_TX_27COUNTER |
+			ASI_CAP_TX_TIMESTAMPS |
+			ASI_CAP_TX_PTIMESTAMPS |
+			ASI_CAP_TX_NULLPACKETS;
+		if (pci_resource_len (pdev, 2) == 256) {
+			cap |= ASI_CAP_TX_PCRSTAMP;
 		}
 		transport = ASI_CTL_TRANSPORT_DVB_ASI;
 		break;
@@ -801,8 +848,6 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 	default:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDU_R:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE_R:
 		cap |= ASI_CAP_RX_MAKE188 |
 			ASI_CAP_RX_BYTECOUNTER |
 			ASI_CAP_RX_DATA |
@@ -816,14 +861,22 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 		}
 		transport = ASI_CTL_TRANSPORT_DVB_ASI;
 		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDE_R:
+		cap |= ASI_CAP_RX_MAKE188 |
+			ASI_CAP_RX_BYTECOUNTER |
+			ASI_CAP_RX_DATA |
+			ASI_CAP_RX_PIDFILTER |
+			ASI_CAP_RX_PIDCOUNTER |
+			ASI_CAP_RX_4PIDCOUNTER |
+			ASI_CAP_RX_27COUNTER |
+			ASI_CAP_RX_TIMESTAMPS |
+			ASI_CAP_RX_PTIMESTAMPS |
+			ASI_CAP_RX_NULLPACKETS;
+		transport = ASI_CTL_TRANSPORT_DVB_ASI;
+		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDB:
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDB_R:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FD:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FD_R:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FDE:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FDE_R:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB:
-	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB_R:
 		cap |= ASI_CAP_RX_MAKE188 |
 			ASI_CAP_RX_BYTECOUNTER |
 			ASI_CAP_RX_DATA |
@@ -833,6 +886,32 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 		if (card->version < 0x0e03) {
 			cap |= ASI_CAP_RX_27COUNTER;
 		}
+		transport = ASI_CTL_TRANSPORT_DVB_ASI;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVBFDEB_R:
+		cap |= ASI_CAP_RX_MAKE188 |
+			ASI_CAP_RX_BYTECOUNTER |
+			ASI_CAP_RX_DATA |
+			ASI_CAP_RX_PIDFILTER |
+			ASI_CAP_RX_27COUNTER |
+			ASI_CAP_RX_TIMESTAMPS |
+			ASI_CAP_RX_PTIMESTAMPS |
+			ASI_CAP_RX_NULLPACKETS;
+		transport = ASI_CTL_TRANSPORT_DVB_ASI;
+		break;
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FD:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FD_R:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FDE:
+	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FDE_R:
+		cap |= ASI_CAP_RX_MAKE188 |
+			ASI_CAP_RX_BYTECOUNTER |
+			ASI_CAP_RX_DATA |
+			ASI_CAP_RX_PIDFILTER |
+			ASI_CAP_RX_27COUNTER |
+			ASI_CAP_RX_TIMESTAMPS |
+			ASI_CAP_RX_PTIMESTAMPS |
+			ASI_CAP_RX_NULLPACKETS;
 		transport = ASI_CTL_TRANSPORT_DVB_ASI;
 		break;
 	case DVBM_PCI_DEVICE_ID_LINSYS_DVB2FD_RS:
@@ -854,15 +933,13 @@ dvbm_fdu_pci_probe (struct pci_dev *pdev)
 		break;
 	case ATSCM_PCI_DEVICE_ID_LINSYS_2FD:
 	case ATSCM_PCI_DEVICE_ID_LINSYS_2FD_R:
+	case ATSCM_PCI_DEVICE_ID_LINSYS_2FDE:
+	case ATSCM_PCI_DEVICE_ID_LINSYS_2FDE_R:
 		transport = ASI_CTL_TRANSPORT_SMPTE_310M;
 		break;
 	case ATSCM_PCI_DEVICE_ID_LINSYS_2FD_RS:
 		cap |= ASI_CAP_RX_REDUNDANT | ASI_CAP_RX_PIDCOUNTER |
 			ASI_CAP_RX_4PIDCOUNTER;
-		transport = ASI_CTL_TRANSPORT_SMPTE_310M;
-		break;
-	case ATSCM_PCI_DEVICE_ID_LINSYS_2FDE:
-	case ATSCM_PCI_DEVICE_ID_LINSYS_2FDE_R:
 		transport = ASI_CTL_TRANSPORT_SMPTE_310M;
 		break;
 	}
@@ -1365,15 +1442,12 @@ dvbm_fdu_txunlocked_ioctl (struct file *filp,
 /**
  * dvbm_fdu_txfsync - DVB Master FD-U transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_fdu_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_fdu_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dma *dma = iface->dma;
@@ -1855,15 +1929,12 @@ dvbm_fdu_rxunlocked_ioctl (struct file *filp,
 /**
  * dvbm_fdu_rxfsync - DVB Master FD-U receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-dvbm_fdu_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(dvbm_fdu_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;

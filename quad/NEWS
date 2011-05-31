@@ -1,3 +1,44 @@
+Version 2.7.2 (2010-12-17)
+=============
+
+Added support for vertical ancillary space on
+VidPort SD/HD O, firmware 0x0202 or higher, and
+VidPort SD/HD I, firmware 0x0102 or higher.
+
+Fixed a bug which prevented the SDI Master Q/o PCIe clock_source
+from being changed from 1 (external reference) to 0 (onboard oscillator).
+Applications which rely on this behaviour
+to use the external reference without changing clock_source
+should explicitly change clock_source.
+
+Fixed driver buffer queue overrun reporting on VidPort SD/HD I.
+
+Fixed a bug which could allow memory to be written after it is freed
+on VidPort SD/HD I.
+
+Fixed a bug which could hang sdiaudio fsync() on VidPort SD/HD I.
+
+Prevent blackburst_type from being changed
+while any related transmitter is open.
+
+Fixed clock_source and added blackburst_type
+on DVB Master Q/o LP PCIe Mini BNC.
+
+Added blackburst_type to DVB Master Quad-2in2out,
+DVB Master Quad-1in3out, DVB Master Quad-3in1out, and DVB Master Q/o.
+
+Added ASI_IOC_TXGET27COUNT to
+DVB Master Q/o LP PCIe Mini BNC, firmware 0x0101 or higher, and
+DVB Master III Tx LP PCIe, firmware 0x0101 or higher.
+
+Added ASI_IOC_TXGET27COUNT and ASI_IOC_RXGET27COUNT to
+DVB Master Quad-2in2out.
+
+Added ASI_IOC_TXGET27COUNT and ASI_IOC_RXGET27COUNT to
+DVB Master Quad-2in2out LP PCIe Mini BNC, firmware 0x0102 or higher.
+
+Merged changes from Linux kernels 2.6.34 and 2.6.35.
+
 Version 2.7.1 (2010-03-23)
 =============
 

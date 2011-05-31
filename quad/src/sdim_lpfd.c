@@ -22,7 +22,6 @@
  *
  */
 
-#include <linux/version.h> /* LINUX_VERSION_CODE */
 #include <linux/kernel.h> /* KERN_INFO */
 #include <linux/module.h> /* MODULE_LICENSE */
 
@@ -84,9 +83,7 @@ static void sdim_start_tx_dma (struct master_iface *iface);
 static long sdim_txunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int sdim_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(sdim_txfsync,filp,datasync);
 static void sdim_rxinit (struct master_iface *iface);
 static void sdim_rxstart (struct master_iface *iface);
 static void sdim_rxstop (struct master_iface *iface);
@@ -94,9 +91,7 @@ static void sdim_rxexit (struct master_iface *iface);
 static long sdim_rxunlocked_ioctl (struct file *filp,
 	unsigned int cmd,
 	unsigned long arg);
-static int sdim_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync);
+static int FSYNC_HANDLER(sdim_rxfsync,filp,datasync);
 static int sdim_init_module (void) __init;
 static void sdim_cleanup_module (void) __exit;
 
@@ -134,7 +129,7 @@ static struct file_operations sdim_txfops = {
 	.write = sdi_write,
 	.poll = sdi_txpoll,
 	.unlocked_ioctl = sdim_txunlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.compat_ioctl = sdim_txunlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -148,7 +143,7 @@ static struct file_operations sdim_rxfops = {
 	.read = sdi_read,
 	.poll = sdi_rxpoll,
 	.unlocked_ioctl = sdim_rxunlocked_ioctl,
-	.compat_ioctl = sdi_compat_ioctl,
+	.compat_ioctl = sdim_rxunlocked_ioctl,
 	.mmap = sdi_mmap,
 	.open = sdi_open,
 	.release = sdi_release,
@@ -211,14 +206,21 @@ sdim_store_blackburst_type (struct device *dev,
 	unsigned int reg;
 	const unsigned long max = MASTER_CTL_BLACKBURST_PAL;
 	int retcode = count;
+	struct master_iface *txiface = list_entry (card->iface_list.next,
+		struct master_iface, list);
 
 	if ((endp == buf) || (val > max)) {
 		return -EINVAL;
 	}
-	spin_lock (&card->reg_lock);
+	mutex_lock (&card->users_mutex);
+	if (txiface->users) {
+		retcode = -EBUSY;
+		goto OUT;
+	}
 	reg = readl (card->core.addr + SDIM_TCSR) & ~SDIM_TCSR_PAL;
 	writel (reg | (val << 9), card->core.addr + SDIM_TCSR);
-	spin_unlock (&card->reg_lock);
+OUT:
+	mutex_unlock (&card->users_mutex);
 	return retcode;
 }
 
@@ -594,11 +596,9 @@ sdim_txinit (struct master_iface *iface)
 		reg |= SDIM_TCSR_RXCLK;
 		break;
 	}
-	spin_lock (&card->reg_lock);
 	reg |= readl (card->core.addr + SDIM_TCSR) & SDIM_TCSR_PAL;
 	writel (reg | SDIM_TCSR_RST, card->core.addr + SDIM_TCSR);
 	writel (reg, card->core.addr + SDIM_TCSR);
-	spin_unlock (&card->reg_lock);
 	writel ((SDIM_TFSL << 16) | SDIM_TDMATL, card->core.addr + SDIM_TFCR);
 
 	return;
@@ -614,10 +614,6 @@ sdim_txstart (struct master_iface *iface)
 	struct master_dev *card = iface->card;
 	unsigned int reg;
 
-	/* Enable DMA */
-	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
-		card->bridge_addr + LSDMA_CSR(0));
-
 	/* Enable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
 	reg = readl (card->core.addr + SDIM_ICSR) &
@@ -627,10 +623,9 @@ sdim_txstart (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable RP178 pattern generation and enable the transmitter */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_TCSR);
-	writel (reg | SDIM_TCSR_EN | SDIM_TCSR_RP178, card->core.addr + SDIM_TCSR);
-	spin_unlock (&card->reg_lock);
+	writel (reg | SDIM_TCSR_EN | SDIM_TCSR_RP178,
+		card->core.addr + SDIM_TCSR);
 
 	return;
 }
@@ -656,10 +651,9 @@ sdim_txstop (struct master_iface *iface)
 		!(readl (card->core.addr + SDIM_ICSR) & SDIM_ICSR_TXD));
 
 	/* Disable the transmitter and enable RP178 pattern generation */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_TCSR);
-	writel (reg & ~SDIM_TCSR_EN & ~SDIM_TCSR_RP178, card->core.addr + SDIM_TCSR);
-	spin_unlock (&card->reg_lock);
+	writel (reg & ~SDIM_TCSR_EN & ~SDIM_TCSR_RP178,
+		card->core.addr + SDIM_TCSR);
 
 	/* Disable transmitter interrupts */
 	spin_lock_irq (&card->irq_lock);
@@ -670,8 +664,7 @@ sdim_txstop (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable DMA */
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE) &
-		~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(0));
 
 	return;
@@ -688,10 +681,8 @@ sdim_txexit (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Reset the transmitter */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_TCSR);
 	writel (reg | SDIM_TCSR_RST, card->core.addr + SDIM_TCSR);
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -709,13 +700,11 @@ sdim_start_tx_dma (struct master_iface *iface)
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE,
 		card->bridge_addr + LSDMA_CSR(0));
-	wmb ();
 	writel (mdma_dma_to_desc_low (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC(0));
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(0));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE |
 		LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_ENABLE,
@@ -758,15 +747,12 @@ sdim_txunlocked_ioctl (struct file *filp,
 /**
  * sdim_txfsync - SDI Master transmitter fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-sdim_txfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(sdim_txfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -810,9 +796,7 @@ sdim_rxinit (struct master_iface *iface)
 	/* There will be no races on RCSR
 	 * until this code returns, so we don't need to lock it */
 	writel (reg | SDIM_RCSR_RST, card->core.addr + SDIM_RCSR);
-	wmb ();
 	writel (reg, card->core.addr + SDIM_RCSR);
-	wmb ();
 	writel (SDIM_RDMATL, card->core.addr + SDIM_RFCR);
 
 	return;
@@ -835,7 +819,6 @@ sdim_rxstart (struct master_iface *iface)
 	writel (mdma_dma_to_desc_high (lsdma_head_desc_bus_addr (dma)),
 		card->bridge_addr + LSDMA_DESC_H(1));
 	clear_bit (0, &iface->dma_done);
-	wmb ();
 	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
 		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_ENABLE,
 		card->bridge_addr + LSDMA_CSR(1));
@@ -852,10 +835,8 @@ sdim_rxstart (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Enable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_RCSR);
 	writel (reg | SDIM_RCSR_EN, card->core.addr + SDIM_RCSR);
-	spin_unlock (&card->reg_lock);
 
 	return;
 }
@@ -871,10 +852,8 @@ sdim_rxstop (struct master_iface *iface)
 	unsigned int reg;
 
 	/* Disable the receiver */
-	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_RCSR);
 	writel (reg & ~SDIM_RCSR_EN, card->core.addr + SDIM_RCSR);
-	spin_unlock (&card->reg_lock);
 
 	/* Disable receiver interrupts */
 	spin_lock_irq (&card->irq_lock);
@@ -886,20 +865,19 @@ sdim_rxstop (struct master_iface *iface)
 	spin_unlock_irq (&card->irq_lock);
 
 	/* Disable and abort DMA */
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION) & ~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(1));
-	wmb ();
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP) &
-		~LSDMA_CH_CSR_ENABLE,
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION | LSDMA_CH_CSR_STOP,
 		card->bridge_addr + LSDMA_CSR(1));
-
 	/* Dummy read to flush PCI posted writes */
 	readl (card->bridge_addr + LSDMA_INTMSK);
+
 	wait_event (iface->queue, test_bit (0, &iface->dma_done));
-	writel ((LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
-		LSDMA_CH_CSR_DIRECTION) & ~LSDMA_CH_CSR_ENABLE,
+
+	writel (LSDMA_CH_CSR_INTDONEENABLE | LSDMA_CH_CSR_INTSTOPENABLE |
+		LSDMA_CH_CSR_DIRECTION,
 		card->bridge_addr + LSDMA_CSR(1));
 
 	return;
@@ -962,15 +940,12 @@ sdim_rxunlocked_ioctl (struct file *filp,
 /**
  * sdim_rxfsync - SDI Master receiver fsync() method
  * @filp: file to flush
- * @dentry: directory entry associated with the file
  * @datasync: used by filesystems
  *
  * Returns a negative error code on failure and 0 on success.
  **/
 static int
-sdim_rxfsync (struct file *filp,
-	struct dentry *dentry,
-	int datasync)
+FSYNC_HANDLER(sdim_rxfsync,filp,datasync)
 {
 	struct master_iface *iface = filp->private_data;
 	struct master_dev *card = iface->card;
@@ -985,7 +960,6 @@ sdim_rxfsync (struct file *filp,
 	spin_lock (&card->reg_lock);
 	reg = readl (card->core.addr + SDIM_RCSR);
 	writel (reg | SDIM_RCSR_RST, card->core.addr + SDIM_RCSR);
-	wmb ();
 	writel (reg, card->core.addr + SDIM_RCSR);
 	spin_unlock (&card->reg_lock);
 	iface->events = 0;

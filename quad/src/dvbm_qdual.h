@@ -82,6 +82,9 @@
 #define DVBM_QDUAL_TSTAMPR_HI(c)	((c)*0x100+0x0a8) /* Transmit Timestamp, High Word */
 #define DVBM_QDUAL_TSTAMPR_LO(c)	((c)*0x100+0x0ac) /* Transmit Timestamp, Low Word */
 
+/* Control/Status Register bit locations */
+#define DVBM_QDUAL_HL2CSR_PLLFS		0x00000004 /* PLL Frequency Select */
+
 /* Receiver Control/Status Register (RCSR) bit locations */
 #define DVBM_QDUAL_RCSR_188		0x00000001 /* 188 Byte Packet */
 #define DVBM_QDUAL_RCSR_204		0x00000002 /* 204 Byte Packet */
