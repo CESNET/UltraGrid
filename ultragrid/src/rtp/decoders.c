@@ -139,14 +139,14 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                          * copy (& clip, center) line by line 
                          */
                         if (l + d_x > (int)tile->dst_linesize) {
-                                l = tile->dst_linesize - d_x;
+                                l = frame->dst_linesize - d_x;
                         }
 
                         /* compute byte offset in destination frame */
                         offset = y + d_x;
 
                         /* watch the SEGV */
-                        if (l + offset <= tile->data_len) {
+                        if (l + offset <= frame->data_len) {
                                 /*decode frame:
                                  * we have offset for destination
                                  * we update source contiguously
