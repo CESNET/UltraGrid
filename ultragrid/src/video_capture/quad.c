@@ -72,7 +72,7 @@
 #include <sys/poll.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-#include <math.h>
+#include <semaphore.h>
 
 /* 
    QUAD SDK includes. We are also using a couple of utility functions from the
@@ -191,12 +191,15 @@ struct vidcap_quad_state {
         unsigned long int   buffers;
         struct video_frame  frame[MAX_TILES];
         int                 cur_dev;
+        sem_t               sem;
+        pthread_t           grabber;
 };
 
 static int          frames = 0;
 static struct       timeval t, t0;
 
 static void print_output_modes();
+static void * vidcap_grab_thread(void *args);
 
 static void
 get_carrier (int fd, const char *device)
@@ -527,6 +530,8 @@ vidcap_quad_init(char *init_fmt)
                 s->pfd[i].events = POLLIN | POLLPRI;
         }
         s->cur_dev = 0;
+        sem_init(&s->sem, 0, 0);
+        pthread_create(&s->grabber, NULL, vidcap_grab_thread, s);
 
 	return s;
 }
@@ -549,72 +554,84 @@ vidcap_quad_done(void *state)
 	}
 }
 
+static void * vidcap_grab_thread(void *args)
+{
+	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) args;
+        int cur_dev  = 0;
+        ssize_t      read_ret = 0ul;
+        unsigned int val;
+
+        while(!should_exit) {
+                while(read_ret < s->frame[cur_dev].data_len)
+                {
+                        if(poll (&(s->pfd[s->cur_dev]), 1, 1000) < 0) {
+                                //fprintf (stderr, "%s: ", device);
+                                perror ("unable to poll device file");
+                                return NULL;
+                        }
+
+                        if(s->pfd[cur_dev].revents & POLLIN) {
+                                if ((read_ret += read (s->fd[cur_dev], 
+                                                                s->frame[cur_dev].data +
+                                                                read_ret,
+                                                                s->frame[cur_dev].data_len -
+                                                                read_ret)) < 0) {
+                                        //fprintf (stderr, "%s: ", device);
+                                        perror ("unable to read from device file");
+                                        return NULL;
+                                }
+                        }
+
+                        if(s->pfd[cur_dev].revents & POLLPRI) {
+                                if (ioctl (s->fd[cur_dev],SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
+                                        //fprintf (stderr, "%s: ", device);
+                                        perror ("unable to get receiver event flags");
+                                        return NULL;
+                                }
+                                if (val & SDIVIDEO_EVENT_RX_BUFFER) {
+                                        fprinttime (stderr, "");
+                                        fprintf (stderr,
+                                                "driver receive buffer queue "
+                                                "overrun detected\n");
+                                }
+                                if (val &  SDIVIDEO_EVENT_RX_FIFO) {
+                                        fprinttime (stderr, "");
+                                        fprintf (stderr,
+                                                "onboard receive FIFO "
+                                                "overrun detected\n");
+                                }
+                                if (val & SDIVIDEO_EVENT_RX_CARRIER) {
+                                        fprinttime (stderr, "");
+                                        fprintf (stderr,
+                                                "carrier status "
+                                                "change detected\n");
+                                }
+                        if (val & SDIVIDEO_EVENT_RX_STD) {
+                            fprinttime (stderr, progname);
+                            fprintf (stderr,
+                                "format "
+                                "change detected\n");
+                           }
+
+                        }
+                }
+                if(++cur_dev == s->device_cnt)
+                        cur_dev = 0;
+                sem_post(&s->sem);
+        }
+        return NULL;
+}
+
 struct video_frame *
 vidcap_quad_grab(void *state)
 {
 
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
 
-    unsigned int val;
-    ssize_t      read_ret = 0ul;
-    int          last_frame;
-    
-    /* Receive the data and check for errors */
-	
-    while(read_ret < s->frame[s->cur_dev].data_len)
-    {
-	if(poll (&(s->pfd[s->cur_dev]), 1, 1000) < 0) {
-		//fprintf (stderr, "%s: ", device);
-		perror ("unable to poll device file");
-		return NULL;
-	}
+        int          last_frame;
 
-	if(s->pfd[s->cur_dev].revents & POLLIN) {
-                if ((read_ret += read (s->fd[s->cur_dev], 
-                                                s->frame[s->cur_dev].data +
-                                                read_ret,
-                                                s->frame[s->cur_dev].data_len -
-                                                read_ret)) < 0) {
-                        //fprintf (stderr, "%s: ", device);
-                        perror ("unable to read from device file");
-                        return NULL;
-                }
-	}
 
-	if(s->pfd[s->cur_dev].revents & POLLPRI) {
-		if (ioctl (s->fd[s->cur_dev],SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
-			//fprintf (stderr, "%s: ", device);
-			perror ("unable to get receiver event flags");
-			return NULL;
-		}
-		if (val & SDIVIDEO_EVENT_RX_BUFFER) {
-			fprinttime (stderr, "");
-			fprintf (stderr,
-				"driver receive buffer queue "
-				"overrun detected\n");
-		}
-		if (val &  SDIVIDEO_EVENT_RX_FIFO) {
-			fprinttime (stderr, "");
-			fprintf (stderr,
-				"onboard receive FIFO "
-				"overrun detected\n");
-		}
-		if (val & SDIVIDEO_EVENT_RX_CARRIER) {
-			fprinttime (stderr, "");
-			fprintf (stderr,
-				"carrier status "
-				"change detected\n");
-		}
-        if (val & SDIVIDEO_EVENT_RX_STD) {
-            fprinttime (stderr, progname);
-            fprintf (stderr,
-                "format "
-                "change detected\n");
-           }
-
-	}
-    }
-
+        sem_wait(&s->sem);
 
         last_frame = s->cur_dev++;
         if(s->cur_dev == s->device_cnt)
