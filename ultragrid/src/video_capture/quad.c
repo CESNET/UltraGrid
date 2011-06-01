@@ -275,6 +275,7 @@ vidcap_quad_init(char *init_fmt)
         char                      *save_ptr;
         char                      *fmt_dup, *item;
         char                      dev_name[MAXLEN];
+	int			  tile_x_cnt, tile_y_cnt;
 
 	printf("vidcap_quad_init\n");
 
@@ -306,8 +307,17 @@ vidcap_quad_init(char *init_fmt)
         }
         if((item = strtok_r(NULL, ":", &save_ptr)) != NULL)
         {
-	        s->device_cnt = atoi(item);
+		tile_x_cnt = atoi(item);
+		item = strtok_r(NULL, ":", &save_ptr);
+		if (item == NULL) {
+                        fprintf(stderr, "quad: One tile dimension entered, expected zero or 2 values (see -g help)!");
+			return NULL;
+		}
+		tile_y_cnt = atoi(item);
+	        s->device_cnt = tile_x_cnt * tile_y_cnt;
         } else {
+		tile_x_cnt = 1;
+		tile_y_cnt = 1;
                 s->device_cnt = 1;
         }
 
@@ -497,14 +507,11 @@ vidcap_quad_init(char *init_fmt)
                         s->frame[i].aux |= AUX_YUV | AUX_10Bit;
                 }
                 if(s->device_cnt > 1) {
-                        int size;
-
                         s->frame[i].aux |= AUX_TILED;
-                        size = sqrt(s->device_cnt);
-                        s->frame[i].tile_info.x_count = size;
-                        s->frame[i].tile_info.y_count = size;
-                        s->frame[i].tile_info.pos_x = i % size;
-                        s->frame[i].tile_info.pos_y = i / size;
+                        s->frame[i].tile_info.x_count = tile_x_cnt;
+                        s->frame[i].tile_info.y_count = tile_y_cnt;
+                        s->frame[i].tile_info.pos_x = i % tile_x_cnt;
+                        s->frame[i].tile_info.pos_y = i / tile_x_cnt;
                 }
 
 
@@ -630,7 +637,7 @@ vidcap_quad_grab(void *state)
 static void print_output_modes()
 {
         unsigned int i;
-        printf("usage: -g <mode>\n\twhere mode is one of following.\n");
+        printf("usage: -g <mode>[<x_tiles_count>:<y_tiles_count>\n\twhere mode is one of following.\n");
         printf("Available output modes:\n");
         for(i = 0; i < sizeof(frame_modes)/sizeof(struct frame_mode); ++i) {
                 if(frame_modes[i].magic == FMODE_MAGIC)
