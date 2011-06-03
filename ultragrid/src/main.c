@@ -520,13 +520,13 @@ static void *receiver_thread(void *arg)
                         if (pbuf_decode
                             (cp->playout_buffer, uv->curr_time, frame_buffer,
                              i)) {
-                                gettimeofday(&uv->curr_time, NULL);
-                                fr = 1;
-                                display_put_frame(uv->display_device,
-                                                  frame_buffer->data);
-                                i = (i + 1) % 2;
-                                frame_buffer =
-                                    display_get_frame(uv->display_device);
+				gettimeofday(&uv->curr_time, NULL);
+				fr = 1;
+				display_put_frame(uv->display_device,
+						  frame_buffer->data);
+				i = (i + 1) % 2;
+				frame_buffer =
+				    display_get_frame(uv->display_device);
                         }
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
                         cp = pdb_iter_next(uv->participants);

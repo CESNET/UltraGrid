@@ -189,16 +189,18 @@ struct vidcap_quad_state {
         struct              pollfd pfd[MAX_TILES];
         unsigned long int   bufsize;
         unsigned long int   buffers;
+        char              **address[MAX_TILES];
         struct video_frame  frame[MAX_TILES];
         int                 cur_dev;
-        sem_t               sem;
+        sem_t               have_item;
+        sem_t               boss_waiting;
         pthread_t           grabber;
 };
 
 static int          frames = 0;
 static struct       timeval t, t0;
 
-static void print_output_modes();
+static void print_output_modes(void);
 static void * vidcap_grab_thread(void *args);
 
 static void
@@ -260,27 +262,18 @@ vidcap_quad_init(char *init_fmt)
 {
 	struct vidcap_quad_state *s;
 
-        unsigned int              cap;
-        unsigned int              val;
-	struct stat               buf;
-	char                      name[MAXLEN];
-        char                      data[MAXLEN];
-        const char                *codec_name;
-        int                       codec_index;
-        char                      type;
-        char                      *endptr;
-        int                       num;
-        unsigned long int         mode;
-        const struct codec_info_t *c_info;
         const struct frame_mode   *frame_mode;
         int                       frame_mode_number;
         int                       i;
-        char                      *save_ptr;
+        char                      *save_ptr = NULL;
         char                      *fmt_dup, *item;
-        char                      dev_name[MAXLEN];
 	int			  tile_x_cnt, tile_y_cnt;
+        int                       pagesize;
 
 	printf("vidcap_quad_init\n");
+
+        /* mmap values */
+        pagesize = getpagesize();
 
         s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
 	if(s == NULL) {
@@ -338,22 +331,40 @@ vidcap_quad_init(char *init_fmt)
         memset((void *) s->frame, 0, sizeof(s->frame));
 
         for(i = 0; i < s->device_cnt; ++i) {
+                char                      dev_name[MAXLEN];
+                unsigned int              cap;
+                unsigned int              val;
+                struct stat               buf;
+                char                      name[MAXLEN];
+                char                      data[MAXLEN];
+                const char                *codec_name;
+                int                       codec_index;
+                char                      type;
+                char                      *endptr;
+                int                       num;
+                unsigned long int         mode;
+                const struct codec_info_t *c_info;
+                int                       bufmemsize;
+
                 snprintf(dev_name, sizeof(dev_name), devfile_fmt, i);
 
                 memset (&buf, 0, sizeof (buf));
                 if(stat (dev_name, &buf) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the file status");
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
                 /* Check if it is a character device or not */
                 if(!S_ISCHR (buf.st_mode)) {
                         fprintf (stderr, "%s: not a character device\n", dev_name);
+                        vidcap_quad_done(s);
                         return NULL;
                 }
                 if(!(buf.st_rdev & 0x0080)) {
                         fprintf (stderr, "%s: not a receiver\n", dev_name);
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
@@ -371,17 +382,20 @@ vidcap_quad_init(char *init_fmt)
                 if (util_read (name,data, sizeof (data)) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the device number");
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
                 /* Compare the major number taken from sysfs file to the one taken from device node */
                 if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
                         fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", dev_name);
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
                 if (*endptr != ':') {
                         fprintf (stderr, "%s: error reading %s\n", dev_name, name);
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
@@ -389,6 +403,7 @@ vidcap_quad_init(char *init_fmt)
                 if (util_strtoul (name, &mode) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the pixel mode");
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
@@ -413,6 +428,7 @@ vidcap_quad_init(char *init_fmt)
                    default:
                        printf ("(unknown)\n");
                        fprintf(stderr, "Unknown colour space not (yet) supported!");
+                       vidcap_quad_done(s);
                        return NULL;
                }
 
@@ -436,6 +452,7 @@ vidcap_quad_init(char *init_fmt)
                 if (util_strtoul (name, &s->buffers) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the number of buffers");
+                        vidcap_quad_done(s);
                         return NULL;
                 }
 
@@ -443,9 +460,26 @@ vidcap_quad_init(char *init_fmt)
                 if (util_strtoul (name, &s->bufsize) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the buffer size");
+                        vidcap_quad_done(s);
                         return NULL;
                 }
+
                 printf ("\t%lux%lu-byte buffers\n", s->buffers, s->bufsize);
+                if(s->bufsize != frame_mode->width * frame_mode->height * 
+                                c_info->bpp)
+                {
+                        int needed_size;
+
+                        needed_size = frame_mode->width * frame_mode->height * 
+                                c_info->bpp;
+                        fprintf (stderr, "%s: ", dev_name);
+                        fprintf (stderr, "Buffer size doesn't match frame size.");
+                        fprintf (stderr, "Please run 'echo %d > %s' as root.", needed_size, name);
+                        vidcap_quad_done(s);
+                        return NULL;
+                }
+                bufmemsize = s->bufsize +
+		        ((s->bufsize % pagesize) ? (pagesize - s->bufsize % pagesize) : 0);
 
 
                 /* END OF CHECK IF QUAD CAN WORK CORRECTLY */
@@ -455,6 +489,7 @@ vidcap_quad_init(char *init_fmt)
                 if((s->fd[i] = open (dev_name, O_RDONLY,0)) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to open file for reading");
+                        vidcap_quad_done(s);
                         return NULL;
                 }
     
@@ -469,7 +504,7 @@ vidcap_quad_init(char *init_fmt)
 
                 /*Get carrier*/
                 if(cap & SDIVIDEO_CAP_RX_CD) {
-                        get_carrier (s->fd[i], name);
+                        get_carrier (s->fd[i], dev_name);
                 } 
 
     
@@ -517,20 +552,47 @@ vidcap_quad_init(char *init_fmt)
                         s->frame[i].tile_info.pos_y = i / tile_x_cnt;
                 }
 
+                if ((s->address[i] = (char **)calloc (s->buffers, sizeof (char *))) == NULL) {
+                        perror ("unable to allocate memory");
+                        vidcap_quad_done(s);
+                        return NULL;
+                } else {
+                        unsigned int j;
 
-            /* Allocate some memory */
-                if((s->frame[i].data = (char *) malloc (s->frame[i].data_len)) == NULL) {
+                        for (j = 0; j < s->buffers; j++) {
+                                if ((s->address[i][j] = (char *)mmap (NULL,
+                                                s->bufsize,
+                                                PROT_READ,
+                                                MAP_SHARED,
+                                                s->fd[i],
+                                                j * bufmemsize)) == (char *)MAP_FAILED) {
+                                        unsigned int buf_idx;
+                                        perror ("unable to map memory");
+                                        for (buf_idx = 0; buf_idx < j; buf_idx++) {
+                                                munmap (s->address[i][buf_idx], s->bufsize);
+                                        }
+                                        free (s->address[i]);
+                                        s->address[i] = 0ul;
+                                        vidcap_quad_done(s);
+                                        return NULL;
+                                }
+                        }
+                }
+                /*if((s->frame[i].data = (char *) malloc (s->frame[i].data_len)) == NULL) {
                         fprintf (stderr, "%s: ", dev_name);
                         fprintf (stderr, "unable to allocate memory\n");
                         vidcap_quad_done(s);
                         return NULL;
-                }
+                }*/
+
                 /* SET SOME VARIABLES*/
                 s->pfd[i].fd = s->fd[i];
                 s->pfd[i].events = POLLIN | POLLPRI;
         }
+
         s->cur_dev = 0;
-        sem_init(&s->sem, 0, 0);
+        sem_init(&s->have_item, 0, 0);
+        sem_init(&s->boss_waiting, 0, 0);
         pthread_create(&s->grabber, NULL, vidcap_grab_thread, s);
 
 	return s;
@@ -545,79 +607,117 @@ vidcap_quad_done(void *state)
 
 	if (s != NULL) {
                 int i;
-                for (i = 0; i < s->device_cnt; ++i) {
-                        if(s->frame[i].data != NULL)
-                                free(s->frame[i].data);
-                        if(s->fd[i] != 0)
-                                close(s->fd[i]);
-                }
+		for (i = 0; i < s->device_cnt; ++i) {
+			if(s->frame[i].data != NULL)
+				free(s->frame[i].data);
+			if(s->fd[i] != 0)
+				close(s->fd[i]);
+			if(s->address[i] != NULL) {
+				unsigned int buf_idx;
+				for (buf_idx = 0; buf_idx < s->buffers; buf_idx++) {
+					munmap (s->address[i][buf_idx], s->bufsize);
+				}
+				free(s->address[i]);
+			}
+		}
 	}
+	pthread_join(s->grabber, NULL);
+	sem_destroy(&s->boss_waiting);
+	sem_destroy(&s->have_item);
 }
 
 static void * vidcap_grab_thread(void *args)
 {
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) args;
-        int cur_dev  = 0;
-        ssize_t      read_ret = 0ul;
-        unsigned int val;
+        struct timespec timeout;
+        int cur_dev_buf[MAX_TILES];
+        int i;
+        int first_run[MAX_TILES];
+
+        for(i = 0; i < MAX_TILES; ++i) {
+                cur_dev_buf[i] = 0;
+                first_run[i] = 1;
+        }
+
+        timeout.tv_sec = 0;
+        timeout.tv_nsec = 500 * 1000;
 
         while(!should_exit) {
-                while(read_ret < s->frame[cur_dev].data_len)
+		unsigned int val;
+                int cur_dev;
+		unsigned int return_vec = 0u;
+
+                if(sem_timedwait(&s->boss_waiting, &timeout) == ETIMEDOUT)
+			continue;
+                if (should_exit) 
+			break;
+
+                //for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev)
+		while (return_vec != (1 << s->device_cnt) - 1)
                 {
-                        if(poll (&(s->pfd[s->cur_dev]), 1, 1000) < 0) {
+                        if(poll (s->pfd, s->device_cnt, 1000) < 0) {
                                 //fprintf (stderr, "%s: ", device);
                                 perror ("unable to poll device file");
                                 return NULL;
                         }
 
-                        if(s->pfd[cur_dev].revents & POLLIN) {
-                                if ((read_ret += read (s->fd[cur_dev], 
-                                                                s->frame[cur_dev].data +
-                                                                read_ret,
-                                                                s->frame[cur_dev].data_len -
-                                                                read_ret)) < 0) {
-                                        //fprintf (stderr, "%s: ", device);
-                                        perror ("unable to read from device file");
-                                        return NULL;
-                                }
-                        }
+			for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
+                                int prev_buf;
 
-                        if(s->pfd[cur_dev].revents & POLLPRI) {
-                                if (ioctl (s->fd[cur_dev],SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
-                                        //fprintf (stderr, "%s: ", device);
-                                        perror ("unable to get receiver event flags");
-                                        return NULL;
+                                prev_buf = cur_dev_buf[cur_dev] - 1;
+                                if (prev_buf < 0) prev_buf += s->buffers;
+
+                                if (s->pfd[cur_dev].revents & POLLIN) {
+                                        if (!first_run[cur_dev])
+                                                if (ioctl (s->fd[cur_dev], SDIVIDEO_IOC_QBUF, prev_buf) < 0) {
+                                                         perror ("unable to queue buffer");
+                                                         return NULL;
+                                                }
+                                        if (ioctl (s->fd[cur_dev], SDIVIDEO_IOC_DQBUF, cur_dev_buf[cur_dev]) < 0) {
+                                                perror ("unable to dequeue buffer");
+                                                return NULL;
+                                        }
+                                        s->frame[cur_dev].data = s->address[cur_dev][cur_dev_buf[cur_dev]];
+                                        cur_dev_buf[cur_dev] = (cur_dev_buf[cur_dev] + 1) % s->buffers;
+                                        return_vec |= 1 << cur_dev;
+                                        first_run[cur_dev] = 0;
                                 }
-                                if (val & SDIVIDEO_EVENT_RX_BUFFER) {
-                                        fprinttime (stderr, "");
-                                        fprintf (stderr,
-                                                "driver receive buffer queue "
-                                                "overrun detected\n");
+
+                                if(s->pfd[cur_dev].revents & POLLPRI) {
+                                        if (ioctl (s->fd[cur_dev],SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
+                                                //fprintf (stderr, "%s: ", device);
+                                                perror ("unable to get receiver event flags");
+                                                return NULL;
+                                        }
+                                        if (val & SDIVIDEO_EVENT_RX_BUFFER) {
+                                                fprinttime (stderr, "");
+                                                fprintf (stderr,
+                                                        "driver receive buffer queue "
+                                                        "overrun detected\n");
+                                        }
+                                        if (val &  SDIVIDEO_EVENT_RX_FIFO) {
+                                                fprinttime (stderr, "");
+                                                fprintf (stderr,
+                                                        "onboard receive FIFO "
+                                                        "overrun detected\n");
+                                        }
+                                        if (val & SDIVIDEO_EVENT_RX_CARRIER) {
+                                                fprinttime (stderr, "");
+                                                fprintf (stderr,
+                                                        "carrier status "
+                                                        "change detected\n");
+                                        }
+                                if (val & SDIVIDEO_EVENT_RX_STD) {
+                                    fprinttime (stderr, progname);
+                                    fprintf (stderr,
+                                        "format "
+                                        "change detected\n");
+                                   }
                                 }
-                                if (val &  SDIVIDEO_EVENT_RX_FIFO) {
-                                        fprinttime (stderr, "");
-                                        fprintf (stderr,
-                                                "onboard receive FIFO "
-                                                "overrun detected\n");
-                                }
-                                if (val & SDIVIDEO_EVENT_RX_CARRIER) {
-                                        fprinttime (stderr, "");
-                                        fprintf (stderr,
-                                                "carrier status "
-                                                "change detected\n");
-                                }
-                        if (val & SDIVIDEO_EVENT_RX_STD) {
-                            fprinttime (stderr, progname);
-                            fprintf (stderr,
-                                "format "
-                                "change detected\n");
-                           }
 
                         }
                 }
-                if(++cur_dev == s->device_cnt)
-                        cur_dev = 0;
-                sem_post(&s->sem);
+                sem_post(&s->have_item);
         }
         return NULL;
 }
@@ -631,12 +731,10 @@ vidcap_quad_grab(void *state)
         int          last_frame;
 
 
-        sem_wait(&s->sem);
+        if(s->cur_dev == 0) {
+                sem_post(&s->boss_waiting);
+                sem_wait(&s->have_item);
 
-        last_frame = s->cur_dev++;
-        if(s->cur_dev == s->device_cnt)
-        {
-                s->cur_dev = 0;
                 frames++;
                 gettimeofday(&t, NULL);
                 double seconds = tv_diff(t, t0);    
@@ -647,6 +745,9 @@ vidcap_quad_grab(void *state)
                     frames = 0;
                 }  
         }
+
+        last_frame = s->cur_dev;
+        s->cur_dev = (s->cur_dev + 1) % s->device_cnt;
 
 	return &s->frame[last_frame];
 }

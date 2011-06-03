@@ -100,6 +100,8 @@ struct state_sdl {
 
         pthread_t               thread_id;
         SDL_sem                 *semaphore;
+        SDL_mutex               *display_frame;
+
         uint32_t                magic;
 
         struct timeval          tv;
@@ -113,6 +115,8 @@ struct state_sdl {
         unsigned                rgb:1;
         unsigned                deinterlace:1;
         unsigned                fs:1;
+
+	unsigned int		last_displayed_tile;
 };
 
 extern int should_exit;
@@ -130,6 +134,7 @@ void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
                         codec_t codec, double fps, int aux, struct tile_info tile_info);
 static struct video_frame * get_tile_buffer(void *s, struct tile_info tile_info);
+static void update_tile_data(struct state_sdl *s);
 
 extern int should_exit;
 
@@ -337,23 +342,27 @@ static void *display_thread_sdl(void *arg)
                             s->dst_rect.x *
                             s->sdl_screen->format->BytesPerPixel;
                 } else {
+                        SDL_mutexP(s->display_frame);
                         SDL_UnlockYUVOverlay(s->yuv_image);
                         SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
-                        s->frame.data = (char *)*s->yuv_image->pixels;
-                }
+			SDL_LockYUVOverlay(s->yuv_image);
+			s->frame.data = (char *)*s->yuv_image->pixels;
+                        update_tile_data(s);
+                        SDL_mutexV(s->display_frame);
+		}
 
-                s->frames++;
-                gettimeofday(&tv, NULL);
-                double seconds = tv_diff(tv, s->tv);
-                if (seconds > 5) {
-                        double fps = s->frames / seconds;
-                        fprintf(stdout, "%d frames in %g seconds = %g FPS\n",
-                                s->frames, seconds, fps);
-                        s->tv = tv;
-                        s->frames = 0;
-                }
-        }
-        return NULL;
+		s->frames++;
+		gettimeofday(&tv, NULL);
+		double seconds = tv_diff(tv, s->tv);
+		if (seconds > 5) {
+			double fps = s->frames / seconds;
+			fprintf(stdout, "%d frames in %g seconds = %g FPS\n",
+				s->frames, seconds, fps);
+			s->tv = tv;
+			s->frames = 0;
+		}
+	}
+	return NULL;
 }
 
 static void show_help(void)
@@ -375,73 +384,73 @@ void cleanup_screen(struct state_sdl *s)
 
 void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                   codec_t color_spec, double fps, int aux,
-                   struct tile_info tile_info)
+	   codec_t color_spec, double fps, int aux,
+	   struct tile_info tile_info)
 {
-        struct state_sdl *s = (struct state_sdl *)state;
-        int itemp;
-        unsigned int utemp;
-        Window wtemp;
+	struct state_sdl *s = (struct state_sdl *)state;
+	int itemp;
+	unsigned int utemp;
+	Window wtemp;
 
 
-        unsigned int x_res_x, x_res_y;
+	unsigned int x_res_x, x_res_y;
 
-        int ret, i;
+	int ret, i;
 
-        cleanup_screen(s);
+	cleanup_screen(s);
 
-        if (aux & AUX_TILED) {
-                s->frame.width = width * tile_info.x_count;
-                s->frame.height = height * tile_info.y_count;
-        } else {
-                s->frame.width = width;
-                s->frame.height = height;
-        }
-        s->frame.fps = fps;
-        s->frame.aux = aux;
+	if (aux & AUX_TILED) {
+		s->frame.width = width * tile_info.x_count;
+		s->frame.height = height * tile_info.y_count;
+	} else {
+		s->frame.width = width;
+		s->frame.height = height;
+	}
+	s->frame.fps = fps;
+	s->frame.aux = aux;
 
-        fprintf(stdout, "Reconfigure to size %dx%d\n", s->frame.width,
-                        s->frame.height);
+	fprintf(stdout, "Reconfigure to size %dx%d\n", s->frame.width,
+			s->frame.height);
 
-        ret =
-            XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
-                         &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+	ret =
+	    XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
+			 &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
 
-        fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
-        if (s->fs)
-                s->sdl_screen =
-                    SDL_SetVideoMode(x_res_x, x_res_y, 0,
-                                     SDL_FULLSCREEN | SDL_HWSURFACE |
-                                     SDL_DOUBLEBUF);
-        else {
-                x_res_x = s->frame.width;
-                x_res_y = s->frame.height;
-                s->sdl_screen =
-                    SDL_SetVideoMode(x_res_x, x_res_y, 0,
-                                     SDL_HWSURFACE | SDL_DOUBLEBUF);
-        }
-        if (s->sdl_screen == NULL) {
-                fprintf(stderr, "Error setting video mode %dx%d!\n", x_res_x,
-                        x_res_y);
-                free(s);
-                exit(128);
-        }
-        SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
+	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
+	if (s->fs)
+		s->sdl_screen =
+		    SDL_SetVideoMode(x_res_x, x_res_y, 0,
+				     SDL_FULLSCREEN | SDL_HWSURFACE |
+				     SDL_DOUBLEBUF);
+	else {
+		x_res_x = s->frame.width;
+		x_res_y = s->frame.height;
+		s->sdl_screen =
+		    SDL_SetVideoMode(x_res_x, x_res_y, 0,
+				     SDL_HWSURFACE | SDL_DOUBLEBUF);
+	}
+	if (s->sdl_screen == NULL) {
+		fprintf(stderr, "Error setting video mode %dx%d!\n", x_res_x,
+			x_res_y);
+		free(s);
+		exit(128);
+	}
+	SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
 
-        SDL_ShowCursor(SDL_DISABLE);
+	SDL_ShowCursor(SDL_DISABLE);
 
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if (color_spec == codec_info[i].codec) {
-                        s->codec_info = &codec_info[i];
-                        s->rgb = codec_info[i].rgb;
-                        s->frame.src_bpp = codec_info[i].bpp;
-                }
-        }
+	for (i = 0; codec_info[i].name != NULL; i++) {
+		if (color_spec == codec_info[i].codec) {
+			s->codec_info = &codec_info[i];
+			s->rgb = codec_info[i].rgb;
+			s->frame.src_bpp = codec_info[i].bpp;
+		}
+	}
 
-        if (s->rgb == 0) {
-                s->yuv_image =
-                    SDL_CreateYUVOverlay(s->frame.width, s->frame.height, FOURCC_UYVY,
-                                         s->sdl_screen);
+	if (s->rgb == 0) {
+		s->yuv_image =
+		    SDL_CreateYUVOverlay(s->frame.width, s->frame.height, FOURCC_UYVY,
+						 s->sdl_screen);
                 if (s->yuv_image == NULL) {
                         printf("SDL_overlay initialization failed.\n");
                         free(s);
@@ -491,11 +500,12 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                     (int) s->sdl_screen->pitch * x_res_y -
                     s->sdl_screen->pitch * s->dst_rect.y +
                     s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
-        s->frame.dst_x_offset =
-            s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
-        s->frame.dst_bpp = s->sdl_screen->format->BytesPerPixel;
-        s->frame.dst_pitch = s->sdl_screen->pitch;
+		s->frame.dst_x_offset =
+		    s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
+		s->frame.dst_bpp = s->sdl_screen->format->BytesPerPixel;
+		s->frame.dst_pitch = s->sdl_screen->pitch;
         } else {
+		SDL_LockYUVOverlay(s->yuv_image);
                 s->frame.data = (char *)*s->yuv_image->pixels;
                 s->frame.data_len = s->frame.width * s->frame.height * 2;
                 s->frame.dst_bpp = 2;
@@ -557,11 +567,32 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         }
 }
 
-static struct video_frame * get_tile_buffer(void *state, struct tile_info tile_info) {
+static void update_tile_data(struct state_sdl *s) 
+{
+        int x, y;
+        int x_cnt;
+
+        x_cnt = s->frame.tile_info.x_count;
+        for (y = 0; y < s->frame.tile_info.y_count; ++y)
+                for(x = 0; x < s->frame.tile_info.x_count; ++x)
+                        s->tiles[y*x_cnt + x].data =
+                                s->frame.data + 
+                                y * s->tiles[y*x_cnt + x].height *
+                                s->frame.dst_pitch;
+}
+
+static struct video_frame * get_tile_buffer(void *state, struct tile_info tile_info) 
+{
         struct state_sdl *s = (struct state_sdl *)state;
+        struct video_frame *ret;
 
         assert(s->tiles != NULL); /* basic sanity test... */
-        return &s->tiles[tile_info.pos_x + tile_info.pos_y * tile_info.x_count];
+        SDL_mutexP(s->display_frame);
+	s->last_displayed_tile = 
+		tile_info.pos_x + tile_info.pos_y * tile_info.x_count;
+        ret = &s->tiles[s->last_displayed_tile];
+        SDL_mutexV(s->display_frame);
+        return ret;
 }
 
 void *display_sdl_init(char *fmt)
@@ -652,6 +683,7 @@ unsigned int i;
         asm("emms\n");
 
         s->semaphore = SDL_CreateSemaphore(0);
+        s->display_frame = SDL_CreateMutex();
 
         if (!(s->display = XOpenDisplay(NULL))) {
                 printf("Unable to open display.\n");
@@ -702,6 +734,7 @@ void display_sdl_done(void *state)
                 free(s->tiles);
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
+        SDL_DestroyMutex(s->display_frame);
 
         SDL_Quit();
 }
@@ -721,10 +754,16 @@ int display_sdl_putf(void *state, char *frame)
         assert(s->magic == MAGIC_SDL);
         assert(frame != NULL);
 
-        SDL_SemPost(s->semaphore);
-        tmp = SDL_SemValue(s->semaphore);
-        if (tmp > 1)
-                printf("%d frame(s) dropped!\n", tmp);
+	if(!(s->frame.aux & AUX_TILED) || s->last_displayed_tile == 
+			s->frame.tile_info.x_count * 
+			s->frame.tile_info.y_count - 1) {
+		SDL_SemPost(s->semaphore);
+		tmp = SDL_SemValue(s->semaphore);
+		if (tmp > 1) {
+			printf("%d frame(s) dropped!\n", tmp);
+			SDL_SemTryWait(s->semaphore);
+		}
+	}
         return 0;
 }
 
