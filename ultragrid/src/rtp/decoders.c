@@ -139,7 +139,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                          * copy (& clip, center) line by line 
                          */
                         if (l + d_x > (int)tile->dst_linesize) {
-                                l = frame->dst_linesize - d_x;
+                                l = tile->dst_linesize - d_x;
                         }
 
                         /* compute byte offset in destination frame */
