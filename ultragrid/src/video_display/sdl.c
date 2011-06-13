@@ -510,6 +510,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 s->frame.data_len = s->frame.width * s->frame.height * 2;
                 s->frame.dst_bpp = 2;
                 s->frame.dst_pitch = s->frame.dst_linesize;
+		s->frame.dst_x_offset = 0;
         }
 
         switch (color_spec) {
