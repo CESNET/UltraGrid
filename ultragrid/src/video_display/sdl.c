@@ -94,13 +94,11 @@ void NSApplicationLoad();
 struct state_sdl {
         Display                 *display;
         SDL_Overlay             *yuv_image;
-        SDL_Surface             *rgb_image;
         struct video_frame      frame;
         struct video_frame      *tiles;
 
         pthread_t               thread_id;
         SDL_sem                 *semaphore;
-        SDL_mutex               *display_frame;
 
         uint32_t                magic;
 
@@ -116,7 +114,11 @@ struct state_sdl {
         unsigned                deinterlace:1;
         unsigned                fs:1;
 
-	unsigned int		last_displayed_tile;
+	int		        put_frame:1;
+
+        volatile int buffer_writable;
+        pthread_cond_t buffer_writable_cond;
+        pthread_mutex_t buffer_writable_lock;
 };
 
 extern int should_exit;
@@ -238,8 +240,10 @@ static void loadSplashscreen(struct state_sdl *s) {
 	splash_dest.w = splash_width;
 	splash_dest.h = splash_height;
 
+        SDL_UnlockSurface(s->sdl_screen);
         SDL_BlitSurface(image, &splash_src, s->sdl_screen, &splash_dest);
         SDL_Flip(s->sdl_screen);
+        SDL_LockSurface(s->sdl_screen);
 	SDL_FreeSurface(image);
 }
 
@@ -252,15 +256,28 @@ static void loadSplashscreen(struct state_sdl *s) {
  * @return zero value everytime
  */
 static void toggleFullscreen(struct state_sdl *s) {
+        int width, height;
+
+        if (s->frame.aux & AUX_TILED)
+        {
+                width = s->tiles[0].width;
+                height = s->tiles[0].height;
+        }
+        else
+        {
+                width = s->frame.width;
+                height = s->frame.height;
+        }
+
 	if(s->fs) {
 		s->fs = 0;
-                reconfigure_screen(s, s->frame.width, s->frame.height,
+                reconfigure_screen(s, width, height,
                                 s->codec_info->codec, s->frame.fps,
                                 s->frame.aux, s->frame.tile_info);
         }
         else {
 		s->fs = 1;
-                reconfigure_screen(s, s->frame.width, s->frame.height,
+                reconfigure_screen(s, width, height,
                                 s->codec_info->codec, s->frame.fps,
                                 s->frame.aux, s->frame.tile_info);
         }
@@ -285,6 +302,15 @@ int display_sdl_handle_events(void *arg, int post)
         while (SDL_PollEvent(&sdl_event)) {
                 switch (sdl_event.type) {
                 case SDL_KEYDOWN:
+                        if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "d")) {
+                                s->deinterlace = s->deinterlace ? FALSE : TRUE;
+                                printf("Deinterlacing: %s\n", s->deinterlace ? "ON"
+                                                : "OFF");
+                                if(post)
+                                        SDL_SemPost(s->semaphore);
+                                return 1;
+                        }
+
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
                                 should_exit = 1;
                                 if(post)
@@ -319,15 +345,12 @@ static void *display_thread_sdl(void *arg)
         gettimeofday(&s->tv, NULL);
 
         while (!should_exit) {
-                if(display_sdl_handle_events(s, 0))
-                        continue;
-                if(SDL_SemWaitTimeout(s->semaphore, 500) == SDL_MUTEX_TIMEDOUT)
-                        continue;
+                SDL_SemWait(s->semaphore);
 
                 if (s->deinterlace) {
                         if (s->rgb) {
                                 /*FIXME: this will not work! Should not deinterlace whole screen, just subwindow */
-                                vc_deinterlace(s->rgb_image->pixels,
+                                vc_deinterlace(s->sdl_screen->pixels,
                                                s->frame.dst_linesize, s->frame.height);
                         } else {
                                 vc_deinterlace(*s->yuv_image->pixels,
@@ -336,20 +359,29 @@ static void *display_thread_sdl(void *arg)
                 }
 
                 if (s->rgb) {
+                        SDL_UnlockSurface(s->sdl_screen);
                         SDL_Flip(s->sdl_screen);
+                        SDL_LockSurface(s->sdl_screen);
                         s->frame.data = s->sdl_screen->pixels +
                             s->sdl_screen->pitch * s->dst_rect.y +
                             s->dst_rect.x *
                             s->sdl_screen->format->BytesPerPixel;
                 } else {
-                        SDL_mutexP(s->display_frame);
                         SDL_UnlockYUVOverlay(s->yuv_image);
                         SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
 			SDL_LockYUVOverlay(s->yuv_image);
 			s->frame.data = (char *)*s->yuv_image->pixels;
-                        update_tile_data(s);
-                        SDL_mutexV(s->display_frame);
 		}
+                if (s->frame.aux & AUX_TILED)
+                        update_tile_data(s);
+
+                display_sdl_handle_events(s, 0); /* Must be exactly here ! */
+
+                pthread_mutex_lock(&s->buffer_writable_lock);
+                s->buffer_writable = 1;
+                pthread_cond_broadcast(&s->buffer_writable_cond);
+                pthread_mutex_unlock(&s->buffer_writable_lock);
+
 
 		s->frames++;
 		gettimeofday(&tv, NULL);
@@ -378,7 +410,19 @@ static void show_help(void)
 void cleanup_screen(struct state_sdl *s)
 {
         if (s->rgb == 0) {
-                SDL_FreeYUVOverlay(s->yuv_image);
+                if (s->yuv_image != NULL) {
+                        SDL_UnlockYUVOverlay(s->yuv_image);
+                        SDL_FreeYUVOverlay(s->yuv_image);
+                        s->yuv_image = NULL;
+                }
+        } else {
+                if (s->sdl_screen != NULL) {
+                        SDL_UnlockSurface(s->sdl_screen);
+                }
+        }
+        if (s->sdl_screen != NULL) {
+                SDL_FreeSurface(s->sdl_screen);
+                s->sdl_screen = NULL;
         }
 }
 
@@ -402,9 +446,11 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	if (aux & AUX_TILED) {
 		s->frame.width = width * tile_info.x_count;
 		s->frame.height = height * tile_info.y_count;
+                s->put_frame = FALSE; /* do not put until we have last tile */
 	} else {
 		s->frame.width = width;
 		s->frame.height = height;
+                s->put_frame = TRUE; /* always put frame if it is not tile */
 	}
 	s->frame.fps = fps;
 	s->frame.aux = aux;
@@ -418,11 +464,12 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
 	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
 	if (s->fs)
+        {
 		s->sdl_screen =
 		    SDL_SetVideoMode(x_res_x, x_res_y, 0,
 				     SDL_FULLSCREEN | SDL_HWSURFACE |
 				     SDL_DOUBLEBUF);
-	else {
+        } else {
 		x_res_x = s->frame.width;
 		x_res_y = s->frame.height;
 		s->sdl_screen =
@@ -456,6 +503,9 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                         free(s);
                         exit(127);
                 }
+                SDL_LockYUVOverlay(s->yuv_image);
+        } else {
+                SDL_LockSurface(s->sdl_screen);
         }
 
         int w = s->frame.width;
@@ -470,6 +520,8 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         else
                 s->frame.dst_linesize = s->frame.width * 2;
 
+        s->dst_rect.x = 0;
+        s->dst_rect.y = 0;
         s->dst_rect.w = s->frame.width;
         s->dst_rect.h = s->frame.height;
 
@@ -505,7 +557,6 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		s->frame.dst_bpp = s->sdl_screen->format->BytesPerPixel;
 		s->frame.dst_pitch = s->sdl_screen->pitch;
         } else {
-		SDL_LockYUVOverlay(s->yuv_image);
                 s->frame.data = (char *)*s->yuv_image->pixels;
                 s->frame.data_len = s->frame.width * s->frame.height * 2;
                 s->frame.dst_bpp = 2;
@@ -585,23 +636,26 @@ static void update_tile_data(struct state_sdl *s)
 static struct video_frame * get_tile_buffer(void *state, struct tile_info tile_info) 
 {
         struct state_sdl *s = (struct state_sdl *)state;
-        struct video_frame *ret;
 
         assert(s->tiles != NULL); /* basic sanity test... */
-        SDL_mutexP(s->display_frame);
-	s->last_displayed_tile = 
-		tile_info.pos_x + tile_info.pos_y * tile_info.x_count;
-        ret = &s->tiles[s->last_displayed_tile];
-        SDL_mutexV(s->display_frame);
-        return ret;
+        if(tile_info.pos_x + tile_info.pos_y * tile_info.x_count ==
+                        s->frame.tile_info.x_count * 
+                        s->frame.tile_info.y_count - 1) 
+                /* we have last tile in frame so display it */
+                s->put_frame = TRUE;
+        else
+                /* this tile isn't last */
+                s->put_frame = FALSE;
+
+        return &s->tiles[tile_info.pos_x + tile_info.pos_y * tile_info.x_count];
 }
 
 void *display_sdl_init(char *fmt)
 {
-struct state_sdl *s;
-int ret;
+        struct state_sdl *s;
+        int ret;
 
-unsigned int i;
+        unsigned int i;
 
         s = (struct state_sdl *)calloc(1, sizeof(struct state_sdl));
         s->magic = MAGIC_SDL;
@@ -684,7 +738,6 @@ unsigned int i;
         asm("emms\n");
 
         s->semaphore = SDL_CreateSemaphore(0);
-        s->display_frame = SDL_CreateMutex();
 
         if (!(s->display = XOpenDisplay(NULL))) {
                 printf("Unable to open display.\n");
@@ -696,6 +749,9 @@ unsigned int i;
          * Avoids uncaught exception (1002)  when creating CGSWindow */
         NSApplicationLoad();
 #endif
+
+        s->yuv_image = NULL;
+        s->sdl_screen = NULL;
 
         ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
         if (ret < 0) {
@@ -716,6 +772,11 @@ unsigned int i;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
         s->frame.get_tile_buffer = (get_tile_buffer_t) get_tile_buffer;
 
+        s->buffer_writable = 1;
+        pthread_mutex_init(&s->buffer_writable_lock, 0);
+        pthread_cond_init(&s->buffer_writable_cond, NULL);
+
+
         if (pthread_create(&(s->thread_id), NULL, 
                            display_thread_sdl, (void *)s) != 0) {
                 perror("Unable to create display thread\n");
@@ -733,9 +794,12 @@ void display_sdl_done(void *state)
 
         if(s->tiles != NULL)
                 free(s->tiles);
+
+        pthread_cond_destroy(&s->buffer_writable_cond);
+        pthread_mutex_destroy(&s->buffer_writable_lock);
+
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
-        SDL_DestroyMutex(s->display_frame);
 
         SDL_Quit();
 }
@@ -744,6 +808,13 @@ struct video_frame *display_sdl_getf(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         assert(s->magic == MAGIC_SDL);
+
+        pthread_mutex_lock(&s->buffer_writable_lock);
+        while (!s->buffer_writable)
+                pthread_cond_wait(&s->buffer_writable_cond,
+                                &s->buffer_writable_lock);
+        pthread_mutex_unlock(&s->buffer_writable_lock);
+
         return &s->frame;
 }
 
@@ -755,16 +826,18 @@ int display_sdl_putf(void *state, char *frame)
         assert(s->magic == MAGIC_SDL);
         assert(frame != NULL);
 
-	if(!(s->frame.aux & AUX_TILED) || s->last_displayed_tile == 
-			s->frame.tile_info.x_count * 
-			s->frame.tile_info.y_count - 1) {
-		SDL_SemPost(s->semaphore);
-		tmp = SDL_SemValue(s->semaphore);
-		if (tmp > 1) {
-			printf("%d frame(s) dropped!\n", tmp);
-			SDL_SemTryWait(s->semaphore);
-		}
-	}
+        if(s->put_frame) {
+                pthread_mutex_lock(&s->buffer_writable_lock);
+                s->buffer_writable = 0;
+                pthread_mutex_unlock(&s->buffer_writable_lock);
+
+                SDL_SemPost(s->semaphore);
+                tmp = SDL_SemValue(s->semaphore);
+                if (tmp > 1) {
+                        printf("%d frame(s) dropped!\n", tmp);
+                        SDL_SemTryWait(s->semaphore);
+                }
+        }
         return 0;
 }
 
