@@ -20,14 +20,19 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 # -------------------------------------------------------------------------------------------------
 LINKER=
 
+AC_C_BIGENDIAN(
+        AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
+        AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
+)
+
 case "$host_os" in
 	*darwin8*)
-		AC_DEFINE(HAVE_MACOSX)
+		AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
 		LINKER=$CXX
 	;;
 	*darwin9*)
-		AC_DEFINE(HAVE_MACOSX)
-		AC_DEFINE(HAVE_MACOSX_LEOPARD)
+		AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
+		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
 		LINKER=$CXX
 	;;
 	*)
@@ -38,11 +43,11 @@ esac
 case "$host" in
   	x86_64-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86_64"
-		AC_DEFINE(HAVE_64B_LINUX)
+		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
 	;;
 	i*86-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86"
-		AC_DEFINE(HAVE_32B_LINUX)
+		AC_DEFINE([HAVE_32B_LINUX], [1], [We have 32-bit Linux])
 	;;
 esac	
 
@@ -141,14 +146,14 @@ AC_ARG_ENABLE(debug,
 	[  --enable-debug          enable debug messages and code],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(DEBUG)
+		AC_DEFINE([DEBUG], [1], [We build with debug messages])
 	fi])
 
 AC_ARG_ENABLE(ipv6,
 	[  --enable-ipv6           enable ipv6],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(HAVE_IPv6)
+		AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
 	fi])
 
 # -------------------------------------------------------------------------------------------------
@@ -192,8 +197,15 @@ if test ! $no_x ; then
 			X_CFLAGS=$SAVED_X_CFLAGS
 		fi
 	fi
-    
-    X_LIBS="$X_LIBS -lX11 -lXext"
+        PKG_CHECK_MODULES([XV], [xv], [FOUND_XV=yes], [FOUND_XV=no])
+        if test $FOUND_XV = "yes"; then
+            X_OBJ+="src/video_display/xv.o"
+            AC_DEFINE([HAVE_XV], [1], [Build with Xv extension])
+        fi
+        PKG_CHECK_MODULES([XINERAMA], [xinerama],
+                          [AC_DEFINE([HAVE_XINERAMA], [1], [Build with Xinerama extension])], XINERAMA=no)
+        X_LIBS+="-lX11 -lXext $XV_LIBS $XINERAMA_LIBS"
+        CFLAGS+="$XV_CFLAGS $XINERAMA_CFLAGS"
 
 fi
 
@@ -209,13 +221,13 @@ AC_SUBST(X_OBJ)
 case "$host_os" in
 *freebsd*)
         AC_CHECK_HEADER(dev/firewire/firewire.h,[
-                AC_DEFINE(HAVE_FIREWIRE_DV_FREEBSD)
+                AC_DEFINE([HAVE_FIREWIRE_DV_FREEBSD], [1], [We have Firewire DV])
         ])
 	;;
 esac
 
 # This should be conditional on finding libdv 
-AC_DEFINE(HAVE_DV_CODEC)
+AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS HDstation card...
@@ -223,7 +235,7 @@ AC_ARG_ENABLE(hdstation,
 	[  --enable-hdstation      enable HDStation or Centaurus cards],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(HAVE_HDSTATION)
+		AC_DEFINE([HAVE_HDSTATION], [1], [Build with HDStation support])
 	fi])
 
 AC_ARG_WITH(hdstation,           
@@ -241,7 +253,7 @@ then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
 	DVS_OBJ="src/video_capture/hdstation.o src/video_display/hdstation.o"
-	AC_DEFINE(HAVE_HDSTATION)
+        AC_DEFINE([HAVE_HDSTATION], [1], [Build with HDStation support])
 else
 	DVS_INC=
 	DVS_LIB=
@@ -263,7 +275,7 @@ AC_ARG_ENABLE(decklink,
 	[  --enable-decklink       enable Blackmagic DeckLink support],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(HAVE_DECKLINK)
+		AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
 	fi])
 
 AC_ARG_WITH(decklink,
@@ -283,7 +295,7 @@ then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
     DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o"
-    AC_DEFINE(HAVE_DECKLINK)
+    AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
 else
     DECKLINK_PATH=
@@ -310,7 +322,7 @@ case $host in
             [  --enable-quad           enable HD-SDI Master Quad support],
             [if test $enableval = yes
             then
-                AC_DEFINE(HAVE_QUAD)
+                AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
             fi])
 
         AC_ARG_WITH(decklink,
@@ -329,7 +341,7 @@ case $host in
         then
             QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
             QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
-            AC_DEFINE(HAVE_QUAD)
+            AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
         else
             QUAD_PATH=
             QUAD_INC=
@@ -443,8 +455,8 @@ case "$host_os" in
                 CFLAGS="$CFLAGS -D_GNU_SOURCE=1 -D_THREAD_SAFE -I/opt/local/include/SDL"
                 LIBS="$LIBS -L/opt/local/lib -lSDLmain -lSDL -Wl,-framework,Cocoa"
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
-                AC_DEFINE(HAVE_SDL)
-        		SDL_VERSION_REQUIRED=1.2.10
+                AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
+                SDL_VERSION_REQUIRED=1.2.10
                 AC_CHECK_FILE(/opt/local/bin/sdl-config, FOUND_SDL_CONFIG=yes, echo "sdl-config not found.")
                 if test $FOUND_SDL_CONFIG = yes
                 then
@@ -453,7 +465,7 @@ case "$host_os" in
                     if test $RESULT = 1
                     then
                         echo "checking for SDL - version >= $SDL_VERSION_REQUIRED... yes ($SDL_VERSION_FOUND)";
-                        AC_DEFINE(HAVE_SDL_1210)
+                        AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21])
                     else
                         echo "checking for SDL - version >= $SDL_VERSION_REQUIRED... no ($SDL_VERSION_FOUND)";
                     fi
@@ -469,10 +481,10 @@ case "$host_os" in
             then
                 LIBS="$LIBS -lSDL"
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
-                AC_DEFINE(HAVE_SDL)
+                AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
                 SDL_VERSION=1.2.10
                 AM_PATH_SDL($SDL_VERSION,
-                        AC_DEFINE(HAVE_SDL_1210),
+                        AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21]),
                         :)
             fi
         ;;
@@ -527,7 +539,7 @@ case "$host_os" in
 				LIBS="$LIBS /opt/local/lib/libGLEW.a"
 				GL_INC="$GL_INC -I/opt/local/include"
 				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
-				AC_DEFINE(HAVE_GL)
+				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
 				echo "OpenGL (GLEW) libraries not found or not usable."
 			fi
@@ -572,7 +584,7 @@ case "$host_os" in
 			then
 				LIBS="$LIBS -lGLEW"
 				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
-				AC_DEFINE(HAVE_GL)
+				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
 				echo "OpenGL (GLEW) libraries not found or not usable."
 			fi
@@ -600,7 +612,7 @@ AC_ARG_ENABLE(fastdxt,
 	[  --enable-fastdxt        enable FastDXT],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(HAVE_FASTDXT)
+		AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 	fi])
 
 AC_ARG_WITH(fastdxt,
@@ -619,7 +631,7 @@ then
 	DXT_LIB="-L${DXT_LIB} -ldxt"
 	DXT_OBJ="$DXT_OBJ src/video_display/dxt.o"
 	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
-	AC_DEFINE(HAVE_FASTDXT)
+        AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 else
 	DXT_INC=
 	DXT_LIB=
@@ -641,7 +653,7 @@ AC_ARG_ENABLE(sage,
 	[  --enable-sage           enable SAGE display support],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(HAVE_SAGE)
+		AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
 	fi])
 
 AC_ARG_WITH(sage,
@@ -659,7 +671,7 @@ then
     SAGE_INC=-I${SAGE_INC}
     SAGE_LIB=-"L${SAGE_LIB} -lsail"
     SAGE_OBJ="$SAGE_OBJ src/video_display/sage.o src/video_display/sage_wrapper.o"
-    AC_DEFINE(HAVE_SAGE)
+    AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
 else
     SAGE_INC=
@@ -683,7 +695,7 @@ AC_ARG_ENABLE(portaudio,
 	[  --enable-portaudio      enable Portaudio framework support],
 	[if test $enableval = yes
 	then
-		AC_DEFINE(HAVE_AUDIO)
+                AC_DEFINE([HAVE_AUDIO], [1], [Build with Portaudio support])
 	fi])
 
 AC_ARG_WITH(portaudio,
@@ -708,7 +720,7 @@ case "$host_os" in
         ;;
 esac
     AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
-    AC_DEFINE(HAVE_AUDIO)
+    AC_DEFINE([HAVE_AUDIO], [1], [Build with Portaudio support])
 else
     AUDIO_INC=
     AUDIO_LIB=

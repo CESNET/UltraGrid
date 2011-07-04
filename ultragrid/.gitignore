@@ -1,6 +1,7 @@
 configure
 Makefile
 config.h
+config.h.in
 *.o
 uv
 aclocal.m4

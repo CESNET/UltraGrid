@@ -64,6 +64,7 @@
 #include "video_display/dxt.h"
 #include "video_display/quicktime.h"
 #include "video_display/sage.h"
+#include "video_display/xv.h"
 
 /*
  * Interface to probing the valid display types. 
@@ -107,6 +108,16 @@ static display_table_t display_device_table[] = {
          display_sage_done,
          display_sage_getf,
          display_sage_putf,
+         },
+#endif                          /* HAVE_SAGE */
+#ifdef HAVE_XV
+        {
+         0,
+         display_xv_probe,
+         display_xv_init,
+         display_xv_done,
+         display_xv_getf,
+         display_xv_putf,
          },
 #endif                          /* HAVE_SAGE */
 #ifdef HAVE_FASTDXT
