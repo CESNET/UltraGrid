@@ -189,7 +189,6 @@ struct vidcap_quad_state {
         struct              pollfd pfd[MAX_TILES];
         unsigned long int   bufsize;
         unsigned long int   buffers;
-        char              **address[MAX_TILES];
         struct video_frame  frame[MAX_TILES];
         int                 cur_dev;
         sem_t               have_item;
@@ -268,12 +267,8 @@ vidcap_quad_init(char *init_fmt)
         char                      *save_ptr = NULL;
         char                      *fmt_dup, *item;
 	int			  tile_x_cnt, tile_y_cnt;
-        int                       pagesize;
 
 	printf("vidcap_quad_init\n");
-
-        /* mmap values */
-        pagesize = getpagesize();
 
         s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
 	if(s == NULL) {
@@ -344,7 +339,6 @@ vidcap_quad_init(char *init_fmt)
                 int                       num;
                 unsigned long int         mode;
                 const struct codec_info_t *c_info;
-                int                       bufmemsize;
 
                 snprintf(dev_name, sizeof(dev_name), devfile_fmt, i);
 
@@ -478,9 +472,6 @@ vidcap_quad_init(char *init_fmt)
                         vidcap_quad_done(s);
                         return NULL;
                 }
-                bufmemsize = s->bufsize +
-		        ((s->bufsize % pagesize) ? (pagesize - s->bufsize % pagesize) : 0);
-
 
                 /* END OF CHECK IF QUAD CAN WORK CORRECTLY */
 
@@ -552,38 +543,12 @@ vidcap_quad_init(char *init_fmt)
                         s->frame[i].tile_info.pos_y = i / tile_x_cnt;
                 }
 
-                if ((s->address[i] = (char **)calloc (s->buffers, sizeof (char *))) == NULL) {
-                        perror ("unable to allocate memory");
-                        vidcap_quad_done(s);
-                        return NULL;
-                } else {
-                        unsigned int j;
-
-                        for (j = 0; j < s->buffers; j++) {
-                                if ((s->address[i][j] = (char *)mmap (NULL,
-                                                s->bufsize,
-                                                PROT_READ,
-                                                MAP_SHARED,
-                                                s->fd[i],
-                                                j * bufmemsize)) == (char *)MAP_FAILED) {
-                                        unsigned int buf_idx;
-                                        perror ("unable to map memory");
-                                        for (buf_idx = 0; buf_idx < j; buf_idx++) {
-                                                munmap (s->address[i][buf_idx], s->bufsize);
-                                        }
-                                        free (s->address[i]);
-                                        s->address[i] = 0ul;
-                                        vidcap_quad_done(s);
-                                        return NULL;
-                                }
-                        }
-                }
-                /*if((s->frame[i].data = (char *) malloc (s->frame[i].data_len)) == NULL) {
+                if((s->frame[i].data = (char *) malloc (s->frame[i].data_len)) == NULL) {
                         fprintf (stderr, "%s: ", dev_name);
                         fprintf (stderr, "unable to allocate memory\n");
                         vidcap_quad_done(s);
                         return NULL;
-                }*/
+                }
 
                 /* SET SOME VARIABLES*/
                 s->pfd[i].fd = s->fd[i];
@@ -612,13 +577,6 @@ vidcap_quad_done(void *state)
 				free(s->frame[i].data);
 			if(s->fd[i] != 0)
 				close(s->fd[i]);
-			if(s->address[i] != NULL) {
-				unsigned int buf_idx;
-				for (buf_idx = 0; buf_idx < s->buffers; buf_idx++) {
-					munmap (s->address[i][buf_idx], s->bufsize);
-				}
-				free(s->address[i]);
-			}
 		}
 	}
 	pthread_join(s->grabber, NULL);
@@ -630,14 +588,8 @@ static void * vidcap_grab_thread(void *args)
 {
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) args;
         struct timespec timeout;
-        int cur_dev_buf[MAX_TILES];
         int i;
-        int first_run[MAX_TILES];
-
-        for(i = 0; i < MAX_TILES; ++i) {
-                cur_dev_buf[i] = 0;
-                first_run[i] = 1;
-        }
+        int ret;
 
         timeout.tv_sec = 0;
         timeout.tv_nsec = 500 * 1000;
@@ -655,32 +607,58 @@ static void * vidcap_grab_thread(void *args)
                 //for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev)
 		while (return_vec != (1 << s->device_cnt) - 1)
                 {
-                        if(poll (s->pfd, s->device_cnt, 1000) < 0) {
+                        if(poll (s->pfd, s->device_cnt, 1000/23) < 0) {
                                 //fprintf (stderr, "%s: ", device);
                                 perror ("unable to poll device file");
                                 return NULL;
                         }
 
 			for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
-                                int prev_buf;
-
-                                prev_buf = cur_dev_buf[cur_dev] - 1;
-                                if (prev_buf < 0) prev_buf += s->buffers;
-
                                 if (s->pfd[cur_dev].revents & POLLIN) {
-                                        if (!first_run[cur_dev])
-                                                if (ioctl (s->fd[cur_dev], SDIVIDEO_IOC_QBUF, prev_buf) < 0) {
-                                                         perror ("unable to queue buffer");
-                                                         return NULL;
-                                                }
-                                        if (ioctl (s->fd[cur_dev], SDIVIDEO_IOC_DQBUF, cur_dev_buf[cur_dev]) < 0) {
-                                                perror ("unable to dequeue buffer");
+                                        read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        return_vec |= 1 << cur_dev;
+                                }
+
+                                if(s->pfd[cur_dev].revents & POLLPRI) {
+                                        if (ioctl (s->fd[cur_dev],SDIVIDEO_IOC_RXGETEVENTS, &val) < 0) {
+                                                //fprintf (stderr, "%s: ", device);
+                                                perror ("unable to get receiver event flags");
                                                 return NULL;
                                         }
-                                        s->frame[cur_dev].data = s->address[cur_dev][cur_dev_buf[cur_dev]];
-                                        cur_dev_buf[cur_dev] = (cur_dev_buf[cur_dev] + 1) % s->buffers;
+                                        if (val & SDIVIDEO_EVENT_RX_BUFFER) {
+                                                fprinttime (stderr, "");
+                                                fprintf (stderr,
+                                                        "driver receive buffer queue "
+                                                        "overrun detected\n");
+                                        }
+                                        if (val &  SDIVIDEO_EVENT_RX_FIFO) {
+                                                fprinttime (stderr, "");
+                                                fprintf (stderr,
+                                                        "onboard receive FIFO "
+                                                        "overrun detected\n");
+                                        }
+                                        if (val & SDIVIDEO_EVENT_RX_CARRIER) {
+                                                fprinttime (stderr, "");
+                                                fprintf (stderr,
+                                                        "carrier status "
+                                                        "change detected\n");
+                                        }
+                                if (val & SDIVIDEO_EVENT_RX_STD) {
+                                    fprinttime (stderr, progname);
+                                    fprintf (stderr,
+                                        "format "
+                                        "change detected\n");
+                                   }
+                                }
+
+                        }
+                }
+
+                while (poll (s->pfd, s->device_cnt, 0) > 0) {
+                        for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
+                                if (s->pfd[cur_dev].revents & POLLIN) {
+                                        read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
                                         return_vec |= 1 << cur_dev;
-                                        first_run[cur_dev] = 0;
                                 }
 
                                 if(s->pfd[cur_dev].revents & POLLPRI) {
