@@ -1,5 +1,5 @@
 /*
- * FILE:    video_display/gl_sdl.h
+ * FILE:    video_display/gl.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>

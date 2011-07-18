@@ -103,7 +103,7 @@ struct codec_info_t {
         int h_align;
         double bpp;
         unsigned rgb:1;
-} codec_info_t;
+};
 
 extern const struct codec_info_t codec_info[];
 

@@ -1,13 +1,8 @@
 /*
- * FILE:    video_display/xv.h
- * AUTHORS: Colin Perkins    <csp@csperkins.org>
- *          Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ * FILE:   video_display/decklink.h
+ * AUTHOR: Colin Perkins <csp@isi.edu>
+ *
+ * Copyright (c) 2001-2002 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -24,8 +19,7 @@
  *    must display the following acknowledgement:
  * 
  *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
+ *      California Information Sciences Institute.
  * 
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
@@ -44,17 +38,22 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.2 $
- * $Date: 2009/12/11 15:27:18 $
- *
  */
+#include "video_display.h"
 
-#define DISPLAY_XV_ID	0xba370a1b
+#define DISPLAY_DECKLINK_ID	0x415f46d0
 
-display_type_t		*display_xv_probe(void);
-void 			*display_xv_init(void);
-void 			 display_xv_run(void *state);
-void 			 display_xv_done(void *state);
-struct video_frame 	*display_xv_getf(void *state);
-int  			 display_xv_putf(void *state, char *frame);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+display_type_t      *display_decklink_probe(void);
+void                *display_decklink_init(char *fmt);
+void                 display_decklink_done(void *state);
+struct video_frame  *display_decklink_getf(void *state);
+int                  display_decklink_putf(void *state, char *frame);
+
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif

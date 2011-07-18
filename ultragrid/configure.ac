@@ -197,15 +197,8 @@ if test ! $no_x ; then
 			X_CFLAGS=$SAVED_X_CFLAGS
 		fi
 	fi
-        PKG_CHECK_MODULES([XV], [xv], [FOUND_XV=yes], [FOUND_XV=no])
-        if test $FOUND_XV = "yes"; then
-            X_OBJ+="src/video_display/xv.o"
-            AC_DEFINE([HAVE_XV], [1], [Build with Xv extension])
-        fi
-        PKG_CHECK_MODULES([XINERAMA], [xinerama],
-                          [AC_DEFINE([HAVE_XINERAMA], [1], [Build with Xinerama extension])], XINERAMA=no)
-        X_LIBS+=" -lX11 -lXext $XV_LIBS $XINERAMA_LIBS"
-        CFLAGS+=" $XV_CFLAGS $XINERAMA_CFLAGS"
+        X_LIBS+=" -lX11 -lXext"
+        CFLAGS+=""
 
 fi
 
@@ -294,7 +287,7 @@ if test $FOUND_DECKLINK = yes
 then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
-    DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o"
+    DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o src/video_display/decklink.o"
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
 else
@@ -543,7 +536,7 @@ case "$host_os" in
 			then
 				LIBS="$LIBS /opt/local/lib/libGLEW.a"
 				GL_INC="$GL_INC -I/opt/local/include"
-				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
 				echo "OpenGL (GLEW/GLUT) libraries not found or not usable."
@@ -593,7 +586,7 @@ case "$host_os" in
 			if test $FOUND_GLEW_L = yes -a $FOUND_GLUT_L = yes
 			then
 				LIBS="$LIBS -lGLEW -lglut"
-				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
+				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
 				echo "OpenGL (GLEW/GLUT) libraries not found or not usable."

@@ -1,5 +1,5 @@
 /*
- * FILE:    video_display/gl_sdl.c
+ * FILE:    video_display/gl.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -71,7 +71,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "video_display.h"
-#include "video_display/gl_sdl.h"
+#include "video_display/gl.h"
 #include "tv.h"
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
