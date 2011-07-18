@@ -67,10 +67,13 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         uint32_t data_pos;
         int prints=0;
         double fps;
-        struct video_frame *tile;
+        struct video_frame *tile, *data;
 
         if(!frame)
                 return;
+
+        tile = malloc(sizeof(struct video_frame));
+        data = tile;
 
         while (cdata != NULL) {
                 pckt = cdata->data;
@@ -91,18 +94,27 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                       frame->height == (aux & AUX_TILED ? height * tile_info.y_count : height) &&
                       frame->color_spec == color_spec &&
                       frame->aux == aux &&
-                      frame->fps == fps &&
-                      (!(aux & AUX_TILED) || /* |- (tiled -> eq) <-> (!tiled OR eq) */
-                       tileinfo_eq_count(frame->tile_info, tile_info)))) {
-                        frame->reconfigure(frame->state, width, height,
-                                           color_spec, fps, aux, tile_info);
+                      frame->fps == fps
+                      )) {
+                        int frame_width = aux & AUX_TILED ? width * tile_info.x_count : width;
+                        int frame_height = aux & AUX_TILED ? height * tile_info.y_count : height;
+                        frame->reconfigure(frame->state, frame_width,
+                                        frame_height,
+                                        color_spec, fps, aux);
                         frame->src_linesize =
                             vc_getsrc_linesize(frame->width, color_spec);
                 }
-                if (aux & AUX_TILED)
-                        tile = frame->get_tile_buffer(frame->state, tile_info);
-                else
+                if (aux & AUX_TILED) {
+                        frame->get_sub_frame(frame->state,
+                                        tile_info.pos_x * frame->width / tile_info.x_count,
+                                        tile_info.pos_y * frame->height / tile_info.y_count,
+                                        frame->width / tile_info.x_count,
+                                        frame->height / tile_info.y_count,
+                                        data);
+                        tile = data;
+                } else {
                         tile = frame;
+                }
                 /* End of critical section */
 
                 /* MAGIC, don't touch it, you definitely break it 
@@ -112,7 +124,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 /* compute Y pos in source frame and convert it to 
                  * byte offset in the destination frame
                  */
-                int y = (data_pos / tile->src_linesize) * frame->dst_pitch;
+                int y = (data_pos / tile->src_linesize) * tile->dst_pitch;
 
                 /* compute X pos in source frame */
                 int s_x = data_pos % tile->src_linesize;
@@ -121,7 +133,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                  * it is byte offset from the beginning of a line. 
                  */
                 int d_x = tile->dst_x_offset + ((int)((s_x) / tile->src_bpp)) *
-                        frame->dst_bpp;
+                        tile->dst_bpp;
 
                 /* pointer to data payload in packet */
                 source = (unsigned char*)(pckt->data + sizeof(payload_hdr_t));
@@ -133,7 +145,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                         /* len id payload length in source BPP
                          * decoder needs len in destination BPP, so convert it 
                          */                        
-                        int l = ((int)(len / tile->src_bpp)) * frame->dst_bpp;
+                        int l = ((int)(len / tile->src_bpp)) * tile->dst_bpp;
 
                         /* do not copy multiple lines, we need to 
                          * copy (& clip, center) line by line 
@@ -146,14 +158,14 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                         offset = y + d_x;
 
                         /* watch the SEGV */
-                        if (l + offset <= frame->data_len) {
+                        if (l + offset <= tile->data_len) {
                                 /*decode frame:
                                  * we have offset for destination
                                  * we update source contiguously
                                  * we pass {r,g,b}shifts */
-                                frame->decoder((unsigned char*)tile->data + offset, source, l,
-                                               frame->rshift, frame->gshift,
-                                               frame->bshift);
+                                tile->decoder((unsigned char*)tile->data + offset, source, l,
+                                               tile->rshift, tile->gshift,
+                                               tile->bshift);
                                 /* we decoded one line (or a part of one line) to the end of the line
                                  * so decrease *source* len by 1 line (or that part of the line */
                                 len -= tile->src_linesize - s_x;
@@ -174,9 +186,12 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                         /* each new line continues from the beginning */
                         d_x = tile->dst_x_offset;        /* next line from beginning */
                         s_x = 0;
-                        y += frame->dst_pitch;  /* next line */
+                        y += tile->dst_pitch;  /* next line */
                 }
 
                 cdata = cdata->nxt;
         }
+
+        free(data);
 }
+

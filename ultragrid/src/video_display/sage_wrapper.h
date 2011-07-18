@@ -54,12 +54,12 @@
 
 // SAGE headers
 #ifdef __cplusplus
-extern "C" void initSage(int appID, int nodeID, int width, int height, int yuv);
+extern "C" void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt);
 extern "C" void sage_shutdown();
 extern "C" void sage_swapBuffer();
 extern "C" GLubyte * sage_getBuffer();
 #else
-void initSage(int appID, int nodeID, int width, int height, int yuv);
+void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt);
 void sage_swapBuffer();
 GLubyte * sage_getBuffer();
 void sage_shutdown();

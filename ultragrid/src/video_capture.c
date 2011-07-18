@@ -78,7 +78,7 @@ struct vidcap_device_api {
         struct vidcap_type *(*func_probe) (void);
         void *(*func_init) (char *fmt);
         void (*func_done) (void *state);
-        struct video_frame *(*func_grab) (void *state);
+        struct video_frame *(*func_grab) (void *state, int *count);
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
@@ -222,8 +222,8 @@ void vidcap_done(struct vidcap *state)
         free(state);
 }
 
-struct video_frame *vidcap_grab(struct vidcap *state)
+struct video_frame *vidcap_grab(struct vidcap *state, int *count)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        return vidcap_device_table[state->index].func_grab(state->state);
+        return vidcap_device_table[state->index].func_grab(state->state, count);
 }

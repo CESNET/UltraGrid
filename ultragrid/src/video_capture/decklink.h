@@ -53,7 +53,7 @@ extern "C" {
 struct vidcap_type	*vidcap_decklink_probe(void);
 void			*vidcap_decklink_init(char *fmt);
 void			 vidcap_decklink_done(void *state);
-struct video_frame	*vidcap_decklink_grab(void *state);
+struct video_frame	*vidcap_decklink_grab(void *state, int *count);
 
 #ifdef __cplusplus
 } // END extern "C"

@@ -76,8 +76,6 @@
 
 struct state_sage {
         struct video_frame frame;
-        struct video_frame *tiles;
-        int put_frame:1;
 
         /* Thread related information follows... */
         pthread_t thread_id;
@@ -95,9 +93,9 @@ struct state_sage {
 
 /** Prototyping */
 void sage_reconfigure_screen(void *s, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux, struct tile_info tile_info);
-static struct video_frame * get_tile_buffer(void *s, struct tile_info tile_info);
-static void update_tile_data(struct state_sage *s);
+                codec_t codec, double fps, int aux);
+static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
+void display_sage_run(void *arg);
 
 int display_sage_handle_events(void)
 {
@@ -116,8 +114,6 @@ void display_sage_run(void *arg)
 
                 sage_swapBuffer();
                 s->frame.data = sage_getBuffer();
-                if (s->frame.aux & AUX_TILED)
-                        update_tile_data(s);
 
                 pthread_mutex_lock(&s->buffer_writable_lock);
                 s->buffer_writable = 1;
@@ -141,15 +137,11 @@ void *display_sage_init(void)
         s->sage_initialized = 0;
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)sage_reconfigure_screen;
-        s->frame.get_tile_buffer = (get_tile_buffer_t) get_tile_buffer;
+        s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
 
         s->frame.rshift = 0;
         s->frame.gshift = 8;
         s->frame.bshift = 16;
-
-
-        s->frame.aux &= ~AUX_TILED; /* do not expect tiled video by default */
-        s->tiles = NULL;
 
         /* thread init */
         sem_init(&s->semaphore, 0, 0);
@@ -177,8 +169,6 @@ void display_sage_done(void *state)
         sem_destroy(&s->semaphore);
         pthread_cond_destroy(&s->buffer_writable_cond);
         pthread_mutex_destroy(&s->buffer_writable_lock);
-        if(s->tiles == NULL)
-                free(s->tiles);
         sage_shutdown();
 }
 
@@ -206,38 +196,31 @@ int display_sage_putf(void *state, char *frame)
         UNUSED(frame);
 
         /* ...and signal the worker */
+        pthread_mutex_lock(&s->buffer_writable_lock);
+        s->buffer_writable = 0;
+        pthread_mutex_unlock(&s->buffer_writable_lock);
 
-        if(s->put_frame) {
-                pthread_mutex_lock(&s->buffer_writable_lock);
-                s->buffer_writable = 0;
-                pthread_mutex_unlock(&s->buffer_writable_lock);
-
-                sem_post(&s->semaphore);
-                sem_getvalue(&s->semaphore, &tmp);
-                if (tmp > 1)
-                        printf("frame drop!\n");
-        }
+        sem_post(&s->semaphore);
+        sem_getvalue(&s->semaphore, &tmp);
+        if (tmp > 1)
+                printf("frame drop!\n");
 
         return 0;
 }
 
 void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux, struct tile_info tile_info)
+                codec_t codec, double fps, int aux)
 {
         struct state_sage *s = (struct state_sage *)arg;
 
         int yuv;
+        int dxt;
 
         assert(s->magic == MAGIC_SAGE);
-        if (aux & AUX_TILED) {
-                s->frame.width = width * tile_info.x_count;
-                s->frame.height = height * tile_info.y_count;
-                s->put_frame = FALSE; /* put only if we have last tile */
-        } else {
-                s->frame.width = width;
-                s->frame.height = height;
-                s->put_frame = TRUE; /* this is not tiled so put every frame */
-        }
+        s->frame.width = width;
+        s->frame.height = height;
+
+        dxt = 0;
 
         switch (codec) {
                 case R10k:
@@ -270,6 +253,15 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
                         s->frame.dst_bpp = get_bpp(UYVY);
                         yuv = 1;
                         break;
+                case DXT1:
+                        s->frame.decoder = (decoder_t)memcpy;
+                        s->frame.dst_bpp = get_bpp(DXT1);
+                        if(aux & AUX_YUV) {
+                                fprintf(stderr, "YCbCr DXT compression is not yet supported for SAGE.\n");
+                                exit(128);
+                        }
+                        yuv = 0;
+                        dxt = 1;
         }
 
         s->frame.fps = fps;
@@ -284,44 +276,9 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         if(s->sage_initialized)
                 sage_shutdown();
         // warning s->frame.{width,height} !!!!
-        initSage(s->appID, s->nodeID, s->frame.width, s->frame.height, yuv);
+        initSage(s->appID, s->nodeID, s->frame.width, s->frame.height, yuv, dxt);
         s->sage_initialized = 1;
         s->frame.data = sage_getBuffer();
-
-        if (s->tiles != NULL) {
-                free(s->tiles);
-                s->tiles = NULL;
-        }
-        if (aux & AUX_TILED) {
-                int x, y;
-                const int x_cnt = tile_info.x_count;
-
-                s->frame.tile_info = tile_info;
-                s->tiles = (struct video_frame *)
-                        malloc(s->frame.tile_info.x_count *
-                                        s->frame.tile_info.y_count *
-                                        sizeof(struct video_frame));
-                for (y = 0; y < s->frame.tile_info.y_count; ++y)
-                        for(x = 0; x < s->frame.tile_info.x_count; ++x) {
-                                memcpy(&s->tiles[y*x_cnt + x], &s->frame,
-                                                sizeof(struct video_frame));
-                                s->tiles[y*x_cnt + x].width = width;
-                                s->tiles[y*x_cnt + x].height = height;
-                                s->tiles[y*x_cnt + x].tile_info.pos_x = x;
-                                s->tiles[y*x_cnt + x].tile_info.pos_y = y;
-                                s->tiles[y*x_cnt + x].dst_x_offset +=
-                                        x * width * s->frame.dst_bpp;
-                                s->tiles[y*x_cnt + x].data +=
-                                        y * height *  s->frame.dst_pitch;
-                                s->tiles[y*x_cnt + x].src_linesize =
-                                        vc_getsrc_linesize(width, codec);
-                                s->tiles[y*x_cnt + x].dst_linesize =
-                                        vc_getsrc_linesize((x + 1) * width, codec);
-
-                        }
-        }
-        
-
 }
 
 display_type_t *display_sage_probe(void)
@@ -337,31 +294,21 @@ display_type_t *display_sage_probe(void)
         return dt;
 }
 
-static struct video_frame * get_tile_buffer(void *state, struct tile_info tile_info) 
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
 {
         struct state_sage *s = (struct state_sage *)state;
 
-        assert(s->tiles != NULL); /* basic sanity test... */
-        if(tile_info.pos_x + tile_info.pos_y * tile_info.x_count ==
-                                        s->frame.tile_info.x_count * 
-                                        s->frame.tile_info.y_count - 1)
-                s->put_frame = TRUE; /* this is the last tile */
-        else
-                s->put_frame = FALSE; /* this is not the last tile */
+        memcpy(out, &s->frame, sizeof(struct video_frame));
+        out->width = w;
+        out->height = h;
+        out->dst_x_offset +=
+                x * s->frame.dst_bpp;
+        out->data +=
+                y * s->frame.dst_pitch;
+        out->src_linesize =
+                vc_getsrc_linesize(w, out->color_spec);
+        out->dst_linesize =
+                vc_getsrc_linesize(x + w, out->color_spec);
 
-        return &s->tiles[tile_info.pos_x + tile_info.pos_y * tile_info.x_count];
 }
 
-static void update_tile_data(struct state_sage *s) 
-{
-        int x, y;
-        int x_cnt;
-
-        x_cnt = s->frame.tile_info.x_count;
-        for (y = 0; y < s->frame.tile_info.y_count; ++y)
-                for(x = 0; x < s->frame.tile_info.x_count; ++x)
-                        s->tiles[y*x_cnt + x].data =
-                                s->frame.data + 
-                                y * s->tiles[y*x_cnt + x].height *
-                                s->frame.dst_pitch;
-}

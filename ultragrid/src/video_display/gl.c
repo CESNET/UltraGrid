@@ -152,6 +152,8 @@ void glut_idle_callback(void);
 void glut_redisplay_callback(void);
 void glut_key_callback(unsigned char key, int x, int y);
 
+static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
+
 #ifndef HAVE_MACOSX
 static void update_fullscreen_state(struct state_gl *s);
 /*from wmctrl */
@@ -247,6 +249,7 @@ void * display_gl_init(char *fmt) {
 	}
 
         s->frame.reconfigure = (reconfigure_t) gl_reconfigure_screen_stub;
+        s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
         s->frame.state = s;
         s->win_initialized = FALSE;
 
@@ -1127,3 +1130,20 @@ static void update_fullscreen_state(struct state_gl *s)
 }
 #endif
 
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
+{
+        struct state_gl *s = (struct state_sdl *)state;
+
+        memcpy(out, &s->frame, sizeof(struct video_frame));
+        out->width = w;
+        out->height = h;
+        out->dst_x_offset +=
+                x * get_bpp(s->frame.dst_bpp);
+        out->data +=
+                y * s->frame.dst_pitch;
+        out->src_linesize =
+                vc_getsrc_linesize(w, out->color_spec);
+        out->dst_linesize =
+                vc_getsrc_linesize(x + w, out->color_spec);
+
+}

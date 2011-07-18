@@ -80,7 +80,6 @@ struct testcard_state {
         struct timeval t0;
         struct video_frame frame;
         struct video_frame *tiles;
-        int last_tile_sent;
 };
 
 const int rect_colors[] = {
@@ -510,18 +509,12 @@ void vidcap_testcard_done(void *state)
         free(s);
 }
 
-struct video_frame *vidcap_testcard_grab(void *arg)
+struct video_frame *vidcap_testcard_grab(void *arg, int *count)
 {
         struct timeval curr_time;
         struct testcard_state *state;
 
         state = (struct testcard_state *)arg;
-
-        if (state->frame.aux & AUX_TILED) {
-                if (state->last_tile_sent < state->tiles->tile_info.x_count *
-                                state->tiles->tile_info.y_count - 1)
-                        return &state->tiles[++state->last_tile_sent];
-        }
 
         gettimeofday(&curr_time, NULL);
         if (tv_diff(curr_time, state->last_frame_time) >
@@ -562,16 +555,15 @@ struct video_frame *vidcap_testcard_grab(void *arg)
                         }
                 }
 #endif
-                if (state->frame.aux & AUX_TILED && state->last_tile_sent ==
-                                state->tiles->tile_info.x_count *
-                                state->tiles->tile_info.y_count
-                                - 1) {
+                if (state->frame.aux & AUX_TILED) {
                         vf_split(state->tiles, &state->frame,
                                        state->frame.tile_info.x_count,
                                        state->frame.tile_info.y_count, 0);
-                        state->last_tile_sent = 0;
+                        *count = state->frame.tile_info.x_count *
+                                state->frame.tile_info.y_count;
                         return state->tiles;
                 }
+                *count = 1;
                 return &state->frame;
         }
         return NULL;

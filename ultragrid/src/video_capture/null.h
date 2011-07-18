@@ -48,5 +48,5 @@
 struct vidcap_type	*vidcap_null_probe(void);
 void			*vidcap_null_init(char *fmt);
 void			 vidcap_null_done(void *state);
-struct video_frame	*vidcap_null_grab(void *state);
+struct video_frame	*vidcap_null_grab(void *state, int *count);
 

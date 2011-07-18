@@ -660,7 +660,7 @@ vidcap_decklink_done(void *state)
 }
 
 struct video_frame *
-vidcap_decklink_grab(void *state)
+vidcap_decklink_grab(void *state, int * count)
 {
 	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
 
@@ -742,8 +742,10 @@ vidcap_decklink_grab(void *state)
                 if(s->c_info->codec == RGBA) {
                     vc_copylineRGBA((unsigned char*)s->frame.data, (unsigned char*)s->frame.data, s->frame.data_len, 16, 8, 0);
                 }
+                count = 1;
                 return &s->frame;
 	}
+        count = 0;
 	return NULL;
 }
 

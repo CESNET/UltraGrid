@@ -190,7 +190,6 @@ struct vidcap_quad_state {
         unsigned long int   bufsize;
         unsigned long int   buffers;
         struct video_frame  frame[MAX_TILES];
-        int                 cur_dev;
         sem_t               have_item;
         sem_t               boss_waiting;
         pthread_t           grabber;
@@ -555,7 +554,6 @@ vidcap_quad_init(char *init_fmt)
                 s->pfd[i].events = POLLIN | POLLPRI;
         }
 
-        s->cur_dev = 0;
         sem_init(&s->have_item, 0, 0);
         sem_init(&s->boss_waiting, 0, 0);
         pthread_create(&s->grabber, NULL, vidcap_grab_thread, s);
@@ -701,33 +699,26 @@ static void * vidcap_grab_thread(void *args)
 }
 
 struct video_frame *
-vidcap_quad_grab(void *state)
+vidcap_quad_grab(void *state, int *count)
 {
 
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
 
-        int          last_frame;
+        sem_post(&s->boss_waiting);
+        sem_wait(&s->have_item);
 
+        frames++;
+        gettimeofday(&t, NULL);
+        double seconds = tv_diff(t, t0);    
+        if (seconds >= 5) {
+            float fps  = frames / seconds;
+            fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
+            t0 = t;
+            frames = 0;
+        }  
 
-        if(s->cur_dev == 0) {
-                sem_post(&s->boss_waiting);
-                sem_wait(&s->have_item);
-
-                frames++;
-                gettimeofday(&t, NULL);
-                double seconds = tv_diff(t, t0);    
-                if (seconds >= 5) {
-                    float fps  = frames / seconds;
-                    fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
-                    t0 = t;
-                    frames = 0;
-                }  
-        }
-
-        last_frame = s->cur_dev;
-        s->cur_dev = (s->cur_dev + 1) % s->device_cnt;
-
-	return &s->frame[last_frame];
+        *count = s->device_cnt;
+	return &s->frame;
 }
 
 static void print_output_modes()

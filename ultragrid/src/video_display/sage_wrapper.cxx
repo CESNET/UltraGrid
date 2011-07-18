@@ -53,7 +53,7 @@
 
 sail *sageInf; // sage sail object
 
-void initSage(int appID, int nodeID, int width, int height, int yuv)
+void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt)
 {
             sageInf = new sail;
             sailConfig sailCfg;
@@ -70,10 +70,14 @@ void initSage(int appID, int nodeID, int width, int height, int yuv)
             renderImageMap.top = 1.0;
 
             sailCfg.imageMap = renderImageMap;
-            if (!yuv)
-                    sailCfg.pixFmt = PIXFMT_8888_INV;
-            else
+            if (!yuv) {
+                    if(dxt)
+                            sailCfg.pixFmt = PIXFMT_DXT;
+                    else
+                            sailCfg.pixFmt = PIXFMT_8888_INV;
+            } else {
                     sailCfg.pixFmt = PIXFMT_YUV;
+            }
             //sailCfg.rowOrd = BOTTOM_TO_TOP;
             sailCfg.rowOrd = TOP_TO_BOTTOM;
             sailCfg.master = true;

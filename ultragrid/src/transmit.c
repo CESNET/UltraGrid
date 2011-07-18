@@ -79,6 +79,9 @@ extern long packet_rate;
 #define GET_DELTA delta = stop.tv_nsec - start.tv_nsec
 #endif                          /* HAVE_MACOSX */
 
+void
+tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session, uint32_t ts, int send_m);
+
 struct video_tx {
         uint32_t magic;
         unsigned mtu;
@@ -102,13 +105,37 @@ void tx_done(struct video_tx *tx)
         free(tx);
 }
 
+/*
+ * sends one or more frames (tiles) with same TS in one RTP stream. Only one m-bit is set.
+ */
+void
+tx_send_multi(struct video_tx *tx, struct video_frame *frame, int count, struct rtp *rtp_session)
+{
+        int i;
+        uint32_t ts = 0;
+
+        ts = get_local_mediatime();
+
+        for(i = 0; i < count; ++i)
+        {
+                tx_send_base(tx, &frame[i], rtp_session, ts, i == count - 1 ? TRUE : FALSE);
+        }
+}
+
 void
 tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
+{
+        uint32_t ts = 0;
+        ts = get_local_mediatime();
+        tx_send_base(tx, frame, rtp_session, ts, TRUE);
+}
+
+void
+tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session, uint32_t ts, int send_m)
 {
         int m, data_len;
         payload_hdr_t payload_hdr;
         int pt = 96;            /* A dynamic payload type for the tests... */
-        static uint32_t ts = 0;
         char *data;
         unsigned int pos;
 #if HAVE_MACOSX
@@ -121,7 +148,6 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
         assert(tx->magic == TRANSMIT_MAGIC);
 
         m = 0;
-        ts = get_local_mediatime();
         pos = 0;
 
         payload_hdr.width = htons(frame->width);
@@ -139,7 +165,8 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                 data_len = tx->mtu - 40 - (sizeof(payload_hdr_t));
                 data_len = (data_len / 48) * 48;
                 if (pos + data_len >= frame->data_len) {
-                        m = 1;
+                        if (send_m)
+                                m = 1;
                         data_len = frame->data_len - pos;
                 }
                 pos += data_len;

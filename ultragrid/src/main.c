@@ -337,9 +337,10 @@ static void *ihdtv_sender_thread(void *arg)
         ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
         struct vidcap *capture_device = (struct vidcap *)((void **)arg)[1];
         struct video_frame *tx_frame;
+        int unused;
 
         while (!should_exit) {
-                if ((tx_frame = vidcap_grab(capture_device)) != NULL) {
+                if ((tx_frame = vidcap_grab(capture_device, &unused)) != NULL) {
                         ihdtv_send(connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
                         free(tx_frame);
                 } else {
@@ -487,6 +488,8 @@ static void *receiver_thread(void *arg)
         int fr;
         int i = 0;
         int ret;
+        int tiles_post = 0;
+        struct timeval last_tile_received;
 
         fr = 1;
 
@@ -528,18 +531,39 @@ static void *receiver_thread(void *arg)
                         if (pbuf_decode
                             (cp->playout_buffer, uv->curr_time, frame_buffer,
                              i)) {
-				gettimeofday(&uv->curr_time, NULL);
-				fr = 1;
-				display_put_frame(uv->display_device,
-						  frame_buffer->data);
-				i = (i + 1) % 2;
-				frame_buffer =
-				    display_get_frame(uv->display_device);
+                                tiles_post++;
+                                /* wait for data from all connections */
+                                if(tiles_post == uv->connections_count) 
+                                {
+                                        tiles_post = 0;
+                                        gettimeofday(&uv->curr_time, NULL);
+                                        fr = 1;
+                                        display_put_frame(uv->display_device,
+                                                          frame_buffer->data);
+                                        i = (i + 1) % 2;
+                                        frame_buffer =
+                                            display_get_frame(uv->display_device);
+                                }
+                                last_tile_received = uv->curr_time;
                         }
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
                         cp = pdb_iter_next(uv->participants);
                 }
                 pdb_iter_done(uv->participants);
+
+                /* TIMEOUT - we won't wait for next tiles */
+                if(tiles_post > 1 && tv_diff(uv->curr_time, last_tile_received) > 
+                                999999 / 59.94 / uv->connections_count) {
+                        tiles_post = 0;
+                        gettimeofday(&uv->curr_time, NULL);
+                        fr = 1;
+                        display_put_frame(uv->display_device,
+                                          frame_buffer->data);
+                        i = (i + 1) % 2;
+                        frame_buffer =
+                            display_get_frame(uv->display_device);
+                        last_tile_received = uv->curr_time;
+                }
         }
 
         return 0;
@@ -549,11 +573,12 @@ static void *sender_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
 
-        struct video_frame *tx_frame;
+        struct video_frame *tx_frames;
 
         struct video_frame *splitted_frames = NULL;
         struct tile_info t_info;
         int net_dev = 0;
+        int frame_count = 0;
 
         if(uv->split_frames) {
                 /* it is simply stripping frame */
@@ -566,21 +591,23 @@ static void *sender_thread(void *arg)
 
         while (!should_exit) {
                 /* Capture and transmit video... */
-                tx_frame = vidcap_grab(uv->capture_device);
-                if (tx_frame != NULL) {
+                tx_frames = vidcap_grab(uv->capture_device, &frame_count);
+                if (tx_frames != NULL) {
                         //TODO: Unghetto this
                         if (uv->requested_compression) {
 #ifdef HAVE_FASTDXT
-                                tx_frame = compress_data(uv->compression, tx_frame);
+                                assert(frame_count == 1);
+                                compress_data(uv->compression, &tx_frames[0]);
 #endif                          /* HAVE_FASTDXT */
                         }
                         if(!uv->split_frames) {
-                                tx_send(uv->tx, tx_frame,
-                                                uv->network_devices[net_dev]);
-                                net_dev = (net_dev + 1) % uv->connections_count;
+                                tx_send_multi(uv->tx, tx_frames, frame_count,
+                                                uv->network_devices[0]);
                         } else { /* split */
                                 int i;
-                                vf_split_horizontal(splitted_frames, tx_frame,
+
+                                assert(frame_count == 1);
+                                vf_split_horizontal(splitted_frames, &tx_frames[0],
                                                t_info.y_count);
                                 for (i = 0; i < uv->connections_count; ++i) {
                                         tx_send(uv->tx, &splitted_frames[i],

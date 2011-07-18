@@ -96,5 +96,5 @@ struct vidcap;
 
 struct vidcap		*vidcap_init(vidcap_id_t id, char *fmt);
 void			 vidcap_done(struct vidcap *state);
-struct video_frame	*vidcap_grab(struct vidcap *state);
+struct video_frame	*vidcap_grab(struct vidcap *state, int *count);
 

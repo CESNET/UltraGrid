@@ -49,4 +49,4 @@
 struct vidcap_type	*vidcap_quad_probe(void);
 void			    *vidcap_quad_init(char *fmt);
 void			     vidcap_quad_done(void *state);
-struct video_frame	*vidcap_quad_grab(void *state);
+struct video_frame	*vidcap_quad_grab(void *state, int *count);

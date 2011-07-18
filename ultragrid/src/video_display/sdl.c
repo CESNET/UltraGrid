@@ -92,7 +92,6 @@ struct state_sdl {
         Display                 *display;
         SDL_Overlay             *yuv_image;
         struct video_frame      frame;
-        struct video_frame      *tiles;
 
         pthread_t               thread_id;
         SDL_sem                 *semaphore;
@@ -110,8 +109,6 @@ struct state_sdl {
         unsigned                rgb:1;
         unsigned                deinterlace:1;
         unsigned                fs:1;
-
-	int		        put_frame:1;
 
         volatile int            buffer_writable;
         SDL_cond                *buffer_writable_cond;
@@ -131,9 +128,8 @@ void deinterlace(struct state_sdl *s, unsigned char *buffer);
 static void show_help(void);
 void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
-                        codec_t codec, double fps, int aux, struct tile_info tile_info);
-static struct video_frame * get_tile_buffer(void *s, struct tile_info tile_info);
-static void update_tile_data(struct state_sdl *s);
+                        codec_t codec, double fps, int aux);
+static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
 
 extern int should_exit;
 
@@ -255,28 +251,20 @@ static void loadSplashscreen(struct state_sdl *s) {
 static void toggleFullscreen(struct state_sdl *s) {
         int width, height;
 
-        if (s->frame.aux & AUX_TILED)
-        {
-                width = s->tiles[0].width;
-                height = s->tiles[0].height;
-        }
-        else
-        {
-                width = s->frame.width;
-                height = s->frame.height;
-        }
+        width = s->frame.width;
+        height = s->frame.height;
 
 	if(s->fs) {
 		s->fs = 0;
                 reconfigure_screen(s, width, height,
                                 s->codec_info->codec, s->frame.fps,
-                                s->frame.aux, s->frame.tile_info);
+                                s->frame.aux);
         }
         else {
 		s->fs = 1;
                 reconfigure_screen(s, width, height,
                                 s->codec_info->codec, s->frame.fps,
-                                s->frame.aux, s->frame.tile_info);
+                                s->frame.aux);
         }
 }
 
@@ -369,8 +357,6 @@ void display_sdl_run(void *arg)
 			SDL_LockYUVOverlay(s->yuv_image);
 			s->frame.data = (char *)*s->yuv_image->pixels;
 		}
-                if (s->frame.aux & AUX_TILED)
-                        update_tile_data(s);
 
                 display_sdl_handle_events(s, 0); /* Must be exactly here ! */
 
@@ -426,8 +412,7 @@ void cleanup_screen(struct state_sdl *s)
 
 void
 reconfigure_screen(void *state, unsigned int width, unsigned int height,
-	   codec_t color_spec, double fps, int aux,
-	   struct tile_info tile_info)
+	   codec_t color_spec, double fps, int aux)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 	int itemp;
@@ -441,15 +426,9 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
 	cleanup_screen(s);
 
-	if (aux & AUX_TILED) {
-		s->frame.width = width * tile_info.x_count;
-		s->frame.height = height * tile_info.y_count;
-                s->put_frame = FALSE; /* do not put until we have last tile */
-	} else {
-		s->frame.width = width;
-		s->frame.height = height;
-                s->put_frame = TRUE; /* always put frame if it is not tile */
-	}
+        s->frame.width = width;
+        s->frame.height = height;
+
 	s->frame.fps = fps;
 	s->frame.aux = aux;
 
@@ -584,70 +563,24 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                         fprintf(stderr, "DXT1 isn't supported for SDL output.\n");
                         exit(EXIT_FAILURE);
         }
-
-        if (s->tiles != NULL) {
-                free(s->tiles);
-                s->tiles = NULL;
-        }
-        if (aux & AUX_TILED) {
-                int x, y;
-                const int x_cnt = tile_info.x_count;
-
-                s->frame.tile_info = tile_info;
-                s->tiles = (struct video_frame *)
-                        malloc(s->frame.tile_info.x_count *
-                                        s->frame.tile_info.y_count *
-                                        sizeof(struct video_frame));
-                for (y = 0; y < s->frame.tile_info.y_count; ++y)
-                        for(x = 0; x < s->frame.tile_info.x_count; ++x) {
-                                memcpy(&s->tiles[y*x_cnt + x], &s->frame,
-                                                sizeof(struct video_frame));
-                                s->tiles[y*x_cnt + x].width = width;
-                                s->tiles[y*x_cnt + x].height = height;
-                                s->tiles[y*x_cnt + x].tile_info.pos_x = x;
-                                s->tiles[y*x_cnt + x].tile_info.pos_y = y;
-                                s->tiles[y*x_cnt + x].dst_x_offset +=
-                                        x * width * (s->rgb ? 4 : 2 /*vuy2*/);
-                                s->tiles[y*x_cnt + x].data +=
-                                        y * height *  s->frame.dst_pitch;
-                                s->tiles[y*x_cnt + x].src_linesize =
-                                        vc_getsrc_linesize(width, color_spec);
-                                s->tiles[y*x_cnt + x].dst_linesize =
-                                        vc_getsrc_linesize((x + 1) * width, color_spec);
-
-                        }
-        }
 }
 
-static void update_tile_data(struct state_sdl *s) 
-{
-        int x, y;
-        int x_cnt;
-
-        x_cnt = s->frame.tile_info.x_count;
-        for (y = 0; y < s->frame.tile_info.y_count; ++y)
-                for(x = 0; x < s->frame.tile_info.x_count; ++x)
-                        s->tiles[y*x_cnt + x].data =
-                                s->frame.data + 
-                                y * s->tiles[y*x_cnt + x].height *
-                                s->frame.dst_pitch;
-}
-
-static struct video_frame * get_tile_buffer(void *state, struct tile_info tile_info) 
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
 {
         struct state_sdl *s = (struct state_sdl *)state;
 
-        assert(s->tiles != NULL); /* basic sanity test... */
-        if(tile_info.pos_x + tile_info.pos_y * tile_info.x_count ==
-                        s->frame.tile_info.x_count * 
-                        s->frame.tile_info.y_count - 1) 
-                /* we have last tile in frame so display it */
-                s->put_frame = TRUE;
-        else
-                /* this tile isn't last */
-                s->put_frame = FALSE;
+        memcpy(out, &s->frame, sizeof(struct video_frame));
+        out->width = w;
+        out->height = h;
+        out->dst_x_offset +=
+                x * (s->rgb ? 4 : 2 );
+        out->data +=
+                y * s->frame.dst_pitch;
+        out->src_linesize =
+                vc_getsrc_linesize(w, out->color_spec);
+        out->dst_linesize =
+                vc_getsrc_linesize(x + w, out->color_spec);
 
-        return &s->tiles[tile_info.pos_x + tile_info.pos_y * tile_info.x_count];
 }
 
 void *display_sdl_init(char *fmt)
@@ -759,18 +692,16 @@ void *display_sdl_init(char *fmt)
                 return NULL;
         }
 
-        s->frame.aux &= ~AUX_TILED; /* do not expect tiled video by default */
-        s->tiles = NULL;
         if (fmt != NULL) {
                 reconfigure_screen(s, s->frame.width, s->frame.height,
                                 s->codec_info->codec, s->frame.fps,
-                                s->frame.aux, s->frame.tile_info);
+                                s->frame.aux);
                 loadSplashscreen(s);	
         } 
 
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
-        s->frame.get_tile_buffer = (get_tile_buffer_t) get_tile_buffer;
+        s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
 
         s->buffer_writable = 1;
         s->buffer_writable_lock = SDL_CreateMutex();
@@ -791,9 +722,6 @@ void display_sdl_done(void *state)
         struct state_sdl *s = (struct state_sdl *)state;
 
         assert(s->magic == MAGIC_SDL);
-
-        if(s->tiles != NULL)
-                free(s->tiles);
 
         SDL_DestroyCond(s->buffer_writable_cond);
         SDL_DestroyMutex(s->buffer_writable_lock);
@@ -830,17 +758,15 @@ int display_sdl_putf(void *state, char *frame)
         assert(s->magic == MAGIC_SDL);
         assert(frame != NULL);
 
-        if(s->put_frame) {
-                SDL_mutexP(s->buffer_writable_lock);
-                s->buffer_writable = 0;
-                SDL_mutexV(s->buffer_writable_lock);
+        SDL_mutexP(s->buffer_writable_lock);
+        s->buffer_writable = 0;
+        SDL_mutexV(s->buffer_writable_lock);
 
-                SDL_SemPost(s->semaphore);
-                tmp = SDL_SemValue(s->semaphore);
-                if (tmp > 1) {
-                        printf("%d frame(s) dropped!\n", tmp);
-                        SDL_SemTryWait(s->semaphore);
-                }
+        SDL_SemPost(s->semaphore);
+        tmp = SDL_SemValue(s->semaphore);
+        if (tmp > 1) {
+                printf("%d frame(s) dropped!\n", tmp);
+                SDL_SemTryWait(s->semaphore);
         }
         return 0;
 }

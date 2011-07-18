@@ -70,9 +70,10 @@ void vidcap_null_done(void *state)
         assert(state == &capture_state);
 }
 
-struct video_frame *vidcap_null_grab(void *state)
+struct video_frame *vidcap_null_grab(void *state, int *count)
 {
         assert(state == &capture_state);
+        *count = 0;
         return NULL;
 }
 

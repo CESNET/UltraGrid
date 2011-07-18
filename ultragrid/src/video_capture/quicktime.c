@@ -674,7 +674,7 @@ void vidcap_quicktime_done(void *state)
 }
 
 /* Grab a frame */
-struct video_frame *vidcap_quicktime_grab(void *state)
+struct video_frame *vidcap_quicktime_grab(void *state, int *count )
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -690,10 +690,12 @@ struct video_frame *vidcap_quicktime_grab(void *state)
         while (!s->sg_idle_enough) {
                 if (SGIdle(s->grabber) != noErr) {
                         debug_msg("Error in SGIDle\n");
+                        *count = 0;
                         return NULL;
                 }
         }
 
+        *count = 1;
         return &s->frame;
 }
 

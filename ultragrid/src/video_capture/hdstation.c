@@ -325,7 +325,7 @@ void vidcap_hdstation_done(void *state)
         free(s);
 }
 
-struct video_frame *vidcap_hdstation_grab(void *state)
+struct video_frame *vidcap_hdstation_grab(void *state, int *count)
 {
         struct vidcap_hdstation_state *s =
             (struct vidcap_hdstation_state *)state;
@@ -352,8 +352,10 @@ struct video_frame *vidcap_hdstation_grab(void *state)
 
         if (s->rtp_buffer != NULL) {
                 s->frame.data = s->rtp_buffer;
+                *count = 1;
                 return &s->frame;
         }
+        *count = 0;
         return NULL;
 }
 

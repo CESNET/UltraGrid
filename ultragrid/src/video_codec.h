@@ -61,11 +61,11 @@ typedef enum {
 } codec_t;
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
-typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux, struct tile_info tileinfo);
+typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux);
 /**
  * function of this type should return buffer corresponding to the given tile_info struct
  */
-typedef  struct video_frame * (*get_tile_buffer_t)(void *state, struct tile_info tile_info);
+typedef void (*get_sub_frame_t)(void *state, int x, int y, int width, int height, struct video_frame *out);
 
 
 struct video_frame {
@@ -88,7 +88,7 @@ struct video_frame {
         int                  bshift;
         decoder_t            decoder;
         reconfigure_t        reconfigure;
-        get_tile_buffer_t    get_tile_buffer;
+        get_sub_frame_t      get_sub_frame;
         void                 *state;
         double               fps;
         int                  aux;
