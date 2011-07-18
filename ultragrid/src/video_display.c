@@ -122,6 +122,7 @@ static display_table_t display_device_table[] = {
          0,
          display_decklink_probe,
          display_decklink_init,
+         display_decklink_run,
          display_decklink_done,
          display_decklink_getf,
          display_decklink_putf,
