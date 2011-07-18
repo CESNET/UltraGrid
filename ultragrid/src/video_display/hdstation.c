@@ -109,7 +109,7 @@ static void show_help(void)
 	show_codec_help(strdup("hdstation"));
 }
 
-static void *display_thread_hd(void *arg)
+void display_hdstation_run(void *arg)
 {
         struct state_hdsp *s = (struct state_hdsp *)arg;
         int res;
@@ -135,10 +135,9 @@ static void *display_thread_hd(void *arg)
                     sv_fifo_putbuffer(s->sv, s->fifo, s->display_buffer, NULL);
                 if (res != SV_OK) {
                         debug_msg("Error %s\n", sv_geterrortext(res));
-                        return NULL;
+                        return;
                 }
         }
-        return NULL;
 }
 
 struct video_frame *
@@ -376,11 +375,11 @@ void *display_hdstation_init(char *fmt)
         s->worker_waiting = FALSE;
         s->display_buffer = NULL;
 
-        if (pthread_create(&(s->thread_id), NULL, display_thread_hd, (void *)s)
+        /*if (pthread_create(&(s->thread_id), NULL, display_thread_hd, (void *)s)
             != 0) {
                 perror("Unable to create display thread\n");
                 return NULL;
-        }
+        }*/
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
         s->frame.decoder = (decoder_t)memcpy;     

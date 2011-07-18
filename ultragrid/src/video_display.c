@@ -61,7 +61,6 @@
 #include "video_display/sdl.h"
 #include "video_display/hdstation.h"
 #include "video_display/gl_sdl.h"
-#include "video_display/dxt.h"
 #include "video_display/quicktime.h"
 #include "video_display/sage.h"
 #include "video_display/xv.h"
@@ -75,6 +74,7 @@ typedef struct {
         display_id_t id;
         display_type_t *(*func_probe) (void);
         void *(*func_init) (char *fmt);
+        void (*func_run) (void *state);
         void (*func_done) (void *state);
         char *(*func_getf) (void *state);
         int (*func_putf) (void *state, char *frame);
@@ -87,15 +87,18 @@ static display_table_t display_device_table[] = {
          0,
          display_sdl_probe,
          display_sdl_init,
+         display_sdl_run,
          display_sdl_done,
          display_sdl_getf,
          display_sdl_putf,
          },
+#endif                          /* HAVE_SDL */
 #ifdef HAVE_GL
         {
          0,
          display_gl_probe,
          display_gl_init,
+         display_gl_run,
          display_gl_done,
          display_gl_getf,
          display_gl_putf,
@@ -105,39 +108,31 @@ static display_table_t display_device_table[] = {
          0,
          display_sage_probe,
          display_sage_init,
+         display_sage_run,
          display_sage_done,
          display_sage_getf,
          display_sage_putf,
          },
 #endif                          /* HAVE_SAGE */
+#endif                          /* HAVE_GL */
 #ifdef HAVE_XV
         {
          0,
          display_xv_probe,
          display_xv_init,
+         display_xv_run,
          display_xv_done,
          display_xv_getf,
          display_xv_putf,
          },
-#endif                          /* HAVE_SAGE */
-#ifdef HAVE_FASTDXT
-        {
-         0,
-         display_dxt_probe,
-         display_dxt_init,
-         display_dxt_done,
-         display_dxt_getf,
-         display_dxt_putf,
-         },
-#endif                          /* HAVE_FASTDXT */
-#endif                          /* HAVE_GL */
-#endif                          /* HAVE_SDL */
+#endif                          /* HAVE_XV */
 #endif                          /* X_DISPLAY_MISSING */
 #ifdef HAVE_HDSTATION
         {
          0,
          display_hdstation_probe,
          display_hdstation_init,
+         display_hdstation_run,
          display_hdstation_done,
          display_hdstation_getf,
          display_hdstation_putf,
@@ -148,6 +143,7 @@ static display_table_t display_device_table[] = {
          0,
          display_quicktime_probe,
          display_quicktime_init,
+         display_quicktime_run,
          display_quicktime_done,
          display_quicktime_getf,
          display_quicktime_putf,
@@ -157,6 +153,7 @@ static display_table_t display_device_table[] = {
          0,
          display_null_probe,
          display_null_init,
+         display_null_run,
          display_null_done,
          display_null_getf,
          display_null_putf,
@@ -254,6 +251,12 @@ void display_done(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_done(d->state);
+}
+
+void display_run(struct display *d)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        display_device_table[d->index].func_run(d->state);
 }
 
 struct video_frame *display_get_frame(struct display *d)

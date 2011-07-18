@@ -46,12 +46,15 @@
  *
  */
 
+#include <video_codec.h>
+
 #define DISPLAY_GL_ID  0xba370a2a
 
 display_type_t          *display_gl_probe(void);
 void                    *display_gl_init(char *fmt);
+void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
-char                    *display_gl_getf(void *state);
+struct video_frame      *display_gl_getf(void *state);
 int                      display_gl_putf(void *state, char *frame);
 
 int                      display_gl_handle_events(void *arg);
@@ -78,3 +81,28 @@ g=y-0.39173*u-0.81290*v;\
 b=y+2.017*u;\
 gl_FragColor=vec4(r,g,b,1.0);\
 }";
+
+/* DXT related -- there shoud be only one kernel 
+ * since both do basically the same thing */
+static char * frag = "\
+uniform sampler2D yuvtex;\
+\
+void main(void) {\
+vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);\
+\
+float Y = col[0];\
+float U = col[1]-0.5;\
+float V = col[2]-0.5;\
+Y=1.1643*(Y-0.0625);\
+\
+float G = Y-0.39173*U-0.81290*V;\
+float B = Y+2.017*U;\
+float R = Y+1.5958*V;\
+\
+gl_FragColor=vec4(R,G,B,1.0);}";
+
+static char * vert = "\
+void main() {\
+gl_TexCoord[0] = gl_MultiTexCoord0;\
+gl_Position = ftransform();}";
+

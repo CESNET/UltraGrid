@@ -229,7 +229,7 @@ char *four_char_decode(int format)
         return fbuf;
 }
 
-static void *display_thread_quicktime(void *arg)
+void display_quicktime_run(void *arg)
 {
         struct state_quicktime *s = (struct state_quicktime *)arg;
 
@@ -318,8 +318,6 @@ static void *display_thread_quicktime(void *arg)
                         frames = 0;
                 }
         }
-
-        return NULL;
 }
 
 struct video_frame *
@@ -646,11 +644,11 @@ void *display_quicktime_init(char *fmt)
         s->frame.data_len = s->frame.dst_linesize * s->frame.height;
         s->frame.data = calloc(s->frame.data_len, 1);
 
-        if (pthread_create
+        /*if (pthread_create
             (&(s->thread_id), NULL, display_thread_quicktime, (void *)s) != 0) {
                 perror("Unable to create display thread\n");
                 return NULL;
-        }
+        }*/
 
         return (void *)s;
 }

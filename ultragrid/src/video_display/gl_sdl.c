@@ -53,45 +53,47 @@
 #include <OpenGL/gl.h>
 #include <OpenGL/glu.h>
 #include <OpenGL/glext.h>
+#include <GLUT/glut.h>
 #else /* HAVE_MACOSX */
 #include <GL/gl.h>
 #include <GL/glu.h>
 #include <GL/glext.h>
+#include <GL/glut.h>
 #endif /* HAVE_MACOSX */
-#include <SDL/SDL.h>
-#include "compat/platform_semaphore.h"
 #include <signal.h>
 #include <assert.h>
 #include <pthread.h>
-#include <X11/Xlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "compat/platform_semaphore.h"
 #include <unistd.h>
 #include "debug.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #include "video_display.h"
 #include "video_display/gl_sdl.h"
+#include "tv.h"
+#include <X11/Xutil.h>
+#include <X11/Xatom.h>
 
-// splash screen (xsedmik)
-#include "video_display/splashscreen.h"
 
-#define HD_WIDTH        1920
-#define HD_HEIGHT       1080
 #define MAGIC_GL	DISPLAY_GL_ID
+#define WIN_NAME        "Ultragrid - OpenGL Display"
 
+/* defined in main.c */
+extern int uv_argc;
+extern char **uv_argv;
 
-struct state_sdl {
+struct state_gl {
         Display         *display;
+        Window          xwindow;
 	unsigned int	x_width;
 	unsigned int	x_height;
 
-        int             vw_depth;
-        SDL_Overlay     *vw_image;
         GLubyte         *buffers[2];
-	GLubyte		*outbuffer;
 	GLubyte		*y, *u, *v;	//Guess what this might be...
-	char*		VSHandle,FSHandle,PHandle;
+	GLhandleARB     VSHandle,FSHandle,PHandle;
+
         int             image_display, image_network;
 	GLuint		texture[4];
 
@@ -102,241 +104,70 @@ struct state_sdl {
         /* For debugging... */
         uint32_t	magic;
 
-        SDL_Surface	*sdl_screen;
-        SDL_Rect	rect;
+        int             window;
 
 	char 		*VProgram,*FProgram;
 
 	unsigned	fs:1;
+	unsigned	rgb:1;
+        unsigned        dxt:1;
+        unsigned        deinterlace:1;
+
+        struct video_frame frame;
+        volatile int    needs_reconfigure:1;
+        pthread_mutex_t reconf_lock;
+        pthread_cond_t  reconf_cv;
+
+        double          raspect;
+
+        unsigned long int frames;
+        unsigned        win_initialized:1;
+
+        struct timeval  tv;
 };
 
+static struct state_gl *gl;
+
 /* Prototyping */
-inline int gl_video_flags(void * arg);
-void gl_draw();
-inline void gl_load_splashscreen(void *arg);
-inline int gl_toggle_fullscreen(void *arg);
+void gl_draw(double ratio);
 void gl_show_help(void);
 
-static void * display_thread_gl(void *arg);
-void gl_deinterlace(GLubyte *buffer);//unsigned
-void extrapolate(GLubyte *input, GLubyte *output);
-inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v);
+void display_gl_run(void *arg);
+void gl_check_error(void);
+inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v, int w, int h);
 void gl_resize_window(int width, int height);
 void gl_bind_texture(void *args);
 void glsl_gl_init(void *arg);
 void glsl_arb_init(void *arg);
-inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len);
-inline void gl_copyline128(GLubyte *d, GLubyte *s, int len);//unsigned
+void dxt_arb_init(void *arg);
+void dxt_bind_texture(void *arg);
 void * display_gl_init(char *fmt);
 
+void gl_reconfigure_screen_stub(void *s, unsigned int width, unsigned int height,
+                codec_t codec, double fps, int aux, struct tile_info tile_info);
+void gl_reconfigure_screen_real(struct state_gl *s);
+static void cleanup_data(struct state_gl *s);
+static void cleanup_gl(struct state_gl *s);
+void glut_idle_callback(void);
+void glut_redisplay_callback(void);
+void glut_key_callback(unsigned char key, int x, int y);
 
-/**
- * Prepares the flags for SDL_SetVideoMode
- *
- * @since 21-03-2010, xsedmik
- * @param arg
- * @return integral
- */
-int gl_video_flags(void * arg) {
-
-	struct state_sdl        *s = (struct state_sdl *) arg;
-	const SDL_VideoInfo * videoInfo;
-	int videoFlags;
-
-	// Fetch the video info
-	videoInfo = SDL_GetVideoInfo();
-
-	if (!videoInfo) {
-		fprintf(stderr, "Video query failed: %s\n", SDL_GetError());
-		exit(1);
-	}
-
-	// the flags to pass to SDL_SetVideoMode
-	videoFlags  = SDL_OPENGL;		// Enable OpenGL in SDL
-	videoFlags |= SDL_GL_DOUBLEBUFFER;	// Enable double buffering
-	videoFlags |= SDL_HWPALETTE;		// Store the palette in hardware
-	if (s->fs) {
-	videoFlags |= SDL_FULLSCREEN;		// Fullscreen
-	}
-
-	// This checks to see if surfaces can be stored in memory
-	if ( videoInfo->hw_available ) {
-		videoFlags |= SDL_HWSURFACE;
-	}
-        else {
-        	videoFlags |= SDL_SWSURFACE;
-	}
-
-	// This checks if hardware blits can be done
-	if ( videoInfo->blit_hw ) {
-		videoFlags |= SDL_HWACCEL;
-	}
-
-	return videoFlags;
-}
+#ifndef HAVE_MACOSX
+static void update_fullscreen_state(struct state_gl *s);
+/*from wmctrl */
+static Window get_window(Display *disp, const char *name);
+#endif
 
 /**
  * Show help
  * @since 23-03-2010, xsedmik
  */
 void gl_show_help(void) {
-        printf("GL(SDL) options:\n");
-	printf("\t[fs] | help\n");
+        printf("GL options:\n");
+        printf("\t[d][fs] | help\n");
+        printf("\td - deinterlace\n");
         printf("\tfs - fullscreen\n");
 }
-
-/**
- * Load splashscreen
- * Function loads graphic data from header file "splashscreen.h", where are
- * stored splashscreen data in RGB format. Thereafter are data written into
- * the temporary SDL_Surface. At the end of the function are displayed on
- * the screen.
- *
- * @since 29-03-2010, xsedmik
- * @param s Structure contains the current settings
- */
-void gl_load_splashscreen(void *arg) {
-
-	struct state_sdl        *s = (struct state_sdl *) arg;
-	unsigned int		x_coord;
-        unsigned int		y_coord;
-        char			pixel[3];
-	GLuint			texture; // This is a handle to our texture object
-	SDL_Surface		*image;
-
-	image = SDL_CreateRGBSurface(SDL_HWSURFACE ,splash_width, splash_height, 24,
-				     s->sdl_screen->format->Rmask, s->sdl_screen->format->Gmask,
-				     s->sdl_screen->format->Bmask, s->sdl_screen->format->Amask);
-
-	for (y_coord = 0; y_coord < splash_height; y_coord++) {
-        	for (x_coord = 0; x_coord < splash_width; x_coord++) {
-                 
-			HEADER_PIXEL(splash_data,pixel);
-         
-			// 24-bpp               
-			Uint8 *bufp;
-                        bufp = (Uint8 *)image->pixels + y_coord*image->pitch +
-                        	x_coord*image->format->BytesPerPixel;
-                                *(bufp+image->format->Rshift/8) = pixel[0];
-                                *(bufp+image->format->Gshift/8) = pixel[1];
-                                *(bufp+image->format->Bshift/8) = pixel[2];
-               }
-        }
-
-
-	if (image != NULL) {
-		// Display the SDL_surface as a OpenGL texture
-
-		// Have OpenGL generate a texture object handle for us
-		glGenTextures(1, &texture);
-
-		// Bind the texture object
-		glBindTexture(GL_TEXTURE_2D, texture);
-
-		// Set the texture's stretching properties
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		// Edit the texture object's image data using the information SDL_Surface gives us
-		glTexImage2D(GL_TEXTURE_2D, 0, 3, image->w, image->h, 0, GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
-		SDL_FreeSurface(image);
-		
-		gl_draw();
-		glDeleteTextures( 1, &texture );
-	}
-}
-
-
-/**
- * Function toggles between fullscreen and window display mode
- *  
- * @since 29-03-2010, xsedmik
- * @param arg Structure contains the current settings
- * @return zero value everytime
- */
-int gl_toggle_fullscreen(void *arg) {
-
-	struct	state_sdl * s = (struct state_sdl *) arg;
-
-	if(s->fs) {
-		s->fs = 0;
-		fprintf(stdout,"Setting video mode %dx%d.\n", HD_WIDTH, HD_HEIGHT);
-		s->sdl_screen = SDL_SetVideoMode(HD_WIDTH, HD_HEIGHT, 32, gl_video_flags(s));
-		s->fs = 0;
-
-		// Set the begining of the video rectangle and resize
-		s->rect.y = 0;
-		s->rect.x = 0;
-		gl_resize_window(HD_WIDTH, HD_HEIGHT);
-	}
-	else {
-		s->fs = 1;
-		fprintf(stdout,"Setting video mode %dx%d.\n", s->x_width, s->x_height);
-		s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 32, gl_video_flags(s));
-		s->fs = 1;
-
-		// Set the begining of the video rectangle and resize
-		if ((int)s->x_height > HD_HEIGHT) {
-			s->rect.y = (s->x_height - HD_HEIGHT) / 2;
-		}
-		else {
-			s->rect.y = 0;
-		}
-		if ((int)s->x_width > HD_WIDTH) {
-			s->rect.x = (s->x_width - HD_WIDTH) / 2;
-		}
-		else {
-			s->rect.x = 0;
-		}
-		gl_resize_window(s->x_width, s->x_height);
-	}
-	if(s->sdl_screen == NULL){
-		fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
-		free(s);
-		exit(128);
-	}
-
-	return 0;
-}
-
-
-/**
- * Handles outer events like a keyboard press
- * Responds to key:<br/>
- * <table>
- * <td><tr>q</tr><tr>terminates program</tr></td>
- * <td><tr>f</tr><tr>toggles between fullscreen and windowed display mode</tr></td>
- * </table>
- *
- * @since 08-04-2010, xsedmik
- * @param state Structure (state_sdl) contains the current settings
- * @return zero value everytime
- */
-int display_gl_handle_events(void *state) {
-
-	SDL_Event	sdl_event;
-	
-	while (SDL_PollEvent(&sdl_event)) {
-		switch (sdl_event.type) {
-                case SDL_KEYDOWN:
-                	if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
-				kill(0, SIGINT);
-			}
-			if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
-				gl_toggle_fullscreen(state);
-			}
-			break;
-		case SDL_QUIT:
-			kill(0, SIGINT);
-			break;
-
-			default: break;
-		}
-	}
-
-	return 0;
-}
-
 
 void gl_check_error()
 {
@@ -365,7 +196,7 @@ void gl_check_error()
 				fprintf(stderr, "GL_OUT_OF_MEMORY\n");
 				break;
 			default:
-				fprintf(stderr, "wft mate? Unknown GL ERROR: %p\n", (void *)msg);
+				fprintf(stderr, "wft mate? Unknown GL ERROR: %d\n", msg);
 				break;
 		}
 		msg=glGetError();
@@ -376,14 +207,21 @@ void gl_check_error()
 
 void * display_gl_init(char *fmt) {
 
-	struct state_sdl        *s;
-	int			ret;
-	int			itemp;
-	unsigned int		utemp;
-	Window			wtemp;
+	struct state_gl        *s;
 
-	s = (struct state_sdl *) calloc(1,sizeof(struct state_sdl));
+        glutInit(&uv_argc, uv_argv);
+	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
+        /* GLUT callback don't take any arguments */
+        gl = s;
+
+        s->window = -1;
+
+        pthread_mutex_init(&s->reconf_lock, NULL);
+        pthread_cond_init(&s->reconf_cv, NULL);
+
+        s->fs = FALSE;
+        s->deinterlace = FALSE;
 
 	// parse parameters
 	if (fmt != NULL) {
@@ -397,72 +235,43 @@ void * display_gl_init(char *fmt) {
 		char *tok;
 		
 		tok = strtok(tmp, ":");
+		if ((tok != NULL) && (tok[0] == 'd')){
+                        s->deinterlace = TRUE;
+                        tok = strtok(NULL,":");
+                }
 		if ((tok != NULL) && (tok[0] == 'f') && (tok[1] == 's')) {
-			s->fs=1;
-		}
-		else {
-			s->fs=0;
+			s->fs=TRUE;
 		}
 
 		free(tmp);
 	}
 
-	if (s->fs) {
-		fprintf(stdout,"GL(SDL) setup: %dx%d, fullscreen: on\n", HD_WIDTH, HD_HEIGHT);
-	}
-	else {
-		fprintf(stdout,"GL(SDL) setup: %dx%d, fullscreen: off\n", HD_WIDTH, HD_HEIGHT);
-	}
+        s->frame.reconfigure = (reconfigure_t) gl_reconfigure_screen_stub;
+        s->frame.state = s;
+        s->win_initialized = FALSE;
 
-	if (!(s->display = XOpenDisplay(NULL))) {
-		printf("Unable to open display GL: XOpenDisplay.\n");
-		return NULL;
-    	}
-    
-	// get XWindows resolution
-    	ret = XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp, &itemp, &itemp, &(s->x_width), &(s->x_height), &utemp, &utemp);
+        s->frames = 0ul;
+        gettimeofday(&s->tv, NULL);
 
-	// set video rectangle's position and size
-	s->rect.w = HD_WIDTH;
-	s->rect.h = HD_HEIGHT;
-	if ((int)s->x_width > HD_WIDTH) {
-		s->rect.x = (s->x_width - HD_WIDTH) / 2;
-	}
-	else {
-		s->rect.w = s->x_width;
-	}
-	if (((int)s->x_height > HD_HEIGHT) && (s->fs)) {
-		s->rect.y = (s->x_height - HD_HEIGHT) / 2;
-	}
-	else if ((int)s->x_height < HD_HEIGHT){
-		s->rect.h = s->x_height;
-	}
+        fprintf(stdout,"GL setup: %dx%d, fullscreen: %s, deinterlace: %s\n", s->frame.width, s->frame.height,
+                        s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
 
-	fprintf(stdout,"Setting SDL rect %dx%d, %d,%d.\n", s->rect.w, s->rect.h, s->rect.x, s->rect.y);
-
-	s->buffers[0]=malloc(HD_WIDTH*HD_HEIGHT*3);
-	s->buffers[1]=malloc(HD_WIDTH*HD_HEIGHT*3);
-	s->outbuffer=malloc(HD_WIDTH*HD_HEIGHT*4);
-	s->image_network=0;
-	s->image_display=1;
-	s->y=malloc(HD_WIDTH*HD_HEIGHT);
-	s->u=malloc(HD_WIDTH*HD_HEIGHT);
-	s->v=malloc(HD_WIDTH*HD_HEIGHT);
-
-	asm("emms\n");
-
-	platform_sem_init(&s->semaphore, 0, 0);
-	if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
+        platform_sem_init(&s->semaphore, 0, 0);
+	/*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
 		perror("Unable to create display thread\n");
 		return NULL;
-	}
+	}*/
+
+#ifndef HAVE_MACOSX
+        s->display = XOpenDisplay(NULL);
+#endif
 
 	return (void*)s;
 }
 
 void glsl_arb_init(void *arg)
 {
-    struct state_sdl	*s = (struct state_sdl *) arg;
+    struct state_gl	*s = (struct state_gl *) arg;
     char 		*log;
 
     /* Set up program objects. */
@@ -473,7 +282,7 @@ void glsl_arb_init(void *arg)
     /* Compile Shader */
     assert(s->FProgram!=NULL);
     // assert(s->VProgram!=NULL);
-    glShaderSourceARB(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
+    glShaderSourceARB(s->FSHandle,1,(const GLcharARB**) &s->FProgram,NULL);
     glCompileShaderARB(s->FSHandle);
 
     /* Print compile log */
@@ -504,10 +313,51 @@ void glsl_arb_init(void *arg)
     glUseProgramObjectARB(s->PHandle);
 }
 
+void dxt_arb_init(void *arg)
+{
+    struct state_gl        *s = (struct state_gl *) arg;
+    char *log;
+    /* Set up program objects. */
+    s->PHandle=glCreateProgramObjectARB();
+    s->FSHandle=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+    s->VSHandle=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+
+    /* Compile Shader */
+    assert(s->FProgram!=NULL);
+    glShaderSourceARB(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
+    glCompileShaderARB(s->FSHandle);
+    glShaderSourceARB(s->VSHandle,1,(const GLcharARB**)&(s->VProgram),NULL);
+    glCompileShaderARB(s->VSHandle);
+
+    /* Print compile log */
+    log=calloc(32768,sizeof(char));
+    glGetInfoLogARB(s->FSHandle,32768,NULL,log);
+    printf("Compile Log: %s\n", log);
+    free(log);
+    log=calloc(32768,sizeof(char));
+    glGetInfoLogARB(s->VSHandle,32768,NULL,log);
+    printf("Compile Log: %s\n", log);
+    free(log);
+
+    /* Attach and link our program */
+    glAttachObjectARB(s->PHandle,s->FSHandle);
+    glAttachObjectARB(s->PHandle,s->VSHandle);
+    glLinkProgramARB(s->PHandle);
+
+    /* Print link log. */
+    log=calloc(32768,sizeof(char));
+    glGetInfoLogARB(s->PHandle,32768,NULL,log);
+    printf("Link Log: %s\n", log);
+    free(log);
+
+    /* Finally, use the program. */
+    glUseProgramObjectARB(s->PHandle);
+}
+
 void glsl_gl_init(void *arg) {
 
 	//TODO: Add log
-	struct state_sdl	*s = (struct state_sdl *) arg;
+	struct state_gl	*s = (struct state_gl *) arg;
 
 	s->PHandle=glCreateProgram();
 	s->FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
@@ -521,24 +371,15 @@ void glsl_gl_init(void *arg) {
 	glUseProgram(s->PHandle);
 }
 
-void extrapolate(GLubyte *input, GLubyte *output)
-{
-	/* A linear non-blending method, kida dumb, but it seems to work, and is somewhat fast :-) */
-	register int x;
-	for(x=0;x<960*1080;x++) {
-		output[2*x]=input[x];
-		output[2*x+1]=input[x];
-	}
-}
 
-inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v)
+inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v, int w, int h)
 {
 	//TODO: This should be re-written in assembly
 	//Note: We assume 1920x1080 UYVY (YUV 4:2:2)
 	//See http://www.fourcc.org/indexyuv.htm for more info
 	//0x59565955 - UYVY - 16 bits per pixel (2 bytes per plane)
 	register int x;
-	for(x=0;x<1920*1080*2;x+=4) {
+	for(x = 0; x < w * h * 2; x += 4) {
 		*u++=input[x];		//1	5	9	13
 		*y++=input[x+1];	//2	6	10	14
 		*v++=input[x+2];	//3	7	11	15
@@ -546,224 +387,371 @@ inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v)
 	}
 }
 
-static void * display_thread_gl(void *arg)
+/*
+ * This function will be probably runned from another thread than GL-thread so
+ * we cannot reconfigure directly there. Instead, we post a request to do it
+ * inside appropriate thread and make changes we can do. The rest does *_real.
+ */
+void gl_reconfigure_screen_stub(void *arg, unsigned int width, unsigned int height,
+                codec_t codec, double fps, int aux, struct tile_info tile_info)
 {
-    struct state_sdl        *s = (struct state_sdl *) arg;
-    int j, i;
+        struct state_gl	*s = (struct state_gl *) arg;
+        int i;
 
-    int videoFlags;
-    /* FPS */
-    static GLint T0     = 0;
-    static GLint Frames = 0;
+        UNUSED(tile_info);
 
-#ifdef HAVE_MACOSX
-            /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
-    	    /* Avoids uncaught exception (1002)  when creating CGSWindow */
-            NSApplicationLoad();
-#endif
+        assert(s->magic == MAGIC_GL);
 
-    /* initialize SDL */
-    if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE ) < 0 ) {
-        fprintf( stderr, "Video initialization failed: %s\n",SDL_GetError());
-        exit(1);
-    }
+        pthread_mutex_lock(&s->reconf_lock);
+        if(s->win_initialized)
+                cleanup_data(s);
 
-    /* the flags to pass to SDL_SetVideoMode */
-    videoFlags = gl_video_flags(s);
+        s->frame.width = width;
+        s->frame.height = height;
+        s->frame.fps = fps;
+        s->frame.aux = aux;
+        s->frame.color_spec = codec;
+        s->frame.dst_x_offset = 0;
 
-    /* Sets up OpenGL double buffering */
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1 );	//TODO: Is this necessary?
-#ifdef HAVE_SDL_1210
-    SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1); 
-#endif /* HAVE_SDL_1210 */
+        for(i = 0; codec_info[i].name != NULL; ++i) {
+                if(codec == codec_info[i].codec) {
+                        s->rgb = codec_info[i].rgb;
+                        s->frame.src_bpp = codec_info[i].bpp;
+                }
+        }
+        s->dxt = FALSE;
 
-    /* get a SDL surface */
-    if (s->fs) {
-	s->sdl_screen = SDL_SetVideoMode(s->x_width, s->x_height, 32, videoFlags);
-    }
-    else {
-	s->sdl_screen = SDL_SetVideoMode(HD_WIDTH, HD_HEIGHT, 32, videoFlags);
-    }
-    if(!s->sdl_screen){
-        fprintf(stderr,"Error setting video mode %dx%d!\n", s->x_width, s->x_height);
-        exit(128);
-    }
+        switch (codec) {
+                case R10k:
+                        s->frame.decoder = (decoder_t)vc_copyliner10k;
+                        s->frame.dst_bpp = get_bpp(RGBA);
+                        break;
+                case RGBA:
+                        s->frame.decoder = (decoder_t)memcpy; /* or vc_copylineRGBA?
+                                                                 but we have default
+                                                                 {r,g,b}shift */
+                        
+                        s->frame.dst_bpp = get_bpp(RGBA);
+                        break;
+                case v210:
+                        s->frame.decoder = (decoder_t)vc_copylinev210;
+                        s->frame.dst_bpp = get_bpp(UYVY);
+                        break;
+                case DVS10:
+                        s->frame.decoder = (decoder_t)vc_copylineDVS10;
+                        s->frame.dst_bpp = get_bpp(UYVY);
+                        break;
+                case Vuy2:
+                case DVS8:
+                case UYVY:
+                        s->frame.decoder = (decoder_t)memcpy;
+                        s->frame.dst_bpp = get_bpp(UYVY);
+                        break;
+                case DXT1:
+                        s->dxt = TRUE;
+                        if(s->frame.aux & AUX_RGB)
+                                s->rgb = TRUE;
+                        else
+                                s->rgb = FALSE;
+                        s->frame.decoder = (decoder_t)memcpy;
+                        s->frame.dst_bpp = get_bpp(DXT1);
+                        break;
+        }
 
-    SDL_WM_SetCaption("Ultragrid - OpenGL Display", "Ultragrid");
+        s->frame.dst_linesize = s->frame.width * s->frame.dst_bpp;
+        s->frame.dst_pitch = s->frame.dst_linesize;
+        s->frame.data_len = s->frame.dst_linesize * s->frame.height;
 
-    SDL_ShowCursor(SDL_DISABLE);
+        s->buffers[0] = malloc(s->frame.data_len);
+        s->buffers[1] = malloc(s->frame.data_len);
+	s->image_network = 0;
+	s->image_display = 1;
+	s->y=malloc(s->frame.width * s->frame.height);
+	s->u=malloc(s->frame.width * s->frame.height);
+	s->v=malloc(s->frame.width * s->frame.height);
 
-    /* OpenGL Setup */
-    glEnable( GL_TEXTURE_2D );
-    glClearColor( 1.0f, 1.0f, 1.0f, 0.1f );
-    if (s->fs) {
-    	gl_resize_window(s->x_width, s->x_height);
-    }
-    else {
-	gl_resize_window(HD_WIDTH, HD_HEIGHT);
-    }
-    glGenTextures(4, s->texture);	//TODO: Is this necessary?
+        s->frame.data = (char *) s->buffers[s->image_network];
 
-    //load shader (xsedmik, 13-02-2010)
-    s->FProgram = glsl;
+	asm("emms\n");
 
-    //load splash screen (xsedmik, 08-03-2010)
-    gl_load_splashscreen(s);
+        s->needs_reconfigure = TRUE;
+        platform_sem_post(&s->semaphore);
 
-    /* Check to see if OpenGL 2.0 is supported, if not use ARB (if supported) */
-    glewInit();
-    if(glewIsSupported("GL_VERSION_2_0")){
-        fprintf(stderr, "OpenGL 2.0 is supported...\n");
-		//TODO: Re-enable gl_init!
-		//glsl_gl_init(s);
-        glsl_arb_init(s);
-    }else if(GLEW_ARB_fragment_shader){
-        fprintf(stderr, "OpenGL 2.0 not supported, using ARB extension...\n");
-        glsl_arb_init(s);
-    }else{
-        fprintf(stderr, "ERROR: Neither OpenGL 2.0 nor ARB_fragment_shader are supported, try updating your drivers...\n");
-        exit(65);
-    }
-
-    /* Check to see if we have data yet, if not, just chillax */
-    /* TODO: we need some solution (TM) for sem_getvalue on MacOS X */
-#ifndef HAVE_MACOSX
-    sem_getvalue(&s->semaphore,&i);
-    while(i<1) {
-  	display_gl_handle_events(s);
-	usleep(1000);
-	sem_getvalue(&s->semaphore,&i);
-    }
-#endif /* HAVE_MACOSX */
-
-    while(1) {
-        GLubyte *line1, *line2;
-        display_gl_handle_events(s);
-        platform_sem_wait(&s->semaphore);
-
-	
-	/* 10-bit YUV ->8 bit YUV [I think...] */
-	line1 = s->buffers[s->image_display];
-	line2 = s->outbuffer;
-	if (bitdepth == 10) {	
-		for(j=0;j<HD_HEIGHT;j+=2){
-#if (HAVE_MACOSX || HAVE_32B_LINUX)
-		    gl_copyline64(line2, line1, 5120/32);
-		    gl_copyline64(line2+3840, line1+5120*540, 5120/32);
-#else /* (HAVE_MACOSX || HAVE_32B_LINUX) */			
-		    gl_copyline128(line2, line1, 5120/32);
-		    gl_copyline128(line2+3840, line1+5120*540, 5120/32);
-#endif /* HAVE_MACOSX || HAVE_32B_LINUX) */ 		    
-		    line1 += 5120;
-		    line2 += 2*3840;
-		}
-	} else {/*
-		if (progressive == 1) {
-			memcpy(line2, line1, hd_size_x*hd_size_y*hd_color_bpp);
-		} else {
-			for(i=0; i<1080; i+=2) {       
-				memcpy(line2, line1, hd_size_x*hd_color_bpp);
-				memcpy(line2+hd_size_x*hd_color_bpp, line1+hd_size_x*hd_color_bpp*540, hd_size_x*hd_color_bpp);
-				line1 += hd_size_x*hd_color_bpp;
-				line2 += 2*hd_size_x*hd_color_bpp;
-			}
-		}*/
-	}
-
-        // gl_deinterlace(s->outbuffer);
-	getY(s->outbuffer,s->y,s->u,s->v);
-        gl_bind_texture(s);
-        gl_draw();
-
-		/* FPS Data, this is pretty ghetto though.... */
-		Frames++;
-		{
-			GLint t = SDL_GetTicks();
-			if (t - T0 >= 5000) {
-			GLfloat seconds = (t - T0) / 1000.0;
-			GLfloat fps = Frames / seconds;
-			fprintf(stderr, "%d frames in %g seconds = %g FPS\n", (int)Frames, seconds, fps);
-			T0 = t;
-			Frames = 0;
-			}
-		}
-    }
-    return NULL;
-
+        while(s->needs_reconfigure)
+                pthread_cond_wait(&s->reconf_cv, &s->reconf_lock);
+        pthread_mutex_unlock(&s->reconf_lock);
 }
 
-/* linear blend deinterlace */
-void gl_deinterlace(GLubyte *buffer)
+/**
+ * This function must be called only from GL thread 
+ * (display_thread_gl) !!!
+ */
+void gl_reconfigure_screen_real(struct state_gl *s)
 {
-        int i,j;
-        long pitch = HD_WIDTH*2;
-        register long pitch2 = pitch*2;
-        GLubyte *bline1, *bline2, *bline3;
-        register GLubyte *line1, *line2, *line3;
+        int old_win;
 
-        bline1 = buffer;
-        bline2 = buffer + pitch;
-        bline3 = buffer + 3*pitch;
-        for(i=0; i < HD_WIDTH*2; i+=16) {
-                /* preload first two lines */
-                asm volatile(
-                             "movdqa (%0), %%xmm0\n"
-                             "movdqa (%1), %%xmm1\n"
-                             :
-                             : "r" ((unsigned long *)bline1),
-                               "r" ((unsigned long *)bline2));
-                line1 = bline2;
-                line2 = bline2 + pitch;
-                line3 = bline3;
-                for(j=0; j < 1076; j+=2) {
-                        asm  volatile(
-                              "movdqa (%1), %%xmm2\n"
-                              "pavgb %%xmm2, %%xmm0\n"
-                              "pavgb %%xmm1, %%xmm0\n"
-                              "movdqa (%2), %%xmm1\n"
-                              "movdqa %%xmm0, (%0)\n"
-                              "pavgb %%xmm1, %%xmm0\n"
-                              "pavgb %%xmm2, %%xmm0\n"
-                              "movdqa %%xmm0, (%1)\n"
-                              :
-                              :"r" ((unsigned long *)line1),
-                               "r" ((unsigned long *)line2),
-                               "r" ((unsigned long *)line3)
-                              );
-                        line1 += pitch2;
-                        line2 += pitch2;
-                        line3 += pitch2;
+        if(s->win_initialized)
+                cleanup_gl(s);
+        s->raspect = (double) s->frame.height / s->frame.width;
+
+	fprintf(stdout,"Setting GL window size %dx%d.\n", s->frame.width, s->frame.height);
+
+        glutInitWindowSize(s->frame.width, s->frame.height);
+        old_win = s->window;
+        s->xwindow = 0; /* we do not have X identificator yet */
+
+        s->window = glutCreateWindow(WIN_NAME);
+        glutKeyboardFunc(glut_key_callback);
+        glutDisplayFunc(glut_redisplay_callback);
+
+        if(old_win != -1)
+                glutDestroyWindow(old_win);
+
+        glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+
+        if(s->dxt) {
+                if(s->rgb) {
+                        glEnable( GL_TEXTURE_2D );
+                        glGenTextures(1, s->texture);
+                        // Bind the texture object
+                        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+                        // Set the texture's stretching properties
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glewInit();
+                } else {
+                        glEnable( GL_TEXTURE_2D );
+                        s->FProgram = frag;
+                        s->VProgram = vert;
+
+                        glGenTextures(1, s->texture);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                        glewInit();
+                        if(glewIsSupported("GL_VERSION_2_0")){
+                                fprintf(stderr, "OpenGL 2.0 is supported...\n");
+                                //TODO: Re-enable gl_init!
+                                //glsl_gl_init(s);
+                                dxt_arb_init(s);
+                        }else if(GLEW_ARB_fragment_shader){
+                                fprintf(stderr, "OpenGL 2.0 not supported, using ARB extension...\n");
+                                dxt_arb_init(s);
+                        }else{
+                                fprintf(stderr, "ERROR: Neither OpenGL 1.0 nor ARB_fragment_shader are supported, try updating your drivers...\n");
+                                exit(65);
+                        }
                 }
-                bline1 += 16;
-                bline2 += 16;
-                bline3 += 16;
+        } else {
+                if(s->rgb) {
+                        glEnable( GL_TEXTURE_2D );
+                        glGenTextures(1, s->texture);
+                        // Bind the texture object
+                        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+                        // Set the texture's stretching properties
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                } else {
+                        glEnable( GL_TEXTURE_2D );
+                        /* OpenGL Setup */
+                        glGenTextures(4, s->texture);	//TODO: Is this necessary?
+
+                        //load shader (xsedmik, 13-02-2010)
+                        s->FProgram = glsl;
+                        /* Check to see if OpenGL 2.0 is supported, if not use ARB (if supported) */
+                        glewInit();
+                        if(glewIsSupported("GL_VERSION_2_0")){
+                                fprintf(stderr, "OpenGL 2.0 is supported...\n");
+                                //TODO: Re-enable gl_init!
+                                //glsl_gl_init(s);
+                                glsl_arb_init(s);
+                        }else if(GLEW_ARB_fragment_shader){
+                                fprintf(stderr, "OpenGL 2.0 not supported, using ARB extension...\n");
+                                glsl_arb_init(s);
+                        }else{
+                                fprintf(stderr, "ERROR: Neither OpenGL 1.0 nor ARB_fragment_shader are supported, try updating your drivers...\n");
+                                exit(65);
+                        }
+                }
+        }
+
+        if (s->fs) {
+                glutFullScreen();
+                gl_resize_window(s->x_width, s->x_height);
+        }
+        else {
+                glutReshapeWindow(gl->frame.width, gl->frame.height);
+                gl_resize_window(s->frame.width, s->frame.height);
+        }
+
+#ifndef HAVE_MACOSX
+        glutSwapBuffers();
+        while ((s->xwindow = get_window(s->display, WIN_NAME)) == 0) {
+                usleep(1000); /* wait for window init */
+}
+
+        update_fullscreen_state(s);
+#endif
+        s->win_initialized = TRUE;
+}
+
+void glut_idle_callback(void)
+{
+        struct state_gl *s = gl;
+        struct timeval tv;
+        double seconds;
+        //display_gl_handle_events(s);
+        
+        if(should_exit) return;
+        platform_sem_wait(&s->semaphore);
+        if(should_exit) return;
+
+        pthread_mutex_lock(&s->reconf_lock);
+        if (s->needs_reconfigure) {
+                gl_reconfigure_screen_real(s);
+                s->needs_reconfigure = FALSE;
+                pthread_cond_signal(&s->reconf_cv);
+        }
+        pthread_mutex_unlock(&s->reconf_lock);
+
+        /* for DXT deinterlacing doesn't make sense since it is
+         * always deinterlaced before comrpression */
+        if(s->deinterlace && !s->dxt)
+                vc_deinterlace(s->buffers[s->image_display],
+                                s->frame.dst_linesize, s->frame.height);
+
+        if(s->dxt) {
+                if(s->rgb) {
+                        glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                        s->frame.width, s->frame.height, 0,
+                                        (s->frame.width*s->frame.height/16)*8,
+                                        s->buffers[s->image_display]);
+                } else {
+                        dxt_bind_texture(s);
+                }
+        } else {
+                if(!s->rgb)
+                {
+                        getY(s->buffers[s->image_display], s->y, s->u, s->v,
+                                        s->frame.width, s->frame.height);
+                        gl_bind_texture(s);
+                } else {
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                        s->frame.width, s->frame.height, 0,
+                                        GL_RGBA, GL_UNSIGNED_BYTE,
+                                        s->buffers[s->image_display]);
+                }
+
+        }
+        /* FPS Data, this is pretty ghetto though.... */
+        s->frames++;
+        gettimeofday(&tv, NULL);
+        seconds = tv_diff(tv, s->tv);
+
+        if (seconds > 5) {
+                double fps = s->frames / seconds;
+                fprintf(stderr, "%lu frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                s->frames = 0;
+                s->tv = tv;
+        }
+
+        gl_draw(s->raspect);
+        glutPostRedisplay();
+}
+
+void glut_key_callback(unsigned char key, int x, int y) 
+{
+        UNUSED(x);
+        UNUSED(y);
+
+        switch(key) {
+                case 'f':
+                        if(!gl->fs) {
+                                glutFullScreen();
+                                gl->fs = TRUE;
+                                gl_resize_window(gl->x_width, gl->x_height);
+#ifndef HAVE_MACOSX
+                                update_fullscreen_state(gl);
+#endif
+                        } else {
+                                glutReshapeWindow(gl->frame.width, gl->frame.height);
+                                gl->fs = FALSE;
+                                gl_resize_window(gl->frame.width, gl->frame.height);
+#ifndef HAVE_MACOSX
+                                update_fullscreen_state(gl);
+#endif
+                        }
+                        break;
+                case 'q':
+                        should_exit = TRUE;
+                        platform_sem_post(&gl->semaphore);
+                        cleanup_gl(gl);
+                        if(gl->window != -1)
+                                glutDestroyWindow(gl->window);
+                        exit(0);
+                        break;
+                case 'd':
+                        gl->deinterlace = gl->deinterlace ? FALSE : TRUE;
+                        printf("Deinterlacing: %s\n", gl->deinterlace ? "ON" : "OFF");
+                        break;
         }
 }
 
+void display_gl_run(void *arg)
+{
+        struct state_gl        *s = (struct state_gl *) arg;
+
+#ifdef HAVE_MACOSX
+        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+        /* Avoids uncaught exception (1002)  when creating CGSWindow */
+        NSApplicationLoad();
+#endif
+
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+        glutIdleFunc(glut_idle_callback);
+
+        s->x_width = glutGet(GLUT_SCREEN_WIDTH);
+        s->x_height = glutGet(GLUT_SCREEN_HEIGHT);
+
+        /* Wait until we have some data and thus created window 
+         * otherwise the mainLoop would exit immediately */
+        while(!s->win_initialized) {
+                pthread_mutex_lock(&s->reconf_lock);
+                if (s->needs_reconfigure) {
+                        gl_reconfigure_screen_real(s);
+                        s->needs_reconfigure = FALSE;
+                        pthread_cond_signal(&s->reconf_cv);
+                }
+                pthread_mutex_unlock(&s->reconf_lock);
+                usleep(1000);
+        }
+
+        glutMainLoop();
+}
+
+
 void gl_resize_window(int width,int height)
 {
-    /* Height / width ration */
-    GLfloat ratio;
-    GLint   y = 0;
-
-    /* Protect against a divide by zero */
-    if ( height == 0 )
-        height = 1;
-
-    if (height > HD_HEIGHT) {
-      y = (height - HD_HEIGHT) / 2;
-      height = HD_HEIGHT;
-    }
-    ratio = ( GLfloat )width / ( GLfloat )(((float)(width * HD_HEIGHT))/((float)HD_WIDTH));
-
-    glViewport( 0, y, ( GLint )width, ( GLint )height );
-
+    glViewport( 0, 0, ( GLint )width, ( GLint )height );
     glMatrixMode( GL_PROJECTION );
     glLoadIdentity( );
 
+    if(gl->fs) {
+            double screen_ratio;
+            double x = 1.0,
+                   y = 1.0;
 
-    glScalef(1, (((float)(width * HD_HEIGHT))/((float)HD_WIDTH))/((float)height), 1);
-    gluPerspective( 45.0f, ratio, 0.1f, 100.0f );
+            screen_ratio = (double) gl->x_width / gl->x_height;
+            if(screen_ratio > 1.0 / gl->raspect) {
+                    x = (double) gl->x_height / (gl->x_width * gl->raspect);
+            } else {
+                    y = (double) gl->x_width / (gl->x_height / gl->raspect);
+            }
+            glScalef(x, y, 1);
+    } 
+
+    glOrtho(-1,1,-gl->raspect,gl->raspect,10,-10);
 
     glMatrixMode( GL_MODELVIEW );
 
@@ -772,14 +760,14 @@ void gl_resize_window(int width,int height)
 
 void gl_bind_texture(void *arg)
 {
-    struct state_sdl        *s = (struct state_sdl *) arg;
+    struct state_gl        *s = (struct state_gl *) arg;
 	int i;
 
     glActiveTexture(GL_TEXTURE1);
     i=glGetUniformLocationARB(s->PHandle,"Utex");
     glUniform1iARB(i,1); 
     glBindTexture(GL_TEXTURE_2D,1);
-    glTexImage2D(GL_TEXTURE_2D,0,1,HD_WIDTH/2,HD_HEIGHT,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->u);
+    glTexImage2D(GL_TEXTURE_2D,0,1,s->frame.width/2,s->frame.height,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->u);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
@@ -787,7 +775,7 @@ void gl_bind_texture(void *arg)
     i=glGetUniformLocationARB(s->PHandle,"Vtex");
     glUniform1iARB(i,2); 
     glBindTexture(GL_TEXTURE_2D,2);
-    glTexImage2D(GL_TEXTURE_2D,0,1,HD_WIDTH/2,HD_HEIGHT,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->v);
+    glTexImage2D(GL_TEXTURE_2D,0,1,s->frame.width/2,s->frame.height,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->v);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 
@@ -795,7 +783,7 @@ void gl_bind_texture(void *arg)
     i=glGetUniformLocationARB(s->PHandle,"Ytex");
     glUniform1iARB(i,0); 
     glBindTexture(GL_TEXTURE_2D,0);
-    glTexImage2D(GL_TEXTURE_2D,0,1,HD_WIDTH,HD_HEIGHT,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->y);
+    glTexImage2D(GL_TEXTURE_2D,0,1,s->frame.width,s->frame.height,0,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->y);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
     //glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 #if 0
@@ -820,10 +808,24 @@ void gl_bind_texture(void *arg)
 #endif
 }    
 
-void gl_draw()
+void dxt_bind_texture(void *arg)
+{
+        struct state_gl        *s = (struct state_gl *) arg;
+        static int i=0;
+
+        //TODO: does OpenGL use different stuff here?
+        glActiveTexture(GL_TEXTURE0);
+        i=glGetUniformLocationARB(s->PHandle,"yuvtex");
+        glUniform1iARB(i,0); 
+        glBindTexture(GL_TEXTURE_2D,0);
+        glCompressedTexImage2D(GL_TEXTURE_2D, 0,GL_COMPRESSED_RGB_S3TC_DXT1_EXT,s->frame.width,s->frame.height, 0,(s->frame.width*s->frame.height/16)*8, s->buffers[s->image_display]);
+
+}    
+
+void gl_draw(double ratio)
 {
     /* Clear the screen */
-    //glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     glLoadIdentity( );
     glTranslatef( 0.0f, 0.0f, -1.35f );
@@ -832,106 +834,24 @@ void gl_draw()
     glBegin(GL_QUADS);
       /* Front Face */
       /* Bottom Left Of The Texture and Quad */
-      glTexCoord2f( 0.0f, 1.0f ); glVertex2f( -1.0f, -0.5625f);
+      glTexCoord2f( 0.0f, 1.0f ); glVertex2f( -1.0f, -ratio);
       /* Bottom Right Of The Texture and Quad */
-      glTexCoord2f( 1.0f, 1.0f ); glVertex2f(  1.0f, -0.5625f);
+      glTexCoord2f( 1.0f, 1.0f ); glVertex2f(  1.0f, -ratio);
       /* Top Right Of The Texture and Quad */
-      glTexCoord2f( 1.0f, 0.0f ); glVertex2f(  1.0f,  0.5625f);
+      glTexCoord2f( 1.0f, 0.0f ); glVertex2f(  1.0f,  ratio);
       /* Top Left Of The Texture and Quad */
-      glTexCoord2f( 0.0f, 0.0f ); glVertex2f( -1.0f,  0.5625f);
+      glTexCoord2f( 0.0f, 0.0f ); glVertex2f( -1.0f,  ratio);
     glEnd( );
 
     gl_check_error();
     /* Draw it to the screen */
-    SDL_GL_SwapBuffers( );
 }
 
-inline void gl_copyline64(GLubyte *dst, GLubyte *src, int len)
+void glut_redisplay_callback(void)
 {
-        register uint64_t *d, *s;
-
-        register uint64_t a1,a2,a3,a4;
-
-        d = (uint64_t *)dst;
-        s = (uint64_t *)src;
-
-        while(len-- > 0) {
-		a1 = *(s++);
-                a2 = *(s++);
-                a3 = *(s++);
-                a4 = *(s++);
-
-                a1 = (a1 & 0xffffff) | ((a1 >> 8) & 0xffffff000000);
-                a2 = (a2 & 0xffffff) | ((a2 >> 8) & 0xffffff000000);
-                a3 = (a3 & 0xffffff) | ((a3 >> 8) & 0xffffff000000);
-                a4 = (a4 & 0xffffff) | ((a4 >> 8) & 0xffffff000000);
-
-                *(d++) = a1 | (a2 << 48);       /* 0xa2|a2|a1|a1|a1|a1|a1|a1 */
-                *(d++) = (a2 >> 16)|(a3 << 32); /* 0xa3|a3|a3|a3|a2|a2|a2|a2 */
-                *(d++) = (a3 >> 32)|(a4 << 16); /* 0xa4|a4|a4|a4|a4|a4|a3|a3 */
-	}
+    glFlush();
+    glutSwapBuffers();
 }
-
-#if !(HAVE_MACOSX || HAVE_32B_LINUX)
-
-inline void gl_copyline128(GLubyte *d, GLubyte *s, int len)
-{
-        register GLubyte *_d=d,*_s=s;
-
-        while(--len >= 0) {
-
-                asm ("movd %0, %%xmm4\n": : "r" (0xffffff));
-
-                asm volatile ("movdqa (%0), %%xmm0\n"
-                        "movdqa 16(%0), %%xmm5\n"
-                        "movdqa %%xmm0, %%xmm1\n"
-                        "movdqa %%xmm0, %%xmm2\n"
-                        "movdqa %%xmm0, %%xmm3\n"
-                        "pand  %%xmm4, %%xmm0\n"
-                        "movdqa %%xmm5, %%xmm6\n"
-                        "movdqa %%xmm5, %%xmm7\n"
-                        "movdqa %%xmm5, %%xmm8\n"
-                        "pand  %%xmm4, %%xmm5\n"
-                        "pslldq $4, %%xmm4\n"
-                        "pand  %%xmm4, %%xmm1\n"
-                        "pand  %%xmm4, %%xmm6\n"
-                        "pslldq $4, %%xmm4\n"
-                        "psrldq $1, %%xmm1\n"
-                        "psrldq $1, %%xmm6\n"
-                        "pand  %%xmm4, %%xmm2\n"
-                        "pand  %%xmm4, %%xmm7\n"
-                        "pslldq $4, %%xmm4\n"
-                        "psrldq $2, %%xmm2\n"
-                        "psrldq $2, %%xmm7\n"
-                        "pand  %%xmm4, %%xmm3\n"
-                        "pand  %%xmm4, %%xmm8\n"
-                        "por %%xmm1, %%xmm0\n"
-                        "psrldq $3, %%xmm3\n"
-                        "psrldq $3, %%xmm8\n"
-                        "por %%xmm2, %%xmm0\n"
-                        "por %%xmm6, %%xmm5\n"
-                        "por %%xmm3, %%xmm0\n"
-                        "por %%xmm7, %%xmm5\n"
-                        "movdq2q %%xmm0, %%mm0\n"
-                        "por %%xmm8, %%xmm5\n"
-                        "movdqa %%xmm5, %%xmm1\n"
-                        "pslldq $12, %%xmm5\n"
-                        "psrldq $4, %%xmm1\n"
-                        "por %%xmm5, %%xmm0\n"
-                        "psrldq $8, %%xmm0\n"
-                        "movq %%mm0, (%1)\n"
-                        "movdq2q %%xmm0, %%mm1\n"
-                        "movdq2q %%xmm1, %%mm2\n"
-                        "movq %%mm1, 8(%1)\n"
-                        "movq %%mm2, 16(%1)\n"
-                        :
-                        : "r" (_s), "r" (_d));
-                _s += 32;
-                _d += 24;
-        }
-}
-
-#endif /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
 display_type_t *display_gl_probe(void)
 {
@@ -941,33 +861,38 @@ display_type_t *display_gl_probe(void)
         if (dt != NULL) {
                 dt->id          = DISPLAY_GL_ID;
                 dt->name        = "gl";
-                dt->description = "OpenGL using SDL";
+                dt->description = "OpenGL";
         }
         return dt;
 }
 
 void display_gl_done(void *state)
 {
-        struct state_sdl *s = (struct state_sdl *) state;
+        struct state_gl *s = (struct state_gl *) state;
 
         assert(s->magic == MAGIC_GL);
 
-        SDL_ShowCursor(SDL_ENABLE);
-
-        SDL_Quit();
+        //pthread_join(s->thread_id, NULL);
+        pthread_mutex_destroy(&s->reconf_lock);
+        pthread_cond_destroy(&s->reconf_cv);
+        cleanup_data(s);
+        if(s->window != -1)
+                glutDestroyWindow(s->window);
 }
-	
-char* display_gl_getf(void *state)
+
+struct video_frame * display_gl_getf(void *state)
 {
-        struct state_sdl *s = (struct state_sdl *) state;
+        struct state_gl *s = (struct state_gl *) state;
         assert(s->magic == MAGIC_GL);
-        return (char *)s->buffers[s->image_network];
+
+        s->frame.data = (char *) s->buffers[s->image_network];
+        return &s->frame;
 }
 
 int display_gl_putf(void *state, char *frame)
 {
         int tmp;
-        struct state_sdl *s = (struct state_sdl *) state;
+        struct state_gl *s = (struct state_gl *) state;
 
         assert(s->magic == MAGIC_GL);
         UNUSED(frame);
@@ -975,14 +900,230 @@ int display_gl_putf(void *state, char *frame)
         /* ...and give it more to do... */
         tmp = s->image_display;
         s->image_display = s->image_network;
-        s->image_network = tmp;
+                s->image_network = tmp;
 
-        /* ...and signal the worker */
-        platform_sem_post(&s->semaphore);
-        sem_getvalue(&s->semaphore, &tmp);
-        if(tmp > 1)
-                printf("frame drop!\n");
-        return 0;
+                /* ...and signal the worker */
+                platform_sem_post(&s->semaphore);
+#ifndef HAVE_MACOSX
+                /* isn't implemented on Macs */
+                sem_getvalue(&s->semaphore, &tmp);
+                if(tmp > 1)
+                        printf("frame drop!\n");
+#endif
+                return 0;
 }
 
+static void cleanup_gl(struct state_gl *s)
+{
+        glDisable( GL_TEXTURE_2D );
+
+        if(!s->dxt && s->rgb) {
+                glDeleteTextures(4, s->texture);	//TODO: Is this necessary?
+        } else { /* other cases */
+                glDeleteTextures(1, s->texture);
+        }
+        if(!s->rgb)
+        {
+                glDeleteObjectARB(s->FSHandle);
+                glDeleteObjectARB(s->VSHandle);
+                glDeleteObjectARB(s->PHandle);
+        }
+}
+
+static void cleanup_data(struct state_gl *s)
+{
+        //glutHideWindow();
+        /* glutDestroyWindow(s->window); cannot be here because mainloop would
+         * return without any active window, so wait until new is created and let
+         * it destroy this window. */
+
+        free(s->y);
+        free(s->u);
+        free(s->v);
+        free(s->buffers[0]);
+        free(s->buffers[1]);
+}
+
+#ifndef HAVE_MACOSX
+/*
+ * Xinerama fullscreen functions
+ * parts of code are taken from wmctrl
+ */
+#define MAX_PROPERTY_VALUE_LEN 4096
+
+static Window *get_client_list (Display *disp, unsigned long *size);
+static char *get_window_title (Display *disp, Window win);
+static char *get_property (Display *disp, Window win,
+Atom xa_prop_type, char *prop_name, unsigned long *size);
+
+static Window get_window(Display *disp, const char *name)
+{
+        Window activate = 0;
+        Window *client_list;
+        unsigned long client_list_size;
+        int i;
+
+        if ((client_list = get_client_list(disp, &client_list_size)) == NULL) {
+            return EXIT_FAILURE; 
+        }
+
+        for (i = 0; (unsigned long) i < client_list_size / sizeof(Window); i++) {
+                char *match_utf8;
+                match_utf8 = get_window_title(disp, client_list[i]); /* UTF8 */
+                if (match_utf8) {
+                        if (strcmp(name, match_utf8) == 0) {
+                            activate = client_list[i];
+                            break;
+                        }
+                        free(match_utf8);
+                }
+        }
+        return activate;
+}
+
+static Window *get_client_list (Display *disp, unsigned long *size) {
+        Window *client_list;
+
+        if ((client_list = (Window *)get_property(disp, DefaultRootWindow(disp), 
+                    XA_WINDOW, "_NET_CLIENT_LIST", size)) == NULL) {
+                if ((client_list = (Window *)get_property(disp, DefaultRootWindow(disp), 
+                                XA_CARDINAL, "_WIN_CLIENT_LIST", size)) == NULL) {
+                    fputs("Cannot get client list properties. \n"
+                          "(_NET_CLIENT_LIST or _WIN_CLIENT_LIST)"
+                          "\n", stderr);
+                    return NULL;
+                }
+        }
+
+        return client_list;
+}
+
+static char *get_window_title (Display *disp, Window win) {
+        char *wm_name;
+
+        wm_name = get_property(disp, win, XA_STRING, "WM_NAME", NULL);
+
+        return wm_name;
+}
+
+static char *get_property (Display *disp, Window win,
+                Atom xa_prop_type, char *prop_name, unsigned long *size) {
+        Atom xa_prop_name;
+        Atom xa_ret_type;
+        int ret_format;
+        unsigned long ret_nitems;
+        unsigned long ret_bytes_after;
+        unsigned long tmp_size;
+        unsigned char *ret_prop;
+        char *ret;
+
+        xa_prop_name = XInternAtom(disp, prop_name, False);
+
+        /* MAX_PROPERTY_VALUE_LEN / 4 explanation (XGetWindowProperty manpage):
+        *
+        * long_length = Specifies the length in 32-bit multiples of the
+        *               data to be retrieved.
+        *
+        * NOTE:  see 
+        * http://mail.gnome.org/archives/wm-spec-list/2003-March/msg00067.html
+        * In particular:
+        *
+        *  When the X window system was ported to 64-bit architectures, a
+        * rather peculiar design decision was made. 32-bit quantities such
+        * as Window IDs, atoms, etc, were kept as longs in the client side
+        * APIs, even when long was changed to 64 bits.
+        *
+        */
+        if (XGetWindowProperty(disp, win, xa_prop_name, 0, MAX_PROPERTY_VALUE_LEN / 4, False,
+            xa_prop_type, &xa_ret_type, &ret_format,     
+            &ret_nitems, &ret_bytes_after, &ret_prop) != Success) {
+                debug_msg("Cannot get %s property.\n", prop_name);
+                return NULL;
+        }
+
+        if (xa_ret_type != xa_prop_type) {
+                debug_msg("Invalid type of %s property.\n", prop_name);
+                XFree(ret_prop);
+                return NULL;
+        }
+
+        /* null terminate the result to make string handling easier */
+        tmp_size = (ret_format / 8) * ret_nitems;
+        /* Correct 64 Architecture implementation of 32 bit data */
+        if(ret_format==32) tmp_size *= sizeof(long)/4;
+        ret = malloc(tmp_size + 1);
+        memcpy(ret, ret_prop, tmp_size);
+        ret[tmp_size] = '\0';
+
+        if (size) {
+                *size = tmp_size;
+        }
+
+        XFree(ret_prop);
+        return ret;
+}
+
+static void update_fullscreen_state(struct state_gl *s)
+{
+        XEvent xev;
+        XSizeHints *size_hints;
+
+        size_hints = XAllocSizeHints();
+        if(s->fs) {
+                size_hints->flags =  PMinSize | PMaxSize | PWinGravity | PAspect | PBaseSize;
+                size_hints->min_width =
+                        size_hints->max_width=
+                        size_hints->base_width=
+                        size_hints->min_aspect.x=
+                        size_hints->max_aspect.x=
+                        s->x_width;
+                size_hints->min_height =
+                        size_hints->max_height=
+                        size_hints->base_height=
+                        size_hints->min_aspect.y=
+                        size_hints->max_aspect.y=
+                        s->x_height;
+                size_hints->win_gravity=StaticGravity;
+        } else {
+                /* (re)set to defaults */
+                size_hints->flags = PBaseSize;
+                size_hints->base_height=
+                        s->frame.height;
+                size_hints->base_width=
+                        s->frame.width;
+        }
+
+        memset(&xev, 0, sizeof(xev));
+        xev.type = ClientMessage;
+        xev.xclient.serial = 0;
+        xev.xclient.send_event=True;
+        xev.xclient.window = s->xwindow;
+        xev.xclient.message_type = XInternAtom(s->display, "_NET_WM_STATE", False);
+        xev.xclient.format = 32;
+        xev.xclient.data.l[0] = s->fs ? 1 : 0;
+        xev.xclient.data.l[1] = XInternAtom(s->display, "_NET_WM_STATE_FULLSCREEN", False);
+        xev.xclient.data.l[2] = 0;
+
+        XUnmapWindow(s->display, s->xwindow);
+        XSendEvent(s->display, DefaultRootWindow(s->display), False,
+                       SubstructureRedirectMask|SubstructureNotifyMask, &xev);
+        XSetWMNormalHints(s->display, s->xwindow, size_hints);
+        XMoveWindow(s->display, s->xwindow, 0, 0);
+        XFree(size_hints);
+
+        /* shouldn't be needed */
+        if (s->fs) {
+                XMoveResizeWindow(s->display, s->xwindow, 0, 0, s->x_width, s->x_height);
+        } else {
+                XMoveResizeWindow(s->display, s->xwindow, 0, 0, s->frame.width, s->frame.height);
+        }
+
+        XMapRaised(s->display, s->xwindow);
+        XRaiseWindow(s->display, s->xwindow);
+        XSendEvent(s->display, DefaultRootWindow(s->display), False,
+                       SubstructureRedirectMask|SubstructureNotifyMask, &xev);
+        XMoveWindow(s->display, s->xwindow, 0, 0);
+        XFlush(s->display);
+}
+#endif
 

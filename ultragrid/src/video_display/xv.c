@@ -219,6 +219,8 @@ static void update_fullscreen_state(struct state_xv *s)
 
         XMapRaised(s->display, s->window);
         XRaiseWindow(s->display, s->window);
+        XSendEvent(s->display, DefaultRootWindow(s->display), False,
+                        SubstructureRedirectMask|SubstructureNotifyMask, &xev);
         XMoveWindow(s->display, s->window, 0, 0);
         XFlush(s->display);
 }
@@ -249,8 +251,7 @@ static void handle_events_xv(struct state_xv *s)
         }
 }
 
-static void*
-display_thread_xv(void *arg)
+void display_xv_run(void *arg)
 {
 	struct state_xv        *s = (struct state_xv *) arg;
         struct rect res, image;
@@ -259,6 +260,7 @@ display_thread_xv(void *arg)
 
 	while (!should_exit) {
                 handle_events_xv(s);
+                if (should_exit) break;
 
 		pthread_mutex_lock(&s->lock);
 
@@ -278,10 +280,10 @@ display_thread_xv(void *arg)
 
                 if (s->deinterlace) {
                         if (s->yuv) {
-                                vc_deinterlace(s->vw_xvimage[s->image_display]->data,
+                                vc_deinterlace((unsigned char *) s->vw_xvimage[s->image_display]->data,
                                        s->frame.dst_linesize, s->frame.height);
                         } else {
-                                vc_deinterlace(s->vw_ximage[s->image_display]->data,
+                                vc_deinterlace((unsigned char *) s->vw_ximage[s->image_display]->data,
                                         s->frame.dst_linesize, s->frame.height);
                         }
                 }
@@ -319,7 +321,6 @@ display_thread_xv(void *arg)
 
 		XFlush(s->display);
 	}
-	return NULL;
 }
 
 
@@ -461,10 +462,10 @@ display_xv_init(void)
 
         s->new_frame = FALSE;
 
-	if (pthread_create(&(s->thread_id), NULL, display_thread_xv, (void *) s) != 0) {
+	/*if (pthread_create(&(s->thread_id), NULL, display_thread_xv, (void *) s) != 0) {
 		perror("Unable to create display thread\n");
 		return NULL;
-	}
+	}*/
 
 	return (void *) s;
 }
@@ -521,6 +522,9 @@ static void reconfigure_screen_xv(void *arg, unsigned int width, unsigned int he
                         s->frame.dst_bpp = get_bpp(UYVY);
                         s->yuv = 1;
                         break;
+                case DXT1:
+                        fprintf(stderr, "DXT1 isn't supported for XV output.\n");
+                        exit(EXIT_FAILURE);
         }
 
         s->frame.fps = fps;
@@ -681,6 +685,8 @@ display_xv_putf(void *state, char *frame)
 {
 	int		 tmp;
 	struct state_xv *s = (struct state_xv *) state;
+
+        UNUSED(frame);
 
 	assert(s->magic == MAGIC_XV);
 	//assert(frame == s->vw_image[s->image_network]->data);

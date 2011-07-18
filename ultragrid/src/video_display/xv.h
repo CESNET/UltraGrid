@@ -53,6 +53,7 @@
 
 display_type_t		*display_xv_probe(void);
 void 			*display_xv_init(void);
+void 			 display_xv_run(void *state);
 void 			 display_xv_done(void *state);
 struct video_frame 	*display_xv_getf(void *state);
 int  			 display_xv_putf(void *state, char *frame);

@@ -52,6 +52,7 @@
 
 display_type_t		*display_sage_probe(void);
 void 			*display_sage_init(void);
+void 			 display_sage_run(void *state);
 void 			 display_sage_done(void *state);
 struct video_frame	*display_sage_getf(void *state);
 int  			 display_sage_putf(void *state, char *frame);

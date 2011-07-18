@@ -47,6 +47,9 @@
 #ifndef __tile_h
 
 #define __tile_h
+#include "config.h"
+#include "config_unix.h"
+
 
 struct video_frame;
 

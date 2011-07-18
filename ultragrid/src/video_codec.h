@@ -57,6 +57,7 @@ typedef enum {
         R10k,
         v210,
         DVS10,
+        DXT1,
 } codec_t;
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);

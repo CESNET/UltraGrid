@@ -104,7 +104,7 @@ int display_sage_handle_events(void)
         return 0;
 }
 
-static void *display_thread_sage(void *arg)
+void display_sage_run(void *arg)
 {
         struct state_sage *s = (struct state_sage *)arg;
         s->magic = MAGIC_SAGE;
@@ -124,7 +124,6 @@ static void *display_thread_sage(void *arg)
                 pthread_cond_broadcast(&s->buffer_writable_cond);
                 pthread_mutex_unlock(&s->buffer_writable_lock);
         }
-        return NULL;
 }
 
 void *display_sage_init(void)
@@ -159,11 +158,11 @@ void *display_sage_init(void)
         pthread_mutex_init(&s->buffer_writable_lock, 0);
         pthread_cond_init(&s->buffer_writable_cond, NULL);
 
-        if (pthread_create
+        /*if (pthread_create
             (&(s->thread_id), NULL, display_thread_sage, (void *)s) != 0) {
                 perror("Unable to create display thread\n");
                 return NULL;
-        }
+        }*/
 
         debug_msg("Window initialized %p\n", s);
 

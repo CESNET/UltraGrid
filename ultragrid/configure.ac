@@ -204,8 +204,8 @@ if test ! $no_x ; then
         fi
         PKG_CHECK_MODULES([XINERAMA], [xinerama],
                           [AC_DEFINE([HAVE_XINERAMA], [1], [Build with Xinerama extension])], XINERAMA=no)
-        X_LIBS+="-lX11 -lXext $XV_LIBS $XINERAMA_LIBS"
-        CFLAGS+="$XV_CFLAGS $XINERAMA_CFLAGS"
+        X_LIBS+=" -lX11 -lXext $XV_LIBS $XINERAMA_LIBS"
+        CFLAGS+=" $XV_CFLAGS $XINERAMA_CFLAGS"
 
 fi
 
@@ -369,7 +369,7 @@ case $host_os in
 		then
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit"	
-			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/kona.o"
+			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
 		fi
     ;;
 esac
@@ -522,26 +522,31 @@ case "$host_os" in
 		then
 			case "$host_os" in
 			*darwin8*)
-				LIBS="$LIBS -framework OpenGL"
+				LIBS="$LIBS -framework GLUT -framework OpenGL -framework Cocoa"
 			;;
 			*darwin9*)
-				LIBS="$LIBS -framework OpenGL -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
+				LIBS="$LIBS -framework GLUT -framework OpenGL -framework Cocoa -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
 			;;
 			esac
 
+                        FOUND_GLUT=no
 			FOUND_GLEW_L=no
 			AC_CHECK_HEADERS([/opt/local/include/GL/glew.h],
 					 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.", -L/opt/local/lib)],
 					 [echo "GL/glew.h not found."]
 					)
-			if test $FOUND_GLEW_L = yes
+			AC_CHECK_HEADERS([GLUT/glut.h],
+					 [AC_CHECK_FILE(/System/Library/Frameworks/GLUT.framework/GLUT, FOUND_GLUT=yes, echo "GLUT framework not found.")],
+					 [echo "GLUT/glut.h not found."]
+					)
+			if test $FOUND_GLEW_L = yes -a $FOUND_GLUT = yes
 			then
 				LIBS="$LIBS /opt/local/lib/libGLEW.a"
 				GL_INC="$GL_INC -I/opt/local/include"
 				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
-				echo "OpenGL (GLEW) libraries not found or not usable."
+				echo "OpenGL (GLEW/GLUT) libraries not found or not usable."
 			fi
 		else
 			echo "OpenGL libraries not found or not usable."
@@ -576,17 +581,22 @@ case "$host_os" in
 			LIBS="$LIBS -lGL -lGLU"
 	
 			FOUND_GLEW_L=no
+			FOUND_GLUT_L=yes
 			AC_CHECK_HEADERS([GL/glew.h],
 					 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
 					 [echo "GL/glew.h not found."]
 					)
-			if test $FOUND_GLEW_L = yes
+			AC_CHECK_HEADERS([GL/glut.h],
+					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT_L=yes , echo "GLUT library not found or not usable.")],
+					 [echo "GL/glut.h not found."]
+					)
+			if test $FOUND_GLEW_L = yes -a $FOUND_GLUT_L = yes
 			then
-				LIBS="$LIBS -lGLEW"
+				LIBS="$LIBS -lGLEW -lglut"
 				GL_OBJ="$GL_OBJ src/video_display/gl_sdl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
-				echo "OpenGL (GLEW) libraries not found or not usable."
+				echo "OpenGL (GLEW/GLUT) libraries not found or not usable."
 			fi
 		else
 			echo "OpenGL libraries not found or not usable."
@@ -629,7 +639,7 @@ if test $FOUND_DXT = yes
 then
 	DXT_INC=-I${DXT_INC}
 	DXT_LIB="-L${DXT_LIB} -ldxt"
-	DXT_OBJ="$DXT_OBJ src/video_display/dxt.o"
+	DXT_OBJ="$DXT_OBJ"
 	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 else

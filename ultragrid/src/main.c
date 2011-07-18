@@ -55,6 +55,7 @@
  */
 
 #include <string.h>
+#include <stdlib.h>
 #include <getopt.h>
 #include "config.h"
 #include "config_unix.h"
@@ -123,11 +124,18 @@ uint32_t progressive = 0;
 
 long frame_begin[2];
 
+int uv_argc;
+char **uv_argv;
+static struct state_uv *uv_state;
+
+void cleanup_uv(void);
+
 #ifndef WIN32
 static void signal_handler(int signal)
 {
         debug_msg("Caught signal %d\n", signal);
         should_exit = TRUE;
+        exit(0);
         return;
 }
 #endif                          /* WIN32 */
@@ -296,7 +304,7 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 static void destroy_devices(struct rtp ** network_devices)
 {
 	struct rtp ** current = network_devices;
-	while(current != NULL) {
+	while(*current != NULL) {
 		rtp_done(*current++);
 	}
 	free(network_devices);
@@ -596,6 +604,9 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
         pthread_t receiver_thread_id, sender_thread_id;
+
+        uv_argc = argc;
+        uv_argv = argv;
 
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
@@ -934,6 +945,14 @@ int main(int argc, char *argv[])
                 }
         }
 
+        /* register cleanup function */
+        uv_state = uv;
+        atexit(cleanup_uv);
+
+        if (strcmp("none", uv->requested_display) != 0)
+                display_run(uv->display_device);
+
+        /* join threads (if the control reaches here) */
         if (strcmp("none", uv->requested_display) != 0)
                 pthread_join(receiver_thread_id, NULL);
 
@@ -946,14 +965,19 @@ int main(int argc, char *argv[])
                 pthread_join(audio_thread_id, NULL);
 #endif                          /* HAVE_AUDIO */
 
-        tx_done(uv->tx);
-	destroy_devices(uv->network_devices);
-        vidcap_done(uv->capture_device);
-        display_done(uv->display_device);
-        if (uv->participants != NULL)
-                pdb_destroy(&uv->participants);
-        if (uv->audio_participants != NULL)
-                pdb_destroy(&uv->audio_participants);
-        printf("Exit\n");
         return EXIT_SUCCESS;
 }
+
+void cleanup_uv(void)
+{
+        tx_done(uv_state->tx);
+	destroy_devices(uv_state->network_devices);
+        vidcap_done(uv_state->capture_device);
+        display_done(uv_state->display_device);
+        if (uv_state->participants != NULL)
+                pdb_destroy(&uv_state->participants);
+        if (uv_state->audio_participants != NULL)
+                pdb_destroy(&uv_state->audio_participants);
+        printf("Exit\n");
+}
+

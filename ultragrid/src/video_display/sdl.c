@@ -67,9 +67,6 @@
 #include <X11/Xatom.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <X11/extensions/Xv.h>
-#include <X11/extensions/Xvlib.h>
-#include <X11/extensions/XShm.h>
 #include <host.h>
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>
@@ -116,9 +113,9 @@ struct state_sdl {
 
 	int		        put_frame:1;
 
-        volatile int buffer_writable;
-        pthread_cond_t buffer_writable_cond;
-        pthread_mutex_t buffer_writable_lock;
+        volatile int            buffer_writable;
+        SDL_cond                *buffer_writable_cond;
+        SDL_mutex               *buffer_writable_lock;
 };
 
 extern int should_exit;
@@ -315,7 +312,7 @@ int display_sdl_handle_events(void *arg, int post)
                                 should_exit = 1;
                                 if(post)
                                         SDL_SemPost(s->semaphore);
-                                return 1;
+                                exit(0);
                         }
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
@@ -329,7 +326,7 @@ int display_sdl_handle_events(void *arg, int post)
                         should_exit = 1;
                         if(post)
                                 SDL_SemPost(s->semaphore);
-                        return 1;
+                        exit(0);
                 }
         }
 
@@ -337,7 +334,7 @@ int display_sdl_handle_events(void *arg, int post)
 
 }
 
-static void *display_thread_sdl(void *arg)
+void display_sdl_run(void *arg)
 {
         struct state_sdl *s = (struct state_sdl *)arg;
         struct timeval tv;
@@ -377,10 +374,10 @@ static void *display_thread_sdl(void *arg)
 
                 display_sdl_handle_events(s, 0); /* Must be exactly here ! */
 
-                pthread_mutex_lock(&s->buffer_writable_lock);
+                SDL_mutexP(s->buffer_writable_lock);
                 s->buffer_writable = 1;
-                pthread_cond_broadcast(&s->buffer_writable_cond);
-                pthread_mutex_unlock(&s->buffer_writable_lock);
+                SDL_CondSignal(s->buffer_writable_cond);
+                SDL_mutexV(s->buffer_writable_lock);
 
 
 		s->frames++;
@@ -394,7 +391,6 @@ static void *display_thread_sdl(void *arg)
 			s->frames = 0;
 		}
 	}
-	return NULL;
 }
 
 static void show_help(void)
@@ -409,6 +405,7 @@ static void show_help(void)
 
 void cleanup_screen(struct state_sdl *s)
 {
+#ifndef HAVE_MACOSX
         if (s->rgb == 0) {
                 if (s->yuv_image != NULL) {
                         SDL_UnlockYUVOverlay(s->yuv_image);
@@ -424,6 +421,7 @@ void cleanup_screen(struct state_sdl *s)
                 SDL_FreeSurface(s->sdl_screen);
                 s->sdl_screen = NULL;
         }
+#endif
 }
 
 void
@@ -565,24 +563,26 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         }
 
         switch (color_spec) {
-        case R10k:
-                s->frame.decoder = (decoder_t)vc_copyliner10k;
-                break;
-        case v210:
-                s->frame.decoder = (decoder_t)vc_copylinev210;
-                break;
-        case DVS10:
-                s->frame.decoder = (decoder_t)vc_copylineDVS10;
-                break;
-        case DVS8:
-        case UYVY:
-        case Vuy2:
-                s->frame.decoder = (decoder_t)memcpy;
-                break;
-        case RGBA:
-                s->frame.decoder = (decoder_t)vc_copylineRGBA;
-                break;
-
+                case R10k:
+                        s->frame.decoder = (decoder_t)vc_copyliner10k;
+                        break;
+                case v210:
+                        s->frame.decoder = (decoder_t)vc_copylinev210;
+                        break;
+                case DVS10:
+                        s->frame.decoder = (decoder_t)vc_copylineDVS10;
+                        break;
+                case DVS8:
+                case UYVY:
+                case Vuy2:
+                        s->frame.decoder = (decoder_t)memcpy;
+                        break;
+                case RGBA:
+                        s->frame.decoder = (decoder_t)vc_copylineRGBA;
+                        break;
+                case DXT1:
+                        fprintf(stderr, "DXT1 isn't supported for SDL output.\n");
+                        exit(EXIT_FAILURE);
         }
 
         if (s->tiles != NULL) {
@@ -773,15 +773,15 @@ void *display_sdl_init(char *fmt)
         s->frame.get_tile_buffer = (get_tile_buffer_t) get_tile_buffer;
 
         s->buffer_writable = 1;
-        pthread_mutex_init(&s->buffer_writable_lock, 0);
-        pthread_cond_init(&s->buffer_writable_cond, NULL);
+        s->buffer_writable_lock = SDL_CreateMutex();
+        s->buffer_writable_cond = SDL_CreateCond();
 
 
-        if (pthread_create(&(s->thread_id), NULL, 
+        /*if (pthread_create(&(s->thread_id), NULL, 
                            display_thread_sdl, (void *)s) != 0) {
                 perror("Unable to create display thread\n");
                 return NULL;
-        }
+        }*/
 
         return (void *)s;
 }
@@ -795,8 +795,8 @@ void display_sdl_done(void *state)
         if(s->tiles != NULL)
                 free(s->tiles);
 
-        pthread_cond_destroy(&s->buffer_writable_cond);
-        pthread_mutex_destroy(&s->buffer_writable_lock);
+        SDL_DestroyCond(s->buffer_writable_cond);
+        SDL_DestroyMutex(s->buffer_writable_lock);
 
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
@@ -809,11 +809,15 @@ struct video_frame *display_sdl_getf(void *state)
         struct state_sdl *s = (struct state_sdl *)state;
         assert(s->magic == MAGIC_SDL);
 
-        pthread_mutex_lock(&s->buffer_writable_lock);
+        /* lame, because Macs do not manage to receive data if enabled
+         * see also cleanup_screen */
+#ifndef HAVE_MACOSX
+        SDL_mutexP(s->buffer_writable_lock);
         while (!s->buffer_writable)
-                pthread_cond_wait(&s->buffer_writable_cond,
-                                &s->buffer_writable_lock);
-        pthread_mutex_unlock(&s->buffer_writable_lock);
+                SDL_CondWait(s->buffer_writable_cond,
+                                s->buffer_writable_lock);
+        SDL_mutexV(s->buffer_writable_lock);
+#endif 
 
         return &s->frame;
 }
@@ -827,9 +831,9 @@ int display_sdl_putf(void *state, char *frame)
         assert(frame != NULL);
 
         if(s->put_frame) {
-                pthread_mutex_lock(&s->buffer_writable_lock);
+                SDL_mutexP(s->buffer_writable_lock);
                 s->buffer_writable = 0;
-                pthread_mutex_unlock(&s->buffer_writable_lock);
+                SDL_mutexV(s->buffer_writable_lock);
 
                 SDL_SemPost(s->semaphore);
                 tmp = SDL_SemValue(s->semaphore);
