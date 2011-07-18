@@ -59,7 +59,6 @@
 #endif                          /* HAVE_MACOSX */
 #include <string.h>
 #include <unistd.h>
-#include "video_types.h"
 #include "video_compress.h"
 #include "libdxt.h"
 
@@ -87,17 +86,91 @@
 struct video_compress {
         unsigned char *buffer[NUM_THREADS];
         unsigned char *output_data;
-        unsigned char *out;
         pthread_mutex_t lock;
-        int thread_count, len[NUM_THREADS], go[NUM_THREADS];
+        volatile int thread_count, len[NUM_THREADS], go[NUM_THREADS];
         pthread_t thread_ids[NUM_THREADS];
+        unsigned int tx_aux;
+        codec_t tx_color_spec;
+
+        struct video_frame frame;
 };
 
 inline void compress_copyline64(unsigned char *dst, unsigned char *src,
                                 int len);
 inline void compress_copyline128(unsigned char *d, unsigned char *s, int len);
 void compress_deinterlace(unsigned char *buffer);
-void compress_data(void *args, struct video_frame *tx);
+
+void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux)
+{
+        int x;
+
+        fprintf(stderr, "Compression reinitialized for %ux%u video.\n", 
+                        width, height);
+        /* Store original attributes to allow format change detection */
+        compress->tx_aux = aux;
+        compress->tx_color_spec = codec;
+
+        compress->frame.width = width;
+        compress->frame.height = height;
+        compress->frame.color_spec = codec;
+        compress->frame.src_bpp = get_bpp(codec);
+        compress->frame.aux = aux;
+
+        switch (codec) {
+                case RGBA:
+                        compress->frame.decoder = (decoder_t) memcpy;
+                        compress->frame.aux |= AUX_RGB;
+                        break;
+                case R10k:
+                        compress->frame.decoder = (decoder_t) vc_copyliner10k;
+                        compress->frame.rshift = 0;
+                        compress->frame.gshift = 8;
+                        compress->frame.bshift = 16;
+                        compress->frame.aux |= AUX_RGB;
+                        break;
+                case UYVY:
+                case Vuy2:
+                case DVS8:
+                        compress->frame.decoder = (decoder_t) memcpy;
+                        compress->frame.aux |= AUX_YUV;
+                        break;
+                case v210:
+                        compress->frame.decoder = (decoder_t) vc_copylinev210;
+                        compress->frame.aux |= AUX_YUV;
+                        break;
+                case DVS10:
+                        compress->frame.decoder = (decoder_t) vc_copylineDVS10;
+                        compress->frame.aux |= AUX_YUV;
+                        break;
+        }
+        compress->frame.src_linesize = compress->frame.width * compress->frame.src_bpp;
+        compress->frame.dst_linesize = compress->frame.width * 
+                (compress->frame.aux == AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+        compress->frame.color_spec = DXT1;
+
+        /* We will deinterlace the output frame */
+        compress->frame.aux &= ~AUX_INTERLACED;
+
+        for (x = 0; x < NUM_THREADS; x++) {
+                compress->buffer[x] =
+                    (unsigned char *)malloc(width * height * 4 / NUM_THREADS);
+        }
+#ifdef HAVE_MACOSX
+        compress->output_data = (unsigned char *)malloc(width * height * 4);
+        compress->frame.data = (unsigned char *)malloc(width * height * 4);
+#else
+        /*
+         *  memalign doesn't exist on Mac OS. malloc always returns 16  
+         *  bytes aligned memory
+         *
+         *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
+         */
+        compress->output_data = (unsigned char *)memalign(16, width * height * 4);
+        compress->frame.data = (unsigned char *)memalign(16, width * height * 4);
+#endif                          /* HAVE_MACOSX */
+        memset(compress->output_data, 0, width * height * 4);
+        memset(compress->frame.data, 0, width * height * 4 / 8);
+}
 
 struct video_compress *initialize_video_compression(void)
 {
@@ -109,28 +182,13 @@ struct video_compress *initialize_video_compression(void)
         struct video_compress *compress;
 
         compress = calloc(1, sizeof(struct video_compress));
-        for (x = 0; x < NUM_THREADS; x++) {
-                compress->buffer[x] =
-                    (unsigned char *)malloc(1920 * 1080 * 4 / NUM_THREADS);
-        }
-#ifdef HAVE_MACOSX
-        compress->output_data = (unsigned char *)malloc(1920 * 1080 * 4);
-        compress->out = (unsigned char *)malloc(1920 * 1080 * 4);
-#else
-        /*
-         *  memalign doesn't exist on Mac OS. malloc always returns 16  
-         *  bytes aligned memory
-         *
-         *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
-         */
-        compress->output_data = (unsigned char *)memalign(16, 1920 * 1080 * 4);
-        compress->out = (unsigned char *)memalign(16, 1920 * 1080 * 4);
-#endif                          /* HAVE_MACOSX */
-        memset(compress->output_data, 0, 1920 * 1080 * 4);
-        memset(compress->out, 0, 1920 * 1080 * 4 / 8);
+        /* initial values */
+        compress->frame.width = 0;
+        compress->frame.height = 0;
+
         compress->thread_count = 0;
         if (pthread_mutex_init(&(compress->lock), NULL)) {
-                perror("Error initializing mutex!");
+        perror("Error initializing mutex!");
                 exit(x);
         }
 
@@ -236,52 +294,7 @@ inline void compress_copyline64(unsigned char *dst, unsigned char *src, int len)
         }
 }
 
-/* linear blend deinterlace */
-void compress_deinterlace(unsigned char *buffer)
-{
-        int i, j;
-        long pitch = 1920 * 2;
-        register long pitch2 = pitch * 2;
-        unsigned char *bline1, *bline2, *bline3;
-        register unsigned char *line1, *line2, *line3;
-
-        bline1 = buffer;
-        bline2 = buffer + pitch;
-        bline3 = buffer + 3 * pitch;
-        for (i = 0; i < 1920 * 2; i += 16) {
-                /* preload first two lines */
-                asm volatile ("movdqa (%0), %%xmm0\n"
-                              "movdqa (%1), %%xmm1\n"::"r" ((unsigned long *)
-                                                            bline1),
-                              "r"((unsigned long *)bline2));
-                line1 = bline2;
-                line2 = bline2 + pitch;
-                line3 = bline3;
-                for (j = 0; j < 1076; j += 2) {
-                        asm volatile ("movdqa (%1), %%xmm2\n"
-                                      "pavgb %%xmm2, %%xmm0\n"
-                                      "pavgb %%xmm1, %%xmm0\n"
-                                      "movdqa (%2), %%xmm1\n"
-                                      "movdqa %%xmm0, (%0)\n"
-                                      "pavgb %%xmm1, %%xmm0\n"
-                                      "pavgb %%xmm2, %%xmm0\n"
-                                      "movdqa %%xmm0, (%1)\n"::"r" ((unsigned
-                                                                     long *)
-                                                                    line1),
-                                      "r"((unsigned long *)line2),
-                                      "r"((unsigned long *)line3)
-                            );
-                        line1 += pitch2;
-                        line2 += pitch2;
-                        line3 += pitch2;
-                }
-                bline1 += 16;
-                bline2 += 16;
-                bline3 += 16;
-        }
-}
-
-void compress_data(void *args, struct video_frame *tx)
+struct video_frame * compress_data(void *args, struct video_frame *tx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
         struct video_compress *compress = (struct video_compress *)args;
@@ -289,47 +302,35 @@ void compress_data(void *args, struct video_frame *tx)
         int i;
         unsigned char *line1, *line2;
 
-        line1 = (unsigned char *)tx->data;
-        line2 = compress->output_data;
-        /* First 10->8 bit conversion */
-        if (bitdepth == 10) {
-                for (x = 0; x < HD_HEIGHT; x += 2) {
-#if (HAVE_MACOSX || HAVE_32B_LINUX)
-                        compress_copyline64(line2, line1, 5120 / 32);
-                        compress_copyline64(line2 + 3840, line1 + 5120 * 540,
-                                            5120 / 32);
-
-#else                           /* (HAVE_MACOSX || HAVE_32B_LINUX) */
-                        compress_copyline128(line2, line1, 5120 / 32);
-                        compress_copyline128(line2 + 3840, line1 + 5120 * 540,
-                                             5120 / 32);
-#endif                          /* (HAVE_MACOSX || HAVE_32B_LINUX) */
-                        line1 += 5120;
-                        line2 += 2 * 3840;
-                }
-        } else {
-                if (progressive == 1) {
-                        memcpy(line2, line1,
-                               hd_size_x * hd_size_y * hd_color_bpp);
-                } else {
-                        for (i = 0; i < 1080; i += 2) {
-                                memcpy(line2, line1, hd_size_x * hd_color_bpp);
-                                memcpy(line2 + hd_size_x * hd_color_bpp,
-                                       line1 + hd_size_x * hd_color_bpp * 540,
-                                       hd_size_x * hd_color_bpp);
-                                line1 += hd_size_x * hd_color_bpp;
-                                line2 += 2 * hd_size_x * hd_color_bpp;
-                        }
-                }
+        if(tx->width != compress->frame.width ||
+                        tx->height != compress->frame.height ||
+                        tx->aux != compress->tx_aux ||
+                        tx->color_spec != compress->tx_color_spec)
+        {
+                reconfigure_compress(compress, tx->width, tx->height, tx->color_spec, tx->aux);
         }
 
-        compress_deinterlace(compress->output_data);
+        line1 = (unsigned char *)tx->data;
+        line2 = compress->output_data;
+
+        for (x = 0; x < compress->frame.height; ++x) {
+                compress->frame.decoder(line2, line1, compress->frame.src_linesize,
+                                compress->frame.rshift, compress->frame.gshift, compress->frame.bshift);
+                line1 += compress->frame.src_linesize;
+                line2 += compress->frame.dst_linesize;
+        }
+
+
+        if(tx->aux & AUX_INTERLACED)
+                vc_deinterlace(compress->output_data, compress->frame.src_linesize,
+                                compress->frame.height);
+
 
         for (x = 0; x < NUM_THREADS; x++) {
                 compress->go[x] = 1;
         }
 
-        while (total != 1036800) {
+        while (total != compress->frame.width * compress->frame.height / 2) {
                 //This is just getting silly...
                 total = 0;
                 for (x = 0; x < NUM_THREADS; x++) {
@@ -337,22 +338,27 @@ void compress_data(void *args, struct video_frame *tx)
                 }
         }
 
-        tx->data = (char *)compress->out;
-        tx->colour_mode = DXT_1080;
-        tx->data_len = total;
+        compress->frame.data_len = total;
+
+        return &compress->frame;
 }
 
 static void compress_thread(void *args)
 {
         struct video_compress *compress = (struct video_compress *)args;
         int myId, myEnd, myStart, range, x;
-        unsigned char *retv, *input;
+        unsigned char *retv;
 
         pthread_mutex_lock(&(compress->lock));
         myId = compress->thread_count;
         compress->thread_count++;
         pthread_mutex_unlock(&(compress->lock));
-        range = 1920 * 1080 / NUM_THREADS;
+
+        while (compress->go[myId] == 0) {
+                //Busywait
+        }
+
+        range = compress->frame.width * compress->frame.height / NUM_THREADS;
         myStart = myId * range;
         myEnd = (myId + 1) * range;
         fprintf(stderr, "Thread %d online, handling elements %d - %d\n", myId,
@@ -362,26 +368,33 @@ static void compress_thread(void *args)
                 while (compress->go[myId] == 0) {
                         //Busywait
                 }
-                retv = compress->buffer[myId];
-                input =
-                    (compress->output_data) +
-                    (myId * 1920 * 1080 * 2 / NUM_THREADS);
-                /* Repack the data to YUV 4:4:4 Format */
-                for (x = 0; x < range; x += 2) {
-                        retv[4 * x] = input[2 * x + 1]; //Y1
-                        retv[4 * x + 1] = input[2 * x]; //U1
-                        retv[4 * x + 2] = input[2 * x + 2];     //V1
-                        retv[4 * x + 3] = 255;  //Alpha
+                if(compress->frame.aux & AUX_YUV)
+                {
+                        unsigned char *input;
+                        input = (compress->output_data) +
+                            (myId * compress->frame.width * compress->frame.height * 2 / NUM_THREADS);
+                        retv = compress->buffer[myId];
+                        /* Repack the data to YUV 4:4:4 Format */
+                        for (x = 0; x < range; x += 2) {
+                                retv[4 * x] = input[2 * x + 1]; //Y1
+                                retv[4 * x + 1] = input[2 * x]; //U1
+                                retv[4 * x + 2] = input[2 * x + 2];     //V1
+                                retv[4 * x + 3] = 255;  //Alpha
 
-                        retv[4 * x + 4] = input[2 * x + 3];     //Y2
-                        retv[4 * x + 5] = input[2 * x]; //U1
-                        retv[4 * x + 6] = input[2 * x + 2];     //V1
-                        retv[4 * x + 7] = 255;  //Alpha
+                                retv[4 * x + 4] = input[2 * x + 3];     //Y2
+                                retv[4 * x + 5] = input[2 * x]; //U1
+                                retv[4 * x + 6] = input[2 * x + 2];     //V1
+                                retv[4 * x + 7] = 255;  //Alpha
+                        }
+                } else {
+                        retv = (compress->output_data) +
+                            (myId * compress->frame.width * compress->frame.height * 4 / NUM_THREADS);
                 }
+
                 compress->len[myId] =
                     DirectDXT1(retv,
-                               (compress->out) + myId * 1036800 / (NUM_THREADS),
-                               1920, 1080 / NUM_THREADS);
+                               ((unsigned char *) compress->frame.data) + myId * compress->frame.width * compress->frame.height / 2 / (NUM_THREADS),
+                               compress->frame.width, compress->frame.height / NUM_THREADS);
                 compress->go[myId] = 0;
 
         }

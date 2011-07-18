@@ -79,9 +79,9 @@
    QUAD SDK Examples. That is where util.h comes from.
 */
 
-#include "sdivideo.h"
-#include "master.h"
-#include "util.h"
+#include "quad/include/sdivideo.h"
+#include "quad/include/master.h"
+#include "quad/Examples/util.h"
 
 #define MAXLEN 256
 

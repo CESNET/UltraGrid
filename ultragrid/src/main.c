@@ -571,7 +571,7 @@ static void *sender_thread(void *arg)
                         //TODO: Unghetto this
                         if (uv->requested_compression) {
 #ifdef HAVE_FASTDXT
-                                compress_data(uv->compression, tx_frame);
+                                tx_frame = compress_data(uv->compression, tx_frame);
 #endif                          /* HAVE_FASTDXT */
                         }
                         if(!uv->split_frames) {

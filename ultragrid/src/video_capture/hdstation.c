@@ -198,6 +198,7 @@ void *vidcap_hdstation_init(char *fmt)
                 }
                 mode = tmp;    
                 for(i=0; hdsp_mode_table[i].name != NULL; i++) {
+                        printf ("%s %s", mode, hdsp_mode_table[i].name);
                         if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
                                   s->frame.fps == hdsp_mode_table[i].fps) {
                                   s->mode = &hdsp_mode_table[i];
