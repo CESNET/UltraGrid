@@ -597,7 +597,7 @@ static void *sender_thread(void *arg)
                         if (uv->requested_compression) {
 #ifdef HAVE_FASTDXT
                                 assert(frame_count == 1);
-                                compress_data(uv->compression, &tx_frames[0]);
+                                tx_frames = compress_data(uv->compression, &tx_frames[0]);
 #endif                          /* HAVE_FASTDXT */
                         }
                         if(!uv->split_frames) {
