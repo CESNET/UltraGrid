@@ -439,6 +439,8 @@ function cmpversion()
 
 case "$host_os" in
         *darwin*)
+	# Mac workaround - redefining non-present macro to avoid errors
+	AC_DEFUN([AM_PATH_SDL], [$2])
         AC_CHECK_HEADERS([SDL/SDL.h],
                          [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
@@ -476,9 +478,7 @@ case "$host_os" in
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
                 AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
                 SDL_VERSION=1.2.10
-                AM_PATH_SDL($SDL_VERSION,
-                        AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21]),
-                        :)
+                AM_PATH_SDL($SDL_VERSION, AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21]), :)
             fi
         ;;
 esac
