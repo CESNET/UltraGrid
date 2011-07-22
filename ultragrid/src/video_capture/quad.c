@@ -104,34 +104,34 @@ static const struct frame_mode frame_modes[] = {
         [SDIVIDEO_CTL_UNLOCKED] =
                 { "Unset", 0u, 0u, 0.0, 0, FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_125M_486I_59_94HZ] =
-                { "SMPTE 125M 486i 59.94 Hz", 720u, 486u , 59.94, AUX_INTERLACED,
+                { "SMPTE 125M 486i 59.94 Hz", 720u, 486u , 59.94 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_BT_601_576I_50HZ] =
-                { "ITU-R BT.601 720x576i 50 Hz", 720u, 576u, 50.0, AUX_INTERLACED,
+                { "ITU-R BT.601 720x576i 50 Hz", 720u, 576u, 50.0 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_260M_1035I_60HZ] =
-                { "SMPTE 260M 1035i 60 Hz", 1920u, 1035u, 60.0, AUX_INTERLACED,
+                { "SMPTE 260M 1035i 60 Hz", 1920u, 1035u, 60.0 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_260M_1035I_59_94HZ] =
-                { "SMPTE 260M 1035i 59.94 Hz", 1920u, 1035u, 59.94, AUX_INTERLACED,
+                { "SMPTE 260M 1035i 59.94 Hz", 1920u, 1035u, 59.94 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_295M_1080I_50HZ] =
-                { "SMPTE 295M 1080i 50 Hz", 1920u, 1080u, 50.0, AUX_INTERLACED,
+                { "SMPTE 295M 1080i 50 Hz", 1920u, 1080u, 50.0 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_274M_1080I_60HZ] =
-                { "SMPTE 274M 1080i 60 Hz", 1920u, 1080u, 60.0, AUX_INTERLACED,
+                { "SMPTE 274M 1080i 60 Hz", 1920u, 1080u, 60.0 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_274M_1080PSF_30HZ] =
                 { "SMPTE 274M 1080psf 30 Hz", 1920u, 1080u, 30.0, AUX_SF,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_274M_1080I_59_94HZ] =
-                { "SMPTE 274M 1080i 59.94 Hz", 1920u, 1080u, 59.94, AUX_INTERLACED,
+                { "SMPTE 274M 1080i 59.94 Hz", 1920u, 1080u, 59.94 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_274M_1080PSF_29_97HZ] =
                 { "SMPTE 274M 1080psf 29.97 Hz", 1920u, 1080u, 29.97, AUX_SF,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_274M_1080I_50HZ] =
-                { "SMPTE 274M 1080i 50 Hz", 1920u, 1080u, 50.0, AUX_INTERLACED,
+                { "SMPTE 274M 1080i 50 Hz", 1920u, 1080u, 50.0 / 2.0, AUX_INTERLACED,
                         FMODE_MAGIC },
         [SDIVIDEO_CTL_SMPTE_274M_1080PSF_25HZ] =
                 { "SMPTE 274M 1080psf 25 Hz", 1920u, 1080u, 25.0, AUX_PROGRESSIVE,
