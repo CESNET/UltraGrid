@@ -31,6 +31,7 @@
 #define __DeckLink_API_v7_3_h__
 
 #include "DeckLinkAPI.h"
+#include "DeckLinkAPI_v7_6.h"
 
 /* Interface ID Declarations */
 
@@ -56,7 +57,7 @@ class IDeckLinkOutput_v7_3 : public IUnknown
 {
 public:
     virtual HRESULT DoesSupportVideoMode (BMDDisplayMode displayMode, BMDPixelFormat pixelFormat, /* out */ BMDDisplayModeSupport *result) = 0;
-    virtual HRESULT GetDisplayModeIterator (/* out */ IDeckLinkDisplayModeIterator **iterator) = 0;
+    virtual HRESULT GetDisplayModeIterator (/* out */ IDeckLinkDisplayModeIterator_v7_6 **iterator) = 0;
 
     virtual HRESULT SetScreenPreviewCallback (/* in */ IDeckLinkScreenPreviewCallback *previewCallback) = 0;
 
@@ -66,11 +67,11 @@ public:
     virtual HRESULT DisableVideoOutput (void) = 0;
 
     virtual HRESULT SetVideoOutputFrameMemoryAllocator (/* in */ IDeckLinkMemoryAllocator *theAllocator) = 0;
-    virtual HRESULT CreateVideoFrame (int32_t width, int32_t height, int32_t rowBytes, BMDPixelFormat pixelFormat, BMDFrameFlags flags, /* out */ IDeckLinkMutableVideoFrame **outFrame) = 0;
-    virtual HRESULT CreateAncillaryData (BMDDisplayMode displayMode, BMDPixelFormat pixelFormat, /* out */ IDeckLinkVideoFrameAncillary **outBuffer) = 0;
+    virtual HRESULT CreateVideoFrame (int32_t width, int32_t height, int32_t rowBytes, BMDPixelFormat pixelFormat, BMDFrameFlags flags, /* out */ IDeckLinkMutableVideoFrame_v7_6 **outFrame) = 0;
+    virtual HRESULT CreateAncillaryData (BMDPixelFormat pixelFormat, /* out */ IDeckLinkVideoFrameAncillary **outBuffer) = 0;
 
-    virtual HRESULT DisplayVideoFrameSync (/* in */ IDeckLinkVideoFrame *theFrame) = 0;
-    virtual HRESULT ScheduleVideoFrame (/* in */ IDeckLinkVideoFrame *theFrame, BMDTimeValue displayTime, BMDTimeValue displayDuration, BMDTimeScale timeScale) = 0;
+    virtual HRESULT DisplayVideoFrameSync (/* in */ IDeckLinkVideoFrame_v7_6 *theFrame) = 0;
+    virtual HRESULT ScheduleVideoFrame (/* in */ IDeckLinkVideoFrame_v7_6 *theFrame, BMDTimeValue displayTime, BMDTimeValue displayDuration, BMDTimeScale timeScale) = 0;
     virtual HRESULT SetScheduledFrameCompletionCallback (/* in */ IDeckLinkVideoOutputCallback *theCallback) = 0;
     virtual HRESULT GetBufferedVideoFrameCount (/* out */ uint32_t *bufferedFrameCount) = 0;
 
@@ -109,7 +110,7 @@ protected:
 class IDeckLinkInputCallback_v7_3 : public IUnknown
 {
 public:
-    virtual HRESULT VideoInputFormatChanged (/* in */ BMDVideoInputFormatChangedEvents notificationEvents, /* in */ IDeckLinkDisplayMode *newDisplayMode, /* in */ BMDDetectedVideoInputFormatFlags detectedSignalFlags) = 0;
+    virtual HRESULT VideoInputFormatChanged (/* in */ BMDVideoInputFormatChangedEvents notificationEvents, /* in */ IDeckLinkDisplayMode_v7_6 *newDisplayMode, /* in */ BMDDetectedVideoInputFormatFlags detectedSignalFlags) = 0;
     virtual HRESULT VideoInputFrameArrived (/* in */ IDeckLinkVideoInputFrame_v7_3 *videoFrame, /* in */ IDeckLinkAudioInputPacket *audioPacket) = 0;
 
 protected:
@@ -125,7 +126,7 @@ class IDeckLinkInput_v7_3 : public IUnknown
 {
 public:
     virtual HRESULT DoesSupportVideoMode (BMDDisplayMode displayMode, BMDPixelFormat pixelFormat, /* out */ BMDDisplayModeSupport *result) = 0;
-    virtual HRESULT GetDisplayModeIterator (/* out */ IDeckLinkDisplayModeIterator **iterator) = 0;
+    virtual HRESULT GetDisplayModeIterator (/* out */ IDeckLinkDisplayModeIterator_v7_6 **iterator) = 0;
 
     virtual HRESULT SetScreenPreviewCallback (/* in */ IDeckLinkScreenPreviewCallback *previewCallback) = 0;
 
@@ -157,7 +158,7 @@ protected:
 
 /* Interface IDeckLinkVideoInputFrame - Provided by the IDeckLinkVideoInput frame arrival callback. */
 
-class IDeckLinkVideoInputFrame_v7_3 : public IDeckLinkVideoFrame
+class IDeckLinkVideoInputFrame_v7_3 : public IDeckLinkVideoFrame_v7_6
 {
 public:
     virtual HRESULT GetStreamTime (/* out */ BMDTimeValue *frameTime, /* out */ BMDTimeValue *frameDuration, BMDTimeScale timeScale) = 0;

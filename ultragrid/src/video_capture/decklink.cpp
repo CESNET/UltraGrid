@@ -71,12 +71,13 @@ extern "C" {
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
 
+#define MAX_DEVICES 4
+
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
 static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
 
-int frames = 0;
 struct timeval t, t0;
 
 #ifdef __cplusplus
@@ -101,9 +102,10 @@ public:
 	int	newFrameReady;
 	void*	pixelFrame;
 	int	first_time;
-	struct vidcap_decklink_state	*s;
+	struct  vidcap_decklink_state *s;
+        int     i;
 	
-	void set_vidcap_state(vidcap_decklink_state	*state);
+	void set_device_state(struct vidcap_decklink_state *state, int index);
 	
 	VideoDelegate () {
 		newFrameReady = 0;
@@ -135,19 +137,28 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);    
 };
 
-struct vidcap_decklink_state {
+struct device_state {
 	IDeckLink*		deckLink;
 	IDeckLinkInput*		deckLinkInput;
-	int			device;
+	VideoDelegate*		delegate;
+        int                     index;
+};
+
+struct vidcap_decklink_state {
+        struct device_state     state[MAX_DEVICES];
+        int                     devices_cnt;
 	int			mode;
 	// void*			rtp_buffer;
-	VideoDelegate*		delegate;
 	unsigned int		next_frame_time; // avarege time between frames
+        struct video_frame      frame[MAX_DEVICES];
+        const struct codec_info_t *c_info;
+        
+
 	pthread_mutex_t	 	lock;
 	pthread_cond_t	 	boss_cv;
 	int		 	boss_waiting;
-        struct video_frame      frame;
-        const struct codec_info_t *c_info;
+        
+        int                     frames;
 };
 
 /* DeckLink SDK objects */
@@ -168,13 +179,12 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 	{
 		if (arrivedFrame->GetFlags() & bmdFrameHasNoInputSource)
 		{
-			fprintf(stderr, "Frame received (#%d) - No input signal detected\n", frames);
+			fprintf(stderr, "Frame received (#%d) - No input signal detected\n", s->frames);
 		}
 		else{
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, arrivedFrame->GetRowBytes() * arrivedFrame->GetHeight());
 			
 		}
-		frames++;
 	}
 
 	arrivedFrame->GetBytes(&pixelFrame);
@@ -192,22 +202,15 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
 	pthread_mutex_unlock(&(s->lock));
 
-	gettimeofday(&t, NULL);
-	double seconds = tv_diff(t, t0);	
-	if (seconds >= 5) {
-		float fps  = frames / seconds;
-		fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
-		t0 = t;
-		frames = 0;
-	}
         
 	debug_msg("VideoInputFrameArrived - END\n"); /* TOREMOVE */
 
 	return S_OK;
 }
 
-void VideoDelegate::set_vidcap_state(vidcap_decklink_state	*state){
+void VideoDelegate::set_device_state(struct vidcap_decklink_state *state, int index){
 	s = state;
+        i = index;
 }
 
 /* HELP */
@@ -221,7 +224,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("Decklink options:\n");
-	printf("\tdevice:mode\n");
+	printf("\tdevice(s):mode\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -293,8 +296,19 @@ settings_init(void *state, char *fmt)
 	if(!tmp) {
 		fprintf(stderr, "Wrong config %s\n", fmt);
 		return 0;
-	}
-	s->device = atoi(tmp);
+	} else {
+                char *devices = strdup(tmp);
+                char *ptr;
+                char *saveptr;
+
+                s->devices_cnt = 0;
+                ptr = strtok_r(devices, ",", &saveptr);
+                do {
+                        s->state[s->devices_cnt].index = atoi(ptr);
+                        ++s->devices_cnt;
+                } while (ptr = strtok_r(NULL, ",", &saveptr));
+                free (devices);
+        }
 
 	// choose mode
 	tmp = strtok(NULL, ":");
@@ -311,7 +325,6 @@ settings_init(void *state, char *fmt)
                 for(i=0; codec_info[i].name != NULL; i++) {
                     if(codec_info[i].codec == Vuy2) {
                         s->c_info = &codec_info[i];
-                        s->frame.color_spec = codec_info[i].codec;
                         break;
                     }
                 }
@@ -320,7 +333,6 @@ settings_init(void *state, char *fmt)
                 for(i=0; codec_info[i].name != NULL; i++) {
                     if(strcmp(codec_info[i].name, tmp) == 0) {
                          s->c_info = &codec_info[i];
-                         s->frame.color_spec = codec_info[i].codec;
                          break;
                     }
                 }
@@ -381,221 +393,269 @@ vidcap_decklink_init(char *fmt)
 		return NULL;
 	}
 
-	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
-	deckLinkIterator = CreateDeckLinkIteratorInstance();
-	if (deckLinkIterator == NULL)
-	{
-		printf("A DeckLink iterator could not be created. The DeckLink drivers may not be installed.\n");
-		return NULL;
-	}
-
-	dnum = 0;
-	deckLink = NULL;
-	bool device_found = false;
+	bool device_found[MAX_DEVICES];
+        for(int i = 0; i < s->devices_cnt; ++i)
+                device_found[i] = false;
     
-	while (deckLinkIterator->Next(&deckLink) == S_OK)
-	{
-		if (s->device != dnum) {
-			dnum++;
+        /* TODO: make sure that all devices are have compatible properties */
+        for (int i = 0; i < s->devices_cnt; ++i)
+        {
+                dnum = 0;
+                deckLink = NULL;
+                // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+                deckLinkIterator = CreateDeckLinkIteratorInstance();
+                if (deckLinkIterator == NULL)
+                {
+                        printf("A DeckLink iterator could not be created. The DeckLink drivers may not be installed.\n");
+                        return NULL;
+                }
+                while (deckLinkIterator->Next(&deckLink) == S_OK)
+                {
+                        printf("%d\n", dnum);
+                        if (s->state[i].index != dnum) {
+                                dnum++;
 
-			// Release the IDeckLink instance when we've finished with it to prevent leaks
-			deckLink->Release();
-			deckLink = NULL;
-			continue;	
-		}
+                                // Release the IDeckLink instance when we've finished with it to prevent leaks
+                                deckLink->Release();
+                                deckLink = NULL;
+                                continue;	
+                        }
 
-		device_found = true;
-		dnum++;
+                        device_found[i] = true;
+                        dnum++;
 
-		s->deckLink = deckLink;
+                        s->state[i].deckLink = deckLink;
 
-		const char *deviceNameString = NULL;
-		
-		// Print the model name of the DeckLink card
-		result = deckLink->GetModelName(&deviceNameString);
-		if (result == S_OK)
-		{	
-			printf("Using device [%s]\n", deviceNameString);
+                        const char *deviceNameString = NULL;
+                        
+                        // Print the model name of the DeckLink card
+                        result = deckLink->GetModelName(&deviceNameString);
+                        if (result == S_OK)
+                        {	
+                                printf("Using device [%s]\n", deviceNameString);
 
-			// Query the DeckLink for its configuration interface
-			result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
-			if (result != S_OK)
-			{
-				printf("Could not obtain the IDeckLinkInput interface - result = %08x\n", result);
-				goto error;
-			}
+                                // Query the DeckLink for its configuration interface
+                                result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
+                                if (result != S_OK)
+                                {
+                                        printf("Could not obtain the IDeckLinkInput interface - result = %08x\n", result);
+                                        goto error;
+                                }
 
-			s->deckLinkInput = deckLinkInput;
+                                s->state[i].deckLinkInput = deckLinkInput;
 
-			// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
-			result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
-			if (result != S_OK)
-			{
-				printf("Could not obtain the video input display mode iterator - result = %08x\n", result);
-				goto error;
-			}
+                                // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
+                                result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
+                                if (result != S_OK)
+                                {
+                                        printf("Could not obtain the video input display mode iterator - result = %08x\n", result);
+                                        goto error;
+                                }
 
-			mnum = 0;
-			bool mode_found = false;
+                                mnum = 0;
+                                bool mode_found = false;
 
-			while (displayModeIterator->Next(&displayMode) == S_OK)
-			{
-				if (s->mode != mnum) {
-					mnum++;
-					// Release the IDeckLinkDisplayMode object to prevent a leak
-					displayMode->Release();
-					continue;
-				}
+                                while (displayModeIterator->Next(&displayMode) == S_OK)
+                                {
+                                        if (s->mode != mnum) {
+                                                mnum++;
+                                                // Release the IDeckLinkDisplayMode object to prevent a leak
+                                                displayMode->Release();
+                                                continue;
+                                        }
 
-				mode_found = true;
-				mnum++; 
+                                        mode_found = true;
+                                        mnum++; 
 
-				printf("The desired display mode is supported: %d\n",s->mode);  
+                                        printf("The desired display mode is supported: %d\n",s->mode);  
+                        
+                                        const char *displayModeString = NULL;
+
+                                        result = displayMode->GetName(&displayModeString);
+                                        if (result == S_OK)
+                                        {
+                                                BMDPixelFormat pf;
+                                                switch(s->c_info->codec) {
+                                                  case RGBA:
+                                                        pf = bmdFormat8BitBGRA;
+                                                        break;
+                                                  case Vuy2:
+                                                        pf = bmdFormat8BitYUV;
+                                                        break;
+                                                  case R10k:
+                                                        pf = bmdFormat10BitRGB;
+                                                        break;
+                                                  case v210:
+                                                        pf = bmdFormat10BitYUV;
+                                                        break;
+                                                  default:
+                                                        printf("Unsupported codec! %s\n", s->c_info->name);
+                                                }
+                                                // get avarage time between frames
+                                                BMDTimeValue	frameRateDuration;
+                                                BMDTimeScale	frameRateScale;
+
+                                                // Obtain the display mode's properties
+                                                s->frame[i].aux = 0;
+
+                                                s->frame[i].width = displayMode->GetWidth();
+                                                s->frame[i].height = displayMode->GetHeight();
+                                                s->frame[i].color_spec = s->c_info->codec;
+
+                                                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+                                                s->frame[i].fps = (double)frameRateScale / (double)frameRateDuration;
+                                                s->next_frame_time = (int) (1000000 / s->frame[i].fps); // in microseconds
+                                                switch(displayMode->GetFieldDominance()) {
+                                                        case bmdLowerFieldFirst:
+                                                        case bmdUpperFieldFirst:
+                                                                s->frame[i].aux |= AUX_INTERLACED;
+                                                                break;
+                                                        case bmdProgressiveFrame:
+                                                                s->frame[i].aux |= AUX_PROGRESSIVE;
+                                                                break;
+                                                        case bmdProgressiveSegmentedFrame:
+                                                                s->frame[i].aux |= AUX_SF;
+                                                                break;
+                                                }
+
+                                                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
+                                                                s->frame[i].width, s->frame[i].height, s->frame[i].fps, s->next_frame_time); /* TOREMOVE */  
+
+                                                deckLinkInput->StopStreams();
+
+                                                printf("Enable video input: %s\n", displayModeString);
+
+                                                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, 0);
+                                                if (result != S_OK)
+                                                {
+                                                        printf("Could not enable video input: %08x\n", result);
+                                                        goto error;
+                                                }
+
+                                                // Query the DeckLink for its configuration interface
+                                                result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
+                                                if (result != S_OK)
+                                                {
+                                                        printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", result);
+                                                        goto error;
+                                                }
+
+                                                BMDVideoConnection conn;
+                                                switch (connection) {
+                                                case 0:
+                                                        conn = bmdVideoConnectionSDI;
+                                                        break;
+                                                case 1:
+                                                        conn = bmdVideoConnectionHDMI;
+                                                        break;
+                                                case 2:
+                                                        conn = bmdVideoConnectionComponent;
+                                                        break;
+                                                case 3:
+                                                        conn = bmdVideoConnectionComposite;
+                                                        break;
+                                                case 4:
+                                                        conn = bmdVideoConnectionSVideo;
+                                                        break;
+                                                case 5:
+                                                        conn = bmdVideoConnectionOpticalSDI;
+                                                        break;
+                                                default:
+                                                        break;
+                                                }
+                            
+                                                /*if (deckLinkConfiguration->SetVideoInputFormat(conn) == S_OK) {
+                                                        printf("Input set to: %d\n", connection);
+                                                }*/
+
+                                                // We don't want to process audio
+                                                deckLinkInput->DisableAudioInput();
+
+                                                // set Callback which returns frames
+                                                s->state[i].delegate = new VideoDelegate();
+                                                s->state[i].delegate->set_device_state(s, i);
+                                                deckLinkInput->SetCallback(s->state[i].delegate);
+
+                                                // Start streaming
+                                                printf("Start capture\n", connection);
+                                                result = deckLinkInput->StartStreams();
+                                                if (result != S_OK)
+                                                {
+                                                        printf("Could not start stream: %08x\n", result);
+                                                        goto error;
+                                                }
+
+                                        }else{
+                                                printf("Could not : %08x\n", result);
+                                                goto error;
+                                        }
+
+                                        displayMode->Release();
+                                        displayMode = NULL;
+                                }
+
+                                // check if any mode was found
+                                if (mode_found == false)
+                                {
+                                        printf("Mode %d wasn't found.\n", s->mode);
+                                                        goto error;
+                                }
+
+                                if (displayModeIterator != NULL){
+                                        displayModeIterator->Release();
+                                        displayModeIterator = NULL;
+                                }
+                        }
+                }
+		deckLinkIterator->Release();
                 
-				const char *displayModeString = NULL;
+                switch (s->c_info->codec)
+                {
+                        case v210:
+                                s->frame[i].aux |= AUX_10Bit;
+                        case Vuy2:
+                                s->frame[i].aux |= AUX_YUV;
+                                break;
+                        case R10k:
+                                s->frame[i].aux |= AUX_10Bit;
+                                break;
+                }
 
-				result = displayMode->GetName(&displayModeString);
-				if (result == S_OK)
-				{
-					BMDPixelFormat pf;
-					switch(s->c_info->codec) {
-                                          case RGBA:
-						pf = bmdFormat8BitBGRA;
-						break;
-					  case Vuy2:
-						pf = bmdFormat8BitYUV;
-                                                break;
-					  case R10k:
-						pf = bmdFormat10BitRGB;
-						break;
-					  case v210:
-						pf = bmdFormat10BitYUV;
-						break;
-					  default:
-						printf("Unsupported codec! %s\n", s->c_info->name);
-					}
-					// get avarage time between frames
-					BMDTimeValue	frameRateDuration;
-					BMDTimeScale	frameRateScale;
-					double				fps;
+                if(s->c_info->h_align) {
+                   s->frame[i].src_linesize = ((s->frame[i].width + s->c_info->h_align - 1) / s->c_info->h_align) * 
+                        s->c_info->h_align;
+                } else {
+                     s->frame[i].src_linesize = s->frame[i].width;
+                }
+                s->frame[i].src_linesize *= s->c_info->bpp;
+                s->frame[i].data_len = s->frame[i].src_linesize * s->frame[i].height;
+                if (s->devices_cnt > 1) {
+                        double x_cnt = sqrt(s->devices_cnt);
+                        s->frame[i].aux |= AUX_TILED;
+                        s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                        s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
+                        s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
+                        s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
+                }
+                
+                // init mutex
+        }
 
-					// Obtain the display mode's properties
-					s->frame.width = displayMode->GetWidth();
-					s->frame.height = displayMode->GetHeight();
-
-					displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-					s->frame.fps = (double)frameRateScale / (double)frameRateDuration;
-					s->next_frame_time = (int) (1000000 / s->frame.fps); // in microseconds
-					debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString, s->frame.width, s->frame.height, s->frame.fps, s->next_frame_time); /* TOREMOVE */  
-
-					deckLinkInput->StopStreams();
-
-					printf("Enable video input: %s\n", displayModeString);
-
-					result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, 0);
-					if (result != S_OK)
-					{
-						printf("Could not enable video input: %08x\n", result);
-						goto error;
-					}
-
-					// Query the DeckLink for its configuration interface
-					result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
-					if (result != S_OK)
-					{
-						printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", result);
-						goto error;
-					}
-
-					BMDVideoConnection conn;
-					switch (connection) {
-					case 0:
-						conn = bmdVideoConnectionSDI;
-						break;
-					case 1:
-						conn = bmdVideoConnectionHDMI;
-						break;
-					case 2:
-						conn = bmdVideoConnectionComponent;
-						break;
-					case 3:
-						conn = bmdVideoConnectionComposite;
-						break;
-					case 4:
-						conn = bmdVideoConnectionSVideo;
-						break;
-					case 5:
-						conn = bmdVideoConnectionOpticalSDI;
-						break;
-					default:
-						break;
-					}
-                    
-					if (deckLinkConfiguration->SetVideoInputFormat(conn) == S_OK) {
-						printf("Input set to: %d\n", connection);
-					}
-
-					// We don't want to process audio
-					deckLinkInput->DisableAudioInput();
-
-					// set Callback which returns frames
-					s->delegate = new VideoDelegate();
-					s->delegate->set_vidcap_state(s);
-					deckLinkInput->SetCallback(s->delegate);
-
-					// Start streaming
-					printf("Start capture\n", connection);
-					result = deckLinkInput->StartStreams();
-					if (result != S_OK)
-					{
-						printf("Could not start stream: %08x\n", result);
-						goto error;
-					}
-
-				}else{
-					printf("Could not : %08x\n", result);
-					goto error;
-				}
-
-				displayMode->Release();
-				displayMode = NULL;
-			}
-
-			// check if any mode was found
-			if (mode_found == false)
-			{
-				printf("Mode %d wasn't found.\n", s->mode);
-						goto error;
-			}
-
-			if (displayModeIterator != NULL){
-				displayModeIterator->Release();
-				displayModeIterator = NULL;
-			}
-		}
-	}
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+        
+        s->boss_waiting = FALSE;        	
 
 	// check if any mode was found
-	if (device_found == false)
-	{
-		printf("Device %d wasn't found.\n", s->device);
-		goto error;
-	}
-
-	// init mutex
-	pthread_mutex_init(&(s->lock), NULL);
-	pthread_cond_init(&(s->boss_cv), NULL);
-	
-	s->boss_waiting = FALSE;        	
-
-	if(s->c_info->h_align) {
-           s->frame.src_linesize = ((s->frame.width + s->c_info->h_align - 1) / s->c_info->h_align) * 
-                s->c_info->h_align;
-        } else {
-             s->frame.src_linesize = s->frame.width;
+        for (int i = 0; i < s->devices_cnt; ++i)
+        {
+                if (device_found[i] == false)
+                {
+                        printf("Device %d wasn't found.\n", s->state[i].index);
+                        goto error;
+                }
         }
-        s->frame.src_linesize *= s->c_info->bpp;
-        s->frame.data_len = s->frame.src_linesize * s->frame.height;
+
 
 	printf("DeckLink capture device enabled\n");
 
@@ -636,23 +696,24 @@ vidcap_decklink_done(void *state)
 
 	assert (s != NULL);
 
-	if (s!= NULL) {
-		result = s->deckLinkInput->StopStreams();
+        for (int i = 0; i < s->devices_cnt; ++i)
+        {
+		result = s->state[i].deckLinkInput->StopStreams();
 		if (result != S_OK)
 		{
 			printf("Could not stop stream: %08x\n", result);
 		}
 
-		if(s->deckLinkInput != NULL)
+		if(s->state[i].deckLinkInput != NULL)
 		{
-			s->deckLinkInput->Release();
-			s->deckLinkInput = NULL;
+			s->state[i].deckLinkInput->Release();
+			s->state[i].deckLinkInput = NULL;
 		}
 
-		if(s->deckLink != NULL)
+		if(s->state[i].deckLink != NULL)
 		{
-			s->deckLink->Release();
-			s->deckLink = NULL;
+			s->state[i].deckLink->Release();
+			s->state[i].deckLink = NULL;
 		}
 
 		free(s);
@@ -666,6 +727,8 @@ vidcap_decklink_grab(void *state, int * count)
 
 	struct vidcap_decklink_state 	*s = (struct vidcap_decklink_state *) state;
 	struct video_frame		*vf;
+        int                             tiles_total = 0;
+        int                             i;
 
 	HRESULT	result;
 	
@@ -675,17 +738,22 @@ vidcap_decklink_grab(void *state, int * count)
 
 	int timeout = 0;
 
-	pthread_mutex_lock(&(s->lock));
+	pthread_mutex_lock(&s->lock);
 // LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK - LOCK //
 
 	debug_msg("vidcap_decklink_grab - before while\n"); /* TOREMOVE */
 
-	while (!s->delegate->newFrameReady) {
-		s->boss_waiting = TRUE;
+        for (i = 0; i < s->devices_cnt; ++i)
+                if(s->state[i].delegate->newFrameReady)
+                        tiles_total++;
+
+        while(tiles_total != s->devices_cnt) {
+	//while (!s->state[0].delegate->newFrameReady) {
+                rc = 0;
 		debug_msg("vidcap_decklink_grab - pthread_cond_timedwait\n"); /* TOREMOVE */
 
 		// get time for timeout
-		rc =  gettimeofday(&tp, NULL);
+		gettimeofday(&tp, NULL);
 
 		/* Convert from timeval to timespec */
 		ts.tv_sec  = tp.tv_sec;
@@ -697,55 +765,86 @@ vidcap_decklink_grab(void *state, int * count)
 
 		debug_msg("vidcap_decklink_grab - current time: %02d:%03d\n",tp.tv_sec, tp.tv_usec/1000); /* TOREMOVE */
 
-		rc = pthread_cond_timedwait(&(s->boss_cv), &(s->lock), &ts);
-		s->boss_waiting = FALSE;
-		
-		debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - newFrameReady: %d\n",s->delegate->newFrameReady); /* TOREMOVE */
+                while(rc == 0  /*  not timeout AND */
+                                && tiles_total != s->devices_cnt) { /* not all tiles */
+                        s->boss_waiting = TRUE;
+                        rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
+                        s->boss_waiting = FALSE;
+                        // recompute tiles count
+                        tiles_total = 0;
+                        for (i = 0; i < s->devices_cnt; ++i)
+                                if(s->state[i].delegate->newFrameReady)
+                                        tiles_total++;
+                }
+                debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
-		if (rc != 0) { //(rc == ETIMEDOUT) {
-			printf("Waiting for new frame timed out!\n");
-			debug_msg("Waiting for new frame timed out!\n");
+                if (rc != 0) { //(rc == ETIMEDOUT) {
+                        printf("Waiting for new frame timed out!\n");
+                        debug_msg("Waiting for new frame timed out!\n");
 
-			// try to restart stream
-			/*
-			debug_msg("Try to restart DeckLink stream!\n");
-			result = s->deckLinkInput->StopStreams();
-			if (result != S_OK)
-			{
-				debug_msg("Could not stop stream: %08x\n", result);
-			}
-			result = s->deckLinkInput->StartStreams();
-			if (result != S_OK)
-			{
-				debug_msg("Could not start stream: %08x\n", result);
-				return NULL; // really end ???
-			}
-			*/
+                        // try to restart stream
+                        /*
+                        debug_msg("Try to restart DeckLink stream!\n");
+                        result = s->deckLinkInput->StopStreams();
+                        if (result != S_OK)
+                        {
+                                debug_msg("Could not stop stream: %08x\n", result);
+                        }
+                        result = s->deckLinkInput->StartStreams();
+                        if (result != S_OK)
+                        {
+                                debug_msg("Could not start stream: %08x\n", result);
+                                return NULL; // really end ???
+                        }
+                        */
 
-			if((!s->delegate->first_time) || (should_exit)){
-				s->delegate->newFrameReady = 1;
-				timeout = 1;
-			}else{
-				// wait half of timeout
-				usleep(s->next_frame_time);
-			}
-		}
+                        //if((!s->state[i].delegate->first_time) || (should_exit)){
+                        if(should_exit){
+                                //s->state[i].delegate->newFrameReady = 1;
+                                timeout = 1;
+                                break;
+                        }else{
+                                // wait half of timeout
+                                usleep(s->next_frame_time);
+                        }
+                        tiles_total = 0;
+                } 
 	}
 
-	s->delegate->newFrameReady = 0;
+        /*cleanup newframe flag */
+        for (i = 0; i < s->devices_cnt; ++i)
+                s->state[i].delegate->newFrameReady = 0;
 
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
-	pthread_mutex_unlock(&(s->lock));
+	pthread_mutex_unlock(&s->lock);
 
-	if (s->delegate->pixelFrame != NULL) {
-                s->frame.data = (char*)s->delegate->pixelFrame;
-                if(s->c_info->codec == RGBA) {
-                    vc_copylineRGBA((unsigned char*)s->frame.data, (unsigned char*)s->frame.data, s->frame.data_len, 16, 8, 0);
+        /* count returned tiles */
+        *count = 0;
+        for (i = 0; i < s->devices_cnt; ++i) {
+                if (s->state[i].delegate->pixelFrame != NULL) {
+                        s->frame[i].data = (char*)s->state[i].delegate->pixelFrame;
+                        if(s->c_info->codec == RGBA) {
+                            vc_copylineRGBA((unsigned char*)s->frame[i].data, (unsigned char*)s->frame[i].data, s->frame[i].data_len, 16, 8, 0);
+                        }
+                        ++*count;
+                } else
+                        break;
+        }
+        if (*count == s->devices_cnt) {
+                s->frames++;
+
+                gettimeofday(&t, NULL);
+                double seconds = tv_diff(t, t0);	
+                if (seconds >= 5) {
+                        float fps  = s->frames / seconds;
+                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                        t0 = t;
+                        s->frames = 0;
                 }
-                count = 1;
-                return &s->frame;
-	}
-        count = 0;
+
+                return s->frame;
+        }
+        *count = 0;
 	return NULL;
 }
 

@@ -64,19 +64,21 @@ extern "C" {
 #include "video_display/decklink.h"
 #include "debug.h"
 #include "video_capture.h"
+#include "DeckLinkAPI.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
 #endif
 
-#include "DeckLinkAPI.h"
+#define MAX_DEVICES 4
 
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
         struct state_decklink *                 s;
+        int                                     i;
 
 public:
-        PlaybackDelegate (struct state_decklink* owner);
+        PlaybackDelegate (struct state_decklink* owner, int index);
 
         // IUnknown needs only a dummy implementation
         virtual HRESULT         QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
@@ -90,26 +92,33 @@ public:
 
 #define DECKLINK_MAGIC DISPLAY_DECKLINK_ID
 
+struct device_state {
+        PlaybackDelegate        *delegate;
+        IDeckLink               *deckLink;
+        IDeckLinkOutput         *deckLinkOutput;
+        IDeckLinkMutableVideoFrame *deckLinkFrame;
+};
+
 struct state_decklink {
         uint32_t            magic;
 
         struct timeval      tv;
 
-        PlaybackDelegate   *delegate;
-        IDeckLink          *deckLink;
-        IDeckLinkOutput    *deckLinkOutput;
-        IDeckLinkMutableVideoFrame *deckLinkFrame;
+        struct device_state state[MAX_DEVICES];
+
         BMDTimeValue        frameRateDuration;
         BMDTimeScale        frameRateScale;
 
-        struct video_frame  frame;
+        struct video_frame  frame[MAX_DEVICES];
 
         unsigned long int   frames;
         unsigned long int   frames_last;
         bool                initialized;
+        int                 devices_cnt;
 };
 
 static void show_help(void);
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out); 
 
 static void show_help(void)
 {
@@ -119,7 +128,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-g device_number\n");
+        printf("\t-g device_numbers - coma-separated numbers of output devices\n");
         
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -167,10 +176,13 @@ display_decklink_getf(void *state)
 
         assert(s->magic == DECKLINK_MAGIC);
 
-        if (s->initialized)
-                s->deckLinkFrame->GetBytes((void **) &s->frame.data);
+        if (s->initialized) {
+                for(int i = 0; i < s->devices_cnt; ++i)
+                        s->state[i].deckLinkFrame->GetBytes((void **) &s->frame[i].data);
+        }
 
-        return &s->frame;
+        /* stub -- real frames are taken with get_sub_frame call */
+        return &s->frame[0];
 }
 
 int display_decklink_putf(void *state, char *frame)
@@ -186,11 +198,13 @@ int display_decklink_putf(void *state, char *frame)
         gettimeofday(&tv, NULL);
 
         uint32_t i;
-        s->deckLinkOutput->GetBufferedVideoFrameCount(&i);
+        s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
         if (i > 2) 
                 fprintf(stderr, "Frame dropped!\n");
         else {
-                s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame, s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                for (int j = 0; j < s->devices_cnt; ++j)
+                        s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
+                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
                 s->frames++;
         }
 
@@ -220,106 +234,123 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
         BMDPixelFormat                    pixelFormat;
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
+        int tile_width, tile_height;
 
         assert(s->magic == DECKLINK_MAGIC);
 
-        s->frame.color_spec = color_spec;
-        s->frame.width = width;
-        s->frame.height = height;
-        s->frame.dst_bpp = get_bpp(color_spec);
-        s->frame.fps = fps;
-        s->frame.aux = aux;
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                /* compute position */
+                double x_cnt = sqrt(s->devices_cnt);
+                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
 
-        s->frame.data_len = s->frame.width * s->frame.height * s->frame.dst_bpp;
-        s->frame.dst_linesize = s->frame.width * s->frame.dst_bpp;
-        s->frame.dst_pitch = s->frame.dst_linesize;
-        s->frame.src_bpp = get_bpp(color_spec);
+                tile_width = width / s->frame[i].tile_info.x_count;
+                tile_height = height / s->frame[i].tile_info.y_count;
+                s->frame[i].dst_x_offset = 0;
+                s->frame[i].color_spec = color_spec;
+                s->frame[i].width = width;
+                s->frame[i].height = height;
+                s->frame[i].dst_bpp = get_bpp(color_spec);
+                s->frame[i].src_bpp = get_bpp(color_spec);
+                s->frame[i].fps = fps;
+                s->frame[i].aux = aux;
 
-        s->frame.decoder = (decoder_t)memcpy;
+                s->frame[i].data_len = tile_width * tile_height * s->frame[i].dst_bpp;
+                s->frame[i].dst_linesize = tile_width * s->frame[i].dst_bpp;
+                s->frame[i].src_linesize = tile_width * s->frame[i].src_bpp;
+                s->frame[i].dst_pitch = s->frame[i].dst_linesize;
 
-        switch (color_spec) {
-                case UYVY:
-                case DVS8:
-                case Vuy2:
-                        pixelFormat = bmdFormat8BitYUV;
-                        break;
-                case v210:
-                        pixelFormat = bmdFormat10BitYUV;
-                        break;
-                case RGBA:
-                        pixelFormat = bmdFormat8BitBGRA;
-                        break;
-                case R10k:
-                        pixelFormat = bmdFormat10BitRGB;
-                        break;
-                default:
-                        fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
-        }
+                s->frame[i].decoder = (decoder_t)memcpy;
+
+                switch (color_spec) {
+                        case UYVY:
+                        case DVS8:
+                        case Vuy2:
+                                pixelFormat = bmdFormat8BitYUV;
+                                break;
+                        case v210:
+                                pixelFormat = bmdFormat10BitYUV;
+                                break;
+                        case RGBA:
+                                pixelFormat = bmdFormat8BitBGRA;
+                                break;
+                        case R10k:
+                                pixelFormat = bmdFormat10BitRGB;
+                                break;
+                        default:
+                                fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
+                }
 
 
-        // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
-        if (s->deckLinkOutput->GetDisplayModeIterator(&displayModeIterator) != S_OK)
-        {
-                fprintf(stderr, "Fatal: cannot create display mode iterator [decklink].\n");
-                exit(128);
-        }
-
-        while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
-        {
-                const char       *modeName;
-
-                if (deckLinkDisplayMode->GetName(&modeName) == S_OK)
+                // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
+                if (s->state[i].deckLinkOutput->GetDisplayModeIterator(&displayModeIterator) != S_OK)
                 {
-                        if (deckLinkDisplayMode->GetWidth() == width &&
-                                        deckLinkDisplayMode->GetHeight() == height)
+                        fprintf(stderr, "Fatal: cannot create display mode iterator [decklink].\n");
+                        exit(128);
+                }
+
+                while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
+                {
+                        const char       *modeName;
+
+                        if (deckLinkDisplayMode->GetName(&modeName) == S_OK)
                         {
-                                double displayFPS;
-                                BMDFieldDominance dominance;
-                                bool interlaced;
-
-                                dominance = deckLinkDisplayMode->GetFieldDominance();
-                                if (dominance == bmdLowerFieldFirst ||
-                                                dominance == bmdUpperFieldFirst)
-                                        interlaced = true;
-                                else // progressive, psf, unknown
-                                        interlaced = false;
-
-                                deckLinkDisplayMode->GetFrameRate(&s->frameRateDuration,
-                                                &s->frameRateScale);
-                                displayFPS = (double) s->frameRateScale / s->frameRateDuration;
-                                if(fabs(fps - displayFPS) < 0.5// && (aux & AUX_INTERLACED && interlaced || !interlaced)
-                                  )
+                                if (deckLinkDisplayMode->GetWidth() == tile_width &&
+                                                deckLinkDisplayMode->GetHeight() == tile_height)
                                 {
-                                        printf("Selected mode: %s\n", modeName);
-                                        modeFound = true;
-                                        displayMode = deckLinkDisplayMode->GetDisplayMode();
-                                        break;
+                                        double displayFPS;
+                                        BMDFieldDominance dominance;
+                                        bool interlaced;
+
+                                        dominance = deckLinkDisplayMode->GetFieldDominance();
+                                        if (dominance == bmdLowerFieldFirst ||
+                                                        dominance == bmdUpperFieldFirst)
+                                                interlaced = true;
+                                        else // progressive, psf, unknown
+                                                interlaced = false;
+
+                                        deckLinkDisplayMode->GetFrameRate(&s->frameRateDuration,
+                                                        &s->frameRateScale);
+                                        displayFPS = (double) s->frameRateScale / s->frameRateDuration;
+                                        if(fabs(fps - displayFPS) < 0.5// && (aux & AUX_INTERLACED && interlaced || !interlaced)
+                                          )
+                                        {
+                                                printf("Device %d - selected mode: %s\n", i, modeName);
+                                                modeFound = true;
+                                                displayMode = deckLinkDisplayMode->GetDisplayMode();
+                                                break;
+                                        }
                                 }
                         }
                 }
-        }
-        displayModeIterator->Release();
-        s->deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat,
-                        &supported);
-        if(supported == bmdDisplayModeNotSupported)
-        {
-                fprintf(stderr, "[decklink] Requested parameters combination not supported.\n");
-                exit(128);
+                displayModeIterator->Release();
+                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, bmdVideoOutputFlagDefault,
+                                &supported, NULL);
+                if(supported == bmdDisplayModeNotSupported)
+                {
+                        fprintf(stderr, "[decklink] Requested parameters combination not supported.\n");
+                        exit(128);
+                }
+
+                //Generate a frame of black
+                long int linesize = vc_getsrc_linesize(tile_width, color_spec);
+                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile_width, tile_height, linesize, pixelFormat, bmdFrameFlagDefault, &s->state[i].deckLinkFrame) != S_OK)
+                {
+                        fprintf(stderr, "[decklink] Failed to create video frame.\n");
+                        exit(128);
+                }
+                        
+                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, bmdVideoOutputFlagDefault);
+                s->state[i].deckLinkFrame->GetBytes((void **) &s->frame[i].data);
         }
 
-        //Generate a frame of black
-        long int linesize = vc_getsrc_linesize(width, color_spec);
-        if (s->deckLinkOutput->CreateVideoFrame(width, height, linesize, pixelFormat, bmdFrameFlagDefault, &s->deckLinkFrame) != S_OK)
-        {
-                fprintf(stderr, "[decklink] Failed to create video frame.\n");
-                exit(128);
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
         }
-                
-        s->deckLinkOutput->EnableVideoOutput(displayMode, bmdVideoOutputFlagDefault);
-        s->deckLinkFrame->GetBytes((void **) &s->frame.data);
 
         s->initialized = true;
-        s->deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
 }
 
 
@@ -328,20 +359,33 @@ void *display_decklink_init(char *fmt)
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
         HRESULT                                         result;
-        int                                             cardIdx;
+        int                                             cardIdx[MAX_DEVICES];
         int                                             dnum = 0;
 
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
 
         if(fmt == NULL) {
-                cardIdx = 0;
+                cardIdx[0] = 0;
+                s->devices_cnt = 1;
                 fprintf(stderr, "Card number unset, using first found (see -g help)!\n");
 
         } else if (strcmp(fmt, "help") == 0) {
                 show_help();
                 return NULL;
-        } else cardIdx = atoi(fmt);
+        } else  {
+                char *devices = strdup(fmt);
+                char *ptr;
+                char *saveptr;
+
+                s->devices_cnt = 0;
+                ptr = strtok_r(devices, ",", &saveptr);
+                do {
+                        cardIdx[s->devices_cnt] = atoi(ptr);
+                        ++s->devices_cnt;
+                } while (ptr = strtok_r(NULL, ",", &saveptr));
+                free (devices);
+        }
 
         gettimeofday(&s->tv, NULL);
 
@@ -355,45 +399,60 @@ void *display_decklink_init(char *fmt)
                 return NULL;
         }
 
-        s->deckLink = NULL;
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                s->state[i].deckLink = NULL;
+                s->state[i].deckLinkOutput = NULL;
+        }
 
         // Connect to the first DeckLink instance
-        while (deckLinkIterator->Next(&s->deckLink) == S_OK)
+        IDeckLink    *deckLink;
+        while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
-                if (dnum != cardIdx){
-                        if(s->deckLink != NULL)
-                                s->deckLink->Release();
-                        s->deckLink = NULL;
+                bool found = false;
+                for(int i = 0; i < s->devices_cnt; ++i) {
+                        if (dnum == cardIdx[i]){
+                                s->state[i].deckLink = deckLink;
+                                found = true;
+                        }
                 }
-                else break;
+                if(!found && deckLink != NULL)
+                        deckLink->Release();
+                dnum++;
         }
-        if(s->deckLink == NULL) {
-                fprintf(stderr, "No DeckLink PCI cards found\n");
-                return NULL;
-        }
-
-        // Obtain the audio/video output interface (IDeckLinkOutput)
-        if (s->deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->deckLinkOutput) != S_OK) {
-                if(s->deckLinkOutput != NULL)
-                        s->deckLinkOutput->Release();
-                s->deckLink->Release();
-                return NULL;
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                if(s->state[i].deckLink == NULL) {
+                        fprintf(stderr, "No DeckLink PCI card #%d found\n", cardIdx[i]);
+                        return NULL;
+                }
         }
 
-        s->delegate = new PlaybackDelegate(s);
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                // Obtain the audio/video output interface (IDeckLinkOutput)
+                if (s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput) != S_OK) {
+                        if(s->state[i].deckLinkOutput != NULL)
+                                s->state[i].deckLinkOutput->Release();
+                        s->state[i].deckLink->Release();
+                        return NULL;
+                }
 
-        // Provide this class as a delegate to the audio and video output interfaces
-        s->deckLinkOutput->SetScheduledFrameCompletionCallback(s->delegate);
-        s->deckLinkOutput->DisableAudioOutput();
+                s->state[i].delegate = new PlaybackDelegate(s, i);
+                // Provide this class as a delegate to the audio and video output interfaces
+                s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+                s->state[i].deckLinkOutput->DisableAudioOutput();
 
-
-        s->frame.state = s;
-        s->frame.reconfigure = (reconfigure_t)reconfigure_screen_decklink;
+                s->frame[i].state = s;
+                s->frame[i].reconfigure = (reconfigure_t) reconfigure_screen_decklink;
+                s->frame[i].get_sub_frame = (get_sub_frame_t) get_sub_frame;
+        }
 
         s->frames = 0;
         s->initialized = false;
 
         return (void *)s;
+}
+
+void display_decklink_run(void *state)
+{
 }
 
 void display_decklink_done(void *state)
@@ -416,7 +475,8 @@ display_type_t *display_decklink_probe(void)
         return dtype;
 }
 
-PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner) : s(owner) 
+PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner, int index) 
+        : s(owner), i(index)
 {
 }
 
@@ -433,5 +493,26 @@ HRESULT         PlaybackDelegate::ScheduledPlaybackHasStopped ()
 void vidcap_decklink_run(void *state)
 {
         UNUSED(state);
+}
+
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
+{
+        struct state_decklink *s = (struct state_decklink *)state;
+
+        double x_cnt = sqrt(s->devices_cnt);
+        int y_cnt;
+        int index;
+        x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+        y_cnt = s->devices_cnt / (int) x_cnt;
+
+        assert(x % w == 0 &&
+                        y % h == 0 &&
+                        s->frame[0].width % w &&
+                        s->frame[0].height % h);
+
+        index = x / w + // row 
+                x_cnt * (y / h); // column
+
+        memcpy(out, &s->frame[index], sizeof(struct video_frame));
 }
 

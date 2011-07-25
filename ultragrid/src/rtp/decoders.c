@@ -98,11 +98,11 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                       )) {
                         int frame_width = aux & AUX_TILED ? width * tile_info.x_count : width;
                         int frame_height = aux & AUX_TILED ? height * tile_info.y_count : height;
+
+                        frame->src_linesize = vc_getsrc_linesize(frame_width, color_spec);
                         frame->reconfigure(frame->state, frame_width,
                                         frame_height,
                                         color_spec, fps, aux);
-                        frame->src_linesize =
-                            vc_getsrc_linesize(frame->width, color_spec);
                 }
                 if (aux & AUX_TILED) {
                         frame->get_sub_frame(frame->state,
