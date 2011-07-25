@@ -57,7 +57,7 @@
 const struct codec_info_t codec_info[] = {
         {RGBA, "RGBA", 0, 1, 4.0, 1},
         {UYVY, "UYVY", 846624121, 1, 2, 0},
-        {Vuy2, "2vuy", '2vuy', 1, 2, 0},
+        {Vuy2, "2vuy", '2Vuy', 1, 2, 0},
         {DVS8, "DVS8", 0, 1, 2, 0},
         {R10k, "R10k", 1378955371, 1, 4, 1},
         {v210, "v210", 1983000880, 48, 8.0 / 3.0, 0},

@@ -584,8 +584,8 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
         int h_align = s->c_info->h_align;
         int aligned_x=s->frame.width;
-        if (h_align) {
-                aligned_x = ((s->frame.width + h_align - 1) / h_align) * h_align;
+	aligned_x = ((s->frame.width + h_align - 1) / h_align) * h_align;
+        if (h_align > 1) {
                 printf
                     ("Quicktime: Pixel format 'v210' was selected -> Setting width to %d\n",
                      aligned_x);
