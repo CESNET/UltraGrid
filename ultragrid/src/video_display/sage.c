@@ -113,7 +113,7 @@ void display_sage_run(void *arg)
                 sem_wait(&s->semaphore);
 
                 sage_swapBuffer();
-                s->frame.data = sage_getBuffer();
+                s->frame.data = (char *) sage_getBuffer();
 
                 pthread_mutex_lock(&s->buffer_writable_lock);
                 s->buffer_writable = 1;
@@ -221,12 +221,12 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         s->frame.height = height;
 
         dxt = 0;
+        yuv = 0;
 
         switch (codec) {
                 case R10k:
                         s->frame.decoder = (decoder_t)vc_copyliner10k;
                         s->frame.dst_bpp = get_bpp(RGBA);
-                        yuv = 0;
                         break;
                 case RGBA:
                         s->frame.decoder = (decoder_t)memcpy; /* or vc_copylineRGBA?
@@ -234,7 +234,6 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
                                                                  {r,g,b}shift */
                         
                         s->frame.dst_bpp = get_bpp(RGBA);
-                        yuv = 0;
                         break;
                 case v210:
                         s->frame.decoder = (decoder_t)vc_copylinev210;
@@ -257,10 +256,9 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
                         s->frame.decoder = (decoder_t)memcpy;
                         s->frame.dst_bpp = get_bpp(DXT1);
                         if(aux & AUX_YUV) {
-                                fprintf(stderr, "YCbCr DXT compression is not yet supported for SAGE.\n");
+                                fprintf(stderr, "YCbCr DXT decompression is not supported for SAGE.\n");
                                 exit(128);
                         }
-                        yuv = 0;
                         dxt = 1;
         }
 
@@ -278,7 +276,7 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         // warning s->frame.{width,height} !!!!
         initSage(s->appID, s->nodeID, s->frame.width, s->frame.height, yuv, dxt);
         s->sage_initialized = 1;
-        s->frame.data = sage_getBuffer();
+        s->frame.data = (char *) sage_getBuffer();
 }
 
 display_type_t *display_sage_probe(void)
@@ -297,18 +295,15 @@ display_type_t *display_sage_probe(void)
 static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
 {
         struct state_sage *s = (struct state_sage *)state;
+        UNUSED(h);
 
         memcpy(out, &s->frame, sizeof(struct video_frame));
-        out->width = w;
-        out->height = h;
-        out->dst_x_offset +=
-                x * s->frame.dst_bpp;
         out->data +=
-                y * s->frame.dst_pitch;
+                y * s->frame.dst_pitch +
+                (size_t) (x * s->frame.dst_bpp);
         out->src_linesize =
                 vc_getsrc_linesize(w, out->color_spec);
         out->dst_linesize =
-                vc_getsrc_linesize(x + w, out->color_spec);
+                vc_getsrc_linesize(w, out->color_spec);
 
 }
-

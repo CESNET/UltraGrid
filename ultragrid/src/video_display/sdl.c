@@ -36,7 +36,7 @@
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
- * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ / INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
@@ -90,7 +90,6 @@ void NSApplicationLoad();
 
 struct state_sdl {
         Display                 *display;
-        SDL_Overlay             *yuv_image;
         struct video_frame      frame;
 
         pthread_t               thread_id;
@@ -101,7 +100,8 @@ struct state_sdl {
         struct timeval          tv;
         int                     frames;
 
-        SDL_Surface             *sdl_screen;
+        SDL_Overlay  * volatile yuv_image;
+        SDL_Surface  * volatile sdl_screen;
         SDL_Rect                dst_rect;
 
         const struct codec_info_t *codec_info;
@@ -164,7 +164,9 @@ static void loadSplashscreen(struct state_sdl *s) {
 
 	// create a temporary SDL_Surface with the settings of displaying surface
 	image = SDL_DisplayFormat(s->sdl_screen);
+#ifndef HAVE_MACOSX
 	SDL_LockSurface(image);
+#endif
 
 	// load splash data
 	for (y_coord = 0; y_coord < splash_height; y_coord++) {
@@ -212,7 +214,9 @@ static void loadSplashscreen(struct state_sdl *s) {
 		}
 	}
 
+#ifndef HAVE_MACOSX
 	SDL_UnlockSurface(image);
+#endif
 
 	// place loaded splash on the right position (center of screen)
 	splash_src.x = 0;
@@ -233,10 +237,14 @@ static void loadSplashscreen(struct state_sdl *s) {
 	splash_dest.w = splash_width;
 	splash_dest.h = splash_height;
 
+#ifndef HAVE_MACOSX
         SDL_UnlockSurface(s->sdl_screen);
+#endif
         SDL_BlitSurface(image, &splash_src, s->sdl_screen, &splash_dest);
         SDL_Flip(s->sdl_screen);
+#ifndef HAVE_MACOSX
         SDL_LockSurface(s->sdl_screen);
+#endif
 	SDL_FreeSurface(image);
 }
 
@@ -249,23 +257,14 @@ static void loadSplashscreen(struct state_sdl *s) {
  * @return zero value everytime
  */
 static void toggleFullscreen(struct state_sdl *s) {
-        int width, height;
-
-        width = s->frame.width;
-        height = s->frame.height;
-
 	if(s->fs) {
 		s->fs = 0;
-                reconfigure_screen(s, width, height,
-                                s->codec_info->codec, s->frame.fps,
-                                s->frame.aux);
         }
         else {
 		s->fs = 1;
-                reconfigure_screen(s, width, height,
-                                s->codec_info->codec, s->frame.fps,
-                                s->frame.aux);
         }
+	/* and post for reconfiguration */
+	s->frame.width = 0;
 }
 
 /**
@@ -304,9 +303,10 @@ int display_sdl_handle_events(void *arg, int post)
                         }
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
-                                toggleFullscreen(s);
-                                if(post)
-                                        SDL_SemPost(s->semaphore);
+                                /* prevent segfault/leaks */
+				toggleFullscreen(s);
+                                        if(post)
+                                                SDL_SemPost(s->semaphore);
                                 return 1;
                         }
                         break;
@@ -330,7 +330,15 @@ void display_sdl_run(void *arg)
         gettimeofday(&s->tv, NULL);
 
         while (!should_exit) {
+#ifndef HAVE_MACOSX
+                /* set flag to prevent dangerous actions */
+                if(SDL_SemWaitTimeout(s->semaphore, 200) == SDL_MUTEX_TIMEDOUT) {
+                        display_sdl_handle_events(s, 0); /* Only handle events */
+                        continue;
+                }
+#else
                 SDL_SemWait(s->semaphore);
+#endif
 
                 if (s->deinterlace) {
                         if (s->rgb) {
@@ -344,27 +352,33 @@ void display_sdl_run(void *arg)
                 }
 
                 if (s->rgb) {
+#ifndef HAVE_MACOSX
                         SDL_UnlockSurface(s->sdl_screen);
+#endif
                         SDL_Flip(s->sdl_screen);
+#ifndef HAVE_MACOSX
                         SDL_LockSurface(s->sdl_screen);
+#endif
                         s->frame.data = s->sdl_screen->pixels +
                             s->sdl_screen->pitch * s->dst_rect.y +
                             s->dst_rect.x *
                             s->sdl_screen->format->BytesPerPixel;
                 } else {
+#ifndef HAVE_MACOSX
                         SDL_UnlockYUVOverlay(s->yuv_image);
+#endif
                         SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
+#ifndef HAVE_MACOSX
 			SDL_LockYUVOverlay(s->yuv_image);
-			s->frame.data = (char *)*s->yuv_image->pixels;
+#endif
 		}
-
-                display_sdl_handle_events(s, 0); /* Must be exactly here ! */
 
                 SDL_mutexP(s->buffer_writable_lock);
                 s->buffer_writable = 1;
                 SDL_CondSignal(s->buffer_writable_cond);
                 SDL_mutexV(s->buffer_writable_lock);
 
+		display_sdl_handle_events(s, 0);
 
 		s->frames++;
 		gettimeofday(&tv, NULL);
@@ -391,23 +405,16 @@ static void show_help(void)
 
 void cleanup_screen(struct state_sdl *s)
 {
-#ifndef HAVE_MACOSX
         if (s->rgb == 0) {
                 if (s->yuv_image != NULL) {
-                        SDL_UnlockYUVOverlay(s->yuv_image);
                         SDL_FreeYUVOverlay(s->yuv_image);
                         s->yuv_image = NULL;
-                }
-        } else {
-                if (s->sdl_screen != NULL) {
-                        SDL_UnlockSurface(s->sdl_screen);
                 }
         }
         if (s->sdl_screen != NULL) {
                 SDL_FreeSurface(s->sdl_screen);
                 s->sdl_screen = NULL;
         }
-#endif
 }
 
 void
@@ -418,11 +425,19 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	int itemp;
 	unsigned int utemp;
 	Window wtemp;
-
+	int h_align = 0;
 
 	unsigned int x_res_x, x_res_y;
+	unsigned int screen_x, screen_y;
 
 	int ret, i;
+
+	/* wait until thread finished displaying */
+        SDL_mutexP(s->buffer_writable_lock);
+        while (!s->buffer_writable)
+                SDL_CondWait(s->buffer_writable_cond,
+                                s->buffer_writable_lock);
+        SDL_mutexV(s->buffer_writable_lock);
 
 	cleanup_screen(s);
 
@@ -438,6 +453,8 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	ret =
 	    XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
 			 &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+	screen_x = x_res_x;
+	screen_y = x_res_y;
 
 	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
 	if (s->fs)
@@ -468,8 +485,14 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 			s->codec_info = &codec_info[i];
 			s->rgb = codec_info[i].rgb;
 			s->frame.src_bpp = codec_info[i].bpp;
+			h_align = codec_info[i].h_align;
 		}
 	}
+        assert(h_align != 0);
+
+	s->frame.src_linesize = s->frame.width;
+        s->frame.src_linesize = ((s->frame.src_linesize + h_align - 1) / h_align) * h_align;
+        s->frame.src_linesize *= s->frame.src_bpp;
 
 	if (s->rgb == 0) {
 		s->yuv_image =
@@ -480,9 +503,11 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                         free(s);
                         exit(127);
                 }
+#ifndef HAVE_MACOSX
                 SDL_LockYUVOverlay(s->yuv_image);
         } else {
                 SDL_LockSurface(s->sdl_screen);
+#endif
         }
 
         int w = s->frame.width;
@@ -502,16 +527,30 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->dst_rect.w = s->frame.width;
         s->dst_rect.h = s->frame.height;
 
-        if (x_res_x > s->frame.width) {
-                s->dst_rect.x = ((int) x_res_x - s->frame.width) / 2;
-        } else if (x_res_x < s->frame.width) {
-                s->dst_rect.w = x_res_x;
-        }
-        if (x_res_y > s->frame.height) {
-                s->dst_rect.y = ((int) x_res_y - s->frame.height) / 2;
-        } else if (x_res_y < s->frame.height) {
-                s->dst_rect.h = x_res_y;
-        }
+	if(s->rgb) {
+		if (x_res_x > s->frame.width) {
+			s->dst_rect.x = ((int) x_res_x - s->frame.width) / 2;
+		} else if (x_res_x < s->frame.width) {
+			s->dst_rect.w = x_res_x;
+		}
+		if (x_res_y > s->frame.height) {
+			s->dst_rect.y = ((int) x_res_y - s->frame.height) / 2;
+		} else if (x_res_y < s->frame.height) {
+			s->dst_rect.h = x_res_y;
+		}
+	} else if(!s->rgb && s->fs && (s->frame.width != x_res_x || s->frame.height != x_res_y)) {
+		double frame_aspect = (double) s->frame.width / s->frame.height;
+		double screen_aspect = (double) screen_x / screen_y;
+		if(screen_aspect > frame_aspect) {
+			s->dst_rect.h = screen_y;
+			s->dst_rect.w = screen_y * frame_aspect;
+			s->dst_rect.x = ((int) screen_x - s->dst_rect.w) / 2;
+		} else {
+			s->dst_rect.w = screen_x;
+			s->dst_rect.h = screen_x / frame_aspect;
+			s->dst_rect.y = ((int) screen_y - s->dst_rect.h) / 2;
+		}
+	}
 
         fprintf(stdout, "Setting SDL rect %dx%d - %d,%d.\n", s->dst_rect.w,
                 s->dst_rect.h, s->dst_rect.x, s->dst_rect.y);
@@ -529,10 +568,12 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                     (int) s->sdl_screen->pitch * x_res_y -
                     s->sdl_screen->pitch * s->dst_rect.y +
                     s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
-		s->frame.dst_x_offset =
-		    s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
 		s->frame.dst_bpp = s->sdl_screen->format->BytesPerPixel;
 		s->frame.dst_pitch = s->sdl_screen->pitch;
+                /* THIS SHOULDN'T work with current decoder !!! */
+		/*s->frame.dst_x_offset =
+		    s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;*/
+		s->frame.dst_x_offset = 0;
         } else {
                 s->frame.data = (char *)*s->yuv_image->pixels;
                 s->frame.data_len = s->frame.width * s->frame.height * 2;
@@ -563,24 +604,6 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                         fprintf(stderr, "DXT1 isn't supported for SDL output.\n");
                         exit(EXIT_FAILURE);
         }
-}
-
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
-{
-        struct state_sdl *s = (struct state_sdl *)state;
-
-        memcpy(out, &s->frame, sizeof(struct video_frame));
-        out->width = w;
-        out->height = h;
-        out->dst_x_offset +=
-                x * (s->rgb ? 4 : 2 );
-        out->data +=
-                y * s->frame.dst_pitch;
-        out->src_linesize =
-                vc_getsrc_linesize(w, out->color_spec);
-        out->dst_linesize =
-                vc_getsrc_linesize(x + w, out->color_spec);
-
 }
 
 void *display_sdl_init(char *fmt)
@@ -671,6 +694,10 @@ void *display_sdl_init(char *fmt)
         asm("emms\n");
 
         s->semaphore = SDL_CreateSemaphore(0);
+        s->buffer_writable = 1;
+        s->buffer_writable_lock = SDL_CreateMutex();
+        s->buffer_writable_cond = SDL_CreateCond();
+
 
         if (!(s->display = XOpenDisplay(NULL))) {
                 printf("Unable to open display.\n");
@@ -697,16 +724,14 @@ void *display_sdl_init(char *fmt)
                                 s->codec_info->codec, s->frame.fps,
                                 s->frame.aux);
                 loadSplashscreen(s);	
-        } 
+        } else {
+                reconfigure_screen(s, 500, 500, RGBA, 30.0, 0);
+                loadSplashscreen(s);	
+        }
 
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
         s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
-
-        s->buffer_writable = 1;
-        s->buffer_writable_lock = SDL_CreateMutex();
-        s->buffer_writable_cond = SDL_CreateCond();
-
 
         /*if (pthread_create(&(s->thread_id), NULL, 
                            display_thread_sdl, (void *)s) != 0) {
@@ -725,6 +750,7 @@ void display_sdl_done(void *state)
 
         SDL_DestroyCond(s->buffer_writable_cond);
         SDL_DestroyMutex(s->buffer_writable_lock);
+	cleanup_screen(s);
 
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
@@ -736,16 +762,6 @@ struct video_frame *display_sdl_getf(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         assert(s->magic == MAGIC_SDL);
-
-        /* lame, because Macs do not manage to receive data if enabled
-         * see also cleanup_screen */
-#ifndef HAVE_MACOSX
-        SDL_mutexP(s->buffer_writable_lock);
-        while (!s->buffer_writable)
-                SDL_CondWait(s->buffer_writable_cond,
-                                s->buffer_writable_lock);
-        SDL_mutexV(s->buffer_writable_lock);
-#endif 
 
         return &s->frame;
 }
@@ -766,7 +782,6 @@ int display_sdl_putf(void *state, char *frame)
         tmp = SDL_SemValue(s->semaphore);
         if (tmp > 1) {
                 printf("%d frame(s) dropped!\n", tmp);
-                SDL_SemTryWait(s->semaphore);
         }
         return 0;
 }
@@ -782,6 +797,24 @@ display_type_t *display_sdl_probe(void)
                 dt->description = "SDL with Xvideo extension";
         }
         return dt;
+}
+
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
+{
+        struct state_sdl *s = (struct state_sdl *)state;
+        UNUSED(h);
+
+        memcpy(out, &s->frame, sizeof(struct video_frame));
+        out->data +=
+                y * s->frame.dst_pitch;
+        out->data_len -=
+                y * s->frame.dst_pitch;
+	out->dst_x_offset =
+                (size_t) (x * (s->rgb ? 4 : 2));
+        out->src_linesize =
+                vc_getsrc_linesize(w, out->color_spec);
+        out->dst_linesize =
+                (x + w) * out->dst_bpp;
 }
 
 #endif                          /* X_DISPLAY_MISSING */

@@ -82,6 +82,7 @@ display_id_t 	 display_get_null_device_id(void);
 struct display;
 
 struct display	*display_init(display_id_t id, char *fmt);
+void 		 display_run(struct display *d);
 void 		 display_done(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);

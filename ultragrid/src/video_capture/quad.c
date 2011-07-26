@@ -219,6 +219,11 @@ get_carrier (int fd, const char *device)
 }
 
 
+/* 
+ * This function should autodetect input format and return it.
+ * But the didn't seem worked at time of writing 
+ * TODO: revide if the driver is still buggy, if so, consider removing function
+ */
 static const struct frame_mode * get_video_standard (int fd, const char *device)
 {
 	unsigned int val;
@@ -513,7 +518,7 @@ vidcap_quad_init(char *init_fmt)
                 }
 
                 /*Get video standard*/
-                //frame_mode = get_video_standard (s->fd);
+                /*frame_mode = get_video_standard (s->fd);*/
 
 	
                 s->frame[i].color_spec = c_info->codec;
@@ -586,8 +591,6 @@ static void * vidcap_grab_thread(void *args)
 {
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) args;
         struct timespec timeout;
-        int i;
-        int ret;
 
         timeout.tv_sec = 0;
         timeout.tv_nsec = 500 * 1000;
@@ -595,7 +598,7 @@ static void * vidcap_grab_thread(void *args)
         while(!should_exit) {
 		unsigned int val;
                 int cur_dev;
-		unsigned int return_vec = 0u;
+		int return_vec = 0u;
 
                 if(sem_timedwait(&s->boss_waiting, &timeout) == ETIMEDOUT)
 			continue;
@@ -613,7 +616,9 @@ static void * vidcap_grab_thread(void *args)
 
 			for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
                                 if (s->pfd[cur_dev].revents & POLLIN) {
-                                        read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        unsigned int ret;
+                                        ret = read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        assert(ret == s->bufsize);
                                         return_vec |= 1 << cur_dev;
                                 }
 
@@ -655,7 +660,9 @@ static void * vidcap_grab_thread(void *args)
                 while (poll (s->pfd, s->device_cnt, 0) > 0) {
                         for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
                                 if (s->pfd[cur_dev].revents & POLLIN) {
-                                        read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        unsigned int ret;
+                                        ret = read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        assert(ret == s->bufsize);
                                         return_vec |= 1 << cur_dev;
                                 }
 
@@ -718,7 +725,7 @@ vidcap_quad_grab(void *state, int *count)
         }  
 
         *count = s->device_cnt;
-	return &s->frame;
+	return &s->frame[0];
 }
 
 static void print_output_modes()

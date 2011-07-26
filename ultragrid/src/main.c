@@ -91,14 +91,12 @@
 struct state_uv {
         struct rtp **network_devices;
         unsigned int connections_count;
-        int split_frames;
         struct rtp *audio_network_device;
         struct vidcap *capture_device;
         struct timeval start_time, curr_time;
         struct pdb *participants;
         struct pdb *audio_participants;
         uint32_t ts;
-        int fps;
         struct video_tx *tx;
         struct display *display_device;
         struct video_compress *compression;
@@ -119,8 +117,6 @@ int should_exit = FALSE;
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
 uint32_t hd_color_spc = 0;
-uint32_t bitdepth = 8;
-uint32_t progressive = 0;
 
 long frame_begin[2];
 
@@ -129,6 +125,8 @@ char **uv_argv;
 static struct state_uv *uv_state;
 
 void cleanup_uv(void);
+void list_video_display_devices(void);
+void list_video_capture_devices(void);
 
 #ifndef WIN32
 static void signal_handler(int signal)
@@ -144,7 +142,7 @@ static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf
-            ("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-f <framerate>] [-c] [-p] [-i] [-b <8|10>] [-S] address(es)\n\n");
+            ("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-c] [-i] address(es)\n\n");
         printf
             ("\t-d <display_device>\tselect display device, use -d help to get\n");
         printf("\t                   \tlist of devices availabe\n");
@@ -155,11 +153,12 @@ static void usage(void)
         printf
             ("\t                   \tuse -g help with a device to get info about\n");
         printf("\t                   \tsupported capture/display modes\n");
+        printf("\t-c                 \tcompress video\n");
         printf("\t-i                 \tiHDTV compatibility mode\n");
-        printf("\t-S                 \tsplit frame (multilink mode)\n");
-        printf("\taddresses          \tcomma-separated list of destination interfaces'\n");
-        printf("\t                   \taddresses (splitted frame or tiled video)\n");
-        printf("\t                   \tfirst case implies '-S' argument\n");
+        printf("\taddress(es)        \tdestination address\n");
+        printf("\t                   \tIf comma-separated list of addresses\n");
+        printf("\t                   \tis entered, video frames are split\n");
+        printf("\t                   \tand chunks are sent/received independently.\n");
 }
 
 void list_video_display_devices()
@@ -248,7 +247,7 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
 	int ttl = 255;
-	char *saveptr;
+	char *saveptr = NULL;
 	char *addr;
 	char *tmp;
 	int required_connections, index;
@@ -488,7 +487,7 @@ static void *receiver_thread(void *arg)
         int fr;
         int i = 0;
         int ret;
-        int tiles_post = 0;
+        unsigned int tiles_post = 0;
         struct timeval last_tile_received;
 
         fr = 1;
@@ -532,7 +531,7 @@ static void *receiver_thread(void *arg)
                             (cp->playout_buffer, uv->curr_time, frame_buffer,
                              i)) {
                                 tiles_post++;
-                                /* wait for data from all connections */
+                                /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
                                 {
                                         tiles_post = 0;
@@ -576,16 +575,16 @@ static void *sender_thread(void *arg)
         struct video_frame *tx_frames;
 
         struct video_frame *splitted_frames = NULL;
-        struct tile_info t_info;
-        int net_dev = 0;
+        int tile_y_count;
         int frame_count = 0;
 
-        if(uv->split_frames) {
+        tile_y_count = uv->connections_count;
+
+        /* we have more than one connection */
+        if(tile_y_count > 1) {
                 /* it is simply stripping frame */
-                t_info.x_count = 1u;
-                t_info.y_count = uv->connections_count;
                 splitted_frames = (struct video_frame *)
-                        malloc(uv->connections_count *
+                        malloc(tile_y_count *
                                         sizeof(struct video_frame));
         }
 
@@ -600,7 +599,7 @@ static void *sender_thread(void *arg)
                                 tx_frames = compress_data(uv->compression, &tx_frames[0]);
 #endif                          /* HAVE_FASTDXT */
                         }
-                        if(!uv->split_frames) {
+                        if(uv->connections_count == 1) { /* normal case - only one connection */
                                 tx_send_multi(uv->tx, tx_frames, frame_count,
                                                 uv->network_devices[0]);
                         } else { /* split */
@@ -608,8 +607,8 @@ static void *sender_thread(void *arg)
 
                                 assert(frame_count == 1);
                                 vf_split_horizontal(splitted_frames, &tx_frames[0],
-                                               t_info.y_count);
-                                for (i = 0; i < uv->connections_count; ++i) {
+                                               tile_y_count);
+                                for (i = 0; i < tile_y_count; ++i) {
                                         tx_send(uv->tx, &splitted_frames[i],
                                                         uv->network_devices[i]);
                                 }
@@ -618,7 +617,7 @@ static void *sender_thread(void *arg)
         }
         free(splitted_frames);
 
-        return 0;
+        return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -640,15 +639,11 @@ int main(int argc, char *argv[])
                 {"cfg", required_argument, 0, 'g'},
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
-                {"fps", required_argument, 0, 'f'},
-                {"bitdepth", required_argument, 0, 'b'},
                 {"version", no_argument, 0, 'v'},
                 {"compress", no_argument, 0, 'c'},
-                {"progressive", no_argument, 0, 'p'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
-                {"split", no_argument, 0, 'S'},
                 {"help", no_argument, 0, 'h'},
                 {0, 0, 0, 0}
         };
@@ -658,7 +653,6 @@ int main(int argc, char *argv[])
         uv = (struct state_uv *)malloc(sizeof(struct state_uv));
 
         uv->ts = 0;
-        uv->fps = 60;
         uv->display_device = NULL;
         uv->compression = NULL;
         uv->requested_display = "none";
@@ -670,15 +664,14 @@ int main(int argc, char *argv[])
         uv->audio_playback_device = -2;
         uv->audio_participants = NULL;
         uv->participants = NULL;
-        uv->split_frames = 0;
 
 #ifdef HAVE_AUDIO
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:f:b:r:s:vcpihS", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:r:s:vcih", getopt_options,
                             &option_index)) != -1) {
 #else
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:f:b:vcpihS", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:vcih", getopt_options,
                             &option_index)) != -1) {
 #endif                          /* HAVE_AUDIO */
                 switch (ch) {
@@ -704,24 +697,11 @@ int main(int argc, char *argv[])
                 case 'g':
                         cfg = strdup(optarg);
                         break;
-                case 'f':
-                        uv->fps = atoi(optarg);
-                        break;
-                case 'b':
-                        bitdepth = atoi(optarg);
-                        if (bitdepth != 10 && bitdepth != 8) {
-                                usage();
-                                return EXIT_FAIL_USAGE;
-                        }
-                        break;
                 case 'v':
                         printf("%s\n", ULTRAGRID_VERSION);
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = 1;
-                        break;
-                case 'p':
-                        progressive = 1;
                         break;
                 case 'i':
                         uv->use_ihdtv_protocol = 1;
@@ -743,9 +723,6 @@ int main(int argc, char *argv[])
                         uv->audio_capture_device = atoi(optarg);
                         break;
 #endif                          /* HAVE_AUDIO */
-		case 'S':
-			uv->split_frames = 1;
-			break;
 		case 'h':
 			usage();
 			return 0;
@@ -757,10 +734,6 @@ int main(int argc, char *argv[])
                 }
         }
 
-/*	if(cfg == NULL) {
-        cfg=malloc(4);
-		snprintf(cfg, 4, "%d", uv->fps);
-	}*/
         argc -= optind;
         argv += optind;
 
@@ -777,7 +750,6 @@ int main(int argc, char *argv[])
         printf("%s\n", ULTRAGRID_VERSION);
         printf("Display device: %s\n", uv->requested_display);
         printf("Capture device: %s\n", uv->requested_capture);
-        printf("Frame rate    : %d\n", uv->fps);
         printf("MTU           : %d\n", uv->requested_mtu);
         if (uv->requested_compression)
                 printf("Compression   : DXT\n");
@@ -940,6 +912,7 @@ int main(int argc, char *argv[])
                 } else {
                         struct rtp **item;
                         uv->connections_count = 0;
+                        /* only count how many connections has initialize_network opened */
                         for(item = uv->network_devices; *item != NULL; ++item)
                                 ++uv->connections_count;
                 }

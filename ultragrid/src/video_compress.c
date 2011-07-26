@@ -89,16 +89,14 @@ struct video_compress {
         pthread_mutex_t lock;
         volatile int thread_count, len[NUM_THREADS], go[NUM_THREADS];
         pthread_t thread_ids[NUM_THREADS];
-        unsigned int tx_aux;
+        int tx_aux;
         codec_t tx_color_spec;
 
         struct video_frame frame;
 };
 
-inline void compress_copyline64(unsigned char *dst, unsigned char *src,
-                                int len);
-inline void compress_copyline128(unsigned char *d, unsigned char *s, int len);
-void compress_deinterlace(unsigned char *buffer);
+static void compress_thread(void *args);
+void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux);
 
 void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux)
 {
@@ -142,6 +140,9 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                         compress->frame.decoder = (decoder_t) vc_copylineDVS10;
                         compress->frame.aux |= AUX_YUV;
                         break;
+                case DXT1:
+                        fprintf(stderr, "Input frame is already comperssed!");
+                        exit(128);
         }
         compress->frame.src_linesize = compress->frame.width * compress->frame.src_bpp;
         compress->frame.dst_linesize = compress->frame.width * 
@@ -157,7 +158,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         }
 #ifdef HAVE_MACOSX
         compress->output_data = (unsigned char *)malloc(width * height * 4);
-        compress->frame.data = (unsigned char *)malloc(width * height * 4);
+        compress->frame.data = (char *)malloc(width * height * 4);
 #else
         /*
          *  memalign doesn't exist on Mac OS. malloc always returns 16  
@@ -166,7 +167,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
          *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
          */
         compress->output_data = (unsigned char *)memalign(16, width * height * 4);
-        compress->frame.data = (unsigned char *)memalign(16, width * height * 4);
+        compress->frame.data = (char *)memalign(16, width * height * 4);
 #endif                          /* HAVE_MACOSX */
         memset(compress->output_data, 0, width * height * 4);
         memset(compress->frame.data, 0, width * height * 4 / 8);
@@ -189,7 +190,7 @@ struct video_compress *initialize_video_compression(void)
         compress->thread_count = 0;
         if (pthread_mutex_init(&(compress->lock), NULL)) {
         perror("Error initializing mutex!");
-                exit(x);
+                exit(128);
         }
 
         pthread_mutex_lock(&(compress->lock));
@@ -209,97 +210,11 @@ struct video_compress *initialize_video_compression(void)
         return compress;
 }
 
-#if !(HAVE_MACOSX || HAVE_32B_LINUX)
-
-inline void compress_copyline128(unsigned char *d, unsigned char *s, int len)
-{
-        register unsigned char *_d = d, *_s = s;
-
-        while (--len >= 0) {
-
- asm("movd %0, %%xmm4\n": :"r"(0xffffff));
-
-                asm volatile ("movdqa (%0), %%xmm0\n"
-                              "movdqa 16(%0), %%xmm5\n"
-                              "movdqa %%xmm0, %%xmm1\n"
-                              "movdqa %%xmm0, %%xmm2\n"
-                              "movdqa %%xmm0, %%xmm3\n"
-                              "pand  %%xmm4, %%xmm0\n"
-                              "movdqa %%xmm5, %%xmm6\n"
-                              "movdqa %%xmm5, %%xmm7\n"
-                              "movdqa %%xmm5, %%xmm8\n"
-                              "pand  %%xmm4, %%xmm5\n"
-                              "pslldq $4, %%xmm4\n"
-                              "pand  %%xmm4, %%xmm1\n"
-                              "pand  %%xmm4, %%xmm6\n"
-                              "pslldq $4, %%xmm4\n"
-                              "psrldq $1, %%xmm1\n"
-                              "psrldq $1, %%xmm6\n"
-                              "pand  %%xmm4, %%xmm2\n"
-                              "pand  %%xmm4, %%xmm7\n"
-                              "pslldq $4, %%xmm4\n"
-                              "psrldq $2, %%xmm2\n"
-                              "psrldq $2, %%xmm7\n"
-                              "pand  %%xmm4, %%xmm3\n"
-                              "pand  %%xmm4, %%xmm8\n"
-                              "por %%xmm1, %%xmm0\n"
-                              "psrldq $3, %%xmm3\n"
-                              "psrldq $3, %%xmm8\n"
-                              "por %%xmm2, %%xmm0\n"
-                              "por %%xmm6, %%xmm5\n"
-                              "por %%xmm3, %%xmm0\n"
-                              "por %%xmm7, %%xmm5\n"
-                              "movdq2q %%xmm0, %%mm0\n"
-                              "por %%xmm8, %%xmm5\n"
-                              "movdqa %%xmm5, %%xmm1\n"
-                              "pslldq $12, %%xmm5\n"
-                              "psrldq $4, %%xmm1\n"
-                              "por %%xmm5, %%xmm0\n"
-                              "psrldq $8, %%xmm0\n"
-                              "movq %%mm0, (%1)\n"
-                              "movdq2q %%xmm0, %%mm1\n"
-                              "movdq2q %%xmm1, %%mm2\n"
-                              "movq %%mm1, 8(%1)\n"
-                              "movq %%mm2, 16(%1)\n"::"r" (_s), "r"(_d));
-                _s += 32;
-                _d += 24;
-        }
-}
-
-#endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
-
-inline void compress_copyline64(unsigned char *dst, unsigned char *src, int len)
-{
-        register uint64_t *d, *s;
-
-        register uint64_t a1, a2, a3, a4;
-
-        d = (uint64_t *) dst;
-        s = (uint64_t *) src;
-
-        while (len-- > 0) {
-                a1 = *(s++);
-                a2 = *(s++);
-                a3 = *(s++);
-                a4 = *(s++);
-
-                a1 = (a1 & 0xffffff) | ((a1 >> 8) & 0xffffff000000);
-                a2 = (a2 & 0xffffff) | ((a2 >> 8) & 0xffffff000000);
-                a3 = (a3 & 0xffffff) | ((a3 >> 8) & 0xffffff000000);
-                a4 = (a4 & 0xffffff) | ((a4 >> 8) & 0xffffff000000);
-
-                *(d++) = a1 | (a2 << 48);       /* 0xa2|a2|a1|a1|a1|a1|a1|a1 */
-                *(d++) = (a2 >> 16) | (a3 << 32);       /* 0xa3|a3|a3|a3|a2|a2|a2|a2 */
-                *(d++) = (a3 >> 32) | (a4 << 16);       /* 0xa4|a4|a4|a4|a4|a4|a3|a3 */
-        }
-}
-
 struct video_frame * compress_data(void *args, struct video_frame *tx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
         struct video_compress *compress = (struct video_compress *)args;
-        int x, total = 0;
-        int i;
+        unsigned int x, total = 0;
         unsigned char *line1, *line2;
 
         if(tx->width != compress->frame.width ||
@@ -409,8 +324,6 @@ void compress_exit(void *args)
                 pthread_kill(compress->thread_ids[x], SIGKILL);
         }
 
-        free(compress->buffer[0]);
-        free(compress->buffer[1]);
-        free(compress->buffer[2]);
-        free(compress->buffer[3]);
+        for (x = 0; x < NUM_THREADS; ++x)
+                free(compress->buffer[x]);
 }
