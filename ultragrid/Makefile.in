@@ -13,10 +13,12 @@ LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @AUDIO_LIB@ @SAGE_LIB@ @X_PR
 INC           = -I.. -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @AUDIO_INC@ @GL_INC@ @SAGE_INC@ @QUAD_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
+PERF          = bin/uv_perf
 BUNDLE        = uv.app
 
 OBJS          = src/bitstream.o \
 		src/debug.o \
+		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
 		src/tv.o \
@@ -131,6 +133,7 @@ clean:
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
+	-rm -rf $(PERF) src/uv_perf.o
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
@@ -148,6 +151,9 @@ bundle: all
 	mkdir -p $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
+
+perf: src/tv.o src/crypto/random.o
+	$(CC) src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
 install:
 	cp -v $(TARGET) /usr/local/bin/

@@ -60,6 +60,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "perf.h"
 #include "tv.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -190,6 +191,8 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 static struct pbuf_node *create_new_pnode(rtp_packet * pkt)
 {
         struct pbuf_node *tmp;
+
+        perf_record(UVP_CREATEPBUF, pkt->ts);
 
         tmp = malloc(sizeof(struct pbuf_node));
         if (tmp != NULL) {

@@ -56,6 +56,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "perf.h"
 #include "video_display.h"
 
 #include "video_display/null.h"
@@ -262,12 +263,14 @@ void display_run(struct display *d)
 
 struct video_frame *display_get_frame(struct display *d)
 {
+        perf_record(UVP_GETFRAME, d);
         assert(d->magic == DISPLAY_MAGIC);
         return display_device_table[d->index].func_getf(d->state);
 }
 
 void display_put_frame(struct display *d, char *frame)
 {
+        perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_putf(d->state, frame);
 }

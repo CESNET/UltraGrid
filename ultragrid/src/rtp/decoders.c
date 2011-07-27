@@ -46,6 +46,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -68,6 +69,8 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         int prints=0;
         double fps;
         struct video_frame *tile, *data;
+
+        perf_record(UVP_DECODEFRAME, frame);
 
         if(!frame)
                 return;

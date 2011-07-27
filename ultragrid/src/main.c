@@ -61,6 +61,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -664,6 +665,9 @@ int main(int argc, char *argv[])
         uv->audio_playback_device = -2;
         uv->audio_participants = NULL;
         uv->participants = NULL;
+
+        perf_init();
+        perf_record(UVP_INIT, 0);
 
 #ifdef HAVE_AUDIO
         while ((ch =

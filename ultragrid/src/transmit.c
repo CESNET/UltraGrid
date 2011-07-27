@@ -57,6 +57,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "perf.h"
 #include "audio/audio.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -146,6 +147,8 @@ tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_ses
         long delta;
 
         assert(tx->magic == TRANSMIT_MAGIC);
+
+        perf_record(UVP_SEND, ts);
 
         m = 0;
         pos = 0;
