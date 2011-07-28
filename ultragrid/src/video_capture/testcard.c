@@ -77,9 +77,11 @@ struct testcard_state {
         int size;
         int pan;
         SDL_Surface *surface;
+        char *data;
         struct timeval t0;
         struct video_frame frame;
         struct video_frame *tiles;
+        char **tiles_data;
 };
 
 const int rect_colors[] = {
@@ -258,7 +260,9 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height)
 
 static int configure_tiling(struct testcard_state *s, const char *fmt)
 {
-        char *tmp, *token, *saveptr;
+        char *tmp, *token, *saveptr = NULL;
+        int tile_cnt;
+        int x;
 
         if(fmt[1] != '=') return 1;
         s->frame.aux |= AUX_TILED;
@@ -268,17 +272,47 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         token = strtok_r(NULL, "x", &saveptr);
         s->frame.tile_info.y_count = atoi(token);
         free(tmp);
-        if(s->frame.tile_info.x_count < 1u ||
-                        s->frame.tile_info.y_count < 1u) {
-                fprintf(stderr, "There must be at least 1x1 tile.\n");
-                return 1;
-        }
-        s->tiles = (struct video_frame *) 
-                malloc(s->frame.tile_info.x_count *
-                                s->frame.tile_info.y_count *
+
+        tile_cnt = s->frame.tile_info.x_count *
+                                s->frame.tile_info.y_count;
+        assert(tile_cnt >= 1);
+
+        s->tiles = (struct video_frame *) malloc(tile_cnt *
                         sizeof(struct video_frame));
+        s->tiles_data = (char **) malloc(tile_cnt *
+                        sizeof(char *));
+        /* split only horizontally!!!!!! */
         vf_split(s->tiles, &s->frame, s->frame.tile_info.x_count,
-                        s->frame.tile_info.y_count, 1); /*prealloc*/
+                        1, 1 /*prealloc*/);
+        /* for each row, make the tile data correct.
+         * .data pointers of same row point to same block,
+         * but different row */
+        for(x = 0; x < s->frame.tile_info.x_count; ++x) {
+                int y;
+                s->tiles_data[x] = (char *) realloc(s->tiles[x].data, 
+                                s->tiles[x].data_len * 2);
+                s->tiles[x].data = s->tiles_data[x];
+                memcpy(s->tiles[x].data + s->tiles[x].data_len,
+                                s->tiles[x].data, s->tiles[x].data_len);
+                s->tiles[x].height /= s->frame.tile_info.y_count;
+                s->tiles[x].data_len /= s->frame.tile_info.y_count;
+                s->tiles[x].tile_info = s->frame.tile_info;
+                s->tiles[x].tile_info.pos_x = x;
+
+                /* recopy tiles vertically */
+                for(y = 1; y < s->frame.tile_info.y_count; ++y) {
+                        memcpy(&s->tiles[y * s->frame.tile_info.x_count + x], 
+                                        &s->tiles[x], sizeof(struct video_frame));
+                        /* make the pointers correct */
+                        s->tiles_data[y * s->frame.tile_info.x_count + x] =
+                                s->tiles_data[x] ;
+                        s->tiles[y * s->frame.tile_info.x_count + x].data =
+                                s->tiles_data[x] +
+                                y * s->tiles[x].height * s->tiles[x].src_linesize;
+                        s->tiles[y * s->frame.tile_info.x_count + x].tile_info.pos_y = y;
+                }
+        }
+
         return 0;
 }
 
@@ -372,7 +406,7 @@ void *vidcap_testcard_init(char *fmt)
         filename = strtok(NULL, ":");
         if (filename && strcmp(filename, "p") != 0
                         && strncmp(filename, "s=", 2ul) != 0) {
-                s->frame.data = malloc(s->size);
+                s->data = malloc(s->size * 2);
                 if (stat(filename, &sb)) {
                         perror("stat");
                         free(s);
@@ -385,14 +419,14 @@ void *vidcap_testcard_init(char *fmt)
                         fprintf(stderr, "Error wrong file size for selected "
                                 "resolution and codec. File size %d, "
                                 "computed size %d\n", (int)sb.st_size, s->size);
-                        free(s->frame.data);
+                        free(s->data);
                         free(s);
                         return NULL;
                 }
 
-                if (!in || fread(s->frame.data, sb.st_size, 1, in) == 0) {
+                if (!in || fread(s->data, sb.st_size, 1, in) == 0) {
                         fprintf(stderr, "Cannot read file %s\n", filename);
-                        free(s->frame.data);
+                        free(s->data);
                         free(s);
                         return NULL;
                 }
@@ -402,7 +436,7 @@ void *vidcap_testcard_init(char *fmt)
                 SDL_Rect r;
                 int col_num = 0;
                 s->surface =
-                    SDL_CreateRGBSurface(SDL_SWSURFACE, aligned_x, s->frame.height,
+                    SDL_CreateRGBSurface(SDL_SWSURFACE, aligned_x, s->frame.height * 2,
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
                 if (filename) {
@@ -441,22 +475,25 @@ void *vidcap_testcard_init(char *fmt)
                                 }
                         }
                 }
-                s->frame.data = s->surface->pixels;
+                s->data = s->surface->pixels;
                 if (codec == UYVY || codec == v210 || codec == Vuy2) {
-                        rgb2yuv422((unsigned char *)s->frame.data, s->frame.width,
+                        rgb2yuv422((unsigned char *) s->data, s->frame.width,
                                    s->frame.height);
                 }
 
                 if (codec == v210) {
-                        s->frame.data =
-                            (char *)tov210((unsigned char *)s->frame.data, s->frame.width,
+                        s->data =
+                            (char *)tov210((unsigned char *) s->data, s->frame.width,
                                            aligned_x, s->frame.height, bpp);
                 }
 
                 if (codec == R10k) {
-                        toR10k((unsigned char *)s->frame.data, s->frame.width, s->frame.height);
+                        toR10k((unsigned char *) s->data, s->frame.width, s->frame.height);
                 }
         }
+
+        memcpy(s->data + s->size, s->data, s->size);
+        s->frame.data = s->data;
 
         tmp = strtok(NULL, ":");
         if (tmp) {
@@ -494,16 +531,16 @@ void *vidcap_testcard_init(char *fmt)
 void vidcap_testcard_done(void *state)
 {
         struct testcard_state *s = state;
-        if (s->frame.data != s->surface->pixels)
-                free(s->frame.data);
+        if (s->data != s->surface->pixels)
+                free(s->data);
         if (s->surface)
                 SDL_FreeSurface(s->surface);
         if (s->frame.aux & AUX_TILED)
         {
-                unsigned int i;
-                for (i = 0u; i < s->frame.tile_info.x_count *
-                                s->frame.tile_info.y_count; ++i)
-                        free(s->tiles[i].data);
+                int i;
+                for (i = 0; i < s->frame.tile_info.x_count; ++i) {
+                        free(s->tiles_data[i]);
+                }
                 free(s->tiles);
         }
         free(s);
@@ -531,7 +568,11 @@ struct video_frame *vidcap_testcard_grab(void *arg, int *count)
                         state->count = 0;
                 }
 
-                char line[state->frame.src_linesize * 2 + state->pan];
+                state->frame.data += state->frame.src_linesize;
+                if(state->frame.data > state->data + state->size)
+                        state->frame.data = state->data;
+
+                /*char line[state->frame.src_linesize * 2 + state->pan];
                 unsigned int i;
                 memcpy(line, state->frame.data,
                        state->frame.src_linesize * 2 + state->pan);
@@ -555,12 +596,24 @@ struct video_frame *vidcap_testcard_grab(void *arg, int *count)
                         }
                 }
 #endif
+                */
                 if (state->frame.aux & AUX_TILED) {
-                        vf_split(state->tiles, &state->frame,
-                                       state->frame.tile_info.x_count,
-                                       state->frame.tile_info.y_count, 0);
+                        /* update tile data instead */
+                        int i;
+
                         *count = state->frame.tile_info.x_count *
                                 state->frame.tile_info.y_count;
+                        for (i = 0; i < *count; ++i) {
+                                /* shift - for semantics of vars refer to configure_tiling*/
+                                state->tiles[i].data += state->tiles[i].src_linesize;
+                                /* if out of data, move to beginning
+                                 * keep in mind that we have two "pictures" for
+                                 * every tile stored sequentially */
+                                if(state->tiles[i].data >= state->tiles_data[i] +
+                                                state->tiles[i].data_len * 2) {
+                                        state->tiles[i].data = state->tiles_data[i];
+                                }
+                        }
                         return state->tiles;
                 }
                 *count = 1;
