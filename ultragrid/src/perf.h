@@ -43,6 +43,8 @@
 #ifndef _PERF_H
 #define _PERF_H
 
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR >= 1)
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -79,6 +81,13 @@ struct _uvp_entry {
 static key_t _uvp_key = 5043;
 
 void _uvp_perf_record(_uvp_event_t event, _uvp_arg_t arg);
+
+#else
+
+#define perf_record(x,y) {}
+#define perf_init() {}
+
+#endif /* __GNUC__ */
 
 #endif /* _PERF_H */
 
