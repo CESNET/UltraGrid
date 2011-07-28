@@ -88,7 +88,8 @@ void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt)
 void sage_shutdown()
 {
     sageInf->shutdown();
-    delete sageInf;
+    // don't try to delete, since it would probably cause crash with current SAGE
+    //delete sageInf;
 }
 
 void sage_swapBuffer()

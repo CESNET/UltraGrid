@@ -139,9 +139,9 @@ void *display_sage_init(void)
         s->frame.reconfigure = (reconfigure_t)sage_reconfigure_screen;
         s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
 
-        s->frame.rshift = 0;
+        s->frame.rshift = 16;
         s->frame.gshift = 8;
-        s->frame.bshift = 16;
+        s->frame.bshift = 0;
 
         /* thread init */
         sem_init(&s->semaphore, 0, 0);
@@ -229,10 +229,7 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
                         s->frame.dst_bpp = get_bpp(RGBA);
                         break;
                 case RGBA:
-                        s->frame.decoder = (decoder_t)memcpy; /* or vc_copylineRGBA?
-                                                                 but we have default
-                                                                 {r,g,b}shift */
-                        
+                        s->frame.decoder = (decoder_t)vc_copylineRGBA;
                         s->frame.dst_bpp = get_bpp(RGBA);
                         break;
                 case v210:
@@ -305,6 +302,5 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
                 vc_getsrc_linesize(w, out->color_spec);
         out->dst_linesize =
                 w * out->dst_bpp;
-
 }
 
