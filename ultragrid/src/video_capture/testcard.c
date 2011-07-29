@@ -492,8 +492,16 @@ void *vidcap_testcard_init(char *fmt)
                 }
         }
 
-        memcpy(s->data + s->size, s->data, s->size);
-        s->frame.data = s->data;
+        s->frame.data = malloc(2 * s->size);
+
+        memcpy(s->frame.data, s->data, s->size);
+        memcpy(s->frame.data + s->size, s->data, s->size);
+        if(s->surface)
+                SDL_FreeSurface(s->surface);
+        else
+                free(s->data);
+
+        s->data = s->frame.data;
 
         tmp = strtok(NULL, ":");
         if (tmp) {
@@ -531,10 +539,8 @@ void *vidcap_testcard_init(char *fmt)
 void vidcap_testcard_done(void *state)
 {
         struct testcard_state *s = state;
-        if (s->data != s->surface->pixels)
-                free(s->data);
-        if (s->surface)
-                SDL_FreeSurface(s->surface);
+
+        free(s->data);
         if (s->frame.aux & AUX_TILED)
         {
                 int i;
