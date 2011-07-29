@@ -36,7 +36,7 @@
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
- / INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
  * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
@@ -257,6 +257,7 @@ static void loadSplashscreen(struct state_sdl *s) {
  * @return zero value everytime
  */
 static void toggleFullscreen(struct state_sdl *s) {
+#ifndef HAVE_MACOSX
 	if(s->fs) {
 		s->fs = 0;
         }
@@ -265,6 +266,7 @@ static void toggleFullscreen(struct state_sdl *s) {
         }
 	/* and post for reconfiguration */
 	s->frame.width = 0;
+#endif
 }
 
 /**
@@ -303,7 +305,6 @@ int display_sdl_handle_events(void *arg, int post)
                         }
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
-                                /* prevent segfault/leaks */
 				toggleFullscreen(s);
                                         if(post)
                                                 SDL_SemPost(s->semaphore);
@@ -330,14 +331,17 @@ void display_sdl_run(void *arg)
         gettimeofday(&s->tv, NULL);
 
         while (!should_exit) {
+                display_sdl_handle_events(s, 0);
 #ifndef HAVE_MACOSX
                 /* set flag to prevent dangerous actions */
                 if(SDL_SemWaitTimeout(s->semaphore, 200) == SDL_MUTEX_TIMEDOUT) {
-                        display_sdl_handle_events(s, 0); /* Only handle events */
                         continue;
                 }
 #else
-                SDL_SemWait(s->semaphore);
+                if(SDL_SemTryWait(s->semaphore) == SDL_MUTEX_TIMEDOUT) {
+                        usleep(1000);
+                        continue;
+                }
 #endif
 
                 if (s->deinterlace) {
@@ -377,8 +381,6 @@ void display_sdl_run(void *arg)
                 s->buffer_writable = 1;
                 SDL_CondSignal(s->buffer_writable_cond);
                 SDL_mutexV(s->buffer_writable_lock);
-
-		display_sdl_handle_events(s, 0);
 
 		s->frames++;
 		gettimeofday(&tv, NULL);
