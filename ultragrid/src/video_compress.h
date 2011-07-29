@@ -49,6 +49,6 @@
 
 struct video_compress;
 
-struct video_compress * initialize_video_compression(void);
+struct video_compress * initialize_video_compression(const char *num_threads_str);
 struct video_frame * compress_data(void *args, struct video_frame * tx);
 void compress_exit(void *args);

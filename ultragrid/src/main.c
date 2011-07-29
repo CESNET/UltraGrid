@@ -629,6 +629,7 @@ int main(int argc, char *argv[])
 #endif
         char *cfg = NULL;
         struct state_uv *uv;
+        char *num_compress_threads;
         int ch;
         pthread_t receiver_thread_id, sender_thread_id;
 
@@ -641,7 +642,7 @@ int main(int argc, char *argv[])
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
                 {"version", no_argument, 0, 'v'},
-                {"compress", no_argument, 0, 'c'},
+                {"compress", optional_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
@@ -671,11 +672,11 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_AUDIO
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:r:s:vcih", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:r:s:vc::ih", getopt_options,
                             &option_index)) != -1) {
 #else
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:vcih", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:vc::ih", getopt_options,
                             &option_index)) != -1) {
 #endif                          /* HAVE_AUDIO */
                 switch (ch) {
@@ -706,6 +707,7 @@ int main(int argc, char *argv[])
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = 1;
+                        num_compress_threads = optarg;
                         break;
                 case 'i':
                         uv->use_ihdtv_protocol = 1;
@@ -787,7 +789,7 @@ int main(int argc, char *argv[])
 
 #ifdef HAVE_FASTDXT
         if (uv->requested_compression) {
-                uv->compression = initialize_video_compression();
+                uv->compression = initialize_video_compression(num_compress_threads);
         }
 #endif                          /* HAVE_FASTDXT */
 

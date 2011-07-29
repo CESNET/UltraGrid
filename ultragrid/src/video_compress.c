@@ -48,6 +48,7 @@
 #include "host.h"
 #include "config.h"
 #include <pthread.h>
+#include "compat/platform_semaphore.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -72,9 +73,8 @@
  * by 1 (For a dual dual-core Opteron 285 3 threads work great). 
  * -- iwsmith <iwsmith@cct.lsu.ed> 9 August 2007
  */
-#define NUM_THREADS 3
-#define HD_HEIGHT 1080
-#define HD_WIDTH 1920
+#define MAX_THREADS 16
+#define NUM_THREADS_DEFAULT 3
 
 /* Ok, we are going to decompose the problem into 2^n pieces (generally
  * 2, 4, or 8). We will most likely need to do the following:
@@ -84,13 +84,16 @@
  */
 
 struct video_compress {
-        unsigned char *buffer[NUM_THREADS];
+        int num_threads;
+        unsigned char *buffer[MAX_THREADS];
         unsigned char *output_data;
         pthread_mutex_t lock;
-        volatile int thread_count, len[NUM_THREADS], go[NUM_THREADS];
-        pthread_t thread_ids[NUM_THREADS];
+        volatile int thread_count;
+        pthread_t thread_ids[MAX_THREADS];
         int tx_aux;
         codec_t tx_color_spec;
+        sem_t thread_compress[MAX_THREADS];
+        sem_t threads_done;
 
         struct video_frame frame;
 };
@@ -152,9 +155,13 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         /* We will deinterlace the output frame */
         compress->frame.aux &= ~AUX_INTERLACED;
 
-        for (x = 0; x < NUM_THREADS; x++) {
+        for (x = 0; x < compress->num_threads; x++) {
+                int my_height = (height / compress->num_threads) / 4 * 4;
+                if(x == compress->num_threads - 1) {
+                        my_height = compress->frame.height - my_height /* "their height" */ * x;
+                }
                 compress->buffer[x] =
-                    (unsigned char *)malloc(width * height * 4 / NUM_THREADS);
+                    (unsigned char *)malloc(width * my_height * 4);
         }
 #ifdef HAVE_MACOSX
         compress->output_data = (unsigned char *)malloc(width * height * 4);
@@ -173,7 +180,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         memset(compress->frame.data, 0, width * height * 4 / 8);
 }
 
-struct video_compress *initialize_video_compression(void)
+struct video_compress *initialize_video_compression(const char *num_threads_str)
 {
         /* This function does the following:
          * 1. Allocate memory for buffers 
@@ -184,6 +191,13 @@ struct video_compress *initialize_video_compression(void)
 
         compress = calloc(1, sizeof(struct video_compress));
         /* initial values */
+        compress->num_threads = 0;
+        if(num_threads_str == NULL)
+                compress->num_threads = NUM_THREADS_DEFAULT;
+        else
+                compress->num_threads = atoi(num_threads_str);
+        assert (compress->num_threads > 1 && compress->num_threads <= MAX_THREADS);
+
         compress->frame.width = 0;
         compress->frame.height = 0;
 
@@ -193,18 +207,20 @@ struct video_compress *initialize_video_compression(void)
                 exit(128);
         }
 
+        platform_sem_init(&compress->threads_done, 0, 0);
+        for (x = 0; x < compress->num_threads; x++) {
+                platform_sem_init(&compress->thread_compress[x], 0, 0);
+        }
+
         pthread_mutex_lock(&(compress->lock));
 
-        for (x = 0; x < NUM_THREADS; x++) {
+        for (x = 0; x < compress->num_threads; x++) {
                 if (pthread_create
                     (&(compress->thread_ids[x]), NULL, (void *)compress_thread,
                      (void *)compress)) {
                         perror("Unable to create compressor thread!");
                         exit(x);
                 }
-
-                compress->go[x] = 0;
-                compress->len[x] = 0;
         }
         pthread_mutex_unlock(&(compress->lock));
         return compress;
@@ -214,7 +230,7 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
         struct video_compress *compress = (struct video_compress *)args;
-        unsigned int x, total = 0;
+        unsigned int x;
         unsigned char *line1, *line2;
 
         if(tx->width != compress->frame.width ||
@@ -222,6 +238,8 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
                         tx->aux != compress->tx_aux ||
                         tx->color_spec != compress->tx_color_spec)
         {
+                assert(tx->height % 4 == 0);
+                assert(tx->width % 4 == 0);
                 reconfigure_compress(compress, tx->width, tx->height, tx->color_spec, tx->aux);
         }
 
@@ -241,19 +259,15 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
                                 compress->frame.height);
 
 
-        for (x = 0; x < NUM_THREADS; x++) {
-                compress->go[x] = 1;
+        for (x = 0; x < compress->num_threads; x++) {
+                platform_sem_post(&compress->thread_compress[x]);
         }
 
-        while (total != compress->frame.width * compress->frame.height / 2) {
-                //This is just getting silly...
-                total = 0;
-                for (x = 0; x < NUM_THREADS; x++) {
-                        total += compress->len[x];
-                }
+        for (x = 0; x < compress->num_threads; x++) {
+                platform_sem_wait(&compress->threads_done);
         }
 
-        compress->frame.data_len = total;
+        compress->frame.data_len = compress->frame.width * compress->frame.height / 2;
 
         return &compress->frame;
 }
@@ -261,7 +275,8 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
 static void compress_thread(void *args)
 {
         struct video_compress *compress = (struct video_compress *)args;
-        int myId, myEnd, myStart, range, x;
+        int myId, range, my_range, x;
+        int my_height;
         unsigned char *retv;
 
         pthread_mutex_lock(&(compress->lock));
@@ -269,28 +284,28 @@ static void compress_thread(void *args)
         compress->thread_count++;
         pthread_mutex_unlock(&(compress->lock));
 
-        while (compress->go[myId] == 0) {
-                //Busywait
-        }
-
-        range = compress->frame.width * compress->frame.height / NUM_THREADS;
-        myStart = myId * range;
-        myEnd = (myId + 1) * range;
-        fprintf(stderr, "Thread %d online, handling elements %d - %d\n", myId,
-                myStart, myEnd - 1);
+        fprintf(stderr, "Compress thread %d online.\n", myId);
 
         while (1) {
-                while (compress->go[myId] == 0) {
-                        //Busywait
+                platform_sem_wait(&compress->thread_compress[myId]);
+
+
+                my_height = (compress->frame.height / compress->num_threads) / 4 * 4;
+                range = my_height * compress->frame.width; /* for all threads except the last */
+
+                if(myId == compress->num_threads - 1) {
+                        my_height = compress->frame.height - my_height /* "their height" */ * myId;
                 }
+                my_range = my_height * compress->frame.width;
+
                 if(compress->frame.aux & AUX_YUV)
                 {
                         unsigned char *input;
-                        input = (compress->output_data) +
-                            (myId * compress->frame.width * compress->frame.height * 2 / NUM_THREADS);
+                        input = (compress->output_data) + myId
+                                * range * 2;
                         retv = compress->buffer[myId];
                         /* Repack the data to YUV 4:4:4 Format */
-                        for (x = 0; x < range; x += 2) {
+                        for (x = 0; x < my_range; x += 2) {
                                 retv[4 * x] = input[2 * x + 1]; //Y1
                                 retv[4 * x + 1] = input[2 * x]; //U1
                                 retv[4 * x + 2] = input[2 * x + 2];     //V1
@@ -302,16 +317,14 @@ static void compress_thread(void *args)
                                 retv[4 * x + 7] = 255;  //Alpha
                         }
                 } else {
-                        retv = (compress->output_data) +
-                            (myId * compress->frame.width * compress->frame.height * 4 / NUM_THREADS);
+                        retv = (compress->output_data) + myId * range * 4;
                 }
 
-                compress->len[myId] =
-                    DirectDXT1(retv,
-                               ((unsigned char *) compress->frame.data) + myId * compress->frame.width * compress->frame.height / 2 / (NUM_THREADS),
-                               compress->frame.width, compress->frame.height / NUM_THREADS);
-                compress->go[myId] = 0;
+                DirectDXT1(retv,
+                               ((unsigned char *) compress->frame.data) + myId * range / 2,
+                               compress->frame.width, my_height);
 
+                platform_sem_post(&compress->threads_done);
         }
 }
 
@@ -324,6 +337,6 @@ void compress_exit(void *args)
                 pthread_kill(compress->thread_ids[x], SIGKILL);
         }
 
-        for (x = 0; x < NUM_THREADS; ++x)
+        for (x = 0; x < compress->num_threads; ++x)
                 free(compress->buffer[x]);
 }
