@@ -499,20 +499,37 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
 {
         struct state_decklink *s = (struct state_decklink *)state;
 
-        double x_cnt = sqrt(s->devices_cnt);
-        int y_cnt;
-        int index;
-        x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-        y_cnt = s->devices_cnt / (int) x_cnt;
+        if (s->devices_cnt > 1) { /* tiled video
+                                     expecting that requested sub_frame matches
+                                     exactly one physical device */
+                double x_cnt = sqrt(s->devices_cnt);
+                int y_cnt;
+                int index;
+                x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                y_cnt = s->devices_cnt / (int) x_cnt;
 
-        assert(x % w == 0 &&
-                        y % h == 0 &&
-                        s->frame[0].width % w &&
-                        s->frame[0].height % h);
+                assert(x % w == 0 &&
+                                y % h == 0 &&
+                                s->frame[0].width % w &&
+                                s->frame[0].height % h);
 
-        index = x / w + // row 
-                x_cnt * (y / h); // column
+                index = x / w + // row 
+                        x_cnt * (y / h); // column
 
-        memcpy(out, &s->frame[index], sizeof(struct video_frame));
+                memcpy(out, &s->frame[index], sizeof(struct video_frame));
+        } else { /* dual link */
+                assert(x + w <= s->frame[0].width &&
+                                y + h <= s->frame[0].height);
+
+                memcpy(out, &s->frame[0], sizeof(struct video_frame));
+                out->data +=
+                        y * s->frame[0].dst_pitch +
+                        (size_t) (x * s->frame[0].dst_bpp);
+                out->src_linesize =
+                        vc_getsrc_linesize(w, out->color_spec);
+                out->dst_linesize =
+                        w * out->dst_bpp;
+
+        }
 }
 

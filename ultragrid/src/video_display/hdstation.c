@@ -99,6 +99,7 @@ volatile int worker_waiting;
 };
 
 static void show_help(void);
+static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
 
 static void show_help(void)
 {
@@ -382,6 +383,7 @@ void *display_hdstation_init(char *fmt)
         }*/
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
+        s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
         s->frame.decoder = (decoder_t)memcpy;     
 
         return (void *)s;
@@ -409,4 +411,21 @@ display_type_t *display_hdstation_probe(void)
         return dtype;
 }
 
+static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
+{
+        struct state_hdsp *s = (struct state_hdsp *)state;
+        UNUSED(h);
+
+        memcpy(out, &s->frame, sizeof(struct video_frame));
+        out->data +=
+                y * s->frame.dst_pitch +
+                (size_t) (x * s->frame.dst_bpp);
+        out->src_linesize =
+                vc_getsrc_linesize(w, out->color_spec);
+        out->dst_linesize =
+                w * out->dst_bpp;
+
+}
+
 #endif                          /* HAVE_HDSTATION */
+
