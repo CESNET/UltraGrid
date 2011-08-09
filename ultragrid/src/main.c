@@ -814,11 +814,11 @@ int main(int argc, char *argv[])
         pthread_t audio_thread_id;
         if ((uv->audio_playback_device != -2)
             || (uv->audio_capture_device != -2)) {
-		char *tmp;
+		char *tmp, *unused;
                 char *addr;
 		tmp = strdup(argv[0]);
 		uv->audio_participants = pdb_init();
-		addr = strtok_r(tmp, NULL, NULL);
+		addr = strtok_r(tmp, ",", &unused);
                 if ((uv->audio_network_device =
                      initialize_audio_network(addr,
                                               uv->audio_participants)) ==

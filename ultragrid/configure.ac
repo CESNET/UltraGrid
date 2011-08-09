@@ -720,6 +720,7 @@ case "$host_os" in
         ;;
         *)
                 AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+                LIBS+=" -lasound"
         ;;
 esac
     AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
