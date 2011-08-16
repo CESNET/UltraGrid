@@ -235,7 +235,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         else
                 s->interlaced = 0;
 
-        s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER;
+        s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_ACTIVE_STREAMER | SV_MODE_STORAGE_FRAME;
 
         if (s->frame.color_spec == DVS10) {
                 s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
