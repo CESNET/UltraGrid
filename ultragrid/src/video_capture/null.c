@@ -84,7 +84,7 @@ struct vidcap_type *vidcap_null_probe(void)
         vt = (struct vidcap_type *)malloc(sizeof(struct vidcap_type));
         if (vt != NULL) {
                 vt->id = VIDCAP_NULL_ID;
-                vt->name = "null";
+                vt->name = "none";
                 vt->description = "No video capture device";
         }
         return vt;

@@ -145,17 +145,22 @@ static void usage(void)
         printf
             ("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-c] [-i] address(es)\n\n");
         printf
-            ("\t-d <display_device>\tselect display device, use -d help to get\n");
-        printf("\t                   \tlist of devices availabe\n");
+            ("\t-d <display_device>\tselect display device, use '-d help' to get\n");
+        printf("\t                   \tlist of supported devices\n");
+        printf("\n");
         printf
-            ("\t-t <capture_device>\tselect capture device, use -t help to get\n");
-        printf("\t                   \tlist of devices availabe\n");
+            ("\t-t <capture_device>\tselect capture device, use '-t help' to get\n");
+        printf("\t                   \tlist of supported devices\n");
+        printf("\n");
         printf("\t-g <cfg>           \tconfigure capture/display device,\n");
         printf
-            ("\t                   \tuse -g help with a device to get info about\n");
+            ("\t                   \tuse '{-t|-d} -g help' to obtain\n");
         printf("\t                   \tsupported capture/display modes\n");
+        printf("\n");
         printf("\t-c                 \tcompress video\n");
+        printf("\n");
         printf("\t-i                 \tiHDTV compatibility mode\n");
+        printf("\n");
         printf("\taddress(es)        \tdestination address\n");
         printf("\t                   \tIf comma-separated list of addresses\n");
         printf("\t                   \tis entered, video frames are split\n");
@@ -181,8 +186,11 @@ static struct display *initialize_video_display(const char *requested_display,
 {
         struct display *d;
         display_type_t *dt;
-        display_id_t id = display_get_null_device_id();
+        display_id_t id;
         int i;
+        
+        if(!strcmp(requested_display, "none"))
+                 id = display_get_null_device_id();
 
         if (display_init_devices() != 0) {
                 printf("Unable to initialise devices\n");
@@ -196,10 +204,16 @@ static struct display *initialize_video_display(const char *requested_display,
                 if (strcmp(requested_display, dt->name) == 0) {
                         id = dt->id;
                         debug_msg("Found device\n");
+                        break;
                 } else {
                         debug_msg("Device %s does not match %s\n", dt->name,
                                   requested_display);
                 }
+        }
+        if(i == display_get_device_count()) {
+                fprintf(stderr, "WARNING: Selected '%s' display card "
+                        "was not found.\n", requested_display);
+                return NULL;
         }
         display_free_devices();
 
@@ -228,15 +242,24 @@ static struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt)
 {
         struct vidcap_type *vt;
-        vidcap_id_t id = vidcap_get_null_device_id();
+        vidcap_id_t id;
         int i;
+        
+        if(!strcmp(requested_capture, "none"))
+                id = vidcap_get_null_device_id();
 
         vidcap_init_devices();
         for (i = 0; i < vidcap_get_device_count(); i++) {
                 vt = vidcap_get_device_details(i);
                 if (strcmp(vt->name, requested_capture) == 0) {
                         id = vt->id;
+                        break;
                 }
+        }
+        if(i == vidcap_get_device_count()) {
+                fprintf(stderr, "WARNING: Selected '%s' capture card "
+                        "was not found.\n", requested_capture);
+                return NULL;
         }
         vidcap_free_devices();
 
@@ -748,7 +771,7 @@ int main(int argc, char *argv[])
                         usage();
                         return EXIT_FAIL_USAGE;
                 }
-        } else if (argc != 1 && strstr(cfg, "help") == 0) {
+        } else if (argc != 1) {
                 usage();
                 return EXIT_FAIL_USAGE;
         }

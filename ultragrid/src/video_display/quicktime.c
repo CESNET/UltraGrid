@@ -893,15 +893,6 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 exit(128);
         }
 
-        ImageDescriptionHandle gWorldImgDesc = NULL;
-        PixMapHandle gWorldPixmap = (PixMapHandle) GetGWorldPixMap(s->gworld);
-
-        /* Determine width and height */
-        ret = MakeImageDescriptionForPixMap(gWorldPixmap, &gWorldImgDesc);
-        if (ret != noErr) {
-                fprintf(stderr, "Failed to determine width and height.\n");
-                exit(128);
-        }
 	reconf_common(s);
 }
 

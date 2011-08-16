@@ -510,8 +510,8 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
 
                 assert(x % w == 0 &&
                                 y % h == 0 &&
-                                s->frame[0].width % w &&
-                                s->frame[0].height % h);
+                                s->frame[0].width % w == 0 &&
+                                s->frame[0].height % h == 0);
 
                 index = x / w + // row 
                         x_cnt * (y / h); // column

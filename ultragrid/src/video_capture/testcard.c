@@ -328,7 +328,7 @@ void *vidcap_testcard_init(char *fmt)
         codec_t codec=0;
         int aligned_x;
 
-        if (strcmp(fmt, "help") == 0) {
+        if (fmt == NULL || strcmp(fmt, "help") == 0) {
                 printf("testcard options:\n");
                 printf("\twidth:height:fps:codec[:filename][:p][:s=XxY]\n");
                 printf("\tp - pan with frame\n");
