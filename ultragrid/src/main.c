@@ -104,7 +104,6 @@ struct state_uv {
         const char *requested_display;
         const char *requested_capture;
         int requested_compression;
-        int dxt_display;
         unsigned requested_mtu;
 
         int use_ihdtv_protocol;
@@ -143,7 +142,7 @@ static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf
-            ("Usage: uv [-d <display_device>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-c] [-i] address(es)\n\n");
+            ("Usage: uv [-d <display_device>] [-g <cfg>] [-t <capture_device>] [-g <cfg>] [-m <mtu>] [-c] [-i] address(es)\n\n");
         printf
             ("\t-d <display_device>\tselect display device, use '-d help' to get\n");
         printf("\t                   \tlist of supported devices\n");
@@ -155,6 +154,7 @@ static void usage(void)
         printf("\t-g <cfg>           \tconfigure capture/display device,\n");
         printf
             ("\t                   \tuse '{-t|-d} -g help' to obtain\n");
+        printf("\t                   \tTake care that it relates to previous -t/-d option!\n");
         printf("\t                   \tsupported capture/display modes\n");
         printf("\n");
         printf("\t-c                 \tcompress video\n");
@@ -650,10 +650,13 @@ int main(int argc, char *argv[])
 #ifdef HAVE_SCHED_SETSCHEDULER
         struct sched_param sp;
 #endif
-        char *cfg = NULL;
+        char *capture_cfg = NULL;
+        char *display_cfg = NULL;
         struct state_uv *uv;
         char *num_compress_threads;
         int ch;
+        int prev_option_set = 0;
+        
         pthread_t receiver_thread_id, sender_thread_id;
 
         uv_argc = argc;
@@ -709,8 +712,7 @@ int main(int argc, char *argv[])
                                 list_video_display_devices();
                                 return 0;
                         }
-                        if (!strcmp(uv->requested_display, "dxt"))
-                                uv->dxt_display = 1;
+                        prev_option_set = 'd';
                         break;
                 case 't':
                         uv->requested_capture = optarg;
@@ -718,12 +720,24 @@ int main(int argc, char *argv[])
                                 list_video_capture_devices();
                                 return 0;
                         }
+                        prev_option_set = 't';
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
                         break;
                 case 'g':
-                        cfg = strdup(optarg);
+                        switch (prev_option_set) {
+                                case 't':
+                                        capture_cfg = strdup(optarg);
+                                        break;
+                                case 'd':
+                                        display_cfg = strdup(optarg);
+                                        break;
+                                default:
+                                        fprintf(stderr, "Don't know if '-g' "
+                                                "relates to '-t' or '-d'.\n");
+                        }
+                        
                         break;
                 case 'v':
                         printf("%s\n", ULTRAGRID_VERSION);
@@ -795,7 +809,7 @@ int main(int argc, char *argv[])
         uv->participants = pdb_init();
 
         if ((uv->capture_device =
-             initialize_video_capture(uv->requested_capture, cfg)) == NULL) {
+             initialize_video_capture(uv->requested_capture, capture_cfg)) == NULL) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
                 return EXIT_FAIL_CAPTURE;
@@ -803,7 +817,7 @@ int main(int argc, char *argv[])
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
         if ((uv->display_device =
-             initialize_video_display(uv->requested_display, cfg)) == NULL) {
+             initialize_video_display(uv->requested_display, display_cfg)) == NULL) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
                 return EXIT_FAIL_DISPLAY;
