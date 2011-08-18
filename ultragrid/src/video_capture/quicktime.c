@@ -422,7 +422,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 debug_msg("Unable to set channel flags\n");
                 return 0;
         }
-
+        
         SGStartPreview(s->grabber);
 
         /* Select the device */
@@ -492,6 +492,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         unsigned char *deviceName;
         unsigned char *inputName;
         short  inputNumber;
+        TimeScale scale;
 
         if ((SGGetChannelDeviceList(s->video_channel, sgDeviceListIncludeInputs, &deviceList) != noErr) ||
             (SGGetChannelDeviceAndInputNames(s->video_channel, NULL, NULL, &inputNumber)!=noErr)) {
@@ -520,7 +521,6 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                         s->qt_mode->height,
                                         s->qt_mode->fps,
                                         s->qt_mode->aux);
-                        s->frame.fps = s->qt_mode->fps;
                         s->frame.aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
                         free(device);
                         free(input);
@@ -611,6 +611,9 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 debug_msg("Unable to start recording\n");
                 return 0;
         }
+
+        SGGetChannelTimeScale(s->video_channel, &scale);
+        s->frame.fps = scale / 100.0;
 
         return 1;
 }

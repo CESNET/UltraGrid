@@ -735,8 +735,10 @@ int main(int argc, char *argv[])
                                         break;
                                 default:
                                         fprintf(stderr, "Don't know if '-g' "
-                                                "relates to '-t' or '-d'.\n");
+                                                "relates to '-t' or '-d' (must succeed it).\n");
+                                        exit(EXIT_FAIL_USAGE);
                         }
+                        capture_cfg = 0;
                         
                         break;
                 case 'v':

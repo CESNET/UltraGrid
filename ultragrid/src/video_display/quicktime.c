@@ -801,6 +801,9 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		if(width != (int)EndianS32_BtoN(dataPtr[0]) ||
 				height != (int)EndianS32_BtoN(dataPtr[1])) {
 			++i;
+                        debug_msg("[quicktime] mode %dx%d not selected.\n",
+                                        (int)EndianS32_BtoN(dataPtr[0]), 
+                                        (int)EndianS32_BtoN(dataPtr[1]));
 			continue;
 		}
 		atom =
@@ -809,8 +812,10 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		ret =
 		    QTGetAtomDataPtr(modeListAtomContainer, atom,
 				     &dataSize, (Ptr *) & dataPtr);
-		if(fps * 65536 != EndianS32_BtoN(dataPtr[0])) {
+		if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) < 0.01)) {
 			++i;
+                        debug_msg("[quicktime] mode %dx%d@%0.2f not selected.\n",
+                                        width, height, EndianS32_BtoN(dataPtr[0])/65536.0);
 			continue;
 		}
 
@@ -832,9 +837,15 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 					     atom, &dataSize,
 					     (Ptr *) & dataPtr);
 			if(strcasecmp((char *) dataPtr, codec_name) == 0) {
+                                debug_msg("[quicktime] mode %dx%d@%0.2f (%s) SELECTED.\n",
+                                        width, height, fps, codec_name);
 				found = TRUE;
 				break;
-			}
+			} else {
+                                debug_msg("[quicktime] mode %dx%d@%0.2f (%s) not selected.\n",
+                                        width, height, fps, codec_name);
+                        }
+
 			j++;
 		}
 
