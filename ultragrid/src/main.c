@@ -153,9 +153,9 @@ static void usage(void)
         printf("\n");
         printf("\t-g <cfg>           \tconfigure capture/display device,\n");
         printf
-            ("\t                   \tuse '{-t|-d} -g help' to obtain\n");
-        printf("\t                   \tTake care that it relates to previous -t/-d option!\n");
-        printf("\t                   \tsupported capture/display modes\n");
+            ("\t                   \tUse '{-t|-d} <driver> -g help' to obtain\n");
+        printf("\t                   \tsupported capture/display modes.\n");
+        printf("\t                   \tTake care that this option relates to previous -t/-d driver!\n");
         printf("\n");
         printf("\t-c                 \tcompress video\n");
         printf("\n");
