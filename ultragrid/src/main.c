@@ -738,7 +738,7 @@ int main(int argc, char *argv[])
                                                 "relates to '-t' or '-d' (must succeed it).\n");
                                         exit(EXIT_FAIL_USAGE);
                         }
-                        capture_cfg = 0;
+                        prev_option_set = 0;
                         
                         break;
                 case 'v':

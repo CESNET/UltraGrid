@@ -616,7 +616,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, int *count)
                                  * keep in mind that we have two "pictures" for
                                  * every tile stored sequentially */
                                 if(state->tiles[i].data >= state->tiles_data[i] +
-                                                state->tiles[i].data_len * 2) {
+                                                state->tiles[i].data_len) {
                                         state->tiles[i].data = state->tiles_data[i];
                                 }
                         }

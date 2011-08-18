@@ -68,6 +68,8 @@
 
 #define MAGIC_QT_DISPLAY 	DISPLAY_QUICKTIME_ID
 
+#define MAX_DEVICES     4
+
 const quicktime_mode_t quicktime_modes[] = {
         {"AJA   8-bit Digitizer", "AJA 525i23.98         8 Bit  (720x486)", 720, 486, 23.98, AUX_INTERLACED|AUX_RGB|AUX_YUV},
         {"AJA   8-bit Digitizer", "AJA 525i29.97         8 Bit  (720x486)", 720, 486, 29.97, AUX_INTERLACED|AUX_RGB|AUX_YUV},
@@ -170,19 +172,20 @@ const quicktime_mode_t quicktime_modes[] = {
 };        
 
 struct state_quicktime {
-        ComponentInstance videoDisplayComponentInstance;
+        ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
 //    Component                 videoDisplayComponent;
-        GWorldPtr gworld;
-        ImageSequence seqID;
-
-        int device;
+        GWorldPtr gworld[MAX_DEVICES];
+        ImageSequence seqID[MAX_DEVICES];
+        int device[MAX_DEVICES];
+        
+        int devices_cnt;
         const struct codec_info_t *cinfo;
 
         /* Thread related information follows... */
         pthread_t thread_id;
         sem_t semaphore;
 
-        struct video_frame frame;
+        struct video_frame frame[MAX_DEVICES];
 
         uint32_t magic;
 };
@@ -192,6 +195,8 @@ char *four_char_decode(int format);
 void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		codec_t codec, double fps, int aux);
 static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out);
+static int find_mode(ComponentInstance *ci, int width, int height, 
+                const char * codec_name, double fps, int aux);
 
 static void
 nprintf(unsigned char *str)
@@ -230,49 +235,54 @@ char *four_char_decode(int format)
 
 static void reconf_common(struct state_quicktime *s)
 {
-	int h_align;
-	ImageDescriptionHandle imageDesc;
-        OSErr ret;
-
-	imageDesc =
-	    (ImageDescriptionHandle) NewHandle(sizeof(ImageDescription));
-
-	(**(ImageDescriptionHandle) imageDesc).idSize =
-	    sizeof(ImageDescription);
-	(**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
-	/* 
-	 * dataSize is specified in bytes and is specified as 
-	 * height*width*bytes_per_luma_instant. v210 sets 
-	 * bytes_per_luma_instant to 8/3. 
-	 * See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
-	 */       
-	(**(ImageDescriptionHandle) imageDesc).dataSize = s->frame.data_len;
-	/* 
-	 * Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy
-	 * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
-	 * further investigation for 2K!
-	 */
-	h_align = s->frame.width;
-	if(s->cinfo->h_align) {
-		h_align = ((h_align + s->cinfo->h_align - 1) / s->cinfo->h_align) * s->cinfo->h_align;
-	}
-	(**(ImageDescriptionHandle) imageDesc).width = h_align;
-	(**(ImageDescriptionHandle) imageDesc).height = s->frame.height;
-
-	ret = DecompressSequenceBeginS(&(s->seqID), imageDesc, s->frame.data, 
-				       // Size of the buffer, not size of the actual frame data inside
-				       s->frame.data_len,    
-				       s->gworld,
-				       NULL,
-				       NULL,
-				       NULL,
-				       srcCopy,
-				       NULL,
-				       (CodecFlags) NULL,
-				       codecNormalQuality, bestSpeedCodec);
-	if (ret != noErr)
-		fprintf(stderr, "Failed DecompressSequenceBeginS\n");
-	DisposeHandle((Handle) imageDesc);
+        int i;
+        
+        for (i = 0; i < s->devices_cnt; ++i)
+        {
+                int h_align;
+                ImageDescriptionHandle imageDesc;
+                OSErr ret;
+        
+                imageDesc =
+                    (ImageDescriptionHandle) NewHandle(sizeof(ImageDescription));
+        
+                (**(ImageDescriptionHandle) imageDesc).idSize =
+                    sizeof(ImageDescription);
+                (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
+                /* 
+                 * dataSize is specified in bytes and is specified as 
+                 * height*width*bytes_per_luma_instant. v210 sets 
+                 * bytes_per_luma_instant to 8/3. 
+                 * See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
+                 */       
+                (**(ImageDescriptionHandle) imageDesc).dataSize = s->frame[i].data_len;
+                /* 
+                 * Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy
+                 * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
+                 * further investigation for 2K!
+                 */
+                h_align = s->frame[i].width / s->frame[i].tile_info.x_count;
+                if(s->cinfo->h_align) {
+                        h_align = ((h_align + s->cinfo->h_align - 1) / s->cinfo->h_align) * s->cinfo->h_align;
+                }
+                (**(ImageDescriptionHandle) imageDesc).width = h_align;
+                (**(ImageDescriptionHandle) imageDesc).height = s->frame[i].height / s->frame[i].tile_info.y_count;
+        
+                ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, s->frame[i].data, 
+                                               // Size of the buffer, not size of the actual frame data inside
+                                               s->frame[i].data_len,    
+                                               s->gworld[i],
+                                               NULL,
+                                               NULL,
+                                               NULL,
+                                               srcCopy,
+                                               NULL,
+                                               (CodecFlags) NULL,
+                                               codecNormalQuality, bestSpeedCodec);
+                if (ret != noErr)
+                        fprintf(stderr, "Failed DecompressSequenceBeginS\n");
+                DisposeHandle((Handle) imageDesc);
+        }
 }
 
 void display_quicktime_run(void *arg)
@@ -286,24 +296,27 @@ void display_quicktime_run(void *arg)
         struct timeval t, t0;
 
         while (!should_exit) {
+                int i;
                 platform_sem_wait(&s->semaphore);
 
-                /* TODO: Running DecompressSequenceFrameWhen asynchronously 
-                 * in this way introduces a possible race condition! 
-                 */
-                ret = DecompressSequenceFrameWhen(s->seqID, s->frame.data, 
-                                                s->frame.data_len,
-                                               /* If you set asyncCompletionProc to -1, 
-                                                *  the operation is performed asynchronously but 
-                                                * the decompressor does not call the completion 
-                                                * function. 
-                                                */
-                                               0, &ignore, -1,       
-                                                  NULL);
-                if (ret != noErr) {
-                        fprintf(stderr,
-                                "Failed DecompressSequenceFrameWhen: %d\n",
-                                ret);
+                for (i = 0; i < s->devices_cnt; ++i) {
+                        /* TODO: Running DecompressSequenceFrameWhen asynchronously 
+                         * in this way introduces a possible race condition! 
+                         */
+                        ret = DecompressSequenceFrameWhen(s->seqID[i], s->frame[i].data, 
+                                                        s->frame[i].data_len,
+                                                       /* If you set asyncCompletionProc to -1, 
+                                                        *  the operation is performed asynchronously but 
+                                                        * the decompressor does not call the completion 
+                                                        * function. 
+                                                        */
+                                                       0, &ignore, -1,       
+                                                          NULL);
+                        if (ret != noErr) {
+                                fprintf(stderr,
+                                        "Failed DecompressSequenceFrameWhen: %d\n",
+                                        ret);
+                        }
                 }
 
                 frames++;
@@ -324,7 +337,7 @@ display_quicktime_getf(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
         assert(s->magic == MAGIC_QT_DISPLAY);
-        return &s->frame;
+        return &s->frame[0];
 }
 
 int display_quicktime_putf(void *state, char *frame)
@@ -526,8 +539,21 @@ void *display_quicktime_init(char *fmt)
                         free(s);
                         free(tmp);
                         return NULL;
+                } else {
+                        s->devices_cnt = 0;
+                        char *tmp = strdup(tok);
+                        char *item, *save_ptr = NULL;
+                        
+                        item = strtok_r(tmp, ",", &save_ptr);
+                        do {
+                                s->device[s->devices_cnt] = atoi(item);
+                                s->devices_cnt++;
+                                assert(s->devices_cnt <= MAX_DEVICES);
+                        } while((item = strtok_r(NULL, ",", &save_ptr)));
+                        
+                        free(tmp);
                 }
-                s->device = atol(tok);
+                
                 tok = strtok(NULL, ":");
                 if (tok == NULL) {
 			mode = 0;
@@ -548,8 +574,11 @@ void *display_quicktime_init(char *fmt)
 		return NULL;
 	}
 
-        s->videoDisplayComponentInstance = 0;
-        s->seqID = 0;
+
+        for (i = 0; i < s->devices_cnt; ++i) {
+                s->videoDisplayComponentInstance[i] = 0;
+                s->seqID[i] = 0;
+        }
 
         InitCursor();
         EnterMovies();
@@ -562,98 +591,116 @@ void *display_quicktime_init(char *fmt)
 		}
 		free(codec_name);
 
-		/* Open device */
-		s->videoDisplayComponentInstance = OpenComponent((Component) s->device);
-
-		/* Set the display mode */
-		ret =
-		    QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance,
-						mode);
-		if (ret != noErr) {
-			fprintf(stderr, "Failed to set video output display mode.\n");
-			return NULL;
-		}
-
-		/* We don't want to use the video output component instance echo port */
-		ret = QTVideoOutputSetEchoPort(s->videoDisplayComponentInstance, nil);
-		if (ret != noErr) {
-			fprintf(stderr, "Failed to set video output echo port.\n");
-			return NULL;
-		}
-
-		/* Register Ultragrid with instande of the video outpiut */
-		ret =
-		    QTVideoOutputSetClientName(s->videoDisplayComponentInstance,
-					       (ConstStr255Param) "Ultragrid");
-		if (ret != noErr) {
-			fprintf(stderr,
-				"Failed to register Ultragrid with selected video output instance.\n");
-			return NULL;
-		}
-
-		/* Call QTVideoOutputBegin to gain exclusive access to the video output */
-		ret = QTVideoOutputBegin(s->videoDisplayComponentInstance);
-		if (ret != noErr) {
-			fprintf(stderr,
-				"Failed to get exclusive access to selected video output instance.\n");
-			return NULL;
-		}
-
-		/* Get a pointer to the gworld used by video output component */
-		ret =
-		    QTVideoOutputGetGWorld(s->videoDisplayComponentInstance,
-					   &s->gworld);
-		if (ret != noErr) {
-			fprintf(stderr,
-				"Failed to get selected video output instance GWorld.\n");
-			return NULL;
-		}
-
-		ImageDescriptionHandle gWorldImgDesc = NULL;
-		PixMapHandle gWorldPixmap = (PixMapHandle) GetGWorldPixMap(s->gworld);
-
-		/* Determine width and height */
-		ret = MakeImageDescriptionForPixMap(gWorldPixmap, &gWorldImgDesc);
-		if (ret != noErr) {
-			fprintf(stderr, "Failed to determine width and height.\n");
-			return NULL;
-		}
-		s->frame.width = (**gWorldImgDesc).width;
-		s->frame.height = (**gWorldImgDesc).height;
-		s->frame.aux = 0;
-
-		int aligned_x=s->frame.width;
-
-		if (s->cinfo->h_align) {
-			aligned_x =
-			    ((aligned_x + s->cinfo->h_align -
-			      1) / s->cinfo->h_align) * s->cinfo->h_align;
-		}
-
-		s->frame.dst_bpp = s->cinfo->bpp;
-		s->frame.src_bpp = s->cinfo->bpp;
-		s->frame.dst_linesize = aligned_x * s->cinfo->bpp;
-		s->frame.dst_pitch = s->frame.dst_linesize;
-		s->frame.src_linesize = aligned_x * s->cinfo->bpp;
-		s->frame.decoder = (decoder_t)memcpy;
-		s->frame.color_spec = s->cinfo->codec;
-		s->frame.dst_x_offset = 0;
-
-		fprintf(stdout, "Selected mode: %d(%d)x%d, %fbpp\n", s->frame.width,
-			aligned_x, s->frame.height, s->cinfo->bpp);
-
-		s->frame.data_len = s->frame.dst_linesize * s->frame.height;
-		s->frame.data = calloc(s->frame.data_len, 1);
+                for (i = 0; i < s->devices_cnt; ++i) {
+                        /* Open device */
+                        s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
+        
+                        /* Set the display mode */
+                        ret =
+                            QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],
+                                                        mode);
+                        if (ret != noErr) {
+                                fprintf(stderr, "Failed to set video output display mode.\n");
+                                return NULL;
+                        }
+        
+                        /* We don't want to use the video output component instance echo port */
+                        ret = QTVideoOutputSetEchoPort(s->videoDisplayComponentInstance[i], nil);
+                        if (ret != noErr) {
+                                fprintf(stderr, "Failed to set video output echo port.\n");
+                                return NULL;
+                        }
+        
+                        /* Register Ultragrid with instande of the video outpiut */
+                        ret =
+                            QTVideoOutputSetClientName(s->videoDisplayComponentInstance[i],
+                                                       (ConstStr255Param) "Ultragrid");
+                        if (ret != noErr) {
+                                fprintf(stderr,
+                                        "Failed to register Ultragrid with selected video output instance.\n");
+                                return NULL;
+                        }
+        
+                        /* Call QTVideoOutputBegin to gain exclusive access to the video output */
+                        ret = QTVideoOutputBegin(s->videoDisplayComponentInstance[i]);
+                        if (ret != noErr) {
+                                fprintf(stderr,
+                                        "Failed to get exclusive access to selected video output instance.\n");
+                                return NULL;
+                        }
+        
+                        /* Get a pointer to the gworld used by video output component */
+                        ret =
+                            QTVideoOutputGetGWorld(s->videoDisplayComponentInstance[i],
+                                                   &s->gworld[i]);
+                        if (ret != noErr) {
+                                fprintf(stderr,
+                                        "Failed to get selected video output instance GWorld.\n");
+                                return NULL;
+                        }
+        
+                        ImageDescriptionHandle gWorldImgDesc = NULL;
+                        PixMapHandle gWorldPixmap = (PixMapHandle) GetGWorldPixMap(s->gworld[i]);
+        
+                        /* Determine width and height */
+                        ret = MakeImageDescriptionForPixMap(gWorldPixmap, &gWorldImgDesc);
+                        if (ret != noErr) {
+                                fprintf(stderr, "Failed to determine width and height.\n");
+                                return NULL;
+                        }
+                        s->frame[i].width = (**gWorldImgDesc).width;
+                        s->frame[i].height = (**gWorldImgDesc).height;
+                        s->frame[i].aux = 0;
+        
+                        int aligned_x=s->frame[i].width;
+        
+                        if (s->cinfo->h_align) {
+                                aligned_x =
+                                    ((aligned_x + s->cinfo->h_align -
+                                      1) / s->cinfo->h_align) * s->cinfo->h_align;
+                        }
+        
+                        s->frame[i].dst_bpp = s->cinfo->bpp;
+                        s->frame[i].src_bpp = s->cinfo->bpp;
+                        s->frame[i].dst_linesize = aligned_x * s->cinfo->bpp;
+                        s->frame[i].dst_pitch = s->frame[i].dst_linesize;
+                        s->frame[i].src_linesize = aligned_x * s->cinfo->bpp;
+                        s->frame[i].color_spec = s->cinfo->codec;
+                        s->frame[i].dst_x_offset = 0;
+        
+                        fprintf(stdout, "Selected mode: %d(%d)x%d, %fbpp\n", s->frame[i].width,
+                                aligned_x, s->frame[i].height, s->cinfo->bpp);
+        
+                        s->frame[i].data_len = s->frame[i].dst_linesize * s->frame[i].height;
+                        s->frame[i].data = calloc(s->frame[i].data_len, 1);
+                }
 		reconf_common(s);
 	} else {
-		s->frame.width = 0;
-		s->frame.height = 0;
-		s->frame.data = NULL;
+                for (i = 0; i < s->devices_cnt; ++i) {
+                        s->frame[i].width = 0;
+                        s->frame[i].height = 0;
+                        s->frame[i].data = NULL;
+                }
 	}
 
-	s->frame.state = s;
-	s->frame.reconfigure = (reconfigure_t) qt_reconfigure_screen;
-	s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
+        for (i = 0; i < s->devices_cnt; ++i) {
+                /* compute position */
+                double x_cnt = sqrt(s->devices_cnt);
+                
+                s->frame[i].state = s;
+                s->frame[i].reconfigure = (reconfigure_t) qt_reconfigure_screen;
+                s->frame[i].get_sub_frame = (get_sub_frame_t) get_sub_frame;
+                s->frame[i].decoder = (decoder_t)memcpy;
+                
+                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
+                
+                /* update tiles width/h to represent whole frame's dimension */
+                s->frame[i].width *= s->frame[i].tile_info.x_count;
+                s->frame[i].height *= s->frame[i].tile_info.y_count;
+        }
 
 	platform_sem_init(&s->semaphore, 0, 0);
 
@@ -670,21 +717,24 @@ void display_quicktime_done(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
         int ret;
+        int i;
 
         assert(s->magic == MAGIC_QT_DISPLAY);
-        ret = QTVideoOutputEnd(s->videoDisplayComponentInstance);
-        if (ret != noErr) {
-                fprintf(stderr,
-                        "Failed to release the video output component.\n");
+        for (i = 0; i < s->devices_cnt; ++i) {
+                ret = QTVideoOutputEnd(s->videoDisplayComponentInstance[i]);
+                if (ret != noErr) {
+                        fprintf(stderr,
+                                "Failed to release the video output component.\n");
+                }
+        
+                ret = CloseComponent(s->videoDisplayComponentInstance[i]);
+                if (ret != noErr) {
+                        fprintf(stderr,
+                                "Failed to close the video output component.\n");
+                }
+        
+                DisposeGWorld(s->gworld[i]);
         }
-
-        ret = CloseComponent(s->videoDisplayComponentInstance);
-        if (ret != noErr) {
-                fprintf(stderr,
-                        "Failed to close the video output component.\n");
-        }
-
-        DisposeGWorld(s->gworld);
 }
 
 display_type_t *display_quicktime_probe(void)
@@ -704,9 +754,8 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		codec_t codec, double fps, int aux)
 {
 	struct state_quicktime *s = (struct state_quicktime *) state;
-	QTAtomContainer modeListAtomContainer = NULL;
-	int found = FALSE;
 	int i;
+        int ret;
 	const char *codec_name;
 
         for (i = 0; codec_info[i].name != NULL; i++) {
@@ -718,54 +767,118 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	if(codec == UYVY || codec == DVS8) /* just aliases for 2vuy,
 				            * but would confuse QT */
 		codec_name = "2vuy";
+         
+        if(s->frame[0].data != NULL)
+                display_quicktime_done(s);
+                
+        fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", width,
+                        height, s->cinfo->bpp);
 
-	s->frame.width = width;
-	s->frame.height = height;
-	s->frame.color_spec = codec;
-	s->frame.fps = fps;
-	s->frame.aux = aux;
+        for(i = 0; i < s->devices_cnt; ++i) {
+                int tile_width, tile_height;
+                /* compute position */
+                double x_cnt = sqrt(s->devices_cnt);
+                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
 
-        int aligned_x=s->frame.width;
-	aligned_x =
-	    ((aligned_x + s->cinfo->h_align -
-	      1) / s->cinfo->h_align) * s->cinfo->h_align;
+                tile_width = width / s->frame[i].tile_info.x_count;
+                tile_height = height / s->frame[i].tile_info.y_count;
+                s->frame[i].dst_x_offset = 0;
+                s->frame[i].color_spec = codec;
+                s->frame[i].width = width;
+                s->frame[i].height = height;
+                s->frame[i].dst_bpp = get_bpp(codec);
+                s->frame[i].src_bpp = get_bpp(codec);
+                s->frame[i].fps = fps;
+                s->frame[i].aux = aux;
 
-        s->frame.dst_bpp = s->cinfo->bpp;
-        s->frame.src_bpp = s->cinfo->bpp;
-        s->frame.state = s;
-        s->frame.dst_linesize = aligned_x * s->cinfo->bpp;
-        s->frame.dst_pitch = s->frame.dst_linesize;
-        s->frame.src_linesize = aligned_x * s->cinfo->bpp;
-        s->frame.decoder = (decoder_t)memcpy;
-        s->frame.color_spec = s->cinfo->codec;
-        s->frame.dst_x_offset = 0;
+                s->frame[i].data_len = tile_width * tile_height * s->frame[i].dst_bpp;
+                int aligned_x=tile_width;
+                aligned_x =
+                    ((aligned_x + s->cinfo->h_align -
+                      1) / s->cinfo->h_align) * s->cinfo->h_align;
+                s->frame[i].dst_linesize = aligned_x * s->frame[i].dst_bpp;
+                s->frame[i].src_linesize = aligned_x * s->frame[i].src_bpp;
+                s->frame[i].dst_pitch = s->frame[i].dst_linesize;
+                
+                s->frame[i].state = s;
+                
+                if(s->frame[i].data != NULL) {
+                        free(s->frame[i].data);
+                }
+                
+                s->frame[i].data = calloc(s->frame[i].data_len, 1);
+                
+                s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
+                
+                /* Set the display mode */
+                ret =
+                    QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],
+                                                find_mode(&s->videoDisplayComponentInstance[i],
+                                                        tile_width, tile_height, codec_name, fps, aux));
+                if (ret != noErr) {
+                        fprintf(stderr, "Failed to set video output display mode.\n");
+                        exit(128);
+                }
+                
+                /* We don't want to use the video output component instance echo port */
+                ret = QTVideoOutputSetEchoPort(s->videoDisplayComponentInstance[i], nil);
+                if (ret != noErr) {
+                        fprintf(stderr, "Failed to set video output echo port.\n");
+                        exit(128);
+                }
 
-        fprintf(stdout, "Selected mode: %d(%d)x%d, %fbpp\n", s->frame.width,
-                aligned_x, s->frame.height, s->cinfo->bpp);
+                /* Register Ultragrid with instande of the video outpiut */
+                ret =
+                    QTVideoOutputSetClientName(s->videoDisplayComponentInstance[i],
+                                               (ConstStr255Param) "Ultragrid");
+                if (ret != noErr) {
+                        fprintf(stderr,
+                                "Failed to register Ultragrid with selected video output instance.\n");
+                        exit(128);
+                }
 
-        s->frame.data_len = s->frame.dst_linesize * s->frame.height;
-	if(s->frame.data != NULL) {
-		free(s->frame.data);
-		display_quicktime_done(s);
-	}
-        s->frame.data = calloc(s->frame.data_len, 1);
+                ret = QTVideoOutputBegin(s->videoDisplayComponentInstance[i]);
+                if (ret != noErr) {
+                        fprintf(stderr,
+                                "Failed to get exclusive access to selected video output instance.\n");
+                        exit(128);
+                }
+                /* Get a pointer to the gworld used by video output component */
+                ret =
+                    QTVideoOutputGetGWorld(s->videoDisplayComponentInstance[i],
+                                           &s->gworld[i]);
+                if (ret != noErr) {
+                        fprintf(stderr,
+                                "Failed to get selected video output instance GWorld.\n");
+                        exit(128);
+                }
+        }
 
-        /* Open device */
-        s->videoDisplayComponentInstance = OpenComponent((Component) s->device);
+	reconf_common(s);
+}
 
-	int ret =
-	    QTVideoOutputGetDisplayModeList
-	    (s->videoDisplayComponentInstance, &modeListAtomContainer);
-	if (ret != noErr || modeListAtomContainer == NULL) {
-		fprintf(stdout, "\tNo output modes available\n");
-		CloseComponent(s->videoDisplayComponentInstance);
-		exit(128);
-	}
+static int find_mode(ComponentInstance *ci, int width, int height, 
+                const char * codec_name, double fps, int aux)
+{
+        UNUSED(aux);
 
-	i = 1;
 	QTAtom atomDisplay = 0, nextAtomDisplay = 0;
 	QTAtomType type;
 	QTAtomID id;
+	QTAtomContainer modeListAtomContainer = NULL;
+	int found = FALSE;
+        int i = 1;
+
+        int ret =
+            QTVideoOutputGetDisplayModeList
+            (*ci, &modeListAtomContainer);
+        if (ret != noErr || modeListAtomContainer == NULL) {
+                fprintf(stdout, "\tNo output modes available\n");
+                return 0;
+        }
 
 	/* Print modes of current display component */
 	while (!found && i <
@@ -812,7 +925,7 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		ret =
 		    QTGetAtomDataPtr(modeListAtomContainer, atom,
 				     &dataSize, (Ptr *) & dataPtr);
-		if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) < 0.01)) {
+		if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) > 0.01)) {
 			++i;
                         debug_msg("[quicktime] mode %dx%d@%0.2f not selected.\n",
                                         width, height, EndianS32_BtoN(dataPtr[0])/65536.0);
@@ -852,75 +965,45 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		i++;
 	}
 
-	assert(found == TRUE);
 	debug_msg("Selected format: %ld\n", id);
-
-        /* Set the display mode */
-        ret =
-            QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance,
-                                        id);
-        if (ret != noErr) {
-                fprintf(stderr, "Failed to set video output display mode.\n");
-                exit(128);
-        }
-
-        /* We don't want to use the video output component instance echo port */
-        ret = QTVideoOutputSetEchoPort(s->videoDisplayComponentInstance, nil);
-        if (ret != noErr) {
-                fprintf(stderr, "Failed to set video output echo port.\n");
-                exit(128);
-        }
-
-        /* Register Ultragrid with instande of the video outpiut */
-        ret =
-            QTVideoOutputSetClientName(s->videoDisplayComponentInstance,
-                                       (ConstStr255Param) "Ultragrid");
-        if (ret != noErr) {
-                fprintf(stderr,
-                        "Failed to register Ultragrid with selected video output instance.\n");
-                exit(128);
-        }
-
-	ret = QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance,
-                                        id);
-        if (ret != noErr) {
-                fprintf(stderr,
-                        "Failed to reconfigure video output instance.\n");
-                exit(128);
-        }
-        ret = QTVideoOutputBegin(s->videoDisplayComponentInstance);
-        if (ret != noErr) {
-                fprintf(stderr,
-                        "Failed to get exclusive access to selected video output instance.\n");
-                exit(128);
-        }
-        /* Get a pointer to the gworld used by video output component */
-        ret =
-            QTVideoOutputGetGWorld(s->videoDisplayComponentInstance,
-                                   &s->gworld);
-        if (ret != noErr) {
-                fprintf(stderr,
-                        "Failed to get selected video output instance GWorld.\n");
-                exit(128);
-        }
-
-	reconf_common(s);
+       
+        if(found) 
+                return id;
+        else
+                return 0;
 }
 
 static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
-	UNUSED(h);
 
-        memcpy(out, &s->frame, sizeof(struct video_frame));
-        out->data +=
-                y * s->frame.dst_pitch +
-                (size_t) (x * s->frame.dst_bpp);
-        out->src_linesize =
-                vc_getsrc_linesize(w, out->color_spec);
-        out->dst_linesize =
-                w * out->dst_bpp;
+        if(s->devices_cnt == 1) {/* dual link or 4K framebuffer (aka Kona 3G)  */
+                memcpy(out, &s->frame, sizeof(struct video_frame));
+                out->data +=
+                        y * s->frame[0].dst_pitch +
+                        (size_t) (x * s->frame[0].dst_bpp);
+                out->src_linesize =
+                        vc_getsrc_linesize(w, out->color_spec);
+                out->dst_linesize =
+                        w * out->dst_bpp;
+        } else { /* tiled video
+                     expecting that requested sub_frame matches
+                     exactly one physical device */
+                double x_cnt = sqrt(s->devices_cnt);
+                int y_cnt;
+                int index;
+                x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                y_cnt = s->devices_cnt / (int) x_cnt;
 
+                assert(x % w == 0 &&
+                                y % h == 0 &&
+                                s->frame[0].width % w == 0 &&
+                                s->frame[0].height % h == 0);
+
+                index = x / w + // row 
+                        x_cnt * (y / h); // column
+                memcpy(out, &s->frame[index], sizeof(struct video_frame));
+        }
 }
 
 #endif                          /* HAVE_MACOSX */
