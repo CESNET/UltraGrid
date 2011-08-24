@@ -223,20 +223,20 @@ esac
 AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 
 # -------------------------------------------------------------------------------------------------
-# Try to find the SDK for the DVS HDstation card...
-AC_ARG_ENABLE(hdstation,
-	[  --enable-hdstation      enable HDStation or Centaurus cards],
+# Try to find the SDK for the DVS cards
+AC_ARG_ENABLE(dvs,
+	[  --enable-dvs      enable DVS cards],
 	[if test $enableval = yes
 	then
-		AC_DEFINE([HAVE_HDSTATION], [1], [Build with HDStation support])
+		AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
 	fi])
 
-AC_ARG_WITH(hdstation,           
-	[  --with-hdstation=DIR    specify location of DVS HDstation SDK],
+AC_ARG_WITH(dvs,           
+	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/linux/lib],
-	[DVS_INC=${PARENT}/sdk3.2.0.0/development/header
-	 DVS_LIB=${PARENT}/sdk3.2.0.0/${DVS_SDK_SUBDIR}/lib])
+	[DVS_INC=${PARENT}/sdk4.0.1.17/development/header
+	 DVS_LIB=${PARENT}/sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
 
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS=yes, FOUND_DVS=no)
 AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS=yes, FOUND_DVS=no, -L${DVS_LIB})
@@ -245,8 +245,8 @@ if test $FOUND_DVS = yes
 then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
-	DVS_OBJ="src/video_capture/hdstation.o src/video_display/hdstation.o"
-        AC_DEFINE([HAVE_HDSTATION], [1], [Build with HDStation support])
+	DVS_OBJ="src/video_capture/dvs.o src/video_display/dvs.o"
+        AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
 else
 	DVS_INC=
 	DVS_LIB=

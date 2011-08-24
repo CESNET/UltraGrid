@@ -686,7 +686,6 @@ void glut_key_callback(unsigned char key, int x, int y)
 			glut_resize_window(gl);
                         break;
                 case 'q':
-                        should_exit = TRUE;
                         platform_sem_post(&gl->semaphore);
                         if(gl->window != -1)
                                 glutDestroyWindow(gl->window);
@@ -869,7 +868,6 @@ void glut_redisplay_callback(void)
 
 void glut_close_callback(void)
 {
-	should_exit = 1;
 	exit(0);
 }
 

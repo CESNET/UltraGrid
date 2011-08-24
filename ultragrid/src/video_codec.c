@@ -71,7 +71,7 @@ void show_codec_help(char *module)
         printf("\tSupported codecs (%s):\n", module);
 
         printf("\t\t8bits\n");
-	if (strcmp(module, "hdstation")!=0) {
+	if (strcmp(module, "dvs")!=0) {
 		printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
 	}
         printf("\t\t\t'UYVY' - YUV 4:2:2\n");
@@ -79,7 +79,7 @@ void show_codec_help(char *module)
         printf("\t\t\t'DVS8' - Centaurus 8bit YUV 4:2:2\n");
 
         printf("\t\t10bits\n");
-	if (strcmp(module, "hdstation") != 0) {
+	if (strcmp(module, "dvs") != 0) {
 		printf("\t\t\t'R10k' - RGB 4:4:4\n");
 		printf("\t\t\t'v210' - YUV 4:2:2\n");
 	} 

@@ -59,7 +59,7 @@
 #include "video_display/null.h"
 #include "video_display/sdl.h"
 #include "video_display/decklink.h"
-#include "video_display/hdstation.h"
+#include "video_display/dvs.h"
 #include "video_display/gl.h"
 #include "video_display/quicktime.h"
 #include "video_display/sage.h"
@@ -124,17 +124,17 @@ static display_table_t display_device_table[] = {
          display_decklink_putf,
          },
 #endif                          /* HAVE_DECKLINK */
-#ifdef HAVE_HDSTATION
+#ifdef HAVE_DVS
         {
          0,
-         display_hdstation_probe,
-         display_hdstation_init,
-         display_hdstation_run,
-         display_hdstation_done,
-         display_hdstation_getf,
-         display_hdstation_putf,
+         display_dvs_probe,
+         display_dvs_init,
+         display_dvs_run,
+         display_dvs_done,
+         display_dvs_getf,
+         display_dvs_putf,
          },
-#endif                          /* HAVE_HDSTATION */
+#endif                          /* HAVE_DVS */
 #ifdef HAVE_MACOSX
         {
          0,

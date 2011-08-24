@@ -47,9 +47,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.9.2.1 $
- * $Date: 2010/01/30 20:07:35 $
- *
  */
 
 #include "config.h"
@@ -58,7 +55,7 @@
 #include "debug.h"
 #include "video_codec.h"
 #include "video_capture.h"
-#include "video_capture/hdstation.h"
+#include "video_capture/dvs.h"
 #include "video_capture/quicktime.h"
 #include "video_capture/testcard.h"
 #include "video_capture/null.h"
@@ -82,15 +79,15 @@ struct vidcap_device_api {
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
-#ifdef HAVE_HDSTATION
+#ifdef HAVE_DVS
         {
-         /* The DVS HDstation capture card */
+         /* The DVS capture card */
          0,
-         vidcap_hdstation_probe,
-         vidcap_hdstation_init,
-         vidcap_hdstation_done,
-         vidcap_hdstation_grab},
-#endif                          /* HAVE_HDSTATION */
+         vidcap_dvs_probe,
+         vidcap_dvs_init,
+         vidcap_dvs_done,
+         vidcap_dvs_grab},
+#endif                          /* HAVE_DVS */
 #ifdef HAVE_DECKLINK
         {
          /* The Blackmagic DeckLink capture card */
