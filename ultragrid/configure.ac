@@ -493,12 +493,7 @@ GL_OBJ=
 
 case "$host_os" in
 	*darwin*)
-	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glu.h],
-			 [FOUND_GL_H=yes],
-			 [FOUND_GL_H=no],
-			)
-
-	AC_CHECK_HEADERS([OpenGL/glext.h],
+	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
 			 [FOUND_GL_H=yes],
 			 [FOUND_GL_H=no], 
 			 [
@@ -550,12 +545,7 @@ case "$host_os" in
 	fi
 	;;
 	*) 
-	AC_CHECK_HEADERS([GL/gl.h GL/glu.h],
-			 [FOUND_GL_H=yes],
-			 [FOUND_GL_H=no],
-			)
-
-	AC_CHECK_HEADERS([GL/glext.h],
+	AC_CHECK_HEADERS([GL/gl.h GL/glext.h],
 			 [FOUND_GL_H=yes],
 			 [FOUND_GL_H=no], 
 			 [
@@ -566,12 +556,11 @@ case "$host_os" in
 
 	if test $FOUND_GL_H = yes
 	then
-		AC_CHECK_LIB(GL, glXChooseVisual, FOUND_GL_L=yes, FOUND_GL_L=no)
-		AC_CHECK_LIB(GLU, main, FOUND_GL_L=yes, FOUND_GL_L=no)
+		AC_CHECK_LIB(GL, glBindTexture, FOUND_GL_L=yes, FOUND_GL_L=no)
 
 		if test $FOUND_GL_L = yes
 		then
-			LIBS="$LIBS -lGL -lGLU"
+			LIBS="$LIBS -lGL"
 	
 			FOUND_GLEW_L=no
 			FOUND_GLUT_L=yes

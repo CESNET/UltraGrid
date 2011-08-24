@@ -56,6 +56,9 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+ 
+#ifdef HAVE_SDL
+
 #include "debug.h"
 #include "tv.h"
 #include "video_codec.h"
@@ -640,3 +643,5 @@ struct vidcap_type *vidcap_testcard_probe(void)
         }
         return vt;
 }
+
+#endif

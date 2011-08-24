@@ -46,7 +46,6 @@
  *
  */
 
-#include "host.h"
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -55,14 +54,10 @@
 
 #ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
-#include <OpenGL/glu.h>
 #include <OpenGL/glext.h>
 #include <GLUT/glut.h>
 #else /* HAVE_MACOSX */
-#include <X11/Xutil.h>
-#include <X11/Xatom.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
 #include <GL/glext.h>
 #include <GL/glut.h>
 #ifdef FREEGLUT

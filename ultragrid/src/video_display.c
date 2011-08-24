@@ -47,9 +47,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.8.2.4 $
- * $Date: 2010/02/05 13:56:49 $
- *
  */
 
 #include "config.h"
@@ -83,7 +80,6 @@ typedef struct {
 } display_table_t;
 
 static display_table_t display_device_table[] = {
-#ifndef X_DISPLAY_MISSING
 #ifdef HAVE_SDL
         {
          0,
@@ -117,7 +113,6 @@ static display_table_t display_device_table[] = {
          },
 #endif                          /* HAVE_SAGE */
 #endif                          /* HAVE_GL */
-#endif                          /* X_DISPLAY_MISSING */
 #ifdef HAVE_DECKLINK
         {
          0,

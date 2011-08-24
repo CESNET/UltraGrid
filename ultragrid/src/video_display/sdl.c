@@ -43,9 +43,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $Revision: 1.20 $
- * $Date: 2010/07/15 12:25:59 $
  * 
  */
 
@@ -53,21 +50,12 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#ifndef X_DISPLAY_MISSING       /* Don't try to compile if X is not present */
-
 #include "debug.h"
 #include "video_display.h"
 #include "video_display/sdl.h"
 #include "tv.h"
 #include "video_codec.h"
 
-/* For X shared memory... */
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <X11/Xatom.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <host.h>
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>
 void NSApplicationLoad();
@@ -89,7 +77,6 @@ void NSApplicationLoad();
 #define FOURCC_UYVY  0x59565955
 
 struct state_sdl {
-        Display                 *display;
         struct video_frame      frame;
 
         pthread_t               thread_id;
@@ -152,15 +139,15 @@ static void loadSplashscreen(struct state_sdl *s) {
 	SDL_Rect 	splash_src;
 	SDL_Rect	splash_dest;
         unsigned int x_res_x, x_res_y;
-        int itemp;
-        unsigned int utemp;
-        Window wtemp;
+        
+        const SDL_VideoInfo *video_info;
+        
+	video_info = SDL_GetVideoInfo();
+        x_res_x = video_info->current_w;
+        x_res_y = video_info->current_h;
 
         if(splash_height > s->frame.height || splash_width > s->frame.width)
                 return;
-
-        XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
-                &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
 
 	// create a temporary SDL_Surface with the settings of displaying surface
 	image = SDL_DisplayFormat(s->sdl_screen);
@@ -424,17 +411,15 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	   codec_t color_spec, double fps, int aux)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
-	int itemp;
-	unsigned int utemp;
-	Window wtemp;
+	const SDL_VideoInfo *video_info;
 	int h_align = 0;
 
 	unsigned int x_res_x, x_res_y;
 	unsigned int screen_x, screen_y;
 
-	int ret, i;
+	int i;
 
-	/* wait until thread finished displaying */
+	/* wait until thread finishes displaying */
         SDL_mutexP(s->buffer_writable_lock);
         while (!s->buffer_writable)
                 SDL_CondWait(s->buffer_writable_cond,
@@ -452,9 +437,10 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	fprintf(stdout, "Reconfigure to size %dx%d\n", s->frame.width,
 			s->frame.height);
 
-	ret =
-	    XGetGeometry(s->display, DefaultRootWindow(s->display), &wtemp,
-			 &itemp, &itemp, &x_res_x, &x_res_y, &utemp, &utemp);
+	video_info = SDL_GetVideoInfo();
+        x_res_x = video_info->current_w;
+        x_res_y = video_info->current_h;
+        
 	screen_x = x_res_x;
 	screen_y = x_res_y;
 
@@ -700,11 +686,6 @@ void *display_sdl_init(char *fmt)
         s->buffer_writable_lock = SDL_CreateMutex();
         s->buffer_writable_cond = SDL_CreateCond();
 
-
-        if (!(s->display = XOpenDisplay(NULL))) {
-                printf("Unable to open display.\n");
-                return NULL;
-        }
 #ifdef HAVE_MACOSX
         /* Startup function to call when running Cocoa code from a Carbon application. 
          * Whatever the fuck that means. 
@@ -796,7 +777,7 @@ display_type_t *display_sdl_probe(void)
         if (dt != NULL) {
                 dt->id = DISPLAY_SDL_ID;
                 dt->name = "sdl";
-                dt->description = "SDL with Xvideo extension";
+                dt->description = "SDL";
         }
         return dt;
 }
@@ -819,4 +800,3 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
                 (x + w) * out->dst_bpp;
 }
 
-#endif                          /* X_DISPLAY_MISSING */
