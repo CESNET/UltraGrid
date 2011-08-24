@@ -576,8 +576,16 @@ void *display_quicktime_init(char *fmt)
 
 
         for (i = 0; i < s->devices_cnt; ++i) {
+                /* compute position */
+                double x_cnt = sqrt(s->devices_cnt);
+                
                 s->videoDisplayComponentInstance[i] = 0;
                 s->seqID[i] = 0;
+                
+                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
+                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
         }
 
         InitCursor();
@@ -684,18 +692,10 @@ void *display_quicktime_init(char *fmt)
 	}
 
         for (i = 0; i < s->devices_cnt; ++i) {
-                /* compute position */
-                double x_cnt = sqrt(s->devices_cnt);
-                
                 s->frame[i].state = s;
                 s->frame[i].reconfigure = (reconfigure_t) qt_reconfigure_screen;
                 s->frame[i].get_sub_frame = (get_sub_frame_t) get_sub_frame;
                 s->frame[i].decoder = (decoder_t)memcpy;
-                
-                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
                 
                 /* update tiles width/h to represent whole frame's dimension */
                 s->frame[i].width *= s->frame[i].tile_info.x_count;
@@ -965,12 +965,14 @@ static int find_mode(ComponentInstance *ci, int width, int height,
 		i++;
 	}
 
-	debug_msg("Selected format: %ld\n", id);
-       
-        if(found) 
+        if(found) {
+                debug_msg("Selected format: %ld\n", id);
                 return id;
-        else
+        } else {
+                fprintf(stderr, "[quicktime] mode %dx%d@%0.2f (%s) NOT FOUND.\n",
+                                width, height, fps, codec_name);
                 return 0;
+        }
 }
 
 static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
@@ -992,16 +994,20 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
                 double x_cnt = sqrt(s->devices_cnt);
                 int y_cnt;
                 int index;
+                /* cnt == 1 -> 1x1, 2 -> 2x1, 3 -> 3x1, 4 -> 2x2, 5 -> 5x1 etc. */
                 x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
                 y_cnt = s->devices_cnt / (int) x_cnt;
 
+                /* check if have tiles of equal size (required) */
                 assert(x % w == 0 &&
                                 y % h == 0 &&
                                 s->frame[0].width % w == 0 &&
                                 s->frame[0].height % h == 0);
 
+                /* determine which preprepared bufer to put */
                 index = x / w + // row 
                         x_cnt * (y / h); // column
+                /* and give it to the caller */
                 memcpy(out, &s->frame[index], sizeof(struct video_frame));
         }
 }
