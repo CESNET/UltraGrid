@@ -119,13 +119,20 @@ void vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift
 void vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len);
 
-#define AUX_INTERLACED  1<<0
-#define AUX_PROGRESSIVE 1<<1
-#define AUX_SF          1<<2
-#define AUX_RGB         1<<3 /* if device supports both, set both */
-#define AUX_YUV         1<<4 
-#define AUX_10Bit       1<<5
-#define AUX_TILED       1<<6
+/* AUX_RGB and AUX_YUV are currently used only when sending DXT1 compression
+ * to indicate if it is YUV or RGB. Otherwise the usage is redundant since
+ * codec info already holds that information.
+ *
+ * AUX_10Bit doesnt seem to be useful at all.
+ * TODO: check if we cannot remove some of unused flags
+ */
+#define AUX_INTERLACED  (1<<0)
+#define AUX_PROGRESSIVE (1<<1)
+#define AUX_SF          (1<<2)
+#define AUX_RGB         (1<<3) /* if device supports both, set both */
+#define AUX_YUV         (1<<4) 
+#define AUX_10Bit       (1<<5)
+#define AUX_TILED       (1<<6)
 
 #endif
 

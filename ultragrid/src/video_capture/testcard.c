@@ -533,7 +533,7 @@ void *vidcap_testcard_init(char *fmt)
                 if(configure_tiling(s, strip_fmt) != 0)
                         return NULL;
         } else {
-                s->frame.aux &= ~((unsigned int) AUX_TILED);
+                s->frame.aux &= ~AUX_TILED;
         }
 
         return s;
