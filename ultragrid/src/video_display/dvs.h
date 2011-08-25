@@ -47,12 +47,11 @@
 #define DISPLAY_DVS_ID	0x74ac3e0f
 
 typedef struct {
-        char *name;
         int mode;
-        double fps;
         unsigned int width;
         unsigned int height;
-        char interlaced;
+        double fps;
+        int aux;
 } hdsp_mode_table_t;
 
 extern const hdsp_mode_table_t hdsp_mode_table[];

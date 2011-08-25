@@ -403,7 +403,7 @@ void *vidcap_testcard_init(char *fmt)
         rect_size = (s->frame.width + rect_size - 1) / rect_size;
 
         s->frame.src_linesize = aligned_x * bpp;
-
+        s->frame.aux = AUX_PROGRESSIVE;
         s->size = aligned_x * s->frame.height * bpp;
 
         filename = strtok(NULL, ":");
@@ -533,7 +533,7 @@ void *vidcap_testcard_init(char *fmt)
                 if(configure_tiling(s, strip_fmt) != 0)
                         return NULL;
         } else {
-                s->frame.aux &= ~AUX_TILED;
+                s->frame.aux &= ~((unsigned int) AUX_TILED);
         }
 
         return s;

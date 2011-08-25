@@ -136,11 +136,38 @@ static void *vidcap_dvs_grab_thread(void *arg)
 
 static void show_help(void)
 {	
-	printf("DVS options:\n");
-	printf("\tfps:mode:codec | help\n");
+	int i;
+        sv_handle *sv = sv_open("");
+        if (sv == NULL) {
+                printf
+                    ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
+                return;
+        }
+	printf("DVS options:\n\n");
+	printf("\tmode:codec | help\n\n");
 	printf("\tSupported modes:\n");
-	printf("\t\tSMPTE274\n");
+        for(i=0; hdsp_mode_table[i].width !=0; i++) {
+		int res;
+		sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
+		if(res) {
+			const char *interlacing;
+			if(hdsp_mode_table[i].aux & AUX_INTERLACED) {
+					interlacing = "interlaced";
+			} else if(hdsp_mode_table[i].aux & AUX_PROGRESSIVE) {
+					interlacing = "progressive";
+			} else if(hdsp_mode_table[i].aux & AUX_SF) {
+					interlacing = "progressive segmented";
+			} else {
+					interlacing = "unknown (!)";
+			}
+			printf ("\t%4d:  %4d x %4d @ %2.2f %s\n", hdsp_mode_table[i].mode, 
+				hdsp_mode_table[i].width, hdsp_mode_table[i].height, 
+				hdsp_mode_table[i].fps, interlacing);
+		}
+        }
+	printf("\n");
 	show_codec_help("dvs");
+	sv_close(sv);
 }
 
 /* External API ***********************************************************************************/
@@ -165,6 +192,7 @@ void *vidcap_dvs_init(char *fmt)
 	int aligned_x;
         int i;
         int res;
+        int mode_index = 0;
         char *mode;
 
         s = (struct vidcap_dvs_state *)
@@ -187,23 +215,15 @@ void *vidcap_dvs_init(char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
-                s->frame.fps = atof(tmp);
-                tmp = strtok(NULL, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                mode = tmp;    
-                for(i=0; hdsp_mode_table[i].name != NULL; i++) {
-                        printf ("%s %s", mode, hdsp_mode_table[i].name);
-                        if(strcmp(mode, hdsp_mode_table[i].name) == 0 &&
-                                  s->frame.fps == hdsp_mode_table[i].fps) {
+                mode_index = atoi(tmp);
+                for(i=0; hdsp_mode_table[i].width != 0; i++) {
+                        if(hdsp_mode_table[i].mode == mode_index) {
                                   s->mode = &hdsp_mode_table[i];
                                 break;
                         }
                 }
                 if(s->mode == NULL) {
-                        fprintf(stderr, "dvs: unknown video mode: %s\n", mode);
+                        fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
                         free(s);
                         return 0;
                 }
@@ -243,10 +263,7 @@ void *vidcap_dvs_init(char *fmt)
 
         s->frame.width = s->mode->width;
         s->frame.height = s->mode->height;
-        if(s->mode->interlaced)
-                s->frame.aux = AUX_INTERLACED;
-        else
-                s->frame.aux = AUX_PROGRESSIVE;
+	s->frame.aux = s->mode->aux;
 
 	aligned_x = s->frame.width;
 	if (h_align) {
