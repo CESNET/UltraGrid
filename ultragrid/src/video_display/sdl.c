@@ -784,6 +784,7 @@ int display_sdl_putf(void *state, char *frame)
         tmp = SDL_SemValue(s->semaphore);
         if (tmp > 1) {
                 printf("%d frame(s) dropped!\n", tmp);
+                SDL_SemTryWait(s->semaphore); /* decrement then */
         }
         return 0;
 }

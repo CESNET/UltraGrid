@@ -54,8 +54,10 @@
 
 #define VIDCAP_HDSTATION_ID	0x10203040
 
+struct audio_frame;
+
 struct vidcap_type	*vidcap_hdstation_probe(void);
 void			*vidcap_hdstation_init(char *fmt);
 void			 vidcap_hdstation_done(void *state);
-struct video_frame	*vidcap_hdstation_grab(void *state, int *count);
+struct video_frame	*vidcap_hdstation_grab(void *state, int *count, struct audio_frame **audio);
 

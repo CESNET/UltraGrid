@@ -76,9 +76,9 @@ struct vidcap {
 struct vidcap_device_api {
         vidcap_id_t id;
         struct vidcap_type *(*func_probe) (void);
-        void *(*func_init) (char *fmt);
+        void *(*func_init) (char *fmt, unsigned int flags);
         void (*func_done) (void *state);
-        struct video_frame *(*func_grab) (void *state, int *count);
+        struct video_frame *(*func_grab) (void *state, int *count, struct audio_frame **audio);
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
@@ -190,7 +190,7 @@ vidcap_id_t vidcap_get_null_device_id(void)
 
 /* API for video capture **************************************************************************/
 
-struct vidcap *vidcap_init(vidcap_id_t id, char *fmt)
+struct vidcap *vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags)
 {
         unsigned int i;
 
@@ -199,7 +199,7 @@ struct vidcap *vidcap_init(vidcap_id_t id, char *fmt)
                         struct vidcap *d =
                             (struct vidcap *)malloc(sizeof(struct vidcap));
                         d->magic = VIDCAP_MAGIC;
-                        d->state = vidcap_device_table[i].func_init(fmt);
+                        d->state = vidcap_device_table[i].func_init(fmt, flags);
                         d->index = i;
                         if (d->state == NULL) {
                                 debug_msg
@@ -222,8 +222,8 @@ void vidcap_done(struct vidcap *state)
         free(state);
 }
 
-struct video_frame *vidcap_grab(struct vidcap *state, int *count)
+struct video_frame *vidcap_grab(struct vidcap *state, int *count, struct audio_frame **audio)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        return vidcap_device_table[state->index].func_grab(state->state, count);
+        return vidcap_device_table[state->index].func_grab(state->state, count, audio);
 }

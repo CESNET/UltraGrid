@@ -42,15 +42,12 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.4 $
- * $Date: 2009/12/11 15:13:10 $
- *
  */
 
 #define VIDCAP_TESTCARD_ID	0xb06ba92a
 
 struct vidcap_type	*vidcap_testcard_probe(void);
-void			*vidcap_testcard_init(char *fmt);
+void			*vidcap_testcard_init(char *fmt, unsigned int flags);
 void			 vidcap_testcard_done(void *state);
-struct video_frame	*vidcap_testcard_grab(void *state, int *count);
+struct video_frame	*vidcap_testcard_grab(void *state, int *count, struct audio_frame **audio);
 

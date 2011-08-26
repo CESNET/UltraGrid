@@ -340,6 +340,7 @@ int
 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
             struct video_frame *framebuffer, int i)
 {
+        UNUSED(i);
         /* Find the first complete frame that has reached it's playout */
         /* time, and decode it into the framebuffer. Mark the frame as */
         /* decoded, but otherwise leave it in the playout buffer.      */
@@ -365,25 +366,56 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         return 0;
 }
 
-#ifdef HAVE_AUDIO
 int
 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                   audio_frame * buffer)
 {
+#ifdef HAVE_PORTAUDIO
+        UNUSED(curr_time);
         struct pbuf_node *curr;
+        struct coded_data *cdata;
 
         pbuf_validate(playout_buf);     // should be run in debug mode
 
         curr = playout_buf->frst;
+        
         while (curr != NULL) {
-                if (!curr->decoded) {   // FIXME: in the original function (pbuf_decode) is some time comparison
-                        network_buffer_to_audio_frame(buffer,
-                                                      curr->cdata->data->data);
+                if (!curr->decoded && frame_complete(curr)) {   // FIXME: figure out then right frames ordering (if needed) - se pbuf_decode
+                        
                         curr->decoded = 1;
+                                
+                        cdata = curr->cdata;
+                        while (cdata != NULL) {
+                                char *data;
+                                audio_payload_hdr_t *hdr = 
+                                        (audio_payload_hdr_t *) cdata->data->data;
+                                unsigned int aux;
+                                int channels, quant_samples,
+                                        sample_rate;
+                                
+                                channels = hdr->ch_count;
+                                aux = ntohl(hdr->aux);
+                                sample_rate = ntohl(hdr->sample_rate);
+                                quant_samples = hdr->audio_quant; assert(hdr->audio_quant % 8 == 0);
+                                
+                                if(buffer->ch_count != channels ||
+                                                buffer->aux != aux ||
+                                                buffer->bps != quant_samples / 8) {
+                                        buffer->reconfigure_audio(buffer->state, quant_samples, channels,
+                                                sample_rate, aux);
+                                        buffer = portaudio_get_frame(buffer->state);
+                                }
+                                
+                                data = cdata->data->data + sizeof(audio_payload_hdr_t);
+                                buffer->decoder(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length), ntohl(hdr->buffer_len), buffer->state);
+                                cdata = cdata->nxt;
+                        }
+                        
+                        
                         return 1;
                 }
                 curr = curr->nxt;
         }
+#endif /* HAVE_PORTAUDIO */
         return 0;
 }
-#endif                          /* HAVE_AUDIO */

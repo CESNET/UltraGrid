@@ -188,20 +188,58 @@ tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_ses
         } while (pos < frame->data_len);
 }
 
-#ifdef HAVE_AUDIO
 void audio_tx_send(struct rtp *rtp_session, audio_frame * buffer)
 {
-        audio_frame_to_network_buffer(buffer->tmp_buffer, buffer);
+        const int mtu = 1500; // perhaps to be added as parameter to function call ?
+        //audio_frame_to_network_buffer(buffer->tmp_buffer, buffer);
+        unsigned int pos = 0,
+                     m = 0;
+        int buffer_len;
+        int data_len;
+        char *data;
+        audio_payload_hdr_t payload_hdr;
+        uint32_t timestamp;
+#if HAVE_MACOSX
+        struct timeval start, stop;
+#else                           /* HAVE_MACOSX */
+        struct timespec start, stop;
+#endif                          /* HAVE_MACOSX */
+        long delta;
+        
+        timestamp = get_local_mediatime();
+        perf_record(UVP_SEND, timestamp);
+        
+        payload_hdr.aux = 0;
+        payload_hdr.ch_count = buffer->ch_count;
+        payload_hdr.aux = htonl(buffer->aux);
+        payload_hdr.sample_rate = htonl(buffer->sample_rate);
+        payload_hdr.buffer_len = htonl(buffer->data_len);
+        payload_hdr.audio_quant = buffer->bps * 8;
 
-        //uint32_t timestamp = get_local_mediatime();
-        static uint32_t timestamp;
-        timestamp++;
-
-        int marker_bit = 0;     // FIXME: probably should define last packet of a frame, but is payload dependand so...think this through
-
-        rtp_send_data(rtp_session, timestamp, audio_payload_type, marker_bit, 0,        /* contributing sources */
+        do {
+                data = buffer->data + pos;
+                data_len = mtu - 40 - sizeof(audio_payload_hdr_t);
+                if(pos + data_len >= buffer->data_len) {
+                        data_len = buffer->data_len - pos;
+                        m = 1;
+                }
+                payload_hdr.offset = htonl(pos);
+                payload_hdr.length = htons(data_len);
+                pos += data_len;
+                
+                GET_STARTTIME;
+                
+                rtp_send_data_hdr(rtp_session, timestamp, audio_payload_type, m, 0,        /* contributing sources */
                       0,        /* contributing sources length */
-                      buffer->tmp_buffer, buffer->samples_per_channel * 3 * 8,
+                      (char *) &payload_hdr, sizeof(payload_hdr),
+                      data, data_len,
                       0, 0, 0);
+                do {
+                        GET_STOPTIME;
+                        GET_DELTA;
+                        if (delta < 0)
+                                delta += 1000000000L;
+                } while (packet_rate - delta > 0);
+              
+        } while (pos < buffer->data_len);
 }
-#endif                          /* HAVE_AUDIO */

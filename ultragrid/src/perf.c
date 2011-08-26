@@ -40,7 +40,7 @@
  * SUCH DAMAGE.
  */
 
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR >= 1)
+#if defined PERF && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1))
 
 #include "config.h"
 #include "config_unix.h"
@@ -87,4 +87,4 @@ void _uvp_perf_record(_uvp_event_t event, _uvp_arg_t arg)
         ((struct _uvp_entry *) ptr)->arg = arg;
 }
 
-#endif /* __GNUC__ */
+#endif /* PERF && __GNUC__ */

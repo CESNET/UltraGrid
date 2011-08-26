@@ -65,6 +65,17 @@ void	    udp_fd_zero(void);
 void        udp_fd_set(socket_udp *s);
 int         udp_fd_isset(socket_udp *s);
 
+struct udp_fd_r {
+        fd_set rfd;
+        fd_t max_fd;
+};
+
+int         udp_select_r(struct timeval *timeout, struct udp_fd_r *);
+void	    udp_fd_zero_r(struct udp_fd_r *);
+void        udp_fd_set_r(socket_udp *s, struct udp_fd_r *);
+int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
+
+
 /*************************************************************************************************/
 #if defined(__cplusplus)
 }

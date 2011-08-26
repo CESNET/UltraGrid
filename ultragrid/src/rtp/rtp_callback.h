@@ -38,17 +38,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1.2.1 $
- * $Date: 2010/01/28 18:17:28 $
- *
  */
 
 #include "host.h"
-
-#define HD_WIDTH hd_size_x
-#define HD_HEIGHT hd_size_y
-#define HD_DEPTH hd_color_bpp
-
 
 typedef struct {
     uint16_t    width;      /* pixels */
@@ -61,6 +53,17 @@ typedef struct {
     uint32_t    aux;        /* auxiliary data */
     uint32_t    tileinfo;   /* info about tile position (if tiled) */
 } payload_hdr_t;
+
+typedef struct {      
+        uint32_t    offset;     /* octets */
+        uint16_t    length;     /* octets */
+        uint32_t    buffer_len;
+        uint8_t     ch_count;   /* number of channels */        
+        uint8_t     audio_quant; /* size of audio samples (typically 16/24/32) */
+        uint32_t    sample_rate; /* sample rate */
+        uint32_t    aux;        /* auxiliary data */
+} audio_payload_hdr_t;
+
 
 /* FIXME: this is only needed because fdisplay() takes "struct display" as a parameter */
 /*        should probably not have such tight coupling between modules                 */

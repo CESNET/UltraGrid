@@ -2156,7 +2156,39 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 }
 
 /**
- * rtp_recv_poll:
+ * reentrant variant of the above
+ */
+int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
+{
+        struct udp_fd_r fd;
+        
+        check_database(session);
+        udp_fd_zero_r(&fd);
+        udp_fd_set_r(session->rtp_socket, &fd);
+        udp_fd_set_r(session->rtcp_socket, &fd);
+        if (udp_select_r(timeout, &fd) > 0) {
+                if (udp_fd_isset_r(session->rtp_socket, &fd)) {
+                        rtp_recv_data(session, curr_rtp_ts);
+                }
+                if (udp_fd_isset_r(session->rtcp_socket, &fd)) {
+                        uint8_t buffer[RTP_MAX_PACKET_LEN];
+                        int buflen;
+                        buflen =
+                            udp_recv(session->rtcp_socket, (char *)buffer,
+                                     RTP_MAX_PACKET_LEN);
+                        ntp64_time(&tmp_sec, &tmp_frac);
+                        rtp_process_ctrl(session, buffer, buflen);
+                }
+                check_database(session);
+                return TRUE;
+        }
+        check_database(session);
+        return FALSE;
+}
+
+
+/**
+ * rtp_recv_poll_r:
  * The meaning is as above with except that this function polls for first
  * nonempty stream and returns data.
  *
@@ -2164,23 +2196,24 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
  * @param timeout timeout
  * @param cur_rtp_ts list null-terminated of timestamps for each session
  */
-int rtp_recv_poll(struct rtp **sessions, struct timeval *timeout, uint32_t curr_rtp_ts)
+int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
         struct rtp **current;
+        struct udp_fd_r fd;
 
-        udp_fd_zero();
+        udp_fd_zero_r(&fd);
 
         for(current = sessions; *current != NULL; ++current) {
                 check_database(*current);
-                udp_fd_set((*current)->rtp_socket);
-                udp_fd_set((*current)->rtcp_socket);
+                udp_fd_set_r((*current)->rtp_socket, &fd);
+                udp_fd_set_r((*current)->rtcp_socket, &fd);
         }
-        if (udp_select(timeout) > 0) {
+        if (udp_select_r(timeout, &fd) > 0) {
                 for(current = sessions; *current != NULL; ++current) {
-                        if (udp_fd_isset((*current)->rtp_socket)) {
+                        if (udp_fd_isset_r((*current)->rtp_socket, &fd)) {
                                 rtp_recv_data(*current, curr_rtp_ts);
                         }
-                        if (udp_fd_isset((*current)->rtcp_socket)) {
+                        if (udp_fd_isset_r((*current)->rtcp_socket, &fd)) {
                                 uint8_t buffer[RTP_MAX_PACKET_LEN];
                                 int buflen;
                                 buflen =

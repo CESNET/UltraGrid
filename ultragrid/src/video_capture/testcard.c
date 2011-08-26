@@ -48,9 +48,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.8.2.6 $
- * $Date: 2010/02/05 13:59:24 $
- *
  */
 
 #include "config.h"
@@ -62,9 +59,21 @@
 #include "video_capture.h"
 #include "video_capture/testcard.h"
 #include "host.h"
+#include "song1.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL/SDL.h>
+#ifdef HAVE_LIBSDL_MIXER
+#include <SDL/SDL_mixer.h>
+#endif /* HAVE_LIBSDL_MIXER */
+#include "audio/audio.h"
+
+#define AUDIO_SAMPLE_RATE 48000
+#define AUDIO_BPS 2
+#define AUDIO_CHANNELS 2
+#define BUFFER_SEC 1
+#define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
+                AUDIO_CHANNELS * BUFFER_SEC)
 
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
 unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
@@ -81,7 +90,12 @@ struct testcard_state {
         struct timeval t0;
         struct video_frame frame;
         struct video_frame *tiles;
+        struct audio_frame audio;
         char **tiles_data;
+        
+        char *audio_data;
+        volatile int audio_start, audio_end;
+        unsigned int grab_audio:1;
 };
 
 const int rect_colors[] = {
@@ -258,6 +272,80 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height)
         }
 }
 
+static void grab_audio(int chan, void *stream, int len, void *udata)
+{
+        UNUSED(chan);
+        struct testcard_state *s = (struct testcard_state *) udata;
+        
+        if(s->audio_end + len <= AUDIO_BUFFER_SIZE) {
+                memcpy(s->audio_data + s->audio_end, stream, len);
+                s->audio_end += len;
+        } else {
+                int offset = AUDIO_BUFFER_SIZE - s->audio_end;
+                memcpy(s->audio_data + s->audio_end, stream, offset);
+                memcpy(s->audio_data, stream + offset, len - offset);
+                s->audio_end = len - offset;
+        }
+        /* just hack - Mix_Volume doesn't mute correctly the audio */
+        memset(stream, 0, len);
+}
+
+static int configure_audio(struct testcard_state *s)
+{
+#ifdef HAVE_LIBSDL_MIXER
+        char *filename;
+        int fd;
+        Mix_Music *music;
+        ssize_t bytes_written = 0l;
+        
+        SDL_Init(SDL_INIT_AUDIO);
+        
+        if( Mix_OpenAudio( AUDIO_SAMPLE_RATE, AUDIO_S16LSB,
+                        AUDIO_CHANNELS, 4096 ) == -1 ) {
+                fprintf(stderr,"[testcard] error initalizing sound\n");
+                return -1;
+        }
+        filename = strdup("/tmp/uv.midiXXXXXX");
+        fd = mkstemp(filename);
+        
+        do {
+                ssize_t ret;
+                ret = write(fd, song1 + bytes_written,
+                                sizeof(song1) - bytes_written);
+                if(ret < 0) return -1;
+                bytes_written += ret;
+        } while (bytes_written < (ssize_t) sizeof(song1));
+        close(fd);
+        music = Mix_LoadMUS(filename);
+        free(filename);
+
+        s->audio_data = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+        s->audio_start = 0;
+        s->audio_end = 0;
+        s->audio.bps = AUDIO_BPS;
+        s->audio.ch_count = AUDIO_CHANNELS;
+        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
+        
+        // register grab as a postmix processor
+        if(!Mix_RegisterEffect(MIX_CHANNEL_POST, grab_audio, NULL, s)) {
+                printf("[testcard] Mix_RegisterEffect: %s\n", Mix_GetError());
+                return -1;
+        }
+
+        if(Mix_PlayMusic(music,-1)==-1){
+                fprintf(stderr, "[testcard] error playing midi\n");
+                return -1;
+        }
+        Mix_Volume(-1, 0);
+        
+        printf("[testcard] playing audio\n");
+        
+        return 0;
+#else
+        return -2;
+#endif
+}
+
 static int configure_tiling(struct testcard_state *s, const char *fmt)
 {
         char *tmp, *token, *saveptr = NULL;
@@ -316,7 +404,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         return 0;
 }
 
-void *vidcap_testcard_init(char *fmt)
+void *vidcap_testcard_init(char *fmt, unsigned int flags)
 {
         struct testcard_state *s;
         char *filename;
@@ -523,6 +611,7 @@ void *vidcap_testcard_init(char *fmt)
 
         printf("Testcard capture set to %dx%d, bpp %f\n", s->frame.width, s->frame.height, bpp);
 
+        
         s->frame.state = s;
         s->frame.data_len = s->size;
 
@@ -531,6 +620,14 @@ void *vidcap_testcard_init(char *fmt)
                         return NULL;
         } else {
                 s->frame.aux &= ~AUX_TILED;
+        }
+        
+        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+                s->grab_audio = TRUE;
+                if(configure_audio(s) != 0)
+                        s->grab_audio = FALSE;
+        } else {
+                s->grab_audio = FALSE;
         }
 
         return s;
@@ -541,18 +638,20 @@ void vidcap_testcard_done(void *state)
         struct testcard_state *s = state;
 
         free(s->data);
-        if (s->frame.aux & AUX_TILED)
-        {
+        if (s->frame.aux & AUX_TILED) {
                 int i;
                 for (i = 0; i < s->frame.tile_info.x_count; ++i) {
                         free(s->tiles_data[i]);
                 }
                 free(s->tiles);
         }
+        if(s->audio_data) {
+                free(s->audio_data);
+        }
         free(s);
 }
 
-struct video_frame *vidcap_testcard_grab(void *arg, int *count)
+struct video_frame *vidcap_testcard_grab(void *arg, int *count, struct audio_frame **audio)
 {
         struct timeval curr_time;
         struct testcard_state *state;
@@ -574,6 +673,29 @@ struct video_frame *vidcap_testcard_grab(void *arg, int *count)
                         state->count = 0;
                 }
 
+                if (state->grab_audio) {
+#ifdef HAVE_LIBSDL_MIXER
+                        state->audio.data = state->audio_data + state->audio_start;
+                        if(state->audio_start <= state->audio_end) {
+                                int tmp = state->audio_end;
+                                state->audio.data_len = tmp - state->audio_start;
+                                state->audio_start = tmp;
+                        } else {
+                                state->audio.data_len = 
+                                                AUDIO_BUFFER_SIZE -
+                                                state->audio_start;
+                                state->audio_start = 0;
+                        }
+                        if(state->audio.data_len > 0)
+                                *audio = &state->audio; 
+                        else
+                                *audio = NULL;
+#endif                        
+                } else {
+                        *audio = NULL;
+                }
+
+                
                 state->frame.data += state->frame.src_linesize;
                 if(state->frame.data > state->data + state->size)
                         state->frame.data = state->data;

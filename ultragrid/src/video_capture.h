@@ -94,7 +94,9 @@ vidcap_id_t 		 vidcap_get_null_device_id(void);
 
 struct vidcap;
 
-struct vidcap		*vidcap_init(vidcap_id_t id, char *fmt);
+struct vidcap		*vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags);
 void			 vidcap_done(struct vidcap *state);
-struct video_frame	*vidcap_grab(struct vidcap *state, int *count);
+struct video_frame	*vidcap_grab(struct vidcap *state, int *count, struct audio_frame **audio);
+
+#define VIDCAP_FLAG_ENABLE_AUDIO 1
 

@@ -674,12 +674,14 @@ void vidcap_quicktime_done(void *state)
 }
 
 /* Grab a frame */
-struct video_frame *vidcap_quicktime_grab(void *state, int *count )
+struct video_frame *vidcap_quicktime_grab(void *state, int *count, struct audio_frame **audio)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
         assert(s != NULL);
         assert(s->magic == MAGIC_QT_GRABBER);
+        
+        *audio = NULL; /* currently no audio */
 
         /* Run the QuickTime sequence grabber idle function, which provides */
         /* processor time to out data proc running as a callback.           */

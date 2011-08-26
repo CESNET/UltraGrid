@@ -325,13 +325,15 @@ void vidcap_hdstation_done(void *state)
         free(s);
 }
 
-struct video_frame *vidcap_hdstation_grab(void *state, int *count)
+struct video_frame *vidcap_hdstation_grab(void *state, int *count, struct audio_frame **audio)
 {
         struct vidcap_hdstation_state *s =
             (struct vidcap_hdstation_state *)state;
 
         pthread_mutex_lock(&(s->lock));
 
+        *audio = NULL; /* currently no audio */
+        
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
                 s->boss_waiting = TRUE;

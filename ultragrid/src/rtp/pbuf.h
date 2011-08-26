@@ -62,9 +62,7 @@
 #include "config.h"
 #include "video_display.h"
 
-#ifdef HAVE_AUDIO
 #include "audio/audio.h"
-#endif /* HAVE_AUDIO */
 
 /* The coded representation of a single frame */
 struct coded_data {
@@ -84,6 +82,4 @@ struct pbuf	*pbuf_init(void);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, struct video_frame *framebuffer, int i);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
-#ifdef HAVE_AUDIO
 int          audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *frame);
-#endif /* HAVE_AUDIO */
