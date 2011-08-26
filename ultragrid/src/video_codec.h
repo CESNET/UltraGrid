@@ -49,6 +49,8 @@
 #define __video_codec_h
 #include "tile.h"
 
+struct audio_frame;
+
 typedef enum {
         RGBA,
         UYVY,

@@ -813,6 +813,12 @@ void udp_fd_zero(void)
         max_fd = 0;
 }
 
+void udp_fd_zero_r(struct udp_fd_r *fd_struct)
+{
+        FD_ZERO(&fd_struct->rfd);
+        max_fd = 0;
+}
+
 /**
  * udp_exit:
  * @s: UDP session to be terminated.
@@ -949,6 +955,14 @@ void udp_fd_set(socket_udp * s)
         }
 }
 
+void udp_fd_set_r(socket_udp *s, struct udp_fd_r *fd_struct)
+{
+        FD_SET(s->fd, &fd_struct->rfd);
+        if (s->fd > (fd_t) fd_struct->max_fd) {
+                fd_struct->max_fd = s->fd;
+        }
+}
+
 /**
  * udp_fd_isset:
  * @s: UDP session.
@@ -963,6 +977,12 @@ int udp_fd_isset(socket_udp * s)
         return FD_ISSET(s->fd, &rfd);
 }
 
+int udp_fd_isset_r(socket_udp *s, struct udp_fd_r *fd_struct)
+{
+        return FD_ISSET(s->fd, &fd_struct->rfd);
+}
+
+
 /**
  * udp_select:
  * @timeout: maximum period to wait for data to arrive.
@@ -974,6 +994,11 @@ int udp_fd_isset(socket_udp * s)
 int udp_select(struct timeval *timeout)
 {
         return select(max_fd + 1, &rfd, NULL, NULL, timeout);
+}
+
+int udp_select_r(struct timeval *timeout, struct udp_fd_r * fd_struct)
+{
+        return select(fd_struct->max_fd + 1, &fd_struct->rfd, NULL, NULL, timeout);
 }
 
 /**

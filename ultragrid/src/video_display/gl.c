@@ -357,7 +357,7 @@ void dxt_arb_init(void *arg)
 /*
  * NOTE: UNUSED - can (should?) be removed when we use ARB
  */
-void glsl_gl_init(void *arg) {
+/*void glsl_gl_init(void *arg) {
 
 	//TODO: Add log
 	struct state_gl	*s = (struct state_gl *) arg;
@@ -372,7 +372,7 @@ void glsl_gl_init(void *arg) {
 
 	glLinkProgram(s->PHandle);
 	glUseProgram(s->PHandle);
-}
+}*/
 
 
 inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v, int w, int h)
@@ -924,8 +924,10 @@ int display_gl_putf(void *state, char *frame)
 #ifndef HAVE_MACOSX
         /* isn't implemented on Macs */
         sem_getvalue(&s->semaphore, &tmp);
-        if(tmp > 1)
+        if(tmp > 1) {
                 printf("frame drop!\n");
+                sem_trywait(&s->semaphore); /* decrement then */
+        }
 #endif
         return 0;
 }

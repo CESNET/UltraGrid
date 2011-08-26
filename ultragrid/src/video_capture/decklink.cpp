@@ -58,6 +58,7 @@ extern "C" {
 #include "debug.h"
 #include "video_capture.h"
 #include "video_codec.h"
+#include "audio/audio.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -101,6 +102,8 @@ private:
 public:
 	int	newFrameReady;
 	void*	pixelFrame;
+        void*   audioFrame;
+        int     audioFrameSamples;
 	int	first_time;
 	struct  vidcap_decklink_state *s;
         int     i;
@@ -151,6 +154,7 @@ struct vidcap_decklink_state {
 	// void*			rtp_buffer;
 	unsigned int		next_frame_time; // avarege time between frames
         struct video_frame      frame[MAX_DEVICES];
+        struct audio_frame      audio;
         const struct codec_info_t *c_info;
         
 
@@ -159,6 +163,7 @@ struct vidcap_decklink_state {
 	int		 	boss_waiting;
         
         int                     frames;
+        unsigned int            grab_audio:1; /* wheather we process audio or not */
 };
 
 /* DeckLink SDK objects */
@@ -188,6 +193,14 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 	}
 
 	arrivedFrame->GetBytes(&pixelFrame);
+        
+        if(audioPacket) {
+                audioPacket->GetBytes(&audioFrame);
+                audioFrameSamples = audioPacket->GetSampleFrameCount();
+        } else {
+                audioFrame = NULL;
+        }
+                
 
 	if(first_time){
 		first_time = 0;
@@ -363,7 +376,7 @@ vidcap_decklink_probe(void)
 }
 
 void *
-vidcap_decklink_init(char *fmt)
+vidcap_decklink_init(char *fmt, unsigned int flags)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
@@ -386,6 +399,16 @@ vidcap_decklink_init(char *fmt)
 		printf("Unable to allocate DeckLink state\n");
 		return NULL;
 	}
+
+        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+                s->grab_audio = TRUE;
+                s->audio.bps = 2;
+                s->audio.sample_rate = 48000;
+                s->audio.ch_count = 2;
+                s->audio.aux = 0;
+        } else {
+                s->grab_audio = FALSE;
+        }
 
 	// SET UP device and mode
 	if(settings_init(s, fmt) == 0) {
@@ -568,8 +591,14 @@ vidcap_decklink_init(char *fmt)
                                                         printf("Input set to: %d\n", connection);
                                                 }*/
 
-                                                // We don't want to process audio
-                                                deckLinkInput->DisableAudioInput();
+                                                if(s->grab_audio == FALSE || 
+                                                                i != 0)//TODO: figure out output from multiple streams
+                                                        deckLinkInput->DisableAudioInput();
+                                                else
+                                                        deckLinkInput->EnableAudioInput(
+                                                                bmdAudioSampleRate48kHz,
+                                                                bmdAudioSampleType16bitInteger,
+                                                                2);
 
                                                 // set Callback which returns frames
                                                 s->state[i].delegate = new VideoDelegate();
@@ -721,7 +750,7 @@ vidcap_decklink_done(void *state)
 }
 
 struct video_frame *
-vidcap_decklink_grab(void *state, int * count)
+vidcap_decklink_grab(void *state, int * count, struct audio_frame **audio)
 {
 	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
 
@@ -773,8 +802,9 @@ vidcap_decklink_grab(void *state, int * count)
                         // recompute tiles count
                         tiles_total = 0;
                         for (i = 0; i < s->devices_cnt; ++i)
-                                if(s->state[i].delegate->newFrameReady)
+                                if(s->state[i].delegate->newFrameReady) {
                                         tiles_total++;
+                                }
                 }
                 debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
@@ -832,6 +862,14 @@ vidcap_decklink_grab(void *state, int * count)
         }
         if (*count == s->devices_cnt) {
                 s->frames++;
+                
+                if(s->state[0].delegate->audioFrame != NULL) {
+                        s->audio.data = (char *) s->state[0].delegate->audioFrame;
+                        s->audio.data_len = s->state[0].delegate->audioFrameSamples * 2 * 2;
+                        *audio = &s->audio;
+                } else {
+                        *audio = NULL;
+                }
 
                 gettimeofday(&t, NULL);
                 double seconds = tv_diff(t, t0);	

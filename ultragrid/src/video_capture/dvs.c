@@ -1,5 +1,5 @@
 /*
- * FILE:   vidcap_dvs.c
+ * FILE:   video_capture/dvs.c
  * AUTHOR: Colin Perkins <csp@isi.edu>
  *         Martin Benes     <martinbenesh@gmail.com>
  *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
@@ -339,13 +339,15 @@ void vidcap_dvs_done(void *state)
         free(s);
 }
 
-struct video_frame *vidcap_dvs_grab(void *state, int *count)
+struct video_frame *vidcap_dvs_grab(void *state, int *count, struct audio_frame **audio)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
 
         pthread_mutex_lock(&(s->lock));
 
+        *audio = NULL; /* currently no audio */
+        
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
                 s->boss_waiting = TRUE;

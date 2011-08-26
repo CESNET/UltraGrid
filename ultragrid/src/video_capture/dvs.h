@@ -1,5 +1,5 @@
 /*
- * FILE:   vidcap_dvs.c
+ * FILE:   video_capture/dvs.h
  * AUTHOR: Colin Perkins <csp@isi.edu>
  *         Martin Benes     <martinbenesh@gmail.com>
  *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
@@ -51,8 +51,10 @@
 
 #define VIDCAP_DVS_ID	0x10203040
 
+struct audio_frame;
+
 struct vidcap_type	*vidcap_dvs_probe(void);
 void			*vidcap_dvs_init(char *fmt);
 void			 vidcap_dvs_done(void *state);
-struct video_frame	*vidcap_dvs_grab(void *state, int *count);
+struct video_frame	*vidcap_dvs_grab(void *state, int *count, struct audio_frame **audio);
 

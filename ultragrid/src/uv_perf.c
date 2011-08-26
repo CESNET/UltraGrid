@@ -1,5 +1,5 @@
 /*
- * FILE:    perf.c
+ * FILE:    uv_perf.c
  * AUTHORS: Isidor Kouvelas 
  *          Colin Perkins 
  *          Mark Handley 
@@ -64,7 +64,7 @@ static const struct message messages[] = {
         [UVP_PUTFRAME] = { "Frame put", "frame address (UNUSED!)" },
         [UVP_DECODEFRAME] = { "Decode frame", "frame address" },
         [UVP_SEND] = { "TX Send", "timestamp" },
-        [UVP_CREATEPBUF] = { "TX Received (first packet)", "timestamp" },
+        [UVP_CREATEPBUF] = { "RX Received (first packet)", "timestamp" },
 };
 
 int main(int argc, char *argv[])

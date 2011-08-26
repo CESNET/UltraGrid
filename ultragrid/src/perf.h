@@ -1,14 +1,12 @@
 /*
- * FILE:    perf.c
+ * FILE:    perf.h
  * AUTHORS: Isidor Kouvelas 
  *          Colin Perkins 
  *          Mark Handley 
  *          Orion Hodson
  *          Jerry Isdale
  * 
- * $Revision: 1.1 $
- * $Date: 2007/11/08 09:48:59 $
- *
+ * 
  * Copyright (c) 1995-2000 University College London
  * All rights reserved.
  *
@@ -43,7 +41,6 @@
 #ifndef _PERF_H
 #define _PERF_H
 
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR >= 1)
 
 #include "config.h"
 #include "config_unix.h"
@@ -57,15 +54,12 @@
 #define UVP_SEND 5
 #define UVP_CREATEPBUF 6
 
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) && defined PERF
+
 typedef uint32_t _uvp_event_t;
 typedef int64_t _uvp_arg_t;
 
 void perf_init(void);
-#ifdef PERF
-#define perf_record(x,y) _uvp_perf_record(x, y)
-#else
-#define perf_record(x,y) {}
-#endif
 
 /* Private section */
 struct _uvp_entry {
@@ -87,7 +81,7 @@ void _uvp_perf_record(_uvp_event_t event, _uvp_arg_t arg);
 #define perf_record(x,y) {}
 #define perf_init() {}
 
-#endif /* __GNUC__ */
+#endif /* __GNUC__ && PERF */
 
 #endif /* _PERF_H */
 

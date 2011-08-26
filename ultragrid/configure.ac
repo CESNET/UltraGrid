@@ -238,10 +238,10 @@ AC_ARG_WITH(dvs,
 	[DVS_INC=${PARENT}/sdk4.0.1.17/development/header
 	 DVS_LIB=${PARENT}/sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
 
-AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS=yes, FOUND_DVS=no)
-AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS=yes, FOUND_DVS=no, -L${DVS_LIB})
+AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
+AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
 
-if test $FOUND_DVS = yes
+if test $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
 then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
@@ -278,12 +278,12 @@ AC_ARG_WITH(decklink,
 	[DECKLINK_INC=${PARENT}/DeckLink/include
 	])
 
-AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK=yes, FOUND_DECKLINK=no)
-AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK=yes, FOUND_DECKLINK=no)
-AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK=yes, FOUND_DECKLINK=no)
+AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
+AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
+AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
 
 
-if test $FOUND_DECKLINK = yes
+if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes
 then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
@@ -327,10 +327,10 @@ case $host in
 
         QUAD_INC=${QUAD_PATH}/include
 
-        AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD=yes, FOUND_QUAD=no)
-        AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD=yes, FOUND_QUAD=no)
+        AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD_MASTER_H=yes, FOUND_QUAD_MASTER_H=no)
+        AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD_SDI_H=yes, FOUND_QUAD_SDI_H=no)
 
-        if test $FOUND_QUAD = yes
+        if test $FOUND_QUAD_MASTER_H = yes -a $FOUND_QUAD_SDI_H = yes
         then
             QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
             QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
@@ -465,6 +465,7 @@ case "$host_os" in
                         echo "checking for SDL - version >= $SDL_VERSION_REQUIRED... no ($SDL_VERSION_FOUND)";
                     fi
                 fi
+                AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
             fi
         ;;
         *)
@@ -479,6 +480,7 @@ case "$host_os" in
                 AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
                 SDL_VERSION=1.2.10
                 AM_PATH_SDL($SDL_VERSION, AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21]), :)
+                AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
             fi
         ;;
 esac
@@ -614,10 +616,10 @@ AC_ARG_WITH(fastdxt,
 	[DXT_INC=${PARENT}/FastDXT
 	 DXT_LIB=${PARENT}/FastDXT])
 
-AC_CHECK_HEADER(${DXT_INC}/libdxt.h, FOUND_DXT=yes, FOUND_DXT=no)
-AC_CHECK_LIB(dxt, main, FOUND_DXT=yes, FOUND_DXT=no, -I${DXT_INC} -L${DXT_LIB})
+AC_CHECK_HEADER(${DXT_INC}/libdxt.h, FOUND_DXT_H=yes, FOUND_DXT_H=no)
+AC_CHECK_LIB(dxt, main, FOUND_DXT_L=yes, FOUND_DXT_L=no, -I${DXT_INC} -L${DXT_LIB})
 
-if test $FOUND_DXT = yes
+if test $FOUND_DXT_L = yes -a $FOUND_DXT_H = yes
 then
 	DXT_INC=-I${DXT_INC}
 	DXT_LIB="-L${DXT_LIB} -ldxt"
@@ -655,10 +657,10 @@ AC_ARG_WITH(sage,
 	[SAGE_INC=${PARENT}/sage3.0/include
 	 SAGE_LIB=${PARENT}/sage3.0/lib])
 
-AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE=yes, FOUND_SAGE=no)
-AC_CHECK_LIB(sail, main, FOUND_SAGE=yes, FOUND_SAGE=no, -I${SAGE_INC} -L${SAGE_LIB})
+AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
+AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SAGE_LIB})
 
-if test $FOUND_SAGE = yes
+if test $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
     SAGE_INC=-I${SAGE_INC}
     SAGE_LIB=-"L${SAGE_LIB} -lsail"
@@ -679,49 +681,51 @@ AC_SUBST(LINKER)
 # -------------------------------------------------------------------------------------------------
 # AUDIO stuff
 
-AUDIO_INC=
-AUDIO_LIB=
-AUDIO_OBJ=
+PORTAUDIO_INC=
+PORTAUDIO_LIB=
+PORTAUDIO_OBJ=
 
 AC_ARG_ENABLE(portaudio, 
 	[  --enable-portaudio      enable Portaudio framework support],
 	[if test $enableval = yes
 	then
-                AC_DEFINE([HAVE_AUDIO], [1], [Build with Portaudio support])
+                AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
 	fi])
 
 AC_ARG_WITH(portaudio,
 	[  --with-portaudio=DIR    specify location of Portaudio],
-	[AUDIO_INC=$withval/include
-	 AUDIO_LIB=$withval/lib],
-	[AUDIO_INC=${PARENT}/portaudio/include
-	 AUDIO_LIB=${PARENT}/portaudio/lib/.libs])
+	[PORTAUDIO_INC=$withval/include
+	 PORTAUDIO_LIB=$withval/lib],
+	[PORTAUDIO_INC=${PARENT}/portaudio/include
+	 PORTAUDIO_LIB=${PARENT}/portaudio/lib/.libs])
 
-AC_CHECK_FILE(${AUDIO_INC}/portaudio.h, FOUND_AUDIO=yes, FOUND_AUDIO=no)
-AC_CHECK_LIB(portaudio, main, FOUND_AUDIO=yes, FOUND_AUDIO=no, -I${AUDIO_INC} -L${AUDIO_LIB})
+AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
+AC_CHECK_LIB(portaudio, main, FOUND_PORTAUDIO_L=yes, FOUND_PORTAUDIO_L=no, -I${PORTAUDIO_INC} -L${PORTAUDIO_LIB})
+AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, IS_PORTAUDIO_STATIC=yes, IS_PORTAUDIO_STATIC=no)
 
-if test $FOUND_AUDIO = yes
+if test $FOUND_PORTAUDIO_H = yes -a $FOUND_PORTAUDIO_L = yes -a $IS_PORTAUDIO_STATIC = yes
 then
-    AUDIO_INC=-I${AUDIO_INC}
+    PORTAUDIO_INC=-I${PORTAUDIO_INC}
 case "$host_os" in
         *darwin*)
-                AUDIO_LIB="${AUDIO_LIB}/libportaudio.a -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices"
+                PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices"
         ;;
         *)
-                AUDIO_LIB="${AUDIO_LIB}/libportaudio.a"
+                PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
+                LIBS+=" -lasound"
         ;;
 esac
-    AUDIO_OBJ="$AUDIO_OBJ src/audio/audio.o"
-    AC_DEFINE([HAVE_AUDIO], [1], [Build with Portaudio support])
+    PORTAUDIO_OBJ="$PORTAUDIO_OBJ src/audio/portaudio.o"
+    AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
 else
-    AUDIO_INC=
-    AUDIO_LIB=
-    AUDIO_OBJ=
+    PORTAUDIO_INC=
+    PORTAUDIO_LIB=
+    PORTAUDIO_OBJ=
 fi
 
-AC_SUBST(AUDIO_INC)
-AC_SUBST(AUDIO_LIB)
-AC_SUBST(AUDIO_OBJ)
+AC_SUBST(PORTAUDIO_INC)
+AC_SUBST(PORTAUDIO_LIB)
+AC_SUBST(PORTAUDIO_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

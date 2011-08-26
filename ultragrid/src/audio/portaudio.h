@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/audio.h
+ * FILE:    audio/portaudio.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -43,38 +43,34 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *
  */
 
 #include "config.h"
 
-#ifndef _AUDIO_H_
-#define _AUDIO_H_
+#ifndef _PORTAUDIO_H_
+#define _PORTAUDIO_H_
 
+#ifdef HAVE_PORTAUDIO
+#include "portaudio/include/portaudio.h"
 
-static const int audio_payload_type = 97;
+struct audio_frame;
 
-typedef void (*reconfigure_audio_t)(void *state, int quant_samples, int channels,
-                int sample_rate, int aux);
-typedef void (*decoder_audio_t)(void *dst, void *src, int data_len, int buffer_len, void *state);
+void            portaudio_print_available_devices(void);
+void            portaudio_close(PaStream *stream);	// closes and frees all audio resources ( according to valgrind this is not true..  )
 
-typedef struct audio_frame
-{
-        int bps;                // bytes per sample
-        int sample_rate;
-        char *data;	// we support max 8 channels
-        int data_len;
-        int ch_count;		// count of channels
-        unsigned int aux;	// if the buffer is interleaved or not
-        
-        reconfigure_audio_t reconfigure_audio;
-        decoder_audio_t decoder;
-        void *state;
-}
-audio_frame;
+/* Capture related - TODO: refactor (like playback done) */
+PaStream       *portaudio_capture_init(int capture_device);
+int             portaudio_read(PaStream *stream, audio_frame *buffer);
+int             portaudio_init_audio_frame(audio_frame *frame);
+void            free_audio_frame(audio_frame *buffer);	// buffers should be freed after usage
+int             portaudio_start_stream(PaStream *stream);
 
-void print_audio_devices(void);
+/* Playback related - TODO: refactor (like playback done) */
+void           *portaudio_playback_init(int playback_device);
+void            portaudio_close_playback(void *s);
+struct audio_frame* portaudio_get_frame(void *state);
+void            portaudio_put_frame(void *state);
 
-#include "audio/portaudio.h"
+#endif /* HAVE_PORTAUDIO */
 
 #endif

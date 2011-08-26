@@ -61,7 +61,15 @@
 #define FMODE_MAGIC             0x9B7DA07u
 #define MAX_TILES               4
 
+#define QUAD_AUDIO_BPS 2
+#define QUAD_AUDIO_SAMPLE_RATE 48000
+#define QUAD_AUDIO_CHANNELS 2
+
+#define QUAD_AUDIO_BUFSIZE (QUAD_AUDIO_BPS * QUAD_AUDIO_SAMPLE_RATE *\
+        QUAD_AUDIO_CHANNELS * 1)
+
 #include "video_capture/quad.h"
+#include "audio/audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,6 +98,7 @@ extern int	should_exit;
 static const char progname[] = "videocapture";
 static const char sys_fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
 static const char devfile_fmt[] = "/dev/sdivideorx%1u";
+static const char audio_dev[] = "/dev/sdiaudiorx0";
 
 struct frame_mode {
         char  * const    name;
@@ -187,12 +196,20 @@ struct vidcap_quad_state {
         int                 device_cnt;
         int                 fd[MAX_TILES];
         struct              pollfd pfd[MAX_TILES];
+        int                 audio_fd;
+        struct              pollfd audio_pfd;
         unsigned long int   bufsize;
         unsigned long int   buffers;
+        unsigned long int   audio_bufsize;
+        unsigned long int   audio_buffers;
         struct video_frame  frame[MAX_TILES];
         sem_t               have_item;
         sem_t               boss_waiting;
         pthread_t           grabber;
+        
+        struct audio_frame  audio;
+        unsigned int        audio_bytes_read;
+        unsigned int        grab_audio:1; /* wheather we process audio or not */
 };
 
 static int          frames = 0;
@@ -260,8 +277,76 @@ vidcap_quad_probe(void)
 	return vt;
 }
 
+static int open_audio(struct vidcap_quad_state *s) {
+        struct stat buf;
+        const char fmt[] = "/sys/class/sdiaudio/sdiaudiorx%i/%s";
+        char name[MAXLEN], str[MAXLEN], *endptr;
+        int num;
+                
+        /* Get the sysfs info */
+        memset (&buf, 0, sizeof (buf));
+        if (stat (audio_dev, &buf) < 0) {
+                fprintf (stderr, "%s: ", audio_dev);
+                perror ("unable to get the file status");
+                return -1;
+        }
+        if (!S_ISCHR (buf.st_mode)) {
+                fprintf (stderr, "%s: not a character device\n", audio_dev);
+                return -1;
+        }
+        if (!(buf.st_rdev & 0x0080)) {
+                fprintf (stderr, "%s: not a receiver\n", audio_dev);
+                return -1;
+        }
+        num = buf.st_rdev & 0x007f;
+        snprintf (name, sizeof (name), fmt, num, "dev");
+        memset (str, 0, sizeof (str));
+        if (util_read (name, str, sizeof (str)) < 0) {
+                fprintf (stderr, "%s: ", audio_dev);
+                perror ("unable to get the device number");
+                return -1;
+        }
+        if (strtoul (str, &endptr, 0) != (buf.st_rdev >> 8)) {
+                fprintf (stderr, "%s: not a SMPTE 259M-C device\n", audio_dev);
+                return -1;
+        }
+        if (*endptr != ':') {
+                fprintf (stderr, "%s: error reading %s\n",
+                        audio_dev, name);
+                return -1;
+        }
+
+        /* Open the file */
+        if ((s->audio_fd = open (audio_dev, O_RDONLY)) < 0) {
+                fprintf (stderr, "%s: ", audio_dev);
+                perror ("unable to open file for reading");
+                return -1;
+        }
+
+        /* Get the buffer size */
+        snprintf (name, sizeof (name), fmt, num, "bufsize");
+        if (util_strtoul (name, &s->audio_bufsize) < 0) {
+                fprintf (stderr, "%s: ", audio_dev);
+                perror ("unable to get the receiver buffer size");
+                return -1;
+        }
+
+        /* Allocate some memory */
+        /*if ((s->audio.data = (char *)malloc (s->audio_bufsize)) == NULL) {
+                fprintf (stderr, "%s: ", audio_dev);
+                fprintf (stderr, "unable to allocate memory\n");
+                return -1;
+        }*/
+        
+        /* Receive the data and check for errors */
+        s->audio_pfd.fd = s->audio_fd;
+        s->audio_pfd.events = POLLIN | POLLPRI;
+        
+        return 0;
+}
+
 void *
-vidcap_quad_init(char *init_fmt)
+vidcap_quad_init(char *init_fmt, unsigned int flags)
 {
 	struct vidcap_quad_state *s;
 
@@ -283,6 +368,21 @@ vidcap_quad_init(char *init_fmt)
         if(strcmp(init_fmt, "help") == 0) {
                 print_output_modes();
                 return NULL;
+        }
+        
+        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+                s->grab_audio = TRUE;
+                
+                s->audio.bps = QUAD_AUDIO_BPS;
+                s->audio.sample_rate = QUAD_AUDIO_SAMPLE_RATE;
+                s->audio.ch_count = QUAD_AUDIO_CHANNELS;
+                s->audio.aux = 0;
+                s->audio.data = (char *) malloc(QUAD_AUDIO_BUFSIZE);
+                s->audio_bytes_read = 0u;
+                if(open_audio(s) != 0)
+                        s->grab_audio = FALSE;
+        } else {
+                s->grab_audio = FALSE;
         }
 
         fmt_dup = strdup(init_fmt);
@@ -700,19 +800,35 @@ static void * vidcap_grab_thread(void *args)
 
                         }
                 }
+
+                if(s->grab_audio) {
+                        /* read all audio data that are in buffers */
+                        s->audio.data_len = 0;
+                        while (poll (&s->audio_pfd, 1, 0) > 0) {
+                                if(s->audio.data_len + s->audio_bufsize <= QUAD_AUDIO_BUFSIZE)
+                                        s->audio.data_len += read(s->audio_fd, s->audio.data + s->audio.data_len, s->audio_bufsize);
+                                else
+                                        break; // we have our buffer full
+                        }
+                }
                 sem_post(&s->have_item);
         }
         return NULL;
 }
 
 struct video_frame *
-vidcap_quad_grab(void *state, int *count)
+vidcap_quad_grab(void *state, int *count, struct audio_frame **audio)
 {
 
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
 
         sem_post(&s->boss_waiting);
         sem_wait(&s->have_item);
+
+        if(s->grab_audio && s->audio.data_len > 0)
+                *audio = &s->audio;
+        else
+                *audio = NULL;
 
         frames++;
         gettimeofday(&t, NULL);
@@ -731,7 +847,7 @@ vidcap_quad_grab(void *state, int *count)
 static void print_output_modes()
 {
         unsigned int i;
-        printf("usage: -g <mode>[<x_tiles_count>:<y_tiles_count>\n\twhere mode is one of following.\n");
+        printf("usage: -g <mode>:[<x_tiles_count>:<y_tiles_count>]\n\twhere mode is one of following.\n");
         printf("Available output modes:\n");
         for(i = 0; i < sizeof(frame_modes)/sizeof(struct frame_mode); ++i) {
                 if(frame_modes[i].magic == FMODE_MAGIC)
