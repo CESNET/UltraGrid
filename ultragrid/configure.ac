@@ -290,6 +290,7 @@ then
     DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o src/video_display/decklink.o"
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
+    LIBS=" -ldl"
 else
     DECKLINK_PATH=
     DECKLINK_INC=
