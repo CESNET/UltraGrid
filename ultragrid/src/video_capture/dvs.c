@@ -64,6 +64,7 @@
 #include "tv.h"
 #include "dvs_clib.h"           /* From the DVS SDK */
 #include "dvs_fifo.h"           /* From the DVS SDK */
+#include "audio/audio.h"
 
 struct vidcap_dvs_state {
         sv_handle *sv;
@@ -79,10 +80,13 @@ struct vidcap_dvs_state {
         int worker_waiting;
         int work_to_do;
         char *bufs[2];
+        char *audio_bufs[2];
         int bufs_index;
         uint32_t hd_video_mode;
         struct video_frame frame;
+        struct audio_frame audio;
         const hdsp_mode_table_t *mode;
+        unsigned grab_audio:1;
 };
 
 static void show_help(void);
@@ -91,6 +95,11 @@ static void *vidcap_dvs_grab_thread(void *arg)
 {
         int res;
         struct vidcap_dvs_state *s = (struct vidcap_dvs_state *)arg;
+        int fifo_flags = SV_FIFO_FLAG_FLUSH |
+                                      SV_FIFO_FLAG_NODMAADDR;
+
+        if(!s->grab_audio)
+                fifo_flags |= SV_FIFO_FLAG_VIDEOONLY;
 
         while (1) {
                 s->dma_buffer = NULL;
@@ -98,16 +107,20 @@ static void *vidcap_dvs_grab_thread(void *arg)
 
                 res =
                     sv_fifo_getbuffer(s->sv, s->fifo, &(s->dma_buffer), NULL,
-                                      SV_FIFO_FLAG_VIDEOONLY |
-                                      SV_FIFO_FLAG_FLUSH);
+                                      fifo_flags);
                 if (res != SV_OK) {
                         printf("Unable to getbuffer %s\n",
                                sv_geterrortext(res));
                         continue;
                 }
                 s->bufs_index = (s->bufs_index + 1) % 2;
-                s->dma_buffer->dma.addr = s->bufs[s->bufs_index];
-                s->dma_buffer->dma.size = s->frame.data_len;
+                s->dma_buffer->video[0].addr = s->bufs[s->bufs_index];
+                s->dma_buffer->video[0].size = s->frame.data_len;
+                if(s->grab_audio) {
+                        s->dma_buffer->audio[0].addr[0] = s->audio_bufs[s->bufs_index];
+                        //fprintf(stderr, "%d ", s->dma_buffer->audio[0].size);
+                        //s->dma_buffer->audio[0].size = 12800;
+                }
 
                 res = sv_fifo_putbuffer(s->sv, s->fifo, s->dma_buffer, NULL);
                 if (res != SV_OK) {
@@ -123,7 +136,11 @@ static void *vidcap_dvs_grab_thread(void *arg)
                         s->worker_waiting = FALSE;
                 }
 
-                s->tmp_buffer = s->dma_buffer->dma.addr;
+                s->tmp_buffer = s->dma_buffer->video[0].addr;
+
+                s->audio.data = s->dma_buffer->audio[0].addr[0];
+                s->audio.data_len = s->dma_buffer->audio[0].size;
+
                 s->work_to_do = FALSE;
 
                 if (s->boss_waiting) {
@@ -185,7 +202,7 @@ struct vidcap_type *vidcap_dvs_probe(void)
         return vt;
 }
 
-void *vidcap_dvs_init(char *fmt)
+void *vidcap_dvs_init(char *fmt, unsigned int flags)
 {
         struct vidcap_dvs_state *s;
 	int h_align = 0;
@@ -253,7 +270,14 @@ void *vidcap_dvs_init(char *fmt)
                 return 0;
         }
 
+        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+                s->grab_audio = TRUE;
+        } else {
+                s->grab_audio = FALSE;
+        }
+
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
+
 
         if (s->frame.color_spec == DVS10) {
                 s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
@@ -280,7 +304,8 @@ void *vidcap_dvs_init(char *fmt)
                 return NULL;
         }
 
-        res = sv_videomode(s->sv, s->hd_video_mode | SV_MODE_AUDIO_NOAUDIO);
+        //res = sv_videomode(s->sv, s->hd_video_mode);
+        res = sv_option(s->sv, SV_OPTION_VIDEOMODE, s->hd_video_mode);
         if (res != SV_OK) {
                 goto error;
         }
@@ -288,9 +313,47 @@ void *vidcap_dvs_init(char *fmt)
         if (res != SV_OK) {
                 goto error;
         }
-        res = sv_fifo_init(s->sv, &(s->fifo), 1, 1, 1, 0, 0);
+
+        if(s->grab_audio) {
+                int i;
+                res = sv_option(s->sv, SV_OPTION_AUDIOINPUT, SV_AUDIOINPUT_AIV);
+                if (res != SV_OK) {
+                        goto error;
+                }
+                /* TODO: figure out real channels number
+                 * for now it suffices stereo */
+                res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, 1);
+                if (res != SV_OK) {
+                        goto error;
+                }
+                s->audio.ch_count = 2;
+
+                sv_query(s->sv, SV_QUERY_AUDIOBITS, 0, &i);
+                s->audio.bps = i / 8;
+                sv_query(s->sv, SV_QUERY_AUDIOFREQ, 0, &i);
+                s->audio.sample_rate = i;
+                s->audio.aux = 0;
+                s->audio.data_len = 0;
+
+                /* two 1-sec buffers */
+                s->audio_bufs[0] = malloc(s->audio.sample_rate * s->audio.ch_count * s->audio.bps);
+                s->audio_bufs[1] = malloc(s->audio.sample_rate * s->audio.ch_count * s->audio.bps);
+        } else {
+                res = sv_option(s->sv, SV_OPTION_AUDIOMUTE, TRUE);
+                if (res != SV_OK) {
+                        goto error;
+                }
+        }
+
+        res = sv_fifo_init(s->sv, &(s->fifo), 1, /* jack - must be 1 for default input FIFO */
+                        0, /* obsolete - must be 0 */
+                        SV_FIFO_DMA_ON, 
+                        SV_FIFO_FLAG_DONTBLOCK | SV_FIFO_FLAG_NODMAADDR,
+                        0 /*  frames in FIFO - 0 meens let API set the default maximal value*/
+                        );
         if (res != SV_OK) {
                 goto error;
+                abort();
         }
         res = sv_fifo_start(s->sv, s->fifo);
         if (res != SV_OK) {
@@ -324,7 +387,7 @@ void *vidcap_dvs_init(char *fmt)
         return s;
  error:
         free(s);
-        printf("Chyba %s\n", sv_geterrortext(res));
+        printf("Error %s\n", sv_geterrortext(res));
         debug_msg("Unable to open grabber: %s\n", sv_geterrortext(res));
         return NULL;
 }
@@ -346,8 +409,6 @@ struct video_frame *vidcap_dvs_grab(void *state, int *count, struct audio_frame 
 
         pthread_mutex_lock(&(s->lock));
 
-        *audio = NULL; /* currently no audio */
-        
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
                 s->boss_waiting = TRUE;
@@ -369,7 +430,9 @@ struct video_frame *vidcap_dvs_grab(void *state, int *count, struct audio_frame 
         if (s->rtp_buffer != NULL) {
                 s->frame.data = s->rtp_buffer;
                 *count = 1;
+                *audio = &s->audio;
                 return &s->frame;
+        
         }
         *count = 0;
         return NULL;
