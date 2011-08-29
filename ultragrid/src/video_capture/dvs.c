@@ -348,7 +348,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
         res = sv_fifo_init(s->sv, &(s->fifo), 1, /* jack - must be 1 for default input FIFO */
                         0, /* obsolete - must be 0 */
                         SV_FIFO_DMA_ON, 
-                        SV_FIFO_FLAG_DONTBLOCK | SV_FIFO_FLAG_NODMAADDR,
+                        SV_FIFO_FLAG_NODMAADDR,
                         0 /*  frames in FIFO - 0 meens let API set the default maximal value*/
                         );
         if (res != SV_OK) {
