@@ -100,6 +100,7 @@ struct state_sdl {
         volatile int            buffer_writable;
         SDL_cond                *buffer_writable_cond;
         SDL_mutex               *buffer_writable_lock;
+        int                     screen_w, screen_h;
 };
 
 extern int should_exit;
@@ -411,11 +412,9 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	   codec_t color_spec, double fps, int aux)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
-	const SDL_VideoInfo *video_info;
 	int h_align = 0;
 
 	unsigned int x_res_x, x_res_y;
-	unsigned int screen_x, screen_y;
 
 	int i;
 
@@ -437,12 +436,9 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	fprintf(stdout, "Reconfigure to size %dx%d\n", s->frame.width,
 			s->frame.height);
 
-	video_info = SDL_GetVideoInfo();
-        x_res_x = video_info->current_w;
-        x_res_y = video_info->current_h;
-        
-	screen_x = x_res_x;
-	screen_y = x_res_y;
+	x_res_x = s->screen_w;
+	x_res_y = s->screen_h;
+
 
 	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
 	if (s->fs)
@@ -528,15 +524,15 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 		}
 	} else if(!s->rgb && s->fs && (s->frame.width != x_res_x || s->frame.height != x_res_y)) {
 		double frame_aspect = (double) s->frame.width / s->frame.height;
-		double screen_aspect = (double) screen_x / screen_y;
+		double screen_aspect = (double) s->screen_w / s->screen_h;
 		if(screen_aspect > frame_aspect) {
-			s->dst_rect.h = screen_y;
-			s->dst_rect.w = screen_y * frame_aspect;
-			s->dst_rect.x = ((int) screen_x - s->dst_rect.w) / 2;
+			s->dst_rect.h = s->screen_h;
+			s->dst_rect.w = s->screen_h * frame_aspect;
+			s->dst_rect.x = ((int) s->screen_w - s->dst_rect.w) / 2;
 		} else {
-			s->dst_rect.w = screen_x;
-			s->dst_rect.h = screen_x / frame_aspect;
-			s->dst_rect.y = ((int) screen_y - s->dst_rect.h) / 2;
+			s->dst_rect.w = s->screen_w;
+			s->dst_rect.h = s->screen_w / frame_aspect;
+			s->dst_rect.y = ((int) s->screen_h - s->dst_rect.h) / 2;
 		}
 	}
 
@@ -598,6 +594,7 @@ void *display_sdl_init(char *fmt)
 {
         struct state_sdl *s;
         int ret;
+	const SDL_VideoInfo *video_info;
 
         unsigned int i;
 
@@ -702,6 +699,10 @@ void *display_sdl_init(char *fmt)
                 return NULL;
         }
 
+	video_info = SDL_GetVideoInfo();
+        s->screen_w = video_info->current_w;
+        s->screen_h = video_info->current_h;
+        
         if (fmt != NULL) {
                 reconfigure_screen(s, s->frame.width, s->frame.height,
                                 s->codec_info->codec, s->frame.fps,

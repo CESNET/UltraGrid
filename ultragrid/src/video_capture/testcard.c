@@ -441,6 +441,11 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 return NULL;
         }
         s->frame.width = atoi(tmp);
+        if(s->frame.width % 2 != 0) {
+                fprintf(stderr, "Width must be multiple of 2.\n");
+                free(s);
+                return NULL;
+        }
         tmp = strtok(NULL, ":");
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
@@ -568,13 +573,13 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 }
                 s->data = s->surface->pixels;
                 if (codec == UYVY || codec == v210 || codec == Vuy2) {
-                        rgb2yuv422((unsigned char *) s->data, s->frame.width,
+                        rgb2yuv422((unsigned char *) s->data, aligned_x,
                                    s->frame.height);
                 }
 
                 if (codec == v210) {
                         s->data =
-                            (char *)tov210((unsigned char *) s->data, s->frame.width,
+                            (char *)tov210((unsigned char *) s->data, aligned_x,
                                            aligned_x, s->frame.height, bpp);
                 }
 

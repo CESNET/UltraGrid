@@ -816,7 +816,7 @@ void udp_fd_zero(void)
 void udp_fd_zero_r(struct udp_fd_r *fd_struct)
 {
         FD_ZERO(&fd_struct->rfd);
-        max_fd = 0;
+        fd_struct->max_fd = 0;
 }
 
 /**
