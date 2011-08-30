@@ -67,6 +67,10 @@ struct state_portaudio_playback {
         PaStream *stream;
 };
 
+/*
+ * For Portaudio threads-related issues see
+ * http://www.portaudio.com/trac/wiki/tips/Threading
+ */
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* prototyping */
