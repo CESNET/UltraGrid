@@ -59,6 +59,7 @@
 #define SAMPLE_RATE 48000
 #define SAMPLES_PER_FRAME 2048
 #define CHANNELS 2
+#define SECONDS 5
 
 struct state_portaudio_playback {
         audio_frame frame;
@@ -100,7 +101,7 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
         s->frame.sample_rate = sample_rate;
         s->frame.state = s;
         
-        data_len = s->frame.bps * s->frame.ch_count * s->frame.sample_rate; // can hold up to 1 sec
+        data_len = s->frame.bps * s->frame.ch_count * s->frame.sample_rate * SECONDS; // can hold up to 1 sec
         
         s->frame.data = (char*)malloc(data_len);
         assert(s->frame.data != NULL);
@@ -354,7 +355,7 @@ int portaudio_init_audio_frame(audio_frame *buffer)
         buffer->ch_count = CHANNELS;
         buffer->aux = 0;
         buffer->sample_rate = SAMPLE_RATE;
-        buffer->data_len = SAMPLES_PER_FRAME * buffer->bps * buffer->ch_count;
+        buffer->data_len = SAMPLES_PER_FRAME * buffer->bps * buffer->ch_count * SECONDS;
         
         /* we allocate only one block, pointers point to appropriate parts of the block */
         if((buffer->data = (char*)malloc(buffer->data_len)) == NULL)
@@ -408,7 +409,7 @@ void portaudio_decode_frame(void *dst, void *src, int data_len, int buffer_len, 
                 (struct state_portaudio_playback *) state;
         
         // we can receive 1 sec at most
-        assert(buffer_len <= s->frame.bps * s->frame.ch_count * s->frame.sample_rate);
+        assert(buffer_len <= s->frame.bps * s->frame.ch_count * s->frame.sample_rate * SECONDS);
         
         s->frame.data_len = buffer_len;
         memcpy(dst, src, data_len);

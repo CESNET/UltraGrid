@@ -48,12 +48,8 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.15.2.3 $
- * $Date: 2010/02/04 15:51:33 $
- *
  */
 
-#include "host.h"
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
@@ -63,6 +59,7 @@
 #include "video_capture/quicktime.h"
 #include "video_display/quicktime.h"
 #include "video_codec.h"
+#include "audio/audio.h"
 #include <math.h>
 
 #ifdef HAVE_MACOSX
@@ -76,19 +73,37 @@ struct qt_grabber_state {
         uint32_t magic;
         SeqGrabComponent grabber;
         SGChannel video_channel;
+        SGChannel audio_channel;
         Rect bounds;
         GWorldPtr gworld;
         ImageSequence seqID;
         int sg_idle_enough;
         int major;
         int minor;
+        int audio_major;
+        int audio_minor;
         struct video_frame frame;
+        struct audio_frame audio;
+        char *abuffer[2], *vbuffer[2];
+        int abuffer_len;
+        int grab_buf_idx;
         const struct codec_info_t *c_info;
         unsigned gui:1;
         int frames;
         struct timeval t0;
         const quicktime_mode_t *qt_mode;
+        unsigned int grab_audio:1;
+
+        pthread_t thread_id;
+        pthread_mutex_t lock;
+        pthread_cond_t boss_cv;
+        pthread_cond_t worker_cv;
+        volatile int boss_waiting;
+        volatile int worker_waiting;
+        volatile int work_to_do;
 };
+
+void * vidcap_quicktime_thread(void *state);
 
 /*
  * Sequence grabber data procedure
@@ -126,29 +141,40 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
         struct qt_grabber_state *s = (struct qt_grabber_state *)refCon;
         struct timeval t;
 
-        UNUSED(c);
         UNUSED(offset);
         UNUSED(chRefCon);
         UNUSED(time);
-        UNUSED(writeType);
 
         if (s == NULL) {
                 debug_msg("corrupt state\n");
                 return -1;
         }
 
-        memcpy(s->frame.data, p, len);
-        s->sg_idle_enough = 1;
+        if(c == s->video_channel) {
+                memcpy(s->vbuffer[s->grab_buf_idx], p, len);
+                s->sg_idle_enough = 1;
 
-        s->frames++;
-        gettimeofday(&t, NULL);
-        double seconds = tv_diff(t, s->t0);
-        if (seconds >= 5) {
-                float fps = s->frames / seconds;
-                fprintf(stderr, "%d frames in %g seconds = %g FPS\n", s->frames,
-                        seconds, fps);
-                s->t0 = t;
-                s->frames = 0;
+                s->frames++;
+                gettimeofday(&t, NULL);
+                double seconds = tv_diff(t, s->t0);
+                if (seconds >= 5) {
+                        float fps = s->frames / seconds;
+                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n", s->frames,
+                                seconds, fps);
+                        s->t0 = t;
+                        s->frames = 0;
+                }
+        } else if(c == s->audio_channel) {
+                switch(writeType) {
+                        case seqGrabWriteReserve:
+                                break;
+                        case seqGrabWriteFill:
+                                memcpy(s->abuffer[s->grab_buf_idx] + s->abuffer_len, p, len);
+                                s->abuffer_len += len;
+                                break;
+                        case seqGrabWriteAppend:
+                                break;
+                }
         }
 
         return 0;
@@ -342,16 +368,25 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 return 0;
         }
 
+        /* do not check for grab audio in case that we will only display usage */
+        if (SGNewChannel(s->grabber, SoundMediaType, &s->audio_channel) !=
+                noErr) {
+                fprintf(stderr, "Warning: Creating audio channel failed. "
+                                "Disabling sound output.\n");
+                s->grab_audio = FALSE;
+        }
+
         /* Print available devices */
         int i;
         int j;
         SGDeviceInputList inputList;
         SGDeviceList deviceList;
         if (strcmp(fmt, "help") == 0) {
+                printf("\nUsage:\t-d quicktime -g <device>:<mode>:<pixel_type>[:<audio_device>:<audio_mode>]\n\n");
                 if (SGGetChannelDeviceList
                     (s->video_channel, sgDeviceListIncludeInputs,
                      &deviceList) == noErr) {
-                        fprintf(stdout, "Available capture devices:\n");
+                        fprintf(stdout, "\nAvailable capture devices:\n");
                         for (i = 0; i < (*deviceList)->count; i++) {
                                 SGDeviceName *deviceEntry =
                                     &(*deviceList)->entry[i];
@@ -390,7 +425,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         SGDisposeDeviceList(s->grabber, deviceList);
                         CodecNameSpecListPtr list;
                         GetCodecNameList(&list, 1);
-                        printf("Compression types:\n");
+                        printf("\nCompression types:\n");
                         for (i = 0; i < list->count; i++) {
                                 int fcc = list->list[i].cType;
                                 printf("\t%d) ", i);
@@ -405,6 +440,47 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                        (unsigned int)list->list[i].cType);
                                 printf("\n");
                         }
+                }
+                if (SGGetChannelDeviceList
+                    (s->audio_channel, sgDeviceListIncludeInputs,
+                     &deviceList) == noErr) {
+                        fprintf(stdout, "\nAvailable audio devices:\n");
+                        for (i = 0; i < (*deviceList)->count; i++) {
+                                SGDeviceName *deviceEntry =
+                                    &(*deviceList)->entry[i];
+                                fprintf(stdout, " Device %d: ", i);
+                                nprintf(deviceEntry->name);
+                                if (deviceEntry->flags &
+                                    sgDeviceNameFlagDeviceUnavailable) {
+                                        fprintf(stdout,
+                                                "  - ### NOT AVAILABLE ###");
+                                }
+                                if (i == (*deviceList)->selectedIndex) {
+                                        fprintf(stdout, " - ### ACTIVE ###");
+                                }
+                                fprintf(stdout, "\n");
+                                short activeInputIndex = 0;
+                                inputList = deviceEntry->inputs;
+                                if (inputList && (*inputList)->count >= 1) {
+                                        SGGetChannelDeviceAndInputNames
+                                            (s->video_channel, NULL, NULL,
+                                             &activeInputIndex);
+                                        for (j = 0; j < (*inputList)->count;
+                                             j++) {
+                                                fprintf(stdout, "\t");
+                                                fprintf(stdout, "- %d. ", j);
+                                                nprintf((unsigned char*)&(*inputList)->entry
+                                                             [j].name);
+                                                if ((i ==
+                                                     (*deviceList)->selectedIndex)
+                                                    && (j == activeInputIndex))
+                                                        fprintf(stdout,
+                                                                " - ### ACTIVE ###");
+                                                fprintf(stdout, "\n");
+                                        }
+                                }
+                        }
+                        SGDisposeDeviceList(s->grabber, deviceList);
                 }
                 return 0;
         }
@@ -421,6 +497,21 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
             noErr) {
                 debug_msg("Unable to set channel flags\n");
                 return 0;
+        }
+
+        if(s->grab_audio) {
+                if (SGSetChannelUsage
+                    (s->audio_channel,
+                     seqGrabRecord) != noErr) {
+                        fprintf(stderr, "Unable to set audio channel usage\n");
+                        s->grab_audio = FALSE;
+                }
+
+                if (SGSetChannelPlayFlags(s->audio_channel, channelPlayAllData) !=
+                    noErr) {
+                        fprintf(stderr, "Unable to set channel flags\n");
+                        s->grab_audio = FALSE;
+                }
         }
         
         SGStartPreview(s->grabber);
@@ -456,6 +547,15 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         return 0;
                 }
                 s->frame.color_spec = atoi(tmp);
+
+                s->audio_major = -1;
+                s->audio_minor = -1;
+                tmp = strtok(NULL, ":");
+                if(tmp) s->audio_major = atoi(tmp);
+                tmp = strtok(NULL, ":");
+                if(tmp) s->audio_minor = atoi(tmp);
+                if(s->audio_major == -1 && s->audio_minor == -1)
+                        s->grab_audio = FALSE;
 
                 SGDeviceName *deviceEntry = &(*deviceList)->entry[s->major];
                 printf("Quicktime: Setting device: ");
@@ -592,7 +692,79 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         }
 
         s->frame.data_len = aligned_x * s->frame.height * s->c_info->bpp;
-        s->frame.data = malloc(s->frame.data_len);
+        s->vbuffer[0] = malloc(s->frame.data_len);
+        s->vbuffer[1] = malloc(s->frame.data_len);
+
+        s->grab_buf_idx = 0;
+
+        SGDisposeDeviceList(s->grabber, deviceList);
+        if(s->grab_audio) {
+                OSErr ret;
+                OSType compression;
+
+                if (SGGetChannelDeviceList
+                    (s->audio_channel, sgDeviceListIncludeInputs,
+                     &deviceList) != noErr) {
+                        fprintf(stderr, "Unable to get list of quicktime audio devices\n");
+                        s->grab_audio = FALSE;
+                        goto AFTER_AUDIO;
+                }
+                SGDeviceName *deviceEntry = &(*deviceList)->entry[s->audio_major];
+                printf("Quicktime: Setting audio device: ");
+                nprintf(deviceEntry->name);
+                printf("\n");
+                if (SGSetChannelDevice(s->audio_channel, deviceEntry->name) !=
+                    noErr) {
+                        fprintf(stderr, "Setting up the selected audio device failed\n");
+                        s->grab_audio = FALSE;
+                        goto AFTER_AUDIO;
+                }
+
+                /* Select input */
+                inputList = deviceEntry->inputs;
+                printf("Quicktime: Setting audio input: ");
+                nprintf((unsigned char *)(&(*inputList)->entry[s->audio_minor].name));
+                printf("\n");
+                if (SGSetChannelDeviceInput(s->audio_channel, s->audio_minor) !=
+                    noErr) {
+                        fprintf(stderr, "Setting up input on selected audiodevice failed\n");
+                        s->grab_audio = FALSE;
+                        goto AFTER_AUDIO;
+                }
+                ret = SGGetSoundInputParameters(s->audio_channel, &s->audio.bps,
+                                &s->audio.ch_count, &compression);
+                if(ret != noErr) {
+                        fprintf(stderr, "Quicktime: failed to get audio properties");
+                        s->grab_audio = FALSE;
+                        goto AFTER_AUDIO;
+                }
+                /* if we need to specify format explicitly, we would use it here
+                 * but take care that sowt is 16-bit etc.! */
+                /*ret = SGSetSoundInputParameters(s->audio_channel, s->audio.bps,
+                                s->audio.ch_count, 'sowt');
+                if(ret != noErr) {
+                        fprintf(stderr, "Quicktime: failed to set audio properties");
+                        s->grab_audio = FALSE;
+                        goto AFTER_AUDIO;
+                }*/
+                s->audio.bps /= 8; /* bits -> bytes */
+                Fixed tmp;
+                tmp = SGGetSoundInputRate(s->audio_channel);
+                /* next line solves common Fixed overflow (wtf QT?) */
+                s->audio.sample_rate = Fix2X(UnsignedFixedMulDiv(tmp, X2Fix(1), X2Fix(2)))* 2.0;
+                s->audio.aux = 0;
+                s->abuffer[0] = (char *) malloc(s->audio.sample_rate * s->audio.bps *
+                                s->audio.ch_count);
+                s->abuffer[1] = (char *) malloc(s->audio.sample_rate * s->audio.bps *
+                                s->audio.ch_count);
+                
+                SGSetSoundRecordChunkSize(s->audio_channel, -65536/120); /* Negative argument meens
+                                                                            that the value is Fixed
+                                                                            (in secs). 1/120 sec
+                                                                            seems to be quite decent
+                                                                            value. */
+        }
+AFTER_AUDIO:
 
         SetPort(savedPort);
 
@@ -636,7 +808,7 @@ struct vidcap_type *vidcap_quicktime_probe(void)
 }
 
 /* Initialize the QuickTime grabbing system */
-void *vidcap_quicktime_init(char *fmt)
+void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 {
         struct qt_grabber_state *s;
 
@@ -651,10 +823,28 @@ void *vidcap_quicktime_init(char *fmt)
                 s->sg_idle_enough = 0;
                 s->frame.color_spec = 0xffffffff;
 
+                if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+                        s->grab_audio = TRUE;
+                } else {
+                        s->grab_audio = FALSE;
+                }
+
+
                 if (qt_open_grabber(s, fmt) == 0) {
                         free(s);
                         return NULL;
                 }
+
+                pthread_mutex_init(&s->lock, NULL);
+                pthread_cond_init(&s->boss_cv, NULL);
+                pthread_cond_init(&s->worker_cv, NULL);
+                s->boss_waiting = FALSE;
+                s->worker_waiting = FALSE;
+                s->work_to_do = TRUE;
+                s->grab_buf_idx = 0;
+                s->frame.data = s->vbuffer[0];
+                s->audio.data = s->abuffer[0];
+                pthread_create(&s->thread_id, NULL, vidcap_quicktime_thread, s);
         }
 
         return s;
@@ -676,6 +866,44 @@ void vidcap_quicktime_done(void *state)
         }
 }
 
+void * vidcap_quicktime_thread(void *state) 
+{
+        struct qt_grabber_state *s = (struct qt_grabber_state *)state;
+
+        while(1) {
+                memset(s->abuffer[s->grab_buf_idx], 0, s->abuffer_len);
+                s->abuffer_len = 0;
+                /* Run the QuickTime sequence grabber idle function, which provides */
+                /* processor time to out data proc running as a callback.           */
+
+                /* The while loop done in this way is also sort of nice bussy waiting */
+                /* and synchronizes capturing and sending.                            */
+                s->sg_idle_enough = 0;
+                while (!s->sg_idle_enough) {
+                        if (SGIdle(s->grabber) != noErr) {
+                                debug_msg("Error in SGIDle\n");
+                        }
+                }
+                pthread_mutex_lock(&s->lock);
+                while(!s->work_to_do) {
+                        s->worker_waiting = TRUE;
+                        pthread_cond_wait((&s->worker_cv), &s->lock);
+                        s->worker_waiting = FALSE;
+                }
+                s->audio.data_len = s->abuffer_len;
+                s->frame.data = s->vbuffer[s->grab_buf_idx];
+                s->audio.data = s->abuffer[s->grab_buf_idx];
+
+                s->grab_buf_idx = (s->grab_buf_idx + 1 ) % 2;
+                s->work_to_do = FALSE;
+
+                if(s->boss_waiting)
+                        pthread_cond_signal(&s->boss_cv);
+                pthread_mutex_unlock(&s->lock);
+        }
+        return NULL;
+}
+
 /* Grab a frame */
 struct video_frame *vidcap_quicktime_grab(void *state, int *count, struct audio_frame **audio)
 {
@@ -683,24 +911,27 @@ struct video_frame *vidcap_quicktime_grab(void *state, int *count, struct audio_
 
         assert(s != NULL);
         assert(s->magic == MAGIC_QT_GRABBER);
-        
-        *audio = NULL; /* currently no audio */
 
-        /* Run the QuickTime sequence grabber idle function, which provides */
-        /* processor time to out data proc running as a callback.           */
-
-        /* The while loop done in this way is also sort of nice bussy waiting */
-        /* and synchronizes capturing and sending.                            */
-        s->sg_idle_enough = 0;
-        while (!s->sg_idle_enough) {
-                if (SGIdle(s->grabber) != noErr) {
-                        debug_msg("Error in SGIDle\n");
-                        *count = 0;
-                        return NULL;
-                }
+        pthread_mutex_lock(&s->lock);
+        while(s->work_to_do) {
+                s->boss_waiting = TRUE;
+                pthread_cond_wait(&s->boss_cv, &s->lock);
+                s->boss_waiting = FALSE;
         }
 
-        *count = 1;
+        if(s->grab_audio && s->audio.data_len > 0) {
+                *audio = &s->audio;
+        } else {
+                *audio = NULL;
+        }
+
+        s->work_to_do = TRUE;
+        
+        if(s->worker_waiting)
+                pthread_cond_signal(&s->worker_cv);
+        pthread_mutex_unlock(&s->lock);
+
+        *count = 1; /* no tiled video by now */
         return &s->frame;
 }
 

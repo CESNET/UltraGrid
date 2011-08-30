@@ -925,7 +925,10 @@ static int find_mode(ComponentInstance *ci, int width, int height,
 		ret =
 		    QTGetAtomDataPtr(modeListAtomContainer, atom,
 				     &dataSize, (Ptr *) & dataPtr);
-		if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) > 0.01)) {
+                /* Following computation is in Fixed data type - its real value
+                 * is 65536 bigger than coresponding integer (Fixed cast to int)
+                 */
+		if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) > 0.01 * 65536)) {
 			++i;
                         debug_msg("[quicktime] mode %dx%d@%0.2f not selected.\n",
                                         width, height, EndianS32_BtoN(dataPtr[0])/65536.0);
