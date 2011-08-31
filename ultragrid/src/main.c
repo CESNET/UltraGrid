@@ -455,11 +455,13 @@ static void *audio_sender_thread(void *arg)
         audio_frame buffer;
         PaStream *stream;
 		
-        stream = portaudio_capture_init(uv->audio_capture_device);
-        if (!stream) return NULL;
+	if(uv->audio_capture_device != AUDIO_DEV_SDI) {
+		stream = portaudio_capture_init(uv->audio_capture_device);
+		if (!stream) return NULL;
 
-        portaudio_init_audio_frame(&buffer);
-        portaudio_start_stream(stream);
+		portaudio_init_audio_frame(&buffer);
+		portaudio_start_stream(stream);
+	}
 #endif /* HAVE_PORTAUDIO */
                 
         while (!should_exit) {

@@ -197,7 +197,7 @@ if test ! $no_x ; then
 			X_CFLAGS=$SAVED_X_CFLAGS
 		fi
 	fi
-        X_LIBS+=" -lX11 -lXext"
+        X_LIBS+=" -lX11"
         CFLAGS+=""
 
 fi
@@ -627,6 +627,7 @@ then
 	DXT_OBJ="$DXT_OBJ"
 	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
+	LINKER=$CXX
 else
 	DXT_INC=
 	DXT_LIB=
