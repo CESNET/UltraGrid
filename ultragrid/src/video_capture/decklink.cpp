@@ -74,6 +74,12 @@ extern "C" {
 
 #define MAX_DEVICES 4
 
+#ifdef HAVE_MACOSX
+#define STRING CFStringRef
+#else
+#define STRING const char *
+#endif
+
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
@@ -250,15 +256,24 @@ decklink_help()
 	// Enumerate all cards in this system
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
-		char *		deviceNameString = NULL;
-		
+		STRING		deviceNameString = NULL;
+		char *		deviceNameCString = NULL;
 		
 		// *** Print the model name of the DeckLink card
-		result = deckLink->GetModelName((const char **) &deviceNameString);
+		result = deckLink->GetModelName((STRING *) &deviceNameString);
+#ifdef HAVE_MACOSX
+                deviceNameCString = (char *) malloc(128);
+                CFStringGetCString(deviceNameString, deviceNameCString, 128, kCFStringEncodingMacRoman);
+#else
+                deviceNameCString = deviceNameString;
+#endif
 		if (result == S_OK)
 		{
-			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameString);
-			free(deviceNameString);
+			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
+			free(deviceNameCString);
+#ifdef HAVE_MACOSX
+			CFRelease(deviceNameString);
+#endif
 		}
 		
 		// Increment the total number of DeckLink cards found
@@ -449,7 +464,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 
                         s->state[i].deckLink = deckLink;
 
-                        const char *deviceNameString = NULL;
+                        STRING deviceNameString = NULL;
                         
                         // Print the model name of the DeckLink card
                         result = deckLink->GetModelName(&deviceNameString);
@@ -492,7 +507,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 
                                         printf("The desired display mode is supported: %d\n",s->mode);  
                         
-                                        const char *displayModeString = NULL;
+                                        STRING displayModeString = NULL;
 
                                         result = displayMode->GetName(&displayModeString);
                                         if (result == S_OK)
@@ -917,9 +932,18 @@ print_output_modes (IDeckLink* deckLink)
 	printf("display modes:\n");
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
-		char *			displayModeString = NULL;
+		STRING			displayModeString = NULL;
+                char *displayModeCString;
 		
-		result = displayMode->GetName((const char **) &displayModeString);
+		result = displayMode->GetName((STRING *) &displayModeString);
+#ifdef HAVE_MACOSX
+                displayModeCString = (char *) malloc(128);
+                CFStringGetCString(displayModeString, displayModeCString, 128, kCFStringEncodingMacRoman);
+#else
+                displayModeCString = displayModeString;
+#endif
+
+
 		if (result == S_OK)
 		{
 			char			modeName[64];
@@ -933,8 +957,11 @@ print_output_modes (IDeckLink* deckLink)
 			modeWidth = displayMode->GetWidth();
 			modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-			printf("%d.) %-20s \t %d x %d \t %g FPS\n",displayModeNumber, displayModeString, modeWidth, modeHeight, (double)frameRateScale / (double)frameRateDuration);
-			free(displayModeString);
+			printf("%d.) %-20s \t %d x %d \t %g FPS\n",displayModeNumber, displayModeCString, modeWidth, modeHeight, (double)frameRateScale / (double)frameRateDuration);
+#ifdef HAVE_MACOSX
+                        CFRelease(displayModeString);
+#endif
+			free(displayModeCString);
 		}
 		
 		// Release the IDeckLinkDisplayMode object to prevent a leak

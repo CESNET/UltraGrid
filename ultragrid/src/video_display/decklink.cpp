@@ -70,6 +70,12 @@ extern "C" {
 } // END of extern "C"
 #endif
 
+#ifdef HAVE_MACOSX
+#define STRING CFStringRef
+#else
+#define STEING const char *
+#endif
+
 #define MAX_DEVICES 4
 
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
@@ -141,15 +147,24 @@ static void show_help(void)
         // Enumerate all cards in this system
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
-                char *          deviceNameString = NULL;
-                
+                STRING          deviceNameString = NULL;
+                char *deviceNameCString;
                 
                 // *** Print the model name of the DeckLink card
-                result = deckLink->GetModelName((const char **) &deviceNameString);
+                result = deckLink->GetModelName((STRING *) &deviceNameString);
+#ifdef HAVE_MACOSX
+                deviceNameCString = (char *) malloc(128);
+                CFStringGetCString(deviceNameString, deviceNameCString, 128, kCFStringEncodingMacRoman);
+#else
+                deviceNameCString = deviceNameString;
+#endif
                 if (result == S_OK)
                 {
-                        printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameString);
-                        free(deviceNameString);
+                        printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
+#ifdef HAVE_MACOSX
+                        CFRelease(deviceNameString);
+#endif
+                        free(deviceNameCString);
                 }
                 
                 // Increment the total number of DeckLink cards found
@@ -293,10 +308,16 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
 
                 while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
                 {
-                        const char       *modeName;
-
-                        if (deckLinkDisplayMode->GetName(&modeName) == S_OK)
+                        STRING modeNameString;
+                        char *modeNameCString;
+                        if (deckLinkDisplayMode->GetName(&modeNameString) == S_OK)
                         {
+#ifdef HAVE_MACOSX
+                                modeNameCString = (char *) malloc(128);
+                                CFStringGetCString(modeNameString, modeNameCString, 128, kCFStringEncodingMacRoman);
+#else
+                                modeNameCString = modeNameString;
+#endif
                                 if (deckLinkDisplayMode->GetWidth() == tile_width &&
                                                 deckLinkDisplayMode->GetHeight() == tile_height)
                                 {
@@ -314,10 +335,10 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                                         deckLinkDisplayMode->GetFrameRate(&s->frameRateDuration,
                                                         &s->frameRateScale);
                                         displayFPS = (double) s->frameRateScale / s->frameRateDuration;
-                                        if(fabs(fps - displayFPS) < 0.5// && (aux & AUX_INTERLACED && interlaced || !interlaced)
+                                        if(fabs(fps - displayFPS) < 0.01// && (aux & AUX_INTERLACED && interlaced || !interlaced)
                                           )
                                         {
-                                                printf("Device %d - selected mode: %s\n", i, modeName);
+                                                printf("Device %d - selected mode: %s\n", i, modeNameCString);
                                                 modeFound = true;
                                                 displayMode = deckLinkDisplayMode->GetDisplayMode();
                                                 break;

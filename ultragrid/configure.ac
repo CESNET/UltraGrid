@@ -44,10 +44,12 @@ case "$host" in
   	x86_64-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86_64"
 		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
+                LIBS+=" -lrt"
 	;;
 	i*86-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86"
 		AC_DEFINE([HAVE_32B_LINUX], [1], [We have 32-bit Linux])
+                LIBS+=" -lrt"
 	;;
 esac	
 
@@ -270,27 +272,54 @@ AC_ARG_ENABLE(decklink,
 	then
 		AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
 	fi])
-
 AC_ARG_WITH(decklink,
-	[  --with-decklink=DIR     specify location of DECKLINK],
-	[DECKLINK_INC=$withval/include
-	],
-	[DECKLINK_INC=${PARENT}/DeckLink/include
-	])
+        [  --with-decklink=DIR     specify location of DECKLINK],
+        [DECKLINK_INC=$withval/include
+        ],
+        []
+        )
 
-AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
-AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
-AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
+case "$host_os" in
+	*darwin*)
+                if test -z $DECKLINK; then
+                        DECKLINK_INC=${PARENT}/DeckLink/Mac
+                fi
+                OLD_LIBS=$LIBS
+                LIBS+=" -framework CoreFoundation ../DeckLink/include/DeckLinkAPIDispatch.cpp"
+                AC_LANG_PUSH(C++)
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "../DeckLink/include/DeckLinkAPI.h"
+                                   ]], 
+		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
+                LIBS=$OLD_LIBS
+                if test $FOUND_DECKLINK = yes; then
+                        LIBS+=" -framework CoreFoundation"
+                fi
+                AC_LANG_POP(C++)
+                ;;
+        *)
+                if test -z $DECKLINK; then
+                        DECKLINK_INC=${PARENT}/DeckLink/include
+                fi
 
+                AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
+                AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPIDispatch.cpp, FOUND_DECKLINK_SRC=yes, FOUND_DECKLINK_SRC=no)
+                AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
+                if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
+                        FOUND_DECKLINK=yes
+                else
+                        FOUND_DECKLINK=no
+                fi
+                ;;
+esac
 
-if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes
+if test $FOUND_DECKLINK = yes
 then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
     DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o src/video_display/decklink.o"
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
-    LIBS=" -ldl"
+    LIBS+=" -ldl"
 else
     DECKLINK_PATH=
     DECKLINK_INC=
