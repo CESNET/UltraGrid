@@ -209,9 +209,7 @@ void audio_tx_send(struct rtp *rtp_session, audio_frame * buffer)
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
         
-        payload_hdr.aux = 0;
         payload_hdr.ch_count = buffer->ch_count;
-        payload_hdr.aux = htonl(buffer->aux);
         payload_hdr.sample_rate = htonl(buffer->sample_rate);
         payload_hdr.buffer_len = htonl(buffer->data_len);
         payload_hdr.audio_quant = buffer->bps * 8;

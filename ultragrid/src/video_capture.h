@@ -58,6 +58,8 @@
 
 typedef uint32_t	vidcap_id_t;
 
+struct audio_frame;
+
 struct vidcap_type {
 	vidcap_id_t		 id;
 	const char		*name;
@@ -98,5 +100,5 @@ struct vidcap		*vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, int *count, struct audio_frame **audio);
 
-#define VIDCAP_FLAG_ENABLE_AUDIO 1
+#define VIDCAP_FLAG_ENABLE_AUDIO (1<<1)
 

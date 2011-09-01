@@ -420,7 +420,6 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 s->audio.bps = 2;
                 s->audio.sample_rate = 48000;
                 s->audio.ch_count = 2;
-                s->audio.aux = 0;
         } else {
                 s->grab_audio = FALSE;
         }

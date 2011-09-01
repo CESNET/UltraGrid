@@ -55,20 +55,18 @@
 static const int audio_payload_type = 97;
 
 typedef void (*reconfigure_audio_t)(void *state, int quant_samples, int channels,
-                int sample_rate, int aux);
-typedef void (*decoder_audio_t)(void *dst, void *src, int data_len, int buffer_len, void *state);
+                int sample_rate);
 
 typedef struct audio_frame
 {
-        int bps;                // bytes per sample
+        int bps;                /* bytes per sample */
         int sample_rate;
-        char *data;	// we support max 8 channels
-        int data_len;
-        int ch_count;		// count of channels
-        unsigned int aux;	// if the buffer is interleaved or not
+        char *data;
+        int data_len;           /* size of useful data in buffer */
+        int ch_count;		/* count of channels */
+        unsigned int max_size;  /* maximal size of data in buffer */
         
         reconfigure_audio_t reconfigure_audio;
-        decoder_audio_t decoder;
         void *state;
 }
 audio_frame;

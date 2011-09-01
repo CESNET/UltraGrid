@@ -374,6 +374,7 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         UNUSED(curr_time);
         struct pbuf_node *curr;
         struct coded_data *cdata;
+        static int prints = 0;
 
         pbuf_validate(playout_buf);     // should be run in debug mode
 
@@ -389,25 +390,41 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 char *data;
                                 audio_payload_hdr_t *hdr = 
                                         (audio_payload_hdr_t *) cdata->data->data;
-                                unsigned int aux;
+                                        
                                 int channels, quant_samples,
                                         sample_rate;
                                 
                                 channels = hdr->ch_count;
-                                aux = ntohl(hdr->aux);
                                 sample_rate = ntohl(hdr->sample_rate);
                                 quant_samples = hdr->audio_quant; assert(hdr->audio_quant % 8 == 0);
                                 
                                 if(buffer->ch_count != channels ||
-                                                buffer->aux != aux ||
                                                 buffer->bps != quant_samples / 8) {
                                         buffer->reconfigure_audio(buffer->state, quant_samples, channels,
-                                                sample_rate, aux);
-                                        buffer = portaudio_get_frame(buffer->state);
+                                                sample_rate);
+                                        //buffer = display_get_audio_frame(buffer->state);
                                 }
                                 
                                 data = cdata->data->data + sizeof(audio_payload_hdr_t);
-                                buffer->decoder(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length), ntohl(hdr->buffer_len), buffer->state);
+                                
+                                if(ntohs(hdr->length) <= buffer->max_size - ntohl(hdr->offset)) {
+                                        memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
+                                } else { /* discarding data - buffer to small */
+                                        memcpy(buffer->data + ntohl(hdr->offset), data, 
+                                                buffer->max_size - ntohl(hdr->offset));
+                                        if(++prints % 100 == 0)
+                                                fprintf(stdout, "Warning: "
+                                                        "discarding audio data "
+                                                        "- buffer too small\n");
+                                }
+                                
+                                /* buffer size same for every packet of the frame */
+                                if(ntohs(hdr->buffer_len) <= buffer->max_size) {
+                                        buffer->data_len = ntohl(hdr->buffer_len); 
+                                } else { /* overflow */
+                                        buffer->data_len = buffer->max_size;
+                                }
+                                
                                 cdata = cdata->nxt;
                         }
                         

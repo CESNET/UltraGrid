@@ -72,11 +72,13 @@
 typedef struct {
         display_id_t id;
         display_type_t *(*func_probe) (void);
-        void *(*func_init) (char *fmt);
+        void *(*func_init) (char *fmt, unsigned int flags);
         void (*func_run) (void *state);
         void (*func_done) (void *state);
-        char *(*func_getf) (void *state);
+        struct video_frame *(*func_getf) (void *state);
         int (*func_putf) (void *state, char *frame);
+        struct audio_frame *(*func_get_audio_frame) (void *state);
+        void (*func_put_audio_frame) (void *state, const struct audio_frame *frame);
 } display_table_t;
 
 static display_table_t display_device_table[] = {
@@ -89,6 +91,8 @@ static display_table_t display_device_table[] = {
          display_sdl_done,
          display_sdl_getf,
          display_sdl_putf,
+         NULL,
+         NULL,
          },
 #endif                          /* HAVE_SDL */
 #ifdef HAVE_GL
@@ -100,6 +104,8 @@ static display_table_t display_device_table[] = {
          display_gl_done,
          display_gl_getf,
          display_gl_putf,
+         NULL,
+         NULL,
          },
 #ifdef HAVE_SAGE
         {
@@ -110,6 +116,8 @@ static display_table_t display_device_table[] = {
          display_sage_done,
          display_sage_getf,
          display_sage_putf,
+         NULL,
+         NULL,
          },
 #endif                          /* HAVE_SAGE */
 #endif                          /* HAVE_GL */
@@ -122,6 +130,8 @@ static display_table_t display_device_table[] = {
          display_decklink_done,
          display_decklink_getf,
          display_decklink_putf,
+         display_decklink_get_audio_frame,
+         display_decklink_put_audio_frame,
          },
 #endif                          /* HAVE_DECKLINK */
 #ifdef HAVE_DVS
@@ -133,6 +143,8 @@ static display_table_t display_device_table[] = {
          display_dvs_done,
          display_dvs_getf,
          display_dvs_putf,
+         NULL,
+         NULL,
          },
 #endif                          /* HAVE_DVS */
 #ifdef HAVE_MACOSX
@@ -144,6 +156,8 @@ static display_table_t display_device_table[] = {
          display_quicktime_done,
          display_quicktime_getf,
          display_quicktime_putf,
+         NULL,
+         NULL,
          },
 #endif                          /* HAVE_MACOSX */
         {
@@ -154,6 +168,8 @@ static display_table_t display_device_table[] = {
          display_null_done,
          display_null_getf,
          display_null_putf,
+         NULL,
+         NULL,
          }
 };
 
@@ -220,7 +236,7 @@ struct display {
         void *state;
 };
 
-struct display *display_init(display_id_t id, char *fmt)
+struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
 {
         unsigned int i;
 
@@ -229,7 +245,7 @@ struct display *display_init(display_id_t id, char *fmt)
                         struct display *d =
                             (struct display *)malloc(sizeof(struct display));
                         d->magic = DISPLAY_MAGIC;
-                        d->state = display_device_table[i].func_init(fmt);
+                        d->state = display_device_table[i].func_init(fmt, flags);
                         d->index = i;
                         if (d->state == NULL) {
                                 debug_msg("Unable to start display 0x%08lx\n",
@@ -268,4 +284,18 @@ void display_put_frame(struct display *d, char *frame)
         perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_putf(d->state, frame);
+}
+
+struct audio_frame *display_get_audio_frame(struct display *d)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        if(display_device_table[d->index].func_get_audio_frame == NULL)
+                return NULL;
+        return display_device_table[d->index].func_get_audio_frame(d->state);
+}
+
+void display_put_audio_frame(struct display *d, const struct audio_frame *frame)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        display_device_table[d->index].func_put_audio_frame(d->state, frame);
 }

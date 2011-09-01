@@ -752,7 +752,6 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 tmp = SGGetSoundInputRate(s->audio_channel);
                 /* next line solves common Fixed overflow (wtf QT?) */
                 s->audio.sample_rate = Fix2X(UnsignedFixedMulDiv(tmp, X2Fix(1), X2Fix(2)))* 2.0;
-                s->audio.aux = 0;
                 s->abuffer[0] = (char *) malloc(s->audio.sample_rate * s->audio.bps *
                                 s->audio.ch_count);
                 s->abuffer[1] = (char *) malloc(s->audio.sample_rate * s->audio.bps *

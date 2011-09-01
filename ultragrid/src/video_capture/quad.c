@@ -376,7 +376,6 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 s->audio.bps = QUAD_AUDIO_BPS;
                 s->audio.sample_rate = QUAD_AUDIO_SAMPLE_RATE;
                 s->audio.ch_count = QUAD_AUDIO_CHANNELS;
-                s->audio.aux = 0;
                 s->audio.data = (char *) malloc(QUAD_AUDIO_BUFSIZE);
                 s->audio_bytes_read = 0u;
                 if(open_audio(s) != 0)

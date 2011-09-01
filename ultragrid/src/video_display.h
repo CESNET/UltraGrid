@@ -55,6 +55,8 @@
 #ifndef _VIDEO_DISPLAY_H
 #define _VIDEO_DISPLAY_H
 
+struct audio_frame;
+
 /*
  * Interface to probing the valid display types. 
  *
@@ -81,10 +83,15 @@ display_id_t 	 display_get_null_device_id(void);
 
 struct display;
 
-struct display	*display_init(display_id_t id, char *fmt);
+struct display	*display_init(display_id_t id, char *fmt, unsigned int flags);
 void 		 display_run(struct display *d);
 void 		 display_done(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);
+
+struct audio_frame * display_get_audio_frame(struct display *d);
+void 		 display_put_audio_frame(struct display *d, const struct audio_frame *frame);
+
+#define DISPLAY_FLAG_ENABLE_AUDIO (1<<1)
 
 #endif /* _VIDEO_DISPLAY_H */

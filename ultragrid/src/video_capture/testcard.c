@@ -295,7 +295,9 @@ static void grab_audio(int chan, void *stream, int len, void *udata)
 
 static int configure_audio(struct testcard_state *s)
 {
-#ifdef HAVE_LIBSDL_MIXER
+        UNUSED(s);
+        
+#if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
         char *filename;
         int fd;
         Mix_Music *music;
@@ -632,8 +634,11 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         
         if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
                 s->grab_audio = TRUE;
-                if(configure_audio(s) != 0)
+                if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
+                        fprintf(stderr, "[testcard] Disabling audio output. "
+                                        "SDL-mixer missing, running on Mac or other problem.");
+                }
         } else {
                 s->grab_audio = FALSE;
         }

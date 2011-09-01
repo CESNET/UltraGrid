@@ -65,6 +65,7 @@ extern "C" {
 #include "debug.h"
 #include "video_capture.h"
 #include "DeckLinkAPI.h"
+#include "audio/audio.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -115,16 +116,20 @@ struct state_decklink {
         BMDTimeValue        frameRateDuration;
         BMDTimeScale        frameRateScale;
 
+	struct audio_frame  audio;
         struct video_frame  frame[MAX_DEVICES];
 
         unsigned long int   frames;
         unsigned long int   frames_last;
         bool                initialized;
         int                 devices_cnt;
-};
+        unsigned int        play_audio:1;
+ };
 
 static void show_help(void);
 static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out); 
+void display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate);
 
 static void show_help(void)
 {
@@ -375,7 +380,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
 }
 
 
-void *display_decklink_init(char *fmt)
+void *display_decklink_init(char *fmt, unsigned int flags)
 {
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
@@ -447,6 +452,15 @@ void *display_decklink_init(char *fmt)
                 }
         }
 
+	s->audio.state = s;
+        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                s->play_audio = TRUE;
+                s->audio.data = NULL;
+                s->audio.reconfigure_audio = display_decklink_reconfigure_audio;
+        } else {
+                s->play_audio = FALSE;
+        }
+        
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if (s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput) != S_OK) {
@@ -459,7 +473,7 @@ void *display_decklink_init(char *fmt)
                 s->state[i].delegate = new PlaybackDelegate(s, i);
                 // Provide this class as a delegate to the audio and video output interfaces
                 s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
-                s->state[i].deckLinkOutput->DisableAudioOutput();
+                //s->state[i].deckLinkOutput->DisableAudioOutput();
 
                 s->frame[i].state = s;
                 s->frame[i].reconfigure = (reconfigure_t) reconfigure_screen_decklink;
@@ -552,5 +566,72 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
                         w * out->dst_bpp;
 
         }
+}
+
+/*
+ * AUDIO
+ */
+struct audio_frame * display_decklink_get_audio_frame(void *state)
+{
+        struct state_decklink *s = (struct state_decklink *)state;
+        
+        if(!s->play_audio)
+                return NULL;
+        return &s->audio;
+}
+
+void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        struct state_decklink *s = (struct state_decklink *)state;
+        const unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
+                        s->audio.ch_count);
+        unsigned int sampleFramesWritten;
+
+	s->state[0].deckLinkOutput->ScheduleAudioSamples (s->audio.data, sampleFrameCount, 0, 		
+                0, &sampleFramesWritten);
+        if(sampleFramesWritten != sampleFrameCount)
+                fprintf(stderr, "[decklink] audio buffer underflow!\n");
+
+}
+
+void display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate) {
+        struct state_decklink *s = (struct state_decklink *)state;
+        BMDAudioSampleType sample_type;
+
+        if(s->audio.data != NULL)
+                free(s->audio.data);
+                
+        s->audio.bps = quant_samples / 8;
+        s->audio.sample_rate = sample_rate;
+        s->audio.ch_count = channels;
+        
+        if((quant_samples != 16 && quant_samples != 32) ||
+                        (channels != 2 && channels != 8 && channels != 16) ||
+                        sample_rate != 48000) {
+                fprintf(stderr, "[decklink] audio format isn't supported: "
+                        "channels: %d, samples: %d, sample rate: %d\n",
+                        channels, quant_samples, sample_rate);
+                s->play_audio = FALSE;
+                return;
+        }
+        switch(quant_samples) {
+                case 16:
+                        sample_type = bmdAudioSampleType16bitInteger;
+                        break;
+                case 32:
+                        sample_type = bmdAudioSampleType32bitInteger;
+                        break;
+        }
+                        
+        s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
+                        sample_type,
+                        channels,
+                        bmdAudioOutputStreamContinuous);
+        s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
+        
+        s->audio.max_size = 5 * (quant_samples / 8) * channels *
+                        sample_rate;                
+        s->audio.data = (char *) malloc (s->audio.max_size);
 }
 

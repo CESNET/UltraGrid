@@ -332,7 +332,6 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 s->audio.bps = i / 8;
                 sv_query(s->sv, SV_QUERY_AUDIOFREQ, 0, &i);
                 s->audio.sample_rate = i;
-                s->audio.aux = 0;
                 s->audio.data_len = 0;
 
                 /* two 1-sec buffers */
