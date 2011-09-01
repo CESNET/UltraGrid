@@ -202,7 +202,8 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
         
         if(audioPacket) {
                 audioPacket->GetBytes(&audioFrame);
-                audioFrameSamples = audioPacket->GetSampleFrameCount();
+                s->audio.data_len = audioPacket->GetSampleFrameCount() * 2 * 2;
+                memcpy(s->audio.data, audioFrame, s->audio.data_len);
         } else {
                 audioFrame = NULL;
         }
@@ -257,7 +258,7 @@ decklink_help()
 	while (deckLinkIterator->Next(&deckLink) == S_OK)
 	{
 		STRING		deviceNameString = NULL;
-		char *		deviceNameCString = NULL;
+		const char *		deviceNameCString = NULL;
 		
 		// *** Print the model name of the DeckLink card
 		result = deckLink->GetModelName((STRING *) &deviceNameString);
@@ -270,7 +271,7 @@ decklink_help()
 		if (result == S_OK)
 		{
 			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
-			free(deviceNameCString);
+			free((void *)deviceNameCString);
 #ifdef HAVE_MACOSX
 			CFRelease(deviceNameString);
 #endif
@@ -420,6 +421,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 s->audio.bps = 2;
                 s->audio.sample_rate = 48000;
                 s->audio.ch_count = 2;
+                s->audio.data = (char *) malloc (48000 * 2 * 2);
         } else {
                 s->grab_audio = FALSE;
         }
@@ -878,8 +880,6 @@ vidcap_decklink_grab(void *state, int * count, struct audio_frame **audio)
                 s->frames++;
                 
                 if(s->state[0].delegate->audioFrame != NULL) {
-                        s->audio.data = (char *) s->state[0].delegate->audioFrame;
-                        s->audio.data_len = s->state[0].delegate->audioFrameSamples * 2 * 2;
                         *audio = &s->audio;
                 } else {
                         *audio = NULL;
@@ -932,7 +932,7 @@ print_output_modes (IDeckLink* deckLink)
 	while (displayModeIterator->Next(&displayMode) == S_OK)
 	{
 		STRING			displayModeString = NULL;
-                char *displayModeCString;
+                const char *displayModeCString;
 		
 		result = displayMode->GetName((STRING *) &displayModeString);
 #ifdef HAVE_MACOSX
@@ -960,7 +960,7 @@ print_output_modes (IDeckLink* deckLink)
 #ifdef HAVE_MACOSX
                         CFRelease(displayModeString);
 #endif
-			free(displayModeCString);
+			free((void *)displayModeCString);
 		}
 		
 		// Release the IDeckLinkDisplayMode object to prevent a leak

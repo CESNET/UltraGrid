@@ -74,7 +74,7 @@ extern "C" {
 #ifdef HAVE_MACOSX
 #define STRING CFStringRef
 #else
-#define STEING const char *
+#define STRING const char *
 #endif
 
 #define MAX_DEVICES 4
@@ -153,7 +153,7 @@ static void show_help(void)
         while (deckLinkIterator->Next(&deckLink) == S_OK)
         {
                 STRING          deviceNameString = NULL;
-                char *deviceNameCString;
+                const char *deviceNameCString;
                 
                 // *** Print the model name of the DeckLink card
                 result = deckLink->GetModelName((STRING *) &deviceNameString);
@@ -169,7 +169,7 @@ static void show_help(void)
 #ifdef HAVE_MACOSX
                         CFRelease(deviceNameString);
 #endif
-                        free(deviceNameCString);
+                        free((void *)deviceNameCString);
                 }
                 
                 // Increment the total number of DeckLink cards found
@@ -314,7 +314,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                 while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
                 {
                         STRING modeNameString;
-                        char *modeNameCString;
+                        const char *modeNameCString;
                         if (deckLinkDisplayMode->GetName(&modeNameString) == S_OK)
                         {
 #ifdef HAVE_MACOSX
