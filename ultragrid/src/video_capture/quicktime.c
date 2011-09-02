@@ -69,6 +69,8 @@
 
 #define MAGIC_QT_GRABBER	VIDCAP_QUICKTIME_ID
 
+extern int should_exit;
+
 struct qt_grabber_state {
         uint32_t magic;
         SeqGrabComponent grabber;
@@ -869,7 +871,7 @@ void * vidcap_quicktime_thread(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
-        while(1) {
+        while(!should_exit) {
                 memset(s->abuffer[s->grab_buf_idx], 0, s->abuffer_len);
                 s->abuffer_len = 0;
                 /* Run the QuickTime sequence grabber idle function, which provides */

@@ -159,7 +159,7 @@ static void show_help(void)
                 result = deckLink->GetModelName((STRING *) &deviceNameString);
 #ifdef HAVE_MACOSX
                 deviceNameCString = (char *) malloc(128);
-                CFStringGetCString(deviceNameString, deviceNameCString, 128, kCFStringEncodingMacRoman);
+                CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
 #else
                 deviceNameCString = deviceNameString;
 #endif
@@ -319,7 +319,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                         {
 #ifdef HAVE_MACOSX
                                 modeNameCString = (char *) malloc(128);
-                                CFStringGetCString(modeNameString, modeNameCString, 128, kCFStringEncodingMacRoman);
+                                CFStringGetCString(modeNameString, (char *) modeNameCString, 128, kCFStringEncodingMacRoman);
 #else
                                 modeNameCString = modeNameString;
 #endif

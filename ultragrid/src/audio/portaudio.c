@@ -404,6 +404,9 @@ void portaudio_put_frame(void *state)
         error = Pa_WriteStream(s->stream, s->frame.data, s->frame.data_len / (s->frame.bps * s->frame.ch_count));
 
 	if(error != paNoError) {
+                if(error == paOutputUnderflowed) { /* put current frame once more */
+                        Pa_WriteStream(s->stream, s->frame.data, s->frame.data_len / (s->frame.bps * s->frame.ch_count));
+                }
 		printf("Pa write stream error: %s\n", Pa_GetErrorText(error));
 	}
 }

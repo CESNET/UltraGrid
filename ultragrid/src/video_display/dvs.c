@@ -67,6 +67,8 @@
 
 #define HDSP_MAGIC	0x12345678
 
+extern int should_exit;
+
 /* TODO: set properties for commented-out formats (if known) */
 
 const hdsp_mode_table_t hdsp_mode_table[] = {
@@ -376,7 +378,7 @@ void display_dvs_run(void *arg)
         struct state_hdsp *s = (struct state_hdsp *)arg;
         int res;
 
-        while (1) {
+        while (!should_exit) {
                 pthread_mutex_lock(&s->lock);
 
                 while (s->work_to_do == FALSE) {

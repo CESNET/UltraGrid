@@ -306,6 +306,7 @@ case "$host_os" in
                 AC_CHECK_LIB(DeckLinkAPI, main, FOUND_DECKLINK_L=yes, FOUND_DECKLINK_L=no)
                 if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
                         FOUND_DECKLINK=yes
+                        LIBS+=" -ldl"
                 else
                         FOUND_DECKLINK=no
                 fi
@@ -319,7 +320,6 @@ then
     DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o src/video_display/decklink.o"
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
-    LIBS+=" -ldl"
 else
     DECKLINK_PATH=
     DECKLINK_INC=
@@ -737,15 +737,11 @@ AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, IS_PORTAUDIO_STATIC=yes, IS_PORTA
 if test $FOUND_PORTAUDIO_H = yes -a $FOUND_PORTAUDIO_L = yes -a $IS_PORTAUDIO_STATIC = yes
 then
     PORTAUDIO_INC=-I${PORTAUDIO_INC}
-case "$host_os" in
-        *darwin*)
-                PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices"
-        ;;
-        *)
-                PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
-                LIBS+=" -lasound"
-        ;;
-esac
+    # we have now portaudio linked statically
+    # TODO: consider linking it dynamically
+    PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
+    PORTAUDIO_LIB+="`cat  ../portaudio/portaudio-2.0.pc|grep '^Libs: '|sed 's/^Libs: -L\${libdir} -lportaudio//'`"
+    CFLAGS+="`cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
     PORTAUDIO_OBJ="$PORTAUDIO_OBJ src/audio/portaudio.o"
     AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
 else

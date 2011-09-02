@@ -83,6 +83,7 @@
 
 /* defined in main.c */
 extern int uv_argc;
+extern int should_exit;
 extern char **uv_argv;
 
 struct state_gl {
@@ -689,6 +690,7 @@ void glut_key_callback(unsigned char key, int x, int y)
                         platform_sem_post(&gl->semaphore);
                         if(gl->window != -1)
                                 glutDestroyWindow(gl->window);
+			should_exit = 1;
                         exit(0);
                         break;
                 case 'd':

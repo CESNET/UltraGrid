@@ -1025,6 +1025,13 @@ int main(int argc, char *argv[])
 
 void cleanup_uv(void)
 {
+        /* give threads time to exit gracefully
+         * it is not ideal but rather good solution
+         * to avoid segfaults.
+         */
+	should_exit = 1;
+	usleep(100000);
+
         tx_done(uv_state->tx);
 	destroy_devices(uv_state->network_devices);
         vidcap_done(uv_state->capture_device);

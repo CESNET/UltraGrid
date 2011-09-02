@@ -264,7 +264,7 @@ decklink_help()
 		result = deckLink->GetModelName((STRING *) &deviceNameString);
 #ifdef HAVE_MACOSX
                 deviceNameCString = (char *) malloc(128);
-                CFStringGetCString(deviceNameString, deviceNameCString, 128, kCFStringEncodingMacRoman);
+                CFStringGetCString(deviceNameString, (char *)deviceNameCString, 128, kCFStringEncodingMacRoman);
 #else
                 deviceNameCString = deviceNameString;
 #endif
@@ -937,7 +937,7 @@ print_output_modes (IDeckLink* deckLink)
 		result = displayMode->GetName((STRING *) &displayModeString);
 #ifdef HAVE_MACOSX
                 displayModeCString = (char *) malloc(128);
-                CFStringGetCString(displayModeString, displayModeCString, 128, kCFStringEncodingMacRoman);
+                CFStringGetCString(displayModeString, (char *) displayModeCString, 128, kCFStringEncodingMacRoman);
 #else
                 displayModeCString = displayModeString;
 #endif
