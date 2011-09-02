@@ -59,6 +59,7 @@
 #include "video_display.h"
 #include "video_display/dvs.h"
 #include "video_codec.h"
+#include "audio/audio.h"
 #include "tv.h"
 
 #include "dvs_clib.h"           /* From the DVS SDK */
@@ -304,14 +305,34 @@ volatile int worker_waiting;
         uint32_t magic;
         char *bufs[2];
         int bufs_index;
-        int hd_video_mode;
+        struct audio_frame audio;
         struct video_frame frame;
         const hdsp_mode_table_t *mode;
-        unsigned first_run:1;       
+        unsigned first_run:1;
+        unsigned play_audio:1;
+
+        pthread_mutex_t audio_reconf_lock;
+        pthread_cond_t audio_reconf_possible_cv;
+        pthread_cond_t audio_reconf_done_cv;
+        volatile int audio_reconf_pending;
+        volatile int audio_reconf_possible;
+        volatile int audio_reconf_done;
+        char *audio_device_data; /* ring buffer holding data in format suitable
+                                    for playing on DVS card */
+        int audio_device_data_len;
+        volatile int audio_start; /* start of the above ring buffer in bytes */
+        volatile int audio_end; /* its end */
+        char *audio_fifo_data; /* temporary memory for the data that gets immediatelly
+                                    decoded */
+        int audio_fifo_required_size;
 };
 
 static void show_help(void);
 static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
+void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate);
+struct audio_frame * display_dvs_get_audio_frame(void *state);
+void display_dvs_put_audio_frame(void *state, const struct audio_frame *frame);
 
 static void show_help(void)
 {
@@ -371,7 +392,31 @@ void display_dvs_run(void *arg)
                         pthread_cond_signal(&s->boss_cv);
                 }
                 pthread_mutex_unlock(&s->lock);
+                
+                /* audio - copy appropriate amount of data from s->audio_device_data */
+                if(s->play_audio) {
+                        int bytes_in_buffer;
+                        int audio_end = s->audio_end; /* to avoid changes under our hands */
 
+                        bytes_in_buffer = audio_end - s->audio_start;
+                        if(bytes_in_buffer < 0) bytes_in_buffer += s->audio_device_data_len;
+
+                        if(bytes_in_buffer >= s->audio_fifo_required_size) {
+                                if(s->audio_start + s->audio_fifo_required_size <= s->audio_device_data_len) {
+                                        memcpy(s->audio_fifo_data, s->audio_device_data +
+                                                        s->audio_start, s->audio_fifo_required_size);
+                                        s->audio_start = (s->audio_start + s->audio_fifo_required_size) 
+                                                % s->audio_device_data_len;
+                                } else {
+                                        int to_end = s->audio_device_data_len - s->audio_start;
+                                        memcpy(s->audio_fifo_data, s->audio_device_data +
+                                                        s->audio_start, to_end);
+                                        memcpy(s->audio_fifo_data + to_end, s->audio_device_data, 
+                                                        s->audio_fifo_required_size - to_end);
+                                        s->audio_start = s->audio_fifo_required_size - to_end;
+                                }
+                        } /* otherwise - do not copy anything, we'll need some (small) buffer then */
+                }
                 res =
                     sv_fifo_putbuffer(s->sv, s->fifo, s->display_buffer, NULL);
                 if (res != SV_OK) {
@@ -390,10 +435,25 @@ display_dvs_getf(void *state)
         assert(s->magic == HDSP_MAGIC);
 
 	if(s->mode != NULL) {
+                int fifo_flags = SV_FIFO_FLAG_FLUSH | SV_FIFO_FLAG_NODMAADDR;
+
+                if(!s->play_audio)
+                        fifo_flags |= SV_FIFO_FLAG_VIDEOONLY;
+                else {
+                        pthread_mutex_lock(&s->audio_reconf_lock);
+                        if(s->audio_reconf_pending) {
+                                s->audio_reconf_possible = TRUE;
+                                pthread_cond_signal(&s->audio_reconf_possible_cv);
+                        }
+                        while(!s->audio_reconf_done)
+                                pthread_cond_wait(&s->audio_reconf_done_cv, &s->audio_reconf_lock);
+                        s->audio_reconf_possible = FALSE;
+                        pthread_mutex_unlock(&s->audio_reconf_lock);
+                }
 		/* Prepare the new RTP buffer... */
 		res =
 		    sv_fifo_getbuffer(s->sv, s->fifo, &s->fifo_buffer, NULL,
-				      SV_FIFO_FLAG_VIDEOONLY | SV_FIFO_FLAG_FLUSH);
+				      fifo_flags);
 		if (res != SV_OK) {
 			fprintf(stderr, "Error %s\n", sv_geterrortext(res));
 			return NULL;
@@ -402,8 +462,13 @@ display_dvs_getf(void *state)
 		s->bufs_index = (s->bufs_index + 1) % 2;
 		s->frame.data = s->bufs[s->bufs_index];
 		assert(s->frame.data != NULL);
-		s->fifo_buffer->dma.addr = s->frame.data;
-		s->fifo_buffer->dma.size = s->frame.data_len;
+		s->fifo_buffer->video[0].addr = s->frame.data;
+		s->fifo_buffer->video[0].size = s->frame.data_len;
+
+                if(s->play_audio) {
+                        s->audio_fifo_required_size = s->fifo_buffer->audio[0].size;
+                        s->fifo_buffer->audio[0].addr[0] = s->audio_fifo_data;
+                }
 	}
 	s->first_run = FALSE;
 
@@ -446,6 +511,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         int i, res;
+        int hd_video_mode;
         /* Wait for the worker to finish... */
         while (!s->worker_waiting);
 
@@ -475,18 +541,20 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         s->frame.fps = fps;
         s->frame.aux = aux;
 
-        s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
+        hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
 
         if (s->frame.color_spec == DVS10) {
-                s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
+                hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
 
-        s->hd_video_mode |= s->mode->mode;
+        hd_video_mode |= s->mode->mode;
+        //s->hd_video_mode |= SV_MODE_AUDIO_NOAUDIO;
 
         if(s->fifo)
                 sv_fifo_free(s->sv, s->fifo);
 
-        res = sv_videomode(s->sv, s->hd_video_mode | SV_MODE_AUDIO_NOAUDIO);
+        //res = sv_videomode(s->sv, hd_video_mode);
+        res = sv_option(s->sv, SV_OPTION_VIDEOMODE, hd_video_mode);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot set videomode %s\n", sv_geterrortext(res));
                 return;
@@ -499,7 +567,11 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         }
 
 
-        res = sv_fifo_init(s->sv, &s->fifo, 0, 1, 1, 0, 0);
+        res = sv_fifo_init(s->sv, &s->fifo, 0, /* must be zero for output */
+                        0, /* obsolete, must be zero */
+                        SV_FIFO_DMA_ON,
+                        SV_FIFO_FLAG_NODMAADDR, /* SV_FIFO_FLAG_* */
+                        0); /* default maximal numer of FIFO buffer frames */
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot initialize video display FIFO %s\n",
                           sv_geterrortext(res));
@@ -530,7 +602,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 }
 
 
-void *display_dvs_init(char *fmt)
+void *display_dvs_init(char *fmt, unsigned int flags)
 {
         struct state_hdsp *s;
         int i;
@@ -584,6 +656,21 @@ void *display_dvs_init(char *fmt)
                 }
         }
 
+        s->audio.state = s;
+        s->audio.data = NULL;
+        s->audio_device_data = NULL;
+        s->audio_fifo_data = NULL;
+        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                s->play_audio = TRUE;
+                s->audio.reconfigure_audio = display_dvs_reconfigure_audio;
+                s->audio.ch_count = 0;
+        } else {
+                s->play_audio = FALSE;
+                sv_option(s->sv, SV_OPTION_AUDIOMUTE, TRUE);
+        }
+        s->audio_start = 0;
+        s->audio_end = 0;
+        
         /* Start the display thread... */
         s->sv = sv_open("");
         if (s->sv == NULL) {
@@ -605,6 +692,13 @@ void *display_dvs_init(char *fmt)
         s->boss_waiting = FALSE;
         s->worker_waiting = FALSE;
         s->display_buffer = NULL;
+
+        pthread_mutex_init(&s->audio_reconf_lock, NULL);
+        pthread_cond_init(&s->audio_reconf_possible_cv, NULL);
+        pthread_cond_init(&s->audio_reconf_done_cv, NULL);
+        s->audio_reconf_possible = FALSE;
+        s->audio_reconf_pending = FALSE;
+        s->audio_reconf_done = FALSE;
 
         /*if (pthread_create(&(s->thread_id), NULL, display_thread_hd, (void *)s)
             != 0) {
@@ -656,5 +750,147 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
 
 }
 
-#endif                          /* HAVE_DVS */
+/*
+ * AUDIO
+ */
+struct audio_frame * display_dvs_get_audio_frame(void *state)
+{
+        struct state_hdsp *s = (struct state_hdsp *)state;
+        
+        if(!s->play_audio)
+                return NULL;
+        return &s->audio;
+}
 
+void display_dvs_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        struct state_hdsp *s = (struct state_hdsp *)state;
+
+        int i;
+        char *src = s->audio.data;
+        char *dst = s->audio_device_data + s->audio_end;
+        const int dst_data_len = (s->audio.data_len / s->audio.bps) * 4;
+        
+        int len_to_end; /* size in samples(!) for every channel */
+        int len_from_start;
+        if(s->audio_end + dst_data_len <= s->audio_device_data_len) {
+                len_to_end = s->audio.data_len / s->audio.bps;
+                len_from_start = 0;
+        } else {
+                len_to_end = (dst_data_len - s->audio_end) / 4;
+                len_from_start = s->audio.data_len / s->audio.bps - len_to_end;
+        }
+
+        for(i = 0; i < len_to_end; i++) {
+                *((int *) dst) = *((int *) src) << (32 - s->audio.bps * 8);
+                src += s->audio.bps;
+                dst += 4;
+        }
+        
+        dst = s->audio_device_data;
+        src = s->audio.data + len_to_end * s->audio.bps;
+        
+        for(i = 0; i < len_from_start; i++) {
+                *((int *) dst) = *((int *) src) << (32 - s->audio.bps * 8);
+                src += s->audio.bps;
+                dst += 4;
+        }
+        
+        s->audio_end = (s->audio_end + ((s->audio.data_len / s->audio.bps) * 4)) % s->audio_device_data_len;
+}
+
+void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate) {
+        struct state_hdsp *s = (struct state_hdsp *)state;
+        int res;
+        
+        pthread_mutex_lock(&s->audio_reconf_lock);
+        s->audio_reconf_pending = TRUE;
+        while(!s->audio_reconf_possible)
+                pthread_cond_wait(&s->audio_reconf_possible_cv, &s->audio_reconf_lock);
+
+        if(s->sv)
+                sv_fifo_free(s->sv, s->fifo);
+
+        free(s->audio.data);
+        free(s->audio_device_data);
+        free(s->audio_fifo_data);
+        s->audio.data = NULL;
+        s->audio_device_data = NULL;
+                
+        s->audio.bps = quant_samples / 8;
+        s->audio.sample_rate = sample_rate;
+        s->audio.ch_count = channels;
+        
+        if(quant_samples != 8 && quant_samples != 16 && quant_samples != 24
+                        && quant_samples != 32) {
+                fprintf(stderr, "[dvs] Unsupported number of audio samples: %d\n",
+                                quant_samples);
+                goto error;
+        }
+        
+        if(channels != 2 && channels != 16) {
+                fprintf(stderr, "[dvs] Unsupported number of audio channels: %d\n",
+                                channels);
+                goto error;
+        }
+        
+        if(sample_rate != 48000) {
+                fprintf(stderr, "[dvs] Unsupported audio sample rate: %d\n",
+                                sample_rate);
+                goto error;
+        }
+
+        res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, channels/2); /* items in pairs */
+        if (res != SV_OK) {
+                goto error;
+        }
+        res = sv_option(s->sv, SV_OPTION_AUDIOFREQ, sample_rate);
+        if (res != SV_OK) {
+                goto error;
+        }
+        res = sv_option(s->sv, SV_OPTION_AUDIOBITS, 32);
+        if (res != SV_OK) {
+                goto error;
+        }        
+
+        s->audio.max_size = 5 * (quant_samples / 8) * channels *
+                        sample_rate;                
+        s->audio.data = (char *) malloc (s->audio.max_size);
+        s->audio_device_data_len = 5 * 4 * channels * sample_rate;
+        s->audio_device_data = (char *) malloc(s->audio_device_data_len);
+        s->audio_fifo_data = (char *) calloc(1, s->audio_device_data_len);
+
+        res = sv_fifo_init(s->sv, &s->fifo, 0, /* must be zero for output */
+                        0, /* obsolete, must be zero */
+                        SV_FIFO_DMA_ON,
+                        SV_FIFO_FLAG_NODMAADDR, /* SV_FIFO_FLAG_* */
+                        0); /* default maximal numer of FIFO buffer frames */
+        if (res != SV_OK) {
+                fprintf(stderr, "Cannot initialize video display FIFO %s\n",
+                          sv_geterrortext(res));
+                goto error;
+        }
+        res = sv_fifo_start(s->sv, s->fifo);
+        if (res != SV_OK) {
+                fprintf(stderr, "Cannot start video display FIFO  %s\n",
+                          sv_geterrortext(res));
+                goto error;
+        }
+
+        s->audio_reconf_done = FALSE;
+
+        goto unlock;
+error:
+        fprintf(stderr, "Setting audio error  %s\n",
+                  sv_geterrortext(res));
+        s->audio.max_size = 0;
+        s->play_audio = FALSE;
+
+unlock:
+        s->audio_reconf_done = TRUE;
+        pthread_cond_signal(&s->audio_reconf_done_cv);
+        pthread_mutex_unlock(&s->audio_reconf_lock);
+}
+
+#endif                          /* HAVE_DVS */

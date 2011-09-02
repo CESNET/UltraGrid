@@ -337,11 +337,6 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 /* two 1-sec buffers */
                 s->audio_bufs[0] = malloc(s->audio.sample_rate * s->audio.ch_count * s->audio.bps);
                 s->audio_bufs[1] = malloc(s->audio.sample_rate * s->audio.ch_count * s->audio.bps);
-        } else {
-                res = sv_option(s->sv, SV_OPTION_AUDIOMUTE, TRUE);
-                if (res != SV_OK) {
-                        goto error;
-                }
         }
 
         res = sv_fifo_init(s->sv, &(s->fifo), 1, /* jack - must be 1 for default input FIFO */

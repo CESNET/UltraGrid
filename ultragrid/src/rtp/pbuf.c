@@ -407,11 +407,17 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 
                                 data = cdata->data->data + sizeof(audio_payload_hdr_t);
                                 
-                                if(ntohs(hdr->length) <= buffer->max_size - ntohl(hdr->offset)) {
+                                int length = ntohs(hdr->length);
+                                int offset = ntohl(hdr->offset);
+                                if(length <= ((int) buffer->max_size) - offset) {
                                         memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
                                 } else { /* discarding data - buffer to small */
-                                        memcpy(buffer->data + ntohl(hdr->offset), data, 
-                                                buffer->max_size - ntohl(hdr->offset));
+                                        int copy_len = buffer->max_size - ntohl(hdr->offset);
+                                        fprintf(stderr, "%d ", copy_len);
+
+                                        if(copy_len > 0)
+                                                memcpy(buffer->data + ntohl(hdr->offset), data, 
+                                                        copy_len);
                                         if(++prints % 100 == 0)
                                                 fprintf(stdout, "Warning: "
                                                         "discarding audio data "

@@ -143,8 +143,8 @@ static display_table_t display_device_table[] = {
          display_dvs_done,
          display_dvs_getf,
          display_dvs_putf,
-         NULL,
-         NULL,
+         display_dvs_get_audio_frame,
+         display_dvs_put_audio_frame,
          },
 #endif                          /* HAVE_DVS */
 #ifdef HAVE_MACOSX

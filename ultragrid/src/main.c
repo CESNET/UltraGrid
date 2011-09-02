@@ -428,8 +428,6 @@ static void *audio_receiver_thread(void *arg)
 #endif /* HAVE_PORTAUDIO */
         }
                 
-        assert (frame != NULL);
-                
         while (!should_exit) {
                 gettimeofday(&curr_time, NULL);
                 ts = tv_diff(curr_time, uv->start_time) * 90000;        // What is this?
