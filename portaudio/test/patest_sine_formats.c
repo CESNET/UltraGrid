@@ -4,7 +4,7 @@
 	@author Phil Burk
 */
 /*
- * $Id: patest_sine_formats.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: patest_sine_formats.c 1097 2006-08-26 08:27:53Z rossb $
  *
  * This program uses the PortAudio Portable Audio Library.
  * For more information see: http://www.portaudio.com

@@ -1,7 +1,7 @@
 #ifndef PA_WIN_DS_H
 #define PA_WIN_DS_H
 /*
- * $Id: pa_win_ds.h,v 1.1 2009/04/27 13:32:28 xliska Exp $
+ * $Id:  $
  * PortAudio Portable Real-Time Audio Library
  * DirectSound specific extensions
  *
@@ -42,7 +42,6 @@
  @ingroup public_header
  @brief DirectSound-specific PortAudio API extension header file.
 */
-
 
 #include "portaudio.h"
 #include "pa_win_waveformat.h"

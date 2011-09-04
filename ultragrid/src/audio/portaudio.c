@@ -108,10 +108,10 @@ static void print_device_info(PaDeviceIndex device)
 	}
 	
 	const	PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
-	printf(" %s   (output channels: %d;   input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
+	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
 }
 
-void portaudio_print_available_devices(void)
+void portaudio_print_available_devices(enum audio_device_kind kind)
 {
 	int numDevices;
         int i;
@@ -140,12 +140,11 @@ void portaudio_print_available_devices(void)
 
 	for(i = 0; i < numDevices; i++)
 	{
-		if(i == Pa_GetDefaultInputDevice())
-			printf("(*i) ");
-		if(i == Pa_GetDefaultOutputDevice())
-			printf("(*o)");
+		if((i == Pa_GetDefaultInputDevice() && kind == AUDIO_IN) ||
+                                (i == Pa_GetDefaultOutputDevice() && kind == AUDIO_OUT))
+			printf("(*) ");
 			
-		printf("Device %d:", i);
+		printf("\tDevice %d:", i);
 		print_device_info(i);
 		printf("\n");
 	}
@@ -404,9 +403,9 @@ void portaudio_put_frame(void *state)
         error = Pa_WriteStream(s->stream, s->frame.data, s->frame.data_len / (s->frame.bps * s->frame.ch_count));
 
 	if(error != paNoError) {
-                if(error == paOutputUnderflowed) { /* put current frame once more */
-                        Pa_WriteStream(s->stream, s->frame.data, s->frame.data_len / (s->frame.bps * s->frame.ch_count));
-                }
 		printf("Pa write stream error: %s\n", Pa_GetErrorText(error));
+                while(error == paOutputUnderflowed) { /* put current frame more times */
+                        error = Pa_WriteStream(s->stream, s->frame.data, s->frame.data_len / (s->frame.bps * s->frame.ch_count));
+                }
 	}
 }

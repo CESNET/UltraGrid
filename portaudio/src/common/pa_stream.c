@@ -1,5 +1,5 @@
 /*
- * $Id: pa_stream.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: pa_stream.c 1339 2008-02-15 07:50:33Z rossb $
  * Portable Audio I/O Library
  * stream interface
  *

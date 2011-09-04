@@ -1,5 +1,5 @@
 /*
- * $Id: pa_win_wmme.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: pa_win_wmme.c 1584 2011-02-02 18:58:17Z rossb $
  * pa_win_wmme.c
  * Implementation of PortAudio for Windows MultiMedia Extensions (WMME)       
  *                                                                                         
@@ -65,35 +65,6 @@
 	@ingroup hostapi_src
 
     @brief Win32 host API implementation for the Windows MultiMedia Extensions (WMME) audio API.
-
-	@todo Fix buffer catch up code, can sometimes get stuck (perhaps fixed now,
-            needs to be reviewed and tested.)
-
-    @todo implement paInputUnderflow, paOutputOverflow streamCallback statusFlags, paNeverDropInput.
-
-    @todo BUG: PA_MME_SET_LAST_WAVEIN/OUT_ERROR is used in functions which may
-                be called asynchronously from the callback thread. this is bad.
-
-    @todo implement inputBufferAdcTime in callback thread
-
-    @todo review/fix error recovery and cleanup in marked functions
-
-    @todo implement timeInfo for stream priming
-
-    @todo handle the case where the callback returns paAbort or paComplete during stream priming.
-
-    @todo review input overflow and output underflow handling in ReadStream and WriteStream
-
-Non-critical stuff for the future:
-
-    @todo Investigate supporting host buffer formats > 16 bits
-    
-    @todo define UNICODE and _UNICODE in the project settings and see what breaks
-
-    @todo refactor conversion of MMSYSTEM errors into PA arrors into a single function.
-
-    @todo cleanup WAVEFORMATEXTENSIBLE retry in InitializeWaveHandles to not use a for loop
-
 */
 
 /*
@@ -102,7 +73,7 @@ Non-critical stuff for the future:
     For both callback and blocking read/write streams we open the MME devices
     in CALLBACK_EVENT mode. In this mode, MME signals an Event object whenever
     it has finished with a buffer (either filled it for input, or played it
-    for output). Where necessary we block waiting for Event objects using
+    for output). Where necessary, we block waiting for Event objects using
     WaitMultipleObjects().
 
     When implementing a PA callback stream, we set up a high priority thread
@@ -152,13 +123,16 @@ Non-critical stuff for the future:
 #endif /* PAWIN_USE_WDMKS_DEVICE_INFO */
 
 /* use CreateThread for CYGWIN, _beginthreadex for all others */
-#ifndef __CYGWIN__
+#if !defined(__CYGWIN__) && !defined(_WIN32_WCE)
 #define CREATE_THREAD (HANDLE)_beginthreadex( 0, 0, ProcessingThreadProc, stream, 0, &stream->processingThreadId )
+#define PA_THREAD_FUNC static unsigned WINAPI
+#define PA_THREAD_ID unsigned
 #else
 #define CREATE_THREAD CreateThread( 0, 0, ProcessingThreadProc, stream, 0, &stream->processingThreadId )
+#define PA_THREAD_FUNC static DWORD WINAPI
+#define PA_THREAD_ID DWORD
 #endif
-
-#if (defined(UNDER_CE))
+#if (defined(_WIN32_WCE))
 #pragma comment(lib, "Coredll.lib")
 #elif (defined(WIN32) && (defined(_MSC_VER) && (_MSC_VER >= 1200))) /* MSC version 6 and above */
 #pragma comment(lib, "winmm.lib")
@@ -168,7 +142,11 @@ Non-critical stuff for the future:
  provided in newer platform sdks
  */
 #ifndef DWORD_PTR
-#define DWORD_PTR DWORD
+    #if defined(_WIN64)
+        #define DWORD_PTR unsigned __int64
+    #else
+        #define DWORD_PTR unsigned long
+    #endif
 #endif
 
 /************************************************* Constants ********/
@@ -204,6 +182,34 @@ Non-critical stuff for the future:
 
 static const char constInputMapperSuffix_[] = " - Input";
 static const char constOutputMapperSuffix_[] = " - Output";
+
+/*
+copies TCHAR string to explicit char string
+*/
+char *StrTCpyToC(char *to, const TCHAR *from)
+{
+#if !defined(_UNICODE) && !defined(UNICODE)
+	return strcpy(to, from);
+#else
+	int count = wcslen(from);
+	if (count != 0)
+		if (WideCharToMultiByte(CP_ACP, 0, from, count, to, count, NULL, NULL) == 0)
+			return NULL;
+	return to;
+#endif
+}
+
+/*
+returns length of TCHAR string
+*/
+size_t StrTLen(const TCHAR *str)
+{
+#if !defined(_UNICODE) && !defined(UNICODE)
+	return strlen(str);
+#else
+	return wcslen(str);	
+#endif
+}
 
 /********************************************************************/
 
@@ -685,25 +691,25 @@ static PaError InitializeInputDeviceInfo( PaWinMmeHostApiRepresentation *winMmeH
     {
         /* Append I/O suffix to WAVE_MAPPER device. */
         deviceName = (char *)PaUtil_GroupAllocateMemory(
-                    winMmeHostApi->allocations, strlen( wic.szPname ) + 1 + sizeof(constInputMapperSuffix_) );
+                    winMmeHostApi->allocations, StrTLen( wic.szPname ) + 1 + sizeof(constInputMapperSuffix_) );
         if( !deviceName )
         {
             result = paInsufficientMemory;
             goto error;
         }
-        strcpy( deviceName, wic.szPname );
+        StrTCpyToC( deviceName, wic.szPname );
         strcat( deviceName, constInputMapperSuffix_ );
     }
     else
     {
         deviceName = (char*)PaUtil_GroupAllocateMemory(
-                    winMmeHostApi->allocations, strlen( wic.szPname ) + 1 );
+                    winMmeHostApi->allocations, StrTLen( wic.szPname ) + 1 );
         if( !deviceName )
         {
             result = paInsufficientMemory;
             goto error;
         }
-        strcpy( deviceName, wic.szPname  );
+        StrTCpyToC( deviceName, wic.szPname  );
     }
     deviceInfo->name = deviceName;
 
@@ -785,6 +791,7 @@ static PaError InitializeOutputDeviceInfo( PaWinMmeHostApiRepresentation *winMme
     MMRESULT mmresult;
     WAVEOUTCAPS woc;
     PaDeviceInfo *deviceInfo = &winMmeDeviceInfo->inheritedDeviceInfo;
+    int wdmksDeviceOutputChannelCountIsKnown;
 
     *success = 0;
 
@@ -808,25 +815,25 @@ static PaError InitializeOutputDeviceInfo( PaWinMmeHostApiRepresentation *winMme
     {
         /* Append I/O suffix to WAVE_MAPPER device. */
         deviceName = (char *)PaUtil_GroupAllocateMemory(
-                    winMmeHostApi->allocations, strlen( woc.szPname ) + 1 + sizeof(constOutputMapperSuffix_) );
+                    winMmeHostApi->allocations, StrTLen( woc.szPname ) + 1 + sizeof(constOutputMapperSuffix_) );
         if( !deviceName )
         {
             result = paInsufficientMemory;
             goto error;
         }
-        strcpy( deviceName, woc.szPname );
+        StrTCpyToC( deviceName, woc.szPname );
         strcat( deviceName, constOutputMapperSuffix_ );
     }
     else
     {
         deviceName = (char*)PaUtil_GroupAllocateMemory(
-                    winMmeHostApi->allocations, strlen( woc.szPname ) + 1 );
+                    winMmeHostApi->allocations, StrTLen( woc.szPname ) + 1 );
         if( !deviceName )
         {
             result = paInsufficientMemory;
             goto error;
         }
-        strcpy( deviceName, woc.szPname  );
+        StrTCpyToC( deviceName, woc.szPname  );
     }
     deviceInfo->name = deviceName;
 
@@ -850,8 +857,10 @@ static PaError InitializeOutputDeviceInfo( PaWinMmeHostApiRepresentation *winMme
     }
 
 #ifdef PAWIN_USE_WDMKS_DEVICE_INFO
-    winMmeDeviceInfo->deviceOutputChannelCountIsKnown = 
-            QueryWaveOutKSFilterMaxChannels( winMmeOutputDeviceId, &deviceInfo->maxOutputChannels );
+    wdmksDeviceOutputChannelCountIsKnown = QueryWaveOutKSFilterMaxChannels( 
+			winMmeOutputDeviceId, &deviceInfo->maxOutputChannels );
+    if( wdmksDeviceOutputChannelCountIsKnown && !winMmeDeviceInfo->deviceOutputChannelCountIsKnown )
+        winMmeDeviceInfo->deviceOutputChannelCountIsKnown = 1;
 #endif /* PAWIN_USE_WDMKS_DEVICE_INFO */
 
     winMmeDeviceInfo->dwFormats = woc.dwFormats;
@@ -940,11 +949,11 @@ PaError PaWinMme_Initialize( PaUtilHostApiRepresentation **hostApi, PaHostApiInd
     /* the following calls assume that if wave*Message fails the preferred device parameter won't be modified */
     preferredDeviceStatusFlags = 0;
     waveInPreferredDevice = -1;
-    waveInMessage( (HWAVEIN)WAVE_MAPPER, DRVM_MAPPER_PREFERRED_GET, (DWORD)&waveInPreferredDevice, (DWORD)&preferredDeviceStatusFlags );
+    waveInMessage( (HWAVEIN)WAVE_MAPPER, DRVM_MAPPER_PREFERRED_GET, (DWORD_PTR)&waveInPreferredDevice, (DWORD_PTR)&preferredDeviceStatusFlags );
 
     preferredDeviceStatusFlags = 0;
     waveOutPreferredDevice = -1;
-    waveOutMessage( (HWAVEOUT)WAVE_MAPPER, DRVM_MAPPER_PREFERRED_GET, (DWORD)&waveOutPreferredDevice, (DWORD)&preferredDeviceStatusFlags );
+    waveOutMessage( (HWAVEOUT)WAVE_MAPPER, DRVM_MAPPER_PREFERRED_GET, (DWORD_PTR)&waveOutPreferredDevice, (DWORD_PTR)&preferredDeviceStatusFlags );
 
     maximumPossibleDeviceCount = 0;
 
@@ -1794,21 +1803,21 @@ static PaError InitializeWaveHandles( PaWinMmeHostApiRepresentation *winMmeHostA
 
         for( j = 0; j < 2; ++j )
         {
-            if( j == 0 )
-            { 
-                /* first, attempt to open the device using WAVEFORMATEXTENSIBLE, 
-                    if this fails we fall back to WAVEFORMATEX */
+            switch(j){
+                case 0:     
+                    /* first, attempt to open the device using WAVEFORMATEXTENSIBLE, 
+                        if this fails we fall back to WAVEFORMATEX */
 
-                PaWin_InitializeWaveFormatExtensible( &waveFormat, devices[i].channelCount, 
-                        sampleFormat, waveFormatTag, sampleRate, channelMask );
+                    PaWin_InitializeWaveFormatExtensible( &waveFormat, devices[i].channelCount, 
+                            sampleFormat, waveFormatTag, sampleRate, channelMask );
+                    break;
+                
+                case 1:
+                    /* retry with WAVEFORMATEX */
 
-            }
-            else
-            {
-                /* retry with WAVEFORMATEX */
-
-                PaWin_InitializeWaveFormatEx( &waveFormat, devices[i].channelCount, 
-                        sampleFormat, waveFormatTag, sampleRate );
+                    PaWin_InitializeWaveFormatEx( &waveFormat, devices[i].channelCount, 
+                            sampleFormat, waveFormatTag, sampleRate );
+                    break;
             }
 
             /* REVIEW: consider not firing an event for input when a full duplex
@@ -2092,7 +2101,7 @@ struct PaWinMmeStream
     /* Processing thread management -------------- */
     HANDLE abortEvent;
     HANDLE processingThread;
-    DWORD processingThreadId;
+    PA_THREAD_ID processingThreadId;
 
     char throttleProcessingThreadOnOverload; /* 0 -> don't throtte, non-0 -> throttle */
     int processingThreadPriority;
@@ -2758,7 +2767,7 @@ static PaError CatchUpOutputBuffers( PaWinMmeStream *stream )
 }
 
 
-static DWORD WINAPI ProcessingThreadProc( void *pArg )
+PA_THREAD_FUNC ProcessingThreadProc( void *pArg )
 {
     PaWinMmeStream *stream = (PaWinMmeStream *)pArg;
     HANDLE events[3];
@@ -2801,7 +2810,7 @@ static DWORD WINAPI ProcessingThreadProc( void *pArg )
         if( waitResult == WAIT_FAILED )
         {
             result = paUnanticipatedHostError;
-            /** @todo FIXME/REVIEW: can't return host error info from an asyncronous thread */
+            /** @todo FIXME/REVIEW: can't return host error info from an asyncronous thread. see http://www.portaudio.com/trac/ticket/143 */
             done = 1;
         }
         else if( waitResult == WAIT_TIMEOUT )
@@ -2854,7 +2863,7 @@ static DWORD WINAPI ProcessingThreadProc( void *pArg )
                                we discard all but the most recent. This is an
                                input buffer overflow. FIXME: these buffers should
                                be passed to the callback in a paNeverDropInput
-                               stream.
+                               stream. http://www.portaudio.com/trac/ticket/142
 
                                note that it is also possible for an input overflow
                                to happen while the callback is processing a buffer.
@@ -3013,7 +3022,9 @@ static DWORD WINAPI ProcessingThreadProc( void *pArg )
                     {
                         stream->abortProcessing = 1;
                         done = 1;
-                        /** @todo FIXME: should probably reset the output device immediately once the callback returns paAbort */
+                        /** @todo FIXME: should probably reset the output device immediately once the callback returns paAbort 
+                            see: http://www.portaudio.com/trac/ticket/141
+                        */
                         result = paNoError;
                     }
                     else
@@ -3681,7 +3692,9 @@ static PaError ReadStream( PaStream* s,
                 {
                     /** @todo REVIEW: consider what to do if the input overflows.
                         do we requeue all of the buffers? should we be running
-                        a thread to make sure they are always queued? */
+                        a thread to make sure they are always queued? 
+                        see: http://www.portaudio.com/trac/ticket/117
+                        */
 
                     result = paInputOverflowed;
                 }
@@ -3786,7 +3799,9 @@ static PaError WriteStream( PaStream* s,
                     /** @todo REVIEW: consider what to do if the output
                     underflows. do we requeue all the existing buffers with
                     zeros? should we run a separate thread to keep the buffers
-                    enqueued at all times? */
+                    enqueued at all times? 
+                    see: http://www.portaudio.com/trac/ticket/117
+                    */
 
                     result = paOutputUnderflowed;
                 }
@@ -3962,8 +3977,3 @@ HWAVEOUT PaWinMME_GetStreamOutputHandle( PaStream* s, int handleIndex )
     else
         return 0;
 }
-
-
-
-
-

@@ -3,7 +3,7 @@
 	@brief Ring modulate inputs to left output, mix inputs to right output.
 */
 /*
- * $Id: patest_ringmix.c,v 1.1 2009/04/27 13:32:29 xliska Exp $ 
+ * $Id: patest_ringmix.c 1097 2006-08-26 08:27:53Z rossb $ 
  *
  * This program uses the PortAudio Portable Audio Library.
  * For more information see: http://www.portaudio.com

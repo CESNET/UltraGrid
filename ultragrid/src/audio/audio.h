@@ -51,6 +51,11 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+enum audio_device_kind {
+        AUDIO_IN,
+        AUDIO_OUT
+};
+
 
 static const int audio_payload_type = 97;
 
@@ -71,7 +76,7 @@ typedef struct audio_frame
 }
 audio_frame;
 
-void print_audio_devices(void);
+void print_audio_devices(enum audio_device_kind kind);
 
 #include "audio/portaudio.h"
 

@@ -2,7 +2,10 @@
 	@ingroup test_src
     @brief Self Testing Quality Assurance app for PortAudio
  	Try to open each device and run through all the
- 	possible configurations.
+ 	possible configurations. This test does not verify
+    that the configuration works well. It just verifies
+    that it does not crash. It requires a human to listen to
+    the outputs.
 
 	@author Phil Burk  http://www.softsynth.com
     
@@ -11,7 +14,7 @@
     as in test pa_devs.c.
 */
 /*
- * $Id: paqa_devs.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: paqa_devs.c 1609 2011-02-27 00:06:07Z philburk $
  *
  * This program uses the PortAudio Portable Audio Library.
  * For more information see: http://www.portaudio.com

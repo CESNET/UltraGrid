@@ -731,18 +731,18 @@ AC_ARG_WITH(portaudio,
 	 PORTAUDIO_LIB=${PARENT}/portaudio/lib/.libs])
 
 AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
-AC_CHECK_LIB(portaudio, main, FOUND_PORTAUDIO_L=yes, FOUND_PORTAUDIO_L=no, -I${PORTAUDIO_INC} -L${PORTAUDIO_LIB})
-AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, IS_PORTAUDIO_STATIC=yes, IS_PORTAUDIO_STATIC=no)
+AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
 
-if test $FOUND_PORTAUDIO_H = yes -a $FOUND_PORTAUDIO_L = yes -a $IS_PORTAUDIO_STATIC = yes
+if test $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
 then
     PORTAUDIO_INC=-I${PORTAUDIO_INC}
     # we have now portaudio linked statically
     # TODO: consider linking it dynamically
     PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
-    PORTAUDIO_LIB+="`cat  ../portaudio/portaudio-2.0.pc|grep '^Libs: '|sed 's/^Libs: -L\${libdir} -lportaudio//'`"
-    CFLAGS+="`cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
-    PORTAUDIO_OBJ="$PORTAUDIO_OBJ src/audio/portaudio.o"
+    # libs taken from .pc file won't work - there are missing some optional dependencies, eg. jack
+    PORTAUDIO_LIB+=" `( . ../portaudio/lib/libportaudio.la ; echo $inherited_linker_flags $dependency_libs | sed 's/\/usr\/lib\/lib\(.*\)\.la/-l\1/')`"
+    CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
+    PORTAUDIO_OBJ="src/audio/portaudio.o"
     AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
 else
     PORTAUDIO_INC=

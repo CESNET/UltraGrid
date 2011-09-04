@@ -1,5 +1,5 @@
 /*
- * $Id: pa_unix_hostapis.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: pa_unix_hostapis.c 1413 2009-05-24 17:00:36Z aknudsen $
  * Portable Audio I/O Library UNIX initialization table
  *
  * Based on the Open Source API proposed by Ross Bencina
@@ -52,8 +52,7 @@ PaError PaAsiHpi_Initialize( PaUtilHostApiRepresentation **hostApi, PaHostApiInd
 PaError PaMacCore_Initialize( PaUtilHostApiRepresentation **hostApi, PaHostApiIndex index );
 PaError PaSkeleton_Initialize( PaUtilHostApiRepresentation **hostApi, PaHostApiIndex index );
 
-/** Note that ALSA is placed before OSS so that the latter is preferred over the
- * latter on Linux.
+/** Note that on Linux, ALSA is placed before OSS so that the former is preferred over the latter.
  */
 
 PaUtilHostApiInitializer *paHostApiInitializers[] =
@@ -68,7 +67,7 @@ PaUtilHostApiInitializer *paHostApiInitializers[] =
         PaOSS_Initialize,
 #endif
 
-#else
+#else   /* __linux__ */
 
 #ifdef PA_USE_OSS
         PaOSS_Initialize,

@@ -1,5 +1,5 @@
 /*
- * $Id: pa_win_wdmks.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: pa_win_wdmks.c 1606 2011-02-17 15:56:04Z rob_bielik $
  * PortAudio Windows WDM-KS interface
  *
  * Author: Andrew Baldwin
@@ -77,7 +77,7 @@
 
 #include <windows.h>
 #include <winioctl.h>
-
+#include <process.h>
 
 #ifdef __GNUC__
     #undef PA_LOGE_
@@ -106,6 +106,10 @@
     #define DYNAMIC_GUID(data) DYNAMIC_GUID_THUNK(data)
 #endif
 
+#if (defined(WIN32) && (defined(_MSC_VER) && (_MSC_VER >= 1200))) /* MSC version 6 and above */
+#pragma comment( lib, "setupapi.lib" )
+#endif
+
 /* use CreateThread for CYGWIN, _beginthreadex for all others */
 #ifndef __CYGWIN__
 #define CREATE_THREAD (HANDLE)_beginthreadex( 0, 0, ProcessingThreadProc, stream, 0, &stream->processingThreadId )
@@ -121,24 +125,16 @@
 #endif
 
 #ifdef _MSC_VER
+    #define NOMMIDS
     #define DYNAMIC_GUID(data) {data}
-    #define _INC_MMREG
     #define _NTRTL_ /* Turn off default definition of DEFINE_GUIDEX */
     #undef DEFINE_GUID
     #define DEFINE_GUID(n,data) EXTERN_C const GUID n = {data}
     #define DEFINE_GUID_THUNK(n,data) DEFINE_GUID(n,data)
     #define DEFINE_GUIDEX(n) DEFINE_GUID_THUNK(n, STATIC_##n)
-    #if !defined( DEFINE_WAVEFORMATEX_GUID )
-        #define DEFINE_WAVEFORMATEX_GUID(x) (USHORT)(x), 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71
-    #endif
-    #define  WAVE_FORMAT_ADPCM      0x0002
-    #define  WAVE_FORMAT_IEEE_FLOAT 0x0003
-    #define  WAVE_FORMAT_ALAW       0x0006
-    #define  WAVE_FORMAT_MULAW      0x0007
-    #define  WAVE_FORMAT_MPEG       0x0050
-    #define  WAVE_FORMAT_DRM        0x0009
 #endif
 
+#include <mmreg.h>
 #include <ks.h>
 #include <ksmedia.h>
 #include <tchar.h>
@@ -2924,11 +2920,26 @@ static DWORD WINAPI ProcessingThread(LPVOID pParam)
                     PaUtil_SetInputChannel(&stream->bufferProcessor,i,((unsigned char*)(stream->packets[inbuf].Header.Data))+(i*stream->inputSampleSize),stream->deviceInputChannels);
                 }
             }
-            /* Only call the EndBufferProcessing function is the total input frames == total output frames */
-            if((stream->bufferProcessor.hostInputFrameCount[0] + stream->bufferProcessor.hostInputFrameCount[1]) ==
-                (stream->bufferProcessor.hostOutputFrameCount[0] + stream->bufferProcessor.hostOutputFrameCount[1]) )
+            
+            if (stream->recordingPin && stream->playbackPin) /* full duplex */
+            {
+                /* Only call the EndBufferProcessing function when the total input frames == total output frames */
+
+                if((stream->bufferProcessor.hostInputFrameCount[0] + stream->bufferProcessor.hostInputFrameCount[1]) ==
+                        (stream->bufferProcessor.hostOutputFrameCount[0] + stream->bufferProcessor.hostOutputFrameCount[1]) )
+                {
+                    framesProcessed = PaUtil_EndBufferProcessing(&stream->bufferProcessor,&cbResult);
+                }
+                else
+                {
+                    framesProcessed = 0;
+                }
+            }
+            else 
+            {
                 framesProcessed = PaUtil_EndBufferProcessing(&stream->bufferProcessor,&cbResult);
-            else framesProcessed = 0;
+            }
+
             if( doChannelCopy )
             {
                 /* Copy the first output channel to the other channels */

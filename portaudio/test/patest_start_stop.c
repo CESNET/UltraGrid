@@ -6,7 +6,7 @@
 	@author Phil Burk <philburk@softsynth.com>
 */
 /*
- * $Id: patest_start_stop.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: patest_start_stop.c 1447 2010-01-24 12:35:36Z rossb $
  *
  * This program uses the PortAudio Portable Audio Library.
  * For more information see: http://www.portaudio.com/
@@ -143,6 +143,8 @@ int main(void)
 
     for( i=0; i<NUM_LOOPS; i++ )
     {
+        data.left_phase = data.right_phase = 0;
+
         err = Pa_StartStream( stream );
         if( err != paNoError ) goto error;
 

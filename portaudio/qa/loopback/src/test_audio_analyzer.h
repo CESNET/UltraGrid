@@ -1,12 +1,9 @@
+
 /*
- * $Id: debug_dither_calc.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
- * Test Dither calculations.
+ * PortAudio Portable Real-Time Audio Library
+ * Latest Version at: http://www.portaudio.com
  *
- * Author: Phil Burk  http://www.softsynth.com
- *
- * This program uses the PortAudio Portable Audio Library.
- * For more information see: http://www.portaudio.com
- * Copyright (c) 1999-2000 Ross Bencina and Phil Burk
+ * Copyright (c) 1999-2010 Phil Burk and Ross Bencina
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files
@@ -39,24 +36,11 @@
  * license above.
  */
 
-#include <stdio.h>
-#include <math.h>
-#include "portaudio.h"
-#include "pa_host.h"
+#ifndef _TEST_AUDIO_ANALYZER_H
+#define _TEST_AUDIO_ANALYZER_H
 
-/*******************************************************************/
-int main(void);
-int main(void)
-{
-    long max,min;
-    int   i;
-    
-    for( i=0; i<10000; i++ )
-    {
-        long dither = PaConvert_TriangularDither();
-        // printf("dither = 0x%08X\n", dither );
-        if( dither < min ) min = dither;
-        else if( dither > max ) max = dither;
-    }
-    printf("min = 0x%08X = %d, max = 0x%08X = %d\n", min, min, max, max );
-}
+/** Test the audio analyzer by itself without any PortAudio calls. */
+int PaQa_TestAnalyzer( void );
+
+
+#endif /* _TEST_AUDIO_ANALYZER_H */

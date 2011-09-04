@@ -55,7 +55,7 @@
 
 struct audio_frame;
 
-void            portaudio_print_available_devices(void);
+void            portaudio_print_available_devices(enum audio_device_kind);
 void            portaudio_close(PaStream *stream);	// closes and frees all audio resources ( according to valgrind this is not true..  )
 
 /* Capture related - TODO: refactor (like playback done) */

@@ -49,12 +49,13 @@
 #include <stdio.h>
 #include "audio/audio.h"
 
-void print_audio_devices(void)
+void print_audio_devices(enum audio_device_kind kind)
 {
-        printf("Available audio devices:\n");
-        printf("Device -2: SDI audio (if available)\n");
+        printf("Available audio %s devices:\n", kind == AUDIO_IN ? "input"
+                        : "output");
+        printf("\tDevice -2: SDI audio (if available)\n");
 #ifdef HAVE_PORTAUDIO
-        printf("Device -1: default Portaudio device\n");
-        portaudio_print_available_devices();
+        printf("\tDevice -1: use default Portaudio device (marked with star)\n");
+        portaudio_print_available_devices(kind);
 #endif
 }

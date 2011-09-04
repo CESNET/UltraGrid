@@ -1,5 +1,5 @@
 /*
- * $Id: patest_wmme_surround.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: $
  * Portable Audio I/O Library
  * Windows MME surround sound output test
  *

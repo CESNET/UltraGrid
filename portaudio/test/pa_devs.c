@@ -3,11 +3,11 @@
     @brief List available devices, including device information.
 	@author Phil Burk http://www.softsynth.com
 
-    @note Define PA_NO_ASIO to compile this code on Windows without
+    @note Define PA_USE_ASIO=0 to compile this code on Windows without
         ASIO support.
 */
 /*
- * $Id: pa_devs.c,v 1.1 2009/04/27 13:32:29 xliska Exp $
+ * $Id: pa_devs.c 1606 2011-02-17 15:56:04Z rob_bielik $
  *
  * This program uses the PortAudio Portable Audio Library.
  * For more information see: http://www.portaudio.com
@@ -49,7 +49,7 @@
 #include "portaudio.h"
 
 #ifdef WIN32
-#ifndef PA_NO_ASIO
+#if PA_USE_ASIO
 #include "pa_asio.h"
 #endif
 #endif
@@ -167,7 +167,7 @@ int main(void)
         printf( "Default high output latency = %8.3f\n", deviceInfo->defaultHighOutputLatency  );
 
 #ifdef WIN32
-#ifndef PA_NO_ASIO
+#if PA_USE_ASIO
 /* ASIO specific latency information */
         if( Pa_GetHostApiInfo( deviceInfo->hostApi )->type == paASIO ){
             long minLatency, maxLatency, preferredLatency, granularity;
@@ -184,7 +184,7 @@ int main(void)
             else
                 printf( "ASIO buffer granularity     = %ld\n", granularity  );
         }
-#endif /* !PA_NO_ASIO */
+#endif /* PA_USE_ASIO */
 #endif /* WIN32 */
 
         printf( "Default sample rate         = %8.2f\n", deviceInfo->defaultSampleRate );
