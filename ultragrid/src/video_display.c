@@ -156,8 +156,8 @@ static display_table_t display_device_table[] = {
          display_quicktime_done,
          display_quicktime_getf,
          display_quicktime_putf,
-         NULL,
-         NULL,
+         display_quicktime_get_audio_frame,
+         display_quicktime_put_audio_frame,
          },
 #endif                          /* HAVE_MACOSX */
         {

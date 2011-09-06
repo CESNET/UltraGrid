@@ -57,6 +57,7 @@
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>
 #include <QuickTime/QuickTime.h>
+#include <AudioUnit/AudioUnit.h>
 
 #include "compat/platform_semaphore.h"
 #include <signal.h>
@@ -66,7 +67,9 @@
 #include "video_display.h"
 #include "video_display/quicktime.h"
 
-#define MAGIC_QT_DISPLAY 	DISPLAY_QUICKTIME_ID
+#include "audio/audio.h"
+
+#define MAGIC_QT_DISPLAY        DISPLAY_QUICKTIME_ID
 
 #define MAX_DEVICES     4
 
@@ -171,8 +174,17 @@ const quicktime_mode_t quicktime_modes[] = {
         {NULL, NULL, 0, 0, 0, 0},
 };        
 
+/* for audio see TN2091 (among others) */
 struct state_quicktime {
         ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
+#if MACOSX_VERSION_MAJOR <= 9
+        ComponentInstance 
+#else
+        AudioComponentInstance
+#endif
+                                auHALComponentInstance;
+
+        CFStringRef audio_name;
 //    Component                 videoDisplayComponent;
         GWorldPtr gworld[MAX_DEVICES];
         ImageSequence seqID[MAX_DEVICES];
@@ -187,16 +199,25 @@ struct state_quicktime {
 
         struct video_frame frame[MAX_DEVICES];
 
+        struct audio_frame audio;
+        int audio_packet_size;
+        int audio_start, audio_end, max_audio_data_len;
+        char *audio_data;
+        unsigned play_audio:1;
+
         uint32_t magic;
 };
 
 /* Prototyping */
 char *four_char_decode(int format);
 void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
-		codec_t codec, double fps, int aux);
+                codec_t codec, double fps, int aux);
 static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out);
 static int find_mode(ComponentInstance *ci, int width, int height, 
                 const char * codec_name, double fps, int aux);
+void display_quicktime_audio_init(struct state_quicktime *s);
+void display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate);
 
 static void
 nprintf(unsigned char *str)
@@ -368,7 +389,7 @@ static void print_modes(int fullhelp)
         fprintf(stdout, "Available playback devices:\n");
         /* Print relevant video output components */
         while ((c = FindNextComponent(c, &cd))) {
-		ComponentDescription exportCD;
+                ComponentDescription exportCD;
 
                 Handle componentNameHandle = NewHandle(0);
                 GetComponentInfo(c, &exportCD, componentNameHandle, NULL, NULL);
@@ -507,13 +528,13 @@ static void show_help(int full)
         print_modes(full);
 }
 
-void *display_quicktime_init(char *fmt)
+void *display_quicktime_init(char *fmt, unsigned int flags)
 {
         struct state_quicktime *s;
         int ret;
         int i;
-	char *codec_name;
-	int mode;
+        char *codec_name;
+        int mode;
 
         /* Parse fmt input */
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
@@ -556,24 +577,23 @@ void *display_quicktime_init(char *fmt)
                 
                 tok = strtok(NULL, ":");
                 if (tok == NULL) {
-			mode = 0;
+                        mode = 0;
                 } else {
-			mode = atol(tok);
-			tok = strtok(NULL, ":");
-			if (tok == NULL) {
-				show_help(0);
-				free(s);
-				free(tmp);
-				return NULL;
-			}
-			codec_name = strdup(tok);
-		}
+                        mode = atol(tok);
+                        tok = strtok(NULL, ":");
+                        if (tok == NULL) {
+                                show_help(0);
+                                free(s);
+                                free(tmp);
+                                return NULL;
+                        }
+                        codec_name = strdup(tok);
+                }
         } else {
-		show_help(0);
-		free(s);
-		return NULL;
-	}
-
+                show_help(0);
+                free(s);
+                return NULL;
+        }
 
         for (i = 0; i < s->devices_cnt; ++i) {
                 /* compute position */
@@ -591,13 +611,13 @@ void *display_quicktime_init(char *fmt)
         InitCursor();
         EnterMovies();
 
-	if(mode != 0) {
-		for (i = 0; codec_info[i].name != NULL; i++) {
-			if (strcmp(codec_name, codec_info[i].name) == 0) {
-				s->cinfo = &codec_info[i];
-			}
-		}
-		free(codec_name);
+        if(mode != 0) {
+                for (i = 0; codec_info[i].name != NULL; i++) {
+                        if (strcmp(codec_name, codec_info[i].name) == 0) {
+                                s->cinfo = &codec_info[i];
+                        }
+                }
+                free(codec_name);
 
                 for (i = 0; i < s->devices_cnt; ++i) {
                         /* Open device */
@@ -682,14 +702,14 @@ void *display_quicktime_init(char *fmt)
                         s->frame[i].data_len = s->frame[i].dst_linesize * s->frame[i].height;
                         s->frame[i].data = calloc(s->frame[i].data_len, 1);
                 }
-		reconf_common(s);
-	} else {
+                reconf_common(s);
+        } else {
                 for (i = 0; i < s->devices_cnt; ++i) {
                         s->frame[i].width = 0;
                         s->frame[i].height = 0;
                         s->frame[i].data = NULL;
                 }
-	}
+        }
 
         for (i = 0; i < s->devices_cnt; ++i) {
                 s->frame[i].state = s;
@@ -701,8 +721,15 @@ void *display_quicktime_init(char *fmt)
                 s->frame[i].width *= s->frame[i].tile_info.x_count;
                 s->frame[i].height *= s->frame[i].tile_info.y_count;
         }
+        
+        s->audio.state = s;
+        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                display_quicktime_audio_init(s);
+        } else {
+                s->play_audio = FALSE;
+        }
 
-	platform_sem_init(&s->semaphore, 0, 0);
+        platform_sem_init(&s->semaphore, 0, 0);
 
         /*if (pthread_create
             (&(s->thread_id), NULL, display_thread_quicktime, (void *)s) != 0) {
@@ -711,6 +738,72 @@ void *display_quicktime_init(char *fmt)
         }*/
 
         return (void *)s;
+}
+
+void display_quicktime_audio_init(struct state_quicktime *s)
+{
+        OSErr ret = noErr;
+#if MACOSX_VERSION_MAJOR <= 9
+        Component comp;
+        ComponentDescription desc;
+#else
+        AudioComponent comp;
+        AudioComponentDescription desc;
+#endif
+        //There are several different types of Audio Units.
+        //Some audio units serve as Outputs, Mixers, or DSP
+        //units. See AUComponent.h for listing
+        desc.componentType = kAudioUnitType_Output;
+
+        //Every Component has a subType, which will give a clearer picture
+        //of what this components function will be.
+        //desc.componentSubType = kAudioUnitSubType_DefaultOutput;
+        desc.componentSubType = kAudioUnitSubType_HALOutput;
+
+        //all Audio Units in AUComponent.h must use 
+        //"kAudioUnitManufacturer_Apple" as the Manufacturer
+        desc.componentManufacturer = kAudioUnitManufacturer_Apple;
+        desc.componentFlags = 0;
+        desc.componentFlagsMask = 0;
+
+#if MACOSX_VERSION_MAJOR <= 9
+        comp = FindNextComponent(NULL, &desc);
+        if(!comp) goto audio_error;
+        ret = OpenAComponent(comp, &s->auHALComponentInstance);
+        if (ret != noErr) goto audio_error;
+#else
+        comp = AudioComponentFindNext(NULL, &desc);
+        if(!comp) goto audio_error;
+        ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
+        if (ret != noErr) goto audio_error;
+#endif
+        
+        if(s->frame[0].data == NULL) /* if the output is not open - open it temporarily */
+                 ret = OpenAComponent((Component) s->device[0], &s->videoDisplayComponentInstance[0]);
+        if (ret != noErr) goto audio_error;
+        s->audio.data = NULL;
+        s->audio_data = NULL;
+        s->audio.max_size = 0;
+        s->audio.reconfigure_audio = display_quicktime_reconfigure_audio;
+        Component audioComponent;
+        ret = QTVideoOutputGetIndSoundOutput(s->videoDisplayComponentInstance[0], 1, &audioComponent);
+        if (ret != noErr) goto audio_error;
+
+        Handle componentNameHandle = NewHandle(0);
+        ret = GetComponentInfo(audioComponent, 0, componentNameHandle, NULL, NULL);
+        if (ret != noErr) goto audio_error;
+        HLock(componentNameHandle);
+        s->audio_name = CFStringCreateWithPascalString(NULL, *componentNameHandle,
+                        kCFStringEncodingMacRoman);
+        HUnlock(componentNameHandle);
+        DisposeHandle(componentNameHandle);
+        if(s->frame[0].data == NULL) /* ...and close temporarily opened input */
+                CloseComponent(s->videoDisplayComponentInstance[0]);
+        s->play_audio = TRUE;
+        return;
+audio_error:
+        fprintf(stderr, "There is no audio support (%x).\n", ret);
+        s->play_audio = FALSE;
 }
 
 void display_quicktime_done(void *state)
@@ -751,22 +844,22 @@ display_type_t *display_quicktime_probe(void)
 }
 
 void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
-		codec_t codec, double fps, int aux)
+                codec_t codec, double fps, int aux)
 {
-	struct state_quicktime *s = (struct state_quicktime *) state;
-	int i;
+        struct state_quicktime *s = (struct state_quicktime *) state;
+        int i;
         int ret;
-	const char *codec_name;
+        const char *codec_name;
 
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if (codec_info[i].codec == codec) {
                         s->cinfo = &codec_info[i];
-			codec_name = s->cinfo->name;
+                        codec_name = s->cinfo->name;
                 }
         }
-	if(codec == UYVY || codec == DVS8) /* just aliases for 2vuy,
-				            * but would confuse QT */
-		codec_name = "2vuy";
+        if(codec == UYVY || codec == DVS8) /* just aliases for 2vuy,
+                                            * but would confuse QT */
+                codec_name = "2vuy";
          
         if(s->frame[0].data != NULL)
                 display_quicktime_done(s);
@@ -857,7 +950,7 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 }
         }
 
-	reconf_common(s);
+        reconf_common(s);
 }
 
 static int find_mode(ComponentInstance *ci, int width, int height, 
@@ -865,11 +958,11 @@ static int find_mode(ComponentInstance *ci, int width, int height,
 {
         UNUSED(aux);
 
-	QTAtom atomDisplay = 0, nextAtomDisplay = 0;
-	QTAtomType type;
-	QTAtomID id;
-	QTAtomContainer modeListAtomContainer = NULL;
-	int found = FALSE;
+        QTAtom atomDisplay = 0, nextAtomDisplay = 0;
+        QTAtomType type;
+        QTAtomID id;
+        QTAtomContainer modeListAtomContainer = NULL;
+        int found = FALSE;
         int i = 1;
 
         int ret =
@@ -880,93 +973,93 @@ static int find_mode(ComponentInstance *ci, int width, int height,
                 return 0;
         }
 
-	/* Print modes of current display component */
-	while (!found && i <
-	       QTCountChildrenOfType(modeListAtomContainer,
-				     kParentAtomIsContainer,
-				     kQTVODisplayModeItem)) {
+        /* Print modes of current display component */
+        while (!found && i <
+               QTCountChildrenOfType(modeListAtomContainer,
+                                     kParentAtomIsContainer,
+                                     kQTVODisplayModeItem)) {
 
-		ret =
-		    QTNextChildAnyType(modeListAtomContainer,
-				       kParentAtomIsContainer,
-				       atomDisplay, &nextAtomDisplay);
-		// Make sure its a display atom
-		ret =
-		    QTGetAtomTypeAndID(modeListAtomContainer,
-				       nextAtomDisplay, &type, &id);
-		if (type != kQTVODisplayModeItem) {
-			++i;
-			continue;
-		}
+                ret =
+                    QTNextChildAnyType(modeListAtomContainer,
+                                       kParentAtomIsContainer,
+                                       atomDisplay, &nextAtomDisplay);
+                // Make sure its a display atom
+                ret =
+                    QTGetAtomTypeAndID(modeListAtomContainer,
+                                       nextAtomDisplay, &type, &id);
+                if (type != kQTVODisplayModeItem) {
+                        ++i;
+                        continue;
+                }
 
-		atomDisplay = nextAtomDisplay;
+                atomDisplay = nextAtomDisplay;
 
-		QTAtom atom;
-		long dataSize, *dataPtr;
+                QTAtom atom;
+                long dataSize, *dataPtr;
 
-		/* Print component other info */
-		atom =
-		    QTFindChildByID(modeListAtomContainer, atomDisplay,
-				    kQTVODimensions, 1, NULL);
-		ret =
-		    QTGetAtomDataPtr(modeListAtomContainer, atom,
-				     &dataSize, (Ptr *) & dataPtr);
-		if(width != (int)EndianS32_BtoN(dataPtr[0]) ||
-				height != (int)EndianS32_BtoN(dataPtr[1])) {
-			++i;
+                /* Print component other info */
+                atom =
+                    QTFindChildByID(modeListAtomContainer, atomDisplay,
+                                    kQTVODimensions, 1, NULL);
+                ret =
+                    QTGetAtomDataPtr(modeListAtomContainer, atom,
+                                     &dataSize, (Ptr *) & dataPtr);
+                if(width != (int)EndianS32_BtoN(dataPtr[0]) ||
+                                height != (int)EndianS32_BtoN(dataPtr[1])) {
+                        ++i;
                         debug_msg("[quicktime] mode %dx%d not selected.\n",
                                         (int)EndianS32_BtoN(dataPtr[0]), 
                                         (int)EndianS32_BtoN(dataPtr[1]));
-			continue;
-		}
-		atom =
-		    QTFindChildByID(modeListAtomContainer, atomDisplay,
-				    kQTVORefreshRate, 1, NULL);
-		ret =
-		    QTGetAtomDataPtr(modeListAtomContainer, atom,
-				     &dataSize, (Ptr *) & dataPtr);
+                        continue;
+                }
+                atom =
+                    QTFindChildByID(modeListAtomContainer, atomDisplay,
+                                    kQTVORefreshRate, 1, NULL);
+                ret =
+                    QTGetAtomDataPtr(modeListAtomContainer, atom,
+                                     &dataSize, (Ptr *) & dataPtr);
                 /* Following computation is in Fixed data type - its real value
                  * is 65536 bigger than coresponding integer (Fixed cast to int)
                  */
-		if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) > 0.01 * 65536)) {
-			++i;
+                if(fabs(fps * 65536 - EndianS32_BtoN(dataPtr[0]) > 0.01 * 65536)) {
+                        ++i;
                         debug_msg("[quicktime] mode %dx%d@%0.2f not selected.\n",
                                         width, height, EndianS32_BtoN(dataPtr[0])/65536.0);
-			continue;
-		}
+                        continue;
+                }
 
-		/* Get supported pixel formats */
-		QTAtom decompressorsAtom;
-		int j = 1;
-		while ((decompressorsAtom =
-			QTFindChildByIndex(modeListAtomContainer,
-					   atomDisplay,
-					   kQTVODecompressors, j,
-					   NULL)) != 0) {
-			atom =
-			    QTFindChildByID(modeListAtomContainer,
-					    decompressorsAtom,
-					    kQTVODecompressorType, 1,
-					    NULL);
-			ret =
-			    QTGetAtomDataPtr(modeListAtomContainer,
-					     atom, &dataSize,
-					     (Ptr *) & dataPtr);
-			if(strcasecmp((char *) dataPtr, codec_name) == 0) {
+                /* Get supported pixel formats */
+                QTAtom decompressorsAtom;
+                int j = 1;
+                while ((decompressorsAtom =
+                        QTFindChildByIndex(modeListAtomContainer,
+                                           atomDisplay,
+                                           kQTVODecompressors, j,
+                                           NULL)) != 0) {
+                        atom =
+                            QTFindChildByID(modeListAtomContainer,
+                                            decompressorsAtom,
+                                            kQTVODecompressorType, 1,
+                                            NULL);
+                        ret =
+                            QTGetAtomDataPtr(modeListAtomContainer,
+                                             atom, &dataSize,
+                                             (Ptr *) & dataPtr);
+                        if(strcasecmp((char *) dataPtr, codec_name) == 0) {
                                 debug_msg("[quicktime] mode %dx%d@%0.2f (%s) SELECTED.\n",
                                         width, height, fps, codec_name);
-				found = TRUE;
-				break;
-			} else {
+                                found = TRUE;
+                                break;
+                        } else {
                                 debug_msg("[quicktime] mode %dx%d@%0.2f (%s) not selected.\n",
                                         width, height, fps, codec_name);
                         }
 
-			j++;
-		}
+                        j++;
+                }
 
-		i++;
-	}
+                i++;
+        }
 
         if(found) {
                 debug_msg("Selected format: %ld\n", id);
@@ -1015,4 +1108,160 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
         }
 }
 
+struct audio_frame *display_quicktime_get_audio_frame(void *state)
+{
+        struct state_quicktime *s = (struct state_quicktime *)state;
+
+        if(s->play_audio)
+                return &s->audio;
+        else
+                return NULL;
+}
+
+void display_quicktime_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        struct state_quicktime * s = (struct state_quicktime *) state;
+        int to_end = frame->data_len;
+
+        if(frame->data_len > s->max_audio_data_len - s->audio_end)
+                to_end = s->max_audio_data_len - s->audio_end;
+
+        memcpy(s->audio_data + s->audio_end, frame->data, to_end);
+        memcpy(s->audio_data, frame->data + to_end, frame->data_len - to_end);
+        s->audio_end = (s->audio_end + frame->data_len) % s->max_audio_data_len;
+}
+
+static OSStatus theRenderProc(void *inRefCon,
+                              AudioUnitRenderActionFlags *inActionFlags,
+                              const AudioTimeStamp *inTimeStamp,
+                              UInt32 inBusNumber, UInt32 inNumFrames,
+                              AudioBufferList *ioData)
+{
+        struct state_quicktime * s = (struct state_quicktime *) inRefCon;
+        int write_bytes = inNumFrames * s->audio_packet_size;
+        int bytes_in_buffer = s->audio_end - s->audio_start;
+        int to_end;
+
+        if (bytes_in_buffer < 0)
+                bytes_in_buffer += s->max_audio_data_len;
+        
+        if(write_bytes > bytes_in_buffer)
+                write_bytes = bytes_in_buffer;
+        to_end = s->max_audio_data_len - s->audio_start;
+        if(to_end > write_bytes)
+                to_end = write_bytes;
+
+        memcpy(ioData->mBuffers[0].mData, s->audio_data + s->audio_start, to_end);
+        memcpy(ioData->mBuffers[0].mData + to_end, s->audio_data, write_bytes - to_end);
+        ioData->mBuffers[0].mDataByteSize = write_bytes;
+        s->audio_start = (s->audio_start + write_bytes) % s->max_audio_data_len;
+
+        if(!write_bytes) {
+                fprintf(stderr, "[quicktime] Audio buffer underflow.\n");
+                //usleep(10 * 1000 * 1000);
+        }  
+        return noErr;
+}
+
+void display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate) 
+{
+        struct state_quicktime *s = (struct state_quicktime *)state;
+        OSErr ret;
+        UInt32 size;
+        AURenderCallbackStruct  renderStruct;
+        AudioStreamBasicDescription desc;
+        AudioDeviceID device;
+        AudioDeviceID *dev_ids;
+        int dev_items;
+        int i;
+
+        fprintf(stderr, "[quicktime] Audio reinitialized to %d-bit, %d channels, %d Hz\n", 
+                        quant_samples, channels, sample_rate);
+        ret = AudioUnitUninitialize(s->auHALComponentInstance);
+        if(ret) goto error;
+
+        s->audio.bps = quant_samples / 8;
+        s->audio.ch_count = channels;
+        s->audio.sample_rate = sample_rate;
+
+        free(s->audio_data);
+        free(s->audio.data);
+        s->audio_start = 0;
+        s->audio_end = 0;
+        s->audio.max_size = s->max_audio_data_len = quant_samples / 8 * channels * sample_rate * 5;
+        s->audio_data = (char *) malloc(s->max_audio_data_len);
+        s->audio.data = (char *) malloc(s->audio.max_size);
+
+        ret = AudioHardwareGetPropertyInfo(kAudioHardwarePropertyDevices, &size, NULL);
+        if(ret) goto error;
+        dev_ids = malloc(size);
+        dev_items = size / sizeof(AudioDeviceID);
+        ret = AudioHardwareGetProperty(kAudioHardwarePropertyDevices, &size, dev_ids);
+        if(ret) goto error;
+
+        for(i = 0; i < dev_items; ++i)
+        {
+                CFStringRef name;
+                
+                size = sizeof(name);
+                ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceNameCFString, &size, &name);
+                if(CFStringCompare(name, s->audio_name,0) == kCFCompareEqualTo) device = dev_ids[i];
+                CFRelease(name);
+        }
+        free(dev_ids);
+
+        size=sizeof(device);
+        //ret = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultOutputDevice, &size, &device);
+        //if(ret) goto error;
+        
+        ret = AudioUnitSetProperty(s->auHALComponentInstance,
+                         kAudioOutputUnitProperty_CurrentDevice, 
+                         kAudioUnitScope_Global, 
+                         1, 
+                         &device, 
+                         sizeof(device));
+        if(ret) goto error;
+
+        size = sizeof(desc);
+        ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
+                        0, &desc, &size);
+        if(ret) goto error;
+        desc.mSampleRate = sample_rate;
+        desc.mFormatID = kAudioFormatLinearPCM;
+        desc.mChannelsPerFrame = channels;
+        desc.mBitsPerChannel = quant_samples;
+        desc.mFormatFlags = kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked;
+        desc.mFramesPerPacket = 1;
+        s->audio_packet_size = desc.mBytesPerFrame = desc.mBytesPerPacket = desc.mFramesPerPacket * channels * (quant_samples / 8);
+        
+        ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
+                        0, &desc, sizeof(desc));
+        if(ret) goto error;
+
+        renderStruct.inputProc = theRenderProc;
+        renderStruct.inputProcRefCon = s;
+        ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_SetRenderCallback,
+                        kAudioUnitScope_Input, 0, &renderStruct, sizeof(AURenderCallbackStruct));
+        if(ret) goto error;
+
+        ret = AudioUnitInitialize(s->auHALComponentInstance);
+        if(ret) goto error;
+
+        ret = AudioOutputUnitStart(s->auHALComponentInstance);
+        if(ret) goto error;
+
+        return;
+error:
+        fprintf(stderr, "Audio setting error, disabling audio.\n");
+        debug_msg("[quicktime] error: %d", ret);
+        free(s->audio_data);
+        free(s->audio.data);
+        s->audio_data = NULL;
+        s->audio.data = NULL;
+
+        s->play_audio = FALSE;
+}
+
 #endif                          /* HAVE_MACOSX */
+

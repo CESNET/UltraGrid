@@ -48,6 +48,8 @@
 
 #define DISPLAY_QUICKTIME_ID    0xba370f2f
 
+struct audio_frame;
+
 typedef struct {
         unsigned char   *device;
         unsigned char   *input;
@@ -60,9 +62,12 @@ typedef struct {
 extern const quicktime_mode_t quicktime_modes[];
 
 display_type_t          *display_quicktime_probe(void);
-void                    *display_quicktime_init(char *fmt);
+void                    *display_quicktime_init(char *fmt, unsigned int flags);
 void                     display_quicktime_run(void *state);
 void                     display_quicktime_done(void *state);
 struct video_frame      *display_quicktime_getf(void *state);
 int                      display_quicktime_putf(void *state, char *frame);
+
+struct audio_frame      *display_quicktime_get_audio_frame(void *state);
+void                     display_quicktime_put_audio_frame(void *state, const struct audio_frame *frame);
 

@@ -53,6 +53,11 @@ case "$host" in
 	;;
 esac	
 
+if expr "$host_os" : ".*darwin.*"; then
+	version_major="`echo \"$host_os\" | sed 's/^.*darwin\([[^.]]*\)..*$/\1/'`"
+	AC_DEFINE_UNQUOTED([MACOSX_VERSION_MAJOR], $version_major, [Major number of Mac X OS version])
+fi
+
 AC_SUBST(LINKER)
 
 # -------------------------------------------------------------------------------------------------
@@ -391,7 +396,7 @@ case $host_os in
 		if test $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
 		then
 			QUICKTIME_INC=
-			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit"	
+			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
 		fi
     ;;
