@@ -430,11 +430,9 @@ static void *audio_receiver_thread(void *arg)
                 ts = tv_diff(curr_time, uv->start_time) * 90000;        // What is this?
                 rtp_update(uv->audio_network_device, curr_time);        // this is just some internal rtp housekeeping...nothing to worry about
                 rtp_send_ctrl(uv->audio_network_device, ts, 0, curr_time);      // strange..
-
                 timeout.tv_sec = 0;
                 timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
                                                      as video frames */
-
                 rtp_recv_r(uv->audio_network_device, &timeout, ts);
                 cp = pdb_iter_init(uv->audio_participants);
                 while (cp != NULL && frame != NULL) {

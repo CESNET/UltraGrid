@@ -149,7 +149,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         }
         compress->frame.src_linesize = compress->frame.width * compress->frame.src_bpp;
         compress->frame.dst_linesize = compress->frame.width * 
-                (compress->frame.aux == AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+                (compress->frame.aux & AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
         compress->frame.color_spec = DXT1;
 
         /* We will deinterlace the output frame */

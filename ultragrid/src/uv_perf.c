@@ -105,6 +105,7 @@ int main(int argc, char *argv[])
                 }
                 tmp++;
         }
+        shmdt(shm);
 
         return 0;
 }

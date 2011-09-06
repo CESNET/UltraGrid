@@ -10,7 +10,7 @@ if [ -e /lib/modules/`uname -r`/source ]; then
   KERNEL=/lib/modules/`uname -r`/source
 fi
 
-if ! [ -d $KERNEL/kernel ]; then
+if ! [ -d $KERNEL ]; then
   echo "There is no kernel source installed for the running kernel `uname -r`."
   exit 1
 fi

@@ -287,6 +287,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
 
         s->frame.width = s->mode->width;
         s->frame.height = s->mode->height;
+        s->frame.fps = s->mode->fps;
 	s->frame.aux = s->mode->aux;
 
 	aligned_x = s->frame.width;
