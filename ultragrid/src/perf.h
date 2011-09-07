@@ -74,7 +74,7 @@ struct _uvp_entry {
 
 static key_t _uvp_key = 5043;
 
-void _uvp_perf_record(_uvp_event_t event, _uvp_arg_t arg);
+void perf_record(_uvp_event_t event, _uvp_arg_t arg);
 
 #else
 

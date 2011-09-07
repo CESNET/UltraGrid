@@ -521,7 +521,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         for(i=0; hdsp_mode_table[i].width != 0; i++) {
                 if(hdsp_mode_table[i].width == width &&
                    hdsp_mode_table[i].height == height &&
-                   aux == hdsp_mode_table[i].aux &&
+                   aux & hdsp_mode_table[i].aux &&
                    fabs(fps - hdsp_mode_table[i].fps) < 0.01 ) {
                     s->mode = &hdsp_mode_table[i];
                         break;

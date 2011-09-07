@@ -281,7 +281,7 @@ AC_ARG_WITH(decklink,
         [  --with-decklink=DIR     specify location of DECKLINK],
         [DECKLINK_INC=$withval/include
         ],
-        []
+        [DECKLINK_INC=""]
         )
 
 case "$host_os" in

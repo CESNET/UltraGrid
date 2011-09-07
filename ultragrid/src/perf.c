@@ -64,7 +64,7 @@ void perf_init()
         _uvp_offset = 0;
 }
 
-void _uvp_perf_record(_uvp_event_t event, _uvp_arg_t arg)
+void perf_record(_uvp_event_t event, _uvp_arg_t arg)
 {
         size_t current;
         struct timeval tv;

@@ -149,7 +149,7 @@ bundle: all
 	echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 perf: src/tv.o src/crypto/random.o
-	$(CC) src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
+	$(CC) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
 install:
 	cp -v $(TARGET) /usr/local/bin/
