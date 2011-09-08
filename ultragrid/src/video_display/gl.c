@@ -50,8 +50,6 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
-#include <GL/glew.h>
-
 #ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
@@ -703,6 +701,8 @@ void glut_key_callback(unsigned char key, int x, int y)
 void display_gl_run(void *arg)
 {
         struct state_gl        *s = (struct state_gl *) arg;
+        char *tmp, *gl_ver_major;
+        char *save_ptr = NULL;
 
 #ifdef HAVE_MACOSX
         /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
@@ -710,21 +710,30 @@ void display_gl_run(void *arg)
         NSApplicationLoad();
 #endif
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-        glutIdleFunc(glut_idle_callback);
 
+        glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(WIN_NAME);
 	glutKeyboardFunc(glut_key_callback);
 	glutDisplayFunc(glut_redisplay_callback);
 	glutWMCloseFunc(glut_close_callback);
 	glutReshapeFunc(gl_resize);
 
+        tmp = strdup(glGetString(GL_VERSION));
+        gl_ver_major = strtok_r(tmp, ".", &save_ptr);
+        if(atoi(gl_ver_major) >= 2) {
+                fprintf(stderr, "OpenGL 2.0 is supported...\n");
+        } else {
+                fprintf(stderr, "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
+                free(tmp);
+                exit(65);
+        }
+        free(tmp);
 
 	s->FProgram_dxt = frag;
 	s->VProgram_dxt = vert;
 	s->FProgram = glsl;
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-        glewInit();
         glEnable( GL_TEXTURE_2D );
 	glGenTextures(4, s->texture);
 
@@ -739,16 +748,6 @@ void display_gl_run(void *arg)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if(glewIsSupported("GL_VERSION_2_0")){
-		fprintf(stderr, "OpenGL 2.0 is supported...\n");
-		//TODO: Re-enable gl_init!
-		//glsl_gl_init(s);
-	}else if(GLEW_ARB_fragment_shader){
-		fprintf(stderr, "OpenGL 2.0 not supported, using ARB extension...\n");
-	}else{
-		fprintf(stderr, "ERROR: Neither OpenGL 2.0 nor ARB_fragment_shader are supported, try updating your drivers...\n");
-		exit(65);
-	}
 	glsl_arb_init(s);
 	dxt_arb_init(s);
 

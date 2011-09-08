@@ -65,6 +65,7 @@
 #include "transmit.h"
 #include "host.h"
 #include "video_codec.h"
+#include "compat/platform_time.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 

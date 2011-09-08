@@ -54,10 +54,7 @@
 #include "video_display.h"
 #include "video_display/sage.h"
 
-#include <GL/glew.h>
 #include <GL/gl.h>
-#include <GL/glu.h>
-#include <GL/glext.h>
 
 #include <X11/Xlib.h>
 #include <sys/time.h>

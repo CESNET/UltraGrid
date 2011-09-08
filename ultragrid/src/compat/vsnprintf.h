@@ -37,7 +37,8 @@
  *
  */
 
-#ifndef HAVE_VSNPRINTF
+#if 0
+/*#ifndef HAVE_VSNPRINTF */
 
 #if defined(__cplusplus)
 extern "C" {

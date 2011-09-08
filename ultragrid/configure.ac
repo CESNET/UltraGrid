@@ -25,22 +25,10 @@ AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
 )
 
-case "$host_os" in
-	*darwin8*)
-		AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-		LINKER=$CXX
-	;;
-	*darwin9*)
-		AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
-		LINKER=$CXX
-	;;
-	*)
-		LINKER=$CC
-	;;
-esac
-
 case "$host" in
+	*darwin9*)
+		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
+	;;
   	x86_64-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86_64"
 		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
@@ -53,9 +41,18 @@ case "$host" in
 	;;
 esac	
 
-if expr "$host_os" : ".*darwin.*"; then
+if expr "$host_os" : ".*darwin.*" > /dev/null; then
+	AC_MSG_CHECKING([Mac X OS kernel version (major)])
+	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
+	LINKER=$CXX
 	version_major="`echo \"$host_os\" | sed 's/^.*darwin\([[^.]]*\)..*$/\1/'`"
 	AC_DEFINE_UNQUOTED([MACOSX_VERSION_MAJOR], $version_major, [Major number of Mac X OS version])
+	AC_MSG_RESULT($version_major);
+	CFLAGS+=" -m32"
+	CPPFLAGS+=" -m32"
+	LDFLAGS+=" -m32"
+else
+	LINKER=$CC
 fi
 
 AC_SUBST(LINKER)
@@ -480,7 +477,7 @@ case "$host_os" in
                          [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
                         )
-            if test $FOUND_SDL_L = yes
+            if test "$FOUND_SDL_L" = yes
             then
                 CFLAGS="$CFLAGS -D_GNU_SOURCE=1 -D_THREAD_SAFE -I/opt/local/include/SDL"
                 LIBS="$LIBS -L/opt/local/lib -lSDLmain -lSDL -Wl,-framework,Cocoa"
@@ -488,7 +485,7 @@ case "$host_os" in
                 AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
                 SDL_VERSION_REQUIRED=1.2.10
                 AC_CHECK_FILE(/opt/local/bin/sdl-config, FOUND_SDL_CONFIG=yes, echo "sdl-config not found.")
-                if test $FOUND_SDL_CONFIG = yes
+                if test "$FOUND_SDL_CONFIG" = yes
                 then
                     SDL_VERSION_FOUND=`/opt/local/bin/sdl-config --version`
                     RESULT=`cmpversion $SDL_VERSION_FOUND $SDL_VERSION_REQUIRED`
@@ -508,7 +505,7 @@ case "$host_os" in
                          [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
                          [echo "SDL.h not found."]
                         )
-            if test $FOUND_SDL_L = yes
+            if test "$FOUND_SDL_L" = yes
             then
                 LIBS="$LIBS -lSDL"
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
@@ -552,26 +549,27 @@ case "$host_os" in
 			*darwin9*)
 				LIBS="$LIBS -framework GLUT -framework OpenGL -framework Cocoa -dylib_file /System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib"
 			;;
+			*)
+				LIBS="$LIBS -framework GLUT -framework OpenGL -framework Cocoa"
+			;;
 			esac
 
-                        FOUND_GLUT=no
-			FOUND_GLEW_L=no
-			AC_CHECK_HEADERS([/opt/local/include/GL/glew.h],
-					 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.", -L/opt/local/lib)],
-					 [echo "GL/glew.h not found."]
-					)
+			#FOUND_GLEW_L=no
+			#AC_CHECK_HEADERS([/opt/local/include/GL/glew.h],
+			#		 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.", -L/opt/local/lib)],
+			#		 [echo "GL/glew.h not found."]
+			#		)
 			AC_CHECK_HEADERS([GLUT/glut.h],
 					 [AC_CHECK_FILE(/System/Library/Frameworks/GLUT.framework/GLUT, FOUND_GLUT=yes, echo "GLUT framework not found.")],
 					 [echo "GLUT/glut.h not found."]
 					)
-			if test $FOUND_GLEW_L = yes -a $FOUND_GLUT = yes
+			if test "$FOUND_GLUT" = yes
 			then
-				LIBS="$LIBS /opt/local/lib/libGLEW.a"
 				GL_INC="$GL_INC -I/opt/local/include"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
-				echo "OpenGL (GLEW/GLUT) libraries not found or not usable."
+				echo "OpenGL (GLUT) libraries not found or not usable."
 			fi
 		else
 			echo "OpenGL libraries not found or not usable."
@@ -599,23 +597,22 @@ case "$host_os" in
 		then
 			LIBS="$LIBS -lGL"
 	
-			FOUND_GLEW_L=no
-			FOUND_GLUT_L=yes
-			AC_CHECK_HEADERS([GL/glew.h],
-					 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
-					 [echo "GL/glew.h not found."]
-					)
+			#FOUND_GLEW_L=no
+			#AC_CHECK_HEADERS([GL/glew.h],
+			#		 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
+			#		 [echo "GL/glew.h not found."]
+			#		)
 			AC_CHECK_HEADERS([GL/glut.h],
-					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT_L=yes , echo "GLUT library not found or not usable.")],
+					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.")],
 					 [echo "GL/glut.h not found."]
 					)
-			if test $FOUND_GLEW_L = yes -a $FOUND_GLUT_L = yes
+			if test "$FOUND_GLUT" = yes
 			then
-				LIBS="$LIBS -lGLEW -lglut"
+				LIBS="$LIBS -lglut"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 			else
-				echo "OpenGL (GLEW/GLUT) libraries not found or not usable."
+				echo "OpenGL (GLUT) libraries not found or not usable."
 			fi
 		else
 			echo "OpenGL libraries not found or not usable."
