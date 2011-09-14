@@ -53,8 +53,6 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
- 
-#ifdef HAVE_SDL
 
 #include "debug.h"
 #include "tv.h"
@@ -65,8 +63,8 @@
 #include "song1.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <SDL/SDL.h>
 #ifdef HAVE_LIBSDL_MIXER
+#include <SDL/SDL.h>
 #include <SDL/SDL_mixer.h>
 #endif /* HAVE_LIBSDL_MIXER */
 #include "audio/audio.h"
@@ -78,17 +76,26 @@
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 AUDIO_CHANNELS * BUFFER_SEC)
 
+struct testcard_rect {
+        int x, y, w, h;
+};
+struct testcard_pixmap {
+        int w, h;
+        char *data;
+};
+
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
 unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
                       unsigned int height, double bpp);
 void toR10k(unsigned char *in, unsigned int width, unsigned int height);
+void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color);
 
 struct testcard_state {
         struct timeval last_frame_time;
         int count;
         int size;
         int pan;
-        SDL_Surface *surface;
+        struct testcard_pixmap pixmap;
         char *data;
         struct timeval t0;
         struct video_frame frame;
@@ -111,6 +118,17 @@ const int rect_colors[] = {
 };
 
 #define COL_NUM 6
+
+void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
+{
+        int cur_x, cur_y;
+        int *data = (char *) s->data;
+        
+        for (cur_x = r->x; cur_x < r->x + r->w; ++cur_x)
+                for(cur_y = r->y; cur_y < r->y + r->h; ++cur_y)
+                        if(cur_x < s->w)
+                                *(data + s->w * cur_y + cur_x) = color;
+}
 
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
 {
@@ -398,9 +416,10 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
                                         &s->tiles[x], sizeof(struct video_frame));
                         /* make the pointers correct */
                         s->tiles_data[y * s->frame.tile_info.x_count + x] =
-                                s->tiles_data[x] ;
-                        s->tiles[y * s->frame.tile_info.x_count + x].data =
                                 s->tiles_data[x] +
+                                y * s->tiles[x].height * s->tiles[x].src_linesize;
+                        s->tiles[y * s->frame.tile_info.x_count + x].data =
+                                s->tiles_data[x] + 
                                 y * s->tiles[x].height * s->tiles[x].src_linesize;
                         s->tiles[y * s->frame.tile_info.x_count + x].tile_info.pos_y = y;
                 }
@@ -531,12 +550,12 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
                 fclose(in);
         } else {
-                SDL_Rect r;
+                struct testcard_rect r;
                 int col_num = 0;
-                s->surface =
-                    SDL_CreateRGBSurface(SDL_SWSURFACE, aligned_x, s->frame.height * 2,
-                                         32, 0xff, 0xff00, 0xff0000,
-                                         0xff000000);
+                s->pixmap.w = aligned_x;
+                s->pixmap.h = s->frame.height * 2;
+                s->pixmap.data = malloc(s->pixmap.w * s->pixmap.h * sizeof(int));
+
                 if (filename) {
                         if(filename[0] == 'p')
                                 s->pan = 48;
@@ -551,9 +570,9 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                                 r.h = rect_size / 4;
                                 r.x = 0;
                                 r.y = j;
-                                SDL_FillRect(s->surface, &r, 0xffffffff);
+                                testcard_fillRect(&s->pixmap, &r, 0xffffffff);
                                 r.y = j + rect_size * 3 / 4;
-                                SDL_FillRect(s->surface, &r, 0);
+                                testcard_fillRect(&s->pixmap, &r, 0);
                         }
                         for (i = 0; i < s->frame.width; i += rect_size) {
                                 r.w = rect_size;
@@ -562,18 +581,18 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                                 r.y = j;
                                 printf("Fill rect at %d,%d\n", r.x, r.y);
                                 if (j != rect_size * 2) {
-                                        SDL_FillRect(s->surface, &r,
+                                        testcard_fillRect(&s->pixmap, &r,
                                                      rect_colors[col_num]);
                                         col_num = (col_num + 1) % COL_NUM;
                                 } else {
                                         r.h = rect_size / 2;
                                         r.y += rect_size / 4;
-                                        SDL_FillRect(s->surface, &r, grey);
+                                        testcard_fillRect(&s->pixmap, &r, grey);
                                         grey += 0x00010101 * (255 / COL_NUM);
                                 }
                         }
                 }
-                s->data = s->surface->pixels;
+                s->data = s->pixmap.data;
                 if (codec == UYVY || codec == v210 || codec == Vuy2) {
                         rgb2yuv422((unsigned char *) s->data, aligned_x,
                                    s->frame.height);
@@ -594,8 +613,8 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         memcpy(s->frame.data, s->data, s->size);
         memcpy(s->frame.data + s->size, s->data, s->size);
-        if(s->surface)
-                SDL_FreeSurface(s->surface);
+        if(s->pixmap.data)
+                free(s->pixmap.data);
         else
                 free(s->data);
 
@@ -637,7 +656,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
                         fprintf(stderr, "[testcard] Disabling audio output. "
-                                        "SDL-mixer missing, running on Mac or other problem.");
+                                        "SDL-mixer missing, running on Mac or other problem.\n");
                 }
         } else {
                 s->grab_audio = FALSE;
@@ -751,7 +770,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, int *count, struct audio_fra
                                  * keep in mind that we have two "pictures" for
                                  * every tile stored sequentially */
                                 if(state->tiles[i].data >= state->tiles_data[i] +
-                                                state->tiles[i].data_len) {
+                                                state->tiles[i].data_len * 2) {
                                         state->tiles[i].data = state->tiles_data[i];
                                 }
                         }
@@ -775,5 +794,3 @@ struct vidcap_type *vidcap_testcard_probe(void)
         }
         return vt;
 }
-
-#endif

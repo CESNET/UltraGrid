@@ -115,7 +115,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_quicktime_done,
          vidcap_quicktime_grab},
 #endif                          /* HAVE_MACOSX */
-#ifdef HAVE_SDL /* we need currently SDL for testcard */
         {
          /* Dummy sender for testing purposes */
          0,
@@ -123,7 +122,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_testcard_init,
          vidcap_testcard_done,
          vidcap_testcard_grab},
- #endif                          /* HAVE_MACOSX */
         {
          0,
          vidcap_null_probe,
