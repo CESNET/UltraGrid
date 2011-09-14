@@ -189,7 +189,7 @@ struct state_quicktime {
         GWorldPtr gworld[MAX_DEVICES];
         ImageSequence seqID[MAX_DEVICES];
         int device[MAX_DEVICES];
-        
+        int mode;
         int devices_cnt;
         const struct codec_info_t *cinfo;
 
@@ -204,6 +204,7 @@ struct state_quicktime {
         int audio_start, audio_end, max_audio_data_len;
         char *audio_data;
         unsigned play_audio:1;
+        unsigned mode_set_manually:1;
 
         uint32_t magic;
 };
@@ -534,7 +535,6 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         int ret;
         int i;
         char *codec_name;
-        int mode;
 
         /* Parse fmt input */
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
@@ -577,9 +577,11 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 
                 tok = strtok(NULL, ":");
                 if (tok == NULL) {
-                        mode = 0;
+                        s->mode = 0;
+                        s->mode_set_manually = FALSE;
                 } else {
-                        mode = atol(tok);
+                        s->mode_set_manually = TRUE;
+                        s->mode = atol(tok);
                         tok = strtok(NULL, ":");
                         if (tok == NULL) {
                                 show_help(0);
@@ -611,7 +613,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         InitCursor();
         EnterMovies();
 
-        if(mode != 0) {
+        if(s->mode != 0) {
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(codec_name, codec_info[i].name) == 0) {
                                 s->cinfo = &codec_info[i];
@@ -626,7 +628,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                         /* Set the display mode */
                         ret =
                             QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],
-                                                        mode);
+                                                        s->mode);
                         if (ret != noErr) {
                                 fprintf(stderr, "Failed to set video output display mode.\n");
                                 return NULL;
@@ -906,11 +908,13 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 
                 s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
                 
+                if(!s->mode_set_manually)
+                        s->mode = find_mode(&s->videoDisplayComponentInstance[i],
+                                                        tile_width, tile_height, codec_name, fps, aux);
                 /* Set the display mode */
                 ret =
                     QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],
-                                                find_mode(&s->videoDisplayComponentInstance[i],
-                                                        tile_width, tile_height, codec_name, fps, aux));
+                                                s->mode);
                 if (ret != noErr) {
                         fprintf(stderr, "Failed to set video output display mode.\n");
                         exit(128);
