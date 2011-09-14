@@ -56,20 +56,17 @@
 struct audio_frame;
 
 void            portaudio_print_available_devices(enum audio_device_kind);
-void            portaudio_close(PaStream *stream);	// closes and frees all audio resources ( according to valgrind this is not true..  )
 
-/* Capture related - TODO: refactor (like playback done) */
-PaStream       *portaudio_capture_init(int capture_device);
-int             portaudio_read(PaStream *stream, audio_frame *buffer);
-int             portaudio_init_audio_frame(audio_frame *frame);
-void            free_audio_frame(audio_frame *buffer);	// buffers should be freed after usage
-int             portaudio_start_stream(PaStream *stream);
+/* Capture related  */
+void * portaudio_capture_init(char *cfg);
+struct audio_frame * portaudio_read(void *state);
+//done
 
-/* Playback related - TODO: refactor (like playback done) */
-void           *portaudio_playback_init(int playback_device);
+/* Playback related */
+void           *portaudio_playback_init(char *cfg);
 void            portaudio_close_playback(void *s);
 struct audio_frame* portaudio_get_frame(void *state);
-void            portaudio_put_frame(void *state);
+void            portaudio_put_frame(void *state, struct audio_frame *buffer);
 
 #endif /* HAVE_PORTAUDIO */
 

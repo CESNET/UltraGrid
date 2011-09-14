@@ -48,8 +48,8 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	version_major="`echo \"$host_os\" | sed 's/^.*darwin\([[^.]]*\)..*$/\1/'`"
 	AC_DEFINE_UNQUOTED([MACOSX_VERSION_MAJOR], $version_major, [Major number of Mac X OS version])
 	AC_MSG_RESULT($version_major);
-	CFLAGS+=" -m32"
-	CPPFLAGS+=" -m32"
+	CFLAGS+=" -m32 -I/opt/local/include"
+	CPPFLAGS+=" -m32 -I/opt/local/include"
 	LDFLAGS+=" -m32"
 else
 	LINKER=$CC
@@ -474,7 +474,7 @@ case "$host_os" in
 	# Mac workaround - redefining non-present macro to avoid errors
 	AC_DEFUN([AM_PATH_SDL], [$2])
         AC_CHECK_HEADERS([SDL/SDL.h],
-                         [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
+                         [AC_CHECK_LIB(SDL, SDL_Init, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
                         )
             if test "$FOUND_SDL_L" = yes
@@ -502,7 +502,7 @@ case "$host_os" in
         ;;
         *)
         AC_CHECK_HEADERS([SDL/SDL.h],
-                         [AC_CHECK_LIB(SDL, main, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
+                         [AC_CHECK_LIB(SDL, SDL_Init, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
                          [echo "SDL.h not found."]
                         )
             if test "$FOUND_SDL_L" = yes
@@ -755,6 +755,22 @@ fi
 AC_SUBST(PORTAUDIO_INC)
 AC_SUBST(PORTAUDIO_LIB)
 AC_SUBST(PORTAUDIO_OBJ)
+
+#
+# Jack stuff
+#
+AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
+AC_CHECK_LIB(jack, jack_client_new, FOUND_JACK_L=yes, FOUND_JACK_L=no)
+if test $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+then
+    JACK_OBJ="src/audio/jack.o"
+    JACK_LIB="-ljack"
+    AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
+fi
+AC_SUBST(JACK_OBJ)
+AC_SUBST(JACK_LIB)
+AC_SUBST(JACK_INC)
+
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

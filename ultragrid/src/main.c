@@ -89,17 +89,14 @@
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
 
-#define AUDIO_DEV_SDI          -2
-#define AUDIO_DEV_NONE         -100
-
 struct state_uv {
         struct rtp **network_devices;
         unsigned int connections_count;
-        struct rtp *audio_network_device;
+        
         struct vidcap *capture_device;
         struct timeval start_time, curr_time;
         struct pdb *participants;
-        struct pdb *audio_participants;
+        
         uint32_t ts;
         struct video_tx *tx;
         struct display *display_device;
@@ -109,13 +106,9 @@ struct state_uv {
         int requested_compression;
         unsigned requested_mtu;
         
-        struct audio_frame * audio_buffer;
-        sem_t audio_frame_ready;
-
         int use_ihdtv_protocol;
 
-        int audio_capture_device;
-        int audio_playback_device;
+        struct state_audio *audio;
 };
 
 long packet_rate = 13600;
@@ -383,122 +376,6 @@ static void *ihdtv_sender_thread(void *arg)
         return 0;
 }
 
-static struct rtp *initialize_audio_network(char *addr, struct pdb *participants)       // GiX
-{
-        struct rtp *r;
-        double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
-
-        r = rtp_init(addr, PORT_AUDIO, PORT_AUDIO, 255, rtcp_bw, FALSE, rtp_recv_callback,
-                     (void *)participants);
-        if (r != NULL) {
-                pdb_add(participants, rtp_my_ssrc(r));
-                rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
-                rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
-                             ULTRAGRID_VERSION, strlen(ULTRAGRID_VERSION));
-        }
-
-        return r;
-}
-
-static void *audio_receiver_thread(void *arg)
-{
-        struct state_uv *uv = arg;
-        // rtp variables
-        struct timeval timeout, curr_time;
-        uint32_t ts;
-        struct pdb_e *cp;
-        struct audio_frame *frame;
-#ifdef HAVE_PORTAUDIO
-        void *portaudio;
-#endif /* HAVE_PORTAUDIO */
-
-        if(uv->audio_playback_device == AUDIO_DEV_SDI) {
-                frame = display_get_audio_frame(uv->display_device);
-        } else {
-#ifdef HAVE_PORTAUDIO
-                portaudio = portaudio_playback_init(uv->audio_playback_device);
-                if (!portaudio) return NULL;
-                frame = portaudio_get_frame(portaudio);
-#else
-                return NULL; /* return if we have requested portaudio but
-                                we don't have compiled it */
-#endif /* HAVE_PORTAUDIO */
-        }
-                
-        while (!should_exit) {
-                gettimeofday(&curr_time, NULL);
-                ts = tv_diff(curr_time, uv->start_time) * 90000;        // What is this?
-                rtp_update(uv->audio_network_device, curr_time);        // this is just some internal rtp housekeeping...nothing to worry about
-                rtp_send_ctrl(uv->audio_network_device, ts, 0, curr_time);      // strange..
-                timeout.tv_sec = 0;
-                timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
-                                                     as video frames */
-                rtp_recv_r(uv->audio_network_device, &timeout, ts);
-                cp = pdb_iter_init(uv->audio_participants);
-                while (cp != NULL && frame != NULL) {
-                        
-                        if (audio_pbuf_decode(cp->playout_buffer, curr_time, frame)) {
-                                if(uv->audio_playback_device == AUDIO_DEV_SDI) {
-                                        display_put_audio_frame(uv->display_device, frame);
-                                        frame = display_get_audio_frame(uv->display_device);
-                                } else { /* portaudio */
-#ifdef HAVE_PORTAUDIO
-                                        portaudio_put_frame(portaudio);
-                                        frame = portaudio_get_frame(portaudio);
-#endif /* HAVE_PORTAUDIO */
-                                }
-                        }
-
-                        pbuf_remove(cp->playout_buffer, curr_time);
-                        cp = pdb_iter_next(uv->audio_participants);
-                }
-                pdb_iter_done(uv->audio_participants);
-        }
-        if(uv->audio_playback_device == AUDIO_DEV_SDI) {
-#ifdef HAVE_PORTAUDIO
-                portaudio_close_playback(portaudio);
-#endif /* HAVE_PORTAUDIO */
-        }
-
-        return NULL;
-}
-
-static void *audio_sender_thread(void *arg)
-{
-        struct state_uv *uv = (struct state_uv *) arg;
-        
-#ifdef HAVE_PORTAUDIO
-        audio_frame buffer;
-        PaStream *stream;
-		
-	if(uv->audio_capture_device != AUDIO_DEV_SDI) {
-		stream = portaudio_capture_init(uv->audio_capture_device);
-		if (!stream) return NULL;
-
-		portaudio_init_audio_frame(&buffer);
-		portaudio_start_stream(stream);
-	}
-#endif /* HAVE_PORTAUDIO */
-                
-        while (!should_exit) {
-                if(uv->audio_capture_device == AUDIO_DEV_SDI) {
-                        platform_sem_wait(&uv->audio_frame_ready);
-                        audio_tx_send(uv->audio_network_device, uv->audio_buffer);
-                } else {
-#ifdef HAVE_PORTAUDIO
-                        portaudio_read(stream, &buffer);
-                        audio_tx_send(uv->audio_network_device, &buffer);
-#endif /* HAVE_PORTAUDIO */                
-                }
-        }
-#ifdef HAVE_PORTAUDIO
-        free_audio_frame(&buffer);
-        portaudio_close(stream);
-#endif /* HAVE_PORTAUDIO */
-
-        return NULL;
-}
-
 static void *receiver_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
@@ -594,7 +471,7 @@ static void *sender_thread(void *arg)
         struct state_uv *uv = (struct state_uv *)arg;
 
         struct video_frame *tx_frames;
-
+        struct audio_frame *audio;
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         int frame_count = 0;
@@ -611,10 +488,10 @@ static void *sender_thread(void *arg)
 
         while (!should_exit) {
                 /* Capture and transmit video... */
-                tx_frames = vidcap_grab(uv->capture_device, &frame_count, &uv->audio_buffer);
+                tx_frames = vidcap_grab(uv->capture_device, &frame_count, &audio);
                 if (tx_frames != NULL) {
-                        if(uv->audio_buffer != NULL) {
-                                platform_sem_post(&uv->audio_frame_ready);
+                        if(audio) {
+                                audio_sdi_send(uv->audio, audio);
                         }
                         //TODO: Unghetto this
                         if (uv->requested_compression) {
@@ -652,6 +529,10 @@ int main(int argc, char *argv[])
 #endif
         char *capture_cfg = NULL;
         char *display_cfg = NULL;
+        char *audio_send = NULL;
+        char *audio_recv = NULL;
+        char *jack_cfg = NULL;
+        
         struct state_uv *uv;
         char *num_compress_threads;
         int ch;
@@ -675,6 +556,7 @@ int main(int argc, char *argv[])
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
+                {"jack", required_argument, 0, 'j'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -690,16 +572,13 @@ int main(int argc, char *argv[])
         uv->requested_compression = 0;
         uv->requested_mtu = 0;
         uv->use_ihdtv_protocol = 0;
-        uv->audio_capture_device = AUDIO_DEV_NONE;  // no device
-        uv->audio_playback_device = AUDIO_DEV_NONE;
-        uv->audio_participants = NULL;
         uv->participants = NULL;
 
         perf_init();
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:r:s:vc::ih", getopt_options,
+                getopt_long(argc, argv, "d:g:t:m:r:s:vc::ihj:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -749,18 +628,13 @@ int main(int argc, char *argv[])
                         printf("setting ihdtv protocol\n");
                         break;
                 case 'r':
-                        if (!strcmp("help", optarg)) {
-                                print_audio_devices(AUDIO_OUT);
-                                return EXIT_SUCCESS;
-                        }
-                        uv->audio_playback_device = atoi(optarg);
+                        audio_recv = optarg;                       
                         break;
                 case 's':
-                        if (!strcmp("help", optarg)) {
-                                print_audio_devices(AUDIO_IN);
-                                return EXIT_SUCCESS;
-                        }
-                        uv->audio_capture_device = atoi(optarg);
+                        audio_send = optarg;
+                        break;
+                case 'j':
+                        jack_cfg = optarg;
                         break;
 		case 'h':
 			usage();
@@ -773,13 +647,14 @@ int main(int argc, char *argv[])
                 }
         }
         
-        if(uv->audio_capture_device == AUDIO_DEV_SDI) 
-                vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
-        if(uv->audio_playback_device == AUDIO_DEV_SDI) 
-                display_flags |= DISPLAY_FLAG_ENABLE_AUDIO;
-        
         argc -= optind;
         argv += optind;
+
+        uv->audio = audio_cfg_init (&argv[0], audio_send, audio_recv, jack_cfg);
+        if(audio_does_send_sdi(uv->audio))
+                vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
+        if(audio_does_receive_sdi(uv->audio))
+                display_flags |= DISPLAY_FLAG_ENABLE_AUDIO;
 
         if (uv->use_ihdtv_protocol) {
                 if ((argc != 0) && (argc != 1) && (argc != 2)) {
@@ -847,10 +722,6 @@ int main(int argc, char *argv[])
 #else
         printf("WARNING: System does not support real-time scheduling\n");
 #endif                          /* HAVE_SCHED_SETSCHEDULER */
-        
-        platform_sem_init(&uv->audio_frame_ready, 0, 0);
-        pthread_t audio_sender_thread_id,
-                  audio_receiver_thread_id;
 
         if (uv->use_ihdtv_protocol) {
                 ihdtv_connection tx_connection, rx_connection;
@@ -963,42 +834,12 @@ int main(int argc, char *argv[])
                                 should_exit = TRUE;
                         }
                 }
-		if ((uv->audio_playback_device != AUDIO_DEV_NONE)
-		    || (uv->audio_capture_device != AUDIO_DEV_NONE)) {
-			char *tmp, *unused;
-			char *addr;
-			tmp = strdup(argv[0]);
-			uv->audio_participants = pdb_init();
-			addr = strtok_r(tmp, ",", &unused);
-			if ((uv->audio_network_device =
-			     initialize_audio_network(addr,
-						      uv->audio_participants)) ==
-			    NULL) {
-				printf("Unable to open audio network\n");
-				free(tmp);
-				return EXIT_FAIL_NETWORK;
-			}
-			free(tmp);
-
-			if (uv->audio_capture_device != AUDIO_DEV_NONE) {
-				if (pthread_create
-				    (&audio_sender_thread_id, NULL, audio_sender_thread, (void *)uv) != 0) {
-					fprintf(stderr,
-						"Error creating audio thread. Quitting\n");
-					return EXIT_FAILURE;
-				}
-			}
-			if (uv->audio_playback_device != AUDIO_DEV_NONE) {
-				if (pthread_create
-				    (&audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)uv) != 0) {
-					fprintf(stderr,
-						"Error creating audio thread. Quitting\n");
-					return EXIT_FAILURE;
-				}
-			}
-		}
         }
-
+        
+        if(audio_does_receive_sdi(uv->audio)) {
+                audio_register_get_callback(uv->audio, (struct audio_frame * (*)(void *)) display_get_audio_frame, uv->display_device);
+                audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
+        }
 
         /* register cleanup function */
         uv_state = uv;
@@ -1013,11 +854,10 @@ int main(int argc, char *argv[])
 
         if (strcmp("none", uv->requested_capture) != 0)
                 pthread_join(sender_thread_id, NULL);
-
-        if (uv->audio_playback_device != AUDIO_DEV_NONE)
-                pthread_join(audio_receiver_thread_id, NULL);
-        if (uv->audio_capture_device != AUDIO_DEV_NONE)
-                pthread_join(audio_sender_thread_id, NULL);
+        
+        /* also wait for audio threads */
+        audio_join(uv->audio);
+        cleanup_uv();
 
         return EXIT_SUCCESS;
 }
@@ -1030,15 +870,14 @@ void cleanup_uv(void)
          */
 	should_exit = 1;
 	usleep(100000);
-
+        
+        audio_done(uv_state->audio);
         tx_done(uv_state->tx);
 	destroy_devices(uv_state->network_devices);
         vidcap_done(uv_state->capture_device);
         display_done(uv_state->display_device);
         if (uv_state->participants != NULL)
                 pdb_destroy(&uv_state->participants);
-        if (uv_state->audio_participants != NULL)
-                pdb_destroy(&uv_state->audio_participants);
         printf("Exit\n");
 }
 

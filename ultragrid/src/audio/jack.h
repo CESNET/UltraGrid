@@ -1,5 +1,5 @@
 /*
- * FILE:    platform_semaphore.h
+ * FILE:    audio/jack.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2209 CESNET z.s.p.o.
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -48,20 +48,16 @@
 
 #include "config.h"
 
-#ifndef _PLATFORM_SEMAPHORE_H
-#define _PLATFORM_SEMAPHORE_H
+#ifndef _JACK_H_
+#define _JACK_H_
 
-#ifdef HAVE_MACOSX
-#include <mach/semaphore.h>
-#include <mach/task.h>
+struct audio_frame;
 
-typedef semaphore_t sem_t;
-#else
-#include <semaphore.h>
-#endif /* HAVE_MACOSX */
+void * jack_start(char *cfg);
+void jack_send(void *s, struct audio_frame *frame);
+void jack_receive(void *state, struct audio_frame *buffer);
 
-inline void platform_sem_init(void * semStructure, int pshared, int initialValue);
-inline void platform_sem_post(void * semStructure);
-inline void platform_sem_wait(void * semStructure);
+int is_jack_sender(void *state);
+int is_jack_receiver(void *state);
 
-#endif /* _PLATFORM_SEMAPHORE_H */
+#endif

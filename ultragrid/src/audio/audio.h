@@ -51,13 +51,17 @@
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
+#include "compat/platform_semaphore.h"
+
+#define PORT_AUDIO              5006
+static const int audio_payload_type = 97;
+
+struct state_audio;
+
 enum audio_device_kind {
         AUDIO_IN,
         AUDIO_OUT
 };
-
-
-static const int audio_payload_type = 97;
 
 typedef void (*reconfigure_audio_t)(void *state, int quant_samples, int channels,
                 int sample_rate);
@@ -76,8 +80,18 @@ typedef struct audio_frame
 }
 audio_frame;
 
-void print_audio_devices(enum audio_device_kind kind);
+struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cfg, char *jack_cfg);
+void audio_done(struct state_audio *s);
+void audio_join(struct state_audio *s);
 
-#include "audio/portaudio.h"
+void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
+int audio_does_send_sdi(struct state_audio *s);
+int audio_does_receive_sdi(struct state_audio *s);
+struct audio_frame * sdi_get_frame(void *state);
+void sdi_put_frame(void *state, struct audio_frame *frame);
+void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
+                void *udata);
+void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
+                void *udata);
 
 #endif

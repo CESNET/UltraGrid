@@ -399,7 +399,8 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 quant_samples = hdr->audio_quant; assert(hdr->audio_quant % 8 == 0);
                                 
                                 if(buffer->ch_count != channels ||
-                                                buffer->bps != quant_samples / 8) {
+                                                buffer->bps != quant_samples / 8 ||
+                                                buffer->sample_rate != sample_rate) {
                                         buffer->reconfigure_audio(buffer->state, quant_samples, channels,
                                                 sample_rate);
                                         //buffer = display_get_audio_frame(buffer->state);

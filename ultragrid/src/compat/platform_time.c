@@ -61,9 +61,6 @@ int clock_gettime(int unused, struct timespec *ts) {
         clock_serv_t cclock;
         mach_timespec_t mts;
 
-        assert(unused == CLOCK_REALTIME); /* this function is just workaround
-                                             and we needn't to do it for whole
-                                             world */
         host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
         clock_get_time(cclock, &mts);
         mach_port_deallocate(mach_task_self(), cclock);
