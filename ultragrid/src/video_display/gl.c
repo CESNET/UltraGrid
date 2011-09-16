@@ -118,8 +118,8 @@ struct state_gl {
         pthread_mutex_t reconf_lock;
         pthread_cond_t  reconf_cv;
 
-        double          raspect;
-
+        double          aspect;
+        double          video_aspect;
         unsigned long int frames;
         unsigned        win_initialized:1;
 
@@ -164,9 +164,10 @@ static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_fram
  */
 void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t[d][fs] | help\n");
-        printf("\td - deinterlace\n");
-        printf("\tfs - fullscreen\n");
+        printf("\t-g { d | fs | aspect=<v>/<h> }* | help\n\n");
+        printf("\t\td\t\tdeinterlace\n");
+        printf("\t\tfs\t\tfullscreen\n");
+        printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
 }
 
 void gl_check_error()
@@ -225,6 +226,7 @@ void * display_gl_init(char *fmt) {
 
         s->fs = FALSE;
         s->deinterlace = FALSE;
+        s->video_aspect = 0.0;
 
 	// parse parameters
 	if (fmt != NULL) {
@@ -235,16 +237,23 @@ void * display_gl_init(char *fmt) {
 		}
 
 		char *tmp = strdup(fmt);
-		char *tok;
+		char *tok, *save_ptr = NULL;
 		
-		tok = strtok(tmp, ":");
-		if ((tok != NULL) && (tok[0] == 'd')){
-                        s->deinterlace = TRUE;
-                        tok = strtok(NULL,":");
+		while((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                        if(!strcmp(tok, "d")) {
+                                s->deinterlace = TRUE;
+                        } else if(!strcmp(tok, "fs")) {
+                                s->fs = TRUE;
+                        } else if(!strncmp(tok, "aspect=", strlen("aspect="))) {
+                                s->video_aspect = atof(tok + strlen("aspect="));
+                                char *pos = strchr(tok,'/');
+                                if(pos) s->video_aspect /= atof(pos + 1);
+                        } else {
+                                fprintf(stderr, "[GL] Unknown option: %s\n", tok);
+                        }
+                        tmp = NULL;
                 }
-		if ((tok != NULL) && (tok[0] == 'f') && (tok[1] == 's')) {
-			s->fs=TRUE;
-		}
+                        
 
 		free(tmp);
 	}
@@ -420,7 +429,7 @@ void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int heig
 void glut_resize_window(struct state_gl *s)
 {
         if (!s->fs) {
-                glutReshapeWindow(s->frame.width, s->frame.height);
+                glutReshapeWindow(s->frame.height * s->aspect, s->frame.height);
         } else {
                 glutFullScreen();
         }
@@ -508,9 +517,12 @@ void gl_reconfigure_screen(struct state_gl *s)
 	s->v=malloc(s->frame.width * s->frame.height);
 
 	asm("emms\n");
-        s->raspect = (double) s->frame.height / s->frame.width;
+        if(!s->video_aspect)
+                s->aspect = (double) s->frame.width / s->frame.height;
+        else
+                s->aspect = s->video_aspect;
 
-	fprintf(stdout,"Setting GL window size %dx%d.\n", s->frame.width, s->frame.height);
+	fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * s->frame.height), s->frame.height, s->frame.width, s->frame.height);
 	glut_resize_window(s);
 
 	glUseProgramObjectARB(0);
@@ -666,7 +678,7 @@ void glut_idle_callback(void)
                 s->tv = tv;
         }
 
-        gl_draw(s->raspect);
+        gl_draw(s->aspect);
         glutPostRedisplay();
 }
 
@@ -781,14 +793,14 @@ void gl_resize(int width,int height)
 	debug_msg("Resized to: %dx%d\n", width, height);
 
 	screen_ratio = (double) width / height;
-	if(screen_ratio > 1.0 / gl->raspect) {
-	    x = (double) height / (width * gl->raspect);
+	if(screen_ratio > gl->aspect) {
+	    x = (double) height * gl->aspect / width;
 	} else {
-	    y = (double) width / (height / gl->raspect);
+	    y = (double) width / (height * gl->aspect);
 	}
 	glScalef(x, y, 1);
 
-	glOrtho(-1,1,-gl->raspect,gl->raspect,10,-10);
+	glOrtho(-1,1,-1/gl->aspect,1/gl->aspect,10,-10);
 
 	glMatrixMode( GL_MODELVIEW );
 
@@ -848,13 +860,13 @@ void gl_draw(double ratio)
     glBegin(GL_QUADS);
       /* Front Face */
       /* Bottom Left Of The Texture and Quad */
-      glTexCoord2f( 0.0f, 1.0f ); glVertex2f( -1.0f, -ratio);
+      glTexCoord2f( 0.0f, 1.0f ); glVertex2f( -1.0f, -1/ratio);
       /* Bottom Right Of The Texture and Quad */
-      glTexCoord2f( 1.0f, 1.0f ); glVertex2f(  1.0f, -ratio);
+      glTexCoord2f( 1.0f, 1.0f ); glVertex2f(  1.0f, -1/ratio);
       /* Top Right Of The Texture and Quad */
-      glTexCoord2f( 1.0f, 0.0f ); glVertex2f(  1.0f,  ratio);
+      glTexCoord2f( 1.0f, 0.0f ); glVertex2f(  1.0f,  1/ratio);
       /* Top Left Of The Texture and Quad */
-      glTexCoord2f( 0.0f, 0.0f ); glVertex2f( -1.0f,  ratio);
+      glTexCoord2f( 0.0f, 0.0f ); glVertex2f( -1.0f,  1/ratio);
     glEnd( );
 
     gl_check_error();
