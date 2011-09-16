@@ -620,6 +620,11 @@ int main(int argc, char *argv[])
                         printf("%s\n", ULTRAGRID_VERSION);
                         return EXIT_SUCCESS;
                 case 'c':
+#ifndef HAVE_FASTDXT
+                        fprintf(stderr, "FastDXT compression is not currently "
+                                        "compiled in UG!\n");
+                        exit(EXIT_FAIL_USAGE);
+#endif
                         uv->requested_compression = 1;
                         num_compress_threads = optarg;
                         break;

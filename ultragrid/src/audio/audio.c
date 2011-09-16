@@ -66,6 +66,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define EXIT_FAIL_USAGE		1
 #define EXIT_FAIL_NETWORK	5
 
 struct audio_device_t {
@@ -262,7 +263,7 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
         if(jack_cfg) {
                 fprintf(stderr, "[Audio] JACK configuration string entered ('-j'), "
                                 "but JACK support isn't compiled.");
-                exit(128);
+                exit(EXIT_FAIL_USAGE);
         }
 #endif
 
