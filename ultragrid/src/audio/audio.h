@@ -94,4 +94,5 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
 void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
                 void *udata);
 
+void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
 #endif

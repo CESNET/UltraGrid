@@ -631,7 +631,6 @@ AC_SUBST(GL_OBJ)
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
 
-DXT_OBJ=
 COMPRESS_OBJ=
 
 AC_ARG_ENABLE(fastdxt, 
@@ -655,7 +654,6 @@ if test $FOUND_DXT_L = yes -a $FOUND_DXT_H = yes
 then
 	DXT_INC=-I${DXT_INC}
 	DXT_LIB="-L${DXT_LIB} -ldxt"
-	DXT_OBJ="$DXT_OBJ"
 	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 	LINKER=$CXX
@@ -666,7 +664,6 @@ fi
 
 AC_SUBST(DXT_INC)
 AC_SUBST(DXT_LIB)
-AC_SUBST(DXT_OBJ)
 AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------

@@ -54,6 +54,8 @@
 #include "video_display.h"
 #include "video_display/sdl.h"
 #include "tv.h"
+#include "audio/audio.h"
+#include "utils/ring_buffer.h"
 #include "video_codec.h"
 
 #ifdef HAVE_MACOSX
@@ -101,6 +103,10 @@ struct state_sdl {
         SDL_cond                *buffer_writable_cond;
         SDL_mutex               *buffer_writable_lock;
         int                     screen_w, screen_h;
+        
+        struct ring_buffer      *audio_buffer;
+        struct audio_frame      audio_frame;
+        unsigned int            play_audio:1;
 };
 
 extern int should_exit;
@@ -118,7 +124,10 @@ void cleanup_screen(struct state_sdl *s);
 void reconfigure_screen(void *s, unsigned int width, unsigned int height,
                         codec_t codec, double fps, int aux);
 static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
-
+static void configure_audio(struct state_sdl *s);
+void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate);
+                
 extern int should_exit;
 
 /** 
@@ -590,7 +599,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         }
 }
 
-void *display_sdl_init(char *fmt)
+void *display_sdl_init(char *fmt, unsigned int flags)
 {
         struct state_sdl *s;
         int ret;
@@ -722,6 +731,13 @@ void *display_sdl_init(char *fmt)
                 perror("Unable to create display thread\n");
                 return NULL;
         }*/
+        
+        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                s->play_audio = TRUE;
+                configure_audio(s);
+        } else {
+                s->play_audio = FALSE;
+        }
 
         return (void *)s;
 }
@@ -800,5 +816,119 @@ static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_
                 vc_getsrc_linesize(w, out->color_spec);
         out->dst_linesize =
                 (x + w) * out->dst_bpp;
+}
+
+void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {
+        struct state_sdl *s = (struct state_sdl *)userdata;
+        if (ring_buffer_read(s->audio_buffer, stream, len) != len)
+        {
+                fprintf(stderr, "[SDL] audio buffer underflow!!!\n");
+                usleep(500);
+        }
+        //fprintf(stderr, "%d ", len);
+}
+
+static void configure_audio(struct state_sdl *s)
+{
+        s->audio_frame.data = NULL;
+        s->audio_frame.reconfigure_audio = display_sdl_reconfigure_audio;
+        s->audio_frame.state = s;
+        
+        SDL_Init(SDL_INIT_AUDIO);
+        
+        if(SDL_GetAudioStatus() !=  SDL_AUDIO_STOPPED) {
+                s->play_audio = FALSE;
+                fprintf(stderr, "[SDL] Audio init failed - driver is already used (testcard?)\n");
+                return;
+        }
+        
+        s->audio_buffer = ring_buffer_init(1<<20);
+}
+
+void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate) {
+        struct state_sdl *s = (struct state_sdl *)state;
+        SDL_AudioSpec desired, obtained;
+        int sample_type;
+
+        s->audio_frame.bps = quant_samples / 8;
+        s->audio_frame.sample_rate = sample_rate;
+        s->audio_frame.ch_count = channels;
+        
+        if(s->audio_frame.data != NULL) {
+                free(s->audio_frame.data);
+                SDL_CloseAudio();
+        }                
+        
+        if(quant_samples % 8 != 0) {
+                fprintf(stderr, "[SDL] audio format isn't supported: "
+                        "channels: %d, samples: %d, sample rate: %d\n",
+                        channels, quant_samples, sample_rate);
+                goto error;
+        }
+        switch(quant_samples) {
+                case 8:
+                        sample_type = AUDIO_S8;
+                        break;
+                default:
+                        sample_type = AUDIO_S16LSB;
+                        break;
+                /* TO enable in sdl 1.3
+                 * case 32:
+                        sample_type = AUDIO_S32;
+                        break; */
+        }
+        
+        desired.freq=sample_rate;
+        desired.format=sample_type;
+        desired.channels=channels;
+        
+        /* Large audio buffer reduces risk of dropouts but increases response time */
+        desired.samples=1024;
+        
+        /* Our callback function */
+        desired.callback=sdl_audio_callback;
+        desired.userdata=s;
+        
+        
+        /* Open the audio device */
+        if ( SDL_OpenAudio(&desired, &obtained) < 0 ){
+          fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+          goto error;
+        }
+        
+        s->audio_frame.max_size = 5 * (quant_samples / 8) * channels *
+                        sample_rate;                
+        s->audio_frame.data = (char *) malloc (s->audio_frame.max_size);
+
+        /* Start playing */
+        SDL_PauseAudio(0);
+
+        return;
+error:
+        s->play_audio = FALSE;
+        s->audio_frame.max_size = 0;
+        s->audio_frame.data = NULL;
+}
+
+
+struct audio_frame * display_sdl_get_audio_frame(void *state) {
+        struct state_sdl *s = (struct state_sdl *)state;
+        if(s->play_audio)
+                return &s->audio_frame;
+}
+
+void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame) {
+        struct state_sdl *s = (struct state_sdl *)state;
+        char *tmp;
+
+        if(frame->bps == 4 || frame->bps == 3) {
+                tmp = (char *) malloc(frame->data_len / frame->bps * 2);
+                change_bps(tmp, 2, frame->data, frame->bps, frame->data_len);
+                ring_buffer_write(s->audio_buffer, tmp, frame->bps * 2);
+                free(tmp);
+        } else {
+                ring_buffer_write(s->audio_buffer, frame->data, frame->data_len);
+        }
 }
 

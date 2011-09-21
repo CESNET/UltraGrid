@@ -46,7 +46,7 @@
 #define VIDCAP_NULL_ID	0xb0a6a01a
 
 struct vidcap_type	*vidcap_null_probe(void);
-void			*vidcap_null_init(char *fmt);
+void			*vidcap_null_init(char *fmt, unsigned int flags);
 void			 vidcap_null_done(void *state);
 struct video_frame	*vidcap_null_grab(void *state, int *count);
 

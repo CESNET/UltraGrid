@@ -19,6 +19,7 @@ OBJS          = src/bitstream.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
+		src/tile.o \
 		src/tv.o \
 		src/transmit.o \
 		src/tfrc.o \
@@ -28,6 +29,9 @@ OBJS          = src/bitstream.o \
 		src/rtp/net_udp.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
+		src/audio/audio.o \
+		@PORTAUDIO_OBJ@ \
+		@JACK_OBJ@ \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_time.o \
 		src/crypto/crypt_aes.o \
@@ -35,27 +39,23 @@ OBJS          = src/bitstream.o \
 		src/crypto/crypt_des.o \
 		src/crypto/md5.o \
 		src/crypto/random.o \
+		src/ihdtv/ihdtv.o \
+		src/utils/ring_buffer.o \
 		src/video_codec.o \
-		src/tile.o \
 		src/video_capture.o \
 		src/video_capture/null.o \
-		@DVS_OBJ@ \
-		src/ihdtv/ihdtv.o \
 		src/video_capture/testcard.o \
 		src/video_display.o \
-		src/audio/audio.o \
-		@PORTAUDIO_OBJ@ \
-		@JACK_OBJ@ \
-		@COMPRESS_OBJ@ \
+		src/video_display/null.o \
+		@DVS_OBJ@ \
 		@QUICKTIME_OBJ@ \
 		@DECKLINK_OBJ@ \
 		@QUAD_OBJ@ \
-		src/video_display/null.o \
 		@X_OBJ@ \
 		@SDL_OBJ@ \
 		@GL_OBJ@ \
-		@DXT_OBJ@ \
-		@SAGE_OBJ@
+		@SAGE_OBJ@ \
+		@COMPRESS_OBJ@
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) ag-plugins suggest-tests

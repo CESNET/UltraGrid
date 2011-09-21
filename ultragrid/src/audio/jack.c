@@ -68,6 +68,8 @@ struct state_jack {
         jack_client_t *client;
         
         struct audio_frame record;
+/* TODO: consider using ring buffers abstraction instead implementing
+ * by hand (see utils/ring_buffer.h) */
         char *play_buffer[MAX_PORTS];
         int play_buffer_start, play_buffer_end;
         char *rec_buffer;
@@ -77,13 +79,11 @@ struct state_jack {
         jack_port_t *output_port[MAX_PORTS];
         
         char *in_port_pattern;
-        int in_ch_count;
+        int in_ch_count; /* "requested", real received count is in
+                          * record.ch_count */
         char *out_port_pattern;
-        int out_channel_count;
-        int out_channel_count_req;
-        
-        pthread_mutex_t lock;
-        pthread_cond_t cv;
+        int out_channel_count; /* really obtained playback channels ( <= _req) */
+        int out_channel_count_req; /* requested playback ch. count */
 };
 
 int jack_process_callback(jack_nframes_t nframes, void *arg);
@@ -96,7 +96,6 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
         int send_b;
         int i;
         
-        pthread_mutex_lock(&s->lock);
         send_b = s->play_buffer_end - s->play_buffer_start;
         if(send_b < 0) send_b += BUFF_SIZE;
         if(send_b > (int) (sizeof (jack_default_audio_sample_t) * nframes))
@@ -125,16 +124,13 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
                 jack_default_audio_sample_t *in =
                         jack_port_get_buffer (s->input_port[i], nframes);
                 for(j = 0; j < (int) nframes; ++j) {
-                        *(int *)(s->rec_buffer + ((s->rec_buffer_end + (i * s->record.ch_count + j) * sizeof(int32_t)) % BUFF_SIZE)) =
-                                        in[i] * INT_MAX;
+                        *(int *)(s->rec_buffer + ((s->rec_buffer_end + (j * s->record.ch_count + i) * sizeof(int32_t)) % BUFF_SIZE)) =
+                                        in[j] * INT_MAX;
                 }
         }
         s->rec_buffer_end = (s->rec_buffer_end + nframes * s->record.ch_count * sizeof(int32_t)) % BUFF_SIZE;
         
-        fprintf(stderr, ".%d.", nframes);
-        
-        pthread_cond_signal(&s->cv);
-        pthread_mutex_unlock(&s->lock);
+        //fprintf(stderr, ".%d.", nframes);
         
         return 0;
 }
@@ -151,11 +147,11 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
         const char **ports;
         int i;
 
-        pthread_mutex_lock(&s->lock);
+        s->out_channel_count = s->out_channel_count_req = ch_count;
 
         if ((ports = jack_get_ports (s->client, s->out_port_pattern, NULL, JackPortIsInput)) == NULL) {
                 fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->out_port_pattern);
-                s->record.ch_count = 0;
+                s->out_channel_count = 0;
                 return;
         }
         for (i = 0; i < s->record.ch_count; ++i) {
@@ -163,7 +159,6 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
                 free(s->play_buffer[i]);
         }
 
-        s->out_channel_count = s->out_channel_count_req = ch_count;
         i = 0;
         while (ports[i]) ++i;
 
@@ -185,8 +180,6 @@ void reconfigure_send_ch_count(struct state_jack *s, int ch_count)
         fprintf(stderr, "[JACK] Sending %d output audio streams (ports).\n", s->out_channel_count);
  
         free (ports);
-        pthread_mutex_unlock(&s->lock);
-        
 }
 
 static int settings_init(struct state_jack *s, char *cfg)
@@ -242,11 +235,36 @@ static int settings_init(struct state_jack *s, char *cfg)
         return 0;
 }
 
+static int attach_input_ports(struct state_jack *s)
+{
+        int i = 0;
+        const char **ports;
+        if ((ports = jack_get_ports (s->client, s->in_port_pattern, NULL, JackPortIsOutput)) == NULL) {
+                 fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
+                 return FALSE;
+         }
+         
+         while (ports[i]) ++i;
+         if(i < s->record.ch_count) {
+                 fprintf(stderr, "Not enought input ports found matching pattern '%s': "
+                                "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
+                fprintf(stderr, "Reducing port count to %d\n", i);
+                s->record.ch_count = i;
+         }
+         
+         for(i = 0; i < s->in_ch_count; ++i) {
+                 if (jack_connect (s->client, ports[i], jack_port_name (s->input_port[i]))) {
+                         fprintf (stderr, "cannot connect input ports\n");
+                 }
+         }
+ 
+         free (ports);
+         return TRUE;
+}
 
 void * jack_start(char *cfg)
 {
         struct state_jack *s;
-        const char **ports;
          
         s = (struct state_jack *) malloc(sizeof(struct state_jack));
         
@@ -257,6 +275,7 @@ void * jack_start(char *cfg)
         s->rec_buffer_start = s->rec_buffer_end = 0;
         s->sender = FALSE;
         s->receiver = FALSE;
+        s->out_channel_count = 0;
         
         if (settings_init(s, cfg)) {
                 fprintf(stderr, "Setting JACK failed. Check configuration ('-j' option).\n");
@@ -268,9 +287,6 @@ void * jack_start(char *cfg)
                 free(s);
                 return NULL;
         }
-
-        pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->cv, NULL);
         
         s->client = jack_client_open(CLIENT_NAME, JackNullOption, NULL);
         if(jack_set_process_callback(s->client, jack_process_callback, (void *) s)  != 0) {
@@ -319,27 +335,8 @@ void * jack_start(char *cfg)
         }
          
         if(s->receiver) {
-                int i = 0;
-                if ((ports = jack_get_ports (s->client, s->in_port_pattern, NULL, JackPortIsOutput)) == NULL) {
-                         fprintf(stderr, "Cannot find any ports matching pattern '%s'\n", s->in_port_pattern);
-                         goto error;
-                 }
-                 
-                 while (ports[i]) ++i;
-                 if(i < s->record.ch_count) {
-                         fprintf(stderr, "Not enought input ports found matching pattern '%s': "
-                                        "%d requested, %d found\n", s->in_port_pattern, s->record.ch_count, i);
-                        fprintf(stderr, "Reducing port count to %d\n", i);
-                        s->record.ch_count = i;
-                 }
-                 
-                 for(i = 0; i < s->out_channel_count; ++i) {
-                         if (jack_connect (s->client, ports[i], jack_port_name (s->input_port[i]))) {
-                                 fprintf (stderr, "cannot connect input ports\n");
-                         }
-                 }
-         
-                 free (ports);
+                if(!attach_input_ports(s))
+                        goto error;
          }
         
         return s;
@@ -374,10 +371,9 @@ void jack_receive(void *state, struct audio_frame *buffer)
 {
         struct state_jack *s = (struct state_jack *) state;
         
-        pthread_mutex_lock(&s->lock);
-        
-        while(s->rec_buffer_start == s->rec_buffer_end)
-             pthread_cond_wait(&s->cv, &s->lock);
+        while(s->rec_buffer_start == s->rec_buffer_end);
+        //fprintf(stderr, "%d ", s->record.data_len);
+        int end = s->rec_buffer_end;
              
         if(buffer->ch_count != s->record.ch_count ||
                         buffer->bps != s->record.bps ||
@@ -386,21 +382,19 @@ void jack_receive(void *state, struct audio_frame *buffer)
                         s->record.sample_rate);
         }
         
-        s->record.data_len = s->rec_buffer_end - s->rec_buffer_start;
-        if(s->record.data_len < 0) s->record.data_len += BUFF_SIZE;
-        if (s->rec_buffer_start < s->rec_buffer_end) {
+        buffer->data_len = end - s->rec_buffer_start;
+        if(buffer->data_len < 0) buffer->data_len += BUFF_SIZE;
+        if (s->rec_buffer_start < end) {
                 memcpy(buffer->data, s->rec_buffer + s->rec_buffer_start, 
-                                s->record.data_len);
+                                buffer->data_len);
         } else {
                 memcpy(buffer->data, s->rec_buffer + s->rec_buffer_start, 
                                 BUFF_SIZE - s->rec_buffer_start);
                 memcpy(buffer->data + BUFF_SIZE - s->rec_buffer_start,
                                 s->rec_buffer, 
-                                s->record.data_len - BUFF_SIZE - s->rec_buffer_start);
+                                buffer->data_len + BUFF_SIZE - s->rec_buffer_start);
         }
-        s->rec_buffer_start = (s->rec_buffer_start + s->record.data_len) % BUFF_SIZE;
-        
-        pthread_mutex_unlock(&s->lock);
+        s->rec_buffer_start = (s->rec_buffer_start + buffer->data_len) % BUFF_SIZE;
 }
 
 int is_jack_sender(void *state)

@@ -122,7 +122,7 @@ const int rect_colors[] = {
 void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
 {
         int cur_x, cur_y;
-        int *data = (char *) s->data;
+        int *data = (int *) s->data;
         
         for (cur_x = r->x; cur_x < r->x + r->w; ++cur_x)
                 for(cur_y = r->y; cur_y < r->y + r->h; ++cur_y)
@@ -463,7 +463,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         }
         s->frame.width = atoi(tmp);
         if(s->frame.width % 2 != 0) {
-                fprintf(stderr, "Width must be multiple of 2.\n");
+                fprintf(stderr, "[testcard] Width must be multiple of 2.\n");
                 free(s);
                 return NULL;
         }

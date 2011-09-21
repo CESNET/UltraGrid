@@ -50,6 +50,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#define GL_GLEXT_PROTOTYPES 1
+
 #ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
@@ -58,6 +60,7 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glut.h>
+
 #ifdef FREEGLUT
 #include <GL/freeglut_ext.h>
 #endif /* FREEGLUT */
@@ -75,7 +78,6 @@
 #include "video_display/gl.h"
 #include "tv.h"
 
-
 #define MAGIC_GL	DISPLAY_GL_ID
 #define WIN_NAME        "Ultragrid - OpenGL Display"
 
@@ -88,11 +90,11 @@ struct state_gl {
 	GLubyte		*y, *u, *v;	//Guess what this might be...
 
 	GLhandleARB     VSHandle,FSHandle,PHandle;
-	char 		*VProgram,*FProgram;
+	const GLcharARB	*VProgram,*FProgram;
 	/* TODO: make same shaders process YUVs for DXT as for
 	 * uncompressed data */
 	GLhandleARB     VSHandle_dxt,FSHandle_dxt,PHandle_dxt;
-	char 		*VProgram_dxt,*FProgram_dxt;
+	const GLcharARB	*VProgram_dxt,*FProgram_dxt;
 
 	GLuint		texture[4];
 
@@ -140,7 +142,6 @@ void glsl_arb_init(void *arg);
 void dxt_arb_init(void *arg);
 void gl_bind_texture(void *args);
 void dxt_bind_texture(void *arg);
-void * display_gl_init(char *fmt);
 
 int gl_semaphore_timedwait(sem_t * semaphore, pthread_mutex_t * lock,
                 pthread_cond_t * cv, int ms);
@@ -206,8 +207,8 @@ void gl_check_error()
 		exit(1);
 }
 
-void * display_gl_init(char *fmt) {
-
+void * display_gl_init(char *fmt, unsigned int flags) {
+        UNUSED(flags);
 	struct state_gl        *s;
 
         glutInit(&uv_argc, uv_argv);
@@ -296,7 +297,7 @@ void glsl_arb_init(void *arg)
     /* Compile Shader */
     assert(s->FProgram!=NULL);
     // assert(s->VProgram!=NULL);
-    glShaderSourceARB(s->FSHandle,1,(const GLcharARB**) &s->FProgram,NULL);
+    glShaderSourceARB(s->FSHandle,1, &s->FProgram,NULL);
     glCompileShaderARB(s->FSHandle);
 
     /* Print compile log */
@@ -335,9 +336,9 @@ void dxt_arb_init(void *arg)
 
     /* Compile Shader */
     assert(s->FProgram_dxt!=NULL);
-    glShaderSourceARB(s->FSHandle_dxt,1,(const GLcharARB**)&(s->FProgram_dxt),NULL);
+    glShaderSourceARB(s->FSHandle_dxt,1,&(s->FProgram_dxt),NULL);
     glCompileShaderARB(s->FSHandle_dxt);
-    glShaderSourceARB(s->VSHandle_dxt,1,(const GLcharARB**)&(s->VProgram_dxt),NULL);
+    glShaderSourceARB(s->VSHandle_dxt,1,&(s->VProgram_dxt),NULL);
     glCompileShaderARB(s->VSHandle_dxt);
 
     /* Print compile log */
@@ -730,7 +731,7 @@ void display_gl_run(void *arg)
 	glutWMCloseFunc(glut_close_callback);
 	glutReshapeFunc(gl_resize);
 
-        tmp = strdup(glGetString(GL_VERSION));
+        tmp = strdup((const char *)glGetString(GL_VERSION));
         gl_ver_major = strtok_r(tmp, ".", &save_ptr);
         if(atoi(gl_ver_major) >= 2) {
                 fprintf(stderr, "OpenGL 2.0 is supported...\n");
@@ -741,9 +742,9 @@ void display_gl_run(void *arg)
         }
         free(tmp);
 
-	s->FProgram_dxt = frag;
-	s->VProgram_dxt = vert;
-	s->FProgram = glsl;
+	s->FProgram_dxt = (const GLcharARB**) frag;
+	s->VProgram_dxt = (const GLcharARB**) vert;
+	s->FProgram = (const GLcharARB**) glsl;
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );

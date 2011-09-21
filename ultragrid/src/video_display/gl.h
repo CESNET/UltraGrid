@@ -51,7 +51,7 @@
 #define DISPLAY_GL_ID  0xba370a2a
 
 display_type_t          *display_gl_probe(void);
-void                    *display_gl_init(char *fmt);
+void                    *display_gl_init(char *fmt, unsigned int flags);
 void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
 struct video_frame      *display_gl_getf(void *state);

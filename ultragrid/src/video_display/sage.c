@@ -119,8 +119,10 @@ void display_sage_run(void *arg)
         }
 }
 
-void *display_sage_init(void)
+void *display_sage_init(char *fmt, unsigned int flags)
 {
+        UNUSED(fmt);
+        UNUSED(flags);
         struct state_sage *s;
 
         s = (struct state_sage *)malloc(sizeof(struct state_sage));

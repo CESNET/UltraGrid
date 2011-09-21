@@ -91,8 +91,8 @@ static display_table_t display_device_table[] = {
          display_sdl_done,
          display_sdl_getf,
          display_sdl_putf,
-         NULL,
-         NULL,
+         display_sdl_get_audio_frame,
+         display_sdl_put_audio_frame,
          },
 #endif                          /* HAVE_SDL */
 #ifdef HAVE_GL

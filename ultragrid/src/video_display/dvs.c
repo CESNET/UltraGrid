@@ -843,7 +843,7 @@ void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 goto error;
         }
 
-        res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, channels/2); /* items in pairs */
+        res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, channels/2); /* channels are in pairs ! */
         if (res != SV_OK) {
                 goto error;
         }

@@ -51,7 +51,7 @@
 #define DISPLAY_SAGE_ID	0xba370a2f
 
 display_type_t		*display_sage_probe(void);
-void 			*display_sage_init(void);
+void 			*display_sage_init(char *fmt, unsigned int flags);
 void 			 display_sage_run(void *state);
 void 			 display_sage_done(void *state);
 struct video_frame	*display_sage_getf(void *state);

@@ -414,7 +414,6 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                         memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
                                 } else { /* discarding data - buffer to small */
                                         int copy_len = buffer->max_size - ntohl(hdr->offset);
-                                        fprintf(stderr, "%d ", copy_len);
 
                                         if(copy_len > 0)
                                                 memcpy(buffer->data + ntohl(hdr->offset), data, 
@@ -422,7 +421,7 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                         if(++prints % 100 == 0)
                                                 fprintf(stdout, "Warning: "
                                                         "discarding audio data "
-                                                        "- buffer too small\n");
+                                                        "- buffer too small (audio init failed?)\n");
                                 }
                                 
                                 /* buffer size same for every packet of the frame */

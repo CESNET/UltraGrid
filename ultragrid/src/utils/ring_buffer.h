@@ -1,13 +1,14 @@
 /*
- * FILE:    video_display/sdl.h
- * AUTHORS: Colin Perkins    <csp@csperkins.org>
- *          Martin Benes     <martinbenesh@gmail.com>
+ * FILE:    utils/ring_buffer.h
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
  *          Milos Liska      <xliska@fi.muni.cz>
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -23,16 +24,14 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
+ *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -44,23 +43,29 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3.2.4 $
- * $Date: 2010/02/05 13:56:49 $
- *
  */
+ 
+ /*
+  * Provides abstraction for ring buffers.
+  * Note that it doesn't offer advanced synchronization primitives and
+  * therefore is mainly intended for one producer and one consumer.
+  */
+#ifndef __RING_BUFFER_H
 
-#define DISPLAY_SDL_ID	0xba370a2b
+#define __RING_BUFFER_H
 
-struct audio_frame;
+struct ring_buffer;
 
-display_type_t *display_sdl_probe (void);
-void *display_sdl_init (char *fmt, unsigned int flags);
-void display_sdl_run (void *state);
-void display_sdl_done (void *state);
-struct video_frame *display_sdl_getf (void *state);
-int display_sdl_putf (void *state, char *frame);
-int display_sdl_handle_events (void *s, int post);
-struct audio_frame * display_sdl_get_audio_frame(void *state);
-void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame);
+struct ring_buffer *ring_buffer_init(int size);
+void ring_buffer_destroy(struct ring_buffer * ring);
+/*
+ * @param ring           ring buffer structure
+ * @param out            allocated buffer to read to
+ * @param max_len        maximal amount of data
+ * @return               actual data length read (ranges between 0 and max_len)
+ */
+int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len);
+void ring_buffer_write(struct ring_buffer * ring, const char *in, int len);
 
 
+#endif /* __RING_BUFFER_H */

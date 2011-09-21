@@ -162,7 +162,7 @@ void print_audio_devices(enum audio_device_kind kind)
 {
         printf("Available audio %s devices:\n", kind == AUDIO_IN ? "input"
                         : "output");
-        printf("\tsdi : SDI audio (if available)\n");
+        printf("\tembedded : SDI audio (if available)\n");
 #ifdef HAVE_PORTAUDIO
         portaudio_print_available_devices(kind);
 #endif
@@ -198,7 +198,7 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
                         exit(0);
                 } else {
                         char *tmp = strtok(send_cfg, ":");
-                        if (!strcmp("sdi", tmp)) {
+                        if (!strcmp("embedded", tmp)) {
                                 s->audio_capture_device.index = AUDIO_DEV_SDI;
                         } 
 #ifdef HAVE_PORTAUDIO
@@ -206,6 +206,11 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
                                 s->audio_capture_device.index = AUDIO_DEV_PORTAUDIO;
                         }
 #endif
+                        else {
+                                fprintf(stderr, "Unknown audio driver: %s\n", tmp);
+                                exit(EXIT_FAIL_USAGE);
+                        }
+                        
                         tmp = strtok(NULL, ":");
                         s->audio_capture_device.state =
                                 audio_capture[s->audio_capture_device.index].audio_init(tmp);
@@ -226,14 +231,19 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
                         exit(0);
                 } else {
                         char *tmp = strtok(recv_cfg, ":");
-                        if (!strcmp("sdi", tmp)) {
+                        if (!strcmp("embedded", tmp)) {
                                 s->audio_playback_device.index = AUDIO_DEV_SDI;
                         }
 #ifdef HAVE_PORTAUDIO                        
                         else if (!strcmp("portaudio", tmp)) {
                                 s->audio_playback_device.index = AUDIO_DEV_PORTAUDIO;
+                        } 
+#endif                  
+                        else {
+                                fprintf(stderr, "Unknown audio driver: %s\n", tmp);
+                                exit(EXIT_FAIL_USAGE);
                         }
-#endif                        
+                        
                         tmp = strtok(NULL, ":");
                         s->audio_playback_device.state =
                                 audio_playback[s->audio_playback_device.index].audio_init(tmp);
@@ -262,7 +272,7 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
 #else
         if(jack_cfg) {
                 fprintf(stderr, "[Audio] JACK configuration string entered ('-j'), "
-                                "but JACK support isn't compiled.");
+                                "but JACK support isn't compiled.\n");
                 exit(EXIT_FAIL_USAGE);
         }
 #endif
@@ -272,8 +282,10 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
 
 void audio_join(struct state_audio *s) {
         if(s) {
-                pthread_join(s->audio_receiver_thread_id, NULL);
-                pthread_join(s->audio_sender_thread_id, NULL);
+                if(s->audio_playback_device.index)
+                        pthread_join(s->audio_receiver_thread_id, NULL);
+                if(s->audio_capture_device.index)
+                        pthread_join(s->audio_sender_thread_id, NULL);
         }
 }
         
@@ -472,9 +484,25 @@ struct audio_frame * sdi_get_frame(void *state)
         
         if(s->get_callback)
                 return s->get_callback(s->get_udata);
+        else
+                return NULL;
 }
 
 void sdi_done(void *s)
 {
         UNUSED(s);
+}
+
+void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
+{
+        int i;
+        for(i = 0; i < in_len / in_bps; i++) {
+                *((int *) out) = ((*((int *) out) >> (out_bps * 8)) << (out_bps * 8));
+                if(in_bps > out_bps)
+                        *((int *) out) |= *((const int *) in) >> (in_bps * 8 - out_bps * 8);
+                else
+                        *((int *) out) |= *((const int *) in) << (out_bps * 8 - in_bps * 8);
+                in += in_bps;
+                out += out_bps;
+        }
 }
