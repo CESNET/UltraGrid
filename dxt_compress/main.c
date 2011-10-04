@@ -209,7 +209,7 @@ void
 print_help() 
 {
     printf(
-        "dxt_compressor [options]\n"
+        "dxt_compress [options]\n"
         "   -h, --help\t\tprint help\n"
         "   -e, --encode\t\tencode image from RGB format to DXT data buffer\n"
         "   -d, --decode\t\tdecode image from DXT data buffer to RGB format\n"
@@ -217,7 +217,7 @@ print_help()
         "   -i, --input\t\tinput image in RGB format\n"
         "   -o, --output\t\toutput image in RGB format\n"
         "       --display\tdisplay image or compare images\n"
-        "   -t, --type\t\tset dxt type to 'dxt1' or 'dxt5ycocg' (default 'dxt5ycocg')\n"
+        "   -t, --type\t\tdxt type 'dxt1' or 'dxt5ycocg' (default 'dxt5ycocg')\n"
     );
 }
 
