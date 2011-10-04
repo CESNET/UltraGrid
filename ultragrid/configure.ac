@@ -498,6 +498,7 @@ case "$host_os" in
                     fi
                 fi
                 AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
+                AC_CHECK_LIB(SDL_ttf, TTF_Init)
             fi
         ;;
         *)
@@ -513,6 +514,7 @@ case "$host_os" in
                 SDL_VERSION=1.2.10
                 AM_PATH_SDL($SDL_VERSION, AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21]), :)
                 AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
+                AC_CHECK_LIB(SDL_ttf, TTF_Init)
             fi
         ;;
 esac

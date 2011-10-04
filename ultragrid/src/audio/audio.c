@@ -429,7 +429,8 @@ static void *audio_sender_thread(void *arg)
 
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         struct state_sdi_capture *sdi;
-        assert(s->audio_capture_device.index == AUDIO_DEV_SDI);
+        if(s->audio_capture_device.index != AUDIO_DEV_SDI)
+                return;
         
         sdi = (struct state_sdi_capture *) s->audio_capture_device.state;
         sdi->audio_buffer = frame;

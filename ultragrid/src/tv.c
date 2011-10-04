@@ -110,6 +110,15 @@ void tv_add(struct timeval *ts, double offset_secs)
         }
 }
 
+void tv_add_usec(struct timeval *ts, double offset)
+{
+        ts->tv_usec += offset;
+        while (ts->tv_usec >= 1000000) {
+                ts->tv_sec++;
+                ts->tv_usec -= 1000000;
+        }
+}
+
 int tv_gt(struct timeval a, struct timeval b)
 {
         /* Returns (a>b) */

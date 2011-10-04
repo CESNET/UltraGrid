@@ -425,7 +425,10 @@ struct video_frame *vidcap_dvs_grab(void *state, int *count, struct audio_frame 
         if (s->rtp_buffer != NULL) {
                 s->frame.data = s->rtp_buffer;
                 *count = 1;
-                *audio = &s->audio;
+                if(s->grab_audio && s->audio.data_len)
+                        *audio = &s->audio;
+                else 
+                        *audio = NULL;
                 return &s->frame;
         
         }

@@ -58,6 +58,7 @@
 #include "video_capture/dvs.h"
 #include "video_capture/quicktime.h"
 #include "video_capture/testcard.h"
+#include "video_capture/testcard2.h"
 #include "video_capture/null.h"
 #include "video_capture/decklink.h"
 #include "video_capture/quad.h"
@@ -122,6 +123,15 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_testcard_init,
          vidcap_testcard_done,
          vidcap_testcard_grab},
+#ifdef HAVE_SDL
+        {
+         /* Dummy sender for testing purposes */
+         0,
+         vidcap_testcard2_probe,
+         vidcap_testcard2_init,
+         vidcap_testcard2_done,
+         vidcap_testcard2_grab},
+#endif /* HAVE_SDL */
         {
          0,
          vidcap_null_probe,
