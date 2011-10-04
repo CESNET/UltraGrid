@@ -1,0 +1,7 @@
+DXT compressor
+--------------
+
+Build: Run 'make' command (but you need following required packages).
+
+Required packages:
+apt-get install freeglut3-dev libglew1.5-dev nvidia-cg-toolkit
