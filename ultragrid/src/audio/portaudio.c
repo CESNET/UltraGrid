@@ -66,6 +66,7 @@ struct state_portaudio_playback {
         int samples;
         int device;
         PaStream *stream;
+        int max_output_channels;
 };
 
 struct state_portaudio_capture {
@@ -181,6 +182,7 @@ void * portaudio_capture_init(char *cfg)
         struct state_portaudio_capture *s;
         int input_device;
 	PaError error;
+        const	PaDeviceInfo *device_info;
         
         s = (struct state_portaudio_capture *) malloc(sizeof(struct state_portaudio_capture));
 	/* 
@@ -216,17 +218,19 @@ void * portaudio_capture_init(char *cfg)
 		print_device_info(Pa_GetDefaultInputDevice());
 		printf("\n");
 		inputParameters.device = Pa_GetDefaultInputDevice();
-	}
-	else
-	if(input_device >= 0)
-	{
+                device_info = Pa_GetDeviceInfo(Pa_GetDefaultInputDevice());
+	} else if(input_device >= 0) {
 		printf("Using input audio device:");
 		print_device_info(input_device);
 		printf("\n");
 		inputParameters.device = input_device;
+                device_info = Pa_GetDeviceInfo(input_device);
 	}
 
-        inputParameters.channelCount = CHANNELS;
+        if(CHANNELS <= device_info->maxInputChannels)
+                inputParameters.channelCount = CHANNELS;
+        else
+                inputParameters.channelCount = device_info->maxInputChannels;
         inputParameters.sampleFormat = paInt16;
         inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultHighInputLatency ;
         inputParameters.hostApiSpecificStreamInfo = NULL;
@@ -246,6 +250,15 @@ void * portaudio_capture_init(char *cfg)
 	}
         pthread_mutex_unlock(&lock); /* safer with multiple threads */
         
+	s->frame.bps = BPS;
+        s->frame.ch_count = inputParameters.channelCount;
+        s->frame.sample_rate = SAMPLE_RATE;
+        s->frame.max_size = SAMPLES_PER_FRAME * s->frame.bps * s->frame.ch_count;
+        
+        s->frame.data = (char*)malloc(s->frame.max_size);
+
+        memset(s->frame.data, 0, s->frame.max_size);
+
         portaudio_init_audio_frame(&s->frame);
         portaudio_start_stream(s->stream);
 
@@ -309,10 +322,18 @@ void * portaudio_playback_init(char *cfg)
                 output_device = atoi(cfg);
         else
                 output_device = -1;
+        Pa_Initialize();
         
         s = calloc(1, sizeof(struct state_portaudio_playback));
         assert(output_device >= -1);
         s->device = output_device;
+        const	PaDeviceInfo *device_info;
+        if(output_device >= 0)
+                device_info = Pa_GetDeviceInfo(output_device);
+        else
+                device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
+	s->max_output_channels = device_info->maxOutputChannels;
+        
         portaudio_reconfigure_audio(s, BPS * 8, CHANNELS, SAMPLE_RATE);
          
 	return s;
@@ -381,7 +402,11 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
 		outputParameters.device = s->device;
 	}
 		
-        outputParameters.channelCount = channels; // output channels
+                
+        if(channels <= s->max_output_channels)
+                outputParameters.channelCount = channels; // output channels
+        else
+                outputParameters.channelCount = s->max_output_channels; // output channels
         assert(quant_samples % 8 == 0 && quant_samples <= 32 && quant_samples != 0);
         switch(quant_samples) {
                 case 8:
@@ -430,13 +455,26 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
                 (struct state_portaudio_playback *) state;
                 
         PaError error;
+        const int samples_count = buffer->data_len / (buffer->bps * buffer->ch_count);
 
-        error = Pa_WriteStream(s->stream, buffer->data, buffer->data_len / (buffer->bps * buffer->ch_count));
+        /* if we got more channel we can play - skip the additional channels */
+        if(s->frame.ch_count > s->max_output_channels) {
+                int i;
+                for (i = 0; i < samples_count; ++i) {
+                        int j;
+                        for(j = 0; j < s->max_output_channels; ++j)
+                                memcpy(buffer->data + s->frame.bps * ( i * s->max_output_channels + j),
+                                        buffer->data + s->frame.bps * ( i * buffer->ch_count + j),
+                                        buffer->bps);
+                }
+        }
+        
+        error = Pa_WriteStream(s->stream, buffer->data, samples_count);
 
 	if(error != paNoError) {
 		printf("Pa write stream error: %s\n", Pa_GetErrorText(error));
-                while(error == paOutputUnderflowed) { /* put current frame more times */
-                        error = Pa_WriteStream(s->stream, buffer->data, buffer->data_len / (buffer->bps * buffer->ch_count));
+                while(error == paOutputUnderflowed) { /* put current frame more times to give us time */
+                        error = Pa_WriteStream(s->stream, buffer->data, samples_count);
                 }
 	}
 }
