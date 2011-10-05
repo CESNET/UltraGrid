@@ -1,8 +1,14 @@
 /*
- * FILE:   display_dvs.h
- * AUTHOR: Colin Perkins <csp@isi.edu>
+ * FILE:    audio/utils.h
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
+ *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *          Petr Holub       <hopet@ics.muni.cz>
+ *          Milos Liska      <xliska@fi.muni.cz>
+ *          Jiri Matela      <matela@ics.muni.cz>
+ *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2001-2002 University of Southern California
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -18,15 +24,14 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
+ * 4. Neither the name of CESNET nor the names of its contributors may be used 
+ *    to endorse or promote products derived from this software without specific
+ *    prior written permission.
  * 
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -38,32 +43,24 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ *
  */
-#include <video_display.h>
 
-#define DISPLAY_DVS_ID	0x74ac3e0f
+#include "config.h"
 
-struct audio_frame;
+#ifndef _AUDIO_UTILS_H_
+#define _AUDIO_UTILS_H_
 
-typedef struct {
-        int mode;
-        unsigned int width;
-        unsigned int height;
-        double fps;
-        int aux;
-} hdsp_mode_table_t;
+/**
+ * Changes bps for everey sample.
+ * 
+ * The memory areas shouldn't (supposedly) overlap.
+ */
+void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
 
-extern const hdsp_mode_table_t hdsp_mode_table[];
+/**
+ * Makes n copies of first channel (interleaved).
+ */
+void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
 
-display_type_t      *display_dvs_probe(void);
-void                *display_dvs_init(char *fmt, unsigned int flags);
-void                 display_dvs_run(void *state);
-void                 display_dvs_done(void *state);
-struct video_frame  *display_dvs_getf(void *state);
-int                  display_dvs_putf(void *state, char *frame);
-
-struct audio_frame * display_dvs_get_audio_frame(void *state);
-void display_dvs_put_audio_frame(void *state, struct audio_frame *frame);
-
-/* shared with video display */
-void * openDVSLibrary(void);
+#endif

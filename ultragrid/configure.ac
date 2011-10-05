@@ -250,6 +250,7 @@ then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
 	DVS_OBJ="src/video_capture/dvs.o src/video_display/dvs.o"
+        DVS_UV_LIB="lib/uv_dvs_lib.so"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
 else
 	DVS_INC=
@@ -260,6 +261,7 @@ fi
 AC_SUBST(DVS_INC)
 AC_SUBST(DVS_LIB)
 AC_SUBST(DVS_OBJ)
+AC_SUBST(DVS_UV_LIB)
 
 # -------------------------------------------------------------------------------------------------
 # Blackmagic stuff

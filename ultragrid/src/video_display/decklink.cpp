@@ -66,6 +66,7 @@ extern "C" {
 #include "video_capture.h"
 #include "DeckLinkAPI.h"
 #include "audio/audio.h"
+#include "audio/utils.h"
 
 #ifdef __cplusplus
 } // END of extern "C"

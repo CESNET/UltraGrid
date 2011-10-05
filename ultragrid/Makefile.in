@@ -3,7 +3,7 @@ RANLIB        = ranlib
 CC            = @CC@
 CXX	      = @CXX@
 LINKER	      = @LINKER@
-CFLAGS        = @DEFS@ @CFLAGS@ @X_CFLAGS@
+CFLAGS        = -fPIC @DEFS@ @CFLAGS@ @X_CFLAGS@
 CPPFLAGS      = @CPPFLAGS@
 LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
                 @X_LIBS@ @X_EXTRA_LIBS@ @JACK_LIB@ @MATHLIBS@ @LIBS@ -lm -pthread
@@ -13,6 +13,7 @@ DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
+DVS_UV_LIB    = @DVS_UV_LIB@
 
 OBJS          = src/bitstream.o \
 		src/debug.o \
@@ -30,6 +31,7 @@ OBJS          = src/bitstream.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
 		src/audio/audio.o \
+		src/audio/utils.o \
 		@PORTAUDIO_OBJ@ \
 		@JACK_OBJ@ \
 		src/compat/platform_semaphore.o \
@@ -57,9 +59,19 @@ OBJS          = src/bitstream.o \
 		@GL_OBJ@ \
 		@SAGE_OBJ@ \
 		@COMPRESS_OBJ@
+		
+DVS_UV_LIB_OBJ  = \
+		src/audio/utils.o \
+		src/debug.o \
+		src/utils/ring_buffer.o \
+		src/video_codec.o \
+		src/video_display/dvs_display_lib.o \
+		src/video_capture/dvs_capture_lib.o
+DVS_UV_LIB_LIB = @DVS_LIB@
+		
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) ag-plugins suggest-tests
+all: $(TARGET) $(DVS_UV_LIB) ag-plugins suggest-tests
 
 src/version.h: VERSION
 	@echo "Generating src/version.h"
@@ -136,6 +148,7 @@ clean:
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
+	-rm -rf $(DVS_UV_LIB_OBJ) $(DVS_UV_LIB)
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
@@ -157,5 +170,10 @@ bundle: all
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
+$(DVS_UV_LIB): $(DVS_UV_LIB_OBJ)
+	mkdir -p lib/
+	$(LINKER) $(CFLAGS) -shared -Wl,-soname,$(DVS_UV_LIB) $(DVS_UV_LIB_OBJ) $(DVS_UV_LIB_LIB) -o $(DVS_UV_LIB)
+
 install:
 	cp -v $(TARGET) /usr/local/bin/
+	if [ -f "$(DVS_UV_LIB)" ]; cp -v "$(DVS_UV_LIB)" /usr/local/lib/

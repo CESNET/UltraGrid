@@ -1,8 +1,16 @@
 /*
- * FILE:   display_dvs.h
+ * FILE:   video_capture/dvs.h
  * AUTHOR: Colin Perkins <csp@isi.edu>
+ *         Martin Benes     <martinbenesh@gmail.com>
+ *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *         Petr Holub       <hopet@ics.muni.cz>
+ *         Milos Liska      <xliska@fi.muni.cz>
+ *         Jiri Matela      <matela@ics.muni.cz>
+ *         Dalibor Matura   <255899@mail.muni.cz>
+ *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2001-2002 University of Southern California
+ * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -19,11 +27,12 @@
  *    must display the following acknowledgement:
  * 
  *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      California Information Sciences Institute. This product also includes
+ *      software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
+ * 4. Neither the name of the University, Institute, CESNET nor the names of
+ *    its contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
  * 
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -39,31 +48,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include <video_display.h>
 
-#define DISPLAY_DVS_ID	0x74ac3e0f
+#define VIDCAP_DVS_ID	0x10203040
 
 struct audio_frame;
 
-typedef struct {
-        int mode;
-        unsigned int width;
-        unsigned int height;
-        double fps;
-        int aux;
-} hdsp_mode_table_t;
+void			*vidcap_dvs_init_impl(char *fmt, unsigned int flags);
+void			 vidcap_dvs_done_impl(void *state);
+struct video_frame	*vidcap_dvs_grab_impl(void *state, int *count, struct audio_frame **audio);
 
-extern const hdsp_mode_table_t hdsp_mode_table[];
-
-display_type_t      *display_dvs_probe(void);
-void                *display_dvs_init(char *fmt, unsigned int flags);
-void                 display_dvs_run(void *state);
-void                 display_dvs_done(void *state);
-struct video_frame  *display_dvs_getf(void *state);
-int                  display_dvs_putf(void *state, char *frame);
-
-struct audio_frame * display_dvs_get_audio_frame(void *state);
-void display_dvs_put_audio_frame(void *state, struct audio_frame *frame);
-
-/* shared with video display */
-void * openDVSLibrary(void);
