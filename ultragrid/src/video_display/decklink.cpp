@@ -124,6 +124,7 @@ struct state_decklink {
         bool                initialized;
         int                 devices_cnt;
         unsigned int        play_audio:1;
+        int                 output_audio_channel_count;
  };
 
 static void show_help(void);
@@ -233,7 +234,7 @@ int display_decklink_putf(void *state, char *frame)
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
                 double fps = (s->frames - s->frames_last) / seconds;
-                fprintf(stdout, "%d frames in %g seconds = %g FPS\n",
+                fprintf(stdout, "%lu frames in %g seconds = %g FPS\n",
                         s->frames - s->frames_last, seconds, fps);
                 s->tv = tv;
                 s->frames_last = s->frames;
@@ -580,13 +581,29 @@ struct audio_frame * display_decklink_get_audio_frame(void *state)
         return &s->audio;
 }
 
-void display_decklink_put_audio_frame(void *state, const struct audio_frame *frame)
+void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        const unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
+        unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
                         s->audio.ch_count);
         unsigned int sampleFramesWritten;
 
+        /* we got probably count that cannot be rendered directly (aka 1) */
+        if(s->output_audio_channel_count != s->audio.ch_count) {
+                assert(s->audio.ch_count == 1); /* only reasonable value so far */
+                if (sampleFrameCount * s->output_audio_channel_count 
+                                * frame->bps > frame->max_size) {
+                        fprintf(stderr, "[decklink] audio buffer overflow!\n");
+                        sampleFrameCount = frame->max_size / 
+                                        (s->output_audio_channel_count * frame->bps);
+                        frame->data_len = sampleFrameCount *
+                                        (frame->ch_count * frame->bps);
+                }
+                
+                audio_frame_multiply_channel(frame,
+                                s->output_audio_channel_count);
+        }
+        
 	s->state[0].deckLinkOutput->ScheduleAudioSamples (s->audio.data, sampleFrameCount, 0, 		
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
@@ -604,14 +621,27 @@ void display_decklink_reconfigure_audio(void *state, int quant_samples, int chan
                 
         s->audio.bps = quant_samples / 8;
         s->audio.sample_rate = sample_rate;
-        s->audio.ch_count = channels;
+        s->output_audio_channel_count = s->audio.ch_count = channels;
+        
+        if (s->audio.ch_count != 1 &&
+                        s->audio.ch_count != 2 && s->audio.ch_count != 8 &&
+                        s->audio.ch_count != 16) {
+                fprintf(stderr, "[decklink] requested channel count isn't supported: "
+                        "%d\n", s->audio.ch_count);
+                s->play_audio = FALSE;
+                return;
+        }
+        
+        /* toggle one channel to supported two */
+        if(s->audio.ch_count == 1) {
+                 s->output_audio_channel_count = 2;
+        }
         
         if((quant_samples != 16 && quant_samples != 32) ||
-                        (channels != 2 && channels != 8 && channels != 16) ||
                         sample_rate != 48000) {
                 fprintf(stderr, "[decklink] audio format isn't supported: "
-                        "channels: %d, samples: %d, sample rate: %d\n",
-                        channels, quant_samples, sample_rate);
+                        "samples: %d, sample rate: %d\n",
+                        quant_samples, sample_rate);
                 s->play_audio = FALSE;
                 return;
         }
@@ -626,12 +656,13 @@ void display_decklink_reconfigure_audio(void *state, int quant_samples, int chan
                         
         s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
                         sample_type,
-                        channels,
+                        s->output_audio_channel_count,
                         bmdAudioOutputStreamContinuous);
         s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
         
-        s->audio.max_size = 5 * (quant_samples / 8) * channels *
-                        sample_rate;                
+        s->audio.max_size = 5 * (quant_samples / 8) 
+                        * s->audio.ch_count
+                        * sample_rate;                
         s->audio.data = (char *) malloc (s->audio.max_size);
 }
 

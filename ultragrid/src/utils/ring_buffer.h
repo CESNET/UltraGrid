@@ -66,6 +66,6 @@ void ring_buffer_destroy(struct ring_buffer * ring);
  */
 int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len);
 void ring_buffer_write(struct ring_buffer * ring, const char *in, int len);
-
+int ring_get_size(struct ring_buffer * ring);
 
 #endif /* __RING_BUFFER_H */

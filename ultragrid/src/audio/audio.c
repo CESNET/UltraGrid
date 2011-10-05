@@ -113,6 +113,14 @@ struct state_sdi_playback {
         void *put_udata;
 };
 
+/** 
+ * Copies one input channel into n output (interlaced).
+ * 
+ * Input and output data may overlap. 
+ */
+void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, int out_channel_count); 
+
+
 /**
  * @return state
  */
@@ -506,4 +514,32 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
                 in += in_bps;
                 out += out_bps;
         }
+}
+
+void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, int out_channel_count)
+{
+        int samples = in_len / bps;
+        int i;
+        
+        assert(out_channel_count > 0);
+        assert(bps > 0);
+        assert(in_len >= 0);
+        
+        in += in_len;
+        out += in_len * out_channel_count;
+        for (i = samples; i > 0 ; --i) {
+                int j;
+                
+                in -= bps;
+                for  (j = out_channel_count; j > 0; --j) {
+                        out -= bps;
+                        memmove(out, in, bps);
+                }
+        }
+}
+
+void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count) {
+        assert(frame->max_size >= frame->data_len * new_channel_count / frame->ch_count);
+
+        copy_channel(frame->data, frame->data, frame->bps, frame->data_len, new_channel_count);
 }

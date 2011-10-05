@@ -94,5 +94,16 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
 void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
                 void *udata);
 
+/**
+ * Changes bps for everey sample.
+ * 
+ * The memory areas shouldn't (supposedly) overlap.
+ */
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
+
+/**
+ * Makes n copies of first channel (interleaved).
+ */
+void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
+
 #endif

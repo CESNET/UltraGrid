@@ -69,8 +69,10 @@ struct ring_buffer *ring_buffer_init(int size) {
 }
 
 void ring_buffer_destroy(struct ring_buffer *ring) {
-        free(ring->data);
-        free(ring);
+        if(ring) {
+                free(ring->data);
+                free(ring);
+        }
 }
 
 int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len) {
@@ -125,3 +127,6 @@ void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
         ring->end = (ring->end + len) % ring->len;
 }
 
+int ring_get_size(struct ring_buffer * ring) {
+        return ring->len;
+}
