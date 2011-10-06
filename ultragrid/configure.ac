@@ -252,6 +252,7 @@ then
 	DVS_OBJ="src/video_capture/dvs.o src/video_display/dvs.o"
         DVS_UV_LIB="lib/uv_dvs_lib.so"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
+        LIBS+=" -ldl"
 else
 	DVS_INC=
 	DVS_LIB=
