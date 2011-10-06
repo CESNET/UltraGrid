@@ -32,12 +32,6 @@
 #include <assert.h>
 #include <sys/time.h>
 
-/** File Constants */
-static const char* file_fp_compress_dxt1      = "fp_compress_dxt1.glsl";
-static const char* file_fp_compress_dxt5ycocg = "fp_compress_dxt5ycocg.glsl";
-static const char* file_fp_display            = "fp_display.glsl";
-static const char* file_fp_display_dxt5ycocg  = "fp_display_dxt5ycocg.glsl";
-
 /**
  * Timer
  */
