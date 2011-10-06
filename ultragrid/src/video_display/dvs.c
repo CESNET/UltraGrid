@@ -122,7 +122,7 @@ void * openDVSLibrary()
                 } else {
                         path = strdup("../lib/");
                 }
-                if (stat("./" kLibName, &buf) == 0)
+                if (stat(path, &buf) == 0)
                         handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                 else
                         handle = dlopen(kLibName, RTLD_NOW|RTLD_GLOBAL);

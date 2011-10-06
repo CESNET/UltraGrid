@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
                 }
                 tv_cur.tv_sec = tmp->tv_sec;
                 tv_cur.tv_usec = tmp->tv_usec;
-                if(tv_gt(tv_old, tv_cur) && tv_diff_usec(tv_old, tv_cur) < 100000)  /* 0.1 sec out of order is OK */
+                if(tv_gt(tv_old, tv_cur) && tv_diff_usec(tv_old, tv_cur) > 1000)  /* 0.001 sec out of order is OK */
                                 //tmp->tv_usec < tv_old.tv_usec) 
                                 {
                         usleep(100000);
