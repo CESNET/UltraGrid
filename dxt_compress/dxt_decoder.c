@@ -27,6 +27,7 @@
 #include "dxt_common.h"
 #include "dxt_decoder.h"
 #include "dxt_util.h"
+#include "dxt_glsl.h"
 
 /** Documented at declaration */ 
 struct dxt_decoder
@@ -46,10 +47,9 @@ struct dxt_decoder
     // Framebuffer
     GLuint fbo_id;
     
-    // CG context, profiles, programs
-    CGcontext context;
-    CGprofile profile_fragment;
-    CGprogram program_fragment_display;
+    // Program and shader handles
+    GLhandleARB program_display;
+    GLhandleARB shader_fragment_display;
 };
 
 /** Documented at declaration */
@@ -91,17 +91,19 @@ dxt_decoder_create(enum dxt_type type, int width, int height)
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     
-    // Init CG
-    decoder->context = cgCreateContext();
-    cgCheckError(decoder->context, "creating context");
-    decoder->profile_fragment = cgGLGetLatestProfile(CG_GL_FRAGMENT);
-    cgGLSetOptimalOptions(decoder->profile_fragment); 
-    cgCheckError(decoder->context, "selecting fragment profile"); 
-
-    decoder->program_fragment_display = cgCreateProgramFromFile(decoder->context, CG_SOURCE, "dxt.cg", decoder->profile_fragment, "display_fp", NULL);
-    cgCheckError(decoder->context, "creating fragment program from file"); 
-    cgGLLoadProgram(decoder->program_fragment_display); 
-    cgCheckError(decoder->context, "loading fragment program");
+    // Create program [display] and its shader
+    decoder->program_display = glCreateProgramObjectARB();  
+    // Create shader from file
+    decoder->shader_fragment_display = 0;
+    if ( decoder->type == DXT5_YCOCG )
+        decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
+    else
+        decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER_ARB);
+    if ( decoder->shader_fragment_display == 0 )
+        return NULL;
+    // Attach shader to program and link the program
+    glAttachObjectARB(decoder->program_display, decoder->shader_fragment_display);
+    glLinkProgramARB(decoder->program_display);
     
     return decoder;
 }
@@ -134,15 +136,9 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, decoder->width, decoder->height);
 
-    cgGLBindProgram(decoder->program_fragment_display);
-    cgGLEnableProfile(decoder->profile_fragment);
+    glUseProgramObjectARB(decoder->program_display);
     
     glBindTexture(GL_TEXTURE_2D, decoder->texture_id);
-    CGparameter parameter = cgGetNamedParameter(decoder->program_fragment_display, "reconstructColor");
-    if ( decoder->type == DXT5_YCOCG )
-        cgGLSetParameter1f(parameter, 1);
-    else
-        cgGLSetParameter1f(parameter, 0);
     
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
@@ -151,7 +147,8 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
     
-    cgGLDisableProfile(decoder->profile_fragment);
+    glUseProgramObjectARB(0);
+    
     TIMER_STOP_PRINT("Texture Decompress:");
     
     TIMER_START();
@@ -168,7 +165,8 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
 int
 dxt_decoder_destroy(struct dxt_decoder* decoder)
 {
-    cgDestroyContext(decoder->context);
+    glDeleteShader(decoder->shader_fragment_display);
+    glDeleteProgram(decoder->program_display);
     free(decoder);
     return 0;
 }

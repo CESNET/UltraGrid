@@ -27,6 +27,7 @@
 #include "dxt_common.h"
 #include "dxt_decoder.h"
 #include "dxt_util.h"
+#include "dxt_glsl.h"
 
 /** Documented at declaration */ 
 struct dxt_display
@@ -48,11 +49,12 @@ struct dxt_display
     
     // Current texture id
     GLuint texture_current_id;
-
-    // CG context, profiles, programs
-    CGcontext context;
-    CGprofile profile_fragment;
-    CGprogram program_fragment_display;
+    
+    // Program and shader handles
+    GLhandleARB program_display;
+    GLhandleARB program_display_dxt5ycocg;
+    GLhandleARB shader_fragment_display;
+    GLhandleARB shader_fragment_display_dxt5ycocg;
     
     // Show
     int show;
@@ -73,26 +75,21 @@ dxt_display_render(void)
 {            
     glClear(GL_COLOR_BUFFER_BIT);
     glViewport(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
-
-    cgGLBindProgram(g_display.program_fragment_display);
-    cgGLEnableProfile(g_display.profile_fragment);
     
+    glUseProgramObjectARB(g_display.program_display);
+            
     if ( g_display.texture_id != 0 && (g_display.texture_current_id == 0 || 
          g_display.texture_current_id == g_display.texture_id ) ) {
         glBindTexture(GL_TEXTURE_2D, g_display.texture_id);
-        CGparameter parameter = cgGetNamedParameter(g_display.program_fragment_display, "reconstructColor");
-        cgGLSetParameter1f(parameter, 0);
         if ( g_display.texture_current_id != 0)
             glutSetWindowTitle("Display Image");
     }
     if ( g_display.texture_compressed_id != 0 && (g_display.texture_current_id == 0 || 
          g_display.texture_current_id == g_display.texture_compressed_id ) ) {
+        if ( g_display.type == DXT5_YCOCG ) {
+            glUseProgramObjectARB(g_display.program_display_dxt5ycocg);
+        }
         glBindTexture(GL_TEXTURE_2D, g_display.texture_compressed_id);
-        CGparameter parameter = cgGetNamedParameter(g_display.program_fragment_display, "reconstructColor");
-        if ( g_display.type == DXT5_YCOCG )
-            cgGLSetParameter1f(parameter, 1);
-        else
-            cgGLSetParameter1f(parameter, 0);
         if ( g_display.texture_current_id != 0)
             glutSetWindowTitle("Display Compressed Image");
     }
@@ -104,7 +101,7 @@ dxt_display_render(void)
     glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
     
-    cgGLDisableProfile(g_display.profile_fragment);
+    glUseProgramObjectARB(0);
     
 	glutSwapBuffers();
 }
@@ -136,9 +133,9 @@ dxt_display_keyboard(unsigned char key, int x, int y)
 /**
  * OpenGL init
  * 
- * @return void
+ * @return zero if succeeds, otherwise nonzero
  */
-void
+int
 dxt_display_init(const char* title, enum dxt_type type, int width, int height)
 {
     g_display.type = type;
@@ -156,17 +153,27 @@ dxt_display_init(const char* title, enum dxt_type type, int width, int height)
     glutKeyboardFunc(dxt_display_keyboard);
     glutShowWindow();
     
-    // Init CG
-    g_display.context = cgCreateContext();
-    cgCheckError(g_display.context, "creating context");
-    g_display.profile_fragment = cgGLGetLatestProfile(CG_GL_FRAGMENT); 
-    cgGLSetOptimalOptions(g_display.profile_fragment); 
-    cgCheckError(g_display.context, "selecting fragment profile"); 
-
-    g_display.program_fragment_display = cgCreateProgramFromFile(g_display.context, CG_SOURCE, "dxt.cg", g_display.profile_fragment, "display_fp", NULL);
-    cgCheckError(g_display.context, "creating fragment program from file"); 
-    cgGLLoadProgram(g_display.program_fragment_display); 
-    cgCheckError(g_display.context, "loading fragment program");
+    // Create program [display] and its shader
+    g_display.program_display = glCreateProgramObjectARB();  
+    // Create shader from file
+    g_display.shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER_ARB);
+    if ( g_display.shader_fragment_display == 0 )
+        return -1;
+    // Attach shader to program and link the program
+    glAttachObjectARB(g_display.program_display, g_display.shader_fragment_display);
+    glLinkProgramARB(g_display.program_display);
+    
+    // Create program [display_dxt5ycocg] and its shader
+    g_display.program_display_dxt5ycocg = glCreateProgramObjectARB();  
+    // Create shader from file
+    g_display.shader_fragment_display_dxt5ycocg = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
+    if ( g_display.shader_fragment_display_dxt5ycocg == 0 )
+        return -1;
+    // Attach shader to program and link the program
+    glAttachObjectARB(g_display.program_display_dxt5ycocg, g_display.shader_fragment_display_dxt5ycocg);
+    glLinkProgramARB(g_display.program_display_dxt5ycocg);
+    
+    return 0;
 }
 
 /**
@@ -202,6 +209,11 @@ dxt_display_image(const char* title, DXT_IMAGE_TYPE* image, int width, int heigh
     glTexImage2D(GL_TEXTURE_2D, 0, DXT_IMAGE_GL_FORMAT, width, height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
     
     dxt_display_run();
+    
+    glDeleteShader(g_display.shader_fragment_display);
+    glDeleteShader(g_display.shader_fragment_display_dxt5ycocg);
+    glDeleteProgram(g_display.program_display);
+    glDeleteProgram(g_display.program_display_dxt5ycocg);
 }
 
 /** Documented at declaration */

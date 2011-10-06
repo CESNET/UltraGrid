@@ -26,6 +26,7 @@
 
 #include "dxt_encoder.h"
 #include "dxt_util.h"
+#include "dxt_glsl.h"
 
 #include <string.h>
 
@@ -50,12 +51,10 @@ struct dxt_encoder
     // Framebuffer
     GLuint fbo_id;
   
-    // CG context, profiles, programs
-    CGcontext context;
-    CGprofile profile_vertex;
-    CGprofile profile_fragment;
-    CGprogram program_vertex;
-    CGprogram program_fragment;
+    // Program and shader handles
+    GLhandleARB program_compress;
+    GLhandleARB shader_fragment_compress;
+    GLhandleARB shader_vertex_compress;    
 };
 
 /** Documented at declaration */
@@ -96,30 +95,32 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     
-    // Init CG
-    encoder->context = cgCreateContext();
-    cgCheckError(encoder->context, "creating context");
-    encoder->profile_vertex = cgGLGetLatestProfile(CG_GL_VERTEX); 
-    cgGLSetOptimalOptions(encoder->profile_vertex); 
-    cgCheckError(encoder->context, "selecting vertex profile"); 
-    encoder->profile_fragment = cgGLGetLatestProfile(CG_GL_FRAGMENT); 
-    cgGLSetOptimalOptions(encoder->profile_fragment); 
-    cgCheckError(encoder->context, "selecting fragment profile"); 
-
-    encoder->program_vertex = cgCreateProgramFromFile(encoder->context, CG_SOURCE, "dxt.cg", encoder->profile_vertex, "compress_vp", NULL);
-    cgCheckError(encoder->context, "creating vertex program from file"); 
-    cgGLLoadProgram(encoder->program_vertex); 
-    cgCheckError(encoder->context, "loading vertex program");
-    
+    // Create program [display] and its shader
+    encoder->program_compress = glCreateProgramObjectARB();
+    // Create fragment shader from file
+    encoder->shader_fragment_compress = 0;
     if ( encoder->type == DXT5_YCOCG )
-        encoder->program_fragment = cgCreateProgramFromFile(encoder->context, CG_SOURCE, "dxt.cg", encoder->profile_fragment, "compress_YCoCgDXT5_fp", NULL);
+        encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
     else
-        encoder->program_fragment = cgCreateProgramFromFile(encoder->context, CG_SOURCE, "dxt.cg", encoder->profile_fragment, "compress_DXT1_fp", NULL);
-    cgCheckError(encoder->context, "creating fragment program from file"); 
-    cgGLLoadProgram(encoder->program_fragment); 
-    cgCheckError(encoder->context, "loading fragment program");
+        encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER_ARB);
+    if ( encoder->shader_fragment_compress == 0 )
+        return NULL;
+    // Create vertex shader from file
+    encoder->shader_vertex_compress = 0;
+    encoder->shader_vertex_compress = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER_ARB);
+    if ( encoder->shader_vertex_compress == 0 ) {
+        printf("Failed to compile vertex compress program!\n");
+        return NULL;
+    }
+    // Attach shader to program and link the program
+    glAttachObjectARB(encoder->program_compress, encoder->shader_fragment_compress);
+    glAttachObjectARB(encoder->program_compress, encoder->shader_vertex_compress);
+    glLinkProgramARB(encoder->program_compress);
     
-    cgSetParameter(encoder->program_fragment, "imageSize", encoder->width, encoder->height);
+    char log[32768];
+    glGetInfoLogARB(encoder->program_compress, 32768, NULL, (GLchar*)log);
+    if ( strlen(log) > 0 )
+        printf("Link Log: %s\n", log);
     
     glGenTextures(1, &encoder->texture_id);
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
@@ -140,10 +141,13 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     
     TIMER_START();
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+    // TODO: Zkusi udelat nasledujic zmenu navhovanou Martinem Pulcem:
+    // jo prvne jsem si bindl data s glTexImage2D a pak uz pro kazdy frame glTexSubImage2D, to by mohlo byt rychlejsi
     glTexImage2D(GL_TEXTURE_2D, 0, DXT_IMAGE_GL_FORMAT, encoder->width, encoder->height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
+    
     if ( encoder->type == DXT5_YCOCG )
         *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
     else
@@ -158,23 +162,23 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     // Compress
     glViewport(0, 0, encoder->width / 4, encoder->height / 4);
     glDisable(GL_DEPTH_TEST);
-    cgGLBindProgram(encoder->program_vertex);
-    cgGLEnableProfile(encoder->profile_vertex);
-    cgGLBindProgram(encoder->program_fragment);
-    cgGLEnableProfile(encoder->profile_fragment);
-    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
     
+    // User compress program and set image size parameters
+    glUseProgramObjectARB(encoder->program_compress);
+    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
+        
+    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+        
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
     glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
     glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
     glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
-    
-    cgGLDisableProfile(encoder->profile_fragment);
-    cgGLDisableProfile(encoder->profile_vertex);
-    TIMER_STOP_PRINT("Texture Compress:  ");
         
+    glUseProgramObjectARB(0);
+    TIMER_STOP_PRINT("Texture Compress:  ");
+            
     TIMER_START();
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -187,8 +191,6 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     TIMER_STOP_PRINT("Texture Save:      ");
     
-    
-    
     return 0;
 }
 
@@ -196,7 +198,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 int
 dxt_encoder_destroy(struct dxt_encoder* encoder)
 {
-    cgDestroyContext(encoder->context);
+    glDeleteShader(encoder->shader_fragment_compress);
+    glDeleteShader(encoder->shader_vertex_compress);
+    glDeleteProgram(encoder->program_compress);
     free(encoder);
     return 0;
 }

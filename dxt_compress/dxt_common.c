@@ -49,11 +49,14 @@ dxt_init()
     CHECK_EXTENSION("GL_VERSION_2_0");
     CHECK_EXTENSION("GL_ARB_vertex_program");
     CHECK_EXTENSION("GL_ARB_fragment_program");
-    CHECK_EXTENSION("GL_NV_gpu_program4");
+    CHECK_EXTENSION("GL_EXT_gpu_shader4");
     CHECK_EXTENSION("GL_EXT_framebuffer_object");
     CHECK_EXTENSION("GL_ARB_texture_compression");
     CHECK_EXTENSION("GL_EXT_texture_compression_s3tc");
     CHECK_EXTENSION("GL_EXT_texture_integer");
+    
+    printf("OpenGL version %s\n", glGetString(GL_VERSION));
+    printf("GLSL version %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
     
     return result;
 }

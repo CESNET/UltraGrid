@@ -29,34 +29,32 @@
 
 #include <GL/glew.h>
 #include <GL/glut.h>
-#include <Cg/cg.h>
-#include <Cg/cgGL.h>
 #include <string.h>
 
+/**
+ * Create shader from source
+ * 
+ * @param source  Shade source 
+ * @param type  Shader type
+ * @return shader handle if succeeds, otherwise zero
+ */
+GLhandleARB
+dxt_shader_create_from_source(const char* source, GLenum type);
+
+/**
+ * Create shader from file
+ * 
+ * @param filename  Shade source filename
+ * @param type  Shader type
+ * @return shader handle if succeeds, otherwise zero
+ */
+GLhandleARB
+dxt_shader_create_from_file(const char* filename, GLenum type);
+
+/**
+ * Predeclaration of glutMainLoopEvent
+ */
 extern void
 glutMainLoopEvent(void);
-
-static void
-cgCheckError(CGcontext context, const char *situation) 
-{ 
-    CGerror error; 
-    const char* string = cgGetLastErrorString(&error); 
-    if ( error != CG_NO_ERROR ) { 
-        printf("DXT: %s: %s\n", situation, string); 
-        if ( error == CG_COMPILER_ERROR ) { 
-            printf("%s\n", cgGetLastListing(context)); 
-        } 
-        exit(1); 
-    } 
-}
-
-static void 
-cgSetParameter(CGprogram program, const char *name, float width, float height)
-{
-    CGparameter param = cgGetNamedParameter(program, name);
-    if ( param ) {
-        cgGLSetParameter2f(param, width, height);
-    }
-}
 
 #endif // DXT_UTIL_H
