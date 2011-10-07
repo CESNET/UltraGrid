@@ -166,6 +166,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     // TODO: Zkusi udelat nasledujic zmenu navhovanou Martinem Pulcem:
     // jo prvne jsem si bindl data s glTexImage2D a pak uz pro kazdy frame glTexSubImage2D, to by mohlo byt rychlejsi
     glTexImage2D(GL_TEXTURE_2D, 0, DXT_IMAGE_GL_FORMAT, encoder->width, encoder->height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+    glFinish();
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
@@ -194,6 +195,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glEnd();
         
     glUseProgramObjectARB(0);
+    glFinish();
     TIMER_STOP_PRINT("Texture Compress:  ");
             
     TIMER_START();
@@ -206,6 +208,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
         
     // Disable framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glFinish();
     TIMER_STOP_PRINT("Texture Save:      ");
     
     return 0;

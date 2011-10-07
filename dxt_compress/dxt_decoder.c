@@ -135,6 +135,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0, image_compressed_size, image_compressed);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0, image_compressed_size, image_compressed);
+    glFinish();
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
@@ -157,7 +158,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glEnd();
     
     glUseProgramObjectARB(0);
-    
+    glFinish();
     TIMER_STOP_PRINT("Texture Decompress:");
     
     TIMER_START();
@@ -165,6 +166,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     
     // Disable framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glFinish();
     TIMER_STOP_PRINT("Texture Save:      ");
     
     return 0;
