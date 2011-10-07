@@ -81,6 +81,15 @@
 #define MAGIC_GL	DISPLAY_GL_ID
 #define WIN_NAME        "Ultragrid - OpenGL Display"
 
+enum gl_texfmt_t {
+        UV_GL_RGB,
+        UV_GL_DXT1_RGB,
+        UV_GL_YUV,
+        UV_GL_DXT1_YUV,
+        UV_GL_DXT5_YCOCG,
+        
+};
+
 /* defined in main.c */
 extern int uv_argc;
 extern int should_exit;
@@ -94,7 +103,8 @@ struct state_gl {
 	/* TODO: make same shaders process YUVs for DXT as for
 	 * uncompressed data */
 	GLhandleARB     VSHandle_dxt,FSHandle_dxt,PHandle_dxt;
-	const GLcharARB	*VProgram_dxt,*FProgram_dxt;
+	const GLcharARB	*VProgram_dxt,*FProgram_dxt, *FProgram_dxt5;
+        GLhandleARB     FSHandle_dxt5, PHandle_dxt5;
 
 	GLuint		texture[4];
 
@@ -111,8 +121,7 @@ struct state_gl {
         int             window;
 
 	unsigned	fs:1;
-	unsigned	rgb:1;
-        unsigned        dxt:1;
+        enum gl_texfmt_t gl_texfmt;
         unsigned        deinterlace:1;
 
         struct video_frame frame;
@@ -325,6 +334,27 @@ void glsl_arb_init(void *arg)
     free(log);
 }
 
+/*
+ * NOTE: UNUSED - can (should?) be removed when we use ARB
+ */
+/*void glsl_gl_init(void *arg) {
+
+	//TODO: Add log
+	struct state_gl	*s = (struct state_gl *) arg;
+
+	s->PHandle=glCreateProgram();
+	s->FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
+
+	glShaderSource(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
+	glCompileShader(s->FSHandle);
+
+	glAttachShader(s->PHandle,s->FSHandle);
+
+	glLinkProgram(s->PHandle);
+	glUseProgram(s->PHandle);
+}*/
+
+
 void dxt_arb_init(void *arg)
 {
     struct state_gl        *s = (struct state_gl *) arg;
@@ -363,26 +393,34 @@ void dxt_arb_init(void *arg)
     free(log);
 }
 
-/*
- * NOTE: UNUSED - can (should?) be removed when we use ARB
- */
-/*void glsl_gl_init(void *arg) {
-
-	//TODO: Add log
-	struct state_gl	*s = (struct state_gl *) arg;
-
-	s->PHandle=glCreateProgram();
-	s->FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
-
-	glShaderSource(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
-	glCompileShader(s->FSHandle);
-
-	glAttachShader(s->PHandle,s->FSHandle);
-
-	glLinkProgram(s->PHandle);
-	glUseProgram(s->PHandle);
-}*/
-
+void dxt5_arb_init(struct state_gl *s)
+{
+        char *log;
+        /* Set up program objects. */
+        s->PHandle_dxt5=glCreateProgramObjectARB();
+        s->FSHandle_dxt5=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+        
+        /* Compile Shader */
+        assert(s->FProgram_dxt5 != NULL);
+        glShaderSourceARB(s->FSHandle_dxt5, 1, &s->FProgram_dxt5, NULL);
+        glCompileShaderARB(s->FSHandle_dxt5);
+        
+        /* Print compile log */
+        log=calloc(32768, sizeof(char));
+        glGetInfoLogARB(s->FSHandle_dxt5, 32768, NULL, log);
+        printf("Compile Log: %s\n", log);
+        free(log);
+        
+        /* Attach and link our program */
+        glAttachObjectARB(s->PHandle_dxt5, s->FSHandle_dxt5);
+        glLinkProgramARB(s->PHandle_dxt5);
+        
+        /* Print link log. */
+        log=calloc(32768, sizeof(char));
+        glGetInfoLogARB(s->PHandle_dxt5, 32768, NULL, log);
+        printf("Link Log: %s\n", log);
+        free(log);
+}
 
 inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v, int w, int h)
 {
@@ -454,14 +492,13 @@ void gl_reconfigure_screen(struct state_gl *s)
 
         for(i = 0; codec_info[i].name != NULL; ++i) {
                 if(s->frame.color_spec == codec_info[i].codec) {
-                        s->rgb = codec_info[i].rgb;
                         s->frame.src_bpp = codec_info[i].bpp;
                         h_align = codec_info[i].h_align;
                 }
         }
         assert(h_align != 0);
 
-        s->dxt = FALSE;
+        s->gl_texfmt = UV_GL_RGB;
 
         s->frame.rshift = 0;
         s->frame.gshift = 8;
@@ -494,14 +531,21 @@ void gl_reconfigure_screen(struct state_gl *s)
                         s->frame.dst_bpp = get_bpp(UYVY);
                         break;
                 case DXT1:
-                        s->dxt = TRUE;
                         if(s->frame.aux & AUX_RGB)
-                                s->rgb = TRUE;
+                                s->gl_texfmt = UV_GL_DXT1_RGB;
                         else
-                                s->rgb = FALSE;
+                                s->gl_texfmt = UV_GL_DXT1_YUV;
+                                
                         s->frame.decoder = (decoder_t)memcpy;
                         s->frame.dst_bpp = get_bpp(DXT1);
                         break;
+                case DXT5:
+                        /* expect DXT5 YCoCg */
+                        s->gl_texfmt = UV_GL_DXT5_YCOCG;
+                        s->frame.decoder = (decoder_t)memcpy;
+                        s->frame.dst_bpp = get_bpp(DXT5);
+                        break;
+                        
         }
 
         s->frame.src_linesize = s->frame.width;
@@ -528,42 +572,49 @@ void gl_reconfigure_screen(struct state_gl *s)
 
 	glUseProgramObjectARB(0);
 
-        if(s->dxt) {
+        if(s->gl_texfmt == UV_GL_DXT1_RGB || s->gl_texfmt == UV_GL_DXT1_YUV) {
 		glBindTexture(GL_TEXTURE_2D,s->texture[0]);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
 				s->frame.width, s->frame.height, 0,
 				(s->frame.width*s->frame.height/16)*8,
 				s->frame.data);
-		if(!s->rgb) {
+		if(s->gl_texfmt == UV_GL_DXT1_YUV) {
 			glBindTexture(GL_TEXTURE_2D,s->texture[0]);
 			glUseProgramObjectARB(s->PHandle_dxt);
 		}
-        } else if(!s->dxt) {
-		if (!s->rgb) {
-			glUseProgramObjectARB(s->PHandle);
+        } else if (s->gl_texfmt == UV_GL_YUV) {
+                glUseProgramObjectARB(s->PHandle);
 
-			glBindTexture(GL_TEXTURE_2D,s->texture[0]);
-			glTexImage2D(GL_TEXTURE_2D, 0, 1,
-				s->frame.width/2, s->frame.height, 0,
-				GL_LUMINANCE, GL_UNSIGNED_BYTE, s->u);
+                glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+                glTexImage2D(GL_TEXTURE_2D, 0, 1,
+                        s->frame.width/2, s->frame.height, 0,
+                        GL_LUMINANCE, GL_UNSIGNED_BYTE, s->u);
 
-			glBindTexture(GL_TEXTURE_2D,s->texture[1]);
-			glTexImage2D(GL_TEXTURE_2D, 0, 1,
-				s->frame.width/2, s->frame.height, 0,
-				GL_LUMINANCE, GL_UNSIGNED_BYTE, s->v);
+                glBindTexture(GL_TEXTURE_2D,s->texture[1]);
+                glTexImage2D(GL_TEXTURE_2D, 0, 1,
+                        s->frame.width/2, s->frame.height, 0,
+                        GL_LUMINANCE, GL_UNSIGNED_BYTE, s->v);
 
-			glBindTexture(GL_TEXTURE_2D,s->texture[2]);
-			glTexImage2D(GL_TEXTURE_2D, 0, 1,
+                glBindTexture(GL_TEXTURE_2D,s->texture[2]);
+                glTexImage2D(GL_TEXTURE_2D, 0, 1,
+                        s->frame.width, s->frame.height, 0,
+                        GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
+        } else if (s->gl_texfmt == UV_GL_RGB) {
+                glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                s->frame.width, s->frame.height, 0,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                s->frame.data);
+        } else if (s->gl_texfmt == UV_GL_DXT5_YCOCG) {
+                glUseProgramObjectARB(s->PHandle_dxt5);
+                
+                glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+                glCompressedTexImage2D(GL_TEXTURE_2D, 0,
+				GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
 				s->frame.width, s->frame.height, 0,
-				GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
-		} else {
-			glBindTexture(GL_TEXTURE_2D,s->texture[0]);
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                        s->frame.width, s->frame.height, 0,
-                                        GL_RGBA, GL_UNSIGNED_BYTE,
-                                        s->frame.data);
-		}
+				s->frame.width*s->frame.height,
+				s->frame.data);
         }
 
         s->win_initialized = TRUE;
@@ -639,33 +690,39 @@ void glut_idle_callback(void)
 
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
-        if(s->deinterlace && !s->dxt)
+        if(s->deinterlace && (s->gl_texfmt == UV_GL_YUV || s->gl_texfmt == UV_GL_RGB))
                 vc_deinterlace((unsigned char *) s->frame.data,
                                 s->frame.dst_linesize, s->frame.height);
 
-        if(s->dxt) {
-                if(s->rgb) {
+        switch(s->gl_texfmt) {
+                case UV_GL_DXT1_RGB:
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->frame.width, s->frame.height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                         (s->frame.width*s->frame.height/16)*8,
                                         s->frame.data);
-                } else {
+                        break;
+                case UV_GL_DXT1_YUV:
                         dxt_bind_texture(s);
-                }
-        } else {
-                if(!s->rgb)
-                {
+                        break;
+                        
+                case UV_GL_YUV:
                         getY((GLubyte *) s->frame.data, s->y, s->u, s->v,
                                         s->frame.width, s->frame.height);
                         gl_bind_texture(s);
-                } else {
+                        break;
+                case UV_GL_RGB:
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->frame.width, s->frame.height,
                                         GL_RGBA, GL_UNSIGNED_BYTE,
                                         s->frame.data);
-                }
-
+                        break;
+                case UV_GL_DXT5_YCOCG:                        
+                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                        s->frame.width, s->frame.height,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                                        s->frame.width*s->frame.height,
+                                        s->frame.data);
         }
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
@@ -745,6 +802,7 @@ void display_gl_run(void *arg)
 	s->FProgram_dxt = (const GLcharARB**) frag;
 	s->VProgram_dxt = (const GLcharARB**) vert;
 	s->FProgram = (const GLcharARB**) glsl;
+	s->FProgram_dxt5 = (const GLcharARB**) fp_display_dxt5ycocg;
 
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );
@@ -763,6 +821,7 @@ void display_gl_run(void *arg)
 
 	glsl_arb_init(s);
 	dxt_arb_init(s);
+        dxt5_arb_init(s);
 
         /* Wait until we have some data and thus created window 
          * otherwise the mainLoop would exit immediately */

@@ -86,6 +86,7 @@
 #define EXIT_FAIL_CAPTURE	4
 #define EXIT_FAIL_NETWORK	5
 #define EXIT_FAIL_TRANSMIT	6
+#define EXIT_FAIL_COMPRESS	7
 
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
@@ -543,7 +544,7 @@ int main(int argc, char *argv[])
         char *jack_cfg = NULL;
         
         struct state_uv *uv;
-        char *num_compress_threads;
+        char *compress_options;
         int ch;
         int prev_option_set = 0;
         
@@ -636,6 +637,8 @@ int main(int argc, char *argv[])
                                 exit(EXIT_FAIL_USAGE);
 #else
                                 uv->requested_compression = COMPRESS_DXT_GPU;
+                                if(optarg[1] == ':')
+                                        compress_options = optarg + 2;
 #endif
                         } else {
 #ifndef HAVE_FASTDXT
@@ -644,7 +647,7 @@ int main(int argc, char *argv[])
                                 exit(EXIT_FAIL_USAGE);
 #endif
                                 uv->requested_compression = COMPRESS_DXT_CPU;
-                                num_compress_threads = optarg;
+                                compress_options = optarg;
                         }
                         break;
                 case 'i':
@@ -735,14 +738,19 @@ int main(int argc, char *argv[])
 
         if (uv->requested_compression == COMPRESS_DXT_CPU) {
 #ifdef HAVE_FASTDXT
-                uv->compression = initialize_video_compression(num_compress_threads);
+                uv->compression = initialize_video_compression(compress_options);
 #endif  /* HAVE_FASTDXT */
         } else if (uv->requested_compression == COMPRESS_DXT_GPU) {
 #ifdef HAVE_DXT_GLSL
-                uv->compression = dxt_glsl_init();
+                uv->compression = dxt_glsl_init(compress_options);
 #endif                
         }
-             
+        
+        if(uv->requested_compression != COMPRESS_NONE
+                        && uv->compression == NULL) {
+                fprintf(stderr, "Error initializing compression.\n");
+                exit(EXIT_FAIL_COMPRESS);
+        }
 
 #ifndef WIN32
         signal(SIGINT, signal_handler);

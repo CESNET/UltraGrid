@@ -64,21 +64,41 @@ static void configure_with(struct video_compress *s, struct video_frame *frame);
 
 static void configure_with(struct video_compress *s, struct video_frame *frame)
 {
+        codec_t tmp = s->out.color_spec;
+        
         dxt_init();
-        s->encoder = dxt_encoder_create(dxt_DXT1, frame->width, frame->height);
+        
         memcpy(&s->out, frame, sizeof(struct video_frame));
-        s->out.color_spec = DXT1;
-        s->out.aux |= AUX_RGB;
-        s->out.data = malloc(frame->width * frame->height / 2);
+        s->out.color_spec = tmp;
+        if(s->out.color_spec == DXT1) {
+                s->out.data = malloc(frame->width * frame->height / 2);
+                s->out.aux |= AUX_RGB;
+                s->encoder = dxt_encoder_create(dxt_DXT1, frame->width, frame->height);
+        } else if(s->out.color_spec == DXT5){
+                s->out.data = malloc(frame->width * frame->height);
+                s->out.aux |= AUX_YUV; /* YCoCg */
+                s->encoder = dxt_encoder_create(dxt_DXT5_YCOCG, frame->width, frame->height);
+        }
                 
         s->configured = TRUE;
 }
 
-struct video_compress * dxt_glsl_init()
+struct video_compress * dxt_glsl_init(char * opts)
 {
         struct video_compress *s;
         
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
+        if(opts) {
+                if(strcasecmp(opts, "DXT5_YCoCg") == 0) {
+                        s->out.color_spec = DXT5;
+                } else if(strcasecmp(opts, "DXT1") == 0) {
+                        s->out.color_spec = DXT1;
+                } else {
+                        fprintf(stderr, "Unknown compression : %s\n", opts);
+                        return NULL;
+                }
+        }
+                
         s->configured = FALSE;
 
         return s;

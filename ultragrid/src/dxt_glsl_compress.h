@@ -49,6 +49,6 @@
 
 struct video_compress;
 
-struct video_compress * dxt_glsl_init();
+struct video_compress * dxt_glsl_init(char * opts);
 struct video_frame * dxt_glsl_compress(void *args, struct video_frame * tx);
 void dxt_glsl_exit(void *args);

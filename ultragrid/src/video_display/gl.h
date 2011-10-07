@@ -106,3 +106,28 @@ void main() {\
 gl_TexCoord[0] = gl_MultiTexCoord0;\
 gl_Position = ftransform();}";
 
+static const char fp_display_dxt5ycocg[] = 
+    "#extension GL_EXT_gpu_shader4 : enable\n"
+    "uniform sampler2D _image;\n"
+    "void main()\n"
+    "{\n"
+    "    vec4 _rgba;\n"
+    "    float _scale;\n"
+    "    float _Co;\n"
+    "    float _Cg;\n"
+    "    float _R;\n"
+    "    float _G;\n"
+    "    float _B;\n"
+    "    _rgba = texture2D(_image, gl_TexCoord[0].xy);\n"
+    "    _scale = 1.00000000E+00/(3.18750000E+01*_rgba.z + 1.00000000E+00);\n"
+    "    _Co = (_rgba.x - 5.01960814E-01)*_scale;\n"
+    "    _Cg = (_rgba.y - 5.01960814E-01)*_scale;\n"
+    "    _R = (_rgba.w + _Co) - _Cg;\n"
+    "    _G = _rgba.w + _Cg;\n"
+    "    _B = (_rgba.w - _Co) - _Cg;\n"
+    "    _rgba = vec4(_R, _G, _B, 1.00000000E+00);\n"
+    "    gl_FragColor = _rgba;\n"
+    "    return;\n"
+    "} // main end\n"
+;
+
