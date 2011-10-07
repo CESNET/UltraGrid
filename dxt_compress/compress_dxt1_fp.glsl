@@ -1,630 +1,185 @@
 #version 130
+
 #extension GL_EXT_gpu_shader4 : enable
-vec3 _TMP8;
-vec4 _TMP6;
-uniform sampler2D _image3;
-uniform vec2 imageSize;
-vec2 _texelSize0016;
-vec2 _texcoord0016;
-vec3 _col0016[16];
-vec2 _c0018;
-float _Y0020;
-float _U0020;
-float _V0020;
-float _R0020;
-float _G0020;
-float _B0020;
-vec3 _mincol0021;
-vec3 _maxcol0021;
-vec3 _center0026;
-vec3 _mincol0026;
-vec3 _maxcol0026;
-vec2 _cov0026;
-vec3 _t10026;
-vec3 _inset0027;
-vec3 _x0029;
-vec3 _TMP30;
-vec3 _x0037;
-vec3 _TMP38;
-int _TMP44;
-vec3 _maxcol0045;
-vec3 _mincol0045;
-vec3 _tmp10045;
-bool _TMP46;
-ivec3 _c0048;
-int _w0048;
-vec3 _TMP49;
-vec3 _a0050;
-vec3 _x0052;
-ivec3 _c0054;
-int _w0054;
-vec3 _TMP55;
-vec3 _a0056;
-vec3 _x0058;
-vec3 _c0060[4];
-int _indices0060;
-ivec4 _b10060;
-int _b410060;
-int _index10060;
-float _TMP65;
-vec3 _a0068;
-vec3 _b0068;
-float _TMP69;
-vec3 _a0072;
-vec3 _b0072;
-float _TMP73;
-vec3 _a0076;
-vec3 _b0076;
-float _TMP77;
-vec3 _a0080;
-vec3 _b0080;
+
+#define lerp mix
+
+// Image formats
+const int FORMAT_RGB = 0;
+const int FORMAT_YUV = 1;
+
+// Covert YUV to RGB
+vec3 ConvertYUVToRGB(vec3 color)
+{
+    float Y = color[0];
+    float U = color[1] - 0.5;
+    float V = color[2] - 0.5;
+    Y = 1.1643 * (Y - 0.0625);
+
+    float R = Y + 1.5958 * V;
+    float G = Y - 0.39173 * U - 0.81290 * V;
+    float B = Y + 2.017 * U;
+    
+    return vec3(R, G, B);
+}
+
+float colorDistance(vec3 c0, vec3 c1)
+{
+    return dot(c0-c1, c0-c1);
+}
+float colorDistance(vec2 c0, vec2 c1)
+{
+    return dot(c0-c1, c0-c1);
+}
+
+void ExtractColorBlock(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
+{
+    vec2 texelSize = (1.0f / imageSize);
+    vec2 tex = vec2(texcoord.x, texcoord.y);
+    tex -= texelSize * vec2(2);
+    for ( int i = 0; i < 4; i++ ) {
+        for ( int j = 0; j < 4; j++ ) {
+            col[i * 4 + j] = texture(image, tex + vec2(j, i) * texelSize).rgb;
+        }
+    }
+}
+
+void FindMinMaxColorsBox(vec3 block[16], out vec3 mincol, out vec3 maxcol)
+{
+    mincol = block[0];
+    maxcol = block[0];
+    
+    for ( int i = 1; i < 16; i++ ) {
+        mincol = min(mincol, block[i]);
+        maxcol = max(maxcol, block[i]);
+    }
+}
+
+void SelectDiagonal(vec3 block[16], inout vec3 mincol, inout vec3 maxcol)
+{
+    vec3 center = (mincol + maxcol) * 0.5;
+
+    vec2 cov = vec2(0, 0);
+    for (int i = 0; i < 16; i++) {
+        vec3 t = block[i] - center;
+        cov.x += t.x * t.z;
+        cov.y += t.y * t.z;
+    }
+
+    if (cov.x < 0) {
+        float temp = maxcol.x;
+        maxcol.x = mincol.x;
+        mincol.x = temp;
+    }
+    if (cov.y < 0) {
+        float temp = maxcol.y;
+        maxcol.y = mincol.y;
+        mincol.y = temp;
+    }
+}
+
+void InsetBBox(inout vec3 mincol, inout vec3 maxcol)
+{
+    vec3 inset = (maxcol - mincol) / 16.0 - (8.0 / 255.0) / 16;
+    mincol = clamp(mincol + inset, 0.0, 1.0);
+    maxcol = clamp(maxcol - inset, 0.0, 1.0);
+}
+
+vec3 RoundAndExpand(vec3 v, out uint w)
+{
+    uvec3 c = uvec3(round(v * vec3(31, 63, 31)));
+    w = (c.r << 11u) | (c.g << 5u) | c.b;
+
+    c.rb = (c.rb << 3u) | (c.rb >> 2u);
+    c.g = (c.g << 2u) | (c.g >> 4u);
+
+    return vec3(c) * (1.0 / 255.0);
+}
+
+uint EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
+{
+    uvec2 output;
+    maxcol = RoundAndExpand(maxcol, output.x);
+    mincol = RoundAndExpand(mincol, output.y);
+
+    // We have to do this in case we select an alternate diagonal.
+    if (output.x < output.y)
+    {
+        vec3 tmp = mincol;
+        mincol = maxcol;
+        maxcol = tmp;
+        return output.y | (output.x << 16u);
+    }
+
+    return output.x | (output.y << 16u);
+}
+
+uint EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
+{
+    // Compute palette
+    vec3 c[4];
+    c[0] = maxcol;
+    c[1] = mincol;
+    c[2] = lerp(c[0], c[1], 1.0/3.0);
+    c[3] = lerp(c[0], c[1], 2.0/3.0);
+
+    // Compute indices
+    uint indices = 0u;
+    for ( int i = 0; i < 16; i++ ) {
+
+        // find index of closest color
+        vec4 dist;
+        dist.x = colorDistance(col[i], c[0]);
+        dist.y = colorDistance(col[i], c[1]);
+        dist.z = colorDistance(col[i], c[2]);
+        dist.w = colorDistance(col[i], c[3]);
+        
+        uvec4 b;
+        b.x = dist.x > dist.w ? 1u : 0u;
+        b.y = dist.y > dist.z ? 1u : 0u;
+        b.z = dist.x > dist.z ? 1u : 0u;
+        b.w = dist.y > dist.w ? 1u : 0u;
+        uint b4 = dist.z > dist.w ? 1u : 0u;
+        
+        uint index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
+        indices |= index << (uint(i) * 2u);
+    }
+
+    // Output indices
+    return indices;
+}
+
 in vec4 TEX0;
-out ivec4 _colorInt;
-uniform int imageFormat;
+uniform sampler2D image;
+uniform int imageFormat = FORMAT_RGB;
+uniform vec2 imageSize;
+out uvec4 colorInt;
+
 void main()
 {
-    vec3 _block2[16];
-    ivec4 _output1;
-    _texelSize0016 = 1.00000000E+00/imageSize;
-    _texcoord0016 = TEX0.xy - _texelSize0016*2.00000000E+00;
-    _TMP6 = texture(_image3, _texcoord0016);
-    _col0016[0] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 1.00000000E+00, 0.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[1] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 2.00000000E+00, 0.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[2] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 3.00000000E+00, 0.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[3] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 0.00000000E+00, 1.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[4] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + _texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[5] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 2.00000000E+00, 1.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[6] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 3.00000000E+00, 1.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[7] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 0.00000000E+00, 2.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[8] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 1.00000000E+00, 2.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[9] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 2.00000000E+00, 2.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[10] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 3.00000000E+00, 2.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[11] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 0.00000000E+00, 3.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[12] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 1.00000000E+00, 3.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[13] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 2.00000000E+00, 3.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _col0016[14] = _TMP6.xyz;
-    _c0018 = _texcoord0016 + vec2( 3.00000000E+00, 3.00000000E+00)*_texelSize0016;
-    _TMP6 = texture(_image3, _c0018);
-    _block2[0] = _col0016[0];
-    _block2[1] = _col0016[1];
-    _block2[2] = _col0016[2];
-    _block2[3] = _col0016[3];
-    _block2[4] = _col0016[4];
-    _block2[5] = _col0016[5];
-    _block2[6] = _col0016[6];
-    _block2[7] = _col0016[7];
-    _block2[8] = _col0016[8];
-    _block2[9] = _col0016[9];
-    _block2[10] = _col0016[10];
-    _block2[11] = _col0016[11];
-    _block2[12] = _col0016[12];
-    _block2[13] = _col0016[13];
-    _block2[14] = _col0016[14];
-    _block2[15] = _TMP6.xyz;
-    if (imageFormat == 1) { // if begin
-        _U0020 = _col0016[0].y - 5.00000000E-01;
-        _V0020 = _col0016[0].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[0].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[0] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[1].y - 5.00000000E-01;
-        _V0020 = _col0016[1].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[1].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[1] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[2].y - 5.00000000E-01;
-        _V0020 = _col0016[2].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[2].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[2] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[3].y - 5.00000000E-01;
-        _V0020 = _col0016[3].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[3].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[3] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[4].y - 5.00000000E-01;
-        _V0020 = _col0016[4].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[4].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[4] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[5].y - 5.00000000E-01;
-        _V0020 = _col0016[5].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[5].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[5] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[6].y - 5.00000000E-01;
-        _V0020 = _col0016[6].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[6].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[6] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[7].y - 5.00000000E-01;
-        _V0020 = _col0016[7].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[7].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[7] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[8].y - 5.00000000E-01;
-        _V0020 = _col0016[8].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[8].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[8] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[9].y - 5.00000000E-01;
-        _V0020 = _col0016[9].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[9].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[9] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[10].y - 5.00000000E-01;
-        _V0020 = _col0016[10].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[10].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[10] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[11].y - 5.00000000E-01;
-        _V0020 = _col0016[11].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[11].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[11] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[12].y - 5.00000000E-01;
-        _V0020 = _col0016[12].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[12].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[12] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[13].y - 5.00000000E-01;
-        _V0020 = _col0016[13].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[13].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[13] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _col0016[14].y - 5.00000000E-01;
-        _V0020 = _col0016[14].z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_col0016[14].x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[14] = vec3(_R0020, _G0020, _B0020);
-        _U0020 = _TMP6.y - 5.00000000E-01;
-        _V0020 = _TMP6.z - 5.00000000E-01;
-        _Y0020 = 1.16429996E+00*(_TMP6.x - 6.25000000E-02);
-        _R0020 = _Y0020 + 1.59580004E+00*_V0020;
-        _G0020 = (_Y0020 - 3.91730011E-01*_U0020) - 8.12900007E-01*_V0020;
-        _B0020 = _Y0020 + 2.01699996E+00*_U0020;
-        _block2[15] = vec3(_R0020, _G0020, _B0020);
-    } // end if
-    _mincol0021 = min(_block2[0], _block2[1]);
-    _maxcol0021 = max(_block2[0], _block2[1]);
-    _mincol0021 = min(_mincol0021, _block2[2]);
-    _maxcol0021 = max(_maxcol0021, _block2[2]);
-    _mincol0021 = min(_mincol0021, _block2[3]);
-    _maxcol0021 = max(_maxcol0021, _block2[3]);
-    _mincol0021 = min(_mincol0021, _block2[4]);
-    _maxcol0021 = max(_maxcol0021, _block2[4]);
-    _mincol0021 = min(_mincol0021, _block2[5]);
-    _maxcol0021 = max(_maxcol0021, _block2[5]);
-    _mincol0021 = min(_mincol0021, _block2[6]);
-    _maxcol0021 = max(_maxcol0021, _block2[6]);
-    _mincol0021 = min(_mincol0021, _block2[7]);
-    _maxcol0021 = max(_maxcol0021, _block2[7]);
-    _mincol0021 = min(_mincol0021, _block2[8]);
-    _maxcol0021 = max(_maxcol0021, _block2[8]);
-    _mincol0021 = min(_mincol0021, _block2[9]);
-    _maxcol0021 = max(_maxcol0021, _block2[9]);
-    _mincol0021 = min(_mincol0021, _block2[10]);
-    _maxcol0021 = max(_maxcol0021, _block2[10]);
-    _mincol0021 = min(_mincol0021, _block2[11]);
-    _maxcol0021 = max(_maxcol0021, _block2[11]);
-    _mincol0021 = min(_mincol0021, _block2[12]);
-    _maxcol0021 = max(_maxcol0021, _block2[12]);
-    _mincol0021 = min(_mincol0021, _block2[13]);
-    _maxcol0021 = max(_maxcol0021, _block2[13]);
-    _mincol0021 = min(_mincol0021, _block2[14]);
-    _maxcol0021 = max(_maxcol0021, _block2[14]);
-    _mincol0021 = min(_mincol0021, _block2[15]);
-    _maxcol0021 = max(_maxcol0021, _block2[15]);
-    _mincol0026 = _mincol0021;
-    _maxcol0026 = _maxcol0021;
-    _center0026 = (_mincol0021 + _maxcol0021)*5.00000000E-01;
-    _t10026 = _block2[0] - _center0026;
-    _cov0026.x = _t10026.x*_t10026.z;
-    _cov0026.y = _t10026.y*_t10026.z;
-    _t10026 = _block2[1] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[2] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[3] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[4] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[5] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[6] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[7] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[8] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[9] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[10] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[11] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[12] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[13] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[14] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    _t10026 = _block2[15] - _center0026;
-    _cov0026.x = _cov0026.x + _t10026.x*_t10026.z;
-    _cov0026.y = _cov0026.y + _t10026.y*_t10026.z;
-    if (_cov0026.x < 0.00000000E+00) { // if begin
-        _maxcol0026.x = _mincol0021.x;
-        _mincol0026.x = _maxcol0021.x;
-    } // end if
-    if (_cov0026.y < 0.00000000E+00) { // if begin
-        _maxcol0026.y = _mincol0021.y;
-        _mincol0026.y = _maxcol0021.y;
-    } // end if
-    _inset0027 = (_maxcol0026 - _mincol0026)/1.60000000E+01 - 1.96078443E-03;
-    _x0029 = _mincol0026 + _inset0027;
-    _TMP8 = min(vec3( 1.00000000E+00, 1.00000000E+00, 1.00000000E+00), _x0029);
-    _TMP30 = max(vec3( 0.00000000E+00, 0.00000000E+00, 0.00000000E+00), _TMP8);
-    _x0037 = _maxcol0026 - _inset0027;
-    _TMP8 = min(vec3( 1.00000000E+00, 1.00000000E+00, 1.00000000E+00), _x0037);
-    _TMP38 = max(vec3( 0.00000000E+00, 0.00000000E+00, 0.00000000E+00), _TMP8);
-    _TMP46 = true;
-    _a0050 = _TMP38*vec3( 3.10000000E+01, 6.30000000E+01, 3.10000000E+01);
-    _x0052 = _a0050 + 5.00000000E-01;
-    _TMP49 = floor(_x0052);
-    _c0048 = ivec3(int(_TMP49.x), int(_TMP49.y), int(_TMP49.z));
-    _w0048 = int(((_c0048.x << 11) | (_c0048.y << 5) | _c0048.z));
-    _c0048.xz = (_c0048.xz << 3) | (_c0048.xz >> 2);
-    _c0048.y = (_c0048.y << 2) | (_c0048.y >> 4);
-    _maxcol0045 = vec3(float(_c0048.x), float(_c0048.y), float(_c0048.z))*3.92156886E-03;
-    _a0056 = _TMP30*vec3( 3.10000000E+01, 6.30000000E+01, 3.10000000E+01);
-    _x0058 = _a0056 + 5.00000000E-01;
-    _TMP55 = floor(_x0058);
-    _c0054 = ivec3(int(_TMP55.x), int(_TMP55.y), int(_TMP55.z));
-    _w0054 = int(((_c0054.x << 11) | (_c0054.y << 5) | _c0054.z));
-    _c0054.xz = (_c0054.xz << 3) | (_c0054.xz >> 2);
-    _c0054.y = (_c0054.y << 2) | (_c0054.y >> 4);
-    _mincol0045 = vec3(float(_c0054.x), float(_c0054.y), float(_c0054.z))*3.92156886E-03;
-    if (_w0048 < _w0054) { // if begin
-        _tmp10045 = _mincol0045;
-        _mincol0045 = _maxcol0045;
-        _maxcol0045 = _tmp10045;
-        _TMP44 = _w0054 | (_w0048 << 16);
-        _TMP46 = false;
-    } // end if
-    if (_TMP46) { // if begin
-        _TMP44 = _w0048 | (_w0054 << 16);
-    } // end if
-    _output1.x = _TMP44;
-    _c0060[2] = _maxcol0045 + 3.33333343E-01*(_mincol0045 - _maxcol0045);
-    _c0060[3] = _maxcol0045 + 6.66666687E-01*(_mincol0045 - _maxcol0045);
-    _a0068 = _block2[0] - _maxcol0045;
-    _b0068 = _block2[0] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[0] - _mincol0045;
-    _b0072 = _block2[0] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[0] - _c0060[2];
-    _b0076 = _block2[0] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[0] - _c0060[3];
-    _b0080 = _block2[0] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _index10060;
-    _a0068 = _block2[1] - _maxcol0045;
-    _b0068 = _block2[1] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[1] - _mincol0045;
-    _b0072 = _block2[1] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[1] - _c0060[2];
-    _b0076 = _block2[1] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[1] - _c0060[3];
-    _b0080 = _block2[1] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 2);
-    _a0068 = _block2[2] - _maxcol0045;
-    _b0068 = _block2[2] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[2] - _mincol0045;
-    _b0072 = _block2[2] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[2] - _c0060[2];
-    _b0076 = _block2[2] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[2] - _c0060[3];
-    _b0080 = _block2[2] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 4);
-    _a0068 = _block2[3] - _maxcol0045;
-    _b0068 = _block2[3] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[3] - _mincol0045;
-    _b0072 = _block2[3] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[3] - _c0060[2];
-    _b0076 = _block2[3] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[3] - _c0060[3];
-    _b0080 = _block2[3] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 6);
-    _a0068 = _block2[4] - _maxcol0045;
-    _b0068 = _block2[4] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[4] - _mincol0045;
-    _b0072 = _block2[4] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[4] - _c0060[2];
-    _b0076 = _block2[4] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[4] - _c0060[3];
-    _b0080 = _block2[4] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 8);
-    _a0068 = _block2[5] - _maxcol0045;
-    _b0068 = _block2[5] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[5] - _mincol0045;
-    _b0072 = _block2[5] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[5] - _c0060[2];
-    _b0076 = _block2[5] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[5] - _c0060[3];
-    _b0080 = _block2[5] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 10);
-    _a0068 = _block2[6] - _maxcol0045;
-    _b0068 = _block2[6] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[6] - _mincol0045;
-    _b0072 = _block2[6] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[6] - _c0060[2];
-    _b0076 = _block2[6] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[6] - _c0060[3];
-    _b0080 = _block2[6] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 12);
-    _a0068 = _block2[7] - _maxcol0045;
-    _b0068 = _block2[7] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[7] - _mincol0045;
-    _b0072 = _block2[7] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[7] - _c0060[2];
-    _b0076 = _block2[7] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[7] - _c0060[3];
-    _b0080 = _block2[7] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 14);
-    _a0068 = _block2[8] - _maxcol0045;
-    _b0068 = _block2[8] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[8] - _mincol0045;
-    _b0072 = _block2[8] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[8] - _c0060[2];
-    _b0076 = _block2[8] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[8] - _c0060[3];
-    _b0080 = _block2[8] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 16);
-    _a0068 = _block2[9] - _maxcol0045;
-    _b0068 = _block2[9] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[9] - _mincol0045;
-    _b0072 = _block2[9] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[9] - _c0060[2];
-    _b0076 = _block2[9] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[9] - _c0060[3];
-    _b0080 = _block2[9] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 18);
-    _a0068 = _block2[10] - _maxcol0045;
-    _b0068 = _block2[10] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[10] - _mincol0045;
-    _b0072 = _block2[10] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[10] - _c0060[2];
-    _b0076 = _block2[10] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[10] - _c0060[3];
-    _b0080 = _block2[10] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 20);
-    _a0068 = _block2[11] - _maxcol0045;
-    _b0068 = _block2[11] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[11] - _mincol0045;
-    _b0072 = _block2[11] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[11] - _c0060[2];
-    _b0076 = _block2[11] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[11] - _c0060[3];
-    _b0080 = _block2[11] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 22);
-    _a0068 = _block2[12] - _maxcol0045;
-    _b0068 = _block2[12] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[12] - _mincol0045;
-    _b0072 = _block2[12] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[12] - _c0060[2];
-    _b0076 = _block2[12] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[12] - _c0060[3];
-    _b0080 = _block2[12] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 24);
-    _a0068 = _block2[13] - _maxcol0045;
-    _b0068 = _block2[13] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[13] - _mincol0045;
-    _b0072 = _block2[13] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[13] - _c0060[2];
-    _b0076 = _block2[13] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[13] - _c0060[3];
-    _b0080 = _block2[13] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 26);
-    _a0068 = _block2[14] - _maxcol0045;
-    _b0068 = _block2[14] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[14] - _mincol0045;
-    _b0072 = _block2[14] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[14] - _c0060[2];
-    _b0076 = _block2[14] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[14] - _c0060[3];
-    _b0080 = _block2[14] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 28);
-    _a0068 = _block2[15] - _maxcol0045;
-    _b0068 = _block2[15] - _maxcol0045;
-    _TMP65 = dot(_a0068, _b0068);
-    _a0072 = _block2[15] - _mincol0045;
-    _b0072 = _block2[15] - _mincol0045;
-    _TMP69 = dot(_a0072, _b0072);
-    _a0076 = _block2[15] - _c0060[2];
-    _b0076 = _block2[15] - _c0060[2];
-    _TMP73 = dot(_a0076, _b0076);
-    _a0080 = _block2[15] - _c0060[3];
-    _b0080 = _block2[15] - _c0060[3];
-    _TMP77 = dot(_a0080, _b0080);
-    _b10060 = ivec4(int((_TMP65 > _TMP77)), int((_TMP69 > _TMP73)), int((_TMP65 > _TMP73)), int((_TMP69 > _TMP77)));
-    _b410060 = int((_TMP73 > _TMP77));
-    _index10060 = (_b10060.x & _b410060) | (((_b10060.y & _b10060.z) | (_b10060.x & _b10060.w)) << 1);
-    _indices0060 = _indices0060 | (_index10060 << 30);
-    _output1.w = _indices0060;
-    _colorInt = _output1;
-} // main end
+    // Read block
+    vec3 block[16];
+    ExtractColorBlock(block, image, TEX0, imageSize);
+    
+    // Convert to RGB
+    if ( int(imageFormat) == FORMAT_YUV ) {
+        for ( int index = 0; index < 16; index++ )
+            block[index] = ConvertYUVToRGB(block[index]);
+    }
+
+    // Find min and max colors
+    vec3 mincol, maxcol;
+    FindMinMaxColorsBox(block, mincol, maxcol);
+
+    SelectDiagonal(block, mincol, maxcol);
+
+    InsetBBox(mincol, maxcol);
+
+    uvec4 outp;
+    outp.x = EmitEndPointsDXT1(mincol, maxcol);
+    outp.w = EmitIndicesDXT1(block, mincol, maxcol);
+    outp.y = 0u;
+    outp.z = 0u;
+
+    colorInt = outp;
+}

@@ -34,7 +34,6 @@ vec3 ConvertRGBToYCoCg(vec3 color)
     return vec3(Y, Co, Cg);
 }
 
-// Use dot product to minimize RMS instead absolute distance like in the CPU compressor.
 float colorDistance(vec3 c0, vec3 c1)
 {
     return dot(c0-c1, c0-c1);
@@ -56,7 +55,6 @@ void ExtractColorBlock(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 im
     }
 }
 
-// find minimum and maximum colors based on bounding box in color space
 void FindMinMaxColorsBox(vec3 block[16], out vec3 mincol, out vec3 maxcol)
 {
     mincol = block[0];
