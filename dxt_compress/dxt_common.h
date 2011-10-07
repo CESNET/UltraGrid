@@ -67,11 +67,19 @@
 #define DXT_IMAGE_GL_FORMAT GL_RGBA
 
 /**
+ * DXT format
+ */
+enum dxt_format {
+    DXT_FORMAT_RGB = 0,
+    DXT_FORMAT_YUV = 1
+};
+
+/**
  * DXT type
  */
 enum dxt_type {
-    COMPRESS_TYPE_DXT1,
-    COMPRESS_TYPE_DXT5_YCOCG
+    DXT_TYPE_DXT1,
+    DXT_TYPE_DXT5_YCOCG
 };
 
 /**

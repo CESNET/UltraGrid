@@ -33,7 +33,7 @@
 #include <strings.h>
 
 int
-perform_encode(const char* filename_in, const char* filename_out, enum dxt_type type, int width, int height, int display)
+perform_encode(const char* filename_in, const char* filename_out, enum dxt_type type, int width, int height, enum dxt_format format, int display)
 {    
     DXT_IMAGE_TYPE* image = NULL;
     if ( dxt_image_load_from_file(filename_in, width, height, &image) != 0 ) {
@@ -44,7 +44,7 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
     if ( display == 1 )
         dxt_display_image("Encode Before", image, width, height);
     
-    struct dxt_encoder* encoder = dxt_encoder_create(type, width, height);
+    struct dxt_encoder* encoder = dxt_encoder_create(type, width, height, format);
     if ( encoder == NULL ) {
         fprintf(stderr, "Create DXT encoder failed!\n");
         return -1;
@@ -144,7 +144,7 @@ get_filename_extension(const char* filename)
 }
 
 int
-perform_display(const char* filename, enum dxt_type type, int width, int height)
+perform_display(const char* filename, enum dxt_type type, int width, int height, enum dxt_format format)
 {
     // Get file extension
     const char * ext = get_filename_extension(filename);
@@ -173,7 +173,7 @@ perform_display(const char* filename, enum dxt_type type, int width, int height)
 }
 
 int
-perform_comparison(const char* input, const char* output, enum dxt_type type, int width, int height)
+perform_comparison(const char* input, const char* output, enum dxt_type type, int width, int height, enum dxt_format format)
 {
     // Get file extensions
     const char * input_ext = get_filename_extension(input);
@@ -229,6 +229,7 @@ print_help()
         "   -o, --output\t\toutput image in RGB format\n"
         "       --display\tdisplay image or compare images\n"
         "   -t, --type\t\tdxt type 'dxt1' or 'dxt5ycocg' (default 'dxt5ycocg')\n"
+        "   -f, --format\t\tcolor format 'rgb' or 'yuv' (default 'rgb')\n"
     );
 }
 
@@ -244,10 +245,12 @@ main(int argc, char *argv[])
         {"output",  required_argument, 0, 'o'},
         {"display", no_argument,       0,  1 },
         {"type",    required_argument, 0, 't'},
+        {"format",  required_argument, 0, 'f'},
     };
 
     // Parameters
-    enum dxt_type type = COMPRESS_TYPE_DXT5_YCOCG;
+    enum dxt_type type = DXT_TYPE_DXT5_YCOCG;
+    enum dxt_format format = DXT_FORMAT_RGB;
     int width = 512;
     int height = 512;
     int encode = 0;
@@ -260,7 +263,7 @@ main(int argc, char *argv[])
     char ch = '\0';
     int optindex = 0;
     char* pos = 0;
-    while ( (ch = getopt_long(argc, argv, "heds:i:o:t:", longopts, &optindex)) != -1 ) {
+    while ( (ch = getopt_long(argc, argv, "heds:i:o:t:f:", longopts, &optindex)) != -1 ) {
         switch (ch) {
         case 'h':
             print_help();
@@ -288,9 +291,15 @@ main(int argc, char *argv[])
             break;
         case 't':
             if ( strcasecmp(optarg, "dxt1") == 0 )
-                type = COMPRESS_TYPE_DXT1;
+                type = DXT_TYPE_DXT1;
             else if ( strcasecmp(optarg, "dxt5ycocg") == 0 )
-                type = COMPRESS_TYPE_DXT5_YCOCG;
+                type = DXT_TYPE_DXT5_YCOCG;
+            break;
+        case 'f':
+            if ( strcasecmp(optarg, "rgb") == 0 )
+                format = DXT_FORMAT_RGB;
+            else if ( strcasecmp(optarg, "yuv") == 0 )
+                format = DXT_FORMAT_YUV;
             break;
         case 1:
             display = 1;
@@ -325,7 +334,7 @@ main(int argc, char *argv[])
     
     // Perform encode
     if ( encode == 1 ) {
-        if ( perform_encode(input, output, type, width, height, display) != 0 ) {
+        if ( perform_encode(input, output, type, width, height, format, display) != 0 ) {
             fprintf(stderr, "Failed to encode image [%s]!\n", input);
             return -1;        
         }
@@ -350,12 +359,12 @@ main(int argc, char *argv[])
     // Only display image
     if ( display == 1 && encode == 0 && decode == 0 ) {
         if ( output[0] != '\0' ) {
-            if ( perform_comparison(input, output, type, width, height) != 0 ) {
+            if ( perform_comparison(input, output, type, width, height, format) != 0 ) {
                 fprintf(stderr, "Failed to perform comparison for images [%s, %s]!\n", input, output);
                 return -1;
             }
         } else {
-            if ( perform_display(input, type, width, height) != 0 ) {
+            if ( perform_display(input, type, width, height, format) != 0 ) {
                 fprintf(stderr, "Failed to display image [%s]!\n", input);
                 return -1;
             }
