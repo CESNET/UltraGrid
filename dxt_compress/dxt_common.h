@@ -35,21 +35,29 @@
 /**
  * Timer
  */
-#define TIMER_INIT() \
-    struct timeval __start, __stop; \
-    long __seconds, __useconds; \
-    float __elapsedTime;
-#define TIMER_START() \
-    gettimeofday(&__start, NULL);
-#define TIMER_STOP() \
-    gettimeofday(&__stop, NULL); \
-    __seconds  = __stop.tv_sec  - __start.tv_sec; \
-    __useconds = __stop.tv_usec - __start.tv_usec; \
-    __elapsedTime = ((__seconds) * 1000.0 + __useconds/1000.0) + 0.5;
-#define TIMER_DURATION() __elapsedTime
-#define TIMER_STOP_PRINT(text) \
-    TIMER_STOP(); \
-    printf("%s %f ms\n", text, __elapsedTime)
+#ifdef DEBUG
+    #define TIMER_INIT() \
+        struct timeval __start, __stop; \
+        long __seconds, __useconds; \
+        float __elapsedTime;
+    #define TIMER_START() \
+        gettimeofday(&__start, NULL);
+    #define TIMER_STOP() \
+        gettimeofday(&__stop, NULL); \
+        __seconds  = __stop.tv_sec  - __start.tv_sec; \
+        __useconds = __stop.tv_usec - __start.tv_usec; \
+        __elapsedTime = ((__seconds) * 1000.0 + __useconds/1000.0) + 0.5;
+    #define TIMER_DURATION() __elapsedTime
+    #define TIMER_STOP_PRINT(text) \
+        TIMER_STOP(); \
+        printf("%s %f ms\n", text, __elapsedTime)
+#else
+    #define TIMER_INIT()
+    #define TIMER_START()
+    #define TIMER_STOP()
+    #define TIMER_DURATION()
+    #define TIMER_STOP_PRINT(text)
+#endif
 
 /**
  * Image type
@@ -62,8 +70,8 @@
  * DXT type
  */
 enum dxt_type {
-    DXT1,
-    DXT5_YCOCG
+    COMPRESS_TYPE_DXT1,
+    COMPRESS_TYPE_DXT5_YCOCG
 };
 
 /**

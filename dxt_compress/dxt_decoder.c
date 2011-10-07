@@ -71,7 +71,7 @@ dxt_decoder_create(enum dxt_type type, int width, int height)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if ( decoder->type == DXT5_YCOCG )
+    if ( decoder->type == COMPRESS_TYPE_DXT5_YCOCG )
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0, 0, 0);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0, 0, 0);
@@ -95,7 +95,7 @@ dxt_decoder_create(enum dxt_type type, int width, int height)
     decoder->program_display = glCreateProgramObjectARB();  
     // Create shader from file
     decoder->shader_fragment_display = 0;
-    if ( decoder->type == DXT5_YCOCG )
+    if ( decoder->type == COMPRESS_TYPE_DXT5_YCOCG )
         decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
     else
         decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER_ARB);
@@ -120,7 +120,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if ( decoder->type == DXT5_YCOCG )
+    if ( decoder->type == COMPRESS_TYPE_DXT5_YCOCG )
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0, image_compressed_size, image_compressed);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0, image_compressed_size, image_compressed);

@@ -54,8 +54,13 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
     TIMER_START();
     
     unsigned char* image_compressed = NULL;
-    int image_compressed_size = 0;    
-    if ( dxt_encoder_compress(encoder, image, &image_compressed, &image_compressed_size) != 0 ) {
+    int image_compressed_size = 0;   
+    if ( dxt_encoder_allocate_buffer(encoder, &image_compressed, &image_compressed_size) != 0 ) {
+        fprintf(stderr, "DXT encoder allocation failed!\n");
+        return -1;
+    }
+    
+    if ( dxt_encoder_compress(encoder, image, image_compressed, image_compressed_size) != 0 ) {
         fprintf(stderr, "DXT encoder compressing failed!\n");
         return -1;
     }
@@ -236,7 +241,7 @@ main(int argc, char *argv[])
     };
 
     // Parameters
-    enum dxt_type type = DXT5_YCOCG;
+    enum dxt_type type = COMPRESS_TYPE_DXT5_YCOCG;
     int width = 512;
     int height = 512;
     int encode = 0;
@@ -277,9 +282,9 @@ main(int argc, char *argv[])
             break;
         case 't':
             if ( strcasecmp(optarg, "dxt1") == 0 )
-                type = DXT1;
+                type = COMPRESS_TYPE_DXT1;
             else if ( strcasecmp(optarg, "dxt5ycocg") == 0 )
-                type = DXT5_YCOCG;
+                type = COMPRESS_TYPE_DXT5_YCOCG;
             break;
         case 1:
             display = 1;

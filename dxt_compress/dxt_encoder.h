@@ -45,6 +45,16 @@ struct dxt_encoder*
 dxt_encoder_create(enum dxt_type type, int width, int height);
 
 /**
+ * Allocate buffer for compressed image by encoder
+ * 
+ * @param Encoder structure
+ * @param image_compressed Pointer to buffer where compressed image data will be placed
+ * @param image_compressed_size Pointer to variable where compressed image data size will be set
+ */
+int
+dxt_encoder_allocate_buffer(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size);
+
+/**
  * Compress image by DXT encoder
  * 
  * @param Encoder structure
@@ -54,7 +64,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height);
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char** image_compressed, int* image_compressed_size);
+dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed, int image_compressed_size);
 
 /**
  * Destroy DXT encoder
