@@ -86,7 +86,7 @@ dxt_display_render(void)
     }
     if ( g_display.texture_compressed_id != 0 && (g_display.texture_current_id == 0 || 
          g_display.texture_current_id == g_display.texture_compressed_id ) ) {
-        if ( g_display.type == dxt_DXT5_YCOCG ) {
+        if ( g_display.type == COMPRESS_TYPE_DXT5_YCOCG ) {
             glUseProgramObjectARB(g_display.program_display_dxt5ycocg);
         }
         glBindTexture(GL_TEXTURE_2D, g_display.texture_compressed_id);
@@ -198,7 +198,7 @@ dxt_display_image(const char* title, DXT_IMAGE_TYPE* image, int width, int heigh
 {
     printf("Display Image [resolution: %dx%d]\n", width, height);
     
-    dxt_display_init(title, dxt_DXT1, width, height);
+    dxt_display_init(title, COMPRESS_TYPE_DXT1, width, height);
     
     glGenTextures(1, &g_display.texture_id);
     glBindTexture(GL_TEXTURE_2D, g_display.texture_id);
@@ -230,7 +230,7 @@ dxt_display_image_compressed(const char* title, unsigned char* image_compressed,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if ( type == dxt_DXT5_YCOCG )
+    if ( type == COMPRESS_TYPE_DXT5_YCOCG )
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, width, height, 0, image_compressed_size, image_compressed);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, width, height, 0, image_compressed_size, image_compressed);
@@ -260,7 +260,7 @@ dxt_display_image_comparison(DXT_IMAGE_TYPE* image, unsigned char* image_compres
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if ( g_display.type == dxt_DXT5_YCOCG )
+    if ( g_display.type == COMPRESS_TYPE_DXT5_YCOCG )
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, width, height, 0, image_compressed_size, image_compressed);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, width, height, 0, image_compressed_size, image_compressed);

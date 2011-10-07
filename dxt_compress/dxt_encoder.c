@@ -88,7 +88,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
-    if ( encoder->type == dxt_DXT5_YCOCG )
+    if ( encoder->type == COMPRESS_TYPE_DXT5_YCOCG )
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_LUMINANCE_ALPHA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_INT, 0); 
@@ -99,7 +99,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
     encoder->program_compress = glCreateProgramObjectARB();
     // Create fragment shader from file
     encoder->shader_fragment_compress = 0;
-    if ( encoder->type == dxt_DXT5_YCOCG )
+    if ( encoder->type == COMPRESS_TYPE_DXT5_YCOCG )
         encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
     else
         encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER_ARB);
@@ -135,8 +135,26 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
 
 /** Documented at declaration */
 int
-dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char** image_compressed, int* image_compressed_size)
+dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
 {
+    if ( encoder->type == COMPRESS_TYPE_DXT5_YCOCG )
+        *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
+    else if ( encoder->type == COMPRESS_TYPE_DXT1 )
+        *image_compressed_size == (encoder->width / 4) * (encoder->height / 4) * 2 * sizeof(int);
+    else
+        assert(0);
+        
+    *image_compressed = (unsigned char*)malloc(*image_compressed_size);
+    if ( *image_compressed == NULL )
+        return -1;
+        
+    return 0;
+}
+
+/** Documented at declaration */
+int
+dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed)
+{        
     TIMER_INIT();
     
     TIMER_START();
@@ -147,12 +165,6 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
-    
-    if ( encoder->type == dxt_DXT5_YCOCG )
-        *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
-    else
-        *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 2 * sizeof(int);
-    *image_compressed = (unsigned char*)malloc(*image_compressed_size);
     
     glClear(GL_COLOR_BUFFER_BIT);
     
@@ -182,15 +194,23 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     TIMER_START();
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    if ( encoder->type == dxt_DXT5_YCOCG )
-        glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, *image_compressed);
+    if ( encoder->type == COMPRESS_TYPE_DXT5_YCOCG )
+        glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
     else
-        glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_UNSIGNED_INT, *image_compressed);
+        glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
         
     // Disable framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     TIMER_STOP_PRINT("Texture Save:      ");
     
+    return 0;
+}
+
+/** Documented at declaration */
+int
+dxt_encoder_buffer_free(unsigned char* image_compressed)
+{
+    free(image_compressed);
     return 0;
 }
 

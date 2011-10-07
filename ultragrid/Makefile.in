@@ -99,10 +99,10 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CPPFLAGS) -Wno-deprecated -fPIC -O3 -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
 
 ../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
-	$(CC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+	$(CC) $(CFLAGS) $(DXT_GLSL_CFLAGS) $< -c -o $@
 	
 ../dxt_compress/dxt_common.o: ../dxt_compress/dxt_common.c ../dxt_compress/dxt_glsl.h
-	$(CC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+	$(CC) $(CFLAGS) $(DXT_GLSL_CFLAGS) $< -c -o $@
 
 ../dxt_compress/dxt_glsl.h:../dxt_compress/compress_vp.glsl \
 		../dxt_compress/compress_dxt1_fp.glsl ../dxt_compress/compress_dxt5ycocg_fp.glsl \
@@ -112,7 +112,7 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	echo " *" >> $@
 	echo " * @author Martin Srom" >> $@
 	echo " */" >> $@
-    # Write vp_compress
+	# Write vp_compress
 	echo "static const char vp_compress[] = " >> $@
 	cat ../dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@

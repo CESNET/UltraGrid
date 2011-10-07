@@ -71,14 +71,16 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         memcpy(&s->out, frame, sizeof(struct video_frame));
         s->out.color_spec = tmp;
         if(s->out.color_spec == DXT1) {
-                s->out.data = malloc(frame->width * frame->height / 2);
+                s->encoder = dxt_encoder_create(COMPRESS_TYPE_DXT1, frame->width, frame->height);
                 s->out.aux |= AUX_RGB;
-                s->encoder = dxt_encoder_create(dxt_DXT1, frame->width, frame->height);
+                s->out.data_len = frame->width * frame->height / 2;
         } else if(s->out.color_spec == DXT5){
-                s->out.data = malloc(frame->width * frame->height);
+                s->encoder = dxt_encoder_create(COMPRESS_TYPE_DXT5_YCOCG, frame->width, frame->height);
                 s->out.aux |= AUX_YUV; /* YCoCg */
-                s->encoder = dxt_encoder_create(dxt_DXT5_YCOCG, frame->width, frame->height);
+                s->out.data_len = frame->width * frame->height;
         }
+        
+        s->out.data = (char *) malloc(s->out.data_len);
                 
         s->configured = TRUE;
 }
@@ -88,6 +90,8 @@ struct video_compress * dxt_glsl_init(char * opts)
         struct video_compress *s;
         
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
+        s->out.data = NULL;
+        
         if(opts) {
                 if(strcasecmp(opts, "DXT5_YCoCg") == 0) {
                         s->out.color_spec = DXT5;
@@ -97,6 +101,8 @@ struct video_compress * dxt_glsl_init(char * opts)
                         fprintf(stderr, "Unknown compression : %s\n", opts);
                         return NULL;
                 }
+        } else {
+                s->out.color_spec = DXT1;
         }
                 
         s->configured = FALSE;
@@ -112,13 +118,13 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
         
         if(!s->configured)
                 configure_with(s, tx);
-        dxt_encoder_compress(s->encoder, tx->data, &result, &s->out.data_len);
-        memcpy(s->out.data, result, s->out.data_len);
-        free(result);
+        dxt_encoder_compress(s->encoder, tx->data, s->out.data);
         
         return &s->out;
 }
 
-void dxt_glsl_exit(void *args)
+void dxt_glsl_exit(void *arg)
 {
+        struct video_compress *s = (struct video_compress *) arg;
+        free(s->out.data);
 }
