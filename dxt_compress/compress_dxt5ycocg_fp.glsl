@@ -43,14 +43,26 @@ float colorDistance(vec2 c0, vec2 c1)
     return dot(c0-c1, c0-c1);
 }
 
-void ExtractColorBlock(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
+void ExtractColorBlockRGB(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
 {
     vec2 texelSize = (1.0f / imageSize);
     vec2 tex = vec2(texcoord.x, texcoord.y);
     tex -= texelSize * vec2(2);
     for ( int i = 0; i < 4; i++ ) {
         for ( int j = 0; j < 4; j++ ) {
-            col[i * 4 + j] = texture(image, tex + vec2(j, i) * texelSize).rgb;
+            col[i * 4 + j] = ConvertRGBToYCoCg(texture(image, tex + vec2(j, i) * texelSize).rgb);
+        }
+    }
+}
+
+void ExtractColorBlockYUV(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
+{
+    vec2 texelSize = (1.0f / imageSize);
+    vec2 tex = vec2(texcoord.x, texcoord.y);
+    tex -= texelSize * vec2(2);
+    for ( int i = 0; i < 4; i++ ) {
+        for ( int j = 0; j < 4; j++ ) {
+            col[i * 4 + j] = ConvertRGBToYCoCg(ConvertYUVToRGB(texture(image, tex + vec2(j, i) * texelSize).rgb));
         }
     }
 }
@@ -309,17 +321,10 @@ void main()
 {
     // Read block of data
     vec3 block[16];
-    ExtractColorBlock(block, image, TEX0, imageSize);
-    
-    // Convert to RGB
-    if ( int(imageFormat) == FORMAT_YUV ) {
-        for ( int index = 0; index < 16; index++ )
-            block[index] = ConvertYUVToRGB(block[index]);
-    }
-        
-    // Convert to YCoCg
-    for ( int index = 0; index < 16; index++ )
-        block[index] = ConvertRGBToYCoCg(block[index]);
+    if ( int(imageFormat) == FORMAT_YUV )
+        ExtractColorBlockYUV(block, image, TEX0, imageSize);
+    else
+        ExtractColorBlockRGB(block, image, TEX0, imageSize);
 
     // Find min and max colors
     vec3 mincol, maxcol;
