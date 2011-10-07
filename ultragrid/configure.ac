@@ -673,10 +673,17 @@ AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
-GLEW_DETECTED=no
-AC_CHECK_LIB(GLEW, glewIsSupported, [GLEW_DETECTED=yes])
-if test $GLEW_DETECTED = yes; then
-        LIBS+=" -lGLEW"
+AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
+AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
+AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
+AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
+AC_CHECK_HEADERS([X11/Xlib.h X11/Xutil.h], FOUND_X11_H=yes)
+AC_CHECK_LIB(X11, XCreateWindow, FOUND_X11_L=yes)
+
+if test "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+        -a "$FOUND_X11_L" = yes -a "$FOUND_X11_H" = yes
+then
+        LIBS+=" -lGLEW -lGL -lX11"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/dxt_glsl_compress.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
