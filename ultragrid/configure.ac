@@ -672,6 +672,19 @@ AC_SUBST(DXT_LIB)
 AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# GLSL DXT
+GLEW_DETECTED=no
+AC_CHECK_LIB(GLEW, glewIsSupported, [GLEW_DETECTED=yes])
+if test $GLEW_DETECTED = yes; then
+        LIBS+=" -lGLEW"
+        AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
+        DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/dxt_glsl_compress.o"
+        DXT_GLSL_CFLAGS="-std=gnu99"
+fi
+AC_SUBST(DXT_GLSL_OBJS)
+AC_SUBST(DXT_GLSL_CFLAGS)
+
+# -------------------------------------------------------------------------------------------------
 # SAGE stuff
 
 SAGE_OBJ=

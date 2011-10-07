@@ -236,7 +236,7 @@ main(int argc, char *argv[])
     };
 
     // Parameters
-    enum dxt_type type = DXT5_YCOCG;
+    enum dxt_type type = dxt_DXT5_YCOCG;
     int width = 512;
     int height = 512;
     int encode = 0;
@@ -277,9 +277,9 @@ main(int argc, char *argv[])
             break;
         case 't':
             if ( strcasecmp(optarg, "dxt1") == 0 )
-                type = DXT1;
+                type = dxt_DXT1;
             else if ( strcasecmp(optarg, "dxt5ycocg") == 0 )
-                type = DXT5_YCOCG;
+                type = dxt_DXT5_YCOCG;
             break;
         case 1:
             display = 1;

@@ -62,8 +62,8 @@
  * DXT type
  */
 enum dxt_type {
-    DXT1,
-    DXT5_YCOCG
+    dxt_DXT1,
+    dxt_DXT5_YCOCG
 };
 
 /**

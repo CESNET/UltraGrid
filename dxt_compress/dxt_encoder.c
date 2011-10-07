@@ -88,7 +88,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
-    if ( encoder->type == DXT5_YCOCG )
+    if ( encoder->type == dxt_DXT5_YCOCG )
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_LUMINANCE_ALPHA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_INT, 0); 
@@ -99,7 +99,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
     encoder->program_compress = glCreateProgramObjectARB();
     // Create fragment shader from file
     encoder->shader_fragment_compress = 0;
-    if ( encoder->type == DXT5_YCOCG )
+    if ( encoder->type == dxt_DXT5_YCOCG )
         encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
     else
         encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER_ARB);
@@ -148,7 +148,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     
     TIMER_START();
     
-    if ( encoder->type == DXT5_YCOCG )
+    if ( encoder->type == dxt_DXT5_YCOCG )
         *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
     else
         *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 2 * sizeof(int);
@@ -182,7 +182,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     TIMER_START();
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    if ( encoder->type == DXT5_YCOCG )
+    if ( encoder->type == dxt_DXT5_YCOCG )
         glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, *image_compressed);
     else
         glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_UNSIGNED_INT, *image_compressed);

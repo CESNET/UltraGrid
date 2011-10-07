@@ -14,6 +14,7 @@ TARGET        = bin/uv
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
 DVS_UV_LIB    = @DVS_UV_LIB@
+DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 
 OBJS          = src/bitstream.o \
 		src/debug.o \
@@ -58,7 +59,8 @@ OBJS          = src/bitstream.o \
 		@SDL_OBJ@ \
 		@GL_OBJ@ \
 		@SAGE_OBJ@ \
-		@COMPRESS_OBJ@
+		@COMPRESS_OBJ@ \
+		@DXT_GLSL_OBJS@
 		
 DVS_UV_LIB_OBJ  = \
 		src/audio/utils.o \
@@ -95,6 +97,42 @@ src/video_display/decklink.o: src/video_display/decklink.cpp
 
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CPPFLAGS) -Wno-deprecated -fPIC -O3 -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
+
+../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
+	$(CC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+	
+../dxt_compress/dxt_common.o: ../dxt_compress/dxt_common.c ../dxt_compress/dxt_glsl.h
+	$(CC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+
+../dxt_compress/dxt_glsl.h:../dxt_compress/compress_vp.glsl \
+		../dxt_compress/compress_dxt1_fp.glsl ../dxt_compress/compress_dxt5ycocg_fp.glsl \
+		../dxt_compress/display_fp.glsl ../dxt_compress/display_dxt5ycocg_fp.glsl
+	echo "/**" > $@
+	echo " * GLSL source codes for DXT compressions" >> $@
+	echo " *" >> $@
+	echo " * @author Martin Srom" >> $@
+	echo " */" >> $@
+    # Write vp_compress
+	echo "static const char vp_compress[] = " >> $@
+	cat ../dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_compress_dxt1
+	echo "static const char fp_compress_dxt1[] = " >> $@
+	cat ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_compress_dxt5ycocg
+	echo "static const char fp_compress_dxt5ycocg[] = " >> $@
+	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\([^\r\n]*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_display_dxt1
+	echo "static const char fp_display[] = " >> $@
+	cat ../dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_display_dxt5ycocg
+	echo "static const char fp_display_dxt5ycocg[] = " >> $@
+	cat ../dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
