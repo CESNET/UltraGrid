@@ -98,20 +98,20 @@ vec3 RoundAndExpand(vec3 v, out uint w)
 
 uint EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
 {
-    uvec2 output;
-    maxcol = RoundAndExpand(maxcol, output.x);
-    mincol = RoundAndExpand(mincol, output.y);
+    uvec2 outp;
+    maxcol = RoundAndExpand(maxcol, outp.x);
+    mincol = RoundAndExpand(mincol, outp.y);
 
     // We have to do this in case we select an alternate diagonal.
-    if (output.x < output.y)
+    if (outp.x < outp.y)
     {
         vec3 tmp = mincol;
         mincol = maxcol;
         maxcol = tmp;
-        return output.y | (output.x << 16u);
+        return outp.y | (outp.x << 16u);
     }
 
-    return output.x | (output.y << 16u);
+    return outp.x | (outp.y << 16u);
 }
 
 uint EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
