@@ -135,7 +135,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height)
 
 /** Documented at declaration */
 int
-dxt_encoder_allocate_buffer(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
+dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
 {
     if ( encoder->type == COMPRESS_TYPE_DXT5_YCOCG )
         *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
@@ -145,15 +145,15 @@ dxt_encoder_allocate_buffer(struct dxt_encoder* encoder, unsigned char** image_c
         assert(0);
         
     *image_compressed = (unsigned char*)malloc(*image_compressed_size);
-    if ( *image_compressed == 0 )
+    if ( *image_compressed == NULL )
         return -1;
-    
+        
     return 0;
 }
 
 /** Documented at declaration */
 int
-dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed, int image_compressed_size)
+dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed)
 {        
     TIMER_INIT();
     
@@ -203,6 +203,14 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     TIMER_STOP_PRINT("Texture Save:      ");
     
+    return 0;
+}
+
+/** Documented at declaration */
+int
+dxt_encoder_buffer_free(unsigned char* image_compressed)
+{
+    free(image_compressed);
     return 0;
 }
 

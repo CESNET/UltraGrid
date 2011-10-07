@@ -110,7 +110,18 @@ dxt_decoder_create(enum dxt_type type, int width, int height)
 
 /** Documented at declaration */
 int
-dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compressed, int image_compressed_size, DXT_IMAGE_TYPE** image)
+dxt_decoder_buffer_allocate(struct dxt_decoder* decoder, unsigned char** image, int* image_size)
+{
+    *image_size = decoder->width * decoder->height * 4 * sizeof(DXT_IMAGE_TYPE);
+    *image = (DXT_IMAGE_TYPE*)malloc(*image_size);
+    if ( *image == NULL )
+        return -1;
+    return 0;
+}
+
+/** Documented at declaration */
+int
+dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compressed, int image_compressed_size, DXT_IMAGE_TYPE* image)
 {    
     TIMER_INIT();
     
@@ -127,8 +138,6 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
-    int image_size = decoder->width * decoder->height * 4 * sizeof(DXT_IMAGE_TYPE);
-    *image = (DXT_IMAGE_TYPE*)malloc(image_size);
     
     // Render to framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_id);
@@ -152,12 +161,20 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     TIMER_STOP_PRINT("Texture Decompress:");
     
     TIMER_START();
-    glReadPixels(0, 0, decoder->width, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, *image);
+    glReadPixels(0, 0, decoder->width, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
     
     // Disable framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     TIMER_STOP_PRINT("Texture Save:      ");
     
+    return 0;
+}
+
+/** Documented at declaration */
+int
+dxt_decoder_buffer_free(unsigned char* image)
+{
+    free(image);
     return 0;
 }
 

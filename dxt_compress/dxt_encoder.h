@@ -47,24 +47,33 @@ dxt_encoder_create(enum dxt_type type, int width, int height);
 /**
  * Allocate buffer for compressed image by encoder
  * 
- * @param Encoder structure
- * @param image_compressed Pointer to buffer where compressed image data will be placed
- * @param image_compressed_size Pointer to variable where compressed image data size will be set
- */
-int
-dxt_encoder_allocate_buffer(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size);
-
-/**
- * Compress image by DXT encoder
- * 
- * @param Encoder structure
- * @param image Image data
- * @param image_compressed Pointer to buffer where compressed image data will be placed
+ * @param encoder Encoder structure
+ * @param image_compressed Pointer to variable where buffer pointer will be placed
  * @param image_compressed_size Pointer to variable where compressed image data size will be set
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed, int image_compressed_size);
+dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size);
+
+/**
+ * Compress image by DXT encoder
+ * 
+ * @param encoder Encoder structure
+ * @param image Image data
+ * @param image_compressed Pointer to buffer where compressed image data will be placed
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed);
+
+/**
+ * Free buffer for compressed image
+ * 
+ * @param image_compressed Pointer to buffer where compressed image data are stored
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+dxt_encoder_buffer_free(unsigned char* image_compressed);
 
 /**
  * Destroy DXT encoder

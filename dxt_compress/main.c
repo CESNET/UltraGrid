@@ -50,17 +50,17 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
         return -1;
     }
     
-    TIMER_INIT();
-    TIMER_START();
-    
     unsigned char* image_compressed = NULL;
     int image_compressed_size = 0;   
-    if ( dxt_encoder_allocate_buffer(encoder, &image_compressed, &image_compressed_size) != 0 ) {
+    if ( dxt_encoder_buffer_allocate(encoder, &image_compressed, &image_compressed_size) != 0 ) {
         fprintf(stderr, "DXT encoder allocation failed!\n");
         return -1;
     }
     
-    if ( dxt_encoder_compress(encoder, image, image_compressed, image_compressed_size) != 0 ) {
+    TIMER_INIT();
+    TIMER_START();
+    
+    if ( dxt_encoder_compress(encoder, image, image_compressed) != 0 ) {
         fprintf(stderr, "DXT encoder compressing failed!\n");
         return -1;
     }
@@ -75,8 +75,8 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
         return -1;
     }
     
+    dxt_encoder_buffer_free(image_compressed);
     dxt_encoder_destroy(encoder);
-    dxt_image_compressed_destroy(image_compressed);
     dxt_image_destroy(image);
     
     return 0;
@@ -101,11 +101,17 @@ perform_decode(const char* filename_in, const char* filename_out, enum dxt_type 
         return -1;
     }
     
+    DXT_IMAGE_TYPE* image = NULL;
+    int image_size = 0;   
+    if ( dxt_decoder_buffer_allocate(decoder, &image, &image_size) != 0 ) {
+        fprintf(stderr, "DXT decoder allocation failed!\n");
+        return -1;
+    }
+    
     TIMER_INIT();
     TIMER_START();
         
-    DXT_IMAGE_TYPE* image = NULL;
-    if ( dxt_decoder_decompress(decoder, image_compressed, image_compressed_size, &image) != 0 ) {
+    if ( dxt_decoder_decompress(decoder, image_compressed, image_compressed_size, image) != 0 ) {
         fprintf(stderr, "DXT decoder decompressing failed!\n");
         return -1;
     }
@@ -120,9 +126,9 @@ perform_decode(const char* filename_in, const char* filename_out, enum dxt_type 
         return -1;
     }
     
-    dxt_image_compressed_destroy(image_compressed);
-    dxt_image_destroy(image);
+    dxt_decoder_buffer_free(image);
     dxt_decoder_destroy(decoder);
+    dxt_image_compressed_destroy(image_compressed);
     
     return 0;
 }

@@ -45,6 +45,17 @@ struct dxt_decoder*
 dxt_decoder_create(enum dxt_type type, int width, int height);
 
 /**
+ * Allocate buffer for decompressed image by decoder
+ * 
+ * @param decoder Decoder structure
+ * @param image Pointer to variable where buffer pointer will be placed
+ * @param image_size Pointer to variable where image data size will be set
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+dxt_decoder_buffer_allocate(struct dxt_decoder* decoder, unsigned char** image, int* image_size);
+
+/**
  * Decompress image by DXT decoder
  * 
  * @param Decoder structure
@@ -54,7 +65,16 @@ dxt_decoder_create(enum dxt_type type, int width, int height);
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-dxt_decoder_decompress(struct dxt_decoder* encoder, unsigned char* image_compressed, int image_compressed_size, DXT_IMAGE_TYPE** image);
+dxt_decoder_decompress(struct dxt_decoder* encoder, unsigned char* image_compressed, int image_compressed_size, DXT_IMAGE_TYPE* image);
+
+/**
+ * Free buffer for decompressed image
+ * 
+ * @param image Pointer to buffer where decompressed image data are stored
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+dxt_decoder_buffer_free(unsigned char* image);
 
 /**
  * Destroy DXT decoder
