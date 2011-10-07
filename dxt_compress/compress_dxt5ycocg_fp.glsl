@@ -4,9 +4,36 @@
 
 #define lerp mix
 
+// Image formats
+const int FORMAT_RGB = 0;
+const int FORMAT_YUV = 1;
+
+// Covert YUV to RGB
+vec3 ConvertYUVToRGB(vec3 color)
+{
+    float Y = color[0];
+    float U = color[1] - 0.5;
+    float V = color[2] - 0.5;
+    Y = 1.1643 * (Y - 0.0625);
+
+    float R = Y + 1.5958 * V;
+    float G = Y - 0.39173 * U - 0.81290 * V;
+    float B = Y + 2.017 * U;
+    
+    return vec3(R, G, B);
+}
+
 const float offset = 128.0 / 255.0;
 
-// Use dot product to minimize RMS instead absolute distance like in the CPU compressor.
+vec3 ConvertRGBToYCoCg(vec3 color)
+{
+    float Y = (color.r + 2 * color.g + color.b) * 0.25;
+    float Co = ( ( 2 * color.r - 2 * color.b      ) * 0.25 + offset );
+    float Cg = ( (    -color.r + 2 * color.g - color.b) * 0.25 + offset );
+
+    return vec3(Y, Co, Cg);
+}
+
 float colorDistance(vec3 c0, vec3 c1)
 {
     return dot(c0-c1, c0-c1);
@@ -16,7 +43,7 @@ float colorDistance(vec2 c0, vec2 c1)
     return dot(c0-c1, c0-c1);
 }
 
-void ExtractColorBlockRGB(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
+void ExtractColorBlock(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
 {
     vec2 texelSize = (1.0f / imageSize);
     vec2 tex = vec2(texcoord.x, texcoord.y);
@@ -28,28 +55,6 @@ void ExtractColorBlockRGB(out vec3 col[16], sampler2D image, vec4 texcoord, vec2
     }
 }
 
-vec3 toYCoCg(vec3 c)
-{
-    float Y = (c.r + 2 * c.g + c.b) * 0.25;
-    float Co = ( ( 2 * c.r - 2 * c.b      ) * 0.25 + offset );
-    float Cg = ( (    -c.r + 2 * c.g - c.b) * 0.25 + offset );
-
-    return vec3(Y, Co, Cg);
-}
-
-void ExtractColorBlockYCoCg(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
-{
-    vec2 texelSize = (1.0f / imageSize);
-    vec2 tex = vec2(texcoord.x, texcoord.y);
-    tex -= texelSize * vec2(2);
-    for ( int i = 0; i < 4; i++ ) {
-        for ( int j = 0; j < 4; j++ ) {
-            col[i * 4 + j] = toYCoCg(texture(image, tex + vec2(j, i) * texelSize).rgb);
-        }
-    }
-}
-
-// find minimum and maximum colors based on bounding box in color space
 void FindMinMaxColorsBox(vec3 block[16], out vec3 mincol, out vec3 maxcol)
 {
     mincol = block[0];
@@ -296,16 +301,27 @@ uvec2 EmitAlphaIndicesYCoCgDXT5(vec3 block[16], float minAlpha, float maxAlpha)
 
 in vec4 TEX0;
 uniform sampler2D image;
+uniform int imageFormat = FORMAT_RGB;
 uniform vec2 imageSize;
 out uvec4 colorInt;
 
 void main()
 {
-    // read block
+    // Read block of data
     vec3 block[16];
-    ExtractColorBlockYCoCg(block, image, TEX0, imageSize);
+    ExtractColorBlock(block, image, TEX0, imageSize);
+    
+    // Convert to RGB
+    if ( int(imageFormat) == FORMAT_YUV ) {
+        for ( int index = 0; index < 16; index++ )
+            block[index] = ConvertYUVToRGB(block[index]);
+    }
+        
+    // Convert to YCoCg
+    for ( int index = 0; index < 16; index++ )
+        block[index] = ConvertRGBToYCoCg(block[index]);
 
-    // find min and max colors
+    // Find min and max colors
     vec3 mincol, maxcol;
     FindMinMaxColorsBox(block, mincol, maxcol);
 

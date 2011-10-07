@@ -41,8 +41,8 @@ dxt_glsl.h:compress_vp.glsl compress_dxt1_fp.glsl compress_dxt5ycocg_fp.glsl dis
 	cat compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1
-	echo "static const char fp_compress_dxt1[] = " >> $@
-	cat compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo "static const char fp_compress_dxt1[] = " >> $@	
+	cat compress_dxt1_fp.glsl | sed 's/\([^\r\n]*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg
 	echo "static const char fp_compress_dxt5ycocg[] = " >> $@
@@ -77,22 +77,26 @@ GLSL_FILES=compress_dxt1_fp.glsl.build compress_dxt5ycocg_fp.glsl.build display_
 glsl: $(GLSL_FILES)
     
 compress_dxt1_fp.glsl.build: dxt.cg
-	cgc -profile glslf -po version=130 -entry compress_DXT1_fp -o compress_dxt1_fp.glsl dxt.cg 
-	# Replace all "_imageSize#" by "imageSize"
-	sed -i s/`cat compress_dxt1_fp.glsl | grep "var float2 imageSize" | sed "s/.*\(_imageSize[0-9]\).*/\1/"`/imageSize/g compress_dxt1_fp.glsl
+	#cgc -profile glslf -po version=130 -entry compress_DXT1_fp -o compress_dxt1_fp.glsl dxt.cg 
+	# Replace all "_imageFormat#" by "imageFormat"
+	#sed -i s/`cat compress_dxt1_fp.glsl | grep "var int imageFormat" | sed "s/.*\(_imageFormat\).*/\1/"`/imageFormat/g compress_dxt1_fp.glsl
+    # Replace all "_imageSize#" by "imageSize"
+	#sed -i s/`cat compress_dxt1_fp.glsl | grep "var float2 imageSize" | sed "s/.*\(_imageSize[0-9]\).*/\1/"`/imageSize/g compress_dxt1_fp.glsl
 	# Remove comments lines
-	sed -i 's/^ *\/\/.*//g' compress_dxt1_fp.glsl
+	#sed -i 's/^ *\/\/.*//g' compress_dxt1_fp.glsl
 	# Remove empty lines
-	sed -i '/^$$/d' compress_dxt1_fp.glsl
+	#sed -i '/^$$/d' compress_dxt1_fp.glsl
     
 compress_dxt5ycocg_fp.glsl.build: dxt.cg
-	cgc -profile glslf -po version=130 -entry compress_YCoCgDXT5_fp -o compress_dxt5ycocg_fp.glsl dxt.cg	
+	#cgc -profile glslf -po version=130 -entry compress_YCoCgDXT5_fp -o compress_dxt5ycocg_fp.glsl dxt.cg	
+	# Replace all "_imageFormat#" by "imageFormat"
+	#sed -i s/`cat compress_dxt5ycocg_fp.glsl | grep "var int imageFormat" | sed "s/.*\(_imageFormat\).*/\1/"`/imageFormat/g compress_dxt5ycocg_fp.glsl
 	# Replace all "_imageSize#" by "imageSize"
-	sed -i s/`cat compress_dxt5ycocg_fp.glsl | grep "var float2 imageSize" | sed "s/.*\(_imageSize[0-9]\).*/\1/"`/imageSize/g compress_dxt5ycocg_fp.glsl
+	#sed -i s/`cat compress_dxt5ycocg_fp.glsl | grep "var float2 imageSize" | sed "s/.*\(_imageSize[0-9]\).*/\1/"`/imageSize/g compress_dxt5ycocg_fp.glsl
 	# Remove comments lines
-	sed -i 's/^ *\/\/.*//g' compress_dxt5ycocg_fp.glsl
+	#sed -i 's/^ *\/\/.*//g' compress_dxt5ycocg_fp.glsl
 	# Remove empty lines
-	sed -i '/^$$/d' compress_dxt5ycocg_fp.glsl
+	#sed -i '/^$$/d' compress_dxt5ycocg_fp.glsl
     
 display_fp.glsl.build: dxt.cg
 	cgc -profile glslf -entry display_fp -o display_fp.glsl dxt.cg 

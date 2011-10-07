@@ -117,8 +117,8 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	cat ../dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1
-	echo "static const char fp_compress_dxt1[] = " >> $@
-	cat ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo "static const char fp_compress_dxt1[] = " >> $@    
+        cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\([^\r\n]*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg
 	echo "static const char fp_compress_dxt5ycocg[] = " >> $@

@@ -341,11 +341,11 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         memcpy(&s->out, frame, sizeof(struct video_frame));
         s->out.color_spec = tmp;
         if(s->out.color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(COMPRESS_TYPE_DXT1, frame->width, frame->height);
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, frame->width, frame->height, DXT_FORMAT_RGB);
                 s->out.aux |= AUX_RGB;
                 s->out.data_len = frame->width * frame->height / 2;
         } else if(s->out.color_spec == DXT5){
-                s->encoder = dxt_encoder_create(COMPRESS_TYPE_DXT5_YCOCG, frame->width, frame->height);
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, frame->width, frame->height, DXT_FORMAT_RGB);
                 s->out.aux |= AUX_YUV; /* YCoCg */
                 s->out.data_len = frame->width * frame->height;
         }
