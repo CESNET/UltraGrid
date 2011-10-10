@@ -55,7 +55,7 @@
     #define TIMER_INIT()
     #define TIMER_START()
     #define TIMER_STOP()
-    #define TIMER_DURATION()
+    #define TIMER_DURATION() 0.0f
     #define TIMER_STOP_PRINT(text)
 #endif
 
