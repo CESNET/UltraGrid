@@ -50,7 +50,8 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	AC_MSG_RESULT($version_major);
 	CFLAGS+=" -m32 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
-	LDFLAGS+=" -m32"
+	LDFLAGS+=" -m32 -L/opt/local/lib"
+	X_CFLAGS+="-I/usr/X11R6/include"
 else
 	LINKER=$CC
 fi
@@ -203,7 +204,7 @@ if test ! $no_x ; then
 	fi
         X_LIBS+=" -lX11"
         CFLAGS+=""
-
+	HAVE_X11=yes
 fi
 
 AC_SUBST(X_CFLAGS)
@@ -673,20 +674,30 @@ AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS+=" $X_CFLAGS"
+CPPFLAGS+=" $X_CFLAGS"
+AC_SUBST(CFLAGS)
+SAVED_LIBS=$LIBS
+LIBS+=" $X_LIBS"
+
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
 AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
 AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
-AC_CHECK_HEADERS([X11/Xlib.h X11/Xutil.h], FOUND_X11_H=yes)
-AC_CHECK_LIB(X11, XCreateWindow, FOUND_X11_L=yes)
 
-if test "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
-        -a "$FOUND_X11_L" = yes -a "$FOUND_X11_H" = yes
+if test "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+        -a ! expr "$host_os" : ".*darwin.*" > /dev/null # not mac, just for now
 then
         LIBS+=" -lGLEW -lGL -lX11"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/dxt_glsl_compress.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
+else
+        CFLAGS=$SAVED_CFLAGS
+        CPPFLAGS=$SAVED_CPPFLAGS
+        LIBS=$SAVED_LIBS
 fi
 AC_SUBST(DXT_GLSL_OBJS)
 AC_SUBST(DXT_GLSL_CFLAGS)
