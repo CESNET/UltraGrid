@@ -196,7 +196,9 @@ dxt_display_run()
 int
 dxt_display_image(const char* title, DXT_IMAGE_TYPE* image, int width, int height)
 {
+#ifdef DEBUG
     printf("Display Image [resolution: %dx%d]\n", width, height);
+#endif
     
     dxt_display_init(title, DXT_TYPE_DXT1, width, height);
     
@@ -220,7 +222,9 @@ dxt_display_image(const char* title, DXT_IMAGE_TYPE* image, int width, int heigh
 int
 dxt_display_image_compressed(const char* title, unsigned char* image_compressed, int image_compressed_size, enum dxt_type type, int width, int height)
 {
+#ifdef DEBUG
     printf("Display Compressed Image [size: %d bytes, resolution: %dx%d]\n", image_compressed_size, width, height);
+#endif
     
     dxt_display_init(title, type, width, height);
     
@@ -242,7 +246,9 @@ dxt_display_image_compressed(const char* title, unsigned char* image_compressed,
 int
 dxt_display_image_comparison(DXT_IMAGE_TYPE* image, unsigned char* image_compressed, int image_compressed_size, enum dxt_type type, int width, int height)
 {
+#ifdef DEBUG
     printf("Display Image Comparison [size: %d bytes, resolution: %dx%d]\n", image_compressed_size, width, height);
+#endif
     
     dxt_display_init("Display Comparison", type, width, height);
     

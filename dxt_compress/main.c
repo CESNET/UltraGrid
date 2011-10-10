@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define DEBUG
 #include "dxt_encoder.h"
 #include "dxt_decoder.h"
 #include "dxt_display.h"
@@ -32,8 +33,33 @@
 #include <string.h>
 #include <strings.h>
 
+#define RUN_MAX 100
+
+static float duration[RUN_MAX];
+
+void
+printf_duration(const char* name, int run)
+{
+    float min = 999999.0f;
+    float max = 0.0f;
+    float middle = 0.0f;
+    float avg = 0.0f;
+    for ( int index = 0; index < run; index++ ) {
+        if ( duration[index] < min )
+            min = duration[index];
+        if ( duration[index] > max )
+            max = duration[index];
+        avg += duration[index];
+    }
+    avg /= (float)run;
+    middle = duration[run / 2];
+    
+    printf("%s: %0.2f ms (med %0.1f ms, min %0.1f ms, max %0.1f ms)\n", name, avg, middle, min, max);
+}
+
 int
-perform_encode(const char* filename_in, const char* filename_out, enum dxt_type type, int width, int height, enum dxt_format format, int display)
+perform_encode(const char* filename_in, const char* filename_out, enum dxt_type type, 
+               int width, int height, enum dxt_format format, int display, int run)
 {    
     DXT_IMAGE_TYPE* image = NULL;
     if ( dxt_image_load_from_file(filename_in, width, height, &image) != 0 ) {
@@ -58,14 +84,16 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
     }
     
     TIMER_INIT();
-    TIMER_START();
-    
-    if ( dxt_encoder_compress(encoder, image, image_compressed) != 0 ) {
-        fprintf(stderr, "DXT encoder compressing failed!\n");
-        return -1;
+    for ( int index = 0; index < run; index++ ) {
+        TIMER_START();
+        if ( dxt_encoder_compress(encoder, image, image_compressed) != 0 ) {
+            fprintf(stderr, "DXT encoder compressing failed!\n");
+            return -1;
+        }
+        TIMER_STOP();
+        duration[index] = TIMER_DURATION();
     }
-    
-    TIMER_STOP_PRINT("Encoding Duration: ");
+    printf_duration("Encoding Duration", run);
     
     if ( display == 1 )
         dxt_display_image_compressed("Encode After", image_compressed, image_compressed_size, type, width, height);
@@ -83,7 +111,8 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
 }
 
 int
-perform_decode(const char* filename_in, const char* filename_out, enum dxt_type type, int width, int height, int display)
+perform_decode(const char* filename_in, const char* filename_out, enum dxt_type type, 
+               int width, int height, int display, int run)
 {    
     unsigned char* image_compressed = NULL;
     int image_compressed_size = 0;
@@ -109,14 +138,16 @@ perform_decode(const char* filename_in, const char* filename_out, enum dxt_type 
     }
     
     TIMER_INIT();
-    TIMER_START();
-        
-    if ( dxt_decoder_decompress(decoder, image_compressed, image_compressed_size, image) != 0 ) {
-        fprintf(stderr, "DXT decoder decompressing failed!\n");
-        return -1;
+    for ( int index = 0; index < run; index++ ) {
+        TIMER_START();
+        if ( dxt_decoder_decompress(decoder, image_compressed, image_compressed_size, image) != 0 ) {
+            fprintf(stderr, "DXT decoder decompressing failed!\n");
+            return -1;
+        }
+        TIMER_STOP();
+        duration[index] = TIMER_DURATION();
     }
-    
-    TIMER_STOP_PRINT("Decoding Duration: ");
+    printf_duration("Decoding Duration", run);
     
     if ( display == 1 )
         dxt_display_image("Decode After", image, width, height);
@@ -230,6 +261,7 @@ print_help()
         "       --display\tdisplay image or compare images\n"
         "   -t, --type\t\tdxt type 'dxt1' or 'dxt5ycocg' (default 'dxt5ycocg')\n"
         "   -f, --format\t\tcolor format 'rgb' or 'yuv' (default 'rgb')\n"
+        "   -r, --run\t\tmultiple run times for debugging (default 1)\n"
     );
 }
 
@@ -246,6 +278,7 @@ main(int argc, char *argv[])
         {"display", no_argument,       0,  1 },
         {"type",    required_argument, 0, 't'},
         {"format",  required_argument, 0, 'f'},
+        {"run",     required_argument, 0, 'r'},
     };
 
     // Parameters
@@ -258,6 +291,7 @@ main(int argc, char *argv[])
     char input[255] = { '\0' };
     char output[255] = { '\0' };
     int display = 0;
+    int run = 1;
     
     // Parse command line
     char ch = '\0';
@@ -301,6 +335,9 @@ main(int argc, char *argv[])
             else if ( strcasecmp(optarg, "yuv") == 0 )
                 format = DXT_FORMAT_YUV;
             break;
+        case 'r':
+            run = atoi(optarg);
+            break;
         case 1:
             display = 1;
             break;
@@ -313,6 +350,11 @@ main(int argc, char *argv[])
     }
 	argc -= optind;
 	argv += optind;
+    
+    if ( run > RUN_MAX ) {
+        printf("Warning: Maximum run times is %d using that number!\n", RUN_MAX);
+        run = RUN_MAX;
+    }
     
     // Input image must be presented
     if ( input[0] == '\0' ) {
@@ -334,7 +376,7 @@ main(int argc, char *argv[])
     
     // Perform encode
     if ( encode == 1 ) {
-        if ( perform_encode(input, output, type, width, height, format, display) != 0 ) {
+        if ( perform_encode(input, output, type, width, height, format, display, run) != 0 ) {
             fprintf(stderr, "Failed to encode image [%s]!\n", input);
             return -1;        
         }
@@ -350,7 +392,7 @@ main(int argc, char *argv[])
     
     // Perform decode
     if ( decode == 1 ) {
-        if ( perform_decode(input, output, type, width, height, display) != 0 ) {
+        if ( perform_decode(input, output, type, width, height, display, run) != 0 ) {
             fprintf(stderr, "Failed to decode image [%s]!\n", input);
             return -1;
         }

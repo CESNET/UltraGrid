@@ -55,8 +55,9 @@ dxt_init()
     CHECK_EXTENSION("GL_EXT_texture_compression_s3tc");
     CHECK_EXTENSION("GL_EXT_texture_integer");
     
-    printf("OpenGL version %s\n", glGetString(GL_VERSION));
-    printf("GLSL version %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+    printf("Graphic Card:   %s\n", glGetString(GL_RENDERER));
+    printf("OpenGL version: %s\n", glGetString(GL_VERSION));
+    printf("GLSL version:   %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
     
     return result;
 }
@@ -92,7 +93,9 @@ dxt_image_load_from_file(const char* filename, int width, int height, DXT_IMAGE_
         }
     }
     
+#ifdef DEBUG
     printf("Load Image [file: %s, size: %d bytes, resolution: %dx%d]\n", filename, data_size, width, height);
+#endif
     
     return 0;
 }
@@ -127,8 +130,10 @@ dxt_image_save_to_file(const char* filename, DXT_IMAGE_TYPE* image, int width, i
     }
     free(data);
     fclose(file);
-    
+
+#ifdef DEBUG
     printf("Save Image [file: %s, size: %d bytes, resolution: %dx%d]\n", filename, data_size, width, height);
+#endif
     
     return 0;
 }
@@ -154,7 +159,9 @@ dxt_image_compressed_load_from_file(const char* filename, unsigned char** data, 
     }
     fclose(file);
     
+#ifdef DEBUG
     printf("Load Compressed Image [file: %s, size: %d bytes]\n", filename, *data_size);
+#endif
     
     return 0;
 }
@@ -176,7 +183,9 @@ dxt_image_compressed_save_to_file(const char* filename, unsigned char* image, in
     }
     fclose(file);
     
+#ifdef DEBUG
     printf("Save Compressed Image [file: %s, size: %d bytes]\n", filename, image_size);
+#endif
     
     return 0;
 }
