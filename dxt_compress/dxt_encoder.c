@@ -145,6 +145,17 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     
     glViewport(0, 0, encoder->width / 4, encoder->height / 4);
     glDisable(GL_DEPTH_TEST);
+        
+    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+    glClear(GL_COLOR_BUFFER_BIT);
+ 
+    // User compress program and set image size parameters
+    glUseProgramObjectARB(encoder->program_compress);
+    glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), encoder->format); 
+    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
+
+    // Render to framebuffer
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
     
     return encoder;
 }
@@ -167,17 +178,6 @@ dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_c
         
     if ( image_compressed_size != NULL )
         *image_compressed_size = size;
-        
-    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
-    glClear(GL_COLOR_BUFFER_BIT);
- 
-    // User compress program and set image size parameters
-    glUseProgramObjectARB(encoder->program_compress);
-    glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), encoder->format); 
-    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
-
-    // Render to framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
         
     return 0;
 }
