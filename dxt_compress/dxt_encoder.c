@@ -72,15 +72,24 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     encoder->height = height;
     encoder->format = format;
     
+    // Create empty data
+    GLubyte * data = NULL;
+    int data_size = 0;
+    dxt_encoder_buffer_allocate(encoder, &data, &data_size);
     // Create empty compressed texture
     glGenTextures(1, &encoder->texture_compressed_id);
     glBindTexture(GL_TEXTURE_2D, encoder->texture_compressed_id);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, encoder->width, encoder->height, 0, 0, 0);
-
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
+    if ( encoder->type == DXT_TYPE_DXT5_YCOCG )   
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, encoder->width, encoder->height, 0, data_size, data);
+    else
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, encoder->width, encoder->height, 0, data_size, data);
+    // Free empty data
+    dxt_encoder_buffer_free(data);
+    
     // Create fbo    
     glGenFramebuffersEXT(1, &encoder->fbo_id);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
@@ -134,6 +143,9 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, DXT_IMAGE_GL_FORMAT, encoder->width, encoder->height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, NULL);
     
+    glViewport(0, 0, encoder->width / 4, encoder->height / 4);
+    glDisable(GL_DEPTH_TEST);
+    
     return encoder;
 }
 
@@ -141,16 +153,20 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 int
 dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
 {
+    int size = 0;
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
+        size = (encoder->width / 4) * (encoder->height / 4) * 4 * sizeof(int);
     else if ( encoder->type == DXT_TYPE_DXT1 )
-        *image_compressed_size = (encoder->width / 4) * (encoder->height / 4) * 2 * sizeof(int);
+        size = (encoder->width / 4) * (encoder->height / 4) * 2 * sizeof(int);
     else
         assert(0);
         
-    *image_compressed = (unsigned char*)malloc(*image_compressed_size);
+    *image_compressed = (unsigned char*)malloc(size);
     if ( *image_compressed == NULL )
         return -1;
+        
+    if ( image_compressed_size != NULL )
+        *image_compressed_size = size;
         
     return 0;
 }
@@ -163,28 +179,23 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     
     TIMER_START();
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_FORMAT, image);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
     glFinish();
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
     
-    glClear(GL_COLOR_BUFFER_BIT);
-    
     // Render to framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
     
-    // Compress
-    glViewport(0, 0, encoder->width / 4, encoder->height / 4);
-    glDisable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT);
     
     // User compress program and set image size parameters
     glUseProgramObjectARB(encoder->program_compress);
     glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), encoder->format); 
     glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
         
-    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
-        
+    // Compress    
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
     glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
@@ -192,6 +203,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
         
+    // Disable program
     glUseProgramObjectARB(0);
     glFinish();
     TIMER_STOP_PRINT("Texture Compress:  ");
