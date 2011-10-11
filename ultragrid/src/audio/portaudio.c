@@ -87,7 +87,6 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 static void print_device_info(PaDeviceIndex device);
 int portaudio_start_stream(PaStream *stream);
-int portaudio_init_audio_frame(audio_frame *buffer);
 void portaudio_close(PaStream *stream);	// closes and frees all audio resources ( according to valgrind this is not true..  )
 void free_audio_frame(audio_frame *buffer);	// buffers should be freed after usage
 
@@ -259,29 +258,9 @@ void * portaudio_capture_init(char *cfg)
 
         memset(s->frame.data, 0, s->frame.max_size);
 
-        portaudio_init_audio_frame(&s->frame);
         portaudio_start_stream(s->stream);
 
 	return s;
-}
-
-int portaudio_init_audio_frame(audio_frame *buffer)
-{
-	buffer->bps = BPS;
-        buffer->ch_count = CHANNELS;
-        buffer->sample_rate = SAMPLE_RATE;
-        buffer->max_size = SAMPLES_PER_FRAME * buffer->bps * buffer->ch_count;
-        
-        /* we allocate only one block, pointers point to appropriate parts of the block */
-        if((buffer->data = (char*)malloc(buffer->max_size)) == NULL)
-        {
-                printf("Error allocating memory for audio buffers\n");
-                return -1;
-        }
-
-        memset(buffer->data, 0, buffer->max_size);
-
-	return 0;
 }
 
 void free_audio_frame(audio_frame *buffer)

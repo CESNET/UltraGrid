@@ -181,7 +181,22 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
         struct state_audio *s;
         char *tmp, *unused;
         char *addr;
-                
+        
+        if(!send_cfg && !recv_cfg)
+                return NULL;
+        
+        if (send_cfg != NULL &&
+                        !strcmp("help", send_cfg)) {
+                print_audio_devices(AUDIO_IN);
+                exit(0);
+        }
+        
+        if (recv_cfg != NULL &&
+                        !strcmp("help", recv_cfg)) {
+                print_audio_devices(AUDIO_OUT);
+                exit(0);
+        }
+        
         s = malloc(sizeof(struct state_audio));
         s->audio_participants = NULL;
         
@@ -201,28 +216,23 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
         free(tmp);
 
         if (send_cfg != NULL) {
-                 if (!strcmp("help", send_cfg)) {
-                        print_audio_devices(AUDIO_IN);
-                        exit(0);
-                } else {
-                        char *tmp = strtok(send_cfg, ":");
-                        if (!strcmp("embedded", tmp)) {
-                                s->audio_capture_device.index = AUDIO_DEV_SDI;
-                        } 
+                char *tmp = strtok(send_cfg, ":");
+                if (!strcmp("embedded", tmp)) {
+                        s->audio_capture_device.index = AUDIO_DEV_SDI;
+                } 
 #ifdef HAVE_PORTAUDIO
-                        else if (!strcmp("portaudio", tmp)) {
-                                s->audio_capture_device.index = AUDIO_DEV_PORTAUDIO;
-                        }
-#endif
-                        else {
-                                fprintf(stderr, "Unknown audio driver: %s\n", tmp);
-                                exit(EXIT_FAIL_USAGE);
-                        }
-                        
-                        tmp = strtok(NULL, ":");
-                        s->audio_capture_device.state =
-                                audio_capture[s->audio_capture_device.index].audio_init(tmp);
+                else if (!strcmp("portaudio", tmp)) {
+                        s->audio_capture_device.index = AUDIO_DEV_PORTAUDIO;
                 }
+#endif
+                else {
+                        fprintf(stderr, "Unknown audio driver: %s\n", tmp);
+                        exit(EXIT_FAIL_USAGE);
+                }
+                
+                tmp = strtok(NULL, ":");
+                s->audio_capture_device.state =
+                        audio_capture[s->audio_capture_device.index].audio_init(tmp);
                 if (pthread_create
                     (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
                         fprintf(stderr,
@@ -234,28 +244,24 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
         }
         
         if (recv_cfg != NULL) {
-                if (!strcmp("help", recv_cfg)) {
-                        print_audio_devices(AUDIO_OUT);
-                        exit(0);
-                } else {
-                        char *tmp = strtok(recv_cfg, ":");
-                        if (!strcmp("embedded", tmp)) {
-                                s->audio_playback_device.index = AUDIO_DEV_SDI;
-                        }
-#ifdef HAVE_PORTAUDIO                        
-                        else if (!strcmp("portaudio", tmp)) {
-                                s->audio_playback_device.index = AUDIO_DEV_PORTAUDIO;
-                        } 
-#endif                  
-                        else {
-                                fprintf(stderr, "Unknown audio driver: %s\n", tmp);
-                                exit(EXIT_FAIL_USAGE);
-                        }
-                        
-                        tmp = strtok(NULL, ":");
-                        s->audio_playback_device.state =
-                                audio_playback[s->audio_playback_device.index].audio_init(tmp);
+                char *tmp = strtok(recv_cfg, ":");
+                if (!strcmp("embedded", tmp)) {
+                        s->audio_playback_device.index = AUDIO_DEV_SDI;
                 }
+#ifdef HAVE_PORTAUDIO                        
+                else if (!strcmp("portaudio", tmp)) {
+                        s->audio_playback_device.index = AUDIO_DEV_PORTAUDIO;
+                } 
+#endif                  
+                else {
+                        fprintf(stderr, "Unknown audio driver: %s\n", tmp);
+                        exit(EXIT_FAIL_USAGE);
+                }
+                
+                tmp = strtok(NULL, ":");
+                s->audio_playback_device.state =
+                        audio_playback[s->audio_playback_device.index].audio_init(tmp);
+                                
                 if (pthread_create
                     (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
                         fprintf(stderr,
@@ -469,11 +475,15 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
 
 int audio_does_send_sdi(struct state_audio *s)
 {
+        if(!s) 
+                return FALSE;
         return s->audio_capture_device.index == AUDIO_DEV_SDI;
 }
 
 int audio_does_receive_sdi(struct state_audio *s)
 {
+        if(!s) 
+                return FALSE;
         return s->audio_playback_device.index == AUDIO_DEV_SDI;
 }
 
