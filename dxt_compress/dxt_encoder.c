@@ -97,7 +97,8 @@ int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
         
         glUseProgramObjectARB(encoder->yuv422_to_444_program);
         glUniform1i(glGetUniformLocation(encoder->yuv422_to_444_program, "image"), 0);
-        glUniform2f(glGetUniformLocation(encoder->yuv422_to_444_program, "imageSize"), encoder->width, encoder->height);
+        glUniform1f(glGetUniformLocation(encoder->yuv422_to_444_program, "imageWidth"),
+                        (GLfloat) encoder->width);
 
         // Create fbo    
         glGenFramebuffersEXT(1, &encoder->fbo444_id);

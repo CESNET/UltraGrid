@@ -147,7 +147,7 @@ static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf("Usage: uv [-d <display_device>] [-g <display_cfg>] [-t <capture_device>] [-g <capture_cfg>]\n");
-        printf("          [-m <mtu>] [-r <audio_playout> [-s <audio_caputre>] [-c] [-i] address(es)\n\n");
+        printf("          [-m <mtu>] [-r <audio_playout>] [-s <audio_caputre>] [-c] [-i] address(es)\n\n");
         printf
             ("\t-d <display_device>\tselect display device, use '-d help' to get\n");
         printf("\t                   \tlist of supported devices\n");
@@ -193,7 +193,7 @@ static struct display *initialize_video_display(const char *requested_display,
 {
         struct display *d;
         display_type_t *dt;
-        display_id_t id;
+        display_id_t id = 0;
         int i;
         
         if(!strcmp(requested_display, "none"))
@@ -249,7 +249,7 @@ static struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags)
 {
         struct vidcap_type *vt;
-        vidcap_id_t id;
+        vidcap_id_t id = 0;
         int i;
         
         if(!strcmp(requested_capture, "none"))
@@ -539,6 +539,8 @@ int main(int argc, char *argv[])
 #ifdef HAVE_SCHED_SETSCHEDULER
         struct sched_param sp;
 #endif
+        char *network_device = NULL;
+
         char *capture_cfg = NULL;
         char *display_cfg = NULL;
         char *audio_send = NULL;
@@ -546,13 +548,18 @@ int main(int argc, char *argv[])
         char *jack_cfg = NULL;
         
         struct state_uv *uv;
-        char *compress_options;
+        char *compress_options = NULL;
         int ch;
         int prev_option_set = 0;
         
         pthread_t receiver_thread_id, sender_thread_id;
         unsigned vidcap_flags = 0,
                  display_flags = 0;
+
+        if (argc == 1) {
+                usage();
+                return EXIT_FAIL_USAGE;
+        }
 
         uv_argc = argc;
         uv_argv = argv;
@@ -585,6 +592,7 @@ int main(int argc, char *argv[])
         uv->requested_mtu = 0;
         uv->use_ihdtv_protocol = 0;
         uv->participants = NULL;
+        uv->tx = NULL;
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -679,21 +687,25 @@ int main(int argc, char *argv[])
         argc -= optind;
         argv += optind;
 
-        uv->audio = audio_cfg_init (&argv[0], audio_send, audio_recv, jack_cfg);
-        if(audio_does_send_sdi(uv->audio))
-                vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
-        if(audio_does_receive_sdi(uv->audio))
-                display_flags |= DISPLAY_FLAG_ENABLE_AUDIO;
 
         if (uv->use_ihdtv_protocol) {
                 if ((argc != 0) && (argc != 1) && (argc != 2)) {
                         usage();
                         return EXIT_FAIL_USAGE;
                 }
-        } else if (argc != 1) {
-                usage();
-                return EXIT_FAIL_USAGE;
+        } else {
+                if (argc == 0) {
+                        network_device = "localhost";
+                } else {
+                        network_device = (char *) argv[0];
+                }
         }
+        
+        uv->audio = audio_cfg_init (network_device, audio_send, audio_recv, jack_cfg);
+        if(audio_does_send_sdi(uv->audio))
+                vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
+        if(audio_does_receive_sdi(uv->audio))
+                display_flags |= DISPLAY_FLAG_ENABLE_AUDIO;
 
         printf("%s\n", ULTRAGRID_VERSION);
         printf("Display device: %s\n", uv->requested_display);
@@ -845,7 +857,7 @@ int main(int argc, char *argv[])
 
         } else {
                 if ((uv->network_devices =
-                     initialize_network(argv[0], uv->participants)) == NULL) {
+                     initialize_network(network_device, uv->participants)) == NULL) {
                         printf("Unable to open network\n");
                         return EXIT_FAIL_NETWORK;
                 } else {

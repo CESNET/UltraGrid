@@ -176,7 +176,10 @@ void print_audio_devices(enum audio_device_kind kind)
 #endif
 }
 
-struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cfg, char *jack_cfg)
+/**
+ * take care that addrs can also be comma-separated list of addresses !
+ */
+struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg, char *jack_cfg)
 {
         struct state_audio *s;
         char *tmp, *unused;
@@ -202,7 +205,7 @@ struct state_audio * audio_cfg_init(char *addrs[], char *send_cfg, char *recv_cf
         
         gettimeofday(&s->start_time, NULL);        
         
-        tmp = strdup(addrs[0]);
+        tmp = strdup(addrs);
         s->audio_participants = pdb_init();
         addr = strtok_r(tmp, ",", &unused);
         if ((s->audio_network_device =
