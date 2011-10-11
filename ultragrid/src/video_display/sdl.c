@@ -64,6 +64,7 @@
 void NSApplicationLoad();
 #else                           /* HAVE_MACOSX */
 #include <sys/io.h>
+#include "x11_common.h"
 #endif                          /* HAVE_MACOSX */
 #include <sys/time.h>
 
@@ -610,6 +611,10 @@ void *display_sdl_init(char *fmt, unsigned int flags)
 
         s = (struct state_sdl *)calloc(1, sizeof(struct state_sdl));
         s->magic = MAGIC_SDL;
+
+#ifndef HAVE_MACOSX
+        x11_enter_thread();
+#endif
 
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {

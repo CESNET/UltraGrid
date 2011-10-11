@@ -54,8 +54,10 @@
 #include <stdlib.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
+#include "x11_common.h"
 
 /*
  * GLX context creation overtaken from:
@@ -66,8 +68,9 @@ struct video_compress {
         struct dxt_encoder *encoder;
 
         struct video_frame out;
-        char *decoded, *repacked;
+        char *decoded;
         unsigned int configured:1;
+        unsigned int interlaced_input:1;
 };
 
 static void configure_with(struct video_compress *s, struct video_frame *frame);
@@ -338,6 +341,8 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         codec_t tmp = s->out.color_spec;
         enum dxt_format format;
         
+        assert(frame->width % 4 == 0 && frame->height % 4 == 0);
+        
         glx_init();
         
         memcpy(&s->out, frame, sizeof(struct video_frame));
@@ -358,19 +363,23 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 case Vuy2:
                 case DVS8:
                         s->out.decoder = (decoder_t) memcpy;
-                        format = DXT_FORMAT_YUV;
+                        format = DXT_FORMAT_YUV422;
                         break;
                 case v210:
                         s->out.decoder = (decoder_t) vc_copylinev210;
-                        format = DXT_FORMAT_YUV;
+                        format = DXT_FORMAT_YUV422;
                         break;
                 case DVS10:
                         s->out.decoder = (decoder_t) vc_copylineDVS10;
-                        format = DXT_FORMAT_YUV;
+                        format = DXT_FORMAT_YUV422;
                         break;
-                /*case DXT1:
+                case DXT1:
+                case DXT5:
                         fprintf(stderr, "Input frame is already comperssed!");
-                        exit(128);*/
+                        exit(128);
+                default:
+                        fprintf(stderr, "Unknown codec: %d\n", s->out.color_spec);
+                        exit(128);
         }
         s->out.src_bpp = get_bpp(s->out.color_spec);
         s->out.src_linesize = s->out.width * s->out.src_bpp;
@@ -378,10 +387,13 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 (format == DXT_FORMAT_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
 
         /* We will deinterlace the output frame */
+        if(s->out.aux & AUX_INTERLACED)
+                s->interlaced_input = TRUE;
+        else
+                s->interlaced_input = FALSE;
         s->out.aux &= ~AUX_INTERLACED;
         
         s->out.color_spec = tmp;
-        
         
         if(s->out.color_spec == DXT1) {
                 s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, frame->width, frame->height, format);
@@ -393,9 +405,13 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 s->out.data_len = frame->width * frame->height;
         }
         
+        if(!s->encoder) {
+                fprintf(stderr, "[DXT GLSL] Failed to create encoder.\n");
+                exit(128);
+        }
+        
         s->out.data = (char *) malloc(s->out.data_len);
         s->decoded = malloc(4 * frame->width * frame->height);
-        s->repacked = malloc(4 * frame->width * frame->height);
         
         s->configured = TRUE;
 }
@@ -407,7 +423,17 @@ struct video_compress * dxt_glsl_init(char * opts)
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
         s->out.data = NULL;
         s->decoded = NULL;
-        s->repacked = NULL;
+        
+        x11_enter_thread();
+        
+        if(opts && strcmp(opts, "help") == 0) {
+                printf("DXT GLSL comperssion usage:\n");
+                printf("\t-cg:DXT1\n");
+                printf("\t\tcompress with DXT1\n");
+                printf("\t-cg:DXT5_YCoCg\n");
+                printf("\t\tcompress with DXT5_YCoCg\n");
+                return NULL;
+        }
         
         if(opts) {
                 if(strcasecmp(opts, "DXT5_YCoCg") == 0) {
@@ -437,35 +463,22 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                 configure_with(s, tx);
 
 
-        line1 = (unsigned char *)tx->data;
-        line2 = s->decoded;
+        line1 = (unsigned char *) tx->data;
+        line2 = (unsigned char *) s->decoded;
         
-        for (x = 0; x < tx->height; ++x) {
+        for (x = 0; x < (int) tx->height; ++x) {
                 s->out.decoder(line2, line1, s->out.src_linesize,
                                 s->out.rshift, s->out.gshift, s->out.bshift);
                 line1 += s->out.src_linesize;
                 line2 += s->out.dst_linesize;
         }
         
-        if(tx->color_spec == RGBA || 
-                        tx->color_spec == R10k) {
-                dxt_encoder_compress(s->encoder, s->decoded, s->out.data);
-        } else {
-                const count = s->out.width * s->out.height;
-                /* Repack the data to YUV 4:4:4 Format */
-                for (x = 0; x < count; x += 2) {
-                        s->repacked[4 * x] = s->decoded[2 * x + 1]; //Y1
-                        s->repacked[4 * x + 1] = s->decoded[2 * x]; //U1
-                        s->repacked[4 * x + 2] = s->decoded[2 * x + 2];     //V1
-                        //s->repacked[4 * x + 3] = 255;  //Alpha
+        if(s->interlaced_input)
+                vc_deinterlace((unsigned char *) s->decoded, s->out.dst_linesize, tx->height);
         
-                        s->repacked[4 * x + 4] = s->decoded[2 * x + 3];     //Y2
-                        s->repacked[4 * x + 5] = s->decoded[2 * x]; //U1
-                        s->repacked[4 * x + 6] = s->decoded[2 * x + 2];     //V1
-                        //s->repacked[4 * x + 7] = 255;  //Alpha
-                }
-                dxt_encoder_compress(s->encoder, s->repacked, s->out.data);
-        }
+        dxt_encoder_compress(s->encoder,
+                        (unsigned char *) s->decoded,
+                        (unsigned char *) s->out.data);
         
         return &s->out;
 }

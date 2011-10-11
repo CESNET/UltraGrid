@@ -60,7 +60,7 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/glut.h>
-
+#include "x11_common.h"
 #ifdef FREEGLUT
 #include <GL/freeglut_ext.h>
 #endif /* FREEGLUT */
@@ -219,6 +219,10 @@ void gl_check_error()
 void * display_gl_init(char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl        *s;
+        
+#ifndef HAVE_MACOSX
+        x11_enter_thread();
+#endif
 
         glutInit(&uv_argc, uv_argv);
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));

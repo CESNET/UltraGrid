@@ -203,6 +203,7 @@ if test ! $no_x ; then
 		fi
 	fi
         X_LIBS+=" -lX11"
+        X_OBJ="src/x11_common.o"
         CFLAGS+=""
 	HAVE_X11=yes
 fi
@@ -688,7 +689,7 @@ AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
 
 if test "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
-        -a ! expr "$host_os" : ".*darwin.*" > /dev/null # not mac, just for now
+        -a `expr "$host_os" : ".*darwin.*"` -eq 0 # not mac, just for now
 then
         LIBS+=" -lGLEW -lGL -lX11"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])

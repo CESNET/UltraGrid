@@ -71,7 +71,8 @@
  */
 enum dxt_format {
     DXT_FORMAT_RGB = 0,
-    DXT_FORMAT_YUV = 1
+    DXT_FORMAT_YUV = 1,
+    DXT_FORMAT_YUV422 = 2
 };
 
 /**

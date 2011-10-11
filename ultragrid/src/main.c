@@ -164,6 +164,8 @@ static void usage(void)
         printf("\n");
         printf("\t-c                 \tcompress video\n");
         printf("\n");
+        printf("\t-cg                \tcompress video with OpenGL (see -cg:help for more options)\n");
+        printf("\n");
         printf("\t-i                 \tiHDTV compatibility mode\n");
         printf("\n");
         printf("\taddress(es)        \tdestination address\n");

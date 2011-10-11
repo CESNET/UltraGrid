@@ -107,7 +107,8 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 
 ../dxt_compress/dxt_glsl.h:../dxt_compress/compress_vp.glsl \
 		../dxt_compress/compress_dxt1_fp.glsl ../dxt_compress/compress_dxt5ycocg_fp.glsl \
-		../dxt_compress/display_fp.glsl ../dxt_compress/display_dxt5ycocg_fp.glsl
+		../dxt_compress/display_fp.glsl ../dxt_compress/display_dxt5ycocg_fp.glsl \
+		../dxt_compress/yuv422_to_yuv444.glsl
 	echo "/**" > $@
 	echo " * GLSL source codes for DXT compressions" >> $@
 	echo " *" >> $@
@@ -132,6 +133,10 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	# Write fp_display_dxt5ycocg
 	echo "static const char fp_display_dxt5ycocg[] = " >> $@
 	cat ../dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# yuv 422 to yuv 444 shader
+	echo "static const char fp_yuv422_to_yuv_444[] = " >> $@
+	cat ../dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 
 
