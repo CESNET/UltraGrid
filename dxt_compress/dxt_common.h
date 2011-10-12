@@ -27,6 +27,7 @@
 #ifndef DXT_COMMON_H
 #define DXT_COMMON_H
 
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -83,6 +84,7 @@ enum dxt_type {
     DXT_TYPE_DXT5_YCOCG
 };
 
+#ifdef HAVE_GLUT
 /**
  * Initialize DXT
  * 
@@ -90,6 +92,7 @@ enum dxt_type {
  */
 int
 dxt_init();
+#endif
 
 /**
  * Load RGB image from file

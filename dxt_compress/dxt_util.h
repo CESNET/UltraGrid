@@ -27,9 +27,17 @@
 #ifndef DXT_UTIL_H
 #define DXT_UTIL_H
 
+#include "config.h"
 #include <GL/glew.h>
-#include <GL/glut.h>
 #include <string.h>
+#ifdef HAVE_GLUT
+#include <GL/glut.h>
+/**
+ * Predeclaration of glutMainLoopEvent
+ */
+extern void
+glutMainLoopEvent(void);
+#endif
 
 /**
  * Create shader from source
@@ -51,10 +59,6 @@ dxt_shader_create_from_source(const char* source, GLenum type);
 GLhandleARB
 dxt_shader_create_from_file(const char* filename, GLenum type);
 
-/**
- * Predeclaration of glutMainLoopEvent
- */
-extern void
-glutMainLoopEvent(void);
+
 
 #endif // DXT_UTIL_H

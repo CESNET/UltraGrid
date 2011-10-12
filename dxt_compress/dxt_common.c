@@ -27,6 +27,7 @@
 #include "dxt_common.h"
 #include "dxt_util.h"
 
+#ifdef HAVE_GLUT
 /** Documented at declaration */
 int
 dxt_init()
@@ -61,6 +62,7 @@ dxt_init()
     
     return result;
 }
+#endif
 
 /** Documented at declaration */
 int
