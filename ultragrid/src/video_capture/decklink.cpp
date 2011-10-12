@@ -567,6 +567,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, 0);
                                                 if (result != S_OK)
                                                 {
+                                                        printf("You have required invalid video mode and pixel format combination.\n");
                                                         printf("Could not enable video input: %08x\n", result);
                                                         goto error;
                                                 }

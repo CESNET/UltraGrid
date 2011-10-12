@@ -319,7 +319,8 @@ void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len)
 
 /* convert 10bits Cb Y Cr A Y Cb Y A to 8bits Cb Y Cr Y Cb Y */
 
-#if !(HAVE_MACOSX || HAVE_32B_LINUX)
+/* TODO: undo it - currently this decoder is broken */
+#if 0 /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
 void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 {
@@ -379,8 +380,9 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 
 #else
 
-void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
+void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len)
 {
+        int src_len = dst_len / 1.5; /* right units */
         register uint64_t *d, *s;
 
         register uint64_t a1, a2, a3, a4;

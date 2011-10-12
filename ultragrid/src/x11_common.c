@@ -54,5 +54,7 @@ static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;
 
  void x11_enter_thread(void)
  {
+ #ifndef HAVE_MACOSX
          pthread_once(&XInitThreadsHasRun, XInitThreads);
+ #endif
  }

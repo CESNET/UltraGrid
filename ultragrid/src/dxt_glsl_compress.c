@@ -338,6 +338,8 @@ void glx_init()
 
 static void configure_with(struct video_compress *s, struct video_frame *frame)
 {
+        int i;
+	int h_align = 0;
         codec_t tmp = s->out.color_spec;
         enum dxt_format format;
         
@@ -381,8 +383,16 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         fprintf(stderr, "Unknown codec: %d\n", s->out.color_spec);
                         exit(128);
         }
+        
+        for(i = 0; codec_info[i].name != NULL; ++i) {
+                if(s->out.color_spec == codec_info[i].codec) {
+                        s->out.src_bpp = codec_info[i].bpp;
+                        h_align = codec_info[i].h_align;
+                }
+        }
         s->out.src_bpp = get_bpp(s->out.color_spec);
-        s->out.src_linesize = s->out.width * s->out.src_bpp;
+        s->out.src_linesize = ((s->out.width + h_align - 1) / h_align) * h_align;
+        s->out.src_linesize *= s->out.src_bpp;
         s->out.dst_linesize = s->out.width * 
                 (format == DXT_FORMAT_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
 

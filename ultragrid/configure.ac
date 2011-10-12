@@ -50,6 +50,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	AC_MSG_RESULT($version_major);
 	CFLAGS+=" -m32 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
+	CXXFLAGS+=" -m32 -I/opt/local/include"
 	LDFLAGS+=" -m32 -L/opt/local/lib"
 	X_CFLAGS+="-I/usr/X11R6/include"
 else
@@ -57,6 +58,8 @@ else
 fi
 
 AC_SUBST(LINKER)
+AC_SUBST(LDFLAGS)
+AC_SUBST(CXXFLAGS)
 
 # -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some

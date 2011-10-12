@@ -512,27 +512,31 @@ void gl_reconfigure_screen(struct state_gl *s)
                 case R10k:
                         s->frame.decoder = (decoder_t)vc_copyliner10k;
                         s->frame.dst_bpp = get_bpp(RGBA);
+                        s->gl_texfmt = UV_GL_RGB;
                         break;
                 case RGBA:
                         s->frame.decoder = (decoder_t)memcpy; /* or vc_copylineRGBA?
                                                                  but we have default
                                                                  {r,g,b}shift */
-                        
+                        s->gl_texfmt = UV_GL_RGB;
                         s->frame.dst_bpp = get_bpp(RGBA);
                         break;
                 case v210:
                         s->frame.decoder = (decoder_t)vc_copylinev210;
                         s->frame.dst_bpp = get_bpp(UYVY);
+                        s->gl_texfmt = UV_GL_YUV;
                         break;
                 case DVS10:
                         s->frame.decoder = (decoder_t)vc_copylineDVS10;
                         s->frame.dst_bpp = get_bpp(UYVY);
+                        s->gl_texfmt = UV_GL_YUV;
                         break;
                 case Vuy2:
                 case DVS8:
                 case UYVY:
                         s->frame.decoder = (decoder_t)memcpy;
                         s->frame.dst_bpp = get_bpp(UYVY);
+                        s->gl_texfmt = UV_GL_YUV;
                         break;
                 case DXT1:
                         if(s->frame.aux & AUX_RGB)

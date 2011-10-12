@@ -6,6 +6,7 @@ LINKER	      = @LINKER@
 CFLAGS        = -fPIC @DEFS@ @CFLAGS@ @X_CFLAGS@
 CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = @CXXFLAGS@
+LDFLAGS      =  @LDFLAGS@
 LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
                 @X_LIBS@ @X_EXTRA_LIBS@ @JACK_LIB@ @MATHLIBS@ @LIBS@ -lm -pthread
 INC           = -I.. -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
@@ -82,7 +83,7 @@ src/version.h: VERSION
 
 $(TARGET): src/version.h $(OBJS) src/main.o 
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) $(CFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+	$(LINKER) $(CFLAGS) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
