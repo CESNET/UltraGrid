@@ -374,7 +374,10 @@ void * vidcap_testcard2_thread(void *arg)
         
         font = TTF_OpenFont("/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf", 108);
         if(!font) {
-                fprintf(stderr, "Unable to load font %s!\n", TTF_GetError());
+                font = TTF_OpenFont("/usr/share/fonts/truetype/DejaVuSansMono.ttf", 108);
+        }
+        if(!font) {
+                fprintf(stderr, "Unable to load any usable font (last font tryied: %s)!\n", TTF_GetError());
                 exit(128);
         }
 
@@ -431,13 +434,13 @@ void * vidcap_testcard2_thread(void *arg)
                 SDL_Rect src_rect;
                 src_rect.x=0;
                 src_rect.y=0;
-                src_rect.w=text->w;
-                src_rect.h=text->h;
                 
                 r.y += (r.h - text->h) / 2;
                 r.x = (s->frame.width - src_rect.w) / 2;
                 
 #ifdef HAVE_LIBSDL_TTF
+                src_rect.w=text->w;
+                src_rect.h=text->h;
                 SDL_BlitSurface(text,  &src_rect,  copy, &r);
                 SDL_FreeSurface(text);
 #endif

@@ -192,7 +192,7 @@ static int settings_init(struct state_jack *s, char *cfg)
         if(strncmp(cfg, "help", strlen("help")) == 0)
         {
                 printf("JACK config:\n"
-                        "\t-j {tok1|tok2...tokn}*\n\n"
+                        "\t-j ({tok1|tok2...tokn-1},)*{tokn}\n\n"
                         "\tTokens:\n"
                         "\t\tpi[=name]\t\tcatch sound from JACK instead of from RTP (optionally select port)\n"
                         "\n"
@@ -204,7 +204,7 @@ static int settings_init(struct state_jack *s, char *cfg)
                         );
                 exit(0);
         }
-        while((tok = strtok_r(cfg, ":", &save_ptr)) != NULL)
+        while((tok = strtok_r(cfg, ",", &save_ptr)) != NULL)
         {
                 switch (tok[0]) {
                         case 'p':
