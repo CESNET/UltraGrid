@@ -384,7 +384,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         SGDeviceInputList inputList;
         SGDeviceList deviceList;
         if (strcmp(fmt, "help") == 0) {
-                printf("\nUsage:\t-d quicktime -g <device>:<mode>:<pixel_type>[:<audio_device>:<audio_mode>]\n\n");
+                printf("\nUsage:\t-t quicktime:<device>:<mode>:<pixel_type>[:<audio_device>:<audio_mode>]\n\n");
                 if (SGGetChannelDeviceList
                     (s->video_channel, sgDeviceListIncludeInputs,
                      &deviceList) == noErr) {

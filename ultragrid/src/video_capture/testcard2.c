@@ -150,8 +150,8 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         codec_t codec=0;
 
         if (fmt == NULL || strcmp(fmt, "help") == 0) {
-                printf("testcard options:\n");
-                printf("\twidth:height:fps:codec[:filename][:p]\n");
+                printf("testcard2 options:\n");
+                printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
                 printf("\tp - pan with frame\n");
                 show_codec_help("testcard");
                 return NULL;

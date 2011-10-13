@@ -244,7 +244,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("Decklink options:\n");
-	printf("\tdevice(s):mode\n");
+	printf("\t-t decklink:<device_index(indices)>:<mode>:<colorspace>\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -313,7 +313,7 @@ settings_init(void *state, char *fmt)
 {
 	struct vidcap_decklink_state *s = (struct vidcap_decklink_state *) state;
 
-	if(strcmp(fmt, "help")==0) {
+	if(!fmt || strcmp(fmt, "help") == 0) {
 		decklink_help();
 		return 0;
 	}

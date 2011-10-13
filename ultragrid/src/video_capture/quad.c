@@ -846,7 +846,7 @@ vidcap_quad_grab(void *state, int *count, struct audio_frame **audio)
 static void print_output_modes()
 {
         unsigned int i;
-        printf("usage: -g <mode>:[<x_tiles_count>:<y_tiles_count>]\n\twhere mode is one of following.\n");
+        printf("usage: -t quad:<mode>:[<x_tiles_count>:<y_tiles_count>]\n\twhere mode is one of following.\n");
         printf("Available output modes:\n");
         for(i = 0; i < sizeof(frame_modes)/sizeof(struct frame_mode); ++i) {
                 if(frame_modes[i].magic == FMODE_MAGIC)

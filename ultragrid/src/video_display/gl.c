@@ -174,7 +174,7 @@ static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_fram
  */
 void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-g { d | fs | aspect=<v>/<h> }* | help\n\n");
+        printf("\t-d gl:{d|fs|aspect=<v>/<h>}(,{d|fs|aspect=<v>/<h>})* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");

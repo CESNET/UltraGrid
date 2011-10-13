@@ -149,18 +149,12 @@ static void usage(void)
         printf("Usage: uv [-d <display_device>] [-g <display_cfg>] [-t <capture_device>] [-g <capture_cfg>]\n");
         printf("          [-m <mtu>] [-r <audio_playout>] [-s <audio_caputre>] [-c] [-i] address(es)\n\n");
         printf
-            ("\t-d <display_device>\tselect display device, use '-d help' to get\n");
+            ("\t-d <display_device>:<cfg>\tselect display device, use '-d help' to get\n");
         printf("\t                   \tlist of supported devices\n");
         printf("\n");
         printf
-            ("\t-t <capture_device>\tselect capture device, use '-t help' to get\n");
+            ("\t-t <capture_device>:<cfg>\tselect capture device, use '-t help' to get\n");
         printf("\t                   \tlist of supported devices\n");
-        printf("\n");
-        printf("\t-g <cfg>           \tconfigure capture/display device,\n");
-        printf
-            ("\t                   \tUse '{-t|-d} <driver> -g help' to obtain\n");
-        printf("\t                   \tsupported capture/display modes.\n");
-        printf("\t                   \tTake care that this option relates to previous -t/-d driver!\n");
         printf("\n");
         printf("\t-c                 \tcompress video\n");
         printf("\n");
@@ -601,20 +595,22 @@ int main(int argc, char *argv[])
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
-                        if (!strcmp(uv->requested_display, "help")) {
+                        if (!strcmp(optarg, "help")) {
                                 list_video_display_devices();
                                 return 0;
                         }
                         uv->requested_display = strtok_r(optarg, ":", &save_ptr);
-                        display_cfg = save_ptr;
+                        if(strlen(save_ptr) > 0)
+                                display_cfg = save_ptr;
                         break;
                 case 't':
-                        if (!strcmp(uv->requested_capture, "help")) {
+                        if (!strcmp(optarg, "help")) {
                                 list_video_capture_devices();
                                 return 0;
                         }
                         uv->requested_capture = strtok_r(optarg, ":", &save_ptr);
-                        capture_cfg = save_ptr;
+                        if(strlen(save_ptr) > 0)
+                                capture_cfg = save_ptr;
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
@@ -669,7 +665,6 @@ int main(int argc, char *argv[])
         
         argc -= optind;
         argv += optind;
-
 
         if (uv->use_ihdtv_protocol) {
                 if ((argc != 0) && (argc != 1) && (argc != 2)) {

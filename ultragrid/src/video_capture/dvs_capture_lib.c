@@ -161,7 +161,7 @@ static void show_help(void)
                 return;
         }
 	printf("DVS options:\n\n");
-	printf("\tmode:codec | help\n\n");
+	printf("\t -t dvs:<mode>:<codec> | help\n\n");
 	printf("\tSupported modes:\n");
         for(i=0; hdsp_mode_table[i].width !=0; i++) {
 		int res;

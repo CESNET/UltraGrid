@@ -397,7 +397,7 @@ void display_sdl_run(void *arg)
 static void show_help(void)
 {
         printf("SDL options:\n");
-        printf("\twidth:height:codec[:fs][:i][:d][:f:filename] | help\n");
+        printf("\t-d sdl:<width>:<height>:<codec>[:fs][:i][:d][:f:<filename>] | help\n");
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
         printf("\tf filename - read frame content from the filename\n");

@@ -525,7 +525,8 @@ static void print_modes(int fullhelp)
 static void show_help(int full)
 {
         printf("Quicktime output options:\n");
-        printf("\tdevice[:mode:codec] | help | fullhelp\n");
+        printf("\t-d quicktime:<device>[:<mode>:<codec>] | help | fullhelp\n");
+        printf("\t\tIf you set mode, the output format will be forced and if not matched with input, the output will be scaled.");
         print_modes(full);
 }
 

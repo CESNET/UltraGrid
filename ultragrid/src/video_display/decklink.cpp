@@ -141,7 +141,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-g device_numbers - coma-separated numbers of output devices\n");
+        printf("\t-d decklink:<device_numbers> - coma-separated numbers of output devices\n");
         
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = CreateDeckLinkIteratorInstance();

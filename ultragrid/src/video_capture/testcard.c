@@ -442,7 +442,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         if (fmt == NULL || strcmp(fmt, "help") == 0) {
                 printf("testcard options:\n");
-                printf("\twidth:height:fps:codec[:filename][:p][:s=XxY]\n");
+                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>]\n");
                 printf("\tp - pan with frame\n");
                 printf("\ts - split the frames into XxY separate tiles\n");
                 show_codec_help("testcard");
