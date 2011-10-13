@@ -440,13 +440,13 @@ struct video_compress * dxt_glsl_init(char * opts)
                 printf("DXT GLSL comperssion usage:\n");
                 printf("\t-cg:DXT1\n");
                 printf("\t\tcompress with DXT1\n");
-                printf("\t-cg:DXT5_YCoCg\n");
-                printf("\t\tcompress with DXT5_YCoCg\n");
+                printf("\t-cg:DXT5\n");
+                printf("\t\tcompress with DXT5 YCoCg\n");
                 return NULL;
         }
         
         if(opts) {
-                if(strcasecmp(opts, "DXT5_YCoCg") == 0) {
+                if(strcasecmp(opts, "DXT5") == 0) {
                         s->out.color_spec = DXT5;
                 } else if(strcasecmp(opts, "DXT1") == 0) {
                         s->out.color_spec = DXT1;

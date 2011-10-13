@@ -396,7 +396,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         if(fmt == NULL) {
                 cardIdx[0] = 0;
                 s->devices_cnt = 1;
-                fprintf(stderr, "Card number unset, using first found (see -g help)!\n");
+                fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
 
         } else if (strcmp(fmt, "help") == 0) {
                 show_help();

@@ -149,23 +149,32 @@ static void usage(void)
         printf("Usage: uv [-d <display_device>] [-g <display_cfg>] [-t <capture_device>] [-g <capture_cfg>]\n");
         printf("          [-m <mtu>] [-r <audio_playout>] [-s <audio_caputre>] [-c] [-i] address(es)\n\n");
         printf
-            ("\t-d <display_device>:<cfg>\tselect display device, use '-d help' to get\n");
-        printf("\t                   \tlist of supported devices\n");
+            ("\t-d <display_device>:<cfg>  \tselect display device, use '-d help' to get\n");
+        printf("\t                         \tlist of supported devices\n");
         printf("\n");
         printf
-            ("\t-t <capture_device>:<cfg>\tselect capture device, use '-t help' to get\n");
-        printf("\t                   \tlist of supported devices\n");
+            ("\t-t <capture_device>:<cfg>  \tselect capture device, use '-t help' to get\n");
+        printf("\t                         \tlist of supported devices\n");
         printf("\n");
-        printf("\t-c                 \tcompress video\n");
+        printf("\t-c <cfg>                 \tcompress video (see -c for help)\n");
         printf("\n");
-        printf("\t-cg                \tcompress video with OpenGL (see -cg:help for more options)\n");
+        printf("\t-i                       \tiHDTV compatibility mode\n");
         printf("\n");
-        printf("\t-i                 \tiHDTV compatibility mode\n");
+        printf("\taddress(es)              \tdestination address\n");
+        printf("\t                         \tIf comma-separated list of addresses\n");
+        printf("\t                         \tis entered, video frames are split\n");
+        printf("\t                         \tand chunks are sent/received independently.\n");
+}
+
+void show_compress_help()
+{
+        printf("Possible compression modules:\n");
         printf("\n");
-        printf("\taddress(es)        \tdestination address\n");
-        printf("\t                   \tIf comma-separated list of addresses\n");
-        printf("\t                   \tis entered, video frames are split\n");
-        printf("\t                   \tand chunks are sent/received independently.\n");
+        printf("\tFastDXT\n");
+        printf("\t\tFastDXT DXT1 compression (CPU)\n");
+        printf("\n");
+        printf("\tRTDXT\n");
+        printf("\t\tReal-Time DXT Compression via OpenGL 3.0 - offers DXT1 and DXT5 YCoCg compressions (see '-c RTDXT:help')\n");
 }
 
 void list_video_display_devices()
@@ -563,7 +572,7 @@ int main(int argc, char *argv[])
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
                 {"version", no_argument, 0, 'v'},
-                {"compress", optional_argument, 0, 'c'},
+                {"compress", required_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
@@ -591,7 +600,7 @@ int main(int argc, char *argv[])
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc::ihj:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -619,24 +628,29 @@ int main(int argc, char *argv[])
                         printf("%s\n", ULTRAGRID_VERSION);
                         return EXIT_SUCCESS;
                 case 'c':
-                        if(optarg && optarg[0] == 'g') {
+                        if(strcasecmp(optarg, "help") == 0) {
+                                show_compress_help();
+                                return EXIT_SUCCESS;
+                        }
+                        if(strncasecmp(optarg, "RTDXT", strlen("RTDXT")) == 0) {
 #ifndef HAVE_DXT_GLSL
                                 fprintf(stderr, "GLSL DXT compression is not currently "
                                                 "compiled in UG!\n");
                                 exit(EXIT_FAIL_USAGE);
 #else
                                 uv->requested_compression = COMPRESS_DXT_GPU;
-                                if(optarg[1] == ':')
-                                        compress_options = optarg + 2;
+                                if(optarg[strlen("RTDXT")] == ':') 
+                                        compress_options = optarg + strlen("RTDXT") + 1;
 #endif
-                        } else {
+                        } else if(strncasecmp(optarg, "FastDXT", strlen("FastDXT")) == 0) {
 #ifndef HAVE_FASTDXT
                                 fprintf(stderr, "FastDXT compression is not currently "
                                                 "compiled in UG!\n");
                                 exit(EXIT_FAIL_USAGE);
 #endif
                                 uv->requested_compression = COMPRESS_DXT_CPU;
-                                compress_options = optarg;
+                                if(optarg[strlen("FastDXT")] == ':')
+                                        compress_options = strlen("FastDXT") + 1;
                         }
                         break;
                 case 'i':
@@ -665,6 +679,7 @@ int main(int argc, char *argv[])
         
         argc -= optind;
         argv += optind;
+
 
         if (uv->use_ihdtv_protocol) {
                 if ((argc != 0) && (argc != 1) && (argc != 2)) {
