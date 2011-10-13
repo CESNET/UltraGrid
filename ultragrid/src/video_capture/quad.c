@@ -365,7 +365,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
 		return NULL;
 	}
 
-        if(strcmp(init_fmt, "help") == 0) {
+        if(!init_fmt || strcmp(init_fmt, "help") == 0) {
                 print_output_modes();
                 return NULL;
         }
@@ -852,6 +852,7 @@ static void print_output_modes()
                 if(frame_modes[i].magic == FMODE_MAGIC)
                         printf("\t%2u: %s\n", i, frame_modes[i].name);
         }
+        printf("\nPixel mode is set via sysfs.\n")
 }
 
 

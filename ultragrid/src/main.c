@@ -695,7 +695,7 @@ int main(int argc, char *argv[])
                 }
         } else {
                 if (argc == 0) {
-                        network_device = "localhost";
+                        network_device = strdup("localhost");
                 } else {
                         network_device = (char *) argv[0];
                 }
