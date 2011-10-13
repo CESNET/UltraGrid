@@ -546,11 +546,11 @@ int main(int argc, char *argv[])
         char *audio_send = NULL;
         char *audio_recv = NULL;
         char *jack_cfg = NULL;
+        char *save_ptr = NULL;
         
         struct state_uv *uv;
         char *compress_options = NULL;
         int ch;
-        int prev_option_set = 0;
         
         pthread_t receiver_thread_id, sender_thread_id;
         unsigned vidcap_flags = 0,
@@ -566,7 +566,6 @@ int main(int argc, char *argv[])
 
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
-                {"cfg", required_argument, 0, 'g'},
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
                 {"version", no_argument, 0, 'v'},
@@ -598,43 +597,27 @@ int main(int argc, char *argv[])
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:g:t:m:r:s:vc::ihj:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc::ihj:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
-                        uv->requested_display = optarg;
                         if (!strcmp(uv->requested_display, "help")) {
                                 list_video_display_devices();
                                 return 0;
                         }
-                        prev_option_set = 'd';
+                        uv->requested_display = strtok_r(optarg, ":", &save_ptr);
+                        display_cfg = save_ptr;
                         break;
                 case 't':
-                        uv->requested_capture = optarg;
                         if (!strcmp(uv->requested_capture, "help")) {
                                 list_video_capture_devices();
                                 return 0;
                         }
-                        prev_option_set = 't';
+                        uv->requested_capture = strtok_r(optarg, ":", &save_ptr);
+                        capture_cfg = save_ptr;
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
-                        break;
-                case 'g':
-                        switch (prev_option_set) {
-                                case 't':
-                                        capture_cfg = strdup(optarg);
-                                        break;
-                                case 'd':
-                                        display_cfg = strdup(optarg);
-                                        break;
-                                default:
-                                        fprintf(stderr, "Don't know if '-g' "
-                                                "relates to '-t' or '-d' (must succeed it).\n");
-                                        exit(EXIT_FAIL_USAGE);
-                        }
-                        prev_option_set = 0;
-                        
                         break;
                 case 'v':
                         printf("%s\n", ULTRAGRID_VERSION);

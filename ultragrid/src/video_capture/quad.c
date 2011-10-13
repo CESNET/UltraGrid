@@ -852,7 +852,7 @@ static void print_output_modes()
                 if(frame_modes[i].magic == FMODE_MAGIC)
                         printf("\t%2u: %s\n", i, frame_modes[i].name);
         }
-        printf("\nPixel mode is set via sysfs.\n")
+        printf("\nPixel mode is set via sysfs.\n");
 }
 
 

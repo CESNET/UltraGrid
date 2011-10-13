@@ -691,9 +691,11 @@ AC_CHECK_LIB(GLUT, glutInit)
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
 AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
 AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
+AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
 
 if test "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+        -a "$FOUND_GL_H" = yes
         -a `expr "$host_os" : ".*darwin.*"` -eq 0 # not mac, just for now
 then
         LIBS+=" -lGLEW -lGL -lX11"
