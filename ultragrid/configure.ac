@@ -138,6 +138,10 @@ case "$host" in
 esac
 
 # -------------------------------------------------------------------------------------------------
+debug_output=no
+profile=no
+ipv6=no
+
 AC_ARG_ENABLE(profile,
 	[  --enable-profile        enable profiling],
 	[if test $enableval = yes
@@ -145,6 +149,7 @@ AC_ARG_ENABLE(profile,
 		if test "$GCC" = yes
 		then
 			CFLAGS="$CFLAGS -pg"
+                        profile=yes
 		else
 			AC_MSG_ERROR([Don't know how to enable profiling for $CC])
 		fi
@@ -155,6 +160,7 @@ AC_ARG_ENABLE(debug,
 	[if test $enableval = yes
 	then
 		AC_DEFINE([DEBUG], [1], [We build with debug messages])
+                debug_output=yes
 	fi])
 
 AC_ARG_ENABLE(ipv6,
@@ -162,6 +168,7 @@ AC_ARG_ENABLE(ipv6,
 	[if test $enableval = yes
 	then
 		AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
+                ipv6=YES
 	fi])
 
 # -------------------------------------------------------------------------------------------------
@@ -233,6 +240,7 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS cards
+dvs=no
 AC_ARG_ENABLE(dvs,
 	[  --enable-dvs      enable DVS cards],
 	[if test $enableval = yes
@@ -258,6 +266,7 @@ then
         DVS_UV_LIB="lib/uv_dvs_lib.so"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
         LIBS+=" -ldl"
+        dvs=yes
 else
 	DVS_INC=
 	DVS_LIB=
@@ -275,6 +284,7 @@ AC_SUBST(DVS_UV_LIB)
 DECKLINK_OBJ=
 DECKLINK_INC=
 DECKLINK_PATH=
+decklink=no
 
 AC_ARG_ENABLE(decklink, 
 	[  --enable-decklink       enable Blackmagic DeckLink support],
@@ -331,6 +341,7 @@ then
     DECKLINK_OBJ="src/video_capture/DeckLinkAPIDispatch.o src/video_capture/decklink.o src/video_display/decklink.o"
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
+    decklink=yes
 else
     DECKLINK_PATH=
     DECKLINK_INC=
@@ -348,6 +359,7 @@ AC_SUBST(LINKER)
 QUAD_PATH=
 QUAD_OBJ=
 QUAD_INC=
+quad=no
 
 case $host in
     *-linux-*)
@@ -376,6 +388,7 @@ case $host in
             QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
             QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
             AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
+            quad=yes
         else
             QUAD_PATH=
             QUAD_INC=
@@ -393,6 +406,7 @@ AC_SUBST(QUAD_OBJ)
 QUICKTIME_INC=
 QUICKTIME_LIB=
 QUICKTIME_OBJ=
+quicktime=no
 
 case $host_os in
 	*darwin*)
@@ -405,6 +419,7 @@ case $host_os in
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
 		fi
+                quicktime=yes
     ;;
 esac
 
@@ -415,6 +430,7 @@ AC_SUBST(QUICKTIME_OBJ)
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
 SDL_OBJ=
+sdl=no
 
 #
 # version comparison function that works for "." delimited version numbers (no alpha please)
@@ -508,6 +524,7 @@ case "$host_os" in
                 fi
                 AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
                 AC_CHECK_LIB(SDL_ttf, TTF_Init)
+                sdl=yes
             fi
         ;;
         *)
@@ -524,6 +541,7 @@ case "$host_os" in
                 AM_PATH_SDL($SDL_VERSION, AC_DEFINE([HAVE_SDL_1210], [1], [We have SDL version >= 1.21]), :)
                 AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
                 AC_CHECK_LIB(SDL_ttf, TTF_Init)
+                sdl=yes
             fi
         ;;
 esac
@@ -535,6 +553,7 @@ AC_SUBST(SDL_OBJ)
 
 GL_INC=
 GL_OBJ=
+gl=no
 
 case "$host_os" in
 	*darwin*)
@@ -579,6 +598,7 @@ case "$host_os" in
 				GL_INC="$GL_INC -I/opt/local/include"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
+                                gl=yes
 			else
 				echo "OpenGL (GLUT) libraries not found or not usable."
 			fi
@@ -622,6 +642,7 @@ case "$host_os" in
 				LIBS="$LIBS -lglut"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
+                                gl=yes
 			else
 				echo "OpenGL (GLUT) libraries not found or not usable."
 			fi
@@ -641,7 +662,7 @@ AC_SUBST(GL_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
-
+fastdxt=no
 COMPRESS_OBJ=
 
 AC_ARG_ENABLE(fastdxt, 
@@ -668,6 +689,7 @@ then
 	COMPRESS_OBJ="$COMPRESS_OBJ src/video_compress.o"
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 	LINKER=$CXX
+        fastdxt=yes
 else
 	DXT_INC=
 	DXT_LIB=
@@ -686,6 +708,7 @@ CPPFLAGS+=" $X_CFLAGS"
 AC_SUBST(CFLAGS)
 SAVED_LIBS=$LIBS
 LIBS+=" $X_LIBS"
+rtdxt=no
 
 AC_CHECK_LIB(GLUT, glutInit)
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
@@ -702,6 +725,7 @@ then
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/dxt_glsl_compress.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
+        rtdxt=yes
 else
         CFLAGS=$SAVED_CFLAGS
         CPPFLAGS=$SAVED_CPPFLAGS
@@ -716,6 +740,7 @@ AC_SUBST(DXT_GLSL_CFLAGS)
 SAGE_OBJ=
 SAGE_INC=
 SAGE_LIB=
+sage=no
 
 AC_ARG_ENABLE(sage, 
 	[  --enable-sage           enable SAGE display support],
@@ -741,6 +766,7 @@ then
     SAGE_OBJ="$SAGE_OBJ src/video_display/sage.o src/video_display/sage_wrapper.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
+    sage=yes
 else
     SAGE_INC=
     SAGE_LIB=
@@ -758,6 +784,7 @@ AC_SUBST(LINKER)
 PORTAUDIO_INC=
 PORTAUDIO_LIB=
 PORTAUDIO_OBJ=
+portaudio=no
 
 AC_ARG_ENABLE(portaudio, 
 	[  --enable-portaudio      enable Portaudio framework support],
@@ -787,6 +814,7 @@ then
     CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
     PORTAUDIO_OBJ="src/audio/portaudio.o"
     AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
+    portaudio=yes
 else
     PORTAUDIO_INC=
     PORTAUDIO_LIB=
@@ -797,9 +825,12 @@ AC_SUBST(PORTAUDIO_INC)
 AC_SUBST(PORTAUDIO_LIB)
 AC_SUBST(PORTAUDIO_OBJ)
 
+# -------------------------------------------------------------------------------------------------
 #
 # Jack stuff
 #
+jack=no
+
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 AC_CHECK_LIB(jack, jack_client_new, FOUND_JACK_L=yes, FOUND_JACK_L=no)
 if test $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
@@ -807,6 +838,7 @@ then
     JACK_OBJ="src/audio/jack.o"
     JACK_LIB="-ljack"
     AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
+    jack=yes
 fi
 AC_SUBST(JACK_OBJ)
 AC_SUBST(JACK_LIB)
@@ -818,4 +850,27 @@ AC_SUBST(JACK_INC)
 AC_CONFIG_HEADER(src/config.h)
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+AC_MSG_RESULT([
+Configuration summary:
+
+  Target ...................... $host
+  Debug output ................ $debug_output
+  Profiling support ........... $profile
+  IPv6 support ................ $ipv6
+
+  DeckLink .................... $decklink
+  DVS ......................... $dvs
+  Linsys Quad ................. $quad
+  OpenGL ...................... $gl
+  Quicktime ................... $quicktime
+  SAGE ........................ $sage
+  SDL ......................... $sdl
+  
+  Portaudio ................... $portaudio
+  Jack transport .............. $jack
+  
+  FastDXT ..................... $fastdxt
+  Realtime DXT (OpenGL) ....... $rtdxt
+])
 

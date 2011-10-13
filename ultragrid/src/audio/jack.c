@@ -194,12 +194,12 @@ static int settings_init(struct state_jack *s, char *cfg)
                 printf("JACK config:\n"
                         "\t-j ({tok1|tok2...tokn-1},)*{tokn}\n\n"
                         "\tTokens:\n"
-                        "\t\tpi[=name]\t\tcatch sound from JACK instead of from RTP (optionally select port)\n"
+                        "\t\tpi[=<name>]\t\tcatch sound from JACK instead of from RTP (optionally select port)\n"
                         "\n"
-                        "\t\tpo[=name]\t\tsend sound output via JACK with (optional) port name.\n"
+                        "\t\tpo[=<name>]\t\tsend sound output via JACK with (optional) port name.\n"
                         "\t\t\t\t\tIf name not specified, let Jack select (probably system output!)\n"
                         "\n"
-                        "\t\tch=count\t\tcount of input (!) JACK ports to listen at (matching RE above)\n"
+                        "\t\tch=<count>\t\tcount of input (!) JACK ports to listen at (matching RE above)\n"
                         "\t\t\t\t\tYou should set it for input, otherwise the count defaults to 0.\n"
                         );
                 exit(0);

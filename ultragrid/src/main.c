@@ -146,24 +146,32 @@ static void signal_handler(int signal)
 static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
-        printf("Usage: uv [-d <display_device>] [-g <display_cfg>] [-t <capture_device>] [-g <capture_cfg>]\n");
-        printf("          [-m <mtu>] [-r <audio_playout>] [-s <audio_caputre>] [-c] [-i] address(es)\n\n");
+        printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] \n");
+        printf("          [-m <mtu>] [-c] [-i] address(es)\n\n");
         printf
-            ("\t-d <display_device>:<cfg>  \tselect display device, use '-d help' to get\n");
+            ("\t-d <display_device>        \tselect display device, use '-d help' to get\n");
         printf("\t                         \tlist of supported devices\n");
         printf("\n");
         printf
-            ("\t-t <capture_device>:<cfg>  \tselect capture device, use '-t help' to get\n");
+            ("\t-t <capture_device>        \tselect capture device, use '-t help' to get\n");
         printf("\t                         \tlist of supported devices\n");
         printf("\n");
-        printf("\t-c <cfg>                 \tcompress video (see -c for help)\n");
+        printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
         printf("\t-i                       \tiHDTV compatibility mode\n");
         printf("\n");
+        printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
+        printf("\n");
+        printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
+        printf("\n");
+        printf("\t-j <settings>            \tJACK Audio Connection Kit settings (see '-j help')\n");
+        printf("\n");
         printf("\taddress(es)              \tdestination address\n");
+        printf("\n");
         printf("\t                         \tIf comma-separated list of addresses\n");
         printf("\t                         \tis entered, video frames are split\n");
         printf("\t                         \tand chunks are sent/received independently.\n");
+        printf("\n");
 }
 
 void show_compress_help()
@@ -609,7 +617,7 @@ int main(int argc, char *argv[])
                                 return 0;
                         }
                         uv->requested_display = strtok_r(optarg, ":", &save_ptr);
-                        if(strlen(save_ptr) > 0)
+                        if(save_ptr && strlen(save_ptr) > 0)
                                 display_cfg = save_ptr;
                         break;
                 case 't':
@@ -618,7 +626,7 @@ int main(int argc, char *argv[])
                                 return 0;
                         }
                         uv->requested_capture = strtok_r(optarg, ":", &save_ptr);
-                        if(strlen(save_ptr) > 0)
+                        if(save_ptr && strlen(save_ptr) > 0)
                                 capture_cfg = save_ptr;
                         break;
                 case 'm':

@@ -185,9 +185,6 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         char *tmp, *unused;
         char *addr;
         
-        if(!send_cfg && !recv_cfg)
-                return NULL;
-        
         if (send_cfg != NULL &&
                         !strcmp("help", send_cfg)) {
                 print_audio_devices(AUDIO_IN);
