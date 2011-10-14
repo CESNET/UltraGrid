@@ -326,6 +326,8 @@ volatile int worker_waiting;
                                     decoded */
         int audio_fifo_required_size;
         int output_audio_channel_count;
+        
+        unsigned int mode_set_manually:1;
 };
 
 static void show_help(void);
@@ -499,6 +501,16 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         /* Wait for the worker to finish... */
         while (!s->worker_waiting);
 
+        s->frame.color_spec = color_spec;
+        s->frame.width = width;
+        s->frame.height = height;
+        s->frame.dst_bpp = get_bpp(color_spec);
+        s->frame.src_bpp = s->frame.dst_bpp; /* memcpy */
+        s->frame.fps = fps;
+        s->frame.aux = aux;
+        
+        if(s->mode_set_manually) return;
+
         s->mode = NULL;
         for(i=0; hdsp_mode_table[i].width != 0; i++) {
                 if(hdsp_mode_table[i].width == width &&
@@ -516,14 +528,6 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                                 width, height, color_spec, fps, aux);
                 return;
         }
-
-        s->frame.color_spec = color_spec;
-        s->frame.width = width;
-        s->frame.height = height;
-        s->frame.dst_bpp = get_bpp(color_spec);
-        s->frame.src_bpp = s->frame.dst_bpp; /* memcpy */
-        s->frame.fps = fps;
-        s->frame.aux = aux;
 
         hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
 
@@ -594,6 +598,8 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
         s = (struct state_hdsp *)calloc(1, sizeof(struct state_hdsp));
         s->magic = HDSP_MAGIC;
 
+        s->mode_set_manually = FALSE;
+        
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
 			show_help();
@@ -613,6 +619,7 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
                 }
                 mode_index = atoi(tmp);
                 tmp = strtok(NULL, ":");
+                
                 if (tmp) {
                         s->frame.color_spec = 0xffffffff;
                         for (i = 0; codec_info[i].name != NULL; i++) {
@@ -665,6 +672,7 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
 
         if(s->mode) {
                 reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec, s->mode->fps, s->mode->aux);
+                s->mode_set_manually = TRUE;
         }
 
         pthread_mutex_init(&s->lock, NULL);
