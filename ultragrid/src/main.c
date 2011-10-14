@@ -659,6 +659,9 @@ int main(int argc, char *argv[])
                                 uv->requested_compression = COMPRESS_DXT_CPU;
                                 if(optarg[strlen("FastDXT")] == ':')
                                         compress_options = strlen("FastDXT") + 1;
+                        } else {
+                                fprintf("Unknown compression!\n");
+                                exit(EXIT_FAIL_USAGE);
                         }
                         break;
                 case 'i':
