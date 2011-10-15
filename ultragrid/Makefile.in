@@ -7,7 +7,7 @@ CFLAGS        = -fPIC @DEFS@ @CFLAGS@ @X_CFLAGS@
 CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = @CXXFLAGS@
 LDFLAGS      =  @LDFLAGS@
-LIBS          = @DVS_LIB@ @DXT_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
+LIBS          = @DXT_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
                 @X_LIBS@ @X_EXTRA_LIBS@ @JACK_LIB@ @MATHLIBS@ @LIBS@ -lm -pthread
 INC           = -I.. -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_INC@
@@ -17,6 +17,15 @@ PERF          = bin/uv_perf
 BUNDLE        = uv.app
 DVS_UV_LIB    = @DVS_UV_LIB@
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
+
+PREFIX = @prefix@
+prefix = $(PREFIX)
+exec_prefix = @exec_prefix@
+INSTALL = @INSTALL@
+bindir = @bindir@
+libdir = @libdir@
+datadir = @datadir@
+uv_datadir = @datadir@/ultragrid/
 
 OBJS          = src/bitstream.o \
 		src/debug.o \
@@ -219,6 +228,18 @@ $(DVS_UV_LIB): $(DVS_UV_LIB_OBJ)
 	mkdir -p lib/
 	$(LINKER) $(CFLAGS) -shared -Wl,-soname,$(DVS_UV_LIB) $(DVS_UV_LIB_OBJ) $(DVS_UV_LIB_LIB) -o $(DVS_UV_LIB)
 
-install:
-	cp -v $(TARGET) /usr/local/bin/
-	if [ -f "$(DVS_UV_LIB)" ]; cp -v "$(DVS_UV_LIB)" /usr/local/lib/
+install: all
+	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
+	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
+	if [ -f "$(DVS_UV_LIB)" ]; then\
+		$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(libdir);\
+		$(INSTALL) -m 644 "$(DVS_UV_LIB)" $(DESTDIR)/$(libdir);\
+	fi
+	$(INSTALL) -d -m 755 $(DESTDIR)/$(uv_datadir)
+	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
+
+uninstall:
+	$(RM) $(DESTDIR)/$(bindir)/uv
+	if [ -f "$(DVS_UV_LIB)" ]; then $(RM) $(DESTDIR)/$(libdir)/`echo $(DVS_UV_LIB)|sed 's/.*\///'`; fi
+	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
+	

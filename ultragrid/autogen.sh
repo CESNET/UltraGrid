@@ -9,5 +9,5 @@ cd $srcdir
 aclocal
 autoheader
 autoconf
-$srcdir/configure
+$srcdir/configure $@
 cd $ORIGDIR

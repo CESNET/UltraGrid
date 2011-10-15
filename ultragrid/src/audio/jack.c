@@ -307,7 +307,7 @@ void * jack_start(char *cfg)
                 int i;
                 
                 for(i = 0; i < MAX_PORTS; ++i) {
-                        snprintf(name, 30, "out_%2u", i);
+                        snprintf(name, 30, "out_%02u", i);
                         s->output_port[i] = jack_port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
                 }
                 
@@ -319,7 +319,7 @@ void * jack_start(char *cfg)
                 int i;
                 
                 for(i = 0; i < s->in_ch_count; ++i) {
-                        snprintf(name, 30, "in_%2u", i);
+                        snprintf(name, 30, "in_%02u", i);
                         s->input_port[i] = jack_port_register (s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
                 }
                 

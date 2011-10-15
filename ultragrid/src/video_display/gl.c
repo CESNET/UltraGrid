@@ -225,6 +225,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 #endif
 
         glutInit(&uv_argc, uv_argv);
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
 
