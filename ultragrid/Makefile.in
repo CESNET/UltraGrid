@@ -232,7 +232,7 @@ install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
 	if [ -f "$(DVS_UV_LIB)" ]; then\
-		$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(libdir);\
+		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir);\
 		$(INSTALL) -m 644 "$(DVS_UV_LIB)" $(DESTDIR)/$(libdir);\
 	fi
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(uv_datadir)

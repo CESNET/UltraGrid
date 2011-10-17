@@ -255,7 +255,7 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
 
 
         if(tx->aux & AUX_INTERLACED)
-                vc_deinterlace(compress->output_data, compress->frame.src_linesize,
+                vc_deinterlace(compress->output_data, compress->frame.dst_linesize,
                                 compress->frame.height);
 
 
