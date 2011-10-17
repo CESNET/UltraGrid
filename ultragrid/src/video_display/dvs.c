@@ -106,9 +106,9 @@ void * openDVSLibrary()
         
         if(stat("./" kLibName, &buf) == 0)
                 handle = dlopen("./" kLibName, RTLD_NOW|RTLD_GLOBAL);
-        else if(stat("./lib/" kLibName, &buf) == 0)
+        if(!handle && stat("./lib/" kLibName, &buf) == 0)
                 handle = dlopen("./lib/" kLibName, RTLD_NOW|RTLD_GLOBAL);
-        else {
+        if(!handle) {
                 char *path_to_self = strdup(uv_argv[0]);
                 char *path;
                 if(strrchr(path_to_self, '/')) {
@@ -124,7 +124,7 @@ void * openDVSLibrary()
                 }
                 if (stat(path, &buf) == 0)
                         handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
-                else
+                if(!handle)
                         handle = dlopen(kLibName, RTLD_NOW|RTLD_GLOBAL);
                 free(path);
                 free(path_to_self);
