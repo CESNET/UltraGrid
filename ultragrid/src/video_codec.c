@@ -54,6 +54,8 @@
 #include <string.h>
 #include "video_codec.h"
 
+static int get_halign(codec_t codec);
+
 const struct codec_info_t codec_info[] = {
         {RGBA, "RGBA", 0, 1, 4.0, 1},
         {UYVY, "UYVY", 846624121, 1, 2, 0},
@@ -97,6 +99,24 @@ double get_bpp(codec_t codec)
                 i++;
         }
         return 0;
+}
+
+static int get_halign(codec_t codec)
+{
+        int i = 0;
+
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].h_align;
+                i++;
+        }
+        return 0;
+}
+
+int get_haligned(int width_pixels, codec_t codec)
+{
+        int h_align = get_halign(codec);
+        return ((width_pixels + h_align - 1) / h_align) * h_align;
 }
 
 int vc_getsrc_linesize(unsigned int width, codec_t codec)

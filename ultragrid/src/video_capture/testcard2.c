@@ -434,10 +434,9 @@ void * vidcap_testcard2_thread(void *arg)
                 src_rect.x=0;
                 src_rect.y=0;
                 
+#ifdef HAVE_LIBSDL_TTF
                 r.y += (r.h - text->h) / 2;
                 r.x = (s->frame.width - src_rect.w) / 2;
-                
-#ifdef HAVE_LIBSDL_TTF
                 src_rect.w=text->w;
                 src_rect.h=text->h;
                 SDL_BlitSurface(text,  &src_rect,  copy, &r);

@@ -147,7 +147,17 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                         fprintf(stderr, "Input frame is already comperssed!");
                         exit(128);
         }
-        compress->frame.src_linesize = compress->frame.width * compress->frame.src_bpp;
+        
+        int h_align = 0;
+        int i;
+        for(i = 0; codec_info[i].name != NULL; ++i) {
+                if(codec == codec_info[i].codec) {
+                        h_align = codec_info[i].h_align;
+                }
+        }
+        assert(h_align != 0);
+        compress->frame.src_linesize = ((width + h_align - 1) / h_align) * h_align;
+        compress->frame.src_linesize *= compress->frame.src_bpp;
         compress->frame.dst_linesize = compress->frame.width * 
                 (compress->frame.aux & AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
         compress->frame.color_spec = DXT1;

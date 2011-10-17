@@ -112,6 +112,7 @@ extern const struct codec_info_t codec_info[];
 
 void show_codec_help(char *mode);
 double get_bpp(codec_t codec);
+int get_haligned(int width_pixels, codec_t codec);
 
 int vc_getsrc_linesize(unsigned int width, codec_t codec);
 

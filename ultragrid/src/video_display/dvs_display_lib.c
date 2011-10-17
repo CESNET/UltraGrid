@@ -501,6 +501,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         /* Wait for the worker to finish... */
         while (!s->worker_waiting);
 
+        s->frame.decoder = (decoder_t)memcpy;     
         s->frame.color_spec = color_spec;
         s->frame.width = width;
         s->frame.height = height;
@@ -698,7 +699,7 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
         s->frame.state = s;
         s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
         s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
-        s->frame.decoder = (decoder_t)memcpy;     
+        
         return (void *)s;
 }
 

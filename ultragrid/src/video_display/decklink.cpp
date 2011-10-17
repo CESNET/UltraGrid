@@ -257,6 +257,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
         int tile_width, tile_height;
+        int h_align = 0;
 
         assert(s->magic == DECKLINK_MAGIC);
 
@@ -279,12 +280,14 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                 s->frame[i].fps = fps;
                 s->frame[i].aux = aux;
 
-                s->frame[i].data_len = tile_width * tile_height * s->frame[i].dst_bpp;
-                s->frame[i].dst_linesize = tile_width * s->frame[i].dst_bpp;
-                s->frame[i].src_linesize = tile_width * s->frame[i].src_bpp;
-                s->frame[i].dst_pitch = s->frame[i].dst_linesize;
-
+                s->frame[i].src_linesize = vc_getsrc_linesize(tile_width, color_spec);
+                assert(s->frame[i].src_linesize != 0);
+                
+                /* defaults, if not changed in a switch bellow */
                 s->frame[i].decoder = (decoder_t)memcpy;
+                s->frame[i].dst_linesize = s->frame[i].src_linesize;
+                s->frame[i].dst_pitch = s->frame[i].dst_linesize;
+                s->frame[i].data_len = s->frame[i].dst_pitch * tile_height;
 
                 switch (color_spec) {
                         case UYVY:
@@ -294,6 +297,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                                 break;
                         case v210:
                                 pixelFormat = bmdFormat10BitYUV;
+                                s->frame[i].dst_linesize = s->frame[i].dst_bpp * tile_width;
                                 break;
                         case RGBA:
                                 pixelFormat = bmdFormat8BitBGRA;
@@ -301,10 +305,19 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                         case R10k:
                                 pixelFormat = bmdFormat10BitRGB;
                                 break;
+                        case DVS10:
+                                pixelFormat = bmdFormat10BitYUV;
+                                s->frame[i].decoder = (decoder_t)vc_copylineDVS10toV210;
+                                s->frame[i].dst_bpp = get_bpp(v210);
+                                s->frame[i].dst_linesize = s->frame[i].dst_bpp * tile_width;
+                                s->frame[i].dst_pitch = get_haligned(tile_width, v210)
+                                                * s->frame[i].dst_bpp;
+                                s->frame[i].data_len = s->frame[i].dst_pitch * tile_height;
+                                break;
                         default:
                                 fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
                 }
-
+                
 
                 // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
                 if (s->state[i].deckLinkOutput->GetDisplayModeIterator(&displayModeIterator) != S_OK)
