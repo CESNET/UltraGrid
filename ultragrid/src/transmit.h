@@ -56,6 +56,6 @@ struct video_tx;
 
 struct video_tx *tx_init(unsigned mtu);
 void		 tx_done(struct video_tx *tx);
-void		 tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session);
-void             tx_send_multi(struct video_tx *tx, struct video_frame *frame, int count, struct rtp *rtp_session);
+void		 tx_send_tile(struct video_tx *tx, struct video_frame *frame, int x_pos, int y_pos, struct rtp *rtp_session);
+void             tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session);
 void             audio_tx_send(struct rtp *rtp_session, audio_frame *buffer);

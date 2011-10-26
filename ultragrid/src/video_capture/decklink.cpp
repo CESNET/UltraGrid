@@ -159,7 +159,7 @@ struct vidcap_decklink_state {
 	int			mode;
 	// void*			rtp_buffer;
 	unsigned int		next_frame_time; // avarege time between frames
-        struct video_frame      frame[MAX_DEVICES];
+        struct video_frame     *frame;
         struct audio_frame      audio;
         const struct codec_info_t *c_info;
         
@@ -435,10 +435,28 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 	bool device_found[MAX_DEVICES];
         for(int i = 0; i < s->devices_cnt; ++i)
                 device_found[i] = false;
+                
+        if (s->devices_cnt > 1) {
+                double x_cnt = sqrt(s->devices_cnt);
+                
+                int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                int y_count = s->devices_cnt / x_cnt;
+                s->frame = vf_alloc(x_count, y_count);
+                s->frame->desc.aux = AUX_TILED;
+        } else {
+                s->frame = vf_alloc(1, 1);
+                s->frame->desc.aux = 0;
+        }
+        
+        s->frame->desc.width = 0;
+        s->frame->desc.height = 0;
     
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i)
         {
+                int x_pos = i / s->frame->tiles[0].tile_info.x_count;
+                int y_pos = i % s->frame->tiles[0].tile_info.x_count;
+                struct tile * tile = tile_get(s->frame, x_pos, y_pos);
                 dnum = 0;
                 deckLink = NULL;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -535,30 +553,34 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 BMDTimeScale	frameRateScale;
 
                                                 // Obtain the display mode's properties
-                                                s->frame[i].aux = 0;
+                                                s->frame->desc.aux = 0;
 
-                                                s->frame[i].width = displayMode->GetWidth();
-                                                s->frame[i].height = displayMode->GetHeight();
-                                                s->frame[i].color_spec = s->c_info->codec;
+                                                tile->width = displayMode->GetWidth();
+                                                tile->height = displayMode->GetHeight();
+                                                if(y_pos == 0)
+                                                        s->frame->desc.width += tile->width;
+                                                if(x_pos == 0)
+                                                        s->frame->desc.height += tile->height;
+                                                s->frame->desc.color_spec = s->c_info->codec;
 
                                                 displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                                                s->frame[i].fps = (double)frameRateScale / (double)frameRateDuration;
-                                                s->next_frame_time = (int) (1000000 / s->frame[i].fps); // in microseconds
+                                                s->frame->desc.fps = (double)frameRateScale / (double)frameRateDuration;
+                                                s->next_frame_time = (int) (1000000 / s->frame->desc.fps); // in microseconds
                                                 switch(displayMode->GetFieldDominance()) {
                                                         case bmdLowerFieldFirst:
                                                         case bmdUpperFieldFirst:
-                                                                s->frame[i].aux |= AUX_INTERLACED;
+                                                                s->frame->desc.aux |= AUX_INTERLACED;
                                                                 break;
                                                         case bmdProgressiveFrame:
-                                                                s->frame[i].aux |= AUX_PROGRESSIVE;
+                                                                s->frame->desc.aux |= AUX_PROGRESSIVE;
                                                                 break;
                                                         case bmdProgressiveSegmentedFrame:
-                                                                s->frame[i].aux |= AUX_SF;
+                                                                s->frame->desc.aux |= AUX_SF;
                                                                 break;
                                                 }
 
                                                 debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
-                                                                s->frame[i].width, s->frame[i].height, s->frame[i].fps, s->next_frame_time); /* TOREMOVE */  
+                                                                tile->width, tile->height, s->frame->desc.fps, s->next_frame_time); /* TOREMOVE */  
 
                                                 deckLinkInput->StopStreams();
 
@@ -654,39 +676,12 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                         }
                 }
 		deckLinkIterator->Release();
-                
-                switch (s->c_info->codec)
-                {
-                        case v210:
-                                s->frame[i].aux |= AUX_10Bit;
-                        case Vuy2:
-                                s->frame[i].aux |= AUX_YUV;
-                                break;
-                        case R10k:
-                                s->frame[i].aux |= AUX_10Bit;
-                                break;
-                }
 
-                if(s->c_info->h_align) {
-                   s->frame[i].src_linesize = ((s->frame[i].width + s->c_info->h_align - 1) / s->c_info->h_align) * 
-                        s->c_info->h_align;
-                } else {
-                     s->frame[i].src_linesize = s->frame[i].width;
-                }
-                s->frame[i].src_linesize *= s->c_info->bpp;
-                s->frame[i].data_len = s->frame[i].src_linesize * s->frame[i].height;
-                if (s->devices_cnt > 1) {
-                        double x_cnt = sqrt(s->devices_cnt);
-                        s->frame[i].aux |= AUX_TILED;
-                        s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                        s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
-                        s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
-                        s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
-                }
-                
-                // init mutex
+                tile->linesize = vc_get_linesize(tile->width, s->frame->desc.color_spec);
+                tile->data_len = tile->linesize * tile->height;
         }
 
+        // init mutex
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
         
@@ -767,7 +762,7 @@ vidcap_decklink_done(void *state)
 }
 
 struct video_frame *
-vidcap_decklink_grab(void *state, int * count, struct audio_frame **audio)
+vidcap_decklink_grab(void *state, struct audio_frame **audio)
 {
 	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
 
@@ -866,18 +861,20 @@ vidcap_decklink_grab(void *state, int * count, struct audio_frame **audio)
 	pthread_mutex_unlock(&s->lock);
 
         /* count returned tiles */
-        *count = 0;
+        int count = 0;
         for (i = 0; i < s->devices_cnt; ++i) {
                 if (s->state[i].delegate->pixelFrame != NULL) {
-                        s->frame[i].data = (char*)s->state[i].delegate->pixelFrame;
+                        s->frame->tiles[i].data = (char*)s->state[i].delegate->pixelFrame;
                         if(s->c_info->codec == RGBA) {
-                            vc_copylineRGBA((unsigned char*)s->frame[i].data, (unsigned char*)s->frame[i].data, s->frame[i].data_len, 16, 8, 0);
+                            vc_copylineRGBA((unsigned char*) s->frame->tiles[i].data,
+                                        (unsigned char*)s->frame->tiles[i].data,
+                                        s->frame->tiles[i].data_len, 16, 8, 0);
                         }
-                        ++*count;
+                        ++count;
                 } else
                         break;
         }
-        if (*count == s->devices_cnt) {
+        if (count == s->devices_cnt) {
                 s->frames++;
                 
                 if(s->state[0].delegate->audioFrame != NULL) {
@@ -897,7 +894,7 @@ vidcap_decklink_grab(void *state, int * count, struct audio_frame **audio)
 
                 return s->frame;
         }
-        *count = 0;
+        
 	return NULL;
 }
 

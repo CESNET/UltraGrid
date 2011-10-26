@@ -65,7 +65,7 @@ dxt_decoder_buffer_allocate(struct dxt_decoder* decoder, unsigned char** image, 
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-dxt_decoder_decompress(struct dxt_decoder* encoder, unsigned char* image_compressed, int image_compressed_size, DXT_IMAGE_TYPE* image);
+dxt_decoder_decompress(struct dxt_decoder* encoder, unsigned char* image_compressed, DXT_IMAGE_TYPE* image);
 
 /**
  * Free buffer for decompressed image

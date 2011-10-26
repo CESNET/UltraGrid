@@ -76,7 +76,7 @@ struct vidcap_device_api {
         struct vidcap_type *(*func_probe) (void);
         void *(*func_init) (char *fmt, unsigned int flags);
         void (*func_done) (void *state);
-        struct video_frame *(*func_grab) (void *state, int *count, struct audio_frame **audio);
+        struct video_frame *(*func_grab) (void *state, struct audio_frame **audio);
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
@@ -124,6 +124,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_testcard_done,
          vidcap_testcard_grab},
 #ifdef HAVE_SDL
+#if 0
         {
          /* Dummy sender for testing purposes */
          0,
@@ -131,6 +132,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_testcard2_init,
          vidcap_testcard2_done,
          vidcap_testcard2_grab},
+#endif
 #endif /* HAVE_SDL */
         {
          0,
@@ -229,8 +231,8 @@ void vidcap_done(struct vidcap *state)
         free(state);
 }
 
-struct video_frame *vidcap_grab(struct vidcap *state, int *count, struct audio_frame **audio)
+struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        return vidcap_device_table[state->index].func_grab(state->state, count, audio);
+        return vidcap_device_table[state->index].func_grab(state->state, audio);
 }

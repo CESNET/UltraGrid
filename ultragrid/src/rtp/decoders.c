@@ -37,11 +37,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1.2.8 $
- * $Date: 2010/02/05 13:56:49 $
- *
  */
 
+#include "common.h"
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -52,8 +50,216 @@
 #include "rtp/pbuf.h"
 #include "rtp/decoders.h"
 #include "video_codec.h"
+#include "video_display.h"
 
-void decode_frame(struct coded_data *cdata, struct video_frame *frame)
+struct state_decoder;
+
+struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc *desc,
+                                struct tile_info *tileinfo,
+                                struct video_frame *frame);
+static void configure_tiled_to_merged_fb(struct state_decoder * const decoder, struct video_desc *desc,
+                                struct video_frame *frame);
+
+struct line_decoder {
+        int                  base_offset; /* from the beginning of buffer */
+        double               src_bpp;
+        double               dst_bpp;
+        int                  rshift;
+        int                  gshift;
+        int                  bshift;
+        decoder_t            decode_line;
+        unsigned int         dst_linesize; /* framebuffer pitch */
+        unsigned int         dst_pitch; /* framebuffer pitch - it can be larger if SDL resolution is larger than data */
+        unsigned int         src_linesize; /* display data pitch */
+};
+
+struct state_decoder {
+        struct video_desc received_vid_desc;
+        
+        int               requested_pitch;
+        int               rshift, gshift, bshift;
+        
+        struct display   *display;
+        codec_t          *native_codecs;
+        int               native_count;
+        
+        struct line_decoder *line_decoder;
+        unsigned          merged_fb:1;
+};
+
+struct state_decoder *decoder_init()
+{
+        struct state_decoder *s;
+        
+        s = (struct state_decoder *) calloc(1, sizeof(struct state_decoder));
+        
+        return s;
+}
+
+void decoder_register_video_display(struct state_decoder *decoder, struct display *display)
+{
+        decoder->display = display;
+}
+
+void decoder_destroy(struct state_decoder *decoder)
+{
+        free(decoder->native_codecs);
+        free(decoder);
+}
+
+void decoder_register_native_codecs(struct state_decoder *decoder, codec_t *codecs, int len)
+{
+        decoder->native_codecs = malloc(len);
+        memcpy(decoder->native_codecs, codecs, len);
+        decoder->native_count = len / sizeof(codec_t);
+}
+
+void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift,
+                int bshift, int pitch)
+{
+        decoder->rshift = rshift;
+        decoder->gshift = gshift;
+        decoder->bshift = bshift;
+        decoder->requested_pitch = pitch;
+}
+
+void decoder_post_reconfigure(struct state_decoder *decoder)
+{
+        decoder->received_vid_desc.width = 0;
+}
+
+struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc *desc,
+                                struct tile_info *tile_info,
+                                struct video_frame *frame)
+{
+        codec_t in_codec, out_codec;
+        decoder_t decode_line = NULL;
+        
+        assert(decoder != NULL);
+        assert(decoder->native_codecs != NULL);
+        
+        free(decoder->line_decoder);
+        
+        in_codec = desc->color_spec;
+        
+        /* first deal with aliases */
+        if(in_codec == DVS8 || in_codec == Vuy2) {
+                in_codec = UYVY;
+        }
+        
+        int native;
+        for(native = 0; native < decoder->native_count; ++native)
+        {
+                int trans;
+                out_codec = decoder->native_codecs[native];
+                if(out_codec == DVS8 || out_codec == Vuy2)
+                        out_codec = UYVY;
+                        
+                for(trans = 0; line_decoders[trans].decoder != NULL;
+                                ++trans) {
+                        if(in_codec == line_decoders[trans].from &&
+                                        out_codec == line_decoders[trans].to) {
+                                                
+                                decode_line = line_decoders[trans].decoder;
+                                goto after_lookup;
+                        }
+                }
+                // we didn't find a decoder, but this is a native one
+                if(in_codec == out_codec) {
+                        decode_line = memcpy;
+                        goto after_lookup;
+                }
+        }
+        
+after_lookup:
+        if(decode_line == NULL) {
+                error_with_code_msg(128, "Unable to find decoder for input codec.");
+        }
+        
+        display_put_frame(decoder->display, frame);
+        /* give video display opportunity to pass us pitch */        
+        frame->reconfigure(frame->state, desc->width,
+                                        desc->height,
+                                        out_codec, desc->fps, desc->aux);
+        frame = display_get_frame(decoder->display);
+        
+        decoder->line_decoder = malloc(tile_info->x_count * tile_info->y_count *
+                                sizeof(struct line_decoder));
+        
+        int pitch;
+        
+        if(decoder->requested_pitch > 0)
+                pitch = decoder->requested_pitch;
+        else
+                pitch = vc_get_linesize(desc->width, out_codec);
+        
+        if(frame->grid_width == 1 && frame->grid_height == 1 && tile_info->x_count == 1 && tile_info->y_count == 1) {
+                struct line_decoder *out = &decoder->line_decoder[0];
+                out->base_offset = 0;
+                out->src_bpp = get_bpp(in_codec);
+                out->dst_bpp = get_bpp(out_codec);
+                out->rshift = decoder->rshift;
+                out->gshift = decoder->gshift;
+                out->bshift = decoder->bshift;
+
+                out->decode_line = decode_line;
+                out->dst_pitch = pitch;
+                out->src_linesize = vc_get_linesize(desc->width, in_codec);
+                out->dst_linesize = vc_get_linesize(desc->width, out_codec);
+                decoder->merged_fb = TRUE;
+        } else if(frame->grid_width == 1 && frame->grid_height == 1
+                        && (tile_info->x_count != 1 || tile_info->y_count != 1)) {
+                int x, y;
+                for(x = 0; x < tile_info->x_count; ++x) {
+                        for(y = 0; y < tile_info->y_count; ++y) {
+                                struct line_decoder *out = &decoder->line_decoder[x + 
+                                                tile_info->x_count * y];
+                                out->base_offset = y * (desc->height / tile_info->y_count)
+                                                * pitch + 
+                                                vc_get_linesize(x * desc->width / tile_info->x_count, out_codec);
+                                out->src_bpp = get_bpp(in_codec);
+                                out->dst_bpp = get_bpp(out_codec);
+                                out->rshift = decoder->rshift;
+                                out->gshift = decoder->gshift;
+                                out->bshift = decoder->bshift;
+        
+                                out->decode_line = decode_line;
+                                out->dst_pitch = pitch;
+                                out->src_linesize =
+                                        vc_get_linesize(desc->width / tile_info->x_count, in_codec);
+                                out->dst_linesize =
+                                        vc_get_linesize(desc->width / tile_info->x_count, out_codec);
+                        }
+                }
+                decoder->merged_fb = TRUE;
+        } else if(frame->grid_width == tile_info->x_count && frame->grid_height == tile_info->y_count) {
+                int x, y;
+                for(x = 0; x < tile_info->x_count; ++x) {
+                        for(y = 0; y < tile_info->y_count; ++y) {
+                                struct line_decoder *out = &decoder->line_decoder[x + 
+                                                tile_info->x_count * y];
+                                out->base_offset = 0;
+                                out->src_bpp = get_bpp(in_codec);
+                                out->dst_bpp = get_bpp(out_codec);
+                                out->rshift = decoder->rshift;
+                                out->gshift = decoder->gshift;
+                                out->bshift = decoder->bshift;
+        
+                                out->decode_line = decode_line;
+                                out->src_linesize =
+                                        vc_get_linesize(desc->width / tile_info->x_count, in_codec);
+                                out->dst_pitch = 
+                                        out->dst_linesize =
+                                        vc_get_linesize(desc->width / tile_info->x_count, out_codec);
+                        }
+                }
+                decoder->merged_fb = FALSE;
+        }
+        
+        return frame;
+}
+
+void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct state_decoder *decoder)
 {
         uint32_t width;
         uint32_t height;
@@ -68,15 +274,12 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
         uint32_t data_pos;
         int prints=0;
         double fps;
-        struct video_frame *tile, *data;
+        struct tile *tile;
 
-        perf_record(UVP_DECODEFRAME, frame);
+        perf_record(UVP_DECODEFRAME, framebuffer);
 
         if(!frame)
                 return;
-
-        tile = malloc(sizeof(struct video_frame));
-        data = tile;
 
         while (cdata != NULL) {
                 pckt = cdata->data;
@@ -89,35 +292,46 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 fps = ntohl(hdr->fps)/65536.0;
                 aux = ntohl(hdr->aux);
                 tile_info = ntoh_uint2tileinfo(hdr->tileinfo);
-
+                
+                if(aux & AUX_TILED) {
+                        width = width * tile_info.x_count;
+                        height = height * tile_info.y_count;
+                } else {
+                        tile_info.x_count = 1;
+                        tile_info.y_count = 1;
+                        tile_info.pos_x = 0;
+                        tile_info.pos_y = 0;
+                }
+                
                 /* Critical section 
                  * each thread *MUST* wait here if this condition is true
                  */
-                if (!(frame->width == (aux & AUX_TILED ? width * tile_info.x_count : width) &&
-                      frame->height == (aux & AUX_TILED ? height * tile_info.y_count : height) &&
-                      frame->color_spec == color_spec &&
-                      frame->aux == aux &&
-                      frame->fps == fps
+                if (!(decoder->received_vid_desc.width == width &&
+                      decoder->received_vid_desc.height == height &&
+                      decoder->received_vid_desc.color_spec == color_spec &&
+                      decoder->received_vid_desc.aux == aux &&
+                      decoder->received_vid_desc.fps == fps
                       )) {
-                        int frame_width = aux & AUX_TILED ? width * tile_info.x_count : width;
-                        int frame_height = aux & AUX_TILED ? height * tile_info.y_count : height;
-
-                        frame->src_linesize = vc_getsrc_linesize(frame_width, color_spec);
-                        frame->reconfigure(frame->state, frame_width,
-                                        frame_height,
-                                        color_spec, fps, aux);
+                        decoder->received_vid_desc.width = width;
+                        decoder->received_vid_desc.height = height;
+                        decoder->received_vid_desc.color_spec = color_spec;
+                        decoder->received_vid_desc.aux = aux;
+                        decoder->received_vid_desc.fps = fps;
+                        
+                        frame = reconfigure_decoder(decoder, &decoder->received_vid_desc,
+                                        &tile_info, frame);
                 }
-                if (aux & AUX_TILED) {
-                        frame->get_sub_frame(frame->state,
-                                        tile_info.pos_x * frame->width / tile_info.x_count,
-                                        tile_info.pos_y * frame->height / tile_info.y_count,
-                                        frame->width / tile_info.x_count,
-                                        frame->height / tile_info.y_count,
-                                        data);
-                        tile = data;
+                
+                if (aux & AUX_TILED && !decoder->merged_fb) {
+                        tile = tile_get(frame, tile_info.pos_x, tile_info.pos_y);
                 } else {
-                        tile = frame;
+                        tile = tile_get(frame, 0, 0);
                 }
+                
+                struct line_decoder *line_decoder = 
+                        &decoder->line_decoder[tile_info.pos_x +
+                                tile_info.pos_y * tile_info.x_count];
+                
                 /* End of critical section */
 
                 /* MAGIC, don't touch it, you definitely break it 
@@ -127,16 +341,16 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                 /* compute Y pos in source frame and convert it to 
                  * byte offset in the destination frame
                  */
-                int y = (data_pos / tile->src_linesize) * tile->dst_pitch;
+                int y = (data_pos / line_decoder->src_linesize) * line_decoder->dst_pitch;
 
                 /* compute X pos in source frame */
-                int s_x = data_pos % tile->src_linesize;
+                int s_x = data_pos % line_decoder->src_linesize;
 
                 /* convert X pos from source frame into the destination frame.
                  * it is byte offset from the beginning of a line. 
                  */
-                int d_x = tile->dst_x_offset + ((int)((s_x) / tile->src_bpp)) *
-                        tile->dst_bpp;
+                int d_x = ((int)((s_x) / line_decoder->src_bpp)) *
+                        line_decoder->dst_bpp;
 
                 /* pointer to data payload in packet */
                 source = (unsigned char*)(pckt->data + sizeof(payload_hdr_t));
@@ -148,32 +362,32 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                         /* len id payload length in source BPP
                          * decoder needs len in destination BPP, so convert it 
                          */                        
-                        int l = ((int)(len / tile->src_bpp)) * tile->dst_bpp;
+                        int l = ((int)(len / line_decoder->src_bpp)) * line_decoder->dst_bpp;
 
                         /* do not copy multiple lines, we need to 
                          * copy (& clip, center) line by line 
                          */
-                        if (l + d_x > (int)tile->dst_linesize) {
-                                l = tile->dst_linesize - d_x;
+                        if (l + d_x > (int) line_decoder->dst_linesize) {
+                                l = line_decoder->dst_linesize - d_x;
                         }
 
                         /* compute byte offset in destination frame */
                         offset = y + d_x;
 
                         /* watch the SEGV */
-                        if (l + offset <= tile->data_len) {
+                        if (l + line_decoder->base_offset + offset <= tile->data_len) {
                                 /*decode frame:
                                  * we have offset for destination
                                  * we update source contiguously
                                  * we pass {r,g,b}shifts */
-                                tile->decoder((unsigned char*)tile->data + offset, source, l,
-                                               tile->rshift, tile->gshift,
-                                               tile->bshift);
+                                line_decoder->decode_line((unsigned char*)tile->data + line_decoder->base_offset + offset, source, l,
+                                               line_decoder->rshift, line_decoder->gshift,
+                                               line_decoder->bshift);
                                 /* we decoded one line (or a part of one line) to the end of the line
                                  * so decrease *source* len by 1 line (or that part of the line */
-                                len -= tile->src_linesize - s_x;
+                                len -= line_decoder->src_linesize - s_x;
                                 /* jump in source by the same amount */
-                                source += tile->src_linesize - s_x;
+                                source += line_decoder->src_linesize - s_x;
                         } else {
                                 /* this should not ever happen as we call reconfigure before each packet
                                  * iff reconfigure is needed. But if it still happens, something is terribly wrong
@@ -187,14 +401,12 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame)
                                 len = 0;
                         }
                         /* each new line continues from the beginning */
-                        d_x = tile->dst_x_offset;        /* next line from beginning */
+                        d_x = 0;        /* next line from beginning */
                         s_x = 0;
-                        y += tile->dst_pitch;  /* next line */
+                        y += line_decoder->dst_pitch;  /* next line */
                 }
 
                 cdata = cdata->nxt;
         }
-
-        free(data);
 }
 

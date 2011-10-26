@@ -70,7 +70,7 @@ static pthread_once_t DVSLibraryLoad = PTHREAD_ONCE_INIT;
 
 static void loadLibrary(void);
 
-typedef void *(*display_dvs_init_t)(char *fmt, unsigned int flags);
+typedef void *(*display_dvs_init_t)(char *fmt, unsigned int flags, struct state_decoder *);
 typedef void (*display_dvs_run_t)(void *state);
 typedef void (*display_dvs_done_t)(void *state);
 typedef struct video_frame *(*display_dvs_getf_t)(void *state);
@@ -115,7 +115,7 @@ void * openDVSLibrary()
                         *strrchr(path_to_self, '/') = '\0';
                         path = malloc(strlen(path_to_self) +
                                         strlen("/../lib/") +
-                                        kLibName + 1);
+                                        strlen(kLibName) + 1);
                         strcpy(path, path_to_self);
                         strcat(path, "/../lib/");
                         strcat(path, kLibName);
@@ -186,13 +186,13 @@ int display_dvs_putf(void *state, char *frame)
         return display_dvs_putf_func(state, frame);
 }
 
-void *display_dvs_init(char *fmt, unsigned int flags)
+void *display_dvs_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
 {
         pthread_once(&DVSLibraryLoad, loadLibrary);
         
         if (display_dvs_init_func == NULL)
                 return NULL;
-        return display_dvs_init_func(fmt, flags);
+        return display_dvs_init_func(fmt, flags, decoder);
 }
 
 void display_dvs_done(void *state)

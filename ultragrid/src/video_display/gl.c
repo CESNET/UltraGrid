@@ -77,18 +77,82 @@
 #include "video_display.h"
 #include "video_display/gl.h"
 #include "tv.h"
+#include "rtp/decoders.h"
 
 #define MAGIC_GL	DISPLAY_GL_ID
 #define WIN_NAME        "Ultragrid - OpenGL Display"
 
-enum gl_texfmt_t {
-        UV_GL_RGB,
-        UV_GL_DXT1_RGB,
-        UV_GL_YUV,
-        UV_GL_DXT1_YUV,
-        UV_GL_DXT5_YCOCG,
-        
-};
+
+// source code for a shader unit (xsedmik)
+static char * glsl = "\
+uniform sampler2D Ytex;\
+uniform sampler2D Utex,Vtex;\
+\
+void main(void) {\
+float nx,ny,r,g,b,y,u,v;\
+vec4 txl,ux,vx;\
+nx=gl_TexCoord[0].x;\
+ny=gl_TexCoord[0].y;\
+y=texture2D(Ytex,vec2(nx,ny)).r;\
+u=texture2D(Utex,vec2(nx,ny)).r;\
+v=texture2D(Vtex,vec2(nx,ny)).r;\
+y=1.1643*(y-0.0625);\
+u=u-0.5;\
+v=v-0.5;\
+r=y+1.5958*v;\
+g=y-0.39173*u-0.81290*v;\
+b=y+2.017*u;\
+gl_FragColor=vec4(r,g,b,1.0);\
+}";
+
+/* DXT related -- there shoud be only one kernel 
+ * since both do basically the same thing */
+static char * frag = "\
+uniform sampler2D yuvtex;\
+\
+void main(void) {\
+vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);\
+\
+float Y = col[0];\
+float U = col[1]-0.5;\
+float V = col[2]-0.5;\
+Y=1.1643*(Y-0.0625);\
+\
+float G = Y-0.39173*U-0.81290*V;\
+float B = Y+2.017*U;\
+float R = Y+1.5958*V;\
+\
+gl_FragColor=vec4(R,G,B,1.0);}";
+
+static char * vert = "\
+void main() {\
+gl_TexCoord[0] = gl_MultiTexCoord0;\
+gl_Position = ftransform();}";
+
+static const char fp_display_dxt5ycocg[] = 
+    "#extension GL_EXT_gpu_shader4 : enable\n"
+    "uniform sampler2D _image;\n"
+    "void main()\n"
+    "{\n"
+    "    vec4 _rgba;\n"
+    "    float _scale;\n"
+    "    float _Co;\n"
+    "    float _Cg;\n"
+    "    float _R;\n"
+    "    float _G;\n"
+    "    float _B;\n"
+    "    _rgba = texture2D(_image, gl_TexCoord[0].xy);\n"
+    "    _scale = 1.00000000E+00/(3.18750000E+01*_rgba.z + 1.00000000E+00);\n"
+    "    _Co = (_rgba.x - 5.01960814E-01)*_scale;\n"
+    "    _Cg = (_rgba.y - 5.01960814E-01)*_scale;\n"
+    "    _R = (_rgba.w + _Co) - _Cg;\n"
+    "    _G = _rgba.w + _Cg;\n"
+    "    _B = (_rgba.w - _Co) - _Cg;\n"
+    "    _rgba = vec4(_R, _G, _B, 1.00000000E+00);\n"
+    "    gl_FragColor = _rgba;\n"
+    "    return;\n"
+    "} // main end\n"
+;
 
 /* defined in main.c */
 extern int uv_argc;
@@ -96,6 +160,7 @@ extern int should_exit;
 extern char **uv_argv;
 
 struct state_gl {
+        struct state_decoder *decoder;
 	GLubyte		*y, *u, *v;	//Guess what this might be...
 
 	GLhandleARB     VSHandle,FSHandle,PHandle;
@@ -121,10 +186,10 @@ struct state_gl {
         int             window;
 
 	unsigned	fs:1;
-        enum gl_texfmt_t gl_texfmt;
         unsigned        deinterlace:1;
 
-        struct video_frame frame;
+        struct video_frame *frame;
+        struct tile     *tile;
         volatile int    needs_reconfigure:1;
         pthread_mutex_t reconf_lock;
         pthread_cond_t  reconf_cv;
@@ -165,8 +230,6 @@ void glut_redisplay_callback(void);
 void glut_key_callback(unsigned char key, int x, int y);
 void glut_close_callback(void);
 void glut_resize_window(struct state_gl *s);
-
-static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
 
 /**
  * Show help
@@ -216,7 +279,7 @@ void gl_check_error()
 		exit(1);
 }
 
-void * display_gl_init(char *fmt, unsigned int flags) {
+void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *decoder) {
         UNUSED(flags);
 	struct state_gl        *s;
         
@@ -228,7 +291,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
-
+        s->decoder = decoder;
+        
         /* GLUT callbacks take only some arguments so we need static variable */
         gl = s;
 
@@ -242,6 +306,11 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         s->fs = FALSE;
         s->deinterlace = FALSE;
         s->video_aspect = 0.0;
+        
+        codec_t native[] = {UYVY, RGBA, DXT1, DXT5};
+        decoder_register_native_codecs(decoder, native, sizeof(native));
+        decoder_set_param(s->decoder, 0, 8, 16,
+                0);
 
 	// parse parameters
 	if (fmt != NULL) {
@@ -273,15 +342,18 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 		free(tmp);
 	}
 
-        s->frame.reconfigure = (reconfigure_t) gl_reconfigure_screen_post;
-        s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
-        s->frame.state = s;
+        s->frame = vf_alloc(1, 1);
+        s->tile = tile_get(s->frame, 0, 0);
+
+        s->frame->reconfigure = (reconfigure_t) gl_reconfigure_screen_post;
+        s->frame->state = s;
         s->win_initialized = FALSE;
 
+        
         s->frames = 0ul;
         gettimeofday(&s->tv, NULL);
 
-        fprintf(stdout,"GL setup: %dx%d, fullscreen: %s, deinterlace: %s\n", s->frame.width, s->frame.height,
+        fprintf(stdout,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
 
         platform_sem_init(&s->semaphore, 0, 0);
@@ -453,11 +525,16 @@ void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int heig
 {
         struct state_gl	*s = (struct state_gl *) arg;
 
-        s->frame.width = width;
-        s->frame.height = height;
-        s->frame.fps = fps;
-        s->frame.aux = aux;
-        s->frame.color_spec = codec;
+        assert (codec == RGBA ||
+                codec == UYVY ||
+                codec == DXT1 ||
+                codec == DXT5);
+
+        s->tile->width = s->frame->desc.width = width;
+        s->tile->height = s->frame->desc.height = height;
+        s->frame->desc.fps = fps;
+        s->frame->desc.aux = aux;
+        s->frame->desc.color_spec = codec;
 
         pthread_mutex_lock(&s->reconf_lock);
         s->needs_reconfigure = TRUE;
@@ -473,7 +550,7 @@ void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int heig
 void glut_resize_window(struct state_gl *s)
 {
         if (!s->fs) {
-                glutReshapeWindow(s->frame.height * s->aspect, s->frame.height);
+                glutReshapeWindow(s->tile->height * s->aspect, s->tile->height);
         } else {
                 glutFullScreen();
         }
@@ -486,144 +563,75 @@ void glut_resize_window(struct state_gl *s)
 void gl_reconfigure_screen(struct state_gl *s)
 {
         int i;
-	int h_align = 0;
 
         assert(s->magic == MAGIC_GL);
 
         if(s->win_initialized)
                 cleanup_data(s);
+        
+        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->desc.color_spec)
+                        * s->tile->height;
+        s->tile->data = (char *) malloc(s->tile->data_len);
 
-        s->frame.dst_x_offset = 0;
-
-        for(i = 0; codec_info[i].name != NULL; ++i) {
-                if(s->frame.color_spec == codec_info[i].codec) {
-                        s->frame.src_bpp = codec_info[i].bpp;
-                        h_align = codec_info[i].h_align;
-                }
-        }
-        assert(h_align != 0);
-
-        s->gl_texfmt = UV_GL_RGB;
-
-        s->frame.rshift = 0;
-        s->frame.gshift = 8;
-        s->frame.bshift = 16;
-
-        switch (s->frame.color_spec) {
-                case R10k:
-                        s->frame.decoder = (decoder_t)vc_copyliner10k;
-                        s->frame.dst_bpp = get_bpp(RGBA);
-                        s->gl_texfmt = UV_GL_RGB;
-                        break;
-                case RGBA:
-                        s->frame.decoder = (decoder_t)memcpy; /* or vc_copylineRGBA?
-                                                                 but we have default
-                                                                 {r,g,b}shift */
-                        s->gl_texfmt = UV_GL_RGB;
-                        s->frame.dst_bpp = get_bpp(RGBA);
-                        break;
-                case v210:
-                        s->frame.decoder = (decoder_t)vc_copylinev210;
-                        s->frame.dst_bpp = get_bpp(UYVY);
-                        s->gl_texfmt = UV_GL_YUV;
-                        break;
-                case DVS10:
-                        s->frame.decoder = (decoder_t)vc_copylineDVS10;
-                        s->frame.dst_bpp = get_bpp(UYVY);
-                        s->gl_texfmt = UV_GL_YUV;
-                        break;
-                case Vuy2:
-                case DVS8:
-                case UYVY:
-                        s->frame.decoder = (decoder_t)memcpy;
-                        s->frame.dst_bpp = get_bpp(UYVY);
-                        s->gl_texfmt = UV_GL_YUV;
-                        break;
-                case DXT1:
-                        if(s->frame.aux & AUX_RGB)
-                                s->gl_texfmt = UV_GL_DXT1_RGB;
-                        else
-                                s->gl_texfmt = UV_GL_DXT1_YUV;
-                                
-                        s->frame.decoder = (decoder_t)memcpy;
-                        s->frame.dst_bpp = get_bpp(DXT1);
-                        break;
-                case DXT5:
-                        /* expect DXT5 YCoCg */
-                        s->gl_texfmt = UV_GL_DXT5_YCOCG;
-                        s->frame.decoder = (decoder_t)memcpy;
-                        s->frame.dst_bpp = get_bpp(DXT5);
-                        break;
-                        
-        }
-
-        s->frame.src_linesize = s->frame.width;
-	s->frame.src_linesize = ((s->frame.src_linesize + h_align - 1) / h_align) * h_align;
-        s->frame.src_linesize *= s->frame.src_bpp;
-
-        s->frame.dst_linesize = s->frame.width * s->frame.dst_bpp;
-        s->frame.dst_pitch = s->frame.dst_linesize;
-        s->frame.data_len = s->frame.dst_linesize * s->frame.height;
-
-        s->frame.data = (char *) malloc(s->frame.data_len);
-	s->y=malloc(s->frame.width * s->frame.height);
-	s->u=malloc(s->frame.width * s->frame.height);
-	s->v=malloc(s->frame.width * s->frame.height);
+	s->y=malloc(s->tile->width * s->tile->height);
+	s->u=malloc(s->tile->width * s->tile->height);
+	s->v=malloc(s->tile->width * s->tile->height);
 
 	asm("emms\n");
         if(!s->video_aspect)
-                s->aspect = (double) s->frame.width / s->frame.height;
+                s->aspect = (double) s->tile->width / s->tile->height;
         else
                 s->aspect = s->video_aspect;
 
-	fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * s->frame.height), s->frame.height, s->frame.width, s->frame.height);
+	fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * s->tile->height),
+                        s->tile->height, s->tile->width, s->tile->height);
 	glut_resize_window(s);
 
 	glUseProgramObjectARB(0);
 
-        if(s->gl_texfmt == UV_GL_DXT1_RGB || s->gl_texfmt == UV_GL_DXT1_YUV) {
+        if(s->frame->desc.color_spec == DXT1) {
 		glBindTexture(GL_TEXTURE_2D,s->texture[0]);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-				s->frame.width, s->frame.height, 0,
-				(s->frame.width*s->frame.height/16)*8,
-				s->frame.data);
-		if(s->gl_texfmt == UV_GL_DXT1_YUV) {
+				s->tile->width, s->tile->height, 0,
+				(s->tile->width * s->tile->height/16)*8,
+				s->tile->data);
+		if(s->frame->desc.aux & AUX_YUV) {
 			glBindTexture(GL_TEXTURE_2D,s->texture[0]);
 			glUseProgramObjectARB(s->PHandle_dxt);
 		}
-        } else if (s->gl_texfmt == UV_GL_YUV) {
+        } else if (s->frame->desc.color_spec == UYVY) {
                 glUseProgramObjectARB(s->PHandle);
 
                 glBindTexture(GL_TEXTURE_2D,s->texture[0]);
                 glTexImage2D(GL_TEXTURE_2D, 0, 1,
-                        s->frame.width/2, s->frame.height, 0,
+                        s->tile->width / 2, s->tile->height, 0,
                         GL_LUMINANCE, GL_UNSIGNED_BYTE, s->u);
 
                 glBindTexture(GL_TEXTURE_2D,s->texture[1]);
                 glTexImage2D(GL_TEXTURE_2D, 0, 1,
-                        s->frame.width/2, s->frame.height, 0,
+                        s->tile->width / 2, s->tile->height, 0,
                         GL_LUMINANCE, GL_UNSIGNED_BYTE, s->v);
 
                 glBindTexture(GL_TEXTURE_2D,s->texture[2]);
                 glTexImage2D(GL_TEXTURE_2D, 0, 1,
-                        s->frame.width, s->frame.height, 0,
+                        s->tile->width, s->tile->height, 0,
                         GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
-        } else if (s->gl_texfmt == UV_GL_RGB) {
+        } else if (s->frame->desc.color_spec == RGBA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture[0]);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                                s->frame.width, s->frame.height, 0,
+                                s->tile->width, s->tile->height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
-                                s->frame.data);
-        } else if (s->gl_texfmt == UV_GL_DXT5_YCOCG) {
+                                s->tile->data);
+        } else if (s->frame->desc.color_spec == DXT5) {
                 glUseProgramObjectARB(s->PHandle_dxt5);
                 
                 glBindTexture(GL_TEXTURE_2D,s->texture[0]);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-				s->frame.width, s->frame.height, 0,
-				s->frame.width*s->frame.height,
-				s->frame.data);
+				s->tile->width, s->tile->height, 0,
+				s->tile->width * s->tile->height,
+				s->tile->data);
         }
 
         s->win_initialized = TRUE;
@@ -699,39 +707,39 @@ void glut_idle_callback(void)
 
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
-        if(s->deinterlace && (s->gl_texfmt == UV_GL_YUV || s->gl_texfmt == UV_GL_RGB))
-                vc_deinterlace((unsigned char *) s->frame.data,
-                                s->frame.dst_linesize, s->frame.height);
+        if(s->deinterlace && (s->frame->desc.color_spec == RGBA || s->frame->desc.color_spec == UYVY))
+                vc_deinterlace((unsigned char *) s->tile->data,
+                                vc_get_linesize(s->tile->width, s->frame->desc.color_spec),
+                                s->tile->height);
 
-        switch(s->gl_texfmt) {
-                case UV_GL_DXT1_RGB:
-                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->frame.width, s->frame.height,
-                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                                        (s->frame.width*s->frame.height/16)*8,
-                                        s->frame.data);
+        switch(s->frame->desc.color_spec) {
+                case DXT1:
+                        if(s->frame->desc.aux & AUX_RGB)
+                                glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                                s->tile->width, s->tile->height,
+                                                GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                                (s->tile->width * s->tile->height/16)*8,
+                                                s->tile->data);
+                        else
+                                dxt_bind_texture(s);
                         break;
-                case UV_GL_DXT1_YUV:
-                        dxt_bind_texture(s);
-                        break;
-                        
-                case UV_GL_YUV:
-                        getY((GLubyte *) s->frame.data, s->y, s->u, s->v,
-                                        s->frame.width, s->frame.height);
+                case UYVY:
+                        getY((GLubyte *) s->tile->data, s->y, s->u, s->v,
+                                        s->tile->width, s->tile->height);
                         gl_bind_texture(s);
                         break;
-                case UV_GL_RGB:
+                case RGBA:
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->frame.width, s->frame.height,
+                                        s->tile->width, s->tile->height,
                                         GL_RGBA, GL_UNSIGNED_BYTE,
-                                        s->frame.data);
+                                        s->tile->data);
                         break;
-                case UV_GL_DXT5_YCOCG:                        
+                case DXT5:                        
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->frame.width, s->frame.height,
+                                        s->tile->width, s->tile->height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                                        s->frame.width*s->frame.height,
-                                        s->frame.data);
+                                        s->tile->width * s->tile->height,
+                                        s->tile->data);
         }
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
@@ -882,22 +890,25 @@ void gl_bind_texture(void *arg)
 	int i;
 
 	glActiveTexture(GL_TEXTURE1);
-	i=glGetUniformLocationARB(s->PHandle,"Utex");
-	glUniform1iARB(i,1); 
-	glBindTexture(GL_TEXTURE_2D,s->texture[0]);
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,s->frame.width/2,s->frame.height,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->u);
+	i = glGetUniformLocationARB(s->PHandle, "Utex");
+	glUniform1iARB(i, 1); 
+	glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2,
+                        s->tile->height, GL_LUMINANCE, GL_UNSIGNED_BYTE, s->u);
 
 	glActiveTexture(GL_TEXTURE2);
-	i=glGetUniformLocationARB(s->PHandle,"Vtex");
-	glUniform1iARB(i,2); 
-	glBindTexture(GL_TEXTURE_2D,s->texture[1]);
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,s->frame.width/2,s->frame.height,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->v);
+	i = glGetUniformLocationARB(s->PHandle, "Vtex");
+	glUniform1iARB(i, 2); 
+	glBindTexture(GL_TEXTURE_2D, s->texture[1]);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2,
+                        s->tile->height, GL_LUMINANCE, GL_UNSIGNED_BYTE, s->v);
 
 	glActiveTexture(GL_TEXTURE0);
-	i=glGetUniformLocationARB(s->PHandle,"Ytex");
-	glUniform1iARB(i,0); 
-	glBindTexture(GL_TEXTURE_2D,s->texture[2]);
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,s->frame.width,s->frame.height,GL_LUMINANCE,GL_UNSIGNED_BYTE,s->y);
+	i = glGetUniformLocationARB(s->PHandle," Ytex");
+	glUniform1iARB(i, 0); 
+	glBindTexture(GL_TEXTURE_2D, s->texture[2]);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width,
+                        s->tile->height, GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
 }    
 
 void dxt_bind_texture(void *arg)
@@ -911,10 +922,10 @@ void dxt_bind_texture(void *arg)
         glUniform1iARB(i,0); 
         glBindTexture(GL_TEXTURE_2D,gl->texture[0]);
 	glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-			s->frame.width, s->frame.height,
+			s->tile->width, s->tile->height,
 			GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-			(s->frame.width*s->frame.height/16)*8,
-			s->frame.data);
+			(s->tile->width * s->tile->height/16)*8,
+			s->tile->data);
 }    
 
 void gl_draw(double ratio)
@@ -981,6 +992,7 @@ void display_gl_done(void *state)
                 glutDestroyWindow(s->window);
                 cleanup_data(s);
         }
+        vf_free(s->frame);
 }
 
 struct video_frame * display_gl_getf(void *state)
@@ -988,7 +1000,7 @@ struct video_frame * display_gl_getf(void *state)
         struct state_gl *s = (struct state_gl *) state;
         assert(s->magic == MAGIC_GL);
 
-        return &s->frame;
+        return s->frame;
 }
 
 int display_gl_putf(void *state, char *frame)
@@ -1019,22 +1031,6 @@ static void cleanup_data(struct state_gl *s)
         free(s->y);
         free(s->u);
         free(s->v);
-        free(s->frame.data);
-}
-
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
-{
-        struct state_gl *s = (struct state_gl *)state;
-        UNUSED(h);
-
-        memcpy(out, &s->frame, sizeof(struct video_frame));
-        out->data +=
-                y * s->frame.dst_pitch +
-                (size_t) (x * s->frame.dst_bpp);
-        out->src_linesize =
-                vc_getsrc_linesize(w, out->color_spec);
-        out->dst_linesize =
-                w * out->dst_bpp;
-
+        free(s->tile->data);
 }
 

@@ -242,12 +242,10 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS cards
 dvs=no
+dvs_req=yes
 AC_ARG_ENABLE(dvs,
-	[  --enable-dvs      enable DVS cards],
-	[if test $enableval = yes
-	then
-		AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
-	fi])
+              AS_HELP_STRING([--enable-dvs], [enable DVS (default is enable)]), 
+	[dvs_req=$enableval])
 
 AC_ARG_WITH(dvs,           
 	[  --with-dvs=DIR    specify location of DVS SDK],
@@ -259,7 +257,7 @@ AC_ARG_WITH(dvs,
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
 AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
 
-if test $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
+if test $dvs_req = yes -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
 then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
@@ -286,13 +284,10 @@ DECKLINK_OBJ=
 DECKLINK_INC=
 DECKLINK_PATH=
 decklink=no
+decklink_req=yes
 
-AC_ARG_ENABLE(decklink, 
-	[  --enable-decklink       enable Blackmagic DeckLink support],
-	[if test $enableval = yes
-	then
-		AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
-	fi])
+AC_ARG_ENABLE(decklink, AS_HELP_STRING([--enable-decklink], [enable DeckLink (default is enable)]), 
+	[decklink_req=$enableval])
 AC_ARG_WITH(decklink,
         [  --with-decklink=DIR     specify location of DECKLINK],
         [DECKLINK_INC=$withval/include
@@ -335,7 +330,7 @@ case "$host_os" in
                 ;;
 esac
 
-if test $FOUND_DECKLINK = yes
+if test $decklink_req = yes -a $FOUND_DECKLINK = yes
 then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
@@ -366,11 +361,10 @@ case $host in
     *-linux-*)
 
         AC_ARG_ENABLE(quad, 
-            [  --enable-quad           enable HD-SDI Master Quad support],
-            [if test $enableval = yes
-            then
-                AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
-            fi])
+              AS_HELP_STRING([--enable-quad], [enable Linsys Quad (default is enable)]), 
+            [quad_req=$enableval],
+            [quad_req=yes]
+            )
 
         AC_ARG_WITH(decklink,
             [  --with-quad=DIR         specify location of QUAD],
@@ -384,7 +378,7 @@ case $host in
         AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD_MASTER_H=yes, FOUND_QUAD_MASTER_H=no)
         AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD_SDI_H=yes, FOUND_QUAD_SDI_H=no)
 
-        if test $FOUND_QUAD_MASTER_H = yes -a $FOUND_QUAD_SDI_H = yes
+        if test $quad_req = yes -a $FOUND_QUAD_MASTER_H = yes -a $FOUND_QUAD_SDI_H = yes
         then
             QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
             QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
@@ -409,12 +403,18 @@ QUICKTIME_LIB=
 QUICKTIME_OBJ=
 quicktime=no
 
+AC_ARG_ENABLE(quicktime, 
+      AS_HELP_STRING([--enable-quicktime], [enable QuickTime support(default is enable)]), 
+    [quicktime_req=$enableval],
+    [quicktime_req=yes]
+    )
+
 case $host_os in
 	*darwin*)
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
 	
-		if test $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
+		if test $quicktime_req = yes -a $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
 		then
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
@@ -433,6 +433,11 @@ AC_SUBST(QUICKTIME_OBJ)
 SDL_OBJ=
 sdl=no
 
+AC_ARG_ENABLE(sdl, 
+      AS_HELP_STRING([--enable-sdl], [enable SDL(default is enable)]), 
+    [sdl_req=$enableval],
+    [sdl_req=yes]
+    )
 #
 # version comparison function that works for "." delimited version numbers (no alpha please)
 # returns 0 for logically equal version numbers (2 == 2.0.0)
@@ -503,7 +508,7 @@ case "$host_os" in
                          [AC_CHECK_LIB(SDL, SDL_Init, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
                         )
-            if test "$FOUND_SDL_L" = yes
+            if test $sdl_req = yes -a "$FOUND_SDL_L" = yes
             then
                 CFLAGS="$CFLAGS -D_GNU_SOURCE=1 -D_THREAD_SAFE -I/opt/local/include/SDL"
                 LIBS="$LIBS -L/opt/local/lib -lSDLmain -lSDL -Wl,-framework,Cocoa"
@@ -533,7 +538,7 @@ case "$host_os" in
                          [AC_CHECK_LIB(SDL, SDL_Init, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
                          [echo "SDL.h not found."]
                         )
-            if test "$FOUND_SDL_L" = yes
+            if test $sdl_req = yes -a "$FOUND_SDL_L" = yes
             then
                 LIBS="$LIBS -lSDL"
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
@@ -556,6 +561,12 @@ GL_INC=
 GL_OBJ=
 gl=no
 
+AC_ARG_ENABLE(gl, 
+      AS_HELP_STRING([--enable-gl], [enable OpenGL (default is enable)]), 
+    [gl_req=$enableval],
+    [gl_req=yes]
+    )
+
 case "$host_os" in
 	*darwin*)
 	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
@@ -571,7 +582,7 @@ case "$host_os" in
 	then
                 AC_CHECK_FILE(/System/Library/Frameworks/OpenGL.framework/OpenGL, FOUND_GL_L=yes, echo "OpenGL framework not found.")
 
-		if test $FOUND_GL_L = yes
+		if test $gl_req = yes -a $FOUND_GL_L = yes
 		then
 			case "$host_os" in
 			*darwin8*)
@@ -625,7 +636,7 @@ case "$host_os" in
 	then
 		AC_CHECK_LIB(GL, glBindTexture, FOUND_GL_L=yes, FOUND_GL_L=no)
 
-		if test $FOUND_GL_L = yes
+		if test $gl_req = yes -a $FOUND_GL_L = yes
 		then
 			LIBS="$LIBS -lGL"
 	
@@ -664,14 +675,12 @@ AC_SUBST(GL_OBJ)
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
 fastdxt=no
+fastdxt_req=yes
 COMPRESS_OBJ=
 
 AC_ARG_ENABLE(fastdxt, 
 	[  --enable-fastdxt        enable FastDXT],
-	[if test $enableval = yes
-	then
-		AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
-	fi])
+	[fastdxt_req=$enableval])
 
 AC_ARG_WITH(fastdxt,
 	[  --with-fastdxt=DIR      specify location of FastDXT],
@@ -683,7 +692,7 @@ AC_ARG_WITH(fastdxt,
 AC_CHECK_HEADER(${DXT_INC}/libdxt.h, FOUND_DXT_H=yes, FOUND_DXT_H=no)
 AC_CHECK_LIB(dxt, main, FOUND_DXT_L=yes, FOUND_DXT_L=no, -I${DXT_INC} -L${DXT_LIB})
 
-if test $FOUND_DXT_L = yes -a $FOUND_DXT_H = yes
+if test $fastdxt_req = yes -a $FOUND_DXT_L = yes -a $FOUND_DXT_H = yes
 then
 	DXT_INC=-I${DXT_INC}
 	DXT_LIB="-L${DXT_LIB} -ldxt"
@@ -711,6 +720,11 @@ SAVED_LIBS=$LIBS
 LIBS+=" $X_LIBS"
 rtdxt=no
 
+AC_ARG_ENABLE(rtdxt, 
+      AS_HELP_STRING([--enable-rtdxt], [enable Real-Time OpenGL DXT compression (default is enable)]), 
+	[rtdxt_req=$enableval],
+        [rtdxt_req=yes])
+
 AC_CHECK_LIB(GLUT, glutInit)
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
 AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
@@ -718,13 +732,14 @@ AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
 AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
 
-if test "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+if test $rtdxt_req = yes -a "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes \
         -a `expr "$host_os" : ".*darwin.*"` -eq 0 # not mac, just for now
 then
         LIBS+=" -lGLEW -lGL -lX11"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
-        DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/dxt_glsl_compress.o"
+        DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_decoder.o  \
+../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/dxt_glsl_compress.o "
         DXT_GLSL_CFLAGS="-std=gnu99"
         rtdxt=yes
 else
@@ -744,11 +759,9 @@ SAGE_LIB=
 sage=no
 
 AC_ARG_ENABLE(sage, 
-	[  --enable-sage           enable SAGE display support],
-	[if test $enableval = yes
-	then
-		AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
-	fi])
+      AS_HELP_STRING([--enable-sage], [enable SAGE (default is enable)]), 
+	[sage_req=$enableval],
+        [sage_req=yes])
 
 AC_ARG_WITH(sage,
 	[  --with-sage=DIR         specify location of SAGE],
@@ -760,7 +773,7 @@ AC_ARG_WITH(sage,
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SAGE_LIB})
 
-if test $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
+if test $sage_req = yes -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
     SAGE_INC=-I${SAGE_INC}
     SAGE_LIB=-"L${SAGE_LIB} -lsail"
@@ -788,11 +801,9 @@ PORTAUDIO_OBJ=
 portaudio=no
 
 AC_ARG_ENABLE(portaudio, 
-	[  --enable-portaudio      enable Portaudio framework support],
-	[if test $enableval = yes
-	then
-                AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
-	fi])
+      AS_HELP_STRING([--enable-portaudio], [enable Portaudio (default is enable)]), 
+	[portaudio_req=$enableval],
+        [portaudio_req=yes])
 
 AC_ARG_WITH(portaudio,
 	[  --with-portaudio=DIR    specify location of Portaudio],
@@ -804,7 +815,7 @@ AC_ARG_WITH(portaudio,
 AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
 AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
 
-if test $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
+if test $portaudio_req = yes -a $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
 then
     PORTAUDIO_INC=-I${PORTAUDIO_INC}
     # we have now portaudio linked statically
@@ -832,9 +843,14 @@ AC_SUBST(PORTAUDIO_OBJ)
 #
 jack=no
 
+AC_ARG_ENABLE(jack, 
+      AS_HELP_STRING([--enable-jack], [enable JACK (default is enable)]), 
+	[jack_req=$enableval],
+        [jack_req=yes])
+
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 AC_CHECK_LIB(jack, jack_client_new, FOUND_JACK_L=yes, FOUND_JACK_L=no)
-if test $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+if test $jack_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
     JACK_OBJ="src/audio/jack.o"
     JACK_LIB="-ljack"

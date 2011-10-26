@@ -44,6 +44,7 @@
 #define DISPLAY_DVS_ID	0x74ac3e0f
 
 struct audio_frame;
+struct state_decoder;
 
 typedef struct {
         int mode;
@@ -55,7 +56,7 @@ typedef struct {
 
 extern const hdsp_mode_table_t hdsp_mode_table[];
 
-void                *display_dvs_init_impl(char *fmt, unsigned int flags);
+void                *display_dvs_init_impl(char *fmt, unsigned int flags, struct state_decoder *decoder);
 void                 display_dvs_run_impl(void *state);
 void                 display_dvs_done_impl(void *state);
 struct video_frame  *display_dvs_getf_impl(void *state);

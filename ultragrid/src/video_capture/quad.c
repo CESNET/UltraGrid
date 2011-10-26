@@ -202,7 +202,7 @@ struct vidcap_quad_state {
         unsigned long int   buffers;
         unsigned long int   audio_bufsize;
         unsigned long int   audio_buffers;
-        struct video_frame  frame[MAX_TILES];
+        struct video_frame *frame;
         sem_t               have_item;
         sem_t               boss_waiting;
         pthread_t           grabber;
@@ -416,6 +416,8 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         }
 
         free(fmt_dup);
+        
+        s->frame = vf_alloc(tile_x_cnt, tile_y_cnt);
 
 	/* CHECK IF QUAD CAN WORK CORRECTLY */
     
@@ -426,7 +428,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         */
 
         memset((void *) s->fd, 0, sizeof(s->fd));
-        memset((void *) s->frame, 0, sizeof(s->frame));
+        //memset((void *) s->frame, 0, sizeof(s->frame));
 
         for(i = 0; i < s->device_cnt; ++i) {
                 char                      dev_name[MAXLEN];
@@ -442,6 +444,9 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 int                       num;
                 unsigned long int         mode;
                 const struct codec_info_t *c_info;
+                
+                int tile_x = i % tile_x_cnt;
+                int tile_y = i / tile_x_cnt;
 
                 snprintf(dev_name, sizeof(dev_name), devfile_fmt, i);
 
@@ -619,34 +624,22 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 /*Get video standard*/
                 /*frame_mode = get_video_standard (s->fd);*/
 
+                struct tile *tile = tile_get(s->frame, tile_x, tile_y);
 	
-                s->frame[i].color_spec = c_info->codec;
-                s->frame[i].width = frame_mode->width;
-                s->frame[i].height = frame_mode->height;
-                s->frame[i].fps = frame_mode->fps;
-                if(c_info->h_align) {
-                   s->frame[i].src_linesize = ((s->frame[i].width + c_info->h_align - 1) / c_info->h_align) * 
-                        c_info->h_align;
-                } else {
-                     s->frame[i].src_linesize = s->frame[i].width;
-                }
-                s->frame[i].src_linesize *= c_info->bpp;
-                s->frame[i].data_len = s->frame[i].src_linesize * s->frame[i].height;
-                s->frame[i].aux = frame_mode->interlacing;
-                if(strcasecmp(c_info->name, "UYVY") == 0)
-                        s->frame[i].aux |= AUX_YUV;
-                if(strcasecmp(c_info->name, "v210") == 0) {
-                        s->frame[i].aux |= AUX_YUV | AUX_10Bit;
-                }
+                s->frame->desc.color_spec = c_info->codec;
+                s->frame->desc.fps = frame_mode->fps;
+                s->frame->desc.aux = frame_mode->interlacing;
+                tile->width = frame_mode->width;
+                tile->height = frame_mode->height;
+                tile->linesize = vc_get_linesize(frame_mode->width, c_info->codec);
+                tile->data_len = tile->linesize * tile->height;
+                
                 if(s->device_cnt > 1) {
-                        s->frame[i].aux |= AUX_TILED;
-                        s->frame[i].tile_info.x_count = tile_x_cnt;
-                        s->frame[i].tile_info.y_count = tile_y_cnt;
-                        s->frame[i].tile_info.pos_x = i % tile_x_cnt;
-                        s->frame[i].tile_info.pos_y = i / tile_x_cnt;
+                        s->frame->desc.aux |= AUX_TILED;
                 }
 
-                if((s->frame[i].data = (char *) malloc (s->frame[i].data_len)) == NULL) {
+                if((tile->data = (char *)
+                                malloc (tile->data_len)) == NULL) {
                         fprintf (stderr, "%s: ", dev_name);
                         fprintf (stderr, "unable to allocate memory\n");
                         vidcap_quad_done(s);
@@ -675,12 +668,14 @@ vidcap_quad_done(void *state)
 	if (s != NULL) {
                 int i;
 		for (i = 0; i < s->device_cnt; ++i) {
-			if(s->frame[i].data != NULL)
-				free(s->frame[i].data);
+			if(s->frame->tiles[i].data != NULL)
+				free(s->frame->tiles[i].data);
 			if(s->fd[i] != 0)
 				close(s->fd[i]);
 		}
 	}
+        
+        vf_free(s->frame);
 	pthread_join(s->grabber, NULL);
 	sem_destroy(&s->boss_waiting);
 	sem_destroy(&s->have_item);
@@ -714,9 +709,14 @@ static void * vidcap_grab_thread(void *args)
                         }
 
 			for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
+                                int x_til_cnt = s->frame->tiles[0].tile_info.x_count;
+                                struct tile *tile = tile_get(s->frame, cur_dev % x_til_cnt,
+                                                cur_dev / x_til_cnt);
+                                
+                                
                                 if (s->pfd[cur_dev].revents & POLLIN) {
                                         unsigned int ret;
-                                        ret = read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        ret = read(s->fd[cur_dev], tile->data, s->bufsize);
                                         assert(ret == s->bufsize);
                                         return_vec |= 1 << cur_dev;
                                 }
@@ -758,9 +758,13 @@ static void * vidcap_grab_thread(void *args)
 
                 while (poll (s->pfd, s->device_cnt, 0) > 0) {
                         for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
+                                int x_til_cnt = s->frame->tiles[0].tile_info.x_count;
+                                struct tile *tile = tile_get(s->frame, cur_dev % x_til_cnt,
+                                                cur_dev / x_til_cnt);
+                                                
                                 if (s->pfd[cur_dev].revents & POLLIN) {
                                         unsigned int ret;
-                                        ret = read(s->fd[cur_dev], s->frame[cur_dev].data, s->bufsize);
+                                        ret = read(s->fd[cur_dev], tile->data, s->bufsize);
                                         assert(ret == s->bufsize);
                                         return_vec |= 1 << cur_dev;
                                 }
@@ -816,7 +820,7 @@ static void * vidcap_grab_thread(void *args)
 }
 
 struct video_frame *
-vidcap_quad_grab(void *state, int *count, struct audio_frame **audio)
+vidcap_quad_grab(void *state, struct audio_frame **audio)
 {
 
 	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
@@ -839,8 +843,7 @@ vidcap_quad_grab(void *state, int *count, struct audio_frame **audio)
             frames = 0;
         }  
 
-        *count = s->device_cnt;
-	return &s->frame[0];
+	return s->frame;
 }
 
 static void print_output_modes()

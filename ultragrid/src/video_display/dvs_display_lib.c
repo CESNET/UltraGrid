@@ -62,6 +62,7 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "tv.h"
+#include "rtp/decoders.h"
 #include "utils/ring_buffer.h"
 
 #include "dvs_clib.h"           /* From the DVS SDK */
@@ -309,7 +310,8 @@ volatile int worker_waiting;
         char *bufs[2];
         int bufs_index;
         struct audio_frame audio;
-        struct video_frame frame;
+        struct video_frame *frame;
+        struct tile *tile;
         const hdsp_mode_table_t *mode;
         unsigned first_run:1;
         unsigned play_audio:1;
@@ -331,7 +333,6 @@ volatile int worker_waiting;
 };
 
 static void show_help(void);
-static void get_sub_frame(void *s, int x, int y, int w, int h, struct video_frame *out);
 void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 
@@ -446,10 +447,10 @@ display_dvs_getf_impl(void *state)
 		}      
 
 		s->bufs_index = (s->bufs_index + 1) % 2;
-		s->frame.data = s->bufs[s->bufs_index];
-		assert(s->frame.data != NULL);
-		s->fifo_buffer->video[0].addr = s->frame.data;
-		s->fifo_buffer->video[0].size = s->frame.data_len;
+		s->tile->data = s->bufs[s->bufs_index];
+		assert(s->tile->data != NULL);
+		s->fifo_buffer->video[0].addr = s->tile->data;
+		s->fifo_buffer->video[0].size = s->tile->data_len;
 
                 if(s->play_audio) {
                         s->audio_fifo_required_size = s->fifo_buffer->audio[0].size;
@@ -458,7 +459,7 @@ display_dvs_getf_impl(void *state)
 	}
 	s->first_run = FALSE;
 
-        return &s->frame;
+        return s->frame;
 }
 
 int display_dvs_putf_impl(void *state, char *frame)
@@ -501,14 +502,11 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         /* Wait for the worker to finish... */
         while (!s->worker_waiting);
 
-        s->frame.decoder = (decoder_t)memcpy;     
-        s->frame.color_spec = color_spec;
-        s->frame.width = width;
-        s->frame.height = height;
-        s->frame.dst_bpp = get_bpp(color_spec);
-        s->frame.src_bpp = s->frame.dst_bpp; /* memcpy */
-        s->frame.fps = fps;
-        s->frame.aux = aux;
+        s->frame->desc.color_spec = color_spec;
+        s->frame->desc.fps = fps;
+        s->frame->desc.aux = aux;
+        s->tile->width = s->frame->desc.width = width;
+        s->tile->height = s->frame->desc.height = height;
         
         if(s->mode_set_manually) return;
 
@@ -532,7 +530,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
 
-        if (s->frame.color_spec == DVS10) {
+        if (s->frame->desc.color_spec == DVS10) {
                 hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
 
@@ -573,25 +571,23 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 return;
         }
 
-        s->frame.data_len = s->frame.width * s->frame.height * s->frame.dst_bpp;
-        s->frame.dst_linesize = s->frame.width * s->frame.dst_bpp;
-        s->frame.src_linesize = s->frame.dst_linesize;
-        s->frame.dst_pitch = s->frame.dst_linesize;
+        s->tile->linesize = vc_get_linesize(s->tile->width, color_spec);
+        s->tile->data_len = s->tile->linesize * s->tile->height;
 
         free(s->bufs[0]);
         free(s->bufs[1]);
-        s->bufs[0] = malloc(s->frame.data_len);
-        s->bufs[1] = malloc(s->frame.data_len);
+        s->bufs[0] = malloc(s->tile->data_len);
+        s->bufs[1] = malloc(s->tile->data_len);
         s->bufs_index = 0;
-        memset(s->bufs[0], 0, s->frame.data_len);
-        memset(s->bufs[1], 0, s->frame.data_len);
+        memset(s->bufs[0], 0, s->tile->data_len);
+        memset(s->bufs[1], 0, s->tile->data_len);
 
 	if(!s->first_run)
 		display_dvs_getf_impl(s); /* update s->frame.data */
 }
 
 
-void *display_dvs_init_impl(char *fmt, unsigned int flags)
+void *display_dvs_init_impl(char *fmt, unsigned int flags, struct state_decoder *decoder)
 {
         struct state_hdsp *s;
         int i;
@@ -600,6 +596,13 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
         s->magic = HDSP_MAGIC;
 
         s->mode_set_manually = FALSE;
+        
+        s->frame = vf_alloc(1, 1);
+        s->tile = tile_get(s->frame, 0, 0);
+        
+        codec_t native[] = {DVS10, UYVY};
+        decoder_register_native_codecs(decoder, native, sizeof(native));
+        decoder_set_param(decoder, 0, 8, 16, 0);
         
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
@@ -622,14 +625,13 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
                 tmp = strtok(NULL, ":");
                 
                 if (tmp) {
-                        s->frame.color_spec = 0xffffffff;
+                        s->frame->desc.color_spec = 0xffffffff;
                         for (i = 0; codec_info[i].name != NULL; i++) {
                                 if (strcmp(tmp, codec_info[i].name) == 0) {
-                                        s->frame.color_spec = codec_info[i].codec;
-                                        s->frame.src_bpp = codec_info[i].bpp;
+                                        s->frame->desc.color_spec = codec_info[i].codec;
                                 }
                         }
-                        if (s->frame.color_spec == 0xffffffff) {
+                        if (s->frame->desc.color_spec == 0xffffffff) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                 free(s);
                                 return 0;
@@ -672,7 +674,7 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
 	s->first_run = TRUE;
 
         if(s->mode) {
-                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame.color_spec, s->mode->fps, s->mode->aux);
+                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame->desc.color_spec, s->mode->fps, s->mode->aux);
                 s->mode_set_manually = TRUE;
         }
 
@@ -696,9 +698,8 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
                 perror("Unable to create display thread\n");
                 return NULL;
         }*/
-        s->frame.state = s;
-        s->frame.reconfigure = (reconfigure_t)reconfigure_screen;
-        s->frame.get_sub_frame = (get_sub_frame_t) get_sub_frame;
+        s->frame->state = s;
+        s->frame->reconfigure = (reconfigure_t)reconfigure_screen;
         
         return (void *)s;
 }
@@ -709,23 +710,8 @@ void display_dvs_done_impl(void *state)
 
         sv_fifo_free(s->sv, s->fifo);
         sv_close(s->sv);
+        vf_free(s->frame);
         free(s);
-}
-
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
-{
-        struct state_hdsp *s = (struct state_hdsp *)state;
-        UNUSED(h);
-
-        memcpy(out, &s->frame, sizeof(struct video_frame));
-        out->data +=
-                y * s->frame.dst_pitch +
-                (size_t) (x * s->frame.dst_bpp);
-        out->src_linesize =
-                vc_getsrc_linesize(w, out->color_spec);
-        out->dst_linesize =
-                w * out->dst_bpp;
-
 }
 
 /*

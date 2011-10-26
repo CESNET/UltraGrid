@@ -66,6 +66,7 @@
 
 #include "video_display.h"
 #include "video_display/quicktime.h"
+#include "rtp/decoders.h"
 
 #include "audio/audio.h"
 
@@ -197,7 +198,7 @@ struct state_quicktime {
         pthread_t thread_id;
         sem_t semaphore;
 
-        struct video_frame frame[MAX_DEVICES];
+        struct video_frame *frame;
 
         struct audio_frame audio;
         int audio_packet_size;
@@ -213,7 +214,6 @@ struct state_quicktime {
 char *four_char_decode(int format);
 void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 codec_t codec, double fps, int aux);
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out);
 static int find_mode(ComponentInstance *ci, int width, int height, 
                 const char * codec_name, double fps, int aux);
 void display_quicktime_audio_init(struct state_quicktime *s);
@@ -261,7 +261,8 @@ static void reconf_common(struct state_quicktime *s)
         
         for (i = 0; i < s->devices_cnt; ++i)
         {
-                int h_align;
+                struct tile *tile = tile_get(s->frame, i % s->frame->grid_width,
+                                                        i / s->frame->grid_width);
                 ImageDescriptionHandle imageDesc;
                 OSErr ret;
         
@@ -277,22 +278,18 @@ static void reconf_common(struct state_quicktime *s)
                  * bytes_per_luma_instant to 8/3. 
                  * See http://developer.apple.com/quicktime/icefloe/dispatch019.html#v210
                  */       
-                (**(ImageDescriptionHandle) imageDesc).dataSize = s->frame[i].data_len;
+                (**(ImageDescriptionHandle) imageDesc).dataSize = tile->data_len;
                 /* 
                  * Beware: must be a multiple of horiz_align_pixels which is 2 for 2Vuy
                  * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
                  * further investigation for 2K!
                  */
-                h_align = s->frame[i].width / s->frame[i].tile_info.x_count;
-                if(s->cinfo->h_align) {
-                        h_align = ((h_align + s->cinfo->h_align - 1) / s->cinfo->h_align) * s->cinfo->h_align;
-                }
-                (**(ImageDescriptionHandle) imageDesc).width = h_align;
-                (**(ImageDescriptionHandle) imageDesc).height = s->frame[i].height / s->frame[i].tile_info.y_count;
+                (**(ImageDescriptionHandle) imageDesc).width = get_haligned(tile->width, s->frame->desc.color_spec);
+                (**(ImageDescriptionHandle) imageDesc).height = tile->height;
         
-                ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, s->frame[i].data, 
+                ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, tile->data, 
                                                // Size of the buffer, not size of the actual frame data inside
-                                               s->frame[i].data_len,    
+                                               tile->data_len,    
                                                s->gworld[i],
                                                NULL,
                                                NULL,
@@ -322,11 +319,13 @@ void display_quicktime_run(void *arg)
                 platform_sem_wait(&s->semaphore);
 
                 for (i = 0; i < s->devices_cnt; ++i) {
+                        struct tile *tile = tile_get(s->frame, i % s->frame->grid_width,
+                                                        i / s->frame->grid_width);
                         /* TODO: Running DecompressSequenceFrameWhen asynchronously 
                          * in this way introduces a possible race condition! 
                          */
-                        ret = DecompressSequenceFrameWhen(s->seqID[i], s->frame[i].data, 
-                                                        s->frame[i].data_len,
+                        ret = DecompressSequenceFrameWhen(s->seqID[i], tile->data, 
+                                                        tile->data_len,
                                                        /* If you set asyncCompletionProc to -1, 
                                                         *  the operation is performed asynchronously but 
                                                         * the decompressor does not call the completion 
@@ -530,12 +529,16 @@ static void show_help(int full)
         print_modes(full);
 }
 
-void *display_quicktime_init(char *fmt, unsigned int flags)
+void *display_quicktime_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
 {
         struct state_quicktime *s;
         int ret;
         int i;
         char *codec_name;
+
+        codec_t native[] = {v210, UYVY, RGBA};
+        decoder_register_native_codecs(decoder, native, sizeof(native));
+        decoder_set_param(decoder, 0, 8, 16, 0);
 
         /* Parse fmt input */
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
@@ -598,17 +601,15 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
+        double x_cnt = sqrt(s->devices_cnt);
+        int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+        int y_count = s->devices_cnt / x_count;
+        
+        s->frame = vf_alloc(x_count, y_count);
+        
         for (i = 0; i < s->devices_cnt; ++i) {
-                /* compute position */
-                double x_cnt = sqrt(s->devices_cnt);
-                
                 s->videoDisplayComponentInstance[i] = 0;
                 s->seqID[i] = 0;
-                
-                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
         }
 
         InitCursor();
@@ -621,8 +622,15 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                         }
                 }
                 free(codec_name);
+                s->frame->desc.color_spec = s->cinfo->codec;
+                s->frame->desc.aux = 0;
+                s->frame->desc.width = 0;
+                s->frame->desc.height = 0;
 
                 for (i = 0; i < s->devices_cnt; ++i) {
+                        int pos_x = i % x_count;
+                        int pos_y = i / y_count;
+                        struct tile *tile = tile_get(s->frame, pos_x, pos_y);
                         /* Open device */
                         s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
         
@@ -679,51 +687,31 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                                 fprintf(stderr, "Failed to determine width and height.\n");
                                 return NULL;
                         }
-                        s->frame[i].width = (**gWorldImgDesc).width;
-                        s->frame[i].height = (**gWorldImgDesc).height;
-                        s->frame[i].aux = 0;
+                        
+                        tile->width = (**gWorldImgDesc).width;
+                        tile->height = (**gWorldImgDesc).height;
+                        if(pos_y == 0)
+                                s->frame->desc.width += tile->width;
+                        if(pos_x == 0)
+                                s->frame->desc.height += tile->height;
+                        tile->linesize = vc_get_linesize(tile->width, s->cinfo->codec);
+                        tile->data_len = tile->linesize * tile->height;
+                        tile->data = calloc(1, tile->data_len);
         
-                        int aligned_x=s->frame[i].width;
-        
-                        if (s->cinfo->h_align) {
-                                aligned_x =
-                                    ((aligned_x + s->cinfo->h_align -
-                                      1) / s->cinfo->h_align) * s->cinfo->h_align;
-                        }
-        
-                        s->frame[i].dst_bpp = s->cinfo->bpp;
-                        s->frame[i].src_bpp = s->cinfo->bpp;
-                        s->frame[i].dst_linesize = aligned_x * s->cinfo->bpp;
-                        s->frame[i].dst_pitch = s->frame[i].dst_linesize;
-                        s->frame[i].src_linesize = aligned_x * s->cinfo->bpp;
-                        s->frame[i].color_spec = s->cinfo->codec;
-                        s->frame[i].dst_x_offset = 0;
-        
-                        fprintf(stdout, "Selected mode: %d(%d)x%d, %fbpp\n", s->frame[i].width,
-                                aligned_x, s->frame[i].height, s->cinfo->bpp);
-        
-                        s->frame[i].data_len = s->frame[i].dst_linesize * s->frame[i].height;
-                        s->frame[i].data = calloc(s->frame[i].data_len, 1);
+                        fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", tile->width,
+                                tile->height, s->cinfo->bpp);
                 }
                 reconf_common(s);
         } else {
                 for (i = 0; i < s->devices_cnt; ++i) {
-                        s->frame[i].width = 0;
-                        s->frame[i].height = 0;
-                        s->frame[i].data = NULL;
+                        s->frame->tiles[i].width = 0;
+                        s->frame->tiles[i].height = 0;
+                        s->frame->tiles[i].data = NULL;
                 }
         }
 
-        for (i = 0; i < s->devices_cnt; ++i) {
-                s->frame[i].state = s;
-                s->frame[i].reconfigure = (reconfigure_t) qt_reconfigure_screen;
-                s->frame[i].get_sub_frame = (get_sub_frame_t) get_sub_frame;
-                s->frame[i].decoder = (decoder_t)memcpy;
-                
-                /* update tiles width/h to represent whole frame's dimension */
-                s->frame[i].width *= s->frame[i].tile_info.x_count;
-                s->frame[i].height *= s->frame[i].tile_info.y_count;
-        }
+        s->frame->state = s;
+        s->frame->reconfigure = (reconfigure_t) qt_reconfigure_screen;
         
         s->audio.state = s;
         if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
@@ -781,7 +769,7 @@ void display_quicktime_audio_init(struct state_quicktime *s)
         if (ret != noErr) goto audio_error;
 #endif
         
-        if(s->frame[0].data == NULL) /* if the output is not open - open it temporarily */
+        if(s->frame->tiles[0].data == NULL) /* if the output is not open - open it temporarily */
                  ret = OpenAComponent((Component) s->device[0], &s->videoDisplayComponentInstance[0]);
         if (ret != noErr) goto audio_error;
         s->audio.data = NULL;
@@ -800,7 +788,7 @@ void display_quicktime_audio_init(struct state_quicktime *s)
                         kCFStringEncodingMacRoman);
         HUnlock(componentNameHandle);
         DisposeHandle(componentNameHandle);
-        if(s->frame[0].data == NULL) /* ...and close temporarily opened input */
+        if(s->frame->tiles[0].data == NULL) /* ...and close temporarily opened input */
                 CloseComponent(s->videoDisplayComponentInstance[0]);
         s->play_audio = TRUE;
         return;
@@ -864,48 +852,34 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                                             * but would confuse QT */
                 codec_name = "2vuy";
          
-        if(s->frame[0].data != NULL)
+        if(s->frame->tiles[0].data != NULL)
                 display_quicktime_done(s);
                 
         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", width,
                         height, s->cinfo->bpp);
+        s->frame->desc.width = width;
+        s->frame->desc.height = height;
+        s->frame->desc.color_spec = codec;
+        s->frame->desc.fps = fps;
+        s->frame->desc.aux = aux;
 
         for(i = 0; i < s->devices_cnt; ++i) {
-                int tile_width, tile_height;
-                /* compute position */
-                double x_cnt = sqrt(s->devices_cnt);
-                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
-
-                tile_width = width / s->frame[i].tile_info.x_count;
-                tile_height = height / s->frame[i].tile_info.y_count;
-                s->frame[i].dst_x_offset = 0;
-                s->frame[i].color_spec = codec;
-                s->frame[i].width = width;
-                s->frame[i].height = height;
-                s->frame[i].dst_bpp = get_bpp(codec);
-                s->frame[i].src_bpp = get_bpp(codec);
-                s->frame[i].fps = fps;
-                s->frame[i].aux = aux;
-
-                s->frame[i].data_len = tile_width * tile_height * s->frame[i].dst_bpp;
-                int aligned_x=tile_width;
-                aligned_x =
-                    ((aligned_x + s->cinfo->h_align -
-                      1) / s->cinfo->h_align) * s->cinfo->h_align;
-                s->frame[i].dst_linesize = aligned_x * s->frame[i].dst_bpp;
-                s->frame[i].src_linesize = aligned_x * s->frame[i].src_bpp;
-                s->frame[i].dst_pitch = s->frame[i].dst_linesize;
+                int tile_width = width / s->frame->grid_width;
+                int tile_height = height / s->frame->grid_height;
+                int pos_x = i % s->frame->grid_width;
+                int pos_y = i / s->frame->grid_width;
+                struct tile * tile = tile_get(s->frame, pos_x, pos_y);
                 
-                s->frame[i].state = s;
+                tile->width = tile_width;
+                tile->height = tile_height;
+                tile->linesize = vc_get_linesize(tile_width, codec);
+                tile->data_len = tile->linesize * tile->height;
                 
-                if(s->frame[i].data != NULL) {
-                        free(s->frame[i].data);
+                if(tile->data != NULL) {
+                        free(tile->data);
                 }
                 
-                s->frame[i].data = calloc(s->frame[i].data_len, 1);
+                tile->data = calloc(1, tile->data_len);
                 
                 s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
                 
@@ -1073,43 +1047,6 @@ static int find_mode(ComponentInstance *ci, int width, int height,
                 fprintf(stderr, "[quicktime] mode %dx%d@%0.2f (%s) NOT FOUND.\n",
                                 width, height, fps, codec_name);
                 return 0;
-        }
-}
-
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
-{
-        struct state_quicktime *s = (struct state_quicktime *)state;
-
-        if(s->devices_cnt == 1) {/* dual link or 4K framebuffer (aka Kona 3G)  */
-                memcpy(out, &s->frame, sizeof(struct video_frame));
-                out->data +=
-                        y * s->frame[0].dst_pitch +
-                        (size_t) (x * s->frame[0].dst_bpp);
-                out->src_linesize =
-                        vc_getsrc_linesize(w, out->color_spec);
-                out->dst_linesize =
-                        w * out->dst_bpp;
-        } else { /* tiled video
-                     expecting that requested sub_frame matches
-                     exactly one physical device */
-                double x_cnt = sqrt(s->devices_cnt);
-                int y_cnt;
-                int index;
-                /* cnt == 1 -> 1x1, 2 -> 2x1, 3 -> 3x1, 4 -> 2x2, 5 -> 5x1 etc. */
-                x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                y_cnt = s->devices_cnt / (int) x_cnt;
-
-                /* check if have tiles of equal size (required) */
-                assert(x % w == 0 &&
-                                y % h == 0 &&
-                                s->frame[0].width % w == 0 &&
-                                s->frame[0].height % h == 0);
-
-                /* determine which preprepared bufer to put */
-                index = x / w + // row 
-                        x_cnt * (y / h); // column
-                /* and give it to the caller */
-                memcpy(out, &s->frame[index], sizeof(struct video_frame));
         }
 }
 

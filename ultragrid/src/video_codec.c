@@ -48,6 +48,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "common.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -67,6 +68,17 @@ const struct codec_info_t codec_info[] = {
         {DXT1, "DXT1", 'DXT1', 1, 0.5, 1},
         {DXT5, "DXT5", 'DXT5', 1, 1.0, 1},
         {0, NULL, 0, 0, 0.0, 0}
+};
+
+/* take care that UYVY is alias for both 2vuy and dvs8, do not use
+ * the further two and refer only to UYVY!! */
+const struct line_decode_from_to line_decoders[] = {
+        { DVS10, UYVY, vc_copylineDVS10},
+        { DVS10, v210, vc_copylineDVS10toV210},
+        { RGBA, RGBA, vc_copylineRGBA},
+        { R10k, RGBA, vc_copyliner10k},
+        { v210, UYVY, vc_copylinev210},
+        { 0, 0, NULL }
 };
 
 void show_codec_help(char *module)
@@ -119,7 +131,7 @@ int get_haligned(int width_pixels, codec_t codec)
         return ((width_pixels + h_align - 1) / h_align) * h_align;
 }
 
-int vc_getsrc_linesize(unsigned int width, codec_t codec)
+int vc_get_linesize(unsigned int width, codec_t codec)
 {
         if (codec_info[codec].h_align) {
                 width =
@@ -430,4 +442,66 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len)
 }
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
+
+int codec_is_a_rgb(codec_t codec)
+{
+        int i;
+        
+        for (i = 0; codec_info[i].name != NULL; i++) {
+		if (codec == codec_info[i].codec) {
+			return codec_info[i].rgb;
+		}
+	}
+        error_with_code_msg(128, "Unknown codec !");
+}
+
+struct video_frame * vf_alloc(int grid_width, int grid_height)
+{
+        struct video_frame *buf;
+        
+        buf = (struct video_frame *) malloc(sizeof(struct video_frame));
+        
+        buf->tiles = (struct tiles *) 
+                        malloc(sizeof(struct tile) * grid_width *
+                        grid_height);
+        buf->grid_width = grid_width;
+        buf->grid_height = grid_height;
+
+        int x, y;
+        for(x = 0; x < grid_width; ++x) {
+                for(y = 0; y < grid_height; ++y) {
+                        buf->tiles[x + y * grid_width].tile_info.x_count = 
+                                grid_width;
+                        buf->tiles[x + y * grid_width].tile_info.y_count = 
+                                grid_height;
+                        buf->tiles[x + y * grid_width].tile_info.pos_x = 
+                                x;
+                        buf->tiles[x + y * grid_width].tile_info.pos_y = 
+                                y;
+                }
+        }
+        
+        return buf;
+}
+
+void vf_free(struct video_frame *buf)
+{
+        if(!buf)
+                return;
+        free(buf->tiles);
+        free(buf);
+}
+
+struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos)
+{
+        assert (grid_x_pos < buf->grid_width && grid_y_pos < buf->grid_height);
+
+        return &buf->tiles[grid_x_pos + grid_y_pos * buf->grid_width];
+}
+
+void copy_tile_size_from_frame(struct video_frame *buf)
+{
+        tile_get(buf, 0, 0)->width = buf->desc.width;
+        tile_get(buf, 0, 0)->height = buf->desc.height;
+}
 

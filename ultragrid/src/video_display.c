@@ -72,7 +72,7 @@
 typedef struct {
         display_id_t id;
         display_type_t *(*func_probe) (void);
-        void *(*func_init) (char *fmt, unsigned int flags);
+        void *(*func_init) (char *fmt, unsigned int flags, struct state_decoder *decoder);
         void (*func_run) (void *state);
         void (*func_done) (void *state);
         struct video_frame *(*func_getf) (void *state);
@@ -236,7 +236,7 @@ struct display {
         void *state;
 };
 
-struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
+struct display *display_init(display_id_t id, char *fmt, unsigned int flags, struct state_decoder *decoder)
 {
         unsigned int i;
 
@@ -245,7 +245,7 @@ struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
                         struct display *d =
                             (struct display *)malloc(sizeof(struct display));
                         d->magic = DISPLAY_MAGIC;
-                        d->state = display_device_table[i].func_init(fmt, flags);
+                        d->state = display_device_table[i].func_init(fmt, flags, decoder);
                         d->index = i;
                         if (d->state == NULL) {
                                 debug_msg("Unable to start display 0x%08lx\n",

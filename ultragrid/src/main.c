@@ -64,6 +64,7 @@
 #include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
+#include "rtp/decoders.h" /* struct state_decoder */
 #include "rtp/pbuf.h"
 #include "video_codec.h"
 #include "video_capture.h"
@@ -98,6 +99,8 @@
 struct state_uv {
         struct rtp **network_devices;
         unsigned int connections_count;
+        
+        struct state_decoder *dec_state;
         
         struct vidcap *capture_device;
         struct timeval start_time, curr_time;
@@ -200,7 +203,7 @@ void list_video_display_devices()
 }
 
 static struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags)
+                                                char *fmt, unsigned int flags, struct state_decoder *decoder)
 {
         struct display *d;
         display_type_t *dt;
@@ -235,7 +238,7 @@ static struct display *initialize_video_display(const char *requested_display,
         }
         display_free_devices();
 
-        d = display_init(id, fmt, flags);
+        d = display_init(id, fmt, flags, decoder);
         if (d != NULL) {
                 frame_buffer = display_get_frame(d);
         }
@@ -365,9 +368,9 @@ static void *ihdtv_reciever_thread(void *arg)
 
         while (!should_exit) {
                 if (ihdtv_recieve
-                    (connection, frame_buffer->data, frame_buffer->data_len))
+                    (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
-                display_put_frame(display_device, frame_buffer->data);
+                display_put_frame(display_device, frame_buffer->tiles[0].data);
                 frame_buffer = display_get_frame(display_device);
         }
         return 0;
@@ -379,10 +382,9 @@ static void *ihdtv_sender_thread(void *arg)
         struct vidcap *capture_device = (struct vidcap *)((void **)arg)[1];
         struct video_frame *tx_frame;
         struct audio_frame *audio;
-        int unused;
 
         while (!should_exit) {
-                if ((tx_frame = vidcap_grab(capture_device, &unused, &audio)) != NULL) {
+                if ((tx_frame = vidcap_grab(capture_device, &audio)) != NULL) {
                         ihdtv_send(connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
                         free(tx_frame);
                 } else {
@@ -446,7 +448,7 @@ static void *receiver_thread(void *arg)
                         /* Decode and render video... */
                         if (pbuf_decode
                             (cp->playout_buffer, uv->curr_time, frame_buffer,
-                             i)) {
+                             i, uv->dec_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
@@ -455,7 +457,7 @@ static void *receiver_thread(void *arg)
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
                                         display_put_frame(uv->display_device,
-                                                          frame_buffer->data);
+                                                          frame_buffer->tiles[0].data);
                                         i = (i + 1) % 2;
                                         frame_buffer =
                                             display_get_frame(uv->display_device);
@@ -474,7 +476,7 @@ static void *receiver_thread(void *arg)
                         gettimeofday(&uv->curr_time, NULL);
                         fr = 1;
                         display_put_frame(uv->display_device,
-                                          frame_buffer->data);
+                                          frame_buffer->tiles[0].data);
                         i = (i + 1) % 2;
                         frame_buffer =
                             display_get_frame(uv->display_device);
@@ -489,25 +491,22 @@ static void *sender_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
 
-        struct video_frame *tx_frames;
+        struct video_frame *tx_frames, *splitted_frames = NULL;
         struct audio_frame *audio;
-        struct video_frame *splitted_frames = NULL;
+        //struct video_frame *splitted_frames = NULL;
         int tile_y_count;
-        int frame_count = 0;
 
         tile_y_count = uv->connections_count;
 
         /* we have more than one connection */
         if(tile_y_count > 1) {
                 /* it is simply stripping frame */
-                splitted_frames = (struct video_frame *)
-                        malloc(tile_y_count *
-                                        sizeof(struct video_frame));
+                splitted_frames = vf_alloc(1, tile_y_count);
         }
 
         while (!should_exit) {
                 /* Capture and transmit video... */
-                tx_frames = vidcap_grab(uv->capture_device, &frame_count, &audio);
+                tx_frames = vidcap_grab(uv->capture_device, &audio);
                 if (tx_frames != NULL) {
                         if(audio) {
                                 audio_sdi_send(uv->audio, audio);
@@ -515,7 +514,6 @@ static void *sender_thread(void *arg)
                         //TODO: Unghetto this
                         if (uv->requested_compression == COMPRESS_DXT_CPU) {
 #ifdef HAVE_FASTDXT
-                                assert(frame_count == 1);
                                 tx_frames = compress_data(uv->compression, &tx_frames[0]);
 #endif                          /* HAVE_FASTDXT */
                         } else if (uv->requested_compression == COMPRESS_DXT_GPU) {
@@ -524,22 +522,22 @@ static void *sender_thread(void *arg)
 #endif
                         }
                         if(uv->connections_count == 1) { /* normal case - only one connection */
-                                tx_send_multi(uv->tx, tx_frames, frame_count,
+                                tx_send(uv->tx, tx_frames, 
                                                 uv->network_devices[0]);
                         } else { /* split */
                                 int i;
 
-                                assert(frame_count == 1);
-                                vf_split_horizontal(splitted_frames, &tx_frames[0],
+                                //assert(frame_count == 1);
+                                vf_split_horizontal(splitted_frames, tx_frames,
                                                tile_y_count);
                                 for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send(uv->tx, &splitted_frames[i],
+                                        tx_send_tile(uv->tx, splitted_frames, 0, i,
                                                         uv->network_devices[i]);
                                 }
                         }
                 }
         }
-        free(splitted_frames);
+        vf_free(splitted_frames);
 
         return NULL;
 }
@@ -705,6 +703,8 @@ int main(int argc, char *argv[])
                 }
         }
         
+        uv->dec_state = decoder_init();
+        
         uv->audio = audio_cfg_init (network_device, audio_send, audio_recv, jack_cfg);
         if(audio_does_send_sdi(uv->audio))
                 vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
@@ -746,11 +746,12 @@ int main(int argc, char *argv[])
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
         if ((uv->display_device =
-             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
+             initialize_video_display(uv->requested_display, display_cfg, display_flags, uv->dec_state)) == NULL) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
                 return EXIT_FAIL_DISPLAY;
         }
+        decoder_register_video_display(uv->dec_state, uv->display_device);
         printf("Display initialized-%s\n", uv->requested_display);
 
 

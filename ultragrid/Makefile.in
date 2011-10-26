@@ -25,6 +25,7 @@ INSTALL = @INSTALL@
 bindir = @bindir@
 libdir = @libdir@
 datadir = @datadir@
+datarootdir = @datarootdir@
 uv_datadir = @datadir@/ultragrid/
 
 OBJS          = src/bitstream.o \
@@ -59,7 +60,6 @@ OBJS          = src/bitstream.o \
 		src/video_capture.o \
 		src/video_capture/null.o \
 		src/video_capture/testcard.o \
-		src/video_capture/testcard2.o \
 		src/video_display.o \
 		src/video_display/null.o \
 		@DVS_OBJ@ \
@@ -110,6 +110,9 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CXXFLAGS) -Wno-deprecated -fPIC -O3 -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
 
 ../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
+	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
+
+../dxt_compress/dxt_decoder.o: ../dxt_compress/dxt_decoder.c ../dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 	
 ../dxt_compress/dxt_common.o: ../dxt_compress/dxt_common.c ../dxt_compress/dxt_glsl.h

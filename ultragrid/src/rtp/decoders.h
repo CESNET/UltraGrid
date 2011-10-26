@@ -43,8 +43,27 @@
  *
  */
 
+struct coded_data;
+struct display;
+struct state_decoder;
+struct video_frame;
+enum codec_t;
+struct tile;
 
 /* 
  * External interface: 
  */
-void decode_frame(struct coded_data *compressed_frame, struct video_frame *framebuffer);
+void decode_frame(struct coded_data *compressed_frame, struct video_frame *framebuffer, struct state_decoder *s);
+
+struct state_decoder *decoder_init(void);
+void decoder_destroy(struct state_decoder *decoder);
+
+void decoder_register_video_display(struct state_decoder *decoder, struct display *display);
+void decoder_register_native_codecs(struct state_decoder *decoder, enum codec_t *codecs, int len);
+
+/*
+ * pass 0 to pitch for least possible (linesize)
+ */
+void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift, int bshift, int pitch);
+void decoder_post_reconfigure(struct state_decoder *decoder);
+

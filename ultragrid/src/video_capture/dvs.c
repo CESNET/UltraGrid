@@ -71,7 +71,7 @@ static void loadLibrary(void);
 
 typedef void *(*vidcap_dvs_init_t)(char *fmt, unsigned int flags);
 typedef void (*vidcap_dvs_done_t)(void *state);
-typedef struct video_frame *(*vidcap_dvs_grab_t)(void *state, int *count, struct audio_frame **audio);
+typedef struct video_frame *(*vidcap_dvs_grab_t)(void *state, struct audio_frame **audio);
 
 static vidcap_dvs_init_t vidcap_dvs_init_func = NULL;
 static vidcap_dvs_done_t vidcap_dvs_done_func = NULL;
@@ -125,13 +125,13 @@ void vidcap_dvs_done(void *state)
         vidcap_dvs_done_func(state);
 }
 
-struct video_frame *vidcap_dvs_grab(void *state, int *count, struct audio_frame **audio)
+struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
 {
         pthread_once(&DVSLibraryLoad, loadLibrary);
         
         if (vidcap_dvs_grab_func == NULL)
                 return NULL;
-        return vidcap_dvs_grab_func(state, count, audio);
+        return vidcap_dvs_grab_func(state, audio);
 }
 
 #endif                          /* HAVE_DVS */

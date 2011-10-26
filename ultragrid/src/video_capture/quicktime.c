@@ -84,7 +84,8 @@ struct qt_grabber_state {
         int minor;
         int audio_major;
         int audio_minor;
-        struct video_frame frame;
+        struct video_frame *frame;
+        struct tile *tile;
         struct audio_frame audio;
         char *abuffer[2], *vbuffer[2];
         int abuffer_len;
@@ -548,7 +549,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
-                s->frame.color_spec = atoi(tmp);
+                s->frame->desc.color_spec = atoi(tmp);
 
                 s->audio_major = -1;
                 s->audio_minor = -1;
@@ -586,9 +587,9 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         Rect gActiveVideoRect;
         SGGetSrcVideoBounds(s->video_channel, &gActiveVideoRect);
 
-        s->frame.width = s->bounds.right =
+        s->tile->width = s->frame->desc.width = s->bounds.right =
             gActiveVideoRect.right - gActiveVideoRect.left;
-        s->frame.height = s->bounds.bottom =
+        s->tile->height = s->frame->desc.height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
 
         unsigned char *deviceName;
@@ -623,7 +624,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                         s->qt_mode->height,
                                         s->qt_mode->fps,
                                         s->qt_mode->aux);
-                        s->frame.aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
+                        s->frame->desc.aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
                         free(device);
                         free(input);
                         break;
@@ -650,13 +651,13 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
         /* Set selected fmt->codec and get pixel format of that codec */
         int pixfmt;
-        if (s->frame.color_spec != 0xffffffff) {
+        if (s->frame->desc.color_spec != 0xffffffff) {
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
-                pixfmt = list->list[s->frame.color_spec].cType;
+                pixfmt = list->list[s->frame->desc.color_spec].cType;
                 printf("Quicktime: SetCompression: %s\n",
                        (int)SGSetVideoCompressor(s->video_channel, 0,
-                                                 list->list[s->frame.color_spec].codec, 0,
+                                                 list->list[s->frame->desc.color_spec].codec, 0,
                                                  0, 0)==0?"OK":"Failed!");
         } else {
                 CompressorComponent  codec;
@@ -675,7 +676,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if ((unsigned)pixfmt == codec_info[i].fcc) {
                         s->c_info = &codec_info[i];
-                        s->frame.color_spec = s->c_info->codec;
+                        s->frame->desc.color_spec = s->c_info->codec;
                         break;
                 }
         }
@@ -685,17 +686,9 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                (pixfmt) & 0xff);
 
         int h_align = s->c_info->h_align;
-        int aligned_x=s->frame.width;
-	aligned_x = ((s->frame.width + h_align - 1) / h_align) * h_align;
-        if (h_align > 1) {
-                printf
-                    ("Quicktime: Pixel format 'v210' was selected -> Setting width to %d\n",
-                     aligned_x);
-        }
-
-        s->frame.data_len = aligned_x * s->frame.height * s->c_info->bpp;
-        s->vbuffer[0] = malloc(s->frame.data_len);
-        s->vbuffer[1] = malloc(s->frame.data_len);
+        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->desc.color_spec);
+        s->vbuffer[0] = malloc(s->tile->data_len);
+        s->vbuffer[1] = malloc(s->tile->data_len);
 
         s->grab_buf_idx = 0;
 
@@ -786,7 +779,7 @@ AFTER_AUDIO:
         }
 
         SGGetChannelTimeScale(s->video_channel, &scale);
-        s->frame.fps = scale / 100.0;
+        s->frame->desc.fps = scale / 100.0;
 
         return 1;
 }
@@ -814,6 +807,10 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
         struct qt_grabber_state *s;
 
         s = (struct qt_grabber_state *)calloc(1,sizeof(struct qt_grabber_state));
+        
+        s->frame = vf_alloc(1, 1);
+        s->tile = tile_get(s->frame, 0, 0);
+        
         if (s != NULL) {
                 s->magic = MAGIC_QT_GRABBER;
                 s->grabber = 0;
@@ -822,7 +819,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->bounds.top = 0;
                 s->bounds.left = 0;
                 s->sg_idle_enough = 0;
-                s->frame.color_spec = 0xffffffff;
+                s->frame->desc.color_spec = 0xffffffff;
 
                 if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
                         s->grab_audio = TRUE;
@@ -843,7 +840,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->worker_waiting = FALSE;
                 s->work_to_do = TRUE;
                 s->grab_buf_idx = 0;
-                s->frame.data = s->vbuffer[0];
+                s->tile->data = s->vbuffer[0];
                 s->audio.data = s->abuffer[0];
                 pthread_create(&s->thread_id, NULL, vidcap_quicktime_thread, s);
         }
@@ -863,6 +860,7 @@ void vidcap_quicktime_done(void *state)
                 SGStop(s->grabber);
                 CloseComponent(s->grabber);
                 ExitMovies();
+                vf_free(s->frame);
                 free(s);
         }
 }
@@ -892,7 +890,7 @@ void * vidcap_quicktime_thread(void *state)
                         s->worker_waiting = FALSE;
                 }
                 s->audio.data_len = s->abuffer_len;
-                s->frame.data = s->vbuffer[s->grab_buf_idx];
+                s->tile->data = s->vbuffer[s->grab_buf_idx];
                 s->audio.data = s->abuffer[s->grab_buf_idx];
 
                 s->grab_buf_idx = (s->grab_buf_idx + 1 ) % 2;
@@ -906,7 +904,7 @@ void * vidcap_quicktime_thread(void *state)
 }
 
 /* Grab a frame */
-struct video_frame *vidcap_quicktime_grab(void *state, int *count, struct audio_frame **audio)
+struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audio)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -932,8 +930,7 @@ struct video_frame *vidcap_quicktime_grab(void *state, int *count, struct audio_
                 pthread_cond_signal(&s->worker_cv);
         pthread_mutex_unlock(&s->lock);
 
-        *count = 1; /* no tiled video by now */
-        return &s->frame;
+        return s->frame;
 }
 
 #endif                          /* HAVE_MACOSX */

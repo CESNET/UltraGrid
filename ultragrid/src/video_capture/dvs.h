@@ -56,5 +56,5 @@ struct audio_frame;
 struct vidcap_type	*vidcap_dvs_probe(void);
 void			*vidcap_dvs_init(char *fmt, unsigned int flags);
 void			 vidcap_dvs_done(void *state);
-struct video_frame	*vidcap_dvs_grab(void *state, int *count, struct audio_frame **audio);
+struct video_frame	*vidcap_dvs_grab(void *state, struct audio_frame **audio);
 

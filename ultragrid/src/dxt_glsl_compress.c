@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2011 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -67,7 +67,8 @@
 struct video_compress {
         struct dxt_encoder *encoder;
 
-        struct video_frame out;
+        struct video_frame *out;
+        decoder_t decoder;
         char *decoded;
         unsigned int configured:1;
         unsigned int interlaced_input:1;
@@ -76,7 +77,6 @@ struct video_compress {
 static void configure_with(struct video_compress *s, struct video_frame *frame);
 static int isExtensionSupported(const char *extList, const char *extension);
 static int ctxErrorHandler( Display *dpy, XErrorEvent *ev );
-void glx_init(void);
 
 #define GLX_CONTEXT_MAJOR_VERSION_ARB       0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB       0x2092
@@ -340,39 +340,39 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
 {
         int i;
 	int h_align = 0;
-        codec_t tmp = s->out.color_spec;
         enum dxt_format format;
         
-        assert(frame->width % 4 == 0 && frame->height % 4 == 0);
+        assert(frame->desc.width % 4 == 0 && frame->desc.height % 4 == 0);
+        assert(frame->grid_height == 1 && frame->grid_width == 1);
         
         glx_init();
         
-        memcpy(&s->out, frame, sizeof(struct video_frame));
+        s->out->desc.width = s->out->tiles[0].width = frame->desc.width;
+        s->out->desc.height = s->out->tiles[0].height = frame->desc.height;
+        s->out->desc.aux = frame->desc.aux;
+        s->out->desc.fps = frame->desc.fps;
 
-        switch (s->out.color_spec) {
+        switch (frame->desc.color_spec) {
                 case RGBA:
-                        s->out.decoder = (decoder_t) memcpy;
+                        s->decoder = (decoder_t) memcpy;
                         format = DXT_FORMAT_RGB;
                         break;
                 case R10k:
-                        s->out.decoder = (decoder_t) vc_copyliner10k;
-                        s->out.rshift = 0;
-                        s->out.gshift = 8;
-                        s->out.bshift = 16;
+                        s->decoder = (decoder_t) vc_copyliner10k;
                         format = DXT_FORMAT_RGB;
                         break;
                 case UYVY:
                 case Vuy2:
                 case DVS8:
-                        s->out.decoder = (decoder_t) memcpy;
+                        s->decoder = (decoder_t) memcpy;
                         format = DXT_FORMAT_YUV422;
                         break;
                 case v210:
-                        s->out.decoder = (decoder_t) vc_copylinev210;
+                        s->decoder = (decoder_t) vc_copylinev210;
                         format = DXT_FORMAT_YUV422;
                         break;
                 case DVS10:
-                        s->out.decoder = (decoder_t) vc_copylineDVS10;
+                        s->decoder = (decoder_t) vc_copylineDVS10;
                         format = DXT_FORMAT_YUV422;
                         break;
                 case DXT1:
@@ -380,39 +380,28 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         fprintf(stderr, "Input frame is already comperssed!");
                         exit(128);
                 default:
-                        fprintf(stderr, "Unknown codec: %d\n", s->out.color_spec);
+                        fprintf(stderr, "Unknown codec: %d\n", frame->desc.color_spec);
                         exit(128);
         }
         
-        for(i = 0; codec_info[i].name != NULL; ++i) {
-                if(s->out.color_spec == codec_info[i].codec) {
-                        s->out.src_bpp = codec_info[i].bpp;
-                        h_align = codec_info[i].h_align;
-                }
-        }
-        s->out.src_bpp = get_bpp(s->out.color_spec);
-        s->out.src_linesize = ((s->out.width + h_align - 1) / h_align) * h_align;
-        s->out.src_linesize *= s->out.src_bpp;
-        s->out.dst_linesize = s->out.width * 
+        s->out->tiles[0].linesize = s->out->desc.width * 
                 (format == DXT_FORMAT_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
 
         /* We will deinterlace the output frame */
-        if(s->out.aux & AUX_INTERLACED)
+        if(s->out->desc.aux & AUX_INTERLACED)
                 s->interlaced_input = TRUE;
         else
                 s->interlaced_input = FALSE;
-        s->out.aux &= ~AUX_INTERLACED;
+        s->out->desc.aux &= ~AUX_INTERLACED;
         
-        s->out.color_spec = tmp;
-        
-        if(s->out.color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, frame->width, frame->height, format);
-                s->out.aux |= AUX_RGB;
-                s->out.data_len = frame->width * frame->height / 2;
-        } else if(s->out.color_spec == DXT5){
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, frame->width, frame->height, format);
-                s->out.aux |= AUX_YUV; /* YCoCg */
-                s->out.data_len = frame->width * frame->height;
+        if(s->out->desc.color_spec == DXT1) {
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, frame->desc.width, frame->desc.height, format);
+                s->out->desc.aux |= AUX_RGB;
+                s->out->tiles[0].data_len = frame->desc.width * frame->desc.height / 2;
+        } else if(s->out->desc.color_spec == DXT5){
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, frame->desc.width, frame->desc.height, format);
+                s->out->desc.aux |= AUX_YUV; /* YCoCg */
+                s->out->tiles[0].data_len = frame->desc.width * frame->desc.height;
         }
         
         if(!s->encoder) {
@@ -420,8 +409,8 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 exit(128);
         }
         
-        s->out.data = (char *) malloc(s->out.data_len);
-        s->decoded = malloc(4 * frame->width * frame->height);
+        s->out->tiles[0].data = (char *) malloc(s->out->tiles[0].data_len);
+        s->decoded = malloc(4 * frame->desc.width * frame->desc.height);
         
         s->configured = TRUE;
 }
@@ -431,7 +420,8 @@ struct video_compress * dxt_glsl_init(char * opts)
         struct video_compress *s;
         
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
-        s->out.data = NULL;
+        s->out = vf_alloc(1, 1);
+        s->out->tiles[0].data = NULL;
         s->decoded = NULL;
         
         x11_enter_thread();
@@ -447,15 +437,15 @@ struct video_compress * dxt_glsl_init(char * opts)
         
         if(opts) {
                 if(strcasecmp(opts, "DXT5") == 0) {
-                        s->out.color_spec = DXT5;
+                        s->out->desc.color_spec = DXT5;
                 } else if(strcasecmp(opts, "DXT1") == 0) {
-                        s->out.color_spec = DXT1;
+                        s->out->desc.color_spec = DXT1;
                 } else {
                         fprintf(stderr, "Unknown compression : %s\n", opts);
                         return NULL;
                 }
         } else {
-                s->out.color_spec = DXT1;
+                s->out->desc.color_spec = DXT1;
         }
                 
         s->configured = FALSE;
@@ -472,29 +462,31 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
         if(!s->configured)
                 configure_with(s, tx);
 
-
-        line1 = (unsigned char *) tx->data;
+        line1 = (unsigned char *) tx->tiles[0].data;
         line2 = (unsigned char *) s->decoded;
         
-        for (x = 0; x < (int) tx->height; ++x) {
-                s->out.decoder(line2, line1, s->out.src_linesize,
-                                s->out.rshift, s->out.gshift, s->out.bshift);
-                line1 += s->out.src_linesize;
-                line2 += s->out.dst_linesize;
+        for (x = 0; x < (int) tx->desc.height; ++x) {
+                s->decoder(line2, line1, s->out->tiles[0].linesize,
+                                0, 8, 16);
+                line1 += vc_get_linesize(tx->desc.width, tx->desc.color_spec);
+                line2 += s->out->tiles[0].linesize;
         }
         
         if(s->interlaced_input)
-                vc_deinterlace((unsigned char *) s->decoded, s->out.dst_linesize, tx->height);
+                vc_deinterlace((unsigned char *) s->decoded, s->out->tiles[0].linesize, tx->desc.height);
         
         dxt_encoder_compress(s->encoder,
                         (unsigned char *) s->decoded,
-                        (unsigned char *) s->out.data);
+                        (unsigned char *) s->out->tiles[0].data);
         
-        return &s->out;
+        return s->out;
 }
 
 void dxt_glsl_exit(void *arg)
 {
         struct video_compress *s = (struct video_compress *) arg;
-        free(s->out.data);
+        
+        free(s->out->tiles[0].data);
+        vf_free(s->out);
+        free(s);
 }

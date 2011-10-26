@@ -83,7 +83,8 @@ struct vidcap_dvs_state {
         char *audio_bufs[2];
         int bufs_index;
         uint32_t hd_video_mode;
-        struct video_frame frame;
+        struct video_frame *frame;
+        struct tile *tile;
         struct audio_frame audio;
         const hdsp_mode_table_t *mode;
         unsigned grab_audio:1;
@@ -115,7 +116,7 @@ static void *vidcap_dvs_grab_thread(void *arg)
                 }
                 s->bufs_index = (s->bufs_index + 1) % 2;
                 s->dma_buffer->video[0].addr = s->bufs[s->bufs_index];
-                s->dma_buffer->video[0].size = s->frame.data_len;
+                s->dma_buffer->video[0].size = s->tile->data_len;
                 if(s->grab_audio) {
                         s->dma_buffer->audio[0].addr[0] = s->audio_bufs[s->bufs_index];
                         //fprintf(stderr, "%d ", s->dma_buffer->audio[0].size);
@@ -192,8 +193,6 @@ static void show_help(void)
 void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
 {
         struct vidcap_dvs_state *s;
-	int h_align = 0;
-	int aligned_x;
         int i;
         int res;
         int mode_index = 0;
@@ -201,6 +200,10 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
 
         s = (struct vidcap_dvs_state *)
             calloc(1, sizeof(struct vidcap_dvs_state));
+            
+        s->frame = vf_alloc(1, 1);
+        s->tile = tile_get(s->frame, 0, 0);
+        
         if (s == NULL) {
                 debug_msg("Unable to allocate DVS state\n");
                 return NULL;
@@ -238,15 +241,13 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                         return 0;
                 }
 
-                s->frame.color_spec = 0xffffffff;
+                s->frame->desc.color_spec = 0xffffffff;
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(tmp, codec_info[i].name) == 0) {
-                                s->frame.color_spec = codec_info[i].codec;
-                                s->frame.src_bpp = codec_info[i].bpp;
-				h_align = codec_info[i].h_align;
+                                s->frame->desc.color_spec = codec_info[i].codec;
                         }
                 }
-                if (s->frame.color_spec == 0xffffffff) {
+                if (s->frame->desc.color_spec == 0xffffffff) {
                         fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                         free(tmp);
                         return 0;
@@ -266,23 +267,19 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
 
 
-        if (s->frame.color_spec == DVS10) {
+        if (s->frame->desc.color_spec == DVS10) {
                 s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
 
         s->hd_video_mode |= s->mode->mode;
 
-        s->frame.width = s->mode->width;
-        s->frame.height = s->mode->height;
-        s->frame.fps = s->mode->fps;
-	s->frame.aux = s->mode->aux;
+        s->tile->width = s->frame->desc.width = s->mode->width;
+        s->tile->height = s->frame->desc.height = s->mode->height;
+        s->frame->desc.fps = s->mode->fps;
+	s->frame->desc.aux = s->mode->aux;
 
-	aligned_x = s->frame.width;
-	if (h_align) {
-		aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
-	}
-	s->frame.src_linesize = aligned_x * s->frame.src_bpp;
-	s->frame.data_len = aligned_x * s->frame.height * s->frame.src_bpp;
+	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->desc.color_spec);
+	s->tile->data_len = s->tile->linesize * s->tile->height;
 
         s->sv = sv_open("");
         if (s->sv == NULL) {
@@ -352,10 +349,9 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         s->boss_waiting = FALSE;
         s->worker_waiting = FALSE;
         s->work_to_do = FALSE;
-        s->bufs[0] = malloc(s->frame.data_len);
-        s->bufs[1] = malloc(s->frame.data_len);
+        s->bufs[0] = malloc(s->tile->data_len);
+        s->bufs[1] = malloc(s->tile->data_len);
         s->bufs_index = 0;
-        s->frame.state = s;
 
         if (pthread_create
             (&(s->thread_id), NULL, vidcap_dvs_grab_thread, s) != 0) {
@@ -363,7 +359,7 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        printf("Testcard capture set to %dx%d, bpp %f\n", s->frame.width, s->frame.height, s->frame.src_bpp);
+        printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->desc.color_spec));
 
         debug_msg("DVS capture device enabled\n");
         return s;
@@ -381,10 +377,11 @@ void vidcap_dvs_done_impl(void *state)
 
         sv_fifo_free(s->sv, s->fifo);
         sv_close(s->sv);
+        vf_free(s->frame);
         free(s);
 }
 
-struct video_frame *vidcap_dvs_grab_impl(void *state, int *count, struct audio_frame **audio)
+struct video_frame *vidcap_dvs_grab_impl(void *state, struct audio_frame **audio)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
@@ -410,16 +407,15 @@ struct video_frame *vidcap_dvs_grab_impl(void *state, int *count, struct audio_f
         pthread_mutex_unlock(&(s->lock));
 
         if (s->rtp_buffer != NULL) {
-                s->frame.data = s->rtp_buffer;
-                *count = 1;
+                s->tile->data = s->rtp_buffer;
                 if(s->grab_audio && s->audio.data_len)
                         *audio = &s->audio;
                 else 
                         *audio = NULL;
-                return &s->frame;
+                return s->frame;
         
         }
-        *count = 0;
+
         return NULL;
 }
 

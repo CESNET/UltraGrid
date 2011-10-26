@@ -80,6 +80,7 @@ struct pbuf;
  */
 struct pbuf	*pbuf_init(void);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
-int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, struct video_frame *framebuffer, int i);
+int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
+                             struct video_frame *framebuffer, int i, struct state_decoder *decoder);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
 int          audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *frame);

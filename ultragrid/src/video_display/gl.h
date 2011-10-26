@@ -50,84 +50,13 @@
 
 #define DISPLAY_GL_ID  0xba370a2a
 
+struct state_decoder;
+
 display_type_t          *display_gl_probe(void);
-void                    *display_gl_init(char *fmt, unsigned int flags);
+void                    *display_gl_init(char *fmt, unsigned int flags, struct state_decoder *decoder);
 void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
 struct video_frame      *display_gl_getf(void *state);
 int                      display_gl_putf(void *state, char *frame);
 
 int                      display_gl_handle_events(void *arg);
-
-
-// source code for a shader unit (xsedmik)
-static char * glsl = "\
-uniform sampler2D Ytex;\
-uniform sampler2D Utex,Vtex;\
-\
-void main(void) {\
-float nx,ny,r,g,b,y,u,v;\
-vec4 txl,ux,vx;\
-nx=gl_TexCoord[0].x;\
-ny=gl_TexCoord[0].y;\
-y=texture2D(Ytex,vec2(nx,ny)).r;\
-u=texture2D(Utex,vec2(nx,ny)).r;\
-v=texture2D(Vtex,vec2(nx,ny)).r;\
-y=1.1643*(y-0.0625);\
-u=u-0.5;\
-v=v-0.5;\
-r=y+1.5958*v;\
-g=y-0.39173*u-0.81290*v;\
-b=y+2.017*u;\
-gl_FragColor=vec4(r,g,b,1.0);\
-}";
-
-/* DXT related -- there shoud be only one kernel 
- * since both do basically the same thing */
-static char * frag = "\
-uniform sampler2D yuvtex;\
-\
-void main(void) {\
-vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);\
-\
-float Y = col[0];\
-float U = col[1]-0.5;\
-float V = col[2]-0.5;\
-Y=1.1643*(Y-0.0625);\
-\
-float G = Y-0.39173*U-0.81290*V;\
-float B = Y+2.017*U;\
-float R = Y+1.5958*V;\
-\
-gl_FragColor=vec4(R,G,B,1.0);}";
-
-static char * vert = "\
-void main() {\
-gl_TexCoord[0] = gl_MultiTexCoord0;\
-gl_Position = ftransform();}";
-
-static const char fp_display_dxt5ycocg[] = 
-    "#extension GL_EXT_gpu_shader4 : enable\n"
-    "uniform sampler2D _image;\n"
-    "void main()\n"
-    "{\n"
-    "    vec4 _rgba;\n"
-    "    float _scale;\n"
-    "    float _Co;\n"
-    "    float _Cg;\n"
-    "    float _R;\n"
-    "    float _G;\n"
-    "    float _B;\n"
-    "    _rgba = texture2D(_image, gl_TexCoord[0].xy);\n"
-    "    _scale = 1.00000000E+00/(3.18750000E+01*_rgba.z + 1.00000000E+00);\n"
-    "    _Co = (_rgba.x - 5.01960814E-01)*_scale;\n"
-    "    _Cg = (_rgba.y - 5.01960814E-01)*_scale;\n"
-    "    _R = (_rgba.w + _Co) - _Cg;\n"
-    "    _G = _rgba.w + _Cg;\n"
-    "    _B = (_rgba.w - _Co) - _Cg;\n"
-    "    _rgba = vec4(_R, _G, _B, 1.00000000E+00);\n"
-    "    gl_FragColor = _rgba;\n"
-    "    return;\n"
-    "} // main end\n"
-;
-

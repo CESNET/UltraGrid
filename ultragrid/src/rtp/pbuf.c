@@ -338,7 +338,7 @@ static int frame_complete(struct pbuf_node *frame)
 
 int
 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
-            struct video_frame *framebuffer, int i)
+            struct video_frame *framebuffer, int i, struct state_decoder *decoder)
 {
         UNUSED(i);
         /* Find the first complete frame that has reached it's playout */
@@ -352,7 +352,7 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         while (curr != NULL) {
                 if (!curr->decoded && tv_gt(curr_time, curr->playout_time)) {
                         if (frame_complete(curr)) {
-                                decode_frame(curr->cdata, framebuffer);
+                                decode_frame(curr->cdata, framebuffer, decoder);
                                 curr->decoded = 1;
                                 return 1;
                         } else {

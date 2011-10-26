@@ -67,6 +67,7 @@ extern "C" {
 #include "DeckLinkAPI.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
+#include "rtp/decoders.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -108,6 +109,7 @@ struct device_state {
 };
 
 struct state_decklink {
+        struct state_decoder     *decoder;
         uint32_t            magic;
 
         struct timeval      tv;
@@ -118,7 +120,7 @@ struct state_decklink {
         BMDTimeScale        frameRateScale;
 
 	struct audio_frame  audio;
-        struct video_frame  frame[MAX_DEVICES];
+        struct video_frame *frame;
 
         unsigned long int   frames;
         unsigned long int   frames_last;
@@ -200,11 +202,11 @@ display_decklink_getf(void *state)
 
         if (s->initialized) {
                 for(int i = 0; i < s->devices_cnt; ++i)
-                        s->state[i].deckLinkFrame->GetBytes((void **) &s->frame[i].data);
+                        s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
         }
 
         /* stub -- real frames are taken with get_sub_frame call */
-        return &s->frame[0];
+        return s->frame;
 }
 
 int display_decklink_putf(void *state, char *frame)
@@ -260,64 +262,38 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
         int h_align = 0;
 
         assert(s->magic == DECKLINK_MAGIC);
+        
+        s->frame->desc.color_spec = color_spec;
+        s->frame->desc.aux = aux;
+        s->frame->desc.fps = fps;
+        s->frame->desc.width = width;
+        s->frame->desc.height = height;
 
         for(int i = 0; i < s->devices_cnt; ++i) {
                 /* compute position */
-                double x_cnt = sqrt(s->devices_cnt);
-                s->frame[i].tile_info.x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                s->frame[i].tile_info.y_count = s->devices_cnt / s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_x = i % s->frame[i].tile_info.x_count;
-                s->frame[i].tile_info.pos_y = i / s->frame[i].tile_info.x_count;
-
-                tile_width = width / s->frame[i].tile_info.x_count;
-                tile_height = height / s->frame[i].tile_info.y_count;
-                s->frame[i].dst_x_offset = 0;
-                s->frame[i].color_spec = color_spec;
-                s->frame[i].width = width;
-                s->frame[i].height = height;
-                s->frame[i].dst_bpp = get_bpp(color_spec);
-                s->frame[i].src_bpp = get_bpp(color_spec);
-                s->frame[i].fps = fps;
-                s->frame[i].aux = aux;
-
-                s->frame[i].src_linesize = vc_getsrc_linesize(tile_width, color_spec);
-                assert(s->frame[i].src_linesize != 0);
+                int x_count = s->frame->tiles[0].tile_info.x_count;
+                int y_count = s->frame->tiles[0].tile_info.y_count;
+                struct tile  *tile = tile_get(s->frame, i % x_count,
+                                i / x_count);
+                                
+                tile->width = width / x_count;
+                tile->height = height / y_count;
+                tile->linesize = vc_get_linesize(tile_width, color_spec);
+                tile->data_len = tile->linesize * tile->height;
                 
-                /* defaults, if not changed in a switch bellow */
-                s->frame[i].decoder = (decoder_t)memcpy;
-                s->frame[i].dst_linesize = s->frame[i].src_linesize;
-                s->frame[i].dst_pitch = s->frame[i].dst_linesize;
-                s->frame[i].data_len = s->frame[i].dst_pitch * tile_height;
-
                 switch (color_spec) {
                         case UYVY:
-                        case DVS8:
-                        case Vuy2:
                                 pixelFormat = bmdFormat8BitYUV;
                                 break;
                         case v210:
                                 pixelFormat = bmdFormat10BitYUV;
-                                s->frame[i].dst_linesize = s->frame[i].dst_bpp * tile_width;
                                 break;
                         case RGBA:
                                 pixelFormat = bmdFormat8BitBGRA;
                                 break;
-                        case R10k:
-                                pixelFormat = bmdFormat10BitRGB;
-                                break;
-                        case DVS10:
-                                pixelFormat = bmdFormat10BitYUV;
-                                s->frame[i].decoder = (decoder_t)vc_copylineDVS10toV210;
-                                s->frame[i].dst_bpp = get_bpp(v210);
-                                s->frame[i].dst_linesize = s->frame[i].dst_bpp * tile_width;
-                                s->frame[i].dst_pitch = get_haligned(tile_width, v210)
-                                                * s->frame[i].dst_bpp;
-                                s->frame[i].data_len = s->frame[i].dst_pitch * tile_height;
-                                break;
                         default:
                                 fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
                 }
-                
 
                 // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
                 if (s->state[i].deckLinkOutput->GetDisplayModeIterator(&displayModeIterator) != S_OK)
@@ -376,15 +352,14 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                 }
 
                 //Generate a frame of black
-                long int linesize = vc_getsrc_linesize(tile_width, color_spec);
-                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile_width, tile_height, linesize, pixelFormat, bmdFrameFlagDefault, &s->state[i].deckLinkFrame) != S_OK)
+                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile_width, tile_height, tile->linesize, pixelFormat, bmdFrameFlagDefault, &s->state[i].deckLinkFrame) != S_OK)
                 {
                         fprintf(stderr, "[decklink] Failed to create video frame.\n");
                         exit(128);
                 }
                         
                 s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, bmdVideoOutputFlagDefault);
-                s->state[i].deckLinkFrame->GetBytes((void **) &s->frame[i].data);
+                s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
         }
 
         for(int i = 0; i < s->devices_cnt; ++i) {
@@ -395,7 +370,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
 }
 
 
-void *display_decklink_init(char *fmt, unsigned int flags)
+void *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
 {
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
@@ -406,6 +381,12 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
 
+        s->decoder = decoder;
+        codec_t native[] = {v210, UYVY, RGBA};
+        decoder_register_native_codecs(decoder, native, sizeof(native));
+        decoder_set_param(s->decoder, 0, 8, 16,
+                0);
+        
         if(fmt == NULL) {
                 cardIdx[0] = 0;
                 s->devices_cnt = 1;
@@ -476,6 +457,16 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 s->play_audio = FALSE;
         }
         
+        double x_cnt = sqrt(s->devices_cnt);
+        int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+        int y_count = s->devices_cnt / x_count;
+        s->frame = vf_alloc(x_count, y_count);
+        if(s->devices_cnt > 1) {
+                s->frame->desc.aux = AUX_TILED;
+        }
+        s->frame->state = s;
+        s->frame->reconfigure = (reconfigure_t) reconfigure_screen_decklink;
+        
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
                 if (s->state[i].deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->state[i].deckLinkOutput) != S_OK) {
@@ -490,9 +481,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
                 //s->state[i].deckLinkOutput->DisableAudioOutput();
 
-                s->frame[i].state = s;
-                s->frame[i].reconfigure = (reconfigure_t) reconfigure_screen_decklink;
-                s->frame[i].get_sub_frame = (get_sub_frame_t) get_sub_frame;
+                
         }
 
         s->frames = 0;
@@ -509,6 +498,7 @@ void display_decklink_done(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;
 
+        vf_free(s->frame);
         free(s);
 }
 
@@ -543,44 +533,6 @@ HRESULT         PlaybackDelegate::ScheduledPlaybackHasStopped ()
 void vidcap_decklink_run(void *state)
 {
         UNUSED(state);
-}
-
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out) 
-{
-        struct state_decklink *s = (struct state_decklink *)state;
-
-        if (s->devices_cnt > 1) { /* tiled video
-                                     expecting that requested sub_frame matches
-                                     exactly one physical device */
-                double x_cnt = sqrt(s->devices_cnt);
-                int y_cnt;
-                int index;
-                x_cnt = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                y_cnt = s->devices_cnt / (int) x_cnt;
-
-                assert(x % w == 0 &&
-                                y % h == 0 &&
-                                s->frame[0].width % w == 0 &&
-                                s->frame[0].height % h == 0);
-
-                index = x / w + // row 
-                        x_cnt * (y / h); // column
-
-                memcpy(out, &s->frame[index], sizeof(struct video_frame));
-        } else { /* dual link */
-                assert(x + w <= s->frame[0].width &&
-                                y + h <= s->frame[0].height);
-
-                memcpy(out, &s->frame[0], sizeof(struct video_frame));
-                out->data +=
-                        y * s->frame[0].dst_pitch +
-                        (size_t) (x * s->frame[0].dst_bpp);
-                out->src_linesize =
-                        vc_getsrc_linesize(w, out->color_spec);
-                out->dst_linesize =
-                        w * out->dst_bpp;
-
-        }
 }
 
 /*

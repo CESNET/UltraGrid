@@ -94,8 +94,11 @@ struct video_compress {
         codec_t tx_color_spec;
         sem_t thread_compress[MAX_THREADS];
         sem_t threads_done;
+        
+        decoder_t decoder;
 
-        struct video_frame frame;
+        struct video_frame *frame;
+        struct tile *tile;
 };
 
 static void compress_thread(void *args);
@@ -111,37 +114,39 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         compress->tx_aux = aux;
         compress->tx_color_spec = codec;
 
-        compress->frame.width = width;
-        compress->frame.height = height;
-        compress->frame.color_spec = codec;
-        compress->frame.src_bpp = get_bpp(codec);
-        compress->frame.aux = aux;
+        compress->tile->width =
+                compress->frame->desc.width = width;
+        compress->tile->height =
+                compress->frame->desc.height = height;
+        compress->frame->desc.color_spec = codec;
+        //compress->frame.src_bpp = get_bpp(codec);
+        compress->frame->desc.aux = aux;
 
         switch (codec) {
                 case RGBA:
-                        compress->frame.decoder = (decoder_t) memcpy;
-                        compress->frame.aux |= AUX_RGB;
+                        compress->decoder = (decoder_t) memcpy;
+                        compress->frame->desc.aux |= AUX_RGB;
                         break;
                 case R10k:
-                        compress->frame.decoder = (decoder_t) vc_copyliner10k;
-                        compress->frame.rshift = 0;
+                        compress->decoder = (decoder_t) vc_copyliner10k;
+                        /*compress->frame.rshift = 0;
                         compress->frame.gshift = 8;
-                        compress->frame.bshift = 16;
-                        compress->frame.aux |= AUX_RGB;
+                        compress->frame.bshift = 16;*/
+                        compress->frame->desc.aux |= AUX_RGB;
                         break;
                 case UYVY:
                 case Vuy2:
                 case DVS8:
-                        compress->frame.decoder = (decoder_t) memcpy;
-                        compress->frame.aux |= AUX_YUV;
+                        compress->decoder = (decoder_t) memcpy;
+                        compress->frame->desc.aux |= AUX_YUV;
                         break;
                 case v210:
-                        compress->frame.decoder = (decoder_t) vc_copylinev210;
-                        compress->frame.aux |= AUX_YUV;
+                        compress->decoder = (decoder_t) vc_copylinev210;
+                        compress->frame->desc.aux |= AUX_YUV;
                         break;
                 case DVS10:
-                        compress->frame.decoder = (decoder_t) vc_copylineDVS10;
-                        compress->frame.aux |= AUX_YUV;
+                        compress->decoder = (decoder_t) vc_copylineDVS10;
+                        compress->frame->desc.aux |= AUX_YUV;
                         break;
                 case DXT1:
                         fprintf(stderr, "Input frame is already comperssed!");
@@ -156,19 +161,17 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                 }
         }
         assert(h_align != 0);
-        compress->frame.src_linesize = ((width + h_align - 1) / h_align) * h_align;
-        compress->frame.src_linesize *= compress->frame.src_bpp;
-        compress->frame.dst_linesize = compress->frame.width * 
-                (compress->frame.aux & AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
-        compress->frame.color_spec = DXT1;
+        compress->tile->linesize = compress->frame->desc.width * 
+                (compress->frame->desc.aux & AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+        compress->frame->desc.color_spec = DXT1;
 
         /* We will deinterlace the output frame */
-        compress->frame.aux &= ~AUX_INTERLACED;
+        compress->frame->desc.aux &= ~AUX_INTERLACED;
 
         for (x = 0; x < compress->num_threads; x++) {
                 int my_height = (height / compress->num_threads) / 4 * 4;
                 if(x == compress->num_threads - 1) {
-                        my_height = compress->frame.height - my_height /* "their height" */ * x;
+                        my_height = compress->tile->height - my_height /* "their height" */ * x;
                 }
                 compress->buffer[x] =
                     (unsigned char *)malloc(width * my_height * 4);
@@ -184,10 +187,10 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
          *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
          */
         compress->output_data = (unsigned char *)memalign(16, width * height * 4);
-        compress->frame.data = (char *)memalign(16, width * height * 4);
+        compress->tile->data = (char *)memalign(16, width * height * 4);
 #endif                          /* HAVE_MACOSX */
         memset(compress->output_data, 0, width * height * 4);
-        memset(compress->frame.data, 0, width * height * 4 / 8);
+        memset(compress->tile->data, 0, width * height * 4 / 8);
 }
 
 struct video_compress *initialize_video_compression(const char *num_threads_str)
@@ -208,8 +211,11 @@ struct video_compress *initialize_video_compression(const char *num_threads_str)
                 compress->num_threads = atoi(num_threads_str);
         assert (compress->num_threads > 1 && compress->num_threads <= MAX_THREADS);
 
-        compress->frame.width = 0;
-        compress->frame.height = 0;
+        compress->frame = vf_alloc(1, 1);
+        compress->tile = tile_get(compress->frame, 0, 0);
+        
+        compress->frame->desc.width = compress->tile->width = 0;
+        compress->frame->desc.height = compress->tile->height = 0;
 
         compress->thread_count = 0;
         if (pthread_mutex_init(&(compress->lock), NULL)) {
@@ -243,30 +249,32 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
         unsigned int x;
         unsigned char *line1, *line2;
 
-        if(tx->width != compress->frame.width ||
-                        tx->height != compress->frame.height ||
-                        tx->aux != compress->tx_aux ||
-                        tx->color_spec != compress->tx_color_spec)
+        assert(tx->grid_height == 1 && tx->grid_width == 1);
+        assert(tx->desc.height % 4 == 0);
+        assert(tx->desc.width % 4 == 0);
+
+        if(tx->desc.width != compress->frame->desc.width ||
+                        tx->desc.height != compress->frame->desc.height ||
+                        tx->desc.aux != compress->tx_aux ||
+                        tx->desc.color_spec != compress->tx_color_spec)
         {
-                assert(tx->height % 4 == 0);
-                assert(tx->width % 4 == 0);
-                reconfigure_compress(compress, tx->width, tx->height, tx->color_spec, tx->aux);
+                reconfigure_compress(compress, tx->desc.width, tx->desc.height, tx->desc.color_spec, tx->desc.aux);
         }
 
-        line1 = (unsigned char *)tx->data;
+        line1 = (unsigned char *)tx->tiles[0].data;
         line2 = compress->output_data;
 
-        for (x = 0; x < compress->frame.height; ++x) {
-                compress->frame.decoder(line2, line1, compress->frame.src_linesize,
-                                compress->frame.rshift, compress->frame.gshift, compress->frame.bshift);
-                line1 += compress->frame.src_linesize;
-                line2 += compress->frame.dst_linesize;
+        for (x = 0; x < compress->frame->desc.height; ++x) {
+                int src_linesize = vc_get_linesize(compress->frame->desc.width, compress->tx_color_spec);
+                compress->decoder(line2, line1, compress->tile->linesize,
+                                0, 8, 16);
+                line1 += src_linesize;
+                line2 += compress->tile->linesize;
         }
 
-
-        if(tx->aux & AUX_INTERLACED)
-                vc_deinterlace(compress->output_data, compress->frame.dst_linesize,
-                                compress->frame.height);
+        if(tx->desc.aux & AUX_INTERLACED)
+                vc_deinterlace(compress->output_data, compress->tile->linesize,
+                                compress->tile->height);
 
 
         for (x = 0; x < compress->num_threads; x++) {
@@ -277,9 +285,9 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
                 platform_sem_wait(&compress->threads_done);
         }
 
-        compress->frame.data_len = compress->frame.width * compress->frame.height / 2;
+        compress->tile->data_len = compress->tile->width * compress->tile->height / 2;
 
-        return &compress->frame;
+        return compress->frame;
 }
 
 static void compress_thread(void *args)
@@ -300,15 +308,15 @@ static void compress_thread(void *args)
                 platform_sem_wait(&compress->thread_compress[myId]);
 
 
-                my_height = (compress->frame.height / compress->num_threads) / 4 * 4;
-                range = my_height * compress->frame.width; /* for all threads except the last */
+                my_height = (compress->tile->height / compress->num_threads) / 4 * 4;
+                range = my_height * compress->tile->width; /* for all threads except the last */
 
                 if(myId == compress->num_threads - 1) {
-                        my_height = compress->frame.height - my_height /* "their height" */ * myId;
+                        my_height = compress->tile->height - my_height /* "their height" */ * myId;
                 }
-                my_range = my_height * compress->frame.width;
+                my_range = my_height * compress->tile->width;
 
-                if(compress->frame.aux & AUX_YUV)
+                if(compress->frame->desc.aux & AUX_YUV)
                 {
                         unsigned char *input;
                         input = (compress->output_data) + myId
@@ -331,8 +339,8 @@ static void compress_thread(void *args)
                 }
 
                 DirectDXT1(retv,
-                               ((unsigned char *) compress->frame.data) + myId * range / 2,
-                               compress->frame.width, my_height);
+                               ((unsigned char *) compress->tile->data) + myId * range / 2,
+                               compress->frame->desc.width, my_height);
 
                 platform_sem_post(&compress->threads_done);
         }

@@ -50,8 +50,9 @@
 #include "tile.h"
 
 struct audio_frame;
+struct vf_decoder;
 
-typedef enum {
+typedef enum codec_t {
         RGBA,
         UYVY,
         Vuy2,
@@ -65,36 +66,39 @@ typedef enum {
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux);
-/**
- * function of this type should return buffer corresponding to the given tile_info struct
- */
-typedef void (*get_sub_frame_t)(void *state, int x, int y, int width, int height, struct video_frame *out);
 
-
-struct video_frame {
-        codec_t              color_spec;
+/* please note that tiles have also its own widths and heights */
+struct video_desc {
         unsigned int         width;
         unsigned int         height;
-        char                 *data; /* this is not beginning of the frame buffer actually but beginning of displayed data,
+        codec_t              color_spec;
+        int                  aux;
+        double               fps;
+};
+
+struct video_frame 
+{
+        struct video_desc    desc;
+        struct tile         *tiles;
+        
+        unsigned int         grid_width; /* tiles */
+        unsigned int         grid_height;
+        reconfigure_t        reconfigure;
+        void                *state;
+};
+
+struct tile {
+        unsigned int         width;
+        unsigned int         height;
+        
+        char                *data; /* this is not beginning of the frame buffer actually but beginning of displayed data,
                                      * it is the case display is centered in larger window, 
                                      * i.e., data = pixmap start + x_start + y_start*linesize
                                      */
         unsigned int         data_len; /* relative to data pos, not framebuffer size! */      
-        unsigned int         dst_linesize; /* framebuffer pitch */
-        unsigned int         dst_pitch; /* framebuffer pitch - it can be larger if SDL resolution is larger than data */
-        unsigned int         src_linesize; /* display data pitch */
-        unsigned int         dst_x_offset; /* X offset in frame buffer in bytes */
-        double               src_bpp;
-        double               dst_bpp;
-        int                  rshift;
-        int                  gshift;
-        int                  bshift;
-        decoder_t            decoder;
-        reconfigure_t        reconfigure;
-        get_sub_frame_t      get_sub_frame;
-        void                 *state;
-        double               fps;
-        int                  aux;
+        unsigned int         linesize;
+        struct vf_decoder   *decoder;
+        
         struct tile_info     tile_info;
 };
 
@@ -108,20 +112,37 @@ struct codec_info_t {
         unsigned rgb:1;
 };
 
+struct line_decode_from_to {
+        codec_t from;
+        codec_t to;
+        decoder_t decoder;
+};
+
 extern const struct codec_info_t codec_info[];
+extern const struct line_decode_from_to line_decoders[];
 
 void show_codec_help(char *mode);
 double get_bpp(codec_t codec);
 int get_haligned(int width_pixels, codec_t codec);
 
-int vc_getsrc_linesize(unsigned int width, codec_t codec);
+int vc_get_linesize(unsigned int width, codec_t codec);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
-void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len);
+void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len);
 void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len);
 void vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len);
+
+/*
+ * @return TRUE or FALSE
+ */
+int codec_is_a_rgb(codec_t codec);
+
+struct video_frame * vf_alloc(int grid_width, int grid_height);
+void vf_free(struct video_frame *buf);
+struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos);
+void copy_tile_size_from_frame(struct video_frame *buf);
 
 /* AUX_RGB and AUX_YUV are currently used only when sending DXT1 compression
  * to indicate if it is YUV or RGB. Otherwise the usage is redundant since

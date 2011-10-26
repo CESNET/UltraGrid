@@ -82,7 +82,8 @@ extern long packet_rate;
 #endif                          /* HAVE_MACOSX */
 
 void
-tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session, uint32_t ts, int send_m);
+tx_send_base(struct video_tx *tx, struct tile *frame, struct rtp *rtp_session, uint32_t ts, int send_m,
+                codec_t color_spec, double fps, int aux);
 
 struct video_tx {
         uint32_t magic;
@@ -111,29 +112,41 @@ void tx_done(struct video_tx *tx)
  * sends one or more frames (tiles) with same TS in one RTP stream. Only one m-bit is set.
  */
 void
-tx_send_multi(struct video_tx *tx, struct video_frame *frame, int count, struct rtp *rtp_session)
+tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 {
-        int i;
+        int i, j;
         uint32_t ts = 0;
+        struct tile *tile;
 
         ts = get_local_mediatime();
 
-        for(i = 0; i < count; ++i)
+        for(i = 0; i < frame->grid_width; ++i)
         {
-                tx_send_base(tx, &frame[i], rtp_session, ts, i == count - 1 ? TRUE : FALSE);
+                for(j = 0; j < frame->grid_height; ++j) {
+                        int last = FALSE;
+                        
+                        if (i == frame->grid_width - 1 && 
+                                        j == frame->grid_height - 1)
+                                last = TRUE;
+                        tx_send_base(tx, tile_get(frame, i, j), rtp_session, ts, last,
+                                        frame->desc.color_spec, frame->desc.fps, frame->desc.aux);
+                }
         }
 }
 
 void
-tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
+tx_send_tile(struct video_tx *tx, struct video_frame *frame, int x_pos, int y_pos, struct rtp *rtp_session)
 {
+        struct tile *tile;
+        
+        tile = tile_get(frame, x_pos, y_pos);
         uint32_t ts = 0;
         ts = get_local_mediatime();
-        tx_send_base(tx, frame, rtp_session, ts, TRUE);
+        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->desc.color_spec, frame->desc.fps, frame->desc.aux);
 }
 
 void
-tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session, uint32_t ts, int send_m)
+tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec, double fps, int aux)
 {
         int m, data_len;
         payload_hdr_t payload_hdr;
@@ -154,24 +167,24 @@ tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_ses
         m = 0;
         pos = 0;
 
-        payload_hdr.width = htons(frame->width);
-        payload_hdr.height = htons(frame->height);
-        payload_hdr.colorspc = frame->color_spec;
-        payload_hdr.fps = htonl((int)(frame->fps * 65536));
-        payload_hdr.aux = htonl(frame->aux);
-        payload_hdr.tileinfo =  hton_tileinfo2uint(frame->tile_info);
+        payload_hdr.width = htons(tile->width);
+        payload_hdr.height = htons(tile->height);
+        payload_hdr.colorspc = color_spec;
+        payload_hdr.fps = htonl((int)(fps * 65536));
+        payload_hdr.aux = htonl(aux);
+        payload_hdr.tileinfo =  hton_tileinfo2uint(tile->tile_info);
 
         do {
                 payload_hdr.offset = htonl(pos);
                 payload_hdr.flags = htons(1 << 15);
 
-                data = frame->data + pos;
+                data = tile->data + pos;
                 data_len = tx->mtu - 40 - (sizeof(payload_hdr_t));
                 data_len = (data_len / 48) * 48;
-                if (pos + data_len >= frame->data_len) {
+                if (pos + data_len >= tile->data_len) {
                         if (send_m)
                                 m = 1;
-                        data_len = frame->data_len - pos;
+                        data_len = tile->data_len - pos;
                 }
                 pos += data_len;
                 payload_hdr.length = htons(data_len);
@@ -186,7 +199,7 @@ tx_send_base(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_ses
                                 delta += 1000000000L;
                 } while (packet_rate - delta > 0);
 
-        } while (pos < frame->data_len);
+        } while (pos < tile->data_len);
 }
 
 void audio_tx_send(struct rtp *rtp_session, audio_frame * buffer)

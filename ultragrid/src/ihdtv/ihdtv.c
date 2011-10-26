@@ -314,7 +314,7 @@ ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
                 packet_1.offset = packet_relative_offset;
                 vector1[0].iov_base = &packet_1;
                 vector1[0].iov_len = 16;        // we only use the header
-                vector1[1].iov_base = (tx_frame->data) + offset_absolut_1;
+                vector1[1].iov_base = tile_get(tx_frame, 0, 0)->data + offset_absolut_1;
                 vector1[1].iov_len = connection->video_data_per_packet;
                 if (sendmsg(connection->tx_socket_1, &msg1, 0) == -1) {
                         perror("Sending data to address 1");
@@ -324,7 +324,7 @@ ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
                 packet_2.offset = packet_relative_offset;
                 vector2[0].iov_base = &packet_2;
                 vector2[0].iov_len = 16;        // we only use the header
-                vector2[1].iov_base = (tx_frame->data) + offset_absolut_2;
+                vector2[1].iov_base = tile_get(tx_frame, 0, 0)->data + offset_absolut_2;
                 vector2[1].iov_len = connection->video_data_per_packet;
                 if (sendmsg(connection->tx_socket_2, &msg2, 0) == -1) {
                         perror("Sending data to address 2");
@@ -339,7 +339,7 @@ ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
         packet_1.offset = packet_relative_offset;
         vector1[0].iov_base = &packet_1;
         vector1[0].iov_len = 16;        // we only use the header
-        vector1[1].iov_base = (tx_frame->data) + offset_absolut_1;
+        vector1[1].iov_base = tile_get(tx_frame, 0, 0)->data + offset_absolut_1;
         vector1[1].iov_len = connection->video_data_per_last_packet;
         if (sendmsg(connection->tx_socket_1, &msg1, 0) == -1) {
                 perror("Sending data to address 1");
@@ -349,7 +349,7 @@ ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
         packet_2.offset = packet_relative_offset;
         vector2[0].iov_base = &packet_2;
         vector2[0].iov_len = 16;        // we only use the header
-        vector2[1].iov_base = (tx_frame->data) + offset_absolut_2;
+        vector2[1].iov_base = tile_get(tx_frame, 0, 0)->data + offset_absolut_2;
         vector2[1].iov_len = connection->video_data_per_last_packet;
         if (sendmsg(connection->tx_socket_2, &msg2, 0) == -1) {
                 perror("Sending data to address 2");

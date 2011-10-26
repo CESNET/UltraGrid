@@ -121,7 +121,7 @@ dxt_decoder_buffer_allocate(struct dxt_decoder* decoder, unsigned char** image, 
 
 /** Documented at declaration */
 int
-dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compressed, int image_compressed_size, DXT_IMAGE_TYPE* image)
+dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compressed, DXT_IMAGE_TYPE* image)
 {    
     TIMER_INIT();
     
@@ -132,9 +132,11 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0, image_compressed_size, image_compressed);
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+                        decoder->width, decoder->height, 0, decoder->width * decoder->height, image_compressed);
     else
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0, image_compressed_size, image_compressed);
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+                        decoder->width, decoder->height, 0, decoder->width * decoder->height / 2, image_compressed);
     glFinish();
     TIMER_STOP_PRINT("Texture Load:      ");
     

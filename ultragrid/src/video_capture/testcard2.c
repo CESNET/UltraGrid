@@ -223,7 +223,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         rect_size = (s->frame.width + rect_size - 1) / rect_size;
 
-        s->frame.src_linesize = s->aligned_x * bpp;
+        s->frame.linesize = s->aligned_x * bpp;
         s->frame.aux = AUX_PROGRESSIVE;
         s->size = s->aligned_x * s->frame.height * bpp;
 

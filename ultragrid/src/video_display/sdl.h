@@ -51,10 +51,8 @@
 
 #define DISPLAY_SDL_ID	0xba370a2b
 
-struct audio_frame;
-
 display_type_t *display_sdl_probe (void);
-void *display_sdl_init (char *fmt, unsigned int flags);
+void *display_sdl_init (char *fmt, unsigned int flags, struct state_decoder *decoder);
 void display_sdl_run (void *state);
 void display_sdl_done (void *state);
 struct video_frame *display_sdl_getf (void *state);

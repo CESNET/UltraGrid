@@ -62,32 +62,33 @@ void vf_split(struct video_frame *out, struct video_frame *src,
               unsigned int x_count, unsigned int y_count, int preallocate)
 {
         unsigned int               tile_idx, line_idx;
-        struct video_frame        *cur_tiles;
+        struct tile        *cur_tiles;
         unsigned int               tile_line;
 
-        assert(src->width % x_count == 0u && src->height % y_count == 0u);
+        out->desc = src->desc;
+        out->desc.aux = src->desc.aux | AUX_TILED;
+        
+        assert(src->desc.width % x_count == 0u && src->desc.height % y_count == 0u);
 
         for(tile_idx = 0u; tile_idx < x_count * y_count; ++tile_idx) {
-                out[tile_idx].width = src->width / x_count;
-                out[tile_idx].height = src->height / y_count;
-                out[tile_idx].color_spec = src->color_spec;
-                out[tile_idx].aux = src->aux | AUX_TILED;
-                out[tile_idx].fps = src->fps;
-                out[tile_idx].tile_info.x_count = x_count;
-                out[tile_idx].tile_info.y_count = y_count;
-                out[tile_idx].tile_info.pos_x = tile_idx % x_count;
-                out[tile_idx].tile_info.pos_y = tile_idx / x_count;
-                out[tile_idx].src_linesize = vc_getsrc_linesize(out[tile_idx].width,
-                                src->color_spec);
-                out[tile_idx].data_len = out[tile_idx].src_linesize * out[tile_idx].height;
+                out->tiles[tile_idx].width = src->desc.width / x_count;
+                out->tiles[tile_idx].height = src->desc.height / y_count;
+                
+                out->tiles[tile_idx].tile_info.x_count = x_count;
+                out->tiles[tile_idx].tile_info.y_count = y_count;
+                out->tiles[tile_idx].tile_info.pos_x = tile_idx % x_count;
+                out->tiles[tile_idx].tile_info.pos_y = tile_idx / x_count;
+                out->tiles[tile_idx].linesize = vc_get_linesize(out->tiles[tile_idx].width,
+                                src->desc.color_spec);
+                out->tiles[tile_idx].data_len = out->tiles[tile_idx].linesize * out->tiles[tile_idx].height;
         }
 
-        cur_tiles = out;
-        for(line_idx = 0u; line_idx < src->height; ++line_idx, ++tile_line) {
+        cur_tiles = &out->tiles[0];
+        for(line_idx = 0u; line_idx < src->desc.height; ++line_idx, ++tile_line) {
                 unsigned int cur_tile_idx;
                 unsigned int byte = 0u;
 
-                if (line_idx % (src->height / y_count) == 0u) /* next tiles*/
+                if (line_idx % (src->desc.height / y_count) == 0u) /* next tiles*/
                 {
                         tile_line = 0u;
                         if (line_idx != 0u)
@@ -98,7 +99,6 @@ void vf_split(struct video_frame *out, struct video_frame *src,
                                         cur_tiles[cur_tile_idx].data =
                                                 malloc(cur_tiles[cur_tile_idx].
                                                                 data_len);
-
                                 }
                         }
                 }
@@ -106,14 +106,13 @@ void vf_split(struct video_frame *out, struct video_frame *src,
                 for(cur_tile_idx = 0u; cur_tile_idx < x_count; ++cur_tile_idx) {
                         memcpy((void *) &cur_tiles[cur_tile_idx].data[
                                         tile_line *
-                                        cur_tiles[cur_tile_idx].src_linesize],
-                                        (void *) &src->data[line_idx *
-                                        src->src_linesize + byte],
+                                        cur_tiles[cur_tile_idx].linesize],
+                                        (void *) &src->tiles[0].data[line_idx *
+                                        src->tiles[0].linesize + byte],
                                         cur_tiles[cur_tile_idx].width *
-                                        get_bpp(src->color_spec));
-                        byte += cur_tiles[cur_tile_idx].width * get_bpp(src->color_spec);
+                                        get_bpp(src->desc.color_spec));
+                        byte += cur_tiles[cur_tile_idx].width * get_bpp(src->desc.color_spec);
                 }
-
         }
 }
 
@@ -123,19 +122,17 @@ void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
         unsigned int i;
 
         for(i = 0u; i < y_count; ++i) {
-                out[i].width = src->width;
-                out[i].height = src->height / y_count;
-                out[i].color_spec = src->color_spec;
-                out[i].aux = src->aux | AUX_TILED;
-                out[i].fps = src->fps;
-                out[i].tile_info.x_count = 1u;
-                out[i].tile_info.y_count = y_count;
-                out[i].tile_info.pos_x = 0u;
-                out[i].tile_info.pos_y = i;
-                out[i].src_linesize = vc_getsrc_linesize(out[i].width,
-                                src->color_spec);
-                out[i].data_len = out[i].src_linesize * out[i].height;
-                out[i].data = src->data + i * out[i].height * src->src_linesize;
+                out->desc = src->desc;
+                out->tiles[i].width = src->tiles[0].width;
+                out->tiles[i].height = src->tiles[0].height / y_count;
+                out->desc.aux |= AUX_TILED;
+                
+                out->tiles[i].linesize = vc_get_linesize(out->tiles[i].width,
+                                out->desc.color_spec);
+                out->tiles[i].data_len = out->tiles[i].linesize * 
+                        out->tiles[i].height;
+                out->tiles[i].data = src->tiles[0].data + i * out->tiles[i].height 
+                        * out->tiles[i].linesize;
         }
 }
 
