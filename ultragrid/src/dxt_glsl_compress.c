@@ -46,6 +46,8 @@
  */
 
 #include "config.h"
+#include "config_unix.h"
+#include "debug.h"
 #include "dxt_glsl_compress.h"
 #include "dxt_compress/dxt_encoder.h"
 #include "compat/platform_semaphore.h"
@@ -72,6 +74,7 @@ struct video_compress {
         char *decoded;
         unsigned int configured:1;
         unsigned int interlaced_input:1;
+        codec_t color_spec;
 };
 
 static void configure_with(struct video_compress *s, struct video_frame *frame);
@@ -339,18 +342,29 @@ void glx_init()
 static void configure_with(struct video_compress *s, struct video_frame *frame)
 {
         int i;
+        int x, y;
 	int h_align = 0;
         enum dxt_format format;
         
         assert(tile_get(frame, 0, 0)->width % 4 == 0 && tile_get(frame, 0, 0)->height % 4 == 0);
-        assert(frame->grid_height == 1 && frame->grid_width == 1);
+        s->out = vf_alloc(frame->grid_width, frame->grid_height);
+        
+        for (x = 0; x < frame->grid_width; ++x) {
+                for (y = 0; y < frame->grid_height; ++y) {
+                        if (tile_get(frame, x, y)->width != tile_get(frame, 0, 0)->width ||
+                                        tile_get(frame, x, y)->width != tile_get(frame, 0, 0)->width)
+                                error_with_code_msg(128,"[RTDXT] Requested to compress tiles of different size!");
+                                
+                        tile_get(s->out, x, y)->width = tile_get(frame, 0, 0)->width;
+                        tile_get(s->out, x, y)->height = tile_get(frame, 0, 0)->height;
+                }
+        }
         
         glx_init();
         
-        s->out->tiles[0].width = tile_get(frame, 0, 0)->width;
-        s->out->tiles[0].height = tile_get(frame, 0, 0)->height;
         s->out->aux = frame->aux;
         s->out->fps = frame->fps;
+        s->out->color_spec = s->color_spec;
 
         switch (frame->color_spec) {
                 case RGB:
@@ -388,8 +402,7 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         exit(128);
         }
         
-        s->out->tiles[0].linesize = s->out->tiles[0].width * 
-                (format == DXT_FORMAT_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+        
 
         /* We will deinterlace the output frame */
         if(s->out->aux & AUX_INTERLACED)
@@ -408,12 +421,20 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 s->out->tiles[0].data_len = s->out->tiles[0].width * s->out->tiles[0].height;
         }
         
+        for (x = 0; x < frame->grid_width; ++x) {
+                for (y = 0; y < frame->grid_height; ++y) {
+                        tile_get(s->out, x, y)->linesize = s->out->tiles[0].width * 
+                                (format == DXT_FORMAT_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+                        tile_get(s->out, x, y)->data_len = s->out->tiles[0].data_len;
+                        tile_get(s->out, x, y)->data = (char *) malloc(s->out->tiles[0].data_len);
+                }
+        }
+        
         if(!s->encoder) {
                 fprintf(stderr, "[DXT GLSL] Failed to create encoder.\n");
                 exit(128);
         }
         
-        s->out->tiles[0].data = (char *) malloc(s->out->tiles[0].data_len);
         s->decoded = malloc(4 * s->out->tiles[0].width * s->out->tiles[0].height);
         
         s->configured = TRUE;
@@ -424,8 +445,7 @@ struct video_compress * dxt_glsl_init(char * opts)
         struct video_compress *s;
         
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
-        s->out = vf_alloc(1, 1);
-        s->out->tiles[0].data = NULL;
+        s->out = NULL;
         s->decoded = NULL;
         
         x11_enter_thread();
@@ -441,15 +461,15 @@ struct video_compress * dxt_glsl_init(char * opts)
         
         if(opts) {
                 if(strcasecmp(opts, "DXT5") == 0) {
-                        s->out->color_spec = DXT5;
+                        s->color_spec = DXT5;
                 } else if(strcasecmp(opts, "DXT1") == 0) {
-                        s->out->color_spec = DXT1;
+                        s->color_spec = DXT1;
                 } else {
                         fprintf(stderr, "Unknown compression : %s\n", opts);
                         return NULL;
                 }
         } else {
-                s->out->color_spec = DXT1;
+                s->color_spec = DXT1;
         }
                 
         s->configured = FALSE;
@@ -460,29 +480,38 @@ struct video_compress * dxt_glsl_init(char * opts)
 struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
 {
         struct video_compress *s = (struct video_compress *) arg;
-        int x;
+        int i;
         unsigned char *line1, *line2;
+        
+        int x, y;
         
         if(!s->configured)
                 configure_with(s, tx);
 
-        line1 = (unsigned char *) tx->tiles[0].data;
-        line2 = (unsigned char *) s->decoded;
-        
-        for (x = 0; x < (int) tile_get(tx, 0, 0)->height; ++x) {
-                s->decoder(line2, line1, s->out->tiles[0].linesize,
-                                0, 8, 16);
-                line1 += vc_get_linesize(tile_get(tx, 0, 0)->width, tx->color_spec);
-                line2 += s->out->tiles[0].linesize;
+        for (x = 0; x < tx->grid_width;  ++x) {
+                for (y = 0; y < tx->grid_height;  ++y) {
+                        struct tile *in_tile = tile_get(tx, x, y);
+                        struct tile *out_tile = tile_get(s->out, x, y);
+                        
+                        line1 = (unsigned char *) in_tile->data;
+                        line2 = (unsigned char *) s->decoded;
+                        
+                        for (i = 0; i < (int) in_tile->height; ++i) {
+                                s->decoder(line2, line1, out_tile->linesize,
+                                                0, 8, 16);
+                                line1 += vc_get_linesize(in_tile->width, tx->color_spec);
+                                line2 += out_tile->linesize;
+                        }
+                        
+                        if(s->interlaced_input)
+                                vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
+                                                out_tile->height);
+                        
+                        dxt_encoder_compress(s->encoder,
+                                        (unsigned char *) s->decoded,
+                                        (unsigned char *) out_tile->data);
+                }
         }
-        
-        if(s->interlaced_input)
-                vc_deinterlace((unsigned char *) s->decoded, s->out->tiles[0].linesize,
-                                s->out->tiles[0].height);
-        
-        dxt_encoder_compress(s->encoder,
-                        (unsigned char *) s->decoded,
-                        (unsigned char *) s->out->tiles[0].data);
         
         return s->out;
 }

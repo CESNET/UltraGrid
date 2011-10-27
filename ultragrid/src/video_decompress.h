@@ -50,8 +50,7 @@
 #include "video_codec.h"
 
 typedef  void *(*decompress_init_t)();
-typedef  void (*decompress_reconfigure_t)(void * state, struct video_desc desc, int pitch);
-typedef  char *(*decompress_get_raw_buffer_t)(void *state, /* out */ int *max_len);
+typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc, int pitch);
 typedef  void (*decompress_decompress_t)(void *, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
 typedef  void (*decompress_done_t)(void *);
 
@@ -61,7 +60,6 @@ struct decode_from_to {
 
         decompress_init_t init;
         decompress_reconfigure_t reconfigure;
-        decompress_get_raw_buffer_t get_buffer;
         decompress_decompress_t decompress;
         decompress_done_t done;
 };

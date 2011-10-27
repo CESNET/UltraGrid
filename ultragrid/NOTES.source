@@ -1,0 +1,6 @@
+#1 (src/rtp/decoders.c:reconfigure_decoder()
+The properties of DXTn do not exactly match - bpp is 0.5, but line (actually 4 
+lines) is (2 * width) long, so it makes troubles when using line decoder
+and tiles. So the fallback is external decoder. The DXT compression is exceptional
+in that, that it can be both internally and externally decompressed.
+
