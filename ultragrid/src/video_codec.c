@@ -72,10 +72,14 @@ const struct codec_info_t codec_info[] = {
 
 /* take care that UYVY is alias for both 2vuy and dvs8, do not use
  * the further two and refer only to UYVY!! */
+ 
+/* Also note that this is a priority list - is choosen first one that
+ * matches input codec and one of the supported output codec, so eg.
+ * list 10b->10b earlier to 10b->8b etc. */
 const struct line_decode_from_to line_decoders[] = {
-        { DVS10, UYVY, vc_copylineDVS10},
-        { DVS10, v210, vc_copylineDVS10toV210},
         { RGBA, RGBA, vc_copylineRGBA},
+        { DVS10, v210, vc_copylineDVS10toV210},
+        { DVS10, UYVY, vc_copylineDVS10},
         { R10k, RGBA, vc_copyliner10k},
         { v210, UYVY, vc_copylinev210},
         { 0, 0, NULL }

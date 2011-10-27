@@ -209,7 +209,7 @@ struct video_compress *initialize_video_compression(const char *num_threads_str)
                 compress->num_threads = NUM_THREADS_DEFAULT;
         else
                 compress->num_threads = atoi(num_threads_str);
-        assert (compress->num_threads > 1 && compress->num_threads <= MAX_THREADS);
+        assert (compress->num_threads >= 1 && compress->num_threads <= MAX_THREADS);
 
         compress->frame = vf_alloc(1, 1);
         compress->tile = tile_get(compress->frame, 0, 0);

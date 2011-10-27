@@ -115,11 +115,11 @@ struct codec_info_t {
 struct line_decode_from_to {
         codec_t from;
         codec_t to;
-        decoder_t decoder;
+        decoder_t line_decoder;
 };
 
-extern const struct codec_info_t codec_info[];
-extern const struct line_decode_from_to line_decoders[];
+extern const struct codec_info_t codec_info[];           /* defined int .c */
+extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
 
 void show_codec_help(char *mode);
 double get_bpp(codec_t codec);
