@@ -502,11 +502,11 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
         /* Wait for the worker to finish... */
         while (!s->worker_waiting);
 
-        s->frame->desc.color_spec = color_spec;
-        s->frame->desc.fps = fps;
-        s->frame->desc.aux = aux;
-        s->tile->width = s->frame->desc.width = width;
-        s->tile->height = s->frame->desc.height = height;
+        s->frame->color_spec = color_spec;
+        s->frame->fps = fps;
+        s->frame->aux = aux;
+        s->tile->width = width;
+        s->tile->height = height;
         
         if(s->mode_set_manually) return;
 
@@ -530,7 +530,7 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
 
-        if (s->frame->desc.color_spec == DVS10) {
+        if (s->frame->color_spec == DVS10) {
                 hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
 
@@ -625,13 +625,13 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags, struct state_decoder 
                 tmp = strtok(NULL, ":");
                 
                 if (tmp) {
-                        s->frame->desc.color_spec = 0xffffffff;
+                        s->frame->color_spec = 0xffffffff;
                         for (i = 0; codec_info[i].name != NULL; i++) {
                                 if (strcmp(tmp, codec_info[i].name) == 0) {
-                                        s->frame->desc.color_spec = codec_info[i].codec;
+                                        s->frame->color_spec = codec_info[i].codec;
                                 }
                         }
-                        if (s->frame->desc.color_spec == 0xffffffff) {
+                        if (s->frame->color_spec == 0xffffffff) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                 free(s);
                                 return 0;
@@ -674,7 +674,7 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags, struct state_decoder 
 	s->first_run = TRUE;
 
         if(s->mode) {
-                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame->desc.color_spec, s->mode->fps, s->mode->aux);
+                reconfigure_screen(s, s->mode->width, s->mode->height, s->frame->color_spec, s->mode->fps, s->mode->aux);
                 s->mode_set_manually = TRUE;
         }
 

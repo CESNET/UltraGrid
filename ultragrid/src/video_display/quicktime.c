@@ -284,7 +284,7 @@ static void reconf_common(struct state_quicktime *s)
                  * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
                  * further investigation for 2K!
                  */
-                (**(ImageDescriptionHandle) imageDesc).width = get_haligned(tile->width, s->frame->desc.color_spec);
+                (**(ImageDescriptionHandle) imageDesc).width = get_haligned(tile->width, s->frame->color_spec);
                 (**(ImageDescriptionHandle) imageDesc).height = tile->height;
         
                 ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, tile->data, 
@@ -622,10 +622,8 @@ void *display_quicktime_init(char *fmt, unsigned int flags, struct state_decoder
                         }
                 }
                 free(codec_name);
-                s->frame->desc.color_spec = s->cinfo->codec;
-                s->frame->desc.aux = 0;
-                s->frame->desc.width = 0;
-                s->frame->desc.height = 0;
+                s->frame->color_spec = s->cinfo->codec;
+                s->frame->aux = 0;
 
                 for (i = 0; i < s->devices_cnt; ++i) {
                         int pos_x = i % x_count;
@@ -690,10 +688,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags, struct state_decoder
                         
                         tile->width = (**gWorldImgDesc).width;
                         tile->height = (**gWorldImgDesc).height;
-                        if(pos_y == 0)
-                                s->frame->desc.width += tile->width;
-                        if(pos_x == 0)
-                                s->frame->desc.height += tile->height;
+
                         tile->linesize = vc_get_linesize(tile->width, s->cinfo->codec);
                         tile->data_len = tile->linesize * tile->height;
                         tile->data = calloc(1, tile->data_len);
@@ -857,11 +852,9 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 
         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", width,
                         height, s->cinfo->bpp);
-        s->frame->desc.width = width;
-        s->frame->desc.height = height;
-        s->frame->desc.color_spec = codec;
-        s->frame->desc.fps = fps;
-        s->frame->desc.aux = aux;
+        s->frame->color_spec = codec;
+        s->frame->fps = fps;
+        s->frame->aux = aux;
 
         for(i = 0; i < s->devices_cnt; ++i) {
                 int tile_width = width / s->frame->grid_width;

@@ -129,7 +129,7 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                                         j == frame->grid_height - 1)
                                 last = TRUE;
                         tx_send_base(tx, tile_get(frame, i, j), rtp_session, ts, last,
-                                        frame->desc.color_spec, frame->desc.fps, frame->desc.aux);
+                                        frame->color_spec, frame->fps, frame->aux);
                 }
         }
 }
@@ -142,7 +142,7 @@ tx_send_tile(struct video_tx *tx, struct video_frame *frame, int x_pos, int y_po
         tile = tile_get(frame, x_pos, y_pos);
         uint32_t ts = 0;
         ts = get_local_mediatime();
-        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->desc.color_spec, frame->desc.fps, frame->desc.aux);
+        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->color_spec, frame->fps, frame->aux);
 }
 
 void

@@ -241,13 +241,13 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                         return 0;
                 }
 
-                s->frame->desc.color_spec = 0xffffffff;
+                s->frame->color_spec = 0xffffffff;
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(tmp, codec_info[i].name) == 0) {
-                                s->frame->desc.color_spec = codec_info[i].codec;
+                                s->frame->color_spec = codec_info[i].codec;
                         }
                 }
-                if (s->frame->desc.color_spec == 0xffffffff) {
+                if (s->frame->color_spec == 0xffffffff) {
                         fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                         free(tmp);
                         return 0;
@@ -267,18 +267,18 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
 
 
-        if (s->frame->desc.color_spec == DVS10) {
+        if (s->frame->color_spec == DVS10) {
                 s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
         }
 
         s->hd_video_mode |= s->mode->mode;
 
-        s->tile->width = s->frame->desc.width = s->mode->width;
-        s->tile->height = s->frame->desc.height = s->mode->height;
-        s->frame->desc.fps = s->mode->fps;
-	s->frame->desc.aux = s->mode->aux;
+        s->tile->width = s->mode->width;
+        s->tile->height = s->mode->height;
+        s->frame->fps = s->mode->fps;
+	s->frame->aux = s->mode->aux;
 
-	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->desc.color_spec);
+	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
 	s->tile->data_len = s->tile->linesize * s->tile->height;
 
         s->sv = sv_open("");
@@ -359,7 +359,7 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->desc.color_spec));
+        printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->color_spec));
 
         debug_msg("DVS capture device enabled\n");
         return s;

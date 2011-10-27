@@ -530,11 +530,11 @@ void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int heig
                 codec == DXT1 ||
                 codec == DXT5);
 
-        s->tile->width = s->frame->desc.width = width;
-        s->tile->height = s->frame->desc.height = height;
-        s->frame->desc.fps = fps;
-        s->frame->desc.aux = aux;
-        s->frame->desc.color_spec = codec;
+        s->tile->width = width;
+        s->tile->height = height;
+        s->frame->fps = fps;
+        s->frame->aux = aux;
+        s->frame->color_spec = codec;
 
         pthread_mutex_lock(&s->reconf_lock);
         s->needs_reconfigure = TRUE;
@@ -569,7 +569,7 @@ void gl_reconfigure_screen(struct state_gl *s)
         if(s->win_initialized)
                 cleanup_data(s);
         
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->desc.color_spec)
+        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec)
                         * s->tile->height;
         s->tile->data = (char *) malloc(s->tile->data_len);
 
@@ -589,18 +589,18 @@ void gl_reconfigure_screen(struct state_gl *s)
 
 	glUseProgramObjectARB(0);
 
-        if(s->frame->desc.color_spec == DXT1) {
+        if(s->frame->color_spec == DXT1) {
 		glBindTexture(GL_TEXTURE_2D,s->texture[0]);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
 				s->tile->width, s->tile->height, 0,
 				(s->tile->width * s->tile->height/16)*8,
 				s->tile->data);
-		if(s->frame->desc.aux & AUX_YUV) {
+		if(s->frame->aux & AUX_YUV) {
 			glBindTexture(GL_TEXTURE_2D,s->texture[0]);
 			glUseProgramObjectARB(s->PHandle_dxt);
 		}
-        } else if (s->frame->desc.color_spec == UYVY) {
+        } else if (s->frame->color_spec == UYVY) {
                 glUseProgramObjectARB(s->PHandle);
 
                 glBindTexture(GL_TEXTURE_2D,s->texture[0]);
@@ -617,13 +617,13 @@ void gl_reconfigure_screen(struct state_gl *s)
                 glTexImage2D(GL_TEXTURE_2D, 0, 1,
                         s->tile->width, s->tile->height, 0,
                         GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
-        } else if (s->frame->desc.color_spec == RGBA) {
+        } else if (s->frame->color_spec == RGBA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture[0]);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 s->tile->width, s->tile->height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 s->tile->data);
-        } else if (s->frame->desc.color_spec == DXT5) {
+        } else if (s->frame->color_spec == DXT5) {
                 glUseProgramObjectARB(s->PHandle_dxt5);
                 
                 glBindTexture(GL_TEXTURE_2D,s->texture[0]);
@@ -707,14 +707,14 @@ void glut_idle_callback(void)
 
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
-        if(s->deinterlace && (s->frame->desc.color_spec == RGBA || s->frame->desc.color_spec == UYVY))
+        if(s->deinterlace && (s->frame->color_spec == RGBA || s->frame->color_spec == UYVY))
                 vc_deinterlace((unsigned char *) s->tile->data,
-                                vc_get_linesize(s->tile->width, s->frame->desc.color_spec),
+                                vc_get_linesize(s->tile->width, s->frame->color_spec),
                                 s->tile->height);
 
-        switch(s->frame->desc.color_spec) {
+        switch(s->frame->color_spec) {
                 case DXT1:
-                        if(s->frame->desc.aux & AUX_RGB)
+                        if(s->frame->aux & AUX_RGB)
                                 glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                                 s->tile->width, s->tile->height,
                                                 GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,

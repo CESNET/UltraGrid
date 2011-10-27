@@ -549,7 +549,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
-                s->frame->desc.color_spec = atoi(tmp);
+                s->frame->color_spec = atoi(tmp);
 
                 s->audio_major = -1;
                 s->audio_minor = -1;
@@ -587,9 +587,9 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         Rect gActiveVideoRect;
         SGGetSrcVideoBounds(s->video_channel, &gActiveVideoRect);
 
-        s->tile->width = s->frame->desc.width = s->bounds.right =
+        s->tile->width = s->bounds.right =
             gActiveVideoRect.right - gActiveVideoRect.left;
-        s->tile->height = s->frame->desc.height = s->bounds.bottom =
+        s->tile->height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
 
         unsigned char *deviceName;
@@ -624,7 +624,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                         s->qt_mode->height,
                                         s->qt_mode->fps,
                                         s->qt_mode->aux);
-                        s->frame->desc.aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
+                        s->frame->aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
                         free(device);
                         free(input);
                         break;
@@ -651,13 +651,13 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
         /* Set selected fmt->codec and get pixel format of that codec */
         int pixfmt;
-        if (s->frame->desc.color_spec != 0xffffffff) {
+        if (s->frame->color_spec != 0xffffffff) {
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
-                pixfmt = list->list[s->frame->desc.color_spec].cType;
+                pixfmt = list->list[s->frame->color_spec].cType;
                 printf("Quicktime: SetCompression: %s\n",
                        (int)SGSetVideoCompressor(s->video_channel, 0,
-                                                 list->list[s->frame->desc.color_spec].codec, 0,
+                                                 list->list[s->frame->color_spec].codec, 0,
                                                  0, 0)==0?"OK":"Failed!");
         } else {
                 CompressorComponent  codec;
@@ -676,7 +676,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if ((unsigned)pixfmt == codec_info[i].fcc) {
                         s->c_info = &codec_info[i];
-                        s->frame->desc.color_spec = s->c_info->codec;
+                        s->frame->color_spec = s->c_info->codec;
                         break;
                 }
         }
@@ -686,7 +686,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                (pixfmt) & 0xff);
 
         int h_align = s->c_info->h_align;
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->desc.color_spec);
+        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec);
         s->vbuffer[0] = malloc(s->tile->data_len);
         s->vbuffer[1] = malloc(s->tile->data_len);
 
@@ -779,7 +779,7 @@ AFTER_AUDIO:
         }
 
         SGGetChannelTimeScale(s->video_channel, &scale);
-        s->frame->desc.fps = scale / 100.0;
+        s->frame->fps = scale / 100.0;
 
         return 1;
 }
@@ -819,7 +819,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->bounds.top = 0;
                 s->bounds.left = 0;
                 s->sg_idle_enough = 0;
-                s->frame->desc.color_spec = 0xffffffff;
+                s->frame->color_spec = 0xffffffff;
 
                 if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
                         s->grab_audio = TRUE;

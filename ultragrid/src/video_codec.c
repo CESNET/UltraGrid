@@ -503,9 +503,3 @@ struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos)
         return &buf->tiles[grid_x_pos + grid_y_pos * buf->grid_width];
 }
 
-void copy_tile_size_from_frame(struct video_frame *buf)
-{
-        tile_get(buf, 0, 0)->width = buf->desc.width;
-        tile_get(buf, 0, 0)->height = buf->desc.height;
-}
-

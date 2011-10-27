@@ -220,11 +220,11 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         assert(s->magic == MAGIC_SAGE);
         assert(codec == RGBA || codec == UYVY || codec == DXT1);
         
-        s->tile->width = s->frame->desc.width = width;
-        s->tile->height = s->frame->desc.height = height;
-        s->frame->desc.fps = fps;
-        s->frame->desc.aux = aux;
-        s->frame->desc.color_spec = codec;
+        s->tile->width = width;
+        s->tile->height = height;
+        s->frame->fps = fps;
+        s->frame->aux = aux;
+        s->frame->color_spec = codec;
 
         if(s->sage_initialized)
                 sage_shutdown();

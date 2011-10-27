@@ -388,8 +388,9 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         free(tmp);
         
         s->tiled = vf_alloc(grid_w, grid_h);
-        s->tiled->desc = s->frame->desc;
-        s->tiled->desc.aux |= AUX_TILED;
+        s->tiled->color_spec = s->frame->color_spec;
+        s->tiled->fps = s->frame->fps;
+        s->tiled->aux = s->frame->aux | AUX_TILED;
 
         tile_cnt = grid_w *
                                 grid_h;
@@ -477,8 +478,8 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 free(s);
                 return NULL;
         }
-        s->frame->desc.width = atoi(tmp);
-        if(s->frame->desc.width % 2 != 0) {
+        tile_get(s->frame, 0, 0)->width = atoi(tmp);
+        if(tile_get(s->frame, 0, 0)->width % 2 != 0) {
                 fprintf(stderr, "[testcard] Width must be multiple of 2.\n");
                 free(s);
                 return NULL;
@@ -489,7 +490,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 free(s);
                 return NULL;
         }
-        s->frame->desc.height = atoi(tmp);
+        tile_get(s->frame, 0, 0)->height = atoi(tmp);
         tmp = strtok(NULL, ":");
         if (!tmp) {
                 free(s);
@@ -497,7 +498,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        s->frame->desc.fps = atof(tmp);
+        s->frame->fps = atof(tmp);
 
         tmp = strtok(NULL, ":");
         if (!tmp) {
@@ -518,25 +519,23 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 }
         }
 
-        s->frame->desc.color_spec = codec;
+        s->frame->color_spec = codec;
 
         if(bpp == 0) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
                 return NULL;
         }
 
-        aligned_x = s->frame->desc.width;
+        aligned_x = tile_get(s->frame, 0, 0)->width;
         if (h_align) {
                 aligned_x = (aligned_x + h_align - 1) / h_align * h_align;
         }
 
-        rect_size = (s->frame->desc.width + rect_size - 1) / rect_size;
+        rect_size = (tile_get(s->frame, 0, 0)->width + rect_size - 1) / rect_size;
         
-        copy_tile_size_from_frame(s->frame);
-
         tile_get(s->frame, 0, 0)->linesize = aligned_x * bpp;
-        s->frame->desc.aux = AUX_PROGRESSIVE;
-        s->size = aligned_x * s->frame->desc.height * bpp;
+        s->frame->aux = AUX_PROGRESSIVE;
+        s->size = aligned_x * tile_get(s->frame, 0, 0)->height * bpp;
 
         filename = strtok(NULL, ":");
         if (filename && strcmp(filename, "p") != 0
@@ -571,7 +570,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 struct testcard_rect r;
                 int col_num = 0;
                 s->pixmap.w = aligned_x;
-                s->pixmap.h = s->frame->desc.height * 2;
+                s->pixmap.h = tile_get(s->frame, 0, 0)->height * 2;
                 s->pixmap.data = malloc(s->pixmap.w * s->pixmap.h * sizeof(int));
 
                 if (filename) {
@@ -581,10 +580,10 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                                 strip_fmt = filename;
                 }
 
-                for (j = 0; j < s->frame->desc.height; j += rect_size) {
+                for (j = 0; j < tile_get(s->frame, 0, 0)->height; j += rect_size) {
                         int grey = 0xff010101;
                         if (j == rect_size * 2) {
-                                r.w = s->frame->desc.width;
+                                r.w = tile_get(s->frame, 0, 0)->width;
                                 r.h = rect_size / 4;
                                 r.x = 0;
                                 r.y = j;
@@ -592,7 +591,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                                 r.y = j + rect_size * 3 / 4;
                                 testcard_fillRect(&s->pixmap, &r, 0);
                         }
-                        for (i = 0; i < s->frame->desc.width; i += rect_size) {
+                        for (i = 0; i < tile_get(s->frame, 0, 0)->width; i += rect_size) {
                                 r.w = rect_size;
                                 r.h = rect_size;
                                 r.x = i;
@@ -613,17 +612,18 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 s->data = s->pixmap.data;
                 if (codec == UYVY || codec == v210 || codec == Vuy2) {
                         rgb2yuv422((unsigned char *) s->data, aligned_x,
-                                   s->frame->desc.height);
+                                   tile_get(s->frame, 0, 0)->height);
                 }
 
                 if (codec == v210) {
                         s->data =
                             (char *)tov210((unsigned char *) s->data, aligned_x,
-                                           aligned_x, s->frame->desc.height, bpp);
+                                           aligned_x, tile_get(s->frame, 0, 0)->height, bpp);
                 }
 
                 if (codec == R10k) {
-                        toR10k((unsigned char *) s->data, s->frame->desc.width, s->frame->desc.height);
+                        toR10k((unsigned char *) s->data, tile_get(s->frame, 0, 0)->width,
+                                        tile_get(s->frame, 0, 0)->height);
                 }
         }
 
@@ -656,8 +656,8 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         s->count = 0;
         gettimeofday(&(s->last_frame_time), NULL);
 
-        printf("Testcard capture set to %dx%d, bpp %f\n", s->frame->desc.width,
-                        s->frame->desc.height, bpp);
+        printf("Testcard capture set to %dx%d, bpp %f\n", tile_get(s->frame, 0, 0)->width,
+                        tile_get(s->frame, 0, 0)->height, bpp);
 
         s->frame->state = s;
         tile_get(s->frame, 0, 0)->data_len = s->size;
@@ -666,7 +666,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 if(configure_tiling(s, strip_fmt) != 0)
                         return NULL;
         } else {
-                s->frame->desc.aux &= ~AUX_TILED;
+                s->frame->aux &= ~AUX_TILED;
         }
         
         if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
@@ -711,7 +711,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
 
         gettimeofday(&curr_time, NULL);
         if (tv_diff(curr_time, state->last_frame_time) >
-            1.0 / (double)state->frame->desc.fps) {
+            1.0 / (double)state->frame->fps) {
                 state->last_frame_time = curr_time;
                 state->count++;
 

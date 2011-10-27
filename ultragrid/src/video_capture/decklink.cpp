@@ -442,14 +442,11 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
                 int y_count = s->devices_cnt / x_cnt;
                 s->frame = vf_alloc(x_count, y_count);
-                s->frame->desc.aux = AUX_TILED;
+                s->frame->aux = AUX_TILED;
         } else {
                 s->frame = vf_alloc(1, 1);
-                s->frame->desc.aux = 0;
+                s->frame->aux = 0;
         }
-        
-        s->frame->desc.width = 0;
-        s->frame->desc.height = 0;
     
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i)
@@ -553,34 +550,30 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 BMDTimeScale	frameRateScale;
 
                                                 // Obtain the display mode's properties
-                                                s->frame->desc.aux = 0;
+                                                s->frame->aux = 0;
 
                                                 tile->width = displayMode->GetWidth();
                                                 tile->height = displayMode->GetHeight();
-                                                if(y_pos == 0)
-                                                        s->frame->desc.width += tile->width;
-                                                if(x_pos == 0)
-                                                        s->frame->desc.height += tile->height;
-                                                s->frame->desc.color_spec = s->c_info->codec;
+                                                s->frame->color_spec = s->c_info->codec;
 
                                                 displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                                                s->frame->desc.fps = (double)frameRateScale / (double)frameRateDuration;
-                                                s->next_frame_time = (int) (1000000 / s->frame->desc.fps); // in microseconds
+                                                s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
+                                                s->next_frame_time = (int) (1000000 / s->frame->fps); // in microseconds
                                                 switch(displayMode->GetFieldDominance()) {
                                                         case bmdLowerFieldFirst:
                                                         case bmdUpperFieldFirst:
-                                                                s->frame->desc.aux |= AUX_INTERLACED;
+                                                                s->frame->aux |= AUX_INTERLACED;
                                                                 break;
                                                         case bmdProgressiveFrame:
-                                                                s->frame->desc.aux |= AUX_PROGRESSIVE;
+                                                                s->frame->aux |= AUX_PROGRESSIVE;
                                                                 break;
                                                         case bmdProgressiveSegmentedFrame:
-                                                                s->frame->desc.aux |= AUX_SF;
+                                                                s->frame->aux |= AUX_SF;
                                                                 break;
                                                 }
 
                                                 debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
-                                                                tile->width, tile->height, s->frame->desc.fps, s->next_frame_time); /* TOREMOVE */  
+                                                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */  
 
                                                 deckLinkInput->StopStreams();
 
@@ -677,7 +670,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 }
 		deckLinkIterator->Release();
 
-                tile->linesize = vc_get_linesize(tile->width, s->frame->desc.color_spec);
+                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
                 tile->data_len = tile->linesize * tile->height;
         }
 

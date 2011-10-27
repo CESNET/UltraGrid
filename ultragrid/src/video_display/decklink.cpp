@@ -263,16 +263,14 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
 
         assert(s->magic == DECKLINK_MAGIC);
         
-        s->frame->desc.color_spec = color_spec;
-        s->frame->desc.aux = aux;
-        s->frame->desc.fps = fps;
-        s->frame->desc.width = width;
-        s->frame->desc.height = height;
+        s->frame->color_spec = color_spec;
+        s->frame->aux = aux;
+        s->frame->fps = fps;
 
         for(int i = 0; i < s->devices_cnt; ++i) {
                 /* compute position */
-                int x_count = s->frame->tiles[0].tile_info.x_count;
-                int y_count = s->frame->tiles[0].tile_info.y_count;
+                int x_count = s->frame->grid_width;
+                int y_count = s->frame->grid_height;;
                 struct tile  *tile = tile_get(s->frame, i % x_count,
                                 i / x_count);
                                 
@@ -462,7 +460,7 @@ void *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder 
         int y_count = s->devices_cnt / x_count;
         s->frame = vf_alloc(x_count, y_count);
         if(s->devices_cnt > 1) {
-                s->frame->desc.aux = AUX_TILED;
+                s->frame->aux = AUX_TILED;
         }
         s->frame->state = s;
         s->frame->reconfigure = (reconfigure_t) reconfigure_screen_decklink;

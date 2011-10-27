@@ -78,7 +78,9 @@ struct video_desc {
 
 struct video_frame 
 {
-        struct video_desc    desc;
+        codec_t              color_spec;
+        int                  aux;
+        double               fps;
         struct tile         *tiles;
         
         unsigned int         grid_width; /* tiles */
@@ -142,7 +144,6 @@ int codec_is_a_rgb(codec_t codec);
 struct video_frame * vf_alloc(int grid_width, int grid_height);
 void vf_free(struct video_frame *buf);
 struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos);
-void copy_tile_size_from_frame(struct video_frame *buf);
 
 /* AUX_RGB and AUX_YUV are currently used only when sending DXT1 compression
  * to indicate if it is YUV or RGB. Otherwise the usage is redundant since

@@ -350,10 +350,10 @@ void display_sdl_run(void *arg)
                         if (s->rgb) {
                                 /*FIXME: this will not work! Should not deinterlace whole screen, just subwindow */
                                 vc_deinterlace(s->sdl_screen->pixels,
-                                               vc_get_linesize(s->tile->width, s->frame->desc.color_spec), s->tile->height);
+                                               vc_get_linesize(s->tile->width, s->frame->color_spec), s->tile->height);
                         } else {
                                 vc_deinterlace(*s->yuv_image->pixels,
-                                               vc_get_linesize(s->tile->width, s->frame->desc.color_spec), s->tile->height);
+                                               vc_get_linesize(s->tile->width, s->frame->color_spec), s->tile->height);
                         }
                 }
 
@@ -438,12 +438,12 @@ sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
 	cleanup_screen(s);
 
-        s->tile->width = s->frame->desc.width = width;
-        s->tile->height = s->frame->desc.height = height;
+        s->tile->width = width;
+        s->tile->height = height;
 
-	s->frame->desc.fps = fps;
-	s->frame->desc.aux = aux;
-	s->frame->desc.color_spec = color_spec;
+	s->frame->fps = fps;
+	s->frame->aux = aux;
+	s->frame->color_spec = color_spec;
 
 	fprintf(stdout, "Reconfigure to size %dx%d\n", width,
 			height);

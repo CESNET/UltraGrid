@@ -626,16 +626,16 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
 
                 struct tile *tile = tile_get(s->frame, tile_x, tile_y);
 	
-                s->frame->desc.color_spec = c_info->codec;
-                s->frame->desc.fps = frame_mode->fps;
-                s->frame->desc.aux = frame_mode->interlacing;
+                s->frame->color_spec = c_info->codec;
+                s->frame->fps = frame_mode->fps;
+                s->frame->aux = frame_mode->interlacing;
                 tile->width = frame_mode->width;
                 tile->height = frame_mode->height;
                 tile->linesize = vc_get_linesize(frame_mode->width, c_info->codec);
                 tile->data_len = tile->linesize * tile->height;
                 
                 if(s->device_cnt > 1) {
-                        s->frame->desc.aux |= AUX_TILED;
+                        s->frame->aux |= AUX_TILED;
                 }
 
                 if((tile->data = (char *)

@@ -457,7 +457,7 @@ static void *receiver_thread(void *arg)
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
                                         display_put_frame(uv->display_device,
-                                                          frame_buffer->tiles[0].data);
+                                                          frame_buffer);
                                         i = (i + 1) % 2;
                                         frame_buffer =
                                             display_get_frame(uv->display_device);
