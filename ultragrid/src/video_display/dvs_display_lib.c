@@ -528,10 +528,23 @@ reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 return;
         }
 
-        hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
+        hd_video_mode = SV_MODE_STORAGE_FRAME;
 
-        if (s->frame->color_spec == DVS10) {
-                hd_video_mode |= SV_MODE_NBIT_10BDVS;
+        switch(s->frame->color_spec) {
+                case DVS10:
+                        hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
+                        break;
+                case UYVY:
+                        hd_video_mode |= SV_MODE_COLOR_YUV422;
+                        break;
+                case RGBA:
+                        hd_video_mode |= SV_MODE_COLOR_RGBA;
+                        break;
+                case RGB:
+                        hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
+                        break;
+                default:
+                        error_with_code_msg(128, "[dvs] Unsupported video codec passed!");
         }
 
         hd_video_mode |= s->mode->mode;
@@ -600,7 +613,7 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags, struct state_decoder 
         s->frame = vf_alloc(1, 1);
         s->tile = tile_get(s->frame, 0, 0);
         
-        codec_t native[] = {DVS10, UYVY};
+        codec_t native[] = {DVS10, UYVY, RGBA, RGB};
         decoder_register_native_codecs(decoder, native, sizeof(native));
         decoder_set_param(decoder, 0, 8, 16, 0);
         

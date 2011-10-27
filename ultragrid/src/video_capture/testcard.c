@@ -89,6 +89,7 @@ unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_
                       unsigned int height, double bpp);
 void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color);
+char * toRGB(unsigned char *in, unsigned int width, unsigned int height);
 
 struct testcard_state {
         struct timeval last_frame_time;
@@ -292,6 +293,16 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height)
                         d++;
                 }
         }
+}
+
+char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
+{
+        int i;
+        char *ret = malloc(width * height * 3);
+        for(i = 0; i < height; ++i) {
+                vc_copylineRGBAtoRGB(ret + i * width * 3, in + i * width * 4, width * 3);
+        }
+        return ret;
 }
 
 static void grab_audio(int chan, void *stream, int len, void *udata)
@@ -624,6 +635,17 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 if (codec == R10k) {
                         toR10k((unsigned char *) s->data, tile_get(s->frame, 0, 0)->width,
                                         tile_get(s->frame, 0, 0)->height);
+                }
+                
+                if(codec == RGB) {
+                        s->data =
+                            (char *)toRGB((unsigned char *) s->data, tile_get(s->frame, 0, 0)->width,
+                                           tile_get(s->frame, 0, 0)->height);
+                }
+                
+                if(codec == RGBA) {
+                        toRGB((unsigned char *) s->data, tile_get(s->frame, 0, 0)->width,
+                                           tile_get(s->frame, 0, 0)->height);
                 }
         }
 

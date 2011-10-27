@@ -48,7 +48,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#include "common.h"
+#include "debug.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -67,6 +67,7 @@ const struct codec_info_t codec_info[] = {
         {DVS10, "DVS10", 0, 48, 8.0 / 3.0, 0},
         {DXT1, "DXT1", 'DXT1', 1, 0.5, 1},
         {DXT5, "DXT5", 'DXT5', 1, 1.0, 1},
+        {RGB, "RGB", 0x32424752, 1, 3.0, 1},
         {0, NULL, 0, 0, 0.0, 0}
 };
 
@@ -82,6 +83,8 @@ const struct line_decode_from_to line_decoders[] = {
         { DVS10, UYVY, vc_copylineDVS10},
         { R10k, RGBA, vc_copyliner10k},
         { v210, UYVY, vc_copylinev210},
+        { RGBA, RGB, vc_copylineRGBAtoRGB},
+        { RGB, RGBA, vc_copylineRGBtoRGBA},
         { 0, 0, NULL }
 };
 
@@ -90,9 +93,9 @@ void show_codec_help(char *module)
         printf("\tSupported codecs (%s):\n", module);
 
         printf("\t\t8bits\n");
-	if (strcmp(module, "dvs")!=0) {
-		printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
-	}
+
+        printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
+        printf("\t\t\t'RGB' - Red Green Blue Alpha 24bit\n");
         printf("\t\t\t'UYVY' - YUV 4:2:2\n");
 	printf("\t\t\t'2vuy' - YUV 4:2:2\n");
         printf("\t\t\t'DVS8' - Centaurus 8bit YUV 4:2:2\n");
@@ -446,6 +449,33 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len)
 }
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
+
+void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int dst_len)
+{
+        while(dst_len > 0) {
+                *dst++ = *src++;
+                *dst++ = *src++;
+                *dst++ = *src++;
+                src++;
+                dst_len -= 3;
+        }
+}
+
+void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+{
+        register uint32_t tmp;
+        register unsigned int r, g, b;
+        register uint32_t *d = (uint32_t *) dst;
+        
+        while(dst_len > 0) {
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                
+                *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                dst_len -= 4;
+        }
+}
 
 int codec_is_a_rgb(codec_t codec)
 {

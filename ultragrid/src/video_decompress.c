@@ -48,7 +48,6 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#include "common.h"
 
 #include <stdio.h>
 #include <stdint.h>

@@ -61,7 +61,8 @@ typedef enum codec_t {
         v210,
         DVS10,
         DXT1,
-        DXT5
+        DXT5,
+        RGB
 } codec_t;
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
@@ -135,6 +136,9 @@ void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len);
 void vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len);
+void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int len);
+void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
+
 
 /*
  * @return TRUE or FALSE

@@ -353,6 +353,10 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         s->out->fps = frame->fps;
 
         switch (frame->color_spec) {
+                case RGB:
+                        s->decoder = (decoder_t) vc_copylineRGBtoRGBA;
+                        format = DXT_FORMAT_RGB;
+                        break;
                 case RGBA:
                         s->decoder = (decoder_t) memcpy;
                         format = DXT_FORMAT_RGB;

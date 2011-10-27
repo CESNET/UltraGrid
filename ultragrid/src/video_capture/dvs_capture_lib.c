@@ -264,11 +264,25 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                 s->grab_audio = FALSE;
         }
 
-        s->hd_video_mode = SV_MODE_COLOR_YUV422 | SV_MODE_STORAGE_FRAME;
+        s->hd_video_mode = SV_MODE_STORAGE_FRAME;
 
-
-        if (s->frame->color_spec == DVS10) {
-                s->hd_video_mode |= SV_MODE_NBIT_10BDVS;
+        switch(s->frame->color_spec) {
+                case DVS10:
+                        s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
+                        break;
+                case DVS8:
+                case Vuy2:
+                case UYVY:
+                        s->hd_video_mode |= SV_MODE_COLOR_YUV422;
+                        break;
+                case RGBA:
+                        s->hd_video_mode |= SV_MODE_COLOR_RGBA;
+                        break;
+                case RGB:
+                        s->hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
+                        break;
+                default:
+                        error_with_code_msg(128, "[dvs] Unsupported video codec passed!");
         }
 
         s->hd_video_mode |= s->mode->mode;

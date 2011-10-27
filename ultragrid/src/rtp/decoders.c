@@ -39,7 +39,6 @@
  *
  */
 
-#include "common.h"
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"

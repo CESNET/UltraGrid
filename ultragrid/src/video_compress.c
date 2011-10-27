@@ -120,6 +120,10 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         compress->frame->aux = aux;
 
         switch (codec) {
+                case RGB:
+                        compress->decoder = (decoder_t) vc_copylineRGBtoRGBA;
+                        compress->frame->aux |= AUX_RGB;
+                        break;
                 case RGBA:
                         compress->decoder = (decoder_t) memcpy;
                         compress->frame->aux |= AUX_RGB;
