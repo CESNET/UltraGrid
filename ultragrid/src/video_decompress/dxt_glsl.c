@@ -49,7 +49,7 @@
 #include "config_unix.h"
 #include "debug.h"
 
-#include "dxt_glsl_compress.h"
+#include "x11_common.h"
 #include "dxt_compress/dxt_decoder.h"
 //#include "compat/platform_semaphore.h"
 #include "video_codec.h"
@@ -97,7 +97,6 @@ void * dxt_glsl_decompress_init(void)
         
         s = (struct state_decompress *) malloc(sizeof(struct state_decompress));
         s->configured = FALSE;
-        
         x11_enter_thread();
 
         return s;
