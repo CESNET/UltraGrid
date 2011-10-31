@@ -452,17 +452,23 @@ sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	x_res_y = s->screen_h;
 
 	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
+        int bpp;
+        if(color_spec == RGB) {
+                bpp = 24;
+        } else {
+                bpp = 0; /* screen defautl */
+        }
 	if (s->fs)
         {
 		s->sdl_screen =
-		    SDL_SetVideoMode(x_res_x, x_res_y, 0,
+		    SDL_SetVideoMode(x_res_x, x_res_y, bpp,
 				     SDL_FULLSCREEN | SDL_HWSURFACE |
 				     SDL_DOUBLEBUF);
         } else {
 		x_res_x = s->tile->width;
 		x_res_y = s->tile->height;
 		s->sdl_screen =
-		    SDL_SetVideoMode(x_res_x, x_res_y, 0,
+		    SDL_SetVideoMode(x_res_x, x_res_y, bpp,
 				     SDL_HWSURFACE | SDL_DOUBLEBUF);
 	}
 	if (s->sdl_screen == NULL) {
@@ -597,7 +603,7 @@ void *display_sdl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         
         s->decoder = decoder;
         
-        codec_t native[] = {UYVY, RGBA};
+        codec_t native[] = {UYVY, RGBA, RGB};
         decoder_register_native_codecs(decoder, native, sizeof(native));
         
         s->frame = vf_alloc(1, 1);
