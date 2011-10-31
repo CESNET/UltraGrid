@@ -129,6 +129,14 @@ void decoder_register_native_codecs(struct state_decoder *decoder, codec_t *code
         decoder->native_codecs = malloc(len);
         memcpy(decoder->native_codecs, codecs, len);
         decoder->native_count = len / sizeof(codec_t);
+        
+        /* next check if we didn't receive alias for UYVY */
+        int i;
+        for(i = 0; i < decoder->native_count; ++i) {
+                if(decoder->native_codecs[i] == Vuy2 ||
+                                decoder->native_codecs[i] == DVS8)
+                        error_with_code_msg(128, "Logic error: received alias for UYVY.");
+        }
 }
 
 void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift,
@@ -183,6 +191,9 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                                         && (tile_info->x_count > 1 ||
                                         tile_info->y_count > 1))
                                 continue; /* it is a exception, see NOTES #1 */
+                        if(in_codec == RGBA && /* another exception - we may change shifts */
+                                        out_codec == RGBA)
+                                continue;
                         
                         decode_line = (decoder_t) memcpy;
                         decoder->decoder_type = LINE_DECODER;
@@ -240,8 +251,12 @@ after_decoder_lookup:
         
         decoder->out_codec = out_codec;
         
-        display_put_frame(decoder->display, frame);
-        /* give video display opportunity to pass us pitch */        
+        /*
+         * TODO: put frame should be definitely here. On the other hand, we cannot be sure
+         * that vo driver is initialized so far:(
+         */
+        //display_put_frame(decoder->display, frame);
+        /* reconfigure VO and give it opportunity to pass us pitch */        
         frame->reconfigure(frame->state, desc->width,
                                         desc->height,
                                         out_codec, desc->fps, desc->aux);

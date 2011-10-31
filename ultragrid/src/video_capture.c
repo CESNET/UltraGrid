@@ -124,7 +124,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_testcard_done,
          vidcap_testcard_grab},
 #ifdef HAVE_SDL
-#if 0
         {
          /* Dummy sender for testing purposes */
          0,
@@ -132,7 +131,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_testcard2_init,
          vidcap_testcard2_done,
          vidcap_testcard2_grab},
-#endif
 #endif /* HAVE_SDL */
         {
          0,

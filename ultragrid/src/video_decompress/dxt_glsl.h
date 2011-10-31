@@ -1,12 +1,14 @@
 /*
- * FILE:   testcard.c
- * AUTHOR: Colin Perkins <csp@csperkins.org>
+ * FILE:    video_decompress/dxt_glsl.c
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
+ *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *          Petr Holub       <hopet@ics.muni.cz>
+ *          Milos Liska      <xliska@fi.muni.cz>
+ *          Jiri Matela      <matela@ics.muni.cz>
+ *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * A fake video capture device, used for systems that either have no capture
- * hardware or do not wish to transmit. This fits the interface of the other
- * capture devices, but never produces any video.
- *
- * Copyright (c) 2004 University of Glasgow
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -22,15 +24,14 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -44,10 +45,10 @@
  *
  */
 
-#define VIDCAP_TESTCARD2_ID	0xb06ba92b
+#include "video_codec.h"
 
-struct vidcap_type	*vidcap_testcard2_probe(void);
-void			*vidcap_testcard2_init(char *fmt, unsigned int flags);
-void			 vidcap_testcard2_done(void *state);
-struct video_frame	*vidcap_testcard2_grab(void *state, struct audio_frame **audio);
+void * dxt_glsl_decompress_init(void);
+int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, int pitch);
+void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+void dxt_glsl_decompress_done(void *state);
 

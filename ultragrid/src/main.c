@@ -134,6 +134,7 @@ static struct state_uv *uv_state;
 
 void cleanup_uv(void);
 void list_video_display_devices(void);
+void show_compress_help(void);
 void list_video_capture_devices(void);
 
 #ifndef WIN32

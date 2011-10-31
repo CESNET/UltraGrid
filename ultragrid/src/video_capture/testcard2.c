@@ -95,7 +95,8 @@ struct testcard_state2 {
         SDL_Surface *surface;
         char *data;
         struct timeval t0;
-        struct video_frame frame;
+        struct video_frame *frame;
+        struct tile *tile;
         struct audio_frame audio;
         int aligned_x;
         struct timeval start_time;
@@ -162,14 +163,17 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         char *tmp;
 
+        s->frame = vf_alloc(1, 1);
+        s->tile = tile_get(s->frame, 0, 0);
+        
         tmp = strtok(fmt, ":");
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
                 return NULL;
         }
-        s->frame.width = atoi(tmp);
-        if(s->frame.width % 2 != 0) {
+        s->tile->width = atoi(tmp);
+        if(s->tile->width % 2 != 0) {
                 fprintf(stderr, "Width must be multiple of 2.\n");
                 free(s);
                 return NULL;
@@ -180,7 +184,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                 free(s);
                 return NULL;
         }
-        s->frame.height = atoi(tmp);
+        s->tile->height = atoi(tmp);
         tmp = strtok(NULL, ":");
         if (!tmp) {
                 free(s);
@@ -188,7 +192,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        s->frame.fps = atof(tmp);
+        s->frame->fps = atof(tmp);
 
         tmp = strtok(NULL, ":");
         if (!tmp) {
@@ -209,29 +213,28 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                 }
         }
 
-        s->frame.color_spec = codec;
+        s->frame->color_spec = codec;
 
         if(bpp == 0) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
                 return NULL;
         }
 
-        s->aligned_x = s->frame.width;
+        s->aligned_x = s->tile->width;
         if (h_align) {
                 s->aligned_x = (s->aligned_x + h_align - 1) / h_align * h_align;
         }
 
-        rect_size = (s->frame.width + rect_size - 1) / rect_size;
+        rect_size = (s->tile->width + rect_size - 1) / rect_size;
 
-        s->frame.linesize = s->aligned_x * bpp;
-        s->frame.aux = AUX_PROGRESSIVE;
-        s->size = s->aligned_x * s->frame.height * bpp;
+        s->frame->aux = AUX_PROGRESSIVE;
+        s->size = s->aligned_x * s->tile->height * bpp;
 
         {
                 SDL_Rect r;
                 int col_num = 0;
                 s->surface =
-                    SDL_CreateRGBSurface(SDL_SWSURFACE, s->aligned_x, s->frame.height * 2,
+                    SDL_CreateRGBSurface(SDL_SWSURFACE, s->aligned_x, s->tile->height * 2,
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
                 if (filename) {
@@ -241,10 +244,10 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                                 strip_fmt = filename;
                 }
 
-                for (j = 0; j < s->frame.height; j += rect_size) {
+                for (j = 0; j < s->tile->height; j += rect_size) {
                         int grey = 0xff010101;
                         if (j == rect_size * 2) {
-                                r.w = s->frame.width;
+                                r.w = s->tile->width;
                                 r.h = rect_size / 4;
                                 r.x = 0;
                                 r.y = j;
@@ -252,7 +255,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                                 r.y = j + rect_size * 3 / 4;
                                 SDL_FillRect(s->surface, &r, 0);
                         }
-                        for (i = 0; i < s->frame.width; i += rect_size) {
+                        for (i = 0; i < s->tile->width; i += rect_size) {
                                 r.w = rect_size;
                                 r.h = rect_size;
                                 r.x = i;
@@ -292,18 +295,15 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                 s->grab_audio = FALSE;
         }
 
-
         s->count = 0;
         s->audio_remained = 0.0;
         s->seconds_tone_played = 0.0;
         s->play_audio_frame = FALSE;
 
         platform_sem_init(&s->semaphore, 0, 0);
-        printf("Testcard capture set to %dx%d, bpp %f\n", s->frame.width, s->frame.height, bpp);
+        printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, bpp);
 
-        
-        s->frame.state = s;
-        s->frame.data_len = s->size;
+        s->tile->data_len = s->size;
 
         if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
                 s->grab_audio = TRUE;
@@ -350,11 +350,11 @@ void * vidcap_testcard2_thread(void *arg)
         SDL_Surface *text;
         SDL_Color col = { 0, 0, 0, 0 };
         unsigned int seed = time(NULL);
-        int prev_x1 = rand_r(&seed) % (s->frame.width - 300);
-        int prev_y1 = rand_r(&seed) % (s->frame.height - 300);
+        int prev_x1 = rand_r(&seed) % (s->tile->width - 300);
+        int prev_y1 = rand_r(&seed) % (s->tile->height - 300);
         int down1 = rand_r(&seed) % 2, right1 = rand_r(&seed) % 2;
-        int prev_x2 = rand_r(&seed) % (s->frame.width - 100);
-        int prev_y2 = rand_r(&seed) % (s->frame.height - 100);
+        int prev_x2 = rand_r(&seed) % (s->tile->width - 100);
+        int prev_y2 = rand_r(&seed) % (s->tile->height - 100);
         int down2 = rand_r(&seed) % 2, right2 = rand_r(&seed) % 2;
         
         int stat_count_prev = 0;
@@ -393,8 +393,8 @@ void * vidcap_testcard2_thread(void *arg)
                 r.y = prev_y1 + (down1 ? 1 : -1) * 4;
                 if(r.x < 0) right1 = 1;
                 if(r.y < 0) down1 = 1;
-                if(r.x + r.w > s->frame.width) right1 = 0;
-                if(r.y + r.h > s->frame.height) down1 = 0;
+                if(r.x + r.w > s->tile->width) right1 = 0;
+                if(r.y + r.h > s->tile->height) down1 = 0;
                 prev_x1 = r.x;
                 prev_y1 = r.y;
                 
@@ -406,17 +406,17 @@ void * vidcap_testcard2_thread(void *arg)
                 r.y = prev_y2 + (down2 ? 1 : -1) * 9;
                 if(r.x < 0) right2 = 1;
                 if(r.y < 0) down2 = 1;
-                if(r.x + r.w > s->frame.width) right2 = 0;
-                if(r.y + r.h > s->frame.height) down2 = 0;
+                if(r.x + r.w > s->tile->width) right2 = 0;
+                if(r.y + r.h > s->tile->height) down2 = 0;
                 prev_x2 = r.x;
                 prev_y2 = r.y;
                 
                 SDL_FillRect(copy, &r, 0xffff00aa);
                 
-                r.w = s->frame.width;
+                r.w = s->tile->width;
                 r.h = 150;
                 r.x = 0;
-                r.y = s->frame.height - r.h - 30;
+                r.y = s->tile->height - r.h - 30;
                 SDL_FillRect(copy, &r, 0xffffffff);
                 
                 char frames[20];
@@ -426,7 +426,7 @@ void * vidcap_testcard2_thread(void *arg)
                 snprintf(frames, 20, "%02d:%02d:%02d %3d", (int) since_start / 3600 ,
                                 (int) since_start / 60 % 60,
                                 (int) since_start % 60,
-                                 s->count % 30);
+                                 s->count % (int)s->frame->fps);
                 text = TTF_RenderText_Solid(font,
                         frames, col);
 #endif
@@ -436,36 +436,36 @@ void * vidcap_testcard2_thread(void *arg)
                 
 #ifdef HAVE_LIBSDL_TTF
                 r.y += (r.h - text->h) / 2;
-                r.x = (s->frame.width - src_rect.w) / 2;
+                r.x = (s->tile->width - src_rect.w) / 2;
                 src_rect.w=text->w;
                 src_rect.h=text->h;
                 SDL_BlitSurface(text,  &src_rect,  copy, &r);
                 SDL_FreeSurface(text);
 #endif
                             
-                if (s->frame.color_spec == UYVY || s->frame.color_spec == v210 || s->frame.color_spec == Vuy2) {
+                if (s->frame->color_spec == UYVY || s->frame->color_spec == v210 || s->frame->color_spec == Vuy2) {
                         rgb2yuv422((unsigned char *) copy->pixels, s->aligned_x,
-                                   s->frame.height);
+                                   s->tile->height);
                 }
 
-                if (s->frame.color_spec == v210) {
+                if (s->frame->color_spec == v210) {
                         copy->pixels =
                             (char *)tov210((unsigned char *) copy->pixels, s->aligned_x,
-                                           s->aligned_x, s->frame.height, get_bpp(s->frame.color_spec));
+                                           s->aligned_x, s->tile->height, get_bpp(s->frame->color_spec));
                 }
 
-                if (s->frame.color_spec == R10k) {
-                        toR10k((unsigned char *) copy->pixels, s->frame.width, s->frame.height);
+                if (s->frame->color_spec == R10k) {
+                        toR10k((unsigned char *) copy->pixels, s->tile->width, s->tile->height);
                 }
                 
-                s->frame.data = copy->pixels;
+                s->tile->data = copy->pixels;
 
                 SDL_FreeSurface(old);
                 old = copy;
                 
                 int since_start_usec;
 next_frame:
-                since_start_usec = (s->count) * (1000000 / s->frame.fps);
+                since_start_usec = (s->count) * (1000000 / s->frame->fps);
                 next_frame_time = s->start_time;
                 tv_add_usec(&next_frame_time, since_start_usec);
                 
@@ -475,16 +475,14 @@ next_frame:
                         int sleep_time = tv_diff_usec(next_frame_time, curr_time);
                         usleep(sleep_time);
                 } else {
-                        if((++s->count) % ((int) s->frame.fps * 5) == 0) {
+                        if((++s->count) % ((int) s->frame->fps * 5) == 0) {
                                 s->play_audio_frame = TRUE;
                         }
                         ++stat_count_prev;
                         goto next_frame;
                 }
                 
-                //gettimeofday(&last_frame_time, NULL);
-                
-                if((++s->count) % ((int) s->frame.fps * 5) == 0) {
+                if((++s->count) % ((int) s->frame->fps * 5) == 0) {
                         s->play_audio_frame = TRUE;
                 }
                 platform_sem_post(&s->semaphore);
@@ -527,14 +525,10 @@ static void grab_audio(struct testcard_state2 *s)
         s->audio.data_len *= AUDIO_CHANNELS * AUDIO_BPS;
         
         s->last_audio_time = curr_time;
-        
-        
-        
 }
 
-struct video_frame *vidcap_testcard2_grab(void *arg, int *count, struct audio_frame **audio)
+struct video_frame *vidcap_testcard2_grab(void *arg, struct audio_frame **audio)
 {
-        
         struct testcard_state2 *s;
 
         s = (struct testcard_state2 *)arg;
@@ -547,9 +541,8 @@ struct video_frame *vidcap_testcard2_grab(void *arg, int *count, struct audio_fr
                 if(s->audio.data_len)
                         *audio = &s->audio;
          }
-        *count = 1;
         
-        return &s->frame;
+        return s->frame;
 }
 
 struct vidcap_type *vidcap_testcard2_probe(void)

@@ -176,7 +176,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         }
 #ifdef HAVE_MACOSX
         compress->output_data = (unsigned char *)malloc(width * height * 4);
-        compress->frame.data = (char *)malloc(width * height * 4);
+        compress->tile->data = (char *)malloc(width * height * 4);
 #else
         /*
          *  memalign doesn't exist on Mac OS. malloc always returns 16  
@@ -256,7 +256,7 @@ struct video_frame * compress_data(void *args, struct video_frame *tx)
                         tx->aux != compress->tx_aux ||
                         tx->color_spec != compress->tx_color_spec)
         {
-                reconfigure_compress(compress, tile_get(tx, 0, 0)->width, tile_get(tx, 0, 0)->width, tx->color_spec, tx->aux);
+                reconfigure_compress(compress, tile_get(tx, 0, 0)->width, tile_get(tx, 0, 0)->height, tx->color_spec, tx->aux);
         }
 
         line1 = (unsigned char *)tx->tiles[0].data;

@@ -82,31 +82,33 @@
 #define MAGIC_GL	DISPLAY_GL_ID
 #define WIN_NAME        "Ultragrid - OpenGL Display"
 
+#define STRINGIFY(A) #A
 
 // source code for a shader unit (xsedmik)
-static char * glsl = "\
-uniform sampler2D Ytex;\
-uniform sampler2D Utex,Vtex;\
-\
-void main(void) {\
-float nx,ny,r,g,b,y,u,v;\
-vec4 txl,ux,vx;\
-nx=gl_TexCoord[0].x;\
-ny=gl_TexCoord[0].y;\
-y=texture2D(Ytex,vec2(nx,ny)).r;\
-u=texture2D(Utex,vec2(nx,ny)).r;\
-v=texture2D(Vtex,vec2(nx,ny)).r;\
-y=1.1643*(y-0.0625);\
-u=u-0.5;\
-v=v-0.5;\
-r=y+1.5958*v;\
-g=y-0.39173*u-0.81290*v;\
-b=y+2.017*u;\
-gl_FragColor=vec4(r,g,b,1.0);\
-}";
+static char * yuv422_to_rgb_fp = STRINGIFY(
+uniform sampler2D image;
+uniform float imageWidth;
+void main()
+{
+        vec4 yuv;
+        yuv.rgba  = texture2D(image, gl_TexCoord[0].xy).grba;
+        if(gl_TexCoord[0].x * imageWidth / 2.0 - floor(gl_TexCoord[0].x * imageWidth / 2.0) > 0.5)
+                yuv.r = yuv.a;
+        yuv.r = 1.1643*(yuv.r-0.0625);
+        yuv.g = yuv.g - 0.5;
+        yuv.b = yuv.b - 0.5;
+        gl_FragColor.r = yuv.r + 1.5958 * yuv.b;
+        gl_FragColor.g = yuv.r - 0.39173* yuv.g - 0.81290 * yuv.b;
+        gl_FragColor.b = yuv.r + 2.017 * yuv.g;
+});
 
-/* DXT related -- there shoud be only one kernel 
- * since both do basically the same thing */
+static char * yuv422_to_rgb_vp = STRINGIFY(
+void main() {
+        gl_TexCoord[0] = gl_MultiTexCoord0;
+        gl_Position = ftransform();
+});
+
+/* DXT YUV (FastDXT) related */
 static char * frag = "\
 uniform sampler2D yuvtex;\
 \
@@ -160,25 +162,18 @@ extern int should_exit;
 extern char **uv_argv;
 
 struct state_gl {
-        struct state_decoder *decoder;
-	GLubyte		*y, *u, *v;	//Guess what this might be...
-
-	GLhandleARB     VSHandle,FSHandle,PHandle;
-	const GLcharARB	*VProgram,*FProgram;
+        GLhandleARB     VSHandle,FSHandle,PHandle;
 	/* TODO: make same shaders process YUVs for DXT as for
 	 * uncompressed data */
 	GLhandleARB     VSHandle_dxt,FSHandle_dxt,PHandle_dxt;
-	const GLcharARB	*VProgram_dxt,*FProgram_dxt, *FProgram_dxt5;
         GLhandleARB     FSHandle_dxt5, PHandle_dxt5;
 
-	GLuint		texture[4];
+	GLuint		texture_display;
+	GLuint		texture_uyvy;
 
         /* Thread related information follows... */
         pthread_t	thread_id;
-
-        sem_t		semaphore;
-        pthread_mutex_t newframe_lock;
-        pthread_cond_t  newframe_cv;
+	volatile int    new_frame;
 
         /* For debugging... */
         uint32_t	magic;
@@ -190,14 +185,13 @@ struct state_gl {
 
         struct video_frame *frame;
         struct tile     *tile;
-        volatile int    needs_reconfigure:1;
-        pthread_mutex_t reconf_lock;
+        volatile unsigned    needs_reconfigure:1;
+        pthread_mutex_t lock;
         pthread_cond_t  reconf_cv;
 
         double          aspect;
         double          video_aspect;
         unsigned long int frames;
-        unsigned        win_initialized:1;
 
         struct timeval  tv;
 };
@@ -208,25 +202,18 @@ static struct state_gl *gl;
 void gl_draw(double ratio);
 void gl_show_help(void);
 
-void display_gl_run(void *arg);
 void gl_check_error(void);
-inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v, int w, int h);
 void gl_resize(int width, int height);
 void glsl_arb_init(void *arg);
 void dxt_arb_init(void *arg);
 void gl_bind_texture(void *args);
 void dxt_bind_texture(void *arg);
+void dxt5_arb_init(struct state_gl *s);
 
-int gl_semaphore_timedwait(sem_t * semaphore, pthread_mutex_t * lock,
-                pthread_cond_t * cv, int ms);
-void gl_semaphore_post(sem_t * semaphore, pthread_mutex_t * lock,
-                pthread_cond_t * cv);
 void gl_reconfigure_screen_post(void *s, unsigned int width, unsigned int height,
                 codec_t codec, double fps, int aux);
 void gl_reconfigure_screen(struct state_gl *s);
-static void cleanup_data(struct state_gl *s);
 void glut_idle_callback(void);
-void glut_redisplay_callback(void);
 void glut_key_callback(unsigned char key, int x, int y);
 void glut_close_callback(void);
 void glut_resize_window(struct state_gl *s);
@@ -291,17 +278,13 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
-        s->decoder = decoder;
         
         /* GLUT callbacks take only some arguments so we need static variable */
         gl = s;
-
         s->window = -1;
 
-        pthread_mutex_init(&s->reconf_lock, NULL);
+        pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->reconf_cv, NULL);
-        pthread_mutex_init(&s->newframe_lock, NULL);
-        pthread_cond_init(&s->newframe_cv, NULL);
 
         s->fs = FALSE;
         s->deinterlace = FALSE;
@@ -309,7 +292,7 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         
         codec_t native[] = {UYVY, RGBA, DXT1, DXT5};
         decoder_register_native_codecs(decoder, native, sizeof(native));
-        decoder_set_param(s->decoder, 0, 8, 16,
+        decoder_set_param(decoder, 0, 8, 16,
                 0);
 
 	// parse parameters
@@ -337,18 +320,16 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
                         }
                         tmp = NULL;
                 }
-                        
 
 		free(tmp);
 	}
 
         s->frame = vf_alloc(1, 1);
         s->tile = tile_get(s->frame, 0, 0);
+        s->tile->data = NULL;
 
         s->frame->reconfigure = (reconfigure_t) gl_reconfigure_screen_post;
         s->frame->state = s;
-        s->win_initialized = FALSE;
-
         
         s->frames = 0ul;
         gettimeofday(&s->tv, NULL);
@@ -356,7 +337,7 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         fprintf(stdout,"GL setup: fullscreen: %s, deinterlace: %s\n",
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
 
-        platform_sem_init(&s->semaphore, 0, 0);
+	s->new_frame = 0;
 	/*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
 		perror("Unable to create display thread\n");
 		return NULL;
@@ -372,80 +353,61 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
  */
 void glsl_arb_init(void *arg)
 {
-    struct state_gl	*s = (struct state_gl *) arg;
-    char 		*log;
+        struct state_gl	*s = (struct state_gl *) arg;
+        char 		*log;
+        const GLcharARB	*VProgram, *FProgram;
+        
+        FProgram = (const GLcharARB*) yuv422_to_rgb_fp;
+	VProgram = (const GLcharARB*) yuv422_to_rgb_vp;
+        /* Set up program objects. */
+        s->PHandle=glCreateProgramObjectARB();
+        s->VSHandle=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+        s->FSHandle=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+        
+        /* Compile Shader */
+        glShaderSourceARB(s->FSHandle,1, &FProgram,NULL);
+        glCompileShaderARB(s->FSHandle);
+        
+        /* Print compile log */
+        log=calloc(32768,sizeof(char));
+        glGetInfoLogARB(s->FSHandle,32768,NULL,log);
+        printf("Compile Log: %s\n", log);
 
-    /* Set up program objects. */
-    s->PHandle=glCreateProgramObjectARB();
-    // s->VSHandle=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
-    s->FSHandle=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+        glShaderSourceARB(s->VSHandle,1, &VProgram,NULL);
+        glCompileShaderARB(s->VSHandle);
+        memset(log, 0, 32768);
+        glGetInfoLogARB(s->VSHandle,32768,NULL,log);
+        printf("Compile Log: %s\n", log);
 
-    /* Compile Shader */
-    assert(s->FProgram!=NULL);
-    // assert(s->VProgram!=NULL);
-    glShaderSourceARB(s->FSHandle,1, &s->FProgram,NULL);
-    glCompileShaderARB(s->FSHandle);
-
-    /* Print compile log */
-    log=calloc(32768,sizeof(char));
-    glGetInfoLogARB(s->FSHandle,32768,NULL,log);
-    printf("Compile Log: %s\n", log);
-    free(log);
-#if 0
-    glShaderSourceARB(s->VSHandle,1,&(s->VProgram),NULL);
-    glCompileShaderARB(s->VSHandle);
-    log=calloc(32768,sizeof(char));
-    glGetInfoLogARB(s->VSHandle,32768,NULL,log);
-    printf("Compile Log: %s\n", log);
-    free(log);
-#endif
-    /* Attach and link our program */
-    glAttachObjectARB(s->PHandle,s->FSHandle);
-    // glAttachObjectARB(s->PHandle,s->VSHandle);
-    glLinkProgramARB(s->PHandle);
-
-    /* Print link log. */
-    log=calloc(32768,sizeof(char));
-    glGetInfoLogARB(s->PHandle,32768,NULL,log);
-    printf("Link Log: %s\n", log);
-    free(log);
+        /* Attach and link our program */
+        glAttachObjectARB(s->PHandle,s->FSHandle);
+        glAttachObjectARB(s->PHandle,s->VSHandle);
+        glLinkProgramARB(s->PHandle);
+        
+        /* Print link log. */
+        memset(log, 0, 32768);
+        glGetInfoLogARB(s->PHandle,32768,NULL,log);
+        printf("Link Log: %s\n", log);
+        free(log);
 }
-
-/*
- * NOTE: UNUSED - can (should?) be removed when we use ARB
- */
-/*void glsl_gl_init(void *arg) {
-
-	//TODO: Add log
-	struct state_gl	*s = (struct state_gl *) arg;
-
-	s->PHandle=glCreateProgram();
-	s->FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
-
-	glShaderSource(s->FSHandle,1,(const GLcharARB**)&(s->FProgram),NULL);
-	glCompileShader(s->FSHandle);
-
-	glAttachShader(s->PHandle,s->FSHandle);
-
-	glLinkProgram(s->PHandle);
-	glUseProgram(s->PHandle);
-}*/
-
 
 void dxt_arb_init(void *arg)
 {
     struct state_gl        *s = (struct state_gl *) arg;
     char *log;
+    const GLcharARB *FProgram, *VProgram;
+    
+    FProgram = (const GLcharARB *) frag;
+    VProgram = (const GLcharARB *) vert;
     /* Set up program objects. */
     s->PHandle_dxt=glCreateProgramObjectARB();
     s->FSHandle_dxt=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
     s->VSHandle_dxt=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
 
     /* Compile Shader */
-    assert(s->FProgram_dxt!=NULL);
-    glShaderSourceARB(s->FSHandle_dxt,1,&(s->FProgram_dxt),NULL);
+    glShaderSourceARB(s->FSHandle_dxt,1,&FProgram,NULL);
     glCompileShaderARB(s->FSHandle_dxt);
-    glShaderSourceARB(s->VSHandle_dxt,1,&(s->VProgram_dxt),NULL);
+    glShaderSourceARB(s->VSHandle_dxt,1,&VProgram,NULL);
     glCompileShaderARB(s->VSHandle_dxt);
 
     /* Print compile log */
@@ -473,13 +435,16 @@ void dxt_arb_init(void *arg)
 void dxt5_arb_init(struct state_gl *s)
 {
         char *log;
+        const GLcharARB *FProgram;
+    
+        FProgram = (const GLcharARB *) fp_display_dxt5ycocg;
+        
         /* Set up program objects. */
         s->PHandle_dxt5=glCreateProgramObjectARB();
         s->FSHandle_dxt5=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
         
         /* Compile Shader */
-        assert(s->FProgram_dxt5 != NULL);
-        glShaderSourceARB(s->FSHandle_dxt5, 1, &s->FProgram_dxt5, NULL);
+        glShaderSourceARB(s->FSHandle_dxt5, 1, &FProgram, NULL);
         glCompileShaderARB(s->FSHandle_dxt5);
         
         /* Print compile log */
@@ -497,21 +462,6 @@ void dxt5_arb_init(struct state_gl *s)
         glGetInfoLogARB(s->PHandle_dxt5, 32768, NULL, log);
         printf("Link Log: %s\n", log);
         free(log);
-}
-
-inline void getY(GLubyte *input,GLubyte *y, GLubyte *u,GLubyte *v, int w, int h)
-{
-	//TODO: This should be re-written in assembly
-	//Note: We assume 1920x1080 UYVY (YUV 4:2:2)
-	//See http://www.fourcc.org/indexyuv.htm for more info
-	//0x59565955 - UYVY - 16 bits per pixel (2 bytes per plane)
-	register int x;
-	for(x = 0; x < w * h * 2; x += 4) {
-		*u++=input[x];		//1	5	9	13
-		*y++=input[x+1];	//2	6	10	14
-		*v++=input[x+2];	//3	7	11	15
-		*y++=input[x+3];	//0	4	8	12
-	}
 }
 
 /*
@@ -536,15 +486,13 @@ void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int heig
         s->frame->aux = aux;
         s->frame->color_spec = codec;
 
-        pthread_mutex_lock(&s->reconf_lock);
+        pthread_mutex_lock(&s->lock);
         s->needs_reconfigure = TRUE;
-
-        gl_semaphore_post(&s->semaphore, &s->newframe_lock,
-                &s->newframe_cv);
+	s->new_frame = 1;
 
         while(s->needs_reconfigure)
-                pthread_cond_wait(&s->reconf_cv, &s->reconf_lock);
-        pthread_mutex_unlock(&s->reconf_lock);
+                pthread_cond_wait(&s->reconf_cv, &s->lock);
+        pthread_mutex_unlock(&s->lock);
 }
 
 void glut_resize_window(struct state_gl *s)
@@ -562,20 +510,13 @@ void glut_resize_window(struct state_gl *s)
  */
 void gl_reconfigure_screen(struct state_gl *s)
 {
-        int i;
-
         assert(s->magic == MAGIC_GL);
 
-        if(s->win_initialized)
-                cleanup_data(s);
+        free(s->tile->data);
         
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec)
                         * s->tile->height;
         s->tile->data = (char *) malloc(s->tile->data_len);
-
-	s->y=malloc(s->tile->width * s->tile->height);
-	s->u=malloc(s->tile->width * s->tile->height);
-	s->v=malloc(s->tile->width * s->tile->height);
 
 	asm("emms\n");
         if(!s->video_aspect)
@@ -585,102 +526,57 @@ void gl_reconfigure_screen(struct state_gl *s)
 
 	fprintf(stdout,"Setting GL window size %dx%d (%dx%d).\n", (int)(s->aspect * s->tile->height),
                         s->tile->height, s->tile->width, s->tile->height);
-	glut_resize_window(s);
+	glutShowWindow();
+        glut_resize_window(s);
 
 	glUseProgramObjectARB(0);
 
         if(s->frame->color_spec == DXT1) {
-		glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+		glBindTexture(GL_TEXTURE_2D,s->texture_display);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
 				s->tile->width, s->tile->height, 0,
 				(s->tile->width * s->tile->height/16)*8,
-				s->tile->data);
+				NULL);
 		if(s->frame->aux & AUX_YUV) {
-			glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+			glBindTexture(GL_TEXTURE_2D,s->texture_display);
 			glUseProgramObjectARB(s->PHandle_dxt);
 		}
         } else if (s->frame->color_spec == UYVY) {
+                glActiveTexture(GL_TEXTURE0 + 2);
+                glBindTexture(GL_TEXTURE_2D,s->texture_uyvy);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                s->tile->width / 2, s->tile->height, 0,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                NULL);
                 glUseProgramObjectARB(s->PHandle);
-
-                glBindTexture(GL_TEXTURE_2D,s->texture[0]);
-                glTexImage2D(GL_TEXTURE_2D, 0, 1,
-                        s->tile->width / 2, s->tile->height, 0,
-                        GL_LUMINANCE, GL_UNSIGNED_BYTE, s->u);
-
-                glBindTexture(GL_TEXTURE_2D,s->texture[1]);
-                glTexImage2D(GL_TEXTURE_2D, 0, 1,
-                        s->tile->width / 2, s->tile->height, 0,
-                        GL_LUMINANCE, GL_UNSIGNED_BYTE, s->v);
-
-                glBindTexture(GL_TEXTURE_2D,s->texture[2]);
-                glTexImage2D(GL_TEXTURE_2D, 0, 1,
-                        s->tile->width, s->tile->height, 0,
-                        GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
-        } else if (s->frame->color_spec == RGBA) {
-                glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+                glUniform1i(glGetUniformLocation(s->PHandle, "image"), 2);
+                glUniform1f(glGetUniformLocation(s->PHandle, "imageWidth"),
+                        (GLfloat) s->tile->width);
+                glUseProgramObjectARB(0);
+                glActiveTexture(GL_TEXTURE0 + 0);
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 s->tile->width, s->tile->height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
-                                s->tile->data);
+                                NULL);
+                
+        } else if (s->frame->color_spec == RGBA) {
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                                s->tile->width, s->tile->height, 0,
+                                GL_RGBA, GL_UNSIGNED_BYTE,
+                                NULL);
         } else if (s->frame->color_spec == DXT5) {
                 glUseProgramObjectARB(s->PHandle_dxt5);
                 
-                glBindTexture(GL_TEXTURE_2D,s->texture[0]);
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
 				s->tile->width, s->tile->height, 0,
 				s->tile->width * s->tile->height,
-				s->tile->data);
+				NULL);
         }
-
-        s->win_initialized = TRUE;
-}
-
-/* Macs doesn't support timedwaits so this is just workaround
- * using sem + mutex + cv
- */
-int gl_semaphore_timedwait(sem_t * semaphore, pthread_mutex_t * lock,
-                pthread_cond_t * cv, int ms)
-{
-        pthread_mutex_lock(lock);
-        /* first of all - try to decrement, if failed wait with tmout */
-        if(sem_trywait(semaphore) != 0) {
-                struct timeval tp;
-                struct timespec ts;
-
-                gettimeofday(&tp, NULL);
-                /* Convert from timeval to timespec */
-                ts.tv_sec  = tp.tv_sec;
-                ts.tv_nsec = tp.tv_usec * 1000;
-
-                ts.tv_nsec += ms * 1000 * 1000; /* 0.2 sec */
-                // make it correct
-                ts.tv_sec += ts.tv_nsec / (1000 * 1000 * 1000);
-                ts.tv_nsec = ts.tv_nsec % (1000 * 1000 * 1000);
-
-                if(pthread_cond_timedwait(cv, lock,
-                                &ts) != 0) {
-                        pthread_mutex_unlock(lock);
-                        return 1;
-                } else {
-                        /* just decrement - we know that it has 'value > 0'
-                         * in this case */
-                        platform_sem_wait(semaphore);
-                }
-        }
-        pthread_mutex_unlock(lock);
-
-        return 0;
-}
-
-void gl_semaphore_post(sem_t * semaphore, pthread_mutex_t * lock,
-                pthread_cond_t * cv)
-{
-        pthread_mutex_lock(lock);
-        platform_sem_post(semaphore);
-        pthread_cond_signal(cv);
-        pthread_mutex_unlock(lock);
 }
 
 void glut_idle_callback(void)
@@ -689,21 +585,22 @@ void glut_idle_callback(void)
         struct timeval tv;
         double seconds;
 
-
-        if(gl_semaphore_timedwait(&s->semaphore, &s->newframe_lock,
-                                &s->newframe_cv, 200) != 0) /* timeout */
+        pthread_mutex_lock(&s->lock);
+	if(!s->new_frame) {
+                pthread_mutex_unlock(&s->lock);
                 return;
+        }
+	s->new_frame = 0;
 
-        pthread_mutex_lock(&s->reconf_lock);
         if (s->needs_reconfigure) {
                 /* there has been scheduled request for win reconfiguration */
                 gl_reconfigure_screen(s);
                 s->needs_reconfigure = FALSE;
                 pthread_cond_signal(&s->reconf_cv);
-                pthread_mutex_unlock(&s->reconf_lock);
+                pthread_mutex_unlock(&s->lock);
                 return; /* return after reconfiguration */
         }
-        pthread_mutex_unlock(&s->reconf_lock);
+        pthread_mutex_unlock(&s->lock);
 
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
@@ -724,8 +621,6 @@ void glut_idle_callback(void)
                                 dxt_bind_texture(s);
                         break;
                 case UYVY:
-                        getY((GLubyte *) s->tile->data, s->y, s->u, s->v,
-                                        s->tile->width, s->tile->height);
                         gl_bind_texture(s);
                         break;
                 case RGBA:
@@ -740,6 +635,10 @@ void glut_idle_callback(void)
                                         GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
                                         s->tile->width * s->tile->height,
                                         s->tile->data);
+                        break;
+                default:
+                        error_with_code_msg(128, "[GL] Fatal error - received unsupported codec. "
+                                                 "Please report a bug.");
         }
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
@@ -772,7 +671,6 @@ void glut_key_callback(unsigned char key, int x, int y)
 			glut_resize_window(gl);
                         break;
                 case 'q':
-                        platform_sem_post(&gl->semaphore);
                         if(gl->window != -1)
                                 glutDestroyWindow(gl->window);
 			should_exit = 1;
@@ -800,8 +698,9 @@ void display_gl_run(void *arg)
 
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(WIN_NAME);
+        glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
-	glutDisplayFunc(glut_redisplay_callback);
+	glutDisplayFunc(glutSwapBuffers);
 	glutWMCloseFunc(glut_close_callback);
 	glutReshapeFunc(gl_resize);
 
@@ -816,43 +715,27 @@ void display_gl_run(void *arg)
         }
         free(tmp);
 
-	s->FProgram_dxt = (const GLcharARB**) frag;
-	s->VProgram_dxt = (const GLcharARB**) vert;
-	s->FProgram = (const GLcharARB**) glsl;
-	s->FProgram_dxt5 = (const GLcharARB**) fp_display_dxt5ycocg;
-
         glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
         glEnable( GL_TEXTURE_2D );
-	glGenTextures(4, s->texture);
+        
+	glGenTextures(1, &s->texture_display);
+	glBindTexture(GL_TEXTURE_2D, s->texture_display);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glBindTexture(GL_TEXTURE_2D, s->texture[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, s->texture[1]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, s->texture[2]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glGenTextures(1, &s->texture_uyvy);
+	glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glsl_arb_init(s);
 	dxt_arb_init(s);
         dxt5_arb_init(s);
-
-        /* Wait until we have some data and thus created window 
-         * otherwise the mainLoop would exit immediately */
-        while(!s->win_initialized) {
-                pthread_mutex_lock(&s->reconf_lock);
-                if (s->needs_reconfigure) {
-                        gl_reconfigure_screen(s);
-                        s->needs_reconfigure = FALSE;
-                        pthread_cond_signal(&s->reconf_cv);
-                }
-                pthread_mutex_unlock(&s->reconf_lock);
-                usleep(1000);
-        }
-
+        
         glutMainLoop();
 }
 
@@ -887,28 +770,17 @@ void gl_resize(int width,int height)
 void gl_bind_texture(void *arg)
 {
 	struct state_gl        *s = (struct state_gl *) arg;
-	int i;
+        
+        glUseProgramObjectARB(0);
 
-	glActiveTexture(GL_TEXTURE1);
-	i = glGetUniformLocationARB(s->PHandle, "Utex");
-	glUniform1iARB(i, 1); 
-	glBindTexture(GL_TEXTURE_2D, s->texture[0]);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2,
-                        s->tile->height, GL_LUMINANCE, GL_UNSIGNED_BYTE, s->u);
-
-	glActiveTexture(GL_TEXTURE2);
-	i = glGetUniformLocationARB(s->PHandle, "Vtex");
-	glUniform1iARB(i, 2); 
-	glBindTexture(GL_TEXTURE_2D, s->texture[1]);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2,
-                        s->tile->height, GL_LUMINANCE, GL_UNSIGNED_BYTE, s->v);
-
-	glActiveTexture(GL_TEXTURE0);
-	i = glGetUniformLocationARB(s->PHandle," Ytex");
-	glUniform1iARB(i, 0); 
-	glBindTexture(GL_TEXTURE_2D, s->texture[2]);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width,
-                        s->tile->height, GL_LUMINANCE, GL_UNSIGNED_BYTE, s->y);
+        glActiveTexture(GL_TEXTURE0 + 2);
+        glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2,
+                        s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+                        
+        glUseProgramObjectARB(s->PHandle);
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
 
 void dxt_bind_texture(void *arg)
@@ -920,7 +792,7 @@ void dxt_bind_texture(void *arg)
         glActiveTexture(GL_TEXTURE0);
         i=glGetUniformLocationARB(s->PHandle,"yuvtex");
         glUniform1iARB(i,0); 
-        glBindTexture(GL_TEXTURE_2D,gl->texture[0]);
+        glBindTexture(GL_TEXTURE_2D,gl->texture_display);
 	glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
 			s->tile->width, s->tile->height,
 			GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
@@ -950,17 +822,11 @@ void gl_draw(double ratio)
     glEnd( );
 
     gl_check_error();
-    /* Draw it to the screen */
-}
-
-void glut_redisplay_callback(void)
-{
-    glFlush();
-    glutSwapBuffers();
 }
 
 void glut_close_callback(void)
 {
+        should_exit = TRUE;
 	exit(0);
 }
 
@@ -984,15 +850,14 @@ void display_gl_done(void *state)
         assert(s->magic == MAGIC_GL);
 
         //pthread_join(s->thread_id, NULL);
-        pthread_mutex_destroy(&s->newframe_lock);
-        pthread_cond_destroy(&s->newframe_cv);
-        pthread_mutex_destroy(&s->reconf_lock);
+        pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->reconf_cv);
-        if(s->win_initialized) {
+        if(s->window != -1) {
                 glutDestroyWindow(s->window);
-                cleanup_data(s);
         }
+        free(s->tile->data);
         vf_free(s->frame);
+        free(s);
 }
 
 struct video_frame * display_gl_getf(void *state)
@@ -1012,25 +877,13 @@ int display_gl_putf(void *state, char *frame)
         UNUSED(frame);
 
         /* ...and signal the worker */
-        gl_semaphore_post(&s->semaphore, &s->newframe_lock,
-                &s->newframe_cv);
-
-#ifndef HAVE_MACOSX
-        /* isn't implemented on Macs */
-        sem_getvalue(&s->semaphore, &tmp);
-        if(tmp > 1) {
+        pthread_mutex_lock(&s->lock);
+        if(s->new_frame != 0) {
                 printf("frame drop!\n");
-                sem_trywait(&s->semaphore); /* decrement then */
-        }
-#endif
+        } else {
+		s->new_frame++;
+	}
+
+        pthread_mutex_unlock(&s->lock);
         return 0;
 }
-
-static void cleanup_data(struct state_gl *s)
-{
-        free(s->y);
-        free(s->u);
-        free(s->v);
-        free(s->tile->data);
-}
-
