@@ -49,9 +49,21 @@
 #define __video_decompress_h
 #include "video_codec.h"
 
+/**
+ * initializes decompression and returns internal state
+ */
 typedef  void *(*decompress_init_t)();
+/**
+ * Recompresses decompression for specified video description
+ */
 typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc, int pitch);
-typedef  void (*decompress_decompress_t)(void *, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+/**
+ * Decompresses data from buffer of src_len into dst
+ */
+typedef  void (*decompress_decompress_t)(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+/**
+ * Cleanup function
+ */
 typedef  void (*decompress_done_t)(void *);
 
 struct decode_from_to {

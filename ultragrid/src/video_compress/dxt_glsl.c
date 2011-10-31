@@ -129,16 +129,9 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         s->decoder = (decoder_t) vc_copylineDVS10;
                         format = DXT_FORMAT_YUV422;
                         break;
-                case DXT1:
-                case DXT5:
-                        fprintf(stderr, "Input frame is already comperssed!");
-                        exit(128);
                 default:
-                        fprintf(stderr, "Unknown codec: %d\n", frame->color_spec);
-                        exit(128);
+                        error_with_code_msg(128, "Unknown codec: %d\n", frame->color_spec);
         }
-        
-        
 
         /* We will deinterlace the output frame */
         if(s->out->aux & AUX_INTERLACED)
@@ -177,8 +170,7 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         }
         
         if(!s->encoder) {
-                fprintf(stderr, "[DXT GLSL] Failed to create encoder.\n");
-                exit(128);
+                error_with_code_msg(128, "[DXT GLSL] Failed to create encoder.\n");
         }
         
         s->decoded = malloc(4 * s->out->tiles[0].width * s->out->tiles[0].height);

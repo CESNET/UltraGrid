@@ -51,14 +51,30 @@
 
 struct compress_state;
 
+/**
+ * Initializes compression
+ * 
+ * @param cfg command-line argument
+ * @return intern state
+ */
+typedef  void *(*compress_init_t)(char *cfg);
+/**
+ * Compresses video frame
+ * 
+ * @param state compressor state
+ * @param uncompressed frame
+ * @return compressed frame
+ */
+typedef  struct video_frame * (*compress_compress_t)(void *state, struct video_frame *frame);
+/**
+ * Cleanup function
+ */
+typedef  void (*compress_done_t)(void *);
+
 void show_compress_help(void);
 struct compress_state *compress_init(char *config_string);
 const char *get_compress_name(struct compress_state *);
 struct video_frame *compress_frame(struct compress_state *, struct video_frame*);
 void compress_done(struct compress_state *);
-
-typedef  void *(*compress_init_t)(char *cfg);
-typedef  struct video_frame * (*compress_compress_t)(void *, struct video_frame *frame);
-typedef  void (*compress_done_t)(void *);
 
 #endif /* __video_decompress_h */

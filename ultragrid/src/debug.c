@@ -46,6 +46,15 @@
 #include "config_win32.h"
 #include "debug.h"
 
+void _errprintf(const char *format, ...)
+{
+        va_list ap;
+
+        va_start(ap, format);
+        vfprintf(stderr, format, ap);
+        va_end(ap);
+}
+
 void _dprintf(const char *format, ...)
 {
 #ifdef DEBUG

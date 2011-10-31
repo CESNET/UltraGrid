@@ -47,6 +47,7 @@
 
 #include "host.h"
 #include "config.h"
+#include "debug.h"
 #include "fastdxt.h"
 #include <pthread.h>
 #include "compat/platform_semaphore.h"
@@ -147,9 +148,8 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                         compress->decoder = (decoder_t) vc_copylineDVS10;
                         compress->frame->aux |= AUX_YUV;
                         break;
-                case DXT1:
-                        fprintf(stderr, "Input frame is already comperssed!");
-                        exit(128);
+                default:
+                        error_with_code_msg(128, "Unknown codec %d!", codec);
         }
         
         int h_align = 0;
