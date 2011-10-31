@@ -30,6 +30,10 @@
 
 #include <string.h>
 
+
+const int FORMAT_RGB = 0;
+const int FORMAT_YUV = 1;
+
 /** Documented at declaration */ 
 struct dxt_encoder
 {
@@ -188,7 +192,11 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, DXT_IMAGE_GL_FORMAT, encoder->width, encoder->height, 0, GL_RGBA, GL_BYTE, NULL);
+    if(format == DXT_FORMAT_RGB) {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, encoder->width, encoder->height, 0, GL_RGB, GL_BYTE, NULL);
+    } else {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, encoder->width, encoder->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    }
     
     //glActiveTexture(GL_TEXTURE0);
     glEnable(GL_TEXTURE_2D);
@@ -207,10 +215,11 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     // User compress program and set image size parameters
     glUseProgramObjectARB(encoder->program_compress);
     glUniform1i(glGetUniformLocation(encoder->program_compress, "image"), 0);
-    if(format == DXT_FORMAT_YUV422) {
-            glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), DXT_FORMAT_YUV);
+    
+    if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
+            glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), FORMAT_YUV);
     } else {
-            glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), encoder->format); 
+            glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), FORMAT_RGB); 
     }
     glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
 
@@ -249,39 +258,47 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     TIMER_INIT();
  
     TIMER_START();
-    if(encoder->format == DXT_FORMAT_YUV422) {
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo444_id);
-        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, encoder->texture_id, 0);
-        //assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
-        glBindTexture(GL_TEXTURE_2D, encoder->texture_yuv422);
-        
-        glPushAttrib(GL_VIEWPORT_BIT);
-        glViewport( 0, 0, encoder->width, encoder->height);
-
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
-        glUseProgramObjectARB(encoder->yuv422_to_444_program);
-        
-        //glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
-        
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-        glEnd();
-        
-        glPopAttrib();
-        
-        //glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-        
-        glUseProgramObjectARB(encoder->program_compress);
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
-        glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
-
-        //gl_check_error();        
-    } else {
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+    switch(encoder->format) {
+            case DXT_FORMAT_YUV422:
+                        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo444_id);
+                        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, encoder->texture_id, 0);
+                        //assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
+                        glBindTexture(GL_TEXTURE_2D, encoder->texture_yuv422);
+                        
+                        glPushAttrib(GL_VIEWPORT_BIT);
+                        glViewport( 0, 0, encoder->width, encoder->height);
+                
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
+                        glUseProgramObjectARB(encoder->yuv422_to_444_program);
+                        
+                        //glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+                        
+                        glBegin(GL_QUADS);
+                        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                        glEnd();
+                        
+                        glPopAttrib();
+                        
+                        //glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+                        
+                        glUseProgramObjectARB(encoder->program_compress);
+                        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
+                        glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+                
+                        //gl_check_error();
+                        break;
+                case DXT_FORMAT_YUV:
+                case DXT_FORMAT_RGBA:
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+                        break;
+                case DXT_FORMAT_RGB:
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, image);
+                        break;
     }
+                        
 #ifdef DEBUG
     glFinish();
 #endif

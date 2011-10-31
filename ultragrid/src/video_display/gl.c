@@ -290,7 +290,7 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         s->deinterlace = FALSE;
         s->video_aspect = 0.0;
         
-        codec_t native[] = {UYVY, RGBA, DXT1, DXT5};
+        codec_t native[] = {UYVY, RGBA, RGB, DXT1, DXT5};
         decoder_register_native_codecs(decoder, native, sizeof(native));
         decoder_set_param(decoder, 0, 8, 16,
                 0);
@@ -476,6 +476,7 @@ void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int heig
         struct state_gl	*s = (struct state_gl *) arg;
 
         assert (codec == RGBA ||
+                codec == RGB  ||
                 codec == UYVY ||
                 codec == DXT1 ||
                 codec == DXT5);
@@ -560,12 +561,17 @@ void gl_reconfigure_screen(struct state_gl *s)
                                 s->tile->width, s->tile->height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                
         } else if (s->frame->color_spec == RGBA) {
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                                 s->tile->width, s->tile->height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
+                                NULL);
+        } else if (s->frame->color_spec == RGB) {
+                glBindTexture(GL_TEXTURE_2D,s->texture_display);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+                                s->tile->width, s->tile->height, 0,
+                                GL_RGB, GL_UNSIGNED_BYTE,
                                 NULL);
         } else if (s->frame->color_spec == DXT5) {
                 glUseProgramObjectARB(s->PHandle_dxt5);
@@ -627,6 +633,12 @@ void glut_idle_callback(void)
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->tile->width, s->tile->height,
                                         GL_RGBA, GL_UNSIGNED_BYTE,
+                                        s->tile->data);
+                        break;
+                case RGB:
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                        s->tile->width, s->tile->height,
+                                        GL_RGB, GL_UNSIGNED_BYTE,
                                         s->tile->data);
                         break;
                 case DXT5:                        

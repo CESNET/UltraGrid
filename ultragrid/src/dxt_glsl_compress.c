@@ -368,16 +368,16 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
 
         switch (frame->color_spec) {
                 case RGB:
-                        s->decoder = (decoder_t) vc_copylineRGBtoRGBA;
+                        s->decoder = (decoder_t) memcpy;
                         format = DXT_FORMAT_RGB;
                         break;
                 case RGBA:
                         s->decoder = (decoder_t) memcpy;
-                        format = DXT_FORMAT_RGB;
+                        format = DXT_FORMAT_RGBA;
                         break;
                 case R10k:
                         s->decoder = (decoder_t) vc_copyliner10k;
-                        format = DXT_FORMAT_RGB;
+                        format = DXT_FORMAT_RGBA;
                         break;
                 case UYVY:
                 case Vuy2:
@@ -423,8 +423,18 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         
         for (x = 0; x < frame->grid_width; ++x) {
                 for (y = 0; y < frame->grid_height; ++y) {
-                        tile_get(s->out, x, y)->linesize = s->out->tiles[0].width * 
-                                (format == DXT_FORMAT_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+                        tile_get(s->out, x, y)->linesize = s->out->tiles[0].width;
+                        switch(format) { 
+                                case DXT_FORMAT_RGBA:
+                                        tile_get(s->out, x, y)->linesize *= 4;
+                                        break;
+                                case DXT_FORMAT_RGB:
+                                        tile_get(s->out, x, y)->linesize *= 3;
+                                        break;
+                                case DXT_FORMAT_YUV422:
+                                        tile_get(s->out, x, y)->linesize *= 2;
+                                        break;
+                        }
                         tile_get(s->out, x, y)->data_len = s->out->tiles[0].data_len;
                         tile_get(s->out, x, y)->data = (char *) malloc(s->out->tiles[0].data_len);
                 }
