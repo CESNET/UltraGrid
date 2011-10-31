@@ -79,6 +79,7 @@ const struct codec_info_t codec_info[] = {
  * list 10b->10b earlier to 10b->8b etc. */
 const struct line_decode_from_to line_decoders[] = {
         { RGBA, RGBA, vc_copylineRGBA},
+        { RGB, RGB, vc_copylineRGB},
         { DVS10, v210, vc_copylineDVS10toV210},
         { DVS10, UYVY, vc_copylineDVS10},
         { R10k, RGBA, vc_copyliner10k},
@@ -449,6 +450,30 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len)
 }
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
+
+void vc_copylineRGB(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+{
+        register unsigned int r, g, b;
+        union {
+                unsigned int out;
+                unsigned char c[4];
+        } u;
+
+        if (rshift == 0 && gshift == 8 && bshift == 16) {
+                memcpy(dst, src, dst_len);
+        } else {
+                while(dst_len > 0) {
+                        r = *src++;
+                        g = *src++;
+                        b = *src++;
+                        u.out = (r << rshift) | (g << gshift) | (b << bshift);
+                        *dst++ = u.c[0];
+                        *dst++ = u.c[1];
+                        *dst++ = u.c[2];
+                        dst_len -= 3;
+                }
+        }
+}
 
 void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int dst_len)
 {

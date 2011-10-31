@@ -198,9 +198,9 @@ void * dxt_glsl_compress_init(char * opts)
         
         if(opts && strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");
-                printf("\t-cg:DXT1\n");
+                printf("\t-c RTDXT:DXT1\n");
                 printf("\t\tcompress with DXT1\n");
-                printf("\t-cg:DXT5\n");
+                printf("\t-c RTDXT:DXT5\n");
                 printf("\t\tcompress with DXT5 YCoCg\n");
                 return NULL;
         }

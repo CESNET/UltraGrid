@@ -92,7 +92,10 @@ struct compress_state *compress_init(char *config_string)
         struct compress_state *s;
         char *compress_options = NULL;
         
-        if(!config_string || strcmp(config_string, "help") == 0)
+        if(!config_string) 
+                return NULL;
+        
+        if(strcmp(config_string, "help") == 0)
         {
                 show_compress_help();
                 return NULL;

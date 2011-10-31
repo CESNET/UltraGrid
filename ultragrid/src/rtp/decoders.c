@@ -191,30 +191,31 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                                         && (tile_info->x_count > 1 ||
                                         tile_info->y_count > 1))
                                 continue; /* it is a exception, see NOTES #1 */
-                        if(in_codec == RGBA && /* another exception - we may change shifts */
-                                        out_codec == RGBA)
+                        if(in_codec == RGBA || /* another exception - we may change shifts */
+                                        in_codec == RGB)
                                 continue;
                         
                         decode_line = (decoder_t) memcpy;
                         decoder->decoder_type = LINE_DECODER;
-
+                        
                         goto after_linedecoder_lookup;
                 }
         }
         /* otherwise if we have line decoder */
-        for(native = 0; native < decoder->native_count; ++native)
-        {
-                int trans;
-                out_codec = decoder->native_codecs[native];
-                if(out_codec == DVS8 || out_codec == Vuy2)
-                        out_codec = UYVY;
-                        
-                for(trans = 0; line_decoders[trans].line_decoder != NULL;
+        int trans;
+        for(trans = 0; line_decoders[trans].line_decoder != NULL;
                                 ++trans) {
+                
+                for(native = 0; native < decoder->native_count; ++native)
+                {
+                        out_codec = decoder->native_codecs[native];
+                        if(out_codec == DVS8 || out_codec == Vuy2)
+                                out_codec = UYVY;
                         if(in_codec == line_decoders[trans].from &&
                                         out_codec == line_decoders[trans].to) {
                                                 
                                 decode_line = line_decoders[trans].line_decoder;
+                                
                                 decoder->decoder_type = LINE_DECODER;
                                 goto after_linedecoder_lookup;
                         }
