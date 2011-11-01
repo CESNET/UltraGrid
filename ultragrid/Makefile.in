@@ -206,7 +206,7 @@ clean:
 	-rm -f $(OBJS) src/main.o $(TARGET) src/version.h 
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
-	-rm -rf $(BUNDLE)
+	-rm -rf $(BUNDLE)/Contents/MacOS/$(TARGET)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(DVS_UV_LIB_OBJ) $(DVS_UV_LIB)
 
