@@ -181,7 +181,7 @@ void print_audio_devices(enum audio_device_kind kind)
  */
 struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg, char *jack_cfg)
 {
-        struct state_audio *s;
+        struct state_audio *s = NULL;
         char *tmp, *unused;
         char *addr;
         
@@ -197,7 +197,7 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
                 exit(0);
         }
         
-        s = malloc(sizeof(struct state_audio));
+        s = calloc(1, sizeof(struct state_audio));
         s->audio_participants = NULL;
         
         gettimeofday(&s->start_time, NULL);        
@@ -306,7 +306,7 @@ void audio_join(struct state_audio *s) {
 void audio_done(struct state_audio *s) {
         if(s) {
                 if(s->audio_participants)
-                        pdb_destroy(&s->audio_participants);
+                        pdb_destroy(s->audio_participants);
                 if(s->audio_playback_device.index)
                         audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
                 free(s);
