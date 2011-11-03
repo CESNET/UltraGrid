@@ -127,6 +127,11 @@ void *display_sage_init(char *fmt, unsigned int flags, struct state_decoder *dec
         UNUSED(flags);
         struct state_sage *s;
 
+        if(fmt && strcmp(fmt, "help") == 0) {
+                printf("No configuration needed for SAGE\n");
+                return NULL;
+        }
+        
         s = (struct state_sage *)malloc(sizeof(struct state_sage));
         s->magic = MAGIC_SAGE;
 
