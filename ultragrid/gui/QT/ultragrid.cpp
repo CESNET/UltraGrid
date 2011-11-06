@@ -31,7 +31,7 @@ UltraGridMainWindow::UltraGridMainWindow(QWidget *parent)
 
     setStatusBar(&statusBar);
 
-    terminal = new Terminal;
+    terminal = new Terminal(this);
 }
 
 void UltraGridMainWindow::doStart()
@@ -94,7 +94,7 @@ void UltraGridMainWindow::UGHasFinished( int exitCode, QProcess::ExitStatus exit
 
 void UltraGridMainWindow::doAdvanced()
 {
-    advanced = new AdvancedWindow(&settings);
+    advanced = new AdvancedWindow(&settings, this);
 
     advanced->show();
 }

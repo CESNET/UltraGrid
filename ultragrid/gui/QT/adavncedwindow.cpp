@@ -116,7 +116,7 @@ void AdvancedWindow::doCancel()
      QByteArray output = process.readAllStandardOutput();
 
      Terminal *term = new Terminal;
-     term->insertText(output);
+     term->insertText(output, this);
      term->show();
  }
 
@@ -132,6 +132,6 @@ void AdvancedWindow::doCancel()
      QByteArray output = process.readAllStandardOutput();
 
      Terminal *term = new Terminal;
-     term->insertText(output);
+     term->insertText(output, this);
      term->show();
  }
