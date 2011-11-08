@@ -168,6 +168,8 @@ struct state_gl {
 	GLhandleARB     VSHandle_dxt,FSHandle_dxt,PHandle_dxt;
         GLhandleARB     FSHandle_dxt5, PHandle_dxt5;
 
+        // Framebuffer
+        GLuint fbo_id;
 	GLuint		texture_display;
 	GLuint		texture_uyvy;
 
@@ -389,6 +391,9 @@ void glsl_arb_init(void *arg)
         glGetInfoLogARB(s->PHandle,32768,NULL,log);
         printf("Link Log: %s\n", log);
         free(log);
+
+        // Create fbo    
+        glGenFramebuffersEXT(1, &s->fbo_id);
 }
 
 void dxt_arb_init(void *arg)
@@ -783,14 +788,48 @@ void gl_bind_texture(void *arg)
 {
 	struct state_gl        *s = (struct state_gl *) arg;
         
-        glUseProgramObjectARB(0);
-
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, s->fbo_id);
+        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->texture_display, 0);
+        //assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
         glActiveTexture(GL_TEXTURE0 + 2);
         glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2,
-                        s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-                        
+        
+        glMatrixMode( GL_PROJECTION );
+        glPushMatrix();
+	glLoadIdentity( );
+	glOrtho(-1,1,-1/gl->aspect,1/gl->aspect,10,-10);
+        
+	glMatrixMode( GL_MODELVIEW );
+        glPushMatrix();
+	glLoadIdentity( );
+        
+        glPushAttrib(GL_VIEWPORT_BIT);
+        
+        glViewport( 0, 0, s->tile->width, s->tile->height);
+
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
         glUseProgramObjectARB(s->PHandle);
+        
+        glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+        
+        float aspect = (double) s->tile->width / s->tile->height;
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0/aspect);
+        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0/aspect);
+        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0/aspect);
+        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0/aspect);
+        glEnd();
+        
+        glPopAttrib();
+        
+	
+        glMatrixMode( GL_PROJECTION );
+        glPopMatrix();
+        glMatrixMode( GL_MODELVIEW );
+        glPopMatrix();
+        
+        glUseProgramObjectARB(0);
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
         glActiveTexture(GL_TEXTURE0 + 0);
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
