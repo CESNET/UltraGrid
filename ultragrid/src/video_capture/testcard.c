@@ -811,7 +811,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                                  * keep in mind that we have two "pictures" for
                                  * every tile stored sequentially */
                                 if(state->tiled->tiles[i].data >= state->tiles_data[i] +
-                                                state->tiled->tiles[i].data_len * 2) {
+                                                state->tiled->tiles[i].data_len * state->tiled->grid_height) {
                                         state->tiled->tiles[i].data = state->tiles_data[i];
                                 }
                         }
