@@ -451,8 +451,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i)
         {
-                int x_pos = i / s->frame->tiles[0].tile_info.x_count;
-                int y_pos = i % s->frame->tiles[0].tile_info.x_count;
+                int x_pos = i % s->frame->tiles[0].tile_info.x_count;
+                int y_pos = i / s->frame->tiles[0].tile_info.x_count;
                 struct tile * tile = tile_get(s->frame, x_pos, y_pos);
                 dnum = 0;
                 deckLink = NULL;
@@ -548,9 +548,6 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 // get avarage time between frames
                                                 BMDTimeValue	frameRateDuration;
                                                 BMDTimeScale	frameRateScale;
-
-                                                // Obtain the display mode's properties
-                                                s->frame->aux = 0;
 
                                                 tile->width = displayMode->GetWidth();
                                                 tile->height = displayMode->GetHeight();
