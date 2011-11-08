@@ -68,6 +68,7 @@ const struct codec_info_t codec_info[] = {
         {DXT1, "DXT1", 'DXT1', 1, 0.5, 1},
         {DXT5, "DXT5", 'DXT5', 1, 1.0, 1},
         {RGB, "RGB", 0x32424752, 1, 3.0, 1},
+        {DPX10, "DPX10", 0, 1, 4.0, 1},
         {0, NULL, 0, 0, 0.0, 0}
 };
 
@@ -85,6 +86,7 @@ const struct line_decode_from_to line_decoders[] = {
         { v210, UYVY, vc_copylinev210},
         { RGBA, RGB, vc_copylineRGBAtoRGB},
         { RGB, RGBA, vc_copylineRGBtoRGBA},
+        { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { 0, 0, NULL }
 };
 
@@ -473,6 +475,32 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int dst_len, i
                 b = *src++;
                 
                 *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                dst_len -= 4;
+        }
+}
+
+void
+vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+{
+        struct in {
+                unsigned int _u:2;
+                unsigned int b:10;
+                unsigned int g:10;
+                unsigned int r:10;
+                
+        } __attribute__((packed));
+        
+       struct in *in = src;
+       int *out = dst;
+       
+       while(dst_len > 0) {
+               int r = in->r >> 2;
+               int g = in->g >> 2;
+               int b = in->b >> 2;
+                
+                *out++ = (r << rshift) | (g << gshift) | (b << bshift);
+
+                in += 1;
                 dst_len -= 4;
         }
 }

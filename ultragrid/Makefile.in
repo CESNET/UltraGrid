@@ -58,6 +58,7 @@ OBJS          = src/bitstream.o \
 		src/utils/ring_buffer.o \
 		src/video_codec.o \
 		src/video_capture.o \
+		src/video_capture/dpx.o \
 		src/video_capture/null.o \
 		src/video_capture/testcard.o \
 		src/video_capture/testcard2.o \
