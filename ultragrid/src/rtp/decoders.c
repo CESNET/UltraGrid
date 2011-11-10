@@ -51,18 +51,19 @@
 #include "video_codec.h"
 #include "video_decompress.h"
 #include "video_display.h"
+#include "vo_postprocess.h"
 
 struct state_decoder;
+
+struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
+                                struct tile_info tileinfo,
+                                struct video_frame *frame);
 
 enum decoder_type_t {
         UNSET,
         LINE_DECODER,
         EXTERNAL_DECODER
 };
-
-struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc *desc,
-                                struct tile_info *tileinfo,
-                                struct video_frame *frame);
 
 struct line_decoder {
         int                  base_offset; /* from the beginning of buffer */
@@ -101,14 +102,29 @@ struct state_decoder {
         codec_t           out_codec;
         int               pitch;
         
+        struct {
+                struct vo_postprocess *postprocess;
+                struct video_frame *pp_frame;
+        };
+        
         unsigned          merged_fb:1;
 };
 
-struct state_decoder *decoder_init()
+struct state_decoder *decoder_init(char *requested_mode)
 {
         struct state_decoder *s;
         
         s = (struct state_decoder *) calloc(1, sizeof(struct state_decoder));
+        
+        if(requested_mode) {
+                s->postprocess = vo_postprocess_init(requested_mode);
+                if(!s->postprocess) {
+                        fprintf(stderr, "Initializing postprocessor \"%s\" failed.\n", requested_mode);
+                        return NULL;
+                }
+        } else {
+                s->postprocess = NULL;
+        }
         
         return s;
 }
@@ -153,29 +169,16 @@ void decoder_post_reconfigure(struct state_decoder *decoder)
         decoder->received_vid_desc.width = 0;
 }
 
-struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc *desc,
-                                struct tile_info *tile_info,
-                                struct video_frame *frame)
+static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
+                                struct tile_info tile_info, codec_t *in_codec, decoder_t *decode_line)
 {
-        codec_t in_codec, out_codec;
-        decoder_t decode_line = NULL;
-        
-        assert(decoder != NULL);
-        assert(decoder->native_codecs != NULL);
-        
-        free(decoder->line_decoder);
-        decoder->line_decoder = NULL;
-        decoder->decoder_type = UNSET;
-        if(decoder->ext_decoder_funcs) {
-                decoder->ext_decoder_funcs->done(decoder->ext_decoder_state);
-                decoder->ext_decoder_funcs = NULL;
-        }
-        
-        in_codec = desc->color_spec;
+        codec_t out_codec;
+        *decode_line = NULL;
+        *in_codec = desc.color_spec;
         
         /* first deal with aliases */
-        if(in_codec == DVS8 || in_codec == Vuy2) {
-                in_codec = UYVY;
+        if(*in_codec == DVS8 || *in_codec == Vuy2) {
+                *in_codec = UYVY;
         }
         
         int native;
@@ -185,17 +188,17 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 out_codec = decoder->native_codecs[native];
                 if(out_codec == DVS8 || out_codec == Vuy2)
                         out_codec = UYVY;
-                if(in_codec == out_codec) {
+                if(*in_codec == out_codec) {
                         if((out_codec == DXT1 ||
                                         out_codec == DXT5)
-                                        && (tile_info->x_count > 1 ||
-                                        tile_info->y_count > 1))
+                                        && (tile_info.x_count > 1 ||
+                                        tile_info.y_count > 1))
                                 continue; /* it is a exception, see NOTES #1 */
-                        if(in_codec == RGBA || /* another exception - we may change shifts */
-                                        in_codec == RGB)
+                        if(*in_codec == RGBA || /* another exception - we may change shifts */
+                                        *in_codec == RGB)
                                 continue;
                         
-                        decode_line = (decoder_t) memcpy;
+                        *decode_line = (decoder_t) memcpy;
                         decoder->decoder_type = LINE_DECODER;
                         
                         goto after_linedecoder_lookup;
@@ -211,10 +214,10 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                         out_codec = decoder->native_codecs[native];
                         if(out_codec == DVS8 || out_codec == Vuy2)
                                 out_codec = UYVY;
-                        if(in_codec == line_decoders[trans].from &&
+                        if(*in_codec == line_decoders[trans].from &&
                                         out_codec == line_decoders[trans].to) {
                                                 
-                                decode_line = line_decoders[trans].line_decoder;
+                                *decode_line = line_decoders[trans].line_decoder;
                                 
                                 decoder->decoder_type = LINE_DECODER;
                                 goto after_linedecoder_lookup;
@@ -225,7 +228,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
 after_linedecoder_lookup:
 
         /* we didn't find line decoder. So try now regular (aka DXT) decoder */
-        if(decode_line == NULL) {
+        if(*decode_line == NULL) {
                 for(native = 0; native < decoder->native_count; ++native)
                 {
                         int trans;
@@ -235,7 +238,7 @@ after_linedecoder_lookup:
                                 
                         for(trans = 0; decoders[trans].init != NULL;
                                         ++trans) {
-                                if(in_codec == decoders[trans].from &&
+                                if(*in_codec == decoders[trans].from &&
                                                 out_codec == decoders[trans].to) {
                                         decoder->decoder_type = EXTERNAL_DECODER;
                                         decoder->ext_decoder_funcs = &decoders[trans];
@@ -251,6 +254,36 @@ after_decoder_lookup:
         }
         
         decoder->out_codec = out_codec;
+        return out_codec;
+}
+
+struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
+                                struct tile_info tile_info,
+                                struct video_frame *frame_display)
+{
+        codec_t out_codec, in_codec;
+        decoder_t decode_line;
+        struct video_frame *frame;
+        
+        assert(decoder != NULL);
+        assert(decoder->native_codecs != NULL);
+        
+        free(decoder->line_decoder);
+        decoder->line_decoder = NULL;
+        decoder->decoder_type = UNSET;
+        if(decoder->ext_decoder_funcs) {
+                decoder->ext_decoder_funcs->done(decoder->ext_decoder_state);
+                decoder->ext_decoder_funcs = NULL;
+        }
+        
+        out_codec = choose_codec_and_decoder(decoder, desc, tile_info, &in_codec, &decode_line);
+        if(decoder->postprocess) {
+                decoder->pp_frame = vo_postprocess_reconfigure(decoder->postprocess, desc, tile_info);
+                struct video_desc_ti desc_ti;
+                vo_postprocess_get_out_desc(decoder->postprocess, &desc_ti);
+                desc = desc_ti.desc;
+                tile_info = desc_ti.ti;
+        }
         
         /*
          * TODO: put frame should be definitely here. On the other hand, we cannot be sure
@@ -258,20 +291,29 @@ after_decoder_lookup:
          */
         //display_put_frame(decoder->display, frame);
         /* reconfigure VO and give it opportunity to pass us pitch */        
-        frame->reconfigure(frame->state, desc->width,
-                                        desc->height,
-                                        out_codec, desc->fps, desc->aux);
-        frame = display_get_frame(decoder->display);
+        frame_display->reconfigure(frame_display->state, desc.width,
+                                        desc.height,
+                                        out_codec, desc.fps, desc.aux);
+        frame_display = display_get_frame(decoder->display);
+        if(decoder->postprocess) {
+                frame = decoder->pp_frame;
+        } else {
+                frame = frame_display;
+        }
         
-        if(decoder->requested_pitch > 0)
-                decoder->pitch = decoder->requested_pitch;
-        else
-                decoder->pitch = vc_get_linesize(desc->width, out_codec);
+        if(!decoder->postprocess) {
+                if(decoder->requested_pitch > 0)
+                        decoder->pitch = decoder->requested_pitch;
+                else
+                        decoder->pitch = vc_get_linesize(desc.width, out_codec);
+        } else {
+                decoder->pitch = vc_get_linesize(desc.width, out_codec);
+        }
         
         if(decoder->decoder_type == LINE_DECODER) {
-                decoder->line_decoder = malloc(tile_info->x_count * tile_info->y_count *
+                decoder->line_decoder = malloc(tile_info.x_count * tile_info.y_count *
                                         sizeof(struct line_decoder));                
-                if(frame->grid_width == 1 && frame->grid_height == 1 && tile_info->x_count == 1 && tile_info->y_count == 1) {
+                if(frame->grid_width == 1 && frame->grid_height == 1 && tile_info.x_count == 1 && tile_info.y_count == 1) {
                         struct line_decoder *out = &decoder->line_decoder[0];
                         out->base_offset = 0;
                         out->src_bpp = get_bpp(in_codec);
@@ -282,19 +324,19 @@ after_decoder_lookup:
                 
                         out->decode_line = decode_line;
                         out->dst_pitch = decoder->pitch;
-                        out->src_linesize = vc_get_linesize(desc->width, in_codec);
-                        out->dst_linesize = vc_get_linesize(desc->width, out_codec);
+                        out->src_linesize = vc_get_linesize(desc.width, in_codec);
+                        out->dst_linesize = vc_get_linesize(desc.width, out_codec);
                         decoder->merged_fb = TRUE;
                 } else if(frame->grid_width == 1 && frame->grid_height == 1
-                                && (tile_info->x_count != 1 || tile_info->y_count != 1)) {
+                                && (tile_info.x_count != 1 || tile_info.y_count != 1)) {
                         int x, y;
-                        for(x = 0; x < tile_info->x_count; ++x) {
-                                for(y = 0; y < tile_info->y_count; ++y) {
+                        for(x = 0; x < tile_info.x_count; ++x) {
+                                for(y = 0; y < tile_info.y_count; ++y) {
                                         struct line_decoder *out = &decoder->line_decoder[x + 
-                                                        tile_info->x_count * y];
-                                        out->base_offset = y * (desc->height / tile_info->y_count)
+                                                        tile_info.x_count * y];
+                                        out->base_offset = y * (desc.height / tile_info.y_count)
                                                         * decoder->pitch + 
-                                                        vc_get_linesize(x * desc->width / tile_info->x_count, out_codec);
+                                                        vc_get_linesize(x * desc.width / tile_info.x_count, out_codec);
 
                                         out->src_bpp = get_bpp(in_codec);
                                         out->dst_bpp = get_bpp(out_codec);
@@ -307,18 +349,18 @@ after_decoder_lookup:
 
                                         out->dst_pitch = decoder->pitch;
                                         out->src_linesize =
-                                                vc_get_linesize(desc->width / tile_info->x_count, in_codec);
+                                                vc_get_linesize(desc.width / tile_info.x_count, in_codec);
                                         out->dst_linesize =
-                                                vc_get_linesize(desc->width / tile_info->x_count, out_codec);
+                                                vc_get_linesize(desc.width / tile_info.x_count, out_codec);
                                 }
                         }
                         decoder->merged_fb = TRUE;
-                } else if(frame->grid_width == tile_info->x_count && frame->grid_height == tile_info->y_count) {
+                } else if(frame->grid_width == tile_info.x_count && frame->grid_height == tile_info.y_count) {
                         int x, y;
-                        for(x = 0; x < tile_info->x_count; ++x) {
-                                for(y = 0; y < tile_info->y_count; ++y) {
+                        for(x = 0; x < tile_info.x_count; ++x) {
+                                for(y = 0; y < tile_info.y_count; ++y) {
                                         struct line_decoder *out = &decoder->line_decoder[x + 
-                                                        tile_info->x_count * y];
+                                                        tile_info.x_count * y];
                                         out->base_offset = 0;
                                         out->src_bpp = get_bpp(in_codec);
                                         out->dst_bpp = get_bpp(out_codec);
@@ -328,10 +370,10 @@ after_decoder_lookup:
                 
                                         out->decode_line = decode_line;
                                         out->src_linesize =
-                                                vc_get_linesize(desc->width / tile_info->x_count, in_codec);
+                                                vc_get_linesize(desc.width / tile_info.x_count, in_codec);
                                         out->dst_pitch = 
                                                 out->dst_linesize =
-                                                vc_get_linesize(desc->width / tile_info->x_count, out_codec);
+                                                vc_get_linesize(desc.width / tile_info.x_count, out_codec);
                                 }
                         }
                         decoder->merged_fb = FALSE;
@@ -339,20 +381,19 @@ after_decoder_lookup:
         } else if (decoder->decoder_type == EXTERNAL_DECODER) {
                 int buf_size;
                 int i;
-                struct video_desc my_desc = *desc;
                 
-                my_desc.width /= tile_info->x_count;
-                my_desc.height /= tile_info->y_count;
+                desc.width /= tile_info.x_count;
+                desc.height /= tile_info.y_count;
                 decoder->ext_decoder_state = decoder->ext_decoder_funcs->init();
-                buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, my_desc, decoder->pitch);
+                buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, decoder->pitch);
                 
-                decoder->ext_recv_buffer = malloc(tile_info->x_count * tile_info->y_count * sizeof(char *));
-                for (i = 0; i < tile_info->x_count * tile_info->y_count; ++i)
+                decoder->ext_recv_buffer = malloc(tile_info.x_count * tile_info.y_count * sizeof(char *));
+                for (i = 0; i < tile_info.x_count * tile_info.y_count; ++i)
                         decoder->ext_recv_buffer[i] = malloc(buf_size);
                 decoder->merged_fb = TRUE;
         }
         
-        return frame;
+        return frame_display;
 }
 
 void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct state_decoder *decoder)
@@ -415,14 +456,22 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                         decoder->received_vid_desc.aux = aux;
                         decoder->received_vid_desc.fps = fps;
 
-                        frame = reconfigure_decoder(decoder, &decoder->received_vid_desc,
-                                        &tile_info, frame);
+                        frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
+                                        tile_info, frame);
                 }
                 
-                if (aux & AUX_TILED && !decoder->merged_fb) {
-                        tile = tile_get(frame, tile_info.pos_x, tile_info.pos_y);
+                if(!decoder->postprocess) {
+                        if (aux & AUX_TILED && !decoder->merged_fb) {
+                                tile = tile_get(frame, tile_info.pos_x, tile_info.pos_y);
+                        } else {
+                                tile = tile_get(frame, 0, 0);
+                        }
                 } else {
-                        tile = tile_get(frame, 0, 0);
+                        if (aux & AUX_TILED && !decoder->merged_fb) {
+                                tile = tile_get(decoder->pp_frame, tile_info.pos_x, tile_info.pos_y);
+                        } else {
+                                tile = tile_get(decoder->pp_frame, 0, 0);
+                        }
                 }
                 
                 if(decoder->decoder_type == LINE_DECODER) {
@@ -528,5 +577,12 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                                                 total_bytes);
                         }
                 }
+        }
+        
+        if(decoder->postprocess) {
+                vo_postprocess(decoder->postprocess,
+                               decoder->pp_frame,
+                               frame,
+                               decoder->requested_pitch);
         }
 }

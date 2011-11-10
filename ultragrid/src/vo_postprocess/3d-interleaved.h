@@ -1,8 +1,14 @@
 /*
- * FILE:     decoders.h 
- * AUTHOR:   Ladan Gharai/Colin Perkins 
- * 
- * Copyright (c) 2003 University of Southern California
+ * FILE:    video_decompress/dxt_glsl.c
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
+ *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *          Petr Holub       <hopet@ics.muni.cz>
+ *          Milos Liska      <xliska@fi.muni.cz>
+ *          Jiri Matela      <matela@ics.muni.cz>
+ *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -18,13 +24,12 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -38,32 +43,13 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.1.2.3 $
- * $Date: 2010/01/30 20:11:45 $
- *
  */
 
-struct coded_data;
-struct display;
-struct state_decoder;
-struct video_frame;
-enum codec_t;
-struct tile;
+#include "video_codec.h"
 
-/* 
- * External interface: 
- */
-void decode_frame(struct coded_data *compressed_frame, struct video_frame *framebuffer, struct state_decoder *s);
-
-struct state_decoder *decoder_init(char *requested_mode);
-void decoder_destroy(struct state_decoder *decoder);
-
-void decoder_register_video_display(struct state_decoder *decoder, struct display *display);
-void decoder_register_native_codecs(struct state_decoder *decoder, enum codec_t *codecs, int len);
-
-/*
- * pass 0 to pitch for least possible (linesize)
- */
-void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift, int bshift, int pitch);
-void decoder_post_reconfigure(struct state_decoder *decoder);
+void * interleaved_3d_init(char *config);
+struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct video_desc desc, struct tile_info tile);
+void interleaved_3d_get_out_desc(void *state, struct video_desc_ti *out);
+void interleaved_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
+void interleaved_3d_done(void *state);
 

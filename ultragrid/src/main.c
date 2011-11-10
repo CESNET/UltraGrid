@@ -87,6 +87,7 @@
 #define EXIT_FAIL_NETWORK	5
 #define EXIT_FAIL_TRANSMIT	6
 #define EXIT_FAIL_COMPRESS	7
+#define EXIT_FAIL_DECODER	8
 
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
@@ -534,6 +535,7 @@ int main(int argc, char *argv[])
         char *audio_recv = NULL;
         char *jack_cfg = NULL;
         char *save_ptr = NULL;
+        char *requested_mode = NULL;
         
         struct state_uv *uv;
         char *compress_options = NULL;
@@ -555,6 +557,7 @@ int main(int argc, char *argv[])
                 {"display", required_argument, 0, 'd'},
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
+                {"mode", required_argument, 0, 'M'},
                 {"version", no_argument, 0, 'v'},
                 {"compress", required_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
@@ -584,7 +587,7 @@ int main(int argc, char *argv[])
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -607,6 +610,9 @@ int main(int argc, char *argv[])
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
+                        break;
+                case 'M':
+                        requested_mode = optarg;
                         break;
                 case 'v':
                         printf("%s\n", ULTRAGRID_VERSION);
@@ -656,7 +662,11 @@ int main(int argc, char *argv[])
                 }
         }
         
-        uv->dec_state = decoder_init();
+        uv->dec_state = decoder_init(requested_mode);
+        if(uv->dec_state == NULL) {
+                fprintf(stderr, "Error initializing decoder ('-M' option).\n");
+                exit(EXIT_FAIL_DECODER);
+        }
         
         uv->compression = compress_init(compress_options);
         if(uv->requested_compression

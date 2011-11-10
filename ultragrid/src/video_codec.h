@@ -77,6 +77,13 @@ struct video_desc {
         double               fps;
 };
 
+/* contains full information both about video and about tiles.
+ */
+struct video_desc_ti {
+        struct video_desc desc;
+        struct tile_info ti;
+};
+
 struct video_frame 
 {
         codec_t              color_spec;

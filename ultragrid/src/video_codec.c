@@ -521,7 +521,7 @@ struct video_frame * vf_alloc(int grid_width, int grid_height)
         buf = (struct video_frame *) malloc(sizeof(struct video_frame));
         
         buf->tiles = (struct tiles *) 
-                        malloc(sizeof(struct tile) * grid_width *
+                        calloc(1, sizeof(struct tile) * grid_width *
                         grid_height);
         buf->grid_width = grid_width;
         buf->grid_height = grid_height;
