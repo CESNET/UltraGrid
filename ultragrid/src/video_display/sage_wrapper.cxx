@@ -53,36 +53,43 @@
 
 sail *sageInf; // sage sail object
 
-void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt)
+void initSage(int appID, int nodeID, int width, int height, codec_t codec)
 {
-            sageInf = new sail;
-            sailConfig sailCfg;
-            sailCfg.init("ultragrid.conf");
-            sailCfg.setAppName("ultragrid");
-            sailCfg.rank = nodeID;
-            sailCfg.resX = width;
-            sailCfg.resY = height;
+        sageInf = new sail;
+        sailConfig sailCfg;
+        sailCfg.init("ultragrid.conf");
+        sailCfg.setAppName("ultragrid");
+        sailCfg.rank = nodeID;
+        sailCfg.resX = width;
+        sailCfg.resY = height;
+        
+        sageRect renderImageMap;
+        renderImageMap.left = 0.0;
+        renderImageMap.right = 1.0;
+        renderImageMap.bottom = 0.0;
+        renderImageMap.top = 1.0;
+        
+        sailCfg.imageMap = renderImageMap;
+        switch (codec) {
+                case DXT1:
+                        sailCfg.pixFmt = PIXFMT_DXT;
+                        break;
+                case RGBA:
+                        sailCfg.pixFmt = PIXFMT_8888;
+                        break;
+                case UYVY:
+                        sailCfg.pixFmt = PIXFMT_YUV;
+                        break;
+                case RGB:
+                        sailCfg.pixFmt = PIXFMT_888;
+                        break;
+        }
 
-            sageRect renderImageMap;
-            renderImageMap.left = 0.0;
-            renderImageMap.right = 1.0;
-            renderImageMap.bottom = 0.0;
-            renderImageMap.top = 1.0;
-
-            sailCfg.imageMap = renderImageMap;
-            if (!yuv) {
-                    if(dxt)
-                            sailCfg.pixFmt = PIXFMT_DXT;
-                    else
-                            sailCfg.pixFmt = PIXFMT_8888_INV;
-            } else {
-                    sailCfg.pixFmt = PIXFMT_YUV;
-            }
-            //sailCfg.rowOrd = BOTTOM_TO_TOP;
-            sailCfg.rowOrd = TOP_TO_BOTTOM;
-            sailCfg.master = true;
-
-            sageInf->init(sailCfg);
+        //sailCfg.rowOrd = BOTTOM_TO_TOP;
+        sailCfg.rowOrd = TOP_TO_BOTTOM;
+        sailCfg.master = true;
+        
+        sageInf->init(sailCfg);
 }
 
 void sage_shutdown()

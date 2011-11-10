@@ -48,7 +48,8 @@
 #include "video_codec.h"
 
 void * dxt_glsl_decompress_init(void);
-int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, int pitch);
+int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
+                        int rshift, int gshift, int bshift, int pitch);
 void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
 void dxt_glsl_decompress_done(void *state);
 

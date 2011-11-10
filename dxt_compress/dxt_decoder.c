@@ -95,10 +95,18 @@ dxt_decoder_create(enum dxt_type type, int width, int height)
     decoder->program_display = glCreateProgramObjectARB();  
     // Create shader from file
     decoder->shader_fragment_display = 0;
-    if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
-        decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
-    else
-        decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER_ARB);
+    switch(decoder->type) 
+    {
+        case DXT_TYPE_DXT5_YCOCG:
+                decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
+                break;
+        case DXT_TYPE_DXT1:
+                decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER_ARB);
+                break;
+        case DXT_TYPE_DXT1_YUV:
+                decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt1_yuv, GL_FRAGMENT_SHADER_ARB);
+                break;
+    }
     if ( decoder->shader_fragment_display == 0 )
         return NULL;
     // Attach shader to program and link the program

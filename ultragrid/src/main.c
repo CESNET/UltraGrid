@@ -524,7 +524,7 @@ static void *sender_thread(void *arg)
 int main(int argc, char *argv[])
 {
 
-#ifdef HAVE_SCHED_SETSCHEDULER
+#if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
         char *network_device = NULL;
@@ -727,6 +727,7 @@ int main(int argc, char *argv[])
         signal(SIGABRT, signal_handler);
 #endif
 
+#ifdef USE_RT
 #ifdef HAVE_SCHED_SETSCHEDULER
         sp.sched_priority = sched_get_priority_max(SCHED_FIFO);
         if (sched_setscheduler(0, SCHED_FIFO, &sp) != 0) {
@@ -734,7 +735,8 @@ int main(int argc, char *argv[])
         }
 #else
         printf("WARNING: System does not support real-time scheduling\n");
-#endif                          /* HAVE_SCHED_SETSCHEDULER */
+#endif /* HAVE_SCHED_SETSCHEDULER */
+#endif /* USE_RT */         
 
         if (uv->use_ihdtv_protocol) {
                 ihdtv_connection tx_connection, rx_connection;

@@ -162,7 +162,12 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         assert(h_align != 0);
         compress->tile->linesize = tile_get(compress->frame, 0, 0)->width * 
                 (compress->frame->aux & AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
-        compress->frame->color_spec = DXT1;
+        
+        if(compress->frame->aux & AUX_RGB) {
+                compress->frame->color_spec = DXT1;
+        } else {
+                compress->frame->color_spec = DXT1_YUV;
+        }
 
         /* We will deinterlace the output frame */
         compress->frame->aux &= ~AUX_INTERLACED;

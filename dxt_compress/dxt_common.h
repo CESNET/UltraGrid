@@ -82,6 +82,7 @@ enum dxt_format {
  */
 enum dxt_type {
     DXT_TYPE_DXT1,
+    DXT_TYPE_DXT1_YUV,
     DXT_TYPE_DXT5_YCOCG
 };
 

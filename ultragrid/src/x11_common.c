@@ -53,6 +53,9 @@
 #include <GL/glx.h>
 
 static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;
+static __thread pthread_once_t GLXInitHasRun = PTHREAD_ONCE_INIT;
+
+static void glx_init_once(void);
 
  void x11_enter_thread(void)
  {
@@ -115,6 +118,11 @@ static int ctxErrorHandler( Display *dpy, XErrorEvent *ev )
 }
 
 void glx_init()
+{
+        pthread_once(&GLXInitHasRun, glx_init_once);
+}
+
+static void glx_init_once()
 {
         Display *display = XOpenDisplay(0);
  

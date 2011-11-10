@@ -138,7 +138,7 @@ void *display_sage_init(char *fmt, unsigned int flags, struct state_decoder *dec
         s->frame = vf_alloc(1, 1);
         s->tile = tile_get(s->frame, 0, 0);
         s->decoder = decoder;
-        codec_t native[] = {UYVY, RGBA, DXT1};
+        codec_t native[] = {UYVY, RGBA, RGB, DXT1};
         decoder_register_native_codecs(decoder, native, sizeof(native));
         decoder_set_param(decoder, 0, 8, 16, 0);
         /* sage init */
@@ -223,7 +223,7 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         struct state_sage *s = (struct state_sage *)arg;
 
         assert(s->magic == MAGIC_SAGE);
-        assert(codec == RGBA || codec == UYVY || codec == DXT1);
+        assert(codec == RGBA || codec == RGB || codec == UYVY || codec == DXT1);
         
         s->tile->width = width;
         s->tile->height = height;
@@ -234,9 +234,10 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         if(s->sage_initialized)
                 sage_shutdown();
 
-        initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, codec == UYVY, codec == DXT1);
+        initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, codec);
         s->sage_initialized = 1;
         s->tile->data = (char *) sage_getBuffer();
+        s->tile->data_len = vc_get_linesize(s->tile->width, codec) * s->tile->height;
 }
 
 display_type_t *display_sage_probe(void)

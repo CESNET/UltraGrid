@@ -189,7 +189,7 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
                 if(out_codec == DVS8 || out_codec == Vuy2)
                         out_codec = UYVY;
                 if(*in_codec == out_codec) {
-                        if((out_codec == DXT1 ||
+                        if((out_codec == DXT1 || out_codec == DXT1_YUV ||
                                         out_codec == DXT5)
                                         && (tile_info.x_count > 1 ||
                                         tile_info.y_count > 1))
@@ -385,7 +385,8 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 desc.width /= tile_info.x_count;
                 desc.height /= tile_info.y_count;
                 decoder->ext_decoder_state = decoder->ext_decoder_funcs->init();
-                buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, decoder->pitch);
+                buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, 
+                                decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch);
                 
                 decoder->ext_recv_buffer = malloc(tile_info.x_count * tile_info.y_count * sizeof(char *));
                 for (i = 0; i < tile_info.x_count * tile_info.y_count; ++i)

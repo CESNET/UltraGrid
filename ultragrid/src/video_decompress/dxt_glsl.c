@@ -64,6 +64,7 @@ struct state_decompress {
 
         struct video_desc desc;
         int compressed_len;
+        int rshift, gshift, bshift;
         int pitch;
         unsigned int configured:1;
 };
@@ -78,6 +79,8 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
                 type = DXT_TYPE_DXT5_YCOCG;
         } else if(desc.color_spec == DXT1) {
                 type = DXT_TYPE_DXT1;
+        } else if(desc.color_spec == DXT1_YUV) {
+                type = DXT_TYPE_DXT1_YUV;
         } else {
                 fprintf(stderr, "Wrong compressiong to decompress.\n");
                 return;
@@ -87,7 +90,7 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         decompressor->decoder = dxt_decoder_create(type, desc.width, desc.height);
         
         decompressor->compressed_len = desc.width * desc.height /
-                (desc.color_spec == DXT1 ? 2 : 1);
+                (desc.color_spec == DXT5 ? 1 : 2);
         decompressor->configured = TRUE;
 }
 
@@ -102,11 +105,15 @@ void * dxt_glsl_decompress_init(void)
         return s;
 }
 
-int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, int pitch)
+int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, 
+                int rshift, int gshift, int bshift, int pitch)
 {
         struct state_decompress *s = (struct state_decompress *) state;
         
         s->pitch = pitch;
+        s->rshift = rshift;
+        s->gshift = gshift;
+        s->bshift = bshift;
         if(!s->configured) {
                 configure_with(s, desc);
         } else {
@@ -131,7 +138,8 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
                                 (unsigned char *) tmp);
                 for(i = 0; i < s->desc.height; ++i)
-                        memcpy(dst + i * s->pitch, tmp + i * linesize, linesize);
+                        vc_copylineRGBA(dst + i * s->pitch, tmp + i * linesize, linesize,
+                                        s->rshift, s->gshift, s->bshift);
                 free(tmp);
         }
 }

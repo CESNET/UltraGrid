@@ -125,6 +125,13 @@ AC_SUBST(MATHLIBS)
 # See if this system supports sched_setscheduler()
 
 AC_CHECK_FUNCS(sched_setscheduler)
+use_rt=no
+AC_ARG_ENABLE(dvs,
+              AS_HELP_STRING([--enable-rt], [enable RT priority]), 
+	[use_rt=$enableval])
+if [ "$use_rt" = "yes" ]; then
+        AC_DEFINE([USE_RT], [1], [We use RT priority])
+fi
 
 # -------------------------------------------------------------------------------------------------
 # Try to find the pthread library...
@@ -881,6 +888,7 @@ Configuration summary:
   Debug output ................ $debug_output
   Profiling support ........... $profile
   IPv6 support ................ $ipv6
+  RT priority ................. $use_rt
 
   DeckLink .................... $decklink
   DVS ......................... $dvs

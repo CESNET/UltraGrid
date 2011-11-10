@@ -49,17 +49,19 @@
 #ifndef _SAGE_WRAPPER
 #define _SAGE_WRAPPER
 
+#include "video_codec.h"
+
 //switching between dircet sage YUV support and yuv2rgba conversion in ug 
 #define SAGE_GLSL_YUV 1
 
 // SAGE headers
 #ifdef __cplusplus
-extern "C" void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt);
+extern "C" void initSage(int appID, int nodeID, int width, int height, codec_t codec);
 extern "C" void sage_shutdown();
 extern "C" void sage_swapBuffer();
 extern "C" GLubyte * sage_getBuffer();
 #else
-void initSage(int appID, int nodeID, int width, int height, int yuv, int dxt);
+void initSage(int appID, int nodeID, int width, int height, codec_t codec);
 void sage_swapBuffer();
 GLubyte * sage_getBuffer();
 void sage_shutdown();

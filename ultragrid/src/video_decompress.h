@@ -56,7 +56,8 @@ typedef  void *(*decompress_init_t)();
 /**
  * Recompresses decompression for specified video description
  */
-typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc, int pitch);
+typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc, 
+                int rshift, int gshift, int bshift, int pitch);
 /**
  * Decompresses data from buffer of src_len into dst
  */
