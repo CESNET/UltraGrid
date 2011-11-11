@@ -156,6 +156,7 @@ int codec_is_a_rgb(codec_t codec);
 struct video_frame * vf_alloc(int grid_width, int grid_height);
 void vf_free(struct video_frame *buf);
 struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos);
+int video_desc_eq(struct video_desc, struct video_desc);
 
 /*
  * Currently used (pre 1.0) is only AUX_{INTERLACED, PROGRESSIVE, SF, TILED}

@@ -89,7 +89,8 @@ struct state_sage {
         /* For debugging... */
         uint32_t magic;
         int appID, nodeID;
-        int sage_initialized;
+        
+        void *sage_state;
 };
 
 /** Prototyping */
@@ -111,8 +112,8 @@ void display_sage_run(void *arg)
 
                 sem_wait(&s->semaphore);
 
-                sage_swapBuffer();
-                s->tile->data = (char *) sage_getBuffer();
+                sage_swapBuffer(s->sage_state);
+                s->tile->data = (char *) sage_getBuffer(s->sage_state);
 
                 pthread_mutex_lock(&s->buffer_writable_lock);
                 s->buffer_writable = 1;
@@ -146,7 +147,7 @@ void *display_sage_init(char *fmt, unsigned int flags, struct state_decoder *dec
         s->appID = 0;
         s->nodeID = 1;
 
-        s->sage_initialized = 0;
+        s->sage_state = NULL;
         s->frame->state = s;
         s->frame->reconfigure = (reconfigure_t)sage_reconfigure_screen;
 
@@ -177,7 +178,8 @@ void display_sage_done(void *state)
         pthread_cond_destroy(&s->buffer_writable_cond);
         pthread_mutex_destroy(&s->buffer_writable_lock);
         vf_free(s->frame);
-        sage_shutdown();
+        sage_shutdown(s->sage_state);
+        sage_delete(s->sage_state);
 }
 
 struct video_frame *display_sage_getf(void *state)
@@ -231,12 +233,13 @@ void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
         s->frame->aux = aux;
         s->frame->color_spec = codec;
 
-        if(s->sage_initialized)
-                sage_shutdown();
+        if(s->sage_state) {
+                sage_shutdown(s->sage_state);
+        }
 
-        initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, codec);
-        s->sage_initialized = 1;
-        s->tile->data = (char *) sage_getBuffer();
+        s->sage_state = initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, codec);
+
+        s->tile->data = (char *) sage_getBuffer(s->sage_state);
         s->tile->data_len = vc_get_linesize(s->tile->width, codec) * s->tile->height;
 }
 

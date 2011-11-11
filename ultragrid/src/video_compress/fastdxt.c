@@ -104,9 +104,9 @@ struct video_compress {
 };
 
 static void compress_thread(void *args);
-void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux);
+void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux, double fps);
 
-void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux)
+void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux, double fps)
 {
         int x;
 
@@ -120,6 +120,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         compress->tile->height = height;
         compress->frame->color_spec = codec;
         compress->frame->aux = aux;
+        compress->frame->fps = fps;
 
         switch (codec) {
                 case RGB:
@@ -269,7 +270,7 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
                         tx->aux != compress->tx_aux ||
                         tx->color_spec != compress->tx_color_spec)
         {
-                reconfigure_compress(compress, tile_get(tx, 0, 0)->width, tile_get(tx, 0, 0)->height, tx->color_spec, tx->aux);
+                reconfigure_compress(compress, tile_get(tx, 0, 0)->width, tile_get(tx, 0, 0)->height, tx->color_spec, tx->aux, tx->fps);
         }
 
         line1 = (unsigned char *)tx->tiles[0].data;

@@ -73,7 +73,7 @@ const struct vo_postprocess_t vo_postprocess_modules[] = {
         {"3d-interleaved", interleaved_3d_init, interleaved_3d_postprocess_reconfigure, 
                         interleaved_3d_get_out_desc,
                         interleaved_3d_postprocess, interleaved_3d_done },
-        {NULL, NULL, NULL, NULL}
+        {NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
 void show_vo_postprocess_help()

@@ -80,6 +80,7 @@ struct line_decoder {
 
 struct state_decoder {
         struct video_desc received_vid_desc;
+        struct video_desc display_desc;
         
         /* requested values */
         int               requested_pitch;
@@ -167,6 +168,7 @@ void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift,
 void decoder_post_reconfigure(struct state_decoder *decoder)
 {
         decoder->received_vid_desc.width = 0;
+        decoder->display_desc.width = 0;
 }
 
 static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
@@ -275,6 +277,19 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 decoder->ext_decoder_funcs->done(decoder->ext_decoder_state);
                 decoder->ext_decoder_funcs = NULL;
         }
+        if(decoder->ext_recv_buffer) {
+                char **buf = decoder->ext_recv_buffer;
+                while(*buf != NULL) {
+                        free(*buf);
+                        buf++;
+                }
+                free(decoder->ext_recv_buffer);
+                decoder->ext_recv_buffer = NULL;
+        }
+        if(decoder->pp_frame) {
+                vo_postprocess_done(decoder->postprocess);
+                decoder->pp_frame = NULL;
+        }
         
         out_codec = choose_codec_and_decoder(decoder, desc, tile_info, &in_codec, &decode_line);
         if(decoder->postprocess) {
@@ -285,16 +300,23 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 tile_info = desc_ti.ti;
         }
         
-        /*
-         * TODO: put frame should be definitely here. On the other hand, we cannot be sure
-         * that vo driver is initialized so far:(
-         */
-        //display_put_frame(decoder->display, frame);
-        /* reconfigure VO and give it opportunity to pass us pitch */        
-        frame_display->reconfigure(frame_display->state, desc.width,
-                                        desc.height,
-                                        out_codec, desc.fps, desc.aux);
-        frame_display = display_get_frame(decoder->display);
+        struct video_desc cur_desc = desc;
+        cur_desc.color_spec = out_codec;
+        if(!video_desc_eq(decoder->display_desc, cur_desc))
+        {
+                /*
+                 * TODO: put frame should be definitely here. On the other hand, we cannot be sure
+                 * that vo driver is initialized so far:(
+                 */
+                //display_put_frame(decoder->display, frame);
+                /* reconfigure VO and give it opportunity to pass us pitch */        
+                frame_display->reconfigure(frame_display->state, cur_desc.width,
+                                                cur_desc.height,
+                                                cur_desc.color_spec, 
+                                                cur_desc.fps, cur_desc.aux);
+                frame_display = display_get_frame(decoder->display);
+                decoder->display_desc = cur_desc;
+        }
         if(decoder->postprocess) {
                 frame = decoder->pp_frame;
         } else {
@@ -388,9 +410,10 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, 
                                 decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch);
                 
-                decoder->ext_recv_buffer = malloc(tile_info.x_count * tile_info.y_count * sizeof(char *));
+                decoder->ext_recv_buffer = malloc((tile_info.x_count * tile_info.y_count + 1) * sizeof(char *));
                 for (i = 0; i < tile_info.x_count * tile_info.y_count; ++i)
                         decoder->ext_recv_buffer[i] = malloc(buf_size);
+                decoder->ext_recv_buffer[i] = NULL;
                 decoder->merged_fb = TRUE;
         }
         

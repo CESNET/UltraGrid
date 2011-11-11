@@ -51,10 +51,10 @@
 #include <sail.h>
 #include <misc.h>
 
-sail *sageInf; // sage sail object
-
-void initSage(int appID, int nodeID, int width, int height, codec_t codec)
+void *initSage(int appID, int nodeID, int width, int height, codec_t codec)
 {
+        sail *sageInf; // sage sail object
+
         sageInf = new sail;
         sailConfig sailCfg;
         sailCfg.init("ultragrid.conf");
@@ -90,21 +90,32 @@ void initSage(int appID, int nodeID, int width, int height, codec_t codec)
         sailCfg.master = true;
         
         sageInf->init(sailCfg);
+        
+        return sageInf;
 }
 
-void sage_shutdown()
+void sage_shutdown(void * state)
 {
+    sail *sageInf = (sail *) state;
     sageInf->shutdown();
     // don't try to delete, since it would probably cause crash with current SAGE
     //delete sageInf;
 }
 
-void sage_swapBuffer()
+void sage_swapBuffer(void *state)
 {
-    sageInf->swapBuffer(SAGE_NON_BLOCKING);
+        sail *sageInf = (sail *) state;
+        sageInf->swapBuffer(SAGE_NON_BLOCKING);
 }
 
-GLubyte * sage_getBuffer()
+GLubyte * sage_getBuffer(void *state)
 {
-    return (GLubyte *)sageInf->getBuffer();
+        sail *sageInf = (sail *) state;
+        return (GLubyte *)sageInf->getBuffer();
+}
+
+void sage_delete(void *state)
+{
+        sail *sageInf = (sail *) state;
+        delete sageInf;
 }
