@@ -145,6 +145,17 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     
     glViewport(0, 0, encoder->width / 4, encoder->height / 4);
     glDisable(GL_DEPTH_TEST);
+        
+    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+    glClear(GL_COLOR_BUFFER_BIT);
+ 
+    // User compress program and set image size parameters
+    glUseProgramObjectARB(encoder->program_compress);
+    glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), encoder->format); 
+    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
+
+    // Render to framebuffer
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
     
     return encoder;
 }
@@ -178,24 +189,15 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     TIMER_INIT();
     
     TIMER_START();
-    glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+#ifdef DEBUG
     glFinish();
+#endif
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
     
-    // Render to framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
-    
-    glClear(GL_COLOR_BUFFER_BIT);
-    
-    // User compress program and set image size parameters
-    glUseProgramObjectARB(encoder->program_compress);
-    glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), encoder->format); 
-    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
-        
-    // Compress    
+    // Compress
     glBegin(GL_QUADS);
     glTexCoord2f(0.001, 0.001); glVertex2f(-1.0, -1.0);
     glTexCoord2f(1.0, 0.001 ); glVertex2f(1.0, -1.0);
@@ -203,9 +205,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glTexCoord2f(0.001, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
         
-    // Disable program
-    glUseProgramObjectARB(0);
+#ifdef DEBUG
     glFinish();
+#endif
     TIMER_STOP_PRINT("Texture Compress:  ");
             
     TIMER_START();
@@ -216,9 +218,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     else
         glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
         
-    // Disable framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+#ifdef DEBUG
     glFinish();
+#endif
     TIMER_STOP_PRINT("Texture Save:      ");
     
     return 0;
