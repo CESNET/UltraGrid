@@ -100,7 +100,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
@@ -137,8 +137,8 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
         
     glGenTextures(1, &encoder->texture_id);
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexImage2D(GL_TEXTURE_2D, 0, DXT_IMAGE_GL_FORMAT, encoder->width, encoder->height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, NULL);
@@ -197,10 +197,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
         
     // Compress    
     glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-    glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+    glTexCoord2f(0.001, 0.001); glVertex2f(-1.0, -1.0);
+    glTexCoord2f(1.0, 0.001 ); glVertex2f(1.0, -1.0);
     glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-    glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+    glTexCoord2f(0.001, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
         
     // Disable program
