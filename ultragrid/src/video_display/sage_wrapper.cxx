@@ -51,6 +51,8 @@
 #include <sail.h>
 #include <misc.h>
 
+extern int should_exit; // to be able handle sage exit event
+
 void *initSage(int appID, int nodeID, int width, int height, codec_t codec)
 {
         sail *sageInf; // sage sail object
@@ -104,8 +106,19 @@ void sage_shutdown(void * state)
 
 void sage_swapBuffer(void *state)
 {
-        sail *sageInf = (sail *) state;
-        sageInf->swapBuffer(SAGE_NON_BLOCKING);
+    sail *sageInf = (sail *) state;
+    sageInf->swapBuffer(SAGE_NON_BLOCKING);
+
+    sageMessage msg;
+    if (sageInf->checkMsg(msg, false) > 0) {
+        switch (msg.getCode()) {
+            case APP_QUIT : { 
+                sage::printLog("Ultragrid: QUIT message");
+                should_exit = TRUE;
+                break;
+            }
+        }
+    }
 }
 
 GLubyte * sage_getBuffer(void *state)
