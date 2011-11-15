@@ -47,9 +47,11 @@
 
 #include "config.h"
 #include "config_unix.h"
+#include "x11_common.h"
 #include <pthread.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <GL/glew.h>
 #include <GL/glx.h>
 
 static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;
@@ -69,14 +71,36 @@ static void glx_init_once(void);
  * GLX context creation overtaken from:
  * http://www.opengl.org/wiki/Tutorial:_OpenGL_3.0_Context_Creation_%28GLX%29
  */
+ 
+static struct
+{
+        Display *display;
+        GLXContext ctx;
+        Window win;
+        Colormap cmap;
+
+} state_glx;
 
 static int isExtensionSupported(const char *extList, const char *extension);
 static int ctxErrorHandler( Display *dpy, XErrorEvent *ev );
+static void glx_free(void);
 
 #define GLX_CONTEXT_MAJOR_VERSION_ARB       0x2091
 #define GLX_CONTEXT_MINOR_VERSION_ARB       0x2092
 typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
  
+ 
+static void glx_free()
+{
+        glXMakeCurrent( state_glx.display, 0, 0 );
+        glXDestroyContext( state_glx.display, state_glx.ctx );
+        
+        XDestroyWindow( state_glx.display, state_glx.win );
+        XFreeColormap( state_glx.display, state_glx.cmap );
+        XCloseDisplay( state_glx.display );
+        fprintf(stderr, "GLX context freeed\n");
+}
+
 // Helper to check for extension string presence.  Adapted from:
 //   http://www.opengl.org/resources/features/OGLextensions/
 static int isExtensionSupported(const char *extList, const char *extension)
@@ -124,9 +148,9 @@ void glx_init()
 
 static void glx_init_once()
 {
-        Display *display = XOpenDisplay(0);
+  state_glx.display = XOpenDisplay(0);
  
-  if ( !display )
+  if ( !state_glx.display )
   {
     printf( "Failed to open X display\n" );
     exit(1);
@@ -154,7 +178,7 @@ static void glx_init_once()
   int glx_major, glx_minor;
  
   // FBConfigs were added in GLX version 1.3.
-  if ( !glXQueryVersion( display, &glx_major, &glx_minor ) || 
+  if ( !glXQueryVersion( state_glx.display, &glx_major, &glx_minor ) || 
        ( ( glx_major == 1 ) && ( glx_minor < 3 ) ) || ( glx_major < 1 ) )
   {
     printf( "Invalid GLX version" );
@@ -163,7 +187,7 @@ static void glx_init_once()
  
   printf( "Getting matching framebuffer configs\n" );
   int fbcount;
-  GLXFBConfig *fbc = glXChooseFBConfig( display, DefaultScreen( display ), 
+  GLXFBConfig *fbc = glXChooseFBConfig( state_glx.display, DefaultScreen( state_glx.display ), 
                                         visual_attribs, &fbcount );
   if ( !fbc )
   {
@@ -179,12 +203,12 @@ static void glx_init_once()
   int i;
   for ( i = 0; i < fbcount; i++ )
   {
-    XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
+    XVisualInfo *vi = glXGetVisualFromFBConfig( state_glx.display, fbc[i] );
     if ( vi )
     {
       int samp_buf, samples;
-      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
-      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
+      glXGetFBConfigAttrib( state_glx.display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
+      glXGetFBConfigAttrib( state_glx.display, fbc[i], GLX_SAMPLES       , &samples  );
  
       printf( "  Matching fbconfig %d, visual ID 0x%2x: SAMPLE_BUFFERS = %d,"
               " SAMPLES = %d\n", 
@@ -204,25 +228,24 @@ static void glx_init_once()
   XFree( fbc );
  
   // Get a visual
-  XVisualInfo *vi = glXGetVisualFromFBConfig( display, bestFbc );
+  XVisualInfo *vi = glXGetVisualFromFBConfig( state_glx.display, bestFbc );
   printf( "Chosen visual ID = 0x%x\n", vi->visualid );
  
   printf( "Creating colormap\n" );
   XSetWindowAttributes swa;
-  Colormap cmap;
-  swa.colormap = cmap = XCreateColormap( display,
-                                         RootWindow( display, vi->screen ), 
+  swa.colormap = state_glx.cmap = XCreateColormap( state_glx.display,
+                                         RootWindow( state_glx.display, vi->screen ), 
                                          vi->visual, AllocNone );
   swa.background_pixmap = None ;
   swa.border_pixel      = 0;
   swa.event_mask        = StructureNotifyMask;
  
   printf( "Creating window\n" );
-  Window win = XCreateWindow( display, RootWindow( display, vi->screen ), 
+  state_glx.win = XCreateWindow( state_glx.display, RootWindow( state_glx.display, vi->screen ), 
                               0, 0, 100, 100, 0, vi->depth, InputOutput, 
                               vi->visual, 
                               CWBorderPixel|CWColormap|CWEventMask, &swa );
-  if ( !win )
+  if ( !state_glx.win )
   {
     printf( "Failed to create window.\n" );
     exit(1);
@@ -238,8 +261,8 @@ static void glx_init_once()
   XMapWindow( display, win );*/
  
   // Get the default screen's GLX extension list
-  const char *glxExts = glXQueryExtensionsString( display,
-                                                  DefaultScreen( display ) );
+  const char *glxExts = glXQueryExtensionsString( state_glx.display,
+                                                  DefaultScreen( state_glx.display ) );
  
   // NOTE: It is not necessary to create or make current to a context before
   // calling glXGetProcAddressARB
@@ -247,7 +270,7 @@ static void glx_init_once()
   glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
            glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
  
-  GLXContext ctx = 0;
+  state_glx.ctx = 0;
  
   // Install an X error handler so the application won't exit if GL 3.0
   // context allocation fails.
@@ -266,7 +289,7 @@ static void glx_init_once()
   {
     printf( "glXCreateContextAttribsARB() not found"
             " ... using old-style GLX context\n" );
-    ctx = glXCreateNewContext( display, bestFbc, GLX_RGBA_TYPE, 0, True );
+    state_glx.ctx = glXCreateNewContext( state_glx.display, bestFbc, GLX_RGBA_TYPE, 0, True );
   }
  
   // If it does, try to get a GL 3.0 context!
@@ -281,12 +304,12 @@ static void glx_init_once()
       };
  
     printf( "Creating context\n" );
-    ctx = glXCreateContextAttribsARB( display, bestFbc, 0,
+    state_glx.ctx = glXCreateContextAttribsARB( state_glx.display, bestFbc, 0,
                                       True, context_attribs );
  
     // Sync to ensure any errors generated are processed.
-    XSync( display, False );
-    if ( !ctxErrorOccurred && ctx )
+    XSync( state_glx.display, False );
+    if ( !ctxErrorOccurred && state_glx.ctx )
       printf( "Created GL 3.0 context\n" );
     else
     {
@@ -303,25 +326,25 @@ static void glx_init_once()
  
       printf( "Failed to create GL 3.0 context"
               " ... using old-style GLX context\n" );
-      ctx = glXCreateContextAttribsARB( display, bestFbc, 0, 
+      state_glx.ctx = glXCreateContextAttribsARB( state_glx.display, bestFbc, 0, 
                                         True, context_attribs );
     }
   }
  
   // Sync to ensure any errors generated are processed.
-  XSync( display, False );
+  XSync( state_glx.display, False );
  
   // Restore the original error handler
   XSetErrorHandler( oldHandler );
  
-  if ( ctxErrorOccurred || !ctx )
+  if ( ctxErrorOccurred || !state_glx.ctx )
   {
     printf( "Failed to create an OpenGL context\n" );
     exit(1);
   }
  
   // Verifying that context is a direct context
-  if ( ! glXIsDirect ( display, ctx ) )
+  if ( ! glXIsDirect ( state_glx.display, state_glx.ctx ) )
   {
     printf( "Indirect GLX rendering context obtained\n" );
   }
@@ -331,9 +354,11 @@ static void glx_init_once()
   }
  
   printf( "Making context current\n" );
-  glXMakeCurrent( display, win, ctx );
+  glXMakeCurrent( state_glx.display, state_glx.win, state_glx.ctx );
 
   glewInit();
+  
+  atexit(glx_free);
 }
 
 #endif /* HAVE_DXT_GLSL */

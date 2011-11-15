@@ -233,6 +233,10 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
                 tmp = strtok(NULL, ":");
                 s->audio_capture_device.state =
                         audio_capture[s->audio_capture_device.index].audio_init(tmp);
+                
+                if(!s->audio_capture_device.state) {
+                        error_with_code_msg(EXIT_FAILURE, "Error initializing audio capture.\n");
+                }
                 if (pthread_create
                     (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
                         fprintf(stderr,
@@ -261,7 +265,9 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
                 tmp = strtok(NULL, ":");
                 s->audio_playback_device.state =
                         audio_playback[s->audio_playback_device.index].audio_init(tmp);
-                                
+                if(!s->audio_playback_device.state) {
+                        error_with_code_msg(EXIT_FAILURE, "Error initializing audio playback.\n");
+                }
                 if (pthread_create
                     (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
                         fprintf(stderr,
@@ -306,7 +312,7 @@ void audio_join(struct state_audio *s) {
 void audio_done(struct state_audio *s) {
         if(s) {
                 if(s->audio_participants)
-                        pdb_destroy(s->audio_participants);
+                        pdb_destroy(&s->audio_participants);
                 if(s->audio_playback_device.index)
                         audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
                 free(s);
