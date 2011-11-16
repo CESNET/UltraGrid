@@ -70,21 +70,26 @@ static pthread_once_t DVSLibraryLoad = PTHREAD_ONCE_INIT;
 
 static void loadLibrary(void);
 
-typedef void *(*display_dvs_init_t)(char *fmt, unsigned int flags, struct state_decoder *);
+typedef void *(*display_dvs_init_t)(char *fmt, unsigned int flags);
 typedef void (*display_dvs_run_t)(void *state);
 typedef void (*display_dvs_done_t)(void *state);
 typedef struct video_frame *(*display_dvs_getf_t)(void *state);
 typedef int (*display_dvs_putf_t)(void *state, char *frame);
 typedef struct audio_frame * (*display_dvs_get_audio_frame_t)(void *state);
 typedef void (*display_dvs_put_audio_frame_t)(void *state, struct audio_frame *frame);
+typedef void (*display_dvs_reconfigure_t)(void *state,
+                                struct video_desc desc);
+typedef int (*display_dvs_get_property_t)(void *state, int property, void *val, int *len);
 
 static display_dvs_init_t display_dvs_init_func = NULL;
 static display_dvs_run_t display_dvs_run_func = NULL;
 static display_dvs_done_t display_dvs_done_func = NULL;
 static display_dvs_getf_t display_dvs_getf_func = NULL;
 static display_dvs_putf_t display_dvs_putf_func = NULL;
+static display_dvs_reconfigure_t display_dvs_reconfigure_func = NULL;
 static display_dvs_get_audio_frame_t display_dvs_get_audio_frame_func = NULL;
 static display_dvs_put_audio_frame_t display_dvs_put_audio_frame_func = NULL;
+static display_dvs_get_property_t display_dvs_get_property_func = NULL;
 
 display_type_t *display_dvs_probe(void)
 {
@@ -104,10 +109,29 @@ void * openDVSLibrary()
         void *handle = NULL;
         struct stat buf;
         
-        if(stat("./" kLibName, &buf) == 0)
+
+        handle = dlopen(kLibName, RTLD_NOW|RTLD_GLOBAL);
+        if(!handle)
+                fprintf(stderr, "Library opening error: %s \n", dlerror());
+
+        
+        if(!handle && stat("/usr/local/lib/" kLibName, &buf) == 0) {
+                handle = dlopen("/usr/local/lib/" kLibName, RTLD_NOW|RTLD_GLOBAL);
+                if(!handle)
+                        fprintf(stderr, "Library opening error: %s \n", dlerror());
+        }
+        
+        if(!handle && stat("./" kLibName, &buf) == 0) {
                 handle = dlopen("./" kLibName, RTLD_NOW|RTLD_GLOBAL);
-        if(!handle && stat("./lib/" kLibName, &buf) == 0)
+                if(!handle)
+                        fprintf(stderr, "Library opening error: %s \n", dlerror());
+        }
+        if(!handle && stat("./lib/" kLibName, &buf) == 0) {
                 handle = dlopen("./lib/" kLibName, RTLD_NOW|RTLD_GLOBAL);
+                if(!handle)
+                        fprintf(stderr, "Library opening error: %s \n", dlerror());
+        }
+        
         if(!handle) {
                 char *path_to_self = strdup(uv_argv[0]);
                 char *path;
@@ -122,15 +146,15 @@ void * openDVSLibrary()
                 } else {
                         path = strdup("../lib/");
                 }
-                if (stat(path, &buf) == 0)
+                if (stat(path, &buf) == 0) {
                         handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
-                if(!handle)
-                        handle = dlopen(kLibName, RTLD_NOW|RTLD_GLOBAL);
+                        if(!handle)
+                                fprintf(stderr, "Library opening error: %s \n", dlerror());
+                }
+
                 free(path);
                 free(path_to_self);
         }
-        if(!handle)
-                fprintf(stderr, "Library opening error: %s \n", dlerror());
                 
         return handle;
         
@@ -152,6 +176,10 @@ static void loadLibrary()
                         "display_dvs_getf_impl");
         display_dvs_putf_func = (display_dvs_putf_t) dlsym(handle,
                         "display_dvs_putf_impl");
+        display_dvs_reconfigure_func = (display_dvs_reconfigure_t) dlsym(handle,
+                        "display_dvs_reconfigure_impl");
+        display_dvs_get_property_func = (display_dvs_get_property_t) dlsym(handle,
+                        "display_dvs_get_property_impl");
         display_dvs_get_audio_frame_func = (display_dvs_get_audio_frame_t)
                         dlsym(handle, "display_dvs_get_audio_frame_impl");
         display_dvs_put_audio_frame_func = (display_dvs_put_audio_frame_t)
@@ -186,13 +214,13 @@ int display_dvs_putf(void *state, char *frame)
         return display_dvs_putf_func(state, frame);
 }
 
-void *display_dvs_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
+void *display_dvs_init(char *fmt, unsigned int flags)
 {
         pthread_once(&DVSLibraryLoad, loadLibrary);
         
         if (display_dvs_init_func == NULL)
                 return NULL;
-        return display_dvs_init_func(fmt, flags, decoder);
+        return display_dvs_init_func(fmt, flags);
 }
 
 void display_dvs_done(void *state)
@@ -221,5 +249,25 @@ void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
                 return;
         display_dvs_put_audio_frame_func(state, frame);
 }
+
+void display_dvs_reconfigure(void *state,
+                                struct video_desc desc)
+{
+        pthread_once(&DVSLibraryLoad, loadLibrary);
+        
+        if (display_dvs_reconfigure_func == NULL)
+                return;
+        display_dvs_reconfigure_func(state, desc);
+}
+
+int display_dvs_get_property(void *state, int property, void *val, int *len)
+{
+        pthread_once(&DVSLibraryLoad, loadLibrary);
+        
+        if (display_dvs_get_property_func == NULL)
+                return FALSE;
+        return display_dvs_get_property_func(state, property, val, len);
+}
+
 
 #endif                          /* HAVE_DVS */

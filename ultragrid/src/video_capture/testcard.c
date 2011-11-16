@@ -681,7 +681,6 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         printf("Testcard capture set to %dx%d, bpp %f\n", tile_get(s->frame, 0, 0)->width,
                         tile_get(s->frame, 0, 0)->height, bpp);
 
-        s->frame->state = s;
         tile_get(s->frame, 0, 0)->data_len = s->size;
 
         if(strip_fmt != NULL) {

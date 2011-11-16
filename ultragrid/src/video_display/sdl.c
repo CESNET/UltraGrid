@@ -58,7 +58,6 @@
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
 #include "video_codec.h"
-#include "rtp/decoders.h"
 
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>
@@ -85,8 +84,6 @@ struct state_sdl {
         struct video_frame     *frame;
         struct tile            *tile;
         
-        struct state_decoder   *decoder;
-
         pthread_t               thread_id;
         SDL_sem                 *semaphore;
 
@@ -113,6 +110,11 @@ struct state_sdl {
         struct ring_buffer      *audio_buffer;
         struct audio_frame      audio_frame;
         unsigned int            play_audio:1;
+        
+        unsigned int            self_reconfigure:1;
+        
+        int                     rshift, gshift, bshift;
+        int                     pitch;
 };
 
 extern int should_exit;
@@ -127,8 +129,6 @@ void copylineRGBA(struct state_sdl *s, unsigned char *dst, unsigned char *src, i
 void deinterlace(struct state_sdl *s, unsigned char *buffer);
 static void show_help(void);
 void cleanup_screen(struct state_sdl *s);
-void sdl_reconfigure_screen(void *s, unsigned int width, unsigned int height,
-                        codec_t codec, double fps, int aux);
 static void configure_audio(struct state_sdl *s);
 void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
@@ -267,7 +267,7 @@ static void toggleFullscreen(struct state_sdl *s) {
 		s->fs = 1;
         }
 	/* and post for reconfiguration */
-        decoder_post_reconfigure(s->decoder);
+        s->self_reconfigure = TRUE;
 #endif
 }
 
@@ -421,9 +421,7 @@ void cleanup_screen(struct state_sdl *s)
         }
 }
 
-void
-sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
-	   codec_t color_spec, double fps, int aux)
+void display_sdl_reconfigure(void *state, struct video_desc desc)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 
@@ -438,22 +436,22 @@ sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
 	cleanup_screen(s);
 
-        s->tile->width = width;
-        s->tile->height = height;
+        s->tile->width = desc.width;
+        s->tile->height = desc.height;
 
-	s->frame->fps = fps;
-	s->frame->aux = aux;
-	s->frame->color_spec = color_spec;
+	s->frame->fps = desc.fps;
+	s->frame->aux = desc.aux;
+	s->frame->color_spec = desc.color_spec;
 
-	fprintf(stdout, "Reconfigure to size %dx%d\n", width,
-			height);
+	fprintf(stdout, "Reconfigure to size %dx%d\n", desc.width,
+			desc.height);
 
 	x_res_x = s->screen_w;
 	x_res_y = s->screen_h;
 
 	fprintf(stdout, "Setting video mode %dx%d.\n", x_res_x, x_res_y);
         int bpp;
-        if(color_spec == RGB) {
+        if(desc.color_spec == RGB) {
                 bpp = 24;
         } else {
                 bpp = 0; /* screen defautl */
@@ -482,7 +480,7 @@ sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 	SDL_ShowCursor(SDL_DISABLE);
 
         
-        s->rgb = codec_is_a_rgb(color_spec);
+        s->rgb = codec_is_a_rgb(desc.color_spec);
 
 	if (s->rgb == 0) {
 		s->yuv_image =
@@ -537,8 +535,6 @@ sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
 
         fprintf(stdout, "Setting SDL rect %dx%d - %d,%d.\n", s->dst_rect.w,
                 s->dst_rect.h, s->dst_rect.x, s->dst_rect.y);
-
-        int pitch = 0;
         
         if (s->rgb) {
                 s->tile->data = s->sdl_screen->pixels +
@@ -548,19 +544,19 @@ sdl_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                     (int) s->sdl_screen->pitch * x_res_y -
                     s->sdl_screen->pitch * s->dst_rect.y +
                     s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
-		pitch = s->sdl_screen->pitch;
+		s->pitch = s->sdl_screen->pitch;
         } else {
                 s->tile->data = (char *)*s->yuv_image->pixels;
                 s->tile->data_len = s->tile->width * s->tile->height * 2;
-                pitch = 0;
+                s->pitch = PITCH_DEFAULT;
         }
-        decoder_set_param(s->decoder, s->sdl_screen->format->Rshift,
-                s->sdl_screen->format->Gshift,
-                s->sdl_screen->format->Bshift, 
-                pitch);
+        
+        s->rshift = s->sdl_screen->format->Rshift;
+        s->gshift = s->sdl_screen->format->Gshift;
+        s->bshift = s->sdl_screen->format->Bshift;
 }
 
-void *display_sdl_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
+void *display_sdl_init(char *fmt, unsigned int flags)
 {
         struct state_sdl *s;
         int ret;
@@ -601,11 +597,6 @@ void *display_sdl_init(char *fmt, unsigned int flags, struct state_decoder *deco
 
         asm("emms\n");
         
-        s->decoder = decoder;
-        
-        codec_t native[] = {UYVY, RGBA, RGB};
-        decoder_register_native_codecs(decoder, native, sizeof(native));
-        
         s->frame = vf_alloc(1, 1);
         s->tile = tile_get(s->frame, 0, 0);
 
@@ -634,12 +625,9 @@ void *display_sdl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         s->screen_w = video_info->current_w;
         s->screen_h = video_info->current_h;
         
-
-        sdl_reconfigure_screen(s, 500, 500, RGBA, 30.0, 0);
+        struct video_desc desc = {500, 500, RGBA, 0, 30.0};
+        display_sdl_reconfigure(s, desc);
         loadSplashscreen(s);	
-
-        s->frame->state = s;
-        s->frame->reconfigure = (reconfigure_t) sdl_reconfigure_screen;
 
         /*if (pthread_create(&(s->thread_id), NULL, 
                            display_thread_sdl, (void *)s) != 0) {
@@ -713,6 +701,44 @@ display_type_t *display_sdl_probe(void)
                 dt->description = "SDL";
         }
         return dt;
+}
+
+int display_sdl_get_property(void *state, int property, void *val, int *len)
+{
+        struct state_sdl *s = (struct state_sdl *) state;
+        
+        codec_t codecs[] = {UYVY, RGBA, RGB};
+        
+        switch (property) {
+                case DISPLAY_PROPERTY_CODECS:
+                        if(sizeof(codecs) <= *len) {
+                                memcpy(val, codecs, sizeof(codecs));
+                        } else {
+                                return FALSE;
+                        }
+                        
+                        *len = sizeof(codecs);
+                        break;
+                case DISPLAY_PROPERTY_RSHIFT:
+                        *(int *) val = s->rshift;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_GSHIFT:
+                        *(int *) val = s->gshift;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BSHIFT:
+                        *(int *) val = s->bshift;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = s->pitch;
+                        *len = sizeof(int);
+                        break;
+                default:
+                        return FALSE;
+        }
+        return TRUE;
 }
 
 void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {

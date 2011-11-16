@@ -47,9 +47,9 @@
  */
 
 #define DISPLAY_QUICKTIME_ID    0xba370f2f
+#include "video.h"
 
 struct audio_frame;
-struct state_decoder;
 
 typedef struct {
         unsigned char   *device;
@@ -63,11 +63,13 @@ typedef struct {
 extern const quicktime_mode_t quicktime_modes[];
 
 display_type_t          *display_quicktime_probe(void);
-void                    *display_quicktime_init(char *fmt, unsigned int flags, struct state_decoder *decoder);
+void                    *display_quicktime_init(char *fmt, unsigned int flags);
 void                     display_quicktime_run(void *state);
 void                     display_quicktime_done(void *state);
 struct video_frame      *display_quicktime_getf(void *state);
 int                      display_quicktime_putf(void *state, char *frame);
+void                     display_quicktime_reconfigure(void *state, struct video_desc desc);
+int                      display_quicktime_get_property(void *state, int property, void *val, int *len);
 
 struct audio_frame      *display_quicktime_get_audio_frame(void *state);
 void                     display_quicktime_put_audio_frame(void *state, const struct audio_frame *frame);

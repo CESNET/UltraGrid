@@ -108,3 +108,20 @@ display_type_t *display_null_probe(void)
         }
         return dt;
 }
+
+int display_null_get_property(void *state, int property, void *val, int *len)
+{
+        UNUSED(state);
+        UNUSED(property);
+        UNUSED(val);
+        UNUSED(len);
+        
+        return FALSE;
+}
+
+void display_null_reconfigure(void *state, struct video_desc desc)
+{
+        UNUSED(desc);
+        struct state_null *s = (struct state_null *)state;
+        assert(s->magic == MAGIC_NULL);
+}

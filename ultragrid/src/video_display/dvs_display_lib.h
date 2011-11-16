@@ -56,11 +56,14 @@ typedef struct {
 
 extern const hdsp_mode_table_t hdsp_mode_table[];
 
-void                *display_dvs_init_impl(char *fmt, unsigned int flags, struct state_decoder *decoder);
+void                *display_dvs_init_impl(char *fmt, unsigned int flags);
 void                 display_dvs_run_impl(void *state);
 void                 display_dvs_done_impl(void *state);
 struct video_frame  *display_dvs_getf_impl(void *state);
 int                  display_dvs_putf_impl(void *state, char *frame);
+void                 display_dvs_reconfigure_impl(void *state,
+                                struct video_desc desc);
+int                  display_dvs_get_property_impl(void *state, int property, void *val, int *len);
 
 struct audio_frame * display_dvs_get_audio_frame_impl(void *state);
 void display_dvs_put_audio_frame_impl(void *state, struct audio_frame *frame);

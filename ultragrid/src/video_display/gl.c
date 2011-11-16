@@ -77,7 +77,6 @@
 #include "video_display.h"
 #include "video_display/gl.h"
 #include "tv.h"
-#include "rtp/decoders.h"
 
 #define MAGIC_GL	DISPLAY_GL_ID
 #define WIN_NAME        "Ultragrid - OpenGL Display"
@@ -211,9 +210,6 @@ void dxt_arb_init(void *arg);
 void gl_bind_texture(void *args);
 void dxt_bind_texture(void *arg);
 void dxt5_arb_init(struct state_gl *s);
-
-void gl_reconfigure_screen_post(void *s, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux);
 void gl_reconfigure_screen(struct state_gl *s);
 void glut_idle_callback(void);
 void glut_key_callback(unsigned char key, int x, int y);
@@ -268,7 +264,7 @@ void gl_check_error()
 		exit(1);
 }
 
-void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *decoder) {
+void * display_gl_init(char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl        *s;
         
@@ -291,11 +287,6 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         s->fs = FALSE;
         s->deinterlace = FALSE;
         s->video_aspect = 0.0;
-        
-        codec_t native[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
-        decoder_register_native_codecs(decoder, native, sizeof(native));
-        decoder_set_param(decoder, 0, 8, 16,
-                0);
 
 	// parse parameters
 	if (fmt != NULL) {
@@ -329,9 +320,6 @@ void * display_gl_init(char *fmt, unsigned int flags, struct state_decoder *deco
         s->frame = vf_alloc(1, 1);
         s->tile = tile_get(s->frame, 0, 0);
         s->tile->data = NULL;
-
-        s->frame->reconfigure = (reconfigure_t) gl_reconfigure_screen_post;
-        s->frame->state = s;
         
         s->frames = 0ul;
         gettimeofday(&s->tv, NULL);
@@ -475,23 +463,22 @@ void dxt5_arb_init(struct state_gl *s)
  * inside appropriate thread and make changes we can do. The rest does
  * gl_reconfigure_screen.
  */
-void gl_reconfigure_screen_post(void *arg, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux)
+void display_gl_reconfigure(void *state, struct video_desc desc)
 {
-        struct state_gl	*s = (struct state_gl *) arg;
+        struct state_gl	*s = (struct state_gl *) state;
 
-        assert (codec == RGBA ||
-                codec == RGB  ||
-                codec == UYVY ||
-                codec == DXT1 ||
-                codec == DXT1_YUV ||
-                codec == DXT5);
+        assert (desc.color_spec == RGBA ||
+                desc.color_spec == RGB  ||
+                desc.color_spec == UYVY ||
+                desc.color_spec == DXT1 ||
+                desc.color_spec == DXT1_YUV ||
+                desc.color_spec == DXT5);
 
-        s->tile->width = width;
-        s->tile->height = height;
-        s->frame->fps = fps;
-        s->frame->aux = aux;
-        s->frame->color_spec = codec;
+        s->tile->width = desc.width;
+        s->tile->height = desc.height;
+        s->frame->fps = desc.fps;
+        s->frame->aux = desc.aux;
+        s->frame->color_spec = desc.color_spec;
 
         pthread_mutex_lock(&s->lock);
         s->needs_reconfigure = TRUE;
@@ -893,6 +880,43 @@ display_type_t *display_gl_probe(void)
                 dt->description = "OpenGL";
         }
         return dt;
+}
+
+int display_gl_get_property(void *state, int property, void *val, int *len)
+{
+        UNUSED(state);
+        codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
+        
+        switch (property) {
+                case DISPLAY_PROPERTY_CODECS:
+                        if(sizeof(codecs) <= *len) {
+                                memcpy(val, codecs, sizeof(codecs));
+                        } else {
+                                return FALSE;
+                        }
+                        
+                        *len = sizeof(codecs);
+                        break;
+                case DISPLAY_PROPERTY_RSHIFT:
+                        *(int *) val = 0;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_GSHIFT:
+                        *(int *) val = 8;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BSHIFT:
+                        *(int *) val = 16;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = PITCH_DEFAULT;
+                        *len = sizeof(int);
+                        break;
+                default:
+                        return FALSE;
+        }
+        return TRUE;
 }
 
 void display_gl_done(void *state)

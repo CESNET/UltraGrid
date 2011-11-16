@@ -59,11 +59,4 @@ struct state_decoder *decoder_init(char *requested_mode);
 void decoder_destroy(struct state_decoder *decoder);
 
 void decoder_register_video_display(struct state_decoder *decoder, struct display *display);
-void decoder_register_native_codecs(struct state_decoder *decoder, enum codec_t *codecs, int len);
-
-/*
- * pass 0 to pitch for least possible (linesize)
- */
-void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift, int bshift, int pitch);
-void decoder_post_reconfigure(struct state_decoder *decoder);
 

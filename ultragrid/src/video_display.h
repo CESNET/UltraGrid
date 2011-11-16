@@ -55,8 +55,11 @@
 #ifndef _VIDEO_DISPLAY_H
 #define _VIDEO_DISPLAY_H
 
+#include "video.h"
+
+#define DISPLAY_FLAG_ENABLE_AUDIO (1<<1)
+
 struct audio_frame;
-struct state_decoder;
 
 /*
  * Interface to probing the valid display types. 
@@ -71,6 +74,14 @@ typedef struct {
 	const char		*description;
 } display_type_t;
 
+#define DISPLAY_PROPERTY_CODECS  0 /* codec_t[] */
+#define DISPLAY_PROPERTY_RSHIFT  1 /* int */
+#define DISPLAY_PROPERTY_GSHIFT  2 /* int */
+#define DISPLAY_PROPERTY_BSHIFT  3 /* int */
+#define DISPLAY_PROPERTY_BUF_PITCH  4 /* int */
+
+#define PITCH_DEFAULT -1 /* default to linesize */
+
 int		 display_init_devices(void);
 void		 display_free_devices(void);
 int		 display_get_device_count(void);
@@ -84,15 +95,24 @@ display_id_t 	 display_get_null_device_id(void);
 
 struct display;
 
-struct display	*display_init(display_id_t id, char *fmt, unsigned int flags, struct state_decoder *decoder);
+struct display	*display_init(display_id_t id, char *fmt, unsigned int flags);
 void 		 display_run(struct display *d);
 void 		 display_done(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);
+void             display_reconfigure(struct display *d, struct video_desc desc);
 
 struct audio_frame * display_get_audio_frame(struct display *d);
 void 		 display_put_audio_frame(struct display *d, const struct audio_frame *frame);
 
-#define DISPLAY_FLAG_ENABLE_AUDIO (1<<1)
+int              display_get_property(struct display *d, int property, void *val, int *len);
+
+/*
+ * Additional interface allowing querying properties and monitoring changes
+ */
+typedef void (*observer_callback_t)(void *udata);
+ 
+void display_register_properties_change_observer(struct display *d, observer_callback_t observer);
+
 
 #endif /* _VIDEO_DISPLAY_H */

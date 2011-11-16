@@ -53,10 +53,12 @@
 struct state_decoder;
 
 display_type_t          *display_gl_probe(void);
-void                    *display_gl_init(char *fmt, unsigned int flags, struct state_decoder *decoder);
+void                    *display_gl_init(char *fmt, unsigned int flags);
 void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
 struct video_frame      *display_gl_getf(void *state);
 int                      display_gl_putf(void *state, char *frame);
+void                     display_gl_reconfigure(void *state, struct video_desc desc);
+int                      display_gl_get_property(void *state, int property, void *val, int *len);
 
 int                      display_gl_handle_events(void *arg);

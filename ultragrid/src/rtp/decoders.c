@@ -116,6 +116,7 @@ struct state_decoder *decoder_init(char *requested_mode)
         struct state_decoder *s;
         
         s = (struct state_decoder *) calloc(1, sizeof(struct state_decoder));
+        s->native_codecs = NULL;
         
         if(requested_mode) {
                 s->postprocess = vo_postprocess_init(requested_mode);
@@ -132,23 +133,20 @@ struct state_decoder *decoder_init(char *requested_mode)
 
 void decoder_register_video_display(struct state_decoder *decoder, struct display *display)
 {
+        int ret, i;
         decoder->display = display;
-}
-
-void decoder_destroy(struct state_decoder *decoder)
-{
+        
         free(decoder->native_codecs);
-        free(decoder);
-}
-
-void decoder_register_native_codecs(struct state_decoder *decoder, codec_t *codecs, int len)
-{
-        decoder->native_codecs = malloc(len);
-        memcpy(decoder->native_codecs, codecs, len);
-        decoder->native_count = len / sizeof(codec_t);
+        decoder->native_count = 20 * sizeof(codec_t);
+        decoder->native_codecs = (codec_t *)
+                malloc(decoder->native_count * sizeof(codec_t));
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &decoder->native_count);
+        decoder->native_count /= sizeof(codec_t);
+        if(!ret) {
+                error_with_code_msg(129, "Failed to query codecs from video display.");
+        }
         
         /* next check if we didn't receive alias for UYVY */
-        int i;
         for(i = 0; i < decoder->native_count; ++i) {
                 if(decoder->native_codecs[i] == Vuy2 ||
                                 decoder->native_codecs[i] == DVS8)
@@ -156,19 +154,10 @@ void decoder_register_native_codecs(struct state_decoder *decoder, codec_t *code
         }
 }
 
-void decoder_set_param(struct state_decoder *decoder, int rshift, int gshift,
-                int bshift, int pitch)
+void decoder_destroy(struct state_decoder *decoder)
 {
-        decoder->rshift = rshift;
-        decoder->gshift = gshift;
-        decoder->bshift = bshift;
-        decoder->requested_pitch = pitch;
-}
-
-void decoder_post_reconfigure(struct state_decoder *decoder)
-{
-        decoder->received_vid_desc.width = 0;
-        decoder->display_desc.width = 0;
+        free(decoder->native_codecs);
+        free(decoder);
 }
 
 static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
@@ -310,10 +299,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                  */
                 //display_put_frame(decoder->display, frame);
                 /* reconfigure VO and give it opportunity to pass us pitch */        
-                frame_display->reconfigure(frame_display->state, cur_desc.width,
-                                                cur_desc.height,
-                                                cur_desc.color_spec, 
-                                                cur_desc.fps, cur_desc.aux);
+                display_reconfigure(decoder->display, cur_desc);
                 frame_display = display_get_frame(decoder->display);
                 decoder->display_desc = cur_desc;
         }
@@ -323,11 +309,37 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 frame = frame_display;
         }
         
+        int len = sizeof(int);
+        int ret;
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RSHIFT,
+                        &decoder->rshift, &len);
+        if(!ret) {
+                debug_msg("Failed to get properties from video driver.");
+        }
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_GSHIFT,
+                        &decoder->gshift, &len);
+        if(!ret) {
+                debug_msg("Failed to get properties from video driver.");
+        }
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BSHIFT,
+                        &decoder->bshift, &len);
+        if(!ret) {
+                debug_msg("Failed to get properties from video driver.");
+        }
+        
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
+                        &decoder->requested_pitch, &len);
+        if(!ret) {
+                debug_msg("Failed to get pitch from video driver.");
+                decoder->requested_pitch = PITCH_DEFAULT;
+        }
+        
         if(!decoder->postprocess) {
-                if(decoder->requested_pitch > 0)
-                        decoder->pitch = decoder->requested_pitch;
-                else
+                if(decoder->requested_pitch == PITCH_DEFAULT)
                         decoder->pitch = vc_get_linesize(desc.width, out_codec);
+                else
+                        decoder->pitch = decoder->requested_pitch;
+                        
         } else {
                 decoder->pitch = vc_get_linesize(desc.width, out_codec);
         }
@@ -408,7 +420,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 desc.height /= tile_info.y_count;
                 decoder->ext_decoder_state = decoder->ext_decoder_funcs->init();
                 buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, 
-                                decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch);
+                                decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch, out_codec);
                 
                 decoder->ext_recv_buffer = malloc((tile_info.x_count * tile_info.y_count + 1) * sizeof(char *));
                 for (i = 0; i < tile_info.x_count * tile_info.y_count; ++i)

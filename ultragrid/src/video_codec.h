@@ -47,72 +47,9 @@
 #ifndef __video_codec_h
 
 #define __video_codec_h
-#include "tile.h"
-
-struct audio_frame;
-struct vf_decoder;
-
-typedef enum codec_t {
-        RGBA,
-        UYVY,
-        Vuy2,
-        DVS8,
-        R10k,
-        v210,
-        DVS10,
-        DXT1,
-        DXT1_YUV,
-        DXT5,
-        RGB
-} codec_t;
+#include "video.h"
 
 typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
-typedef  void (*reconfigure_t)(void *state, int width, int height, codec_t color_spec, double fps, int aux);
-
-/* please note that tiles have also its own widths and heights */
-struct video_desc {
-        unsigned int         width;
-        unsigned int         height;
-        codec_t              color_spec;
-        int                  aux;
-        double               fps;
-};
-
-/* contains full information both about video and about tiles.
- */
-struct video_desc_ti {
-        struct video_desc desc;
-        struct tile_info ti;
-};
-
-struct video_frame 
-{
-        codec_t              color_spec;
-        int                  aux;
-        double               fps;
-        struct tile         *tiles;
-        
-        unsigned int         grid_width; /* tiles */
-        unsigned int         grid_height;
-        reconfigure_t        reconfigure;
-        void                *state;
-};
-
-struct tile {
-        unsigned int         width;
-        unsigned int         height;
-        
-        char                *data; /* this is not beginning of the frame buffer actually but beginning of displayed data,
-                                     * it is the case display is centered in larger window, 
-                                     * i.e., data = pixmap start + x_start + y_start*linesize
-                                     */
-        unsigned int         data_len; /* relative to data pos, not framebuffer size! */      
-        unsigned int         linesize;
-        struct vf_decoder   *decoder;
-        
-        struct tile_info     tile_info;
-};
-
 
 struct codec_info_t {
         codec_t codec;
@@ -152,22 +89,6 @@ void vc_copylineRGB(unsigned char *dst, unsigned char *src, int dst_len, int rsh
  * @return TRUE or FALSE
  */
 int codec_is_a_rgb(codec_t codec);
-
-struct video_frame * vf_alloc(int grid_width, int grid_height);
-void vf_free(struct video_frame *buf);
-struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos);
-int video_desc_eq(struct video_desc, struct video_desc);
-
-/*
- * Currently used (pre 1.0) is only AUX_{INTERLACED, PROGRESSIVE, SF, TILED}
- */
-#define AUX_INTERLACED  (1<<0)
-#define AUX_PROGRESSIVE (1<<1)
-#define AUX_SF          (1<<2)
-#define AUX_RGB         (1<<3) /* if device supports both, set both */
-#define AUX_YUV         (1<<4) 
-#define AUX_10Bit       (1<<5)
-#define AUX_TILED       (1<<6)
 
 #endif
 

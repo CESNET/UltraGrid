@@ -66,7 +66,6 @@
 
 #include "video_display.h"
 #include "video_display/quicktime.h"
-#include "rtp/decoders.h"
 
 #include "audio/audio.h"
 
@@ -212,8 +211,6 @@ struct state_quicktime {
 
 /* Prototyping */
 char *four_char_decode(int format);
-void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux);
 static int find_mode(ComponentInstance *ci, int width, int height, 
                 const char * codec_name, double fps, int aux);
 void display_quicktime_audio_init(struct state_quicktime *s);
@@ -529,16 +526,12 @@ static void show_help(int full)
         print_modes(full);
 }
 
-void *display_quicktime_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
+void *display_quicktime_init(char *fmt, unsigned int flags)
 {
         struct state_quicktime *s;
         int ret;
         int i;
         char *codec_name;
-
-        codec_t native[] = {v210, UYVY, RGBA};
-        decoder_register_native_codecs(decoder, native, sizeof(native));
-        decoder_set_param(decoder, 0, 8, 16, 0);
 
         /* Parse fmt input */
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
@@ -704,9 +697,6 @@ void *display_quicktime_init(char *fmt, unsigned int flags, struct state_decoder
                         s->frame->tiles[i].data = NULL;
                 }
         }
-
-        s->frame->state = s;
-        s->frame->reconfigure = (reconfigure_t) qt_reconfigure_screen;
         
         s->audio.state = s;
         if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
@@ -829,8 +819,43 @@ display_type_t *display_quicktime_probe(void)
         return dtype;
 }
 
-void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux)
+int display_quicktime_get_property(void *state, int property, void *val, int *len)
+{
+        UNUSED(state);
+        codec_t codecs[] = {v210, UYVY, RGBA};
+        
+        switch (property) {
+                case DISPLAY_PROPERTY_CODECS:
+                        if(sizeof(codecs) <= *len) {
+                                memcpy(val, codecs, sizeof(codecs));
+                        } else {
+                                return FALSE;
+                        }
+                        
+                        *len = sizeof(codecs);
+                        break;
+                case DISPLAY_PROPERTY_RSHIFT:
+                        *(int *) val = 0;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_GSHIFT:
+                        *(int *) val = 8;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BSHIFT:
+                        *(int *) val = 16;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = PITCH_DEFAULT;
+                        *len = sizeof(int);
+                        break;
+                default:
+                        return FALSE;
+        }
+        return TRUE;
+
+void display_quicktime_reconfigure(void *state, struct video_desc desc)
 {
         struct state_quicktime *s = (struct state_quicktime *) state;
         int i;
@@ -838,34 +863,34 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
         const char *codec_name;
 
         for (i = 0; codec_info[i].name != NULL; i++) {
-                if (codec_info[i].codec == codec) {
+                if (codec_info[i].codec == desc.codec) {
                         s->cinfo = &codec_info[i];
                         codec_name = s->cinfo->name;
                 }
         }
-        if(codec == UYVY || codec == DVS8) /* just aliases for 2vuy,
+        if(desc.codec == UYVY || desc.codec == DVS8) /* just aliases for 2vuy,
                                             * but would confuse QT */
                 codec_name = "2vuy";
          
         if(s->frame->tiles[0].data != NULL)
                 display_quicktime_done(s);
                 
-        fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", width,
-                        height, s->cinfo->bpp);
-        s->frame->color_spec = codec;
-        s->frame->fps = fps;
-        s->frame->aux = aux;
+        fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", desc.width,
+                        desc.height, s->cinfo->bpp);
+        s->frame->color_spec = desc.codec;
+        s->frame->fps = desc.fps;
+        s->frame->aux = desc.aux;
 
         for(i = 0; i < s->devices_cnt; ++i) {
-                int tile_width = width / s->frame->grid_width;
-                int tile_height = height / s->frame->grid_height;
+                int tile_width = desc.width / s->frame->grid_width;
+                int tile_height = desc.height / s->frame->grid_height;
                 int pos_x = i % s->frame->grid_width;
                 int pos_y = i / s->frame->grid_width;
                 struct tile * tile = tile_get(s->frame, pos_x, pos_y);
                 
                 tile->width = tile_width;
                 tile->height = tile_height;
-                tile->linesize = vc_get_linesize(tile_width, codec);
+                tile->linesize = vc_get_linesize(tile_width, desc.codec);
                 tile->data_len = tile->linesize * tile->height;
                 
                 if(tile->data != NULL) {
@@ -878,7 +903,7 @@ void qt_reconfigure_screen(void *state, unsigned int width, unsigned int height,
                 
                 if(!s->mode_set_manually)
                         s->mode = find_mode(&s->videoDisplayComponentInstance[i],
-                                                        tile_width, tile_height, codec_name, fps, aux);
+                                                        tile_width, tile_height, codec_name, desc.fps, desc.aux);
                 /* Set the display mode */
                 ret =
                     QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],

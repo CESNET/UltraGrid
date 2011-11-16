@@ -44,6 +44,7 @@
  */
 
 #define DISPLAY_NULL_ID	0xa4bfe107
+#include "video.h"
 
 display_type_t		*display_null_probe(void);
 void 			*display_null_init(char *fmt, unsigned int flags);
@@ -51,4 +52,5 @@ void 			 display_null_run(void *state);
 void 			 display_null_done(void *state);
 char 			*display_null_getf(void *state);
 int 			 display_null_putf(void *state, char *frame);
-
+void                     display_null_reconfigure(void *state, struct video_desc desc);
+int                      display_null_get_property(void *state, int property, void *val, int *len);

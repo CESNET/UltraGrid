@@ -56,6 +56,7 @@ OBJS          = src/bitstream.o \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
 		src/utils/ring_buffer.o \
+		src/video.o \
 		src/video_codec.o \
 		src/video_capture.o \
 		src/video_capture/null.o \
@@ -82,6 +83,7 @@ DVS_UV_LIB_OBJ  = \
 		src/audio/utils.o \
 		src/debug.o \
 		src/utils/ring_buffer.o \
+		src/video.o \
 		src/video_codec.o \
 		src/video_display/dvs_display_lib.o \
 		src/video_capture/dvs_capture_lib.o

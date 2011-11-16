@@ -72,11 +72,14 @@
 typedef struct {
         display_id_t id;
         display_type_t *(*func_probe) (void);
-        void *(*func_init) (char *fmt, unsigned int flags, struct state_decoder *decoder);
+        void *(*func_init) (char *fmt, unsigned int flags);
         void (*func_run) (void *state);
         void (*func_done) (void *state);
         struct video_frame *(*func_getf) (void *state);
         int (*func_putf) (void *state, char *frame);
+        void (*func_reconfigure)(void *state, struct video_desc desc);
+        int (*func_get_property)(void *state, int property, void *val, int *len);
+        
         struct audio_frame *(*func_get_audio_frame) (void *state);
         void (*func_put_audio_frame) (void *state, const struct audio_frame *frame);
 } display_table_t;
@@ -91,6 +94,8 @@ static display_table_t display_device_table[] = {
          display_sdl_done,
          display_sdl_getf,
          display_sdl_putf,
+         display_sdl_reconfigure,
+         display_sdl_get_property,
          display_sdl_get_audio_frame,
          display_sdl_put_audio_frame,
          },
@@ -104,6 +109,8 @@ static display_table_t display_device_table[] = {
          display_gl_done,
          display_gl_getf,
          display_gl_putf,
+         display_gl_reconfigure,
+         display_gl_get_property,
          NULL,
          NULL,
          },
@@ -116,6 +123,8 @@ static display_table_t display_device_table[] = {
          display_sage_done,
          display_sage_getf,
          display_sage_putf,
+         display_sage_reconfigure,
+         display_sage_get_property,
          NULL,
          NULL,
          },
@@ -130,6 +139,8 @@ static display_table_t display_device_table[] = {
          display_decklink_done,
          display_decklink_getf,
          display_decklink_putf,
+         display_decklink_reconfigure,
+         display_decklink_get_property,
          display_decklink_get_audio_frame,
          display_decklink_put_audio_frame,
          },
@@ -143,6 +154,8 @@ static display_table_t display_device_table[] = {
          display_dvs_done,
          display_dvs_getf,
          display_dvs_putf,
+         display_dvs_reconfigure,
+         display_dvs_get_property,
          display_dvs_get_audio_frame,
          display_dvs_put_audio_frame,
          },
@@ -156,6 +169,8 @@ static display_table_t display_device_table[] = {
          display_quicktime_done,
          display_quicktime_getf,
          display_quicktime_putf,
+         display_quicktime_reconfigure,
+         display_quicktime_get_property,
          display_quicktime_get_audio_frame,
          display_quicktime_put_audio_frame,
          },
@@ -168,6 +183,8 @@ static display_table_t display_device_table[] = {
          display_null_done,
          display_null_getf,
          display_null_putf,
+         display_null_reconfigure,
+         display_null_get_property,
          NULL,
          NULL,
          }
@@ -236,7 +253,7 @@ struct display {
         void *state;
 };
 
-struct display *display_init(display_id_t id, char *fmt, unsigned int flags, struct state_decoder *decoder)
+struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
 {
         unsigned int i;
 
@@ -245,7 +262,7 @@ struct display *display_init(display_id_t id, char *fmt, unsigned int flags, str
                         struct display *d =
                             (struct display *)malloc(sizeof(struct display));
                         d->magic = DISPLAY_MAGIC;
-                        d->state = display_device_table[i].func_init(fmt, flags, decoder);
+                        d->state = display_device_table[i].func_init(fmt, flags);
                         d->index = i;
                         if (d->state == NULL) {
                                 debug_msg("Unable to start display 0x%08lx\n",
@@ -284,6 +301,18 @@ void display_put_frame(struct display *d, char *frame)
         perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_putf(d->state, frame);
+}
+
+void display_reconfigure(struct display *d, struct video_desc desc)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        display_device_table[d->index].func_reconfigure(d->state, desc);
+}
+
+int display_get_property(struct display *d, int property, void *val, int *len)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        return display_device_table[d->index].func_get_property(d->state, property, val, len);
 }
 
 struct audio_frame *display_get_audio_frame(struct display *d)

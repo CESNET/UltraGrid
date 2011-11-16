@@ -51,7 +51,6 @@
 #include "config_win32.h"
 
 #include "debug.h"
-#include "rtp/decoders.h"
 #include "video_codec.h"
 #include "video_display.h"
 #include "video_display/sage.h"
@@ -74,7 +73,6 @@
 #define MAGIC_SAGE	DISPLAY_SAGE_ID
 
 struct state_sage {
-        struct state_decoder *decoder;
         struct video_frame *frame;
         struct tile *tile;
 
@@ -94,9 +92,6 @@ struct state_sage {
 };
 
 /** Prototyping */
-void sage_reconfigure_screen(void *s, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux);
-
 int display_sage_handle_events(void)
 {
         return 0;
@@ -122,7 +117,7 @@ void display_sage_run(void *arg)
         }
 }
 
-void *display_sage_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
+void *display_sage_init(char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
         UNUSED(flags);
@@ -138,18 +133,13 @@ void *display_sage_init(char *fmt, unsigned int flags, struct state_decoder *dec
 
         s->frame = vf_alloc(1, 1);
         s->tile = tile_get(s->frame, 0, 0);
-        s->decoder = decoder;
-        codec_t native[] = {UYVY, RGBA, RGB, DXT1};
-        decoder_register_native_codecs(decoder, native, sizeof(native));
-        decoder_set_param(decoder, 0, 8, 16, 0);
+        
         /* sage init */
         //FIXME sem se musi propasovat ty spravne parametry argc argv
         s->appID = 0;
         s->nodeID = 1;
 
         s->sage_state = NULL;
-        s->frame->state = s;
-        s->frame->reconfigure = (reconfigure_t)sage_reconfigure_screen;
 
         /* thread init */
         sem_init(&s->semaphore, 0, 0);
@@ -219,28 +209,28 @@ int display_sage_putf(void *state, char *frame)
         return 0;
 }
 
-void sage_reconfigure_screen(void *arg, unsigned int width, unsigned int height,
-                codec_t codec, double fps, int aux)
+void display_sage_reconfigure(void *state, struct video_desc desc);
 {
         struct state_sage *s = (struct state_sage *)arg;
 
         assert(s->magic == MAGIC_SAGE);
-        assert(codec == RGBA || codec == RGB || codec == UYVY || codec == DXT1);
+        assert(desc.codec == RGBA || desc.codec == RGB || desc.codec == UYVY ||
+                        desc.codec == DXT1);
         
-        s->tile->width = width;
-        s->tile->height = height;
-        s->frame->fps = fps;
-        s->frame->aux = aux;
-        s->frame->color_spec = codec;
+        s->tile->width = desc.width;
+        s->tile->height = desc.height;
+        s->frame->fps = desc.fps;
+        s->frame->aux = desc.aux;
+        s->frame->color_spec = desc.codec;
 
         if(s->sage_state) {
                 sage_shutdown(s->sage_state);
         }
 
-        s->sage_state = initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, codec);
+        s->sage_state = initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, desc.codec);
 
         s->tile->data = (char *) sage_getBuffer(s->sage_state);
-        s->tile->data_len = vc_get_linesize(s->tile->width, codec) * s->tile->height;
+        s->tile->data_len = vc_get_linesize(s->tile->width, desc.codec) * s->tile->height;
 }
 
 display_type_t *display_sage_probe(void)
@@ -256,3 +246,39 @@ display_type_t *display_sage_probe(void)
         return dt;
 }
 
+int display_sage_get_property(void *state, int property, void *val, int *len)
+{
+        UNUSED(state);
+        codec_t codecs[] = {UYVY, RGBA, RGB, DXT1};
+        
+        switch (property) {
+                case DISPLAY_PROPERTY_CODECS:
+                        if(sizeof(codecs) <= *len) {
+                                memcpy(val, codecs, sizeof(codecs));
+                        } else {
+                                return FALSE;
+                        }
+                        
+                        *len = sizeof(codecs);
+                        break;
+                case DISPLAY_PROPERTY_RSHIFT:
+                        *(int *) val = 0;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_GSHIFT:
+                        *(int *) val = 8;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BSHIFT:
+                        *(int *) val = 16;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = PITCH_DEFAULT;
+                        *len = sizeof(int);
+                        break;
+                default:
+                        return FALSE;
+        }
+        return TRUE;
+}

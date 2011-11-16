@@ -67,7 +67,6 @@ extern "C" {
 #include "DeckLinkAPI.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
-#include "rtp/decoders.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -109,7 +108,6 @@ struct device_state {
 };
 
 struct state_decklink {
-        struct state_decoder     *decoder;
         uint32_t            magic;
 
         struct timeval      tv;
@@ -246,9 +244,8 @@ int display_decklink_putf(void *state, char *frame)
         return TRUE;
 }
 
-static void
-reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height,
-                                   codec_t color_spec, double fps, int aux)
+void
+display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
         IDeckLinkDisplayModeIterator     *displayModeIterator;
@@ -263,9 +260,9 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
 
         assert(s->magic == DECKLINK_MAGIC);
         
-        s->frame->color_spec = color_spec;
-        s->frame->aux = aux;
-        s->frame->fps = fps;
+        s->frame->color_spec = desc.color_spec;
+        s->frame->aux = desc.aux;
+        s->frame->fps = desc.fps;
 
         for(int i = 0; i < s->devices_cnt; ++i) {
                 /* compute position */
@@ -274,12 +271,12 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                 struct tile  *tile = tile_get(s->frame, i % x_count,
                                 i / x_count);
                                 
-                tile->width = width / x_count;
-                tile->height = height / y_count;
-                tile->linesize = vc_get_linesize(tile_width, color_spec);
+                tile->width = desc.width / x_count;
+                tile->height = desc.height / y_count;
+                tile->linesize = vc_get_linesize(tile_width, s->frame->color_spec);
                 tile->data_len = tile->linesize * tile->height;
                 
-                switch (color_spec) {
+                switch (desc.color_spec) {
                         case UYVY:
                                 pixelFormat = bmdFormat8BitYUV;
                                 break;
@@ -329,7 +326,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                                         deckLinkDisplayMode->GetFrameRate(&s->frameRateDuration,
                                                         &s->frameRateScale);
                                         displayFPS = (double) s->frameRateScale / s->frameRateDuration;
-                                        if(fabs(fps - displayFPS) < 0.01// && (aux & AUX_INTERLACED && interlaced || !interlaced)
+                                        if(fabs(desc.fps - displayFPS) < 0.01// && (aux & AUX_INTERLACED && interlaced || !interlaced)
                                           )
                                         {
                                                 printf("Device %d - selected mode: %s\n", i, modeNameCString);
@@ -350,7 +347,9 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
                 }
 
                 //Generate a frame of black
-                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile_width, tile_height, tile->linesize, pixelFormat, bmdFrameFlagDefault, &s->state[i].deckLinkFrame) != S_OK)
+                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile_width, tile_height,
+                                tile->linesize, pixelFormat, bmdFrameFlagDefault,
+                                &s->state[i].deckLinkFrame) != S_OK)
                 {
                         fprintf(stderr, "[decklink] Failed to create video frame.\n");
                         exit(128);
@@ -368,7 +367,7 @@ reconfigure_screen_decklink(void *state, unsigned int width, unsigned int height
 }
 
 
-void *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder *decoder)
+void *display_decklink_init(char *fmt, unsigned int flags)
 {
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
@@ -378,12 +377,6 @@ void *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder 
 
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
-
-        s->decoder = decoder;
-        codec_t native[] = {v210, UYVY, RGBA};
-        decoder_register_native_codecs(decoder, native, sizeof(native));
-        decoder_set_param(s->decoder, 0, 8, 16,
-                0);
         
         if(fmt == NULL) {
                 cardIdx[0] = 0;
@@ -462,8 +455,6 @@ void *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder 
         if(s->devices_cnt > 1) {
                 s->frame->aux = AUX_TILED;
         }
-        s->frame->state = s;
-        s->frame->reconfigure = (reconfigure_t) reconfigure_screen_decklink;
         
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
@@ -490,6 +481,7 @@ void *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder 
 
 void display_decklink_run(void *state)
 {
+        UNUSED(state);
 }
 
 void display_decklink_done(void *state)
@@ -513,6 +505,42 @@ display_type_t *display_decklink_probe(void)
         return dtype;
 }
 
+int display_decklink_get_property(void *state, int property, void *val, int *len)
+{
+        codec_t codecs[] = {v210, UYVY, RGBA};
+        
+        switch (property) {
+                case DISPLAY_PROPERTY_CODECS:
+                        if(sizeof(codecs) <= *len) {
+                                memcpy(val, codecs, sizeof(codecs));
+                        } else {
+                                return FALSE;
+                        }
+                        
+                        *len = sizeof(codecs);
+                        break;
+                case DISPLAY_PROPERTY_RSHIFT:
+                        *(int *) val = 0;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_GSHIFT:
+                        *(int *) val = 8;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BSHIFT:
+                        *(int *) val = 16;
+                        *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_BUF_PITCH:
+                        *(int *) val = PITCH_DEFAULT;
+                        *len = sizeof(int);
+                        break;
+                default:
+                        return FALSE;
+        }
+        return TRUE;
+}
+
 PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner, int index) 
         : s(owner), i(index)
 {
@@ -526,11 +554,6 @@ HRESULT         PlaybackDelegate::ScheduledFrameCompleted (IDeckLinkVideoFrame* 
 HRESULT         PlaybackDelegate::ScheduledPlaybackHasStopped ()
 {
         return S_OK;
-}
-
-void vidcap_decklink_run(void *state)
-{
-        UNUSED(state);
 }
 
 /*

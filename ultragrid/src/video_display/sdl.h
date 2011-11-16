@@ -44,20 +44,21 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3.2.4 $
- * $Date: 2010/02/05 13:56:49 $
- *
  */
 
 #define DISPLAY_SDL_ID	0xba370a2b
+#include "video.h"
 
 display_type_t *display_sdl_probe (void);
-void *display_sdl_init (char *fmt, unsigned int flags, struct state_decoder *decoder);
+void *display_sdl_init (char *fmt, unsigned int flags);
 void display_sdl_run (void *state);
 void display_sdl_done (void *state);
 struct video_frame *display_sdl_getf (void *state);
 int display_sdl_putf (void *state, char *frame);
-int display_sdl_handle_events (void *s, int post);
+
+void display_sdl_reconfigure(void *state, struct video_desc desc);
+int display_sdl_get_property(void *state, int property, void *val, int *len);
+
 struct audio_frame * display_sdl_get_audio_frame(void *state);
 void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame);
 

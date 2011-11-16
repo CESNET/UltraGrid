@@ -74,6 +74,7 @@ struct coded_data {
 
 /* The playout buffer */
 struct pbuf;
+struct state_decoder;
 
 /* 
  * External interface: 

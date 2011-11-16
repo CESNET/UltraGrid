@@ -50,11 +50,14 @@ extern "C" {
 #endif
 
 display_type_t      *display_decklink_probe(void);
-void                *display_decklink_init(char *fmt, unsigned int flags, struct state_decoder *decoder);
+void                *display_decklink_init(char *fmt, unsigned int flags);
 void                 display_decklink_run(void *state);
 void                 display_decklink_done(void *state);
 struct video_frame  *display_decklink_getf(void *state);
 int                  display_decklink_putf(void *state, char *frame);
+void                 display_decklink_reconfigure(void *state,
+                                struct video_desc desc);
+int                  display_decklink_get_property(void *state, int property, void *val, int *len);
 
 struct audio_frame * display_decklink_get_audio_frame(void *state);
 void 		 display_decklink_put_audio_frame(void *state, struct audio_frame *frame);
