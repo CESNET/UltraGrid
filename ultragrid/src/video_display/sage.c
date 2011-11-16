@@ -211,26 +211,26 @@ int display_sage_putf(void *state, char *frame)
 
 void display_sage_reconfigure(void *state, struct video_desc desc);
 {
-        struct state_sage *s = (struct state_sage *)arg;
+        struct state_sage *s = (struct state_sage *)state;
 
         assert(s->magic == MAGIC_SAGE);
-        assert(desc.codec == RGBA || desc.codec == RGB || desc.codec == UYVY ||
-                        desc.codec == DXT1);
+        assert(desc.color_spec == RGBA || desc.color_spec == RGB || desc.color_spec == UYVY ||
+                        desc.color_spec == DXT1);
         
         s->tile->width = desc.width;
         s->tile->height = desc.height;
         s->frame->fps = desc.fps;
         s->frame->aux = desc.aux;
-        s->frame->color_spec = desc.codec;
+        s->frame->color_spec = desc.color_spec;
 
         if(s->sage_state) {
                 sage_shutdown(s->sage_state);
         }
 
-        s->sage_state = initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, desc.codec);
+        s->sage_state = initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, desc.color_spec);
 
         s->tile->data = (char *) sage_getBuffer(s->sage_state);
-        s->tile->data_len = vc_get_linesize(s->tile->width, desc.codec) * s->tile->height;
+        s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) * s->tile->height;
 }
 
 display_type_t *display_sage_probe(void)
