@@ -71,6 +71,8 @@ struct video_compress {
         unsigned int configured:1;
         unsigned int interlaced_input:1;
         codec_t color_spec;
+        
+        void *glx_context;
 };
 
 static void configure_with(struct video_compress *s, struct video_frame *frame);
@@ -96,7 +98,10 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 }
         }
         
-        glx_init();
+        s->glx_context = glx_init();
+        if(!s->glx_context) {
+                error_with_code_msg(128,"[RTDXT] Error initializing glx context!");
+        }
         
         s->out->aux = frame->aux;
         s->out->fps = frame->fps;
@@ -260,5 +265,7 @@ void dxt_glsl_compress_done(void *arg)
         
         free(s->out->tiles[0].data);
         vf_free(s->out);
+        
+        glx_free(s->glx_context);
         free(s);
 }

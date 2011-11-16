@@ -67,13 +67,18 @@ struct state_decompress {
         int rshift, gshift, bshift;
         int pitch;
         unsigned int configured:1;
+        
+        void *glx_context;
 };
 
 static void configure_with(struct state_decompress *decompressor, struct video_desc desc)
 {
         enum dxt_type type;
         
-        glx_init();
+        decompressor->glx_context = glx_init();
+        if(!decompressor->glx_context) {
+                error_with_code_msg(128, "Failed to create GLX context.");
+        }
 
         if(desc.color_spec == DXT5) {
                 type = DXT_TYPE_DXT5_YCOCG;
@@ -148,7 +153,9 @@ void dxt_glsl_decompress_done(void *state)
 {
         struct state_decompress *s = (struct state_decompress *) state;
         
-        if(s->configured)
+        if(s->configured) {
                 dxt_decoder_destroy(s->decoder);
+                glx_free(s->glx_context);
+        }
         free(s);
 }

@@ -679,7 +679,6 @@ void glut_key_callback(unsigned char key, int x, int y)
                         if(gl->window != -1)
                                 glutDestroyWindow(gl->window);
 			should_exit = 1;
-                        exit(0);
                         break;
                 case 'd':
                         gl->deinterlace = gl->deinterlace ? FALSE : TRUE;
@@ -866,7 +865,6 @@ void gl_draw(double ratio)
 void glut_close_callback(void)
 {
         should_exit = TRUE;
-	exit(0);
 }
 
 display_type_t *display_gl_probe(void)

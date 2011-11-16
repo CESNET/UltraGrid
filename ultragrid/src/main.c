@@ -64,7 +64,6 @@
 #include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
-#include "rtp/decoders.h" /* struct state_decoder */
 #include "rtp/pbuf.h"
 #include "video_codec.h"
 #include "video_capture.h"
@@ -96,16 +95,16 @@ struct state_uv {
         struct rtp **network_devices;
         unsigned int connections_count;
         
-        struct state_decoder *dec_state;
-        
         struct vidcap *capture_device;
         struct timeval start_time, curr_time;
         struct pdb *participants;
         
+        char *decoder_options;
+        
         uint32_t ts;
         struct video_tx *tx;
         struct display *display_device;
-        struct compress_state *compression; /* state */
+        char *compress_options;
         int requested_compression;
         const char *requested_display;
         const char *requested_capture;
@@ -126,9 +125,7 @@ long frame_begin[2];
 
 int uv_argc;
 char **uv_argv;
-static struct state_uv *uv_state;
 
-void cleanup_uv(void);
 void list_video_display_devices(void);
 void list_video_capture_devices(void);
 
@@ -137,7 +134,6 @@ static void signal_handler(int signal)
 {
         debug_msg("Caught signal %d\n", signal);
         should_exit = TRUE;
-        exit(0);
         return;
 }
 #endif                          /* WIN32 */
@@ -188,7 +184,7 @@ void list_video_display_devices()
 }
 
 static struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags, struct state_decoder *decoder)
+                                                char *fmt, unsigned int flags)
 {
         struct display *d;
         display_type_t *dt;
@@ -393,6 +389,15 @@ static void *receiver_thread(void *arg)
         int ret;
         unsigned int tiles_post = 0;
         struct timeval last_tile_received;
+        struct state_decoder *dec_state;
+
+        dec_state = decoder_init(uv->decoder_options);
+        if(!dec_state) {
+                fprintf(stderr, "Error initializing decoder ('-M' option).\n");
+                exit(EXIT_FAIL_DECODER);
+        }
+
+        decoder_register_video_display(dec_state, uv->display_device);
 
         fr = 1;
 
@@ -433,7 +438,7 @@ static void *receiver_thread(void *arg)
                         /* Decode and render video... */
                         if (pbuf_decode
                             (cp->playout_buffer, uv->curr_time, frame_buffer,
-                             i, uv->dec_state)) {
+                             i, dec_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
@@ -468,6 +473,8 @@ static void *receiver_thread(void *arg)
                         last_tile_received = uv->curr_time;
                 }
         }
+        
+        decoder_destroy(dec_state);
 
         return 0;
 }
@@ -480,6 +487,14 @@ static void *sender_thread(void *arg)
         struct audio_frame *audio;
         //struct video_frame *splitted_frames = NULL;
         int tile_y_count;
+        
+        struct compress_state *compression; 
+        compression = compress_init(uv->compress_options);
+        if(uv->requested_compression
+                        && compression == NULL) {
+                fprintf(stderr, "Error initializing compression.\n");
+                exit(EXIT_FAIL_COMPRESS);
+        }
 
         tile_y_count = uv->connections_count;
 
@@ -498,7 +513,7 @@ static void *sender_thread(void *arg)
                         }
                         //TODO: Unghetto this
                         if (uv->requested_compression) {
-                                tx_frame = compress_frame(uv->compression, tx_frame);
+                                tx_frame = compress_frame(compression, tx_frame);
                         }
                         if(uv->connections_count == 1) { /* normal case - only one connection */
                                 tx_send(uv->tx, tx_frame, 
@@ -517,6 +532,8 @@ static void *sender_thread(void *arg)
                 }
         }
         vf_free(splitted_frames);
+        
+        compress_done(compression);
 
         return NULL;
 }
@@ -535,10 +552,8 @@ int main(int argc, char *argv[])
         char *audio_recv = NULL;
         char *jack_cfg = NULL;
         char *save_ptr = NULL;
-        char *requested_mode = NULL;
         
         struct state_uv *uv;
-        char *compress_options = NULL;
         int ch;
         
         pthread_t receiver_thread_id, sender_thread_id;
@@ -574,10 +589,11 @@ int main(int argc, char *argv[])
 
         uv->ts = 0;
         uv->display_device = NULL;
-        uv->compression = NULL;
         uv->requested_display = "none";
         uv->requested_capture = "none";
         uv->requested_compression = FALSE;
+        uv->compress_options = NULL;
+        uv->decoder_options = NULL;
         uv->requested_mtu = 0;
         uv->use_ihdtv_protocol = 0;
         uv->participants = NULL;
@@ -612,14 +628,14 @@ int main(int argc, char *argv[])
                         uv->requested_mtu = atoi(optarg);
                         break;
                 case 'M':
-                        requested_mode = optarg;
+                        uv->decoder_options = optarg;
                         break;
                 case 'v':
                         printf("%s\n", ULTRAGRID_VERSION);
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = TRUE;
-                        compress_options = optarg;
+                        uv->compress_options = optarg;
                         break;
                 case 'i':
                         uv->use_ihdtv_protocol = 1;
@@ -661,19 +677,6 @@ int main(int argc, char *argv[])
                         network_device = (char *) argv[0];
                 }
         }
-        
-        uv->dec_state = decoder_init(requested_mode);
-        if(uv->dec_state == NULL) {
-                fprintf(stderr, "Error initializing decoder ('-M' option).\n");
-                exit(EXIT_FAIL_DECODER);
-        }
-        
-        uv->compression = compress_init(compress_options);
-        if(uv->requested_compression
-                        && uv->compression == NULL) {
-                fprintf(stderr, "Error initializing compression.\n");
-                exit(EXIT_FAIL_COMPRESS);
-        }
 
         uv->audio = audio_cfg_init (network_device, audio_send, audio_recv, jack_cfg);
         if(audio_does_send_sdi(uv->audio))
@@ -685,13 +688,13 @@ int main(int argc, char *argv[])
         printf("Display device: %s\n", uv->requested_display);
         printf("Capture device: %s\n", uv->requested_capture);
         printf("MTU           : %d\n", uv->requested_mtu);
-        printf("Compression   : ");
+        /*printf("Compression   : ");
         if (uv->requested_compression) {
                 printf("%s", get_compress_name(uv->compression));
         } else {
                 printf("none");
         }
-        printf("\n");
+        printf("\n");*/
 
         if (uv->use_ihdtv_protocol)
                 printf("Network protocol: ihdtv\n");
@@ -711,12 +714,12 @@ int main(int argc, char *argv[])
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
         if ((uv->display_device =
-             initialize_video_display(uv->requested_display, display_cfg, display_flags, uv->dec_state)) == NULL) {
+             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
                 return EXIT_FAIL_DISPLAY;
         }
-        decoder_register_video_display(uv->dec_state, uv->display_device);
+
         printf("Display initialized-%s\n", uv->requested_display);
 
 #ifndef WIN32
@@ -856,10 +859,6 @@ int main(int argc, char *argv[])
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
         }
 
-        /* register cleanup function */
-        uv_state = uv;
-        atexit(cleanup_uv);
-
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
 
@@ -872,28 +871,15 @@ int main(int argc, char *argv[])
         
         /* also wait for audio threads */
         audio_join(uv->audio);
-        cleanup_uv();
+
+        audio_done(uv->audio);
+        tx_done(uv->tx);
+	destroy_devices(uv->network_devices);
+        vidcap_done(uv->capture_device);
+        display_done(uv->display_device);
+        if (uv->participants != NULL)
+                pdb_destroy(&uv->participants);
+        printf("Exit\n");
 
         return EXIT_SUCCESS;
 }
-
-void cleanup_uv(void)
-{
-        /* give threads time to exit gracefully
-         * it is not ideal but rather good solution
-         * to avoid segfaults.
-         */
-	should_exit = 1;
-	usleep(100000);
-        
-        compress_done(uv_state->compression);
-        audio_done(uv_state->audio);
-        tx_done(uv_state->tx);
-	destroy_devices(uv_state->network_devices);
-        vidcap_done(uv_state->capture_device);
-        display_done(uv_state->display_device);
-        if (uv_state->participants != NULL)
-                pdb_destroy(&uv_state->participants);
-        printf("Exit\n");
-}
-

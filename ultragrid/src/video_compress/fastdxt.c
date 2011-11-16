@@ -65,6 +65,9 @@
 #include "video_compress.h"
 #include "libdxt.h"
 
+extern int should_exit;
+volatile static int fastdxt_should_exit = FALSE;
+
 #ifndef HAVE_MACOSX
 #define uint64_t 	unsigned long
 #endif                          /* HAVE_MACOSX */
@@ -264,6 +267,8 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
         assert(tx->grid_height == 1 && tx->grid_width == 1);
         assert(tile_get(tx, 0, 0)->width % 4 == 0);
         assert(tile_get(tx, 0, 0)->height % 4 == 0);
+        
+        pthread_mutex_lock(&(compress->lock));
 
         if(tile_get(tx, 0, 0)->width != compress->tile->width ||
                         tile_get(tx, 0, 0)->height != compress->tile->height ||
@@ -298,6 +303,8 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
         }
 
         compress->tile->data_len = compress->tile->width * compress->tile->height / 2;
+        
+        pthread_mutex_unlock(&(compress->lock));
 
         return compress->frame;
 }
@@ -318,7 +325,7 @@ static void compress_thread(void *args)
 
         while (1) {
                 platform_sem_wait(&compress->thread_compress[myId]);
-
+                if(fastdxt_should_exit) break;
 
                 my_height = (compress->tile->height / compress->num_threads) / 4 * 4;
                 range = my_height * compress->tile->width; /* for all threads except the last */
@@ -356,17 +363,33 @@ static void compress_thread(void *args)
 
                 platform_sem_post(&compress->threads_done);
         }
+        
+        platform_sem_post(&compress->threads_done);
 }
 
 void fastdxt_done(void *args)
 {
         struct video_compress *compress = (struct video_compress *)args;
         int x;
-
-        for (x = 0; x < compress->thread_count; x++) {
-                pthread_kill(compress->thread_ids[x], SIGKILL);
+        
+        pthread_mutex_lock(&(compress->lock)); /* wait for fastdxt_compress if running */
+        fastdxt_should_exit = TRUE;
+        
+        for (x = 0; x < compress->num_threads; x++) {
+                platform_sem_post(&compress->thread_compress[x]);
         }
 
+        for (x = 0; x < compress->num_threads; x++) {
+                platform_sem_wait(&compress->threads_done);
+        }
+
+        pthread_mutex_unlock(&(compress->lock));
+        
+        pthread_mutex_destroy(&(compress->lock));
+        
         for (x = 0; x < compress->num_threads; ++x)
                 free(compress->buffer[x]);
+        free(compress);
+                
+        
 }

@@ -156,6 +156,23 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
 
 void decoder_destroy(struct state_decoder *decoder)
 {
+        if(decoder->ext_decoder_funcs) {
+                decoder->ext_decoder_funcs->done(decoder->ext_decoder_state);
+                decoder->ext_decoder_funcs = NULL;
+        }
+        if(decoder->ext_recv_buffer) {
+                char **buf = decoder->ext_recv_buffer;
+                while(*buf != NULL) {
+                        free(*buf);
+                        buf++;
+                }
+                free(decoder->ext_recv_buffer);
+                decoder->ext_recv_buffer = NULL;
+        }
+        if(decoder->pp_frame) {
+                vo_postprocess_done(decoder->postprocess);
+                decoder->pp_frame = NULL;
+        }
         free(decoder->native_codecs);
         free(decoder);
 }

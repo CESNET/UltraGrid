@@ -303,7 +303,6 @@ int display_sdl_handle_events(void *arg, int post)
                                 should_exit = 1;
                                 if(post)
                                         SDL_SemPost(s->semaphore);
-                                exit(0);
                         }
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "f")) {
@@ -317,7 +316,6 @@ int display_sdl_handle_events(void *arg, int post)
                         should_exit = 1;
                         if(post)
                                 SDL_SemPost(s->semaphore);
-                        exit(0);
                 }
         }
 

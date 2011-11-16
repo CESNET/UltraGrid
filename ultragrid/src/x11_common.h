@@ -46,3 +46,4 @@
  */
 
 void x11_enter_thread(void);
+void glx_free(void *);
