@@ -134,6 +134,10 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         s->decoder = (decoder_t) vc_copylineDVS10;
                         format = DXT_FORMAT_YUV422;
                         break;
+                case DPX10:        
+                        s->decoder = (decoder_t) vc_copylineDPX10toRGBA;
+                        format = DXT_FORMAT_RGBA;
+                        break;
                 default:
                         error_with_code_msg(128, "Unknown codec: %d\n", frame->color_spec);
         }

@@ -152,6 +152,10 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                         compress->decoder = (decoder_t) vc_copylineDVS10;
                         compress->frame->aux |= AUX_YUV;
                         break;
+                case DPX10:        
+                        compress->decoder = (decoder_t) vc_copylineDPX10toRGBA;
+                        compress->frame->aux |= AUX_RGB;
+                        break;
                 default:
                         error_with_code_msg(128, "Unknown codec %d!", codec);
         }

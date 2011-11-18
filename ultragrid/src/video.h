@@ -60,7 +60,8 @@ typedef enum {
         DXT1,
         DXT1_YUV,
         DXT5,
-        RGB
+        RGB,
+        DPX10
 } codec_t;
 
 /* please note that tiles have also its own widths and heights */
