@@ -482,25 +482,19 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int dst_len, i
 void
 vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
-        struct in {
-                unsigned int _u:2;
-                unsigned int b:10;
-                unsigned int g:10;
-                unsigned int r:10;
-                
-        } __attribute__((packed));
         
-       struct in *in = src;
-       int *out = dst;
+        register unsigned int *in = src;
+        register unsigned int *out = dst;
+        register int r,g,b;
        
-       while(dst_len > 0) {
-               int r = in->r >> 2;
-               int g = in->g >> 2;
-               int b = in->b >> 2;
+        while(dst_len > 0) {
+                register unsigned int val = *in;
+                r = val >> 24;
+                g = 0xff & (val >> 14);
+                b = 0xff & (val >> 4);
                 
                 *out++ = (r << rshift) | (g << gshift) | (b << bshift);
-
-                in += 1;
+                ++in;
                 dst_len -= 4;
         }
 }
