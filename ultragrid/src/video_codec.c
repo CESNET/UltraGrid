@@ -69,6 +69,7 @@ const struct codec_info_t codec_info[] = {
         {DXT1_YUV, "DXT1 YUV", 'DXTY', 1, 0.5, 0}, /* packet YCbCr inside DXT1 channels */
         {DXT5, "DXT5", 'DXT5', 1, 1.0, 1},/* DXT5 YCoCg */
         {RGB, "RGB", 0x32424752, 1, 3.0, 1},
+        {DPX10, "DPX10", 0, 1, 4.0, 1},
         {0, NULL, 0, 0, 0.0, 0}
 };
 
@@ -87,6 +88,7 @@ const struct line_decode_from_to line_decoders[] = {
         { v210, UYVY, vc_copylinev210},
         { RGBA, RGB, vc_copylineRGBAtoRGB},
         { RGB, RGBA, vc_copylineRGBtoRGBA},
+        { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { 0, 0, NULL }
 };
 
@@ -499,6 +501,26 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int dst_len, i
                 b = *src++;
                 
                 *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                dst_len -= 4;
+        }
+}
+
+void
+vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+{
+        
+        register unsigned int *in = src;
+        register unsigned int *out = dst;
+        register int r,g,b;
+       
+        while(dst_len > 0) {
+                register unsigned int val = *in;
+                r = val >> 24;
+                g = 0xff & (val >> 14);
+                b = 0xff & (val >> 4);
+                
+                *out++ = (r << rshift) | (g << gshift) | (b << bshift);
+                ++in;
                 dst_len -= 4;
         }
 }
