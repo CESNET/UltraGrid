@@ -47,7 +47,7 @@ void ExtractColorBlockRGB(out vec3 col[16], sampler2D image, vec4 texcoord, vec2
 {
     vec2 texelSize = (1.0f / imageSize);
     vec2 tex = vec2(texcoord.x, texcoord.y);
-    tex -= texelSize * vec2(2);
+    tex -= texelSize * vec2(1.5);
     for ( int i = 0; i < 4; i++ ) {
         for ( int j = 0; j < 4; j++ ) {
             col[i * 4 + j] = ConvertRGBToYCoCg(texture(image, tex + vec2(j, i) * texelSize).rgb);

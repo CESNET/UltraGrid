@@ -193,6 +193,8 @@ struct state_gl {
         double          aspect;
         double          video_aspect;
         unsigned long int frames;
+        
+        int             dxt_height;
 
         struct timeval  tv;
 };
@@ -261,7 +263,7 @@ void gl_check_error()
 		msg=glGetError();
 	}
 	if(flag)
-		exit(1);
+		abort();
 }
 
 void * display_gl_init(char *fmt, unsigned int flags) {
@@ -508,8 +510,16 @@ void gl_reconfigure_screen(struct state_gl *s)
 
         free(s->tile->data);
         
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec)
+        if(s->frame->color_spec == DXT1 || s->frame->color_spec == DXT1_YUV || s->frame->color_spec == DXT5) {
+                s->dxt_height = (s->tile->height + 3) / 4 * 4;
+                s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec)
+                        * s->dxt_height;
+        } else {
+                s->dxt_height = s->tile->height;
+                s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec)
                         * s->tile->height;
+        }
+        
         s->tile->data = (char *) malloc(s->tile->data_len);
 
 	asm("emms\n");
@@ -529,8 +539,8 @@ void gl_reconfigure_screen(struct state_gl *s)
 		glBindTexture(GL_TEXTURE_2D,s->texture_display);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-				s->tile->width, s->tile->height, 0,
-				(s->tile->width * s->tile->height/16)*8,
+				s->tile->width, s->dxt_height, 0,
+				(s->tile->width * s->dxt_height/16)*8,
 				NULL);
 		if(s->frame->color_spec == DXT1_YUV) {
 			glBindTexture(GL_TEXTURE_2D,s->texture_display);
@@ -572,10 +582,11 @@ void gl_reconfigure_screen(struct state_gl *s)
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-				s->tile->width, s->tile->height, 0,
-				s->tile->width * s->tile->height,
+				s->tile->width, s->dxt_height, 0,
+				s->tile->width * s->dxt_height,
 				NULL);
         }
+        gl_check_error();
 }
 
 void glut_idle_callback(void)
@@ -611,9 +622,9 @@ void glut_idle_callback(void)
         switch(s->frame->color_spec) {
                 case DXT1:
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->tile->width, s->tile->height,
+                                        s->tile->width, s->dxt_height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                                        (s->tile->width * s->tile->height/16)*8,
+                                        (s->tile->width * s->dxt_height/16)*8,
                                         s->tile->data);
                         break;
                 case DXT1_YUV:
@@ -636,9 +647,9 @@ void glut_idle_callback(void)
                         break;
                 case DXT5:                        
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->tile->width, s->tile->height,
+                                        s->tile->width, s->dxt_height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                                        s->tile->width * s->tile->height,
+                                        s->tile->width * s->dxt_height,
                                         s->tile->data);
                         break;
                 default:
@@ -840,19 +851,26 @@ void dxt_bind_texture(void *arg)
 
 void gl_draw(double ratio)
 {
+        float bottom;
+        
     /* Clear the screen */
     glClear(GL_COLOR_BUFFER_BIT);
 
     glLoadIdentity( );
     glTranslatef( 0.0f, 0.0f, -1.35f );
+    
+    /* Reflect that we may have taller texture than reasonable data
+     * if we use DXT and source height was not divisible by 4 
+     * In normal case, there would be 1.0 */
+    bottom = 1.0f - (gl->dxt_height - gl->tile->height) / (float) gl->dxt_height * 2;
 
     gl_check_error();
     glBegin(GL_QUADS);
       /* Front Face */
       /* Bottom Left Of The Texture and Quad */
-      glTexCoord2f( 0.0f, 1.0f ); glVertex2f( -1.0f, -1/ratio);
+      glTexCoord2f( 0.0f, bottom ); glVertex2f( -1.0f, -1/ratio);
       /* Bottom Right Of The Texture and Quad */
-      glTexCoord2f( 1.0f, 1.0f ); glVertex2f(  1.0f, -1/ratio);
+      glTexCoord2f( 1.0f, bottom ); glVertex2f(  1.0f, -1/ratio);
       /* Top Right Of The Texture and Quad */
       glTexCoord2f( 1.0f, 0.0f ); glVertex2f(  1.0f,  1/ratio);
       /* Top Left Of The Texture and Quad */

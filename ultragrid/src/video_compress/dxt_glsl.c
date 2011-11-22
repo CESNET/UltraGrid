@@ -72,6 +72,8 @@ struct video_compress {
         unsigned int interlaced_input:1;
         codec_t color_spec;
         
+        int dxt_height;
+        
         void *glx_context;
 };
 
@@ -84,7 +86,7 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
 	int h_align = 0;
         enum dxt_format format;
         
-        assert(tile_get(frame, 0, 0)->width % 4 == 0 && tile_get(frame, 0, 0)->height % 4 == 0);
+        assert(tile_get(frame, 0, 0)->width % 4 == 0);
         s->out = vf_alloc(frame->grid_width, frame->grid_height);
         
         for (x = 0; x < frame->grid_width; ++x) {
@@ -96,11 +98,6 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         tile_get(s->out, x, y)->width = tile_get(frame, 0, 0)->width;
                         tile_get(s->out, x, y)->height = tile_get(frame, 0, 0)->height;
                 }
-        }
-        
-        s->glx_context = glx_init();
-        if(!s->glx_context) {
-                error_with_code_msg(128,"[RTDXT] Error initializing glx context!");
         }
         
         s->out->aux = frame->aux;
@@ -148,15 +145,17 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         else
                 s->interlaced_input = FALSE;
         s->out->aux &= ~AUX_INTERLACED;
-        
+
+        s->dxt_height = (s->out->tiles[0].height + 3) / 4 * 4;
+
         if(s->out->color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->out->tiles[0].height, format);
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->dxt_height, format);
                 s->out->aux |= AUX_RGB;
-                s->out->tiles[0].data_len = s->out->tiles[0].width * s->out->tiles[0].height / 2;
+                s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height / 2;
         } else if(s->out->color_spec == DXT5){
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->out->tiles[0].height, format);
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->dxt_height, format);
                 s->out->aux |= AUX_YUV; /* YCoCg */
-                s->out->tiles[0].data_len = s->out->tiles[0].width * s->out->tiles[0].height;
+                s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height;
         }
         
         for (x = 0; x < frame->grid_width; ++x) {
@@ -182,7 +181,7 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                 error_with_code_msg(128, "[DXT GLSL] Failed to create encoder.\n");
         }
         
-        s->decoded = malloc(4 * s->out->tiles[0].width * s->out->tiles[0].height);
+        s->decoded = malloc(4 * s->out->tiles[0].width * s->dxt_height);
         
         s->configured = TRUE;
 }
@@ -196,6 +195,10 @@ void * dxt_glsl_compress_init(char * opts)
         s->decoded = NULL;
         
         x11_enter_thread();
+        s->glx_context = glx_init();
+        if(!s->glx_context) {
+                error_with_code_msg(128,"[RTDXT] Error initializing glx context!");
+        }
         
         if(opts && strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");
@@ -250,9 +253,21 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                                 line2 += out_tile->linesize;
                         }
                         
+                        /* if height % 4 != 0, copy last line to align */
+                        if(s->dxt_height != out_tile->height) {
+                                int y;
+                                line1 = s->decoded + out_tile->linesize * (out_tile->height - 1);
+                                for (y = out_tile->height; y < s->dxt_height; ++y)
+                                {
+                                        memcpy(line2, line1, out_tile->linesize);
+                                        line2 += out_tile->linesize;
+                                }
+                                line2 += out_tile->linesize;
+                        }
+                        
                         if(s->interlaced_input)
                                 vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
-                                                out_tile->height);
+                                                s->dxt_height);
                         
                         dxt_encoder_compress(s->encoder,
                                         (unsigned char *) s->decoded,

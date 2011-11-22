@@ -49,9 +49,12 @@
 #include "config_unix.h"
 #include "x11_common.h"
 #include <pthread.h>
+
+#ifdef HAVE_DXT_GLSL
+#include <GL/glew.h>
+#endif
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <GL/glew.h>
 #include <GL/glx.h>
 
 static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;

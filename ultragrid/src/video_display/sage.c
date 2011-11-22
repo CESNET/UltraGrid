@@ -209,7 +209,7 @@ int display_sage_putf(void *state, char *frame)
         return 0;
 }
 
-void display_sage_reconfigure(void *state, struct video_desc desc);
+void display_sage_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sage *s = (struct state_sage *)state;
 

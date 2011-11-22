@@ -68,6 +68,8 @@ struct state_decompress {
         int pitch;
         unsigned int configured:1;
         
+        int dxt_height;
+        
         void *glx_context;
 };
 
@@ -91,10 +93,13 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
                 return;
         }
         
-        decompressor->desc = desc;
-        decompressor->decoder = dxt_decoder_create(type, desc.width, desc.height);
+        decompressor->dxt_height = (desc.height + 3) / 4 * 4;
         
-        decompressor->compressed_len = desc.width * desc.height /
+        decompressor->desc = desc;
+        decompressor->decoder = dxt_decoder_create(type, desc.width,
+                        decompressor->dxt_height);
+        
+        decompressor->compressed_len = desc.width * decompressor->dxt_height /
                 (desc.color_spec == DXT5 ? 1 : 2);
         decompressor->configured = TRUE;
 }
@@ -139,12 +144,20 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         } else {
                 int i;
                 int linesize = s->desc.width * 4;
-                char *tmp = malloc(linesize * s->desc.height);
+                char *line_src, *line_dst;
+                
+                char *tmp = malloc(linesize * s->dxt_height);
                 dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
                                 (unsigned char *) tmp);
-                for(i = 0; i < s->desc.height; ++i)
-                        vc_copylineRGBA(dst + i * s->pitch, tmp + i * linesize, linesize,
+                line_dst = dst;
+                line_src = tmp;
+                for(i = (s->dxt_height - s->desc.height); i < s->dxt_height; i++) {
+                        vc_copylineRGBA(line_dst, line_src, linesize,
                                         s->rshift, s->gshift, s->bshift);
+                        line_dst += s->pitch;
+                        line_src += linesize;
+                        
+                }
                 free(tmp);
         }
 }

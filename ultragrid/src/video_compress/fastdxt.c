@@ -100,6 +100,8 @@ struct video_compress {
         sem_t thread_compress[MAX_THREADS];
         sem_t threads_done;
         
+        int dxt_height;
+        
         decoder_t decoder;
 
         struct video_frame *frame;
@@ -121,6 +123,7 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
 
         compress->tile->width = width;
         compress->tile->height = height;
+        compress->dxt_height = (compress->tile->height + 3) / 4 * 4;
         compress->frame->color_spec = codec;
         compress->frame->aux = aux;
         compress->frame->fps = fps;
@@ -181,16 +184,16 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
         compress->frame->aux &= ~AUX_INTERLACED;
 
         for (x = 0; x < compress->num_threads; x++) {
-                int my_height = (height / compress->num_threads) / 4 * 4;
+                int my_height = (compress->dxt_height / compress->num_threads) / 4 * 4;
                 if(x == compress->num_threads - 1) {
-                        my_height = compress->tile->height - my_height /* "their height" */ * x;
+                        my_height = compress->dxt_height - my_height /* "their height" */ * x;
                 }
                 compress->buffer[x] =
                     (unsigned char *)malloc(width * my_height * 4);
         }
 #ifdef HAVE_MACOSX
-        compress->output_data = (unsigned char *)malloc(width * height * 4);
-        compress->tile->data = (char *)malloc(width * height * 4);
+        compress->output_data = (unsigned char *)malloc(width * compress->dxt_height * 4);
+        compress->tile->data = (char *)malloc(width * compress->dxt_height * 4);
 #else
         /*
          *  memalign doesn't exist on Mac OS. malloc always returns 16  
@@ -198,11 +201,11 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
          *
          *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
          */
-        compress->output_data = (unsigned char *)memalign(16, width * height * 4);
-        compress->tile->data = (char *)memalign(16, width * height * 4);
+        compress->output_data = (unsigned char *)memalign(16, width * compress->dxt_height * 4);
+        compress->tile->data = (char *)memalign(16, width * compress->dxt_height * 4);
 #endif                          /* HAVE_MACOSX */
-        memset(compress->output_data, 0, width * height * 4);
-        memset(compress->tile->data, 0, width * height * 4 / 8);
+        memset(compress->output_data, 0, width * compress->dxt_height * 4);
+        memset(compress->tile->data, 0, width * compress->dxt_height * 4 / 8);
 }
 
 void *fastdxt_init(const char *num_threads_str)
@@ -270,7 +273,6 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
 
         assert(tx->grid_height == 1 && tx->grid_width == 1);
         assert(tile_get(tx, 0, 0)->width % 4 == 0);
-        assert(tile_get(tx, 0, 0)->height % 4 == 0);
         
         pthread_mutex_lock(&(compress->lock));
 
