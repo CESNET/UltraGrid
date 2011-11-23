@@ -99,7 +99,7 @@ void show_codec_help(char *module)
         printf("\t\t8bits\n");
 
         printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
-        printf("\t\t\t'RGB' - Red Green Blue Alpha 24bit\n");
+        printf("\t\t\t'RGB' - Red Green Blue 24bit\n");
         printf("\t\t\t'UYVY' - YUV 4:2:2\n");
 	printf("\t\t\t'2vuy' - YUV 4:2:2\n");
         printf("\t\t\t'DVS8' - Centaurus 8bit YUV 4:2:2\n");

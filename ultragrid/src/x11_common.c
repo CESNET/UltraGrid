@@ -47,6 +47,7 @@
 
 #include "config.h"
 #include "config_unix.h"
+#include "debug.h"
 #include "x11_common.h"
 #include <pthread.h>
 
@@ -58,13 +59,39 @@
 #include <GL/glx.h>
 
 static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;
+static volatile int threads_init = FALSE;
+static Display *display = NULL;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+static int display_opened_here = TRUE; /* indicates wheather we opened the display
+                                          in such a case, we count references and if 0,
+                                          we close it */
+static int ref_num = 0;
 
  void x11_enter_thread(void)
  {
- #ifndef HAVE_MACOSX
-         pthread_once(&XInitThreadsHasRun, XInitThreads);
- #endif
+         pthread_mutex_lock(&lock);
+         pthread_once(&XInitThreadsHasRun, (void ((*)(void)))XInitThreads);
+         threads_init = TRUE;
+         pthread_mutex_unlock(&lock);
  }
+  
+void x11_set_display(void *disp)
+{
+        Display *d = disp;
+        if (d == NULL)
+                return;
+        pthread_mutex_lock(&lock);
+        if(display != NULL) {
+                fprintf(stderr, __FILE__ ": Fatal error: Display already set.");
+                abort();
+        }
+        if(threads_init == FALSE) {
+                fprintf(stderr, __FILE__ ": WARNING: Doesn't entered threads. Please report a bug.");
+        }
+        display = d;
+        display_opened_here = FALSE;
+        pthread_mutex_unlock(&lock);
+}
 
 #ifdef HAVE_DXT_GLSL
 /*
@@ -74,7 +101,6 @@ static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;
  
 struct state_glx
 {
-        Display *display;
         GLXContext ctx;
         Window win;
         Colormap cmap;
@@ -93,14 +119,31 @@ void glx_free(void *arg)
 {
         struct state_glx *context = (struct state_glx *) arg;
         
-        glXMakeCurrent( context->display, context->win, context->ctx );
-        glXDestroyContext( context->display, context->ctx );
-        
-        XDestroyWindow( context->display, context->win );
-        XFreeColormap( context->display, context->cmap );
-        XCloseDisplay( context->display );
-        free(context);
+        pthread_mutex_lock(&lock);
+        XLockDisplay(display);
+        glXMakeCurrent( display, context->win, context->ctx );
+        glXDestroyContext( display, context->ctx );
         fprintf(stderr, "GLX context destroyed\n");
+        
+        XDestroyWindow( display, context->win );
+        XFreeColormap( display, context->cmap );
+        
+        ref_num--;
+        
+        if(ref_num < 0) {
+                fprintf(stderr, __FILE__ ": WARNING: Unpaired glx_free call.");
+        }
+        
+        XUnlockDisplay(display);
+        
+        if(display_opened_here && ref_num == 0) {
+                fprintf(stderr, "Display closed\n");
+                XCloseDisplay( display );
+                display = NULL; /* should it be here? eg. is legal to reopen display? */
+        }
+        free(context);
+        
+        pthread_mutex_unlock(&lock);
 }
 
 // Helper to check for extension string presence.  Adapted from:
@@ -139,6 +182,8 @@ static int isExtensionSupported(const char *extList, const char *extension)
 static int ctxErrorOccurred = FALSE;
 static int ctxErrorHandler( Display *dpy, XErrorEvent *ev )
 {
+        UNUSED(dpy);
+        UNUSED(ev);
     ctxErrorOccurred = TRUE;
     return 0;
 }
@@ -148,14 +193,24 @@ void *glx_init()
         struct state_glx *context;
         
         context = (struct state_glx *) malloc(sizeof(struct state_glx));
-        context->display = XOpenDisplay(0);
+        pthread_mutex_lock(&lock);
+        if(!display) {
+                display = XOpenDisplay(0);
+                display_opened_here = TRUE;
+        }
+        
+        if ( !display )
+        {
+                fprintf(stderr, "Failed to open X display\n" );
+                free(context);
+                pthread_mutex_unlock(&lock);
+                return NULL;
+        }
+        
+        ref_num++;
+        XLockDisplay(display);
  
-  if ( !context->display )
-  {
-    printf( "Failed to open X display\n" );
-    free(context);
-    return NULL;
-  }
+  
  
   // Get a matching FB config
   static int visual_attribs[] =
@@ -179,23 +234,21 @@ void *glx_init()
   int glx_major, glx_minor;
  
   // FBConfigs were added in GLX version 1.3.
-  if ( !glXQueryVersion( context->display, &glx_major, &glx_minor ) || 
+  if ( !glXQueryVersion( display, &glx_major, &glx_minor ) || 
        ( ( glx_major == 1 ) && ( glx_minor < 3 ) ) || ( glx_major < 1 ) )
   {
     printf( "Invalid GLX version" );
-    free(context);
-    return NULL;
+    goto error;
   }
  
   printf( "Getting matching framebuffer configs\n" );
   int fbcount;
-  GLXFBConfig *fbc = glXChooseFBConfig( context->display, DefaultScreen( context->display ), 
+  GLXFBConfig *fbc = glXChooseFBConfig( display, DefaultScreen( display ), 
                                         visual_attribs, &fbcount );
   if ( !fbc )
   {
     printf( "Failed to retrieve a framebuffer config\n" );
-    free(context);
-    return NULL;
+    goto error;
   }
   printf( "Found %d matching FB configs.\n", fbcount );
  
@@ -206,18 +259,18 @@ void *glx_init()
   int i;
   for ( i = 0; i < fbcount; i++ )
   {
-    XVisualInfo *vi = glXGetVisualFromFBConfig( context->display, fbc[i] );
+    XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
     if ( vi )
     {
       int samp_buf, samples;
-      glXGetFBConfigAttrib( context->display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
-      glXGetFBConfigAttrib( context->display, fbc[i], GLX_SAMPLES       , &samples  );
+      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, &samp_buf );
+      glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , &samples  );
  
       printf( "  Matching fbconfig %d, visual ID 0x%2x: SAMPLE_BUFFERS = %d,"
               " SAMPLES = %d\n", 
-              i, vi -> visualid, samp_buf, samples );
+              i, (unsigned int) vi -> visualid, samp_buf, samples );
  
-      if ( best_fbc < 0 || samp_buf && samples > best_num_samp )
+      if ( best_fbc < 0 || (samp_buf && samples > best_num_samp ))
         best_fbc = i, best_num_samp = samples;
       if ( worst_fbc < 0 || !samp_buf || samples < worst_num_samp )
         worst_fbc = i, worst_num_samp = samples;
@@ -231,28 +284,27 @@ void *glx_init()
   XFree( fbc );
  
   // Get a visual
-  XVisualInfo *vi = glXGetVisualFromFBConfig( context->display, bestFbc );
-  printf( "Chosen visual ID = 0x%x\n", vi->visualid );
+  XVisualInfo *vi = glXGetVisualFromFBConfig( display, bestFbc );
+  printf( "Chosen visual ID = 0x%x\n", (unsigned int) vi->visualid );
  
   printf( "Creating colormap\n" );
   XSetWindowAttributes swa;
-  swa.colormap = context->cmap = XCreateColormap( context->display,
-                                         RootWindow( context->display, vi->screen ), 
+  swa.colormap = context->cmap = XCreateColormap( display,
+                                         RootWindow( display, vi->screen ), 
                                          vi->visual, AllocNone );
   swa.background_pixmap = None ;
   swa.border_pixel      = 0;
   swa.event_mask        = StructureNotifyMask;
  
   printf( "Creating window\n" );
-  context->win = XCreateWindow( context->display, RootWindow( context->display, vi->screen ), 
+  context->win = XCreateWindow( display, RootWindow( display, vi->screen ), 
                               0, 0, 100, 100, 0, vi->depth, InputOutput, 
                               vi->visual, 
                               CWBorderPixel|CWColormap|CWEventMask, &swa );
   if ( !context->win )
   {
     printf( "Failed to create window.\n" );
-    free(context);
-    return NULL;
+    goto error;
   }
  
   // Done with the visual info data
@@ -265,8 +317,8 @@ void *glx_init()
   XMapWindow( display, win );*/
  
   // Get the default screen's GLX extension list
-  const char *glxExts = glXQueryExtensionsString( context->display,
-                                                  DefaultScreen( context->display ) );
+  const char *glxExts = glXQueryExtensionsString( display,
+                                                  DefaultScreen( display ) );
  
   // NOTE: It is not necessary to create or make current to a context before
   // calling glXGetProcAddressARB
@@ -293,7 +345,7 @@ void *glx_init()
   {
     printf( "glXCreateContextAttribsARB() not found"
             " ... using old-style GLX context\n" );
-    context->ctx = glXCreateNewContext( context->display, bestFbc, GLX_RGBA_TYPE, 0, True );
+    context->ctx = glXCreateNewContext( display, bestFbc, GLX_RGBA_TYPE, 0, True );
   }
  
   // If it does, try to get a GL 3.0 context!
@@ -308,11 +360,11 @@ void *glx_init()
       };
  
     printf( "Creating context\n" );
-    context->ctx = glXCreateContextAttribsARB( context->display, bestFbc, 0,
+    context->ctx = glXCreateContextAttribsARB( display, bestFbc, 0,
                                       True, context_attribs );
  
     // Sync to ensure any errors generated are processed.
-    XSync( context->display, False );
+    XSync( display, False );
     if ( !ctxErrorOccurred && context->ctx )
       printf( "Created GL 3.0 context\n" );
     else
@@ -330,13 +382,13 @@ void *glx_init()
  
       printf( "Failed to create GL 3.0 context"
               " ... using old-style GLX context\n" );
-      context->ctx = glXCreateContextAttribsARB( context->display, bestFbc, 0, 
+      context->ctx = glXCreateContextAttribsARB( display, bestFbc, 0, 
                                         True, context_attribs );
     }
   }
  
   // Sync to ensure any errors generated are processed.
-  XSync( context->display, False );
+  XSync( display, False );
  
   // Restore the original error handler
   XSetErrorHandler( oldHandler );
@@ -344,12 +396,11 @@ void *glx_init()
   if ( ctxErrorOccurred || !context->ctx )
   {
     printf( "Failed to create an OpenGL context\n" );
-    free(context);
-    return NULL;
+    goto error;
   }
  
   // Verifying that context is a direct context
-  if ( ! glXIsDirect ( context->display, context->ctx ) )
+  if ( ! glXIsDirect ( display, context->ctx ) )
   {
     printf( "Indirect GLX rendering context obtained\n" );
   }
@@ -359,11 +410,20 @@ void *glx_init()
   }
  
   printf( "Making context current\n" );
-  glXMakeCurrent( context->display, context->win, context->ctx );
+  glXMakeCurrent( display, context->win, context->ctx );
 
-  glewInit();
+        glewInit();
+        
+        XUnlockDisplay(display);
+        pthread_mutex_unlock(&lock);
   
-  return context;
+        return context;
+
+error:
+        free(context);
+        XUnlockDisplay(display);
+        pthread_mutex_unlock(&lock);
+        return NULL;
 }
 
 #endif /* HAVE_DXT_GLSL */

@@ -62,6 +62,7 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "perf.h"
+#include "rtp/decoders.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -706,7 +707,7 @@ int main(int argc, char *argv[])
         uv->participants = pdb_init();
 
         if ((uv->capture_device =
-             initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
+                        initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
                 return EXIT_FAIL_CAPTURE;

@@ -595,14 +595,6 @@ void *display_sdl_init(char *fmt, unsigned int flags)
 
         asm("emms\n");
         
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
-
-        s->semaphore = SDL_CreateSemaphore(0);
-        s->buffer_writable = 1;
-        s->buffer_writable_lock = SDL_CreateMutex();
-        s->buffer_writable_cond = SDL_CreateCond();
-
 #ifdef HAVE_MACOSX
         /* Startup function to call when running Cocoa code from a Carbon application. 
          * Whatever the fuck that means. 
@@ -614,10 +606,19 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         s->sdl_screen = NULL;
 
         ret = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE);
+        
         if (ret < 0) {
                 printf("Unable to initialize SDL.\n");
                 return NULL;
         }
+        
+        s->semaphore = SDL_CreateSemaphore(0);
+        s->buffer_writable = 1;
+        s->buffer_writable_lock = SDL_CreateMutex();
+        s->buffer_writable_cond = SDL_CreateCond();
+
+        s->frame = vf_alloc(1, 1);
+        s->tile = tile_get(s->frame, 0, 0);
 
 	video_info = SDL_GetVideoInfo();
         s->screen_w = video_info->current_w;
@@ -626,6 +627,21 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         struct video_desc desc = {500, 500, RGBA, 0, 30.0};
         display_sdl_reconfigure(s, desc);
         loadSplashscreen(s);	
+
+        SDL_SysWMinfo info;
+        memset(&info, 0, sizeof(SDL_SysWMinfo));
+        ret = SDL_GetWMInfo(&info);
+#ifndef HAVE_MACOS_X
+        if (ret == 1) {
+                x11_set_display(info.info.x11.display);
+        } else if (ret == 0) {
+                fprintf(stderr, "[SDL] Warning: SDL_GetWMInfo unimplemented\n");
+        } else if (ret == -1) {
+                fprintf(stderr, "[SDL] Warning: SDL_GetWMInfo failure: %s\n", SDL_GetError());
+        }
+        
+#endif
+
 
         /*if (pthread_create(&(s->thread_id), NULL, 
                            display_thread_sdl, (void *)s) != 0) {

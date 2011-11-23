@@ -282,7 +282,8 @@ void dxt_glsl_compress_done(void *arg)
 {
         struct video_compress *s = (struct video_compress *) arg;
         
-        free(s->out->tiles[0].data);
+        if(s->out)
+                free(s->out->tiles[0].data);
         vf_free(s->out);
         
         glx_free(s->glx_context);

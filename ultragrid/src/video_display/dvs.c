@@ -111,9 +111,6 @@ void * openDVSLibrary()
         
 
         handle = dlopen(kLibName, RTLD_NOW|RTLD_GLOBAL);
-        if(!handle)
-                fprintf(stderr, "Library opening error: %s \n", dlerror());
-
         
         if(!handle && stat("/usr/local/lib/" kLibName, &buf) == 0) {
                 handle = dlopen("/usr/local/lib/" kLibName, RTLD_NOW|RTLD_GLOBAL);
@@ -154,6 +151,10 @@ void * openDVSLibrary()
 
                 free(path);
                 free(path_to_self);
+        }
+        
+        if(!handle) {
+                fprintf(stderr, "[DVS] Fatal: unable to find DVS library.\n");
         }
                 
         return handle;
