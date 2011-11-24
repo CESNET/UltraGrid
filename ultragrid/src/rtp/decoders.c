@@ -467,7 +467,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
         struct tile *tile = NULL;
         unsigned int total_bytes = 0u;
 
-        perf_record(UVP_DECODEFRAME, framebuffer);
+        perf_record(UVP_DECODEFRAME, frame);
 
         if(!frame)
                 return;
