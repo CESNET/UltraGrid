@@ -150,7 +150,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
@@ -306,12 +306,16 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     
     TIMER_START();
     
-    // Compress    
+    // Zero position
+    float x0 = 1.0f / (float)encoder->width;
+    float y0 = 1.0f / (float)encoder->height;
+    
+    // Compress
     glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-    glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+    glTexCoord2f(x0, y0); glVertex2f(-1.0, -1.0);
+    glTexCoord2f(1.0, y0); glVertex2f(1.0, -1.0);
     glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-    glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+    glTexCoord2f(x0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
         
 #ifdef DEBUG
