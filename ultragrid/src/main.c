@@ -118,6 +118,7 @@ struct state_uv {
 
 long packet_rate = 13600;
 int should_exit = FALSE;
+
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
 uint32_t hd_color_spc = 0;

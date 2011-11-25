@@ -324,7 +324,7 @@ void * sdi_capture_init(char *cfg)
         struct state_sdi_capture *s;
         UNUSED(cfg);
         
-        s = (struct state_sdi_capture *) malloc(sizeof(struct state_sdi_capture));
+        s = (struct state_sdi_capture *) calloc(1, sizeof(struct state_sdi_capture));
         platform_sem_init(&s->audio_frame_ready, 0, 0);
         
         return s;
@@ -332,7 +332,7 @@ void * sdi_capture_init(char *cfg)
 
 void * sdi_playback_init(char *cfg)
 {
-        struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
+        struct state_sdi_playback *s = calloc(1, sizeof(struct state_sdi_playback));
         UNUSED(cfg);
         s->get_callback = NULL;
         s->put_callback = NULL;

@@ -255,7 +255,6 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         BMDPixelFormat                    pixelFormat;
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
-        int tile_width, tile_height;
         int h_align = 0;
 
         assert(s->magic == DECKLINK_MAGIC);
@@ -273,7 +272,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                                 
                 tile->width = desc.width / x_count;
                 tile->height = desc.height / y_count;
-                tile->linesize = vc_get_linesize(tile_width, s->frame->color_spec);
+                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
                 tile->data_len = tile->linesize * tile->height;
                 
                 switch (desc.color_spec) {
@@ -309,8 +308,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 #else
                                 modeNameCString = modeNameString;
 #endif
-                                if (deckLinkDisplayMode->GetWidth() == tile_width &&
-                                                deckLinkDisplayMode->GetHeight() == tile_height)
+                                if (deckLinkDisplayMode->GetWidth() == tile->width &&
+                                                deckLinkDisplayMode->GetHeight() == tile->height)
                                 {
                                         double displayFPS;
                                         BMDFieldDominance dominance;
@@ -347,7 +346,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 }
 
                 //Generate a frame of black
-                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile_width, tile_height,
+                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile->width, tile->height,
                                 tile->linesize, pixelFormat, bmdFrameFlagDefault,
                                 &s->state[i].deckLinkFrame) != S_OK)
                 {
@@ -520,7 +519,7 @@ int display_decklink_get_property(void *state, int property, void *val, int *len
                         *len = sizeof(codecs);
                         break;
                 case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
+                        *(int *) val = 16;
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_GSHIFT:
@@ -528,7 +527,7 @@ int display_decklink_get_property(void *state, int property, void *val, int *len
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
+                        *(int *) val = 0;
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
