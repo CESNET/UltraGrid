@@ -27,6 +27,10 @@
 #ifndef JPEG_READER
 #define JPEG_READER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /** JPEG decoder structure predeclaration */
@@ -63,5 +67,9 @@ jpeg_reader_destroy(struct jpeg_reader* reader);
  */
 int
 jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_size);
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif
 
 #endif // JPEG_WRITER

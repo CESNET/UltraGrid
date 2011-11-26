@@ -34,7 +34,7 @@
 struct jpeg_decoder*
 jpeg_decoder_create(struct jpeg_image_parameters* param_image)
 {
-    struct jpeg_decoder* decoder = malloc(sizeof(struct jpeg_decoder));
+    struct jpeg_decoder* decoder = (struct jpeg_decoder *) malloc(sizeof(struct jpeg_decoder));
     if ( decoder == NULL )
         return NULL;
         

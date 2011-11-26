@@ -27,6 +27,10 @@
 #ifndef JPEG_TABLE
 #define JPEG_TABLE
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "jpeg_type.h"
 
 /** JPEG natural order from zigzag order */
@@ -160,5 +164,9 @@ jpeg_table_huffman_decoder_init(struct jpeg_table_huffman_decoder* table, struct
  */
 void
 jpeg_table_huffman_decoder_compute(struct jpeg_table_huffman_decoder* table, struct jpeg_table_huffman_decoder* d_table);
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif
 
 #endif // JPEG_TABLE

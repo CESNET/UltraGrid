@@ -27,6 +27,10 @@
 #ifndef JPEG_DECODER
 #define JPEG_DECODER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "jpeg_common.h"
 #include "jpeg_table.h"
 #include "jpeg_reader.h"
@@ -145,5 +149,9 @@ jpeg_decoder_decode(struct jpeg_decoder* decoder, uint8_t* image, int image_size
  */
 int
 jpeg_decoder_destroy(struct jpeg_decoder* decoder);
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif
 
 #endif // JPEG_ENCODER

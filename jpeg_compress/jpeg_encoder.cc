@@ -47,7 +47,7 @@ jpeg_encoder_create(struct jpeg_image_parameters* param_image, struct jpeg_encod
 {
     assert(param_image->comp_count == 3);
     
-    struct jpeg_encoder* encoder = malloc(sizeof(struct jpeg_encoder));
+    struct jpeg_encoder* encoder = (struct jpeg_encoder *) malloc(sizeof(struct jpeg_encoder));
     if ( encoder == NULL )
         return NULL;
         
@@ -123,13 +123,13 @@ jpeg_encoder_create(struct jpeg_image_parameters* param_image, struct jpeg_encod
     
     // Init quantization tables for encoder
     for ( int comp_type = 0; comp_type < JPEG_COMPONENT_TYPE_COUNT; comp_type++ ) {
-        if ( jpeg_table_quantization_encoder_init(&encoder->table_quantization[comp_type], comp_type, encoder->param.quality) != 0 )
+        if ( jpeg_table_quantization_encoder_init(&encoder->table_quantization[comp_type], (jpeg_component_type) comp_type, encoder->param.quality) != 0 )
             result = 0;
     }
     // Init huffman tables for encoder
     for ( int comp_type = 0; comp_type < JPEG_COMPONENT_TYPE_COUNT; comp_type++ ) {
         for ( int huff_type = 0; huff_type < JPEG_HUFFMAN_TYPE_COUNT; huff_type++ ) {
-            if ( jpeg_table_huffman_encoder_init(&encoder->table_huffman[comp_type][huff_type], encoder->d_table_huffman[comp_type][huff_type], comp_type, huff_type) != 0 )
+            if ( jpeg_table_huffman_encoder_init(&encoder->table_huffman[comp_type][huff_type], encoder->d_table_huffman[comp_type][huff_type], (jpeg_component_type) comp_type, (jpeg_huffman_type) huff_type) != 0 )
                 result = 0;
         }
     }

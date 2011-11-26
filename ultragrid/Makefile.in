@@ -8,15 +8,16 @@ CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = @CXXFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS          = @DXT_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
-                @X_LIBS@ @X_EXTRA_LIBS@ @JACK_LIB@ @MATHLIBS@ @LIBS@ -lm -pthread
+                @X_LIBS@ @X_EXTRA_LIBS@ @JACK_LIB@ @MATHLIBS@ @LIBS@ @JPEG_LIB@ -lm -pthread
 INC           = -I.. -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_INC@
+                @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_INC@ @JPEG_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
 DVS_UV_LIB    = @DVS_UV_LIB@
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
+NVCC	      = @NVCC@
 
 PREFIX = @prefix@
 prefix = $(PREFIX)
@@ -78,7 +79,8 @@ OBJS          = src/bitstream.o \
 		@GL_OBJ@ \
 		@SAGE_OBJ@ \
 		@COMPRESS_OBJ@ \
-		@DXT_GLSL_OBJS@
+		@DXT_GLSL_OBJS@ \
+		@JPEG_OBJ@
 		
 DVS_UV_LIB_OBJ  = \
 		src/audio/utils.o \
@@ -104,6 +106,14 @@ $(TARGET): src/version.h $(OBJS) src/main.o
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+	
+# Set suffix for CUDA files
+.SUFFIXES: .cu
+
+# Pattern rule for compiling CUDA files
+%.cu.o: %.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) $(CXXFLAGS) -Wno-multichar -fno-rtti -O3 -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
@@ -116,6 +126,27 @@ src/video_display/decklink.o: src/video_display/decklink.cpp
 
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CXXFLAGS) -Wno-deprecated -fPIC -O3 -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
+
+../jpeg_compress/jpeg_encoder.o: ../jpeg_compress/jpeg_encoder.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
+
+../jpeg_compress/jpeg_decoder.o: ../jpeg_compress/jpeg_decoder.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
+
+../jpeg_compress/jpeg_writer.o: ../jpeg_compress/jpeg_writer.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
+
+../jpeg_compress/jpeg_reader.o: ../jpeg_compress/jpeg_reader.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
+
+../jpeg_compress/jpeg_table.o: ../jpeg_compress/jpeg_table.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
+	
+../jpeg_compress/jpeg_huffman_cpu_encoder.o: ../jpeg_compress/jpeg_huffman_cpu_encoder.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
+
+../jpeg_compress/jpeg_huffman_cpu_decoder.o: ../jpeg_compress/jpeg_huffman_cpu_decoder.cc
+	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
 
 ../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@

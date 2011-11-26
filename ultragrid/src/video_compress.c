@@ -56,6 +56,7 @@
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
 #include "video_compress/fastdxt.h"
+#include "video_compress/jpeg.h"
 
 struct compress_t {
         const char * name;
@@ -75,6 +76,9 @@ const struct compress_t compress_modules[] = {
 #endif
 #ifdef HAVE_DXT_GLSL
         {"RTDXT", dxt_glsl_compress_init, dxt_glsl_compress, dxt_glsl_compress_done},
+#endif
+#ifdef HAVE_JPEG
+        {"JPEG", jpeg_compress_init, jpeg_compress, jpeg_compress_done},
 #endif
         {NULL, NULL, NULL, NULL}
 };

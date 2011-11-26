@@ -27,6 +27,10 @@
 #ifndef JPEG_WRITER
 #define JPEG_WRITER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "jpeg_type.h"
 
 /** JPEG encoder structure predeclaration */
@@ -113,5 +117,9 @@ jpeg_writer_write_header(struct jpeg_encoder* encoder);
  */
 void
 jpeg_writer_write_scan_header(struct jpeg_encoder* encoder, int index, enum jpeg_component_type type);
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif
 
 #endif // JPEG_WRITER

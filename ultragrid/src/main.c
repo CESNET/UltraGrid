@@ -845,7 +845,8 @@ int main(int argc, char *argv[])
                                 should_exit = TRUE;
                         }
                 }
-                if (strcmp("none", uv->requested_capture) != 0) {
+                if (strcmp("none", uv->requested_capture) != 0 ||
+                                uv->requested_compression) {
                         if (pthread_create
                             (&sender_thread_id, NULL, sender_thread,
                              (void *)uv) != 0) {
@@ -867,7 +868,7 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (strcmp("none", uv->requested_capture) != 0)
+        if (strcmp("none", uv->requested_capture) != 0 || uv->requested_compression)
                 pthread_join(sender_thread_id, NULL);
         
         /* also wait for audio threads */

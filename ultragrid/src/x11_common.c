@@ -120,8 +120,9 @@ void glx_free(void *arg)
         struct state_glx *context = (struct state_glx *) arg;
         
         pthread_mutex_lock(&lock);
-        XLockDisplay(display);
+        
         glXMakeCurrent( display, context->win, context->ctx );
+        XLockDisplay(display);
         glXDestroyContext( display, context->ctx );
         fprintf(stderr, "GLX context destroyed\n");
         

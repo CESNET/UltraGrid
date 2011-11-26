@@ -33,7 +33,7 @@
 struct jpeg_reader*
 jpeg_reader_create()
 {
-    struct jpeg_reader* reader = malloc(sizeof(struct jpeg_reader));
+    struct jpeg_reader* reader = (struct jpeg_reader *) malloc(sizeof(struct jpeg_reader));
     if ( reader == NULL )
         return NULL;
     
@@ -465,7 +465,7 @@ jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_s
     // Check first SOI marker
     int marker_soi = jpeg_reader_read_marker(&image);
     if ( marker_soi != JPEG_MARKER_SOI ) {
-        fprintf(stderr, "Error: JPEG data should begin with SOI marker, but marker %s was found!\n", jpeg_marker_name(marker_soi));
+        fprintf(stderr, "Error: JPEG data should begin with SOI marker, but marker %s was found!\n", jpeg_marker_name((jpeg_marker_code) marker_soi));
         return -1;
     }
         
@@ -497,7 +497,7 @@ jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_s
         case JPEG_MARKER_APP13:
         case JPEG_MARKER_APP14:
         case JPEG_MARKER_APP15:
-            fprintf(stderr, "Warning: JPEG data contains not supported %s marker\n", jpeg_marker_name(marker));
+            fprintf(stderr, "Warning: JPEG data contains not supported %s marker\n", jpeg_marker_name((jpeg_marker_code) marker));
             jpeg_reader_skip_marker_content(&image);
             break;
             
@@ -513,7 +513,7 @@ jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_s
             break;
         case JPEG_MARKER_SOF1:
             // Extended sequential with Huffman coder
-            fprintf(stderr, "Warning: Reading SOF1 as it was SOF0 marker (should work but verify it)!\n", jpeg_marker_name(marker));
+            fprintf(stderr, "Warning: Reading SOF1 as it was SOF0 marker (should work but verify it)!\n", jpeg_marker_name((jpeg_marker_code)marker));
             if ( jpeg_reader_read_sof0(decoder, &image) != 0 )
                 return -1;
             break;
@@ -573,12 +573,12 @@ jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_s
         case JPEG_MARKER_COM:
         case JPEG_MARKER_DAC:
         case JPEG_MARKER_DNL:
-            fprintf(stderr, "Warning: JPEG data contains not supported %s marker\n", jpeg_marker_name(marker));
+            fprintf(stderr, "Warning: JPEG data contains not supported %s marker\n", jpeg_marker_name((jpeg_marker_code)marker));
             jpeg_reader_skip_marker_content(&image);
             break;
             
         default:   
-            fprintf(stderr, "Error: JPEG data contains not supported %s marker!\n", jpeg_marker_name(marker));
+            fprintf(stderr, "Error: JPEG data contains not supported %s marker!\n", jpeg_marker_name((jpeg_marker_code)marker));
             jpeg_reader_skip_marker_content(&image);
             return -1;
         }

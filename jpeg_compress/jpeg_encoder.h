@@ -27,6 +27,10 @@
 #ifndef JPEG_ENCODER
 #define JPEG_ENCODER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "jpeg_common.h"
 #include "jpeg_table.h"
 #include "jpeg_writer.h"
@@ -138,5 +142,9 @@ jpeg_encoder_encode(struct jpeg_encoder* encoder, uint8_t* image, uint8_t** imag
  */
 int
 jpeg_encoder_destroy(struct jpeg_encoder* encoder);
+#ifdef __cplusplus
+} // END extern "C"
+#endif
+
 
 #endif // JPEG_ENCODER

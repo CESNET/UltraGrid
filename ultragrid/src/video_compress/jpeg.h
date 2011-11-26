@@ -1,5 +1,5 @@
 /*
- * FILE:    video_decompress.c
+ * FILE:    dxt_glsl_compress.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -45,32 +45,8 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#include "video.h"
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include "video_codec.h"
-#include "video_decompress.h"
-#include "video_decompress/dxt_glsl.h"
-#include "video_decompress/jpeg.h"
-
-const struct decode_from_to decoders[] = {
-#ifdef HAVE_DXT_GLSL
-        { DXT1, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT1_YUV, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT5, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-#endif
-#ifdef HAVE_JPEG
-        { JPEG, RGB, jpeg_decompress_init, jpeg_decompress_reconfigure,
-                jpeg_decompress, jpeg_decompress_done},
-#endif
-        { 0, 0, NULL, NULL, NULL, NULL, NULL }
-};
-
-
+void * jpeg_compress_init(char * opts);
+struct video_frame * jpeg_compress(void *args, struct video_frame * tx);
+void jpeg_compress_done(void *args);

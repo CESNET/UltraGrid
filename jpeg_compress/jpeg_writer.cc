@@ -33,14 +33,14 @@
 struct jpeg_writer*
 jpeg_writer_create(struct jpeg_encoder* encoder)
 {
-    struct jpeg_writer* writer = malloc(sizeof(struct jpeg_writer));
+    struct jpeg_writer* writer = (struct jpeg_writer *) malloc(sizeof(struct jpeg_writer));
     if ( writer == NULL )
         return NULL;
     
     // Allocate output buffer
     int buffer_size = 1000;
     buffer_size += encoder->param_image.width * encoder->param_image.height * encoder->param_image.comp_count * 2;
-    writer->buffer = malloc(buffer_size * sizeof(uint8_t));
+    writer->buffer = (uint8_t *) malloc(buffer_size * sizeof(uint8_t));
     if ( writer->buffer == NULL )
         return NULL;
     

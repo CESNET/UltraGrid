@@ -29,6 +29,10 @@
 
 #include "jpeg_decoder.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Perform huffman decoding
  * 
@@ -36,5 +40,9 @@
  */
 int
 jpeg_huffman_cpu_decoder_decode(struct jpeg_decoder* decoder, enum jpeg_component_type type, struct jpeg_decoder_scan* scan, int16_t* data_decompressed);
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif
 
 #endif // JPEG_HUFFMAN_CPU_DECODER
