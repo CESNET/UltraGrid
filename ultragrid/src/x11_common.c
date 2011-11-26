@@ -121,8 +121,9 @@ void glx_free(void *arg)
         
         pthread_mutex_lock(&lock);
         
-        glXMakeCurrent( display, context->win, context->ctx );
         XLockDisplay(display);
+        glXMakeCurrent( display, context->win, context->ctx );
+        
         glXDestroyContext( display, context->ctx );
         fprintf(stderr, "GLX context destroyed\n");
         
@@ -138,9 +139,9 @@ void glx_free(void *arg)
         XUnlockDisplay(display);
         
         if(display_opened_here && ref_num == 0) {
-                fprintf(stderr, "Display closed\n");
+                fprintf(stderr, "Display closed (last client disconnected)\n");
                 XCloseDisplay( display );
-                display = NULL; /* should it be here? eg. is legal to reopen display? */
+                display = NULL;
         }
         free(context);
         

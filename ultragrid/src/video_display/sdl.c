@@ -115,6 +115,9 @@ struct state_sdl {
         
         int                     rshift, gshift, bshift;
         int                     pitch;
+#ifndef HAVE_MACOS_X
+        Display                *display;
+#endif
 };
 
 extern int should_exit;
@@ -432,6 +435,9 @@ void display_sdl_reconfigure(void *state, struct video_desc desc)
                                 s->buffer_writable_lock);
         SDL_mutexV(s->buffer_writable_lock);
 
+#ifndef HAVE_MACOS_X
+        if(s->display) XLockDisplay(s->display);
+#endif
 	cleanup_screen(s);
 
         s->tile->width = desc.width;
@@ -549,6 +555,11 @@ void display_sdl_reconfigure(void *state, struct video_desc desc)
                 s->pitch = PITCH_DEFAULT;
         }
         
+        
+#ifndef HAVE_MACOS_X
+        if(s->display) XUnlockDisplay(s->display);
+#endif
+
         s->rshift = s->sdl_screen->format->Rshift;
         s->gshift = s->sdl_screen->format->Gshift;
         s->bshift = s->sdl_screen->format->Bshift;
@@ -624,23 +635,24 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         s->screen_w = video_info->current_w;
         s->screen_h = video_info->current_h;
         
-        struct video_desc desc = {500, 500, RGBA, 0, 30.0};
-        display_sdl_reconfigure(s, desc);
-        loadSplashscreen(s);	
-
         SDL_SysWMinfo info;
         memset(&info, 0, sizeof(SDL_SysWMinfo));
         ret = SDL_GetWMInfo(&info);
 #ifndef HAVE_MACOS_X
+        s->display = NULL;
         if (ret == 1) {
                 x11_set_display(info.info.x11.display);
+                s->display = info.info.x11.display;
         } else if (ret == 0) {
                 fprintf(stderr, "[SDL] Warning: SDL_GetWMInfo unimplemented\n");
         } else if (ret == -1) {
                 fprintf(stderr, "[SDL] Warning: SDL_GetWMInfo failure: %s\n", SDL_GetError());
-        }
-        
+        } else abort();
 #endif
+
+        struct video_desc desc = {500, 500, RGBA, 0, 30.0};
+        display_sdl_reconfigure(s, desc);
+        loadSplashscreen(s);	
 
 
         /*if (pthread_create(&(s->thread_id), NULL, 
@@ -665,6 +677,10 @@ void display_sdl_done(void *state)
 
         assert(s->magic == MAGIC_SDL);
 
+#ifndef HAVE_MACOS_X
+        if(s->display) XLockDisplay(s->display);
+#endif
+
         SDL_DestroyCond(s->buffer_writable_cond);
         SDL_DestroyMutex(s->buffer_writable_lock);
 	cleanup_screen(s);
@@ -672,7 +688,11 @@ void display_sdl_done(void *state)
         /*FIXME: free all the stuff */
         SDL_ShowCursor(SDL_ENABLE);
 
+#ifndef HAVE_MACOS_X
+        if(s->display) XUnlockDisplay(s->display);
+#endif
         SDL_Quit();
+
 }
 
 struct video_frame *display_sdl_getf(void *state)
