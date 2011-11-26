@@ -256,6 +256,9 @@ void gl_check_error()
 			case GL_OUT_OF_MEMORY:
 				fprintf(stderr, "GL_OUT_OF_MEMORY\n");
 				break;
+                        case 1286:
+                                fprintf(stderr, "INVALID_FRAMEBUFFER_OPERATION_EXT\n");
+                                break;
 			default:
 				fprintf(stderr, "wft mate? Unknown GL ERROR: %d\n", msg);
 				break;

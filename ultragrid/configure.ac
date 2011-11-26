@@ -129,7 +129,7 @@ use_rt=no
 AC_ARG_ENABLE(dvs,
               AS_HELP_STRING([--enable-rt], [enable RT priority]), 
 	[use_rt=$enableval])
-if [ "$use_rt" = "yes" ]; then
+if test "$use_rt" = "yes"; then
         AC_DEFINE([USE_RT], [1], [We use RT priority])
 fi
 

@@ -34,6 +34,7 @@ struct dxt_decoder
 {
     // DXT type
     enum dxt_type type;
+    enum dxt_format out_format;
     
     // Width in pixels
     int width;
@@ -42,53 +43,68 @@ struct dxt_decoder
     int height;
     
     // Texture id
-    GLuint texture_id;
+    GLuint compressed_tex; /* compressed */
+    GLuint uncompressed_rgba_tex; /* decompressed */
+    GLuint uncompressed_yuv422_tex;
     
     // Framebuffer
-    GLuint fbo_id;
+    GLuint fbo_rgba;
+    GLuint fbo_yuv422;
     
     // Program and shader handles
     GLhandleARB program_display;
     GLhandleARB shader_fragment_display;
+    
+    GLhandleARB program_rgba_to_yuv422;
+    GLhandleARB shader_fragment_rgba_to_yuv422;
+    GLhandleARB shader_vertex_rgba_to_yuv422;
 };
 
 /** Documented at declaration */
 struct dxt_decoder*
-dxt_decoder_create(enum dxt_type type, int width, int height)
+dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format out_format)
 {
     struct dxt_decoder* decoder = (struct dxt_decoder*)malloc(sizeof(struct dxt_decoder));
+    
+    assert(out_format == DXT_FORMAT_RGBA || out_format == DXT_FORMAT_YUV422);
+    assert(out_format == DXT_FORMAT_RGBA ||
+        (out_format == DXT_FORMAT_YUV422 && width % 2 == 0)); /* width % 2 for YUV422 */
+
     if ( decoder == NULL )
         return NULL;
     decoder->type = type;
     decoder->width = width;
     decoder->height = height;
+    decoder->out_format = out_format;
     //glutReshapeWindow(1, 1);
     
     // Create empty texture
-    glGenTextures(1, &decoder->texture_id);
-    glBindTexture(GL_TEXTURE_2D, decoder->texture_id);
+    glGenTextures(1, &decoder->compressed_tex);
+    glBindTexture(GL_TEXTURE_2D, decoder->compressed_tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0, 0, 0);
-    else
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0, 0, 0);
-        
-    // Create fbo    
-    glGenFramebuffersEXT(1, &decoder->fbo_id);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_id);
     
-    GLuint fbo_tex;
-    glGenTextures(1, &fbo_tex); 
-    glBindTexture(GL_TEXTURE_2D, fbo_tex); 
+    if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0,
+                        decoder->width * decoder->height, 0);
+    else
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0,
+                        decoder->width * decoder->height / 2, 0);
+    
+    // Create fbo    
+    glGenFramebuffersEXT(1, &decoder->fbo_rgba);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_rgba);
+    
+    glGenTextures(1, &decoder->uncompressed_rgba_tex); 
+    glBindTexture(GL_TEXTURE_2D, decoder->uncompressed_rgba_tex); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
     glTexImage2D(GL_TEXTURE_2D, 0 , DXT_IMAGE_GL_FORMAT, decoder->width, decoder->height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, 0); 
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
+    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, decoder->uncompressed_rgba_tex, 0);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     
     // Create program [display] and its shader
@@ -113,6 +129,33 @@ dxt_decoder_create(enum dxt_type type, int width, int height)
     glAttachObjectARB(decoder->program_display, decoder->shader_fragment_display);
     glLinkProgramARB(decoder->program_display);
     
+    if(out_format == DXT_FORMAT_YUV422) {
+            glGenTextures(1, &decoder->uncompressed_yuv422_tex);
+            glBindTexture(GL_TEXTURE_2D, decoder->uncompressed_yuv422_tex); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
+            glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA, decoder->width / 2, decoder->height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, 0); 
+            
+            glGenFramebuffersEXT(1, &decoder->fbo_yuv422);
+            
+            decoder->shader_fragment_rgba_to_yuv422 = dxt_shader_create_from_source(fp_display_rgba_to_yuv422, GL_FRAGMENT_SHADER_ARB);
+            decoder->shader_vertex_rgba_to_yuv422 = dxt_shader_create_from_source(vp_display_rgba_to_yuv422, GL_VERTEX_SHADER_ARB);
+            
+            decoder->program_rgba_to_yuv422 = glCreateProgramObjectARB();
+            glAttachObjectARB(decoder->program_rgba_to_yuv422, decoder->shader_fragment_rgba_to_yuv422);
+            glAttachObjectARB(decoder->program_rgba_to_yuv422, decoder->shader_vertex_rgba_to_yuv422);
+            glLinkProgramARB(decoder->program_rgba_to_yuv422);
+            
+            glUseProgramObjectARB(decoder->program_rgba_to_yuv422);
+            glUniform1i(glGetUniformLocation(decoder->program_rgba_to_yuv422, "image"), 0);
+            glUniform1f(glGetUniformLocation(decoder->program_rgba_to_yuv422, "imageWidth"),
+                        (GLfloat) decoder->width);
+                        
+            glUseProgramObjectARB(0);
+    }
+    
     return decoder;
 }
 
@@ -134,7 +177,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     TIMER_INIT();
     
     TIMER_START();
-    glBindTexture(GL_TEXTURE_2D, decoder->texture_id);
+    glBindTexture(GL_TEXTURE_2D, decoder->compressed_tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -145,20 +188,22 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
                         decoder->width, decoder->height, 0, decoder->width * decoder->height / 2, image_compressed);
+#ifdef DEBUG
     glFinish();
+#endif
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
     
     // Render to framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_id);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_rgba);
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, decoder->width, decoder->height);
 
     glUseProgramObjectARB(decoder->program_display);
     
-    glBindTexture(GL_TEXTURE_2D, decoder->texture_id);
+    glBindTexture(GL_TEXTURE_2D, decoder->compressed_tex);
     
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
@@ -168,15 +213,45 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glEnd();
     
     glUseProgramObjectARB(0);
+#ifdef DEBUG
     glFinish();
+#endif
     TIMER_STOP_PRINT("Texture Decompress:");
     
     TIMER_START();
-    glReadPixels(0, 0, decoder->width, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+    if(decoder->out_format != DXT_FORMAT_YUV422) { /* so RGBA */
+            // Disable framebuffer
+            glReadPixels(0, 0, decoder->width, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    } else {
+
+            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_yuv422);
+            glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, decoder->uncompressed_yuv422_tex, 0);
+            
+            glBindTexture(GL_TEXTURE_2D, decoder->uncompressed_rgba_tex); /* to texturing unit 0 */
+
+            glPushAttrib(GL_VIEWPORT_BIT);
+            glViewport( 0, 0, decoder->width / 2, decoder->height);
+
+            glUseProgramObjectARB(decoder->program_rgba_to_yuv422);
+            
+            glBegin(GL_QUADS);
+            glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+            glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+            glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+            glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+            glEnd();
+            
+            glPopAttrib();
+
+            glReadPixels(0, 0, decoder->width / 2, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+            glUseProgramObjectARB(0);
+    }
     
-    // Disable framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+#ifdef DEBUG    
     glFinish();
+#endif
     TIMER_STOP_PRINT("Texture Save:      ");
     
     return 0;
@@ -196,6 +271,14 @@ dxt_decoder_destroy(struct dxt_decoder* decoder)
 {
     glDeleteShader(decoder->shader_fragment_display);
     glDeleteProgram(decoder->program_display);
+    glDeleteTextures(1, &decoder->compressed_tex);
+    glDeleteTextures(1, &decoder->uncompressed_rgba_tex);
+    glDeleteFramebuffersEXT(1,  &decoder->fbo_rgba);
+    
+    if(decoder->out_format == DXT_FORMAT_YUV422) {
+        glDeleteTextures(1, &decoder->uncompressed_yuv422_tex);
+        glDeleteFramebuffersEXT(1,  &decoder->fbo_yuv422);
+    }
     free(decoder);
     return 0;
 }

@@ -42,7 +42,7 @@ struct dxt_decoder;
  * @return decoder structure or zero if fails
  */
 struct dxt_decoder*
-dxt_decoder_create(enum dxt_type type, int width, int height);
+dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format out_format);
 
 /**
  * Allocate buffer for decompressed image by decoder

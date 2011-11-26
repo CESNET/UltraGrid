@@ -66,9 +66,10 @@ struct state_decompress {
         int compressed_len;
         int rshift, gshift, bshift;
         int pitch;
+        codec_t out_codec;
         unsigned int configured:1;
         
-        int dxt_height;
+        int dxt_height; /* dxt_height is alligned height to 4 lines boundry */
         
         void *glx_context;
 };
@@ -96,8 +97,9 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         decompressor->dxt_height = (desc.height + 3) / 4 * 4;
         
         decompressor->desc = desc;
+
         decompressor->decoder = dxt_decoder_create(type, desc.width,
-                        decompressor->dxt_height);
+                        decompressor->dxt_height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422);
         
         decompressor->compressed_len = desc.width * decompressor->dxt_height /
                 (desc.color_spec == DXT5 ? 1 : 2);
@@ -116,7 +118,7 @@ void * dxt_glsl_decompress_init(void)
 }
 
 int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, 
-                int rshift, int gshift, int bshift, int pitch)
+                int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress *s = (struct state_decompress *) state;
         
@@ -124,6 +126,7 @@ int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
         s->rshift = rshift;
         s->gshift = gshift;
         s->bshift = bshift;
+        s->out_codec = out_codec;
         if(!s->configured) {
                 configure_with(s, desc);
         } else {
@@ -143,17 +146,28 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                                 (unsigned char *) dst);
         } else {
                 int i;
-                int linesize = s->desc.width * 4;
+                int linesize;
                 char *line_src, *line_dst;
                 
-                char *tmp = malloc(linesize * s->dxt_height);
+                char *tmp;
+                
+                if(s->out_codec == UYVY)
+                        linesize = s->desc.width * 2;
+                else
+                        linesize = s->desc.width * 4;
+                tmp = malloc(linesize * s->dxt_height);
+
                 dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
                                 (unsigned char *) tmp);
                 line_dst = dst;
                 line_src = tmp;
                 for(i = (s->dxt_height - s->desc.height); i < s->dxt_height; i++) {
-                        vc_copylineRGBA(line_dst, line_src, linesize,
-                                        s->rshift, s->gshift, s->bshift);
+                        if(s->out_codec == RGBA) {
+                                vc_copylineRGBA(line_dst, line_src, linesize,
+                                                s->rshift, s->gshift, s->bshift);
+                        } else { /* UYVY */
+                                memcpy(line_dst, line_src, linesize);
+                        }
                         line_dst += s->pitch;
                         line_src += linesize;
                         

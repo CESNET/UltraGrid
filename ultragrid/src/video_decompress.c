@@ -64,8 +64,12 @@ const struct decode_from_to decoders[] = {
                 dxt_glsl_decompress, dxt_glsl_decompress_done},
         { DXT5, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
                 dxt_glsl_decompress, dxt_glsl_decompress_done},
+        { DXT1, UYVY, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
+                dxt_glsl_decompress, dxt_glsl_decompress_done},
+        { DXT1_YUV, UYVY, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
+                dxt_glsl_decompress, dxt_glsl_decompress_done},
+        { DXT5, UYVY, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
+                dxt_glsl_decompress, dxt_glsl_decompress_done},
 #endif
         { 0, 0, NULL, NULL, NULL, NULL, NULL }
 };
-
-
