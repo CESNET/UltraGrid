@@ -747,7 +747,7 @@ vidcap_decklink_done(void *state)
 			s->state[i].deckLink = NULL;
 		}
 
-		free(s);
+		//free(s); /* TODO: causes double free */
 	}
 }
 

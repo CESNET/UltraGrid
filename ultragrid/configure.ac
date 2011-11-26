@@ -764,6 +764,71 @@ AC_SUBST(DXT_GLSL_OBJS)
 AC_SUBST(DXT_GLSL_CFLAGS)
 
 # -------------------------------------------------------------------------------------------------
+# CUDA staff
+CUDA_PATH=
+CUDA_INC=
+CUDA_LIB=
+NVCC=
+AC_ARG_WITH(cuda,
+            [  --with-cuda=DIR         specify location of CUDA Toolkit],
+            [CUDA_PATH=$withval
+            ],
+            [])
+
+AC_PATH_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
+                  [],
+     [$CUDA_PATH])
+
+if test -n "$NVCC"
+then
+        CUDA_INC=-I$CUDA_PATH/include
+        AC_CHECK_SIZEOF([int *])
+        AM_CONDITIONAL([WORD_LEN64], [test $ac_cv_sizeof_int_p -eq 8 ])
+        AM_COND_IF([WORD_LEN64], [CUDA_LIB_PATH="$CUDA_PATH/lib64"], 
+                [CUDA_LIB_PATH="$CUDA_PATH/lib"])
+        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
+fi
+
+AC_SUBST(NVCC)
+AC_SUBST(CUDA_PATH)
+AC_SUBST(CUDA_LIB)
+AC_SUBST(CUDA_INC)
+
+# -------------------------------------------------------------------------------------------------
+# JPEG
+JPEG_OBJ=
+JPEG_INC=
+JPEG_LIB=
+
+jpeg_req=yes
+jpeg=no
+
+AC_ARG_ENABLE(jpeg, 
+      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]), 
+	[jpeg_req=$enableval],
+        [jpeg_req=yes])
+
+if test "$jpeg_req" = yes -a -n "$NVCC"
+then
+        jpeg=yes
+        JPEG_LIB="$CUDA_LIB -lnpp"
+        JPEG_INC=$CUDA_INC
+        JPEG_OBJ="../jpeg_compress/jpeg_encoder.o ../jpeg_compress/jpeg_huffman_cpu_encoder.o \
+../jpeg_compress/jpeg_writer.o ../jpeg_compress/jpeg_table.o ../jpeg_compress/jpeg_preprocessor.cu.o \
+../jpeg_compress/jpeg_huffman_gpu_encoder.cu.o \
+../jpeg_compress/jpeg_decoder.o ../jpeg_compress/jpeg_reader.o \
+../jpeg_compress/jpeg_huffman_cpu_decoder.o ../jpeg_compress/jpeg_huffman_gpu_decoder.cu.o \
+src/video_compress/jpeg.o src/video_decompress/jpeg.o "
+        LINKER=$CXX
+        AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
+        
+fi
+
+AC_SUBST(JPEG_OBJ)
+AC_SUBST(JPEG_INC)
+AC_SUBST(JPEG_LIB)
+
+# -------------------------------------------------------------------------------------------------
 # SAGE stuff
 
 SAGE_OBJ=
@@ -903,5 +968,6 @@ Configuration summary:
   
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
+  JPEG ........................ $jpeg
 ])
 

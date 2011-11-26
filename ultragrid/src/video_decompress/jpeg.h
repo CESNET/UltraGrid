@@ -1,5 +1,5 @@
 /*
- * FILE:    video_decompress.c
+ * FILE:    video_decompress/dxt_glsl.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -45,36 +45,11 @@
  *
  */
 
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
 #include "video_codec.h"
-#include "video_decompress.h"
-#include "video_decompress/dxt_glsl.h"
-#include "video_decompress/jpeg.h"
 
-const struct decode_from_to decoders[] = {
-#ifdef HAVE_DXT_GLSL
-        { DXT1, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT1_YUV, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT5, RGBA, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT1, UYVY, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT1_YUV, UYVY, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-        { DXT5, UYVY, dxt_glsl_decompress_init, dxt_glsl_decompress_reconfigure,
-                dxt_glsl_decompress, dxt_glsl_decompress_done},
-#endif
-#ifdef HAVE_JPEG
-        { JPEG, RGB, jpeg_decompress_init, jpeg_decompress_reconfigure,
-                jpeg_decompress, jpeg_decompress_done},
-#endif
-        { 0, 0, NULL, NULL, NULL, NULL, NULL }
-};
+void * jpeg_decompress_init(void);
+int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
+                        int rshift, int gshift, int bshift, int pitch);
+void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+void jpeg_decompress_done(void *state);
+
