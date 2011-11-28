@@ -65,6 +65,7 @@ struct state_decompress_jpeg {
         struct video_desc desc;
         int compressed_len;
         int rshift, gshift, bshift;
+        int jpeg_height;
         int pitch;
         codec_t out_codec;
 };
@@ -75,7 +76,7 @@ static void configure_with(struct state_decompress_jpeg *s, struct video_desc de
         s->desc = desc;
         
         param_image.width = desc.width;
-        param_image.height = desc.height;
+        param_image.height = s->jpeg_height;
         param_image.comp_count = 3;
         if(s->out_codec == RGB) {
                 param_image.color_space = JPEG_RGB;
@@ -112,6 +113,7 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         s->rshift = rshift;
         s->gshift = gshift;
         s->bshift = bshift;
+        s->jpeg_height = (desc.height + 7) / 8 * 8;
         if(!s->decoder) {
                 configure_with(s, desc);
         } else {
