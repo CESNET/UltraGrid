@@ -121,12 +121,10 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
                         s->decoder = (decoder_t) vc_copylineDVS10;
                         s->rgb = FALSE;
                         break;
-                /* TODO: enable
                 case DPX10:        
-                        s->decoder = (decoder_t) vc_copylineDPX10toRGBA;
-                        format = DXT_FORMAT_RGBA;
+                        s->decoder = (decoder_t) vc_copylineDPX10toRGB;
+                        s->rgb = TRUE;
                         break;
-                */
                 default:
                         error_with_code_msg(128, "Unknown codec: %d\n", frame->color_spec);
         }
@@ -242,7 +240,11 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
                         
                         uint8_t *compressed;
                         int size;
-                        jpeg_encoder_encode(s->encoder, s->decoded, &compressed, &size);
+                        int ret;
+                        ret = jpeg_encoder_encode(s->encoder, s->decoded, &compressed, &size);
+                        
+                        if(ret != 0)
+                                return NULL;
                         
                         out_tile->data_len = size;
                         memcpy(out_tile->data, compressed, size);

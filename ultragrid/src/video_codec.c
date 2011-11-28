@@ -526,6 +526,48 @@ vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int 
         }
 }
 
+void
+vc_copylineDPX10toRGB(unsigned char *dst, unsigned char *src, int dst_len)
+{
+        
+        register unsigned int *in = src;
+        register unsigned int *out = dst;
+        register int r1,g1,b1,r2,g2,b2;
+       
+        while(dst_len > 0) {
+                register unsigned int val;
+                
+                val = *in++;
+                r1 = val >> 24;
+                g1 = 0xff & (val >> 14);
+                b1 = 0xff & (val >> 4);
+                
+                val = *in++;
+                r2 = val >> 24;
+                g2 = 0xff & (val >> 14);
+                b2 = 0xff & (val >> 4);
+                
+                *out++ = r1 | g1 << 8 | b1 << 16 | r2 << 24;
+                
+                val = *in++;
+                r1 = val >> 24;
+                g1 = 0xff & (val >> 14);
+                b1 = 0xff & (val >> 4);
+                
+                *out++ = g2 | b2 << 8 | r1 << 16 | g1 << 24;
+                
+                val = *in++;
+                r2 = val >> 24;
+                g2 = 0xff & (val >> 14);
+                b2 = 0xff & (val >> 4);
+                
+                *out++ = b1 | r2 << 8 | g2 << 16 | b2 << 24;
+                
+                dst_len -= 12;
+        }
+}
+
+
 int codec_is_a_rgb(codec_t codec)
 {
         int i;

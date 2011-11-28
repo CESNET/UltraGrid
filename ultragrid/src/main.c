@@ -517,6 +517,8 @@ static void *sender_thread(void *arg)
                         if (uv->requested_compression) {
                                 tx_frame = compress_frame(compression, tx_frame);
                         }
+                        if(!tx_frame)
+                                continue;
                         if(uv->connections_count == 1) { /* normal case - only one connection */
                                 tx_send(uv->tx, tx_frame, 
                                                 uv->network_devices[0]);

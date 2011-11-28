@@ -84,6 +84,7 @@ void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len)
 void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int len);
 void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
+void vc_copylineDPX10toRGB(unsigned char *dst, unsigned char *src, int dst_len);
 void vc_copylineRGB(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 /*
  * @return TRUE or FALSE
