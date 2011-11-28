@@ -75,6 +75,8 @@ const struct decode_from_to decoders[] = {
 #ifdef HAVE_JPEG
         { JPEG, RGB, jpeg_decompress_init, jpeg_decompress_reconfigure,
                 jpeg_decompress, jpeg_decompress_done},
+        { JPEG, UYVY, jpeg_decompress_init, jpeg_decompress_reconfigure,
+                jpeg_decompress, jpeg_decompress_done},
 #endif
         { 0, 0, NULL, NULL, NULL, NULL, NULL }
 };

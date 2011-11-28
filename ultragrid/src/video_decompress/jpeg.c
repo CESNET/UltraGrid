@@ -66,6 +66,7 @@ struct state_decompress_jpeg {
         int compressed_len;
         int rshift, gshift, bshift;
         int pitch;
+        codec_t out_codec;
 };
 
 static void configure_with(struct state_decompress_jpeg *s, struct video_desc desc)
@@ -76,12 +77,17 @@ static void configure_with(struct state_decompress_jpeg *s, struct video_desc de
         param_image.width = desc.width;
         param_image.height = desc.height;
         param_image.comp_count = 3;
-        param_image.color_space = JPEG_RGB;
-        param_image.sampling_factor = JPEG_4_4_4;
+        if(s->out_codec == RGB) {
+                param_image.color_space = JPEG_RGB;
+                param_image.sampling_factor = JPEG_4_4_4;
+                s->compressed_len = desc.width * desc.height * 2;
+        } else {
+                param_image.color_space = JPEG_YUV;
+                param_image.sampling_factor = JPEG_4_2_2;
+                s->compressed_len = desc.width * desc.height * 3;
+        }
         
         s->decoder = jpeg_decoder_create(&param_image);
-        
-        s->compressed_len = desc.width * desc.height * 3;
 }
 
 void * jpeg_decompress_init(void)
@@ -95,10 +101,13 @@ void * jpeg_decompress_init(void)
 }
 
 int jpeg_decompress_reconfigure(void *state, struct video_desc desc, 
-                int rshift, int gshift, int bshift, int pitch)
+                int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         
+        assert(out_codec == RGB || out_codec == UYVY);
+        
+        s->out_codec = out_codec;
         s->pitch = pitch;
         s->rshift = rshift;
         s->gshift = gshift;
@@ -125,14 +134,25 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
         if (ret != 0) return;
         
         int i;
-        int linesize = s->desc.width * 3;
+        int linesize;
         char *line_src, *line_dst;
+        
+        if(s->out_codec == RGB) {
+                linesize = s->desc.width * 3;
+        } else {
+                linesize = s->desc.width * 2;
+        }
         
         line_dst = dst;
         line_src = decompressed;
         for(i = 0; i < s->desc.height; i++) {
-                vc_copylineRGB(line_dst, line_src, linesize,
-                                s->rshift, s->gshift, s->bshift);
+                if(s->out_codec == RGB) {
+                        vc_copylineRGB(line_dst, line_src, linesize,
+                                        s->rshift, s->gshift, s->bshift);
+                } else {
+                        memcpy(line_dst, line_src, linesize);
+                }
+                        
                 line_dst += s->pitch;
                 line_src += linesize;
                 

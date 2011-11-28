@@ -775,15 +775,16 @@ AC_ARG_WITH(cuda,
             ],
             [])
 
-AC_PATH_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
+AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
                   [],
-     [$CUDA_PATH])
+     [$CUDA_PATH/bin])
+
+AC_CHECK_SIZEOF([int *])
+AM_CONDITIONAL([WORD_LEN64], [test $ac_cv_sizeof_int_p -eq 8 ])
 
 if test -n "$NVCC"
 then
         CUDA_INC=-I$CUDA_PATH/include
-        AC_CHECK_SIZEOF([int *])
-        AM_CONDITIONAL([WORD_LEN64], [test $ac_cv_sizeof_int_p -eq 8 ])
         AM_COND_IF([WORD_LEN64], [CUDA_LIB_PATH="$CUDA_PATH/lib64"], 
                 [CUDA_LIB_PATH="$CUDA_PATH/lib"])
         CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"

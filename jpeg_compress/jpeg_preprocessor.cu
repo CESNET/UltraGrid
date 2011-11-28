@@ -295,6 +295,34 @@ jpeg_preprocessor_comp_to_raw_kernel_4_4_4(const uint8_t* d_c1, const uint8_t* d
     d_target[globalOutputPosition + 2] = (uint8_t)r3;
 }
 
+__global__ void
+jpeg_preprocessor_comp_to_raw_kernel_4_2_2_yuv(const uint8_t* d_c1, const uint8_t* d_c2, const uint8_t* d_c3, uint8_t* d_target, int pixel_count)
+{
+    int x  = threadIdx.x;
+    int gX = blockDim.x * blockIdx.x;
+    int globalInputPosition = 2 * (gX + x);
+    if ( globalInputPosition >= pixel_count )
+        return;
+    int globalOutputPosition = (gX + x) * 4;
+    
+    // Load
+    float y1 = (float)(d_c1[globalInputPosition]);
+    float u1 = (float)(d_c2[globalInputPosition]);
+    float v1 = (float)(d_c3[globalInputPosition]);
+    // Color transform
+    jpeg_color_transform<JPEG_YCBCR, JPEG_YUV>::perform(y1, u1, v1);
+    float y2 = (float)(d_c1[globalInputPosition + 1]);
+    float u2 = (float)(d_c2[globalInputPosition + 1]);
+    float v2 = (float)(d_c3[globalInputPosition + 1]);
+    jpeg_color_transform<JPEG_YCBCR, JPEG_YUV>::perform(y2, u2, v2);
+    // Save
+    d_target[globalOutputPosition + 0] = (uint8_t) ((u1 + u2) / 2.0f);
+    d_target[globalOutputPosition + 1] = (uint8_t)y1;
+    d_target[globalOutputPosition + 2] =  (uint8_t) ((v1 + v2) / 2.0f);
+    d_target[globalOutputPosition + 3] = (uint8_t)y2;
+}
+
+
 /**
  * Select preprocessor decode kernel
  * 
@@ -311,8 +339,10 @@ jpeg_preprocessor_select_decode_kernel(struct jpeg_decoder* decoder)
     } 
     // YUV color space
     else if ( decoder->param_image.color_space == JPEG_YUV ) {
-        assert(decoder->param_image.sampling_factor == JPEG_4_4_4);
-        return &jpeg_preprocessor_comp_to_raw_kernel_4_4_4<JPEG_YUV>;
+        if(decoder->param_image.sampling_factor == JPEG_4_4_4)
+                return &jpeg_preprocessor_comp_to_raw_kernel_4_4_4<JPEG_YUV>;
+        else 
+                return &jpeg_preprocessor_comp_to_raw_kernel_4_2_2_yuv;
     }
     // Unknown color space
     else {
@@ -333,7 +363,14 @@ jpeg_preprocessor_decode(struct jpeg_decoder* decoder)
     
     // Prepare kernel
     dim3 threads (RGB_8BIT_THREADS);
-    dim3 grid (alignedSize / (RGB_8BIT_THREADS * 3));
+    dim3 grid;
+    if(decoder->param_image.sampling_factor == JPEG_4_2_2) {
+                grid = dim3(alignedSize / (RGB_8BIT_THREADS * 2));
+                assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
+    } else {
+                grid = dim3(alignedSize / (RGB_8BIT_THREADS * 3));
+                assert(alignedSize % (RGB_8BIT_THREADS * 2) == 0);
+    }
     assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
 
     // Run kernel
