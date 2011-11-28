@@ -306,16 +306,12 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     
     TIMER_START();
     
-    // Zero position
-    float x0 = 1.0f / (float)encoder->width;
-    float y0 = 1.0f / (float)encoder->height;
-    
     // Compress
     glBegin(GL_QUADS);
-    glTexCoord2f(x0, y0); glVertex2f(-1.0, -1.0);
-    glTexCoord2f(1.0, y0); glVertex2f(1.0, -1.0);
+    glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+    glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
     glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-    glTexCoord2f(x0, 1.0); glVertex2f(-1.0, 1.0);
+    glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
         
 #ifdef DEBUG
