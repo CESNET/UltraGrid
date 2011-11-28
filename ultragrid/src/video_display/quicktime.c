@@ -854,6 +854,7 @@ int display_quicktime_get_property(void *state, int property, void *val, int *le
                         return FALSE;
         }
         return TRUE;
+}
 
 void display_quicktime_reconfigure(void *state, struct video_desc desc)
 {
@@ -863,12 +864,12 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
         const char *codec_name;
 
         for (i = 0; codec_info[i].name != NULL; i++) {
-                if (codec_info[i].codec == desc.codec) {
+                if (codec_info[i].codec == desc.color_spec) {
                         s->cinfo = &codec_info[i];
                         codec_name = s->cinfo->name;
                 }
         }
-        if(desc.codec == UYVY || desc.codec == DVS8) /* just aliases for 2vuy,
+        if(desc.color_spec == UYVY || desc.color_spec == DVS8) /* just aliases for 2vuy,
                                             * but would confuse QT */
                 codec_name = "2vuy";
          
@@ -877,7 +878,7 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                 
         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", desc.width,
                         desc.height, s->cinfo->bpp);
-        s->frame->color_spec = desc.codec;
+        s->frame->color_spec = desc.color_spec;
         s->frame->fps = desc.fps;
         s->frame->aux = desc.aux;
 
@@ -890,7 +891,7 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                 
                 tile->width = tile_width;
                 tile->height = tile_height;
-                tile->linesize = vc_get_linesize(tile_width, desc.codec);
+                tile->linesize = vc_get_linesize(tile_width, desc.color_spec);
                 tile->data_len = tile->linesize * tile->height;
                 
                 if(tile->data != NULL) {

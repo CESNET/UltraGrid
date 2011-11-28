@@ -119,7 +119,7 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
                         break;
                 case DVS10:
                         s->decoder = (decoder_t) vc_copylineDVS10;
-                        s->rgb = FALSE;;
+                        s->rgb = FALSE;
                         break;
                 /* TODO: enable
                 case DPX10:        

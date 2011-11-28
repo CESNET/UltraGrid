@@ -713,13 +713,19 @@ void display_gl_run(void *arg)
         NSApplicationLoad();
 #endif
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-
+#ifndef HAVE_MACOSX
+        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+#endif
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(WIN_NAME);
         glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
 	glutDisplayFunc(glutSwapBuffers);
-	glutWMCloseFunc(glut_close_callback);
+#ifdef HAVE_MACOSX
+        glutWMCloseFunc(glut_close_callback);
+#else
+        glutCloseFunc(glut_close_callback);
+#endif
 	glutReshapeFunc(gl_resize);
 
         tmp = strdup((const char *)glGetString(GL_VERSION));
@@ -754,7 +760,14 @@ void display_gl_run(void *arg)
 	dxt_arb_init(s);
         dxt5_arb_init(s);
         
-        glutMainLoop();
+        while(!should_exit) {
+                glut_idle_callback();
+#ifndef HAVE_MACOSX
+                glutMainLoopEvent();
+#else
+                glutCheckLoop();
+#endif
+        }
 }
 
 

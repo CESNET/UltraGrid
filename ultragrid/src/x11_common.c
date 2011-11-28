@@ -121,7 +121,6 @@ void glx_free(void *arg)
         
         pthread_mutex_lock(&lock);
         
-        XLockDisplay(display);
         glXMakeCurrent( display, context->win, context->ctx );
         
         glXDestroyContext( display, context->ctx );
@@ -135,8 +134,6 @@ void glx_free(void *arg)
         if(ref_num < 0) {
                 fprintf(stderr, __FILE__ ": WARNING: Unpaired glx_free call.");
         }
-        
-        XUnlockDisplay(display);
         
         if(display_opened_here && ref_num == 0) {
                 fprintf(stderr, "Display closed (last client disconnected)\n");
@@ -210,7 +207,6 @@ void *glx_init()
         }
         
         ref_num++;
-        XLockDisplay(display);
  
   
  
@@ -416,7 +412,6 @@ void *glx_init()
 
         glewInit();
         
-        XUnlockDisplay(display);
         pthread_mutex_unlock(&lock);
   
         return context;
