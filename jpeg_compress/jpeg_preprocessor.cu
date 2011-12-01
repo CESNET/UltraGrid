@@ -356,8 +356,8 @@ int
 jpeg_preprocessor_decode(struct jpeg_decoder* decoder)
 {
     int pixel_count = decoder->param_image.width * decoder->param_image.height;
-    int alignedSize = (pixel_count / RGB_8BIT_THREADS + 1) * RGB_8BIT_THREADS * 3;
-        
+    int alignedSize;
+
     // Select kernel
     jpeg_preprocessor_decode_kernel kernel = jpeg_preprocessor_select_decode_kernel(decoder);
     
@@ -365,13 +365,15 @@ jpeg_preprocessor_decode(struct jpeg_decoder* decoder)
     dim3 threads (RGB_8BIT_THREADS);
     dim3 grid;
     if(decoder->param_image.sampling_factor == JPEG_4_2_2) {
+                // TODO: check this stuff - it seems like we can avoid (RGB_8BIT_THREADS * 2) completly
+                alignedSize = (pixel_count / RGB_8BIT_THREADS + 1) * RGB_8BIT_THREADS * 2;
                 grid = dim3(alignedSize / (RGB_8BIT_THREADS * 2));
-                assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
+                assert(alignedSize % (RGB_8BIT_THREADS * 2) == 0);
     } else {
+                alignedSize = (pixel_count / RGB_8BIT_THREADS + 1) * RGB_8BIT_THREADS * 3;
                 grid = dim3(alignedSize / (RGB_8BIT_THREADS * 3));
-                //assert(alignedSize % (RGB_8BIT_THREADS * 2) == 0);
+                assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
     }
-    assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
 
     // Run kernel
     uint8_t* d_c1 = &decoder->d_data[0 * pixel_count];

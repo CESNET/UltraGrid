@@ -21,11 +21,11 @@ void main()
         rgba1  = texture(image, coor1);
         rgba2  = texture(image, coor2);
         
-        yuv1.x = rgba1.r * 0.299 + rgba1.g * 0.587 + rgba1.b * 0.114; // Y
+        yuv1.x = 1.0/16.0 + rgba1.r * 0.299 + rgba1.g * 0.587 + rgba1.b * 0.114; // Y
         yuv1.y = 0.5-rgba1.r * 0.168736 - rgba1.g * 0.331264 + rgba1.b * 0.5;
         yuv1.z = 0.5+rgba1.r * 0.5 - rgba1.g * 0.418688 - rgba1.b * 0.081312;
         
-        yuv2.x = rgba2.r * 0.299 + rgba2.g * 0.587 + rgba2.b * 0.114; // Y
+        yuv2.x = 1.0/16.0 + rgba2.r * 0.299 + rgba2.g * 0.587 + rgba2.b * 0.114; // Y
         yuv2.y = 0.5-rgba2.r * 0.168736 - rgba2.g * 0.331264 + rgba2.b * 0.5;
         yuv2.z = 0.5+rgba2.r * 0.5 - rgba2.g * 0.418688 - rgba2.b * 0.081312;
         
