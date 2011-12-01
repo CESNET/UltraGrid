@@ -58,7 +58,8 @@ struct jpeg_color_transform<JPEG_RGB, JPEG_YCBCR> {
     /** RGB -> YCbCr transform (8 bit) */
     static __device__ void 
     perform(float & c1, float & c2, float & c3) {
-        float r1 = 0.299f * c1 + 0.587f * c2 + 0.114f * c3;
+        float r1 = 0.299f * c1 + 0.587f * c2 + 0.114f * c3 + 16.0f;
+        if (r1 > 255) r1 = 255; //FIXME Toto je fuj! opravit pretok systemove
         float r2 = -0.1687f * c1 - 0.3313f * c2 + 0.5f * c3 + 128.0f;
         float r3 = 0.5f * c1 - 0.4187f * c2 - 0.0813f * c3 + 128.0f;
         c1 = r1;
