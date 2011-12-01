@@ -773,7 +773,7 @@ AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
             ],
-            [])
+            [CUDA_PATH=/usr/local/cuda/])
 
 AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
                   [],
@@ -814,7 +814,7 @@ then
         jpeg=yes
         JPEG_LIB="$CUDA_LIB -lnpp"
         JPEG_INC=$CUDA_INC
-        JPEG_OBJ="../jpeg_compress/jpeg_encoder.o ../jpeg_compress/jpeg_huffman_cpu_encoder.o \
+        JPEG_OBJ="../jpeg_compress/jpeg_common.o ../jpeg_compress/jpeg_encoder.o ../jpeg_compress/jpeg_huffman_cpu_encoder.o \
 ../jpeg_compress/jpeg_writer.o ../jpeg_compress/jpeg_table.o ../jpeg_compress/jpeg_preprocessor.cu.o \
 ../jpeg_compress/jpeg_huffman_gpu_encoder.cu.o \
 ../jpeg_compress/jpeg_decoder.o ../jpeg_compress/jpeg_reader.o \

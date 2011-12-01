@@ -396,10 +396,10 @@ static void *receiver_thread(void *arg)
         dec_state = decoder_init(uv->decoder_options);
         if(!dec_state) {
                 fprintf(stderr, "Error initializing decoder ('-M' option).\n");
-                exit(EXIT_FAIL_DECODER);
+                should_exit = TRUE;
+        } else {
+                decoder_register_video_display(dec_state, uv->display_device);
         }
-
-        decoder_register_video_display(dec_state, uv->display_device);
 
         fr = 1;
 
@@ -495,7 +495,7 @@ static void *sender_thread(void *arg)
         if(uv->requested_compression
                         && compression == NULL) {
                 fprintf(stderr, "Error initializing compression.\n");
-                exit(EXIT_FAIL_COMPRESS);
+                should_exit = TRUE;
         }
 
         tile_y_count = uv->connections_count;

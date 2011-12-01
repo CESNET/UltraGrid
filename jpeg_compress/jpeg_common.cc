@@ -23,6 +23,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+
  
 #include "jpeg_common.h"
 #include "jpeg_util.h"
@@ -36,6 +38,52 @@ jpeg_image_set_default_parameters(struct jpeg_image_parameters* param)
     param->comp_count = 3;
     param->color_space = JPEG_RGB;
     param->sampling_factor = JPEG_4_4_4;
+}
+
+void
+jpeg_get_device_list()
+{
+        int deviceCount = 0;
+        if (cudaGetDeviceCount(&deviceCount) != cudaSuccess) {
+                fprintf(stderr, "cudaGetDeviceCount FAILED CUDA Driver and Runtime version may be mismatched.\n");
+                return;
+        }
+
+        // This function call returns 0 if there are no CUDA capable devices.
+        if (deviceCount == 0) {
+                printf("There is no device supporting CUDA\n");
+                return;
+        }
+
+        int dev;
+
+        cudaDeviceProp deviceProp;
+        cudaGetDeviceProperties(&deviceProp, 0);
+        if (deviceProp.major == 9999 && deviceProp.minor == 9999) {
+                printf("There is no device supporting CUDA.\n");
+                return;
+        } else if (deviceCount == 1) {
+                printf("There is 1 device supporting CUDA\n");
+        } else {
+                printf("There are %d devices supporting CUDA\n", deviceCount);
+        }
+
+        for (dev = 0; dev < deviceCount; ++dev) {
+                cudaGetDeviceProperties(&deviceProp, 0);
+                printf("\nDevice %d: \"%s\"\n", dev, deviceProp.name);
+
+                printf("  CUDA Capability Major/Minor version number:    %d.%d\n", deviceProp.major, deviceProp.minor);
+
+                        char msg[256];
+                        sprintf(msg, "  Total amount of global memory:                 %llu bytes\n", (unsigned long long) deviceProp.totalGlobalMem);
+                        printf("%s", msg);
+#if CUDART_VERSION >= 2000
+                printf("  Multiprocessors:  %d\n", deviceProp.multiProcessorCount);
+#endif
+                printf("  Total amount of constant memory:               %lu bytes\n", deviceProp.totalConstMem); 
+                printf("  Total amount of shared memory per block:       %lu bytes\n", deviceProp.sharedMemPerBlock);
+                printf("  Total number of registers available per block: %d\n\n", deviceProp.regsPerBlock);
+        }
 }
 
 /** Documented at declaration */
@@ -77,11 +125,11 @@ enum jpeg_image_file_format
 jpeg_image_get_file_format(const char* filename)
 {
     static const char *extension[] = { "raw", "rgb", "yuv", "jpg" };
-    static const enum jpeg_image_file_format format[] = { IMAGE_FILE_RAW, IMAGE_FILE_RGB, IMAGE_FILE_YUV, IMAGE_FILE_JPEG };
+    static const enum jpeg_image_file_format format[] = { IMAGE_FILE_ERROR, IMAGE_FILE_RAW, IMAGE_FILE_RGB, IMAGE_FILE_YUV, IMAGE_FILE_JPEG };
         
-    char * ext = strrchr(filename, '.');
+    const char * ext = strrchr(filename, '.');
     if ( ext == NULL )
-        return -1;
+        return IMAGE_FILE_ERROR;
     ext++;
     for ( int i = 0; i < sizeof(format) / sizeof(*format); i++ ) {
         if ( strncasecmp(ext, extension[i], 3) == 0 ) {
@@ -146,3 +194,4 @@ jpeg_image_destroy(uint8_t* image)
 {
     free(image);
 }
+

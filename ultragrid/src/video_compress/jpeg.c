@@ -51,6 +51,7 @@
 #include "x11_common.h"
 #include "video_compress/jpeg.h"
 #include "jpeg_compress/jpeg_encoder.h"
+#include "jpeg_compress/jpeg_common.h"
 #include "compat/platform_semaphore.h"
 #include "video_codec.h"
 #include <pthread.h>
@@ -179,7 +180,9 @@ void * jpeg_compress_init(char * opts)
                 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
-                printf("\t-c JPEG:[<quality>:<restart_interval>]\n");
+                printf("\t-c JPEG:[<quality>:<restart_interval>:[<cuda_device>]]\n");
+                printf("\nCUDA devices:\n");
+                jpeg_get_device_list();
                 return NULL;
         }
 
@@ -194,6 +197,23 @@ void * jpeg_compress_init(char * opts)
                         return NULL;
                 }
                 s->encoder_param.restart_interval = atoi(tok);
+                tok = strtok_r(NULL, ":", &save_ptr);
+                if(tok) {
+                        int ret;
+                        ret = jpeg_init_device(atoi(tok), TRUE);
+
+                        if(ret != 0) {
+                                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", atoi(tok));
+                                return NULL;
+                        }
+                } else {
+                        printf("Initializing CUDA device 0...\n");
+                        int ret = jpeg_init_device(0, TRUE);
+                        if(ret != 0) {
+                                fprintf(stderr, "[JPEG] initializing default CUDA device failed.\n");
+                                return NULL;
+                        }
+                }
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {
                         fprintf(stderr, "[JPEG] WARNING: Trailing configuration parameters.\n");

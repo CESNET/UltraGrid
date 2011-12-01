@@ -27,12 +27,17 @@
 #ifndef JPEG_COMMON_H
 #define JPEG_COMMON_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #include "jpeg_type.h"
 
 /** Image file formats */
 enum jpeg_image_file_format {
+    IMAGE_FILE_ERROR = -1,
     // Unknown image file format
     IMAGE_FILE_UNKNOWN = 0,
     // Raw file format
@@ -67,6 +72,9 @@ struct jpeg_image_parameters {
  */
 void
 jpeg_image_set_default_parameters(struct jpeg_image_parameters* param);
+
+void
+jpeg_get_device_list(void);
 
 /**
  * Init CUDA device
@@ -117,5 +125,9 @@ jpeg_image_save_to_file(const char* filename, uint8_t* image, int image_size);
  */
 int
 jpeg_image_destroy(uint8_t* image);
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif
 
 #endif // JPEG_COMMON_H
