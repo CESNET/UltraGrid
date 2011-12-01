@@ -369,7 +369,7 @@ jpeg_preprocessor_decode(struct jpeg_decoder* decoder)
                 assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
     } else {
                 grid = dim3(alignedSize / (RGB_8BIT_THREADS * 3));
-                assert(alignedSize % (RGB_8BIT_THREADS * 2) == 0);
+                //assert(alignedSize % (RGB_8BIT_THREADS * 2) == 0);
     }
     assert(alignedSize % (RGB_8BIT_THREADS * 3) == 0);
 

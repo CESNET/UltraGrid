@@ -107,7 +107,9 @@ private:
     
 public:
 	int	newFrameReady;
+        IDeckLinkVideoFrame *rightEyeFrame;
 	void*	pixelFrame;
+	void*	pixelFrameRight;
         void*   audioFrame;
         int     audioFrameSamples;
 	int	first_time;
@@ -119,7 +121,13 @@ public:
 	VideoDelegate () {
 		newFrameReady = 0;
 		first_time = 1;
+                rightEyeFrame = NULL;
 		s = NULL;
+	};
+        
+        ~VideoDelegate () {
+		if(rightEyeFrame)
+                        rightEyeFrame->Release();
 	};
 
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) { return E_NOINTERFACE; }
@@ -170,6 +178,7 @@ struct vidcap_decklink_state {
         
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
+        unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
 };
 
 /* DeckLink SDK objects */
@@ -206,6 +215,33 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
                 memcpy(s->audio.data, audioFrame, s->audio.data_len);
         } else {
                 audioFrame = NULL;
+        }
+        
+        if(rightEyeFrame)
+                rightEyeFrame->Release();
+        pixelFrameRight = NULL;
+        rightEyeFrame = NULL;
+        
+        if(s->stereo) {
+                IDeckLinkVideoFrame3DExtensions *rightEye;
+                HRESULT result;
+                result = arrivedFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&rightEye);
+                
+                if (result == S_OK) { 
+                        result = rightEye->GetFrameForRightEye(&rightEyeFrame);
+                                         
+                        if(result == S_OK) {
+                                if (rightEyeFrame->GetFlags() & bmdFrameHasNoInputSource)
+                                {
+                                        fprintf(stderr, "Right Eye Frame received (#%d) - No input signal detected\n", s->frames);
+                                }
+                                rightEyeFrame->GetBytes(&pixelFrameRight);
+                        }
+                }
+                rightEye->Release();
+                if(!pixelFrameRight) {
+                        fprintf(stderr, "[DeckLink] Sending right eye error.\n");
+                }
         }
                 
 
@@ -244,7 +280,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("Decklink options:\n");
-	printf("\t-t decklink:<device_index(indices)>:<mode>:<colorspace>\n");
+	printf("\t-t decklink:<device_index(indices)>:<mode>:<colorspace>[:3D]\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -302,6 +338,11 @@ decklink_help()
                 printf("\tR10k\n");
         }
 	printf("\n");
+        
+        printf("3D\n");
+        printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
+        printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
+        printf("\tin video format listing above (\"supports 3D\").\n");
 
 	return 1;
 }
@@ -370,6 +411,14 @@ settings_init(void *state, char *fmt)
                 	return 0;
                 }
         }
+        tmp = strtok(NULL, ":");
+        if(tmp) {
+                if(strcasecmp(tmp, "3D") == 0) {
+                        s->stereo = TRUE;
+                } else {
+                        fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
+                }
+        }
 
 	return 1;	
 }
@@ -425,6 +474,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         } else {
                 s->grab_audio = FALSE;
         }
+        
+        s->stereo = FALSE;
 
 	// SET UP device and mode
 	if(settings_init(s, fmt) == 0) {
@@ -436,16 +487,27 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         for(int i = 0; i < s->devices_cnt; ++i)
                 device_found[i] = false;
                 
-        if (s->devices_cnt > 1) {
-                double x_cnt = sqrt(s->devices_cnt);
-                
-                int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                int y_count = s->devices_cnt / x_cnt;
-                s->frame = vf_alloc(x_count, y_count);
+        if(s->stereo) {
+                s->frame = vf_alloc(2, 1);
                 s->frame->aux = AUX_TILED;
+                if (s->devices_cnt > 1) {
+                        fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
+                                        "In this mode, only one device needs to be passed.");
+                        free(s);
+                        return NULL;
+                }
         } else {
-                s->frame = vf_alloc(1, 1);
-                s->frame->aux = 0;
+                if (s->devices_cnt > 1) {
+                        double x_cnt = sqrt(s->devices_cnt);
+                        
+                        int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
+                        int y_count = s->devices_cnt / x_cnt;
+                        s->frame = vf_alloc(x_count, y_count);
+                        s->frame->aux = AUX_TILED;
+                } else {
+                        s->frame = vf_alloc(1, 1);
+                        s->frame->aux = 0;
+                }
         }
     
         /* TODO: make sure that all devices are have compatible properties */
@@ -575,8 +637,11 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 deckLinkInput->StopStreams();
 
                                                 printf("Enable video input: %s\n", displayModeString);
-
-                                                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, 0);
+                                                BMDVideoInputFlags flags = 0;
+                                                if(s->stereo) {
+                                                        flags |= bmdVideoInputDualStream3D;
+                                                }
+                                                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, flags);
                                                 if (result != S_OK)
                                                 {
                                                         printf("You have required invalid video mode and pixel format combination.\n");
@@ -669,6 +734,13 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 
                 tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
                 tile->data_len = tile->linesize * tile->height;
+        }
+        
+        if(s->stereo) {
+                s->frame->tiles[1].width = s->frame->tiles[0].width;
+                s->frame->tiles[1].height = s->frame->tiles[0].height;
+                s->frame->tiles[1].linesize = s->frame->tiles[0].linesize;
+                s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
         }
 
         // init mutex
@@ -852,17 +924,36 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
         /* count returned tiles */
         int count = 0;
-        for (i = 0; i < s->devices_cnt; ++i) {
-                if (s->state[i].delegate->pixelFrame != NULL) {
-                        s->frame->tiles[i].data = (char*)s->state[i].delegate->pixelFrame;
+        if(s->stereo) {
+                if (s->state[0].delegate->pixelFrame != NULL &&
+                                s->state[0].delegate->pixelFrameRight != NULL) {
+                        s->frame->tiles[0].data = (char*)s->state[0].delegate->pixelFrame;
                         if(s->c_info->codec == RGBA) {
-                            vc_copylineRGBA((unsigned char*) s->frame->tiles[i].data,
-                                        (unsigned char*)s->frame->tiles[i].data,
+                            vc_copylineRGBA((unsigned char*) s->frame->tiles[0].data,
+                                        (unsigned char*)s->frame->tiles[0].data,
+                                        s->frame->tiles[i].data_len, 16, 8, 0);
+                        }
+                        s->frame->tiles[1].data = (char*)s->state[0].delegate->pixelFrameRight;
+                        if(s->c_info->codec == RGBA) {
+                            vc_copylineRGBA((unsigned char*) s->frame->tiles[1].data,
+                                        (unsigned char*)s->frame->tiles[1].data,
                                         s->frame->tiles[i].data_len, 16, 8, 0);
                         }
                         ++count;
-                } else
-                        break;
+                } // else count == 0 -> return NULL
+        } else {
+                for (i = 0; i < s->devices_cnt; ++i) {
+                        if (s->state[i].delegate->pixelFrame != NULL) {
+                                s->frame->tiles[i].data = (char*)s->state[i].delegate->pixelFrame;
+                                if(s->c_info->codec == RGBA) {
+                                    vc_copylineRGBA((unsigned char*) s->frame->tiles[i].data,
+                                                (unsigned char*)s->frame->tiles[i].data,
+                                                s->frame->tiles[i].data_len, 16, 8, 0);
+                                }
+                                ++count;
+                        } else
+                                break;
+                }
         }
         if (count == s->devices_cnt) {
                 s->frames++;
@@ -936,15 +1027,19 @@ print_output_modes (IDeckLink* deckLink)
 			char			modeName[64];
 			int				modeWidth;
 			int				modeHeight;
+                        BMDDisplayModeFlags             flags;
 			BMDTimeValue	frameRateDuration;
 			BMDTimeScale	frameRateScale;
 			
 			
 			// Obtain the display mode's properties
+                        flags = displayMode->GetFlags();
 			modeWidth = displayMode->GetWidth();
 			modeHeight = displayMode->GetHeight();
 			displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-			printf("%d.) %-20s \t %d x %d \t %g FPS\n",displayModeNumber, displayModeCString, modeWidth, modeHeight, (double)frameRateScale / (double)frameRateDuration);
+			printf("%d.) %-20s \t %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
+                                        modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
+                                        (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
 #ifdef HAVE_MACOSX
                         CFRelease(displayModeString);
 #endif
