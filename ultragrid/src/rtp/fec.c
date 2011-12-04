@@ -196,15 +196,15 @@ int fec_restore_packet(struct fec_session *session, char **pkt)
                 return FALSE;
         }
         if(session->pkt_count < -1) {
-                fprintf(stderr, "Restoring packed failed - missing data.\n");
+                debug_msg("Restoring packed failed - missing data.\n");
                 return FALSE;
         }
         if(session->pkt_count > -1) {
-                fprintf(stderr, "Restoring packed failed - missing FEC.\n");
+                debug_msg("Restoring packed failed - missing FEC.\n");
                 return FALSE;
         }
 
-        printf("Restoring packed.\n");
+        debug_msg("Restoring packed.\n");
         *pkt = session->header_fec;
         return TRUE;
 }
