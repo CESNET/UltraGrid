@@ -1,5 +1,5 @@
 /*
- * FILE:   fec.h
+ * FILE:   xor.h
  * AUTHOR: Martin Pulec <pulec@cesnet.cz>
  *
  * Copyright (c) 1998-2000 University College London
@@ -34,22 +34,22 @@
  * 
  */
 
-#ifndef __FEC_H__
-#define __FEC_H__
+#ifndef __XOR_H__
+#define __XOR_H__
 
-struct fec_session;
+struct xor_session;
 
-struct fec_session * fec_init(int header_len, int max_payload_len);
-void fec_add_packet(struct fec_session *session, const char *hdr, const char *payload, int payload_len);
-void fec_emit_fec_packet(struct fec_session *session, const char **hdr, size_t *hdr_len, const char **payload, size_t *payload_len);
-void fec_clear(struct fec_session *session);
-void fec_destroy(struct fec_session * session);
+struct xor_session * xor_init(int header_len, int max_payload_len);
+void xor_add_packet(struct xor_session *session, const char *hdr, const char *payload, int payload_len);
+void xor_emit_xor_packet(struct xor_session *session, const char **hdr, size_t *hdr_len, const char **payload, size_t *payload_len);
+void xor_clear(struct xor_session *session);
+void xor_destroy(struct xor_session * session);
 
 
-struct fec_session *fec_restore_init();
-void fec_restore_start(struct fec_session *session, const char *data);
-int fec_restore_packet(struct fec_session *session, char **pkt);
-void fec_restore_destroy(struct fec_session *fec);
-void fec_restore_invalidate(struct fec_session *fec);
+struct xor_session *xor_restore_init();
+void xor_restore_start(struct xor_session *session, const char *data);
+int xor_restore_packet(struct xor_session *session, char **pkt);
+void xor_restore_destroy(struct xor_session *xor);
+void xor_restore_invalidate(struct xor_session *xor);
 
-#endif /* __FEC_H__ */
+#endif /* __XOR_H__ */

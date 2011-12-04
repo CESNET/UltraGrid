@@ -1,5 +1,5 @@
 /*
- * FILE:     fec.c
+ * FILE:     xor.c
  * AUTHOR:   Martin Pulec <pulec@cesnet.cz>
  *
  * The routines in this file implement the Real-time Transport Protocol,
@@ -64,10 +64,10 @@
 #include "tv.h"
 #include "crypto/md5.h"
 #include "ntp.h"
-#include "fec.h"
+#include "xor.h"
 
 
-struct fec_pkt_hdr {
+struct xor_pkt_hdr {
         uint32_t pkt_count;
 #ifdef WORDS_BIGENDIAN
         uint16_t header_len;
@@ -78,35 +78,35 @@ struct fec_pkt_hdr {
 #endif
 }__attribute__((packed));
 
-struct fec_session {
-        char            *header_fec;
-        char            *payload_fec; /* weak ref */
+struct xor_session {
+        char            *header_xor;
+        char            *payload_xor; /* weak ref */
         int              header_len;
         int              max_payload_len;
         int              pkt_count;
 
-        struct fec_pkt_hdr fec_hdr;
+        struct xor_pkt_hdr xor_hdr;
 };
 
-struct fec_session * fec_init(int header_len, int max_payload_len)
+struct xor_session * xor_init(int header_len, int max_payload_len)
 {
-        struct fec_session *s;
+        struct xor_session *s;
         assert (header_len % 4 == 0);
         /* TODO: check if it shouldn't be less */
-        assert(header_len + max_payload_len + 40 + sizeof(struct fec_pkt_hdr) < 9000);
+        assert(header_len + max_payload_len + 40 + sizeof(struct xor_pkt_hdr) < 9000);
 
-        s = (struct fec_session *) malloc(sizeof(struct fec_session));
+        s = (struct xor_session *) malloc(sizeof(struct xor_session));
         s->pkt_count = 0;
         s->header_len = header_len;
         /* calloc is really needed here, because we will xor with this place incomming packets */
-        s->header_fec = (char *) calloc(1, header_len + max_payload_len);
+        s->header_xor = (char *) calloc(1, header_len + max_payload_len);
         s->max_payload_len = max_payload_len;
-        s->payload_fec = (char *) s->header_fec + header_len;
+        s->payload_xor = (char *) s->header_xor + header_len;
 
         return s;
 }
 
-void fec_add_packet(struct fec_session *session, const char *hdr, const char *payload, int payload_len)
+void xor_add_packet(struct xor_session *session, const char *hdr, const char *payload, int payload_len)
 {
         int linepos;
         register unsigned int *line1;
@@ -114,7 +114,7 @@ void fec_add_packet(struct fec_session *session, const char *hdr, const char *pa
 
         session->pkt_count++;
 
-        line1 = (unsigned int *) session->header_fec;
+        line1 = (unsigned int *) session->header_xor;
         line2 = (const unsigned int *) hdr;
         for(linepos = 0; linepos < session->header_len; linepos += 4) {
                 *line1 ^= *line2;
@@ -122,7 +122,7 @@ void fec_add_packet(struct fec_session *session, const char *hdr, const char *pa
                 line2 += 1;
         }
 
-        line1 = (unsigned int *) session->payload_fec;
+        line1 = (unsigned int *) session->payload_xor;
         line2 = (const unsigned int *) payload;
         for(linepos = 0; linepos < (payload_len - 15); linepos += 16) {
                 asm volatile ("movdqu (%0), %%xmm0\n"
@@ -146,49 +146,49 @@ void fec_add_packet(struct fec_session *session, const char *hdr, const char *pa
 
 }
 
-void fec_emit_fec_packet(struct fec_session *session, const char **hdr, size_t *hdr_len, const char **payload, size_t *payload_len)
+void xor_emit_xor_packet(struct xor_session *session, const char **hdr, size_t *hdr_len, const char **payload, size_t *payload_len)
 {
-        session->fec_hdr.pkt_count = htonl(session->pkt_count);
-        session->fec_hdr.header_len = htons(session->header_len);
-        session->fec_hdr.payload_len = htons(session->max_payload_len);
+        session->xor_hdr.pkt_count = htonl(session->pkt_count);
+        session->xor_hdr.header_len = htons(session->header_len);
+        session->xor_hdr.payload_len = htons(session->max_payload_len);
 
-        *hdr = (char *)  &session->fec_hdr;
-        *hdr_len = (size_t) sizeof(struct fec_pkt_hdr);
-        *payload = (const char *) session->header_fec;
+        *hdr = (char *)  &session->xor_hdr;
+        *hdr_len = (size_t) sizeof(struct xor_pkt_hdr);
+        *payload = (const char *) session->header_xor;
         *payload_len = (size_t) (session->header_len + session->max_payload_len);
 }
 
-void fec_clear(struct fec_session *session)
+void xor_clear(struct xor_session *session)
 {
         session->pkt_count = 0;
-        memset(session->header_fec, 0, session->header_len + session->max_payload_len);
+        memset(session->header_xor, 0, session->header_len + session->max_payload_len);
 }
 
-void fec_destroy(struct fec_session * session)
+void xor_destroy(struct xor_session * session)
 {
-        free(session->header_fec);
+        free(session->header_xor);
         free(session);
 }
 
 
-struct fec_session *fec_restore_init()
+struct xor_session *xor_restore_init()
 {
-        struct fec_session *session;
-        session = (struct fec_session *) malloc(sizeof(struct fec_session));
+        struct xor_session *session;
+        session = (struct xor_session *) malloc(sizeof(struct xor_session));
         return session;
 }
 
-void fec_restore_start(struct fec_session *session, const char *data)
+void xor_restore_start(struct xor_session *session, const char *data)
 {
-        session->pkt_count = - ntohl(((struct fec_pkt_hdr *) data)->pkt_count);
-        session->header_len = ntohs(((struct fec_pkt_hdr *) data)->header_len);
-        session->max_payload_len = ntohs(((struct fec_pkt_hdr *) data)->payload_len);
+        session->pkt_count = - ntohl(((struct xor_pkt_hdr *) data)->pkt_count);
+        session->header_len = ntohs(((struct xor_pkt_hdr *) data)->header_len);
+        session->max_payload_len = ntohs(((struct xor_pkt_hdr *) data)->payload_len);
 
-        session->header_fec = data + sizeof(struct fec_pkt_hdr);
-        session->payload_fec = data + sizeof(struct fec_pkt_hdr) + session->header_len;
+        session->header_xor = data + sizeof(struct xor_pkt_hdr);
+        session->payload_xor = data + sizeof(struct xor_pkt_hdr) + session->header_len;
 }
 
-int fec_restore_packet(struct fec_session *session, char **pkt)
+int xor_restore_packet(struct xor_session *session, char **pkt)
 {
         if(session->pkt_count == 0)
         {
@@ -200,21 +200,21 @@ int fec_restore_packet(struct fec_session *session, char **pkt)
                 return FALSE;
         }
         if(session->pkt_count > -1) {
-                debug_msg("Restoring packed failed - missing FEC.\n");
+                debug_msg("Restoring packed failed - missing xor.\n");
                 return FALSE;
         }
 
         debug_msg("Restoring packed.\n");
-        *pkt = session->header_fec;
+        *pkt = session->header_xor;
         return TRUE;
 }
 
-void fec_restore_destroy(struct fec_session *fec)
+void xor_restore_destroy(struct xor_session *xor)
 {
-        free(fec);
+        free(xor);
 }
 
-void fec_restore_invalidate(struct fec_session *session)
+void xor_restore_invalidate(struct xor_session *session)
 {
         session->pkt_count = 0;
 }

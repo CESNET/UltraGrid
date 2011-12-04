@@ -44,7 +44,7 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "perf.h"
-#include "rtp/fec.h"
+#include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -543,7 +543,7 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
         double fps;
         struct tile *tile = NULL;
 
-        struct fec_session **fecs = calloc(10, sizeof(struct fec_session *));
+        struct xor_session **xors = calloc(10, sizeof(struct xor_session *));
         uint16_t last_rtp_seq;
         struct linked_list *pckt_list = ll_create();
         uint32_t total_packets_sent = 0u;
@@ -566,17 +566,17 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                                 continue;
                 }
                 if(pckt->pt >= 98) {
-                        struct fec_session *fec;
-                        fec = fecs[pckt->pt - 98];
-                        if(fec && last_rtp_seq < pckt->seq) {
-                                        fec_restore_invalidate(fec);
+                        struct xor_session *xor;
+                        xor = xors[pckt->pt - 98];
+                        if(xor && last_rtp_seq < pckt->seq) {
+                                        xor_restore_invalidate(xor);
                         }
                         last_rtp_seq = pckt->seq;
-                        if(!fec) {
-                                fec = fecs[pckt->pt - 98] = 
-                                                fec_restore_init();
-                                /* register the FEC packet */
-                                fec_restore_start(fec, pckt->data);
+                        if(!xor) {
+                                xor = xors[pckt->pt - 98] = 
+                                                xor_restore_init();
+                                /* register the xor packet */
+                                xor_restore_start(xor, pckt->data);
                                 cdata = cdata->nxt;
                                 /* and jump to next */
                                 continue;
@@ -584,9 +584,9 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                                 int ret = FALSE;
                                 rtp_packet *pckt_old = pckt;
                                 /* try to restore packet */
-                                ret = fec_restore_packet(fec, &hdr);
-                                /* register current FEC packet */
-                                fec_restore_start(fec, pckt_old->data);
+                                ret = xor_restore_packet(xor, &hdr);
+                                /* register current xor packet */
+                                xor_restore_start(xor, pckt_old->data);
                                 /* if we didn't recovered any packet, jump to next */
                                 if(!ret) {
                                         cdata = cdata->nxt;
@@ -596,12 +596,12 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                         }
                 } else {
                         int i = 0;
-                        while (fecs[i]) {
-                                if(fecs[i]) {
+                        while (xors[i]) {
+                                if(xors[i]) {
                                         if(last_rtp_seq >= pckt->seq) {
-                                                fec_add_packet(fecs[i], hdr, (char *) hdr + sizeof(payload_hdr_t), ntohs(hdr->length));
+                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(payload_hdr_t), ntohs(hdr->length));
                                         } else {
-                                                fec_restore_invalidate(fecs[i]);
+                                                xor_restore_invalidate(xors[i]);
                                         }
 
                                         last_rtp_seq = pckt->seq;
@@ -792,8 +792,8 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
 cleanup:
         ll_destroy(pckt_list);
         int i = 0;
-        while (fecs[i]) {
-                fec_restore_destroy(fecs[i]);
+        while (xors[i]) {
+                xor_restore_destroy(xors[i]);
                 ++i;
         }
 

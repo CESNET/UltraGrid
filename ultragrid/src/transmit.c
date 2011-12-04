@@ -59,7 +59,7 @@
 #include "debug.h"
 #include "perf.h"
 #include "audio/audio.h"
-#include "rtp/fec.h"
+#include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "tv.h"
@@ -194,7 +194,7 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
         int m, data_len;
         payload_hdr_t payload_hdr;
         int pt = 96;            /* A dynamic payload type for the tests... */
-        const int fec_pt = 98;
+        const int xor_pt = 98;
         char *data;
         unsigned int pos;
 #if HAVE_MACOSX
@@ -203,8 +203,8 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
         struct timespec start, stop;
 #endif                          /* HAVE_MACOSX */
         long delta;
-        struct fec_session **fec;
-        int *fec_pkts;
+        struct xor_session **xor;
+        int *xor_pkts;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
@@ -216,12 +216,12 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
 
         if(tx->fec_scheme == FEC_XOR) {
                 int i;
-                fec = calloc(50, sizeof(struct fec_session *));
-                fec_pkts = calloc(50, sizeof(int));
+                xor = calloc(50, sizeof(struct xor_session *));
+                xor_pkts = calloc(50, sizeof(int));
                 for (i = 0; i < tx->xor_streams; ++i) {
-                        fec[i] = fec_init(sizeof(payload_hdr_t), tx->mtu - 40 - (sizeof(payload_hdr_t))); 
-                        fec_clear(fec[i]);
-                        fec_pkts[i] = i % tx->xor_leap;
+                        xor[i] = xor_init(sizeof(payload_hdr_t), tx->mtu - 40 - (sizeof(payload_hdr_t))); 
+                        xor_clear(xor[i]);
+                        xor_pkts[i] = i % tx->xor_leap;
                 }
         }
         if(tx->fec_scheme == FEC_MULT) {
@@ -243,7 +243,7 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
         payload_hdr.tileinfo =  hton_tileinfo2uint(tile->tile_info);
 
         int i = 0;
-        /* emit empty FEC in order to catch 1st packet */
+        /* emit empty XOR in order to catch 1st packet */
         if (tx->fec_scheme == FEC_XOR) {
                 const char *hdr;
                 size_t hdr_len;
@@ -251,11 +251,11 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
                 size_t payload_len;
                 int i;
                 for (i = 0; i < tx->xor_streams; ++i) {
-                        fec_emit_fec_packet(fec[i], &hdr, &hdr_len, &payload, &payload_len);
-                        rtp_send_data_hdr(rtp_session, ts, fec_pt + i, 0 /* mbit */, 0, 0,
+                        xor_emit_xor_packet(xor[i], &hdr, &hdr_len, &payload, &payload_len);
+                        rtp_send_data_hdr(rtp_session, ts, xor_pt + i, 0 /* mbit */, 0, 0,
                                   (char *)hdr, hdr_len,
                                   (char *)payload, payload_len, 0, 0, 0);
-                        fec_clear(fec[i]);
+                        xor_clear(xor[i]);
                 }
         }
 
@@ -296,7 +296,7 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
                 if(tx->fec_scheme == FEC_XOR) {
                         int i;
                         for (i = 0; i < tx->xor_streams; ++i) {
-                                fec_add_packet(fec[i], (const char *) &payload_hdr, data, data_len);
+                                xor_add_packet(xor[i], (const char *) &payload_hdr, data, data_len);
                         }
                 }
 
@@ -315,15 +315,15 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
                         int i;
 
                         for (i = 0; i < tx->xor_streams; ++i) {
-                                if(++fec_pkts[i] == tx->xor_leap) {
-                                        fec_emit_fec_packet(fec[i], &hdr, &hdr_len, &payload, &payload_len);
+                                if(++xor_pkts[i] == tx->xor_leap) {
+                                        xor_emit_xor_packet(xor[i], &hdr, &hdr_len, &payload, &payload_len);
                                 
                                         if (pos + data_len >= tile->data_len) {
                                                 if (send_m)
                                                         m = 1;
                                         }
                                         GET_STARTTIME;
-                                        rtp_send_data_hdr(rtp_session, ts, fec_pt + i, 0 /* mbit */, 0, 0,
+                                        rtp_send_data_hdr(rtp_session, ts, xor_pt + i, 0 /* mbit */, 0, 0,
                                                   (char *)hdr, hdr_len,
                                                   (char *)payload, payload_len, 0, 0, 0);
                                         do {
@@ -332,8 +332,8 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
                                                 if (delta < 0)
                                                         delta += 1000000000L;
                                         } while (packet_rate - delta > 0);
-                                        fec_clear(fec[i]);
-                                        fec_pkts[i] = 0;
+                                        xor_clear(xor[i]);
+                                        xor_pkts[i] = 0;
                                 }
                         }
                 }
@@ -351,10 +351,10 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
                 size_t payload_len;
                 int i;
                 for (i = 0; i < tx->xor_streams; ++i) {
-                        fec_emit_fec_packet(fec[i], &hdr, &hdr_len, &payload, &payload_len);
+                        xor_emit_xor_packet(xor[i], &hdr, &hdr_len, &payload, &payload_len);
                 
                         GET_STARTTIME;
-                        rtp_send_data_hdr(rtp_session, ts, fec_pt + i, 0 /* mbit */, 0, 0,
+                        rtp_send_data_hdr(rtp_session, ts, xor_pt + i, 0 /* mbit */, 0, 0,
                                   (char *)hdr, hdr_len,
                                   (char *)payload, payload_len, 0, 0, 0);
                         do {
@@ -363,13 +363,13 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
                                 if (delta < 0)
                                         delta += 1000000000L;
                         } while (packet_rate - delta > 0);
-                        fec_clear(fec[i]);
-                        fec_pkts[i] = 0;
+                        xor_clear(xor[i]);
+                        xor_pkts[i] = 0;
 
-                        fec_destroy(fec[i]);
+                        xor_destroy(xor[i]);
                 }
-                free(fec);
-                free(fec_pkts);
+                free(xor);
+                free(xor_pkts);
         }
 
         if(tx->fec_scheme == FEC_MULT) {
