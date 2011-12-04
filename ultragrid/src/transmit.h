@@ -53,8 +53,9 @@
  */
 
 struct video_tx;
+struct video_frame;
 
-struct video_tx *tx_init(unsigned mtu);
+struct video_tx *tx_init(unsigned mtu, char *tx);
 void		 tx_done(struct video_tx *tx);
 void		 tx_send_tile(struct video_tx *tx, struct video_frame *frame, int x_pos, int y_pos, struct rtp *rtp_session);
 void             tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session);

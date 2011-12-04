@@ -144,7 +144,7 @@ static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] \n");
-        printf("          [-m <mtu>] [-c] [-i] address(es)\n\n");
+        printf("          [-m <mtu>] [-c] [-i] [-f <FEC_options> address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help' to get\n");
         printf("\t                         \tlist of supported devices\n");
@@ -162,6 +162,8 @@ static void usage(void)
         printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
         printf("\n");
         printf("\t-j <settings>            \tJACK Audio Connection Kit settings (see '-j help')\n");
+        printf("\n");
+        printf("\t-f <settings>            \tconfig forward error checking, currently \"XOR:<leap>:<nr_streams>\" or \"mult:<nr>\"\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -337,11 +339,11 @@ static void destroy_devices(struct rtp ** network_devices)
 	free(network_devices);
 }
 
-static struct video_tx *initialize_transmit(unsigned requested_mtu)
+static struct video_tx *initialize_transmit(unsigned requested_mtu, char *fec)
 {
         /* Currently this is trivial. It'll get more complex once we */
         /* have multiple codecs and/or error correction.             */
-        return tx_init(requested_mtu);
+        return tx_init(requested_mtu, fec);
 }
 
 static void *ihdtv_reciever_thread(void *arg)
@@ -555,6 +557,7 @@ int main(int argc, char *argv[])
         char *audio_send = NULL;
         char *audio_recv = NULL;
         char *jack_cfg = NULL;
+        char *requested_fec = NULL;
         char *save_ptr = NULL;
         
         struct state_uv *uv;
@@ -584,6 +587,7 @@ int main(int argc, char *argv[])
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
                 {"jack", required_argument, 0, 'j'},
+                {"fec", required_argument, 0, 'f'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -607,7 +611,7 @@ int main(int argc, char *argv[])
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:f:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -653,6 +657,9 @@ int main(int argc, char *argv[])
                         break;
                 case 'j':
                         jack_cfg = optarg;
+                        break;
+                case 'f':
+                        requested_fec = optarg;
                         break;
 		case 'h':
 			usage();
@@ -835,7 +842,7 @@ int main(int argc, char *argv[])
                         uv->requested_mtu = 1500;       // the default value for rpt
                 }
 
-                if ((uv->tx = initialize_transmit(uv->requested_mtu)) == NULL) {
+                if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
                         printf("Unable to initialize transmitter\n");
                         return EXIT_FAIL_TRANSMIT;
                 }

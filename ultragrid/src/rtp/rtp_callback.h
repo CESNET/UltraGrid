@@ -64,12 +64,6 @@ typedef struct {
         uint32_t    aux;        /* auxiliary data */
 } audio_payload_hdr_t;
 
-
-/* FIXME: this is only needed because fdisplay() takes "struct display" as a parameter */
-/*        should probably not have such tight coupling between modules                 */
-#include "video_display.h"
-
-void fdisplay(struct display *display_device, unsigned char *inframe);
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
