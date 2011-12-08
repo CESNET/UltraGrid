@@ -126,6 +126,10 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
  */
 typedef void * (*audio_init_t)(char *cfg);
 typedef struct audio_frame* (*audio_read_t)(void *state);
+typedef void (*audio_finish_t)(void *state);
+typedef void (*audio_done_t)(void *state);
+
+/* playback */
 typedef struct audio_frame* (*audio_get_frame_t)(void *state);
 typedef void (*audio_put_frame_t)(void *state, struct audio_frame *frame);
 typedef void (*audio_playback_done_t)(void *s);
@@ -133,6 +137,8 @@ typedef void (*audio_playback_done_t)(void *s);
 struct audio_capture_t {
         audio_init_t audio_init;
         audio_read_t audio_read;
+        audio_finish_t audio_capture_finish;
+        audio_done_t audio_capture_done;
 };
 
 struct audio_playback_t {
@@ -143,8 +149,10 @@ struct audio_playback_t {
 };
 
 void * sdi_capture_init(char *cfg);
+void * sdi_capture_finish(void *state);
+void * sdi_capture_done(void *state);
 void * sdi_playback_init(char *cfg);
-void sdi_done(void *s);
+void sdi_playback_done(void *s);
 struct audio_frame * sdi_read(void *state);
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
@@ -153,16 +161,16 @@ void print_audio_devices(enum audio_device_kind kind);
 
 static struct audio_capture_t audio_capture[] = {
 #ifdef HAVE_PORTAUDIO
-        [AUDIO_DEV_PORTAUDIO] = { portaudio_capture_init, portaudio_read },
+        [AUDIO_DEV_PORTAUDIO] = { portaudio_capture_init, portaudio_read, portaudio_capture_finish, portaudio_capture_done },
 #endif
-        [AUDIO_DEV_SDI] = { sdi_capture_init, sdi_read }
+        [AUDIO_DEV_SDI] = { sdi_capture_init, sdi_read, sdi_capture_finish, sdi_capture_done }
 };
 
 static struct audio_playback_t audio_playback[] = {
 #ifdef HAVE_PORTAUDIO
         [AUDIO_DEV_PORTAUDIO] = { portaudio_playback_init, portaudio_get_frame, portaudio_put_frame, portaudio_close_playback },
 #endif
-        [AUDIO_DEV_SDI] = { sdi_playback_init, sdi_get_frame, sdi_put_frame, sdi_done }
+        [AUDIO_DEV_SDI] = { sdi_playback_init, sdi_get_frame, sdi_put_frame, sdi_playback_done }
 };
 
 
@@ -309,12 +317,23 @@ void audio_join(struct state_audio *s) {
         }
 }
         
-void audio_done(struct state_audio *s) {
+void audio_finish(struct state_audio *s)
+{
+        if(s) {
+                if(s->audio_capture_device.index)
+                        audio_capture[s->audio_capture_device.index].audio_capture_finish(s->audio_capture_device.state);
+        }
+}
+
+void audio_done(struct state_audio *s)
+{
         if(s) {
                 if(s->audio_participants)
                         pdb_destroy(&s->audio_participants);
                 if(s->audio_playback_device.index)
                         audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
+                if(s->audio_capture_device.index)
+                        audio_capture[s->audio_capture_device.index].audio_capture_done(s->audio_capture_device.state);
                 free(s);
         }
 }
@@ -346,7 +365,10 @@ struct audio_frame * sdi_read(void *state)
         
         s = (struct state_sdi_capture *) state;
         platform_sem_wait(&s->audio_frame_ready);
-        return s->audio_buffer;
+        if(!should_exit)
+                return s->audio_buffer;
+        else
+                return NULL;
 }
 
 static struct rtp *initialize_audio_network(char *addr, struct pdb *participants)       // GiX
@@ -439,10 +461,6 @@ static void *audio_sender_thread(void *arg)
 #endif
                 }
         }
-/*#ifdef HAVE_PORTAUDIO
-        free_audio_frame(&buffer);
-        portaudio_close(stream);
-#endif*/ /* HAVE_PORTAUDIO */
 
         return NULL;
 }
@@ -513,7 +531,21 @@ struct audio_frame * sdi_get_frame(void *state)
                 return NULL;
 }
 
-void sdi_done(void *s)
+void sdi_playback_done(void *s)
 {
         UNUSED(s);
 }
+
+void * sdi_capture_finish(void *state)
+{
+        struct state_sdi_capture *s;
+        
+        s = (struct state_sdi_capture *) state;
+        platform_sem_post(&s->audio_frame_ready);
+}
+
+void * sdi_capture_done(void *state)
+{
+        UNUSED(state);
+}
+

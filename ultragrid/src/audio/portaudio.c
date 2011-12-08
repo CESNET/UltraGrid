@@ -53,6 +53,7 @@
 
 #include "audio/audio.h"
 #include "audio/portaudio.h"
+#include "debug.h"
 
 /* default variables for sender */
 #define BPS 2 /* paInt16 */
@@ -457,3 +458,17 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
                 }
 	}
 }
+
+void portaudio_capture_finish(void *state)
+{
+        UNUSED(state);
+}
+
+void portaudio_capture_done(void *state)
+{
+        struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
+        portaudio_close(s->stream);
+        free(s->frame.data);
+        free(s);
+}
+

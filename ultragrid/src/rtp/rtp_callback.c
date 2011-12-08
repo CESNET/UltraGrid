@@ -58,6 +58,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "pdb.h"
 #include "video_display.h"
 #include "video_codec.h"
@@ -68,7 +69,6 @@
 #include "rtp/rtp_callback.h"
 #include "tfrc.h"
 
-extern int should_exit;
 extern char *frame;
 
 char hdr_buf[100];

@@ -49,6 +49,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "host.h"
 
 #include "debug.h"
 #include "video_display.h"
@@ -117,8 +118,6 @@ struct state_sdl {
         int                     pitch;
 };
 
-extern int should_exit;
-
 static void toggleFullscreen(struct state_sdl *s);
 static void loadSplashscreen(struct state_sdl *s);
 inline void copyline64(unsigned char *dst, unsigned char *src, int len);
@@ -133,8 +132,6 @@ static void configure_audio(struct state_sdl *s);
 void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
                 
-extern int should_exit;
-
 /** 
  * Load splashscreen
  * Function loads graphic data from header file "splashscreen.h", where are
@@ -300,7 +297,7 @@ int display_sdl_handle_events(void *arg, int post)
                         }
 
                         if (!strcmp(SDL_GetKeyName(sdl_event.key.keysym.sym), "q")) {
-                                should_exit = 1;
+                                exit_uv(0);
                                 if(post)
                                         SDL_SemPost(s->semaphore);
                         }
@@ -313,7 +310,7 @@ int display_sdl_handle_events(void *arg, int post)
                         }
                         break;
                 case SDL_QUIT:
-                        should_exit = 1;
+                        exit_uv(0);
                         if(post)
                                 SDL_SemPost(s->semaphore);
                 }

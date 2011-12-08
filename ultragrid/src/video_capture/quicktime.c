@@ -53,6 +53,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "host.h"
 #include "tv.h"
 #include "video_display.h"
 #include "video_capture.h"
@@ -68,8 +69,6 @@
 #include <QuickTime/QuickTimeComponents.h>
 
 #define MAGIC_QT_GRABBER	VIDCAP_QUICKTIME_ID
-
-extern int should_exit;
 
 struct qt_grabber_state {
         uint32_t magic;

@@ -60,7 +60,8 @@ void            portaudio_print_available_devices(enum audio_device_kind);
 /* Capture related  */
 void * portaudio_capture_init(char *cfg);
 struct audio_frame * portaudio_read(void *state);
-//done
+void portaudio_capture_finish(void *state);
+void portaudio_capture_done(void *state);
 
 /* Playback related */
 void           *portaudio_playback_init(char *cfg);

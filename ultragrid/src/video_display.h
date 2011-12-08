@@ -98,6 +98,7 @@ struct display;
 struct display	*display_init(display_id_t id, char *fmt, unsigned int flags);
 void 		 display_run(struct display *d);
 void 		 display_done(struct display *d);
+void 		 display_finish(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);
 void             display_reconfigure(struct display *d, struct video_desc desc);

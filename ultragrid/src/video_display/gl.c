@@ -49,6 +49,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "host.h"
 
 #define GL_GLEXT_PROTOTYPES 1
 
@@ -157,7 +158,6 @@ static const char fp_display_dxt5ycocg[] =
 
 /* defined in main.c */
 extern int uv_argc;
-extern int should_exit;
 extern char **uv_argv;
 
 struct state_gl {
@@ -692,7 +692,7 @@ void glut_key_callback(unsigned char key, int x, int y)
                 case 'q':
                         if(gl->window != -1)
                                 glutDestroyWindow(gl->window);
-			should_exit = 1;
+			exit_uv(0);
                         break;
                 case 'd':
                         gl->deinterlace = gl->deinterlace ? FALSE : TRUE;
@@ -898,7 +898,7 @@ void gl_draw(double ratio)
 
 void glut_close_callback(void)
 {
-        should_exit = TRUE;
+        exit_uv(0);
 }
 
 display_type_t *display_gl_probe(void)

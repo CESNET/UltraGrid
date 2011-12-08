@@ -91,8 +91,6 @@ struct timeval t, t0;
 extern "C" {
 #endif
 
-extern int		 should_exit;
-
 #ifdef __cplusplus
 }
 #endif

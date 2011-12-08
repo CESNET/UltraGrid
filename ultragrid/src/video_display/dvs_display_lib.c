@@ -52,6 +52,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "host.h"
 
 #ifdef HAVE_DVS           /* From config.h */
 
@@ -289,8 +290,6 @@ const hdsp_mode_table_t hdsp_mode_table[] = {
         {0, 0, 0, 0, 0},
 };
 
-
-extern int should_exit;
 
 struct state_hdsp {
         pthread_t thread_id;

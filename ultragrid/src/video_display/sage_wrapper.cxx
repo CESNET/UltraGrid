@@ -50,8 +50,7 @@
 #include "sage_wrapper.h"
 #include <sail.h>
 #include <misc.h>
-
-extern int should_exit; // to be able handle sage exit event
+#include "host.h"
 
 void *initSage(int appID, int nodeID, int width, int height, codec_t codec)
 {
@@ -114,7 +113,7 @@ void sage_swapBuffer(void *state)
         switch (msg.getCode()) {
             case APP_QUIT : { 
                 sage::printLog("Ultragrid: QUIT message");
-                should_exit = TRUE;
+                exit_uv(1);
                 break;
             }
         }

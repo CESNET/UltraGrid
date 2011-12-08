@@ -53,6 +53,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#include "host.h"
  
 #ifdef HAVE_SDL
 
@@ -72,8 +73,6 @@
 #include <pthread.h>
 #include <time.h>
 #include <limits.h>
-
-extern int should_exit;
 
 #define AUDIO_SAMPLE_RATE 48000
 #define AUDIO_BPS 2

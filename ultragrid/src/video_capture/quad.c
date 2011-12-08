@@ -93,8 +93,6 @@
 
 #define MAXLEN 256
 
-extern int	should_exit;
-
 static const char progname[] = "videocapture";
 static const char sys_fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
 static const char devfile_fmt[] = "/dev/sdivideorx%1u";

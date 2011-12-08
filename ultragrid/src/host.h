@@ -47,8 +47,7 @@
 #ifndef __host_h
 #define __host_h
 
-extern 		int should_exit;
-
+/* TODO: remove these variables (should be safe) */
 extern unsigned int hd_size_x;
 extern unsigned int hd_size_y;
 extern unsigned int hd_color_spc;
@@ -57,5 +56,8 @@ extern unsigned int hd_color_bpp;
 extern unsigned int bitdepth;
 
 extern unsigned int progressive;
+
+extern volatile int should_exit;
+void exit_uv(int status);
 
 #endif

@@ -117,7 +117,8 @@ struct state_uv {
 };
 
 long packet_rate = 13600;
-int should_exit = FALSE;
+volatile int should_exit = FALSE;
+static sem_t should_exit_sem;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
@@ -127,6 +128,7 @@ long frame_begin[2];
 
 int uv_argc;
 char **uv_argv;
+static struct state_uv *uv_state;
 
 void list_video_display_devices(void);
 void list_video_capture_devices(void);
@@ -135,10 +137,16 @@ void list_video_capture_devices(void);
 static void signal_handler(int signal)
 {
         debug_msg("Caught signal %d\n", signal);
-        should_exit = TRUE;
+        exit_uv(0);
         return;
 }
 #endif                          /* WIN32 */
+
+void exit_uv(int status) {
+        should_exit = TRUE;
+        display_finish(uv_state->display_device);
+        platform_sem_post(&should_exit_sem);
+}
 
 static void usage(void)
 {
@@ -495,7 +503,7 @@ static void *sender_thread(void *arg)
         if(uv->requested_compression
                         && compression == NULL) {
                 fprintf(stderr, "Error initializing compression.\n");
-                should_exit = TRUE;
+                exit_uv(0);
         }
 
         tile_y_count = uv->connections_count;
@@ -590,6 +598,7 @@ int main(int argc, char *argv[])
 
         //      uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
         uv = (struct state_uv *)malloc(sizeof(struct state_uv));
+        uv_state = uv;
 
         uv->ts = 0;
         uv->display_device = NULL;
@@ -605,6 +614,8 @@ int main(int argc, char *argv[])
 
         perf_init();
         perf_record(UVP_INIT, 0);
+
+        platform_sem_init(&should_exit_sem, 0, 0);
 
         while ((ch =
                 getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:", getopt_options,
@@ -845,7 +856,7 @@ int main(int argc, char *argv[])
                             (&receiver_thread_id, NULL, receiver_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create display thread!\n");
-                                should_exit = TRUE;
+                                exit_uv(1);
                         }
                 }
                 if (strcmp("none", uv->requested_capture) != 0 ||
@@ -854,7 +865,7 @@ int main(int argc, char *argv[])
                             (&sender_thread_id, NULL, sender_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create capture thread!\n");
-                                should_exit = TRUE;
+                                exit_uv(1);
                         }
                 }
         }
@@ -867,7 +878,12 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
 
-        /* join threads (if the control reaches here) */
+        platform_sem_wait(&should_exit_sem);
+        /* here we let modules know that they should exit in order to avoid waitin on
+         * semaphores or so. Finishing for video display is signalized in exit_uv because
+         * it occupies this thread */
+        audio_finish(uv->audio);
+
         if (strcmp("none", uv->requested_display) != 0)
                 pthread_join(receiver_thread_id, NULL);
 
