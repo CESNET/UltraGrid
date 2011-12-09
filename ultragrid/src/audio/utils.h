@@ -63,4 +63,15 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
  */
 void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
 
+/*
+ * Extracts out_channel_count of channels from interleaved stream, starting with first_chan
+ */
+void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, int out_channel_count);
+
+/*
+ * Multiplexes channel into interleaved stream
+ */
+void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream);
+void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream);
+
 #endif

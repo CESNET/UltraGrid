@@ -82,27 +82,29 @@ extern long packet_rate;
 #endif                          /* HAVE_MACOSX */
 
 void
-tx_send_base(struct video_tx *tx, struct tile *frame, struct rtp *rtp_session, uint32_t ts, int send_m,
+tx_send_base(struct tx *tx, struct tile *frame, struct rtp *rtp_session, uint32_t ts, int send_m,
                 codec_t color_spec, double fps, int aux);
 
-struct video_tx {
+struct tx {
         uint32_t magic;
         unsigned mtu;
+        unsigned int buffer:20;
 };
 
-struct video_tx *tx_init(unsigned mtu)
+struct tx *tx_init(unsigned mtu)
 {
-        struct video_tx *tx;
+        struct tx *tx;
 
-        tx = (struct video_tx *)malloc(sizeof(struct video_tx));
+        tx = (struct tx *)malloc(sizeof(struct tx));
         if (tx != NULL) {
                 tx->magic = TRANSMIT_MAGIC;
                 tx->mtu = mtu;
+                tx->buffer = lrand48() & 0x3ff;
         }
         return tx;
 }
 
-void tx_done(struct video_tx *tx)
+void tx_done(struct tx *tx)
 {
         assert(tx->magic == TRANSMIT_MAGIC);
         free(tx);
@@ -112,7 +114,7 @@ void tx_done(struct video_tx *tx)
  * sends one or more frames (tiles) with same TS in one RTP stream. Only one m-bit is set.
  */
 void
-tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
+tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 {
         int i, j;
         uint32_t ts = 0;
@@ -135,7 +137,7 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 }
 
 void
-tx_send_tile(struct video_tx *tx, struct video_frame *frame, int x_pos, int y_pos, struct rtp *rtp_session)
+tx_send_tile(struct tx *tx, struct video_frame *frame, int x_pos, int y_pos, struct rtp *rtp_session)
 {
         struct tile *tile;
         
@@ -146,7 +148,7 @@ tx_send_tile(struct video_tx *tx, struct video_frame *frame, int x_pos, int y_po
 }
 
 void
-tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec, double fps, int aux)
+tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec, double fps, int aux)
 {
         int m, data_len;
         payload_hdr_t payload_hdr;
@@ -202,12 +204,14 @@ tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session, ui
         } while (pos < tile->data_len);
 }
 
-void audio_tx_send(struct rtp *rtp_session, audio_frame * buffer)
+void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 {
         const int mtu = 1500; // perhaps to be added as parameter to function call ?
         //audio_frame_to_network_buffer(buffer->tmp_buffer, buffer);
-        unsigned int pos = 0,
-                     m = 0;
+        unsigned int pos = 0u,
+                     m = 0u;
+        int channel;
+        char *chan_data = (char *) malloc(buffer->data_len);
         int buffer_len;
         int data_len;
         char *data;
@@ -222,36 +226,55 @@ void audio_tx_send(struct rtp *rtp_session, audio_frame * buffer)
         
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
-        
-        payload_hdr.ch_count = buffer->ch_count;
-        payload_hdr.sample_rate = htonl(buffer->sample_rate);
-        payload_hdr.buffer_len = htonl(buffer->data_len);
-        payload_hdr.audio_quant = buffer->bps * 8;
 
-        do {
-                data = buffer->data + pos;
-                data_len = mtu - 40 - sizeof(audio_payload_hdr_t);
-                if(pos + data_len >= buffer->data_len) {
-                        data_len = buffer->data_len - pos;
-                        m = 1;
-                }
-                payload_hdr.offset = htonl(pos);
-                payload_hdr.length = htons(data_len);
-                pos += data_len;
-                
-                GET_STARTTIME;
-                
-                rtp_send_data_hdr(rtp_session, timestamp, audio_payload_type, m, 0,        /* contributing sources */
-                      0,        /* contributing sources length */
-                      (char *) &payload_hdr, sizeof(payload_hdr),
-                      data, data_len,
-                      0, 0, 0);
+        for(channel = 0; channel < buffer->ch_count; ++channel)
+        {
+                demux_channel(chan_data, buffer->data, buffer->bps, buffer->data_len, buffer->ch_count, channel);
+                pos = 0u;
+
+                uint32_t tmp;
+                tmp = channel << 22; /* bits 0-9 */
+                tmp |= tx->buffer << 2; /* bits 10-29 */
+                payload_hdr.substream_bufnum = htonl(tmp);
+
+                payload_hdr.length = htonl(buffer->data_len / buffer->ch_count);
+
+                /* fourth word */
+                tmp = (buffer->bps * 8) << 26;
+                tmp |= buffer->sample_rate;
+                payload_hdr.quant_sample_rate = htonl(tmp);
+
+                /* fifth word */
+                payload_hdr.audio_tag = htonl(1); /* PCM */
+
                 do {
-                        GET_STOPTIME;
-                        GET_DELTA;
-                        if (delta < 0)
-                                delta += 1000000000L;
-                } while (packet_rate - delta > 0);
-              
-        } while (pos < buffer->data_len);
+                        data = chan_data + pos;
+                        data_len = mtu - 40 - sizeof(audio_payload_hdr_t);
+                        if(pos + data_len >= buffer->data_len / buffer->ch_count) {
+                                data_len = buffer->data_len / buffer->ch_count - pos;
+                                if(channel == buffer->ch_count - 1)
+                                        m = 1;
+                        }
+                        payload_hdr.offset = htonl(pos);
+                        pos += data_len;
+                        
+                        GET_STARTTIME;
+                        
+                        rtp_send_data_hdr(rtp_session, timestamp, audio_payload_type, m, 0,        /* contributing sources */
+                              0,        /* contributing sources length */
+                              (char *) &payload_hdr, sizeof(payload_hdr),
+                              data, data_len,
+                              0, 0, 0);
+                        do {
+                                GET_STOPTIME;
+                                GET_DELTA;
+                                if (delta < 0)
+                                        delta += 1000000000L;
+                        } while (packet_rate - delta > 0);
+                      
+                } while (pos < buffer->data_len / buffer->ch_count);
+        }
+
+        tx->buffer ++;
+        free(chan_data);
 }

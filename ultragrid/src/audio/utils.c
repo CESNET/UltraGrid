@@ -51,8 +51,6 @@
 #include <assert.h>
 #include <string.h>
 
-void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, int out_channel_count);
-
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
         int pattern = 0xffff << (out_bps * 8);
@@ -87,7 +85,7 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
                 int j;
                 
                 in -= bps;
-                for  (j = out_channel_count; j > 0; --j) {
+                for  (j = out_channel_count + 0; j > 0; --j) {
                         out -= bps;
                         memmove(out, in, bps);
                 }
@@ -99,3 +97,36 @@ void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_cou
 
         copy_channel(frame->data, frame->data, frame->bps, frame->data_len, new_channel_count);
 }
+
+void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream)
+{
+        int samples = in_len / (in_stream_channels * bps);
+        int i;
+        
+        in += pos_in_stream * bps;
+
+        for (i = 0; i < samples; ++i) {
+                memcpy(out, in, bps);
+
+                out += bps;
+                in += in_stream_channels * bps;
+
+        }
+}
+
+void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream)
+{
+        int samples = in_len / bps;
+        int i;
+        
+        out += pos_in_stream * bps;
+
+        for (i = 0; i < samples; ++i) {
+                memcpy(out, in, bps);
+
+                in += bps;
+                out += out_stream_channels * bps;
+
+        }
+}
+

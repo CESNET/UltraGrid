@@ -704,7 +704,7 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
                         s->audio.ch_count);
         unsigned int sampleFramesWritten;
 
-        /* we got probably count that cannot be rendered directly (aka 1) */
+        /* we got probably count that cannot be played directly (probably 1) */
         if(s->output_audio_channel_count != s->audio.ch_count) {
                 assert(s->audio.ch_count == 1); /* only reasonable value so far */
                 if (sampleFrameCount * s->output_audio_channel_count 

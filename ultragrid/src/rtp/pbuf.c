@@ -370,7 +370,6 @@ int
 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                   audio_frame * buffer)
 {
-#ifdef HAVE_PORTAUDIO
         UNUSED(curr_time);
         struct pbuf_node *curr;
         struct coded_data *cdata;
@@ -391,33 +390,41 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 audio_payload_hdr_t *hdr = 
                                         (audio_payload_hdr_t *) cdata->data->data;
                                         
-                                int channels, quant_samples,
+                                int total_channels, bps,
                                         sample_rate;
+                                int channel;
                                 
-                                channels = hdr->ch_count;
-                                sample_rate = ntohl(hdr->sample_rate);
-                                quant_samples = hdr->audio_quant; assert(hdr->audio_quant % 8 == 0);
+                                if(cdata->data->m) {
+                                        total_channels = ((ntohl(hdr->substream_bufnum) >> 22) & 0x3ff) + 1;
+                                }
+
+                                channel = (ntohl(hdr->substream_bufnum) >> 22) & 0x3ff;
+                                sample_rate = ntohl(hdr->quant_sample_rate) & 0x3fffff;
+                                bps = (ntohl(hdr->quant_sample_rate) >> 26) / 8;
                                 
-                                if(buffer->ch_count != channels ||
-                                                buffer->bps != quant_samples / 8 ||
+                                if(buffer->ch_count != total_channels ||
+                                                buffer->bps != bps ||
                                                 buffer->sample_rate != sample_rate) {
-                                        buffer->reconfigure_audio(buffer->state, quant_samples, channels,
+                                        buffer->reconfigure_audio(buffer->state, bps * 8, total_channels,
                                                 sample_rate);
                                         //buffer = display_get_audio_frame(buffer->state);
                                 }
                                 
                                 data = cdata->data->data + sizeof(audio_payload_hdr_t);
                                 
-                                int length = ntohs(hdr->length);
+                                int length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
+
                                 int offset = ntohl(hdr->offset);
-                                if(length <= ((int) buffer->max_size) - offset) {
-                                        memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
+                                if(length * total_channels <= ((int) buffer->max_size) - offset) {
+                                        mux_channel(buffer->data + offset * total_channels, data, bps, length, total_channels, channel);
+                                        //memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
                                 } else { /* discarding data - buffer to small */
-                                        int copy_len = buffer->max_size - ntohl(hdr->offset);
+                                        int copy_len = buffer->max_size - offset * total_channels;
 
                                         if(copy_len > 0)
-                                                memcpy(buffer->data + ntohl(hdr->offset), data, 
-                                                        copy_len);
+                                                mux_channel(buffer->data + offset * total_channels, data, bps, copy_len, total_channels, channel);
+                                                //memcpy(buffer->data + ntohl(hdr->offset), data, 
+                                                //        copy_len);
                                         if(++prints % 100 == 0)
                                                 fprintf(stdout, "Warning: "
                                                         "discarding audio data "
@@ -425,8 +432,8 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 }
                                 
                                 /* buffer size same for every packet of the frame */
-                                if(ntohs(hdr->buffer_len) <= buffer->max_size) {
-                                        buffer->data_len = ntohl(hdr->buffer_len); 
+                                if(ntohl(hdr->length) <= buffer->max_size) {
+                                        buffer->data_len = ntohl(hdr->length) * total_channels;
                                 } else { /* overflow */
                                         buffer->data_len = buffer->max_size;
                                 }
@@ -439,6 +446,6 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                 }
                 curr = curr->nxt;
         }
-#endif /* HAVE_PORTAUDIO */
+
         return 0;
 }

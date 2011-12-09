@@ -96,6 +96,8 @@ struct state_audio {
         enum audio_transport_device receiver;
         
         struct timeval start_time;
+
+        struct tx *tx_session;
         
         pthread_t audio_sender_thread_id,
                   audio_receiver_thread_id;
@@ -305,6 +307,8 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         }
 #endif
 
+        s->tx_session = tx_init(1500);
+
         return s;
 }
 
@@ -334,6 +338,7 @@ void audio_done(struct state_audio *s)
                         audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
                 if(s->audio_capture_device.index)
                         audio_capture[s->audio_capture_device.index].audio_capture_done(s->audio_capture_device.state);
+                tx_done(s->tx_session);
                 free(s);
         }
 }
@@ -404,9 +409,9 @@ static void *audio_receiver_thread(void *arg)
         while (!should_exit) {
                 if(s->receiver == NET_NATIVE) {
                         gettimeofday(&curr_time, NULL);
-                        ts = tv_diff(curr_time, s->start_time) * 90000;        // What is this?
-                        rtp_update(s->audio_network_device, curr_time);        // this is just some internal rtp housekeeping...nothing to worry about
-                        rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);      // strange..
+                        ts = tv_diff(curr_time, s->start_time) * 90000;
+                        rtp_update(s->audio_network_device, curr_time);
+                        rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
                         timeout.tv_sec = 0;
                         timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
                                                              as video frames */
@@ -454,7 +459,7 @@ static void *audio_sender_thread(void *arg)
                         s->audio_capture_device.state);
                 if(buffer) {
                         if(s->sender == NET_NATIVE)
-                                audio_tx_send(s->audio_network_device, buffer);
+                                audio_tx_send(s->tx_session, s->audio_network_device, buffer);
 #ifdef HAVE_JACK
                         else
                                 jack_send(s->jack_connection, buffer);

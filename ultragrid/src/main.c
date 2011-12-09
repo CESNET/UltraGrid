@@ -103,7 +103,7 @@ struct state_uv {
         char *decoder_options;
         
         uint32_t ts;
-        struct video_tx *tx;
+        struct tx *tx;
         struct display *display_device;
         char *compress_options;
         int requested_compression;
@@ -345,7 +345,7 @@ static void destroy_devices(struct rtp ** network_devices)
 	free(network_devices);
 }
 
-static struct video_tx *initialize_transmit(unsigned requested_mtu)
+static struct tx *initialize_transmit(unsigned requested_mtu)
 {
         /* Currently this is trivial. It'll get more complex once we */
         /* have multiple codecs and/or error correction.             */

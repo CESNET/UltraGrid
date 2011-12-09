@@ -42,6 +42,11 @@
 
 #include "host.h"
 
+/*
+ * Packet formats:
+ * http://www.cesnet.cz/doc/techzpravy/2010/4k-packet-format/
+ */
+
 typedef struct {
     uint16_t    width;      /* pixels */
     uint16_t    height;     /* pixels */
@@ -54,22 +59,26 @@ typedef struct {
     uint32_t    tileinfo;   /* info about tile position (if tiled) */
 } payload_hdr_t;
 
-typedef struct {      
-        uint32_t    offset;     /* octets */
-        uint16_t    length;     /* octets */
-        uint32_t    buffer_len;
-        uint8_t     ch_count;   /* number of channels */        
-        uint8_t     audio_quant; /* size of audio samples (typically 16/24/32) */
-        uint32_t    sample_rate; /* sample rate */
-        uint32_t    aux;        /* auxiliary data */
-} audio_payload_hdr_t;
+typedef struct {
+        /* first word */
+        uint32_t substream_bufnum; /* bits 0 - 9 substream
+                                      bits 10 - 29 buffer */
+
+        /* second word */
+        uint32_t offset;
+
+        /* third word */
+        uint32_t length;
+
+        /* fourth word */
+        uint32_t quant_sample_rate; /* bits 0 - 5 audio quant.
+                                       bits 6 - 31 audio sample rate */
+
+        /* fifth word */
+        uint32_t audio_tag;
+} __attribute__((__packed__)) audio_payload_hdr_t;
 
 
-/* FIXME: this is only needed because fdisplay() takes "struct display" as a parameter */
-/*        should probably not have such tight coupling between modules                 */
-#include "video_display.h"
-
-void fdisplay(struct display *display_device, unsigned char *inframe);
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
