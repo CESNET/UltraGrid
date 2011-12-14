@@ -59,6 +59,6 @@ void                     display_gl_done(void *state);
 struct video_frame      *display_gl_getf(void *state);
 int                      display_gl_putf(void *state, char *frame);
 void                     display_gl_reconfigure(void *state, struct video_desc desc);
-int                      display_gl_get_property(void *state, int property, void *val, int *len);
+int                      display_gl_get_property(void *state, int property, void *val, size_t *len);
 
 int                      display_gl_handle_events(void *arg);

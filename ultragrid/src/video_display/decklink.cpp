@@ -354,7 +354,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 deckLinkDisplayMode->GetFrameRate(frameRateDuration,
                                                 frameRateScale);
                                 displayFPS = (double) *frameRateScale / *frameRateDuration;
-                                if(fabs(desc.fps - displayFPS) < 0.01// && (aux & AUX_INTERLACED && interlaced || !interlaced)
+                                if(fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED && interlaced || !interlaced)
                                   )
                                 {
                                         printf("Device %d - selected mode: %s\n", index, modeNameCString);
@@ -383,7 +383,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         assert(s->magic == DECKLINK_MAGIC);
         
         s->frame->color_spec = desc.color_spec;
-        s->frame->aux = desc.aux;
+        s->frame->interlacing = desc.interlacing;
         s->frame->fps = desc.fps;
 
 	switch (desc.color_spec) {
@@ -403,7 +403,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	if(s->stereo) {
 		desc.width /= 2; // half of with for each channel
 		for (int i = 0; i < 2; ++i) {
-			struct tile  *tile = tile_get(s->frame, i, 0);
+			struct tile  *tile = vf_get_tile(s->frame, i);
 			tile->width = desc.width;
 		        tile->height = desc.height;
 	                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
@@ -420,7 +420,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         exit(128);
                 }
                 
-                s->state[0].deckLinkFrame = DeckLink3DFrame::Create(desc.width, desc.height, tile_get(s->frame, 0, 0)->linesize, pixelFormat);
+                s->state[0].deckLinkFrame = DeckLink3DFrame::Create(desc.width, desc.height, vf_get_tile(s->frame, 0)->linesize, pixelFormat);
                         
                 s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
                 s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
@@ -433,10 +433,16 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	        for(int i = 0; i < s->devices_cnt; ++i) {
 	        	struct video_desc desc_dev;
 	                /* compute position */
-	                int x_count = s->frame->grid_width;
-	                int y_count = s->frame->grid_height;
-	                struct tile  *tile = tile_get(s->frame, i % x_count,
-	                                i / x_count);
+	                int x_count;
+	                int y_count;
+                        if(s->devices_cnt == 2) { /* stereo */
+                                x_count = 2;
+                                y_count = 1;
+                        } else if (s->devices_cnt == 4) { /* tiled 4K */
+                                x_count = y_count = 2;
+                        }
+
+	                struct tile  *tile = vf_get_tile(s->frame, i);
 
 			desc_dev = desc;	                                
 	                
@@ -575,17 +581,11 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 s->play_audio = FALSE;
         }
         
-        double x_cnt = sqrt(s->devices_cnt);
-        int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-        int y_count = s->devices_cnt / x_count;
         if(s->stereo) {
-        	s->frame = vf_alloc(2, 1);
+        	s->frame = vf_alloc(2);
 	} else {
-		s->frame = vf_alloc(x_count, y_count);
+		s->frame = vf_alloc(s->devices_cnt);
 	}
-        if(s->devices_cnt > 1) {
-                s->frame->aux = AUX_TILED;
-        }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
@@ -634,8 +634,9 @@ display_type_t *display_decklink_probe(void)
         return dtype;
 }
 
-int display_decklink_get_property(void *state, int property, void *val, int *len)
+int display_decklink_get_property(void *state, int property, void *val, size_t *len)
 {
+        struct state_decklink *s = (struct state_decklink *)state;
         codec_t codecs[] = {v210, UYVY, RGBA};
         
         switch (property) {
@@ -664,6 +665,12 @@ int display_decklink_get_property(void *state, int property, void *val, int *len
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
                         break;
+                case DISPLAY_PROPERTY_VIDEO_MODE:
+                        if(s->devices_cnt == 1)
+                                *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
+                        else
+                                *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+
                 default:
                         return FALSE;
         }

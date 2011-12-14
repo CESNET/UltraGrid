@@ -125,10 +125,10 @@ struct vo_postprocess_state *vo_postprocess_init(char *config_string)
 }
 
 struct video_frame * vo_postprocess_reconfigure(struct vo_postprocess_state *s,
-                struct video_desc desc, struct tile_info ti)
+                struct video_desc desc)
 {
         if(s) {
-                return s->handle->reconfigure(s->state, desc, ti);
+                return s->handle->reconfigure(s->state, desc);
         } else {
                 return NULL;
         }
@@ -146,8 +146,8 @@ void vo_postprocess_done(struct vo_postprocess_state *s)
         if(s) s->handle->done(s->state);
 }
 
-void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc_ti *out)
+void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc *out, int *display_mode)
 {
-        if(s) s->handle->get_out_desc(s->state, out);
+        if(s) s->handle->get_out_desc(s->state, out, display_mode);
 }
 

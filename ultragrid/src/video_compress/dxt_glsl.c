@@ -86,21 +86,19 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
 	int h_align = 0;
         enum dxt_format format;
         
-        assert(tile_get(frame, 0, 0)->width % 4 == 0);
-        s->out = vf_alloc(frame->grid_width, frame->grid_height);
+        assert(vf_get_tile(frame, 0)->width % 4 == 0);
+        s->out = vf_alloc(frame->tile_count);
         
-        for (x = 0; x < frame->grid_width; ++x) {
-                for (y = 0; y < frame->grid_height; ++y) {
-                        if (tile_get(frame, x, y)->width != tile_get(frame, 0, 0)->width ||
-                                        tile_get(frame, x, y)->width != tile_get(frame, 0, 0)->width)
+        for (x = 0; x < frame->tile_count; ++x) {
+                        if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
+                                        vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width)
                                 error_with_code_msg(128,"[RTDXT] Requested to compress tiles of different size!");
                                 
-                        tile_get(s->out, x, y)->width = tile_get(frame, 0, 0)->width;
-                        tile_get(s->out, x, y)->height = tile_get(frame, 0, 0)->height;
-                }
+                        vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
+                        vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
         }
         
-        s->out->aux = frame->aux;
+        s->out->interlacing = PROGRESSIVE;
         s->out->fps = frame->fps;
         s->out->color_spec = s->color_spec;
 
@@ -140,41 +138,36 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         }
 
         /* We will deinterlace the output frame */
-        if(s->out->aux & AUX_INTERLACED)
+        if(frame->interlacing  == INTERLACED_MERGED)
                 s->interlaced_input = TRUE;
         else
                 s->interlaced_input = FALSE;
-        s->out->aux &= ~AUX_INTERLACED;
 
         s->dxt_height = (s->out->tiles[0].height + 3) / 4 * 4;
 
         if(s->out->color_spec == DXT1) {
                 s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->dxt_height, format);
-                s->out->aux |= AUX_RGB;
                 s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height / 2;
         } else if(s->out->color_spec == DXT5){
                 s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->dxt_height, format);
-                s->out->aux |= AUX_YUV; /* YCoCg */
                 s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height;
         }
         
-        for (x = 0; x < frame->grid_width; ++x) {
-                for (y = 0; y < frame->grid_height; ++y) {
-                        tile_get(s->out, x, y)->linesize = s->out->tiles[0].width;
-                        switch(format) { 
-                                case DXT_FORMAT_RGBA:
-                                        tile_get(s->out, x, y)->linesize *= 4;
-                                        break;
-                                case DXT_FORMAT_RGB:
-                                        tile_get(s->out, x, y)->linesize *= 3;
-                                        break;
-                                case DXT_FORMAT_YUV422:
-                                        tile_get(s->out, x, y)->linesize *= 2;
-                                        break;
-                        }
-                        tile_get(s->out, x, y)->data_len = s->out->tiles[0].data_len;
-                        tile_get(s->out, x, y)->data = (char *) malloc(s->out->tiles[0].data_len);
+        for (x = 0; x < frame->tile_count; ++x) {
+                vf_get_tile(s->out, x)->linesize = s->out->tiles[0].width;
+                switch(format) { 
+                        case DXT_FORMAT_RGBA:
+                                vf_get_tile(s->out, x)->linesize *= 4;
+                                break;
+                        case DXT_FORMAT_RGB:
+                                vf_get_tile(s->out, x)->linesize *= 3;
+                                break;
+                        case DXT_FORMAT_YUV422:
+                                vf_get_tile(s->out, x)->linesize *= 2;
+                                break;
                 }
+                vf_get_tile(s->out, x)->data_len = s->out->tiles[0].data_len;
+                vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].data_len);
         }
         
         if(!s->encoder) {
@@ -238,41 +231,39 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
         if(!s->configured)
                 configure_with(s, tx);
 
-        for (x = 0; x < tx->grid_width;  ++x) {
-                for (y = 0; y < tx->grid_height;  ++y) {
-                        struct tile *in_tile = tile_get(tx, x, y);
-                        struct tile *out_tile = tile_get(s->out, x, y);
-                        
-                        line1 = (unsigned char *) in_tile->data;
-                        line2 = (unsigned char *) s->decoded;
-                        
-                        for (i = 0; i < (int) in_tile->height; ++i) {
-                                s->decoder(line2, line1, out_tile->linesize,
-                                                0, 8, 16);
-                                line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                                line2 += out_tile->linesize;
-                        }
-                        
-                        /* if height % 4 != 0, copy last line to align */
-                        if(s->dxt_height != out_tile->height) {
-                                int y;
-                                line1 = s->decoded + out_tile->linesize * (out_tile->height - 1);
-                                for (y = out_tile->height; y < s->dxt_height; ++y)
-                                {
-                                        memcpy(line2, line1, out_tile->linesize);
-                                        line2 += out_tile->linesize;
-                                }
-                                line2 += out_tile->linesize;
-                        }
-                        
-                        if(s->interlaced_input)
-                                vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
-                                                s->dxt_height);
-                        
-                        dxt_encoder_compress(s->encoder,
-                                        (unsigned char *) s->decoded,
-                                        (unsigned char *) out_tile->data);
+        for (x = 0; x < tx->tile_count;  ++x) {
+                struct tile *in_tile = vf_get_tile(tx, x);
+                struct tile *out_tile = vf_get_tile(s->out, x);
+                
+                line1 = (unsigned char *) in_tile->data;
+                line2 = (unsigned char *) s->decoded;
+                
+                for (i = 0; i < (int) in_tile->height; ++i) {
+                        s->decoder(line2, line1, out_tile->linesize,
+                                        0, 8, 16);
+                        line1 += vc_get_linesize(in_tile->width, tx->color_spec);
+                        line2 += out_tile->linesize;
                 }
+                
+                /* if height % 4 != 0, copy last line to align */
+                if(s->dxt_height != out_tile->height) {
+                        int y;
+                        line1 = s->decoded + out_tile->linesize * (out_tile->height - 1);
+                        for (y = out_tile->height; y < s->dxt_height; ++y)
+                        {
+                                memcpy(line2, line1, out_tile->linesize);
+                                line2 += out_tile->linesize;
+                        }
+                        line2 += out_tile->linesize;
+                }
+                
+                if(s->interlaced_input)
+                        vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
+                                        s->dxt_height);
+                
+                dxt_encoder_compress(s->encoder,
+                                (unsigned char *) s->decoded,
+                                (unsigned char *) out_tile->data);
         }
         
         return s->out;

@@ -79,7 +79,7 @@ typedef struct audio_frame * (*display_dvs_get_audio_frame_t)(void *state);
 typedef void (*display_dvs_put_audio_frame_t)(void *state, struct audio_frame *frame);
 typedef void (*display_dvs_reconfigure_t)(void *state,
                                 struct video_desc desc);
-typedef int (*display_dvs_get_property_t)(void *state, int property, void *val, int *len);
+typedef int (*display_dvs_get_property_t)(void *state, int property, void *val, size_t *len);
 
 static display_dvs_init_t display_dvs_init_func = NULL;
 static display_dvs_run_t display_dvs_run_func = NULL;
@@ -261,7 +261,7 @@ void display_dvs_reconfigure(void *state,
         display_dvs_reconfigure_func(state, desc);
 }
 
-int display_dvs_get_property(void *state, int property, void *val, int *len)
+int display_dvs_get_property(void *state, int property, void *val, size_t *len)
 {
         pthread_once(&DVSLibraryLoad, loadLibrary);
         

@@ -50,6 +50,7 @@
 #include "debug.h"
 
 #include "video_codec.h"
+#include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include <pthread.h>
 #include <stdlib.h>
 #include "vo_postprocess/3d-interleaved.h"
@@ -64,31 +65,31 @@ void * interleaved_3d_init(char *config) {
         
         s = (struct state_interleaved_3d *) 
                         malloc(sizeof(struct state_interleaved_3d));
-        s->in = vf_alloc(2, 1);
+        s->in = vf_alloc(2);
         
         return s;
 }
 
-struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct video_desc desc, struct tile_info ti)
+struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
         
-        UNUSED(ti);
-        assert(ti.x_count == 2 && ti.y_count == 1);
+        assert(desc.video_mode == VIDEO_STEREO);
         
         s->in->color_spec = desc.color_spec;
         s->in->fps = desc.fps;
-        s->in->aux = desc.aux;
-        tile_get(s->in, 0, 0)->width = 
-                tile_get(s->in, 1, 0)->width = desc.width / 2;
-        tile_get(s->in, 0, 0)->height = 
-                tile_get(s->in, 1, 0)->height = desc.height;
+        s->in->interlacing = desc.interlacing;
+        vf_get_tile(s->in, 0)->width = 
+                vf_get_tile(s->in, 1)->width = desc.width / 2;
+        vf_get_tile(s->in, 0)->height = 
+                vf_get_tile(s->in, 1)->height = desc.height;
                 
-        tile_get(s->in, 0, 0)->data_len =
-                tile_get(s->in, 1, 0)->data_len = vc_get_linesize(desc.width / 2, desc.color_spec)
+        vf_get_tile(s->in, 0)->data_len =
+                vf_get_tile(s->in, 1)->data_len = vc_get_linesize(desc.width / 2, desc.color_spec)
                                 * desc.height;
-        tile_get(s->in, 0, 0)->data = malloc(tile_get(s->in, 0, 0)->data_len);
-        tile_get(s->in, 1, 0)->data = malloc(tile_get(s->in, 1, 0)->data_len);
+        vf_get_tile(s->in, 0)->data = malloc(vf_get_tile(s->in, 0)->data_len);
+        vf_get_tile(s->in, 1)->data = malloc(vf_get_tile(s->in, 1)->data_len);
+        fprintf(stderr, "xxxxxxxxxxx%d", vf_get_tile(s->in, 0)->data_len);
         
         return s->in;
 }
@@ -97,16 +98,16 @@ void interleaved_3d_postprocess(void *state, struct video_frame *in, struct vide
 {
         int x;
         
-        char *out_data = tile_get(out, 0, 0)->data;
-        int linesize = vc_get_linesize(tile_get(out, 0, 0)->width, out->color_spec);
+        char *out_data = vf_get_tile(out, 0)->data;
+        int linesize = vc_get_linesize(vf_get_tile(out, 0)->width, out->color_spec);
         
         /* we compute avg from line k/2*2 and k/2*2+1 for left eye and put
          * to (k/2*2)th line. Than we compute avg of same lines number
          * and put it to the following line, which creates interleaved stereo */
-        for (x = 0; x < tile_get(out, 0, 0)->height; ++x) {
+        for (x = 0; x < vf_get_tile(out, 0)->height; ++x) {
                 int linepos;
-                char *line1 = tile_get(in, x % 2, 0)->data +  (x / 2) * 2 * linesize;
-                char *line2 = tile_get(in, x % 2, 0)->data +  ((x / 2) * 2 + 1) * linesize;
+                char *line1 = vf_get_tile(in, x % 2)->data +  (x / 2) * 2 * linesize;
+                char *line2 = vf_get_tile(in, x % 2)->data +  ((x / 2) * 2 + 1) * linesize;
                 
                 for(linepos = 0; linepos < linesize; linepos += 16) {
                         asm volatile ("movdqu (%0), %%xmm0\n"
@@ -127,22 +128,22 @@ void interleaved_3d_done(void *state)
 {
         struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
         
-        free(tile_get(s->in, 0, 0)->data);
-        free(tile_get(s->in, 1, 0)->data);
+        free(vf_get_tile(s->in, 0)->data);
+        free(vf_get_tile(s->in, 1)->data);
         vf_free(s->in);
         free(state);
 }
 
-void interleaved_3d_get_out_desc(void *state, struct video_desc_ti *out)
+void interleaved_3d_get_out_desc(void *state, struct video_desc *out, int *display_mode)
 {
         struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
 
-        out->desc.width = tile_get(s->in, 0, 0)->width; /* not *2 !!!!!!*/
-        out->desc.height = tile_get(s->in, 0, 0)->height;
-        out->desc.color_spec = s->in->color_spec;
-        out->desc.aux = s->in->aux;
-        out->desc.fps = s->in->fps;
-        
-        out->ti.x_count = s->in->grid_width;
-        out->ti.y_count = s->in->grid_height;
+        out->width = vf_get_tile(s->in, 0)->width; /* not *2 !!!!!!*/
+        out->height = vf_get_tile(s->in, 0)->height;
+        out->color_spec = s->in->color_spec;
+        out->interlacing = s->in->interlacing;
+        out->fps = s->in->fps;
+        out->video_mode = VIDEO_NORMAL;
+
+        *display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
 }

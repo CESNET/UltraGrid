@@ -63,7 +63,7 @@ struct video_frame  *display_dvs_getf_impl(void *state);
 int                  display_dvs_putf_impl(void *state, char *frame);
 void                 display_dvs_reconfigure_impl(void *state,
                                 struct video_desc desc);
-int                  display_dvs_get_property_impl(void *state, int property, void *val, int *len);
+int                  display_dvs_get_property_impl(void *state, int property, void *val, size_t *len);
 
 struct audio_frame * display_dvs_get_audio_frame_impl(void *state);
 void display_dvs_put_audio_frame_impl(void *state, struct audio_frame *frame);

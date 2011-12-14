@@ -49,9 +49,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.30 $
- * $Date: 2010/02/05 14:06:17 $
- *
  */
 
 #include <string.h>
@@ -100,7 +97,8 @@ struct state_uv {
         struct timeval start_time, curr_time;
         struct pdb *participants;
         
-        char *decoder_options;
+        char *decoder_mode;
+        char *postprocess;
         
         uint32_t ts;
         struct tx *tx;
@@ -118,7 +116,8 @@ struct state_uv {
 
 long packet_rate = 13600;
 volatile int should_exit = FALSE;
-static sem_t should_exit_sem;
+volatile int wait_to_finish = FALSE;
+volatile int threads_joined = FALSE;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
@@ -143,16 +142,20 @@ static void signal_handler(int signal)
 #endif                          /* WIN32 */
 
 void exit_uv(int status) {
+        wait_to_finish = TRUE;
         should_exit = TRUE;
-        display_finish(uv_state->display_device);
-        platform_sem_post(&should_exit_sem);
+        if(!threads_joined) {
+                display_finish(uv_state->display_device);
+                audio_finish(uv_state->audio);
+        }
+        wait_to_finish = FALSE;
 }
 
 static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] \n");
-        printf("          [-m <mtu>] [-c] [-i] address(es)\n\n");
+        printf("          [-m <mtu>] [-c] [-i] [-M <video_mode>] [-p <postprocess>] address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help' to get\n");
         printf("\t                         \tlist of supported devices\n");
@@ -170,6 +173,10 @@ static void usage(void)
         printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
         printf("\n");
         printf("\t-j <settings>            \tJACK Audio Connection Kit settings (see '-j help')\n");
+        printf("\n");
+        printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, stereo, dual)\n");
+        printf("\n");
+        printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -401,10 +408,10 @@ static void *receiver_thread(void *arg)
         struct timeval last_tile_received;
         struct state_decoder *dec_state;
 
-        dec_state = decoder_init(uv->decoder_options);
+        dec_state = decoder_init(uv->decoder_mode, uv->postprocess);
         if(!dec_state) {
                 fprintf(stderr, "Error initializing decoder ('-M' option).\n");
-                should_exit = TRUE;
+                exit_uv(1);
         } else {
                 decoder_register_video_display(dec_state, uv->display_device);
         }
@@ -511,7 +518,7 @@ static void *sender_thread(void *arg)
         /* we have more than one connection */
         if(tile_y_count > 1) {
                 /* it is simply stripping frame */
-                splitted_frames = vf_alloc(1, tile_y_count);
+                splitted_frames = vf_alloc(tile_y_count);
         }
 
         while (!should_exit) {
@@ -537,7 +544,7 @@ static void *sender_thread(void *arg)
                                 vf_split_horizontal(splitted_frames, tx_frame,
                                                tile_y_count);
                                 for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send_tile(uv->tx, splitted_frames, 0, i,
+                                        tx_send_tile(uv->tx, splitted_frames, i,
                                                         uv->network_devices[i]);
                                 }
                         }
@@ -600,13 +607,15 @@ int main(int argc, char *argv[])
         uv = (struct state_uv *)malloc(sizeof(struct state_uv));
         uv_state = uv;
 
+        uv->audio = NULL;
         uv->ts = 0;
         uv->display_device = NULL;
         uv->requested_display = "none";
         uv->requested_capture = "none";
         uv->requested_compression = FALSE;
         uv->compress_options = NULL;
-        uv->decoder_options = NULL;
+        uv->decoder_mode = NULL;
+        uv->postprocess = NULL;
         uv->requested_mtu = 0;
         uv->use_ihdtv_protocol = 0;
         uv->participants = NULL;
@@ -615,10 +624,8 @@ int main(int argc, char *argv[])
         perf_init();
         perf_record(UVP_INIT, 0);
 
-        platform_sem_init(&should_exit_sem, 0, 0);
-
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -643,7 +650,10 @@ int main(int argc, char *argv[])
                         uv->requested_mtu = atoi(optarg);
                         break;
                 case 'M':
-                        uv->decoder_options = optarg;
+                        uv->decoder_mode = optarg;
+                        break;
+                case 'p':
+                        uv->postprocess = optarg;
                         break;
                 case 'v':
                         printf("%s\n", ULTRAGRID_VERSION);
@@ -851,7 +861,8 @@ int main(int argc, char *argv[])
                         return EXIT_FAIL_TRANSMIT;
                 }
 
-                if (strcmp("none", uv->requested_display) != 0) {
+                if (strcmp("none", uv->requested_display) != 0 ||
+                                uv->postprocess || uv->decoder_mode) {
                         if (pthread_create
                             (&receiver_thread_id, NULL, receiver_thread,
                              (void *)uv) != 0) {
@@ -878,12 +889,6 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
 
-        platform_sem_wait(&should_exit_sem);
-        /* here we let modules know that they should exit in order to avoid waitin on
-         * semaphores or so. Finishing for video display is signalized in exit_uv because
-         * it occupies this thread */
-        audio_finish(uv->audio);
-
         if (strcmp("none", uv->requested_display) != 0)
                 pthread_join(receiver_thread_id, NULL);
 
@@ -892,6 +897,10 @@ int main(int argc, char *argv[])
         
         /* also wait for audio threads */
         audio_join(uv->audio);
+
+        while(wait_to_finish)
+                ;
+        threads_joined = TRUE;
 
         audio_done(uv->audio);
         tx_done(uv->tx);

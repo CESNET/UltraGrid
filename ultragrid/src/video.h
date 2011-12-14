@@ -65,13 +65,29 @@ typedef enum {
         JPEG
 } codec_t;
 
+enum interlacing_t {
+        PROGRESSIVE = 0,
+        UPPER_FIELD_FIRST = 1,
+        LOWER_FIELD_FIRST = 2,
+        INTERLACED_MERGED = 3,
+        SEGMENTED_FRAME = 4
+};
+
+#define VIDEO_NORMAL                    0u
+#define VIDEO_DUAL                      1u
+#define VIDEO_STEREO                    2u
+#define VIDEO_4K                        3u
+
+
+
 /* please note that tiles have also its own widths and heights */
 struct video_desc {
         unsigned int         width;
         unsigned int         height;
         codec_t              color_spec;
-        int                  aux;
         double               fps;
+        enum interlacing_t   interlacing;
+        unsigned int         video_mode;
 };
 
 /* contains full information both about video and about tiles.
@@ -84,12 +100,11 @@ struct video_desc_ti {
 struct video_frame 
 {
         codec_t              color_spec;
-        int                  aux;
+        enum interlacing_t   interlacing;
         double               fps;
         struct tile         *tiles;
         
-        unsigned int         grid_width; /* tiles */
-        unsigned int         grid_height;
+        unsigned int         tile_count;
 };
 
 struct tile {
@@ -102,25 +117,23 @@ struct tile {
                                      */
         unsigned int         data_len; /* relative to data pos, not framebuffer size! */      
         unsigned int         linesize;
-        
-        struct tile_info     tile_info;
 };
 
-struct video_frame * vf_alloc(int grid_width, int grid_height);
+struct video_frame * vf_alloc(int count);
 void vf_free(struct video_frame *buf);
-struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos);
+struct tile * vf_get_tile(struct video_frame *buf, int pos);
 int video_desc_eq(struct video_desc, struct video_desc);
+int get_video_mode_tiles_x(int video_mode);
+int get_video_mode_tiles_y(int video_mode);
+const char *get_interlacing_description(enum interlacing_t);
 
-/*
- * Currently used (pre 1.0) is only AUX_{INTERLACED, PROGRESSIVE, SF, TILED}
- */
 #define AUX_INTERLACED  (1<<0)
 #define AUX_PROGRESSIVE (1<<1)
 #define AUX_SF          (1<<2)
 #define AUX_RGB         (1<<3) /* if device supports both, set both */
 #define AUX_YUV         (1<<4) 
 #define AUX_10Bit       (1<<5)
-#define AUX_TILED       (1<<6)
+
 
 #endif
 

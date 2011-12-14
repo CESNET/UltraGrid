@@ -131,8 +131,8 @@ void *display_sage_init(char *fmt, unsigned int flags)
         s = (struct state_sage *)malloc(sizeof(struct state_sage));
         s->magic = MAGIC_SAGE;
 
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
         
         /* sage init */
         //FIXME sem se musi propasovat ty spravne parametry argc argv
@@ -220,7 +220,7 @@ void display_sage_reconfigure(void *state, struct video_desc desc)
         s->tile->width = desc.width;
         s->tile->height = desc.height;
         s->frame->fps = desc.fps;
-        s->frame->aux = desc.aux;
+        s->frame->interlacing = desc.interlacing;
         s->frame->color_spec = desc.color_spec;
 
         if(s->sage_state) {
@@ -246,7 +246,7 @@ display_type_t *display_sage_probe(void)
         return dt;
 }
 
-int display_sage_get_property(void *state, int property, void *val, int *len)
+int display_sage_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, RGBA, RGB, DXT1};

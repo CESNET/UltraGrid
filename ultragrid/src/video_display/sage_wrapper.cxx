@@ -50,7 +50,9 @@
 #include "sage_wrapper.h"
 #include <sail.h>
 #include <misc.h>
+extern "C" {
 #include "host.h"
+}
 
 void *initSage(int appID, int nodeID, int width, int height, codec_t codec)
 {

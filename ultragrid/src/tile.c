@@ -67,29 +67,25 @@ void vf_split(struct video_frame *out, struct video_frame *src,
 
         out->color_spec = src->color_spec;
         out->fps = src->fps;
-        out->aux = src->aux | AUX_TILED;
+        //out->aux = src->aux | AUX_TILED;
         
-        assert(tile_get(src, 0, 0)->width % x_count == 0u && tile_get(src, 0, 0)->height % y_count == 0u);
+        assert(vf_get_tile(src, 0)->width % x_count == 0u && vf_get_tile(src, 0)->height % y_count == 0u);
 
         for(tile_idx = 0u; tile_idx < x_count * y_count; ++tile_idx) {
-                out->tiles[tile_idx].width = tile_get(src, 0, 0)->width / x_count;
-                out->tiles[tile_idx].height = tile_get(src, 0, 0)->height / y_count;
+                out->tiles[tile_idx].width = vf_get_tile(src, 0)->width / x_count;
+                out->tiles[tile_idx].height = vf_get_tile(src, 0)->height / y_count;
                 
-                out->tiles[tile_idx].tile_info.x_count = x_count;
-                out->tiles[tile_idx].tile_info.y_count = y_count;
-                out->tiles[tile_idx].tile_info.pos_x = tile_idx % x_count;
-                out->tiles[tile_idx].tile_info.pos_y = tile_idx / x_count;
                 out->tiles[tile_idx].linesize = vc_get_linesize(out->tiles[tile_idx].width,
                                 src->color_spec);
                 out->tiles[tile_idx].data_len = out->tiles[tile_idx].linesize * out->tiles[tile_idx].height;
         }
 
         cur_tiles = &out->tiles[0];
-        for(line_idx = 0u; line_idx < tile_get(src, 0, 0)->height; ++line_idx, ++tile_line) {
+        for(line_idx = 0u; line_idx < vf_get_tile(src, 0)->height; ++line_idx, ++tile_line) {
                 unsigned int cur_tile_idx;
                 unsigned int byte = 0u;
 
-                if (line_idx % (tile_get(src, 0, 0)->height / y_count) == 0u) /* next tiles*/
+                if (line_idx % (vf_get_tile(src, 0)->height / y_count) == 0u) /* next tiles*/
                 {
                         tile_line = 0u;
                         if (line_idx != 0u)
@@ -123,7 +119,7 @@ void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
         unsigned int i;
 
         for(i = 0u; i < y_count; ++i) {
-                out->aux = src->aux | AUX_TILED;
+                //out->aux = src->aux | AUX_TILED;
                 out->fps = src->fps;
                 out->color_spec = src->color_spec;
                 out->tiles[i].width = src->tiles[0].width;

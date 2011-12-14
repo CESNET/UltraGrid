@@ -322,8 +322,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 		free(tmp);
 	}
 
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
         s->tile->data = NULL;
         
         s->frames = 0ul;
@@ -482,7 +482,7 @@ void display_gl_reconfigure(void *state, struct video_desc desc)
         s->tile->width = desc.width;
         s->tile->height = desc.height;
         s->frame->fps = desc.fps;
-        s->frame->aux = desc.aux;
+        s->frame->interlacing = desc.interlacing;
         s->frame->color_spec = desc.color_spec;
 
         pthread_mutex_lock(&s->lock);
@@ -914,7 +914,7 @@ display_type_t *display_gl_probe(void)
         return dt;
 }
 
-int display_gl_get_property(void *state, int property, void *val, int *len)
+int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};

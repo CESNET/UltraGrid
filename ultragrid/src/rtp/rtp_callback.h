@@ -47,6 +47,7 @@
  * http://www.cesnet.cz/doc/techzpravy/2010/4k-packet-format/
  */
 
+#if 0
 typedef struct {
     uint16_t    width;      /* pixels */
     uint16_t    height;     /* pixels */
@@ -58,6 +59,30 @@ typedef struct {
     uint32_t    aux;        /* auxiliary data */
     uint32_t    tileinfo;   /* info about tile position (if tiled) */
 } payload_hdr_t;
+#endif
+
+typedef struct {
+        /* first word */
+        uint32_t substream_bufnum_il; /* bits 0 - 9 substream
+                                         bits 10 - 29 buffer 
+                                         bits 30 - 31 interlace */
+
+        /* second word */
+        uint32_t offset;
+
+        /* third word */
+        uint32_t length;
+
+        /* fourth word */
+        uint16_t hres;
+        uint16_t vres;
+
+        /* fifth word */
+        uint32_t fourcc;
+        
+        /* temporary */
+        uint32_t fps;
+} __attribute__((__packed__)) video_payload_hdr_t;
 
 typedef struct {
         /* first word */

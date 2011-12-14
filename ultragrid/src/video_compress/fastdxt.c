@@ -94,12 +94,13 @@ struct video_compress {
         pthread_mutex_t lock;
         volatile int thread_count;
         pthread_t thread_ids[MAX_THREADS];
-        int tx_aux;
         codec_t tx_color_spec;
         sem_t thread_compress[MAX_THREADS];
         sem_t thread_done[MAX_THREADS];
         
         int dxt_height;
+        enum interlacing_t interlacing_source;
+        int rgb:1;
         
         decoder_t decoder;
 
@@ -108,55 +109,55 @@ struct video_compress {
 };
 
 static void compress_thread(void *args);
-void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux, double fps);
+void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t, double fps);
 
-void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, int aux, double fps)
+void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t interlacing, double fps)
 {
         int x;
 
         fprintf(stderr, "Compression reinitialized for %ux%u video.\n", 
                         width, height);
         /* Store original attributes to allow format change detection */
-        compress->tx_aux = aux;
         compress->tx_color_spec = codec;
+        compress->interlacing_source = interlacing;
 
         compress->tile->width = width;
         compress->tile->height = height;
         compress->dxt_height = (compress->tile->height + 3) / 4 * 4;
         compress->frame->color_spec = codec;
-        compress->frame->aux = aux;
+        compress->frame->interlacing = PROGRESSIVE;
         compress->frame->fps = fps;
 
         switch (codec) {
                 case RGB:
                         compress->decoder = (decoder_t) vc_copylineRGBtoRGBA;
-                        compress->frame->aux |= AUX_RGB;
+                        compress->rgb = TRUE;
                         break;
                 case RGBA:
                         compress->decoder = (decoder_t) memcpy;
-                        compress->frame->aux |= AUX_RGB;
+                        compress->rgb = TRUE;
                         break;
                 case R10k:
                         compress->decoder = (decoder_t) vc_copyliner10k;
-                        compress->frame->aux |= AUX_RGB;
+                        compress->rgb = TRUE;
                         break;
                 case UYVY:
                 case Vuy2:
                 case DVS8:
                         compress->decoder = (decoder_t) memcpy;
-                        compress->frame->aux |= AUX_YUV;
+                        compress->rgb = FALSE;
                         break;
                 case v210:
                         compress->decoder = (decoder_t) vc_copylinev210;
-                        compress->frame->aux |= AUX_YUV;
+                        compress->rgb = FALSE;
                         break;
                 case DVS10:
                         compress->decoder = (decoder_t) vc_copylineDVS10;
-                        compress->frame->aux |= AUX_YUV;
+                        compress->rgb = FALSE;
                         break;
                 case DPX10:        
                         compress->decoder = (decoder_t) vc_copylineDPX10toRGBA;
-                        compress->frame->aux |= AUX_RGB;
+                        compress->rgb = FALSE;
                         break;
                 default:
                         error_with_code_msg(128, "Unknown codec %d!", codec);
@@ -170,17 +171,14 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                 }
         }
         assert(h_align != 0);
-        compress->tile->linesize = tile_get(compress->frame, 0, 0)->width * 
-                (compress->frame->aux & AUX_RGB ? 4 /*RGBA*/: 2/*YUV 422*/);
+        compress->tile->linesize = vf_get_tile(compress->frame, 0)->width * 
+                (compress->rgb ? 4 /*RGBA*/: 2/*YUV 422*/);
         
-        if(compress->frame->aux & AUX_RGB) {
+        if(compress->rgb) {
                 compress->frame->color_spec = DXT1;
         } else {
                 compress->frame->color_spec = DXT1_YUV;
         }
-
-        /* We will deinterlace the output frame */
-        compress->frame->aux &= ~AUX_INTERLACED;
 
         for (x = 0; x < compress->num_threads; x++) {
                 int my_height = (compress->dxt_height / compress->num_threads) / 4 * 4;
@@ -232,8 +230,8 @@ void *fastdxt_init(const char *num_threads_str)
                 compress->num_threads = atoi(num_threads_str);
         assert (compress->num_threads >= 1 && compress->num_threads <= MAX_THREADS);
 
-        compress->frame = vf_alloc(1, 1);
-        compress->tile = tile_get(compress->frame, 0, 0);
+        compress->frame = vf_alloc(1);
+        compress->tile = vf_get_tile(compress->frame, 0);
         
         compress->tile->width = 0;
         compress->tile->height = 0;
@@ -275,17 +273,17 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
         unsigned int x;
         unsigned char *line1, *line2;
 
-        assert(tx->grid_height == 1 && tx->grid_width == 1);
-        assert(tile_get(tx, 0, 0)->width % 4 == 0);
+        assert(tx->tile_count == 1);
+        assert(vf_get_tile(tx, 0)->width % 4 == 0);
         
         pthread_mutex_lock(&(compress->lock));
 
-        if(tile_get(tx, 0, 0)->width != compress->tile->width ||
-                        tile_get(tx, 0, 0)->height != compress->tile->height ||
-                        tx->aux != compress->tx_aux ||
+        if(vf_get_tile(tx, 0)->width != compress->tile->width ||
+                        vf_get_tile(tx, 0)->height != compress->tile->height ||
+                        tx->interlacing != compress->interlacing_source ||
                         tx->color_spec != compress->tx_color_spec)
         {
-                reconfigure_compress(compress, tile_get(tx, 0, 0)->width, tile_get(tx, 0, 0)->height, tx->color_spec, tx->aux, tx->fps);
+                reconfigure_compress(compress, vf_get_tile(tx, 0)->width, vf_get_tile(tx, 0)->height, tx->color_spec, tx->interlacing, tx->fps);
         }
 
         line1 = (unsigned char *)tx->tiles[0].data;
@@ -299,9 +297,15 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
                 line2 += compress->tile->linesize;
         }
 
-        if(tx->aux & AUX_INTERLACED)
+        if(tx->interlacing != INTERLACED_MERGED && tx->interlacing != PROGRESSIVE) {
+                fprintf(stderr, "Unsupported interlacing format.\n");
+                exit_uv(1);
+        }
+
+        if(tx->interlacing == INTERLACED_MERGED) {
                 vc_deinterlace(compress->output_data, compress->tile->linesize,
                                 compress->tile->height);
+        }
 
 
         for (x = 0; x < compress->num_threads; x++) {
@@ -345,7 +349,7 @@ static void compress_thread(void *args)
                 }
                 my_range = my_height * compress->tile->width;
 
-                if(compress->frame->aux & AUX_YUV)
+                if(!compress->rgb)
                 {
                         unsigned char *input;
                         input = (compress->output_data) + myId

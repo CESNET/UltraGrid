@@ -78,21 +78,19 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
         int x, y;
 	int h_align = 0;
         
-        assert(tile_get(frame, 0, 0)->width % 4 == 0);
-        s->out = vf_alloc(frame->grid_width, frame->grid_height);
+        assert(vf_get_tile(frame, 0)->width % 4 == 0);
+        s->out = vf_alloc(frame->tile_count);
         
-        for (x = 0; x < frame->grid_width; ++x) {
-                for (y = 0; y < frame->grid_height; ++y) {
-                        if (tile_get(frame, x, y)->width != tile_get(frame, 0, 0)->width ||
-                                        tile_get(frame, x, y)->width != tile_get(frame, 0, 0)->width)
-                                error_with_code_msg(128,"[JPEG] Requested to compress tiles of different size!");
-                                
-                        tile_get(s->out, x, y)->width = tile_get(frame, 0, 0)->width;
-                        tile_get(s->out, x, y)->height = tile_get(frame, 0, 0)->height;
-                }
+        for (x = 0; x < frame->tile_count; ++x) {
+                if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
+                                vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width)
+                        error_with_code_msg(128,"[JPEG] Requested to compress tiles of different size!");
+                        
+                vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
+                vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
         }
         
-        s->out->aux = frame->aux;
+        s->out->interlacing = PROGRESSIVE;
         s->out->fps = frame->fps;
         s->out->color_spec = s->color_spec;
 
@@ -133,11 +131,16 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
         }
 
         /* We will deinterlace the output frame */
-        if(s->out->aux & AUX_INTERLACED)
+        if(frame->interlacing == INTERLACED_MERGED)
                 s->interlaced_input = TRUE;
-        else
+        else if(frame->interlacing == PROGRESSIVE)
                 s->interlaced_input = FALSE;
-        s->out->aux &= ~AUX_INTERLACED;
+        else {
+                fprintf(stderr, "Unsupported interlacing option: %s.\n", get_interlacing_description(frame->interlacing));
+                free(s);
+                return NULL;
+        }
+
         
         s->out->color_spec = JPEG;
         struct jpeg_image_parameters param_image;
@@ -155,11 +158,8 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
         
         s->encoder = jpeg_encoder_create(&param_image, &s->encoder_param);
         
-        for (x = 0; x < frame->grid_width; ++x) {
-                for (y = 0; y < frame->grid_height; ++y) {
-                        tile_get(s->out, x, y)->data = (char *) malloc(s->out->tiles[0].width * s->jpeg_height * 3);
-                        tile_get(s->out, x, y)->linesize = s->out->tiles[0].width * (param_image.color_space == JPEG_RGB ? 3 : 2);
-                }
+        for (x = 0; x < frame->tile_count; ++x) {
+                        vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].width * s->jpeg_height * 3);
         }
         
         if(!s->encoder) {
@@ -242,42 +242,40 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
         if(!s->encoder)
                 configure_with(s, tx);
 
-        for (x = 0; x < tx->grid_width;  ++x) {
-                for (y = 0; y < tx->grid_height;  ++y) {
-                        struct tile *in_tile = tile_get(tx, x, y);
-                        struct tile *out_tile = tile_get(s->out, x, y);
-                        
-                        line1 = (unsigned char *) in_tile->data;
-                        line2 = (unsigned char *) s->decoded;
-                        
-                        for (i = 0; i < (int) in_tile->height; ++i) {
-                                s->decoder(line2, line1, out_tile->linesize,
-                                                0, 8, 16);
-                                line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                                line2 += out_tile->linesize;
-                        }
-                        
-                        line1 = out_tile->data + (in_tile->height - 1) * out_tile->linesize;
-                        for( ; i < s->jpeg_height; ++i) {
-                                memcpy(line2, line1, out_tile->linesize);
-                                line2 += out_tile->linesize;
-                        }
-                        
-                        if(s->interlaced_input)
-                                vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
-                                                s->jpeg_height);
-                        
-                        uint8_t *compressed;
-                        int size;
-                        int ret;
-                        ret = jpeg_encoder_encode(s->encoder, s->decoded, &compressed, &size);
-                        
-                        if(ret != 0)
-                                return NULL;
-                        
-                        out_tile->data_len = size;
-                        memcpy(out_tile->data, compressed, size);
+        for (x = 0; x < tx->tile_count;  ++x) {
+                struct tile *in_tile = vf_get_tile(tx, x);
+                struct tile *out_tile = vf_get_tile(s->out, x);
+                
+                line1 = (unsigned char *) in_tile->data;
+                line2 = (unsigned char *) s->decoded;
+                
+                for (i = 0; i < (int) in_tile->height; ++i) {
+                        s->decoder(line2, line1, out_tile->linesize,
+                                        0, 8, 16);
+                        line1 += vc_get_linesize(in_tile->width, tx->color_spec);
+                        line2 += out_tile->linesize;
                 }
+                
+                line1 = out_tile->data + (in_tile->height - 1) * out_tile->linesize;
+                for( ; i < s->jpeg_height; ++i) {
+                        memcpy(line2, line1, out_tile->linesize);
+                        line2 += out_tile->linesize;
+                }
+                
+                if(s->interlaced_input)
+                        vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
+                                        s->jpeg_height);
+                
+                uint8_t *compressed;
+                int size;
+                int ret;
+                ret = jpeg_encoder_encode(s->encoder, s->decoded, &compressed, &size);
+                
+                if(ret != 0)
+                        return NULL;
+                
+                out_tile->data_len = size;
+                memcpy(out_tile->data, compressed, size);
         }
         
         return s->out;

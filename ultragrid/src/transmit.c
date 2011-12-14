@@ -48,9 +48,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5.2.6 $
- * $Date: 2010/02/05 13:56:49 $
- *
  */
 
 #include "config.h"
@@ -82,8 +79,9 @@ extern long packet_rate;
 #endif                          /* HAVE_MACOSX */
 
 void
-tx_send_base(struct tx *tx, struct tile *frame, struct rtp *rtp_session, uint32_t ts, int send_m,
-                codec_t color_spec, double fps, int aux);
+tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
+                uint32_t ts, int send_m, codec_t color_spec, double fps,
+                enum interlacing_t interlacing, unsigned int substream);
 
 struct tx {
         uint32_t magic;
@@ -122,36 +120,37 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
         ts = get_local_mediatime();
 
-        for(i = 0; i < frame->grid_width; ++i)
+        for(i = 0; i < frame->tile_count; ++i)
         {
-                for(j = 0; j < frame->grid_height; ++j) {
-                        int last = FALSE;
-                        
-                        if (i == frame->grid_width - 1 && 
-                                        j == frame->grid_height - 1)
-                                last = TRUE;
-                        tx_send_base(tx, tile_get(frame, i, j), rtp_session, ts, last,
-                                        frame->color_spec, frame->fps, frame->aux);
-                }
+                int last = FALSE;
+                
+                if (i == frame->tile_count - 1)
+                        last = TRUE;
+                tx_send_base(tx, vf_get_tile(frame, i), rtp_session, ts, last,
+                                frame->color_spec, frame->fps, frame->interlacing,
+                                i);
         }
 }
 
+
 void
-tx_send_tile(struct tx *tx, struct video_frame *frame, int x_pos, int y_pos, struct rtp *rtp_session)
+tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
 {
         struct tile *tile;
         
-        tile = tile_get(frame, x_pos, y_pos);
+        tile = vf_get_tile(frame, pos);
         uint32_t ts = 0;
         ts = get_local_mediatime();
-        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->color_spec, frame->fps, frame->aux);
+        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->color_spec, frame->fps, frame->interlacing, pos);
 }
 
 void
-tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec, double fps, int aux)
+tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
+                uint32_t ts, int send_m, codec_t color_spec, double fps,
+                enum interlacing_t interlacing, unsigned int substream)
 {
         int m, data_len;
-        payload_hdr_t payload_hdr;
+        video_payload_hdr_t payload_hdr;
         int pt = 96;            /* A dynamic payload type for the tests... */
         char *data;
         unsigned int pos;
@@ -161,6 +160,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t
         struct timespec start, stop;
 #endif                          /* HAVE_MACOSX */
         long delta;
+        uint32_t tmp;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -169,19 +169,21 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t
         m = 0;
         pos = 0;
 
-        payload_hdr.width = htons(tile->width);
-        payload_hdr.height = htons(tile->height);
-        payload_hdr.colorspc = color_spec;
-        payload_hdr.fps = htonl((int)(fps * 65536));
-        payload_hdr.aux = htonl(aux);
-        payload_hdr.tileinfo =  hton_tileinfo2uint(tile->tile_info);
+        payload_hdr.hres = htons(tile->width);
+        payload_hdr.vres = htons(tile->height);
+        payload_hdr.fourcc = htonl(get_fourcc(color_spec));
+        payload_hdr.length = htonl(tile->data_len);
+        payload_hdr.fps = htonl(fps * 65536.0);
+        tmp = substream << 22;
+        tmp |= tx->buffer << 2;
+        tmp |= interlacing;
+        payload_hdr.substream_bufnum_il = htonl(tmp);
 
         do {
                 payload_hdr.offset = htonl(pos);
-                payload_hdr.flags = htons(1 << 15);
 
                 data = tile->data + pos;
-                data_len = tx->mtu - 40 - (sizeof(payload_hdr_t));
+                data_len = tx->mtu - 40 - (sizeof(video_payload_hdr_t));
                 data_len = (data_len / 48) * 48;
                 if (pos + data_len >= tile->data_len) {
                         if (send_m)
@@ -189,10 +191,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t
                         data_len = tile->data_len - pos;
                 }
                 pos += data_len;
-                payload_hdr.length = htons(data_len);
                 GET_STARTTIME;
                 rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                  (char *)&payload_hdr, sizeof(payload_hdr_t),
+                                  (char *)&payload_hdr, sizeof(video_payload_hdr_t),
                                   data, data_len, 0, 0, 0);
                 do {
                         GET_STOPTIME;
@@ -202,6 +203,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t
                 } while (packet_rate - delta > 0);
 
         } while (pos < tile->data_len);
+
+        tx->buffer ++;
 }
 
 void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)

@@ -103,7 +103,7 @@ struct frame_mode {
         unsigned int     width;
         unsigned int     height;
         double           fps;
-        int              interlacing; /* AUX_* */
+        int              aux; /* AUX_* */
         unsigned int     magic;
 };
 
@@ -191,7 +191,7 @@ static const struct frame_mode frame_modes[] = {
 };
 
 struct vidcap_quad_state {
-        int                 device_cnt;
+        int                 devices_cnt;
         int                 fd[MAX_TILES];
         struct              pollfd pfd[MAX_TILES];
         int                 audio_fd;
@@ -353,7 +353,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         int                       i;
         char                      *save_ptr = NULL;
         char                      *fmt_dup, *item;
-	int			  tile_x_cnt, tile_y_cnt;
+        int                       devices[4];
 
 	printf("vidcap_quad_init\n");
 
@@ -383,8 +383,23 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         }
 
         fmt_dup = strdup(init_fmt);
-        item = strtok_r(fmt_dup, ":", &save_ptr);
 
+
+
+        item = strtok_r(NULL, ":", &save_ptr);
+        assert(item != NULL);
+        char *devices_str = strdup(item);
+        s->devices_cnt = 0;
+        char *ptr, *saveptr2 = NULL;
+        ptr = strtok_r(devices_str, ",", &saveptr2);
+        do {
+                devices[s->devices_cnt] = atoi(ptr);
+                ++s->devices_cnt;
+        } while (ptr = strtok_r(NULL, ",", &saveptr2));
+        free(devices_str);
+
+        item = strtok_r(fmt_dup, ":", &save_ptr);
+        assert(item);
 	frame_mode_number = atoi(item);
 	if(frame_mode_number < 0 || 
                         (unsigned int) frame_mode_number >= 
@@ -397,25 +412,10 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                                 "via sysfs.");
                 return NULL;
         }
-        if((item = strtok_r(NULL, ":", &save_ptr)) != NULL)
-        {
-		tile_x_cnt = atoi(item);
-		item = strtok_r(NULL, ":", &save_ptr);
-		if (item == NULL) {
-                        fprintf(stderr, "quad: One tile dimension entered, expected zero or 2 values (see -g help)!");
-			return NULL;
-		}
-		tile_y_cnt = atoi(item);
-	        s->device_cnt = tile_x_cnt * tile_y_cnt;
-        } else {
-		tile_x_cnt = 1;
-		tile_y_cnt = 1;
-                s->device_cnt = 1;
-        }
 
         free(fmt_dup);
         
-        s->frame = vf_alloc(tile_x_cnt, tile_y_cnt);
+        s->frame = vf_alloc(s->devices_cnt);
 
 	/* CHECK IF QUAD CAN WORK CORRECTLY */
     
@@ -428,7 +428,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         memset((void *) s->fd, 0, sizeof(s->fd));
         //memset((void *) s->frame, 0, sizeof(s->frame));
 
-        for(i = 0; i < s->device_cnt; ++i) {
+        for(i = 0; i < s->devices_cnt; ++i) {
                 char                      dev_name[MAXLEN];
                 unsigned int              cap;
                 unsigned int              val;
@@ -443,10 +443,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 unsigned long int         mode;
                 const struct codec_info_t *c_info;
                 
-                int tile_x = i % tile_x_cnt;
-                int tile_y = i / tile_x_cnt;
-
-                snprintf(dev_name, sizeof(dev_name), devfile_fmt, i);
+                snprintf(dev_name, sizeof(dev_name), devfile_fmt, devices[i]);
 
                 memset (&buf, 0, sizeof (buf));
                 if(stat (dev_name, &buf) < 0) {
@@ -622,19 +619,26 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 /*Get video standard*/
                 /*frame_mode = get_video_standard (s->fd);*/
 
-                struct tile *tile = tile_get(s->frame, tile_x, tile_y);
+                struct tile *tile = vf_get_tile(s->frame, i);
 	
                 s->frame->color_spec = c_info->codec;
                 s->frame->fps = frame_mode->fps;
-                s->frame->aux = frame_mode->interlacing;
+                switch(frame_mode->aux) {
+                        case AUX_PROGRESSIVE:
+                                s->frame->interlacing = PROGRESSIVE;
+                                break;
+                        case AUX_INTERLACED:
+                                s->frame->interlacing = INTERLACED_MERGED;
+                                break;
+                        case AUX_SF:
+                                s->frame->interlacing = SEGMENTED_FRAME;
+                                break;
+                }
                 tile->width = frame_mode->width;
                 tile->height = frame_mode->height;
                 tile->linesize = vc_get_linesize(frame_mode->width, c_info->codec);
                 tile->data_len = tile->linesize * tile->height;
                 
-                if(s->device_cnt > 1) {
-                        s->frame->aux |= AUX_TILED;
-                }
 
                 if((tile->data = (char *)
                                 malloc (tile->data_len)) == NULL) {
@@ -665,7 +669,7 @@ vidcap_quad_done(void *state)
 
 	if (s != NULL) {
                 int i;
-		for (i = 0; i < s->device_cnt; ++i) {
+		for (i = 0; i < s->devices_cnt; ++i) {
 			if(s->frame->tiles[i].data != NULL)
 				free(s->frame->tiles[i].data);
 			if(s->fd[i] != 0)
@@ -697,19 +701,17 @@ static void * vidcap_grab_thread(void *args)
                 if (should_exit) 
 			break;
 
-                //for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev)
-		while (return_vec != (1 << s->device_cnt) - 1)
+                //for(cur_dev = 0; cur_dev < s->devices_cnt; ++cur_dev)
+		while (return_vec != (1 << s->devices_cnt) - 1)
                 {
-                        if(poll (s->pfd, s->device_cnt, 1000/23) < 0) {
+                        if(poll (s->pfd, s->devices_cnt, 1000/23) < 0) {
                                 //fprintf (stderr, "%s: ", device);
                                 perror ("unable to poll device file");
                                 return NULL;
                         }
 
-			for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
-                                int x_til_cnt = s->frame->tiles[0].tile_info.x_count;
-                                struct tile *tile = tile_get(s->frame, cur_dev % x_til_cnt,
-                                                cur_dev / x_til_cnt);
+			for(cur_dev = 0; cur_dev < s->devices_cnt; ++cur_dev) {
+                                struct tile *tile = vf_get_tile(s->frame, cur_dev);
                                 
                                 
                                 if (s->pfd[cur_dev].revents & POLLIN) {
@@ -754,11 +756,9 @@ static void * vidcap_grab_thread(void *args)
                         }
                 }
 
-                while (poll (s->pfd, s->device_cnt, 0) > 0) {
-                        for(cur_dev = 0; cur_dev < s->device_cnt; ++cur_dev) {
-                                int x_til_cnt = s->frame->tiles[0].tile_info.x_count;
-                                struct tile *tile = tile_get(s->frame, cur_dev % x_til_cnt,
-                                                cur_dev / x_til_cnt);
+                while (poll (s->pfd, s->devices_cnt, 0) > 0) {
+                        for(cur_dev = 0; cur_dev < s->devices_cnt; ++cur_dev) {
+                                struct tile *tile = vf_get_tile(s->frame, cur_dev);
                                                 
                                 if (s->pfd[cur_dev].revents & POLLIN) {
                                         unsigned int ret;
@@ -847,8 +847,58 @@ vidcap_quad_grab(void *state, struct audio_frame **audio)
 static void print_output_modes()
 {
         unsigned int i;
-        printf("usage: -t quad:<mode>:[<x_tiles_count>:<y_tiles_count>]\n\twhere mode is one of following.\n");
-        printf("Available output modes:\n");
+        printf("usage: -t quad:<device(s)>:<mode>\n\twhere mode is one of following.\n");
+        printf("\nAvailable devices (inputs):\n");
+                
+        for(i = 0; i < 16; ++i) {
+                char                      dev_name[MAXLEN];
+                struct stat               buf;
+
+                snprintf(dev_name, sizeof(dev_name), devfile_fmt, i);
+
+                memset (&buf, 0, sizeof (buf));
+                if(stat (dev_name, &buf) < 0) {
+                        break;
+                } else {
+                        struct util_info *info;
+                        char type;
+                        int num;
+                        unsigned long int id;
+                        char         name[MAXLEN];
+
+                        /* Check if it is a character device or not */
+                        if(!S_ISCHR (buf.st_mode)) {
+                                fprintf (stderr, "not a character device\n");
+                                continue;
+                        }
+                        if(!(buf.st_rdev & 0x0080)) {
+                                fprintf (stderr, "not a receiver\n");
+                                continue;
+                        }
+
+                        /* Check the minor number to determine if it is a receive or transmit device */
+                        type = (buf.st_rdev & 0x0080) ? 'r' : 't';
+
+                        /* Get the receiver or transmitter number */
+                        num = buf.st_rdev & 0x007f;
+
+                        /* Build the path to sysfs file */
+                        snprintf (name, sizeof (name), sys_fmt, type, num, "dev");
+
+                        if (util_strtoul (name, &id) < 0) {
+                                fprintf (stderr, "unable to get the firmware version");
+                                continue;
+                        }
+                        if ((info = getinfo (id)) == NULL) {
+                                printf ("\tUnknown device\n");
+                        } else {
+                                printf ("\t%d) %s\n", i,
+                                        info->name);
+                        }
+                }
+        }
+
+        printf("\nAvailable output modes:\n");
         for(i = 0; i < sizeof(frame_modes)/sizeof(struct frame_mode); ++i) {
                 if(frame_modes[i].magic == FMODE_MAGIC)
                         printf("\t%2u: %s\n", i, frame_modes[i].name);
@@ -859,3 +909,4 @@ static void print_output_modes()
 
 #endif /* HAVE_QUAD */
 #endif /* HAVE_MACOSX */
+

@@ -502,7 +502,7 @@ void display_dvs_reconfigure_impl(void *state,
 
         s->frame->color_spec = desc.color_spec;
         s->frame->fps = desc.fps;
-        s->frame->aux = desc.aux;
+        s->frame->interlacing = desc.interlacing;
         s->tile->width = desc.width;
         s->tile->height = desc.height;
         
@@ -512,17 +512,21 @@ void display_dvs_reconfigure_impl(void *state,
         for(i=0; hdsp_mode_table[i].width != 0; i++) {
                 if(hdsp_mode_table[i].width == desc.width &&
                    hdsp_mode_table[i].height == desc.height &&
-                   (desc.aux == 0 || (desc.aux & hdsp_mode_table[i].aux)) &&
                    fabs(desc.fps - hdsp_mode_table[i].fps) < 0.01 ) {
-                    s->mode = &hdsp_mode_table[i];
-                        break;
+                        if ((desc.interlacing == INTERLACED_MERGED && hdsp_mode_table[i].aux == AUX_INTERLACED ) ||
+                                        (desc.interlacing == PROGRESSIVE && hdsp_mode_table[i].aux == AUX_PROGRESSIVE) ||
+                                        (desc.interlacing == SEGMENTED_FRAME && hdsp_mode_table[i].aux == AUX_SF)) {
+                                s->mode = &hdsp_mode_table[i];
+                                break;
+                        }
                 }
         }
 
         if(s->mode == NULL) {
                 fprintf(stderr, "Reconfigure failed. Expect troubles pretty soon..\n"
-                                "\tRequested: %dx%d, color space %d, fps %f, aux: %d\n",
-                                desc.width, desc.height, desc.color_spec, desc.fps, desc.aux);
+                                "\tRequested: %dx%d, color space %d, fps %f,%s\n",
+                                desc.width, desc.height, desc.color_spec, desc.fps, 
+                                get_interlacing_description(desc.interlacing));
                 return;
         }
 
@@ -608,8 +612,8 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
 
         s->mode_set_manually = FALSE;
         
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
         
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
@@ -681,7 +685,23 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
 	s->first_run = TRUE;
 
         if(s->mode) {
-                struct video_desc desc = {s->mode->width, s->mode->height, s->frame->color_spec, s->mode->aux, s->mode->fps};
+                struct video_desc desc;
+                desc.width = s->mode->width;
+                desc.height = s->mode->height;
+                desc.color_spec = s->frame->color_spec;
+                switch(s->mode->aux) {
+                        case AUX_INTERLACED:
+                                desc.interlacing = INTERLACED_MERGED;
+                                break;
+                        case AUX_PROGRESSIVE:
+                                desc.interlacing = PROGRESSIVE;
+                                break;
+                        case AUX_SF:
+                                desc.interlacing = SEGMENTED_FRAME;
+                                break;
+                }
+                desc.fps = s->mode->fps;
+
                 display_dvs_reconfigure_impl(s,
                                 desc);
                 s->mode_set_manually = TRUE;
@@ -721,7 +741,7 @@ void display_dvs_done_impl(void *state)
         free(s);
 }
 
-int display_dvs_get_property_impl(void *state, int property, void *val, int *len)
+int display_dvs_get_property_impl(void *state, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {DVS10, UYVY, RGBA, RGB};
         

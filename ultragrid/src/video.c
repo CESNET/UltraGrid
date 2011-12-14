@@ -55,32 +55,16 @@
 #include <string.h>
 #include "video.h"
 
-struct video_frame * vf_alloc(int grid_width, int grid_height)
+struct video_frame * vf_alloc(int count)
 {
         struct video_frame *buf;
         
         buf = (struct video_frame *) malloc(sizeof(struct video_frame));
         
         buf->tiles = (struct tiles *) 
-                        calloc(1, sizeof(struct tile) * grid_width *
-                        grid_height);
-        buf->grid_width = grid_width;
-        buf->grid_height = grid_height;
+                        calloc(1, sizeof(struct tile) * count);
+        buf->tile_count = count;
 
-        int x, y;
-        for(x = 0; x < grid_width; ++x) {
-                for(y = 0; y < grid_height; ++y) {
-                        buf->tiles[x + y * grid_width].tile_info.x_count = 
-                                grid_width;
-                        buf->tiles[x + y * grid_width].tile_info.y_count = 
-                                grid_height;
-                        buf->tiles[x + y * grid_width].tile_info.pos_x = 
-                                x;
-                        buf->tiles[x + y * grid_width].tile_info.pos_y = 
-                                y;
-                }
-        }
-        
         return buf;
 }
 
@@ -92,11 +76,11 @@ void vf_free(struct video_frame *buf)
         free(buf);
 }
 
-struct tile * tile_get(struct video_frame *buf, int grid_x_pos, int grid_y_pos)
+struct tile * vf_get_tile(struct video_frame *buf, int pos)
 {
-        assert (grid_x_pos < buf->grid_width && grid_y_pos < buf->grid_height);
+        assert (pos < buf->tile_count);
 
-        return &buf->tiles[grid_x_pos + grid_y_pos * buf->grid_width];
+        return &buf->tiles[pos];
 }
 
 int video_desc_eq(struct video_desc a, struct video_desc b)
@@ -104,7 +88,56 @@ int video_desc_eq(struct video_desc a, struct video_desc b)
         return a.width == b.width &&
                a.height == b.height &&
                a.color_spec == b.color_spec &&
-               fabs(a.fps - b.fps) < 0.01 &&
+               fabs(a.fps - b.fps) < 0.01;// &&
                // TODO: remove these obsolete constants
-               (a.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit)) == (b.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit));
+               //(a.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit)) == (b.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit));
 }
+
+int get_video_mode_tiles_x(int video_type)
+{
+        int ret;
+        switch(video_type) {
+                case VIDEO_NORMAL:
+                case VIDEO_DUAL:
+                        ret = 1;
+                        break;
+                case VIDEO_4K:
+                case VIDEO_STEREO:
+                        ret = 2;
+                        break;
+        }
+        return ret;
+}
+
+int get_video_mode_tiles_y(int video_type)
+{
+        int ret;
+        switch(video_type) {
+                case VIDEO_NORMAL:
+                case VIDEO_STEREO:
+                        ret = 1;
+                        break;
+                case VIDEO_4K:
+                case VIDEO_DUAL:
+                        ret = 2;
+                        break;
+        }
+        return ret;
+}
+
+const char *get_interlacing_description(enum interlacing_t interlacing)
+{
+        switch (interlacing) {
+                case PROGRESSIVE:
+                        return "progressive";
+                case UPPER_FIELD_FIRST:
+                        return "interlaced (upper field first)";
+                case LOWER_FIELD_FIRST:
+                        return "interlaced (lower field first)";
+                case INTERLACED_MERGED:
+                        return "interlaced merged";
+                case SEGMENTED_FRAME:
+                        return "progressive segmented";
+        }
+}
+

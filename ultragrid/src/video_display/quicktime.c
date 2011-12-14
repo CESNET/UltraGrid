@@ -212,7 +212,7 @@ struct state_quicktime {
 /* Prototyping */
 char *four_char_decode(int format);
 static int find_mode(ComponentInstance *ci, int width, int height, 
-                const char * codec_name, double fps, int aux);
+                const char * codec_name, double fps);
 void display_quicktime_audio_init(struct state_quicktime *s);
 void display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
@@ -258,8 +258,7 @@ static void reconf_common(struct state_quicktime *s)
         
         for (i = 0; i < s->devices_cnt; ++i)
         {
-                struct tile *tile = tile_get(s->frame, i % s->frame->grid_width,
-                                                        i / s->frame->grid_width);
+                struct tile *tile = vf_get_tile(s->frame, i);
                 ImageDescriptionHandle imageDesc;
                 OSErr ret;
         
@@ -316,8 +315,7 @@ void display_quicktime_run(void *arg)
                 platform_sem_wait(&s->semaphore);
 
                 for (i = 0; i < s->devices_cnt; ++i) {
-                        struct tile *tile = tile_get(s->frame, i % s->frame->grid_width,
-                                                        i / s->frame->grid_width);
+                        struct tile *tile = vf_get_tile(s->frame, i);
                         /* TODO: Running DecompressSequenceFrameWhen asynchronously 
                          * in this way introduces a possible race condition! 
                          */
@@ -594,11 +592,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        double x_cnt = sqrt(s->devices_cnt);
-        int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-        int y_count = s->devices_cnt / x_count;
-        
-        s->frame = vf_alloc(x_count, y_count);
+        s->frame = vf_alloc(s->devices_cnt);
         
         for (i = 0; i < s->devices_cnt; ++i) {
                 s->videoDisplayComponentInstance[i] = 0;
@@ -616,12 +610,9 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 }
                 free(codec_name);
                 s->frame->color_spec = s->cinfo->codec;
-                s->frame->aux = 0;
 
                 for (i = 0; i < s->devices_cnt; ++i) {
-                        int pos_x = i % x_count;
-                        int pos_y = i / y_count;
-                        struct tile *tile = tile_get(s->frame, pos_x, pos_y);
+                        struct tile *tile = vf_get_tile(i);
                         /* Open device */
                         s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
         
@@ -819,7 +810,7 @@ display_type_t *display_quicktime_probe(void)
         return dtype;
 }
 
-int display_quicktime_get_property(void *state, int property, void *val, int *len)
+int display_quicktime_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {v210, UYVY, RGBA};
@@ -850,6 +841,12 @@ int display_quicktime_get_property(void *state, int property, void *val, int *le
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
                         break;
+                case DISPLAY_PROPERTY_VIDEO_MODE:
+                        if(s->devices_cnt == 1)
+                                        *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
+                        else
+                                        *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+
                 default:
                         return FALSE;
         }
@@ -880,14 +877,23 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                         desc.height, s->cinfo->bpp);
         s->frame->color_spec = desc.color_spec;
         s->frame->fps = desc.fps;
-        s->frame->aux = desc.aux;
+        s->frame->interlacing = desc.interlacing;
 
         for(i = 0; i < s->devices_cnt; ++i) {
-                int tile_width = desc.width / s->frame->grid_width;
-                int tile_height = desc.height / s->frame->grid_height;
-                int pos_x = i % s->frame->grid_width;
-                int pos_y = i / s->frame->grid_width;
-                struct tile * tile = tile_get(s->frame, pos_x, pos_y);
+
+                int tile_width;
+                int tile_height;
+
+                if(s->devices_cnt == 2) { /* stereo */
+                        tile_width = desc.width / 2;
+                        tile_height = desc.height;
+                }
+                if(s->devices_cnt = 4) { /*tiled 4K */
+                        tile_width = desc.width / 2;
+                        tile_height = desc.height / 2;
+                }
+
+                struct tile * tile = vf_get_tile(s->frame, i);
                 
                 tile->width = tile_width;
                 tile->height = tile_height;
@@ -904,7 +910,7 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                 
                 if(!s->mode_set_manually)
                         s->mode = find_mode(&s->videoDisplayComponentInstance[i],
-                                                        tile_width, tile_height, codec_name, desc.fps, desc.aux);
+                                                        tile_width, tile_height, codec_name, desc.fps);
                 /* Set the display mode */
                 ret =
                     QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],
@@ -952,9 +958,8 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
 }
 
 static int find_mode(ComponentInstance *ci, int width, int height, 
-                const char * codec_name, double fps, int aux)
+                const char * codec_name, double fps)
 {
-        UNUSED(aux);
 
         QTAtom atomDisplay = 0, nextAtomDisplay = 0;
         QTAtomType type;

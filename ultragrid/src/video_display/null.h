@@ -53,4 +53,4 @@ void 			 display_null_done(void *state);
 char 			*display_null_getf(void *state);
 int 			 display_null_putf(void *state, char *frame);
 void                     display_null_reconfigure(void *state, struct video_desc desc);
-int                      display_null_get_property(void *state, int property, void *val, int *len);
+int                      display_null_get_property(void *state, int property, void *val, size_t *len);

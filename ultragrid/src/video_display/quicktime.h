@@ -69,7 +69,7 @@ void                     display_quicktime_done(void *state);
 struct video_frame      *display_quicktime_getf(void *state);
 int                      display_quicktime_putf(void *state, char *frame);
 void                     display_quicktime_reconfigure(void *state, struct video_desc desc);
-int                      display_quicktime_get_property(void *state, int property, void *val, int *len);
+int                      display_quicktime_get_property(void *state, int property, void *val, size_t *len);
 
 struct audio_frame      *display_quicktime_get_audio_frame(void *state);
 void                     display_quicktime_put_audio_frame(void *state, const struct audio_frame *frame);

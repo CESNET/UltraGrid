@@ -55,7 +55,7 @@ struct tile;
  */
 void decode_frame(struct coded_data *compressed_frame, struct video_frame *framebuffer, struct state_decoder *s);
 
-struct state_decoder *decoder_init(char *requested_mode);
+struct state_decoder *decoder_init(char *requested_mode, char *postprocess);
 void decoder_destroy(struct state_decoder *decoder);
 
 void decoder_register_video_display(struct state_decoder *decoder, struct display *display);

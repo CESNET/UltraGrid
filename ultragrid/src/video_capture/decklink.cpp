@@ -486,8 +486,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 device_found[i] = false;
                 
         if(s->stereo) {
-                s->frame = vf_alloc(2, 1);
-                s->frame->aux = AUX_TILED;
+                s->frame = vf_alloc(2);
                 if (s->devices_cnt > 1) {
                         fprintf(stderr, "[DeckLink] Passed more than one device while setting 3D mode. "
                                         "In this mode, only one device needs to be passed.");
@@ -495,25 +494,13 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                         return NULL;
                 }
         } else {
-                if (s->devices_cnt > 1) {
-                        double x_cnt = sqrt(s->devices_cnt);
-                        
-                        int x_count = x_cnt - round(x_cnt) == 0.0 ? x_cnt : s->devices_cnt;
-                        int y_count = s->devices_cnt / x_cnt;
-                        s->frame = vf_alloc(x_count, y_count);
-                        s->frame->aux = AUX_TILED;
-                } else {
-                        s->frame = vf_alloc(1, 1);
-                        s->frame->aux = 0;
-                }
+                s->frame = vf_alloc(s->devices_cnt);
         }
     
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i)
         {
-                int x_pos = i % s->frame->tiles[0].tile_info.x_count;
-                int y_pos = i / s->frame->tiles[0].tile_info.x_count;
-                struct tile * tile = tile_get(s->frame, x_pos, y_pos);
+                struct tile * tile = vf_get_tile(s->frame, i);
                 dnum = 0;
                 deckLink = NULL;
                 // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -619,13 +606,13 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 switch(displayMode->GetFieldDominance()) {
                                                         case bmdLowerFieldFirst:
                                                         case bmdUpperFieldFirst:
-                                                                s->frame->aux |= AUX_INTERLACED;
+                                                                s->frame->interlacing = INTERLACED_MERGED;
                                                                 break;
                                                         case bmdProgressiveFrame:
-                                                                s->frame->aux |= AUX_PROGRESSIVE;
+                                                                s->frame->interlacing = PROGRESSIVE;
                                                                 break;
                                                         case bmdProgressiveSegmentedFrame:
-                                                                s->frame->aux |= AUX_SF;
+                                                                s->frame->interlacing = SEGMENTED_FRAME;
                                                                 break;
                                                 }
 

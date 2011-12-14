@@ -79,8 +79,11 @@ typedef struct {
 #define DISPLAY_PROPERTY_GSHIFT  2 /* int */
 #define DISPLAY_PROPERTY_BSHIFT  3 /* int */
 #define DISPLAY_PROPERTY_BUF_PITCH  4 /* int */
+#define DISPLAY_PROPERTY_VIDEO_MODE 5 /* int */
 
 #define PITCH_DEFAULT -1 /* default to linesize */
+#define DISPLAY_PROPERTY_VIDEO_MERGED          0
+#define DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES  1
 
 int		 display_init_devices(void);
 void		 display_free_devices(void);
@@ -106,7 +109,7 @@ void             display_reconfigure(struct display *d, struct video_desc desc);
 struct audio_frame * display_get_audio_frame(struct display *d);
 void 		 display_put_audio_frame(struct display *d, const struct audio_frame *frame);
 
-int              display_get_property(struct display *d, int property, void *val, int *len);
+int              display_get_property(struct display *d, int property, void *val, size_t *len);
 
 /*
  * Additional interface allowing querying properties and monitoring changes

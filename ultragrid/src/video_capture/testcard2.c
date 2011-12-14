@@ -162,8 +162,8 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         char *tmp;
 
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
         
         tmp = strtok(fmt, ":");
         if (!tmp) {
@@ -226,7 +226,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         rect_size = (s->tile->width + rect_size - 1) / rect_size;
 
-        s->frame->aux = AUX_PROGRESSIVE;
+        s->frame->interlacing = AUX_PROGRESSIVE;
         s->size = s->aligned_x * s->tile->height * bpp;
 
         {

@@ -109,7 +109,7 @@ display_type_t *display_null_probe(void)
         return dt;
 }
 
-int display_null_get_property(void *state, int property, void *val, int *len)
+int display_null_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);

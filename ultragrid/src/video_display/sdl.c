@@ -158,7 +158,7 @@ static void loadSplashscreen(struct state_sdl *s) {
         x_res_x = video_info->current_w;
         x_res_y = video_info->current_h;
 
-        if(splash_height > tile_get(s->frame, 0, 0)->height || splash_width > tile_get(s->frame, 0, 0)->width)
+        if(splash_height > vf_get_tile(s->frame, 0)->height || splash_width > vf_get_tile(s->frame, 0)->width)
                 return;
 
 	// create a temporary SDL_Surface with the settings of displaying surface
@@ -435,7 +435,7 @@ void display_sdl_reconfigure(void *state, struct video_desc desc)
         s->tile->height = desc.height;
 
 	s->frame->fps = desc.fps;
-	s->frame->aux = desc.aux;
+	s->frame->interlacing = desc.interlacing;
 	s->frame->color_spec = desc.color_spec;
 
 	fprintf(stdout, "Reconfigure to size %dx%d\n", desc.width,
@@ -614,8 +614,8 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         s->buffer_writable_lock = SDL_CreateMutex();
         s->buffer_writable_cond = SDL_CreateCond();
 
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
 
 	video_info = SDL_GetVideoInfo();
         s->screen_w = video_info->current_w;
@@ -714,7 +714,7 @@ display_type_t *display_sdl_probe(void)
         return dt;
 }
 
-int display_sdl_get_property(void *state, int property, void *val, int *len)
+int display_sdl_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sdl *s = (struct state_sdl *) state;
         

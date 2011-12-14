@@ -201,8 +201,8 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         s = (struct vidcap_dvs_state *)
             calloc(1, sizeof(struct vidcap_dvs_state));
             
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
         
         if (s == NULL) {
                 debug_msg("Unable to allocate DVS state\n");
@@ -290,7 +290,18 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         s->tile->width = s->mode->width;
         s->tile->height = s->mode->height;
         s->frame->fps = s->mode->fps;
-	s->frame->aux = s->mode->aux;
+        switch(s->mode->aux) {
+                case AUX_PROGRESSIVE:
+                        s->frame->interlacing = PROGRESSIVE;
+                        break;
+                case AUX_INTERLACED:
+                        s->frame->interlacing = INTERLACED_MERGED;
+                        break;
+                case AUX_SF:
+                        s->frame->interlacing = SEGMENTED_FRAME;
+                        break;
+        }
+
 
 	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
 	s->tile->data_len = s->tile->linesize * s->tile->height;

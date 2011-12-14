@@ -623,7 +623,17 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                         s->qt_mode->height,
                                         s->qt_mode->fps,
                                         s->qt_mode->aux);
-                        s->frame->aux = s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF);
+                        switch(s->qt_mode->aux & (AUX_INTERLACED|AUX_PROGRESSIVE|AUX_SF)) {
+                                case AUX_PROGRESSIVE:
+                                        s->frame->interlacing = PROGRESSIVE;
+                                        break;
+                                case AUX_INTERLACED:
+                                        s->frame->interlacing = INTERLACED_MERGED;
+                                        break;
+                                case AUX_SF:
+                                        s->frame->interlacing = SEGMENTED_FRAME;
+                                        break;
+                        }
                         free(device);
                         free(input);
                         break;
@@ -807,8 +817,8 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 
         s = (struct qt_grabber_state *)calloc(1,sizeof(struct qt_grabber_state));
         
-        s->frame = vf_alloc(1, 1);
-        s->tile = tile_get(s->frame, 0, 0);
+        s->frame = vf_alloc(1);
+        s->tile = vf_get_tile(s->frame, 0);
         
         if (s != NULL) {
                 s->magic = MAGIC_QT_GRABBER;

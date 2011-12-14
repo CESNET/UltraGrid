@@ -79,7 +79,7 @@ typedef struct {
         struct video_frame *(*func_getf) (void *state);
         int (*func_putf) (void *state, char *frame);
         void (*func_reconfigure)(void *state, struct video_desc desc);
-        int (*func_get_property)(void *state, int property, void *val, int *len);
+        int (*func_get_property)(void *state, int property, void *val, size_t *len);
         
         struct audio_frame *(*func_get_audio_frame) (void *state);
         void (*func_put_audio_frame) (void *state, const struct audio_frame *frame);
@@ -325,7 +325,7 @@ void display_reconfigure(struct display *d, struct video_desc desc)
         display_device_table[d->index].func_reconfigure(d->state, desc);
 }
 
-int display_get_property(struct display *d, int property, void *val, int *len)
+int display_get_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
         return display_device_table[d->index].func_get_property(d->state, property, val, len);
