@@ -89,7 +89,6 @@ struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct 
                                 * desc.height;
         vf_get_tile(s->in, 0)->data = malloc(vf_get_tile(s->in, 0)->data_len);
         vf_get_tile(s->in, 1)->data = malloc(vf_get_tile(s->in, 1)->data_len);
-        fprintf(stderr, "xxxxxxxxxxx%d", vf_get_tile(s->in, 0)->data_len);
         
         return s->in;
 }

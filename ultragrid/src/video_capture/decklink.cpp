@@ -113,6 +113,7 @@ public:
 	int	first_time;
 	struct  vidcap_decklink_state *s;
         int     i;
+        IDeckLinkTimecode      *timecode;
 	
 	void set_device_state(struct vidcap_decklink_state *state, int index);
 	
@@ -177,6 +178,7 @@ struct vidcap_decklink_state {
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
         unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
+        unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
 };
 
 /* DeckLink SDK objects */
@@ -187,7 +189,7 @@ print_output_modes (IDeckLink* deckLink);
 HRESULT	
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, IDeckLinkAudioInputPacket *audioPacket)
 {
-
+        bool noSignal = false;
 	// Video
 
 	pthread_mutex_lock(&(s->lock));
@@ -198,6 +200,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 		if (arrivedFrame->GetFlags() & bmdFrameHasNoInputSource)
 		{
 			fprintf(stderr, "Frame received (#%d) - No input signal detected\n", s->frames);
+                        noSignal = true;
 		}
 		else{
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, arrivedFrame->GetRowBytes() * arrivedFrame->GetHeight());
@@ -241,6 +244,16 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
                         fprintf(stderr, "[DeckLink] Sending right eye error.\n");
                 }
         }
+
+        timecode = NULL;
+        if(s->use_timecode && !noSignal) {
+                HRESULT result;
+                result = arrivedFrame->GetTimecode(bmdTimecodeRP188Any, &timecode);
+                if(result != S_OK) {
+                        fprintf(stderr, "Failed to acquire timecode from stream. Disabling sync.\n");
+                        s->use_timecode = FALSE;
+                }
+        }
                 
 
 	if(first_time){
@@ -278,7 +291,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("Decklink options:\n");
-	printf("\t-t decklink:<device_index(indices)>:<mode>:<colorspace>[:3D]\n");
+	printf("\t-t decklink:<device_index(indices)>:<mode>:<colorspace>[:3D][:timecode]\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -341,6 +354,10 @@ decklink_help()
         printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
         printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
         printf("\tin video format listing above (\"supports 3D\").\n");
+
+	printf("\n");
+        printf("timecode\n");
+        printf("\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n");
 
 	return 1;
 }
@@ -413,6 +430,12 @@ settings_init(void *state, char *fmt)
         if(tmp) {
                 if(strcasecmp(tmp, "3D") == 0) {
                         s->stereo = TRUE;
+                        tmp = strtok(NULL, ":");
+                        if(tmp && strcasecmp(tmp, "timecode") == 0) {
+                                s->use_timecode = TRUE;
+                        }
+                } else if(strcasecmp(tmp, "timecode") == 0) {
+                        s->use_timecode = TRUE;
                 } else {
                         fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
                 }
@@ -474,6 +497,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         }
         
         s->stereo = FALSE;
+        s->use_timecode = FALSE;
 
 	// SET UP device and mode
 	if(settings_init(s, fmt) == 0) {
@@ -808,6 +832,45 @@ vidcap_decklink_done(void *state)
 	}
 }
 
+/*  lock needs to be hold during all function call */
+int nr_frames(struct vidcap_decklink_state *s) {
+        BMDTimecodeBCD max_timecode = 0u;
+        int tiles_total = 0;
+        int i;
+
+        if(s->use_timecode) {
+                for (i = 0; i < s->devices_cnt; ++i) {
+                        if(s->state[i].delegate->newFrameReady) {
+                                BMDTimecodeBCD timecode;
+                                if(s->state[i].delegate->timecode)  {
+                                        timecode = s->state[i].delegate->timecode->GetBCD();
+                                        if(timecode > max_timecode) {
+                                                max_timecode = timecode;
+                                        }
+                                } else {
+                                        fprintf(stderr, "[DeckLink] No timecode found.\n");
+                                        break;
+                                }
+                        }
+                }
+        }
+
+        for (i = 0; i < s->devices_cnt; ++i) {
+                if(s->state[i].delegate->newFrameReady) {
+                        if(s->use_timecode) {
+                                if(s->state[i].delegate->timecode && s->state[i].delegate->timecode->GetBCD () != max_timecode) {
+                                        s->state[i].delegate->newFrameReady = FALSE;
+                                } else {
+                                        tiles_total++;
+                                }
+                        } else {
+                                tiles_total++;
+                        }
+                }
+        }
+        return tiles_total;
+}
+
 struct video_frame *
 vidcap_decklink_grab(void *state, struct audio_frame **audio)
 {
@@ -831,9 +894,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
 	debug_msg("vidcap_decklink_grab - before while\n"); /* TOREMOVE */
 
-        for (i = 0; i < s->devices_cnt; ++i)
-                if(s->state[i].delegate->newFrameReady)
-                        tiles_total++;
+        tiles_total = nr_frames(s);
 
         while(tiles_total != s->devices_cnt) {
 	//while (!s->state[0].delegate->newFrameReady) {
@@ -859,11 +920,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                         s->boss_waiting = FALSE;
                         // recompute tiles count
-                        tiles_total = 0;
-                        for (i = 0; i < s->devices_cnt; ++i)
-                                if(s->state[i].delegate->newFrameReady) {
-                                        tiles_total++;
-                                }
+                        tiles_total = nr_frames(s);
                 }
                 debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
