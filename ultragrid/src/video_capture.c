@@ -62,6 +62,7 @@
 #include "video_capture/testcard2.h"
 #include "video_capture/null.h"
 #include "video_capture/decklink.h"
+#include "video_capture/deltacast.h"
 #include "video_capture/quad.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
@@ -106,6 +107,15 @@ struct vidcap_device_api vidcap_device_table[] = {
          vidcap_decklink_done,
          vidcap_decklink_grab},
 #endif                          /* HAVE_DECKLINK */
+#ifdef HAVE_DELTACAST
+        {
+         /* The Blackmagic DeckLink capture card */
+         0,
+         vidcap_deltacast_probe,
+         vidcap_deltacast_init,
+         vidcap_deltacast_done,
+         vidcap_deltacast_grab},
+#endif                          /* HAVE_DELTACAST */
 #ifdef HAVE_QUAD
         {
          /* The HD-SDI Master Quad capture card */

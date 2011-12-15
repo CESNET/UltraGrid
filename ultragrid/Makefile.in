@@ -7,9 +7,9 @@ CFLAGS        = -fPIC @DEFS@ @CFLAGS@ @X_CFLAGS@
 CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = @CXXFLAGS@
 LDFLAGS      =  @LDFLAGS@
-LIBS          = @DXT_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
+LIBS          = @DXT_LIB@ @DELTACAST_LIB@ @QUICKTIME_LIB@ @PORTAUDIO_LIB@ @SAGE_LIB@ @X_PRE_LIBS@ \
                 @X_LIBS@ @X_EXTRA_LIBS@ @JACK_LIB@ @MATHLIBS@ @LIBS@ @JPEG_LIB@ -lm -pthread
-INC           = -I.. -Isrc -Itest @DVS_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
+INC           = -I.. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @DXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_INC@ @JPEG_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
@@ -70,6 +70,7 @@ OBJS          = src/bitstream.o \
 		src/video_display/null.o \
 		src/vo_postprocess.o \
 		src/vo_postprocess/3d-interleaved.o \
+		@DELTACAST_OBJ@ \
 		@DVS_OBJ@ \
 		@QUICKTIME_OBJ@ \
 		@DECKLINK_OBJ@ \
@@ -114,6 +115,12 @@ $(TARGET): src/version.h $(OBJS) src/main.o
 %.cu.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
+
+src/video_capture/deltacast.o: src/video_capture/deltacast.cpp
+	$(CXX) $(CXXFLAGS) $(INC) -fno-rtti -c $< -o $@
+	
+src/video_display/deltacast.o: src/video_display/deltacast.cpp
+	$(CXX) $(CXXFLAGS) $(INC) -fno-rtti -c $< -o $@
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) $(CXXFLAGS) -Wno-multichar -O3 -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp

@@ -257,7 +257,7 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 dvs=no
 dvs_req=yes
 AC_ARG_ENABLE(dvs,
-              AS_HELP_STRING([--enable-dvs], [enable DVS (default is enable)]), 
+              AS_HELP_STRING([--disable-dvs], [disable DVS (default is auto)]), 
 	[dvs_req=$enableval])
 
 AC_ARG_WITH(dvs,           
@@ -299,7 +299,7 @@ DECKLINK_PATH=
 decklink=no
 decklink_req=yes
 
-AC_ARG_ENABLE(decklink, AS_HELP_STRING([--enable-decklink], [enable DeckLink (default is enable)]), 
+AC_ARG_ENABLE(decklink, AS_HELP_STRING([--disable-decklink], [disable DeckLink (default is auto)]), 
 	[decklink_req=$enableval])
 AC_ARG_WITH(decklink,
         [  --with-decklink=DIR     specify location of DECKLINK],
@@ -374,7 +374,7 @@ case $host in
     *-linux-*)
 
         AC_ARG_ENABLE(quad, 
-              AS_HELP_STRING([--enable-quad], [enable Linsys Quad (default is enable)]), 
+              AS_HELP_STRING([--disable-quad], [disable Linsys Quad (default is auto)]), 
             [quad_req=$enableval],
             [quad_req=yes]
             )
@@ -410,6 +410,77 @@ AC_SUBST(QUAD_INC)
 AC_SUBST(QUAD_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# DELTACAST stuff
+
+DELTACAST_PATH=
+DELTACAST_OBJ=
+DELTACAST_INC=
+DELTACAST_LIB=
+deltacast_req=yes
+deltacast=no
+
+case $host in
+    *-linux-*)
+
+        AC_ARG_ENABLE(deltacast, 
+              AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]), 
+            [deltacast_req=$enableval],
+            [deltacast_req=yes]
+            )
+
+        AC_ARG_WITH(deltacast,
+            [  --with-deltacast=DIR         specify location of DELTACAST],
+            [DELTACAST_PATH=$withval
+            ],
+            [DELTACAST_PATH=${PARENT}/VideoMasterHD
+            ])
+
+        DELTACAST_INC=${DELTACAST_PATH}/Include
+        
+        CXXFLAGS_SAVE=$CXXFLAGS
+        CXXFLAGS+=" -I$DELTACAST_INC"
+        CPPFLAGS_SAVE=$CPPFLAGS
+        CPPFLAGS+=" -I$DELTACAST_INC"
+        
+        AC_LANG_PUSH(C++)
+
+        AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h],
+                FOUND_DELTACAST_H=yes, FOUND_DELTACAST_H=no,
+                [[#ifdef HAVE_VIDEOMASTERHD_CORE_H
+                # include <VideoMasterHD_Core.h>
+                #endif
+                ]])
+        AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle, FOUND_DELTACAST_L=yes, FOUND_DELTACAST_L=no)
+        
+        AC_LANG_POP(C++)
+        
+        CXXFLAGS=$CXXFLAGS_SAVE
+        CPPFLAGS=$CPPFLAGS_SAVE
+
+        if test $deltacast_req = yes -a $FOUND_DELTACAST_H = yes -a $FOUND_DELTACAST_L = yes
+        then
+            DELTACAST_INC="-I$DELTACAST_INC"
+            DELTACAST_OBJ="src/video_capture/deltacast.o src/video_display/deltacast.o"
+            DELTACAST_LIB="-lvideomasterhd"
+            AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
+            deltacast=yes
+        else
+            DELTACAST_PATH=
+            DELTACAST_LIB=
+            DELTACAST_INC=
+            DELTACAST_OBJ=
+        fi
+    ;;
+esac
+
+AC_SUBST(DELTACAST_PATH)
+AC_SUBST(DELTACAST_INC)
+AC_SUBST(DELTACAST_LIB)
+AC_SUBST(DELTACAST_OBJ)
+
+
+
+# -------------------------------------------------------------------------------------------------
 # QuickTime Stuff
 QUICKTIME_INC=
 QUICKTIME_LIB=
@@ -417,7 +488,7 @@ QUICKTIME_OBJ=
 quicktime=no
 
 AC_ARG_ENABLE(quicktime, 
-      AS_HELP_STRING([--enable-quicktime], [enable QuickTime support(default is enable)]), 
+      AS_HELP_STRING([--disable-quicktime], [disable QuickTime support(default is auto)]), 
     [quicktime_req=$enableval],
     [quicktime_req=yes]
     )
@@ -575,7 +646,7 @@ GL_OBJ=
 gl=no
 
 AC_ARG_ENABLE(gl, 
-      AS_HELP_STRING([--enable-gl], [enable OpenGL (default is enable)]), 
+      AS_HELP_STRING([--disable-gl], [disable OpenGL (default is auto)]), 
     [gl_req=$enableval],
     [gl_req=yes]
     )
@@ -692,7 +763,7 @@ fastdxt_req=yes
 COMPRESS_OBJ=
 
 AC_ARG_ENABLE(fastdxt, 
-	[  --enable-fastdxt        enable FastDXT],
+	[  --disable-fastdxt        disable FastDXT],
 	[fastdxt_req=$enableval])
 
 AC_ARG_WITH(fastdxt,
@@ -734,7 +805,7 @@ LIBS+=" $X_LIBS"
 rtdxt=no
 
 AC_ARG_ENABLE(rtdxt, 
-      AS_HELP_STRING([--enable-rtdxt], [enable Real-Time OpenGL DXT compression (default is enable)]), 
+      AS_HELP_STRING([--disable-rtdxt], [disable Real-Time OpenGL DXT compression (default is auto)]), 
 	[rtdxt_req=$enableval],
         [rtdxt_req=yes])
 
@@ -838,7 +909,7 @@ SAGE_LIB=
 sage=no
 
 AC_ARG_ENABLE(sage, 
-      AS_HELP_STRING([--enable-sage], [enable SAGE (default is enable)]), 
+      AS_HELP_STRING([--disable-sage], [disable SAGE (default is auto)]), 
 	[sage_req=$enableval],
         [sage_req=yes])
 
@@ -880,7 +951,7 @@ PORTAUDIO_OBJ=
 portaudio=no
 
 AC_ARG_ENABLE(portaudio, 
-      AS_HELP_STRING([--enable-portaudio], [enable Portaudio (default is enable)]), 
+      AS_HELP_STRING([--disable-portaudio], [disable Portaudio (default is auto)]), 
 	[portaudio_req=$enableval],
         [portaudio_req=yes])
 
@@ -923,7 +994,7 @@ AC_SUBST(PORTAUDIO_OBJ)
 jack=no
 
 AC_ARG_ENABLE(jack, 
-      AS_HELP_STRING([--enable-jack], [enable JACK (default is enable)]), 
+      AS_HELP_STRING([--disable-jack], [disable JACK (default is auto)]), 
 	[jack_req=$enableval],
         [jack_req=yes])
 
@@ -957,6 +1028,7 @@ Configuration summary:
   RT priority ................. $use_rt
 
   DeckLink .................... $decklink
+  DELTACAST ................... $deltacast
   DVS ......................... $dvs
   Linsys Quad ................. $quad
   OpenGL ...................... $gl
