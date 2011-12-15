@@ -199,8 +199,8 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 }
         }
         if(i == deltacast_frame_modes_count) {
-                //fprintf(stderr, "[DELTACAST] Failed to obtain information about video format.\n");
-                error_with_code_msg(128, "[DELTACAST] Failed to obtain video format for incoming video");
+                fprintf(stderr, "[DELTACAST] Failed to obtain video format for incoming video");
+                goto error;
         }
         
         if(desc.color_spec == RAW) {
@@ -210,7 +210,8 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         }
         
         if (Result != VHDERR_NOERROR) {
-                error_with_code_msg(128, "[DELTACAST] Failed to open stream handle.");
+                fprintf(stderr, "[DELTACAST] Failed to open stream handle.\n");
+                goto error;
         }
         
         VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD,VideoStandard);
@@ -219,10 +220,15 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
 
         Result = VHD_StartStream(s->StreamHandle);
         if (Result != VHDERR_NOERROR) {
-                error_with_code_msg(128, "[DELTACAST] Unable to start stream.");  
+                fprintf(stderr, "[DELTACAST] Unable to start stream.\n");  
+                goto error;
         }
         
         s->initialized = TRUE;
+        return;
+
+error:
+                exit_uv(128);
 }
 
 
@@ -350,6 +356,7 @@ display_type_t *display_deltacast_probe(void)
 int display_deltacast_get_property(void *state, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {v210, UYVY, RAW};
+        interlacing_t supported_il_modes[] = {PROGRESSIVE, UPPER_FIELD_FIRST, SEGMENTED_FRAME};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -376,6 +383,14 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
+                        if(sizeof(supported_il_modes) <= *len) {
+                                memcpy(val, supported_il_modes, sizeof(supported_il_modes));
+                        } else {
+                                return FALSE;
+                        }
+                        *len = sizeof(supported_il_modes);
                         break;
                 default:
                         return FALSE;

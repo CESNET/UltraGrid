@@ -80,6 +80,7 @@ typedef struct {
 #define DISPLAY_PROPERTY_BSHIFT  3 /* int */
 #define DISPLAY_PROPERTY_BUF_PITCH  4 /* int */
 #define DISPLAY_PROPERTY_VIDEO_MODE 5 /* int */
+#define DISPLAY_PROPERTY_SUPPORTED_IL_MODES 6 /* enum interlacing_t[] */
 
 #define PITCH_DEFAULT -1 /* default to linesize */
 #define DISPLAY_PROPERTY_VIDEO_MERGED          0

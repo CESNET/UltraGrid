@@ -71,9 +71,9 @@ struct compress_jpeg_state {
         codec_t color_spec;
 };
 
-static void configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
+static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
 
-static void configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
+static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
 {
         int x, y;
 	int h_align = 0;
@@ -83,8 +83,11 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
         
         for (x = 0; x < frame->tile_count; ++x) {
                 if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
-                                vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width)
-                        error_with_code_msg(128,"[JPEG] Requested to compress tiles of different size!");
+                                vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width) {
+                        fprintf(stderr,"[JPEG] Requested to compress tiles of different size!");
+                        exit_uv(129);
+                        return FALSE;
+                }
                         
                 vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
                 vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
@@ -127,7 +130,9 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
                         s->rgb = TRUE;
                         break;
                 default:
-                        error_with_code_msg(128, "Unknown codec: %d\n", frame->color_spec);
+                        fprintf(stderr, "[JPEG] Unknown codec: %d\n", frame->color_spec);
+                        exit_uv(128);
+                        return FALSE;
         }
 
         /* We will deinterlace the output frame */
@@ -137,8 +142,8 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
                 s->interlaced_input = FALSE;
         else {
                 fprintf(stderr, "Unsupported interlacing option: %s.\n", get_interlacing_description(frame->interlacing));
-                free(s);
-                return NULL;
+                exit_uv(128);
+                return FALSE;
         }
 
         
@@ -163,10 +168,13 @@ static void configure_with(struct compress_jpeg_state *s, struct video_frame *fr
         }
         
         if(!s->encoder) {
-                error_with_code_msg(128, "[DXT GLSL] Failed to create encoder.\n");
+                fprintf(stderr, "[DXT GLSL] Failed to create encoder.\n");
+                exit_uv(128);
+                return FALSE;
         }
         
         s->decoded = malloc(4 * s->out->tiles[0].width * s->jpeg_height);
+        return TRUE;
 }
 
 void * jpeg_compress_init(char * opts)
@@ -239,8 +247,12 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
 
         int x, y;
         
-        if(!s->encoder)
-                configure_with(s, tx);
+        if(!s->encoder) {
+                int ret;
+                ret = configure_with(s, tx);
+                if(!ret)
+                        return NULL;
+        }
 
         for (x = 0; x < tx->tile_count;  ++x) {
                 struct tile *in_tile = vf_get_tile(tx, x);

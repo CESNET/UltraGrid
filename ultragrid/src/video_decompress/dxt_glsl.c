@@ -80,7 +80,10 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         
         decompressor->glx_context = glx_init();
         if(!decompressor->glx_context) {
-                error_with_code_msg(128, "Failed to create GLX context.");
+                fprintf(stderr, "Failed to create GLX context.");
+                exit_uv(128);
+                decompressor->compressed_len = 0;
+                return;
         }
 
         if(desc.color_spec == DXT5) {

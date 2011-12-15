@@ -656,8 +656,10 @@ void glut_idle_callback(void)
                                         s->tile->data);
                         break;
                 default:
-                        error_with_code_msg(128, "[GL] Fatal error - received unsupported codec. "
-                                                 "Please report a bug.");
+                        fprintf(stderr, "[GL] Fatal error - received unsupported codec.\n");
+                        exit_uv(128);
+                        return;
+
         }
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;

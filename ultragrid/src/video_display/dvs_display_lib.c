@@ -546,7 +546,9 @@ void display_dvs_reconfigure_impl(void *state,
                         hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
                         break;
                 default:
-                        error_with_code_msg(128, "[dvs] Unsupported video codec passed!");
+                        fprintf(stderr, "[dvs] Unsupported video codec passed!");
+                        exit_uv(128);
+                        return;
         }
 
         hd_video_mode |= s->mode->mode;

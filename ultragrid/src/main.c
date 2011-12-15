@@ -145,8 +145,10 @@ void exit_uv(int status) {
         wait_to_finish = TRUE;
         should_exit = TRUE;
         if(!threads_joined) {
-                display_finish(uv_state->display_device);
-                audio_finish(uv_state->audio);
+                if(uv_state->display_device)
+                        display_finish(uv_state->display_device);
+                if(uv_state->audio)
+                        audio_finish(uv_state->audio);
         }
         wait_to_finish = FALSE;
 }
@@ -734,7 +736,7 @@ int main(int argc, char *argv[])
                         initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
-                return EXIT_FAIL_CAPTURE;
+                exit_uv(EXIT_FAIL_CAPTURE);
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
@@ -742,7 +744,7 @@ int main(int argc, char *argv[])
              initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
-                return EXIT_FAIL_DISPLAY;
+                exit_uv(EXIT_FAIL_DISPLAY);
         }
 
         printf("Display initialized-%s\n", uv->requested_display);
@@ -842,7 +844,7 @@ int main(int argc, char *argv[])
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->participants)) == NULL) {
                         printf("Unable to open network\n");
-                        return EXIT_FAIL_NETWORK;
+                        exit_uv(EXIT_FAIL_NETWORK);
                 } else {
                         struct rtp **item;
                         uv->connections_count = 0;
@@ -858,7 +860,7 @@ int main(int argc, char *argv[])
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu)) == NULL) {
                         printf("Unable to initialize transmitter\n");
-                        return EXIT_FAIL_TRANSMIT;
+                        exit_uv(EXIT_FAIL_TRANSMIT);
                 }
 
                 if (strcmp("none", uv->requested_display) != 0 ||
@@ -902,11 +904,16 @@ int main(int argc, char *argv[])
                 ;
         threads_joined = TRUE;
 
-        audio_done(uv->audio);
-        tx_done(uv->tx);
-	destroy_devices(uv->network_devices);
-        vidcap_done(uv->capture_device);
-        display_done(uv->display_device);
+        if(uv->audio)
+                audio_done(uv->audio);
+        if(uv->tx)
+                tx_done(uv->tx);
+	if(uv->network_devices)
+                destroy_devices(uv->network_devices);
+        if(uv->capture_device)
+                vidcap_done(uv->capture_device);
+        if(uv->display_device)
+                display_done(uv->display_device);
         if (uv->participants != NULL)
                 pdb_destroy(&uv->participants);
         printf("Exit\n");

@@ -109,9 +109,9 @@ struct video_compress {
 };
 
 static void compress_thread(void *args);
-void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t, double fps);
+int reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t, double fps);
 
-void reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t interlacing, double fps)
+int reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t interlacing, double fps)
 {
         int x;
 
@@ -160,7 +160,9 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
                         compress->rgb = FALSE;
                         break;
                 default:
-                        error_with_code_msg(128, "Unknown codec %d!", codec);
+                        fprintf(stderr, "Unknown codec %d!", codec);
+                        exit_uv(128);
+                        return FALSE;
         }
         
         int h_align = 0;
@@ -203,6 +205,8 @@ void reconfigure_compress(struct video_compress *compress, int width, int height
 #endif                          /* HAVE_MACOSX */
         memset(compress->output_data, 0, width * compress->dxt_height * 4);
         memset(compress->tile->data, 0, width * compress->dxt_height * 4 / 8);
+
+        return TRUE;
 }
 
 void *fastdxt_init(const char *num_threads_str)
@@ -238,8 +242,9 @@ void *fastdxt_init(const char *num_threads_str)
 
         compress->thread_count = 0;
         if (pthread_mutex_init(&(compress->lock), NULL)) {
-        perror("Error initializing mutex!");
-                exit(128);
+                perror("Error initializing mutex!");
+                exit_uv(128);
+                return NULL;
         }
 
         for (x = 0; x < compress->num_threads; x++) {
@@ -254,7 +259,8 @@ void *fastdxt_init(const char *num_threads_str)
                     (&(compress->thread_ids[x]), NULL, (void *)compress_thread,
                      (void *)compress)) {
                         perror("Unable to create compressor thread!");
-                        exit(x);
+                        exit_uv(x);
+                        return NULL;
                 }
         }
         pthread_mutex_unlock(&(compress->lock));
@@ -283,7 +289,10 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
                         tx->interlacing != compress->interlacing_source ||
                         tx->color_spec != compress->tx_color_spec)
         {
-                reconfigure_compress(compress, vf_get_tile(tx, 0)->width, vf_get_tile(tx, 0)->height, tx->color_spec, tx->interlacing, tx->fps);
+                int ret;
+                ret = reconfigure_compress(compress, vf_get_tile(tx, 0)->width, vf_get_tile(tx, 0)->height, tx->color_spec, tx->interlacing, tx->fps);
+                if(!ret)
+                        return NULL;
         }
 
         line1 = (unsigned char *)tx->tiles[0].data;

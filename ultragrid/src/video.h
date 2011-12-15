@@ -128,6 +128,11 @@ int get_video_mode_tiles_x(int video_mode);
 int get_video_mode_tiles_y(int video_mode);
 const char *get_interlacing_description(enum interlacing_t);
 
+
+/* these functions transcode one interlacing format to another */
+void il_upper_to_merged(char *dst, char *src, int linesize, int height);
+void il_merged_to_upper(char *dst, char *src, int linesize, int height);
+
 #define AUX_INTERLACED  (1<<0)
 #define AUX_PROGRESSIVE (1<<1)
 #define AUX_SF          (1<<2)

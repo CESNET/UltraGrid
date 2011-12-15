@@ -77,9 +77,9 @@ struct video_compress {
         void *glx_context;
 };
 
-static void configure_with(struct video_compress *s, struct video_frame *frame);
+static int configure_with(struct video_compress *s, struct video_frame *frame);
 
-static void configure_with(struct video_compress *s, struct video_frame *frame)
+static int configure_with(struct video_compress *s, struct video_frame *frame)
 {
         int i;
         int x, y;
@@ -91,8 +91,12 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         
         for (x = 0; x < frame->tile_count; ++x) {
                         if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
-                                        vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width)
-                                error_with_code_msg(128,"[RTDXT] Requested to compress tiles of different size!");
+                                        vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width) {
+
+                                fprintf(stderr,"[RTDXT] Requested to compress tiles of different size!");
+                                exit_uv(128);
+                                return FALSE;
+                        }
                                 
                         vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
                         vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
@@ -134,7 +138,9 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
                         format = DXT_FORMAT_RGBA;
                         break;
                 default:
-                        error_with_code_msg(128, "Unknown codec: %d\n", frame->color_spec);
+                        fprintf(stderr, "[RTDXT] Unknown codec: %d\n", frame->color_spec);
+                        exit_uv(128);
+                        return FALSE;
         }
 
         /* We will deinterlace the output frame */
@@ -171,12 +177,15 @@ static void configure_with(struct video_compress *s, struct video_frame *frame)
         }
         
         if(!s->encoder) {
-                error_with_code_msg(128, "[DXT GLSL] Failed to create encoder.\n");
+                fprintf(stderr, "[RTDXT] Failed to create decoder.\n");
+                exit_uv(128);
+                return FALSE;
         }
         
         s->decoded = malloc(4 * s->out->tiles[0].width * s->dxt_height);
         
         s->configured = TRUE;
+        return TRUE;
 }
 
 void * dxt_glsl_compress_init(char * opts)
@@ -190,7 +199,9 @@ void * dxt_glsl_compress_init(char * opts)
         x11_enter_thread();
         s->glx_context = glx_init();
         if(!s->glx_context) {
-                error_with_code_msg(128,"[RTDXT] Error initializing glx context!");
+                fprintf(stderr, "[RTDXT] Error initializing GLX context");
+                exit_uv(128);
+                return NULL;
         }
         
         if(opts && strcmp(opts, "help") == 0) {
@@ -228,8 +239,12 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
         
         int x, y;
         
-        if(!s->configured)
-                configure_with(s, tx);
+        if(!s->configured) {
+                int ret;
+                ret = configure_with(s, tx);
+                if(!ret)
+                        return NULL;
+        }
 
         for (x = 0; x < tx->tile_count;  ++x) {
                 struct tile *in_tile = vf_get_tile(tx, x);

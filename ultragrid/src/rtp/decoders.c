@@ -48,6 +48,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/decoders.h"
+#include "video.h"
 #include "video_codec.h"
 #include "video_decompress.h"
 #include "video_display.h"
@@ -57,6 +58,7 @@ struct state_decoder;
 
 struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
                                 struct video_frame *frame);
+typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
 
 enum decoder_type_t {
         UNSET,
@@ -89,6 +91,9 @@ struct state_decoder {
         struct display   *display;
         codec_t          *native_codecs;
         size_t            native_count;
+        enum interlacing_t    *disp_supported_il;
+        size_t            disp_supported_il_cnt;
+        change_il_t       change_il;
         
         /* actual values */
         enum decoder_type_t decoder_type; 
@@ -120,7 +125,9 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         
         s = (struct state_decoder *) calloc(1, sizeof(struct state_decoder));
         s->native_codecs = NULL;
+        s->disp_supported_il = NULL;
         s->postprocess = NULL;
+        s->change_il = NULL;
         s->video_mode = VIDEO_NORMAL;
         
         if(requested_mode) {
@@ -169,14 +176,28 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &decoder->native_count);
         decoder->native_count /= sizeof(codec_t);
         if(!ret) {
-                error_with_code_msg(129, "Failed to query codecs from video display.");
+                fprintf(stderr, "Failed to query codecs from video display.");
+                exit_uv(129);
+                return;
         }
         
         /* next check if we didn't receive alias for UYVY */
         for(i = 0; i < decoder->native_count; ++i) {
-                if(decoder->native_codecs[i] == Vuy2 ||
-                                decoder->native_codecs[i] == DVS8)
-                        error_with_code_msg(128, "Logic error: received alias for UYVY.");
+                assert(decoder->native_codecs[i] != Vuy2 &&
+                                decoder->native_codecs[i] != DVS8);
+        }
+
+
+        free(decoder->disp_supported_il);
+        decoder->disp_supported_il_cnt = 20 * sizeof(enum interlacing_t);
+        decoder->disp_supported_il = malloc(decoder->disp_supported_il_cnt);
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_SUPPORTED_IL_MODES, decoder->disp_supported_il, &decoder->disp_supported_il_cnt);
+        if(ret) {
+                decoder->disp_supported_il_cnt /= sizeof(enum interlacing_t);
+        } else {
+                enum interlacing_t tmp[] = { PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME}; /* default if not said othervise */
+                memcpy(decoder->disp_supported_il, tmp, sizeof(tmp));
+                decoder->disp_supported_il_cnt = sizeof(tmp) / sizeof(enum interlacing_t);
         }
 }
 
@@ -204,6 +225,7 @@ void decoder_destroy(struct state_decoder *decoder)
                 decoder->pp_frame = NULL;
         }
         free(decoder->native_codecs);
+        free(decoder->disp_supported_il);
         free(decoder);
 }
 
@@ -287,11 +309,42 @@ after_linedecoder_lookup:
 after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
-                error_with_code_msg(128, "Unable to find decoder for input codec!!!");
+                fprintf(stderr, "Unable to find decoder for input codec!!!");
+                exit_uv(128);
+                return (codec_t) -1;
         }
         
         decoder->out_codec = out_codec;
         return out_codec;
+}
+
+static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *supported, int il_out_cnt, /*out*/ enum interlacing_t *out_il)
+{
+        struct transcode_t { enum interlacing_t in; enum interlacing_t out; change_il_t func; };
+
+        struct transcode_t transcode[] = {
+                {UPPER_FIELD_FIRST, INTERLACED_MERGED, il_upper_to_merged},
+                {INTERLACED_MERGED, UPPER_FIELD_FIRST, il_merged_to_upper}
+        };
+
+        int i;
+        /* first try to check if it can be nativelly displayed */
+        for (i = 0; i < il_out_cnt; ++i) {
+                if(in_il == supported[i]) {
+                        *out_il = in_il;
+                        return NULL;
+                }
+        }
+
+        for (i = 0; i < il_out_cnt; ++i) {
+                int j;
+                for (j = 0; j < sizeof(transcode) / sizeof(struct transcode_t); ++j) {
+                        if(in_il == transcode[j].in && supported[i] == transcode[j].out) {
+                                *out_il = transcode[j].out;
+                                return transcode[j].func;
+                        }
+                }
+        }
 }
 
 struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
@@ -299,8 +352,10 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
 {
         codec_t out_codec, in_codec;
         decoder_t decode_line;
+        enum interlacing_t display_il;
         struct video_frame *frame;
         int display_mode;
+        int i;
         
         assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
@@ -327,6 +382,8 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         desc.height *= get_video_mode_tiles_y(decoder->video_mode);
         
         out_codec = choose_codec_and_decoder(decoder, desc, &in_codec, &decode_line);
+        if(out_codec == (codec_t) -1)
+                return NULL;
         struct video_desc display_desc = desc;
 
         if(decoder->postprocess) {
@@ -336,7 +393,14 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 vo_postprocess_get_out_desc(decoder->postprocess, &display_desc, &display_mode);
         }
         
+        if(!is_codec_opaque(out_codec)) {
+                decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il, decoder->disp_supported_il_cnt, &display_il);
+        } else {
+                decoder->change_il = NULL;
+        }
+
         display_desc.color_spec = out_codec;
+        display_desc.interlacing = display_il;
         if(!video_desc_eq(decoder->display_desc, display_desc))
         {
                 /*
@@ -489,6 +553,9 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 decoder->ext_decoder_state = decoder->ext_decoder_funcs->init();
                 buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, 
                                 decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch , out_codec);
+                if(!buf_size) {
+                        return NULL;
+                }
                 decoder->ext_recv_buffer = malloc((src_x_tiles * src_y_tiles + 1) * sizeof(char *));
                 decoder->total_bytes = calloc(1, (src_x_tiles * src_y_tiles) * sizeof(int));
                 for (i = 0; i < src_x_tiles * src_y_tiles; ++i)
@@ -570,6 +637,9 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
 
                         frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                         frame);
+                        if(!frame) {
+                                return;
+                        }
                 }
                 
                 if(!decoder->postprocess) {
@@ -708,5 +778,13 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                                decoder->pp_frame,
                                frame,
                                decoder->requested_pitch);
+        }
+
+        if(decoder->change_il) {
+                int i;
+                for(i = 0; i < frame->tile_count; ++i) {
+                        struct tile *tile = vf_get_tile(frame, i);
+                        decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width, decoder->out_codec), tile->height);
+                }
         }
 }

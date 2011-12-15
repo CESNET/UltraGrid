@@ -245,13 +245,14 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
                         audio_capture[s->audio_capture_device.index].audio_init(tmp);
                 
                 if(!s->audio_capture_device.state) {
-                        error_with_code_msg(EXIT_FAILURE, "Error initializing audio capture.\n");
+                        fprintf(stderr, "Error initializing audio capture.\n");
+                        goto error;
                 }
                 if (pthread_create
                     (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
                         fprintf(stderr,
                                 "Error creating audio thread. Quitting\n");
-                        exit(EXIT_FAILURE);
+                        goto error;
                 }
         } else {
                 s->audio_capture_device.index = AUDIO_DEV_NONE;
@@ -269,20 +270,21 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
 #endif                  
                 else {
                         fprintf(stderr, "Unknown audio driver: %s\n", tmp);
-                        exit(EXIT_FAIL_USAGE);
+                        goto error;
                 }
                 
                 tmp = strtok(NULL, ":");
                 s->audio_playback_device.state =
                         audio_playback[s->audio_playback_device.index].audio_init(tmp);
                 if(!s->audio_playback_device.state) {
-                        error_with_code_msg(EXIT_FAILURE, "Error initializing audio playback.\n");
+                        fprintf(stderr, "Error initializing audio playback.\n");
+                        goto error;
                 }
                 if (pthread_create
                     (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
                         fprintf(stderr,
                                 "Error creating audio thread. Quitting\n");
-                        exit(EXIT_FAILURE);
+                        goto error;
                 }
         } else {
                 s->audio_playback_device.index = AUDIO_DEV_NONE;
@@ -303,13 +305,17 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         if(jack_cfg) {
                 fprintf(stderr, "[Audio] JACK configuration string entered ('-j'), "
                                 "but JACK support isn't compiled.\n");
-                exit(EXIT_FAIL_USAGE);
+                goto error;
         }
 #endif
 
         s->tx_session = tx_init(1500);
 
         return s;
+
+error:
+        free(s);
+        return NULL;
 }
 
 void audio_join(struct state_audio *s) {

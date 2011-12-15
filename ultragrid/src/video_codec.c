@@ -58,20 +58,20 @@
 static int get_halign(codec_t codec);
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", 0, 1, 4.0, 1},
-        {UYVY, "UYVY", 846624121, 1, 2, 0},
-        {Vuy2, "2vuy", '2Vuy', 1, 2, 0},
-        {DVS8, "DVS8", 0, 1, 2, 0},
-        {R10k, "R10k", 1378955371, 1, 4, 1},
-        {v210, "v210", 1983000880, 48, 8.0 / 3.0, 0},
-        {DVS10, "DVS10", 0, 48, 8.0 / 3.0, 0},
-        {DXT1, "DXT1", 'DXT1', 1, 0.5, 1},
-        {DXT1_YUV, "DXT1 YUV", 'DXTY', 1, 0.5, 0}, /* packet YCbCr inside DXT1 channels */
-        {DXT5, "DXT5", 'DXT5', 1, 1.0, 1},/* DXT5 YCoCg */
-        {RGB, "RGB", 0x32424752, 1, 3.0, 1},
-        {DPX10, "DPX10", 0, 1, 4.0, 1},
-        {JPEG, "JPEG", 'JPEG', 0, 0.0, 0},
-        {RAW, "raw", 'raws', 0, 1.0, 0}, /* raw SDI */
+        {RGBA, "RGBA", 0, 1, 4.0, TRUE, FALSE},
+        {UYVY, "UYVY", 846624121, 1, 2, FALSE, FALSE},
+        {Vuy2, "2vuy", '2Vuy', 1, 2, FALSE, FALSE},
+        {DVS8, "DVS8", 0, 1, 2, FALSE, FALSE},
+        {R10k, "R10k", 1378955371, 1, 4, TRUE, FALSE},
+        {v210, "v210", 1983000880, 48, 8.0 / 3.0, FALSE, FALSE},
+        {DVS10, "DVS10", 0, 48, 8.0 / 3.0, FALSE, FALSE},
+        {DXT1, "DXT1", 'DXT1', 1, 0.5, TRUE, TRUE},
+        {DXT1_YUV, "DXT1 YUV", 'DXTY', 1, 0.5, FALSE, TRUE}, /* packet YCbCr inside DXT1 channels */
+        {DXT5, "DXT5", 'DXT5', 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
+        {RGB, "RGB", 0x32424752, 1, 3.0, TRUE, FALSE},
+        {DPX10, "DPX10", 0, 1, 4.0, TRUE, FALSE},
+        {JPEG, "JPEG", 'JPEG', 0, 0.0, FALSE, TRUE},
+        {RAW, "raw", 'raws', 0, 1.0, FALSE, TRUE}, /* raw SDI */
         {0, NULL, 0, 0, 0.0, 0}
 };
 
@@ -146,6 +146,18 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
         while (codec_info[i].name != NULL) {
                 if (fourcc == codec_info[i].fcc)
                         return codec_info[i].codec;
+                i++;
+        }
+        return 0;
+}
+
+int is_codec_opaque(codec_t codec)
+{
+        int i = 0;
+
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].opaque;
                 i++;
         }
         return 0;
@@ -603,5 +615,5 @@ int codec_is_a_rgb(codec_t codec)
 			return codec_info[i].rgb;
 		}
 	}
-        error_with_code_msg(128, "Unknown codec !");
+        return 0;
 }
