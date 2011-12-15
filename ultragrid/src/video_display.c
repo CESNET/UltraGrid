@@ -158,6 +158,7 @@ static display_table_t display_device_table[] = {
          display_deltacast_init,
          display_deltacast_run,
          display_deltacast_done,
+         NULL,
          display_deltacast_getf,
          display_deltacast_putf,
          display_deltacast_reconfigure,

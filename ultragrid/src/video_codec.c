@@ -71,7 +71,7 @@ const struct codec_info_t codec_info[] = {
         {RGB, "RGB", 0x32424752, 1, 3.0, 1},
         {DPX10, "DPX10", 0, 1, 4.0, 1},
         {JPEG, "JPEG", 'JPEG', 0, 0.0, 0},
-        {RAW, "RAW", 0, 0, 0.0, 0},
+        {RAW, "raw", 'raws', 0, 1.0, 0}, /* raw SDI */
         {0, NULL, 0, 0, 0.0, 0}
 };
 

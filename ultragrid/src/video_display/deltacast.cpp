@@ -347,7 +347,7 @@ display_type_t *display_deltacast_probe(void)
         return dtype;
 }
 
-int display_deltacast_get_property(void *state, int property, void *val, int *len)
+int display_deltacast_get_property(void *state, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {v210, UYVY, RAW};
         

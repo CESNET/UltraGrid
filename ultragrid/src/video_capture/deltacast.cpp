@@ -135,7 +135,7 @@ static void usage(void)
         printf("\nAvailable codecs:\n");
         printf("\tUYVY\n");
         printf("\tv210\n");
-        printf("\tRAW\n");
+        printf("\traw\n");
 }
 
 struct vidcap_type *

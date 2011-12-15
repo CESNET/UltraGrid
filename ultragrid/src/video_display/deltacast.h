@@ -70,7 +70,7 @@ struct video_frame  *display_deltacast_getf(void *state);
 int                  display_deltacast_putf(void *state, char *frame);
 void                 display_deltacast_reconfigure(void *state,
                                 struct video_desc desc);
-int                  display_deltacast_get_property(void *state, int property, void *val, int *len);
+int                  display_deltacast_get_property(void *state, int property, void *val, size_t *len);
 
 #ifdef __cplusplus
 } // END extern "C"
