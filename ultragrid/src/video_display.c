@@ -59,6 +59,7 @@
 #include "video_display/null.h"
 #include "video_display/sdl.h"
 #include "video_display/decklink.h"
+#include "video_display/deltacast.h"
 #include "video_display/dvs.h"
 #include "video_display/gl.h"
 #include "video_display/quicktime.h"
@@ -145,6 +146,21 @@ static display_table_t display_device_table[] = {
          display_decklink_put_audio_frame,
          },
 #endif                          /* HAVE_DECKLINK */
+#ifdef HAVE_DELTACAST
+        {
+         0,
+         display_deltacast_probe,
+         display_deltacast_init,
+         display_deltacast_run,
+         display_deltacast_done,
+         display_deltacast_getf,
+         display_deltacast_putf,
+         display_deltacast_reconfigure,
+         display_deltacast_get_property,
+         NULL,
+         NULL,
+         },
+#endif                          /* HAVE_DELTACAST */
 #ifdef HAVE_DVS
         {
          0,

@@ -338,7 +338,7 @@ void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
 static void show_help(void)
 {
         int i;
-        sv_handle *sv = sv_open("");
+        sv_handle *sv = sv_open("PCI,card:1");
         if (sv == NULL) {
                 printf
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
