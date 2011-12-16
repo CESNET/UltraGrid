@@ -74,18 +74,18 @@ struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct 
 {
         struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
         
-        assert(desc.video_mode == VIDEO_STEREO);
+        assert(desc.tile_count == 2);
         
         s->in->color_spec = desc.color_spec;
         s->in->fps = desc.fps;
         s->in->interlacing = desc.interlacing;
         vf_get_tile(s->in, 0)->width = 
-                vf_get_tile(s->in, 1)->width = desc.width / 2;
+                vf_get_tile(s->in, 1)->width = desc.width;
         vf_get_tile(s->in, 0)->height = 
                 vf_get_tile(s->in, 1)->height = desc.height;
                 
         vf_get_tile(s->in, 0)->data_len =
-                vf_get_tile(s->in, 1)->data_len = vc_get_linesize(desc.width / 2, desc.color_spec)
+                vf_get_tile(s->in, 1)->data_len = vc_get_linesize(desc.width, desc.color_spec)
                                 * desc.height;
         vf_get_tile(s->in, 0)->data = malloc(vf_get_tile(s->in, 0)->data_len);
         vf_get_tile(s->in, 1)->data = malloc(vf_get_tile(s->in, 1)->data_len);
@@ -133,7 +133,7 @@ void interleaved_3d_done(void *state)
         free(state);
 }
 
-void interleaved_3d_get_out_desc(void *state, struct video_desc *out, int *display_mode)
+void interleaved_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
         struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
 
@@ -142,7 +142,7 @@ void interleaved_3d_get_out_desc(void *state, struct video_desc *out, int *displ
         out->color_spec = s->in->color_spec;
         out->interlacing = s->in->interlacing;
         out->fps = s->in->fps;
-        out->video_mode = VIDEO_NORMAL;
+        out->tile_count = 1;
 
-        *display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+        *in_display_mode = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
 }

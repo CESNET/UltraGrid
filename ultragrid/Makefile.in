@@ -70,6 +70,7 @@ OBJS          = src/bitstream.o \
 		src/video_display/null.o \
 		src/vo_postprocess.o \
 		src/vo_postprocess/3d-interleaved.o \
+		src/vo_postprocess/split.o \
 		@DELTACAST_OBJ@ \
 		@DVS_OBJ@ \
 		@QUICKTIME_OBJ@ \

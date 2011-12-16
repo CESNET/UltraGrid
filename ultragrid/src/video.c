@@ -59,7 +59,7 @@ struct video_frame * vf_alloc(int count)
 {
         struct video_frame *buf;
         
-        buf = (struct video_frame *) malloc(sizeof(struct video_frame));
+        buf = (struct video_frame *) calloc(1, sizeof(struct video_frame));
         
         buf->tiles = (struct tiles *) 
                         calloc(1, sizeof(struct tile) * count);

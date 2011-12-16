@@ -401,7 +401,6 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         }
 
 	if(s->stereo) {
-		desc.width /= 2; // half of with for each channel
 		for (int i = 0; i < 2; ++i) {
 			struct tile  *tile = vf_get_tile(s->frame, i);
 			tile->width = desc.width;
@@ -431,27 +430,15 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
 	} else {
 	        for(int i = 0; i < s->devices_cnt; ++i) {
-	        	struct video_desc desc_dev;
-	                /* compute position */
-	                int x_count;
-	                int y_count;
-                        if(s->devices_cnt == 2) { /* stereo */
-                                x_count = 2;
-                                y_count = 1;
-                        } else if (s->devices_cnt == 4) { /* tiled 4K */
-                                x_count = y_count = 2;
-                        }
 
 	                struct tile  *tile = vf_get_tile(s->frame, i);
-
-			desc_dev = desc;	                                
 	                
-	                desc_dev.width = tile->width = desc.width / x_count;
-	                desc_dev.height = tile->height = desc.height / y_count;
+	                tile->width = desc.width;
+	                tile->height = desc.height;
 	                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
 	                tile->data_len = tile->linesize * tile->height;
 	                
-	                displayMode = get_mode(s->state[i].deckLinkOutput, desc_dev, &s->frameRateDuration,
+	                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
                                                 &s->frameRateScale, i);
 	
 	                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, bmdVideoOutputFlagDefault,
@@ -670,6 +657,7 @@ int display_decklink_get_property(void *state, int property, void *val, size_t *
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
                         else
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
+                        break;
 
                 default:
                         return FALSE;

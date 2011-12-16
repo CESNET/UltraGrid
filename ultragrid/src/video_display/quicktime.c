@@ -881,17 +881,8 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
 
         for(i = 0; i < s->devices_cnt; ++i) {
 
-                int tile_width;
-                int tile_height;
-
-                if(s->devices_cnt == 2) { /* stereo */
-                        tile_width = desc.width / 2;
-                        tile_height = desc.height;
-                }
-                if(s->devices_cnt = 4) { /*tiled 4K */
-                        tile_width = desc.width / 2;
-                        tile_height = desc.height / 2;
-                }
+                int tile_width = desc.width;
+                int tile_height = desc.height;
 
                 struct tile * tile = vf_get_tile(s->frame, i);
                 

@@ -54,6 +54,7 @@
 #include <string.h>
 #include "vo_postprocess.h"
 #include "vo_postprocess/3d-interleaved.h"
+#include "vo_postprocess/split.h"
 
 struct vo_postprocess_t {
         const char * name;
@@ -73,6 +74,9 @@ const struct vo_postprocess_t vo_postprocess_modules[] = {
         {"3d-interleaved", interleaved_3d_init, interleaved_3d_postprocess_reconfigure, 
                         interleaved_3d_get_out_desc,
                         interleaved_3d_postprocess, interleaved_3d_done },
+        {"split", split_init, split_postprocess_reconfigure, 
+                        split_get_out_desc,
+                        split_postprocess, split_done },
         {NULL, NULL, NULL, NULL, NULL, NULL}
 };
 

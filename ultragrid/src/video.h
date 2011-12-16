@@ -83,12 +83,15 @@ enum interlacing_t {
 
 /* please note that tiles have also its own widths and heights */
 struct video_desc {
+        /* in case of tiled video - width and height represent widht and height
+         * of each tile, eg. for tiled superHD 1920x1080 */
         unsigned int         width;
         unsigned int         height;
+
         codec_t              color_spec;
         double               fps;
         enum interlacing_t   interlacing;
-        unsigned int         video_mode;
+        unsigned int         tile_count;
 };
 
 /* contains full information both about video and about tiles.
