@@ -118,6 +118,7 @@ long packet_rate = 13600;
 volatile int should_exit = FALSE;
 volatile int wait_to_finish = FALSE;
 volatile int threads_joined = FALSE;
+static int exit_status = EXIT_SUCCESS;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
@@ -142,6 +143,7 @@ static void signal_handler(int signal)
 #endif                          /* WIN32 */
 
 void exit_uv(int status) {
+        exit_status = status;
         wait_to_finish = TRUE;
         should_exit = TRUE;
         if(!threads_joined) {
@@ -176,7 +178,7 @@ static void usage(void)
         printf("\n");
         printf("\t-j <settings>            \tJACK Audio Connection Kit settings (see '-j help')\n");
         printf("\n");
-        printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, stereo, dual)\n");
+        printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D, dual-link)\n");
         printf("\n");
         printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
@@ -348,6 +350,8 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 static void destroy_devices(struct rtp ** network_devices)
 {
 	struct rtp ** current = network_devices;
+        if(!network_devices)
+                return;
 	while(*current != NULL) {
 		rtp_done(*current++);
 	}
@@ -622,6 +626,7 @@ int main(int argc, char *argv[])
         uv->use_ihdtv_protocol = 0;
         uv->participants = NULL;
         uv->tx = NULL;
+        uv->network_devices = NULL;
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -736,7 +741,8 @@ int main(int argc, char *argv[])
                         initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
-                exit_uv(EXIT_FAIL_CAPTURE);
+                exit_status = EXIT_FAIL_CAPTURE;
+                goto cleanup;
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
@@ -744,7 +750,8 @@ int main(int argc, char *argv[])
              initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
-                exit_uv(EXIT_FAIL_DISPLAY);
+                exit_status = EXIT_FAIL_DISPLAY;
+                goto cleanup;
         }
 
         printf("Display initialized-%s\n", uv->requested_display);
@@ -844,7 +851,8 @@ int main(int argc, char *argv[])
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->participants)) == NULL) {
                         printf("Unable to open network\n");
-                        exit_uv(EXIT_FAIL_NETWORK);
+                        exit_status = EXIT_FAIL_NETWORK;
+                        goto cleanup;
                 } else {
                         struct rtp **item;
                         uv->connections_count = 0;
@@ -860,25 +868,42 @@ int main(int argc, char *argv[])
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu)) == NULL) {
                         printf("Unable to initialize transmitter\n");
-                        exit_uv(EXIT_FAIL_TRANSMIT);
+                        exit_status = EXIT_FAIL_TRANSMIT;
+                        goto cleanup;
                 }
 
-                if (strcmp("none", uv->requested_display) != 0 ||
-                                uv->postprocess || uv->decoder_mode) {
+                /* following block only shows help (otherwise initialized in receiver thread */
+                if((uv->postprocess && strcmp(uv->postprocess, "help") == 0) || 
+                                (uv->decoder_mode && strcmp(uv->decoder_mode, "help") == 0)) {
+                        struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess);
+                        decoder_destroy(dec);
+                        exit_status = EXIT_SUCCESS;
+                        goto cleanup;
+                }
+                /* following block only shows help (otherwise initialized in sender thread */
+                if(uv->requested_compression && strcmp(uv->compress_options,"help") == 0) {
+                        struct compress_state *compression = compress_init("help");
+                        compress_done(compression);
+                        exit_status = EXIT_SUCCESS;
+                        goto cleanup;
+                }
+                        
+                if (strcmp("none", uv->requested_display) != 0) {
                         if (pthread_create
                             (&receiver_thread_id, NULL, receiver_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create display thread!\n");
-                                exit_uv(1);
+                                exit_status = 1;
+                                goto cleanup;
                         }
                 }
-                if (strcmp("none", uv->requested_capture) != 0 ||
-                                uv->requested_compression) {
+                if (strcmp("none", uv->requested_capture) != 0) {
                         if (pthread_create
                             (&sender_thread_id, NULL, sender_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create capture thread!\n");
-                                exit_uv(1);
+                                exit_status = 1;
+                                goto cleanup;
                         }
                 }
         }
@@ -900,6 +925,7 @@ int main(int argc, char *argv[])
         /* also wait for audio threads */
         audio_join(uv->audio);
 
+cleanup:
         while(wait_to_finish)
                 ;
         threads_joined = TRUE;
@@ -918,5 +944,5 @@ int main(int argc, char *argv[])
                 pdb_destroy(&uv->participants);
         printf("Exit\n");
 
-        return EXIT_SUCCESS;
+        return exit_status;
 }
