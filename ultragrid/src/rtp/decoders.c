@@ -597,6 +597,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
         struct tile *tile = NULL;
         uint32_t tmp;
         uint32_t substream;
+        int fps_pt, fpsd, fd, fi;
 
         perf_record(UVP_DECODEFRAME, frame);
 
@@ -615,13 +616,20 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                 color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
                 len = pckt->data_len - sizeof(video_payload_hdr_t);
                 data_pos = ntohl(hdr->offset);
-                tmp = ntohl(hdr->substream_bufnum_il);
-                interlacing = (enum interlacing_t) (tmp & 0x3);
+                tmp = ntohl(hdr->substream_bufnum);
                 substream = tmp >> 22;
-                fps = ntohl(hdr->fps)/65536.0;
+
+                tmp = ntohl(hdr->il_fps);
+                interlacing = (enum interlacing_t) (tmp >> 29);
+                fps_pt = (tmp >> 19) & 0x3ff;
+                fpsd = (tmp >> 15) & 0xf;
+                fd = (tmp >> 14) & 0x1;
+                fi = (tmp >> 13) & 0x1;
+
+                fps = compute_fps(fps_pt, fpsd, fd, fi);
 
                 if(substream >= decoder->max_substreams) {
-                        fprintf(stderr, "[decoder] received substream ID %d. Expecting %d substreams. Did you set -M option?\n", substream, decoder->max_substreams);
+                        fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n", substream, decoder->max_substreams);
                         exit_uv(1);
                         return;
                 }

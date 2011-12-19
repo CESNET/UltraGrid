@@ -63,9 +63,8 @@ typedef struct {
 
 typedef struct {
         /* first word */
-        uint32_t substream_bufnum_il; /* bits 0 - 9 substream
-                                         bits 10 - 29 buffer 
-                                         bits 30 - 31 interlace */
+        uint32_t substream_bufnum; /* bits 0 - 9 substream
+                                      bits 10 - 31 buffer  */
 
         /* second word */
         uint32_t offset;
@@ -81,13 +80,18 @@ typedef struct {
         uint32_t fourcc;
         
         /* temporary */
-        uint32_t fps;
+        uint32_t il_fps; /* bits 0 - 2 interlace flag
+                            bits 3 - 12 FPS
+                            bits 13 - 16 FPSd
+                            bit 17 Fd
+                            bit 18 Fi */
+
 } __attribute__((__packed__)) video_payload_hdr_t;
 
 typedef struct {
         /* first word */
         uint32_t substream_bufnum; /* bits 0 - 9 substream
-                                      bits 10 - 29 buffer */
+                                      bits 10 - 31 buffer */
 
         /* second word */
         uint32_t offset;

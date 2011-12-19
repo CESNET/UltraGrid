@@ -206,3 +206,19 @@ void il_merged_to_upper(char *dst, char *src, int linesize, int height)
         free(tmp);
 }
 
+double compute_fps(int fps, int fpsd, int fd, int fi)
+{
+        double res; 
+
+        res = fps;
+        if(fd)
+                res /= 1.001;
+        res /= fpsd;
+
+        if(fi) {
+                res = 1.0 / res;
+        }
+
+        return res;
+}
+

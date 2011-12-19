@@ -146,7 +146,7 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
 
 void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
-                uint32_t ts, int send_m, codec_t color_spec, double fps,
+                uint32_t ts, int send_m, codec_t color_spec, double input_fps,
                 enum interlacing_t interlacing, unsigned int substream)
 {
         int m, data_len;
@@ -161,6 +161,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 #endif                          /* HAVE_MACOSX */
         long delta;
         uint32_t tmp;
+        unsigned int fps, fpsd, fd, fi;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -173,11 +174,25 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         payload_hdr.vres = htons(tile->height);
         payload_hdr.fourcc = htonl(get_fourcc(color_spec));
         payload_hdr.length = htonl(tile->data_len);
-        payload_hdr.fps = htonl(fps * 65536.0);
         tmp = substream << 22;
-        tmp |= tx->buffer << 2;
-        tmp |= interlacing;
-        payload_hdr.substream_bufnum_il = htonl(tmp);
+        tmp |= tx->buffer;
+        payload_hdr.substream_bufnum = htonl(tmp);
+
+        /* word 6 */
+        tmp = interlacing << 29;
+        fps = round(input_fps);
+        fpsd = 1;
+        if(fabs(input_fps - round(input_fps) / 1.001) < 0.005)
+                fd = 1;
+        else
+                fd = 0;
+        fi = 0;
+
+        tmp |= fps << 19;
+        tmp |= fpsd << 15;
+        tmp |= fd << 14;
+        tmp |= fi << 13;
+        payload_hdr.il_fps = htonl(tmp);
 
         do {
                 payload_hdr.offset = htonl(pos);
@@ -237,7 +252,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 
                 uint32_t tmp;
                 tmp = channel << 22; /* bits 0-9 */
-                tmp |= tx->buffer << 2; /* bits 10-29 */
+                tmp |= tx->buffer; /* bits 10-31 */
                 payload_hdr.substream_bufnum = htonl(tmp);
 
                 payload_hdr.length = htonl(buffer->data_len / buffer->ch_count);

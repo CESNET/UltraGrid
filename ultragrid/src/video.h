@@ -137,6 +137,8 @@ const char *get_video_mode_description(int video_mode);
 void il_upper_to_merged(char *dst, char *src, int linesize, int height);
 void il_merged_to_upper(char *dst, char *src, int linesize, int height);
 
+double compute_fps(int fps, int fpsd, int fd, int fi);
+
 #define AUX_INTERLACED  (1<<0)
 #define AUX_PROGRESSIVE (1<<1)
 #define AUX_SF          (1<<2)
