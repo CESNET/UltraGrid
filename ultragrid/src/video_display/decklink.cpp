@@ -101,8 +101,36 @@ public:
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
 
+
+class DeckLinkTimecode : public IDeckLinkTimecode{
+                BMDTimecodeBCD timecode;
+                bool drop;
+        public:
+                DeckLinkTimecode() : timecode(0) {}
+                /* IDeckLinkTimecode */
+                virtual BMDTimecodeBCD GetBCD (void) { return timecode; }
+                virtual HRESULT GetComponents (/* out */ uint8_t *hours, /* out */ uint8_t *minutes, /* out */ uint8_t *seconds, /* out */ uint8_t *frames) { 
+                        *frames =   (timecode & 0xf)              + ((timecode & 0xf0) >> 4) * 10;
+                        *seconds = ((timecode & 0xf00) >> 8)      + ((timecode & 0xf000) >> 12) * 10;
+                        *minutes = ((timecode & 0xf0000) >> 16)   + ((timecode & 0xf00000) >> 20) * 10;
+                        *hours =   ((timecode & 0xf000000) >> 24) + ((timecode & 0xf0000000) >> 28) * 10;
+                        return S_OK;
+                }
+                virtual HRESULT GetString (/* out */ const char **timecode) { return E_FAIL; }
+                virtual BMDTimecodeFlags GetFlags (void)        { if(drop) return bmdTimecodeIsDropFrame; else return bmdTimecodeFlagDefault; }
+                virtual HRESULT GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
+
+                /* IUnknown */
+                virtual HRESULT         QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+                virtual ULONG           AddRef ()                                                                       {return 1;}
+                virtual ULONG           Release ()                                                                      {return 1;}
+                
+                void SetBCD(BMDTimecodeBCD timecode) { this->drop = false; this->timecode = timecode; }
+                void Drop() { this->drop = false; }
+        };
+
 class DeckLinkFrame;
-class DeckLinkFrame : public IDeckLinkVideoFrame
+class DeckLinkFrame : public IDeckLinkMutableVideoFrame
 {
                 long ref;
                 
@@ -111,6 +139,8 @@ class DeckLinkFrame : public IDeckLinkVideoFrame
                 long rawBytes;
                 BMDPixelFormat pixelFormat;
                 char *data;
+
+                IDeckLinkTimecode *timecode;
 
         protected:
                 DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf); 
@@ -133,6 +163,14 @@ class DeckLinkFrame : public IDeckLinkVideoFrame
                 
                 HRESULT GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode);
                 HRESULT GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary);
+                
+
+                /* IDeckLinkMutableVideoFrame */
+                HRESULT SetFlags(BMDFrameFlags);
+                HRESULT SetTimecode(BMDTimecodeFormat, IDeckLinkTimecode*);
+                HRESULT SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags);
+                HRESULT SetAncillaryData(IDeckLinkVideoFrameAncillary*);
+                HRESULT SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits);
 };
 
 class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtensions
@@ -168,8 +206,8 @@ struct device_state {
         PlaybackDelegate        *delegate;
         IDeckLink               *deckLink;
         IDeckLinkOutput         *deckLinkOutput;
-        //IDeckLinkMutableVideoFrame *deckLinkFrame;
-        IDeckLinkVideoFrame *deckLinkFrame;
+        IDeckLinkMutableVideoFrame *deckLinkFrame;
+        //IDeckLinkVideoFrame *deckLinkFrame;
 };
 
 struct state_decklink {
@@ -182,20 +220,22 @@ struct state_decklink {
         BMDTimeValue        frameRateDuration;
         BMDTimeScale        frameRateScale;
 
+        DeckLinkTimecode    *timecode;
+
         struct audio_frame  audio;
         struct video_frame *frame;
 
         unsigned long int   frames;
         unsigned long int   frames_last;
-        bool                stereo:1;
+        bool                stereo;
         bool                initialized;
+        bool                emit_timecode;
         int                 devices_cnt;
         unsigned int        play_audio:1;
         int                 output_audio_channel_count;
  };
 
 static void show_help(void);
-static void get_sub_frame(void *state, int x, int y, int w, int h, struct video_frame *out); 
 void display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 
@@ -208,7 +248,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_numbers>[:3D] - coma-separated numbers of output devices\n");
+        printf("\t-d decklink:<device_numbers>[:3D][:timecode] - coma-separated numbers of output devices\n");
         
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -259,6 +299,7 @@ static void show_help(void)
         } 
 }
 
+
 struct video_frame *
 display_decklink_getf(void *state)
 {
@@ -275,6 +316,44 @@ display_decklink_getf(void *state)
         return s->frame;
 }
 
+static void update_timecode(DeckLinkTimecode *tc, double fps, unsigned long int total_frames)
+{
+        const float epsilon = 0.005;
+        int shifted;
+        uint8_t hours, minutes, seconds, frames;
+        BMDTimecodeBCD bcd;
+
+        if(ceil(fps) - fps > epsilon) { /* drop 1000. frame  */
+                if(total_frames == 1000) {
+                        tc->Drop();
+                }
+        }
+
+        tc->GetComponents (&hours, &minutes, &seconds, &frames);
+        frames++;
+
+        if((double) frames > fps - epsilon) {
+                frames = 0;
+                seconds++;
+                if(seconds >= 60) {
+                        seconds = 0;
+                        minutes++;
+                        if(minutes >= 60) {
+                                minutes = 0;
+                                hours++;
+                                if(hours >= 100) {
+                                        hours = 0;
+                                }
+                        }
+                }
+        }
+
+        bcd = (frames % 10) | (frames / 10) << 4 | (seconds % 10) << 8 | (seconds / 10) << 12 | (minutes % 10)  << 16 | (minutes / 10) << 20 |
+                (hours % 10) << 24 | (hours / 10) << 28;
+
+        tc->SetBCD(bcd);
+}
+
 int display_decklink_putf(void *state, char *frame)
 {
         int tmp;
@@ -287,14 +366,23 @@ int display_decklink_putf(void *state, char *frame)
 
         gettimeofday(&tv, NULL);
 
+
         uint32_t i;
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
         if (i > 2) 
                 fprintf(stderr, "Frame dropped!\n");
         else {
-                for (int j = 0; j < s->devices_cnt; ++j)
+                if(s->emit_timecode) {
+                        update_timecode(s->timecode, s->frame->fps, s->frames);
+                }
+
+                for (int j = 0; j < s->devices_cnt; ++j) {
+                        if(s->emit_timecode) {
+                                s->state[j].deckLinkFrame->SetTimecode(bmdVideoOutputRP188, s->timecode);
+                        }
                         s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                }
                 s->frames++;
         }
 
@@ -322,7 +410,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         if (FAILED(deckLinkOutput->GetDisplayModeIterator(&displayModeIterator)))
         {
                 fprintf(stderr, "Fatal: cannot create display mode iterator [decklink].\n");
-                exit(128);
+                return (BMDDisplayMode) -1;
         }
 
         while (displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
@@ -354,7 +442,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 deckLinkDisplayMode->GetFrameRate(frameRateDuration,
                                                 frameRateScale);
                                 displayFPS = (double) *frameRateScale / *frameRateDuration;
-                                if(fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED && interlaced || !interlaced)
+                                if(fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED ? interlaced : !interlaced)
                                   )
                                 {
                                         printf("Device %d - selected mode: %s\n", index, modeNameCString);
@@ -410,13 +498,15 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	        }
 		displayMode = get_mode(s->state[0].deckLinkOutput, desc, &s->frameRateDuration,
                                                 &s->frameRateScale, 0);
+                if(displayMode == (BMDDisplayMode) -1)
+                        goto error;
 		
 		s->state[0].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, bmdVideoOutputDualStream3D,
 	                                &supported, NULL);
                 if(supported == bmdDisplayModeNotSupported)
                 {
-                        fprintf(stderr, "[decklink] Requested parameters combination not supported.\n");
-                        exit(128);
+                        fprintf(stderr, "[decklink] Requested parameters combination not supported - %dx%d@%f.\n", desc.width, desc.height, (double)desc.fps);
+                        goto error;
                 }
                 
                 s->state[0].deckLinkFrame = DeckLink3DFrame::Create(desc.width, desc.height, vf_get_tile(s->frame, 0)->linesize, pixelFormat);
@@ -428,9 +518,15 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&right);
                 right->GetBytes((void **) &s->frame->tiles[1].data);
                 s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
-	} else {
-	        for(int i = 0; i < s->devices_cnt; ++i) {
+        } else {
+                if(desc.tile_count > s->devices_cnt) {
+                        fprintf(stderr, "[decklink] Expected at most %d streams. Got %d.\n", s->devices_cnt,
+                                        desc.tile_count);
+                        goto error;
+                }
 
+	        for(int i = 0; i < s->devices_cnt; ++i) {
+                        BMDVideoOutputFlags outputFlags= bmdVideoOutputFlagDefault;
 	                struct tile  *tile = vf_get_tile(s->frame, i);
 	                
 	                tile->width = desc.width;
@@ -440,27 +536,38 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                
 	                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
                                                 &s->frameRateScale, i);
+                        if(displayMode == (BMDDisplayMode) -1)
+                                goto error;
+
+                        if(s->emit_timecode) {
+                                outputFlags = bmdVideoOutputRP188;
+                        }
 	
-	                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, bmdVideoOutputFlagDefault,
+	                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, outputFlags,
 	                                &supported, NULL);
 	                if(supported == bmdDisplayModeNotSupported)
 	                {
-	                        fprintf(stderr, "[decklink] Requested parameters combination not supported.\n");
-	                        exit(128);
+                                fprintf(stderr, "[decklink] Requested parameters "
+                                                "combination not supported - %d * %dx%d@%f, timecode %s.\n",
+                                                desc.tile_count, tile->width, tile->height, desc.fps,
+                                                (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
+	                        goto error;
 	                }
 	
 	                IDeckLinkMutableVideoFrame *frame;
-	                if (s->state[i].deckLinkOutput->CreateVideoFrame(tile->width, tile->height,
+	                /*if (s->state[i].deckLinkOutput->CreateVideoFrame(tile->width, tile->height,
 	                                tile->linesize, pixelFormat, bmdFrameFlagDefault,
 	                                &frame) != S_OK)
 	                {
 	                        fprintf(stderr, "[decklink] Failed to create video frame.\n");
 	                        exit(128);
-	                }
+	                }*/
+                        frame = DeckLinkFrame::Create(tile->width, tile->height,
+	                                tile->linesize, pixelFormat);
 	                
 	                s->state[i].deckLinkFrame = frame;
 	                        
-	                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, bmdVideoOutputFlagDefault);
+	                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
 	                s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
 	        }
 	
@@ -470,6 +577,10 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	}
 
         s->initialized = true;
+        return;
+
+error:
+        exit_uv(128);
 }
 
 
@@ -484,6 +595,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
+        s->emit_timecode = false;
         
         if(fmt == NULL) {
                 cardIdx[0] = 0;
@@ -511,7 +623,13 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 ptr = strtok_r(NULL, ":", &saveptr1);
                 if(ptr) {
                         if(strcasecmp(ptr, "3D") == 0) {
-                                s->stereo = TRUE;
+                                s->stereo = true;
+                                ptr = strtok_r(NULL, ":", &saveptr1);
+                                if(strcasecmp(ptr, "timecode") == 0) {
+                                        s->emit_timecode = true;
+                                }
+                        } else if(strcasecmp(ptr, "timecode") == 0) {
+                                s->emit_timecode = true;
                         } else {
                                 fprintf(stderr, "[DeckLink] Warning: unknown options in config string.\n");
                         }
@@ -519,7 +637,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 free (tmp);
         }
 	assert(!s->stereo || s->devices_cnt == 1);
-	
+
         gettimeofday(&s->tv, NULL);
 
         // Initialize the DeckLink API
@@ -573,6 +691,12 @@ void *display_decklink_init(char *fmt, unsigned int flags)
 	} else {
 		s->frame = vf_alloc(s->devices_cnt);
 	}
+
+        if(s->emit_timecode) {
+                s->timecode = new DeckLinkTimecode;
+        } else {
+                s->timecode = NULL;
+        }
         
         for(int i = 0; i < s->devices_cnt; ++i) {
                 // Obtain the audio/video output interface (IDeckLinkOutput)
@@ -604,6 +728,7 @@ void display_decklink_done(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;
 
+        delete s->timecode;
         vf_free(s->frame);
         free(s);
 }
@@ -653,7 +778,7 @@ int display_decklink_get_property(void *state, int property, void *val, size_t *
                         *len = sizeof(int);
                         break;
                 case DISPLAY_PROPERTY_VIDEO_MODE:
-                        if(s->devices_cnt == 1)
+                        if(s->devices_cnt == 1 && !s->stereo)
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_MERGED;
                         else
                                 *(int *) val = DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES;
@@ -817,6 +942,7 @@ DeckLinkFrame::DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf)
 	: width(w), height(h), rawBytes(rb), pixelFormat(pf), ref(1l)
 {
         data = new char[rb * h];
+        timecode = NULL;
 }
 
 DeckLinkFrame *DeckLinkFrame::Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat)
@@ -863,12 +989,46 @@ HRESULT DeckLinkFrame::GetBytes (/* out */ void **buffer)
 
 HRESULT DeckLinkFrame::GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode)
 {
-	return S_FALSE;
+        if((format == bmdTimecodeRP188VITC1 || format == bmdTimecodeRP188Any) && this->timecode) {
+                *timecode = dynamic_cast<IDeckLinkTimecode *>(this->timecode);
+                return S_OK;
+        } else {
+                return S_FALSE;
+        }
 }
 
 HRESULT DeckLinkFrame::GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary)
 {
 	return S_FALSE;
+}
+
+/* IDeckLinkMutableVideoFrame */
+HRESULT DeckLinkFrame::SetFlags (/* in */ BMDFrameFlags newFlags)
+{
+        return E_FAIL;
+}
+
+HRESULT DeckLinkFrame::SetTimecode (/* in */ BMDTimecodeFormat format, /* in */ IDeckLinkTimecode *timecode)
+{
+        if(this->timecode)
+                this->timecode->Release();
+        this->timecode = timecode;
+        return S_OK;
+}
+
+HRESULT DeckLinkFrame::SetTimecodeFromComponents (/* in */ BMDTimecodeFormat format, /* in */ uint8_t hours, /* in */ uint8_t minutes, /* in */ uint8_t seconds, /* in */ uint8_t frames, /* in */ BMDTimecodeFlags flags)
+{
+        return E_FAIL;
+}
+
+HRESULT DeckLinkFrame::SetAncillaryData (/* in */ IDeckLinkVideoFrameAncillary *ancillary)
+{
+        return E_FAIL;
+}
+
+HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat format, /* in */ BMDTimecodeUserBits userBits)
+{
+        return E_FAIL;
 }
 
 

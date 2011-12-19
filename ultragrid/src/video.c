@@ -141,6 +141,21 @@ const char *get_interlacing_description(enum interlacing_t interlacing)
         }
 }
 
+const char *get_video_mode_description(int video_mode)
+{
+        switch (video_mode) {
+                case VIDEO_NORMAL:
+                        return "normal";
+                case VIDEO_STEREO:
+                        return "3D";
+                case VIDEO_4K:
+                        return "tiled 4K";
+                case VIDEO_DUAL:
+                        return "dual-link";
+        }
+        return NULL;
+}
+
 void il_upper_to_merged(char *dst, char *src, int linesize, int height)
 {
         int y;
