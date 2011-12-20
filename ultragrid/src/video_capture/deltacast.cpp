@@ -207,12 +207,17 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                 }
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {
-                        if(strcmp(tok, "raw") == 0)
+                        if(strcasecmp(tok, "raw") == 0)
                                 s->frame->color_spec = RAW;
                         else if(strcmp(tok, "UYVY") == 0)
                                 s->frame->color_spec = UYVY;
                         else if(strcmp(tok, "v210") == 0)
                                 s->frame->color_spec = v210;
+                        else {
+                                usage();
+                                goto error;
+                        }
+
                 } else {
                         usage();
                         goto error;

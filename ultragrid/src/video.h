@@ -130,6 +130,7 @@ int video_desc_eq(struct video_desc, struct video_desc);
 int get_video_mode_tiles_x(int video_mode);
 int get_video_mode_tiles_y(int video_mode);
 const char *get_interlacing_description(enum interlacing_t);
+const char *get_video_mode_description(int video_mode);
 
 
 /* these functions transcode one interlacing format to another */
