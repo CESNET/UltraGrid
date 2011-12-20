@@ -171,6 +171,15 @@ const quicktime_mode_t quicktime_modes[] = {
         {"Blackmagic HD 720", "Blackmagic HD 720p 60 - RGB 10 Bit", 1280, 720, 60, AUX_PROGRESSIVE|AUX_RGB|AUX_10Bit},
         {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 8 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_YUV},
         {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 10 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_10Bit|AUX_YUV},
+
+        {"AJA   8-bit Digitizer", "AJA QuadHDp25		 8 Bit  (3840x2160)", 3840, 2160, 25, AUX_PROGRESSIVE|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA QuadHDsf25      8 Bit  (3840x2160)", 3840, 2160, 25, AUX_SF|AUX_YUV},
+
+        {"Blackmagic HD 1080", "Blackmagic HD 1080i 50 - 8 Bit", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
+        {"Blackmagic 2 HD 1080", "Blackmagic HD 1080i 50 - 8 Bit (2)", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
+        {"Blackmagic 3 HD 1080", "Blackmagic HD 1080i 50 - 8 Bit (3)", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
+        {"Blackmagic 4 HD 1080", "Blackmagic HD 1080i 50 - 8 Bit (4)", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
+
         {NULL, NULL, 0, 0, 0, 0},
 };        
 
@@ -612,7 +621,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 s->frame->color_spec = s->cinfo->codec;
 
                 for (i = 0; i < s->devices_cnt; ++i) {
-                        struct tile *tile = vf_get_tile(i);
+                        struct tile *tile = vf_get_tile(s->frame, i);
                         /* Open device */
                         s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
         
@@ -812,7 +821,7 @@ display_type_t *display_quicktime_probe(void)
 
 int display_quicktime_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(state);
+        struct state_quicktime *s = (struct state_quicktime *) state;
         codec_t codecs[] = {v210, UYVY, RGBA};
         
         switch (property) {

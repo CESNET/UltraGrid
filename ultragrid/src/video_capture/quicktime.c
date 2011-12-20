@@ -695,7 +695,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                (pixfmt) & 0xff);
 
         int h_align = s->c_info->h_align;
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec);
+        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
         s->vbuffer[0] = malloc(s->tile->data_len);
         s->vbuffer[1] = malloc(s->tile->data_len);
 

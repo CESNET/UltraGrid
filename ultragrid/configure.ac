@@ -880,7 +880,12 @@ AC_ARG_ENABLE(jpeg,
 	[jpeg_req=$enableval],
         [jpeg_req=yes])
 
-if test "$jpeg_req" = yes -a -n "$NVCC"
+SAVED_CFLAGS=$CFLAGS
+CFLAGS+=" $CUDA_INC"
+AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
+CFLAGS=$SAVED_CFLAGS
+
+if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes
 then
         jpeg=yes
         JPEG_LIB="$CUDA_LIB -lnpp"
