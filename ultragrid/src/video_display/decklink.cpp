@@ -104,7 +104,6 @@ public:
 
 class DeckLinkTimecode : public IDeckLinkTimecode{
                 BMDTimecodeBCD timecode;
-                bool drop;
         public:
                 DeckLinkTimecode() : timecode(0) {}
                 /* IDeckLinkTimecode */
@@ -116,8 +115,8 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         *hours =   ((timecode & 0xf000000) >> 24) + ((timecode & 0xf0000000) >> 28) * 10;
                         return S_OK;
                 }
-                virtual HRESULT GetString (/* out */ const char **timecode) { return E_FAIL; }
-                virtual BMDTimecodeFlags GetFlags (void)        { if(drop) return bmdTimecodeIsDropFrame; else return bmdTimecodeFlagDefault; }
+                virtual HRESULT GetString (/* out */ STRING *timecode) { return E_FAIL; }
+                virtual BMDTimecodeFlags GetFlags (void)        { return bmdTimecodeFlagDefault; }
                 virtual HRESULT GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
 
                 /* IUnknown */
@@ -125,8 +124,7 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                 virtual ULONG           AddRef ()                                                                       {return 1;}
                 virtual ULONG           Release ()                                                                      {return 1;}
                 
-                void SetBCD(BMDTimecodeBCD timecode) { this->drop = false; this->timecode = timecode; }
-                void Drop() { this->drop = false; }
+                void SetBCD(BMDTimecodeBCD timecode) { this->timecode = timecode; }
         };
 
 class DeckLinkFrame;
@@ -316,17 +314,16 @@ display_decklink_getf(void *state)
         return s->frame;
 }
 
-static void update_timecode(DeckLinkTimecode *tc, double fps, unsigned long int total_frames)
+static void update_timecode(DeckLinkTimecode *tc, double fps)
 {
         const float epsilon = 0.005;
         int shifted;
         uint8_t hours, minutes, seconds, frames;
         BMDTimecodeBCD bcd;
+        bool dropFrame = false;
 
-        if(ceil(fps) - fps > epsilon) { /* drop 1000. frame  */
-                if(total_frames == 1000) {
-                        tc->Drop();
-                }
+        if(ceil(fps) - fps > epsilon) { /* NTSCi drop framecode  */
+                dropFrame = true;
         }
 
         tc->GetComponents (&hours, &minutes, &seconds, &frames);
@@ -338,10 +335,14 @@ static void update_timecode(DeckLinkTimecode *tc, double fps, unsigned long int 
                 if(seconds >= 60) {
                         seconds = 0;
                         minutes++;
+                        if(dropFrame) {
+                                if(minutes % 10 != 0)
+                                        seconds = 2;
+                        }
                         if(minutes >= 60) {
                                 minutes = 0;
                                 hours++;
-                                if(hours >= 100) {
+                                if(hours >= 24) {
                                         hours = 0;
                                 }
                         }
@@ -372,10 +373,6 @@ int display_decklink_putf(void *state, char *frame)
         if (i > 2) 
                 fprintf(stderr, "Frame dropped!\n");
         else {
-                if(s->emit_timecode) {
-                        update_timecode(s->timecode, s->frame->fps, s->frames);
-                }
-
                 for (int j = 0; j < s->devices_cnt; ++j) {
                         if(s->emit_timecode) {
                                 s->state[j].deckLinkFrame->SetTimecode(bmdVideoOutputRP188, s->timecode);
@@ -384,6 +381,9 @@ int display_decklink_putf(void *state, char *frame)
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
                 }
                 s->frames++;
+                if(s->emit_timecode) {
+                        update_timecode(s->timecode, s->frame->fps);
+                }
         }
 
 
@@ -989,12 +989,8 @@ HRESULT DeckLinkFrame::GetBytes (/* out */ void **buffer)
 
 HRESULT DeckLinkFrame::GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode)
 {
-        if((format == bmdTimecodeRP188VITC1 || format == bmdTimecodeRP188Any) && this->timecode) {
-                *timecode = dynamic_cast<IDeckLinkTimecode *>(this->timecode);
-                return S_OK;
-        } else {
-                return S_FALSE;
-        }
+        *timecode = dynamic_cast<IDeckLinkTimecode *>(this->timecode);
+        return S_OK;
 }
 
 HRESULT DeckLinkFrame::GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary)

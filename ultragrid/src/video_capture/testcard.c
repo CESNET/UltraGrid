@@ -403,6 +403,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         s->tiles_cnt_horizontal = grid_h;
         s->tiled->color_spec = s->frame->color_spec;
         s->tiled->fps = s->frame->fps;
+        s->tiled->interlacing = s->frame->interlacing;
 
         tile_cnt = grid_w *
                                 grid_h;

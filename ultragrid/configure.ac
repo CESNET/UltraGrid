@@ -263,7 +263,7 @@ AC_ARG_ENABLE(dvs,
 AC_ARG_WITH(dvs,           
 	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
-	 DVS_LIB=$withval/linux/lib],
+	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
 	[DVS_INC=${PARENT}/sdk4.0.1.17/development/header
 	 DVS_LIB=${PARENT}/sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
 
@@ -880,10 +880,12 @@ AC_ARG_ENABLE(jpeg,
 	[jpeg_req=$enableval],
         [jpeg_req=yes])
 
-SAVED_CFLAGS=$CFLAGS
-CFLAGS+=" $CUDA_INC"
+SAVED_CXXFLAGS=$CXXFLAGS
+CXXFLAGS+=" $CUDA_INC"
+AC_LANG_PUSH(C++)
 AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
-CFLAGS=$SAVED_CFLAGS
+AC_LANG_POP(C++)
+CXXFLAGS=$SAVED_CXXFLAGS
 
 if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes
 then

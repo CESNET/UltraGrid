@@ -108,6 +108,20 @@ const quicktime_mode_t quicktime_modes[] = {
         {"AJA   8-bit Digitizer", "AJA 1080x2Kp24                8 Bit  (2048x1080)", 2048, 1080, 24, AUX_PROGRESSIVE|AUX_RGB|AUX_YUV},
         {"AJA   8-bit Digitizer", "AJA 1556x2Ksf14.98    8 Bit  (2048x1556)", 2048, 1556, 14.98, AUX_SF|AUX_RGB|AUX_YUV},
         {"AJA   8-bit Digitizer", "AJA 1556x2Ksf15       8 Bit  (2048x1556)", 2048, 1556, 15, AUX_SF|AUX_RGB|AUX_YUV},
+
+        {"AJA   8-bit Digitizer", "AJA QuadHDsf23.98	 8 Bit  (3840x2160)", 3840, 2160, 23.98, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA QuadHDsf24      8 Bit  (3840x2160)", 3840, 2160, 24, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA QuadHDsf25      8 Bit  (3840x2160)", 3840, 2160, 25, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA QuadHDp23.98	 8 Bit  (3840x2160)", 3840, 2160, 23.98, AUX_PROGRESSIVE|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA QuadHDp24		 8 Bit  (3840x2160)", 3840, 2160, 24, AUX_PROGRESSIVE|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA QuadHDp25		 8 Bit  (3840x2160)", 3840, 2160, 25, AUX_PROGRESSIVE|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA 4Ksf23.98      8 Bit  (4096x2160)", 4096, 2160, 23.98, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA 4Ksf24      8 Bit  (4096x2160)", 4096, 2160, 24, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA 4Ksf25      8 Bit  (4096x2160)", 4096, 2160, 25, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA 4Kp23.98       8 Bit  (4096x2160)", 4096, 2160, 23.98, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA 4Kp24          8 Bit  (4096x2160)", 4096, 2160, 24.0, AUX_SF|AUX_YUV},
+        {"AJA   8-bit Digitizer", "AJA 4Kp25          8 Bit  (4096x2160)", 4096, 2160, 25.0, AUX_SF|AUX_YUV},
+
         {"AJA 10-bit Digitizer", "AJA 525i23.98  10 Bit  (720x486)", 720, 486, 23.98, AUX_INTERLACED|AUX_10Bit|AUX_RGB|AUX_YUV},
         {"AJA 10-bit Digitizer", "AJA 525i29.97  10 Bit  (720x486)", 720, 486, 29.97, AUX_INTERLACED|AUX_10Bit|AUX_RGB|AUX_YUV},
         {"AJA 10-bit Digitizer", "AJA 625i25             10 Bit  (720x576)", 720, 576, 25, AUX_INTERLACED|AUX_10Bit|AUX_RGB|AUX_YUV},
@@ -142,6 +156,20 @@ const quicktime_mode_t quicktime_modes[] = {
         {"AJA 10-bit Digitizer", "AJA 1080x2Kp24                 10 Bit  (2048x1080)", 2048, 1080, 24, AUX_PROGRESSIVE|AUX_10Bit|AUX_RGB|AUX_YUV},
         {"AJA 10-bit Digitizer", "AJA 1556x2Ksf14.98     10 Bit  (2048x1556)", 2048, 1556, 14.98, AUX_SF|AUX_10Bit|AUX_RGB|AUX_YUV},
         {"AJA 10-bit Digitizer", "AJA 1556x2Ksf15        10 Bit  (2048x1556)", 2048, 1556, 15, AUX_SF|AUX_10Bit|AUX_RGB|AUX_YUV},
+
+        {"AJA   10-bit Digitizer", "AJA QuadHDsf23.98	 10 Bit  (3840x2160)", 3840, 2160, 23.98, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA QuadHDsf24      10 Bit  (3840x2160)", 3840, 2160, 24, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA QuadHDsf25      10 Bit  (3840x2160)", 3840, 2160, 25, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA QuadHDp23.98	 10 Bit  (3840x2160)", 3840, 2160, 23.98, AUX_PROGRESSIVE|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA QuadHDp24		 10 Bit  (3840x2160)", 3840, 2160, 24, AUX_PROGRESSIVE|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA QuadHDp25		 10 Bit  (3840x2160)", 3840, 2160, 25, AUX_PROGRESSIVE|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA 4Ksf23.98      10 Bit  (4096x2160)", 4096, 2160, 23.98, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA 4Ksf24      10 Bit  (4096x2160)", 4096, 2160, 24, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA 4Ksf25      10 Bit  (4096x2160)", 4096, 2160, 25, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA 4Kp23.98       10 Bit  (4096x2160)", 4096, 2160, 23.98, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA 4Kp24          10 Bit  (4096x2160)", 4096, 2160, 24.0, AUX_SF|AUX_YUV|AUX_10Bit},
+        {"AJA   10-bit Digitizer", "AJA 4Kp25          10 Bit  (4096x2160)", 4096, 2160, 25.0, AUX_SF|AUX_YUV|AUX_10Bit},
+
         {"Blackmagic 2K", "Blackmagic 2K 23.976 - RGB", 2048, 1556, 23.98, AUX_PROGRESSIVE|AUX_RGB},
         {"Blackmagic 2K", "Blackmagic 2K 24 - RGB", 2048, 1556, 24, AUX_PROGRESSIVE|AUX_RGB},
         {"Blackmagic 2K", "Blackmagic 2K 25 - RGB", 2048, 1556, 25, AUX_PROGRESSIVE|AUX_RGB},
@@ -171,15 +199,6 @@ const quicktime_mode_t quicktime_modes[] = {
         {"Blackmagic HD 720", "Blackmagic HD 720p 60 - RGB 10 Bit", 1280, 720, 60, AUX_PROGRESSIVE|AUX_RGB|AUX_10Bit},
         {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 8 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_YUV},
         {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 10 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_10Bit|AUX_YUV},
-
-        {"AJA   8-bit Digitizer", "AJA QuadHDp25		 8 Bit  (3840x2160)", 3840, 2160, 25, AUX_PROGRESSIVE|AUX_YUV},
-        {"AJA   8-bit Digitizer", "AJA QuadHDsf25      8 Bit  (3840x2160)", 3840, 2160, 25, AUX_SF|AUX_YUV},
-
-        {"Blackmagic HD 1080", "Blackmagic HD 1080i 50 - 8 Bit", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
-        {"Blackmagic 2 HD 1080", "Blackmagic HD 1080i 50 - 8 Bit (2)", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
-        {"Blackmagic 3 HD 1080", "Blackmagic HD 1080i 50 - 8 Bit (3)", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
-        {"Blackmagic 4 HD 1080", "Blackmagic HD 1080i 50 - 8 Bit (4)", 1920, 1080, 25, AUX_INTERLACED|AUX_YUV},
-
         {NULL, NULL, 0, 0, 0, 0},
 };        
 

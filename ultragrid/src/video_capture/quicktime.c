@@ -68,7 +68,7 @@
 #include <QuickTime/QuickTime.h>
 #include <QuickTime/QuickTimeComponents.h>
 
-#define MAGIC_QT_GRABBER	VIDCAP_QUICKTIME_ID
+#define MAGIC_QT_GRABBER        VIDCAP_QUICKTIME_ID
 
 struct qt_grabber_state {
         uint32_t magic;
@@ -125,13 +125,13 @@ void * vidcap_quicktime_thread(void *state);
  * chRefCon - per channel reference constant specified using SGSetChannelRefCon.
  * time    - the starting time of the data, in the channel's time scale.
  * writeType - the type of write operation being performed.
- * 	seqGrabWriteAppend  - Append new data.
- * 	seqGrabWriteReserve - Do not write data. Instead, reserve space for the amount of data
- * 	                      specified in the len parameter.
- * 	seqGrabWriteFill    - Write data into the location specified by offset. Used to
- * 	                      fill the space previously reserved with seqGrabWriteReserve. 
- *	                      The Sequence Grabber may call the DataProc several times to 
- *	                      fill a single reserved location.
+ *      seqGrabWriteAppend  - Append new data.
+ *      seqGrabWriteReserve - Do not write data. Instead, reserve space for the amount of data
+ *                            specified in the len parameter.
+ *      seqGrabWriteFill    - Write data into the location specified by offset. Used to
+ *                            fill the space previously reserved with seqGrabWriteReserve. 
+ *                            The Sequence Grabber may call the DataProc several times to 
+ *                            fill a single reserved location.
  * refCon - the reference constant you specified when you assigned your data
  *          function to the sequence grabber.
  */
@@ -303,6 +303,44 @@ shrink2(unsigned char *str)
                     str[j] = str[i];
                 j++;
             }
+        }
+        return str;
+}
+
+/*
+ * If there are more than one Blackmagic card, QT appends its index to its name:
+ * Blackmagic 2 HD 1080
+ * ....
+ */ 
+static unsigned char * 
+delCardIndicesCard(unsigned char *str)
+{
+        if(strncmp(str, "Blackmagic", strlen("Blackmagic")) == 0) {
+                if(isdigit(str[strlen("Blackmagic") + 1])) { // Eg. Blackmagic X ...
+                        int len = 
+                                strlen(str + strlen("Blackmagic") + 2);
+                        memmove(str + strlen("Blackmagic"),
+                                str + strlen("Blackmagic") + 2,
+                                len);
+                        str[strlen("Blackmagic") + len] = '\0';
+                }
+        }
+        return str;
+}
+
+/*
+ * ... and to its modes:
+ * eg.: Blackmagic HD 1080i 50 - 8 Bit (2)
+ */
+static unsigned char * 
+delCardIndicesMode(unsigned char *str)
+{
+        if(strncmp(str, "Blackmagic", strlen("Blackmagic")) == 0) {
+                if(str[strlen(str) - 1 - 2] == '('
+                                && isdigit(str[strlen(str) - 1 - 1])
+                                && str[strlen(str) - 1] == ')') {
+                        str[strlen(str) - 4] = '\0'; // Eg.: Blackmagic ... (x)
+                }
         }
         return str;
 }
@@ -608,8 +646,8 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         deviceName = deviceEntry->name;
         inputName = (unsigned char*)&(*inputList)->entry[inputNumber].name;
 
-        shrink(deviceName);
-        shrink(inputName);
+        shrink(delCardIndicesCard(deviceName));
+        shrink(delCardIndicesCard(inputName));
 
         for(i=0; quicktime_modes[i].device != NULL; i++) {
                 unsigned char *device = shrink2(quicktime_modes[i].device);
