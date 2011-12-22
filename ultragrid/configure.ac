@@ -981,7 +981,7 @@ then
     # libs taken from .pc file won't work - there are missing some optional dependencies, eg. jack
     PORTAUDIO_LIB+=" `( . ../portaudio/lib/libportaudio.la ; echo $inherited_linker_flags $dependency_libs | sed 's/\/usr\/lib\/lib\(.*\)\.la/-l\1/')`"
     CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
-    PORTAUDIO_OBJ="src/audio/portaudio.o"
+    PORTAUDIO_OBJ="src/audio/capture/portaudio.o"
     AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
     portaudio=yes
 else
@@ -1020,6 +1020,30 @@ AC_SUBST(JACK_INC)
 
 
 # -------------------------------------------------------------------------------------------------
+#
+# ALSA
+#
+AC_ARG_ENABLE(alsa, 
+      AS_HELP_STRING([--disable-alsa], [disable ALSA (default is auto)]), 
+	[alsa_req=$enableval],
+        [alsa_req=yes])
+AC_CHECK_HEADER(alsa/asoundlib.h)
+SAVED_LIBS=$LIBS
+AC_CHECK_LIB(asound, snd_pcm_open)
+if test "$alsa_req" = yes -a "$ac_cv_header_alsa_asoundlib_h" = yes -a "$ac_cv_lib_asound_snd_pcm_open" = yes
+then
+        alsa=yes
+        AC_DEFINE([HAVE_ALSA], [1], [Build with ALSA support])
+        ALSA_OBJ="src/audio/capture/alsa.o src/audio/playback/alsa.o"
+else
+        alsa=no
+        LIBS=$SAVED_LIBS
+        ALSA_OBJ=
+fi
+
+AC_SUBST(ALSA_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
 AC_CONFIG_HEADER(src/config.h)
 AC_CONFIG_FILES([Makefile])
@@ -1044,6 +1068,7 @@ Configuration summary:
   SDL ......................... $sdl
   
   Portaudio ................... $portaudio
+  ALSA ........................ $alsa
   Jack transport .............. $jack
   
   FastDXT ..................... $fastdxt

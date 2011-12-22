@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/audio.h
+ * FILE:    audio/audio.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -46,60 +46,33 @@
  *
  */
 
-#include "config.h"
+#include "audio/playback/none.h" 
+#include "debug.h"
+#include <stdlib.h>
 
-#ifndef _AUDIO_H_
-#define _AUDIO_H_
-
-#include "compat/platform_semaphore.h"
-
-#define PORT_AUDIO              5006
-static const int audio_payload_type = 97;
-
-struct state_audio;
-
-typedef void (*reconfigure_audio_t)(void *state, int quant_samples, int channels,
-                int sample_rate);
-
-typedef struct audio_frame
+void audio_play_none_help(void)
 {
-        int bps;                /* bytes per sample */
-        int sample_rate;
-        char *data;
-        int data_len;           /* size of useful data in buffer */
-        int ch_count;		/* count of channels */
-        unsigned int max_size;  /* maximal size of data in buffer */
-        
-        reconfigure_audio_t reconfigure_audio;
-        void *state;
 }
-audio_frame;
 
-struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg, char *jack_cfg);
-void audio_finish(struct state_audio *s);
-void audio_done(struct state_audio *s);
-void audio_join(struct state_audio *s);
+void * audio_play_none_init(char *cfg)
+{
+        UNUSED(cfg);
+        return NULL;
+}
 
-void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
-int audio_does_send_sdi(struct state_audio *s);
-int audio_does_receive_sdi(struct state_audio *s);
-struct audio_frame * sdi_get_frame(void *state);
-void sdi_put_frame(void *state, struct audio_frame *frame);
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
-                void *udata);
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
-                void *udata);
+struct audio_frame *audio_play_none_get_frame(void *state)
+{
+        UNUSED(state);
+}
 
-/**
- * Changes bps for everey sample.
- * 
- * The memory areas shouldn't (supposedly) overlap.
- */
-void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
+void audio_play_none_put_frame(void *state, struct audio_frame *frame)
+{
+        UNUSED(state);
+        UNUSED(frame);
+}
 
-/**
- * Makes n copies of first channel (interleaved).
- */
-void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
+void audio_play_none_done(void *state)
+{
+        UNUSED(state);
+}
 
-#endif

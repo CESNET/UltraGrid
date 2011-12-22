@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/audio.h
+ * FILE:    audio/playback/alsa.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -48,58 +48,11 @@
 
 #include "config.h"
 
-#ifndef _AUDIO_H_
-#define _AUDIO_H_
+struct audio_frame;
 
-#include "compat/platform_semaphore.h"
+void audio_play_alsa_help(void);
+void * audio_play_alsa_init(char *cfg);
+struct audio_frame *audio_play_alsa_get_frame(void *state);
+void audio_play_alsa_put_frame(void *state, struct audio_frame *frame);
+void audio_play_alsa_done(void *state);
 
-#define PORT_AUDIO              5006
-static const int audio_payload_type = 97;
-
-struct state_audio;
-
-typedef void (*reconfigure_audio_t)(void *state, int quant_samples, int channels,
-                int sample_rate);
-
-typedef struct audio_frame
-{
-        int bps;                /* bytes per sample */
-        int sample_rate;
-        char *data;
-        int data_len;           /* size of useful data in buffer */
-        int ch_count;		/* count of channels */
-        unsigned int max_size;  /* maximal size of data in buffer */
-        
-        reconfigure_audio_t reconfigure_audio;
-        void *state;
-}
-audio_frame;
-
-struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg, char *jack_cfg);
-void audio_finish(struct state_audio *s);
-void audio_done(struct state_audio *s);
-void audio_join(struct state_audio *s);
-
-void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
-int audio_does_send_sdi(struct state_audio *s);
-int audio_does_receive_sdi(struct state_audio *s);
-struct audio_frame * sdi_get_frame(void *state);
-void sdi_put_frame(void *state, struct audio_frame *frame);
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
-                void *udata);
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
-                void *udata);
-
-/**
- * Changes bps for everey sample.
- * 
- * The memory areas shouldn't (supposedly) overlap.
- */
-void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
-
-/**
- * Makes n copies of first channel (interleaved).
- */
-void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
-
-#endif

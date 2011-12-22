@@ -226,7 +226,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         rect_size = (s->tile->width + rect_size - 1) / rect_size;
 
-        s->frame->interlacing = AUX_PROGRESSIVE;
+        s->frame->interlacing = PROGRESSIVE;
         s->size = s->aligned_x * s->tile->height * bpp;
 
         {
@@ -539,6 +539,8 @@ struct video_frame *vidcap_testcard2_grab(void *arg, struct audio_frame **audio)
                 grab_audio(s);
                 if(s->audio.data_len)
                         *audio = &s->audio;
+                else
+                        *audio = NULL;
          }
         
         return s->frame;

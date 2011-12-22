@@ -52,7 +52,7 @@
 #include <pthread.h>
 
 #include "audio/audio.h"
-#include "audio/portaudio.h"
+#include "audio/capture/portaudio.h"
 #include "debug.h"
 
 /* default variables for sender */
@@ -75,6 +75,11 @@ struct state_portaudio_capture {
         PaStream *stream;
 };
 
+enum audio_device_kind {
+        AUDIO_IN,
+        AUDIO_OUT
+};
+
 
 /*
  * For Portaudio threads-related issues see
@@ -89,6 +94,7 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
 static void print_device_info(PaDeviceIndex device);
 int portaudio_start_stream(PaStream *stream);
 void portaudio_close(PaStream *stream);	// closes and frees all audio resources ( according to valgrind this is not true..  )
+void            portaudio_print_available_devices(enum audio_device_kind);
 void free_audio_frame(audio_frame *buffer);	// buffers should be freed after usage
 
  /*
@@ -120,6 +126,16 @@ static void print_device_info(PaDeviceIndex device)
 	
 	const	PaDeviceInfo *device_info = Pa_GetDeviceInfo(device);
 	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
+}
+
+void portaudio_playback_help()
+{
+        portaudio_print_available_devices(AUDIO_OUT);
+}
+
+void portaudio_capture_help()
+{
+        portaudio_print_available_devices(AUDIO_IN);
 }
 
 void portaudio_print_available_devices(enum audio_device_kind kind)

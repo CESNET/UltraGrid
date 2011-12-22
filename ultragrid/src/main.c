@@ -711,6 +711,9 @@ int main(int argc, char *argv[])
         }
 
         uv->audio = audio_cfg_init (network_device, audio_send, audio_recv, jack_cfg);
+        if(!uv->audio)
+                goto cleanup;
+
         if(audio_does_send_sdi(uv->audio))
                 vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
         if(audio_does_receive_sdi(uv->audio))

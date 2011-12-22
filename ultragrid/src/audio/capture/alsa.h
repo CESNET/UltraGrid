@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/portaudio.h
+ * FILE:    audio/capture/alsa.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -43,32 +43,16 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ *
  */
 
 #include "config.h"
 
-#ifndef _PORTAUDIO_H_
-#define _PORTAUDIO_H_
-
-#ifdef HAVE_PORTAUDIO
-#include "portaudio/include/portaudio.h"
-
 struct audio_frame;
 
-void            portaudio_print_available_devices(enum audio_device_kind);
+void audio_cap_alsa_help(void);
+void * audio_cap_alsa_init(char *cfg);
+struct audio_frame *audio_cap_alsa_read(void *state);
+void audio_cap_alsa_finish(void *state);
+void audio_cap_alsa_done(void *state);
 
-/* Capture related  */
-void * portaudio_capture_init(char *cfg);
-struct audio_frame * portaudio_read(void *state);
-void portaudio_capture_finish(void *state);
-void portaudio_capture_done(void *state);
-
-/* Playback related */
-void           *portaudio_playback_init(char *cfg);
-void            portaudio_close_playback(void *s);
-struct audio_frame* portaudio_get_frame(void *state);
-void            portaudio_put_frame(void *state, struct audio_frame *buffer);
-
-#endif /* HAVE_PORTAUDIO */
-
-#endif

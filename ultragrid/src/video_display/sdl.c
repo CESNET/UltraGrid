@@ -849,6 +849,8 @@ struct audio_frame * display_sdl_get_audio_frame(void *state) {
         struct state_sdl *s = (struct state_sdl *)state;
         if(s->play_audio)
                 return &s->audio_frame;
+        else
+                return NULL;
 }
 
 void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame) {

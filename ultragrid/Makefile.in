@@ -45,7 +45,10 @@ OBJS          = src/bitstream.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
 		src/audio/audio.o \
+		src/audio/capture/none.o \
+		src/audio/playback/none.o \
 		src/audio/utils.o \
+		@ALSA_OBJ@ \
 		@PORTAUDIO_OBJ@ \
 		@JACK_OBJ@ \
 		src/compat/platform_semaphore.o \
