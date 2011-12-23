@@ -112,7 +112,7 @@ struct state_sdl {
         struct audio_frame      audio_frame;
         unsigned int            play_audio:1;
         
-        unsigned int            self_reconfigure:1;
+        unsigned int            toggle_fullscreen:1;
         
         int                     rshift, gshift, bshift;
         int                     pitch;
@@ -264,7 +264,8 @@ static void toggleFullscreen(struct state_sdl *s) {
 		s->fs = 1;
         }
 	/* and post for reconfiguration */
-        s->self_reconfigure = TRUE;
+        if(!s->rgb)
+                s->toggle_fullscreen = TRUE;
 #endif
 }
 
@@ -634,7 +635,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         } else abort();
 #endif
 
-        struct video_desc desc = {500, 500, RGBA, 0, 30.0};
+        struct video_desc desc = {500, 500, RGBA, 30.0, PROGRESSIVE, 1};
         display_sdl_reconfigure(s, desc);
         loadSplashscreen(s);	
 
@@ -676,6 +677,12 @@ struct video_frame *display_sdl_getf(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         assert(s->magic == MAGIC_SDL);
+
+        if(s->toggle_fullscreen) {
+                struct video_desc desc = {s->tile->width, s->tile->height, s->frame->color_spec, s->frame->fps, s->frame->interlacing, 1};
+                display_sdl_reconfigure(s, desc);
+                s->toggle_fullscreen = FALSE;
+        }
 
         return s->frame;
 }
