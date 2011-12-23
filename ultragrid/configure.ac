@@ -1076,6 +1076,39 @@ AC_SUBST(COREAUDIO_LIB)
 AC_SUBST(COREAUDIO_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# Try to find the SDK for the DVS cards
+speex=no
+speex_req=yes
+AC_ARG_ENABLE(speex,
+              AS_HELP_STRING([--disable-speex], [disable speex (default is auto)]), 
+	[speex_req=$enableval])
+
+SPEEX_PATH=${PARENT}/speex-1.2rc1/
+SAVED_CFLAGS=$CFLAGS
+CFLAGS+=" -I${SPEEX_PATH}/include"
+AC_CHECK_HEADER(${SPEEX_PATH}/include/speex/speex_resampler.h, FOUND_SPEEX_RES_H=yes, FOUND_SPEEX_RES_H=no)
+AC_CHECK_FILE(${SPEEX_PATH}/libspeex/.libs/libspeex.a, FOUND_LIBSPEEX=yes, FOUND_LIBSPEEX=no)
+CFLAGS=$SAVED_CFLAGS
+
+if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes -a $FOUND_LIBSPEEX = yes
+then
+	SPEEX_INC=-I${SPEEX_PATH}/include
+	SPEEX_LIB="${SPEEX_PATH}/libspeex/.libs/libspeexdsp.a"
+
+	SPEEX_OBJ=
+        AC_DEFINE([HAVE_SPEEX], [1], [Build with DVS support])
+        speex=yes
+else
+	SPEEX_INC=
+	SPEEX_LIB=
+	SPEEX_OBJ=
+fi
+
+AC_SUBST(SPEEX_INC)
+AC_SUBST(SPEEX_LIB)
+AC_SUBST(SPEEX_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
 AC_CONFIG_HEADER(src/config.h)
 AC_CONFIG_FILES([Makefile])
@@ -1103,6 +1136,7 @@ Configuration summary:
   ALSA ........................ $alsa
   CoreAudio ................... $coreaudio
   Jack transport .............. $jack
+  speex ....................... $speex
   
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt

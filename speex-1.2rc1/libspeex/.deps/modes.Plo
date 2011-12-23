@@ -1,0 +1,79 @@
+modes.lo modes.o: modes.c ../config.h modes.h ../include/speex/speex.h \
+  ../include/speex/speex_bits.h ../include/speex/speex_types.h \
+  /usr/include/sys/types.h /usr/include/sys/appleapiopts.h \
+  /usr/include/sys/cdefs.h /usr/include/machine/types.h \
+  /usr/include/i386/types.h /usr/include/i386/_types.h \
+  /usr/include/sys/_types.h /usr/include/machine/_types.h \
+  /usr/include/machine/endian.h /usr/include/i386/endian.h \
+  /usr/include/sys/_endian.h /usr/include/libkern/_OSByteOrder.h \
+  /usr/include/libkern/i386/_OSByteOrder.h /usr/include/sys/_structs.h \
+  ../include/speex/speex_bits.h arch.h ../include/speex/speex_types.h \
+  ltp.h quant_lsp.h cb_search.h sb_celp.h nb_celp.h \
+  ../include/speex/speex_callbacks.h ../include/speex/speex.h vbr.h \
+  filters.h /usr/include/math.h /usr/include/architecture/i386/math.h
+
+../config.h:
+
+modes.h:
+
+../include/speex/speex.h:
+
+../include/speex/speex_bits.h:
+
+../include/speex/speex_types.h:
+
+/usr/include/sys/types.h:
+
+/usr/include/sys/appleapiopts.h:
+
+/usr/include/sys/cdefs.h:
+
+/usr/include/machine/types.h:
+
+/usr/include/i386/types.h:
+
+/usr/include/i386/_types.h:
+
+/usr/include/sys/_types.h:
+
+/usr/include/machine/_types.h:
+
+/usr/include/machine/endian.h:
+
+/usr/include/i386/endian.h:
+
+/usr/include/sys/_endian.h:
+
+/usr/include/libkern/_OSByteOrder.h:
+
+/usr/include/libkern/i386/_OSByteOrder.h:
+
+/usr/include/sys/_structs.h:
+
+../include/speex/speex_bits.h:
+
+arch.h:
+
+../include/speex/speex_types.h:
+
+ltp.h:
+
+quant_lsp.h:
+
+cb_search.h:
+
+sb_celp.h:
+
+nb_celp.h:
+
+../include/speex/speex_callbacks.h:
+
+../include/speex/speex.h:
+
+vbr.h:
+
+filters.h:
+
+/usr/include/math.h:
+
+/usr/include/architecture/i386/math.h:
