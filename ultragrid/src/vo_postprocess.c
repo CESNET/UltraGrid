@@ -53,7 +53,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "vo_postprocess.h"
-#include "vo_postprocess/3d-interleaved.h"
+#include "vo_postprocess/3d-interlaced.h"
 #include "vo_postprocess/split.h"
 
 struct vo_postprocess_t {
@@ -71,9 +71,9 @@ struct vo_postprocess_state {
 };
 
 const struct vo_postprocess_t vo_postprocess_modules[] = {
-        {"3d-interleaved", interleaved_3d_init, interleaved_3d_postprocess_reconfigure, 
-                        interleaved_3d_get_out_desc,
-                        interleaved_3d_postprocess, interleaved_3d_done },
+        {"3d-interlaced", interlaced_3d_init, interlaced_3d_postprocess_reconfigure, 
+                        interlaced_3d_get_out_desc,
+                        interlaced_3d_postprocess, interlaced_3d_done },
         {"split", split_init, split_postprocess_reconfigure, 
                         split_get_out_desc,
                         split_postprocess, split_done },

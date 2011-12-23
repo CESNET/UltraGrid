@@ -876,16 +876,16 @@ int main(int argc, char *argv[])
                 }
 
                 /* following block only shows help (otherwise initialized in receiver thread */
-                if((uv->postprocess && strcmp(uv->postprocess, "help") == 0) || 
-                                (uv->decoder_mode && strcmp(uv->decoder_mode, "help") == 0)) {
+                if((uv->postprocess && strstr(uv->postprocess, "help") != NULL) || 
+                                (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
                         struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess);
                         decoder_destroy(dec);
                         exit_status = EXIT_SUCCESS;
                         goto cleanup;
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
-                if(uv->requested_compression && strcmp(uv->compress_options,"help") == 0) {
-                        struct compress_state *compression = compress_init("help");
+                if(uv->requested_compression && strstr(uv->compress_options,"help") != NULL) {
+                        struct compress_state *compression = compress_init(uv->compress_options);
                         compress_done(compression);
                         exit_status = EXIT_SUCCESS;
                         goto cleanup;

@@ -53,26 +53,29 @@
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include <pthread.h>
 #include <stdlib.h>
-#include "vo_postprocess/3d-interleaved.h"
+#include "vo_postprocess/3d-interlaced.h"
 
-struct state_interleaved_3d {
+struct state_interlaced_3d {
         struct video_frame *in;
 };
 
-void * interleaved_3d_init(char *config) {
-        struct state_interleaved_3d *s;
-        UNUSED(config);
+void * interlaced_3d_init(char *config) {
+        struct state_interlaced_3d *s;
         
-        s = (struct state_interleaved_3d *) 
-                        malloc(sizeof(struct state_interleaved_3d));
+        if(config && strcmp(config, "help") == 0) {
+                printf("3d-interlaced takes no parameters.\n");
+                return NULL;
+        }
+        s = (struct state_interlaced_3d *) 
+                        malloc(sizeof(struct state_interlaced_3d));
         s->in = vf_alloc(2);
         
         return s;
 }
 
-struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct video_desc desc)
+struct video_frame * interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc)
 {
-        struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
+        struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
         
         assert(desc.tile_count == 2);
         
@@ -93,7 +96,7 @@ struct video_frame * interleaved_3d_postprocess_reconfigure(void *state, struct 
         return s->in;
 }
 
-void interleaved_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+void interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         int x;
         
@@ -102,7 +105,7 @@ void interleaved_3d_postprocess(void *state, struct video_frame *in, struct vide
         
         /* we compute avg from line k/2*2 and k/2*2+1 for left eye and put
          * to (k/2*2)th line. Than we compute avg of same lines number
-         * and put it to the following line, which creates interleaved stereo */
+         * and put it to the following line, which creates interlaced stereo */
         for (x = 0; x < vf_get_tile(out, 0)->height; ++x) {
                 int linepos;
                 char *line1 = vf_get_tile(in, x % 2)->data +  (x / 2) * 2 * linesize;
@@ -123,9 +126,9 @@ void interleaved_3d_postprocess(void *state, struct video_frame *in, struct vide
         }
 }
 
-void interleaved_3d_done(void *state)
+void interlaced_3d_done(void *state)
 {
-        struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
+        struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
         
         free(vf_get_tile(s->in, 0)->data);
         free(vf_get_tile(s->in, 1)->data);
@@ -133,9 +136,9 @@ void interleaved_3d_done(void *state)
         free(state);
 }
 
-void interleaved_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
+void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
 {
-        struct state_interleaved_3d *s = (struct state_interleaved_3d *) state;
+        struct state_interlaced_3d *s = (struct state_interlaced_3d *) state;
 
         out->width = vf_get_tile(s->in, 0)->width; /* not *2 !!!!!!*/
         out->height = vf_get_tile(s->in, 0)->height;
