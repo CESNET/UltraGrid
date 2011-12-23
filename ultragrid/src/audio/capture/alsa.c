@@ -65,19 +65,20 @@ struct state_alsa_capture {
         snd_pcm_uframes_t frames;
 };
 
+void audio_play_alsa_help(void);
 void audio_cap_alsa_help(void)
 {
-        printf("\talsa\n");
+        audio_play_alsa_help();
 }
 
 void * audio_cap_alsa_init(char *cfg)
 {
-        UNUSED(cfg);
         struct state_alsa_capture *s;
         int rc;
         snd_pcm_hw_params_t *params;
         unsigned int val;
         int dir;
+        char *name = "default";
 
         s = malloc(sizeof(struct state_alsa_capture));
 
@@ -85,8 +86,12 @@ void * audio_cap_alsa_init(char *cfg)
         s->frame.sample_rate = 48000;
         s->frame.ch_count = 2;
 
+        if(cfg) {
+                name = cfg;
+        }
+
         /* Open PCM device for recording (capture). */
-        rc = snd_pcm_open(&s->handle, "default",
+        rc = snd_pcm_open(&s->handle, name,
                 SND_PCM_STREAM_CAPTURE, 0);
         if (rc < 0) {
                 fprintf(stderr, "unable to open pcm device: %s\n",

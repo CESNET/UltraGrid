@@ -150,17 +150,51 @@ static void alsa_reconfigure_audio(void *state, int quant_samples, int channels,
 
 void audio_play_alsa_help(void)
 {
-        printf("\talsa\n");
+        void **hints;
+
+        printf("\talsa : default ALSA device (same as \"alsa:default\")\n");
+        snd_device_name_hint(-1, "pcm", &hints); 
+        while(*hints != NULL) {
+                char *tmp = strdup(*(char **) hints);
+                char *save_ptr = NULL,
+                     *item;
+                char *name_part;
+                char *name;
+                char *desc;
+                char *details;
+
+
+                name_part = strtok_r(tmp + 4, "|", &save_ptr);
+                desc = strtok_r(NULL, "|", &save_ptr);
+                char *character;
+                while(character = strchr(desc, '\n')) {
+                        *character = ' ';
+                }
+                name = strtok_r(name_part, ":", &save_ptr);
+                details = strtok_r(NULL, ":", &save_ptr);
+                if(details) {
+                        char * index = strstr(details, "DEV") + 4;
+                        printf("\talsa:%s:%s : %s\n", name, index, desc + 4);
+                } else {
+                        printf("\talsa:%s : %s\n", name, desc + 4);
+                }
+                hints++;
+                free(tmp);
+        }
 }
 
 void * audio_play_alsa_init(char *cfg)
 {
-        UNUSED(cfg);
         int rc;
         struct state_alsa_playback *s;
+        char *name;
 
         s = calloc(1, sizeof(struct state_alsa_playback));
-        rc = snd_pcm_open(&s->handle, "default",
+        if(cfg)
+                name = cfg;
+        else
+                name = "default";
+        rc = snd_pcm_open(&s->handle, name,
                                             SND_PCM_STREAM_PLAYBACK, 0);
 
 
