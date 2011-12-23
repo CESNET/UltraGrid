@@ -51,6 +51,8 @@
 #include "audio/capture/portaudio.h" 
 #include "audio/capture/alsa.h" 
 #include "audio/playback/alsa.h" 
+#include "audio/capture/coreaudio.h" 
+#include "audio/playback/coreaudio.h" 
 #include "audio/capture/none.h" 
 #include "audio/playback/none.h" 
 #include "config.h"
@@ -175,6 +177,9 @@ static struct audio_capture_t audio_capture[] = {
 #ifdef HAVE_ALSA
         { "alsa", audio_cap_alsa_help, audio_cap_alsa_init, audio_cap_alsa_read, audio_cap_alsa_finish, audio_cap_alsa_done },
 #endif
+#ifdef HAVE_COREAUDIO
+        { "coreaudio", audio_cap_ca_help, audio_cap_ca_init, audio_cap_ca_read, audio_cap_ca_finish, audio_cap_ca_done },
+#endif
 #ifdef HAVE_PORTAUDIO
         { "portaudio", portaudio_capture_help, portaudio_capture_init, portaudio_read, portaudio_capture_finish, portaudio_capture_done },
 #endif
@@ -186,6 +191,9 @@ static struct audio_playback_t audio_playback[] = {
         { "embedded", sdi_playback_help, sdi_playback_init, sdi_get_frame, sdi_put_frame, sdi_playback_done },
 #ifdef HAVE_ALSA
         { "alsa", audio_play_alsa_help, audio_play_alsa_init, audio_play_alsa_get_frame, audio_play_alsa_put_frame, audio_play_alsa_done },
+#endif
+#ifdef HAVE_COREAUDIO
+        { "coreaudio", audio_play_ca_help, audio_play_ca_init, audio_play_ca_get_frame, audio_play_ca_put_frame, audio_play_ca_done },
 #endif
 #ifdef HAVE_PORTAUDIO
         { "portaudio", portaudio_playback_help, portaudio_playback_init, portaudio_get_frame, portaudio_put_frame, portaudio_close_playback },
@@ -376,18 +384,15 @@ error:
 
 void audio_join(struct state_audio *s) {
         if(s) {
-                if(s->audio_playback_device.index)
-                        pthread_join(s->audio_receiver_thread_id, NULL);
-                if(s->audio_capture_device.index)
-                        pthread_join(s->audio_sender_thread_id, NULL);
+                pthread_join(s->audio_receiver_thread_id, NULL);
+                pthread_join(s->audio_sender_thread_id, NULL);
         }
 }
         
 void audio_finish(struct state_audio *s)
 {
         if(s) {
-                if(s->audio_capture_device.index)
-                        audio_capture[s->audio_capture_device.index].audio_capture_finish(s->audio_capture_device.state);
+                audio_capture[s->audio_capture_device.index].audio_capture_finish(s->audio_capture_device.state);
         }
 }
 
@@ -396,10 +401,8 @@ void audio_done(struct state_audio *s)
         if(s) {
                 if(s->audio_participants)
                         pdb_destroy(&s->audio_participants);
-                if(s->audio_playback_device.index)
-                        audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
-                if(s->audio_capture_device.index)
-                        audio_capture[s->audio_capture_device.index].audio_capture_done(s->audio_capture_device.state);
+                audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
+                audio_capture[s->audio_capture_device.index].audio_capture_done(s->audio_capture_device.state);
                 tx_done(s->tx_session);
                 free(s);
         }

@@ -503,8 +503,8 @@ case $host_os in
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
+                        quicktime=yes
 		fi
-                quicktime=yes
     ;;
 esac
 
@@ -1044,6 +1044,38 @@ fi
 AC_SUBST(ALSA_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# CoreAudio Stuff
+COREAUDIO_INC=
+COREAUDIO_LIB=
+COREAUDIO_OBJ=
+coreaudio=no
+
+AC_ARG_ENABLE(coreaudio, 
+      AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto)]), 
+    [coreaudio_req=$enableval],
+    [coreaudio_req=yes]
+    )
+
+case $host_os in
+	*darwin*)
+		AC_CHECK_HEADERS([AudioUnit/AudioUnit.h], [FOUND_AUDIOUNIT_H=yes], [echo "AudioUnit headers not found."])
+	
+		if test $coreaudio_req = yes -a $FOUND_AUDIOUNIT_H = yes
+		then
+			COREAUDIO_INC=
+			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit"
+			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
+                        coreaudio=yes
+                        AC_DEFINE([HAVE_COREAUDIO], [1], [Build with ALSA support])
+		fi
+    ;;
+esac
+
+AC_SUBST(COREAUDIO_INC)
+AC_SUBST(COREAUDIO_LIB)
+AC_SUBST(COREAUDIO_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
 AC_CONFIG_HEADER(src/config.h)
 AC_CONFIG_FILES([Makefile])
@@ -1069,6 +1101,7 @@ Configuration summary:
   
   Portaudio ................... $portaudio
   ALSA ........................ $alsa
+  CoreAudio ................... $coreaudio
   Jack transport .............. $jack
   
   FastDXT ..................... $fastdxt
