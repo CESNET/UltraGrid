@@ -55,7 +55,6 @@
 #include "debug.h"
 #include "video_codec.h"
 #include "video_capture.h"
-#include "video_capture/dpx.h"
 #include "video_capture/dvs.h"
 #include "video_capture/quicktime.h"
 #include "video_capture/testcard.h"
@@ -82,13 +81,6 @@ struct vidcap_device_api {
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
-        {
-                0,
-                vidcap_dpx_probe,
-                vidcap_dpx_init,
-                vidcap_dpx_done,
-                vidcap_dpx_grab
-        },
 #ifdef HAVE_DVS
         {
          /* The DVS capture card */
