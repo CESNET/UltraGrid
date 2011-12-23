@@ -175,6 +175,7 @@ struct state_gl {
         /* Thread related information follows... */
         pthread_t	thread_id;
 	volatile int    new_frame;
+	volatile int    processed;
 
         /* For debugging... */
         uint32_t	magic;
@@ -186,6 +187,8 @@ struct state_gl {
 
         struct video_frame *frame;
         struct tile     *tile;
+        char            *buffers[2];
+        volatile int              image_display;
         volatile unsigned    needs_reconfigure:1;
         pthread_mutex_t lock;
         pthread_cond_t  reconf_cv;
@@ -195,6 +198,7 @@ struct state_gl {
         unsigned long int frames;
         
         int             dxt_height;
+        unsigned int    double_buf;
 
         struct timeval  tv;
 };
@@ -224,7 +228,7 @@ void glut_resize_window(struct state_gl *s);
  */
 void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl:{d|fs|aspect=<v>/<h>}(,{d|fs|aspect=<v>/<h>})* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
@@ -292,6 +296,9 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         s->fs = FALSE;
         s->deinterlace = FALSE;
         s->video_aspect = 0.0;
+        s->image_display = 0;
+        s->processed  = FALSE;
+        s->double_buf = TRUE;
 
 	// parse parameters
 	if (fmt != NULL) {
@@ -313,6 +320,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
                                 s->video_aspect = atof(tok + strlen("aspect="));
                                 char *pos = strchr(tok,'/');
                                 if(pos) s->video_aspect /= atof(pos + 1);
+                        } else if(!strcmp(tok, "single")) {
+                                s->double_buf = FALSE;
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
                         }
@@ -324,7 +333,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
-        s->tile->data = NULL;
+        s->buffers[0] = NULL;
+        s->buffers[1] = NULL;
         
         s->frames = 0ul;
         gettimeofday(&s->tv, NULL);
@@ -492,6 +502,7 @@ void display_gl_reconfigure(void *state, struct video_desc desc)
         while(s->needs_reconfigure)
                 pthread_cond_wait(&s->reconf_cv, &s->lock);
         pthread_mutex_unlock(&s->lock);
+	s->processed = TRUE;
 }
 
 void glut_resize_window(struct state_gl *s)
@@ -511,7 +522,8 @@ void gl_reconfigure_screen(struct state_gl *s)
 {
         assert(s->magic == MAGIC_GL);
 
-        free(s->tile->data);
+        free(s->buffers[0]);
+        free(s->buffers[1]);
         
         if(s->frame->color_spec == DXT1 || s->frame->color_spec == DXT1_YUV || s->frame->color_spec == DXT5) {
                 s->dxt_height = (s->tile->height + 3) / 4 * 4;
@@ -523,7 +535,8 @@ void gl_reconfigure_screen(struct state_gl *s)
                         * s->tile->height;
         }
         
-        s->tile->data = (char *) malloc(s->tile->data_len);
+        s->buffers[0] = (char *) malloc(s->tile->data_len);
+        s->buffers[1] = (char *) malloc(s->tile->data_len);
 
 	asm("emms\n");
         if(!s->video_aspect)
@@ -618,7 +631,7 @@ void glut_idle_callback(void)
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
         if(s->deinterlace && (s->frame->color_spec == RGBA || s->frame->color_spec == UYVY))
-                vc_deinterlace((unsigned char *) s->tile->data,
+                vc_deinterlace((unsigned char *) s->buffers[s->image_display],
                                 vc_get_linesize(s->tile->width, s->frame->color_spec),
                                 s->tile->height);
 
@@ -628,7 +641,7 @@ void glut_idle_callback(void)
                                         s->tile->width, s->dxt_height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                         (s->tile->width * s->dxt_height/16)*8,
-                                        s->tile->data);
+                                        s->buffers[s->image_display]);
                         break;
                 case DXT1_YUV:
                                 dxt_bind_texture(s);
@@ -640,20 +653,20 @@ void glut_idle_callback(void)
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->tile->width, s->tile->height,
                                         GL_RGBA, GL_UNSIGNED_BYTE,
-                                        s->tile->data);
+                                        s->buffers[s->image_display]);
                         break;
                 case RGB:
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->tile->width, s->tile->height,
                                         GL_RGB, GL_UNSIGNED_BYTE,
-                                        s->tile->data);
+                                        s->buffers[s->image_display]);
                         break;
                 case DXT5:                        
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                         s->tile->width, s->dxt_height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
                                         s->tile->width * s->dxt_height,
-                                        s->tile->data);
+                                        s->buffers[s->image_display]);
                         break;
                 default:
                         fprintf(stderr, "[GL] Fatal error - received unsupported codec.\n");
@@ -675,6 +688,7 @@ void glut_idle_callback(void)
 
         gl_draw(s->aspect);
         glutPostRedisplay();
+        s->processed = TRUE;
 }
 
 void glut_key_callback(unsigned char key, int x, int y) 
@@ -823,7 +837,7 @@ void gl_bind_texture(void *arg)
         
         glViewport( 0, 0, s->tile->width, s->tile->height);
 
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->buffers[s->image_display]);
         glUseProgramObjectARB(s->PHandle);
         
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
@@ -864,7 +878,7 @@ void dxt_bind_texture(void *arg)
 			s->tile->width, s->tile->height,
 			GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
 			(s->tile->width * s->tile->height/16)*8,
-			s->tile->data);
+			s->buffers[s->image_display]);
 }    
 
 void gl_draw(double ratio)
@@ -965,7 +979,8 @@ void display_gl_done(void *state)
         if(s->window != -1) {
                 glutDestroyWindow(s->window);
         }
-        free(s->tile->data);
+        free(s->buffers[0]);
+        free(s->buffers[1]);
         vf_free(s->frame);
         free(s);
 }
@@ -975,25 +990,36 @@ struct video_frame * display_gl_getf(void *state)
         struct state_gl *s = (struct state_gl *) state;
         assert(s->magic == MAGIC_GL);
 
+        if(s->double_buf) {
+                s->tile->data = s->buffers[(s->image_display + 1) % 2];
+        } else {
+                s->tile->data = s->buffers[s->image_display];
+        }
+
+
         return s->frame;
 }
 
 int display_gl_putf(void *state, char *frame)
 {
         struct state_gl *s = (struct state_gl *) state;
-	int tmp;
 
         assert(s->magic == MAGIC_GL);
         UNUSED(frame);
 
+        if(s->double_buf) {
+                while(!s->processed) 
+                        ;
+                s->processed = FALSE;
+
+                /* ...and give it more to do... */
+                s->image_display = (s->image_display + 1) % 2;
+        }
+
+
         /* ...and signal the worker */
         pthread_mutex_lock(&s->lock);
-        if(s->new_frame != 0) {
-                printf("frame drop!\n");
-        } else {
-		s->new_frame++;
-	}
-
+        s->new_frame = TRUE;
         pthread_mutex_unlock(&s->lock);
         return 0;
 }

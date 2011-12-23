@@ -352,9 +352,9 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         while (curr != NULL) {
                 if (!curr->decoded && tv_gt(curr_time, curr->playout_time)) {
                         if (frame_complete(curr)) {
-                                decode_frame(curr->cdata, framebuffer, decoder);
+                                int ret = decode_frame(curr->cdata, framebuffer, decoder);
                                 curr->decoded = 1;
-                                return 1;
+                                return ret;
                         } else {
                                 debug_msg
                                     ("Unable to decode frame due to missing data (RTP TS=%u)\n",

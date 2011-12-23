@@ -44,6 +44,7 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "perf.h"
+#include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -580,8 +581,75 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         return frame_display;
 }
 
-void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct state_decoder *decoder)
+struct node {
+        struct node *next;
+        int val;
+};
+
+struct linked_list {
+        struct node *head;
+};
+
+
+struct linked_list  *ll_create()
 {
+        return (struct linked_list *) calloc(1, sizeof(struct linked_list));
+}
+
+void ll_insert(struct linked_list *ll, int val) {
+        struct node *cur;
+        struct node **ref;
+        if(!ll->head) {
+                ll->head = malloc(sizeof(struct node));
+                ll->head->val = val;
+                ll->head->next = NULL;
+                return;
+        }
+        ref = &ll->head;
+        cur = ll->head;
+        while (cur != NULL) {
+                if (val == cur->val) return;
+                if (val < cur->val) {
+                        struct node *new_node = malloc(sizeof(struct node));
+                        (*ref) = new_node; 
+                        new_node->val = val;
+                        new_node->next = cur;
+                        return;
+                }
+                ref = &cur->next;
+                cur = cur->next;
+        }
+        struct node *new_node = malloc(sizeof(struct node));
+        (*ref) = new_node; 
+        new_node->val = val;
+        new_node->next = NULL;
+}
+
+void ll_destroy(struct linked_list *ll) {
+        struct node *cur = ll->head;
+        struct node *tmp = tmp;
+
+        while (cur != NULL) {
+                tmp = cur->next;
+                free(cur);
+                cur = tmp;
+        }
+        free(ll);
+}
+
+int ll_count (struct linked_list *ll) {
+        int ret = 0;
+        struct node *cur = ll->head;
+        while(cur != NULL) {
+                ++ret;
+                cur = cur->next;
+        }
+        return ret;
+}
+
+int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct state_decoder *decoder)
+{
+        int ret = TRUE;
         uint32_t width;
         uint32_t height;
         uint32_t offset;
@@ -591,6 +659,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
         rtp_packet *pckt;
         unsigned char *source;
         video_payload_hdr_t *hdr;
+        char *data;
         uint32_t data_pos;
         int prints=0;
         double fps;
@@ -598,6 +667,11 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
         uint32_t tmp;
         uint32_t substream;
         int fps_pt, fpsd, fd, fi;
+
+        struct xor_session **xors = calloc(10, sizeof(struct xor_session *));
+        uint16_t last_rtp_seq;
+        struct linked_list *pckt_list = ll_create();
+        uint32_t total_packets_sent = 0u;
 
         perf_record(UVP_DECODEFRAME, frame);
 
@@ -610,13 +684,65 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
 
         while (cdata != NULL) {
                 pckt = cdata->data;
-                hdr = (video_payload_hdr_t *) pckt->data;
+                hdr = (payload_hdr_t *) pckt->data;
+                if(pckt->pt == 120) {
+                                total_packets_sent = ntohl(* (uint32_t *) pckt->data);
+                                cdata = cdata->nxt;
+                                continue;
+                }
+                if(pckt->pt >= 98) {
+                        struct xor_session *xor;
+                        xor = xors[pckt->pt - 98];
+                        if(xor && last_rtp_seq < pckt->seq) {
+                                        xor_restore_invalidate(xor);
+                        }
+                        last_rtp_seq = pckt->seq;
+                        if(!xor) {
+                                xor = xors[pckt->pt - 98] = 
+                                                xor_restore_init();
+                                /* register the xor packet */
+                                xor_restore_start(xor, pckt->data);
+                                cdata = cdata->nxt;
+                                /* and jump to next */
+                                continue;
+                        } else {
+                                int ret = FALSE;
+                                rtp_packet *pckt_old = pckt;
+                                /* try to restore packet */
+                                ret = xor_restore_packet(xor, &hdr);
+                                /* register current xor packet */
+                                xor_restore_start(xor, pckt_old->data);
+                                /* if we didn't recovered any packet, jump to next */
+                                if(!ret) {
+                                        cdata = cdata->nxt;
+                                        continue;
+                                }
+                                /* otherwise process the restored packet */
+                        }
+                } else {
+                        int i = 0;
+                        while (xors[i]) {
+                                if(xors[i]) {
+                                        if(last_rtp_seq >= pckt->seq) {
+                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(payload_hdr_t), ntohs(hdr->length));
+                                        } else {
+                                                xor_restore_invalidate(xors[i]);
+                                        }
+
+                                        last_rtp_seq = pckt->seq;
+                                }
+                                i++;
+                        }
+                }
+                data = (char *) hdr + sizeof(video_payload_hdr_t);
                 width = ntohs(hdr->hres);
                 height = ntohs(hdr->vres);
                 color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
                 len = pckt->data_len - sizeof(video_payload_hdr_t);
                 data_pos = ntohl(hdr->offset);
                 tmp = ntohl(hdr->substream_bufnum);
+
+
                 substream = tmp >> 22;
 
                 tmp = ntohl(hdr->il_fps);
@@ -634,6 +760,8 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                         return;
                 }
 
+
+                ll_insert(pckt_list, substream * (1<<24) + data_pos);
                 
                 /* Critical section 
                  * each thread *MUST* wait here if this condition is true
@@ -697,7 +825,7 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                                 line_decoder->dst_bpp;
         
                         /* pointer to data payload in packet */
-                        source = (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t));
+                        source = (unsigned char*)(data);
         
                         /* copy whole packet that can span several lines. 
                          * we need to clip data (v210 case) or center data (RGBA, R10k cases)
@@ -758,6 +886,13 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
 
                 cdata = cdata->nxt;
         }
+
+        if(total_packets_sent && total_packets_sent != ll_count(pckt_list)) {
+                fprintf(stderr, "Frame incomplete: expected %u packets, got %u.\n",
+                                (unsigned int) total_packets_sent, (unsigned int) ll_count(pckt_list));
+                ret = FALSE;
+                goto cleanup;
+        }
         
         if(decoder->decoder_type == EXTERNAL_DECODER) {
                 int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
@@ -803,4 +938,14 @@ void decode_frame(struct coded_data *cdata, struct video_frame *frame, struct st
                         decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width, decoder->out_codec), tile->height);
                 }
         }
+
+cleanup:
+        ll_destroy(pckt_list);
+        int i = 0;
+        while (xors[i]) {
+                xor_restore_destroy(xors[i]);
+                ++i;
+        }
+
+        return ret;
 }
