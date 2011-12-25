@@ -684,7 +684,7 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
 
         while (cdata != NULL) {
                 pckt = cdata->data;
-                hdr = (payload_hdr_t *) pckt->data;
+                hdr = (video_payload_hdr_t *) pckt->data;
                 if(pckt->pt == 120) {
                                 total_packets_sent = ntohl(* (uint32_t *) pckt->data);
                                 cdata = cdata->nxt;
@@ -724,7 +724,7 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                         while (xors[i]) {
                                 if(xors[i]) {
                                         if(last_rtp_seq >= pckt->seq) {
-                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(payload_hdr_t), ntohs(hdr->length));
+                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(video_payload_hdr_t), ntohs(hdr->length));
                                         } else {
                                                 xor_restore_invalidate(xors[i]);
                                         }

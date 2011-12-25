@@ -259,7 +259,7 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         s = calloc(1, sizeof(struct state_audio));
         s->audio_participants = NULL;
         
-        s->tx_session = tx_init(1500);
+        s->tx_session = tx_init(1500, NULL);
         gettimeofday(&s->start_time, NULL);        
         
         tmp = strdup(addrs);

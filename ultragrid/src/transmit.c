@@ -93,8 +93,9 @@ enum fec_scheme_t {
  * @return      packets sent within this function (only!!)
  */
 int
-tx_send_base(struct video_tx *tx, struct tile *tile, struct rtp *rtp_session,
+tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m, unsigned long int total_packets,
+                codec_t color_spec, double input_fps,
                 enum interlacing_t interlacing, unsigned int substream);
 
 struct tx {
@@ -109,7 +110,7 @@ struct tx {
         int mult_count;
 };
 
-struct video_tx *tx_init(unsigned mtu, char *fec)
+struct tx *tx_init(unsigned mtu, char *fec)
 {
         struct tx *tx;
 
@@ -144,7 +145,7 @@ struct video_tx *tx_init(unsigned mtu, char *fec)
         return tx;
 }
 
-void tx_done(struct video_tx *tx)
+void tx_done(struct tx *tx)
 {
         assert(tx->magic == TRANSMIT_MAGIC);
         free(tx);
@@ -154,7 +155,7 @@ void tx_done(struct video_tx *tx)
  * sends one or more frames (tiles) with same TS in one RTP stream. Only one m-bit is set.
  */
 void
-tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
+tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 {
         int i, j;
         uint32_t ts = 0;
@@ -177,7 +178,7 @@ tx_send(struct video_tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
 
 void
-tx_send_tile(struct video_tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
+tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
 {
         struct tile *tile;
         
@@ -187,7 +188,7 @@ tx_send_tile(struct video_tx *tx, struct video_frame *frame, int pos, struct rtp
         tx_send_base(tx, tile, rtp_session, ts, TRUE, 0 /* packets sent */, frame->color_spec, frame->fps, frame->interlacing, pos);
 }
 
-void
+int
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m, unsigned long int total_packets,
                 codec_t color_spec, double input_fps,
@@ -223,7 +224,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 xor = calloc(50, sizeof(struct xor_session *));
                 xor_pkts = calloc(50, sizeof(int));
                 for (i = 0; i < tx->xor_streams; ++i) {
-                        xor[i] = xor_init(sizeof(payload_hdr_t), tx->mtu - 40 - (sizeof(payload_hdr_t))); 
+                        xor[i] = xor_init(sizeof(video_payload_hdr_t), tx->mtu - 40 - (sizeof(video_payload_hdr_t))); 
                         xor_clear(xor[i]);
                         xor_pkts[i] = i % tx->xor_leap;
                 }
@@ -382,7 +383,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         if(tx->fec_scheme != FEC_NONE) {
                 if(send_m) {
                         uint32_t pckts_n;
-                        pckts_n = htonl((uint32_t) (packets_sent_before + packets));
+                        int i;
+                        pckts_n = htonl((uint32_t) (total_packets + packets));
                         /* send 3-times - only for redundancy */
                         for(i = 0; i < 3; ++i) {
                                 rtp_send_data_hdr(rtp_session, ts, 120, 1 /* mbit */, 0, 0,
