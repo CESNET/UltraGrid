@@ -54,7 +54,6 @@
 #include "compat/platform_semaphore.h"
 
 #define PORT_AUDIO              5006
-static const int audio_payload_type = 97;
 
 struct state_audio;
 

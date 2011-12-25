@@ -196,7 +196,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 {
         int m, data_len;
         video_payload_hdr_t payload_hdr;
-        int pt = 96;            /* A dynamic payload type for the tests... */
+        int pt = 20;            /* A value specified in our packet format */
         const int xor_pt = 98;
         char *data;
         unsigned int pos;
@@ -398,6 +398,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
 void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 {
+        const int pt = 21; /* PT set for audio in our packet format */
         const int mtu = 1500; // perhaps to be added as parameter to function call ?
         //audio_frame_to_network_buffer(buffer->tmp_buffer, buffer);
         unsigned int pos = 0u,
@@ -452,7 +453,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                         
                         GET_STARTTIME;
                         
-                        rtp_send_data_hdr(rtp_session, timestamp, audio_payload_type, m, 0,        /* contributing sources */
+                        rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
                               0,        /* contributing sources length */
                               (char *) &payload_hdr, sizeof(payload_hdr),
                               data, data_len,
