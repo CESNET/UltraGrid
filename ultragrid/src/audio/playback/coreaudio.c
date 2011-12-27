@@ -91,9 +91,10 @@ static OSStatus theRenderProc(void *inRefCon,
         ret = ring_buffer_read(s->buffer, ioData->mBuffers[0].mData, write_bytes);
         ioData->mBuffers[0].mDataByteSize = ret;
 
-        if(!write_bytes) {
+        if(!ret) {
                 fprintf(stderr, "[CoreAudio] Audio buffer underflow.\n");
-                //usleep(10 * 1000 * 1000);
+		memset(ioData->mBuffers[0].mData, 0, write_bytes);
+		ioData->mBuffers[0].mDataByteSize = write_bytes;
         }  
         return noErr;
 }

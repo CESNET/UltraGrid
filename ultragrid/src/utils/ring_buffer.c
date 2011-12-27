@@ -113,7 +113,7 @@ void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
                 if(read_len_new < 0)
                         read_len_new += ring->len;
                 if(read_len_new < read_len_old) {
-                        fprintf(stderr, "Warning: ring buffer underflow!!!\n");
+                        fprintf(stderr, "Warning: ring buffer overflow!!!\n");
                 }
         }
         
