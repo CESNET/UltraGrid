@@ -95,7 +95,42 @@ extern "C" {
 }
 #endif
 
-struct vidcap_decklink_state;
+class VideoDelegate;
+
+struct device_state {
+	IDeckLink*		deckLink;
+	IDeckLinkInput*		deckLinkInput;
+	VideoDelegate*		delegate;
+        int                     index;
+};
+
+struct vidcap_decklink_state {
+        struct device_state     state[MAX_DEVICES];
+        int                     devices_cnt;
+	int			mode;
+	// void*			rtp_buffer;
+	unsigned int		next_frame_time; // avarege time between frames
+        struct video_frame     *frame;
+        struct audio_frame      audio;
+        const struct codec_info_t *c_info;
+        BMDVideoInputFlags flags;
+        
+
+	pthread_mutex_t	 	lock;
+	pthread_cond_t	 	boss_cv;
+	int		 	boss_waiting;
+        
+        int                     frames;
+        unsigned int            grab_audio:1; /* wheather we process audio or not */
+        unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
+        unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
+        unsigned int            autodetect_mode:1;
+};
+
+static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
+
+
+
 
 class VideoDelegate : public IDeckLinkInputCallback
 {
@@ -146,40 +181,55 @@ public:
 		}        
         	return newRefValue;
 	};
-	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(BMDVideoInputFormatChangedEvents, IDeckLinkDisplayMode*, BMDDetectedVideoInputFormatFlags)
+	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(BMDVideoInputFormatChangedEvents, IDeckLinkDisplayMode* mode, BMDDetectedVideoInputFormatFlags flags)
 	{
-		return S_OK;
-	};
+                codec_t codec;
+                BMDPixelFormat pf;
+                HRESULT result;
+
+                printf("[DeckLink] Format change detected.\n");
+
+                pthread_mutex_lock(&(s->lock));
+                switch(flags) {
+                        case bmdDetectedVideoInputYCbCr422:
+                                codec = Vuy2;
+                                break;
+                        case bmdDetectedVideoInputRGB444:
+                                codec = RGBA;
+                                break;
+                }
+                int i;
+                for(i=0; codec_info[i].name != NULL; i++) {
+                    if(codec_info[i].codec == codec) {
+                        s->c_info = &codec_info[i];
+                        break;
+                    }
+                }
+                IDeckLinkInput *deckLinkInput = s->state[this->i].deckLinkInput;
+                deckLinkInput->DisableVideoInput();
+                deckLinkInput->StopStreams();
+                deckLinkInput->FlushStreams();
+                result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
+                if(result == S_OK) {
+                        result = deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags);
+                        if(s->grab_audio == FALSE || 
+                                        this->i != 0)//TODO: figure out output from multiple streams
+                                deckLinkInput->DisableAudioInput();
+                        else
+                                deckLinkInput->EnableAudioInput(
+                                        bmdAudioSampleRate48kHz,
+                                        bmdAudioSampleType16bitInteger,
+                                        2);
+                        //deckLinkInput->SetCallback(s->state[i].delegate);
+                        deckLinkInput->StartStreams();
+                }
+                pthread_mutex_unlock(&(s->lock));
+
+                return result;
+	}
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);    
 };
 
-struct device_state {
-	IDeckLink*		deckLink;
-	IDeckLinkInput*		deckLinkInput;
-	VideoDelegate*		delegate;
-        int                     index;
-};
-
-struct vidcap_decklink_state {
-        struct device_state     state[MAX_DEVICES];
-        int                     devices_cnt;
-	int			mode;
-	// void*			rtp_buffer;
-	unsigned int		next_frame_time; // avarege time between frames
-        struct video_frame     *frame;
-        struct audio_frame      audio;
-        const struct codec_info_t *c_info;
-        
-
-	pthread_mutex_t	 	lock;
-	pthread_cond_t	 	boss_cv;
-	int		 	boss_waiting;
-        
-        int                     frames;
-        unsigned int            grab_audio:1; /* wheather we process audio or not */
-        unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
-        unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
-};
 
 /* DeckLink SDK objects */
 
@@ -291,7 +341,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("Decklink options:\n");
-	printf("\t-t decklink:<device_index(indices)>:<mode>:<colorspace>[:3D][:timecode]\n");
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode]]]\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -369,76 +419,95 @@ settings_init(void *state, char *fmt)
 {
 	struct vidcap_decklink_state *s = (struct vidcap_decklink_state *) state;
 
-	if(!fmt || strcmp(fmt, "help") == 0) {
-		decklink_help();
-		return 0;
-	}
-
-	char *tmp;
-
-	// choose device
-	tmp = strtok(fmt, ":");
-	if(!tmp) {
-		fprintf(stderr, "Wrong config %s\n", fmt);
-		return 0;
-	} else {
-                char *devices = strdup(tmp);
-                char *ptr;
-                char *saveptr;
-
-                s->devices_cnt = 0;
-                ptr = strtok_r(devices, ",", &saveptr);
-                do {
-                        s->state[s->devices_cnt].index = atoi(ptr);
-                        ++s->devices_cnt;
-                } while (ptr = strtok_r(NULL, ",", &saveptr));
-                free (devices);
+        int i;
+        for(i=0; codec_info[i].name != NULL; i++) {
+            if(codec_info[i].codec == Vuy2) {
+                s->c_info = &codec_info[i];
+                break;
+            }
         }
 
-	// choose mode
-	tmp = strtok(NULL, ":");
-	if(!tmp) {
-		fprintf(stderr, "Wrong config %s\n", fmt);
-		return 0;
-	}
-	s->mode = atoi(tmp);
+        if(fmt) {
+                if(strcmp(fmt, "help") == 0) {
+                        decklink_help();
+                        return 0;
+                }
 
-	tmp = strtok(NULL, ":");
-        s->c_info = 0;
-        if(!tmp) {
-                int i;
-                for(i=0; codec_info[i].name != NULL; i++) {
-                    if(codec_info[i].codec == Vuy2) {
-                        s->c_info = &codec_info[i];
-                        break;
-                    }
+                char *tmp;
+
+                // choose device
+                tmp = strtok(fmt, ":");
+                if(!tmp) {
+                        fprintf(stderr, "Wrong config %s\n", fmt);
+                        return 0;
+                } else {
+                        char *devices = strdup(tmp);
+                        char *ptr;
+                        char *saveptr;
+
+                        s->devices_cnt = 0;
+                        ptr = strtok_r(devices, ",", &saveptr);
+                        do {
+                                s->state[s->devices_cnt].index = atoi(ptr);
+                                ++s->devices_cnt;
+                        } while (ptr = strtok_r(NULL, ",", &saveptr));
+                        free (devices);
+                }
+
+                // choose mode
+                tmp = strtok(NULL, ":");
+                if(tmp) {
+                        s->mode = atoi(tmp);
+
+                        tmp = strtok(NULL, ":");
+                        s->c_info = 0;
+                        if(!tmp) {
+                                int i;
+                                for(i=0; codec_info[i].name != NULL; i++) {
+                                    if(codec_info[i].codec == Vuy2) {
+                                        s->c_info = &codec_info[i];
+                                        break;
+                                    }
+                                }
+                        } else {
+                                int i;
+                                for(i=0; codec_info[i].name != NULL; i++) {
+                                    if(strcmp(codec_info[i].name, tmp) == 0) {
+                                         s->c_info = &codec_info[i];
+                                         break;
+                                    }
+                                }
+                                if(s->c_info == 0) {
+                                        fprintf(stderr, "Wrong config. Unknown color space %s\n", tmp);
+                                        return 0;
+                                }
+                        }
+                        tmp = strtok(NULL, ":");
+                        if(tmp) {
+                                if(strcasecmp(tmp, "3D") == 0) {
+                                        s->stereo = TRUE;
+                                        tmp = strtok(NULL, ":");
+                                        if(tmp && strcasecmp(tmp, "timecode") == 0) {
+                                                s->use_timecode = TRUE;
+                                        }
+                                } else if(strcasecmp(tmp, "timecode") == 0) {
+                                        s->use_timecode = TRUE;
+                                } else {
+                                        fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
+                                }
+                        }
+                } else {
+                        s->autodetect_mode = TRUE;
+                        printf("[DeckLink] Trying to autodetect format.\n");
+                        s->mode = 0;
                 }
         } else {
-                int i;
-                for(i=0; codec_info[i].name != NULL; i++) {
-                    if(strcmp(codec_info[i].name, tmp) == 0) {
-                         s->c_info = &codec_info[i];
-                         break;
-                    }
-                }
-                if(s->c_info == 0) {
-			fprintf(stderr, "Wrong config. Unknown color space %s\n", tmp);
-                	return 0;
-                }
-        }
-        tmp = strtok(NULL, ":");
-        if(tmp) {
-                if(strcasecmp(tmp, "3D") == 0) {
-                        s->stereo = TRUE;
-                        tmp = strtok(NULL, ":");
-                        if(tmp && strcasecmp(tmp, "timecode") == 0) {
-                                s->use_timecode = TRUE;
-                        }
-                } else if(strcasecmp(tmp, "timecode") == 0) {
-                        s->use_timecode = TRUE;
-                } else {
-                        fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
-                }
+                printf("[DeckLink] Trying to autodetect format.\n");
+                s->mode = 0;
+                s->autodetect_mode = TRUE;
+                s->devices_cnt = 1;
+                s->state[s->devices_cnt].index = 0;
+                printf("DeckLink] Auto-choosen device 0.\n");
         }
 
 	return 1;	
@@ -459,6 +528,82 @@ vidcap_decklink_probe(void)
 		vt->description = "Blackmagic DeckLink card";
 	}
 	return vt;
+}
+
+static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
+{
+        STRING displayModeString = NULL;
+        char *displayModeCString;
+        HRESULT result;
+
+        result = displayMode->GetName(&displayModeString);
+        if (result == S_OK)
+        {
+                switch(s->c_info->codec) {
+                  case RGBA:
+                        *pf = bmdFormat8BitBGRA;
+                        break;
+                  case Vuy2:
+                        *pf = bmdFormat8BitYUV;
+                        break;
+                  case R10k:
+                        *pf = bmdFormat10BitRGB;
+                        break;
+                  case v210:
+                        *pf = bmdFormat10BitYUV;
+                        break;
+                  default:
+                        printf("Unsupported codec! %s\n", s->c_info->name);
+                }
+                // get avarage time between frames
+                BMDTimeValue	frameRateDuration;
+                BMDTimeScale	frameRateScale;
+
+                tile->width = displayMode->GetWidth();
+                tile->height = displayMode->GetHeight();
+                s->frame->color_spec = s->c_info->codec;
+
+                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+                s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
+                s->next_frame_time = (int) (1000000 / s->frame->fps); // in microseconds
+                switch(displayMode->GetFieldDominance()) {
+                        case bmdLowerFieldFirst:
+                        case bmdUpperFieldFirst:
+                                s->frame->interlacing = INTERLACED_MERGED;
+                                break;
+                        case bmdProgressiveFrame:
+                                s->frame->interlacing = PROGRESSIVE;
+                                break;
+                        case bmdProgressiveSegmentedFrame:
+                                s->frame->interlacing = SEGMENTED_FRAME;
+                                break;
+                }
+
+                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
+                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */  
+#ifdef HAVE_MACOSX
+                displayModeCString = (char *) malloc(128);
+                CFStringGetCString(displayModeString, (char *) displayModeCString, 128, kCFStringEncodingMacRoman);
+#else
+                displayModeCString = displayModeString;
+#endif
+                printf("Enable video input: %s\n", displayModeCString);
+#ifdef HAVE_MACOSX
+                        CFRelease(displayModeString);
+#endif
+        }
+
+        tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
+        tile->data_len = tile->linesize * tile->height;
+
+        if(s->stereo) {
+                s->frame->tiles[1].width = s->frame->tiles[0].width;
+                s->frame->tiles[1].height = s->frame->tiles[0].height;
+                s->frame->tiles[1].linesize = s->frame->tiles[0].linesize;
+                s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
+        }
+
+        return result;
 }
 
 void *
@@ -498,6 +643,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         
         s->stereo = FALSE;
         s->use_timecode = FALSE;
+        s->autodetect_mode = FALSE;
+        s->flags = 0;
 
 	// SET UP device and mode
 	if(settings_init(s, fmt) == 0) {
@@ -552,12 +699,22 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                         s->state[i].deckLink = deckLink;
 
                         STRING deviceNameString = NULL;
+                        char* deviceNameCString = NULL;
                         
                         // Print the model name of the DeckLink card
                         result = deckLink->GetModelName(&deviceNameString);
                         if (result == S_OK)
                         {	
-                                printf("Using device [%s]\n", deviceNameString);
+#ifdef HAVE_MACOSX
+                                deviceNameCString = (char *) malloc(128);
+                                CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+#else
+                                deviceNameCString = deviceNameString;
+#endif
+                                printf("Using device [%s]\n", deviceNameCString);
+#ifdef HAVE_MACOSX
+                                CFRelease(deviceNameString);
+#endif
 
                                 // Query the DeckLink for its configuration interface
                                 result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
@@ -591,140 +748,116 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 
                                         mode_found = true;
                                         mnum++; 
+                                        break;
+                                }
 
-                                        printf("The desired display mode is supported: %d\n",s->mode);  
-                        
-                                        STRING displayModeString = NULL;
+                                printf("The desired display mode is supported: %d\n",s->mode);  
+                
+                                BMDPixelFormat pf;
 
-                                        result = displayMode->GetName(&displayModeString);
-                                        if (result == S_OK)
+                                if(set_display_mode_properties(s, tile, displayMode, &pf) == S_OK) {
+                                        IDeckLinkAttributes *deckLinkAttributes;
+                                        deckLinkInput->StopStreams();
+
+                                       result = deckLinkInput->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+                                        if (result != S_OK)
                                         {
-                                                BMDPixelFormat pf;
-                                                switch(s->c_info->codec) {
-                                                  case RGBA:
-                                                        pf = bmdFormat8BitBGRA;
-                                                        break;
-                                                  case Vuy2:
-                                                        pf = bmdFormat8BitYUV;
-                                                        break;
-                                                  case R10k:
-                                                        pf = bmdFormat10BitRGB;
-                                                        break;
-                                                  case v210:
-                                                        pf = bmdFormat10BitYUV;
-                                                        break;
-                                                  default:
-                                                        printf("Unsupported codec! %s\n", s->c_info->name);
-                                                }
-                                                // get avarage time between frames
-                                                BMDTimeValue	frameRateDuration;
-                                                BMDTimeScale	frameRateScale;
-
-                                                tile->width = displayMode->GetWidth();
-                                                tile->height = displayMode->GetHeight();
-                                                s->frame->color_spec = s->c_info->codec;
-
-                                                displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
-                                                s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
-                                                s->next_frame_time = (int) (1000000 / s->frame->fps); // in microseconds
-                                                switch(displayMode->GetFieldDominance()) {
-                                                        case bmdLowerFieldFirst:
-                                                        case bmdUpperFieldFirst:
-                                                                s->frame->interlacing = INTERLACED_MERGED;
-                                                                break;
-                                                        case bmdProgressiveFrame:
-                                                                s->frame->interlacing = PROGRESSIVE;
-                                                                break;
-                                                        case bmdProgressiveSegmentedFrame:
-                                                                s->frame->interlacing = SEGMENTED_FRAME;
-                                                                break;
-                                                }
-
-                                                debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
-                                                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */  
-
-                                                deckLinkInput->StopStreams();
-
-                                                printf("Enable video input: %s\n", displayModeString);
-                                                BMDVideoInputFlags flags = 0;
-                                                if(s->stereo) {
-                                                        flags |= bmdVideoInputDualStream3D;
-                                                }
-                                                result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, flags);
-                                                if (result != S_OK)
-                                                {
-                                                        printf("You have required invalid video mode and pixel format combination.\n");
-                                                        printf("Could not enable video input: %08x\n", result);
-                                                        goto error;
-                                                }
-
-                                                // Query the DeckLink for its configuration interface
-                                                result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
-                                                if (result != S_OK)
-                                                {
-                                                        printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", result);
-                                                        goto error;
-                                                }
-
-                                                BMDVideoConnection conn;
-                                                switch (connection) {
-                                                case 0:
-                                                        conn = bmdVideoConnectionSDI;
-                                                        break;
-                                                case 1:
-                                                        conn = bmdVideoConnectionHDMI;
-                                                        break;
-                                                case 2:
-                                                        conn = bmdVideoConnectionComponent;
-                                                        break;
-                                                case 3:
-                                                        conn = bmdVideoConnectionComposite;
-                                                        break;
-                                                case 4:
-                                                        conn = bmdVideoConnectionSVideo;
-                                                        break;
-                                                case 5:
-                                                        conn = bmdVideoConnectionOpticalSDI;
-                                                        break;
-                                                default:
-                                                        break;
-                                                }
-                            
-                                                /*if (deckLinkConfiguration->SetVideoInputFormat(conn) == S_OK) {
-                                                        printf("Input set to: %d\n", connection);
-                                                }*/
-
-                                                if(s->grab_audio == FALSE || 
-                                                                i != 0)//TODO: figure out output from multiple streams
-                                                        deckLinkInput->DisableAudioInput();
-                                                else
-                                                        deckLinkInput->EnableAudioInput(
-                                                                bmdAudioSampleRate48kHz,
-                                                                bmdAudioSampleType16bitInteger,
-                                                                2);
-
-                                                // set Callback which returns frames
-                                                s->state[i].delegate = new VideoDelegate();
-                                                s->state[i].delegate->set_device_state(s, i);
-                                                deckLinkInput->SetCallback(s->state[i].delegate);
-
-                                                // Start streaming
-                                                printf("Start capture\n", connection);
-                                                result = deckLinkInput->StartStreams();
-                                                if (result != S_OK)
-                                                {
-                                                        printf("Could not start stream: %08x\n", result);
-                                                        goto error;
-                                                }
-
-                                        }else{
-                                                printf("Could not : %08x\n", result);
+                                                printf("Could not query device attributes.\n");
+                                                printf("Could not enable video input: %08x\n", result);
                                                 goto error;
                                         }
 
-                                        displayMode->Release();
-                                        displayMode = NULL;
+                                        if(s->autodetect_mode) {
+                                                bool autodetection;
+                                                if(deckLinkAttributes->GetFlag(BMDDeckLinkSupportsInputFormatDetection, &autodetection) != S_OK) {
+                                                        fprintf(stderr, "[DeckLink] Could not verify if device supports autodetection.\n");
+                                                        goto error;
+                                                }
+                                                if(autodetection == false) {
+                                                        fprintf(stderr, "[DeckLink] Device doesn't support format autodetection, you must set it manually.\n");
+                                                        goto error;
+                                                }
+                                                s->flags |=  bmdVideoInputEnableFormatDetection;
+
+                                        }
+
+                                        if(s->stereo) {
+                                                s->flags |= bmdVideoInputDualStream3D;
+                                        }
+                                        result = deckLinkInput->EnableVideoInput(displayMode->GetDisplayMode(), pf, s->flags);
+                                        if (result != S_OK)
+                                        {
+                                                printf("You have required invalid video mode and pixel format combination.\n");
+                                                printf("Could not enable video input: %08x\n", result);
+                                                goto error;
+                                        }
+
+                                        // Query the DeckLink for its configuration interface
+                                        result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
+                                        if (result != S_OK)
+                                        {
+                                                printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", result);
+                                                goto error;
+                                        }
+
+                                        BMDVideoConnection conn;
+                                        switch (connection) {
+                                        case 0:
+                                                conn = bmdVideoConnectionSDI;
+                                                break;
+                                        case 1:
+                                                conn = bmdVideoConnectionHDMI;
+                                                break;
+                                        case 2:
+                                                conn = bmdVideoConnectionComponent;
+                                                break;
+                                        case 3:
+                                                conn = bmdVideoConnectionComposite;
+                                                break;
+                                        case 4:
+                                                conn = bmdVideoConnectionSVideo;
+                                                break;
+                                        case 5:
+                                                conn = bmdVideoConnectionOpticalSDI;
+                                                break;
+                                        default:
+                                                break;
+                                        }
+                    
+                                        /*if (deckLinkConfiguration->SetVideoInputFormat(conn) == S_OK) {
+                                                printf("Input set to: %d\n", connection);
+                                        }*/
+
+                                        if(s->grab_audio == FALSE || 
+                                                        i != 0)//TODO: figure out output from multiple streams
+                                                deckLinkInput->DisableAudioInput();
+                                        else
+                                                deckLinkInput->EnableAudioInput(
+                                                        bmdAudioSampleRate48kHz,
+                                                        bmdAudioSampleType16bitInteger,
+                                                        2);
+
+                                        // set Callback which returns frames
+                                        s->state[i].delegate = new VideoDelegate();
+                                        s->state[i].delegate->set_device_state(s, i);
+                                        deckLinkInput->SetCallback(s->state[i].delegate);
+
+                                        // Start streaming
+                                        printf("Start capture\n", connection);
+                                        result = deckLinkInput->StartStreams();
+                                        if (result != S_OK)
+                                        {
+                                                printf("Could not start stream: %08x\n", result);
+                                                goto error;
+                                        }
+
+                                }else{
+                                        printf("Could not : %08x\n", result);
+                                        goto error;
                                 }
+
+                                displayMode->Release();
+                                displayMode = NULL;
 
                                 // check if any mode was found
                                 if (mode_found == false)
@@ -740,17 +873,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                         }
                 }
 		deckLinkIterator->Release();
-
-                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
-                tile->data_len = tile->linesize * tile->height;
         }
         
-        if(s->stereo) {
-                s->frame->tiles[1].width = s->frame->tiles[0].width;
-                s->frame->tiles[1].height = s->frame->tiles[0].height;
-                s->frame->tiles[1].linesize = s->frame->tiles[0].linesize;
-                s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
-        }
 
         // init mutex
         pthread_mutex_init(&s->lock, NULL);
