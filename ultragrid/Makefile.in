@@ -1,4 +1,4 @@
-/R            = ar
+AR            = ar
 RANLIB        = ranlib
 CC            = @CC@
 CXX	      = @CXX@

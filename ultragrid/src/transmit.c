@@ -214,6 +214,11 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         int mult_index = 0;
         int mult_first_sent = 0;
         unsigned long int packets = 0u;
+        int hdrs_len = 40 + (sizeof(video_payload_hdr_t));
+
+        if(tx->fec_scheme == FEC_XOR) {
+                hdrs_len += xor_get_hdr_size();
+        }
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -273,7 +278,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
 
                 data = tile->data + pos;
-                data_len = tx->mtu - 40 - (sizeof(video_payload_hdr_t));
+                data_len = tx->mtu - hdrs_len;
                 data_len = (data_len / 48) * 48;
                 if (pos + data_len >= tile->data_len) {
                         if (send_m && tx->fec_scheme == FEC_NONE)
@@ -399,8 +404,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 {
         const int pt = 21; /* PT set for audio in our packet format */
-        const int mtu = 1500; // perhaps to be added as parameter to function call ?
-        //audio_frame_to_network_buffer(buffer->tmp_buffer, buffer);
         unsigned int pos = 0u,
                      m = 0u;
         int channel;
@@ -442,7 +445,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 
                 do {
                         data = chan_data + pos;
-                        data_len = mtu - 40 - sizeof(audio_payload_hdr_t);
+                        data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
                         if(pos + data_len >= buffer->data_len / buffer->ch_count) {
                                 data_len = buffer->data_len / buffer->ch_count - pos;
                                 if(channel == buffer->ch_count - 1)

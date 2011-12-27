@@ -69,13 +69,9 @@
 
 struct xor_pkt_hdr {
         uint32_t pkt_count;
-#ifdef WORDS_BIGENDIAN
+        uint16_t payload_len_xor;
         uint16_t header_len;
         uint16_t payload_len;
-#else
-        uint16_t payload_len;
-        uint16_t header_len;
-#endif
 }__attribute__((packed));
 
 struct xor_session {
@@ -84,6 +80,7 @@ struct xor_session {
         int              header_len;
         int              max_payload_len;
         int              pkt_count;
+        uint16_t              payload_len_xor;
 
         struct xor_pkt_hdr xor_hdr;
 };
@@ -93,10 +90,10 @@ struct xor_session * xor_init(int header_len, int max_payload_len)
         struct xor_session *s;
         assert (header_len % 4 == 0);
         /* TODO: check if it shouldn't be less */
-        assert(header_len + max_payload_len + 40 + sizeof(struct xor_pkt_hdr) < 9000);
 
         s = (struct xor_session *) malloc(sizeof(struct xor_session));
         s->pkt_count = 0;
+        s->payload_len_xor = 0;
         s->header_len = header_len;
         /* calloc is really needed here, because we will xor with this place incomming packets */
         s->header_xor = (char *) calloc(1, header_len + max_payload_len);
@@ -113,6 +110,8 @@ void xor_add_packet(struct xor_session *session, const char *hdr, const char *pa
         register const unsigned int *line2;
 
         session->pkt_count++;
+
+        session->payload_len_xor ^= (uint16_t) payload_len;
 
         line1 = (unsigned int *) session->header_xor;
         line2 = (const unsigned int *) hdr;
@@ -151,6 +150,7 @@ void xor_emit_xor_packet(struct xor_session *session, const char **hdr, size_t *
         session->xor_hdr.pkt_count = htonl(session->pkt_count);
         session->xor_hdr.header_len = htons(session->header_len);
         session->xor_hdr.payload_len = htons(session->max_payload_len);
+        session->xor_hdr.payload_len_xor = htons(session->payload_len_xor);
 
         *hdr = (char *)  &session->xor_hdr;
         *hdr_len = (size_t) sizeof(struct xor_pkt_hdr);
@@ -161,6 +161,7 @@ void xor_emit_xor_packet(struct xor_session *session, const char **hdr, size_t *
 void xor_clear(struct xor_session *session)
 {
         session->pkt_count = 0;
+        session->payload_len_xor = 0;
         memset(session->header_xor, 0, session->header_len + session->max_payload_len);
 }
 
@@ -183,12 +184,13 @@ void xor_restore_start(struct xor_session *session, const char *data)
         session->pkt_count = - ntohl(((struct xor_pkt_hdr *) data)->pkt_count);
         session->header_len = ntohs(((struct xor_pkt_hdr *) data)->header_len);
         session->max_payload_len = ntohs(((struct xor_pkt_hdr *) data)->payload_len);
+        session->payload_len_xor = ntohs(((struct xor_pkt_hdr *) data)->payload_len_xor);
 
         session->header_xor = data + sizeof(struct xor_pkt_hdr);
         session->payload_xor = data + sizeof(struct xor_pkt_hdr) + session->header_len;
 }
 
-int xor_restore_packet(struct xor_session *session, char **pkt)
+int xor_restore_packet(struct xor_session *session, char **pkt, uint16_t *len)
 {
         if(session->pkt_count == 0)
         {
@@ -206,6 +208,7 @@ int xor_restore_packet(struct xor_session *session, char **pkt)
 
         debug_msg("Restoring packed.\n");
         *pkt = session->header_xor;
+        *len = session->payload_len_xor;
         return TRUE;
 }
 
@@ -219,4 +222,9 @@ void xor_restore_invalidate(struct xor_session *session)
         session->pkt_count = 0;
 }
 
+
+int xor_get_hdr_size()
+{
+        return sizeof(struct xor_pkt_hdr);
+}
 

@@ -44,11 +44,11 @@ void xor_add_packet(struct xor_session *session, const char *hdr, const char *pa
 void xor_emit_xor_packet(struct xor_session *session, const char **hdr, size_t *hdr_len, const char **payload, size_t *payload_len);
 void xor_clear(struct xor_session *session);
 void xor_destroy(struct xor_session * session);
-
+int xor_get_hdr_size(void);
 
 struct xor_session *xor_restore_init();
 void xor_restore_start(struct xor_session *session, const char *data);
-int xor_restore_packet(struct xor_session *session, char **pkt);
+int xor_restore_packet(struct xor_session *session, char **pkt, uint16_t *len);
 void xor_restore_destroy(struct xor_session *xor);
 void xor_restore_invalidate(struct xor_session *xor);
 

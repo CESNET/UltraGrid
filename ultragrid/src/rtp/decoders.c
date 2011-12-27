@@ -707,9 +707,10 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                                 continue;
                         } else {
                                 int ret = FALSE;
+                                uint16_t payload_len;
                                 rtp_packet *pckt_old = pckt;
                                 /* try to restore packet */
-                                ret = xor_restore_packet(xor, &hdr);
+                                ret = xor_restore_packet(xor, &hdr, &payload_len);
                                 /* register current xor packet */
                                 xor_restore_start(xor, pckt_old->data);
                                 /* if we didn't recovered any packet, jump to next */
@@ -718,13 +719,16 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                                         continue;
                                 }
                                 /* otherwise process the restored packet */
+                                data = (char *) hdr + sizeof(video_payload_hdr_t);
+                                len = payload_len;
+                                goto packet_restored;
                         }
                 } else {
                         int i = 0;
                         while (xors[i]) {
                                 if(xors[i]) {
                                         if(last_rtp_seq >= pckt->seq) {
-                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(video_payload_hdr_t), ntohs(hdr->length));
+                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(video_payload_hdr_t), pckt->data_len - sizeof(video_payload_hdr_t));
                                         } else {
                                                 xor_restore_invalidate(xors[i]);
                                         }
@@ -735,10 +739,11 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                         }
                 }
                 data = (char *) hdr + sizeof(video_payload_hdr_t);
+                len = pckt->data_len - sizeof(video_payload_hdr_t);
+packet_restored:
                 width = ntohs(hdr->hres);
                 height = ntohs(hdr->vres);
                 color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
-                len = pckt->data_len - sizeof(video_payload_hdr_t);
                 data_pos = ntohl(hdr->offset);
                 tmp = ntohl(hdr->substream_bufnum);
 
