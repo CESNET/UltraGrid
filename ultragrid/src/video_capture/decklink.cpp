@@ -372,6 +372,7 @@ decklink_help()
 #ifdef HAVE_MACOSX
 			CFRelease(deviceNameString);
 #endif
+                        free((void *)deviceNameCString);
 		}
 		
 		// Increment the total number of DeckLink cards found
@@ -533,7 +534,7 @@ vidcap_decklink_probe(void)
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf)
 {
         STRING displayModeString = NULL;
-        char *displayModeCString;
+        const char *displayModeCString;
         HRESULT result;
 
         result = displayMode->GetName(&displayModeString);
@@ -591,6 +592,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 #ifdef HAVE_MACOSX
                         CFRelease(displayModeString);
 #endif
+                        free((void *)displayModeCString);
         }
 
         tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
@@ -699,7 +701,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                         s->state[i].deckLink = deckLink;
 
                         STRING deviceNameString = NULL;
-                        char* deviceNameCString = NULL;
+                        const char* deviceNameCString = NULL;
                         
                         // Print the model name of the DeckLink card
                         result = deckLink->GetModelName(&deviceNameString);
@@ -715,6 +717,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 #ifdef HAVE_MACOSX
                                 CFRelease(deviceNameString);
 #endif
+                                free((void *) deviceNameCString);
 
                                 // Query the DeckLink for its configuration interface
                                 result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
