@@ -151,7 +151,7 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
                 char *config = strdup(item);
                 char *save_ptr_dev = NULL;
                 char *device_cfg;
-                int dev_flags;
+                unsigned int dev_flags = 0u;
                 device = strtok_r(config, ":", &save_ptr_dev);
                 device_cfg = save_ptr_dev;
                 if(i == 0 && flags == DISPLAY_FLAG_ENABLE_AUDIO) {

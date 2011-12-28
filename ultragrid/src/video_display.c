@@ -56,6 +56,7 @@
 #include "perf.h"
 #include "video_display.h"
 
+#include "video_display/aggregate.h"
 #include "video_display/null.h"
 #include "video_display/sdl.h"
 #include "video_display/decklink.h"
@@ -87,6 +88,20 @@ typedef struct {
 } display_table_t;
 
 static display_table_t display_device_table[] = {
+        {
+         0,
+         display_aggregate_probe,
+         display_aggregate_init,
+         display_aggregate_run,
+         display_aggregate_done,
+         display_aggregate_finish,
+         display_aggregate_getf,
+         display_aggregate_putf,
+         display_aggregate_reconfigure,
+         display_aggregate_get_property,
+         NULL,
+         NULL,
+         },
 #ifdef HAVE_SDL
         {
          0,

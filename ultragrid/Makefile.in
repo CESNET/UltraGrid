@@ -74,6 +74,7 @@ OBJS          = src/bitstream.o \
 		src/video_compress.o \
 		src/video_decompress.o \
 		src/video_display.o \
+		src/video_display/aggregate.o \
 		src/video_display/null.o \
 		src/vo_postprocess.o \
 		src/vo_postprocess/3d-interlaced.o \

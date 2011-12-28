@@ -208,7 +208,7 @@ void list_video_display_devices()
         display_free_devices();
 }
 
-static struct display *initialize_video_display(const char *requested_display,
+struct display *initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags)
 {
         struct display *d;

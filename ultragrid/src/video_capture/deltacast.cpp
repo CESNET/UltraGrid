@@ -145,7 +145,7 @@ vidcap_deltacast_probe(void)
     
 	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_QUAD_ID;
+		vt->id          = VIDCAP_DELTACAST_ID;
 		vt->name        = "deltacast";
 		vt->description = "DELTACAST card";
 	}
