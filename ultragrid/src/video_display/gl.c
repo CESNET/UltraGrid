@@ -985,6 +985,15 @@ void display_gl_done(void *state)
         free(s);
 }
 
+void display_gl_finish(void *state)
+{
+        struct state_gl *s = (struct state_gl *) state;
+
+        assert(s->magic == MAGIC_GL);
+
+        s->processed = TRUE;
+}
+
 struct video_frame * display_gl_getf(void *state)
 {
         struct state_gl *s = (struct state_gl *) state;

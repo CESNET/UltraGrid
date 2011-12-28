@@ -384,8 +384,10 @@ error:
 
 void audio_join(struct state_audio *s) {
         if(s) {
-                pthread_join(s->audio_receiver_thread_id, NULL);
-                pthread_join(s->audio_sender_thread_id, NULL);
+                if(s->audio_receiver_thread_id)
+                        pthread_join(s->audio_receiver_thread_id, NULL);
+                if(s->audio_sender_thread_id)
+                        pthread_join(s->audio_sender_thread_id, NULL);
         }
 }
         
