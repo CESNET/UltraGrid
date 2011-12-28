@@ -56,6 +56,7 @@ display_type_t          *display_gl_probe(void);
 void                    *display_gl_init(char *fmt, unsigned int flags);
 void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
+void                     display_gl_finish(void *state);
 struct video_frame      *display_gl_getf(void *state);
 int                      display_gl_putf(void *state, char *frame);
 int                      display_gl_reconfigure(void *state, struct video_desc desc);

@@ -110,7 +110,7 @@ static display_table_t display_device_table[] = {
          display_gl_init,
          display_gl_run,
          display_gl_done,
-         NULL,
+         display_gl_finish,
          display_gl_getf,
          display_gl_putf,
          display_gl_reconfigure,
