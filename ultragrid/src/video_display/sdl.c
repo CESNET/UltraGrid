@@ -131,6 +131,8 @@ void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
 void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+int display_sdl_handle_events(void *arg, int post);
+void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
                 
 /** 
  * Load splashscreen
@@ -417,7 +419,7 @@ void cleanup_screen(struct state_sdl *s)
         }
 }
 
-void display_sdl_reconfigure(void *state, struct video_desc desc)
+int display_sdl_reconfigure(void *state, struct video_desc desc)
 {
 	struct state_sdl *s = (struct state_sdl *)state;
 
@@ -468,8 +470,7 @@ void display_sdl_reconfigure(void *state, struct video_desc desc)
 	if (s->sdl_screen == NULL) {
 		fprintf(stderr, "Error setting video mode %dx%d!\n", x_res_x,
 			x_res_y);
-		free(s);
-		exit(128);
+                return FALSE;
 	}
 	SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
 
@@ -484,8 +485,7 @@ void display_sdl_reconfigure(void *state, struct video_desc desc)
 						 s->sdl_screen);
                 if (s->yuv_image == NULL) {
                         printf("SDL_overlay initialization failed.\n");
-                        free(s);
-                        exit(127);
+                        return FALSE;
                 }
 #ifndef HAVE_MACOSX
                 SDL_LockYUVOverlay(s->yuv_image);
@@ -550,6 +550,8 @@ void display_sdl_reconfigure(void *state, struct video_desc desc)
         s->rshift = s->sdl_screen->format->Rshift;
         s->gshift = s->sdl_screen->format->Gshift;
         s->bshift = s->sdl_screen->format->Bshift;
+
+        return TRUE;
 }
 
 void *display_sdl_init(char *fmt, unsigned int flags)
@@ -636,7 +638,12 @@ void *display_sdl_init(char *fmt, unsigned int flags)
 #endif
 
         struct video_desc desc = {500, 500, RGBA, 30.0, PROGRESSIVE, 1};
-        display_sdl_reconfigure(s, desc);
+        ret = display_sdl_reconfigure(s, desc);
+
+        if(!ret) {
+                free(s);
+                return NULL;
+        }
         loadSplashscreen(s);	
 
 
@@ -679,9 +686,13 @@ struct video_frame *display_sdl_getf(void *state)
         assert(s->magic == MAGIC_SDL);
 
         if(s->toggle_fullscreen) {
+                int ret;
                 struct video_desc desc = {s->tile->width, s->tile->height, s->frame->color_spec, s->frame->fps, s->frame->interlacing, 1};
-                display_sdl_reconfigure(s, desc);
+                ret = display_sdl_reconfigure(s, desc);
                 s->toggle_fullscreen = FALSE;
+                if(!ret) {
+                        return NULL;
+                }
         }
 
         return s->frame;
@@ -761,7 +772,7 @@ int display_sdl_get_property(void *state, int property, void *val, size_t *len)
 
 void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {
         struct state_sdl *s = (struct state_sdl *)userdata;
-        if (ring_buffer_read(s->audio_buffer, stream, len) != len)
+        if (ring_buffer_read(s->audio_buffer, (char *) stream, len) != len)
         {
                 fprintf(stderr, "[SDL] audio buffer underflow!!!\n");
                 usleep(500);

@@ -172,7 +172,7 @@ int display_deltacast_putf(void *state, char *frame)
         return TRUE;
 }
 
-void
+int
 display_deltacast_reconfigure(void *state, struct video_desc desc)
 {
         struct state_deltacast            *s = (struct state_deltacast *)state;
@@ -225,10 +225,10 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         }
         
         s->initialized = TRUE;
-        return;
+        return TRUE;
 
 error:
-                exit_uv(128);
+        return FALSE;
 }
 
 

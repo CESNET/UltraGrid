@@ -478,7 +478,7 @@ void dxt5_arb_init(struct state_gl *s)
  * inside appropriate thread and make changes we can do. The rest does
  * gl_reconfigure_screen.
  */
-void display_gl_reconfigure(void *state, struct video_desc desc)
+int display_gl_reconfigure(void *state, struct video_desc desc)
 {
         struct state_gl	*s = (struct state_gl *) state;
 
@@ -503,6 +503,8 @@ void display_gl_reconfigure(void *state, struct video_desc desc)
                 pthread_cond_wait(&s->reconf_cv, &s->lock);
         pthread_mutex_unlock(&s->lock);
 	s->processed = TRUE;
+
+        return TRUE;
 }
 
 void glut_resize_window(struct state_gl *s)

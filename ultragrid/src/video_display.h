@@ -105,7 +105,7 @@ void 		 display_done(struct display *d);
 void 		 display_finish(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
 void 		 display_put_frame(struct display *d, char *frame);
-void             display_reconfigure(struct display *d, struct video_desc desc);
+int              display_reconfigure(struct display *d, struct video_desc desc);
 
 struct audio_frame * display_get_audio_frame(struct display *d);
 void 		 display_put_audio_frame(struct display *d, const struct audio_frame *frame);

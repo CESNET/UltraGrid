@@ -490,7 +490,7 @@ int display_dvs_putf_impl(void *state, char *frame)
         return TRUE;
 }
 
-void display_dvs_reconfigure_impl(void *state,
+int display_dvs_reconfigure_impl(void *state,
                                 struct video_desc desc)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
@@ -527,7 +527,7 @@ void display_dvs_reconfigure_impl(void *state,
                                 "\tRequested: %dx%d, color space %d, fps %f,%s\n",
                                 desc.width, desc.height, desc.color_spec, desc.fps, 
                                 get_interlacing_description(desc.interlacing));
-                return;
+                return FALSE;
         }
 
         hd_video_mode = SV_MODE_STORAGE_FRAME;
@@ -547,8 +547,7 @@ void display_dvs_reconfigure_impl(void *state,
                         break;
                 default:
                         fprintf(stderr, "[dvs] Unsupported video codec passed!");
-                        exit_uv(128);
-                        return;
+                        return FALSE;
         }
 
         hd_video_mode |= s->mode->mode;
@@ -561,13 +560,13 @@ void display_dvs_reconfigure_impl(void *state,
         res = sv_option(s->sv, SV_OPTION_VIDEOMODE, hd_video_mode);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot set videomode %s\n", sv_geterrortext(res));
-                return;
+                return FALSE;
         }
         res = sv_sync_output(s->sv, SV_SYNCOUT_BILEVEL);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot enable sync-on-green %s\n",
                           sv_geterrortext(res));
-                return;
+                return FALSE;
         }
 
 
@@ -579,13 +578,13 @@ void display_dvs_reconfigure_impl(void *state,
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot initialize video display FIFO %s\n",
                           sv_geterrortext(res));
-                return;
+                return FALSE;
         }
         res = sv_fifo_start(s->sv, s->fifo);
         if (res != SV_OK) {
                 fprintf(stderr, "Cannot start video display FIFO  %s\n",
                           sv_geterrortext(res));
-                return;
+                return FALSE;
         }
 
         s->tile->linesize = vc_get_linesize(s->tile->width, desc.color_spec);
@@ -601,6 +600,8 @@ void display_dvs_reconfigure_impl(void *state,
 
 	if(!s->first_run)
 		display_dvs_getf_impl(s); /* update s->frame.data */
+
+        return TRUE;
 }
 
 

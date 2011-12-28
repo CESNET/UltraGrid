@@ -209,7 +209,7 @@ int display_sage_putf(void *state, char *frame)
         return 0;
 }
 
-void display_sage_reconfigure(void *state, struct video_desc desc)
+int display_sage_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sage *s = (struct state_sage *)state;
 
@@ -231,6 +231,8 @@ void display_sage_reconfigure(void *state, struct video_desc desc)
 
         s->tile->data = (char *) sage_getBuffer(s->sage_state);
         s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) * s->tile->height;
+
+        return TRUE;
 }
 
 display_type_t *display_sage_probe(void)

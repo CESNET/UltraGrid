@@ -457,7 +457,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
         return displayMode;
 }
 
-void
+int
 display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
@@ -577,10 +577,10 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	}
 
         s->initialized = true;
-        return;
+        return TRUE;
 
 error:
-        exit_uv(128);
+        return FALSE;
 }
 
 

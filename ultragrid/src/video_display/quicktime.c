@@ -882,7 +882,7 @@ int display_quicktime_get_property(void *state, int property, void *val, size_t 
         return TRUE;
 }
 
-void display_quicktime_reconfigure(void *state, struct video_desc desc)
+int display_quicktime_reconfigure(void *state, struct video_desc desc)
 {
         struct state_quicktime *s = (struct state_quicktime *) state;
         int i;
@@ -936,15 +936,15 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                     QTVideoOutputSetDisplayMode(s->videoDisplayComponentInstance[i],
                                                 s->mode);
                 if (ret != noErr) {
-                        fprintf(stderr, "Failed to set video output display mode.\n");
-                        exit(128);
+                        fprintf(stderr, "[QuickTime] Failed to set video output display mode.\n");
+                        return FALSE;
                 }
                 
                 /* We don't want to use the video output component instance echo port */
                 ret = QTVideoOutputSetEchoPort(s->videoDisplayComponentInstance[i], nil);
                 if (ret != noErr) {
-                        fprintf(stderr, "Failed to set video output echo port.\n");
-                        exit(128);
+                        fprintf(stderr, "[QuickTime] Failed to set video output echo port.\n");
+                        return FALSE;
                 }
 
                 /* Register Ultragrid with instande of the video outpiut */
@@ -953,15 +953,15 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                                                (ConstStr255Param) "Ultragrid");
                 if (ret != noErr) {
                         fprintf(stderr,
-                                "Failed to register Ultragrid with selected video output instance.\n");
-                        exit(128);
+                                "[QuickTime] Failed to register Ultragrid with selected video output instance.\n");
+                        return FALSE;
                 }
 
                 ret = QTVideoOutputBegin(s->videoDisplayComponentInstance[i]);
                 if (ret != noErr) {
                         fprintf(stderr,
-                                "Failed to get exclusive access to selected video output instance.\n");
-                        exit(128);
+                                "[QuickTime] Failed to get exclusive access to selected video output instance.\n");
+                        return FALSE;
                 }
                 /* Get a pointer to the gworld used by video output component */
                 ret =
@@ -969,12 +969,13 @@ void display_quicktime_reconfigure(void *state, struct video_desc desc)
                                            &s->gworld[i]);
                 if (ret != noErr) {
                         fprintf(stderr,
-                                "Failed to get selected video output instance GWorld.\n");
-                        exit(128);
+                                "[QuickTime] Failed to get selected video output instance GWorld.\n");
+                        return FALSE;
                 }
         }
 
         reconf_common(s);
+        return TRUE;
 }
 
 static int find_mode(ComponentInstance *ci, int width, int height, 

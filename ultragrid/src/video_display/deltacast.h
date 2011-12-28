@@ -68,7 +68,7 @@ void                 display_deltacast_run(void *state);
 void                 display_deltacast_done(void *state);
 struct video_frame  *display_deltacast_getf(void *state);
 int                  display_deltacast_putf(void *state, char *frame);
-void                 display_deltacast_reconfigure(void *state,
+int                  display_deltacast_reconfigure(void *state,
                                 struct video_desc desc);
 int                  display_deltacast_get_property(void *state, int property, void *val, size_t *len);
 

@@ -119,9 +119,12 @@ int display_null_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-void display_null_reconfigure(void *state, struct video_desc desc)
+int display_null_reconfigure(void *state, struct video_desc desc)
 {
         UNUSED(desc);
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
+
+        return TRUE;
 }
+

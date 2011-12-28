@@ -49,17 +49,16 @@
 #define DISPLAY_SDL_ID	0xba370a2b
 #include "video.h"
 
-display_type_t *display_sdl_probe (void);
-void *display_sdl_init (char *fmt, unsigned int flags);
-void display_sdl_run (void *state);
-void display_sdl_done (void *state);
-struct video_frame *display_sdl_getf (void *state);
-int display_sdl_putf (void *state, char *frame);
+display_type_t *        display_sdl_probe (void);
+void *                  display_sdl_init (char *fmt, unsigned int flags);
+void                    display_sdl_run (void *state);
+void                    display_sdl_done (void *state);
+struct video_frame *    display_sdl_getf (void *state);
+int                     display_sdl_putf (void *state, char *frame);
 
-void display_sdl_reconfigure(void *state, struct video_desc desc);
-int display_sdl_get_property(void *state, int property, void *val, size_t *len);
+int                     display_sdl_reconfigure(void *state, struct video_desc desc);
+int                     display_sdl_get_property(void *state, int property, void *val, size_t *len);
 
-struct audio_frame * display_sdl_get_audio_frame(void *state);
-void display_sdl_put_audio_frame(void *state, const struct audio_frame *frame);
-
+struct audio_frame *    display_sdl_get_audio_frame(void *state);
+void                    display_sdl_put_audio_frame(void *state, const struct audio_frame *frame);
 

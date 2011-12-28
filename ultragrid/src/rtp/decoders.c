@@ -87,7 +87,7 @@ struct state_decoder {
         /* requested values */
         int               requested_pitch;
         int               rshift, gshift, bshift;
-        int               max_substreams;
+        unsigned int      max_substreams;
         
         struct display   *display;
         codec_t          *native_codecs;
@@ -102,7 +102,7 @@ struct state_decoder {
                 struct line_decoder *line_decoder;
                 struct {                           /* OR - it is not union for easier freeing*/
                         const struct decode_from_to *ext_decoder_funcs;
-                        int *total_bytes;
+                        unsigned int *total_bytes;
                         void *ext_decoder_state;
                         char **ext_recv_buffer;
                 };
@@ -346,6 +346,8 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
                         }
                 }
         }
+
+        return NULL;
 }
 
 struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
@@ -353,11 +355,10 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
 {
         codec_t out_codec, in_codec;
         decoder_t decode_line;
-        enum interlacing_t display_il;
+        enum interlacing_t display_il = 0;
         struct video_frame *frame;
         int render_mode;
-        int i;
-        
+
         assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
         
@@ -426,13 +427,19 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
 
         if(!video_desc_eq(decoder->display_desc, display_desc))
         {
+                int ret;
                 /*
                  * TODO: put frame should be definitely here. On the other hand, we cannot be sure
                  * that vo driver is initialized so far:(
                  */
                 //display_put_frame(decoder->display, frame);
                 /* reconfigure VO and give it opportunity to pass us pitch */        
-                display_reconfigure(decoder->display, display_desc);
+                ret = display_reconfigure(decoder->display, display_desc);
+                if(!ret) {
+                        fprintf(stderr, "[decoder] Unable to reconfigure display.\n");
+                        exit_uv(128);
+                        return NULL;
+                }
                 frame_display = display_get_frame(decoder->display);
                 decoder->display_desc = display_desc;
         }
@@ -567,7 +574,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                         return NULL;
                 }
                 decoder->ext_recv_buffer = malloc((src_x_tiles * src_y_tiles + 1) * sizeof(char *));
-                decoder->total_bytes = calloc(1, (src_x_tiles * src_y_tiles) * sizeof(int));
+                decoder->total_bytes = calloc(1, (src_x_tiles * src_y_tiles) * sizeof(unsigned int));
                 for (i = 0; i < src_x_tiles * src_y_tiles; ++i)
                         decoder->ext_recv_buffer[i] = malloc(buf_size);
                 decoder->ext_recv_buffer[i] = NULL;
@@ -637,8 +644,8 @@ void ll_destroy(struct linked_list *ll) {
         free(ll);
 }
 
-int ll_count (struct linked_list *ll) {
-        int ret = 0;
+unsigned int ll_count (struct linked_list *ll) {
+        unsigned int ret = 0u;
         struct node *cur = ll->head;
         while(cur != NULL) {
                 ++ret;
@@ -669,17 +676,17 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
         int fps_pt, fpsd, fd, fi;
 
         struct xor_session **xors = calloc(10, sizeof(struct xor_session *));
-        uint16_t last_rtp_seq;
+        uint16_t last_rtp_seq = 0;
         struct linked_list *pckt_list = ll_create();
         uint32_t total_packets_sent = 0u;
 
         perf_record(UVP_DECODEFRAME, frame);
 
         if(!frame)
-                return;
+                return FALSE;
 
         if(decoder->decoder_type == EXTERNAL_DECODER) {
-                memset(decoder->total_bytes, 0, sizeof(int) * 2); 
+                memset(decoder->total_bytes, 0, sizeof(unsigned int) * 2); 
         }
 
         while (cdata != NULL) {
@@ -710,7 +717,7 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                                 uint16_t payload_len;
                                 rtp_packet *pckt_old = pckt;
                                 /* try to restore packet */
-                                ret = xor_restore_packet(xor, &hdr, &payload_len);
+                                ret = xor_restore_packet(xor, (char **) &hdr, &payload_len);
                                 /* register current xor packet */
                                 xor_restore_start(xor, pckt_old->data);
                                 /* if we didn't recovered any packet, jump to next */
@@ -728,7 +735,7 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
                         while (xors[i]) {
                                 if(xors[i]) {
                                         if(last_rtp_seq >= pckt->seq) {
-                                                xor_add_packet(xors[i], hdr, (char *) hdr + sizeof(video_payload_hdr_t), pckt->data_len - sizeof(video_payload_hdr_t));
+                                                xor_add_packet(xors[i], (char *) hdr, (char *) (hdr + sizeof(video_payload_hdr_t)), pckt->data_len - sizeof(video_payload_hdr_t));
                                         } else {
                                                 xor_restore_invalidate(xors[i]);
                                         }
@@ -762,7 +769,7 @@ packet_restored:
                 if(substream >= decoder->max_substreams) {
                         fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n", substream, decoder->max_substreams);
                         exit_uv(1);
-                        return;
+                        return FALSE;
                 }
 
 
@@ -787,7 +794,7 @@ packet_restored:
                         frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                         frame);
                         if(!frame) {
-                                return;
+                                return FALSE;
                         }
                 }
                 
@@ -937,7 +944,7 @@ packet_restored:
         }
 
         if(decoder->change_il) {
-                int i;
+                unsigned int i;
                 for(i = 0; i < frame->tile_count; ++i) {
                         struct tile *tile = vf_get_tile(frame, i);
                         decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width, decoder->out_codec), tile->height);

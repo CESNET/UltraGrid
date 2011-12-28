@@ -196,7 +196,6 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         int i;
         int res;
         int mode_index = 0;
-        char *mode;
 
         s = (struct vidcap_dvs_state *)
             calloc(1, sizeof(struct vidcap_dvs_state));
@@ -282,7 +281,8 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                         s->hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
                         break;
                 default:
-                        error_with_code_msg(128, "[dvs] Unsupported video codec passed!");
+                        fprintf(stderr, "[dvs] Unsupported video codec passed!");
+                        return NULL;
         }
 
         s->hd_video_mode |= s->mode->mode;
