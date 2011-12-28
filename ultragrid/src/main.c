@@ -263,7 +263,7 @@ void list_video_capture_devices()
         vidcap_free_devices();
 }
 
-static struct vidcap *initialize_video_capture(const char *requested_capture,
+struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags)
 {
         struct vidcap_type *vt;

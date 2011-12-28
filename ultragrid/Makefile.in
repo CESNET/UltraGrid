@@ -68,6 +68,7 @@ OBJS          = src/bitstream.o \
 		src/video_codec.o \
 		src/video_capture.o \
 		src/video_capture/null.o \
+		src/video_capture/aggregate.o \
 		src/video_capture/testcard.o \
 		src/video_capture/testcard2.o \
 		src/video_compress.o \
