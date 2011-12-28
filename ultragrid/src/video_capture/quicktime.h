@@ -60,5 +60,6 @@ struct audio_frame;
 struct vidcap_type	*vidcap_quicktime_probe(void);
 void			*vidcap_quicktime_init(char *fmt, unsigned int flags);
 void			 vidcap_quicktime_done(void *state);
+void			 vidcap_quicktime_finish(void *state);
 struct video_frame	*vidcap_quicktime_grab(void *state, struct audio_frame **audio);
 

@@ -147,6 +147,8 @@ void exit_uv(int status) {
         wait_to_finish = TRUE;
         should_exit = TRUE;
         if(!threads_joined) {
+                if(uv_state->capture_device)
+                        vidcap_finish(uv_state->capture_device);
                 if(uv_state->display_device)
                         display_finish(uv_state->display_device);
                 if(uv_state->audio)

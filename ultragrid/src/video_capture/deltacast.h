@@ -44,7 +44,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#define VIDCAP_QUAD_ID	0x10265304
+#define VIDCAP_DELTACAST_ID 0x10265304
 
 #ifdef __cplusplus
 extern "C" {

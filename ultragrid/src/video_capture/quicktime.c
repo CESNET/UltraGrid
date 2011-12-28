@@ -896,6 +896,21 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 }
 
 /* Finalize the grabbing system */
+void vidcap_quicktime_finish(void *state)
+{
+        struct qt_grabber_state *s = (struct qt_grabber_state *)state;
+
+        assert(s != NULL);
+
+        pthread_mutex_lock(&s->lock);
+        if(s->work_to_do) {
+                s->work_to_do = FALSE;
+                pthread_cond_signal(&s->boss_cv);
+        }
+        pthread_mutex_unlock(&s->lock);
+}
+
+/* Finalize the grabbing system */
 void vidcap_quicktime_done(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
