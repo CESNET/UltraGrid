@@ -155,37 +155,49 @@ static void *vidcap_dvs_grab_thread(void *arg)
 static void show_help(void)
 {	
 	int i;
-        sv_handle *sv = sv_open("");
+        int card_idx = 0;
+        sv_handle *sv;
+        char name[128];
+
+	printf("DVS options:\n\n");
+	printf("\t -t dvs:<mode>:<codec>[:<card>] | help\n\n");
+        snprintf(name, 128, "PCI,card:%d", card_idx);
+
+        sv = sv_open(name);
         if (sv == NULL) {
                 printf
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
                 return;
         }
-	printf("DVS options:\n\n");
-	printf("\t -t dvs:<mode>:<codec> | help\n\n");
-	printf("\tSupported modes:\n");
-        for(i=0; hdsp_mode_table[i].width !=0; i++) {
-		int res;
-		sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
-		if(res) {
-			const char *interlacing;
-			if(hdsp_mode_table[i].aux & AUX_INTERLACED) {
-					interlacing = "interlaced";
-			} else if(hdsp_mode_table[i].aux & AUX_PROGRESSIVE) {
-					interlacing = "progressive";
-			} else if(hdsp_mode_table[i].aux & AUX_SF) {
-					interlacing = "progressive segmented";
-			} else {
-					interlacing = "unknown (!)";
-			}
-			printf ("\t%4d:  %4d x %4d @ %2.2f %s\n", hdsp_mode_table[i].mode, 
-				hdsp_mode_table[i].width, hdsp_mode_table[i].height, 
-				hdsp_mode_table[i].fps, interlacing);
-		}
+	while (sv != NULL) {
+                printf("\tCard %s - supported modes:\n\n", name);
+                for(i=0; hdsp_mode_table[i].width !=0; i++) {
+                        int res;
+                        sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
+                        if(res) {
+                                const char *interlacing;
+                                if(hdsp_mode_table[i].aux & AUX_INTERLACED) {
+                                                interlacing = "interlaced";
+                                } else if(hdsp_mode_table[i].aux & AUX_PROGRESSIVE) {
+                                                interlacing = "progressive";
+                                } else if(hdsp_mode_table[i].aux & AUX_SF) {
+                                                interlacing = "progressive segmented";
+                                } else {
+                                                interlacing = "unknown (!)";
+                                }
+                                printf ("\t%4d:  %4d x %4d @ %2.2f %s\n", hdsp_mode_table[i].mode, 
+                                        hdsp_mode_table[i].width, hdsp_mode_table[i].height, 
+                                        hdsp_mode_table[i].fps, interlacing);
+                        }
+                }
+                sv_close(sv);
+                card_idx++;
+                snprintf(name, 128, "PCI,card:%d", card_idx);
+                sv = sv_open(name);
+                printf("\n");
         }
 	printf("\n");
 	show_codec_help("dvs");
-	sv_close(sv);
 }
 
 /* External API ***********************************************************************************/
@@ -196,6 +208,7 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         int i;
         int res;
         int mode_index = 0;
+        char *card_name = "";
 
         s = (struct vidcap_dvs_state *)
             calloc(1, sizeof(struct vidcap_dvs_state));
@@ -250,6 +263,12 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
                         fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                         free(tmp);
                         return 0;
+                }
+
+                /* card name */
+                tmp = strtok(NULL, ":");
+                if(tmp) {
+                        card_name = tmp;
                 }
 	
         } else {
@@ -306,7 +325,7 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
 	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
 	s->tile->data_len = s->tile->linesize * s->tile->height;
 
-        s->sv = sv_open("");
+        s->sv = sv_open(card_name);
         if (s->sv == NULL) {
                 printf
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
