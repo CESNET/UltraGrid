@@ -81,16 +81,25 @@ extern "C" {
 
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Sdi.h>
+#include <VideoMasterHD_Sdi_Audio.h>
 
 struct vidcap_deltacast_state {
         struct video_frame *frame;
         struct tile        *tile;
         HANDLE            BoardHandle, StreamHandle;
         HANDLE            SlotHandle;
-        int mode;
+
+        struct audio_frame audio_frame;
         
         struct       timeval t, t0;
         int          frames;
+
+        ULONG             AudioBufferSize;
+        VHD_AUDIOCHANNEL *pAudioChn;
+        VHD_AUDIOINFO     AudioInfo;
+        ULONG             ClockSystem,VideoStandard;
+        unsigned int      grab_audio:1;
+        unsigned int      autodetect_format:1;
 };
 
 static void usage(void);
@@ -99,7 +108,7 @@ static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
         int               i;
-        printf("-t deltacast:<index>:<mode>:<codec>\n");
+        printf("-t deltacast[:<index>[:<mode>:<codec>]]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
@@ -157,11 +166,10 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 {
 	struct vidcap_deltacast_state *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
-        
         ULONG             BrdId = 0;
-        ULONG             ClockSystem,VideoStandard;
         ULONG             Packing;
         ULONG             Status = 0;
+
         int               i;
 
 	printf("vidcap_deltacast_init\n");
@@ -176,12 +184,14 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
         s->frames = 0;
-        
+        s->grab_audio = FALSE;       
+        s->autodetect_format = FALSE;
         s->frame->color_spec = UYVY;
+        s->audio_frame.data = NULL;
         
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
-        if(!init_fmt || strcmp(init_fmt, "help") == 0) {
+        if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
                 goto error;
         }
@@ -200,28 +210,35 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                 BrdId = atoi(tok);
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {
-                        s->mode = atoi(tok);
-                } else {
-                        usage();
-                        goto error;
-                }
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        if(strcasecmp(tok, "raw") == 0)
-                                s->frame->color_spec = RAW;
-                        else if(strcmp(tok, "UYVY") == 0)
-                                s->frame->color_spec = UYVY;
-                        else if(strcmp(tok, "v210") == 0)
-                                s->frame->color_spec = v210;
-                        else {
+                        s->VideoStandard = atoi(tok);
+                        tok = strtok_r(NULL, ":", &save_ptr);
+                        if(tok) {
+                                if(strcasecmp(tok, "raw") == 0)
+                                        s->frame->color_spec = RAW;
+                                else if(strcmp(tok, "UYVY") == 0)
+                                        s->frame->color_spec = UYVY;
+                                else if(strcmp(tok, "v210") == 0)
+                                        s->frame->color_spec = v210;
+                                else {
+                                        usage();
+                                        goto error;
+                                }
+
+                        } else {
                                 usage();
                                 goto error;
                         }
-
                 } else {
-                        usage();
-                        goto error;
+                        s->autodetect_format = TRUE;
                 }
+        } else {
+                s->autodetect_format = TRUE;
+                BrdId = 0;
+                printf("[DELTACAST] Automatically choosen device nr. 0\n");
+        }
+
+        if(s->autodetect_format) {
+                printf("DELTACAST] We will try to autodetect incoming video format.\n");
         }
 
         /* Query VideoMasterHD information */
@@ -271,23 +288,26 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 
         
         /* Auto-detect clock system */
-        Result = VHD_GetBoardProperty(s->BoardHandle,VHD_SDI_BP_RX0_CLOCK_DIV,&ClockSystem);
+        Result = VHD_GetBoardProperty(s->BoardHandle,VHD_SDI_BP_RX0_CLOCK_DIV,&s->ClockSystem);
 
         if(Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot detect incoming clock system from RX0. Result = 0x%08X\n",Result);
                 goto no_clock;
         } else {
-                printf("\nIncoming clock system : %s\n",(ClockSystem==VHD_CLOCKDIV_1)?"European":"American");
+                printf("\nIncoming clock system : %s\n",(s->ClockSystem==VHD_CLOCKDIV_1)?"European":"American");
         }
                 
          /* Select the detected clock system */
-        VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,ClockSystem);
+        VHD_SetBoardProperty(s->BoardHandle,VHD_SDI_BP_CLOCK_SYSTEM,s->ClockSystem);
                   
         /* Create a logical stream to receive from RX0 connector */
-        if(s->frame->color_spec == RAW)
+        if(!s->autodetect_format && s->frame->color_spec == RAW)
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_RAW,NULL,&s->StreamHandle,NULL);
-        else
+        else if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_JOINED,NULL,&s->StreamHandle,NULL);
+        } else {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_DISJOINED_VIDEO,NULL,&s->StreamHandle,NULL);
+        }
 
                 
         if (Result != VHDERR_NOERROR)
@@ -295,57 +315,93 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                 fprintf(stderr, "ERROR : Cannot open RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08X\n",Result);
                 goto no_stream;
         }
-        /* Get auto-detected video standard */                     
-        //Result = VHD_GetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD,&VideoStandard);
 
-        //if ((Result == VHDERR_NOERROR) && (VideoStandard != NB_VHD_VIDEOSTANDARDS))
-        //{
+        if(s->autodetect_format) {
+                /* Get auto-detected video standard */                     
+                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD,&s->VideoStandard);
+
+                if ((Result == VHDERR_NOERROR) && (s->VideoStandard != NB_VHD_VIDEOSTANDARDS)) {
+                } else {
+                        fprintf(stderr, "[DELTACAST] Cannot detect incoming video standard from RX0. Result = 0x%08X\n",Result);
+                        goto no_format;
+                }
+        }
         
         /* Configure stream */
-        VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD, s->mode);
+        VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD, s->VideoStandard);
+        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,VHD_TRANSFER_SLAVED);
+
         for (i = 0; i < deltacast_frame_modes_count; ++i)
         {
-                if(s->mode == deltacast_frame_modes[i].mode) {
+                if(s->VideoStandard == deltacast_frame_modes[i].mode) {
                         s->frame->fps = deltacast_frame_modes[i].fps;
                         s->frame->interlacing = deltacast_frame_modes[i].interlacing;
                         s->tile->width = deltacast_frame_modes[i].width;
                         s->tile->height = deltacast_frame_modes[i].height;
-                        printf("[DELTACAST] %s mode selected.\n", deltacast_frame_modes[i].name);
+                        printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n", deltacast_frame_modes[i].name, s->tile->width, s->tile->height,
+                                        (double) s->frame->fps, get_interlacing_description(s->frame->interlacing));
                         break;
                 }
         }
         if(i == deltacast_frame_modes_count) {
-                fprintf(stderr, "[DELTACAST] Failed to obtain information about video format %d.\n", s->mode);
+                fprintf(stderr, "[DELTACAST] Failed to obtain information about video format %d.\n", s->VideoStandard);
                 goto no_format;
         }
-        /*} else {
-                fprintf(stderr, "ERROR : Cannot detect incoming video standard from RX0. Result = 0x%08X\n",Result);
-                goto no_format;
-        }*/
         
-        
-        Result = VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, &Packing);
-        if (Result != VHDERR_NOERROR) {
-                fprintf(stderr, "[DELTACAST] Unable to get pixel format\n");
-                goto no_pixfmt;
+        if(s->autodetect_format) {
+                Result = VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, &Packing);
+                if (Result != VHDERR_NOERROR) {
+                        fprintf(stderr, "[DELTACAST] Unable to get pixel format\n");
+                        goto no_pixfmt;
+                }
+                if(Packing == VHD_BUFPACK_VIDEO_YUV422_10) {
+                        s->frame->color_spec = v210;
+                } else if(Packing == VHD_BUFPACK_VIDEO_YUV422_8) {
+                        s->frame->color_spec = UYVY;
+                } else {
+                        fprintf(stderr, "[DELTACAST] Detected unknown pixel format!\n");
+                        goto no_pixfmt;
+                }
         }
         if(s->frame->color_spec == v210)
                 Packing = VHD_BUFPACK_VIDEO_YUV422_10;
         if(s->frame->color_spec == UYVY)
                 Packing = VHD_BUFPACK_VIDEO_YUV422_8;
+        printf("[DELTACAST] Pixel format '%s' selected.\n", get_codec_name(s->frame->color_spec));
         Result = VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, Packing);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] Unable to set pixel format\n");
                 goto no_pixfmt;
         }
         
+        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                s->audio_frame.bps = 3;
+                s->audio_frame.sample_rate = 48000;
+                s->audio_frame.ch_count = 2;
+                memset(&s->AudioInfo, 0, sizeof(VHD_AUDIOINFO));
+                s->pAudioChn = &s->AudioInfo.pAudioGroups[0].pAudioChannels[0];
+                s->pAudioChn->Mode = s->AudioInfo.pAudioGroups[0].pAudioChannels[1].Mode=VHD_AM_STEREO;
+                s->pAudioChn->BufferFormat = s->AudioInfo.pAudioGroups[0].pAudioChannels[1].BufferFormat=VHD_AF_24;
+
+                /* Get the biggest audio frame size */
+                s->AudioBufferSize = VHD_GetBlockSize(s->pAudioChn->BufferFormat, s->pAudioChn->Mode) *
+                        VHD_GetNbSamples((VHD_VIDEOSTANDARD) s->VideoStandard, (VHD_CLOCKDIVISOR) s->ClockSystem, VHD_ASR_48000, 0);
+                s->audio_frame.max_size = s->AudioBufferSize;
+                /* Create audio buffer */
+                s->audio_frame.data = (char *) calloc(1, s->audio_frame.max_size);
+                s->pAudioChn->pData = (BYTE *)
+                        s->audio_frame.data;
+ 
+                printf("[DELTACAST] Grabbing audio enabled.\n");
+                s->grab_audio = TRUE;
+        }
 
         /* Start stream */
         Result = VHD_StartStream(s->StreamHandle);
         if (Result == VHDERR_NOERROR){
-                printf("Stream started");
+                printf("[DELTACAST] Stream started.\n");
         } else {
-                fprintf(stderr, "ERROR : Cannot start RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08X\n",Result);
+                fprintf(stderr, "[DELTACAST] ERROR : Cannot start RX0 stream on DELTA-hd/sdi/codec board handle. Result = 0x%08X\n",Result);
                 goto stream_failed;
         }
 
@@ -383,6 +439,7 @@ vidcap_deltacast_done(void *state)
         VHD_CloseBoardHandle(s->BoardHandle);
         
         vf_free(s->frame);
+        free(s->audio_frame.data);
         free(s);
 }
 
@@ -409,6 +466,24 @@ vidcap_deltacast_grab(void *state, struct audio_frame **audio)
                 }
                 return NULL;
         }
+
+        if(s->grab_audio) {
+                /* Set the audio buffer size */
+                s->AudioBufferSize = VHD_GetBlockSize(s->pAudioChn->BufferFormat, s->pAudioChn->Mode) *
+                        VHD_GetNbSamples((VHD_VIDEOSTANDARD) s->VideoStandard, (VHD_CLOCKDIVISOR) s->ClockSystem, VHD_ASR_48000, 0);
+                s->pAudioChn->DataSize = s->AudioBufferSize;
+
+                /* Extract audio */
+                Result = VHD_SlotExtractAudio(s->SlotHandle, &s->AudioInfo);
+                if(Result==VHDERR_NOERROR) {
+                        s->audio_frame.data_len = s->pAudioChn->DataSize;
+                        /* Do audio processing here */
+                        *audio = &s->audio_frame;
+                } else {
+                        fprintf(stderr, "[DELTACAST] Audio grabbing error. Result = 0x%08X\n",Result);
+                }
+        }
+
         
          Result = VHD_GetSlotBuffer(s->SlotHandle, VHD_SDI_BT_VIDEO, &pBuffer, &BufferSize);
          

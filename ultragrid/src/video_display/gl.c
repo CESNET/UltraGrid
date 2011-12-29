@@ -936,7 +936,8 @@ int display_gl_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
-        
+        enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
+                
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
                         if(sizeof(codecs) <= *len) {
@@ -962,6 +963,14 @@ int display_gl_get_property(void *state, int property, void *val, size_t *len)
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
                         *len = sizeof(int);
+                        break;
+                case DISPLAY_PROPERTY_SUPPORTED_IL_MODES:
+                        if(sizeof(supported_il_modes) <= *len) {
+                                memcpy(val, supported_il_modes, sizeof(supported_il_modes));
+                        } else {
+                                return FALSE;
+                        }
+                        *len = sizeof(supported_il_modes);
                         break;
                 default:
                         return FALSE;

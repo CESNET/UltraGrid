@@ -441,6 +441,7 @@ case $host in
         CXXFLAGS+=" -I$DELTACAST_INC"
         CPPFLAGS_SAVE=$CPPFLAGS
         CPPFLAGS+=" -I$DELTACAST_INC"
+        SAVED_LIBS=$LIBS
         
         AC_LANG_PUSH(C++)
 
@@ -450,18 +451,20 @@ case $host in
                 # include <VideoMasterHD_Core.h>
                 #endif
                 ]])
-        AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle, FOUND_DELTACAST_L=yes, FOUND_DELTACAST_L=no)
+        AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle)
+        AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
         
         AC_LANG_POP(C++)
         
         CXXFLAGS=$CXXFLAGS_SAVE
         CPPFLAGS=$CPPFLAGS_SAVE
 
-        if test $deltacast_req = yes -a $FOUND_DELTACAST_H = yes -a $FOUND_DELTACAST_L = yes
+        if test $deltacast_req = yes -a $FOUND_DELTACAST_H = yes -a "$ac_cv_lib_videomasterhd_VHD_OpenBoardHandle" = yes -a "$ac_cv_lib_videomasterhd_audio_VHD_GetNbSamples" = yes
+
         then
             DELTACAST_INC="-I$DELTACAST_INC"
             DELTACAST_OBJ="src/video_capture/deltacast.o src/video_display/deltacast.o"
-            DELTACAST_LIB="-lvideomasterhd"
+            DELTACAST_LIB=""
             AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
             deltacast=yes
         else
@@ -469,6 +472,7 @@ case $host in
             DELTACAST_LIB=
             DELTACAST_INC=
             DELTACAST_OBJ=
+            LIBS=$SAVED_LIBS
         fi
     ;;
 esac

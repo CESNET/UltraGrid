@@ -139,6 +139,18 @@ uint32_t get_fourcc(codec_t codec)
         return 0;
 }
 
+const char * get_codec_name(codec_t codec)
+{
+        int i = 0;
+
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].name;
+                i++;
+        }
+        return 0;
+}
+
 codec_t get_codec_from_fcc(uint32_t fourcc)
 {
         int i = 0;

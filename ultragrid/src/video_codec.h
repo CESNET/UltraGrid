@@ -73,6 +73,7 @@ extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
 void show_codec_help(char *mode);
 double get_bpp(codec_t codec);
 uint32_t get_fourcc(codec_t codec);
+const char * get_codec_name(codec_t codec);
 int is_codec_opaque(codec_t codec);
 codec_t get_codec_from_fcc(uint32_t fourcc);
 int get_haligned(int width_pixels, codec_t codec);
