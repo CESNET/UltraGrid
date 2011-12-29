@@ -72,6 +72,10 @@ int                  display_deltacast_reconfigure(void *state,
                                 struct video_desc desc);
 int                  display_deltacast_get_property(void *state, int property, void *val, size_t *len);
 
+struct audio_frame * display_deltacast_get_audio_frame(void *state);
+void                 display_deltacast_put_audio_frame(void *state, struct audio_frame *frame);
+
+
 #ifdef __cplusplus
 } // END extern "C"
 #endif

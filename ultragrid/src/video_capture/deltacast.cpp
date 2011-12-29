@@ -303,7 +303,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
         /* Create a logical stream to receive from RX0 connector */
         if(!s->autodetect_format && s->frame->color_spec == RAW)
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_RAW,NULL,&s->StreamHandle,NULL);
-        else if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        else if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_JOINED,NULL,&s->StreamHandle,NULL);
         } else {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_DISJOINED_VIDEO,NULL,&s->StreamHandle,NULL);

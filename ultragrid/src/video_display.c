@@ -178,8 +178,8 @@ static display_table_t display_device_table[] = {
          display_deltacast_putf,
          display_deltacast_reconfigure,
          display_deltacast_get_property,
-         NULL,
-         NULL,
+         display_deltacast_get_audio_frame,
+         display_deltacast_put_audio_frame,
          },
 #endif                          /* HAVE_DELTACAST */
 #ifdef HAVE_DVS

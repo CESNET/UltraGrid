@@ -445,7 +445,7 @@ case $host in
         
         AC_LANG_PUSH(C++)
 
-        AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h],
+        AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
                 FOUND_DELTACAST_H=yes, FOUND_DELTACAST_H=no,
                 [[#ifdef HAVE_VIDEOMASTERHD_CORE_H
                 # include <VideoMasterHD_Core.h>

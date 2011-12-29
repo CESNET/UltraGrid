@@ -64,15 +64,22 @@ extern "C" {
 #include "video_display/deltacast.h"
 #include "debug.h"
 #include "audio/audio.h"
+#include "audio/utils.h"
+#include "utils/ring_buffer.h"
 
 #include "VideoMasterHD_Core.h"
 #include "VideoMasterHD_Sdi.h"
+#include "VideoMasterHD_Sdi_Audio.h"
 
 #define DELTACAST_MAGIC DISPLAY_DELTACAST_ID
 
 #ifdef __cplusplus
 } // END of extern "C"
 #endif
+
+void display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
+                                int sample_rate);
+
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
         {VHD_VIDEOSTD_S274M_1080p_25Hz, "SMPTE 274M 1080p 25 Hz", 1920u, 1080u, 25.0, PROGRESSIVE},
@@ -105,6 +112,16 @@ struct state_deltacast {
         bool                initialized;
         HANDLE              BoardHandle, StreamHandle;
         HANDLE              SlotHandle;
+
+        pthread_mutex_t     lock;
+
+        unsigned int play_audio:1;
+        unsigned int audio_configured:1;
+        VHD_AUDIOINFO     AudioInfo;
+        SHORT            *pSample;
+        struct audio_frame  audio_frame;
+        struct ring_buffer  *audio_channels[16];
+        char            *audio_tmp;
  };
 
 static void show_help(void);
@@ -150,11 +167,42 @@ int display_deltacast_putf(void *state, char *frame)
         int tmp;
         struct state_deltacast *s = (struct state_deltacast *)state;
         struct timeval tv;
+        int i;
+        ULONG Result;
 
         UNUSED(frame);
 
         assert(s->magic == DELTACAST_MAGIC);
         
+        pthread_mutex_lock(&s->lock);
+        if(s->play_audio && s->audio_configured) {
+                /* Retrieve the number of needed samples */
+                for(i = 0; i < s->audio_frame.ch_count; ++i) {
+                        s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].DataSize = 0;
+                }
+                Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
+                if (Result != VHDERR_BUFFERTOOSMALL)
+                {
+                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08X\n",Result);
+                } else {
+                        for(i = 0; i < s->audio_frame.ch_count; ++i) {
+                                int ret;
+                                ret = ring_buffer_read(s->audio_channels[i], (char *) s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].pData, s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].DataSize);
+                                if(!ret) {
+                                        fprintf(stderr, "[DELTACAST] Buffer underflow for channel %d.\n", i);
+                                }
+                                s->AudioInfo.pAudioGroups[0].pAudioChannels[0].DataSize = ret;
+                        }
+                }
+                /* Embed audio */
+                Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
+                if (Result != VHDERR_NOERROR)
+                {
+                        fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08X\n",Result);
+                }
+        }
+        pthread_mutex_unlock(&s->lock);
+
         VHD_UnlockSlotHandle(s->SlotHandle);
         s->SlotHandle = NULL;
         
@@ -199,12 +247,16 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 }
         }
         if(i == deltacast_frame_modes_count) {
-                fprintf(stderr, "[DELTACAST] Failed to obtain video format for incoming video");
+                fprintf(stderr, "[DELTACAST] Failed to obtain video format for incoming video: %dx%d @ %2.2f %s\n", desc.width, desc.height,
+                                                                        (double) desc.fps, get_interlacing_description(desc.interlacing));
+
                 goto error;
         }
         
         if(desc.color_spec == RAW) {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_TX0,VHD_SDI_STPROC_RAW,NULL,&s->StreamHandle,NULL);
+        } else if (s->play_audio == TRUE) {
+                Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_TX0,VHD_SDI_STPROC_JOINED,NULL,&s->StreamHandle,NULL);
         } else {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_TX0,VHD_SDI_STPROC_DISJOINED_VIDEO,NULL,&s->StreamHandle,NULL);
         }
@@ -238,8 +290,6 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
         
-        UNUSED(flags);
-
         s = (struct state_deltacast *)calloc(1, sizeof(struct state_deltacast));
         s->magic = DELTACAST_MAGIC;
         
@@ -250,10 +300,19 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
         gettimeofday(&s->tv, NULL);
         
         s->initialized = FALSE;
+        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+                s->play_audio = TRUE;
+                s->audio_frame.state = s;
+                s->audio_frame.reconfigure_audio = display_deltacast_reconfigure_audio;
+        } else {
+                s->play_audio = FALSE;
+        }
         
         s->BoardHandle = s->BoardHandle = s->SlotHandle = NULL;
+        s->audio_configured = FALSE;
+        pthread_mutex_init(&s->lock, NULL);
 
-        if(!fmt || strcmp(fmt, "help") == 0) {
+        if(fmt && strcmp(fmt, "help") == 0) {
                 show_help();
                 goto error;
         }
@@ -397,3 +456,77 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
         }
         return TRUE;
 }
+
+void display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
+                                int sample_rate)
+{
+        struct state_deltacast *s = (struct state_deltacast *)state;
+        int i;
+
+        assert(channels <= 16);
+
+        pthread_mutex_lock(&s->lock);
+        s->audio_configured = FALSE;
+        for(i = 0; i < 16; ++i) {
+                ring_buffer_destroy(s->audio_channels[i]);
+                s->audio_channels[i] = NULL;
+        }
+        free(s->audio_frame.data);
+        free(s->audio_tmp);
+
+        s->audio_frame.bps = quant_samples / 8;
+        s->audio_frame.ch_count = channels;
+        s->audio_frame.sample_rate = sample_rate;
+
+        s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
+        s->audio_frame.data = (char *) malloc(s->audio_frame.max_size);
+        for(i = 0; i < channels; ++i) {
+                s->audio_channels[i] = ring_buffer_init(s->audio_frame.bps * s->audio_frame.sample_rate);
+        }
+        s->audio_tmp = (char *) malloc(s->audio_frame.bps * s->audio_frame.sample_rate);
+
+        /* Configure audio info */
+        memset(&s->AudioInfo, 0, sizeof(VHD_AUDIOINFO));
+        for(i = 0; i < channels; ++i) {
+                VHD_AUDIOCHANNEL *pAudioChn=NULL;
+                pAudioChn = &s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4];
+                pAudioChn->Mode = VHD_AM_MONO;
+                switch(quant_samples) {
+                        case 16:
+                                pAudioChn->BufferFormat = VHD_AF_16; 
+                                break;
+                        case 20:
+                                pAudioChn->BufferFormat = VHD_AF_20; 
+                                break;
+                        case 24:
+                                pAudioChn->BufferFormat = VHD_AF_24; 
+                                break;
+                        default:
+                                fprintf(stderr, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
+                }
+                pAudioChn->pData = new BYTE[s->audio_frame.bps * s->audio_frame.sample_rate];
+        }
+
+        s->audio_configured = TRUE;
+        pthread_mutex_unlock(&s->lock);
+}
+
+struct audio_frame * display_deltacast_get_audio_frame(void *state)
+{
+        struct state_deltacast *s = (struct state_deltacast *)state;
+
+        return &s->audio_frame;
+}
+
+void display_deltacast_put_audio_frame(void *state, struct audio_frame *frame)
+{
+        struct state_deltacast *s = (struct state_deltacast *)state;
+        int i;
+        int channel_len = frame->data_len / frame->ch_count;
+
+        for(i = 0; i < s->audio_frame.ch_count; ++i) {
+                 demux_channel(s->audio_tmp, frame->data, frame->bps, frame->data_len, frame->ch_count, i);
+                 ring_buffer_write(s->audio_channels[i], s->audio_tmp, channel_len);
+        }
+}
+
