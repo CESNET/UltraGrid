@@ -171,7 +171,7 @@ void il_upper_to_merged(char *dst, char *src, int linesize, int height)
         }
 
         line1 = tmp + linesize;
-        line2 = src + linesize * (height + 1) / 2;
+        line2 = src + linesize * ((height + 1) / 2);
         for(y = 0; y < height / 2; y ++) {
                 memcpy(line1, line2, linesize);
                 line1 += linesize * 2;
@@ -195,9 +195,9 @@ void il_merged_to_upper(char *dst, char *src, int linesize, int height)
                 line2 += linesize * 2;
         }
 
-        line1 = tmp + linesize * height / 2;
+        line1 = tmp + linesize * ((height + 1) / 2);
         line2 = src + linesize;
-        for(y = 0; y < (height + 1) / 2; y ++) {
+        for(y = 0; y < height / 2; y ++) {
                 memcpy(line1, line2, linesize);
                 line1 += linesize;
                 line2 += linesize * 2;

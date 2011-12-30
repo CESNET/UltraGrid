@@ -465,9 +465,10 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         if (fmt == NULL || strcmp(fmt, "help") == 0) {
                 printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>]\n");
+                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>][:i|:sf]\n");
                 printf("\tp - pan with frame\n");
                 printf("\ts - split the frames into XxY separate tiles\n");
+                printf("\ti|sf - send as interlaced or segmented frame (only attribute\n");
                 show_codec_help("testcard");
                 return NULL;
         }
@@ -542,7 +543,9 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         filename = strtok(NULL, ":");
         if (filename && strcmp(filename, "p") != 0
-                        && strncmp(filename, "s=", 2ul) != 0) {
+                        && strncmp(filename, "s=", 2ul) != 0
+                        && strcmp(filename, "i") != 0
+                        && strcmp(filename, "sf") != 0) {
                 s->data = malloc(s->size * 2);
                 if (stat(filename, &sb)) {
                         perror("stat");
@@ -569,19 +572,13 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 }
 
                 fclose(in);
+                tmp = strtok(NULL, ":");
         } else {
                 struct testcard_rect r;
                 int col_num = 0;
                 s->pixmap.w = aligned_x;
                 s->pixmap.h = vf_get_tile(s->frame, 0)->height * 2;
                 s->pixmap.data = malloc(s->pixmap.w * s->pixmap.h * sizeof(int));
-
-                if (filename) {
-                        if(filename[0] == 'p')
-                                s->pan = 48;
-                        else if(filename[0] == 's')
-                                strip_fmt = filename;
-                }
 
                 for (j = 0; j < vf_get_tile(s->frame, 0)->height; j += rect_size) {
                         int grey = 0xff010101;
@@ -639,6 +636,20 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                         toRGB((unsigned char *) s->data, vf_get_tile(s->frame, 0)->width,
                                            vf_get_tile(s->frame, 0)->height);
                 }
+                tmp = filename;
+        }
+
+        while (tmp) {
+                if (strcmp(tmp, "p") == 0) {
+                        s->pan = 48;
+                } else if (strncmp(tmp, "s=", 2) == 0) {
+                        strip_fmt = tmp;
+                } else if (strcmp(tmp, "i") == 0) {
+                        s->frame->interlacing = INTERLACED_MERGED;
+                } else if (strcmp(tmp, "sf") == 0) {
+                        s->frame->interlacing = SEGMENTED_FRAME;
+                }
+                tmp = strtok(NULL, ":");
         }
 
         vf_get_tile(s->frame, 0)->data = malloc(2 * s->size);
@@ -652,20 +663,6 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         s->data = vf_get_tile(s->frame, 0)->data;
 
-        tmp = strtok(NULL, ":");
-        if (tmp) {
-                if (tmp[0] == 'p') {
-                        s->pan = 48;
-                } else if (tmp[0] == 's') {
-                        strip_fmt = tmp;
-                }
-        }
-        tmp = strtok(NULL, ":");
-        if (tmp) {
-                if (tmp[0] == 's') {
-                        strip_fmt = tmp;
-                }
-        }
 
         s->count = 0;
         gettimeofday(&(s->last_frame_time), NULL);
