@@ -452,23 +452,26 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RSHIFT,
                         &decoder->rshift, &len);
         if(!ret) {
-                debug_msg("Failed to get properties from video driver.");
+                debug_msg("Failed to get rshift property from video driver.\n");
+                decoder->rshift = 0;
         }
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_GSHIFT,
                         &decoder->gshift, &len);
         if(!ret) {
-                debug_msg("Failed to get properties from video driver.");
+                debug_msg("Failed to get gshift property from video driver.\n");
+                decoder->gshift = 8;
         }
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BSHIFT,
                         &decoder->bshift, &len);
         if(!ret) {
-                debug_msg("Failed to get properties from video driver.");
+                debug_msg("Failed to get bshift property from video driver.\n");
+                decoder->bshift = 16;
         }
         
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
                         &decoder->requested_pitch, &len);
         if(!ret) {
-                debug_msg("Failed to get pitch from video driver.");
+                debug_msg("Failed to get pitch from video driver.\n");
                 decoder->requested_pitch = PITCH_DEFAULT;
         }
         

@@ -70,10 +70,12 @@ static pthread_once_t DVSLibraryLoad = PTHREAD_ONCE_INIT;
 static void loadLibrary(void);
 
 typedef void *(*vidcap_dvs_init_t)(char *fmt, unsigned int flags);
+typedef void (*vidcap_dvs_finish_t)(void *state);
 typedef void (*vidcap_dvs_done_t)(void *state);
 typedef struct video_frame *(*vidcap_dvs_grab_t)(void *state, struct audio_frame **audio);
 
 static vidcap_dvs_init_t vidcap_dvs_init_func = NULL;
+static vidcap_dvs_finish_t vidcap_dvs_finish_func = NULL;
 static vidcap_dvs_done_t vidcap_dvs_done_func = NULL;
 static vidcap_dvs_grab_t vidcap_dvs_grab_func = NULL;
 
@@ -86,6 +88,8 @@ static void loadLibrary()
         
         vidcap_dvs_init_func = (vidcap_dvs_init_t) dlsym(handle,
                         "vidcap_dvs_init_impl");
+        vidcap_dvs_finish_func = (vidcap_dvs_finish_t) dlsym(handle,
+                        "vidcap_dvs_finish_impl");
         vidcap_dvs_done_func = (vidcap_dvs_done_t) dlsym(handle,
                         "vidcap_dvs_done_impl");
         vidcap_dvs_grab_func = (vidcap_dvs_grab_t) dlsym(handle,
@@ -114,6 +118,15 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
         if (vidcap_dvs_init_func == NULL)
                 return NULL;
         return vidcap_dvs_init_func(fmt, flags);
+}
+
+void vidcap_dvs_finish(void *state)
+{
+        pthread_once(&DVSLibraryLoad, loadLibrary);
+        
+        if (vidcap_dvs_finish_func == NULL)
+                return;
+        vidcap_dvs_finish_func(state);
 }
 
 void vidcap_dvs_done(void *state)

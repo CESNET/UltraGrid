@@ -44,9 +44,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#define VIDCAP_QUAD_ID	0x10203044
+#define VIDCAP_QUAD_ID  0x10203044
 
-struct vidcap_type	*vidcap_quad_probe(void);
-void			    *vidcap_quad_init(char *fmt, unsigned int flags);
-void			     vidcap_quad_done(void *state);
-struct video_frame	*vidcap_quad_grab(void *state, struct audio_frame **audio);
+struct vidcap_type      *vidcap_quad_probe(void);
+void                    *vidcap_quad_init(char *fmt, unsigned int flags);
+void                     vidcap_quad_finish(void *state);
+void                     vidcap_quad_done(void *state);
+struct video_frame      *vidcap_quad_grab(void *state, struct audio_frame **audio);

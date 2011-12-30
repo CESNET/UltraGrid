@@ -925,6 +925,12 @@ error:
 }
 
 void
+vidcap_decklink_finish(void *state)
+{
+        UNUSED(state);
+}
+
+void
 vidcap_decklink_done(void *state)
 {
 	debug_msg("vidcap_decklink_done\n"); /* TOREMOVE */

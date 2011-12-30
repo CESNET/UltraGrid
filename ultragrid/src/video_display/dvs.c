@@ -73,6 +73,7 @@ static void loadLibrary(void);
 typedef void *(*display_dvs_init_t)(char *fmt, unsigned int flags);
 typedef void (*display_dvs_run_t)(void *state);
 typedef void (*display_dvs_done_t)(void *state);
+typedef void (*display_dvs_finish_t)(void *state);
 typedef struct video_frame *(*display_dvs_getf_t)(void *state);
 typedef int (*display_dvs_putf_t)(void *state, char *frame);
 typedef struct audio_frame * (*display_dvs_get_audio_frame_t)(void *state);
@@ -83,6 +84,7 @@ typedef int (*display_dvs_get_property_t)(void *state, int property, void *val, 
 
 static display_dvs_init_t display_dvs_init_func = NULL;
 static display_dvs_run_t display_dvs_run_func = NULL;
+static display_dvs_finish_t display_dvs_finish_func = NULL;
 static display_dvs_done_t display_dvs_done_func = NULL;
 static display_dvs_getf_t display_dvs_getf_func = NULL;
 static display_dvs_putf_t display_dvs_putf_func = NULL;
@@ -171,6 +173,8 @@ static void loadLibrary()
                         "display_dvs_init_impl");
         display_dvs_run_func = (display_dvs_run_t) dlsym(handle,
                         "display_dvs_run_impl");
+        display_dvs_finish_func = (display_dvs_finish_t) dlsym(handle,
+                        "display_dvs_finish_impl");
         display_dvs_done_func = (display_dvs_done_t) dlsym(handle,
                         "display_dvs_done_impl");
         display_dvs_getf_func = (display_dvs_getf_t) dlsym(handle,
@@ -222,6 +226,15 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         if (display_dvs_init_func == NULL)
                 return NULL;
         return display_dvs_init_func(fmt, flags);
+}
+
+void display_dvs_finish(void *state)
+{
+        pthread_once(&DVSLibraryLoad, loadLibrary);
+        
+        if (display_dvs_finish_func == NULL)
+                return;
+        display_dvs_finish_func(state);
 }
 
 void display_dvs_done(void *state)

@@ -663,6 +663,11 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         return (void *)s;
 }
 
+void display_sdl_finish(void *state)
+{
+        UNUSED(state);
+}
+
 void display_sdl_done(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;

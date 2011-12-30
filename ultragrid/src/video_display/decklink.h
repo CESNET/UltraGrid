@@ -52,6 +52,7 @@ extern "C" {
 display_type_t      *display_decklink_probe(void);
 void                *display_decklink_init(char *fmt, unsigned int flags);
 void                 display_decklink_run(void *state);
+void                 display_decklink_finish(void *state);
 void                 display_decklink_done(void *state);
 struct video_frame  *display_decklink_getf(void *state);
 int                  display_decklink_putf(void *state, char *frame);

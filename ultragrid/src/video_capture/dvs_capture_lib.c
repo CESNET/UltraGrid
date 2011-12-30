@@ -414,6 +414,11 @@ void *vidcap_dvs_init_impl(char *fmt, unsigned int flags)
         return NULL;
 }
 
+void vidcap_dvs_finish_impl(void *state)
+{
+        UNUSED(state);
+}
+
 void vidcap_dvs_done_impl(void *state)
 {
         struct vidcap_dvs_state *s =

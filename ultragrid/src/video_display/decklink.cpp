@@ -724,6 +724,11 @@ void display_decklink_run(void *state)
         UNUSED(state);
 }
 
+void display_decklink_finish(void *state)
+{
+        UNUSED(state);
+}
+
 void display_decklink_done(void *state)
 {
         struct state_decklink *s = (struct state_decklink *)state;

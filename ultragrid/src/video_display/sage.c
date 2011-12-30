@@ -159,6 +159,13 @@ void *display_sage_init(char *fmt, unsigned int flags)
         return (void *)s;
 }
 
+void display_sage_finish(void *state)
+{
+        struct state_sage *s = (struct state_sage *)state;
+
+        assert(s->magic == MAGIC_SAGE);
+}
+
 void display_sage_done(void *state)
 {
         struct state_sage *s = (struct state_sage *)state;
@@ -284,3 +291,16 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
         }
         return TRUE;
 }
+
+struct audio_frame * display_sage_get_audio_frame(void *state)
+{
+        UNUSED(state);
+        return NULL;
+}
+
+void display_sage_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        UNUSED(state);
+        UNUSED(frame);
+}
+

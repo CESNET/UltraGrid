@@ -58,6 +58,7 @@ extern const hdsp_mode_table_t hdsp_mode_table[];
 
 void                *display_dvs_init_impl(char *fmt, unsigned int flags);
 void                 display_dvs_run_impl(void *state);
+void                 display_dvs_finish_impl(void *state);
 void                 display_dvs_done_impl(void *state);
 struct video_frame  *display_dvs_getf_impl(void *state);
 int                  display_dvs_putf_impl(void *state, char *frame);

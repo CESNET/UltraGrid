@@ -424,6 +424,12 @@ error:
 }
 
 void
+vidcap_deltacast_finish(void *state)
+{
+        UNUSED(state);
+}
+
+void
 vidcap_deltacast_done(void *state)
 {
 	struct vidcap_deltacast_state *s = (struct vidcap_deltacast_state *) state;

@@ -327,6 +327,11 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         return s;
 }
 
+void vidcap_testcard2_finish(void *state)
+{
+        UNUSED(state);
+}
+
 void vidcap_testcard2_done(void *state)
 {
         struct testcard_state2 *s = state;

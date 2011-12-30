@@ -74,6 +74,11 @@ void display_null_run(void *arg)
         UNUSED(arg);
 }
 
+void display_null_finish(void *state)
+{
+        UNUSED(state);
+}
+
 void display_null_done(void *state)
 {
         struct state_null *s = (struct state_null *)state;
@@ -126,5 +131,17 @@ int display_null_reconfigure(void *state, struct video_desc desc)
         assert(s->magic == MAGIC_NULL);
 
         return TRUE;
+}
+
+struct audio_frame * display_null_get_audio_frame(void *state)
+{
+        UNUSED(state);
+        return NULL;
+}
+
+void display_null_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        UNUSED(state);
+        UNUSED(frame);
 }
 

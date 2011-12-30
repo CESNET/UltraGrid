@@ -801,6 +801,11 @@ audio_error:
         s->play_audio = FALSE;
 }
 
+void display_quicktime_finish(void *state)
+{
+        UNUSED(state);
+}
+
 void display_quicktime_done(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;

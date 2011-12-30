@@ -734,6 +734,10 @@ void *display_dvs_init_impl(char *fmt, unsigned int flags)
         return (void *)s;
 }
 
+void display_dvs_finish_impl(void *state)
+{
+}
+
 void display_dvs_done_impl(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;

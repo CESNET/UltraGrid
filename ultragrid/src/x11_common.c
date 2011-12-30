@@ -82,11 +82,11 @@ void x11_set_display(void *disp)
                 return;
         pthread_mutex_lock(&lock);
         if(display != NULL) {
-                fprintf(stderr, __FILE__ ": Fatal error: Display already set.");
+                fprintf(stderr, __FILE__ ": Fatal error: Display already set.\n");
                 abort();
         }
         if(threads_init == FALSE) {
-                fprintf(stderr, __FILE__ ": WARNING: Doesn't entered threads. Please report a bug.");
+                fprintf(stderr, __FILE__ ": WARNING: Doesn't entered threads. Please report a bug.\n");
         }
         display = d;
         display_opened_here = FALSE;

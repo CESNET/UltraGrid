@@ -661,6 +661,12 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
 }
 
 void
+vidcap_quad_finish(void *state)
+{
+        UNUSED(state);
+}
+
+void
 vidcap_quad_done(void *state)
 {
 	struct vidcap_quad_state *s = (struct vidcap_quad_state *) state;

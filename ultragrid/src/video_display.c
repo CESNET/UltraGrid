@@ -99,8 +99,8 @@ static display_table_t display_device_table[] = {
          display_aggregate_putf,
          display_aggregate_reconfigure,
          display_aggregate_get_property,
-         NULL,
-         NULL,
+         display_aggregate_get_audio_frame,
+         display_aggregate_put_audio_frame,
          },
 #ifdef HAVE_SDL
         {
@@ -109,7 +109,7 @@ static display_table_t display_device_table[] = {
          display_sdl_init,
          display_sdl_run,
          display_sdl_done,
-         NULL,
+         display_sdl_finish,
          display_sdl_getf,
          display_sdl_putf,
          display_sdl_reconfigure,
@@ -130,8 +130,8 @@ static display_table_t display_device_table[] = {
          display_gl_putf,
          display_gl_reconfigure,
          display_gl_get_property,
-         NULL,
-         NULL,
+         display_gl_get_audio_frame,
+         display_gl_put_audio_frame,
          },
 #ifdef HAVE_SAGE
         {
@@ -140,13 +140,13 @@ static display_table_t display_device_table[] = {
          display_sage_init,
          display_sage_run,
          display_sage_done,
-         NULL,
+         display_sage_finish,
          display_sage_getf,
          display_sage_putf,
          display_sage_reconfigure,
          display_sage_get_property,
-         NULL,
-         NULL,
+         display_sage_get_audio_frame,
+         display_sage_put_audio_frame,
          },
 #endif                          /* HAVE_SAGE */
 #endif                          /* HAVE_GL */
@@ -157,7 +157,7 @@ static display_table_t display_device_table[] = {
          display_decklink_init,
          display_decklink_run,
          display_decklink_done,
-         NULL,
+         display_decklink_finish,
          display_decklink_getf,
          display_decklink_putf,
          display_decklink_reconfigure,
@@ -173,7 +173,7 @@ static display_table_t display_device_table[] = {
          display_deltacast_init,
          display_deltacast_run,
          display_deltacast_done,
-         NULL,
+         display_deltacast_finish,
          display_deltacast_getf,
          display_deltacast_putf,
          display_deltacast_reconfigure,
@@ -189,7 +189,7 @@ static display_table_t display_device_table[] = {
          display_dvs_init,
          display_dvs_run,
          display_dvs_done,
-         NULL,
+         display_dvs_finish,
          display_dvs_getf,
          display_dvs_putf,
          display_dvs_reconfigure,
@@ -205,7 +205,7 @@ static display_table_t display_device_table[] = {
          display_quicktime_init,
          display_quicktime_run,
          display_quicktime_done,
-         NULL,
+         display_quicktime_finish,
          display_quicktime_getf,
          display_quicktime_putf,
          display_quicktime_reconfigure,
@@ -220,13 +220,13 @@ static display_table_t display_device_table[] = {
          display_null_init,
          display_null_run,
          display_null_done,
-         NULL,
+         display_null_finish,
          display_null_getf,
          display_null_putf,
          display_null_reconfigure,
          display_null_get_property,
-         NULL,
-         NULL,
+         display_null_get_audio_frame,
+         display_null_put_audio_frame,
          }
 };
 
@@ -320,9 +320,7 @@ struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
 void display_finish(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if(display_device_table[d->index].func_finish) {
-                display_device_table[d->index].func_finish(d->state);
-        }
+        display_device_table[d->index].func_finish(d->state);
 }
 
 void display_done(struct display *d)
@@ -366,8 +364,6 @@ int display_get_property(struct display *d, int property, void *val, size_t *len
 struct audio_frame *display_get_audio_frame(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        if(display_device_table[d->index].func_get_audio_frame == NULL)
-                return NULL;
         return display_device_table[d->index].func_get_audio_frame(d->state);
 }
 

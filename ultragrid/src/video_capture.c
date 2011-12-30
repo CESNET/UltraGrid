@@ -88,7 +88,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_aggregate_probe,
          vidcap_aggregate_init,
-         NULL,
+         vidcap_aggregate_finish,
          vidcap_aggregate_done,
          vidcap_aggregate_grab},
 #ifdef HAVE_DVS
@@ -97,7 +97,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_dvs_probe,
          vidcap_dvs_init,
-         NULL,
+         vidcap_dvs_finish,
          vidcap_dvs_done,
          vidcap_dvs_grab},
 #endif                          /* HAVE_DVS */
@@ -107,7 +107,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_decklink_probe,
          vidcap_decklink_init,
-         NULL,
+         vidcap_decklink_finish,
          vidcap_decklink_done,
          vidcap_decklink_grab},
 #endif                          /* HAVE_DECKLINK */
@@ -117,7 +117,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_deltacast_probe,
          vidcap_deltacast_init,
-         NULL,
+         vidcap_deltacast_finish,
          vidcap_deltacast_done,
          vidcap_deltacast_grab},
 #endif                          /* HAVE_DELTACAST */
@@ -127,7 +127,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_quad_probe,
          vidcap_quad_init,
-         NULL,
+         vidcap_quad_finish,
          vidcap_quad_done,
          vidcap_quad_grab},
 #endif                          /* HAVE_QUAD */
@@ -146,7 +146,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_testcard_probe,
          vidcap_testcard_init,
-         NULL,
+         vidcap_testcard_finish,
          vidcap_testcard_done,
          vidcap_testcard_grab},
 #ifdef HAVE_SDL
@@ -155,7 +155,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_testcard2_probe,
          vidcap_testcard2_init,
-         NULL,
+         vidcap_testcard2_finish,
          vidcap_testcard2_done,
          vidcap_testcard2_grab},
 #endif /* HAVE_SDL */
@@ -163,7 +163,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          0,
          vidcap_null_probe,
          vidcap_null_init,
-         NULL,
+         vidcap_null_finish,
          vidcap_null_done,
          vidcap_null_grab}
 };
@@ -260,8 +260,7 @@ void vidcap_done(struct vidcap *state)
 void vidcap_finish(struct vidcap *state)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        if(vidcap_device_table[state->index].func_finish)
-                vidcap_device_table[state->index].func_finish(state->state);
+        vidcap_device_table[state->index].func_finish(state->state);
 }
 
 struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio)

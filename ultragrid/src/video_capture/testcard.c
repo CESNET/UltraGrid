@@ -105,6 +105,7 @@ struct testcard_state {
         struct audio_frame audio;
         char **tiles_data;
         int tiles_cnt_horizontal;
+        int tiles_cnt_vertical;
         
         char *audio_data;
         volatile int audio_start, audio_end;
@@ -400,7 +401,8 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         free(tmp);
         
         s->tiled = vf_alloc(grid_w * grid_h);
-        s->tiles_cnt_horizontal = grid_h;
+        s->tiles_cnt_horizontal = grid_w;
+        s->tiles_cnt_vertical = grid_h;
         s->tiled->color_spec = s->frame->color_spec;
         s->tiled->fps = s->frame->fps;
         s->tiled->interlacing = s->frame->interlacing;
@@ -691,23 +693,26 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         return s;
 }
 
+void vidcap_testcard_finish(void *state)
+{
+        UNUSED(state);
+}
+
 void vidcap_testcard_done(void *state)
 {
         struct testcard_state *s = state;
-#if 0
         free(s->data);
-        if (tile_get(s->frame, 0, 0)->aux & AUX_TILED) {
+        if (s->tiled) {
                 int i;
-                for (i = 0; i < s->frame.grid_width; ++i) {
+                for (i = 0; i < s->tiles_cnt_horizontal; ++i) {
                         free(s->tiles_data[i]);
                 }
-                free(s->tiles);
+                vf_free(s->tiled);
         }
         if(s->audio_data) {
                 free(s->audio_data);
         }
         free(s);
-#endif
 }
 
 struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
@@ -796,7 +801,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                                  * keep in mind that we have two "pictures" for
                                  * every tile stored sequentially */
                                 if(state->tiled->tiles[i].data >= state->tiles_data[i] +
-                                                state->tiled->tiles[i].data_len * state->tiles_cnt_horizontal) {
+                                                state->tiled->tiles[i].data_len * state->tiles_cnt_vertical) {
                                         state->tiled->tiles[i].data = state->tiles_data[i];
                                 }
                         }

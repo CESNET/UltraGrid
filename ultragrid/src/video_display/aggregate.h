@@ -49,6 +49,7 @@
 #include <video_codec.h>
 
 #define DISPLAY_AGGREGATE_ID	0xbbcaa321
+struct audio_frame;
 
 display_type_t		*display_aggregate_probe(void);
 void 			*display_aggregate_init(char *fmt, unsigned int flags);
@@ -59,4 +60,7 @@ struct video_frame	*display_aggregate_getf(void *state);
 int  			 display_aggregate_putf(void *state, char *frame);
 int                      display_aggregate_reconfigure(void *state, struct video_desc desc);
 int                      display_aggregate_get_property(void *state, int property, void *val, size_t *len);
+
+struct audio_frame *    display_aggregate_get_audio_frame(void *state);
+void                    display_aggregate_put_audio_frame(void *state, const struct audio_frame *frame);
 

@@ -296,11 +296,14 @@ int display_aggregate_get_property(void *state, int property, void *val, size_t 
 
                                 for (i = 0; i < s->devices_cnt; ++i) {
                                         codecs[i] = malloc(*len);
+                                        lens[i] = *len;
                                 }
                                 for (i = 0; i < s->devices_cnt; ++i) {
                                         int ret;
                                         ret = display_get_property(s->devices[i], DISPLAY_PROPERTY_CODECS, codecs[i], &lens[i]);
-                                        if(!ret) goto err_codecs;
+                                        if(!ret) {
+                                                goto err_codecs;
+                                        }
                                 }
 
                                 /* for each codec check if is included in all drivers */
@@ -345,19 +348,21 @@ err_codecs:
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         {
                                 int ret;
-                                int val;
+                                int first_val;
                                 size_t size;
-                                ret = display_get_property(s->devices[0], property, &val, &size);
+                                ret = display_get_property(s->devices[0], property, &first_val, &size);
                                 if(!ret) goto err;
 
                                 for (i = 1; i < s->devices_cnt; ++i) {
                                         int new_val;
                                         ret = display_get_property(s->devices[i], property, &new_val, &size);
                                         if(!ret) goto err;
-                                        if(new_val != val)
+                                        if(new_val != first_val)
                                                 goto err;
 
                                 }
+                                *len = size;
+                                *(int *) val = first_val;
                                 return TRUE;
 err:
                                 return FALSE;
@@ -377,5 +382,17 @@ err:
                         return FALSE;
         }
         return TRUE;
+}
+
+struct audio_frame * display_aggregate_get_audio_frame(void *state)
+{
+        struct display_aggregate_state *s = (struct display_aggregate_state *)state;
+        return display_get_audio_frame(s->devices[0]);
+}
+
+void display_aggregate_put_audio_frame(void *state, const struct audio_frame *frame)
+{
+        struct display_aggregate_state *s = (struct display_aggregate_state *)state;
+        display_put_audio_frame(s->devices[0], frame);
 }
 

@@ -48,6 +48,7 @@
 
 struct vidcap_type	*vidcap_testcard2_probe(void);
 void			*vidcap_testcard2_init(char *fmt, unsigned int flags);
+void			 vidcap_testcard2_finish(void *state);
 void			 vidcap_testcard2_done(void *state);
 struct video_frame	*vidcap_testcard2_grab(void *state, struct audio_frame **audio);
 
