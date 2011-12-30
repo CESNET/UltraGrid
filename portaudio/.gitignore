@@ -2,4 +2,10 @@
 !bindings
 !bin*
 !lib*
+libtool
+Makefile
+/portaudio-2.0.pc
 
+/bindings/cpp/bin/.deps/
+/bindings/cpp/lib/.deps/
+/bindings/cpp/portaudiocpp.pc
