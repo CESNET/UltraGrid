@@ -10,7 +10,7 @@ class Terminal : public QDialog, private Ui::TerminalDlg
 {
     Q_OBJECT
 public:
-    explicit Terminal(QDialog *parent = 0);
+    explicit Terminal(QWidget *parent = 0);
     void insertText(QString text);
 
 signals:
