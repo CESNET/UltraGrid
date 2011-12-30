@@ -1,7 +1,7 @@
 #include "terminal.h"
 
-Terminal::Terminal(QDialog *parent) :
-    QDialog(parent)
+Terminal::Terminal(QWidget *parent) :
+        QDialog(parent)
 {
     setupUi(this); // this sets up GUI
 }

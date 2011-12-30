@@ -7,7 +7,8 @@
 #include <QStringList>
 #include "terminal.h"
 
-AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent)
+AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
+        QDialog(parent)
 {
     this->settings = settings;
     setupUi(this); // this sets up GUI
@@ -115,8 +116,8 @@ void AdvancedWindow::doCancel()
      process.waitForFinished();
      QByteArray output = process.readAllStandardOutput();
 
-     Terminal *term = new Terminal;
-     term->insertText(output, this);
+     Terminal *term = new Terminal(this);
+     term->insertText(output);
      term->show();
  }
 
@@ -131,7 +132,7 @@ void AdvancedWindow::doCancel()
      process.waitForFinished();
      QByteArray output = process.readAllStandardOutput();
 
-     Terminal *term = new Terminal;
-     term->insertText(output, this);
+     Terminal *term = new Terminal(this);
+     term->insertText(output);
      term->show();
  }
