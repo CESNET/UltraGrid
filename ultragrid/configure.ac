@@ -446,9 +446,12 @@ case $host in
         AC_LANG_PUSH(C++)
 
         AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
-                FOUND_DELTACAST_H=yes, FOUND_DELTACAST_H=no,
+                [], [],
                 [[#ifdef HAVE_VIDEOMASTERHD_CORE_H
                 # include <VideoMasterHD_Core.h>
+                #endif
+                #ifdef HAVE_VIDEOMASTERHD_SDI_H
+                # include <VideoMasterHD_Sdi.h>
                 #endif
                 ]])
         AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle)
@@ -459,8 +462,8 @@ case $host in
         CXXFLAGS=$CXXFLAGS_SAVE
         CPPFLAGS=$CPPFLAGS_SAVE
 
-        if test $deltacast_req = yes -a $FOUND_DELTACAST_H = yes -a "$ac_cv_lib_videomasterhd_VHD_OpenBoardHandle" = yes -a "$ac_cv_lib_videomasterhd_audio_VHD_GetNbSamples" = yes
-
+        if test $deltacast_req = yes -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
+                -a "$ac_cv_lib_videomasterhd_VHD_OpenBoardHandle" = yes -a "$ac_cv_lib_videomasterhd_audio_VHD_GetNbSamples" = yes
         then
             DELTACAST_INC="-I$DELTACAST_INC"
             DELTACAST_OBJ="src/video_capture/deltacast.o src/video_display/deltacast.o"
