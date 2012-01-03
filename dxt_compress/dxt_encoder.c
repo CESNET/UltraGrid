@@ -214,6 +214,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     
     // User compress program and set image size parameters
     glUseProgramObjectARB(encoder->program_compress);
+//glBindFragDataLocation(encoder->program_compress, 0, "colorInt");
     glUniform1i(glGetUniformLocation(encoder->program_compress, "image"), 0);
     
     if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
@@ -262,7 +263,6 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
             case DXT_FORMAT_YUV422:
                         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo444_id);
                         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, encoder->texture_id, 0);
-                        //assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
                         glBindTexture(GL_TEXTURE_2D, encoder->texture_yuv422);
                         
                         glPushAttrib(GL_VIEWPORT_BIT);
@@ -271,7 +271,6 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
                         glUseProgramObjectARB(encoder->yuv422_to_444_program);
                         
-                        //glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
                         
                         glBegin(GL_QUADS);
                         glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
@@ -306,6 +305,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     
     TIMER_START();
     
+    glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+    assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
+
     // Compress
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
@@ -331,6 +333,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glFinish();
 #endif
     TIMER_STOP_PRINT("Texture Save:      ");
+    gl_check_error();
     
     return 0;
 }
