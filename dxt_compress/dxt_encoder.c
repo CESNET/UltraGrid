@@ -154,7 +154,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
-        glTexImage2D(GL_TEXTURE_2D, 0 , GL_LUMINANCE_ALPHA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_INT, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, encoder->width / 4, encoder->height /  4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
     
@@ -327,7 +327,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
         glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
     else
-        glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_LUMINANCE_ALPHA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
+        glReadPixels(0, 0, encoder->width / 4 , encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
         
 #ifdef DEBUG
     glFinish();

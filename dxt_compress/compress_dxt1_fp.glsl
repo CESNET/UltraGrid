@@ -2,6 +2,11 @@
 
 #define lerp mix
 
+// Image formats
+const int FORMAT_RGB = 0;
+const int FORMAT_YUV = 1;
+
+
 // Covert YUV to RGB
 vec3 ConvertYUVToRGB(vec3 color)
 {
@@ -155,20 +160,19 @@ unsigned int EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
     return indices;
 }
 
-vec4 TEX0;
 uniform sampler2D image;
-//uniform int imageFormat = FORMAT_RGB;
+uniform int imageFormat;
 uniform vec2 imageSize;
-//out uvec4 colorInt;
+varying out uvec4 colorInt;
 
 void main()
 {
     // Read block
     vec3 block[16];
-    //if ( int(imageFormat) == FORMAT_YUV )
-    //    ExtractColorBlockYUV(block, image, TEX0, imageSize);
-    //else
-        ExtractColorBlockRGB(block, image, TEX0, imageSize);
+    if ( int(imageFormat) == FORMAT_YUV )
+        ExtractColorBlockYUV(block, image, gl_TexCoord[0], imageSize);
+    else
+        ExtractColorBlockRGB(block, image, gl_TexCoord[0], imageSize);
 
     // Find min and max colors
     vec3 mincol, maxcol;
@@ -179,10 +183,19 @@ void main()
     InsetBBox(mincol, maxcol);
 
     uvec4 outp;
-    outp.x = EmitEndPointsDXT1(mincol, maxcol);
+    /*outp.x = EmitEndPointsDXT1(mincol, maxcol);
     outp.w = EmitIndicesDXT1(block, mincol, maxcol);
     outp.y = 0u;
-    outp.z = 0u;
+    outp.z = 0u;*/
 
-    //colorInt = outp;
+    uvec2 res;
+    res.x = EmitEndPointsDXT1(mincol, maxcol);
+    res.y = EmitIndicesDXT1(block, mincol, maxcol);
+
+    outp.y = res.x >> 16u;
+    outp.x = res.x & 0xffffu;
+    outp.w = res.y >> 16u;
+    outp.z = res.y & 0xffffu;
+
+    colorInt = outp;
 }
