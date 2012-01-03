@@ -57,7 +57,11 @@
 #include <stdlib.h>
 #include "video_decompress/dxt_glsl.h"
 #include <GL/glew.h>
+#ifdef HAVE_MACOSX
+#include <GLUT/glut.h>
+#else
 #include "x11_common.h"
+#endif
 
 struct state_decompress {
         struct dxt_decoder *decoder;
@@ -70,14 +74,16 @@ struct state_decompress {
         unsigned int configured:1;
         
         int dxt_height; /* dxt_height is alligned height to 4 lines boundry */
-        
+#ifndef HAVE_MACOSX
         void *glx_context;
+#endif
 };
 
 static void configure_with(struct state_decompress *decompressor, struct video_desc desc)
 {
         enum dxt_type type;
-        
+
+#ifndef HAVE_MACOSX
         decompressor->glx_context = glx_init();
         if(!decompressor->glx_context) {
                 fprintf(stderr, "Failed to create GLX context.");
@@ -85,6 +91,14 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
                 decompressor->compressed_len = 0;
                 return;
         }
+#else
+        int argc = 0;
+        glutInit(&argc, NULL);
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+        glutCreateWindow("DXT"); 
+        glutHideWindow();
+        glewInit();
+#endif
 
         if(desc.color_spec == DXT5) {
                 type = DXT_TYPE_DXT5_YCOCG;
@@ -115,8 +129,9 @@ void * dxt_glsl_decompress_init(void)
         
         s = (struct state_decompress *) malloc(sizeof(struct state_decompress));
         s->configured = FALSE;
+#ifndef HAVE_MACOSX
         x11_enter_thread();
-
+#endif
         return s;
 }
 
@@ -185,7 +200,9 @@ void dxt_glsl_decompress_done(void *state)
         
         if(s->configured) {
                 dxt_decoder_destroy(s->decoder);
+#ifndef HAVE_MACOSX
                 glx_free(s->glx_context);
+#endif
         }
         free(s);
 }

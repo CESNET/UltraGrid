@@ -60,8 +60,12 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glx.h>
+#ifdef HAVE_MACOSX
+#include <GLUT/glut.h>
+#else
 #include "x11_common.h"
-
+#endif
+ 
 struct video_compress {
         struct dxt_encoder *encoder;
 
@@ -73,8 +77,9 @@ struct video_compress {
         codec_t color_spec;
         
         int dxt_height;
-        
+#ifndef HAVE_MACOSX
         void *glx_context;
+#endif
 };
 
 static int configure_with(struct video_compress *s, struct video_frame *frame);
@@ -195,7 +200,8 @@ void * dxt_glsl_compress_init(char * opts)
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
         s->out = NULL;
         s->decoded = NULL;
-        
+
+#ifndef HAVE_MACOSX
         x11_enter_thread();
         s->glx_context = glx_init();
         if(!s->glx_context) {
@@ -203,6 +209,14 @@ void * dxt_glsl_compress_init(char * opts)
                 exit_uv(128);
                 return NULL;
         }
+#else
+        int argc = 0;
+        glutInit(&argc, NULL);
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+        glutCreateWindow("DXT"); 
+        glutHideWindow();
+        glewInit();
+#endif
         
         if(opts && strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");
@@ -291,7 +305,9 @@ void dxt_glsl_compress_done(void *arg)
         if(s->out)
                 free(s->out->tiles[0].data);
         vf_free(s->out);
-        
+
+#ifndef HAVE_MACOSX
         glx_free(s->glx_context);
+#endif
         free(s);
 }

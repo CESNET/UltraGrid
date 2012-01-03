@@ -1,12 +1,6 @@
-#version 130
-
 #extension GL_EXT_gpu_shader4 : enable
 
 #define lerp mix
-
-// Image formats
-const int FORMAT_RGB = 0;
-const int FORMAT_YUV = 1;
 
 // Covert YUV to RGB
 vec3 ConvertYUVToRGB(vec3 color)
@@ -34,24 +28,24 @@ float colorDistance(vec2 c0, vec2 c1)
 
 void ExtractColorBlockRGB(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
 {
-    vec2 texelSize = (1.0f / imageSize);
+    vec2 texelSize = (1.0 / imageSize);
     vec2 tex = vec2(texcoord.x, texcoord.y);
     tex -= texelSize * vec2(1.5);
     for ( int i = 0; i < 4; i++ ) {
         for ( int j = 0; j < 4; j++ ) {
-            col[i * 4 + j] = texture(image, tex + vec2(j, i) * texelSize).rgb;
+            col[i * 4 + j] = texture2D(image, tex + vec2(j, i) * texelSize).rgb;
         }
     }
 }
 
 void ExtractColorBlockYUV(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
 {
-    vec2 texelSize = (1.0f / imageSize);
+    vec2 texelSize = (1.0 / imageSize);
     vec2 tex = vec2(texcoord.x, texcoord.y);
     tex -= texelSize * vec2(2);
     for ( int i = 0; i < 4; i++ ) {
         for ( int j = 0; j < 4; j++ ) {
-            col[i * 4 + j] = ConvertYUVToRGB(texture(image, tex + vec2(j, i) * texelSize).rgb);
+            col[i * 4 + j] = ConvertYUVToRGB(texture2D(image, tex + vec2(j, i) * texelSize).rgb);
         }
     }
 }
@@ -78,12 +72,12 @@ void SelectDiagonal(vec3 block[16], inout vec3 mincol, inout vec3 maxcol)
         cov.y += t.y * t.z;
     }
 
-    if (cov.x < 0) {
+    if (cov.x < 0.0) {
         float temp = maxcol.x;
         maxcol.x = mincol.x;
         mincol.x = temp;
     }
-    if (cov.y < 0) {
+    if (cov.y < 0.0) {
         float temp = maxcol.y;
         maxcol.y = mincol.y;
         mincol.y = temp;
@@ -92,12 +86,12 @@ void SelectDiagonal(vec3 block[16], inout vec3 mincol, inout vec3 maxcol)
 
 void InsetBBox(inout vec3 mincol, inout vec3 maxcol)
 {
-    vec3 inset = (maxcol - mincol) / 16.0 - (8.0 / 255.0) / 16;
+    vec3 inset = (maxcol - mincol) / 16.0 - (8.0 / 255.0) / 16.0;
     mincol = clamp(mincol + inset, 0.0, 1.0);
     maxcol = clamp(maxcol - inset, 0.0, 1.0);
 }
 
-vec3 RoundAndExpand(vec3 v, out uint w)
+vec3 RoundAndExpand(vec3 v, out unsigned int w)
 {
     uvec3 c = uvec3(round(v * vec3(31, 63, 31)));
     w = (c.r << 11u) | (c.g << 5u) | c.b;
@@ -108,7 +102,7 @@ vec3 RoundAndExpand(vec3 v, out uint w)
     return vec3(c) * (1.0 / 255.0);
 }
 
-uint EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
+unsigned int EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
 {
     uvec2 outp;
     maxcol = RoundAndExpand(maxcol, outp.x);
@@ -126,7 +120,7 @@ uint EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
     return outp.x | (outp.y << 16u);
 }
 
-uint EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
+unsigned int EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
 {
     // Compute palette
     vec3 c[4];
@@ -136,7 +130,7 @@ uint EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
     c[3] = lerp(c[0], c[1], 2.0/3.0);
 
     // Compute indices
-    uint indices = 0u;
+    unsigned int indices = 0u;
     for ( int i = 0; i < 16; i++ ) {
 
         // find index of closest color
@@ -151,29 +145,29 @@ uint EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
         b.y = dist.y > dist.z ? 1u : 0u;
         b.z = dist.x > dist.z ? 1u : 0u;
         b.w = dist.y > dist.w ? 1u : 0u;
-        uint b4 = dist.z > dist.w ? 1u : 0u;
+        unsigned int b4 = dist.z > dist.w ? 1u : 0u;
         
-        uint index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
-        indices |= index << (uint(i) * 2u);
+        unsigned int index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
+        indices |= index << (unsigned int(i) * 2u);
     }
 
     // Output indices
     return indices;
 }
 
-in vec4 TEX0;
+vec4 TEX0;
 uniform sampler2D image;
-uniform int imageFormat = FORMAT_RGB;
+//uniform int imageFormat = FORMAT_RGB;
 uniform vec2 imageSize;
-out uvec4 colorInt;
+//out uvec4 colorInt;
 
 void main()
 {
     // Read block
     vec3 block[16];
-    if ( int(imageFormat) == FORMAT_YUV )
-        ExtractColorBlockYUV(block, image, TEX0, imageSize);
-    else
+    //if ( int(imageFormat) == FORMAT_YUV )
+    //    ExtractColorBlockYUV(block, image, TEX0, imageSize);
+    //else
         ExtractColorBlockRGB(block, image, TEX0, imageSize);
 
     // Find min and max colors
@@ -190,5 +184,5 @@ void main()
     outp.y = 0u;
     outp.z = 0u;
 
-    colorInt = outp;
+    //colorInt = outp;
 }

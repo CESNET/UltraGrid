@@ -57,7 +57,7 @@ void ExtractColorBlockRGB(out vec3 col[16], sampler2D image, vec4 texcoord, vec2
 
 void ExtractColorBlockYUV(out vec3 col[16], sampler2D image, vec4 texcoord, vec2 imageSize)
 {
-    vec2 texelSize = (1.0f / imageSize);
+    vec2 texelSize = (1.0 / imageSize);
     vec2 tex = vec2(texcoord.x, texcoord.y);
     tex -= texelSize * vec2(2);
     for ( int i = 0; i < 4; i++ ) {

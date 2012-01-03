@@ -821,8 +821,7 @@ AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
 
 if test $rtdxt_req = yes -a "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
-        -a "$FOUND_GL_H" = yes \
-        -a `expr "$host_os" : ".*darwin.*"` -eq 0 # not mac, just for now
+        -a "$FOUND_GL_H" = yes -a `expr "$host_os" : ".*darwin.*"` -eq 0
 then
         LIBS+=" -lGLEW -lGL -lX11"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
@@ -830,11 +829,23 @@ then
 ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/video_compress/dxt_glsl.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
         rtdxt=yes
-else
+else # not found or mac, for which we don't need it
         CFLAGS=$SAVED_CFLAGS
         CPPFLAGS=$SAVED_CPPFLAGS
         LIBS=$SAVED_LIBS
 fi
+
+if test $rtdxt_req = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a `expr "$host_os" : ".*darwin.*"` -gt 0
+then
+        LIBS+=" -lGLEW"
+        AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
+        DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_decoder.o  \
+../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/video_compress/dxt_glsl.o src/video_decompress/dxt_glsl.o"
+        DXT_GLSL_CFLAGS="-std=gnu99"
+        rtdxt=yes
+fi
+
+
 AC_SUBST(DXT_GLSL_OBJS)
 AC_SUBST(DXT_GLSL_CFLAGS)
 
