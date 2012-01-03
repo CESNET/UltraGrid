@@ -56,10 +56,10 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/dxt_glsl.h"
-#include <GL/glew.h>
 #ifdef HAVE_MACOSX
 #include <GLUT/glut.h>
 #else
+#include <GL/glew.h>
 #include "x11_common.h"
 #endif
 
@@ -97,7 +97,6 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
         glutCreateWindow("DXT"); 
         glutHideWindow();
-        glewInit();
 #endif
 
         if(desc.color_spec == DXT5) {

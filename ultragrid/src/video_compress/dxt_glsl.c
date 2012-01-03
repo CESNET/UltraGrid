@@ -55,14 +55,14 @@
 #include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <GL/glew.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
 #ifdef HAVE_MACOSX
 #include <GLUT/glut.h>
 #else
+#include <GL/glew.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <GL/gl.h>
+#include <GL/glx.h>
 #include "x11_common.h"
 #endif
  
@@ -215,7 +215,6 @@ void * dxt_glsl_compress_init(char * opts)
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
         glutCreateWindow("DXT"); 
         glutHideWindow();
-        glewInit();
 #endif
         
         if(opts && strcmp(opts, "help") == 0) {

@@ -52,7 +52,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	CFLAGS+=" -m32 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
 	CXXFLAGS+=" -m32 -I/opt/local/include"
-	LDFLAGS+=" -m32 -L/opt/local/lib -mmacosx-version-min=10.5"
+	LDFLAGS+=" -m32 -mmacosx-version-min=10.5"
 	X_CFLAGS+="-I/usr/X11R6/include"
 else
 	LINKER=$CC
@@ -802,13 +802,6 @@ AC_SUBST(COMPRESS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
-SAVED_CFLAGS=$CFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CFLAGS+=" $X_CFLAGS"
-CPPFLAGS+=" $X_CFLAGS"
-AC_SUBST(CFLAGS)
-SAVED_LIBS=$LIBS
-LIBS+=" $X_LIBS"
 rtdxt=no
 
 AC_ARG_ENABLE(rtdxt, 
@@ -816,13 +809,20 @@ AC_ARG_ENABLE(rtdxt,
 	[rtdxt_req=$enableval],
         [rtdxt_req=yes])
 
-AC_CHECK_LIB(GLUT, glutInit)
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS+=" $X_CFLAGS"
+CPPFLAGS+=" $X_CFLAGS"
+SAVED_LIBS=$LIBS
+LIBS+=" $X_LIBS"
+
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
 AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
 AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
 AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
 
+# not Mac
 if test $rtdxt_req = yes -a "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a `expr "$host_os" : ".*darwin.*"` -eq 0
 then
@@ -838,9 +838,10 @@ else # not found or mac, for which we don't need it
         LIBS=$SAVED_LIBS
 fi
 
-if test $rtdxt_req = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a `expr "$host_os" : ".*darwin.*"` -gt 0
+# Mac
+if test $rtdxt_req = yes -a  `expr "$host_os" : ".*darwin.*"` -gt 0
 then
-        LIBS+=" -lGLEW"
+	LIBS+=" -framework GLUT -framework OpenGL -framework Cocoa"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         DXT_GLSL_OBJS="../dxt_compress/dxt_encoder.o ../dxt_compress/dxt_decoder.o  \
 ../dxt_compress/dxt_common.o ../dxt_compress/dxt_util.o src/video_compress/dxt_glsl.o src/video_decompress/dxt_glsl.o"
@@ -1103,10 +1104,13 @@ AC_ARG_ENABLE(speex,
 
 SPEEX_PATH=${PARENT}/speex-1.2rc1/
 SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
 CFLAGS+=" -I${SPEEX_PATH}/include"
+CPPFLAGS+=" -I${SPEEX_PATH}/include"
 AC_CHECK_HEADER(${SPEEX_PATH}/include/speex/speex_resampler.h, FOUND_SPEEX_RES_H=yes, FOUND_SPEEX_RES_H=no)
 AC_CHECK_FILE(${SPEEX_PATH}/libspeex/.libs/libspeex.a, FOUND_LIBSPEEX=yes, FOUND_LIBSPEEX=no)
 CFLAGS=$SAVED_CFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS
 
 if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes -a $FOUND_LIBSPEEX = yes
 then
