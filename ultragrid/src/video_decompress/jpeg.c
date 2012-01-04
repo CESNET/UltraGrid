@@ -126,7 +126,6 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
 void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
-        UNUSED(src_len);
         uint8_t *decompressed;
         int size;
         int ret;

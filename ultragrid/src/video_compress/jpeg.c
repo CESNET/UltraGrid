@@ -165,6 +165,8 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         
         for (x = 0; x < frame->tile_count; ++x) {
                         vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].width * s->jpeg_height * 3);
+                        vf_get_tile(s->out, x)->linesize = s->out->tiles[0].width * (param_image.color_space == JPEG_RGB ? 3 : 2);
+
         }
         
         if(!s->encoder) {
