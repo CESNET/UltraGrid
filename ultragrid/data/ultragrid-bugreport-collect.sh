@@ -1,8 +1,8 @@
 #!/bin/sh
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/opt/local/bin:/opt/local/sbin:$PATH
-
-LOG=ultragrid-bugreport.txt
+DATE=`date +%y%m%d%H%M%S`
+LOG=ultragrid-bugreport-$DATE.txt
 export LC_ALL=C
 
 test "`id -nu`" = root || echo "You SHOULD run this script as a root!!" >&2
@@ -13,6 +13,15 @@ exec 2>&1
 exec < /dev/null
 
 set -x
+
+echo $DISPLAY
+echo $LD_LIBRARY_PATH
+echo $LD_PRELOAD_PATH
+
+if [ ! "`uname -s`" = "Darwin"]; then
+        cat /etc/ld.so.conf
+        cat /etc/ld.so.conf.d/*
+fi
 
 if [ -f /etc/issue ]; then
         cat /etc/issue 
@@ -64,6 +73,9 @@ if [ -x /usr/bin/lspci ]; then
         /usr/bin/lspci -vvvnn
 fi
 dmesg
+
+for dir in /proc/dvsdriver_*/; do for file in $dir/*; do cat $file; done; done
+
 )
 
 gzip -f $LOG
