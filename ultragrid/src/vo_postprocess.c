@@ -70,7 +70,7 @@ struct vo_postprocess_state {
         void *state;
 };
 
-const struct vo_postprocess_t vo_postprocess_modules[] = {
+struct vo_postprocess_t vo_postprocess_modules[] = {
         {"3d-interlaced", interlaced_3d_init, interlaced_3d_postprocess_reconfigure, 
                         interlaced_3d_get_out_desc,
                         interlaced_3d_postprocess, interlaced_3d_done },

@@ -59,7 +59,7 @@ struct jpeg_color_transform<JPEG_RGB, JPEG_YCBCR> {
     static __device__ void 
     perform(float & c1, float & c2, float & c3) {
         float r1 = 0.299f * c1 + 0.587f * c2 + 0.114f * c3 + 16.0f;
-        if (r1 > 255) r1 = 255; //FIXME Toto je fuj! opravit pretok systemove
+        if (r1 > 255.0f) r1 = 255.0f; //FIXME Toto je fuj! opravit pretok systemove
         float r2 = -0.1687f * c1 - 0.3313f * c2 + 0.5f * c3 + 128.0f;
         float r3 = 0.5f * c1 - 0.4187f * c2 - 0.0813f * c3 + 128.0f;
         c1 = r1;
@@ -97,9 +97,9 @@ struct jpeg_color_transform<JPEG_YCBCR, JPEG_RGB> {
         c2 = (c2 >= 0.0f) ? c2 : 0.0f;
         c3 = (c3 >= 0.0f) ? c3 : 0.0f;
         // Check maximum value 255
-        c1 = (c1 <= 255.0) ? c1 : 255.0f;
-        c2 = (c2 <= 255.0) ? c2 : 255.0f;
-        c3 = (c3 <= 255.0) ? c3 : 255.0f;    
+        c1 = (c1 <= 255.0f) ? c1 : 255.0f;
+        c2 = (c2 <= 255.0f) ? c2 : 255.0f;
+        c3 = (c3 <= 255.0f) ? c3 : 255.0f;    
     }
 };
 

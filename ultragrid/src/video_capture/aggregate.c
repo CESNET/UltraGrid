@@ -121,7 +121,7 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
 	printf("vidcap_aggregate_init\n");
 
 
-        s = (struct vidcap_aggergate_state *) calloc(1, sizeof(struct vidcap_aggregate_state));
+        s = (struct vidcap_aggregate_state *) calloc(1, sizeof(struct vidcap_aggregate_state));
 	if(s == NULL) {
 		printf("Unable to allocate aggregate capture state\n");
 		return NULL;
@@ -146,7 +146,7 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
         s->devices = calloc(1, s->devices_cnt * sizeof(struct vidcap *));
         i = 0;
         tmp = parse_string = strdup(init_fmt);
-        while(item = strtok_r(tmp, "#", &save_ptr)) {
+        while((item = strtok_r(tmp, "#", &save_ptr))) {
                 char *device;
                 char *config = strdup(item);
                 char *save_ptr_dev = NULL;
@@ -176,7 +176,7 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
 
 error:
         if(s->devices) {
-                unsigned int i;
+                int i;
                 for (i = 0u; i < s->devices_cnt; ++i) {
                         if(s->devices[i]) {
                                  vidcap_done(s->devices[i]);
@@ -222,10 +222,10 @@ vidcap_aggregate_done(void *state)
 struct video_frame *
 vidcap_aggregate_grab(void *state, struct audio_frame **audio)
 {
-	struct vidcap_aggregate_state *s = (struct vidcap_aggrega_state *) state;
+	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
         struct audio_frame *audio_frame;
         struct video_frame *frame = NULL;
-        unsigned int i;
+        int i;
 
         while(!frame) {
                 frame = vidcap_grab(s->devices[0], &audio_frame);
@@ -242,7 +242,7 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
         } else {
                 *audio = NULL;
         }
-        for(i = 1; (unsigned int) i < s->devices_cnt; ++i) {
+        for(i = 1; i < s->devices_cnt; ++i) {
                 while(!frame) {
                         frame = vidcap_grab(s->devices[0], &audio_frame);
                 }

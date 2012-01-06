@@ -134,9 +134,9 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                                 &decompressed, &size);
         if (ret != 0) return;
         
-        int i;
+        unsigned int i;
         int linesize;
-        char *line_src, *line_dst;
+        unsigned char *line_src, *line_dst;
         
         if(s->out_codec == RGB) {
                 linesize = s->desc.width * 3;
@@ -146,7 +146,7 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
         
         line_dst = dst;
         line_src = decompressed;
-        for(i = 0; i < s->desc.height; i++) {
+        for(i = 0u; i < s->desc.height; i++) {
                 if(s->out_codec == RGB) {
                         vc_copylineRGB(line_dst, line_src, linesize,
                                         s->rshift, s->gshift, s->bshift);

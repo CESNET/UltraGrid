@@ -44,9 +44,9 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef __video_decompress_h
+#ifndef __video_compress_h
 
-#define __video_decompress_h
+#define __video_compress_h
 #include "video_codec.h"
 
 struct compress_state;
@@ -77,4 +77,4 @@ const char *get_compress_name(struct compress_state *);
 struct video_frame *compress_frame(struct compress_state *, struct video_frame*);
 void compress_done(struct compress_state *);
 
-#endif /* __video_decompress_h */
+#endif /* __video_compress_h */

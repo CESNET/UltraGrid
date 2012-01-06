@@ -1,5 +1,5 @@
 /*
- * FILE:    video_display/aggregate.h
+ * FILE:    utils/ring_buffer.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2209 CESNET z.s.p.o.
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -26,10 +26,10 @@
  * 
  *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -43,24 +43,51 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *
  */
 
-#include <video_codec.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-#define DISPLAY_AGGREGATE_ID	0xbbcaa321
-struct audio_frame;
+#include "config.h"
+#include "config_unix.h"
+#include "utils/fs_lock.h"
 
-display_type_t		*display_aggregate_probe(void);
-void 			*display_aggregate_init(char *fmt, unsigned int flags);
-void 			 display_aggregate_run(void *state);
-void 			 display_aggregate_finish(void *state);
-void 			 display_aggregate_done(void *state);
-struct video_frame	*display_aggregate_getf(void *state);
-int  			 display_aggregate_putf(void *state, char *frame);
-int                      display_aggregate_reconfigure(void *state, struct video_desc desc);
-int                      display_aggregate_get_property(void *state, int property, void *val, size_t *len);
+struct fs_lock {
+        char *name;
+        int fd;
+};
 
-struct audio_frame *    display_aggregate_get_audio_frame(void *state);
-void                    display_aggregate_put_audio_frame(void *state, struct audio_frame *frame);
+struct fs_lock * fs_lock_init(char *name) {
+        struct fs_lock *s;
+
+        s = (struct fs_lock *) malloc(sizeof(struct fs_lock));
+        s->name = malloc(256);
+        snprintf(s->name, 256, "/tmp/ultragrid.%u.%s", (unsigned int) getpid(), name);
+        s->fd = -1;
+
+        return s;
+}
+
+void fs_lock_lock(struct fs_lock *s)
+{
+        int fd = -1;
+
+        while(fd == -1)
+                fd = open(s->name, O_CREAT | O_RDWR | O_EXCL, 0666);
+        s->fd = fd;
+}
+
+void fs_lock_unlock(struct fs_lock *s)
+{
+        close(s->fd);
+        unlink(s->name);
+}
+
+void fs_lock_destroy(struct fs_lock *s)
+{
+        unlink(s->name);
+        free(s);
+}
 

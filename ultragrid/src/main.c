@@ -68,6 +68,7 @@
 #include "video_display.h"
 #include "video_display/sdl.h"
 #include "video_compress.h"
+#include "video_decompress.h"
 #include "pdb.h"
 #include "tv.h"
 #include "transmit.h"
@@ -132,6 +133,10 @@ static struct state_uv *uv_state;
 
 void list_video_display_devices(void);
 void list_video_capture_devices(void);
+struct display *initialize_video_display(const char *requested_display,
+                                                char *fmt, unsigned int flags);
+struct vidcap *initialize_video_capture(const char *requested_capture,
+                                               char *fmt, unsigned int flags);
 
 #ifndef WIN32
 static void signal_handler(int signal)
@@ -142,7 +147,9 @@ static void signal_handler(int signal)
 }
 #endif                          /* WIN32 */
 
-void exit_uv(int status) {
+void _exit_uv(int status);
+
+void _exit_uv(int status) {
         exit_status = status;
         wait_to_finish = TRUE;
         should_exit = TRUE;
@@ -156,6 +163,8 @@ void exit_uv(int status) {
         }
         wait_to_finish = FALSE;
 }
+
+void (*exit_uv)(int status) = _exit_uv;
 
 static void usage(void)
 {
@@ -418,6 +427,7 @@ static void *receiver_thread(void *arg)
         struct timeval last_tile_received;
         struct state_decoder *dec_state;
 
+        initialize_video_decompress();
         dec_state = decoder_init(uv->decoder_mode, uv->postprocess);
         if(!dec_state) {
                 fprintf(stderr, "Error initializing decoder ('-M' option).\n");
@@ -474,7 +484,7 @@ static void *receiver_thread(void *arg)
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
                                         display_put_frame(uv->display_device,
-                                                          frame_buffer);
+                                                          (char *) frame_buffer);
                                         i = (i + 1) % 2;
                                         frame_buffer =
                                             display_get_frame(uv->display_device);

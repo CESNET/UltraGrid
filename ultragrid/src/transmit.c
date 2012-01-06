@@ -56,6 +56,7 @@
 #include "debug.h"
 #include "perf.h"
 #include "audio/audio.h"
+#include "audio/utils.h"
 #include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -157,9 +158,8 @@ void tx_done(struct tx *tx)
 void
 tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 {
-        int i, j;
+        unsigned int i;
         uint32_t ts = 0;
-        struct tile *tile;
         unsigned long int packets_sent = 0u;
 
         ts = get_local_mediatime();
@@ -225,7 +225,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         perf_record(UVP_SEND, ts);
 
         if(tx->fec_scheme == FEC_XOR) {
-                int i;
+                unsigned int i;
                 xor = calloc(50, sizeof(struct xor_session *));
                 xor_pkts = calloc(50, sizeof(int));
                 for (i = 0; i < tx->xor_streams; ++i) {
@@ -302,7 +302,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 }
 
                 if(tx->fec_scheme == FEC_XOR) {
-                        int i;
+                        unsigned int i;
                         for (i = 0; i < tx->xor_streams; ++i) {
                                 xor_add_packet(xor[i], (const char *) &payload_hdr, data, data_len);
                         }
@@ -316,15 +316,15 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 } while (packet_rate - delta > 0);
 
                 if(tx->fec_scheme == FEC_XOR) {
-                        const char *hdr;
+                        char *hdr;
                         size_t hdr_len;
-                        const char *payload;
+                        char *payload;
                         size_t payload_len;
-                        int i;
+                        unsigned int i;
 
                         for (i = 0; i < tx->xor_streams; ++i) {
-                                if(++xor_pkts[i] == tx->xor_leap) {
-                                        xor_emit_xor_packet(xor[i], &hdr, &hdr_len, &payload, &payload_len);
+                                if((unsigned int) ++xor_pkts[i] == tx->xor_leap) {
+                                        xor_emit_xor_packet(xor[i], (const char **) &hdr, &hdr_len, (const char **) &payload, &payload_len);
                                 
                                         if (pos + data_len >= tile->data_len) {
                                                 if (send_m)
@@ -354,13 +354,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
         tx->buffer ++;
         if(tx->fec_scheme == FEC_XOR) {
-                const char *hdr;
+                char *hdr;
                 size_t hdr_len;
-                const char *payload;
+                char *payload;
                 size_t payload_len;
-                int i;
+                unsigned int i;
                 for (i = 0; i < tx->xor_streams; ++i) {
-                        xor_emit_xor_packet(xor[i], &hdr, &hdr_len, &payload, &payload_len);
+                        xor_emit_xor_packet(xor[i], (const char **) &hdr, &hdr_len, (const char **) &payload, &payload_len);
                 
                         GET_STARTTIME;
                         rtp_send_data_hdr(rtp_session, ts, xor_pt + i, 0 /* mbit */, 0, 0,
@@ -408,7 +408,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                      m = 0u;
         int channel;
         char *chan_data = (char *) malloc(buffer->data_len);
-        int buffer_len;
         int data_len;
         char *data;
         audio_payload_hdr_t payload_hdr;
@@ -446,7 +445,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                 do {
                         data = chan_data + pos;
                         data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
-                        if(pos + data_len >= buffer->data_len / buffer->ch_count) {
+                        if(pos + data_len >= (unsigned int) buffer->data_len / buffer->ch_count) {
                                 data_len = buffer->data_len / buffer->ch_count - pos;
                                 if(channel == buffer->ch_count - 1)
                                         m = 1;
@@ -468,7 +467,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                                         delta += 1000000000L;
                         } while (packet_rate - delta > 0);
                       
-                } while (pos < buffer->data_len / buffer->ch_count);
+                } while (pos < (unsigned int) buffer->data_len / buffer->ch_count);
         }
 
         tx->buffer ++;

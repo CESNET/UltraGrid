@@ -59,6 +59,7 @@
 #include <netdb.h>
 
 #include "ihdtv.h"
+#include "debug.h"
 
 void init_reciever(void);
 
@@ -268,7 +269,7 @@ int
 ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
            unsigned long buffer_length)
 {
-
+        UNUSED(buffer_length);
         struct msghdr msg1, msg2;
 
         msg1.msg_name = &connection->target_sockaddress_1;
@@ -281,8 +282,9 @@ ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
         struct iovec vector1[2];
         struct iovec vector2[2];
 
-        msg1.msg_iov = &vector1;
-        msg2.msg_iov = &vector2;
+        /* TODO: is this correct ?? */
+        msg1.msg_iov = (struct iovec *) &vector1;
+        msg2.msg_iov = (struct iovec *) &vector2;
 
         msg1.msg_iovlen = 2;
         msg2.msg_iovlen = 2;
@@ -357,11 +359,13 @@ ihdtv_send(ihdtv_connection * connection, struct video_frame *tx_frame,
         }
 
         ++(connection->current_frame);
+
+        return 0;
 }
 
 inline static int packet_to_buffer(const ihdtv_connection * connection, char *buffer, const unsigned long buffer_length, const ihdtv_packet * packet, const int packet_length)  // returns number of written packets (1 or 0)
 {
-        if (buffer_length <
+        if (buffer_length < (unsigned long int)
             (packet->offset * connection->video_data_per_packet +
              (packet_length - 16)))
                 return 0;
@@ -448,7 +452,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
                                                                      &packet,
                                                                      num_bytes);
 
-                                        if (packets_number == connection->video_packets_per_frame)      // we have all packets of a frame
+                                        if ((unsigned int) packets_number == connection->video_packets_per_frame)      // we have all packets of a frame
                                         {
                                                 connection->current_frame++;
                                                 break;
@@ -492,7 +496,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
                                                                      &packet,
                                                                      num_bytes);
 
-                                        if (packets_number == connection->video_packets_per_frame)      // we have all packets of a frame
+                                        if ((unsigned int ) packets_number == connection->video_packets_per_frame)      // we have all packets of a frame
                                         {
                                                 connection->current_frame++;
                                                 break;

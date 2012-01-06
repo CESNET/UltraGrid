@@ -45,10 +45,15 @@
  *
  */
 
-void x11_enter_thread(void);
+extern void (*x11_enter_thread)(void);
 /**
  * @arg disp (Display *)
  */
-void x11_set_display(void *disp);
-void glx_free(void *);
-void *glx_init(void);
+extern void (*x11_set_display)(void *);
+extern void (*x11_lock)();
+extern void (*x11_unlock)();
+
+extern void * (*x11_acquire_display)(void);
+extern void * (*x11_get_display)(void);
+extern void (*x11_release_display)(void);
+

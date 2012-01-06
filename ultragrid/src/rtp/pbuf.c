@@ -68,6 +68,7 @@
 #include "rtp/pbuf.h"
 #include "rtp/decoders.h"
 #include "audio/audio.h"
+#include "audio/utils.h"
 
 #define PBUF_MAGIC	0xcafebabe
 

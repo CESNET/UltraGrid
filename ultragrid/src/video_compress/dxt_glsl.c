@@ -48,7 +48,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
-#include "x11_common.h"
+#include "host.h"
 #include "video_compress/dxt_glsl.h"
 #include "dxt_compress/dxt_encoder.h"
 #include "compat/platform_semaphore.h"
@@ -64,8 +64,9 @@
 #include <GL/gl.h>
 #include <GL/glx.h>
 #include "x11_common.h"
+#include "glx_common.h"
 #endif
- 
+
 struct video_compress {
         struct dxt_encoder *encoder;
 
@@ -86,25 +87,23 @@ static int configure_with(struct video_compress *s, struct video_frame *frame);
 
 static int configure_with(struct video_compress *s, struct video_frame *frame)
 {
-        int i;
-        int x, y;
-	int h_align = 0;
+        unsigned int x;
         enum dxt_format format;
         
         assert(vf_get_tile(frame, 0)->width % 4 == 0);
         s->out = vf_alloc(frame->tile_count);
         
         for (x = 0; x < frame->tile_count; ++x) {
-                        if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
-                                        vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width) {
+                if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
+                                vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width) {
 
-                                fprintf(stderr,"[RTDXT] Requested to compress tiles of different size!");
-                                exit_uv(128);
-                                return FALSE;
-                        }
-                                
-                        vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
-                        vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
+                        fprintf(stderr,"[RTDXT] Requested to compress tiles of different size!");
+                        exit_uv(128);
+                        return FALSE;
+                }
+                        
+                vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
+                vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
         }
         
         s->out->interlacing = PROGRESSIVE;
@@ -176,13 +175,17 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                         case DXT_FORMAT_YUV422:
                                 vf_get_tile(s->out, x)->linesize *= 2;
                                 break;
+                        case DXT_FORMAT_YUV:
+                                /* not used - just not compilator to complain */
+                                abort();
+                                break;
                 }
                 vf_get_tile(s->out, x)->data_len = s->out->tiles[0].data_len;
                 vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].data_len);
         }
         
         if(!s->encoder) {
-                fprintf(stderr, "[RTDXT] Failed to create decoder.\n");
+                fprintf(stderr, "[RTDXT] Failed to create encoder.\n");
                 exit_uv(128);
                 return FALSE;
         }
@@ -204,6 +207,7 @@ void * dxt_glsl_compress_init(char * opts)
 #ifndef HAVE_MACOSX
         x11_enter_thread();
         s->glx_context = glx_init();
+        glx_validate(s->glx_context);
         if(!s->glx_context) {
                 fprintf(stderr, "[RTDXT] Error initializing GLX context");
                 exit_uv(128);
@@ -250,7 +254,7 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
         int i;
         unsigned char *line1, *line2;
         
-        int x, y;
+        unsigned int x;
         
         if(!s->configured) {
                 int ret;
@@ -274,9 +278,9 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                 }
                 
                 /* if height % 4 != 0, copy last line to align */
-                if(s->dxt_height != out_tile->height) {
+                if((unsigned int) s->dxt_height != out_tile->height) {
                         int y;
-                        line1 = s->decoded + out_tile->linesize * (out_tile->height - 1);
+                        line1 = (unsigned char *) s->decoded + out_tile->linesize * (out_tile->height - 1);
                         for (y = out_tile->height; y < s->dxt_height; ++y)
                         {
                                 memcpy(line2, line1, out_tile->linesize);
@@ -304,6 +308,8 @@ void dxt_glsl_compress_done(void *arg)
         if(s->out)
                 free(s->out->tiles[0].data);
         vf_free(s->out);
+
+        free(s->decoded);
 
 #ifndef HAVE_MACOSX
         glx_free(s->glx_context);

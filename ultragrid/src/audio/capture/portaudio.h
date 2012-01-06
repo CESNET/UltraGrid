@@ -45,31 +45,11 @@
  *
  */
 
-#include "config.h"
-
-#ifndef _PORTAUDIO_H_
-#define _PORTAUDIO_H_
-
-#ifdef HAVE_PORTAUDIO
-#include "portaudio/include/portaudio.h"
-
 struct audio_frame;
 
-void portaudio_playback_help();
-void portaudio_capture_help();
+void portaudio_capture_help(void);
 
-/* Capture related  */
 void * portaudio_capture_init(char *cfg);
 struct audio_frame * portaudio_read(void *state);
 void portaudio_capture_finish(void *state);
 void portaudio_capture_done(void *state);
-
-/* Playback related */
-void           *portaudio_playback_init(char *cfg);
-void            portaudio_close_playback(void *s);
-struct audio_frame* portaudio_get_frame(void *state);
-void            portaudio_put_frame(void *state, struct audio_frame *buffer);
-
-#endif /* HAVE_PORTAUDIO */
-
-#endif

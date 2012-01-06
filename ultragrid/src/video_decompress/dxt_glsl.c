@@ -48,8 +48,8 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "host.h"
 
-#include "x11_common.h"
 #include "dxt_compress/dxt_decoder.h"
 //#include "compat/platform_semaphore.h"
 #include "video_codec.h"
@@ -61,6 +61,7 @@
 #else
 #include <GL/glew.h>
 #include "x11_common.h"
+#include "glx_common.h"
 #endif
 
 struct state_decompress {
@@ -85,6 +86,7 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
 
 #ifndef HAVE_MACOSX
         decompressor->glx_context = glx_init();
+        glx_validate(decompressor->glx_context);
         if(!decompressor->glx_context) {
                 fprintf(stderr, "Failed to create GLX context.");
                 exit_uv(128);
@@ -164,9 +166,9 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         } else {
                 int i;
                 int linesize;
-                char *line_src, *line_dst;
+                unsigned char *line_src, *line_dst;
                 
-                char *tmp;
+                unsigned char *tmp;
                 
                 if(s->out_codec == UYVY)
                         linesize = s->desc.width * 2;

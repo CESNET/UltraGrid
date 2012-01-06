@@ -47,6 +47,8 @@
 
 #include "video_codec.h"
 
+#define RTDXT_MAGIC 0x2cc33ba3u
+
 void * dxt_glsl_decompress_init(void);
 int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
                         int rshift, int gshift, int bshift, int pitch, codec_t out_codec);

@@ -65,5 +65,5 @@ int                      display_gl_get_property(void *state, int property, void
 int                      display_gl_handle_events(void *arg);
 
 struct audio_frame *    display_gl_get_audio_frame(void *state);
-void                    display_gl_put_audio_frame(void *state, const struct audio_frame *frame);
+void                    display_gl_put_audio_frame(void *state, struct audio_frame *frame);
 

@@ -86,7 +86,7 @@ void display_null_done(void *state)
         free(s);
 }
 
-char *display_null_getf(void *state)
+struct video_frame *display_null_getf(void *state)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
@@ -139,7 +139,7 @@ struct audio_frame * display_null_get_audio_frame(void *state)
         return NULL;
 }
 
-void display_null_put_audio_frame(void *state, const struct audio_frame *frame)
+void display_null_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);
         UNUSED(frame);

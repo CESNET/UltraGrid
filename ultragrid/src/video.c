@@ -61,7 +61,7 @@ struct video_frame * vf_alloc(int count)
         
         buf = (struct video_frame *) calloc(1, sizeof(struct video_frame));
         
-        buf->tiles = (struct tiles *) 
+        buf->tiles = (struct tile *) 
                         calloc(1, sizeof(struct tile) * count);
         buf->tile_count = count;
 
@@ -78,7 +78,7 @@ void vf_free(struct video_frame *buf)
 
 struct tile * vf_get_tile(struct video_frame *buf, int pos)
 {
-        assert (pos < buf->tile_count);
+        assert ((unsigned int) pos < buf->tile_count);
 
         return &buf->tiles[pos];
 }
@@ -139,6 +139,8 @@ const char *get_interlacing_description(enum interlacing_t interlacing)
                 case SEGMENTED_FRAME:
                         return "progressive segmented";
         }
+
+        return NULL;
 }
 
 const char *get_video_mode_description(int video_mode)
@@ -156,6 +158,7 @@ const char *get_video_mode_description(int video_mode)
         return NULL;
 }
 
+/* TODO: rewrite following 2 functions in more efficient way */
 void il_upper_to_merged(char *dst, char *src, int linesize, int height)
 {
         int y;

@@ -129,13 +129,13 @@ void xor_add_packet(struct xor_session *session, const char *hdr, const char *pa
                         "pxor %%xmm1, %%xmm0\n"
                         "movdqu %%xmm0, (%0)\n"
                         ::"r" ((unsigned long *) line1),
-                        "r"((unsigned long *) line2));
+                        "r"((const unsigned long *) line2));
                 line1 += 4;
                 line2 += 4;
         }
         if(linepos != payload_len) {
-                char *line1c = line1;
-                char *line2c = line1;
+                char *line1c = (char *) line1;
+                char *line2c = (char *) line1;
                 for(; linepos < payload_len; linepos += 1) {
                         *line1c ^= *line2c;
                         line1c += 1;
@@ -179,14 +179,14 @@ struct xor_session *xor_restore_init()
         return session;
 }
 
-void xor_restore_start(struct xor_session *session, const char *data)
+void xor_restore_start(struct xor_session *session, char *data)
 {
-        session->pkt_count = - ntohl(((struct xor_pkt_hdr *) data)->pkt_count);
-        session->header_len = ntohs(((struct xor_pkt_hdr *) data)->header_len);
-        session->max_payload_len = ntohs(((struct xor_pkt_hdr *) data)->payload_len);
-        session->payload_len_xor = ntohs(((struct xor_pkt_hdr *) data)->payload_len_xor);
+        session->pkt_count = - ntohl(((const struct xor_pkt_hdr *) data)->pkt_count);
+        session->header_len = ntohs(((const struct xor_pkt_hdr *) data)->header_len);
+        session->max_payload_len = ntohs(((const struct xor_pkt_hdr *) data)->payload_len);
+        session->payload_len_xor = ntohs(((const struct xor_pkt_hdr *) data)->payload_len_xor);
 
-        session->header_xor = data + sizeof(struct xor_pkt_hdr);
+        session->header_xor = (char *) data + sizeof(struct xor_pkt_hdr);
         session->payload_xor = data + sizeof(struct xor_pkt_hdr) + session->header_len;
 }
 

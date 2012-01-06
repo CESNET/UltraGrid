@@ -134,39 +134,6 @@ void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
         }
 }
 
-
-uint32_t hton_tileinfo2uint(struct tile_info tile_info)
-{
-        union {
-                struct tile_info t_info;
-                uint32_t res;
-        } trans;
-        trans.t_info = tile_info;
-        trans.t_info.h_reserved = MAGIC_H;
-        trans.t_info.t_reserved = MAGIC_T;
-        return htonl(trans.res);
-}
-
-struct tile_info ntoh_uint2tileinfo(uint32_t packed)
-{
-        union {
-                struct tile_info t_info;
-                uint32_t src;
-        } trans;
-        trans.src = ntohl(packed);
-        if(trans.t_info.h_reserved = MAGIC_H)
-                return trans.t_info;
-        else { /* == MAGIC_T */
-                  int tmp;
-                  tmp = trans.t_info.x_count << 4u & trans.t_info.y_count;
-                  trans.t_info.x_count = trans.t_info.pos_x;
-                  trans.t_info.y_count = trans.t_info.pos_y;
-                  trans.t_info.pos_x = tmp >> 4u;
-                  trans.t_info.pos_y = tmp & 0xF;
-                  return trans.t_info;
-        }
-}
-
 int tileinfo_eq_count(struct tile_info t1, struct tile_info t2)
 {
         return t1.x_count == t2.x_count && t1.y_count == t2.y_count;

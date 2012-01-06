@@ -48,6 +48,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "host.h"
 #include "x11_common.h"
 #include "video_compress/jpeg.h"
 #include "jpeg_compress/jpeg_encoder.h"
@@ -75,8 +76,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
 {
-        int x, y;
-	int h_align = 0;
+        unsigned int x;
         
         assert(vf_get_tile(frame, 0)->width % 4 == 0);
         s->out = vf_alloc(frame->tile_count);
@@ -106,7 +106,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                         s->decoder = (decoder_t) vc_copylineRGBAtoRGB;
                         s->rgb = TRUE;
                         break;
-                /* TODO: enable
+                /* TODO: enable (we need R10k -> RGB)
                  * case R10k:
                         s->decoder = (decoder_t) vc_copyliner10k;
                         s->rgb = TRUE;
@@ -247,7 +247,7 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
         int i;
         unsigned char *line1, *line2;
 
-        int x, y;
+        unsigned int x;
         
         if(!s->encoder) {
                 int ret;
@@ -270,7 +270,7 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
                         line2 += out_tile->linesize;
                 }
                 
-                line1 = out_tile->data + (in_tile->height - 1) * out_tile->linesize;
+                line1 = (unsigned char *) out_tile->data + (in_tile->height - 1) * out_tile->linesize;
                 for( ; i < s->jpeg_height; ++i) {
                         memcpy(line2, line1, out_tile->linesize);
                         line2 += out_tile->linesize;
@@ -283,7 +283,7 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
                 uint8_t *compressed;
                 int size;
                 int ret;
-                ret = jpeg_encoder_encode(s->encoder, s->decoded, &compressed, &size);
+                ret = jpeg_encoder_encode(s->encoder, (unsigned char *) s->decoded, &compressed, &size);
                 
                 if(ret != 0)
                         return NULL;

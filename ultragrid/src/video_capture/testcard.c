@@ -299,12 +299,12 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height)
 
 char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
 {
-        int i;
-        char *ret = malloc(width * height * 3);
+        unsigned int i;
+        unsigned char *ret = malloc(width * height * 3);
         for(i = 0; i < height; ++i) {
                 vc_copylineRGBAtoRGB(ret + i * width * 3, in + i * width * 4, width * 3);
         }
-        return ret;
+        return (char *) ret;
 }
 
 static void grab_audio(int chan, void *stream, int len, void *udata)

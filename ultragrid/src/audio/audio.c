@@ -49,6 +49,7 @@
 #include "audio/audio.h" 
 #include "audio/jack.h" 
 #include "audio/capture/portaudio.h" 
+#include "audio/playback/portaudio.h" 
 #include "audio/capture/alsa.h" 
 #include "audio/playback/alsa.h" 
 #include "audio/capture/coreaudio.h" 
@@ -59,6 +60,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -67,6 +69,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
+#include "lib_common.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -115,9 +118,6 @@ struct state_sdi_playback {
         void *put_udata;
 };
 
-void print_audio_capture_devices(void);
-void print_audio_playback_devices(void);
-
 /** 
  * Copies one input channel into n output (interlaced).
  * 
@@ -141,66 +141,288 @@ typedef void (*audio_put_frame_t)(void *state, struct audio_frame *frame);
 typedef void (*audio_playback_done_t)(void *s);
 
 struct audio_capture_t {
-        const char *name;
-        audio_device_help_t audio_help;
-        audio_init_t audio_init;
-        audio_read_t audio_read;
-        audio_finish_t audio_capture_finish;
-        audio_done_t audio_capture_done;
+        const char              *name;
+
+        const char              *library_name;
+        audio_device_help_t      audio_help;
+        const char              *audio_help_str;
+        audio_init_t             audio_init;
+        const char              *audio_init_str;
+        audio_read_t             audio_read;
+        const char              *audio_read_str;
+        audio_finish_t           audio_capture_finish;
+        const char              *audio_capture_finish_str;
+        audio_done_t             audio_capture_done;
+        const char              *audio_capture_done_str;
+
+        void                    *handle;
 };
 
 struct audio_playback_t {
-        const char *name;
-        audio_device_help_t audio_help;
-        audio_init_t audio_init;
-        audio_get_frame_t audio_get_frame;
-        audio_put_frame_t audio_put_frame;
-        audio_playback_done_t playback_done;
+        const char              *name;
+
+        const char              *library_name;
+        audio_device_help_t      audio_help;
+        const char              *audio_help_str;
+        audio_init_t             audio_init;
+        const char              *audio_init_str;
+        audio_get_frame_t        audio_get_frame;
+        const char              *audio_get_frame_str;
+        audio_put_frame_t        audio_put_frame;
+        const char              *audio_put_frame_str;
+        audio_playback_done_t    audio_playback_done;
+        const char              *audio_playback_done_str;
+
+        void *handle;
 };
 
 void sdi_capture_help(void);
 void sdi_playback_help(void);
 void * sdi_capture_init(char *cfg);
-void * sdi_capture_finish(void *state);
-void * sdi_capture_done(void *state);
+void sdi_capture_finish(void *state);
+void sdi_capture_done(void *state);
 void * sdi_playback_init(char *cfg);
 void sdi_playback_done(void *s);
 struct audio_frame * sdi_read(void *state);
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
 static struct rtp *initialize_audio_network(char *addr, struct pdb *participants);
-void print_audio_capture_devices();
-void print_audio_playback_devices();
+void initialize_audio_capture(void);
+void initialize_audio_playback(void);
+void print_audio_capture_devices(void);
+void print_audio_playback_devices(void);
 
-static struct audio_capture_t audio_capture[] = {
-        { "embedded", sdi_capture_help, sdi_capture_init, sdi_read, sdi_capture_finish, sdi_capture_done },
-#ifdef HAVE_ALSA
-        { "alsa", audio_cap_alsa_help, audio_cap_alsa_init, audio_cap_alsa_read, audio_cap_alsa_finish, audio_cap_alsa_done },
+static struct audio_capture_t audio_capture_table[] = {
+        { "embedded",
+                NULL,
+                MK_STATIC(sdi_capture_help),
+                MK_STATIC(sdi_capture_init),
+                MK_STATIC(sdi_read),
+                MK_STATIC(sdi_capture_finish),
+                MK_STATIC(sdi_capture_done),
+                NULL
+        },
+#if defined HAVE_ALSA || defined BUILD_LIBRARIES
+        { "alsa",
+                "alsa",
+                MK_NAME(audio_cap_alsa_help),
+                MK_NAME(audio_cap_alsa_init),
+                MK_NAME(audio_cap_alsa_read),
+                MK_NAME(audio_cap_alsa_finish),
+                MK_NAME(audio_cap_alsa_done),
+                NULL
+        },
 #endif
-#ifdef HAVE_COREAUDIO
-        { "coreaudio", audio_cap_ca_help, audio_cap_ca_init, audio_cap_ca_read, audio_cap_ca_finish, audio_cap_ca_done },
+#if defined HAVE_COREAUDIO
+        { "coreaudio",
+                NULL,
+                MK_STATIC(audio_cap_ca_help),
+                MK_STATIC(audio_cap_ca_init),
+                MK_STATIC(audio_cap_ca_read),
+                MK_STATIC(audio_cap_ca_finish),
+                MK_STATIC(audio_cap_ca_done),
+                NULL
+        },
 #endif
-#ifdef HAVE_PORTAUDIO
-        { "portaudio", portaudio_capture_help, portaudio_capture_init, portaudio_read, portaudio_capture_finish, portaudio_capture_done },
+#if defined HAVE_PORTAUDIO || defined BUILD_LIBRARIES
+        { "portaudio",
+                "portaudio",
+                MK_NAME(portaudio_capture_help),
+                MK_NAME(portaudio_capture_init),
+                MK_NAME(portaudio_read),
+                MK_NAME(portaudio_capture_finish),
+                MK_NAME(portaudio_capture_done),
+                NULL
+        },
 #endif
-        { "none", audio_cap_none_help, audio_cap_none_init, audio_cap_none_read, audio_cap_none_finish, audio_cap_none_done },
-        { NULL, NULL, NULL, NULL, NULL, NULL }
+        { "none",
+                NULL,
+                MK_STATIC(audio_cap_none_help),
+                MK_STATIC(audio_cap_none_init),
+                MK_STATIC(audio_cap_none_read),
+                MK_STATIC(audio_cap_none_finish),
+                MK_STATIC(audio_cap_none_done),
+                NULL
+        }
 };
 
-static struct audio_playback_t audio_playback[] = {
-        { "embedded", sdi_playback_help, sdi_playback_init, sdi_get_frame, sdi_put_frame, sdi_playback_done },
-#ifdef HAVE_ALSA
-        { "alsa", audio_play_alsa_help, audio_play_alsa_init, audio_play_alsa_get_frame, audio_play_alsa_put_frame, audio_play_alsa_done },
+#define MAX_AUDIO_CAP (sizeof(audio_capture_table) / sizeof(struct audio_capture_t))
+
+struct audio_capture_t *available_audio_capture[MAX_AUDIO_CAP];
+int available_audio_capture_count = 0;
+
+static struct audio_playback_t audio_playback_table[] = {
+        { "embedded",
+               NULL,
+               MK_STATIC(sdi_playback_help),
+               MK_STATIC(sdi_playback_init),
+               MK_STATIC(sdi_get_frame),
+               MK_STATIC(sdi_put_frame),
+               MK_STATIC(sdi_playback_done),
+               NULL
+        },
+#if defined HAVE_ALSA || defined BUILD_LIBRARIES
+        { "alsa",
+                "alsa",
+                MK_NAME(audio_play_alsa_help),
+                MK_NAME(audio_play_alsa_init),
+                MK_NAME(audio_play_alsa_get_frame),
+                MK_NAME(audio_play_alsa_put_frame),
+                MK_NAME(audio_play_alsa_done),
+                NULL
+        },
 #endif
-#ifdef HAVE_COREAUDIO
-        { "coreaudio", audio_play_ca_help, audio_play_ca_init, audio_play_ca_get_frame, audio_play_ca_put_frame, audio_play_ca_done },
+#if defined HAVE_COREAUDIO
+        { "coreaudio",
+                NULL,
+                MK_STATIC(audio_play_ca_help),
+                MK_STATIC(audio_play_ca_init),
+                MK_STATIC(audio_play_ca_get_frame),
+                MK_STATIC(audio_play_ca_put_frame),
+                MK_STATIC(audio_play_ca_done),
+                NULL
+        },
 #endif
-#ifdef HAVE_PORTAUDIO
-        { "portaudio", portaudio_playback_help, portaudio_playback_init, portaudio_get_frame, portaudio_put_frame, portaudio_close_playback },
+#if defined HAVE_PORTAUDIO || defined BUILD_LIBRARIES
+        { "portaudio",
+                "portaudio",
+                MK_NAME(portaudio_playback_help),
+                MK_NAME(portaudio_playback_init),
+                MK_NAME(portaudio_get_frame),
+                MK_NAME(portaudio_put_frame),
+                MK_NAME(portaudio_close_playback),
+                NULL
+        },
 #endif
-        { "none", audio_play_none_help, audio_play_none_init, audio_play_none_get_frame, audio_play_none_put_frame, audio_play_none_done },
-        { NULL, NULL, NULL, NULL, NULL, NULL }
+        { "none",
+                NULL,
+                MK_STATIC(audio_play_none_help),
+                MK_STATIC(audio_play_none_init),
+                MK_STATIC(audio_play_none_get_frame),
+                MK_STATIC(audio_play_none_put_frame),
+                MK_STATIC(audio_play_none_done),
+                NULL
+        }
 };
+
+#define MAX_AUDIO_PLAY (sizeof(audio_playback_table) / sizeof(struct audio_playback_t))
+
+struct audio_playback_t *available_audio_playback[MAX_AUDIO_PLAY];
+int available_audio_playback_count = 0;
+
+#ifdef BUILD_LIBRARIES
+static void *audio_capture_open_library(const char *capture_name)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "acap_%s.so.%d", capture_name, AUDIO_CAPTURE_ABI_VERSION);
+
+        return open_library(name);
+}
+
+static int audio_capture_fill_symbols(struct audio_capture_t *device)
+{
+        void *handle = device->handle;
+
+        device->audio_help = (audio_device_help_t)
+                dlsym(handle, device->audio_help_str);
+        device->audio_init = (audio_init_t)
+                dlsym(handle, device->audio_init_str);
+        device->audio_read = (audio_read_t)
+                dlsym(handle, device->audio_read_str);
+        device->audio_capture_finish = (audio_finish_t)
+                dlsym(handle, device->audio_capture_finish_str);
+        device->audio_capture_done = (audio_done_t)
+                dlsym(handle, device->audio_capture_done_str);
+
+        if(!device->audio_help || !device->audio_init || !device->audio_read ||
+                        !device->audio_capture_finish || !device->audio_capture_done) {
+                fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
+                return FALSE;
+        }
+
+        return TRUE;
+}
+
+static void *audio_playback_open_library(const char *playback_name)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "aplay_%s.so.%d", playback_name, AUDIO_PLAYBACK_ABI_VERSION);
+
+        return open_library(name);
+}
+
+static int audio_playback_fill_symbols(struct audio_playback_t *device)
+{
+        void *handle = device->handle;
+
+        device->audio_help = (audio_device_help_t)
+                dlsym(handle, device->audio_help_str);
+        device->audio_init = (audio_init_t)
+                dlsym(handle, device->audio_init_str);
+        device->audio_get_frame = (audio_get_frame_t)
+                dlsym(handle, device->audio_get_frame_str);
+        device->audio_put_frame = (audio_put_frame_t)
+                dlsym(handle, device->audio_put_frame_str);
+        device->audio_playback_done = (audio_done_t)
+                dlsym(handle, device->audio_playback_done_str);
+
+        if(!device->audio_help || !device->audio_init || !device->audio_get_frame ||
+                        !device->audio_put_frame || !device->audio_playback_done) {
+                fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
+                return FALSE;
+        }
+
+        return TRUE;
+}
+#endif
+
+void initialize_audio_capture()
+{
+        unsigned int i;
+
+        for(i = 0; i < MAX_AUDIO_CAP; ++i) {
+#ifdef BUILD_LIBRARIES
+                if(audio_capture_table[i].library_name) {
+                        int ret;
+                        audio_capture_table[i].handle =
+                                audio_capture_open_library(audio_capture_table[i].library_name);
+                        if(!audio_capture_table[i].handle) {
+                                continue;
+                        }
+                        ret = audio_capture_fill_symbols(&audio_capture_table[i]);
+                        if(!ret) {
+                                continue;
+                        }
+                }
+#endif
+                available_audio_capture[available_audio_capture_count] = &audio_capture_table[i];
+                available_audio_capture_count++;
+        }
+}
+
+void initialize_audio_playback()
+{
+        unsigned int i;
+
+        for(i = 0; i < MAX_AUDIO_PLAY; ++i) {
+#ifdef BUILD_LIBRARIES
+                if(audio_playback_table[i].library_name) {
+                        int ret;
+                        audio_playback_table[i].handle =
+                                audio_playback_open_library(audio_playback_table[i].library_name);
+                        if(!audio_playback_table[i].handle) {
+                                continue;
+                        }
+                        ret = audio_playback_fill_symbols(&audio_playback_table[i]);
+                        if(!ret) {
+                                continue;
+                        }
+                }
+#endif
+                available_audio_playback[available_audio_playback_count] = &audio_playback_table[i];
+                available_audio_playback_count++;
+        }
+}
 
 void sdi_capture_help(void)
 {
@@ -216,8 +438,8 @@ void print_audio_capture_devices()
 {
         int i;
         printf("Available audio capture devices:\n");
-        for (i = 0; audio_capture[i].name != NULL; ++i) {
-                audio_capture[i].audio_help();
+        for (i = 0; i < available_audio_capture_count; ++i) {
+                available_audio_capture[i]->audio_help();
                 printf("\n");
         }
 }
@@ -226,8 +448,8 @@ void print_audio_playback_devices()
 {
         int i;
         printf("Available audio playback devices:\n");
-        for (i = 0; audio_playback[i].name != NULL; ++i) {
-                audio_playback[i].audio_help();
+        for (i = 0; i < available_audio_playback_count; ++i) {
+                available_audio_playback[i]->audio_help();
                 printf("\n");
         }
 }
@@ -242,6 +464,9 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         char *addr;
         int i;
         
+        initialize_audio_capture();
+        initialize_audio_playback();
+
         if (send_cfg != NULL &&
                         !strcmp("help", send_cfg)) {
                 print_audio_capture_devices();
@@ -276,29 +501,29 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
 
         if (send_cfg != NULL) {
                 char *tmp = strtok(send_cfg, ":");
-                for (i = 0; audio_capture[i].name != NULL; ++i) {
-                        if(strcmp(tmp, audio_capture[i].name) == 0) {
+                for (i = 0; i < available_audio_capture_count; ++i) {
+                        if(strcmp(tmp, available_audio_capture[i]->name) == 0) {
                                 s->audio_capture_device.index = i;
                                 break;
                         }
                 }
 
-                if(audio_capture[i].name == NULL) {
+                if(i == available_audio_capture_count) {
                         fprintf(stderr, "Unknown audio driver: %s\n", tmp);
                         goto error;
                 }
                 
                 tmp = strtok(NULL, ":");
                 s->audio_capture_device.state =
-                        audio_capture[s->audio_capture_device.index].audio_init(tmp);
+                        available_audio_capture[s->audio_capture_device.index]->audio_init(tmp);
                 
                 if(!s->audio_capture_device.state) {
                         fprintf(stderr, "Error initializing audio capture.\n");
                         goto error;
                 }
         } else {
-                for (i = 0; audio_capture[i].name != NULL; ++i) {
-                        if(strcmp("none", audio_capture[i].name) == 0) {
+                for (i = 0; i < available_audio_capture_count; ++i) {
+                        if(strcmp("none", available_audio_capture[i]->name) == 0) {
                                 s->audio_capture_device.index = i;
                         }
                 }
@@ -306,27 +531,27 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         
         if (recv_cfg != NULL) {
                 char *tmp = strtok(recv_cfg, ":");
-                for (i = 0; audio_playback[i].name != NULL; ++i) {
-                        if(strcmp(tmp, audio_playback[i].name) == 0) {
+                for (i = 0; i < available_audio_playback_count; ++i) {
+                        if(strcmp(tmp, available_audio_playback[i]->name) == 0) {
                                 s->audio_playback_device.index = i;
                                 break;
                         }
                 }
-                if(audio_playback[i].name == NULL) {
+                if(i == available_audio_playback_count) {
                         fprintf(stderr, "Unknown audio driver: %s\n", tmp);
                         goto error;
                 }
                 
                 tmp = strtok(NULL, ":");
                 s->audio_playback_device.state =
-                        audio_playback[s->audio_playback_device.index].audio_init(tmp);
+                        available_audio_playback[s->audio_playback_device.index]->audio_init(tmp);
                 if(!s->audio_playback_device.state) {
                         fprintf(stderr, "Error initializing audio playback.\n");
                         goto error;
                 }
         } else {
-                for (i = 0; audio_playback[i].name != NULL; ++i) {
-                        if(strcmp("none", audio_playback[i].name) == 0) {
+                for (i = 0; i < available_audio_playback_count; ++i) {
+                        if(strcmp("none", available_audio_playback[i]->name) == 0) {
                                 s->audio_playback_device.index = i;
                         }
                 }
@@ -394,18 +619,20 @@ void audio_join(struct state_audio *s) {
 void audio_finish(struct state_audio *s)
 {
         if(s) {
-                audio_capture[s->audio_capture_device.index].audio_capture_finish(s->audio_capture_device.state);
+                available_audio_capture[s->audio_capture_device.index]->audio_capture_finish(s->audio_capture_device.state);
         }
 }
 
 void audio_done(struct state_audio *s)
 {
         if(s) {
+                available_audio_playback[s->audio_playback_device.index]->audio_playback_done(s->audio_playback_device.state);
+                available_audio_capture[s->audio_capture_device.index]->audio_capture_done(s->audio_capture_device.state);
+                tx_done(s->tx_session);
+                if(s->audio_network_device)
+                        rtp_done(s->audio_network_device);
                 if(s->audio_participants)
                         pdb_destroy(&s->audio_participants);
-                audio_playback[s->audio_playback_device.index].playback_done(s->audio_playback_device.state);
-                audio_capture[s->audio_capture_device.index].audio_capture_done(s->audio_capture_device.state);
-                tx_done(s->tx_session);
                 free(s);
         }
 }
@@ -469,7 +696,7 @@ static void *audio_receiver_thread(void *arg)
         struct pdb_e *cp;
         struct audio_frame *frame;
         
-        frame = audio_playback[s->audio_playback_device.index].audio_get_frame(
+        frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                         s->audio_playback_device.state);
                 
         printf("Audio receiving started.\n");
@@ -488,13 +715,13 @@ static void *audio_receiver_thread(void *arg)
                         while (cp != NULL) {
                                 if(frame != NULL) {
                                         if (audio_pbuf_decode(cp->playout_buffer, curr_time, frame)) {
-                                                audio_playback[s->audio_playback_device.index].audio_put_frame(
+                                                available_audio_playback[s->audio_playback_device.index]->audio_put_frame(
                                                         s->audio_playback_device.state, frame);
-                                                frame = audio_playback[s->audio_playback_device.index].audio_get_frame(
+                                                frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                                                         s->audio_playback_device.state);
                                         }
                                 } else {
-                                        frame = audio_playback[s->audio_playback_device.index].audio_get_frame(
+                                        frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                                                 s->audio_playback_device.state);
                                 }
                                 pbuf_remove(cp->playout_buffer, curr_time);
@@ -504,9 +731,9 @@ static void *audio_receiver_thread(void *arg)
                 } else { /* NET_JACK */
 #ifdef HAVE_JACK
                         jack_receive(s->jack_connection, frame);
-                        audio_playback[s->audio_playback_device.index].audio_put_frame(
+                        available_audio_playback[s->audio_playback_device.index]->audio_put_frame(
                                                 s->audio_playback_device.state, frame);
-                        frame = audio_playback[s->audio_playback_device.index].audio_get_frame(
+                        frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                                 s->audio_playback_device.state);
 #endif
                 }
@@ -522,7 +749,7 @@ static void *audio_sender_thread(void *arg)
         
         printf("Audio sending started.\n");
         while (!should_exit) {
-                buffer = audio_capture[s->audio_capture_device.index].audio_read(
+                buffer = available_audio_capture[s->audio_capture_device.index]->audio_read(
                         s->audio_capture_device.state);
                 if(buffer) {
                         if(s->sender == NET_NATIVE)
@@ -539,7 +766,7 @@ static void *audio_sender_thread(void *arg)
 
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         struct state_sdi_capture *sdi;
-        if(strcmp(audio_capture[s->audio_capture_device.index].name, "embedded") != 0)
+        if(strcmp(available_audio_capture[s->audio_capture_device.index]->name, "embedded") != 0)
                 return;
         
         sdi = (struct state_sdi_capture *) s->audio_capture_device.state;
@@ -573,14 +800,14 @@ int audio_does_send_sdi(struct state_audio *s)
 {
         if(!s) 
                 return FALSE;
-        return strcmp(audio_capture[s->audio_capture_device.index].name, "embedded") == 0;
+        return strcmp(available_audio_capture[s->audio_capture_device.index]->name, "embedded") == 0;
 }
 
 int audio_does_receive_sdi(struct state_audio *s)
 {
         if(!s) 
                 return FALSE;
-        return strcmp(audio_playback[s->audio_playback_device.index].name, "embedded") == 0;
+        return strcmp(available_audio_playback[s->audio_playback_device.index]->name, "embedded") == 0;
 }
 
 void sdi_put_frame(void *state, struct audio_frame *frame)
@@ -608,7 +835,7 @@ void sdi_playback_done(void *s)
         UNUSED(s);
 }
 
-void * sdi_capture_finish(void *state)
+void sdi_capture_finish(void *state)
 {
         struct state_sdi_capture *s;
         
@@ -616,7 +843,7 @@ void * sdi_capture_finish(void *state)
         platform_sem_post(&s->audio_frame_ready);
 }
 
-void * sdi_capture_done(void *state)
+void sdi_capture_done(void *state)
 {
         UNUSED(state);
 }

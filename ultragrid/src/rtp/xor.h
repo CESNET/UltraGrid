@@ -46,8 +46,8 @@ void xor_clear(struct xor_session *session);
 void xor_destroy(struct xor_session * session);
 int xor_get_hdr_size(void);
 
-struct xor_session *xor_restore_init();
-void xor_restore_start(struct xor_session *session, const char *data);
+struct xor_session *xor_restore_init(void);
+void xor_restore_start(struct xor_session *session, char *data);
 int xor_restore_packet(struct xor_session *session, char **pkt, uint16_t *len);
 void xor_restore_destroy(struct xor_session *xor);
 void xor_restore_invalidate(struct xor_session *xor);

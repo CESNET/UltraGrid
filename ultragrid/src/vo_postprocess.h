@@ -60,7 +60,7 @@ typedef  void *(*vo_postprocess_init_t)(char *cfg);
  * @return frame to be written to
  */
 typedef  struct video_frame * (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
-typedef void (*vo_postprocess_get_out_desc_t)(struct vo_postprocess_state *, struct video_desc *out, int *display_mode);
+typedef void (*vo_postprocess_get_out_desc_t)(void *, struct video_desc *out, int *display_mode);
 
 /**
  * Postprocesses video frame

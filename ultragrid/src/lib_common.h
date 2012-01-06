@@ -1,8 +1,16 @@
 /*
- * FILE:   display_dvs.h
+ * FILE:   video_display.c
  * AUTHOR: Colin Perkins <csp@isi.edu>
+ *         Martin Benes     <martinbenesh@gmail.com>
+ *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *         Petr Holub       <hopet@ics.muni.cz>
+ *         Milos Liska      <xliska@fi.muni.cz>
+ *         Jiri Matela      <matela@ics.muni.cz>
+ *         Dalibor Matura   <255899@mail.muni.cz>
+ *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2001-2002 University of Southern California
+ * Copyright (c) 2001-2003 University of Southern California
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -19,11 +27,12 @@
  *    must display the following acknowledgement:
  * 
  *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      California Information Sciences Institute. This product also includes
+ *      software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
+ * 4. Neither the name of the University, Institute, CESNET nor the names of
+ *    its contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
  * 
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
@@ -39,33 +48,26 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include <video_display.h>
 
-#define DISPLAY_DVS_ID	0x74ac3e0f
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#include "debug.h"
 
-struct audio_frame;
-struct state_decoder;
+#ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
+#include <libgen.h>
+#define MK_NAME(A) NULL, #A
+#else
+#define MK_NAME(A) A, NULL
+#endif /* BUILD_LIBRARIES */
 
-typedef struct {
-        int mode;
-        unsigned int width;
-        unsigned int height;
-        double fps;
-        int aux;
-} hdsp_mode_table_t;
+#define MK_STATIC(A) A, NULL
+#define STRINGIFY(A) #A
+#define TOSTRING(x) STRINGIFY(x)
 
-extern const hdsp_mode_table_t hdsp_mode_table[];
-
-void                *display_dvs_init_impl(char *fmt, unsigned int flags);
-void                 display_dvs_run_impl(void *state);
-void                 display_dvs_finish_impl(void *state);
-void                 display_dvs_done_impl(void *state);
-struct video_frame  *display_dvs_getf_impl(void *state);
-int                  display_dvs_putf_impl(void *state, char *frame);
-int                  display_dvs_reconfigure_impl(void *state,
-                                struct video_desc desc);
-int                  display_dvs_get_property_impl(void *state, int property, void *val, size_t *len);
-
-struct audio_frame * display_dvs_get_audio_frame_impl(void *state);
-void display_dvs_put_audio_frame_impl(void *state, struct audio_frame *frame);
+#ifdef BUILD_LIBRARIES
+/* defined in video_display.c */
+void *open_library(const char *name);
+#endif /* BUILD_LIBRARIES */
 

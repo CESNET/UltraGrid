@@ -239,7 +239,7 @@ get_carrier (int fd, const char *device)
  * But the didn't seem worked at time of writing 
  * TODO: revide if the driver is still buggy, if so, consider removing function
  */
-static const struct frame_mode * get_video_standard (int fd, const char *device)
+/*static const struct frame_mode * get_video_standard (int fd, const char *device)
 {
 	unsigned int val;
 
@@ -259,7 +259,7 @@ static const struct frame_mode * get_video_standard (int fd, const char *device)
                         return NULL;
                 }
 	}
-}
+}*/
 
 struct vidcap_type *
 vidcap_quad_probe(void)
@@ -395,7 +395,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         do {
                 devices[s->devices_cnt] = atoi(ptr);
                 ++s->devices_cnt;
-        } while (ptr = strtok_r(NULL, ",", &saveptr2));
+        } while ((ptr = strtok_r(NULL, ",", &saveptr2)));
         free(devices_str);
 
         item = strtok_r(fmt_dup, ":", &save_ptr);
