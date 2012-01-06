@@ -49,6 +49,8 @@
 #define __video_decompress_h
 #include "video_codec.h"
 
+struct state_decompress;
+
 /**
  * initializes decompression and returns internal state
  */
@@ -67,16 +69,22 @@ typedef  void (*decompress_decompress_t)(void *state, unsigned char *dst, unsign
  */
 typedef  void (*decompress_done_t)(void *);
 
+
 struct decode_from_to {
         codec_t from;
         codec_t to;
 
-        decompress_init_t init;
-        decompress_reconfigure_t reconfigure;
-        decompress_decompress_t decompress;
-        decompress_done_t done;
+        uint32_t decompress_index;
 };
+extern struct decode_from_to decoders_for_codec[];
+extern const int decoders_for_codec_count;
 
-extern const struct decode_from_to decoders[];           /* defined in video_decompress.c */
+
+void initialize_video_decompress(void);
+
+struct state_decompress *decompress_init(unsigned int decoder_index);
+int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
+void decompress_frame(struct state_decompress *, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+void decompress_done(struct state_decompress *);
 
 #endif /* __video_decompress_h */

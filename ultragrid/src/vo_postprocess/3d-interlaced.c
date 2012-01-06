@@ -98,7 +98,9 @@ struct video_frame * interlaced_3d_postprocess_reconfigure(void *state, struct v
 
 void interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
-        int x;
+        UNUSED (state);
+        UNUSED (req_pitch);
+        unsigned int x;
         
         char *out_data = vf_get_tile(out, 0)->data;
         int linesize = vc_get_linesize(vf_get_tile(out, 0)->width, out->color_spec);

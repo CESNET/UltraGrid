@@ -57,12 +57,21 @@
 #include "video_compress/dxt_glsl.h"
 #include "video_compress/fastdxt.h"
 #include "video_compress/jpeg.h"
+#include "lib_common.h"
 
+/* *_str are symbol names inside library */
 struct compress_t {
-        const char * name;
-        compress_init_t init;
+        const char        * name;
+        const char        * library_name;
+
+        compress_init_t     init;
+        const char        * init_str;
         compress_compress_t compress;
-        compress_done_t done;
+        const char         *compress_str;
+        compress_done_t     done;
+        const char         *done_str;
+
+        void *handle;
 };
 
 struct compress_state {
@@ -70,25 +79,87 @@ struct compress_state {
         void *state;
 };
 
-const struct compress_t compress_modules[] = {
-#ifdef HAVE_FASTDXT
-        {"FastDXT", fastdxt_init, fastdxt_compress, fastdxt_done },
+void init_compressions(void);
+
+
+struct compress_t compress_modules[] = {
+#if defined HAVE_FASTDXT || defined BUILD_LIBRARIES
+        {"FastDXT", "fastdxt", MK_NAME(fastdxt_init), MK_NAME(fastdxt_compress), MK_NAME(fastdxt_done), NULL },
 #endif
-#ifdef HAVE_DXT_GLSL
-        {"RTDXT", dxt_glsl_compress_init, dxt_glsl_compress, dxt_glsl_compress_done},
+#if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
+        {"RTDXT", "rtdxt", MK_NAME(dxt_glsl_compress_init), MK_NAME(dxt_glsl_compress), MK_NAME(dxt_glsl_compress_done), NULL},
 #endif
-#ifdef HAVE_JPEG
-        {"JPEG", jpeg_compress_init, jpeg_compress, jpeg_compress_done},
+#if defined HAVE_JPEG || defined  BUILD_LIBRARIES
+        {"JPEG", "jpeg", MK_NAME(jpeg_compress_init), MK_NAME(jpeg_compress), MK_NAME(jpeg_compress_done), NULL},
 #endif
-        {NULL, NULL, NULL, NULL}
 };
+
+#define MAX_COMPRESS_MODULES (sizeof(compress_modules)/sizeof(struct compress_t))
+
+static struct compress_t *available_compress_modules[MAX_COMPRESS_MODULES];
+static int compress_modules_count = 0;
+
+#ifdef BUILD_LIBRARIES
+/* definded in video_display.c */
+void *open_library(const char *name);
+
+static void *compress_open_library(const char *compress_name)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "vcompress_%s.so.%d", compress_name, VIDEO_COMPRESS_ABI_VERSION);
+
+        return open_library(name);
+}
+
+static int compress_fill_symbols(struct compress_t *compression)
+{
+        void *handle = compression->handle;
+
+        compression->init = (void *(*) (char *))
+                dlsym(handle, compression->init_str);
+        compression->compress = (struct video_frame * (*)(void *, struct video_frame *))
+                dlsym(handle, compression->compress_str);
+        compression->done = (void (*)(void *))
+                dlsym(handle, compression->done_str);
+
+        
+        if(!compression->init || !compression->compress || !compression->done) {
+                fprintf(stderr, "Library %s opening error: %s \n", compression->library_name, dlerror());
+                return FALSE;
+        }
+        return TRUE;
+}
+#endif
+
+void init_compressions(void)
+{
+        unsigned int i;
+        for(i = 0; i < sizeof(compress_modules)/sizeof(struct compress_t); ++i) {
+#ifdef BUILD_LIBRARIES
+                if(compress_modules[i].library_name) {
+                        int ret;
+                        compress_modules[i].handle = compress_open_library(compress_modules[i].library_name);
+                        if(!compress_modules[i].handle) continue;
+                        ret = compress_fill_symbols(&compress_modules[i]);
+                        if(!ret) {
+                                fprintf(stderr, "Opening symbols from library %s failed.\n", compress_modules[i].library_name);
+                                continue;
+                        }
+                }
+#endif
+                available_compress_modules[compress_modules_count] = &compress_modules[i];
+                compress_modules_count++;
+        }
+}
 
 void show_compress_help()
 {
         int i;
+        init_compressions();
         printf("Possible compression modules (see '-c <module>:help' for options):\n");
-        for(i = 0; compress_modules[i].name != NULL; ++i)
-                printf("\t%s\n", compress_modules[i].name);
+        for(i = 0; i < compress_modules_count; ++i) {
+                printf("\t%s\n", available_compress_modules[i]->name);
+        }
 }
 
 struct compress_state *compress_init(char *config_string)
@@ -104,17 +175,19 @@ struct compress_state *compress_init(char *config_string)
                 show_compress_help();
                 return NULL;
         }
+
+        init_compressions();
         
         s = (struct compress_state *) malloc(sizeof(struct compress_state));
         s->handle = NULL;
         int i;
-        for(i = 0; compress_modules[i].name != NULL; ++i) {
-                if(strncasecmp(config_string, compress_modules[i].name,
-                                strlen(compress_modules[i].name)) == 0) {
-                        s->handle = &compress_modules[i];
-                        if(config_string[strlen(compress_modules[i].name)] == ':') 
+        for(i = 0; i < compress_modules_count; ++i) {
+                if(strncasecmp(config_string, available_compress_modules[i]->name,
+                                strlen(available_compress_modules[i]->name)) == 0) {
+                        s->handle = available_compress_modules[i];
+                        if(config_string[strlen(available_compress_modules[i]->name)] == ':') 
                                         compress_options = config_string +
-                                                strlen(compress_modules[i].name) + 1;
+                                                strlen(available_compress_modules[i]->name) + 1;
                 }
         }
         if(!s->handle) {
@@ -122,10 +195,14 @@ struct compress_state *compress_init(char *config_string)
                 free(s);
                 return NULL;
         }
-        s->state = s->handle->init(compress_options);
-        if(!s->state) {
-                fprintf(stderr, "Compression initialization failed: %s\n", config_string);
-                free(s);
+        if(s->handle->init) {
+                s->state = s->handle->init(compress_options);
+                if(!s->state) {
+                        fprintf(stderr, "Compression initialization failed: %s\n", config_string);
+                        free(s);
+                        return NULL;
+                }
+        } else {
                 return NULL;
         }
         return s;
@@ -133,13 +210,18 @@ struct compress_state *compress_init(char *config_string)
 
 const char *get_compress_name(struct compress_state *s)
 {
-        if(s) return s->handle->name;
+        if(s)
+                return s->handle->name;
+        else
+                return NULL;
 }
 
 struct video_frame *compress_frame(struct compress_state *s, struct video_frame *frame)
 {
         if(s)
                 return s->handle->compress(s->state, frame);
+        else
+                return NULL;
 }
 
 void compress_done(struct compress_state *s)

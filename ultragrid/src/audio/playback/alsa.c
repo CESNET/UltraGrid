@@ -156,8 +156,7 @@ void audio_play_alsa_help(void)
         snd_device_name_hint(-1, "pcm", &hints); 
         while(*hints != NULL) {
                 char *tmp = strdup(*(char **) hints);
-                char *save_ptr = NULL,
-                     *item;
+                char *save_ptr = NULL;
                 char *name_part;
                 char *name;
                 char *desc;
@@ -167,7 +166,7 @@ void audio_play_alsa_help(void)
                 name_part = strtok_r(tmp + 4, "|", &save_ptr);
                 desc = strtok_r(NULL, "|", &save_ptr);
                 char *character;
-                while(character = strchr(desc, '\n')) {
+                while((character = strchr(desc, '\n'))) {
                         *character = ' ';
                 }
                 name = strtok_r(name_part, ":", &save_ptr);

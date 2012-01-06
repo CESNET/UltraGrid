@@ -77,7 +77,7 @@ dxt_image_load_from_file(const char* filename, int width, int height, DXT_IMAGE_
 
     int data_size = width * height * 3;
     unsigned char* data = (unsigned char*)malloc(data_size * sizeof(unsigned char));
-    if ( data_size != fread(data, sizeof(unsigned char), data_size, file) ) {
+    if ( (size_t) data_size != fread(data, sizeof(unsigned char), data_size, file) ) {
         fprintf(stderr, "Failed to load image data [%d bytes] from file %s!\n", data_size, filename);
         return -1;
     }
@@ -125,7 +125,7 @@ dxt_image_save_to_file(const char* filename, DXT_IMAGE_TYPE* image, int width, i
         }
     }
     
-    if ( data_size != fwrite(data, sizeof(unsigned char), data_size, file) ) {
+    if ( (size_t) data_size != fwrite(data, sizeof(unsigned char), data_size, file) ) {
         fprintf(stderr, "Failed to write image data [%d bytes] to file %s!\n", width * height * 3, filename);
         free(data);
         return -1;
@@ -155,7 +155,7 @@ dxt_image_compressed_load_from_file(const char* filename, unsigned char** data, 
     *data_size = ftell(file);
     rewind(file);
     *data = (unsigned char*)malloc(*data_size * sizeof(unsigned char));
-    if ( *data_size != fread(*data, sizeof(unsigned char), *data_size, file) ) {
+    if ( (size_t) *data_size != fread(*data, sizeof(unsigned char), *data_size, file) ) {
         fprintf(stderr, "Failed to load image data [%d bytes] from file %s!\n", *data_size, filename);
         return -1;
     }
@@ -179,7 +179,7 @@ dxt_image_compressed_save_to_file(const char* filename, unsigned char* image, in
 		return -1;
 	}
     
-    if ( image_size != fwrite(image, sizeof(unsigned char), image_size, file) ) {
+    if ( (size_t) image_size != fwrite(image, sizeof(unsigned char), image_size, file) ) {
         fprintf(stderr, "Failed to write image data [%d bytes] to file %s!\n", image_size, filename);
         return -1;
     }
@@ -197,6 +197,8 @@ int
 dxt_image_destroy(DXT_IMAGE_TYPE* image)
 {
     free(image);
+
+    return 0;
 }
 
 /** Documented at declaration */
@@ -204,4 +206,6 @@ int
 dxt_image_compressed_destroy(unsigned char* image_compressed)
 {
     free(image_compressed);
+
+    return 0;
 }

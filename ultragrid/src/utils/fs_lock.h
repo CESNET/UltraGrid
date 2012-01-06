@@ -1,8 +1,14 @@
 /*
- * FILE:   vidcap_null.h
- * AUTHOR: Colin Perkins <csp@isi.edu>
+ * FILE:    utils/fs_lock.h
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
+ *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ *          Petr Holub       <hopet@ics.muni.cz>
+ *          Milos Liska      <xliska@fi.muni.cz>
+ *          Jiri Matela      <matela@ics.muni.cz>
+ *          Dalibor Matura   <255899@mail.muni.cz>
+ *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2002 University of Southern California
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -18,15 +24,14 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -38,18 +43,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.3 $
- * $Date: 2009/12/02 10:37:30 $
- *
  */
+ 
+ /*
+  * Provides abstraction for system-wide sharable FS locks.
+  */
 
-#define VIDCAP_NULL_ID	0xb0a6a01a
+struct fs_lock;
 
-struct audio_frame;
-
-struct vidcap_type	*vidcap_null_probe(void);
-void			*vidcap_null_init(char *fmt, unsigned int flags);
-void			 vidcap_null_finish(void *state);
-void			 vidcap_null_done(void *state);
-struct video_frame	*vidcap_null_grab(void *state, struct audio_frame **audio);
-
+struct fs_lock * fs_lock_init(char *name);
+void fs_lock_lock(struct fs_lock *);
+void fs_lock_unlock(struct fs_lock *);
+void fs_lock_destroy(struct fs_lock *);

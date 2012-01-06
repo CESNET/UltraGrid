@@ -51,9 +51,15 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "portaudio/include/portaudio.h" /* from PortAudio API */
+
 #include "audio/audio.h"
 #include "audio/capture/portaudio.h"
+#include "config.h"
+#include "config_unix.h"
 #include "debug.h"
+#include "utils/fs_lock.h"
+
 
 /* default variables for sender */
 #define BPS 2 /* paInt16 */
@@ -62,17 +68,10 @@
 #define CHANNELS 2
 #define SECONDS 5
 
-struct state_portaudio_playback {
-        audio_frame frame;
-        int samples;
-        int device;
-        PaStream *stream;
-        int max_output_channels;
-};
-
 struct state_portaudio_capture {
-        audio_frame frame;
+        struct audio_frame frame;
         PaStream *stream;
+        struct fs_lock *portaudio_lock;
 };
 
 enum audio_device_kind {
@@ -85,17 +84,10 @@ enum audio_device_kind {
  * For Portaudio threads-related issues see
  * http://www.portaudio.com/trac/wiki/tips/Threading
  */
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-
-/* prototyping */
-void portaudio_decode_frame(void *dst, void *src, int data_len, int buffer_len, void *state);
-void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
-static void print_device_info(PaDeviceIndex device);
-int portaudio_start_stream(PaStream *stream);
-void portaudio_close(PaStream *stream);	// closes and frees all audio resources ( according to valgrind this is not true..  )
-void            portaudio_print_available_devices(enum audio_device_kind);
-void free_audio_frame(audio_frame *buffer);	// buffers should be freed after usage
+static void        print_device_info(PaDeviceIndex device);
+static int         portaudio_start_stream(PaStream *stream);
+static void        portaudio_close(PaStream *stream); // closes and frees all audio resources ( according to valgrind this is not true..  )
+static void        portaudio_print_available_devices(enum audio_device_kind);
 
  /*
   * Shared functions
@@ -128,17 +120,12 @@ static void print_device_info(PaDeviceIndex device)
 	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
 }
 
-void portaudio_playback_help()
-{
-        portaudio_print_available_devices(AUDIO_OUT);
-}
-
 void portaudio_capture_help()
 {
         portaudio_print_available_devices(AUDIO_IN);
 }
 
-void portaudio_print_available_devices(enum audio_device_kind kind)
+static void portaudio_print_available_devices(enum audio_device_kind kind)
 {
 	int numDevices;
         int i;
@@ -183,11 +170,9 @@ void portaudio_print_available_devices(enum audio_device_kind kind)
 
 void portaudio_close(PaStream * stream)	// closes and frees all audio resources
 {
-        pthread_mutex_lock(&lock); /* safer with multiple threads */
 	Pa_StopStream(stream);	// may not be necessary
         Pa_CloseStream(stream);
 	Pa_Terminate();
-        pthread_mutex_unlock(&lock); /* safer with multiple threads */
 }
 
 /*
@@ -205,13 +190,14 @@ void * portaudio_capture_init(char *cfg)
 	 * so far we only work with portaudio
 	 * might get more complicated later..(jack?)
 	 */
+        s->portaudio_lock = fs_lock_init("portaudio");
          
         if(cfg)
                 input_device = atoi(cfg);
         else
                 input_device = -1;
 
-        pthread_mutex_lock(&lock); /* safer with multiple threads */
+        fs_lock_lock(s->portaudio_lock); /* safer with multiple threads */
 	printf("Initializing portaudio capture.\n");
 	
 	error = Pa_Initialize();
@@ -219,7 +205,7 @@ void * portaudio_capture_init(char *cfg)
 	{
 		printf("error initializing portaudio\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                pthread_mutex_unlock(&lock); /* safer with multiple threads */
+                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return NULL;
 	}
 
@@ -261,10 +247,11 @@ void * portaudio_capture_init(char *cfg)
 	{
 		printf("Error opening audio stream\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                pthread_mutex_unlock(&lock); /* safer with multiple threads */
+                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return NULL;
 	}
-        pthread_mutex_unlock(&lock); /* safer with multiple threads */
+
+        fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
         
 	s->frame.bps = BPS;
         s->frame.ch_count = inputParameters.channelCount;
@@ -278,11 +265,6 @@ void * portaudio_capture_init(char *cfg)
         portaudio_start_stream(s->stream);
 
 	return s;
-}
-
-void free_audio_frame(audio_frame *buffer)
-{
-        free(buffer->data);
 }
 
 // read from input device
@@ -305,176 +287,6 @@ struct audio_frame * portaudio_read(void *state)
 	return &s->frame;
 }
 
-
-/*
- * Playback functions 
- */
-void * portaudio_playback_init(char *cfg)
-{	
-        struct state_portaudio_playback *s;
-        int output_device;
-        
-        if(cfg)
-                output_device = atoi(cfg);
-        else
-                output_device = -1;
-        Pa_Initialize();
-        
-        s = calloc(1, sizeof(struct state_portaudio_playback));
-        assert(output_device >= -1);
-        s->device = output_device;
-        const	PaDeviceInfo *device_info;
-        if(output_device >= 0)
-                device_info = Pa_GetDeviceInfo(output_device);
-        else
-                device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
-	s->max_output_channels = device_info->maxOutputChannels;
-        
-        portaudio_reconfigure_audio(s, BPS * 8, CHANNELS, SAMPLE_RATE);
-         
-	return s;
-}
-
-void portaudio_close_playback(void *state)
-{
-        struct state_portaudio_playback * s = 
-                (struct state_portaudio_playback *) state;
-                
-        free(s->frame.data);
-        portaudio_close(s->stream);
-}
-
-void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate)
-{
-        struct state_portaudio_playback * s = 
-                (struct state_portaudio_playback *) state;
-        PaError error;
-	PaStreamParameters outputParameters;
-        
-        if(s->stream != NULL) {
-                portaudio_close_playback(s);
-        }
-        
-        s->frame.bps = quant_samples / 8;
-        s->frame.ch_count = channels;
-        s->frame.reconfigure_audio = portaudio_reconfigure_audio;
-        s->frame.sample_rate = sample_rate;
-        s->frame.state = s;
-        
-        s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate * SECONDS; // can hold up to 1 sec
-        
-        s->frame.data = (char*)malloc(s->frame.max_size);
-        assert(s->frame.data != NULL);
-        
-        pthread_mutex_lock(&lock); /* safer with multiple threads */
-	printf("(Re)initializing portaudio playback.\n");
-
-	error = Pa_Initialize();
-	if(error != paNoError)
-	{
-		printf("error initializing portaudio\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                pthread_mutex_unlock(&lock); /* safer with multiple threads */
-		return;
-	}
-
-	printf("Using PortAudio version: %s\n", Pa_GetVersionText());
-
-	// default device
-	if(s->device == -1)
-	{
-		printf("\nUsing default output audio device:");
-		fflush(stdout);
-		print_device_info(Pa_GetDefaultOutputDevice());
-		printf("\n");
-		outputParameters.device = Pa_GetDefaultOutputDevice();
-	}
-	else if(s->device >= 0)
-	{
-		printf("\nUsing output audio device:");
-		print_device_info(s->device);
-		printf("\n");
-		outputParameters.device = s->device;
-	}
-		
-                
-        if(channels <= s->max_output_channels)
-                outputParameters.channelCount = channels; // output channels
-        else
-                outputParameters.channelCount = s->max_output_channels; // output channels
-        assert(quant_samples % 8 == 0 && quant_samples <= 32 && quant_samples != 0);
-        switch(quant_samples) {
-                case 8:
-                        outputParameters.sampleFormat = paInt8;
-                        break;
-                case 16:
-                        outputParameters.sampleFormat = paInt16;
-                        break;
-                case 24:
-                        outputParameters.sampleFormat = paInt24;
-                        break;
-                case 32:
-                        outputParameters.sampleFormat = paInt32;
-                        break;
-        }
-                        
-        outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultHighOutputLatency;
-        outputParameters.hostApiSpecificStreamInfo = NULL;
-
-	error = Pa_OpenStream( &s->stream, NULL, &outputParameters, sample_rate, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
-									paNoFlag,
-									NULL,	// callback function; NULL, because we use blocking functions
-									NULL	// user data - none, because we use blocking functions
-								);
-        portaudio_start_stream(s->stream);
-        
-	if(error != paNoError)
-	{
-		printf("Error opening audio stream\n");
-		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                pthread_mutex_unlock(&lock); /* safer with multiple threads */
-		return;
-	}
-        pthread_mutex_unlock(&lock); /* safer with multiple threads */
-}                        
-
-// get first empty frame, bud don't consider it as being used
-struct audio_frame* portaudio_get_frame(void *state)
-{
-	return &((struct state_portaudio_playback *) state)->frame;
-}
-
-void portaudio_put_frame(void *state, struct audio_frame *buffer)
-{
-        struct state_portaudio_playback * s = 
-                (struct state_portaudio_playback *) state;
-                
-        PaError error;
-        const int samples_count = buffer->data_len / (buffer->bps * buffer->ch_count);
-
-        /* if we got more channel we can play - skip the additional channels */
-        if(s->frame.ch_count > s->max_output_channels) {
-                int i;
-                for (i = 0; i < samples_count; ++i) {
-                        int j;
-                        for(j = 0; j < s->max_output_channels; ++j)
-                                memcpy(buffer->data + s->frame.bps * ( i * s->max_output_channels + j),
-                                        buffer->data + s->frame.bps * ( i * buffer->ch_count + j),
-                                        buffer->bps);
-                }
-        }
-        
-        error = Pa_WriteStream(s->stream, buffer->data, samples_count);
-
-	if(error != paNoError) {
-		printf("Pa write stream error: %s\n", Pa_GetErrorText(error));
-                while(error == paOutputUnderflowed) { /* put current frame more times to give us time */
-                        error = Pa_WriteStream(s->stream, buffer->data, samples_count);
-                }
-	}
-}
-
 void portaudio_capture_finish(void *state)
 {
         UNUSED(state);
@@ -483,7 +295,9 @@ void portaudio_capture_finish(void *state)
 void portaudio_capture_done(void *state)
 {
         struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
+        fs_lock_lock(s->portaudio_lock);
         portaudio_close(s->stream);
+        fs_lock_unlock(s->portaudio_lock);
         free(s->frame.data);
         free(s);
 }

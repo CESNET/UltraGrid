@@ -108,11 +108,12 @@ void 		 display_done(struct display *d);
  */
 void 		 display_finish(struct display *d);
 struct video_frame *display_get_frame(struct display *d);
+/* TODO: figure out what with frame parameter, which is no longer used. Leave out? */
 void 		 display_put_frame(struct display *d, char *frame);
 int              display_reconfigure(struct display *d, struct video_desc desc);
 
 struct audio_frame * display_get_audio_frame(struct display *d);
-void 		 display_put_audio_frame(struct display *d, const struct audio_frame *frame);
+void 		 display_put_audio_frame(struct display *d, struct audio_frame *frame);
 
 int              display_get_property(struct display *d, int property, void *val, size_t *len);
 

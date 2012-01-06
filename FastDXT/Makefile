@@ -2,7 +2,7 @@ CC=g++
 CXX=g++
 LDFLAGS=-O3
 LDLIBS=-lpthread
-CXXFLAGS=-O3 -funroll-loops -fomit-frame-pointer 
+CXXFLAGS=-O3 -funroll-loops -fomit-frame-pointer -fPIC
 
 GLEWLIB=-lGLEW
 SDLLIBS=`sdl-config --libs`

@@ -82,9 +82,6 @@ void vf_split(struct video_frame *out, struct video_frame *src,
 void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
               unsigned int y_count);
 
-uint32_t hton_tileinfo2uint(struct tile_info tile_info);
-struct tile_info ntoh_uint2tileinfo(uint32_t packed);
-
 /**
  * tileinfo_eq:
  * compares count of tiles

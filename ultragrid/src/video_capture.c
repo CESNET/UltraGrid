@@ -67,6 +67,15 @@
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
+#ifdef BUILD_LIBRARIES
+#include <dlfcn.h>
+#define MK_NAME(A) NULL, #A
+#else
+#define MK_NAME(A) A, NULL
+#endif /* BUILD_LIBRARIES */
+
+#define MK_STATIC(A) A, NULL
+
 struct vidcap {
         void *state;
         int index;
@@ -75,97 +84,134 @@ struct vidcap {
 
 struct vidcap_device_api {
         vidcap_id_t id;
-        struct vidcap_type *(*func_probe) (void);
-        void *(*func_init) (char *fmt, unsigned int flags);
-        void (*func_finish) (void *state);
-        void (*func_done) (void *state);
-        struct video_frame *(*func_grab) (void *state, struct audio_frame **audio);
+
+        const char              *library_name;
+
+        struct vidcap_type    *(*func_probe) (void);
+        const char              *func_probe_str;
+        void                  *(*func_init) (char *fmt, unsigned int flags);
+        const char              *func_init_str;
+        void                   (*func_finish) (void *state);
+        const char              *func_finish_str;
+        void                   (*func_done) (void *state);
+        const char              *func_done_str;
+        struct video_frame    *(*func_grab) (void *state, struct audio_frame **audio);
+        const char              *func_grab_str;
+
+        void                    *handle;
 };
 
 struct vidcap_device_api vidcap_device_table[] = {
         {
          /* The aggregate capture card */
          0,
-         vidcap_aggregate_probe,
-         vidcap_aggregate_init,
-         vidcap_aggregate_finish,
-         vidcap_aggregate_done,
-         vidcap_aggregate_grab},
-#ifdef HAVE_DVS
+         NULL,
+         MK_STATIC(vidcap_aggregate_probe),
+         MK_STATIC(vidcap_aggregate_init),
+         MK_STATIC(vidcap_aggregate_finish),
+         MK_STATIC(vidcap_aggregate_done),
+         MK_STATIC(vidcap_aggregate_grab),
+         NULL
+        },
+#if defined HAVE_DVS || defined BUILD_LIBRARIES
         {
          /* The DVS capture card */
          0,
-         vidcap_dvs_probe,
-         vidcap_dvs_init,
-         vidcap_dvs_finish,
-         vidcap_dvs_done,
-         vidcap_dvs_grab},
+         "dvs",
+         MK_NAME(vidcap_dvs_probe),
+         MK_NAME(vidcap_dvs_init),
+         MK_NAME(vidcap_dvs_finish),
+         MK_NAME(vidcap_dvs_done),
+         MK_NAME(vidcap_dvs_grab),
+         NULL
+        },
 #endif                          /* HAVE_DVS */
-#ifdef HAVE_DECKLINK
+#if defined HAVE_DECKLINK || defined BUILD_LIBRARIES
         {
          /* The Blackmagic DeckLink capture card */
          0,
-         vidcap_decklink_probe,
-         vidcap_decklink_init,
-         vidcap_decklink_finish,
-         vidcap_decklink_done,
-         vidcap_decklink_grab},
+         "decklink",
+         MK_NAME(vidcap_decklink_probe),
+         MK_NAME(vidcap_decklink_init),
+         MK_NAME(vidcap_decklink_finish),
+         MK_NAME(vidcap_decklink_done),
+         MK_NAME(vidcap_decklink_grab),
+         NULL
+        },
 #endif                          /* HAVE_DECKLINK */
-#ifdef HAVE_DELTACAST
+#if defined HAVE_DELTACAST || defined BUILD_LIBRARIES
         {
          /* The Blackmagic DeckLink capture card */
          0,
-         vidcap_deltacast_probe,
-         vidcap_deltacast_init,
-         vidcap_deltacast_finish,
-         vidcap_deltacast_done,
-         vidcap_deltacast_grab},
+         "deltacast",
+         MK_NAME(vidcap_deltacast_probe),
+         MK_NAME(vidcap_deltacast_init),
+         MK_NAME(vidcap_deltacast_finish),
+         MK_NAME(vidcap_deltacast_done),
+         MK_NAME(vidcap_deltacast_grab),
+         NULL
+        },
 #endif                          /* HAVE_DELTACAST */
-#ifdef HAVE_QUAD
+#if defined HAVE_QUAD || defined BUILD_LIBRARIES
         {
          /* The HD-SDI Master Quad capture card */
          0,
-         vidcap_quad_probe,
-         vidcap_quad_init,
-         vidcap_quad_finish,
-         vidcap_quad_done,
-         vidcap_quad_grab},
+         "quad",
+         MK_NAME(vidcap_quad_probe),
+         MK_NAME(vidcap_quad_init),
+         MK_NAME(vidcap_quad_finish),
+         MK_NAME(vidcap_quad_done),
+         MK_NAME(vidcap_quad_grab),
+         NULL
+        },
 #endif                          /* HAVE_QUAD */
-#ifdef HAVE_MACOSX
+#if defined HAVE_MACOSX
         {
          /* The QuickTime API */
          0,
-         vidcap_quicktime_probe,
-         vidcap_quicktime_init,
-         vidcap_quicktime_finish,
-         vidcap_quicktime_done,
-         vidcap_quicktime_grab},
+         "quicktime",
+         MK_NAME(vidcap_quicktime_probe),
+         MK_NAME(vidcap_quicktime_init),
+         MK_NAME(vidcap_quicktime_finish),
+         MK_NAME(vidcap_quicktime_done),
+         MK_NAME(vidcap_quicktime_grab),
+         NULL
+        },
 #endif                          /* HAVE_MACOSX */
         {
          /* Dummy sender for testing purposes */
          0,
-         vidcap_testcard_probe,
-         vidcap_testcard_init,
-         vidcap_testcard_finish,
-         vidcap_testcard_done,
-         vidcap_testcard_grab},
-#ifdef HAVE_SDL
+         "testcard",
+         MK_NAME(vidcap_testcard_probe),
+         MK_NAME(vidcap_testcard_init),
+         MK_NAME(vidcap_testcard_finish),
+         MK_NAME(vidcap_testcard_done),
+         MK_NAME(vidcap_testcard_grab),
+         NULL
+        },
+#if defined HAVE_SDL || defined BUILD_LIBRARIES
         {
          /* Dummy sender for testing purposes */
          0,
-         vidcap_testcard2_probe,
-         vidcap_testcard2_init,
-         vidcap_testcard2_finish,
-         vidcap_testcard2_done,
-         vidcap_testcard2_grab},
+         "testcard2",
+         MK_NAME(vidcap_testcard2_probe),
+         MK_NAME(vidcap_testcard2_init),
+         MK_NAME(vidcap_testcard2_finish),
+         MK_NAME(vidcap_testcard2_done),
+         MK_NAME(vidcap_testcard2_grab),
+         NULL
+        },
 #endif /* HAVE_SDL */
         {
          0,
-         vidcap_null_probe,
-         vidcap_null_init,
-         vidcap_null_finish,
-         vidcap_null_done,
-         vidcap_null_grab}
+         NULL,
+         MK_STATIC(vidcap_null_probe),
+         MK_STATIC(vidcap_null_init),
+         MK_STATIC(vidcap_null_finish),
+         MK_STATIC(vidcap_null_done),
+         MK_STATIC(vidcap_null_grab),
+         NULL
+        }
 };
 
 #define VIDCAP_DEVICE_TABLE_SIZE (sizeof(vidcap_device_table)/sizeof(struct vidcap_device_api))
@@ -174,6 +220,40 @@ struct vidcap_device_api vidcap_device_table[] = {
 
 static struct vidcap_type *available_devices[VIDCAP_DEVICE_TABLE_SIZE];
 static int available_device_count = 0;
+
+#ifdef BUILD_LIBRARIES
+/* definded in video_display.c */
+void *open_library(const char *name);
+static void *vidcap_open_library(const char *vidcap_name)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "vidcap_%s.so.%d", vidcap_name, VIDEO_CAPTURE_ABI_VERSION);
+
+        return open_library(name);
+}
+
+static int vidcap_fill_symbols(struct vidcap_device_api *device)
+{
+        void *handle = device->handle;
+
+        device->func_probe = (struct vidcap_type *(*) (void))
+                dlsym(handle, device->func_probe_str);
+        device->func_init = (void *(*) (char *, unsigned int))
+                dlsym(handle, device->func_init_str);
+        device->func_finish = (void (*) (void *))
+                dlsym(handle, device->func_finish_str);
+        device->func_done = (void (*) (void *))
+                dlsym(handle, device->func_done_str);
+        device->func_grab = (struct video_frame *(*) (void *, struct audio_frame **))
+                dlsym(handle, device->func_grab_str);
+        if(!device->func_probe || !device->func_init || !device->func_finish || 
+                        !device->func_done || !device->func_grab) {
+                fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
+                return FALSE;
+        }
+        return TRUE;
+}
+#endif
 
 int vidcap_init_devices(void)
 {
@@ -184,6 +264,21 @@ int vidcap_init_devices(void)
 
         for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
                 //printf("probe: %d\n",i);
+#ifdef BUILD_LIBRARIES
+                vidcap_device_table[i].handle = NULL;
+                if(vidcap_device_table[i].library_name) {
+                        vidcap_device_table[i].handle =
+                                vidcap_open_library(vidcap_device_table[i].library_name);
+                        if(vidcap_device_table[i].handle) {
+                                int ret;
+                                ret = vidcap_fill_symbols(&vidcap_device_table[i]);
+                                if(!ret) continue;
+                        } else {
+                                continue;
+                        }
+                }
+#endif
+
                 dt = vidcap_device_table[i].func_probe();
                 if (dt != NULL) {
                         vidcap_device_table[i].id = dt->id;

@@ -63,6 +63,7 @@ void * audio_play_none_init(char *cfg)
 struct audio_frame *audio_play_none_get_frame(void *state)
 {
         UNUSED(state);
+        return NULL;
 }
 
 void audio_play_none_put_frame(void *state, struct audio_frame *frame)

@@ -1,5 +1,5 @@
 /*
- * FILE:   testcard.c
+ * FILE:   testcard2.c
  * AUTHOR: Colin Perkins <csp@csperkins.org
  *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
  *         Martin Benes     <martinbenesh@gmail.com>
@@ -122,7 +122,7 @@ static int configure_audio(struct testcard_state2 *s)
         s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         
         s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-        short int * data = s->audio_tone;
+        short int * data = (short int *) s->audio_tone;
         for( i=0; i < AUDIO_BUFFER_SIZE/2; i+=2 )
         {
                 data[i] = data[i+1] = (float) sin( ((double)i/(double)200) * M_PI * 2. ) * SHRT_MAX;
@@ -141,10 +141,7 @@ static int configure_audio(struct testcard_state2 *s)
 void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 {
         struct testcard_state2 *s;
-        char *filename;
         const char *strip_fmt = NULL;
-        FILE *in;
-        struct stat sb;
         unsigned int i, j;
         unsigned int rect_size = COL_NUM;
         codec_t codec=0;
@@ -236,15 +233,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                     SDL_CreateRGBSurface(SDL_SWSURFACE, s->aligned_x, s->tile->height * 2,
                                          32, 0xff, 0xff00, 0xff0000,
                                          0xff000000);
-                if (filename) {
-                        if(filename[0] == 'p')
-                                s->pan = 48;
-                        else if(filename[0] == 's')
-                                strip_fmt = filename;
-                }
-
                 for (j = 0; j < s->tile->height; j += rect_size) {
-                        int grey = 0xff010101;
                         if (j == rect_size * 2) {
                                 r.w = s->tile->width;
                                 r.h = rect_size / 4;
@@ -397,8 +386,8 @@ void * vidcap_testcard2_thread(void *arg)
                 r.y = prev_y1 + (down1 ? 1 : -1) * 4;
                 if(r.x < 0) right1 = 1;
                 if(r.y < 0) down1 = 1;
-                if(r.x + r.w > s->tile->width) right1 = 0;
-                if(r.y + r.h > s->tile->height) down1 = 0;
+                if((unsigned int) r.x + r.w > s->tile->width) right1 = 0;
+                if((unsigned int) r.y + r.h > s->tile->height) down1 = 0;
                 prev_x1 = r.x;
                 prev_y1 = r.y;
                 
@@ -410,8 +399,8 @@ void * vidcap_testcard2_thread(void *arg)
                 r.y = prev_y2 + (down2 ? 1 : -1) * 9;
                 if(r.x < 0) right2 = 1;
                 if(r.y < 0) down2 = 1;
-                if(r.x + r.w > s->tile->width) right2 = 0;
-                if(r.y + r.h > s->tile->height) down2 = 0;
+                if((unsigned int) r.x + r.w > s->tile->width) right2 = 0;
+                if((unsigned int) r.y + r.h > s->tile->height) down2 = 0;
                 prev_x2 = r.x;
                 prev_y2 = r.y;
                 
@@ -501,6 +490,8 @@ next_frame:
                         stat_count_prev = s->count;
                 }
         }
+
+        return NULL;
 }
 
 static void grab_audio(struct testcard_state2 *s)

@@ -368,7 +368,6 @@ decklink_help()
 		if (result == S_OK)
 		{
 			printf("\ndevice: %d.) %s \n\n",numDevices, deviceNameCString);
-			free((void *)deviceNameCString);
 #ifdef HAVE_MACOSX
 			CFRelease(deviceNameString);
 #endif

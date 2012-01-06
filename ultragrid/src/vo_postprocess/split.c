@@ -116,6 +116,7 @@ struct video_frame * split_postprocess_reconfigure(void *state, struct video_des
 void split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_split *s = (struct state_split *) state;
+        UNUSED(req_pitch);
 
         vf_split(out, in, s->grid_width, s->grid_height, FALSE);
 }

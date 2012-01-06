@@ -58,6 +58,7 @@ extern unsigned int bitdepth;
 extern unsigned int progressive;
 
 extern volatile int should_exit;
-void exit_uv(int status);
+
+extern void (*exit_uv)(int status);
 
 #endif

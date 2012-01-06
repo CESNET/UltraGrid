@@ -95,7 +95,12 @@ struct pdb {
 #define BTREE_MAGIC      0x10101010
 #define BTREE_NODE_MAGIC 0x01010101
 
-static __thread int pdb_count;
+#ifdef DEBUG
+static
+#ifndef HAVE_MACOSX
+__thread
+#endif
+int pdb_count;
 
 static void pdb_validate_node(pdb_node_t * node, pdb_node_t * parent)
 {
@@ -109,6 +114,7 @@ static void pdb_validate_node(pdb_node_t * node, pdb_node_t * parent)
                 pdb_validate_node(node->right, node);
         }
 }
+#endif
 
 static void pdb_validate(struct pdb *t)
 {

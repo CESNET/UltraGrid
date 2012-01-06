@@ -63,5 +63,5 @@ int                     display_sdl_reconfigure(void *state, struct video_desc d
 int                     display_sdl_get_property(void *state, int property, void *val, size_t *len);
 
 struct audio_frame *    display_sdl_get_audio_frame(void *state);
-void                    display_sdl_put_audio_frame(void *state, const struct audio_frame *frame);
+void                    display_sdl_put_audio_frame(void *state, struct audio_frame *frame);
 

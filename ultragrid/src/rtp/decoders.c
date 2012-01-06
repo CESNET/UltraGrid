@@ -43,6 +43,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "host.h"
 #include "perf.h"
 #include "rtp/xor.h"
 #include "rtp/rtp.h"
@@ -101,9 +102,8 @@ struct state_decoder {
         struct {
                 struct line_decoder *line_decoder;
                 struct {                           /* OR - it is not union for easier freeing*/
-                        const struct decode_from_to *ext_decoder_funcs;
+                        struct state_decompress *ext_decoder;
                         unsigned int *total_bytes;
-                        void *ext_decoder_state;
                         char **ext_recv_buffer;
                 };
         };
@@ -207,9 +207,9 @@ void decoder_destroy(struct state_decoder *decoder)
         if(!decoder)
                 return;
 
-        if(decoder->ext_decoder_funcs) {
-                decoder->ext_decoder_funcs->done(decoder->ext_decoder_state);
-                decoder->ext_decoder_funcs = NULL;
+        if(decoder->ext_decoder) {
+                decompress_done(decoder->ext_decoder);
+                decoder->ext_decoder = NULL;
         }
         if(decoder->ext_recv_buffer) {
                 char **buf = decoder->ext_recv_buffer;
@@ -296,12 +296,17 @@ after_linedecoder_lookup:
                         if(out_codec == DVS8 || out_codec == Vuy2)
                                 out_codec = UYVY;
                                 
-                        for(trans = 0; decoders[trans].init != NULL;
+                        for(trans = 0; trans < decoders_for_codec_count;
                                         ++trans) {
-                                if(*in_codec == decoders[trans].from &&
-                                                out_codec == decoders[trans].to) {
+                                if(*in_codec == decoders_for_codec[trans].from &&
+                                                out_codec == decoders_for_codec[trans].to) {
+                                        decoder->ext_decoder = decompress_init(decoders_for_codec[trans].decompress_index);
+                                        if(!decoder->ext_decoder) {
+                                                debug_msg("Decompressor with magic %x was not found.\n");
+                                                continue;
+                                        }
                                         decoder->decoder_type = EXTERNAL_DECODER;
-                                        decoder->ext_decoder_funcs = &decoders[trans];
+
                                         goto after_decoder_lookup;
                                 }
                         }
@@ -365,9 +370,9 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         free(decoder->line_decoder);
         decoder->line_decoder = NULL;
         decoder->decoder_type = UNSET;
-        if(decoder->ext_decoder_funcs) {
-                decoder->ext_decoder_funcs->done(decoder->ext_decoder_state);
-                decoder->ext_decoder_funcs = NULL;
+        if(decoder->ext_decoder) {
+                decompress_done(decoder->ext_decoder);
+                decoder->ext_decoder = NULL;
         }
         if(decoder->ext_recv_buffer) {
                 char **buf = decoder->ext_recv_buffer;
@@ -570,8 +575,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 int buf_size;
                 int i;
                 
-                decoder->ext_decoder_state = decoder->ext_decoder_funcs->init();
-                buf_size = decoder->ext_decoder_funcs->reconfigure(decoder->ext_decoder_state, desc, 
+                buf_size = decompress_reconfigure(decoder->ext_decoder, desc, 
                                 decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch , out_codec);
                 if(!buf_size) {
                         return NULL;
@@ -600,6 +604,10 @@ struct linked_list {
         struct node *head;
 };
 
+struct linked_list  *ll_create(void);
+void ll_insert(struct linked_list *ll, int val);
+void ll_destroy(struct linked_list *ll);
+unsigned int ll_count (struct linked_list *ll);
 
 struct linked_list  *ll_create()
 {
@@ -931,7 +939,7 @@ packet_restored:
                                         tile = vf_get_tile(output, x);
                                         out = tile->data;
                                 }
-                                decoder->ext_decoder_funcs->decompress(decoder->ext_decoder_state,
+                                decompress_frame(decoder->ext_decoder,
                                                 (unsigned char *) out,
                                                 (unsigned char *) decoder->ext_recv_buffer[pos],
                                                 decoder->total_bytes[pos]);

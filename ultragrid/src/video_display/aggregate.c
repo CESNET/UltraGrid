@@ -390,7 +390,7 @@ struct audio_frame * display_aggregate_get_audio_frame(void *state)
         return display_get_audio_frame(s->devices[0]);
 }
 
-void display_aggregate_put_audio_frame(void *state, const struct audio_frame *frame)
+void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
         display_put_audio_frame(s->devices[0], frame);
