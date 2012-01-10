@@ -158,18 +158,21 @@ static void show_help(void)
         int card_idx = 0;
         sv_handle *sv;
         char name[128];
+        int res;
 
 	printf("DVS options:\n\n");
 	printf("\t -t dvs:<mode>:<codec>[:<card>] | help\n\n");
         snprintf(name, 128, "PCI,card:%d", card_idx);
 
-        sv = sv_open(name);
-        if (sv == NULL) {
+        //sv = sv_open(name);
+        res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+        if (res != SV_OK) {
                 printf
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
+                printf("Error %s\n", sv_geterrortext(res));
                 return;
         }
-	while (sv != NULL) {
+	while (res == SV_OK) {
                 printf("\tCard %s - supported modes:\n\n", name);
                 for(i=0; hdsp_mode_table[i].width !=0; i++) {
                         int res;
@@ -193,7 +196,7 @@ static void show_help(void)
                 sv_close(sv);
                 card_idx++;
                 snprintf(name, 128, "PCI,card:%d", card_idx);
-                sv = sv_open(name);
+                res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
                 printf("\n");
         }
 	printf("\n");
@@ -325,10 +328,11 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
 	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
 	s->tile->data_len = s->tile->linesize * s->tile->height;
 
-        s->sv = sv_open(card_name);
+        res = sv_openex(&s->sv, card_name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
         if (s->sv == NULL) {
                 printf
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
+                printf("Error %s\n", sv_geterrortext(res));
                 free(s);
                 return NULL;
         }
@@ -416,13 +420,33 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
 
 void vidcap_dvs_finish(void *state)
 {
-        UNUSED(state);
+        struct vidcap_dvs_state *s =
+            (struct vidcap_dvs_state *)state;
+
+        pthread_mutex_lock(&(s->lock));
+        if(s->boss_waiting) {
+                s->work_to_do = FALSE;
+                pthread_cond_signal(&(s->boss_cv));
+                while (!s->work_to_do) {
+                        s->worker_waiting = TRUE;
+                        pthread_cond_wait(&(s->worker_cv), &(s->lock));
+                        s->worker_waiting = FALSE;
+                }
+        }
+
+        s->work_to_do = TRUE;
+        if(s->worker_waiting)
+                pthread_cond_signal(&(s->worker_cv));
+
+        pthread_mutex_unlock(&(s->lock));
 }
 
 void vidcap_dvs_done(void *state)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
+        
+        pthread_join(s->thread_id, NULL);
 
         sv_fifo_free(s->sv, s->fifo);
         sv_close(s->sv);

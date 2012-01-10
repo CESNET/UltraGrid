@@ -693,9 +693,6 @@ int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct sta
 
         perf_record(UVP_DECODEFRAME, frame);
 
-        if(!frame)
-                return FALSE;
-
         if(decoder->decoder_type == EXTERNAL_DECODER) {
                 memset(decoder->total_bytes, 0, sizeof(unsigned int) * 2); 
         }
@@ -804,9 +801,10 @@ packet_restored:
 
                         frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                         frame);
-                        if(!frame) {
-                                return FALSE;
-                        }
+                }
+
+                if(!frame) {
+                        return FALSE;
                 }
                 
                 if(!decoder->postprocess) {

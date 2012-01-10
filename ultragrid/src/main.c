@@ -254,9 +254,6 @@ struct display *initialize_video_display(const char *requested_display,
         display_free_devices();
 
         d = display_init(id, fmt, flags);
-        if (d != NULL) {
-                frame_buffer = display_get_frame(d);
-        }
         return d;
 }
 

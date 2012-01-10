@@ -144,8 +144,6 @@ const hdsp_mode_table_t hdsp_mode_table[] = {
         {SV_MODE_FILM2K_2048x1556_23sF, 2048, 1556, 23.98, AUX_SF},
         {SV_MODE_FILM2K_2048x1556_48P, 2048, 1556, 48.0, AUX_PROGRESSIVE},
         
-        {SV_MODE_FILM2K_2048x1556_25sF, 2048, 1556, 25.0, AUX_SF},
-        
         /*{SV_MODE_SGI_12824_NTSC 0x4f
         {SV_MODE_SGI_12824_59P  0x50
         {SV_MODE_SGI_12848_29I  0x51*/
@@ -337,38 +335,53 @@ void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
 static void show_help(void)
 {
         int i;
-        sv_handle *sv = sv_open("PCI,card:1");
-        if (sv == NULL) {
+        sv_handle *sv;
+        int res;
+        char name[128];
+        int card_idx = 0;
+
+        printf("DVS options:\n\n");
+        printf("\t -d dvs[:<mode>:<codec>][:<card>] | help\n\n");
+        printf("\t eg. '-d dvs' or '-d dvs:PCI,card:0'");
+	printf("\t(the mode needn't to be set and you shouldn't to want set it)\n\n");
+        snprintf(name, 128, "PCI,card:%d", card_idx);
+
+        res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+        if (res != SV_OK) {
                 printf
                     ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
+                printf("Error %s\n", sv_geterrortext(res));
                 return;
         }
-	printf("DVS options:\n\n");
-	printf("\t-d dvs[:<mode>:<codec>] | help\n");
-	printf("\t(the mode needn't to be set and you shouldn't to want set it)\n\n");
-	printf("\tSupported modes:\n");
-        for(i=0; hdsp_mode_table[i].width !=0; i++) {
-		int res;
-		sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
-		if(res) {
-			const char *interlacing;
-			if(hdsp_mode_table[i].aux & AUX_INTERLACED) {
-					interlacing = "interlaced";
-			} else if(hdsp_mode_table[i].aux & AUX_PROGRESSIVE) {
-					interlacing = "progressive";
-			} else if(hdsp_mode_table[i].aux & AUX_SF) {
-					interlacing = "progressive segmented";
-			} else {
-					interlacing = "unknown (!)";
-			}
-			printf ("\t%4d:  %4d x %4d @ %2.2f %s\n", hdsp_mode_table[i].mode, 
-				hdsp_mode_table[i].width, hdsp_mode_table[i].height, 
-				hdsp_mode_table[i].fps, interlacing);
-		}
+        while (res == SV_OK) {
+                printf("\tCard %s - supported modes:\n\n", name);
+                for(i=0; hdsp_mode_table[i].width !=0; i++) {
+                        int res;
+                        sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
+                        if(res) {
+                                const char *interlacing;
+                                if(hdsp_mode_table[i].aux & AUX_INTERLACED) {
+                                                interlacing = "interlaced";
+                                } else if(hdsp_mode_table[i].aux & AUX_PROGRESSIVE) {
+                                                interlacing = "progressive";
+                                } else if(hdsp_mode_table[i].aux & AUX_SF) {
+                                                interlacing = "progressive segmented";
+                                } else {
+                                                interlacing = "unknown (!)";
+                                }
+                                printf ("\t%4d:  %4d x %4d @ %2.2f %s\n", hdsp_mode_table[i].mode, 
+                                        hdsp_mode_table[i].width, hdsp_mode_table[i].height, 
+                                        hdsp_mode_table[i].fps, interlacing);
+                        }
+                }
+                sv_close(sv);
+                card_idx++;
+                snprintf(name, 128, "PCI,card:%d", card_idx);
+                res = sv_openex(&sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+                printf("\n");
         }
-	printf("\n");
-	show_codec_help("dvs");
-	sv_close(sv);
+        printf("\n");
+        show_codec_help("dvs");
 }
 
 void display_dvs_run(void *arg)
@@ -392,6 +405,9 @@ void display_dvs_run(void *arg)
                         pthread_cond_signal(&s->boss_cv);
                 }
                 pthread_mutex_unlock(&s->lock);
+
+                if(should_exit)
+                        return;
                 
                 /* audio - copy appropriate amount of data from ring buffer */
                 if(s->play_audio) {
@@ -405,7 +421,8 @@ void display_dvs_run(void *arg)
                 res =
                     sv_fifo_putbuffer(s->sv, s->fifo, s->display_buffer, NULL);
                 if (res != SV_OK) {
-                        debug_msg("Error %s\n", sv_geterrortext(res));
+                        fprintf(stderr, "Error %s\n", sv_geterrortext(res));
+                        exit_uv(1);
                         return;
                 }
         }
@@ -469,6 +486,8 @@ int display_dvs_putf(void *state, char *frame)
         assert(s->magic == HDSP_MAGIC);
 
         pthread_mutex_lock(&s->lock);
+        if(should_exit)
+                return FALSE;
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
                 s->boss_waiting = TRUE;
@@ -609,6 +628,8 @@ void *display_dvs_init(char *fmt, unsigned int flags)
 {
         struct state_hdsp *s;
         int i;
+        char *name = "";
+        int res;
 
         s = (struct state_hdsp *)calloc(1, sizeof(struct state_hdsp));
         s->magic = HDSP_MAGIC;
@@ -622,45 +643,49 @@ void *display_dvs_init(char *fmt, unsigned int flags)
                 if (strcmp(fmt, "help") == 0) {
 			show_help();
 
-                        return 0;
+                        return NULL;
                 }
+                if(strncmp(fmt, "PCI", 3) == 0) {
+                        name = fmt;
+                } else {
+                        char *tmp;
+                        int mode_index;
 
-                char *tmp;
-		int mode_index;
+                        tmp = strtok(fmt, ":");
 
-                tmp = strtok(fmt, ":");
-
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        free(s);
-                        return 0;
-                }
-                mode_index = atoi(tmp);
-                tmp = strtok(NULL, ":");
-                
-                if (tmp) {
-                        s->frame->color_spec = 0xffffffff;
-                        for (i = 0; codec_info[i].name != NULL; i++) {
-                                if (strcmp(tmp, codec_info[i].name) == 0) {
-                                        s->frame->color_spec = codec_info[i].codec;
+                        mode_index = atoi(tmp);
+                        tmp = strtok(NULL, ":");
+                        
+                        if (tmp) {
+                                s->frame->color_spec = 0xffffffff;
+                                for (i = 0; codec_info[i].name != NULL; i++) {
+                                        if (strcmp(tmp, codec_info[i].name) == 0) {
+                                                s->frame->color_spec = codec_info[i].codec;
+                                        }
+                                }
+                                if (s->frame->color_spec == 0xffffffff) {
+                                        fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
+                                        free(s);
+                                        return 0;
+                                }
+                                for(i=0; hdsp_mode_table[i].width != 0; i++) {
+                                        if(hdsp_mode_table[i].mode == mode_index) {
+                                                s->mode = &hdsp_mode_table[i];
+                                                break;
+                                        }
+                                }
+                                if(s->mode == NULL) {
+                                        fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
+                                        free(s);
+                                        return 0;
+                               }
+                                tmp = strtok(NULL, ":");
+                                if(tmp)
+                                {
+                                        name = tmp;
+                                        tmp[strlen(name)] = ':';
                                 }
                         }
-                        if (s->frame->color_spec == 0xffffffff) {
-                                fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
-                                free(s);
-                                return 0;
-                        }
-                        for(i=0; hdsp_mode_table[i].width != 0; i++) {
-                                if(hdsp_mode_table[i].mode == mode_index) {
-                                        s->mode = &hdsp_mode_table[i];
-                                        break;
-                                }
-                        }
-                        if(s->mode == NULL) {
-                                fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
-                                free(s);
-                                return 0;
-                       }
                 }
         }
 
@@ -678,9 +703,10 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         }
         
         /* Start the display thread... */
-        s->sv = sv_open("");
-        if (s->sv == NULL) {
+        res = sv_openex(&s->sv, name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+        if (res != SV_OK) {
                 fprintf(stderr, "Cannot open DVS display device.\n");
+                fprintf(stderr, "Error %s\n", sv_geterrortext(res));
                 return NULL;
         }
 
@@ -702,6 +728,9 @@ void *display_dvs_init(char *fmt, unsigned int flags)
                         case AUX_SF:
                                 desc.interlacing = SEGMENTED_FRAME;
                                 break;
+                        default:
+                                /* could not reach here */
+                                abort();
                 }
                 desc.fps = s->mode->fps;
 
@@ -736,7 +765,28 @@ void *display_dvs_init(char *fmt, unsigned int flags)
 
 void display_dvs_finish(void *state)
 {
-        UNUSED(state);
+        struct state_hdsp *s = (struct state_hdsp *)state;
+
+        pthread_mutex_lock(&s->lock);
+        /* this one ends up putf */
+        if(s->boss_waiting) {
+                s->work_to_do = FALSE;
+                pthread_cond_signal(&s->boss_cv);
+
+                while (!s->work_to_do) {
+                        s->boss_waiting = TRUE;
+                        pthread_cond_wait(&s->worker_cv, &s->lock);
+                        s->boss_waiting = FALSE;
+                }
+        }
+
+        /* and this one thread */
+        s->work_to_do = TRUE;
+        if (s->worker_waiting) {
+                pthread_cond_signal(&s->worker_cv);
+        }
+
+        pthread_mutex_unlock(&s->lock);
 }
 
 void display_dvs_done(void *state)
@@ -836,7 +886,7 @@ void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
 void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_hdsp *s = (struct state_hdsp *)state;
-        int res;
+        int res = SV_OK;
         
         pthread_mutex_lock(&s->audio_reconf_lock);
         s->audio_reconf_pending = TRUE;

@@ -957,7 +957,7 @@ fi
 if test $rtdxt = yes
 then
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
-        RTDXT_COMMON_OBJ+="../dxt_compress/dxt_util.o"
+        RTDXT_COMMON_OBJ+=" ../dxt_compress/dxt_util.o"
         RTDXT_COMPRESS_OBJ="../dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="../dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"

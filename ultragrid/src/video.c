@@ -95,7 +95,7 @@ int video_desc_eq(struct video_desc a, struct video_desc b)
 
 int get_video_mode_tiles_x(int video_type)
 {
-        int ret;
+        int ret = 0;
         switch(video_type) {
                 case VIDEO_NORMAL:
                 case VIDEO_DUAL:
@@ -111,7 +111,7 @@ int get_video_mode_tiles_x(int video_type)
 
 int get_video_mode_tiles_y(int video_type)
 {
-        int ret;
+        int ret = 0;
         switch(video_type) {
                 case VIDEO_NORMAL:
                 case VIDEO_STEREO:
