@@ -384,9 +384,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
 
         fmt_dup = strdup(init_fmt);
 
-
-
-        item = strtok_r(NULL, ":", &save_ptr);
+        item = strtok_r(fmt_dup, ":", &save_ptr);
         assert(item != NULL);
         char *devices_str = strdup(item);
         s->devices_cnt = 0;
@@ -398,7 +396,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         } while ((ptr = strtok_r(NULL, ",", &saveptr2)));
         free(devices_str);
 
-        item = strtok_r(fmt_dup, ":", &save_ptr);
+        item = strtok_r(NULL, ":", &save_ptr);
         assert(item);
 	frame_mode_number = atoi(item);
 	if(frame_mode_number < 0 || 
