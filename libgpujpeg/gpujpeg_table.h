@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,17 +27,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JPEG_TABLE
-#define JPEG_TABLE
+#ifndef GPUJPEG_TABLE_H
+#define GPUJPEG_TABLE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "gpujpeg_type.h"
 
-#include "jpeg_type.h"
-
-/** JPEG natural order from zigzag order */
-static const int jpeg_order_natural[64] = {
+/**
+ * JPEG natural order from zigzag order
+ * 
+ * More info:
+ *   0 in zig-zag is 0 in natural-order (gpujpeg_order_natural[0] == 0)
+ *   1 in zig-zag is 1 in natural-order (gpujpeg_order_natural[1] == 1)
+ *   2 in zig-zag is 8 in natural-order (gpujpeg_order_natural[2] == 8)
+ *   3 in zig-zag is 16 in natural-order (gpujpeg_order_natural[0] == 16)
+ *   ...
+ * 
+ * Example:
+ * 
+ *   natural order           zig-zag
+ * 
+ *   4096 5461 6554 ...      4096 5461 5461 4681 5461 6554 ...
+ *   5461 5461 ...       
+ *   4681 ...
+ *   ...                 
+ */
+static const int gpujpeg_order_natural[64] = {
      0,  1,  8, 16,  9,  2,  3, 10,
     17, 24, 32, 25, 18, 11,  4,  5,
     12, 19, 26, 33, 40, 48, 41, 34,
@@ -46,7 +63,7 @@ static const int jpeg_order_natural[64] = {
 };
 
 /** JPEG quantization table structure */
-struct jpeg_table_quantization
+struct gpujpeg_table_quantization
 {
     // Quantization raw table
     uint8_t table_raw[64];
@@ -57,7 +74,7 @@ struct jpeg_table_quantization
 };
 
 /** JPEG table for huffman encoding */
-struct jpeg_table_huffman_encoder {
+struct gpujpeg_table_huffman_encoder {
     // Code for each symbol 
     unsigned int code[256];	
     // Length of code for each symbol 
@@ -72,7 +89,7 @@ struct jpeg_table_huffman_encoder {
 };
 
 /** JPEG table for huffman decoding */
-struct jpeg_table_huffman_decoder {
+struct gpujpeg_table_huffman_decoder {
     // Smallest code of length k
     int mincode[17]; 
     // Largest code of length k (-1 if none) 
@@ -100,7 +117,7 @@ struct jpeg_table_huffman_decoder {
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_table_quantization_encoder_init(struct jpeg_table_quantization* table, enum jpeg_component_type type, int quality);
+gpujpeg_table_quantization_encoder_init(struct gpujpeg_table_quantization* table, enum gpujpeg_component_type type, int quality);
 
 /**
  * Init JPEG quantization table for decoder
@@ -111,7 +128,7 @@ jpeg_table_quantization_encoder_init(struct jpeg_table_quantization* table, enum
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_table_quantization_decoder_init(struct jpeg_table_quantization* table, enum jpeg_component_type type, int quality);
+gpujpeg_table_quantization_decoder_init(struct gpujpeg_table_quantization* table, enum gpujpeg_component_type type, int quality);
 
 /**
  * Compute JPEG quantization table for decoder
@@ -120,7 +137,7 @@ jpeg_table_quantization_decoder_init(struct jpeg_table_quantization* table, enum
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_table_quantization_decoder_compute(struct jpeg_table_quantization* table);
+gpujpeg_table_quantization_decoder_compute(struct gpujpeg_table_quantization* table);
 
 /**
  * Print JPEG quantization table
@@ -129,7 +146,7 @@ jpeg_table_quantization_decoder_compute(struct jpeg_table_quantization* table);
  * @return void
  */
 void
-jpeg_table_quantization_print(struct jpeg_table_quantization* table);
+gpujpeg_table_quantization_print(struct gpujpeg_table_quantization* table);
 
 /**
  * Initialize encoder huffman DC and AC table for component type
@@ -141,7 +158,7 @@ jpeg_table_quantization_print(struct jpeg_table_quantization* table);
  * @return void
  */
 int
-jpeg_table_huffman_encoder_init(struct jpeg_table_huffman_encoder* table, struct jpeg_table_huffman_encoder* d_table, enum jpeg_component_type comp_type, enum jpeg_huffman_type huff_type);
+gpujpeg_table_huffman_encoder_init(struct gpujpeg_table_huffman_encoder* table, struct gpujpeg_table_huffman_encoder* d_table, enum gpujpeg_component_type comp_type, enum gpujpeg_huffman_type huff_type);
 
 /**
  * Initialize decoder huffman DC and AC table for component type. It copies bit and values arrays to table and call compute routine.
@@ -153,7 +170,7 @@ jpeg_table_huffman_encoder_init(struct jpeg_table_huffman_encoder* table, struct
  * @return void
  */
 int
-jpeg_table_huffman_decoder_init(struct jpeg_table_huffman_decoder* table, struct jpeg_table_huffman_decoder* d_table, enum jpeg_component_type comp_type, enum jpeg_huffman_type huff_type);
+gpujpeg_table_huffman_decoder_init(struct gpujpeg_table_huffman_decoder* table, struct gpujpeg_table_huffman_decoder* d_table, enum gpujpeg_component_type comp_type, enum gpujpeg_huffman_type huff_type);
 
 /** 
  * Compute decoder huffman table from bits and values arrays (that are already set in table)
@@ -163,10 +180,6 @@ jpeg_table_huffman_decoder_init(struct jpeg_table_huffman_decoder* table, struct
  * @return void
  */
 void
-jpeg_table_huffman_decoder_compute(struct jpeg_table_huffman_decoder* table, struct jpeg_table_huffman_decoder* d_table);
+gpujpeg_table_huffman_decoder_compute(struct gpujpeg_table_huffman_decoder* table, struct gpujpeg_table_huffman_decoder* d_table);
 
-#ifdef __cplusplus
-} // END extern "C"
-#endif
-
-#endif // JPEG_TABLE
+#endif // GPUJPEG_TABLE_H

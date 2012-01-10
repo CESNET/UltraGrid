@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,38 +27,67 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JPEG_PREPROCESSOR
-#define JPEG_PREPROCESSOR
+#ifndef GPUJPEG_READER_H
+#define GPUJPEG_READER_H
 
-#include "jpeg_encoder.h"
-#include "jpeg_decoder.h"
+#include "gpujpeg_common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+/** JPEG decoder structure predeclaration */
+struct gpujpeg_decoder;
+
+/** JPEG reader scan structure */
+struct gpujpeg_reader_scan
+{
+    // Global segment index
+    int segment_index;
+    // Segment count in scan
+    int segment_count;
+};  
+
+/** JPEG reader structure */
+struct gpujpeg_reader
+{
+    // Parameters
+    struct gpujpeg_parameters param;
+    
+    // Parameters for image data
+    struct gpujpeg_image_parameters param_image;
+    
+    // Loaded component count
+    int comp_count;
+    
+    // Loaded scans
+    struct gpujpeg_reader_scan scan[GPUJPEG_MAX_COMPONENT_COUNT];
+    
+    // Loaded scans count
+    int scan_count;
+};
 
 /**
- * Preprocessor encode
+ * Create JPEG reader
  * 
- * @param encoder  Encoder structure
- * @param image  Image source data
+ * @return reader structure if succeeds, otherwise NULL
+ */
+struct gpujpeg_reader*
+gpujpeg_reader_create();
+
+/**
+ * Destroy JPEG reader
+ * 
+ * @param reader  Reader structure
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_preprocessor_encode(struct jpeg_encoder* encoder);
+gpujpeg_reader_destroy(struct gpujpeg_reader* reader);
 
 /**
- * Preprocessor decode
+ * Read JPEG image from data buffer
  * 
- * @param encoder  Encoder structure
- * @param image  Image source data
+ * @param image  Image data
+ * @param image_size  Image data size
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_preprocessor_decode(struct jpeg_decoder* decoder);
+gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int image_size);
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif // JPEG_PREPROCESSOR
+#endif // GPUJPEG_READER_H

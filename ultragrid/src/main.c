@@ -424,8 +424,8 @@ static void *receiver_thread(void *arg)
         int i = 0;
         int ret;
         unsigned int tiles_post = 0;
-        struct timeval last_tile_received;
-        struct state_decoder *dec_state;
+        struct timeval last_tile_received = {0, 0};
+        struct state_decoder *dec_state = NULL;
 
         initialize_video_decompress();
         dec_state = decoder_init(uv->decoder_mode, uv->postprocess);

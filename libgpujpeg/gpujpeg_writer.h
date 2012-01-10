@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,20 +27,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JPEG_WRITER
-#define JPEG_WRITER
+#ifndef GPUJPEG_WRITER_H
+#define GPUJPEG_WRITER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include "jpeg_type.h"
+#include "gpujpeg_type.h"
 
 /** JPEG encoder structure predeclaration */
-struct jpeg_encoder;
+struct gpujpeg_encoder;
 
 /** JPEG writer structure */
-struct jpeg_writer 
+struct gpujpeg_writer 
 {
     // Output buffer
     uint8_t* buffer;
@@ -50,8 +49,8 @@ struct jpeg_writer
  * 
  * @return writer structure if succeeds, otherwise NULL
  */
-struct jpeg_writer*
-jpeg_writer_create(struct jpeg_encoder* encoder);
+struct gpujpeg_writer*
+gpujpeg_writer_create(struct gpujpeg_encoder* encoder);
 
 /**
  * Destroy JPEG writer
@@ -60,7 +59,7 @@ jpeg_writer_create(struct jpeg_encoder* encoder);
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_writer_destroy(struct jpeg_writer* writer);
+gpujpeg_writer_destroy(struct gpujpeg_writer* writer);
 
 /**
  * Write one byte to file
@@ -69,7 +68,7 @@ jpeg_writer_destroy(struct jpeg_writer* writer);
  * @param value  Byte value to write
  * @return void
  */
-#define jpeg_writer_emit_byte(writer, value) { \
+#define gpujpeg_writer_emit_byte(writer, value) { \
     *writer->buffer_current = (uint8_t)(value); \
     writer->buffer_current++; }
     
@@ -80,7 +79,7 @@ jpeg_writer_destroy(struct jpeg_writer* writer);
  * @param value  Two-byte value to write
  * @return void
  */
-#define jpeg_writer_emit_2byte(writer, value) { \
+#define gpujpeg_writer_emit_2byte(writer, value) { \
     *writer->buffer_current = (uint8_t)(((value) >> 8) & 0xFF); \
     writer->buffer_current++; \
     *writer->buffer_current = (uint8_t)((value) & 0xFF); \
@@ -93,7 +92,7 @@ jpeg_writer_destroy(struct jpeg_writer* writer);
  * @oaran marker  Marker to write (JPEG_MARKER_...)
  * @return void
  */
-#define jpeg_writer_emit_marker(writer, marker) { \
+#define gpujpeg_writer_emit_marker(writer, marker) { \
     *writer->buffer_current = 0xFF;\
     writer->buffer_current++; \
     *writer->buffer_current = (uint8_t)(marker); \
@@ -106,20 +105,16 @@ jpeg_writer_destroy(struct jpeg_writer* writer);
  * @return void
  */
 void
-jpeg_writer_write_header(struct jpeg_encoder* encoder);
+gpujpeg_writer_write_header(struct gpujpeg_encoder* encoder);
 
 /**
  * Write scan header for one component
  * 
  * @param encoder  Encoder structure
- * @param type  Component scan type
+ * @param scan_index  Scan index  
  * @return void
  */
 void
-jpeg_writer_write_scan_header(struct jpeg_encoder* encoder, int index, enum jpeg_component_type type);
+gpujpeg_writer_write_scan_header(struct gpujpeg_encoder* encoder, int scan_index);
 
-#ifdef __cplusplus
-} // END extern "C"
-#endif
-
-#endif // JPEG_WRITER
+#endif // GPUJPEG_WRITER_H

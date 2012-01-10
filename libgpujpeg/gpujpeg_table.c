@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,21 +27,72 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
  
-#include "jpeg_table.h"
-#include "jpeg_util.h"
+#include "gpujpeg_table.h"
+#include "gpujpeg_util.h"
+#include <npp.h>
+
+/** Default Quantization Table for Y component (zig-zag order)*/
+static uint8_t gpujpeg_table_default_quantization_luminance[] = { 
+  16,  11,  12,  14,  12,  10,  16,  14,
+  13,  14,  18,  17,  16,  19,  24,  40,
+  26,  24,  22,  22,  24,  49,  35,  37,
+  29,  40,  58,  51,  61,  60,  57,  51,
+  56,  55,  64,  72,  92,  78,  64,  68,
+  87,  69,  55,  56,  80, 109,  81,  87,
+  95,  98, 103, 104, 103,  62,  77, 113,
+ 121, 112, 100, 120,  92, 101, 103,  99
+};
+/** Default Quantization Table for Cb or Cr component (zig-zag order) */
+static uint8_t gpujpeg_table_default_quantization_chrominance[] = { 
+  17,  18,  18,  24,  21,  24,  47,  26,
+  26,  47,  99,  66,  56,  66,  99,  99,
+  99,  99,  99,  99,  99,  99,  99,  99,
+  99,  99,  99,  99,  99,  99,  99,  99,
+  99,  99,  99,  99,  99,  99,  99,  99,
+  99,  99,  99,  99,  99,  99,  99,  99,
+  99,  99,  99,  99,  99,  99,  99,  99,
+  99,  99,  99,  99,  99,  99,  99,  99
+};
+
+/**
+ * Set default quantization table
+ * 
+ * @param table_raw  Table buffer
+ * @param type  Quantization table type
+ */
+void
+gpujpeg_table_quantization_set_default(uint8_t* table_raw, enum gpujpeg_component_type type)
+{
+    uint8_t* table_default = NULL;
+    if ( type == GPUJPEG_COMPONENT_LUMINANCE )
+        table_default = gpujpeg_table_default_quantization_luminance;
+    else if ( type == GPUJPEG_COMPONENT_CHROMINANCE )
+        table_default = gpujpeg_table_default_quantization_chrominance;
+    else
+        assert(0);
+    memcpy(table_raw, table_default, 64 * sizeof(uint8_t));
+}
 
 /** Documented at declaration */
 int
-jpeg_table_quantization_encoder_init(struct jpeg_table_quantization* table, enum jpeg_component_type type, int quality)
+gpujpeg_table_quantization_encoder_init(struct gpujpeg_table_quantization* table, enum gpujpeg_component_type type, int quality)
 {
-    // Setup raw table
-    nppiSetDefaultQuantTable(table->table_raw, (int)type);
+    // Load raw table in zig-zag order
+    gpujpeg_table_quantization_set_default(table->table_raw, type);
     
-    // Init raw table
+    // Update raw table by quality
     nppiQuantFwdRawTableInit_JPEG_8u(table->table_raw, quality);
     
-    // Setup forward table by npp
-    nppiQuantFwdTableInit_JPEG_8u16u(table->table_raw, table->table);
+    // Fix NPP bug before version 4.1 [http://forums.nvidia.com/index.php?showtopic=191896]
+    const NppLibraryVersion* npp_version = nppGetLibVersion();
+    if ( npp_version->major < 4 || npp_version->major == 4 && npp_version->minor == 0 ) {
+        for ( int i = 0; i < 64; i++ ) {
+            table->table[gpujpeg_order_natural[i]] = ((1 << 15) / (double)table->table_raw[i]) + 0.5;
+        }
+    } else {
+        // Load forward table from raw table
+        nppiQuantFwdTableInit_JPEG_8u16u(table->table_raw, table->table);
+    }
         
     // Copy tables to device memory
     if ( cudaSuccess != cudaMemcpy(table->d_table, table->table, 64 * sizeof(uint16_t), cudaMemcpyHostToDevice) )
@@ -49,16 +103,24 @@ jpeg_table_quantization_encoder_init(struct jpeg_table_quantization* table, enum
 
 /** Documented at declaration */
 int
-jpeg_table_quantization_decoder_init(struct jpeg_table_quantization* table, enum jpeg_component_type type, int quality)
+gpujpeg_table_quantization_decoder_init(struct gpujpeg_table_quantization* table, enum gpujpeg_component_type type, int quality)
 {
-    // Setup raw table
-    nppiSetDefaultQuantTable(table->table_raw, (int)type);
+    // Load raw table in zig-zag order
+    gpujpeg_table_quantization_set_default(table->table_raw, type);
     
-    // Init raw table
+    // Update raw table by quality
     nppiQuantFwdRawTableInit_JPEG_8u(table->table_raw, quality);
     
-    // Setup inverse table by npp
-    nppiQuantInvTableInit_JPEG_8u16u(table->table_raw, table->table);
+    // Fix NPP bug before version 4.1 [http://forums.nvidia.com/index.php?showtopic=191896]
+    const NppLibraryVersion* npp_version = nppGetLibVersion();
+    if ( npp_version->major < 4 || npp_version->major == 4 && npp_version->minor == 0 ) {
+        for ( int i = 0; i < 64; i++ ) {
+            table->table[gpujpeg_order_natural[i]] = table->table_raw[i];
+        }
+    } else {
+        // Load inverse table from raw table
+        nppiQuantInvTableInit_JPEG_8u16u(table->table_raw, table->table);
+    }
     
     // Copy tables to device memory
     if ( cudaSuccess != cudaMemcpy(table->d_table, table->table, 64 * sizeof(uint16_t), cudaMemcpyHostToDevice) )
@@ -68,10 +130,18 @@ jpeg_table_quantization_decoder_init(struct jpeg_table_quantization* table, enum
 }
 
 int
-jpeg_table_quantization_decoder_compute(struct jpeg_table_quantization* table)
+gpujpeg_table_quantization_decoder_compute(struct gpujpeg_table_quantization* table)
 {
-    // Setup inverse table by npp
-    nppiQuantInvTableInit_JPEG_8u16u(table->table_raw, table->table);
+    // Fix NPP bug before version 4.1 [http://forums.nvidia.com/index.php?showtopic=191896]
+    const NppLibraryVersion* npp_version = nppGetLibVersion();
+    if ( npp_version->major < 4 || npp_version->major == 4 && npp_version->minor == 0 ) {
+        for ( int i = 0; i < 64; i++ ) {
+            table->table[gpujpeg_order_natural[i]] = table->table_raw[i];
+        }
+    } else {
+        // Load inverse table from raw table
+        nppiQuantInvTableInit_JPEG_8u16u(table->table_raw, table->table);
+    }
     
     // Copy tables to device memory
     if ( cudaSuccess != cudaMemcpy(table->d_table, table->table, 64 * sizeof(uint16_t), cudaMemcpyHostToDevice) )
@@ -82,7 +152,7 @@ jpeg_table_quantization_decoder_compute(struct jpeg_table_quantization* table)
 
 /** Documented at declaration */
 void
-jpeg_table_quantization_print(struct jpeg_table_quantization* table)
+gpujpeg_table_quantization_print(struct gpujpeg_table_quantization* table)
 {
     puts("Raw Table (with quality):");
     for (int i = 0; i < 8; ++i) {
@@ -101,25 +171,25 @@ jpeg_table_quantization_print(struct jpeg_table_quantization* table)
     }
 }
 
-/** Huffman Table  DC for Y component */
-static unsigned char jpeg_table_huffman_y_dc_bits[17] = {
+/** Huffman Table DC for Y component */
+static unsigned char gpujpeg_table_huffman_y_dc_bits[17] = {
     0, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 
 };
-static unsigned char jpeg_table_huffman_y_dc_value[] = { 
+static unsigned char gpujpeg_table_huffman_y_dc_value[] = { 
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 
 };
-/** Huffman Table  DC for Cb or Cr component */
-static unsigned char jpeg_table_huffman_cbcr_dc_bits[17] = { 
+/** Huffman Table DC for Cb or Cr component */
+static unsigned char gpujpeg_table_huffman_cbcr_dc_bits[17] = { 
     0, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 
 };
-static unsigned char jpeg_table_huffman_cbcr_dc_value[] = { 
+static unsigned char gpujpeg_table_huffman_cbcr_dc_value[] = { 
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 
 };
-/** Huffman Table  AC for Y component */
-static unsigned char jpeg_table_huffman_y_ac_bits[17] = { 
+/** Huffman Table AC for Y component */
+static unsigned char gpujpeg_table_huffman_y_ac_bits[17] = { 
     0, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d 
 };
-static unsigned char jpeg_table_huffman_y_ac_value[] = { 
+static unsigned char gpujpeg_table_huffman_y_ac_value[] = { 
     0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12,
     0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07,
     0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08,
@@ -143,10 +213,10 @@ static unsigned char jpeg_table_huffman_y_ac_value[] = {
     0xf9, 0xfa 
 };
 /** Huffman Table AC for Cb or Cr component */
-static unsigned char jpeg_table_huffman_cbcr_ac_bits[17] = { 
+static unsigned char gpujpeg_table_huffman_cbcr_ac_bits[17] = { 
     0, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 
 };
-static unsigned char jpeg_table_huffman_cbcr_ac_value[] = { 
+static unsigned char gpujpeg_table_huffman_cbcr_ac_value[] = { 
     0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21,
     0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71,
     0x13, 0x22, 0x32, 0x81, 0x08, 0x14, 0x42, 0x91,
@@ -177,7 +247,7 @@ static unsigned char jpeg_table_huffman_cbcr_ac_value[] = {
  * @return void
  */
 void
-jpeg_table_huffman_encoder_compute(struct jpeg_table_huffman_encoder* table)
+gpujpeg_table_huffman_encoder_compute(struct gpujpeg_table_huffman_encoder* table)
 {
 	char huffsize[257];
 	unsigned int huffcode[257];
@@ -221,67 +291,69 @@ jpeg_table_huffman_encoder_compute(struct jpeg_table_huffman_encoder* table)
 
 /** Documented at declaration */
 int
-jpeg_table_huffman_encoder_init(struct jpeg_table_huffman_encoder* table, struct jpeg_table_huffman_encoder* d_table, enum jpeg_component_type comp_type, enum jpeg_huffman_type huff_type)
+gpujpeg_table_huffman_encoder_init(struct gpujpeg_table_huffman_encoder* table, struct gpujpeg_table_huffman_encoder* d_table, enum gpujpeg_component_type comp_type, enum gpujpeg_huffman_type huff_type)
 {
-    assert(comp_type == JPEG_COMPONENT_LUMINANCE || comp_type == JPEG_COMPONENT_CHROMINANCE);
-    assert(huff_type == JPEG_HUFFMAN_DC || huff_type == JPEG_HUFFMAN_AC);
-    if ( comp_type == JPEG_COMPONENT_LUMINANCE ) {
-        if ( huff_type == JPEG_HUFFMAN_DC ) {
-            memcpy(table->bits, jpeg_table_huffman_y_dc_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_y_dc_value, sizeof(table->huffval));
+    assert(comp_type == GPUJPEG_COMPONENT_LUMINANCE || comp_type == GPUJPEG_COMPONENT_CHROMINANCE);
+    assert(huff_type == GPUJPEG_HUFFMAN_DC || huff_type == GPUJPEG_HUFFMAN_AC);
+    if ( comp_type == GPUJPEG_COMPONENT_LUMINANCE ) {
+        if ( huff_type == GPUJPEG_HUFFMAN_DC ) {
+            memcpy(table->bits, gpujpeg_table_huffman_y_dc_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_y_dc_value, sizeof(table->huffval));
         } else {
-            memcpy(table->bits, jpeg_table_huffman_y_ac_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_y_ac_value, sizeof(table->huffval));
+            memcpy(table->bits, gpujpeg_table_huffman_y_ac_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_y_ac_value, sizeof(table->huffval));
         }        
-    } else if ( comp_type == JPEG_COMPONENT_CHROMINANCE ) {
-        if ( huff_type == JPEG_HUFFMAN_DC ) {
-            memcpy(table->bits, jpeg_table_huffman_cbcr_dc_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_cbcr_dc_value, sizeof(table->huffval));
+    } else if ( comp_type == GPUJPEG_COMPONENT_CHROMINANCE ) {
+        if ( huff_type == GPUJPEG_HUFFMAN_DC ) {
+            memcpy(table->bits, gpujpeg_table_huffman_cbcr_dc_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_cbcr_dc_value, sizeof(table->huffval));
         } else {
-            memcpy(table->bits, jpeg_table_huffman_cbcr_ac_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_cbcr_ac_value, sizeof(table->huffval));
+            memcpy(table->bits, gpujpeg_table_huffman_cbcr_ac_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_cbcr_ac_value, sizeof(table->huffval));
         }
     }
-    jpeg_table_huffman_encoder_compute(table);
+    gpujpeg_table_huffman_encoder_compute(table);
     
+#ifndef GPUJPEG_HUFFMAN_CODER_TABLES_IN_CONSTANT
     // Copy table to device memory
-    if ( cudaSuccess != cudaMemcpy(d_table, table, sizeof(struct jpeg_table_huffman_encoder), cudaMemcpyHostToDevice) )
+    if ( cudaSuccess != cudaMemcpy(d_table, table, sizeof(struct gpujpeg_table_huffman_encoder), cudaMemcpyHostToDevice) )
         return -1;
+#endif
         
     return 0;
 }
 
 /** Documented at declaration */
 int
-jpeg_table_huffman_decoder_init(struct jpeg_table_huffman_decoder* table, struct jpeg_table_huffman_decoder* d_table, enum jpeg_component_type comp_type, enum jpeg_huffman_type huff_type)
+gpujpeg_table_huffman_decoder_init(struct gpujpeg_table_huffman_decoder* table, struct gpujpeg_table_huffman_decoder* d_table, enum gpujpeg_component_type comp_type, enum gpujpeg_huffman_type huff_type)
 {
-    assert(comp_type == JPEG_COMPONENT_LUMINANCE || comp_type == JPEG_COMPONENT_CHROMINANCE);
-    assert(huff_type == JPEG_HUFFMAN_DC || huff_type == JPEG_HUFFMAN_AC);
-    if ( comp_type == JPEG_COMPONENT_LUMINANCE ) {
-        if ( huff_type == JPEG_HUFFMAN_DC ) {
-            memcpy(table->bits, jpeg_table_huffman_y_dc_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_y_dc_value, sizeof(table->huffval));
+    assert(comp_type == GPUJPEG_COMPONENT_LUMINANCE || comp_type == GPUJPEG_COMPONENT_CHROMINANCE);
+    assert(huff_type == GPUJPEG_HUFFMAN_DC || huff_type == GPUJPEG_HUFFMAN_AC);
+    if ( comp_type == GPUJPEG_COMPONENT_LUMINANCE ) {
+        if ( huff_type == GPUJPEG_HUFFMAN_DC ) {
+            memcpy(table->bits, gpujpeg_table_huffman_y_dc_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_y_dc_value, sizeof(table->huffval));
         } else {
-            memcpy(table->bits, jpeg_table_huffman_y_ac_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_y_ac_value, sizeof(table->huffval));
+            memcpy(table->bits, gpujpeg_table_huffman_y_ac_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_y_ac_value, sizeof(table->huffval));
         }        
-    } else if ( comp_type == JPEG_COMPONENT_CHROMINANCE ) {
-        if ( huff_type == JPEG_HUFFMAN_DC ) {
-            memcpy(table->bits, jpeg_table_huffman_cbcr_dc_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_cbcr_dc_value, sizeof(table->huffval));
+    } else if ( comp_type == GPUJPEG_COMPONENT_CHROMINANCE ) {
+        if ( huff_type == GPUJPEG_HUFFMAN_DC ) {
+            memcpy(table->bits, gpujpeg_table_huffman_cbcr_dc_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_cbcr_dc_value, sizeof(table->huffval));
         } else {
-            memcpy(table->bits, jpeg_table_huffman_cbcr_ac_bits, sizeof(table->bits));
-            memcpy(table->huffval, jpeg_table_huffman_cbcr_ac_value, sizeof(table->huffval));
+            memcpy(table->bits, gpujpeg_table_huffman_cbcr_ac_bits, sizeof(table->bits));
+            memcpy(table->huffval, gpujpeg_table_huffman_cbcr_ac_value, sizeof(table->huffval));
         }
     }
-    jpeg_table_huffman_decoder_compute(table, d_table);
+    gpujpeg_table_huffman_decoder_compute(table, d_table);
         
     return 0;
 }
 
 /** Documented at declaration */
 void
-jpeg_table_huffman_decoder_compute(struct jpeg_table_huffman_decoder* table, struct jpeg_table_huffman_decoder* d_table)
+gpujpeg_table_huffman_decoder_compute(struct gpujpeg_table_huffman_decoder* table, struct gpujpeg_table_huffman_decoder* d_table)
 {
 	// Figure C.1: make table of Huffman code length for each symbol
 	// Note that this is in code-length order.
@@ -320,7 +392,7 @@ jpeg_table_huffman_decoder_compute(struct jpeg_table_huffman_decoder* table, str
 			table->maxcode[l] = -1;	// -1 if no codes of this length
 		}
 	}
-    // Ensures jpeg_huff_decode terminates
+    // Ensures gpujpeg_huff_decode terminates
 	table->maxcode[17] = 0xFFFFFL;
 
 	// Compute lookahead tables to speed up decoding.
@@ -347,6 +419,8 @@ jpeg_table_huffman_decoder_compute(struct jpeg_table_huffman_decoder* table, str
 		}
 	}
     
+#ifndef GPUJPEG_HUFFMAN_CODER_TABLES_IN_CONSTANT
     // Copy table to device memory
-    cudaMemcpy(d_table, table, sizeof(struct jpeg_table_huffman_decoder), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_table, table, sizeof(struct gpujpeg_table_huffman_decoder), cudaMemcpyHostToDevice);
+#endif
 }

@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,25 +27,38 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JPEG_HUFFMAN_CPU_DECODER
-#define JPEG_HUFFMAN_CPU_DECODER
+#ifndef GPUJPEG_PREPROCESSOR_H
+#define GPUJPEG_PREPROCESSOR_H
 
-#include "jpeg_decoder.h"
+#include "gpujpeg_encoder.h"
+#include "gpujpeg_decoder.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * Perform huffman decoding
+ * Preprocessor encode
  * 
+ * @param encoder  Encoder structure
+ * @param image  Image source data
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_huffman_cpu_decoder_decode(struct jpeg_decoder* decoder, enum jpeg_component_type type, struct jpeg_decoder_scan* scan, int16_t* data_decompressed);
+gpujpeg_preprocessor_encode(struct gpujpeg_encoder* encoder);
+
+/**
+ * Preprocessor decode
+ * 
+ * @param encoder  Encoder structure
+ * @param image  Image source data
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_preprocessor_decode(struct gpujpeg_decoder* decoder);
 
 #ifdef __cplusplus
-} // END extern "C"
+}
 #endif
 
-#endif // JPEG_HUFFMAN_CPU_DECODER
+#endif // GPUJPEG_PREPROCESSOR_H

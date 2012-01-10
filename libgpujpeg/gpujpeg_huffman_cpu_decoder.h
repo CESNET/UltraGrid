@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,52 +27,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JPEG_READER
-#define JPEG_READER
+#ifndef GPUJPEG_HUFFMAN_CPU_DECODER_H
+#define GPUJPEG_HUFFMAN_CPU_DECODER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdint.h>
-
-/** JPEG decoder structure predeclaration */
-struct jpeg_decoder;
-
-/** JPEG reader structure */
-struct jpeg_reader
-{
-};
+#include "gpujpeg_decoder.h"
 
 /**
- * Create JPEG reader
+ * Perform huffman decoding
  * 
- * @return reader structure if succeeds, otherwise NULL
- */
-struct jpeg_reader*
-jpeg_reader_create();
-
-/**
- * Destroy JPEG reader
- * 
- * @param reader  Reader structure
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_reader_destroy(struct jpeg_reader* reader);
+gpujpeg_huffman_cpu_decoder_decode(struct gpujpeg_decoder* decoder);
 
-/**
- * Read JPEG image from data buffer
- * 
- * @param image  Image data
- * @param image_size  Image data size
- * @return 0 if succeeds, otherwise nonzero
- */
-int
-jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_size);
-
-#ifdef __cplusplus
-} // END extern "C"
-#endif
-
-#endif // JPEG_WRITER
+#endif // GPUJPEG_HUFFMAN_CPU_DECODER_H
