@@ -1,6 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT
+AC_INIT([UltraGrid], [1.0], [ultragrid-dev@cesnet.cz])
+AM_INIT_AUTOMAKE([1.9])
 AC_CONFIG_SRCDIR([src/main.c])
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`

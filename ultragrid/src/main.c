@@ -73,7 +73,6 @@
 #include "tv.h"
 #include "transmit.h"
 #include "tfrc.h"
-#include "version.h"
 #include "ihdtv/ihdtv.h"
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
@@ -339,7 +338,7 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 				TRUE);
 			rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
 				RTCP_SDES_TOOL,
-				ULTRAGRID_VERSION, strlen(ULTRAGRID_VERSION));
+				PACKAGE_STRING, strlen(PACKAGE_STRING));
 			pdb_add(participants, rtp_my_ssrc(devices[index]));
 		}
 		else {
@@ -421,7 +420,7 @@ static void *receiver_thread(void *arg)
         int i = 0;
         int ret;
         unsigned int tiles_post = 0;
-        struct timeval last_tile_received;
+        struct timeval last_tile_received = {0, 0};
         struct state_decoder *dec_state;
 
         initialize_video_decompress();
@@ -676,7 +675,7 @@ int main(int argc, char *argv[])
                         uv->postprocess = optarg;
                         break;
                 case 'v':
-                        printf("%s\n", ULTRAGRID_VERSION);
+                        printf("%s\n", PACKAGE_STRING);
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = TRUE;
@@ -735,7 +734,7 @@ int main(int argc, char *argv[])
         if(audio_does_receive_sdi(uv->audio))
                 display_flags |= DISPLAY_FLAG_ENABLE_AUDIO;
 
-        printf("%s\n", ULTRAGRID_VERSION);
+        printf("%s\n", PACKAGE_STRING);
         printf("Display device: %s\n", uv->requested_display);
         printf("Capture device: %s\n", uv->requested_capture);
         printf("MTU           : %d\n", uv->requested_mtu);

@@ -228,11 +228,7 @@ all: $(TARGET) modules ag-plugins suggest-tests
 
 modules: @LIB_TARGETS@
 
-src/version.h: VERSION
-	@echo "Generating src/version.h"
-	@sed -e 's/.*/#define ULTRAGRID_VERSION "UltraGrid v&"/' VERSION > src/version.h
-
-$(TARGET): src/version.h $(OBJS) src/main.o 
+$(TARGET): $(OBJS) src/main.o 
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(CFLAGS) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
