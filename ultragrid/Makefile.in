@@ -104,11 +104,7 @@ DVS_UV_LIB_LIB = @DVS_LIB@
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) $(DVS_UV_LIB) ag-plugins suggest-tests
 
-src/version.h: VERSION
-	@echo "Generating src/version.h"
-	@sed -e 's/.*/#define ULTRAGRID_VERSION "UltraGrid v&"/' VERSION > src/version.h
-
-$(TARGET): src/version.h $(OBJS) src/main.o 
+$(TARGET): $(OBJS) src/main.o 
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(CFLAGS) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 

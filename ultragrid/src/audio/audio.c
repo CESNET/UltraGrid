@@ -63,7 +63,6 @@
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
-#include "version.h"
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
@@ -238,7 +237,7 @@ void print_audio_playback_devices()
 struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg, char *jack_cfg)
 {
         struct state_audio *s = NULL;
-        char *tmp, *unused;
+        char *tmp, *unused = NULL;
         char *addr;
         int i;
         
@@ -454,7 +453,7 @@ static struct rtp *initialize_audio_network(char *addr, struct pdb *participants
                 pdb_add(participants, rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
-                             ULTRAGRID_VERSION, strlen(ULTRAGRID_VERSION));
+                             PACKAGE_STRING, strlen(PACKAGE_VERSION));
         }
 
         return r;
