@@ -88,6 +88,7 @@ struct vidcap_dvs_state {
         struct audio_frame audio;
         const hdsp_mode_table_t *mode;
         unsigned grab_audio:1;
+        unsigned int detect_mode:1;
 };
 
 static void show_help(void);
@@ -161,7 +162,7 @@ static void show_help(void)
         int res;
 
 	printf("DVS options:\n\n");
-	printf("\t -t dvs:<mode>:<codec>[:<card>] | help\n\n");
+	printf("\t -t dvs[:<mode>:<codec>][:<card>] | help\n\n");
         snprintf(name, 128, "PCI,card:%d", card_idx);
 
         //sv = sv_open(name);
@@ -218,6 +219,8 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
             
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
+
+        s->detect_mode = FALSE;
         
         if (s == NULL) {
                 debug_msg("Unable to allocate DVS state\n");
@@ -232,51 +235,66 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
 
                 char *tmp;
 
-                tmp = strtok(fmt, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                mode_index = atoi(tmp);
-                for(i=0; hdsp_mode_table[i].width != 0; i++) {
-                        if(hdsp_mode_table[i].mode == mode_index) {
-                                  s->mode = &hdsp_mode_table[i];
-                                break;
+                if(strncmp(fmt, "PCI", 3) == 0) {
+                        card_name = fmt;
+                        printf("[DVS] Choosen card: %s.\n", card_name);
+                        s->detect_mode = TRUE;
+                } else {
+                        tmp = strtok(fmt, ":");
+                        if (!tmp) {
+                                fprintf(stderr, "Wrong config %s\n", fmt);
+                                return 0;
+                        }
+                        mode_index = atoi(tmp);
+                        for(i=0; hdsp_mode_table[i].width != 0; i++) {
+                                if(hdsp_mode_table[i].mode == mode_index) {
+                                          s->mode = &hdsp_mode_table[i];
+                                        break;
+                                }
+                        }
+                        if(s->mode == NULL) {
+                                fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
+                                free(s);
+                                return 0;
+                        }
+
+                        tmp = strtok(NULL, ":");
+                        if (!tmp) {
+                                fprintf(stderr, "Wrong config %s\n", fmt);
+                                return 0;
+                        }
+
+                        s->frame->color_spec = 0xffffffff;
+                        for (i = 0; codec_info[i].name != NULL; i++) {
+                                if (strcmp(tmp, codec_info[i].name) == 0) {
+                                        s->frame->color_spec = codec_info[i].codec;
+                                }
+                        }
+                        if (s->frame->color_spec == 0xffffffff) {
+                                fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
+                                free(tmp);
+                                return 0;
+                        }
+
+                        /* card name */
+                        tmp = strtok(NULL, ":");
+                        if(tmp) {
+                                card_name = tmp;
+                                tmp[strlen(card_name)] = ':';
+                                printf("[DVS] Choosen card: %s.\n", card_name);
                         }
                 }
-                if(s->mode == NULL) {
-                        fprintf(stderr, "dvs: unknown video mode: %d\n", mode_index);
-                        free(s);
-                        return 0;
-                }
-
-                tmp = strtok(NULL, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-
-                s->frame->color_spec = 0xffffffff;
-                for (i = 0; codec_info[i].name != NULL; i++) {
-                        if (strcmp(tmp, codec_info[i].name) == 0) {
-                                s->frame->color_spec = codec_info[i].codec;
-                        }
-                }
-                if (s->frame->color_spec == 0xffffffff) {
-                        fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
-                        free(tmp);
-                        return 0;
-                }
-
-                /* card name */
-                tmp = strtok(NULL, ":");
-                if(tmp) {
-                        card_name = tmp;
-                }
-	
         } else {
-		show_help();
-                return 0;
+                s->detect_mode = TRUE;
+        }
+
+        res = sv_openex(&s->sv, card_name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
+        if (s->sv == NULL) {
+                printf
+                    ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
+                printf("Error %s\n", sv_geterrortext(res));
+                free(s);
+                return NULL;
         }
 
         if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
@@ -285,29 +303,82 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 s->grab_audio = FALSE;
         }
 
-        s->hd_video_mode = SV_MODE_STORAGE_FRAME;
+        s->hd_video_mode = 0;
 
-        switch(s->frame->color_spec) {
-                case DVS10:
-                        s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
-                        break;
-                case DVS8:
-                case Vuy2:
-                case UYVY:
-                        s->hd_video_mode |= SV_MODE_COLOR_YUV422;
-                        break;
-                case RGBA:
-                        s->hd_video_mode |= SV_MODE_COLOR_RGBA;
-                        break;
-                case RGB:
-                        s->hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
-                        break;
-                default:
-                        fprintf(stderr, "[dvs] Unsupported video codec passed!");
-                        return NULL;
+        if(!s->detect_mode) {
+                switch(s->frame->color_spec) {
+                        case DVS10:
+                                s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
+                                break;
+                        case DVS8:
+                        case Vuy2:
+                        case UYVY:
+                                s->hd_video_mode |= SV_MODE_COLOR_YUV422;
+                                break;
+                        case RGBA:
+                                s->hd_video_mode |= SV_MODE_COLOR_RGBA;
+                                break;
+                        case RGB:
+                                s->hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
+                                break;
+                        default:
+                                fprintf(stderr, "[dvs] Unsupported video codec passed!");
+                                return NULL;
+                }
+
+                s->hd_video_mode |= s->mode->mode;
+        } else {
+                int val;
+                int res;
+                res = sv_query(s->sv, SV_QUERY_INPUTRASTER, 0, &val);
+                if(res != SV_OK) {
+                        printf("[DVS] Could not detect video format %s\n",
+                               sv_geterrortext(res));
+                        goto error_detect;
+                }
+                if(val == -1) {
+                        printf("[DVS] No signal detected, cannot autodetect format.\n");
+                        goto error_detect;
+                }
+                for(i=0; hdsp_mode_table[i].width != 0; i++) {
+                        if(hdsp_mode_table[i].mode == val) {
+                                  s->mode = &hdsp_mode_table[i];
+                                break;
+                        }
+                }
+                s->hd_video_mode |= val;
+                printf("[DVS] Autodetected video mode: %dx%d @ %2.2fFPS.\n", s->mode->width, s->mode->height, s->mode->fps);
+
+                res = sv_query(s->sv, SV_QUERY_IOMODE, 0, &val);
+                if(res != SV_OK) {
+                        printf("Could not detect IO mode %s\n",
+                               sv_geterrortext(res));
+                        goto error_detect;
+                }
+                printf("[DVS] Autodetected IO mode: %d.\n", val);
+
+                switch (val) {
+                        case SV_IOMODE_YUV422:
+                        case SV_IOMODE_YUV444:
+                        case SV_IOMODE_YUV422A:
+                        case SV_IOMODE_YUV444A:
+                        case SV_IOMODE_YUV422_12:
+                        case SV_IOMODE_YUV444_12:
+                                s->hd_video_mode |= SV_MODE_COLOR_YUV422;
+                                s->frame->color_spec = UYVY;
+                                break;
+                        case SV_IOMODE_RGB:
+                        case SV_IOMODE_RGB_12:
+                                s->hd_video_mode |= SV_MODE_COLOR_RGBA;
+                                s->frame->color_spec = RGB;
+                                break;
+                        case SV_IOMODE_RGBA:
+                                s->hd_video_mode |= SV_MODE_COLOR_RGB_RGB;
+                                s->frame->color_spec = RGBA;
+                                break;
+                }
         }
-
-        s->hd_video_mode |= s->mode->mode;
+        s->hd_video_mode |= SV_MODE_STORAGE_FRAME;
 
         s->tile->width = s->mode->width;
         s->tile->height = s->mode->height;
@@ -328,14 +399,6 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
 	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
 	s->tile->data_len = s->tile->linesize * s->tile->height;
 
-        res = sv_openex(&s->sv, card_name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
-        if (s->sv == NULL) {
-                printf
-                    ("Unable to open grabber: sv_open() failed (no card present or driver not loaded?)\n");
-                printf("Error %s\n", sv_geterrortext(res));
-                free(s);
-                return NULL;
-        }
 
         //res = sv_videomode(s->sv, s->hd_video_mode);
         res = sv_option(s->sv, SV_OPTION_VIDEOMODE, s->hd_video_mode);
@@ -346,6 +409,8 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
         if (res != SV_OK) {
                 goto error;
         }
+
+
 
         if(s->grab_audio) {
                 int i;
@@ -411,7 +476,9 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
 
         debug_msg("DVS capture device enabled\n");
         return s;
- error:
+error_detect:
+         sv_close(s->sv);
+error:
         free(s);
         printf("Error %s\n", sv_geterrortext(res));
         debug_msg("Unable to open grabber: %s\n", sv_geterrortext(res));
@@ -435,8 +502,7 @@ void vidcap_dvs_finish(void *state)
         }
 
         s->work_to_do = TRUE;
-        if(s->worker_waiting)
-                pthread_cond_signal(&(s->worker_cv));
+        pthread_cond_signal(&(s->worker_cv));
 
         pthread_mutex_unlock(&(s->lock));
 }
@@ -446,12 +512,12 @@ void vidcap_dvs_done(void *state)
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
         
-        pthread_join(s->thread_id, NULL);
+         pthread_join(s->thread_id, NULL);
 
-        sv_fifo_free(s->sv, s->fifo);
-        sv_close(s->sv);
-        vf_free(s->frame);
-        free(s);
+         sv_fifo_free(s->sv, s->fifo);
+         sv_close(s->sv);
+         vf_free(s->frame);
+         free(s);
 }
 
 struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
