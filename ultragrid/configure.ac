@@ -990,13 +990,17 @@ AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
      [$CUDA_PATH/bin])
 
 AC_CHECK_SIZEOF([int *])
-AM_CONDITIONAL([WORD_LEN64], [test $ac_cv_sizeof_int_p -eq 8 ])
 
 if test -n "$NVCC"
 then
         CUDA_INC=-I$CUDA_PATH/include
-        AM_COND_IF([WORD_LEN64], [CUDA_LIB_PATH="$CUDA_PATH/lib64"], 
-                [CUDA_LIB_PATH="$CUDA_PATH/lib"])
+        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+        then
+                CUDA_LIB_PATH="$CUDA_PATH/lib64"
+        else
+                CUDA_LIB_PATH="$CUDA_PATH/lib"
+        fi
+
         CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
 fi
 
