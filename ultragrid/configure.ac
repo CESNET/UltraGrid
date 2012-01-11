@@ -1,7 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT([UltraGrid], [1.0], [ultragrid-dev@cesnet.cz])
-AM_INIT_AUTOMAKE([1.9])
+AM_INIT_AUTOMAKE([1.10])
+AC_PREREQ(2.61)
 AC_CONFIG_SRCDIR([src/main.c])
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
@@ -27,6 +28,14 @@ AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
 )
 
+AC_DEFUN([HM_VERSION_WARNING], [
+          AC_MSG_WARN([If you still want to try with unsupported version of dependency,
+                       you may want to try --disable-depends-version-check option.
+                       If you find out that some unsupported version is working,
+                       please let us know at ultragrid-dev@cesnet.cz.
+                               ])
+          ])
+
 case "$host" in
 	*darwin9*)
 		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
@@ -41,14 +50,13 @@ case "$host" in
 	;;
 esac	
 
+AC_MSG_CHECKING([OS family])
+
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
-	AC_MSG_CHECKING([Mac X OS kernel version (major)])
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
 	LINKER=$CXX
-	version_major="`echo \"$host_os\" | sed 's/^.*darwin\([[^.]]*\)..*$/\1/'`"
-	AC_DEFINE_UNQUOTED([MACOSX_VERSION_MAJOR], $version_major, [Major number of Mac X OS version])
-	AC_MSG_RESULT($version_major);
+	AC_DEFINE_UNQUOTED([MACOSX_VERSION_MAJOR], $os_version_major, [Major number of Mac X OS version])
 	CFLAGS+=" -m32 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
 	CXXFLAGS+=" -m32 -I/opt/local/include"
@@ -59,6 +67,15 @@ else
 	LINKER=$CC
 fi
 
+AC_MSG_RESULT($system);
+
+AC_MSG_CHECKING([OS kernel version (major)])
+os_version_major=`uname -r |cut -d . -f 1`
+AC_MSG_RESULT($os_version_major);
+AC_MSG_CHECKING([OS kernel version (minor)])
+os_version_minor=`uname -r |cut -d . -f 2`
+AC_MSG_RESULT($os_version_minor);
+
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
 AC_SUBST(CXXFLAGS)
@@ -68,6 +85,18 @@ LIBS=""
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
 
+AC_ARG_ENABLE(depends-version-check,
+        AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]), 
+	[version_check=$enableval],
+        [version_check=yes]
+        )
+
+if test $system = MacOSX -a \( $os_version_major -ne 9 -a $os_version_major -ne 10 \) -a $version_check = yes
+then
+        AC_MSG_WARN([*** Currently only Mac OS X 10.5 and 10.6 are supported.])
+        HM_VERSION_WARNING
+        AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
+fi
 
 # -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some
@@ -185,6 +214,7 @@ AC_ARG_ENABLE(ipv6,
 		AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
                 ipv6=YES
 	fi])
+
 
 # ------------------------------------------------------------------------------------------------
 # Dynamic libraries stuff
@@ -896,7 +926,7 @@ AC_ARG_WITH(fastdxt,
 	 FASTDXT_PATH=${PARENT}/FastDXT])
 
 AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
-AC_CHECK_LIB(dxt, main, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
+AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
 
 if test $fastdxt_req = yes -a $FOUND_FASTDXT_L = yes -a $FOUND_FASTDXT_H = yes
 then
@@ -994,6 +1024,13 @@ AC_CHECK_SIZEOF([int *])
 
 if test -n "$NVCC"
 then
+	AC_MSG_CHECKING([CUDA Toolkit version - major])
+        nvcc_major=`$NVCC --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+	AC_MSG_RESULT($nvcc_major)
+	AC_MSG_CHECKING([CUDA Toolkit version - minor])
+        nvcc_minor=`$NVCC --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+	AC_MSG_RESULT($nvcc_minor)
+
         CUDA_INC=-I$CUDA_PATH/include
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
@@ -1037,8 +1074,18 @@ AC_LANG_POP(C++)
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
+if test -n "$NVCC"
+then
+        if test \( $nvcc_major -eq 4 -a $nvcc_minor -eq 1 \) -o $version_check = no
+        then
+                jpeg_cuda_version_ok=yes
+        else
+                AC_MSG_WARN([*** CUDA Toolkit other than 4.1 detected. Please install v4.1 to use JPEG.])
+                HM_VERSION_WARNING
+        fi
+fi
 
-if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes
+if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes
 then
         jpeg=yes
         JPEG_LIB="$CUDA_LIB -lnpp"
@@ -1129,6 +1176,7 @@ AC_ARG_WITH(portaudio,
 
 AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
 AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
+#AC_CHECK_LIB(portaudio, Pa_Initialize, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no, -L${PORTAUDIO_LIB})
 
 if test $portaudio_req = yes -a $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
 then
