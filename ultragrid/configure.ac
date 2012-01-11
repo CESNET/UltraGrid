@@ -222,14 +222,13 @@ build_libraries=no
 AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build moodules as libraries (default is off)]), 
 	[build_libraries=$enableval])
 
-if test "$system" != "Linux"
-then
-        AC_MSG_WARN([*** Building libraries is not supported with Mac OS X])
-        build_libraries=no
-fi
-
 if test "$build_libraries" = yes
 then
+        if test "$system" != "Linux"
+        then
+                AC_MSG_WARN([*** Building libraries is not supported with Mac OS X])
+                build_libraries=no
+        fi
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
@@ -353,20 +352,14 @@ AC_ARG_WITH(dvs,
 	[DVS_INC=${PARENT}/sdk4.0.1.17/development/header
 	 DVS_LIB=${PARENT}/sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
 
-
-AC_MSG_CHECKING([OS family])
-
-if expr "$host_os" : ".*darwin.*" > /dev/null; then
-        system=MacOSX
-        DVS_SDK_SUBDIR="universal"
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
 
 SAVED_LIBS=$LIBS
 if test $system = MacOSX
 then
-	LIBS='-framework IOKit'
+	LIBS+=" -framework IOKit"
 fi
-AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, [-L${DVS_LIB}])
+AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
 LIBS=$SAVED_LIBS
 
 if test $dvs_req = yes -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
