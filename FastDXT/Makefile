@@ -14,8 +14,8 @@ ARCHITECTURE=$(shell uname -m)
 
 ifeq ($(MACHINE), Darwin)
 
-CXXFLAGS+=-I/opt/local/include
-LDLIBS+=-framework OpenGL
+CXXFLAGS+=-I/opt/local/include -arch i386 -arch x86_64
+LDLIBS+=-framework OpenGL -arch i386 -arch x86_64
 GLEWLIB=/opt/local/lib/libGLEW.a
 SDLLIBS=-framework SDL -framework CoreFoundation -framework Carbon
 
@@ -24,7 +24,7 @@ ifeq ($(ARCHITECTURE), i386)
 
 ifeq ($(OPTIM), 1)
 # MacPro
-CXXFLAGS+=-march=nocona -msse3 -DDXT_INTR
+CXXFLAGS+= -msse3 -DDXT_INTR
 # *.a 
 # MacbookPro
 # CXXFLAGS+=-march=i686 -msse2 -DDXT_INTR
@@ -75,6 +75,7 @@ main: dxt.o main.o util.o intrinsic.o
 example: example.o libdxt.o dxt.o util.o intrinsic.o
 lib: libdxt.o dxt.o intrinsic.o
 	ar rcu libdxt.a libdxt.o dxt.o intrinsic.o
+	ranlib libdxt.a
 2dxt: dxt.o 2dxt.o libdxt.o util.o intrinsic.o
 
 
