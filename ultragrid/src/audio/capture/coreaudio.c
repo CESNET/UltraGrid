@@ -63,7 +63,7 @@
 #endif
 
 struct state_ca_capture {
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         ComponentInstance 
 #else
         AudioComponentInstance
@@ -224,7 +224,7 @@ void * audio_cap_ca_init(char *cfg)
 {
         struct state_ca_capture *s;
         OSErr ret = noErr;
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         Component comp;
         ComponentDescription desc;
 #else

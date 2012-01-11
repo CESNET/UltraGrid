@@ -738,7 +738,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
 void display_quicktime_audio_init(struct state_quicktime *s)
 {
         OSErr ret = noErr;
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         Component comp;
         ComponentDescription desc;
 #else
@@ -761,7 +761,7 @@ void display_quicktime_audio_init(struct state_quicktime *s)
         desc.componentFlags = 0;
         desc.componentFlagsMask = 0;
 
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         comp = FindNextComponent(NULL, &desc);
         if(!comp) goto audio_error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);

@@ -41,11 +41,9 @@ case "$host" in
 		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
 	;;
   	x86_64-*-linux-*)
-		DVS_SDK_SUBDIR="linux-x86_64"
 		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
 	;;
 	i*86-*-linux-*)
-		DVS_SDK_SUBDIR="linux-x86"
 		AC_DEFINE([HAVE_32B_LINUX], [1], [We have 32-bit Linux])
 	;;
 esac	
@@ -56,7 +54,6 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
 	LINKER=$CXX
-	AC_DEFINE_UNQUOTED([MACOSX_VERSION_MAJOR], $os_version_major, [Major number of Mac X OS version])
 	CFLAGS+=" -m32 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
 	CXXFLAGS+=" -m32 -I/opt/local/include"
@@ -75,6 +72,9 @@ AC_MSG_RESULT($os_version_major);
 AC_MSG_CHECKING([OS kernel version (minor)])
 os_version_minor=`uname -r |cut -d . -f 2`
 AC_MSG_RESULT($os_version_minor);
+
+AC_DEFINE_UNQUOTED([OS_VERSION_MAJOR], $os_version_major, [OS kernel major version])
+AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor version])
 
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
@@ -150,8 +150,7 @@ fi
 
 AC_SEARCH_LIBS(socket, socket)
 AC_SEARCH_LIBS(inet_addr, nsl)
-
-AC_CHECK_LIB(rt, main, LIBS="$LIBS -lrt", LIBS="$LIBS")
+AC_CHECK_LIB(rt, timer_create)
 
 AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
 AC_CHECK_LIB(ieee, main, [MATHLIBS="-lieee $MATHLIBS"])
@@ -162,7 +161,7 @@ AC_SUBST(MATHLIBS)
 
 AC_CHECK_FUNCS(sched_setscheduler)
 use_rt=no
-AC_ARG_ENABLE(dvs,
+AC_ARG_ENABLE(rt,
               AS_HELP_STRING([--enable-rt], [enable RT priority]), 
 	[use_rt=$enableval])
 if test "$use_rt" = "yes"; then
@@ -335,6 +334,18 @@ AC_ARG_ENABLE(dvs,
               AS_HELP_STRING([--disable-dvs], [disable DVS (default is auto)]), 
 	[dvs_req=$enableval])
 
+case "$host" in
+	*darwin*)
+		DVS_SDK_SUBDIR="universal"
+	;;
+  	x86_64-*-linux-*)
+		DVS_SDK_SUBDIR="linux-x86_64"
+	;;
+	i*86-*-linux-*)
+		DVS_SDK_SUBDIR="linux-x86"
+	;;
+esac	
+
 AC_ARG_WITH(dvs,           
 	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
@@ -342,8 +353,21 @@ AC_ARG_WITH(dvs,
 	[DVS_INC=${PARENT}/sdk4.0.1.17/development/header
 	 DVS_LIB=${PARENT}/sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
 
+
+AC_MSG_CHECKING([OS family])
+
+if expr "$host_os" : ".*darwin.*" > /dev/null; then
+        system=MacOSX
+        DVS_SDK_SUBDIR="universal"
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
-AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
+
+SAVED_LIBS=$LIBS
+if test $system = MacOSX
+then
+	LIBS='-framework IOKit'
+fi
+AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, [-L${DVS_LIB}])
+LIBS=$SAVED_LIBS
 
 if test $dvs_req = yes -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
 then
@@ -353,6 +377,10 @@ then
 	DVS_DISP_OBJ="src/video_display/dvs.o"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
         DVS_LIB+=" -ldl"
+	if test $system = MacOSX
+	then
+		DVS_LIB+=" -framework IOKit"
+	fi
         AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/vidcap_dvs.so.$video_display_abi_version")
         AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/display_dvs.so.$video_display_abi_version")
         dvs=yes

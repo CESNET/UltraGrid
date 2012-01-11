@@ -59,7 +59,7 @@
 
 
 struct state_ca_playback {
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         ComponentInstance 
 #else
         AudioComponentInstance
@@ -203,7 +203,7 @@ void * audio_play_ca_init(char *cfg)
 {
         struct state_ca_playback *s;
         OSErr ret = noErr;
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         Component comp;
         ComponentDescription desc;
 #else
@@ -231,7 +231,7 @@ void * audio_play_ca_init(char *cfg)
         desc.componentFlags = 0;
         desc.componentFlagsMask = 0;
 
-#if MACOSX_VERSION_MAJOR <= 9
+#if OS_VERSION_MAJOR <= 9
         comp = FindNextComponent(NULL, &desc);
         if(!comp) goto error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);
