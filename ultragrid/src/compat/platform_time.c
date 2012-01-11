@@ -58,6 +58,8 @@
 #include <mach/mach.h>
 
 int clock_gettime(int unused, struct timespec *ts) {
+	UNUSED(unused);
+
         clock_serv_t cclock;
         mach_timespec_t mts;
 
@@ -66,6 +68,8 @@ int clock_gettime(int unused, struct timespec *ts) {
         mach_port_deallocate(mach_task_self(), cclock);
         ts->tv_sec = mts.tv_sec;
         ts->tv_nsec = mts.tv_nsec;
+
+	return 0;
 }
 #endif
 

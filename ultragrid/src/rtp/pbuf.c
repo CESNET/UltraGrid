@@ -382,6 +382,9 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         
         while (curr != NULL) {
                 if (!curr->decoded && frame_complete(curr)) {   // FIXME: figure out then right frames ordering (if needed) - se pbuf_decode
+                        int total_channels = 0, bps,
+                                sample_rate;
+                        int channel;
                         
                         curr->decoded = 1;
                                 
@@ -391,13 +394,12 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 audio_payload_hdr_t *hdr = 
                                         (audio_payload_hdr_t *) cdata->data->data;
                                         
-                                int total_channels, bps,
-                                        sample_rate;
-                                int channel;
-                                
+                                /* we receive last channel first (with m bit, last packet) */
+                                /* thus can be set only with m-bit packet */
                                 if(cdata->data->m) {
                                         total_channels = ((ntohl(hdr->substream_bufnum) >> 22) & 0x3ff) + 1;
                                 }
+                                assert(total_channels > 0);
 
                                 channel = (ntohl(hdr->substream_bufnum) >> 22) & 0x3ff;
                                 sample_rate = ntohl(hdr->quant_sample_rate) & 0x3fffff;

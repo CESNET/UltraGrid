@@ -246,7 +246,7 @@ void display_quicktime_reconfigure_audio(void *state, int quant_samples, int cha
                 int sample_rate);
 
 static void
-nprintf(unsigned char *str)
+nprintf(char *str)
 {
         char tmp[((int)str[0]) + 1];
 
@@ -320,7 +320,7 @@ static void reconf_common(struct state_quicktime *s)
                                                NULL,
                                                srcCopy,
                                                NULL,
-                                               (CodecFlags) NULL,
+                                               (CodecFlags) 0,
                                                codecNormalQuality, bestSpeedCodec);
                 if (ret != noErr)
                         fprintf(stderr, "Failed DecompressSequenceBeginS\n");
@@ -354,7 +354,7 @@ void display_quicktime_run(void *arg)
                                                         * the decompressor does not call the completion 
                                                         * function. 
                                                         */
-                                                       0, &ignore, -1,       
+                                                       0, &ignore, (void *) -1,       
                                                           NULL);
                         if (ret != noErr) {
                                 fprintf(stderr,
@@ -557,7 +557,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         struct state_quicktime *s;
         int ret;
         int i;
-        char *codec_name;
+        char *codec_name = NULL;
 
         /* Parse fmt input */
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
@@ -788,7 +788,7 @@ void display_quicktime_audio_init(struct state_quicktime *s)
         ret = GetComponentInfo(audioComponent, 0, componentNameHandle, NULL, NULL);
         if (ret != noErr) goto audio_error;
         HLock(componentNameHandle);
-        s->audio_name = CFStringCreateWithPascalString(NULL, *componentNameHandle,
+        s->audio_name = CFStringCreateWithPascalString(NULL, (ConstStr255Param) *componentNameHandle,
                         kCFStringEncodingMacRoman);
         HUnlock(componentNameHandle);
         DisposeHandle(componentNameHandle);
@@ -892,7 +892,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
         struct state_quicktime *s = (struct state_quicktime *) state;
         int i;
         int ret;
-        const char *codec_name;
+        const char *codec_name = NULL;
 
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if (codec_info[i].codec == desc.color_spec) {
@@ -900,6 +900,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                         codec_name = s->cinfo->name;
                 }
         }
+	assert(codec_name != NULL);
         if(desc.color_spec == UYVY || desc.color_spec == DVS8) /* just aliases for 2vuy,
                                             * but would confuse QT */
                 codec_name = "2vuy";
@@ -1129,6 +1130,10 @@ static OSStatus theRenderProc(void *inRefCon,
                               UInt32 inBusNumber, UInt32 inNumFrames,
                               AudioBufferList *ioData)
 {
+	UNUSED(inActionFlags);
+	UNUSED(inTimeStamp);
+	UNUSED(inBusNumber);
+
         struct state_quicktime * s = (struct state_quicktime *) inRefCon;
         int write_bytes = inNumFrames * s->audio_packet_size;
         int bytes_in_buffer = s->audio_end - s->audio_start;

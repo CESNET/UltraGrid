@@ -256,7 +256,7 @@ static OSErr MinimalSGSettingsDialog(SeqGrabComponent seqGrab,
 }
 
 static void 
-nprintf(unsigned char *str)
+nprintf(char *str)
 {
         char tmp[((int)str[0]) + 1];
 
@@ -266,7 +266,7 @@ nprintf(unsigned char *str)
 }
 
 static void 
-shrink(unsigned char *str)
+shrink(char *str)
 {
         int i, j;
         j=1;
@@ -285,12 +285,12 @@ shrink(unsigned char *str)
         str[0] = j-1;
 }
 
-static unsigned char * 
-shrink2(unsigned char *str)
+static char * 
+shrink2(char *str)
 {
         int i, j;
         int len = strlen((char*)str);
-        str = (unsigned char*)strdup((char*)str);
+        str = strdup((char*)str);
         j=0;
         for(i=0; i < len; i++) {
            while((str[i] == '\t' ||
@@ -312,13 +312,13 @@ shrink2(unsigned char *str)
  * Blackmagic 2 HD 1080
  * ....
  */ 
-static unsigned char * 
-delCardIndicesCard(unsigned char *str)
+static char * 
+delCardIndicesCard(char *str)
 {
-        if(strncmp(str, "Blackmagic", strlen("Blackmagic")) == 0) {
+        if(strncmp((char *) str, "Blackmagic", strlen("Blackmagic")) == 0) {
                 if(isdigit(str[strlen("Blackmagic") + 1])) { // Eg. Blackmagic X ...
                         int len = 
-                                strlen(str + strlen("Blackmagic") + 2);
+                                strlen((char *) str + strlen("Blackmagic") + 2);
                         memmove(str + strlen("Blackmagic"),
                                 str + strlen("Blackmagic") + 2,
                                 len);
@@ -332,14 +332,14 @@ delCardIndicesCard(unsigned char *str)
  * ... and to its modes:
  * eg.: Blackmagic HD 1080i 50 - 8 Bit (2)
  */
-static unsigned char * 
-delCardIndicesMode(unsigned char *str)
+static char * 
+delCardIndicesMode(char *str)
 {
-        if(strncmp(str, "Blackmagic", strlen("Blackmagic")) == 0) {
-                if(str[strlen(str) - 1 - 2] == '('
-                                && isdigit(str[strlen(str) - 1 - 1])
-                                && str[strlen(str) - 1] == ')') {
-                        str[strlen(str) - 4] = '\0'; // Eg.: Blackmagic ... (x)
+        if(strncmp((char *) str, "Blackmagic", strlen("Blackmagic")) == 0) {
+                if(str[strlen((char *)str) - 1 - 2] == '('
+                                && isdigit(str[strlen((char *) str) - 1 - 1])
+                                && str[strlen((char *) str) - 1] == ')') {
+                        str[strlen((char *) str) - 4] = '\0'; // Eg.: Blackmagic ... (x)
                 }
         }
         return str;
@@ -431,7 +431,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                 SGDeviceName *deviceEntry =
                                     &(*deviceList)->entry[i];
                                 fprintf(stdout, " Device %d: ", i);
-                                nprintf(deviceEntry->name);
+                                nprintf((char *) deviceEntry->name);
                                 if (deviceEntry->flags &
                                     sgDeviceNameFlagDeviceUnavailable) {
                                         fprintf(stdout,
@@ -451,7 +451,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                              j++) {
                                                 fprintf(stdout, "\t");
                                                 fprintf(stdout, "- %d. ", j);
-                                                nprintf((unsigned char*)&(*inputList)->entry
+                                                nprintf((char *) &(*inputList)->entry
                                                              [j].name);
                                                 if ((i ==
                                                      (*deviceList)->selectedIndex)
@@ -469,7 +469,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         for (i = 0; i < list->count; i++) {
                                 int fcc = list->list[i].cType;
                                 printf("\t%d) ", i);
-                                nprintf(list->list[i].typeName);
+                                nprintf((char *) list->list[i].typeName);
                                 printf(" - FCC (%c%c%c%c)",
                                        fcc >> 24,
                                        (fcc >> 16) & 0xff,
@@ -489,7 +489,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                 SGDeviceName *deviceEntry =
                                     &(*deviceList)->entry[i];
                                 fprintf(stdout, " Device %d: ", i);
-                                nprintf(deviceEntry->name);
+                                nprintf((char *) deviceEntry->name);
                                 if (deviceEntry->flags &
                                     sgDeviceNameFlagDeviceUnavailable) {
                                         fprintf(stdout,
@@ -509,7 +509,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                              j++) {
                                                 fprintf(stdout, "\t");
                                                 fprintf(stdout, "- %d. ", j);
-                                                nprintf((unsigned char*)&(*inputList)->entry
+                                                nprintf((char*)&(*inputList)->entry
                                                              [j].name);
                                                 if ((i ==
                                                      (*deviceList)->selectedIndex)
@@ -599,7 +599,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
                 SGDeviceName *deviceEntry = &(*deviceList)->entry[s->major];
                 printf("Quicktime: Setting device: ");
-                nprintf(deviceEntry->name);
+                nprintf((char *) deviceEntry->name);
                 printf("\n");
                 if (SGSetChannelDevice(s->video_channel, deviceEntry->name) !=
                     noErr) {
@@ -610,7 +610,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 /* Select input */
                 inputList = deviceEntry->inputs;
                 printf("Quicktime: Setting input: ");
-                nprintf((unsigned char *)(&(*inputList)->entry[s->minor].name));
+                nprintf((char *)(&(*inputList)->entry[s->minor].name));
                 printf("\n");
                 if (SGSetChannelDeviceInput(s->video_channel, s->minor) !=
                     noErr) {
@@ -629,8 +629,8 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         s->tile->height = s->bounds.bottom =
             gActiveVideoRect.bottom - gActiveVideoRect.top;
 
-        unsigned char *deviceName;
-        unsigned char *inputName;
+        char *deviceName;
+        char *inputName;
         short  inputNumber;
         TimeScale scale;
 
@@ -643,15 +643,15 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         SGDeviceName *deviceEntry = &(*deviceList)->entry[(*deviceList)->selectedIndex];
         inputList = deviceEntry->inputs;
 
-        deviceName = deviceEntry->name;
-        inputName = (unsigned char*)&(*inputList)->entry[inputNumber].name;
+        deviceName = (char *) deviceEntry->name;
+        inputName = (char*)&(*inputList)->entry[inputNumber].name;
 
         shrink(delCardIndicesCard(deviceName));
-        shrink(delCardIndicesCard(inputName));
+        shrink(delCardIndicesMode(inputName));
 
         for(i=0; quicktime_modes[i].device != NULL; i++) {
-                unsigned char *device = shrink2(quicktime_modes[i].device);
-                unsigned char *input = shrink2(quicktime_modes[i].input);
+                char *device = shrink2(quicktime_modes[i].device);
+                char *input = shrink2(quicktime_modes[i].input);
 
                 if((strncmp((char*)device, (char*)&deviceName[1], deviceName[0])) == 0 &&
                    (strncmp((char*)input, (char*)&inputName[1], inputName[0])) == 0) {
@@ -697,7 +697,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         }
 
         /* Set selected fmt->codec and get pixel format of that codec */
-        int pixfmt;
+        int pixfmt = -1;
         if (s->frame->color_spec != 0xffffffff) {
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
@@ -719,6 +719,10 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         }
                 }
         }
+        if(pixfmt == -1) {
+                fprintf(stderr, "[QuickTime] Unknown pixelformat!\n");
+                goto error;
+        }
 
         for (i = 0; codec_info[i].name != NULL; i++) {
                 if ((unsigned)pixfmt == codec_info[i].fcc) {
@@ -732,7 +736,6 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff,
                (pixfmt) & 0xff);
 
-        int h_align = s->c_info->h_align;
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
         s->vbuffer[0] = malloc(s->tile->data_len);
         s->vbuffer[1] = malloc(s->tile->data_len);
@@ -753,7 +756,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 }
                 SGDeviceName *deviceEntry = &(*deviceList)->entry[s->audio_major];
                 printf("Quicktime: Setting audio device: ");
-                nprintf(deviceEntry->name);
+                nprintf((char *) deviceEntry->name);
                 printf("\n");
                 if (SGSetChannelDevice(s->audio_channel, deviceEntry->name) !=
                     noErr) {
@@ -765,7 +768,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 /* Select input */
                 inputList = deviceEntry->inputs;
                 printf("Quicktime: Setting audio input: ");
-                nprintf((unsigned char *)(&(*inputList)->entry[s->audio_minor].name));
+                nprintf((char *)(&(*inputList)->entry[s->audio_minor].name));
                 printf("\n");
                 if (SGSetChannelDeviceInput(s->audio_channel, s->audio_minor) !=
                     noErr) {
@@ -773,8 +776,12 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         s->grab_audio = FALSE;
                         goto AFTER_AUDIO;
                 }
-                ret = SGGetSoundInputParameters(s->audio_channel, &s->audio.bps,
-                                &s->audio.ch_count, &compression);
+                short bps, ch_count;
+                ret = SGGetSoundInputParameters(s->audio_channel, &bps,
+                                &ch_count, &compression);
+                s->audio.bps = bps;
+                s->audio.ch_count = ch_count;
+
                 if(ret != noErr) {
                         fprintf(stderr, "Quicktime: failed to get audio properties");
                         s->grab_audio = FALSE;
@@ -828,6 +835,7 @@ AFTER_AUDIO:
         SGGetChannelTimeScale(s->video_channel, &scale);
         s->frame->fps = scale / 100.0;
 
+error:
         return 1;
 }
 

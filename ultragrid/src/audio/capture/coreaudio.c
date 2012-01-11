@@ -51,11 +51,13 @@
 #ifdef HAVE_COREAUDIO
 
 #include "audio/audio.h"
+#include "audio/utils.h"
 #include "audio/capture/coreaudio.h" 
 #include "utils/ring_buffer.h"
 #include "debug.h"
 #include <stdlib.h>
 #include <AudioUnit/AudioUnit.h>
+#include <QuickTime/QuickTime.h>
 #include <pthread.h>
 
 #ifdef HAVE_SPEEX
@@ -141,6 +143,7 @@ static OSStatus InputProc(void *inRefCon,
                 UInt32 inNumberFrames,
                 AudioBufferList * ioData)
 {
+	UNUSED(ioData);
         struct state_ca_capture * s = (struct state_ca_capture *) inRefCon;
 
         OSStatus err =noErr;
@@ -181,7 +184,7 @@ static OSStatus InputProc(void *inRefCon,
                         pthread_cond_signal(&s->cv);
                 pthread_mutex_unlock(&s->lock);
         } else {
-                fprintf(stderr, "[CoreAudio] writing buffer caused error %i.\n", err);
+                fprintf(stderr, "[CoreAudio] writing buffer caused error %i.\n", (int) err);
         }
 
         return err;
@@ -190,7 +193,6 @@ static OSStatus InputProc(void *inRefCon,
 void audio_cap_ca_help(void)
 {
         OSErr ret;
-        AudioDeviceID device;
         AudioDeviceID *dev_ids;
         int dev_items;
         int i;
@@ -210,7 +212,7 @@ void audio_cap_ca_help(void)
                 
                 size = sizeof(name);
                 ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &size, name);
-                fprintf(stderr,"\tcoreaudio:%d : %s\n", dev_ids[i], name);
+                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], name);
         }
         free(dev_ids);
 
@@ -371,7 +373,6 @@ void * audio_cap_ca_init(char *cfg)
 
         {
                 AudioStreamBasicDescription desc;
-                AURenderCallbackStruct  renderStruct;
 
                 size = sizeof(desc);
                 ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
@@ -465,7 +466,7 @@ struct audio_frame *audio_cap_ca_read(void *state)
 
 void audio_cap_ca_finish(void *state)
 {
-        struct state_ca_capture *s = (struct state_ca_capture *) state;
+        UNUSED(state);
 }
 
 void audio_cap_ca_done(void *state)

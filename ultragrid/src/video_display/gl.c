@@ -222,6 +222,10 @@ void glut_key_callback(unsigned char key, int x, int y);
 void glut_close_callback(void);
 void glut_resize_window(struct state_gl *s);
 
+#ifdef HAVE_MACOSX
+void NSApplicationLoad(void);
+#endif
+
 /**
  * Show help
  * @since 23-03-2010, xsedmik

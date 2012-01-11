@@ -84,6 +84,10 @@ static OSStatus theRenderProc(void *inRefCon,
                               UInt32 inBusNumber, UInt32 inNumFrames,
                               AudioBufferList *ioData)
 {
+        UNUSED(inActionFlags);
+        UNUSED(inTimeStamp);
+        UNUSED(inBusNumber);
+
         struct state_ca_playback * s = (struct state_ca_playback *) inRefCon;
         int write_bytes = inNumFrames * s->audio_packet_size;
         int ret;
@@ -169,7 +173,6 @@ error:
 void audio_play_ca_help(void)
 {
         OSErr ret;
-        AudioDeviceID device;
         AudioDeviceID *dev_ids;
         int dev_items;
         int i;
@@ -189,7 +192,7 @@ void audio_play_ca_help(void)
                 
                 size = sizeof(name);
                 ret = AudioDeviceGetProperty(dev_ids[i], 0, 0, kAudioDevicePropertyDeviceName, &size, name);
-                fprintf(stderr,"\tcoreaudio:%d : %s\n", dev_ids[i], name);
+                fprintf(stderr,"\tcoreaudio:%d : %s\n", (int) dev_ids[i], name);
         }
         free(dev_ids);
 

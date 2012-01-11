@@ -208,8 +208,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         long delta;
         uint32_t tmp;
         unsigned int fps, fpsd, fd, fi;
-        struct xor_session **xor;
-        int *xor_pkts;
+        struct xor_session **xor = NULL;
+        int *xor_pkts = NULL;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;

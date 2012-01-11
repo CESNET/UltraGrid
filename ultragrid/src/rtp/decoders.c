@@ -233,7 +233,7 @@ void decoder_destroy(struct state_decoder *decoder)
 static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
                                 codec_t *in_codec, decoder_t *decode_line)
 {
-        codec_t out_codec;
+        codec_t out_codec = (codec_t) -1;
         *decode_line = NULL;
         *in_codec = desc.color_spec;
         

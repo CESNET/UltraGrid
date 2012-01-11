@@ -52,8 +52,8 @@
         struct audio_frame;
 
         typedef struct {
-                unsigned char   *device;
-        unsigned char   *input;
+        char   *device;
+        char   *input;
         unsigned int    width;
         unsigned int    height;
         double          fps;

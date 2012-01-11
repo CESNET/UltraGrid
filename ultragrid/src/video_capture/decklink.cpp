@@ -722,7 +722,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                 result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
                                 if (result != S_OK)
                                 {
-                                        printf("Could not obtain the IDeckLinkInput interface - result = %08x\n", result);
+                                        printf("Could not obtain the IDeckLinkInput interface - result = %08x\n", (int) result);
                                         goto error;
                                 }
 
@@ -732,7 +732,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                 result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
                                 if (result != S_OK)
                                 {
-                                        printf("Could not obtain the video input display mode iterator - result = %08x\n", result);
+                                        printf("Could not obtain the video input display mode iterator - result = %08x\n", (int) result);
                                         goto error;
                                 }
 
@@ -765,7 +765,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         if (result != S_OK)
                                         {
                                                 printf("Could not query device attributes.\n");
-                                                printf("Could not enable video input: %08x\n", result);
+                                                printf("Could not enable video input: %08x\n", (int) result);
                                                 goto error;
                                         }
 
@@ -790,7 +790,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         if (result != S_OK)
                                         {
                                                 printf("You have required invalid video mode and pixel format combination.\n");
-                                                printf("Could not enable video input: %08x\n", result);
+                                                printf("Could not enable video input: %08x\n", (int) result);
                                                 goto error;
                                         }
 
@@ -798,7 +798,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         result = deckLinkInput->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
                                         if (result != S_OK)
                                         {
-                                                printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", result);
+                                                printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
                                                 goto error;
                                         }
 
@@ -849,12 +849,12 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         result = deckLinkInput->StartStreams();
                                         if (result != S_OK)
                                         {
-                                                printf("Could not start stream: %08x\n", result);
+                                                printf("Could not start stream: %08x\n", (int) result);
                                                 goto error;
                                         }
 
                                 }else{
-                                        printf("Could not : %08x\n", result);
+                                        printf("Could not : %08x\n", (int) result);
                                         goto error;
                                 }
 
@@ -945,7 +945,7 @@ vidcap_decklink_done(void *state)
 		result = s->state[i].deckLinkInput->StopStreams();
 		if (result != S_OK)
 		{
-			printf("Could not stop stream: %08x\n", result);
+			printf("Could not stop stream: %08x\n", (int) result);
 		}
 
 		if(s->state[i].deckLinkInput != NULL)
@@ -1168,7 +1168,7 @@ print_output_modes (IDeckLink* deckLink)
 	result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", result);
+		fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", (int) result);
 		goto bail;
 	}
 	
@@ -1176,7 +1176,7 @@ print_output_modes (IDeckLink* deckLink)
 	result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", result);
+		fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", (int) result);
 		goto bail;
 	}
 	
