@@ -74,41 +74,20 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
 
 static int configure_with(struct state_decompress_jpeg *s, struct video_desc desc)
 {
-        struct gpujpeg_image_parameters param_image;
-        struct gpujpeg_parameters param;
         s->desc = desc;
 
-        {
-                param.interleaved = 1;
-                param.restart_interval = 2;
-                /* LUMA */
-                param.sampling_factor[0].horizontal = 1;
-                param.sampling_factor[0].vertical = 1;
-                /* Cb and Cr */
-                param.sampling_factor[1].horizontal = 2;
-                param.sampling_factor[1].vertical = 1;
-                param.sampling_factor[2].horizontal = 2;
-                param.sampling_factor[2].vertical = 1;
+        s->decoder = gpujpeg_decoder_create();
+        if(!s->decoder) {
+                return FALSE;
         }
-
-        
-        param_image.width = desc.width;
-        param_image.height = s->jpeg_height;
-        param_image.comp_count = 3;
         if(s->out_codec == RGB) {
-                param_image.color_space = GPUJPEG_RGB;
-                param_image.sampling_factor = GPUJPEG_4_4_4;
+                s->decoder->coder.param_image.color_space = GPUJPEG_RGB;
+                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_4_4;
                 s->compressed_len = desc.width * desc.height * 2;
         } else {
-                param_image.color_space = GPUJPEG_YCBCR_ITU_R;
-                param_image.sampling_factor = GPUJPEG_4_2_2;
+                s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_ITU_R;
+                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_2_2;
                 s->compressed_len = desc.width * desc.height * 3;
-        }
-        
-        s->decoder = gpujpeg_decoder_create();
-        int ret = gpujpeg_decoder_init(s->decoder, &param, &param_image);
-        if (ret != 0) {
-                return FALSE;
         }
 
         return TRUE;

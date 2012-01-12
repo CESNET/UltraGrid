@@ -65,6 +65,12 @@ gpujpeg_decoder_create()
     
     // Set parameters
     memset(decoder, 0, sizeof(struct gpujpeg_decoder));
+    gpujpeg_set_default_parameters(&coder->param);
+    gpujpeg_image_set_default_parameters(&coder->param_image);
+    coder->param_image.comp_count = 0;
+    coder->param_image.width = 0;
+    coder->param_image.height = 0;
+    coder->param.restart_interval = 0;
     
     int result = 1;
     
@@ -195,11 +201,11 @@ gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int imag
         cudaMemset(coder->d_data_quantized, 0, coder->data_size * sizeof(int16_t));
         
         // Copy scan data to device memory
-        cudaMemcpy(coder->d_data_compressed, coder->data_compressed, coder->data_compressed_size * sizeof(uint8_t), cudaMemcpyHostToDevice);
+        cudaMemcpy(coder->d_data_compressed, coder->data_compressed, decoder->data_compressed_size * sizeof(uint8_t), cudaMemcpyHostToDevice);
         gpujpeg_cuda_check_error("Decoder copy compressed data");
         
         // Copy segments to device memory
-        cudaMemcpy(coder->d_segment, coder->segment, coder->segment_count * sizeof(struct gpujpeg_segment), cudaMemcpyHostToDevice);
+        cudaMemcpy(coder->d_segment, coder->segment, decoder->segment_count * sizeof(struct gpujpeg_segment), cudaMemcpyHostToDevice);
         gpujpeg_cuda_check_error("Decoder copy compressed data");
         
         // Zero output memory

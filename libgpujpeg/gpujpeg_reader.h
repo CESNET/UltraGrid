@@ -61,6 +61,12 @@ struct gpujpeg_reader
     
     // Loaded scans count
     int scan_count;
+    
+    // Total segment count
+    int segment_count;
+    
+    // Total readed size
+    int data_compressed_size;
 };
 
 /**

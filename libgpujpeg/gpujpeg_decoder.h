@@ -113,6 +113,12 @@ struct gpujpeg_decoder
     struct gpujpeg_table_huffman_decoder table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
     // Huffman coder tables in device memory
     struct gpujpeg_table_huffman_decoder* d_table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
+    
+    // Current segment count for decoded image
+    int segment_count;
+    
+    // Current data compressed size for decoded image
+    int data_compressed_size;
 };
 
 /**

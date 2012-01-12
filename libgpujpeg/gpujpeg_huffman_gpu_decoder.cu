@@ -443,12 +443,12 @@ gpujpeg_huffman_gpu_decoder_decode(struct gpujpeg_decoder* decoder)
     
     // Run kernel
     dim3 thread(32);
-    dim3 grid(gpujpeg_div_and_round_up(coder->segment_count, thread.x));
+    dim3 grid(gpujpeg_div_and_round_up(decoder->segment_count, thread.x));
     gpujpeg_huffman_decoder_decode_kernel<<<grid, thread>>>(
         coder->d_component, 
         coder->d_segment, 
         comp_count,
-        coder->segment_count,
+        decoder->segment_count,
         coder->d_data_compressed
     #ifndef GPUJPEG_HUFFMAN_CODER_TABLES_IN_CONSTANT
         ,decoder->d_table_huffman[GPUJPEG_COMPONENT_LUMINANCE][GPUJPEG_HUFFMAN_DC]

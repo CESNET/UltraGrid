@@ -382,7 +382,7 @@ gpujpeg_huffman_cpu_decoder_decode(struct gpujpeg_decoder* decoder)
     assert(coder.comp_count >= 1 && coder.comp_count <= GPUJPEG_MAX_COMPONENT_COUNT);
     
     // Decode all segments
-    for ( int segment_index = 0; segment_index < decoder->coder.segment_count; segment_index++ ) {
+    for ( int segment_index = 0; segment_index < decoder->segment_count; segment_index++ ) {
         // Get segment structure
         struct gpujpeg_segment* segment = &decoder->coder.segment[segment_index];
         
