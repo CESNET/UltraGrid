@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -23,47 +26,48 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+ 
+#ifndef GPUJPEG_UTIL_H
+#define GPUJPEG_UTIL_H
 
-#ifndef JPEG_TYPE
-#define JPEG_TYPE
-
+#include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <assert.h>
+#include <cuda_runtime.h>
 
-static const int JPEG_BLOCK_SIZE = 8;
+// Timer
+#define GPUJPEG_TIMER_INIT() \
+    cudaEvent_t __start, __stop; \
+    cudaEventCreate(&__start); \
+    cudaEventCreate(&__stop); \
+    float __elapsedTime;
+#define GPUJPEG_TIMER_START() \
+    cudaEventRecord(__start,0)
+#define GPUJPEG_TIMER_STOP() \
+    cudaEventRecord(__stop,0); \
+    cudaEventSynchronize(__stop); \
+    cudaEventElapsedTime(&__elapsedTime, __start, __stop)
+#define GPUJPEG_TIMER_DURATION() __elapsedTime
+#define GPUJPEG_TIMER_STOP_PRINT(text) \
+    GPUJPEG_TIMER_STOP(); \
+    printf("%s %f ms\n", text, __elapsedTime)
+	
+// CUDA check error
+#define gpujpeg_cuda_check_error(msg) \
+    { \
+        cudaError_t err = cudaGetLastError(); \
+        if( cudaSuccess != err) { \
+            fprintf(stderr, "%s (line %i): %s: %s.\n", \
+                __FILE__, __LINE__, msg, cudaGetErrorString( err) ); \
+            exit(-1); \
+        } \
+    } \
+    
+// Divide and round up
+#define gpujpeg_div_and_round_up(value, div) \
+    (((value % div) != 0) ? (value / div + 1) : (value / div))
 
-/**
- * Color spaces for JPEG codec
- */
-enum jpeg_color_space {
-    JPEG_RGB = 1,
-    JPEG_YUV = 2,
-    JPEG_YCBCR = 3,
-};
-
-/**
- * Sampling factor for JPEG codec
- */
-enum jpeg_sampling_factor {
-    JPEG_4_4_4 = ((4 << 16) | (4 << 8) | 4),
-    JPEG_4_2_2 = ((4 << 16) | (2 << 8) | 2),
-};
-
-/**
- * JPEG component type
- */
-enum jpeg_component_type {
-    JPEG_COMPONENT_LUMINANCE = 0,
-    JPEG_COMPONENT_CHROMINANCE = 1,
-    JPEG_COMPONENT_TYPE_COUNT = 2
-};
-
-/** 
- * JPEG huffman type 
- */
-enum jpeg_huffman_type {
-    JPEG_HUFFMAN_DC = 0,
-    JPEG_HUFFMAN_AC = 1,
-    JPEG_HUFFMAN_TYPE_COUNT = 2
-};
-
-#endif // JPEG_TYPE
+#endif // GPUJPEG_UTIL_H

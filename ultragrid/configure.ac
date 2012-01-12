@@ -1091,34 +1091,29 @@ CXXFLAGS+=" $CUDA_INC"
 CPPFLAGS+=" $CUDA_INC"
 AC_LANG_PUSH(C++)
 AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
+AC_CHECK_FILE(../libgpujpeg/libgpujpeg.a)
 AC_LANG_POP(C++)
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
 if test -n "$NVCC"
 then
-        if test \( $nvcc_major -eq 4 -a $nvcc_minor -eq 0 \) -o $version_check = no
+        if test \( $nvcc_major -eq 4 -a $nvcc_minor -eq 1 \) -o $version_check = no
         then
                 jpeg_cuda_version_ok=yes
         else
-                AC_MSG_WARN([*** CUDA Toolkit other than 4.0 detected. Please install v4.0 to use JPEG.])
+                AC_MSG_WARN([*** CUDA Toolkit other than 4.1 detected. Please install v4.1 to use JPEG.])
                 HM_VERSION_WARNING
         fi
 fi
 
-if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes
+if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a $ac_cv_file____libgpujpeg_libgpujpeg_a = yes
 then
         jpeg=yes
-        JPEG_LIB="$CUDA_LIB -lnpp"
+        JPEG_LIB="$CUDA_LIB -lnpp ../libgpujpeg/libgpujpeg.a"
         JPEG_INC=$CUDA_INC
-        JPEG_COMMON_OBJ="../jpeg_compress/jpeg_common.o ../jpeg_compress/jpeg_table.o ../jpeg_compress/jpeg_preprocessor.cu.o"
-        JPEG_COMPRESS_OBJ="../jpeg_compress/jpeg_encoder.o ../jpeg_compress/jpeg_huffman_cpu_encoder.o \
-../jpeg_compress/jpeg_writer.o \
-../jpeg_compress/jpeg_huffman_gpu_encoder.cu.o \ 
-src/video_compress/jpeg.o"
-        JPEG_DECOMPRESS_OBJ="../jpeg_compress/jpeg_decoder.o ../jpeg_compress/jpeg_reader.o \
-../jpeg_compress/jpeg_huffman_cpu_decoder.o ../jpeg_compress/jpeg_huffman_gpu_decoder.cu.o \
-src/video_decompress/jpeg.o "
+        JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
+        JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         LINKER=$CXX
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")

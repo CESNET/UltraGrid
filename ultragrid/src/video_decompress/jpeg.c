@@ -50,7 +50,7 @@
 #include "debug.h"
 
 #include "x11_common.h"
-#include "jpeg_compress/jpeg_decoder.h"
+#include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
 #include "video_codec.h"
 #include <pthread.h>
@@ -60,7 +60,7 @@
 #include "x11_common.h"
 
 struct state_decompress_jpeg {
-        struct jpeg_decoder *decoder;
+        struct gpujpeg_decoder *decoder;
 
         struct video_desc desc;
         int compressed_len;
@@ -70,25 +70,27 @@ struct state_decompress_jpeg {
         codec_t out_codec;
 };
 
-static void configure_with(struct state_decompress_jpeg *s, struct video_desc desc)
+static int configure_with(struct state_decompress_jpeg *s, struct video_desc desc);
+
+static int configure_with(struct state_decompress_jpeg *s, struct video_desc desc)
 {
-        struct jpeg_image_parameters param_image;
         s->desc = desc;
-        
-        param_image.width = desc.width;
-        param_image.height = s->jpeg_height;
-        param_image.comp_count = 3;
+
+        s->decoder = gpujpeg_decoder_create();
+        if(!s->decoder) {
+                return FALSE;
+        }
         if(s->out_codec == RGB) {
-                param_image.color_space = JPEG_RGB;
-                param_image.sampling_factor = JPEG_4_4_4;
+                s->decoder->coder.param_image.color_space = GPUJPEG_RGB;
+                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_4_4;
                 s->compressed_len = desc.width * desc.height * 2;
         } else {
-                param_image.color_space = JPEG_YUV;
-                param_image.sampling_factor = JPEG_4_2_2;
+                s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_ITU_R;
+                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_2_2;
                 s->compressed_len = desc.width * desc.height * 3;
         }
-        
-        s->decoder = jpeg_decoder_create(&param_image);
+
+        return TRUE;
 }
 
 void * jpeg_decompress_init(void)
@@ -105,6 +107,7 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
+        int ret;
         
         assert(out_codec == RGB || out_codec == UYVY);
         
@@ -115,48 +118,65 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         s->bshift = bshift;
         s->jpeg_height = (desc.height + 7) / 8 * 8;
         if(!s->decoder) {
-                configure_with(s, desc);
+                ret = configure_with(s, desc);
         } else {
-                jpeg_decoder_destroy(s->decoder);
-                configure_with(s, desc);
+                gpujpeg_decoder_destroy(s->decoder);
+                ret = configure_with(s, desc);
         }
-        return s->compressed_len;
+
+        if(ret)
+                return s->compressed_len;
+        else
+                return 0;
 }
 
 void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
-        uint8_t *decompressed;
-        int size;
         int ret;
+        struct gpujpeg_decoder_output decoder_output;
 
-        ret = jpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len,
-                                &decompressed, &size);
-        if (ret != 0) return;
         
-        unsigned int i;
-        int linesize;
-        unsigned char *line_src, *line_dst;
-        
-        if(s->out_codec == RGB) {
-                linesize = s->desc.width * 3;
+        if(s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) {
+                gpujpeg_decoder_output_set_default(&decoder_output);
+                decoder_output.type = GPUJPEG_DECODER_OUTPUT_CUSTOM_BUFFER;
+                decoder_output.data = dst;
+                //int data_decompressed_size = decoder_output.data_size;
+                    
+                ret = gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output);
+                if (ret != 0) return;
         } else {
-                linesize = s->desc.width * 2;
-        }
-        
-        line_dst = dst;
-        line_src = decompressed;
-        for(i = 0u; i < s->desc.height; i++) {
-                if(s->out_codec == RGB) {
-                        vc_copylineRGB(line_dst, line_src, linesize,
-                                        s->rshift, s->gshift, s->bshift);
-                } else {
-                        memcpy(line_dst, line_src, linesize);
-                }
-                        
-                line_dst += s->pitch;
-                line_src += linesize;
+                unsigned int i;
+                int linesize;
+                unsigned char *line_src, *line_dst;
                 
+                gpujpeg_decoder_output_set_default(&decoder_output);
+                decoder_output.type = GPUJPEG_DECODER_OUTPUT_INTERNAL_BUFFER;
+                //int data_decompressed_size = decoder_output.data_size;
+                    
+                ret = gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output);
+
+                if (ret != 0) return;
+                if(s->out_codec == RGB) {
+                        linesize = s->desc.width * 3;
+                } else {
+                        linesize = s->desc.width * 2;
+                }
+                
+                line_dst = dst;
+                line_src = decoder_output.data;
+                for(i = 0u; i < s->desc.height; i++) {
+                        if(s->out_codec == RGB) {
+                                vc_copylineRGB(line_dst, line_src, linesize,
+                                                s->rshift, s->gshift, s->bshift);
+                        } else {
+                                memcpy(line_dst, line_src, linesize);
+                        }
+                                
+                        line_dst += s->pitch;
+                        line_src += linesize;
+                        
+                }
         }
 }
 
@@ -165,7 +185,7 @@ void jpeg_decompress_done(void *state)
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
 
         if(s->decoder) {
-                jpeg_decoder_destroy(s->decoder);
+                gpujpeg_decoder_destroy(s->decoder);
         }
         free(s);
 }

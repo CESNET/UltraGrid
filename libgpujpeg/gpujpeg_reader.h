@@ -1,16 +1,19 @@
 /**
- * Copyright (c) 2011, Martin Srom
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
+ *
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -24,21 +27,46 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef JPEG_READER
-#define JPEG_READER
+#ifndef GPUJPEG_READER_H
+#define GPUJPEG_READER_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdint.h>
+#include "gpujpeg_common.h"
 
 /** JPEG decoder structure predeclaration */
-struct jpeg_decoder;
+struct gpujpeg_decoder;
+
+/** JPEG reader scan structure */
+struct gpujpeg_reader_scan
+{
+    // Global segment index
+    int segment_index;
+    // Segment count in scan
+    int segment_count;
+};  
 
 /** JPEG reader structure */
-struct jpeg_reader
+struct gpujpeg_reader
 {
+    // Parameters
+    struct gpujpeg_parameters param;
+    
+    // Parameters for image data
+    struct gpujpeg_image_parameters param_image;
+    
+    // Loaded component count
+    int comp_count;
+    
+    // Loaded scans
+    struct gpujpeg_reader_scan scan[GPUJPEG_MAX_COMPONENT_COUNT];
+    
+    // Loaded scans count
+    int scan_count;
+    
+    // Total segment count
+    int segment_count;
+    
+    // Total readed size
+    int data_compressed_size;
 };
 
 /**
@@ -46,8 +74,8 @@ struct jpeg_reader
  * 
  * @return reader structure if succeeds, otherwise NULL
  */
-struct jpeg_reader*
-jpeg_reader_create();
+struct gpujpeg_reader*
+gpujpeg_reader_create();
 
 /**
  * Destroy JPEG reader
@@ -56,7 +84,7 @@ jpeg_reader_create();
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_reader_destroy(struct jpeg_reader* reader);
+gpujpeg_reader_destroy(struct gpujpeg_reader* reader);
 
 /**
  * Read JPEG image from data buffer
@@ -66,10 +94,6 @@ jpeg_reader_destroy(struct jpeg_reader* reader);
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-jpeg_reader_read_image(struct jpeg_decoder* decoder, uint8_t* image, int image_size);
+gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int image_size);
 
-#ifdef __cplusplus
-} // END extern "C"
-#endif
-
-#endif // JPEG_WRITER
+#endif // GPUJPEG_READER_H

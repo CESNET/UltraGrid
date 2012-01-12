@@ -1,0 +1,167 @@
+/**
+ * Copyright (c) 2011, CESNET z.s.p.o
+ * Copyright (c) 2011, Silicon Genome, LLC.
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef GPUJPEG_DECODER_H
+#define GPUJPEG_DECODER_H
+
+#include "gpujpeg_common.h"
+#include "gpujpeg_table.h"
+#include "gpujpeg_reader.h"
+
+/**
+ * Decoder output type
+ */
+enum gpujpeg_decoder_output_type {
+    // Decoder will use it's internal output buffer
+    GPUJPEG_DECODER_OUTPUT_INTERNAL_BUFFER,
+    // Decoder will use custom output buffer
+    GPUJPEG_DECODER_OUTPUT_CUSTOM_BUFFER,
+    // Decoder will use OpenGL Texture PBO Resource as output buffer
+    GPUJPEG_DECODER_OUTPUT_OPENGL_TEXTURE,
+};
+
+/**
+ * Decoder output structure
+ */
+struct gpujpeg_decoder_output
+{
+    // Output type
+    enum gpujpeg_decoder_output_type type;
+    
+    // Compressed data
+    uint8_t* data;
+    
+    // Compressed data size
+    int data_size;
+    
+    // Texture PBO resource (used as target for saving decoder output when you want
+    // to save decoder output into OpenGL texture)
+    struct cudaGraphicsResource* texture_pbo_resource;
+    // Texture callbacks parameter
+    void * texture_callback_param;
+    // Texture callback for attaching OpenGL context (by default not used)
+    void (*texture_callback_attach_opengl)(void* param);
+    // Texture callback for detaching OpenGL context (by default not used)
+    void (*texture_callback_detach_opengl)(void* param);
+    // If you develop multi-threaded application where one thread use CUDA
+    // for JPEG decoding and other thread use OpenGL for displaying results
+    // from JPEG decoder, when a image is decoded you must detach OpenGL context
+    // from displaying thread and attach it to compressing thread (inside
+    // code of texture_callback_attach_opengl which is automatically invoked 
+    // by decoder), decoder then is able to copy data from GPU memory used 
+    // for compressing to GPU memory used by OpenGL texture for displaying, 
+    // then decoder call the second callback and you have to detach OpenGL context 
+    // from compressing thread and attach it to displaying thread (inside code of
+    // texture_callback_detach_opengl).
+    //
+    // If you develop single-thread application where the only thread use CUDA
+    // for compressing and OpenGL for displaying you don't have to implement
+    // these callbacks because OpenGL context is already attached to thread
+    // that use CUDA for JPEG decoding.
+};
+
+/**
+ * Set default parameters to decoder output structure
+ * 
+ * @param decoder_output  Decoder output structure
+ * @return void
+ */
+void
+gpujpeg_decoder_output_set_default(struct gpujpeg_decoder_output* decoder_output);
+
+/**
+ * JPEG decoder structure
+ */
+struct gpujpeg_decoder
+{
+    // JPEG coder structure
+    struct gpujpeg_coder coder;
+    
+    // JPEG reader structure
+    struct gpujpeg_reader* reader;
+    
+    // Quantization tables
+    struct gpujpeg_table_quantization table_quantization[GPUJPEG_COMPONENT_TYPE_COUNT];
+    
+    // Huffman coder tables
+    struct gpujpeg_table_huffman_decoder table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
+    // Huffman coder tables in device memory
+    struct gpujpeg_table_huffman_decoder* d_table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
+    
+    // Current segment count for decoded image
+    int segment_count;
+    
+    // Current data compressed size for decoded image
+    int data_compressed_size;
+};
+
+/**
+ * Create JPEG decoder
+ * 
+ * @param param  Parameters for coder
+ * @param param_image  Parameters for image data
+ * @return decoder structure if succeeds, otherwise NULL
+ */
+struct gpujpeg_decoder*
+gpujpeg_decoder_create();
+
+/**
+ * Init JPEG decoder for specific image size
+ * 
+ * @param decoder  Decoder structure
+ * @param param  Parameters for coder
+ * @param param_image  Parameters for image data
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_decoder_init(struct gpujpeg_decoder* decoder, struct gpujpeg_parameters* param, struct gpujpeg_image_parameters* param_image);
+
+/**
+ * Decompress image by decoder
+ * 
+ * @param decoder  Decoder structure
+ * @param image  Source image data
+ * @param image_size  Source image data size
+ * @param image_decompressed  Pointer to variable where decompressed image data buffer will be placed
+ * @param image_decompressed_size  Pointer to variable where decompressed image size will be placed
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int image_size, struct gpujpeg_decoder_output* output);
+
+/**
+ * Destory JPEG decoder
+ * 
+ * @param decoder  Decoder structure
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_decoder_destroy(struct gpujpeg_decoder* decoder);
+
+#endif // GPUJPEG_DECODER_H
