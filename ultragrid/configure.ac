@@ -82,8 +82,10 @@ AC_SUBST(CXXFLAGS)
 
 OBJS=""
 LIBS=""
+POST_COMPILE_MSG=""
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
+AC_SUBST(POST_COMPILE_MSG)
 
 AC_ARG_ENABLE(depends-version-check,
         AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]), 
@@ -1030,6 +1032,7 @@ CUDA_INC=
 CUDA_LIB=
 NVCC=
 NVCCFLAGS=
+CUDA_LIB_PATH=
 
 AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
@@ -1118,6 +1121,12 @@ then
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
+        POST_COMPILE_MSG+="\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
+decompression, you will need to have CUDA libraries visible to your OS.\n\
+If not done so, you can accomplish this by adding line:\n\
+        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
+to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
+        exec bash\n***\n"
 fi
 
 AC_SUBST(JPEG_COMMON_OBJ)

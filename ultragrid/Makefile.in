@@ -224,7 +224,7 @@ PORTAUDIO_PLAY_LIB_OBJ = @PORTAUDIO_PLAY_OBJ@ \
 		src/utils/fs_lock.o
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) modules ag-plugins suggest-tests
+all: $(TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
@@ -363,6 +363,10 @@ suggest-tests:
 	@echo ""
 	@echo "*** Now type \"make tests\" to run the test suite"
 	@echo ""
+
+configure-messages:
+	@echo "@POST_COMPILE_MSG@"
+
 
 tests: test/run_tests 
 	@test/run_tests
