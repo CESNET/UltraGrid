@@ -43,6 +43,7 @@ case "$host" in
 esac	
 
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
+        system=MacOSX
 	AC_MSG_CHECKING([Mac X OS kernel version (major)])
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
 	LINKER=$CXX
@@ -55,6 +56,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	LDFLAGS+=" -m32 -L/opt/local/lib -mmacosx-version-min=10.5"
 	X_CFLAGS+="-I/usr/X11R6/include"
 else
+        system=Linux
 	LINKER=$CC
 fi
 
