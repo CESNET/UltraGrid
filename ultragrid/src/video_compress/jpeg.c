@@ -202,7 +202,7 @@ void * jpeg_compress_init(char * opts)
                 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
-                printf("\t-c JPEG:[<quality>[:<cuda_device>]]\n");
+                printf("\t-c JPEG[:<quality>][:<cuda_device>]]\n");
                 printf("\nCUDA devices:\n");
                 gpujpeg_print_devices_info();
                 return NULL;
