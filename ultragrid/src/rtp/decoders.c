@@ -804,7 +804,9 @@ packet_restored:
                 }
 
                 if(!frame) {
-                        return FALSE;
+                        frame = display_get_frame(decoder->display);
+                        if(!frame)
+                                return FALSE;
                 }
                 
                 if(!decoder->postprocess) {
