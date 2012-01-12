@@ -49,15 +49,12 @@
 #include "config_unix.h"
 #include "debug.h"
 
-#include "x11_common.h"
 #include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
 #include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/jpeg.h"
-#include <GL/glew.h>
-#include "x11_common.h"
 
 struct state_decompress_jpeg {
         struct gpujpeg_decoder *decoder;
