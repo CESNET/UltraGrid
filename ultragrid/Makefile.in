@@ -245,6 +245,9 @@ $(TARGET): $(OBJS) src/main.o
 src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h
 	$(CC) $(CFLAGS) $(INC) -x objective-c -c $< -o $@
 
+src/utils/autorelease_pool.o: src/utils/autorelease_pool.m src/utils/autorelease_pool.h
+	$(CC) $(CFLAGS) $(INC) -x objective-c -c $< -o $@
+
 src/video_capture/deltacast.o: src/video_capture/deltacast.cpp
 	$(CXX) $(CXXFLAGS) $(INC) -fno-rtti -c $< -o $@
 	

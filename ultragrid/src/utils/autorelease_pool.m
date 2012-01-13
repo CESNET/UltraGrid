@@ -49,76 +49,33 @@
 #include "config_unix.h"
 #include "debug.h"
 
-#include "mac_gl_common.h"
+#include "utils/autorelease_pool.h"
 
 #import <Cocoa/Cocoa.h>
 
 
-#define MAC_GL_MAGIC 0xa23f4f28u
 
-@interface UltraGridOpenGLView : NSOpenGLView
+struct state_autorelease_pool
 {
-        NSWindow *window;
-}
-
--(void) initialize;
-@end
-
-struct state_mac_gl
-{
-        uint32_t magic;
-        UltraGridOpenGLView *view;
         NSAutoreleasePool *autoreleasePool;
 };
 
-void *mac_gl_init(void)
+
+void *autorelease_pool_allocate(void)
 {
-        struct state_mac_gl *s;
+        struct state_autorelease_pool *s;
 
-        s = (struct state_mac_gl *) malloc(sizeof(struct state_mac_gl));
-        s->magic = MAC_GL_MAGIC;
-
-        NSApplicationLoad();
-
-        NSApp = [NSApplication sharedApplication];
-
+        s = (struct state_autorelease_pool *) malloc(sizeof(struct state_autorelease_pool));
         s->autoreleasePool = [[NSAutoreleasePool alloc] init];
-
-        s->view = [[UltraGridOpenGLView alloc] initWithFrame:NSMakeRect(0, 0, 100, 100) pixelFormat: [UltraGridOpenGLView defaultPixelFormat]];
-        [ s->view display];
-        [ s->view initialize];
 
         return s;
 }
 
-void mac_gl_free(void * state)
+void autorelease_pool_destroy(void * state)
 {
-        struct state_mac_gl *s = (struct state_mac_gl *) state;
+        struct state_autorelease_pool *s = (struct state_autorelease_pool *) state;
 
-        [ s->view release ];
-        [ s->autoreleasePool release ];
+        //[ s->autoreleasePool release ];
         free(s);
 }
-
-@implementation UltraGridOpenGLView
--(void) initialize
-{
-        NSOpenGLContext *context;
-
-        window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 100, 100)
-                                             styleMask:NSBorderlessWindowMask
-                                               backing:NSBackingStoreBuffered
-                                                 defer:NO];
-        [window autorelease];
-        //[window setTitle:@"UltraGrid OpenGL view"];
-
-        context = [[NSOpenGLContext alloc] initWithFormat: [NSOpenGLView defaultPixelFormat]
-                                             shareContext:nil];
-        [self setOpenGLContext:context];
-        [context makeCurrentContext];
-        [context release];
-
-        [window setContentSize:NSMakeSize(100, 100)];
-}
-@end
 

@@ -22,6 +22,10 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 LINKER=
+OBJS=""
+LIBS=""
+AC_SUBST(LIBS)
+AC_SUBST(OBJS)
 
 AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
@@ -59,6 +63,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	CXXFLAGS+=" -m32 -I/opt/local/include"
 	LDFLAGS+=" -m32 -mmacosx-version-min=10.5"
 	X_CFLAGS+="-I/usr/X11R6/include"
+        OBJS+=" src/utils/autorelease_pool.o"
 else
         system=Linux
 	LINKER=$CC
@@ -79,11 +84,6 @@ AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor versi
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
 AC_SUBST(CXXFLAGS)
-
-OBJS=""
-LIBS=""
-AC_SUBST(LIBS)
-AC_SUBST(OBJS)
 
 AC_ARG_ENABLE(depends-version-check,
         AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]), 
