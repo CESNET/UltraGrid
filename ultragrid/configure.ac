@@ -999,10 +999,9 @@ fi
 # Mac
 if test $rtdxt_req = yes -a  "$system" = MacOSX
 then
-	RTDXT_LIB="-framework GLUT -framework OpenGL -framework Cocoa"
-    AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])    
-        DXT_GLSL_CFLAGS="-std=gnu99"
-    rtdxt=yes
+	RTDXT_LIB="-framework OpenGL -framework Cocoa"
+        RTDXT_COMMON_OBJ="src/mac_gl_common.o"
+        rtdxt=yes
 fi
 
 # common

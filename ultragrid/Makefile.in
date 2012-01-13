@@ -242,6 +242,8 @@ $(TARGET): $(OBJS) src/main.o
 %.cu.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
+src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h
+	$(CC) $(CFLAGS) $(INC) -x objective-c -c $< -o $@
 
 src/video_capture/deltacast.o: src/video_capture/deltacast.cpp
 	$(CXX) $(CXXFLAGS) $(INC) -fno-rtti -c $< -o $@
