@@ -62,6 +62,7 @@
 
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>
+#include "utils/autorelease_pool.h"
 void NSApplicationLoad();
 #else                           /* HAVE_MACOSX */
 #include <sys/io.h>
@@ -116,6 +117,9 @@ struct state_sdl {
         
         int                     rshift, gshift, bshift;
         int                     pitch;
+#ifdef HAVE_MACOSX
+        void                   *autorelease_pool;
+#endif
 };
 
 static void toggleFullscreen(struct state_sdl *s);
@@ -268,6 +272,8 @@ static void toggleFullscreen(struct state_sdl *s) {
 	/* and post for reconfiguration */
         if(!s->rgb)
                 s->toggle_fullscreen = TRUE;
+#else
+        UNUSED(s);
 #endif
 }
 
@@ -600,6 +606,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
          * Whatever the fuck that means. 
          * Avoids uncaught exception (1002)  when creating CGSWindow */
         NSApplicationLoad();
+        s->autorelease_pool = autorelease_pool_allocate();
 #endif
 
         s->yuv_image = NULL;
@@ -682,7 +689,10 @@ void display_sdl_done(void *state)
         SDL_ShowCursor(SDL_ENABLE);
 
         SDL_Quit();
-
+#ifdef HAVE_MACOSX
+        autorelease_pool_destroy(s->autorelease_pool);
+#endif
+        free(s);
 }
 
 struct video_frame *display_sdl_getf(void *state)

@@ -56,13 +56,9 @@
 #include <pthread.h>
 #include <stdlib.h>
 #ifdef HAVE_MACOSX
-#include <GLUT/glut.h>
+#include "mac_gl_common.h"
 #else
 #include <GL/glew.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include <GL/gl.h>
-#include <GL/glx.h>
 #include "x11_common.h"
 #include "glx_common.h"
 #endif
@@ -78,9 +74,7 @@ struct video_compress {
         codec_t color_spec;
         
         int dxt_height;
-#ifndef HAVE_MACOSX
-        void *glx_context;
-#endif
+        void *gl_context;
 };
 
 static int configure_with(struct video_compress *s, struct video_frame *frame);
@@ -206,19 +200,15 @@ void * dxt_glsl_compress_init(char * opts)
 
 #ifndef HAVE_MACOSX
         x11_enter_thread();
-        s->glx_context = glx_init();
-        glx_validate(s->glx_context);
-        if(!s->glx_context) {
+        s->gl_context = glx_init();
+        glx_validate(s->gl_context);
+        if(!s->gl_context) {
                 fprintf(stderr, "[RTDXT] Error initializing GLX context");
                 exit_uv(128);
                 return NULL;
         }
 #else
-        int argc = 0;
-        glutInit(&argc, NULL);
-        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-        glutCreateWindow("DXT"); 
-        glutHideWindow();
+	s->gl_context = mac_gl_init();
 #endif
         
         if(opts && strcmp(opts, "help") == 0) {
@@ -311,8 +301,10 @@ void dxt_glsl_compress_done(void *arg)
 
         free(s->decoded);
 
-#ifndef HAVE_MACOSX
-        glx_free(s->glx_context);
+#ifdef HAVE_MACOSX
+        mac_gl_free(s->gl_context);
+#else
+        glx_free(s->gl_context);
 #endif
         free(s);
 }

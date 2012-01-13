@@ -22,6 +22,12 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 LINKER=
+OBJS=""
+LIBS=""
+POST_COMPILE_MSG=""
+AC_SUBST(LIBS)
+AC_SUBST(OBJS)
+AC_SUBST(POST_COMPILE_MSG)
 
 AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
@@ -59,6 +65,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	CXXFLAGS+=" -m32 -I/opt/local/include"
 	LDFLAGS+=" -m32 -mmacosx-version-min=10.5"
 	X_CFLAGS+="-I/usr/X11R6/include"
+        OBJS+=" src/utils/autorelease_pool.o"
 else
         system=Linux
 	LINKER=$CC
@@ -79,13 +86,6 @@ AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor versi
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
 AC_SUBST(CXXFLAGS)
-
-OBJS=""
-LIBS=""
-POST_COMPILE_MSG=""
-AC_SUBST(LIBS)
-AC_SUBST(OBJS)
-AC_SUBST(POST_COMPILE_MSG)
 
 AC_ARG_ENABLE(depends-version-check,
         AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]), 
@@ -1001,10 +1001,9 @@ fi
 # Mac
 if test $rtdxt_req = yes -a  "$system" = MacOSX
 then
-	RTDXT_LIB="-framework GLUT -framework OpenGL -framework Cocoa"
-    AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])    
-        DXT_GLSL_CFLAGS="-std=gnu99"
-    rtdxt=yes
+	RTDXT_LIB="-framework OpenGL -framework Cocoa"
+        RTDXT_COMMON_OBJ="src/mac_gl_common.o"
+        rtdxt=yes
 fi
 
 # common
