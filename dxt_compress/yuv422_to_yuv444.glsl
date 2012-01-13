@@ -1,7 +1,3 @@
-#extension GL_EXT_gpu_shader4 : enable
-
-#define lerp mix
-
 uniform sampler2D image;
 uniform float imageWidth;
 varying out vec4 color;

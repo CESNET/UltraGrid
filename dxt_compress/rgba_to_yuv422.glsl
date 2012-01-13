@@ -1,10 +1,7 @@
-#version 130
-
 #extension GL_ARB_texture_non_power_of_two : enable
 
 #define lerp mix
 
-in vec4 TEX0;
 uniform sampler2D image;
 uniform float imageWidth; // is original image width, it means twice as wide as ours
 
@@ -15,11 +12,11 @@ void main()
         vec2 coor1, coor2;
         float U, V;
 
-        coor1 = gl_TexCoord[0].xy - vec2(1.0 / (imageWidth * 2), 0.0);
-        coor2 = gl_TexCoord[0].xy + vec2(1.0 / (imageWidth * 2), 0.0);
+        coor1 = gl_TexCoord[0].xy - vec2(1.0 / (imageWidth * 2.0), 0.0);
+        coor2 = gl_TexCoord[0].xy + vec2(1.0 / (imageWidth * 2.0), 0.0);
 
-        rgba1  = texture(image, coor1);
-        rgba2  = texture(image, coor2);
+        rgba1  = texture2D(image, coor1);
+        rgba2  = texture2D(image, coor2);
         
         yuv1.x = 1.0/16.0 + rgba1.r * 0.299 + rgba1.g * 0.587 + rgba1.b * 0.114; // Y
         yuv1.y = 0.5-rgba1.r * 0.168736 - rgba1.g * 0.331264 + rgba1.b * 0.5;
