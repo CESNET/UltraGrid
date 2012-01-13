@@ -266,30 +266,6 @@ src/video_display/decklink.o: src/video_display/decklink.cpp
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CXXFLAGS) -Wno-deprecated -fPIC -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
 
-../jpeg_compress/jpeg_common.o: ../jpeg_compress/jpeg_common.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
-../jpeg_compress/jpeg_encoder.o: ../jpeg_compress/jpeg_encoder.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
-../jpeg_compress/jpeg_decoder.o: ../jpeg_compress/jpeg_decoder.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
-../jpeg_compress/jpeg_writer.o: ../jpeg_compress/jpeg_writer.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
-../jpeg_compress/jpeg_reader.o: ../jpeg_compress/jpeg_reader.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
-../jpeg_compress/jpeg_table.o: ../jpeg_compress/jpeg_table.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-	
-../jpeg_compress/jpeg_huffman_cpu_encoder.o: ../jpeg_compress/jpeg_huffman_cpu_encoder.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
-../jpeg_compress/jpeg_huffman_cpu_decoder.o: ../jpeg_compress/jpeg_huffman_cpu_decoder.cc
-	$(CXX) $(CXXFLAGS) $(INC) $< -c -o $@
-
 ../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 
