@@ -492,7 +492,7 @@ static void *receiver_thread(void *arg)
                 }
                 pdb_iter_done(uv->participants);
 
-                /* TIMEOUT - we won't wait for next tiles */
+                /* dual-link TIMEOUT - we won't wait for next tiles */
                 if(tiles_post > 1 && tv_diff(uv->curr_time, last_tile_received) > 
                                 999999 / 59.94 / uv->connections_count) {
                         tiles_post = 0;

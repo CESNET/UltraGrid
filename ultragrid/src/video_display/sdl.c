@@ -719,7 +719,7 @@ int display_sdl_putf(void *state, char *frame)
         struct state_sdl *s = (struct state_sdl *)state;
 
         assert(s->magic == MAGIC_SDL);
-        assert(frame != NULL);
+        UNUSED(frame);
 
         SDL_mutexP(s->buffer_writable_lock);
         s->buffer_writable = 0;
