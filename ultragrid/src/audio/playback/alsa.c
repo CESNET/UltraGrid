@@ -172,8 +172,13 @@ void audio_play_alsa_help(void)
                 name = strtok_r(name_part, ":", &save_ptr);
                 details = strtok_r(NULL, ":", &save_ptr);
                 if(details) {
-                        char * index = strstr(details, "DEV") + 4;
-                        printf("\talsa:%s:%s : %s\n", name, index, desc + 4);
+                        char * index = strstr(details, "DEV");
+			if(index) {
+                                index += 4;
+				printf("\talsa:%s:%s : %s\n", name, index, desc + 4);
+			} else {
+				printf("\talsa:%s : %s\n", name, desc + 4);
+                        }
                 } else {
                         printf("\talsa:%s : %s\n", name, desc + 4);
                 }
