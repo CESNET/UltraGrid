@@ -106,6 +106,8 @@ void display_sage_run(void *arg)
                 //display_sage_handle_events();
 
                 sem_wait(&s->semaphore);
+                if (should_exit)
+                        break;
 
                 sage_swapBuffer(s->sage_state);
                 s->tile->data = (char *) sage_getBuffer(s->sage_state);
@@ -164,6 +166,7 @@ void display_sage_finish(void *state)
         struct state_sage *s = (struct state_sage *)state;
 
         assert(s->magic == MAGIC_SAGE);
+        display_sage_putf(s, NULL);
 }
 
 void display_sage_done(void *state)
@@ -176,7 +179,7 @@ void display_sage_done(void *state)
         pthread_mutex_destroy(&s->buffer_writable_lock);
         vf_free(s->frame);
         sage_shutdown(s->sage_state);
-        sage_delete(s->sage_state);
+        //sage_delete(s->sage_state);
 }
 
 struct video_frame *display_sage_getf(void *state)
