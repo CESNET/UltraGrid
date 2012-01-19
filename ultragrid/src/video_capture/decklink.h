@@ -1,5 +1,5 @@
 /*
- * FILE:    decklink.h
+ * FILE:    video_capture/decklink.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>

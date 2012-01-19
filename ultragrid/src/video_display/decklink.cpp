@@ -64,9 +64,11 @@ extern "C" {
 #include "video_display/decklink.h"
 #include "debug.h"
 #include "video_capture.h"
-#include "DeckLinkAPI.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
+
+#include "DeckLinkAPI.h"
+#include "DeckLinkAPIVersion.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -252,7 +254,9 @@ static void show_help(void)
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (deckLinkIterator == NULL)
         {
-                fprintf(stderr, "A DeckLink iterator could not be created.  The DeckLink drivers may not be installed.\n");
+		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
+                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
                 return;
         }
         
@@ -644,9 +648,9 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (!deckLinkIterator)
         {
-                fprintf(stderr, "This application requires the DeckLink drivers installed.\n");
-                if (deckLinkIterator != NULL)
-                        deckLinkIterator->Release();
+		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
+                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
                 return NULL;
         }
 

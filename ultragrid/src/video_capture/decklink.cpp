@@ -1,5 +1,5 @@
 /*
- * FILE:    decklink.cpp
+ * FILE:    video_capture/decklink.cpp
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -69,6 +69,7 @@ extern "C" {
 #include "video_capture/decklink.h"
 
 #include "DeckLinkAPI.h" /* From DeckLink SDK */ 
+#include "DeckLinkAPIVersion.h" /* From DeckLink SDK */ 
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
 
@@ -340,14 +341,17 @@ decklink_help()
 	int				numDevices = 0;
 	HRESULT				result;
 
-	printf("Decklink options:\n");
+	printf("\nDecklink options:\n");
 	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode]]]\n");
+	printf("\t\t(You can ommit device index, mode and color space provided that your cards supports format autodetection.)\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 	deckLinkIterator = CreateDeckLinkIteratorInstance();
 	if (deckLinkIterator == NULL)
 	{
-		fprintf(stderr, "A DeckLink iterator could not be created.  The DeckLink drivers may not be installed.\n");
+		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
+                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
 		return 0;
 	}
 	
@@ -679,7 +683,9 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 deckLinkIterator = CreateDeckLinkIteratorInstance();
                 if (deckLinkIterator == NULL)
                 {
-                        printf("A DeckLink iterator could not be created. The DeckLink drivers may not be installed.\n");
+                        fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
+                        fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
+                                        BLACKMAGIC_DECKLINK_API_VERSION_STRING);
                         return NULL;
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)
