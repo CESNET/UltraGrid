@@ -8,10 +8,10 @@ CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = -fPIC @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
 NVCCFLAGS     = @NVCCFLAGS@ -Xcompiler -fPIC
 LDFLAGS      =  @LDFLAGS@
-LIBS         += @LIBS@ @JACK_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
-		@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ @SPEEX_LIB@ -lm -pthread
+LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
+		@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -lm -pthread
 INC           = -I.. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
+                @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
 PERF          = bin/uv_perf
@@ -52,7 +52,7 @@ OBJS	      = @OBJS@ \
 		src/audio/playback/none.o \
 		src/audio/utils.o \
 		@COREAUDIO_OBJ@ \
-		@JACK_OBJ@ \
+		@JACK_TRANS_OBJ@ \
 		@SPEEX_OBJ@ \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_time.o \
@@ -223,6 +223,16 @@ PORTAUDIO_CAP_LIB_OBJ = @PORTAUDIO_CAP_OBJ@ \
 PORTAUDIO_PLAY_LIB_OBJ = @PORTAUDIO_PLAY_OBJ@ \
 		src/utils/fs_lock.o
 
+JACK_CAP_LIB_OBJ = @JACK_CAP_OBJ@ \
+		   @SPEEX_OBJ@ \
+		   src/utils/ring_buffer.o \
+		   src/audio/utils.o
+
+JACK_PLAY_LIB_OBJ = @JACK_PLAY_OBJ@ \
+		    @SPEEX_OBJ@ \
+		   src/utils/ring_buffer.o \
+		   src/audio/utils.o
+
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) modules ag-plugins configure-messages
 
@@ -241,6 +251,9 @@ $(TARGET): $(OBJS) src/main.o
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+src/audio/resample.o:
+	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
 
 src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h
 	$(CC) $(CFLAGS) $(INC) -x objective-c -c $< -o $@
@@ -485,6 +498,14 @@ perf: src/tv.o src/crypto/random.o
 @PORTAUDIO_CAP_LIB_TARGET@: $(PORTAUDIO_CAP_LIB_OBJ)
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_portaudio.so.@audio_capture_abi_version@ $(PORTAUDIO_CAP_LIB_OBJ) @PORTAUDIO_LIB@ -o $@
+
+@JACK_CAP_LIB_TARGET@: $(JACK_CAP_LIB_OBJ)
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_jack.so.@audio_capture_abi_version@ $(JACK_CAP_LIB_OBJ) @JACK_LIB@ -o $@
+
+@JACK_PLAY_LIB_TARGET@: $(JACK_PLAY_LIB_OBJ)
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $(JACK_PLAY_LIB_OBJ) @JACK_LIB@ -o $@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)

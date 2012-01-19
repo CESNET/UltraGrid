@@ -1,6 +1,7 @@
 Makefile
 config.h
 libtool
+.deps
 
 config.status.lineno
 configure.lineno

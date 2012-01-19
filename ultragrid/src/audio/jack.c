@@ -56,7 +56,7 @@
 #include <limits.h>
 #include <string.h>
 
-#define CLIENT_NAME "Ultragrid"
+#define CLIENT_NAME "UltraGrid Transport"
 #define BUFF_ELEM (1<<16)
 #define BUFF_SIZE (BUFF_ELEM * sizeof(float))
 #define MAX_PORTS 8
@@ -73,7 +73,7 @@ struct state_jack {
         char *play_buffer[MAX_PORTS];
         int play_buffer_start, play_buffer_end;
         char *rec_buffer;
-        int rec_buffer_start, rec_buffer_end;
+        volatile int rec_buffer_start, rec_buffer_end;
         
         jack_port_t *input_port[MAX_PORTS];
         jack_port_t *output_port[MAX_PORTS];
@@ -194,7 +194,7 @@ static int settings_init(struct state_jack *s, char *cfg)
                 printf("JACK config:\n"
                         "\t-j ({tok1|tok2...tokn-1},)*{tokn}\n\n"
                         "\tTokens:\n"
-                        "\t\tpi[=<name>]\t\tcatch sound from JACK instead of from RTP (optionally select port)\n"
+                        "\t\tpi[=<name>]\t\treceive sound from JACK instead of from RTP (optionally select port)\n"
                         "\n"
                         "\t\tpo[=<name>]\t\tsend sound output via JACK with (optional) port name.\n"
                         "\t\t\t\t\tIf name not specified, let Jack select (probably system output!)\n"

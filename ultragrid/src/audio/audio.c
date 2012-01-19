@@ -56,6 +56,8 @@
 #include "audio/playback/coreaudio.h" 
 #include "audio/capture/none.h" 
 #include "audio/playback/none.h" 
+#include "audio/capture/jack.h" 
+#include "audio/playback/jack.h" 
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -234,6 +236,17 @@ static struct audio_capture_t audio_capture_table[] = {
                 NULL
         },
 #endif
+#if defined HAVE_JACK || defined BUILD_LIBRARIES
+        { "jack",
+                "jack",
+                MK_NAME(audio_cap_jack_help),
+                MK_NAME(audio_cap_jack_init),
+                MK_NAME(audio_cap_jack_read),
+                MK_NAME(audio_cap_jack_finish),
+                MK_NAME(audio_cap_jack_done),
+                NULL
+        },
+#endif
         { "none",
                 NULL,
                 MK_STATIC(audio_cap_none_help),
@@ -279,6 +292,17 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_STATIC(audio_play_ca_get_frame),
                 MK_STATIC(audio_play_ca_put_frame),
                 MK_STATIC(audio_play_ca_done),
+                NULL
+        },
+#endif
+#if defined HAVE_JACK || defined BUILD_LIBRARIES
+        { "jack",
+                "jack",
+                MK_NAME(audio_play_jack_help),
+                MK_NAME(audio_play_jack_init),
+                MK_NAME(audio_play_jack_get_frame),
+                MK_NAME(audio_play_jack_put_frame),
+                MK_NAME(audio_play_jack_done),
                 NULL
         },
 #endif
@@ -577,7 +601,7 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         s->sender = NET_NATIVE;
         s->receiver = NET_NATIVE;
         
-#ifdef HAVE_JACK
+#ifdef HAVE_JACK_TRANS
         s->jack_connection = jack_start(jack_cfg);
         if(s->jack_connection) {
                 if(is_jack_sender(s->jack_connection))
@@ -728,7 +752,7 @@ static void *audio_receiver_thread(void *arg)
                         }
                         pdb_iter_done(s->audio_participants);
                 } else { /* NET_JACK */
-#ifdef HAVE_JACK
+#ifdef HAVE_JACK_TRANS
                         jack_receive(s->jack_connection, frame);
                         available_audio_playback[s->audio_playback_device.index]->audio_put_frame(
                                                 s->audio_playback_device.state, frame);
@@ -753,7 +777,7 @@ static void *audio_sender_thread(void *arg)
                 if(buffer) {
                         if(s->sender == NET_NATIVE)
                                 audio_tx_send(s->tx_session, s->audio_network_device, buffer);
-#ifdef HAVE_JACK
+#ifdef HAVE_JACK_TRANS
                         else
                                 jack_send(s->jack_connection, buffer);
 #endif

@@ -50,6 +50,7 @@
 #include "audio/utils.h" 
 #include <assert.h>
 #include <string.h>
+#include <limits.h>
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
@@ -130,3 +131,35 @@ void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channe
         }
 }
 
+void float2int(char *out, char *in, int len)
+{
+        float *inf = (float *) in;
+        int32_t *outi = (int32_t *) out;
+        int items = len / sizeof(int32_t);
+
+        while(items-- > 0) {
+                *outi++ = *inf++ * INT_MAX;
+        }
+}
+
+void int2float(char *out, char *in, int len)
+{
+        int32_t *ini = (int32_t *) in;
+        float *outf = (float *) out;
+        int items = len / sizeof(int32_t);
+
+        while(items-- > 0) {
+                *outf++ = (float) *ini++ / INT_MAX;
+        }
+}
+
+void short_int2float(char *out, char *in, int in_len)
+{
+        int16_t *ini = (int16_t *) in;
+        float *outf = (float *) out;
+        int items = in_len / sizeof(int16_t);
+
+        while(items-- > 0) {
+                *outf++ = (float) *ini++ / SHRT_MAX;
+        }
+}

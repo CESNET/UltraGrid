@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/utils.h
+ * FILE:    audio/playback/jack.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -46,41 +46,11 @@
  *
  */
 
-#include "config.h"
+struct audio_frame;
 
-#ifndef _AUDIO_UTILS_H_
-#define _AUDIO_UTILS_H_
+void audio_play_jack_help(void);
+void * audio_play_jack_init(char *cfg);
+struct audio_frame *audio_play_jack_get_frame(void *state);
+void audio_play_jack_put_frame(void *state, struct audio_frame *frame);
+void audio_play_jack_done(void *state);
 
-/**
- * Changes bps for everey sample.
- * 
- * The memory areas shouldn't (supposedly) overlap.
- */
-void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
-
-/**
- * Makes n copies of first channel (interleaved).
- */
-void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
-
-/*
- * Extracts out_channel_count of channels from interleaved stream, starting with first_chan
- */
-void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, int out_channel_count);
-
-/*
- * Multiplexes channel into interleaved stream
- */
-void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream);
-void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream);
-
-/* 
- * Those 2 fuctions convert from/to normalized float and int32_t representations.
- * Input and output data may overlap.
- */
-void float2int(char *out, char *in, int len);
-void int2float(char *out, char *in, int len);
-void short_int2float(char *out, char *in, int in_len);
-
-
-#endif

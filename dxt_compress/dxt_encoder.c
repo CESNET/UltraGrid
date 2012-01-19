@@ -333,7 +333,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glFinish();
 #endif
     TIMER_STOP_PRINT("Texture Save:      ");
-    gl_check_error();
+    //gl_check_error();
     
     return 0;
 }

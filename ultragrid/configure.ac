@@ -757,7 +757,7 @@ case "$host_os" in
         ;;
 esac
 
-if test sdl = yes
+if test $sdl = yes
 then
         AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/display_sdl.so.$video_display_abi_version")
 fi
@@ -921,7 +921,7 @@ case "$host_os" in
 	;;
 esac
 
-if test gl = yes
+if test $gl = yes
 then
         AC_SUBST(GL_LIB_TARGET, "lib/ultragrid/display_gl.so.$video_display_abi_version")
 fi
@@ -1166,7 +1166,7 @@ then
     SAGE_OBJ="src/video_display/sage.o src/video_display/sage_wrapper.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
-     AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
+    AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
     sage=yes
 else
     SAGE_INC=
@@ -1232,29 +1232,93 @@ AC_SUBST(PORTAUDIO_CAP_OBJ)
 AC_SUBST(PORTAUDIO_PLAY_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# SPEEX
+speex=no
+speex_req=yes
+AC_ARG_ENABLE(speex,
+              AS_HELP_STRING([--disable-speex], [disable speex (default is auto)]), 
+	[speex_req=$enableval])
+
+SPEEX_PATH=${PARENT}/speex-1.2rc1/
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS+=" -I${SPEEX_PATH}/include"
+CPPFLAGS+=" -I${SPEEX_PATH}/include"
+AC_CHECK_HEADER(${SPEEX_PATH}/include/speex/speex_resampler.h, FOUND_SPEEX_RES_H=yes, FOUND_SPEEX_RES_H=no)
+CFLAGS=$SAVED_CFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS
+
+if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes
+then
+	SPEEX_INC=-I${SPEEX_PATH}/include
+	SPEEX_OBJ="src/audio/resample.o"
+	SPEEX_LIB=
+        AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
+        speex=yes
+else
+	SPEEX_INC=
+	SPEEX_LIB=
+	SPEEX_OBJ=
+fi
+
+AC_SUBST(SPEEX_INC)
+AC_SUBST(SPEEX_LIB)
+AC_SUBST(SPEEX_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 #
 # Jack stuff
 #
-jack=no
 
-AC_ARG_ENABLE(jack, 
+# transport
+jack_trans=no
+
+AC_ARG_ENABLE(jack-transport, 
       AS_HELP_STRING([--enable-jack-transport], [enable JACK transport (default is disable)]), 
-	[jack_req=$enableval],
-        [jack_req=no])
+	[jack_trans_req=$enableval],
+        [jack_trans_req=no])
 
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 AC_CHECK_LIB(jack, jack_client_new, FOUND_JACK_L=yes, FOUND_JACK_L=no)
+if test $jack_trans_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+then
+    JACK_TRANS_OBJ="src/audio/jack.o"
+    JACK_TRANS_LIB="-ljack"
+    AC_DEFINE([HAVE_JACK_TRANS], [1], [Build with JACK transport support])
+    jack_trans=yes
+fi
+AC_SUBST(JACK_TRANS_OBJ)
+AC_SUBST(JACK_TRANS_LIB)
+AC_SUBST(JACK_TRANS_INC)
+
+# sound system
+AC_ARG_ENABLE(jack,
+      AS_HELP_STRING([--enable-jack], [enable JACK (default is disable)]), 
+	[jack_req=$enableval],
+        [jack_req=yes])
+
 if test $jack_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
-    JACK_OBJ="src/audio/jack.o"
+    JACK_CAP_OBJ="src/audio/capture/jack.o"
+    JACK_PLAY_OBJ="src/audio/playback/jack.o"
     JACK_LIB="-ljack"
     AC_DEFINE([HAVE_JACK], [1], [Build with JACK support])
     jack=yes
+    AC_SUBST(JACK_CAP_LIB_TARGET, "lib/ultragrid/acap_jack.so.$audio_capture_abi_version")
+    AC_SUBST(JACK_PLAY_LIB_TARGET, "lib/ultragrid/aplay_jack.so.$audio_playback_abi_version")
 fi
-AC_SUBST(JACK_OBJ)
+
+if test $jack = yes -a $speex = no
+then
+        AC_MSG_WARN([*** You are going to compile JACK but you do not have SPEEX compiled in.
+                     It is recommended to compile also SPEEX library and rerun this script in
+                     order to enable resampling (if needed).])
+fi
+
+AC_SUBST(JACK_CAP_OBJ)
+AC_SUBST(JACK_PLAY_OBJ)
 AC_SUBST(JACK_LIB)
 AC_SUBST(JACK_INC)
-
 
 # -------------------------------------------------------------------------------------------------
 #
@@ -1315,45 +1379,16 @@ case $host_os in
     ;;
 esac
 
+if test $coreaudio = yes -a $speex = no
+then
+        AC_MSG_WARN([*** You are going to compile CoreAudio but you do not have SPEEX compiled in.
+                     It is recommended to compile also SPEEX library and rerun this script in
+                     order to enable resampling (if needed).])
+fi
+
 AC_SUBST(COREAUDIO_INC)
 AC_SUBST(COREAUDIO_LIB)
 AC_SUBST(COREAUDIO_OBJ)
-
-# -------------------------------------------------------------------------------------------------
-# Try to find the SDK for the DVS cards
-speex=no
-speex_req=yes
-AC_ARG_ENABLE(speex,
-              AS_HELP_STRING([--disable-speex], [disable speex (default is auto)]), 
-	[speex_req=$enableval])
-
-SPEEX_PATH=${PARENT}/speex-1.2rc1/
-SAVED_CFLAGS=$CFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CFLAGS+=" -I${SPEEX_PATH}/include"
-CPPFLAGS+=" -I${SPEEX_PATH}/include"
-AC_CHECK_HEADER(${SPEEX_PATH}/include/speex/speex_resampler.h, FOUND_SPEEX_RES_H=yes, FOUND_SPEEX_RES_H=no)
-AC_CHECK_FILE(${SPEEX_PATH}/libspeex/.libs/libspeex.a, FOUND_LIBSPEEX=yes, FOUND_LIBSPEEX=no)
-CFLAGS=$SAVED_CFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS
-
-if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes -a $FOUND_LIBSPEEX = yes
-then
-	SPEEX_INC=-I${SPEEX_PATH}/include
-	SPEEX_LIB="${SPEEX_PATH}/libspeex/.libs/libspeexdsp.a"
-
-	SPEEX_OBJ=
-        AC_DEFINE([HAVE_SPEEX], [1], [Build with DVS support])
-        speex=yes
-else
-	SPEEX_INC=
-	SPEEX_LIB=
-	SPEEX_OBJ=
-fi
-
-AC_SUBST(SPEEX_INC)
-AC_SUBST(SPEEX_LIB)
-AC_SUBST(SPEEX_OBJ)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -1362,16 +1397,17 @@ AC_SUBST(SPEEX_OBJ)
 # this is only needed when passing to "clean" make target
 LIB_OBJS="$QUICKTIME_OBJ $SDL_OBJ $GL_OBJ $SAGE_OBJ $TESTCARD_OBJ $TESTCARD2_OBJ $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_COMMON $QUAD_OBJ "\
 "$DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ $DVS_CAP_OBJ $DVS_DISP_OBJ $FASTDXT_OBJ $RTDXT_COMPRESS_OBJ $JPEG_COMPRESS_OBJ $RTDXT_COMMON_OBJ $RTDXT_DECOMPRESS_OBJ $JPEG_COMMON_OBJ $JPEG_DECOMPRESS_OBJ "\
-"$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ"
+"$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ"
 
 if test "$build_libraries" = yes
 then
         LIB_TARGETS="$SDL_LIB_TARGET $GL_LIB_TARGET $TESTCARD_LIB_TARGET $TESTCARD2_LIB_TARGET $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $QUAD_LIB_TARGET "\
 "$DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET $SAGE_LIB_TARGET $FASTDXT_LIB_TARGET $RTDXT_COMPRESS_LIB_TARGET $JPEG_COMPRESS_LIB_TARGET "\
-"$RTDXT_DECOMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET $PORTAUDIO_CAP_LIB_TARGET"
+"$RTDXT_DECOMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET $PORTAUDIO_CAP_LIB_TARGET $JACK_CAP_LIB_TARGET "\
+"$JACK_PLAY_LIB_TARGET"
 else
         LIBS+=" $GL_LIB $SDL_LIBS $DECKLINK_LIB $DELTACAST_LIB $QUICKTIME_LIB $SAGE_LIB $TESTCARD_LIB $TESTCARD2_LIB $DECKLINK_LIB $DELTACAST_LIB $DVS_LIB $FASTDXT_LIB $RTDXT_LIB $JPEG_LIB $ALSA_LIB "\
-"$PORTAUDIO_LIB"
+"$PORTAUDIO_LIB $JACK_LIB"
         OBJS+=" $LIB_OBJS"
         LIB_OBJS=
         LIB_TARGETS=
@@ -1409,8 +1445,9 @@ Configuration summary:
   Portaudio ................... $portaudio
   ALSA ........................ $alsa
   CoreAudio ................... $coreaudio
-  Jack transport .............. $jack
-  speex ....................... $speex
+  JACK  ....................... $jack
+  JACK transport .............. $jack_trans
+  speex resampler ............. $speex
   
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
