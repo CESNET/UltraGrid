@@ -57,6 +57,24 @@ dxt_glsl.h:compress_vp.glsl compress_dxt1_fp.glsl compress_dxt5ycocg_fp.glsl dis
 	echo "static const char fp_display_dxt5ycocg[] = " >> $@
 	cat display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
+	# yuv 422 to yuv 444 shader
+	echo "static const char fp_yuv422_to_yuv_444[] = " >> $@
+	cat ../dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# display YUV dxt1
+	echo "static const char fp_display_dxt1_yuv[] = " >> $@
+	cat ../dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# rgba to yuv 422 shader
+	echo "static const char fp_display_rgba_to_yuv422[] = " >> $@
+	cat ../dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# rgba to yuv 422 vertex
+	echo "static const char vp_display_rgba_to_yuv422[] = " >> $@
+	cat ../dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	
+
 #
 ################################################################################
     

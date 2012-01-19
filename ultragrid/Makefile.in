@@ -285,9 +285,6 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 ../dxt_compress/dxt_decoder.o: ../dxt_compress/dxt_decoder.c ../dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 	
-../dxt_compress/dxt_common.o: ../dxt_compress/dxt_common.c ../dxt_compress/dxt_glsl.h
-	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
-
 ../dxt_compress/dxt_glsl.h:../dxt_compress/compress_vp.glsl \
 		../dxt_compress/compress_dxt1_fp.glsl ../dxt_compress/compress_dxt5ycocg_fp.glsl \
 		../dxt_compress/display_fp.glsl ../dxt_compress/display_dxt5ycocg_fp.glsl \

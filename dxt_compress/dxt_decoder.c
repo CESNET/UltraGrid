@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
  
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include "dxt_common.h"
 #include "dxt_decoder.h"
 #include "dxt_util.h"
@@ -174,9 +177,11 @@ dxt_decoder_buffer_allocate(struct dxt_decoder* decoder, unsigned char** image, 
 int
 dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compressed, DXT_IMAGE_TYPE* image)
 {    
+#ifdef RTDXT_DEBUG
     TIMER_INIT();
     
     TIMER_START();
+#endif
     glBindTexture(GL_TEXTURE_2D, decoder->compressed_tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -188,12 +193,12 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
                         decoder->width, decoder->height, 0, decoder->width * decoder->height / 2, image_compressed);
-#ifdef DEBUG
+#ifdef RTDXT_DEBUG
     glFinish();
-#endif
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
+#endif
     
     // Render to framebuffer
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_rgba);
@@ -213,12 +218,12 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glEnd();
     
     glUseProgramObjectARB(0);
-#ifdef DEBUG
+#ifdef RTDXT_DEBUG
     glFinish();
-#endif
     TIMER_STOP_PRINT("Texture Decompress:");
     
     TIMER_START();
+#endif
     if(decoder->out_format != DXT_FORMAT_YUV422) { /* so RGBA */
             // Disable framebuffer
             glReadPixels(0, 0, decoder->width, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
@@ -249,10 +254,10 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
             glUseProgramObjectARB(0);
     }
     
-#ifdef DEBUG    
+#ifdef RTDXT_DEBUG    
     glFinish();
-#endif
     TIMER_STOP_PRINT("Texture Save:      ");
+#endif
     
     return 0;
 }

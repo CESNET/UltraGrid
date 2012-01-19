@@ -27,8 +27,10 @@
 #ifndef DXT_UTIL_H
 #define DXT_UTIL_H
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
-#ifdef HAVE_MACOSX
+#endif
+#if defined HAVE_CONFIG_H && defined HAVE_MACOSX
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 #include <GLUT/glut.h>

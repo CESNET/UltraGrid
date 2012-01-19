@@ -124,7 +124,7 @@ perform_decode(const char* filename_in, const char* filename_out, enum dxt_type 
     if ( display == 1 )
         dxt_display_image_compressed("Decode Before", image_compressed, image_compressed_size, type, width, height);
     
-    struct dxt_decoder* decoder = dxt_decoder_create(type, width, height);
+    struct dxt_decoder* decoder = dxt_decoder_create(type, width, height, DXT_FORMAT_RGBA);
     if ( decoder == NULL ) {
         fprintf(stderr, "Create DXT decoder failed!\n");
         return -1;
@@ -140,7 +140,7 @@ perform_decode(const char* filename_in, const char* filename_out, enum dxt_type 
     TIMER_INIT();
     for ( int index = 0; index < run; index++ ) {
         TIMER_START();
-        if ( dxt_decoder_decompress(decoder, image_compressed, image_compressed_size, image) != 0 ) {
+        if ( dxt_decoder_decompress(decoder, image_compressed, image) != 0 ) {
             fprintf(stderr, "DXT decoder decompressing failed!\n");
             return -1;
         }

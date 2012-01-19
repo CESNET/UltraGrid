@@ -302,7 +302,6 @@ case "$host_os" in
                 X_LIBS+=" -lX11"
                 X_OBJ="src/x11_common.o"
                 CFLAGS+=""
-                HAVE_X11=yes
         fi
         ;;
 esac
@@ -981,23 +980,23 @@ AC_ARG_ENABLE(rtdxt,
         [rtdxt_req=yes])
 
 SAVED_LIBS=$LIBS
-LIBS+=" $X_LIBS"
 
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
 AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
 AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
 AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
+AC_CHECK_LIB(X11, XCreateWindow)
+
+LIBS=$SAVED_LIBS
 
 # Linux
-if test $rtdxt_req = yes -a "$HAVE_X11" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
         RTDXT_COMMON_OBJ="src/glx_common.o"
         RTDXT_LIB=" -lGLEW -lGL -lX11"
         rtdxt=yes
-else
-        LIBS=$SAVED_LIBS
 fi
 
 # Mac

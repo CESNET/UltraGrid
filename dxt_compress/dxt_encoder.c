@@ -24,6 +24,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include "dxt_encoder.h"
 #include "dxt_util.h"
 #include "dxt_glsl.h"
@@ -256,9 +259,11 @@ dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_c
 int
 dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed)
 {        
+#ifdef RTDXT_DEBUG
     TIMER_INIT();
  
     TIMER_START();
+#endif
     switch(encoder->format) {
             case DXT_FORMAT_YUV422:
                         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo444_id);
@@ -298,12 +303,12 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         break;
     }
                         
-#ifdef DEBUG
+#ifdef RTDXT_DEBUG
     glFinish();
-#endif
     TIMER_STOP_PRINT("Texture Load:      ");
     
     TIMER_START();
+#endif
     
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
     assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
@@ -316,12 +321,12 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
     glEnd();
         
-#ifdef DEBUG
+#ifdef RTDXT_DEBUG
     glFinish();
-#endif
     TIMER_STOP_PRINT("Texture Compress:  ");
             
     TIMER_START();
+#endif
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
@@ -329,10 +334,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     else
         glReadPixels(0, 0, encoder->width / 4 , encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
         
-#ifdef DEBUG
+#ifdef RTDXT_DEBUG
     glFinish();
-#endif
     TIMER_STOP_PRINT("Texture Save:      ");
+#endif
     //gl_check_error();
     
     return 0;
