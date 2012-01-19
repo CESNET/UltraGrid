@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/audio.c
+ * FILE:    audio/capture/portaudio.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -183,7 +183,7 @@ void * portaudio_capture_init(char *cfg)
         struct state_portaudio_capture *s;
         int input_device;
 	PaError error;
-        const	PaDeviceInfo *device_info;
+        const	PaDeviceInfo *device_info = NULL;
         
         s = (struct state_portaudio_capture *) malloc(sizeof(struct state_portaudio_capture));
 	/* 

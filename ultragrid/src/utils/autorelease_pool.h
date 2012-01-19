@@ -1,5 +1,5 @@
 /*
- * FILE:    mac_gl_common.h
+ * FILE:    utils/autorelease_pool.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>

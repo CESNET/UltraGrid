@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/audio.h
+ * FILE:    audio/playback/none.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
