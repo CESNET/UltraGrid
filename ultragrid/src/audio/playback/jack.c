@@ -51,6 +51,7 @@
 #include "audio/utils.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#include "config_unix.h"
 #endif
 #include "debug.h"
 #include "host.h"
@@ -85,8 +86,6 @@ struct state_jack_playback {
         struct ring_buffer *data[MAX_PORTS];
 };
 
-static void jack_reconfigure_audio(void *state, int quant_samples, int channels,
-                                int sample_rate);
 static int jack_samplerate_changed_callback(jack_nframes_t nframes, void *arg);
 static int jack_process_callback(jack_nframes_t nframes, void *arg);
 
@@ -189,8 +188,6 @@ void * audio_play_jack_init(char *cfg)
 
         s = calloc(1, sizeof(struct state_jack_playback));
 
-        s->frame.reconfigure_audio = jack_reconfigure_audio;
-        s->frame.state = s;
         s->frame.data = NULL;
         s->jack_ports_pattern = cfg;
 
@@ -250,7 +247,7 @@ error:
         return NULL;
 }
 
-static void jack_reconfigure_audio(void *state, int quant_samples, int channels,
+int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) state;
@@ -262,7 +259,7 @@ static void jack_reconfigure_audio(void *state, int quant_samples, int channels,
         ports = jack_get_ports(s->client, s->jack_ports_pattern, NULL, JackPortIsInput);
         if(ports == NULL) {
                 fprintf(stderr, "[JACK playback] Unable to input ports matching %s.\n", s->jack_ports_pattern);
-                return;
+                return FALSE;
         }
 
         if(channels > s->jack_ports_count) {
@@ -299,6 +296,7 @@ static void jack_reconfigure_audio(void *state, int quant_samples, int channels,
                 s->resampler = speex_resampler_init(channels, sample_rate, s->jack_sample_rate, 10, &err); 
                 if(err) {
                         fprintf(stderr, "[JACK playback] Unable to create resampler.\n");
+                        return FALSE;
                 }
         }
 #endif
@@ -312,14 +310,18 @@ static void jack_reconfigure_audio(void *state, int quant_samples, int channels,
 
         if(jack_activate(s->client)) {
                 fprintf(stderr, "[JACK capture] Cannot activate client.\n");
+                return FALSE;
         }
 
         for(i = 0; i < channels; ++i) {
                 if (jack_connect (s->client, jack_port_name (s->output_port[i]), ports[i])) {
                         fprintf (stderr, "Cannot connect output port: %d.\n", i);
+                        return FALSE;
                 }
         }
         free(ports);
+
+        return TRUE;
 }
 
 struct audio_frame *audio_play_jack_get_frame(void *state)

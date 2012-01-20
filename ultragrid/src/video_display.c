@@ -516,3 +516,10 @@ void display_put_audio_frame(struct display *d, struct audio_frame *frame)
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_put_audio_frame(d->state, frame);
 }
+
+int display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
+{
+        assert(d->magic == DISPLAY_MAGIC);
+        lay_device_table[d->index].func_put_audio_frame(d->state, frame);
+}
+

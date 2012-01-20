@@ -114,6 +114,7 @@ int              display_reconfigure(struct display *d, struct video_desc desc);
 
 struct audio_frame * display_get_audio_frame(struct display *d);
 void 		 display_put_audio_frame(struct display *d, struct audio_frame *frame);
+int              display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 
 int              display_get_property(struct display *d, int property, void *val, size_t *len);
 

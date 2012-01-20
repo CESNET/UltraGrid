@@ -46,6 +46,9 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config_unix.h"
+#endif
 #include "audio/playback/none.h" 
 #include "debug.h"
 #include <stdlib.h>
@@ -77,3 +80,13 @@ void audio_play_none_done(void *state)
         UNUSED(state);
 }
 
+int audio_play_none_reconfigure(void *state, int quant_samples, int channels,
+                                                int sample_rate)
+{
+        UNUSED(state);
+        UNUSED(quant_samples);
+        UNUSED(channels);
+        UNUSED(sample_rate);
+
+        return TRUE;
+}

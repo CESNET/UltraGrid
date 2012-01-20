@@ -82,8 +82,6 @@ enum audio_device_kind {
 
 /* prototyping */
 void portaudio_decode_frame(void *dst, void *src, int data_len, int buffer_len, void *state);
-void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
 static void      print_device_info(PaDeviceIndex device);
 static int       portaudio_start_stream(PaStream *stream);
 static void      portaudio_close(PaStream *stream);  /* closes and frees all audio resources ( according to valgrind this is not true..  ) */
@@ -201,7 +199,7 @@ void * portaudio_playback_init(char *cfg)
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
 	s->max_output_channels = device_info->maxOutputChannels;
         
-        portaudio_reconfigure_audio(s, 16, 2, 48000);
+        portaudio_reconfigure(s, 16, 2, 48000);
          
 	return s;
 }
@@ -215,7 +213,7 @@ void portaudio_close_playback(void *state)
         portaudio_close(s->stream);
 }
 
-void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
+int portaudio_reconfigure(void *state, int quant_samples, int channels,
                 int sample_rate)
 {
         struct state_portaudio_playback * s = 
@@ -229,9 +227,7 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
         
         s->frame.bps = quant_samples / 8;
         s->frame.ch_count = channels;
-        s->frame.reconfigure_audio = portaudio_reconfigure_audio;
         s->frame.sample_rate = sample_rate;
-        s->frame.state = s;
         
         s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate; // can hold up to 1 sec
         
@@ -247,7 +243,7 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
 		printf("error initializing portaudio\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
                 fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
-		return;
+		return FALSE;
 	}
 
 	printf("Using PortAudio version: %s\n", Pa_GetVersionText());
@@ -305,9 +301,11 @@ void portaudio_reconfigure_audio(void *state, int quant_samples, int channels,
 		printf("Error opening audio stream\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
                 fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
-		return;
+		return FALSE;
 	}
         fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
+
+        return TRUE;
 }                        
 
 // get first empty frame, bud don't consider it as being used

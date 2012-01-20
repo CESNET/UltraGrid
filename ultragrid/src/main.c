@@ -943,6 +943,8 @@ int main(int argc, char *argv[])
         if(audio_does_receive_sdi(uv->audio)) {
                 audio_register_get_callback(uv->audio, (struct audio_frame * (*)(void *)) display_get_audio_frame, uv->display_device);
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
+                audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int, 
+                                                        int)) display_reconfigure_audio, uv->display_device);
         }
 
         if (strcmp("none", uv->requested_display) != 0)

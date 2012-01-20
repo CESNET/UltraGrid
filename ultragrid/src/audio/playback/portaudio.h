@@ -53,4 +53,6 @@ void           *portaudio_playback_init(char *cfg);
 void            portaudio_close_playback(void *s);
 struct audio_frame* portaudio_get_frame(void *state);
 void            portaudio_put_frame(void *state, struct audio_frame *buffer);
+int portaudio_reconfigure(void *state, int quant_samples, int channels,
+                int sample_rate);
 

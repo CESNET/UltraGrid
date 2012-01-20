@@ -115,8 +115,11 @@ struct state_sdi_capture {
 struct state_sdi_playback {
         struct audio_frame * (*get_callback)(void *);
         void (*put_callback)(void *, struct audio_frame *);
+        int (*reconfigure_callback)(void *state, int quant_samples, int channels,
+                int sample_rate);
         void *get_udata;
         void *put_udata;
+        void *reconfigure_udata;
 };
 
 /** 
@@ -139,6 +142,11 @@ typedef void (*audio_done_t)(void *state);
 /* playback */
 typedef struct audio_frame* (*audio_get_frame_t)(void *state);
 typedef void (*audio_put_frame_t)(void *state, struct audio_frame *frame);
+/*
+ * Returns TRUE if succeeded, FALSE otherwise
+ */
+typedef int (*audio_reconfigure_t)(void *state, int quant_samples, int channels,
+                int sample_rate);
 typedef void (*audio_playback_done_t)(void *s);
 
 struct audio_capture_t {
@@ -173,6 +181,8 @@ struct audio_playback_t {
         const char              *audio_put_frame_str;
         audio_playback_done_t    audio_playback_done;
         const char              *audio_playback_done_str;
+        audio_reconfigure_t      audio_reconfigure;
+        const char              *audio_reconfigure_str;
 
         void *handle;
 };
@@ -185,6 +195,9 @@ void sdi_capture_done(void *state);
 void * sdi_playback_init(char *cfg);
 void sdi_playback_done(void *s);
 struct audio_frame * sdi_read(void *state);
+int sdi_reconfigure(void *state, int quant_samples, int channels,
+                int sample_rate);
+
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
 static struct rtp *initialize_audio_network(char *addr, int port, struct pdb *participants);
@@ -271,6 +284,7 @@ static struct audio_playback_t audio_playback_table[] = {
                MK_STATIC(sdi_get_frame),
                MK_STATIC(sdi_put_frame),
                MK_STATIC(sdi_playback_done),
+               MK_STATIC(sdi_reconfigure),
                NULL
         },
 #if defined HAVE_ALSA || defined BUILD_LIBRARIES
@@ -281,6 +295,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_NAME(audio_play_alsa_get_frame),
                 MK_NAME(audio_play_alsa_put_frame),
                 MK_NAME(audio_play_alsa_done),
+                MK_NAME(audio_play_alsa_reconfigure),
                 NULL
         },
 #endif
@@ -292,6 +307,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_STATIC(audio_play_ca_get_frame),
                 MK_STATIC(audio_play_ca_put_frame),
                 MK_STATIC(audio_play_ca_done),
+                MK_STATIC(audio_play_reconfigure),
                 NULL
         },
 #endif
@@ -303,6 +319,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_NAME(audio_play_jack_get_frame),
                 MK_NAME(audio_play_jack_put_frame),
                 MK_NAME(audio_play_jack_done),
+                MK_NAME(audio_play_jack_reconfigure),
                 NULL
         },
 #endif
@@ -314,6 +331,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_NAME(portaudio_get_frame),
                 MK_NAME(portaudio_put_frame),
                 MK_NAME(portaudio_close_playback),
+                MK_NAME(portaudio_reconfigure),
                 NULL
         },
 #endif
@@ -324,6 +342,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_STATIC(audio_play_none_get_frame),
                 MK_STATIC(audio_play_none_put_frame),
                 MK_STATIC(audio_play_none_done),
+                MK_STATIC(audio_play_none_reconfigure),
                 NULL
         }
 };
@@ -388,9 +407,11 @@ static int audio_playback_fill_symbols(struct audio_playback_t *device)
                 dlsym(handle, device->audio_put_frame_str);
         device->audio_playback_done = (audio_done_t)
                 dlsym(handle, device->audio_playback_done_str);
+        device->audio_reconfigure = (audio_reconfigure_t)
+                dlsym(handle, device->audio_reconfigure_str);
 
         if(!device->audio_help || !device->audio_init || !device->audio_get_frame ||
-                        !device->audio_put_frame || !device->audio_playback_done) {
+                        !device->audio_put_frame || !device->audio_playback_done || !device->audio_reconfigure) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
                 return FALSE;
         }
@@ -819,6 +840,18 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
         sdi->put_udata = udata;
 }
 
+void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(void *, int, int,
+                        int),
+                void *udata)
+{
+        struct state_sdi_playback *sdi;
+        //assert(strcmp(audio_capture[s->audio_capture_device.index].name, "embedded") == 0);
+        
+        sdi = (struct state_sdi_playback *) s->audio_playback_device.state;
+        sdi->reconfigure_callback = callback;
+        sdi->reconfigure_udata = udata;
+}
+
 int audio_does_send_sdi(struct state_audio *s)
 {
         if(!s) 
@@ -869,5 +902,17 @@ void sdi_capture_finish(void *state)
 void sdi_capture_done(void *state)
 {
         UNUSED(state);
+}
+
+int sdi_reconfigure(void *state, int quant_samples, int channels,
+                int sample_rate)
+{
+        struct state_sdi_playback *s;
+        s = (struct state_sdi_playback *) state;
+
+        if(s->reconfigure_callback)
+                return s->reconfigure_callback(s->put_udata, quant_samples, channels, sample_rate);
+        else
+                return FALSE;
 }
 
