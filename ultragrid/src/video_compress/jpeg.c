@@ -77,7 +77,6 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
 {
         unsigned int x;
         
-        assert(vf_get_tile(frame, 0)->width % 4 == 0);
         s->out = vf_alloc(frame->tile_count);
         
         for (x = 0; x < frame->tile_count; ++x) {
