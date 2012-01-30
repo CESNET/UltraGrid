@@ -177,7 +177,7 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_CODECS, decoder->native_codecs, &decoder->native_count);
         decoder->native_count /= sizeof(codec_t);
         if(!ret) {
-                fprintf(stderr, "Failed to query codecs from video display.");
+                fprintf(stderr, "Failed to query codecs from video display.\n");
                 exit_uv(129);
                 return;
         }
@@ -315,7 +315,7 @@ after_linedecoder_lookup:
 after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
-                fprintf(stderr, "Unable to find decoder for input codec!!!");
+                fprintf(stderr, "Unable to find decoder for input codec!!!\n");
                 exit_uv(128);
                 return (codec_t) -1;
         }
