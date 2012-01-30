@@ -264,4 +264,5 @@ int		 rtp_get_ttl(struct rtp *session);
 uint8_t		*rtp_get_userdata(struct rtp *session);
 void 		 rtp_set_recv_iov(struct rtp *session, struct msghdr *m);
 
+int              rtp_set_recv_buf(struct rtp *session, int bufsize);
 #endif /* __RTP_H__ */

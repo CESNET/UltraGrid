@@ -65,6 +65,8 @@ void	    udp_fd_zero(void);
 void        udp_fd_set(socket_udp *s);
 int         udp_fd_isset(socket_udp *s);
 
+int         udp_set_recv_buf(socket_udp *s, int size);
+
 struct udp_fd_r {
         fd_set rfd;
         fd_t max_fd;

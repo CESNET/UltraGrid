@@ -3716,3 +3716,17 @@ int rtp_get_ttl(struct rtp *session)
         check_database(session);
         return session->ttl;
 }
+
+/**
+ * rtp_set_recv_buf:
+ * Sets  receiver buffer size
+ * @session: The RTP Session.
+ *
+ * Returns: TRUE if succeeded
+ *          FALSE otherwise
+ */
+int rtp_set_recv_buf(struct rtp *session, int bufsize)
+{
+        return udp_set_recv_buf(session->rtp_socket, bufsize);
+}
+

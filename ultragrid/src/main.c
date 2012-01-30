@@ -339,6 +339,7 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 			rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
 				RTCP_SDES_TOOL,
 				PACKAGE_STRING, strlen(PACKAGE_STRING));
+                        rtp_set_recv_buf(devices[index], 8*1024*1024);
 			pdb_add(participants, rtp_my_ssrc(devices[index]));
 		}
 		else {
