@@ -339,7 +339,12 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 			rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
 				RTCP_SDES_TOOL,
 				PACKAGE_STRING, strlen(PACKAGE_STRING));
+#ifdef HAVE_MACOSX
+                        rtp_set_recv_buf(devices[index], 59443200);
+#else
                         rtp_set_recv_buf(devices[index], 8*1024*1024);
+#endif
+
 			pdb_add(participants, rtp_my_ssrc(devices[index]));
 		}
 		else {

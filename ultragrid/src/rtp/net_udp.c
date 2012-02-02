@@ -458,7 +458,7 @@ int udp_set_recv_buf(socket_udp *s, int size)
         if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (const void *)&size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
-                return FALSE;
+                goto error;
         }
 
         opt_size = sizeof(opt);
@@ -469,19 +469,28 @@ int udp_set_recv_buf(socket_udp *s, int size)
         }
 
         if(opt < size) {
-                fprintf(stderr, "\n***\n"
-                                "Unable to set buffer size to %d B.\n"
-                                "Please set net.core.rmem_max value to %d or greater.\n"
-                                "\tsysctl -w net.core.rmem_max=%d\n"
-                                "To make this persistent, add net.core.rmem_max=%d to /etc/sysctl.conf\n"
-                                "\n***\n\n",
-                                size, size, size, size);
-                return FALSE;
+                goto error;
         }
 
         debug_msg("Socket buffer size set to %d B.\n", opt);
 
         return TRUE;
+
+error:
+        fprintf(stderr, "\n***\n"
+                        "Unable to set buffer size to %d B.\n"
+                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
+                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
+#ifdef HAVE_MACOSX
+                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
+                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
+#else
+                        "\tsysctl -w net.core.rmem_max=%d\n"
+#endif
+                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
+                        "\n***\n\n",
+                        size, size, size * 4, size);
+        return FALSE;
 }
 
 /*****************************************************************************/
