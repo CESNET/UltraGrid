@@ -1271,6 +1271,7 @@ AC_SUBST(SPEEX_OBJ)
 
 # transport
 jack_trans=no
+jack=no
 
 AC_ARG_ENABLE(jack-transport, 
       AS_HELP_STRING([--enable-jack-transport], [enable JACK transport (default is disable)]), 
