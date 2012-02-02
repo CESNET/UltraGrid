@@ -84,7 +84,7 @@ extern "C" {
 // static int	device = 0; // use first BlackMagic device
 // static int	mode = 5; // for Intensity
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
-static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
+//static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
 
 struct timeval t, t0;
 
@@ -126,6 +126,8 @@ struct vidcap_decklink_state {
         unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
         unsigned int            autodetect_mode:1;
+
+        BMDVideoConnection      connection;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -342,7 +344,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode]]]\n");
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode][:connection=<input>]]\n");
 	printf("\t\t(You can ommit device index, mode and color space provided that your cards supports format autodetection.)\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -383,6 +385,34 @@ decklink_help()
 	
 		// ** List the video output display modes supported by the card
 		print_output_modes(deckLink);
+
+                IDeckLinkAttributes *deckLinkAttributes;
+
+                result = deckLink->QueryInterface(IID_IDeckLinkAttributes, (void**)&deckLinkAttributes);
+                if (result != S_OK)
+                {
+                        printf("Could not query device attributes.\n");
+                } else {
+                        int64_t connections;
+                        if(deckLinkAttributes->GetInt(BMDDeckLinkVideoInputConnections, &connections) != S_OK) {
+                                fprintf(stderr, "[DeckLink] Could not get connections.\n");
+                        } else {
+                                printf("\n");
+                                printf("Connection can be one of following (not required):\n");
+                                if (connections & bmdVideoConnectionSDI)
+                                        printf("\tSDI\n");
+                                if (connections & bmdVideoConnectionHDMI)
+                                        printf("\tHDMI\n");
+                                if (connections & bmdVideoConnectionOpticalSDI)
+                                        printf("\tOpticalSDI\n");
+                                if (connections & bmdVideoConnectionComponent)
+                                        printf("\tComponent\n");
+                                if (connections & bmdVideoConnectionComposite)
+                                        printf("\tComposite\n");
+                                if (connections & bmdVideoConnectionSVideo)
+                                        printf("\tSVideo\n");
+                        }
+                }
 				
 		// Release the IDeckLink instance when we've finished with it to prevent leaks
 		deckLink->Release();
@@ -396,6 +426,7 @@ decklink_help()
 		printf("\nNo Blackmagic Design devices were found.\n");
 		return 0;
 	} else {
+                printf("\n\n");
                 printf("Available Colorspaces:\n");
                 printf("\t2vuy\n");
                 printf("\tv210\n");
@@ -412,6 +443,7 @@ decklink_help()
 	printf("\n");
         printf("timecode\n");
         printf("\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n");
+
 
 	return 1;
 }
@@ -486,16 +518,30 @@ settings_init(void *state, char *fmt)
                                         return 0;
                                 }
                         }
-                        tmp = strtok(NULL, ":");
-                        if(tmp) {
+                        while((tmp = strtok(NULL, ":"))) {
                                 if(strcasecmp(tmp, "3D") == 0) {
                                         s->stereo = TRUE;
-                                        tmp = strtok(NULL, ":");
-                                        if(tmp && strcasecmp(tmp, "timecode") == 0) {
-                                                s->use_timecode = TRUE;
-                                        }
                                 } else if(strcasecmp(tmp, "timecode") == 0) {
                                         s->use_timecode = TRUE;
+                                } else if(strncasecmp(tmp, "connection=", strlen("connection=")) == 0) {
+                                        char *connection = tmp + strlen("connection=");
+                                        if(strcasecmp(connection, "SDI") == 0)
+                                                s->connection = bmdVideoConnectionSDI;
+                                        else if(strcasecmp(connection, "HDMI") == 0)
+                                                s->connection = bmdVideoConnectionHDMI;
+                                        else if(strcasecmp(connection, "OpticalSDI") == 0)
+                                                s->connection = bmdVideoConnectionOpticalSDI;
+                                        else if(strcasecmp(connection, "Component") == 0)
+                                                s->connection = bmdVideoConnectionComponent;
+                                        else if(strcasecmp(connection, "Composite") == 0)
+                                                s->connection = bmdVideoConnectionComposite;
+                                        else if(strcasecmp(connection, "SVIdeo") == 0)
+                                                s->connection = bmdVideoConnectionSVideo;
+                                        else {
+                                                fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
+                                                return NULL;
+                                        }
+
                                 } else {
                                         fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
                                 }
@@ -649,6 +695,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         s->stereo = FALSE;
         s->use_timecode = FALSE;
         s->autodetect_mode = FALSE;
+        s->connection = 0;
         s->flags = 0;
 
 	// SET UP device and mode
@@ -808,33 +855,12 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 goto error;
                                         }
 
-                                        BMDVideoConnection conn;
-                                        switch (connection) {
-                                        case 0:
-                                                conn = bmdVideoConnectionSDI;
-                                                break;
-                                        case 1:
-                                                conn = bmdVideoConnectionHDMI;
-                                                break;
-                                        case 2:
-                                                conn = bmdVideoConnectionComponent;
-                                                break;
-                                        case 3:
-                                                conn = bmdVideoConnectionComposite;
-                                                break;
-                                        case 4:
-                                                conn = bmdVideoConnectionSVideo;
-                                                break;
-                                        case 5:
-                                                conn = bmdVideoConnectionOpticalSDI;
-                                                break;
-                                        default:
-                                                break;
+                                        if(s->connection) {
+                                                if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
+                                                                        s->connection) == S_OK) {
+                                                        printf("Input set to: %d\n", s->connection);
+                                                }
                                         }
-                    
-                                        /*if (deckLinkConfiguration->SetVideoInputFormat(conn) == S_OK) {
-                                                printf("Input set to: %d\n", connection);
-                                        }*/
 
                                         if(s->grab_audio == FALSE || 
                                                         i != 0)//TODO: figure out output from multiple streams
@@ -851,7 +877,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         deckLinkInput->SetCallback(s->state[i].delegate);
 
                                         // Start streaming
-                                        printf("Start capture\n", connection);
+                                        printf("Start capture\n");
                                         result = deckLinkInput->StartStreams();
                                         if (result != S_OK)
                                         {
