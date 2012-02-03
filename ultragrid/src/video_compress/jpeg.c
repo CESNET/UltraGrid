@@ -159,12 +159,12 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                 s->encoder_param.interleaved = 1;
                 s->encoder_param.restart_interval = 2;
                 /* LUMA */
-                s->encoder_param.sampling_factor[0].horizontal = 1;
+                s->encoder_param.sampling_factor[0].horizontal = 2;
                 s->encoder_param.sampling_factor[0].vertical = 1;
                 /* Cb and Cr */
-                s->encoder_param.sampling_factor[1].horizontal = 2;
+                s->encoder_param.sampling_factor[1].horizontal = 1;
                 s->encoder_param.sampling_factor[1].vertical = 1;
-                s->encoder_param.sampling_factor[2].horizontal = 2;
+                s->encoder_param.sampling_factor[2].horizontal = 1;
                 s->encoder_param.sampling_factor[2].vertical = 1;
         }
 
