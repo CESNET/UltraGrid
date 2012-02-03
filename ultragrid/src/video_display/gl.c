@@ -97,9 +97,9 @@ void main()
         yuv.r = 1.1643*(yuv.r-0.0625);
         yuv.g = yuv.g - 0.5;
         yuv.b = yuv.b - 0.5;
-        gl_FragColor.r = yuv.r + 1.5958 * yuv.b;
-        gl_FragColor.g = yuv.r - 0.39173* yuv.g - 0.81290 * yuv.b;
-        gl_FragColor.b = yuv.r + 2.017 * yuv.g;
+        gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
+        gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
+        gl_FragColor.b = yuv.r + 1.7926 * yuv.g;
 });
 
 static char * yuv422_to_rgb_vp = STRINGIFY(

@@ -18,13 +18,13 @@ void main()
         rgba1  = texture2D(image, coor1);
         rgba2  = texture2D(image, coor2);
         
-        yuv1.x = 1.0/16.0 + (rgba1.r * 0.299 + rgba1.g * 0.587 + rgba1.b * 0.114) * 0.8588; // Y
-        yuv1.y = 0.5 + (-rgba1.r * 0.168736 - rgba1.g * 0.331264 + rgba1.b * 0.5) * 0.8784;
-        yuv1.z = 0.5 + (rgba1.r * 0.5 - rgba1.g * 0.418688 - rgba1.b * 0.081312) * 0.8784;
+        yuv1.x = 1.0/16.0 + (rgba1.r * 0.2126 + rgba1.g * 0.7152 + rgba1.b * 0.0722) * 0.8588; // Y
+        yuv1.y = 0.5 + (-rgba1.r * 0.1145 - rgba1.g * 0.3854 + rgba1.b * 0.5) * 0.8784;
+        yuv1.z = 0.5 + (rgba1.r * 0.5 - rgba1.g * 0.4541 - rgba1.b * 0.0458) * 0.8784;
         
-        yuv2.x = 1.0/16.0 + (rgba2.r * 0.299 + rgba2.g * 0.587 + rgba2.b * 0.114) * 0.8588; // Y
-        yuv2.y = 0.5 + (-rgba2.r * 0.168736 - rgba2.g * 0.331264 + rgba2.b * 0.5) * 0.8784;
-        yuv2.z = 0.5 + (rgba2.r * 0.5 - rgba2.g * 0.418688 - rgba2.b * 0.081312) * 0.8784;
+        yuv2.x = 1.0/16.0 + (rgba2.r * 0.2126 + rgba2.g * 0.7152 + rgba2.b * 0.0722) * 0.8588; // Y
+        yuv2.y = 0.5 + (-rgba2.r * 0.1145 - rgba2.g * 0.3854 + rgba2.b * 0.5) * 0.8784;
+        yuv2.z = 0.5 + (rgba2.r * 0.5 - rgba2.g * 0.4541 - rgba2.b * 0.0458) * 0.8784;
         
         U = mix(yuv1.y, yuv2.y, 0.5);
         V = mix(yuv1.z, yuv2.z, 0.5);
