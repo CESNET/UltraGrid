@@ -548,7 +548,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                         && strncmp(filename, "s=", 2ul) != 0
                         && strcmp(filename, "i") != 0
                         && strcmp(filename, "sf") != 0) {
-                s->data = malloc(s->size * 2);
+                s->data = malloc(s->size * bpp * 2);
                 if (stat(filename, &sb)) {
                         perror("stat");
                         free(s);
@@ -575,6 +575,9 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
                 fclose(in);
                 tmp = strtok(NULL, ":");
+
+                memcpy(s->data + s->size, s->data, s->size);
+                vf_get_tile(s->frame, 0)->data = s->data;
         } else {
                 struct testcard_rect r;
                 int col_num = 0;
@@ -639,6 +642,17 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                                            vf_get_tile(s->frame, 0)->height);
                 }
                 tmp = filename;
+
+                vf_get_tile(s->frame, 0)->data = malloc(2 * s->size);
+
+                memcpy(vf_get_tile(s->frame, 0)->data, s->data, s->size);
+                memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
+                if(s->pixmap.data)
+                        free(s->pixmap.data);
+                else
+                        free(vf_get_tile(s->frame, 0)->data);
+
+                s->data = vf_get_tile(s->frame, 0)->data;
         }
 
         while (tmp) {
@@ -653,17 +667,6 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 }
                 tmp = strtok(NULL, ":");
         }
-
-        vf_get_tile(s->frame, 0)->data = malloc(2 * s->size);
-
-        memcpy(vf_get_tile(s->frame, 0)->data, s->data, s->size);
-        memcpy(vf_get_tile(s->frame, 0)->data + s->size, vf_get_tile(s->frame, 0)->data, s->size);
-        if(s->pixmap.data)
-                free(s->pixmap.data);
-        else
-                free(vf_get_tile(s->frame, 0)->data);
-
-        s->data = vf_get_tile(s->frame, 0)->data;
 
 
         s->count = 0;
@@ -759,8 +762,9 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                         *audio = NULL;
                 }
 
-                
+#ifndef TESTCARD_STATIC_PICTURE
                 vf_get_tile(state->frame, 0)->data += vf_get_tile(state->frame, 0)->linesize;
+#endif
                 if(vf_get_tile(state->frame, 0)->data > state->data + state->size)
                         vf_get_tile(state->frame, 0)->data = state->data;
 
