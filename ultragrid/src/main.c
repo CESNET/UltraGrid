@@ -340,7 +340,7 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 				RTCP_SDES_TOOL,
 				PACKAGE_STRING, strlen(PACKAGE_STRING));
 #ifdef HAVE_MACOSX
-                        rtp_set_recv_buf(devices[index], 59443200);
+                        rtp_set_recv_buf(devices[index], 5944320);
 #else
                         rtp_set_recv_buf(devices[index], 8*1024*1024);
 #endif

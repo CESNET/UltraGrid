@@ -57,6 +57,7 @@
 #include "debug.h"
 #include <stdlib.h>
 #include <AudioUnit/AudioUnit.h>
+#include <CoreAudio/AudioHardware.h>
 #include <QuickTime/QuickTime.h>
 #include <pthread.h>
 

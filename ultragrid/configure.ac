@@ -60,7 +60,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
 	LINKER=$CXX
-	CFLAGS+=" -m32 -I/opt/local/include"
+	CFLAGS+=" -arch i386 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
 	CXXFLAGS+=" -m32 -I/opt/local/include"
 	LDFLAGS+=" -m32 -mmacosx-version-min=10.5"
@@ -93,9 +93,9 @@ AC_ARG_ENABLE(depends-version-check,
         [version_check=yes]
         )
 
-if test $system = MacOSX -a \( $os_version_major -ne 9 -a $os_version_major -ne 10 \) -a $version_check = yes
+if test $system = MacOSX -a \( $os_version_major -lt 9 -o $os_version_major -gt 11 \) -a $version_check = yes
 then
-        AC_MSG_WARN([*** Currently only Mac OS X 10.5 and 10.6 are supported.])
+        AC_MSG_WARN([*** Currently only Mac OS X versions 10.5 to 10.7 are supported.])
         HM_VERSION_WARNING
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
 fi

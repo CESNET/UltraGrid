@@ -56,6 +56,7 @@
 #include "debug.h"
 #include <stdlib.h>
 #include <AudioUnit/AudioUnit.h>
+#include <CoreAudio/AudioHardware.h>
 
 
 struct state_ca_playback {

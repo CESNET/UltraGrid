@@ -60,8 +60,8 @@ typedef semaphore_t sem_t;
 #include <semaphore.h>
 #endif /* HAVE_MACOSX */
 
-inline void platform_sem_init(void * semStructure, int pshared, int initialValue);
-inline void platform_sem_post(void * semStructure);
-inline void platform_sem_wait(void * semStructure);
+void platform_sem_init(void * semStructure, int pshared, int initialValue);
+void platform_sem_post(void * semStructure);
+void platform_sem_wait(void * semStructure);
 
 #endif /* _PLATFORM_SEMAPHORE_H */

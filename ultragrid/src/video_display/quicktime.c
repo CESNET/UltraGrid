@@ -340,7 +340,7 @@ void display_quicktime_run(void *arg)
 
         while (!should_exit) {
                 int i;
-                platform_sem_wait(&s->semaphore);
+                platform_sem_wait((void *) &s->semaphore);
 
                 for (i = 0; i < s->devices_cnt; ++i) {
                         struct tile *tile = vf_get_tile(s->frame, i);
@@ -392,7 +392,7 @@ int display_quicktime_putf(void *state, char *frame)
         assert(s->magic == MAGIC_QT_DISPLAY);
 
         /* ...and signal the worker */
-        platform_sem_post(&s->semaphore);
+        platform_sem_post((void *) &s->semaphore);
         return 0;
 }
 
@@ -724,7 +724,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 s->play_audio = FALSE;
         }
 
-        platform_sem_init(&s->semaphore, 0, 0);
+        platform_sem_init((void *) &s->semaphore, 0, 0);
 
         /*if (pthread_create
             (&(s->thread_id), NULL, display_thread_quicktime, (void *)s) != 0) {
