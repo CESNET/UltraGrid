@@ -31,6 +31,18 @@
 #include "dxt_decoder.h"
 #include "dxt_util.h"
 #include "dxt_glsl.h"
+#if defined HAVE_MACOSX && OS_VERSION_MAJOR >= 11
+#include <OpenGL/gl3.h>
+#endif
+
+static GLfloat points[] = { -1.0f, -1.0f, 0.0f, 1.0f,
+    1.0f, -1.0f, 0.0f, 1.0f,
+    -1.0f, 1.0f, 0.0f, 1.0f,
+    /* second triangle */
+    1.0f, -1.0f, 0.0f, 1.0f,
+    -1.0f, 1.0f, 0.0f, 1.0f,
+    1.0f, 1.0f, 0.0f, 1.0f
+};
 
 /** Documented at declaration */ 
 struct dxt_decoder
@@ -55,17 +67,26 @@ struct dxt_decoder
     GLuint fbo_yuv422;
     
     // Program and shader handles
-    GLhandleARB program_display;
-    GLhandleARB shader_fragment_display;
+    GLuint program_display;
+    GLuint shader_fragment_display;
+    GLuint shader_vertex_display;
     
-    GLhandleARB program_rgba_to_yuv422;
-    GLhandleARB shader_fragment_rgba_to_yuv422;
-    GLhandleARB shader_vertex_rgba_to_yuv422;
+    GLuint program_rgba_to_yuv422;
+    GLuint shader_fragment_rgba_to_yuv422;
+    GLuint shader_vertex_rgba_to_yuv422;
+
+    /**
+     * The VAO for the vertices etc.
+     */
+    GLuint g_vao;
+    GLuint g_vao_422;
+
+    unsigned int legacy:1;
 };
 
 /** Documented at declaration */
 struct dxt_decoder*
-dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format out_format)
+dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format out_format, int legacy)
 {
     struct dxt_decoder* decoder = (struct dxt_decoder*)malloc(sizeof(struct dxt_decoder));
     
@@ -79,6 +100,7 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
     decoder->width = width;
     decoder->height = height;
     decoder->out_format = out_format;
+    decoder->legacy = legacy;
     //glutReshapeWindow(1, 1);
     
     // Create empty texture
@@ -97,66 +119,157 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
                         decoder->width * decoder->height / 2, 0);
     
     // Create fbo    
-    glGenFramebuffersEXT(1, &decoder->fbo_rgba);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_rgba);
+    glGenFramebuffers(1, &decoder->fbo_rgba);
+    glBindFramebuffer(GL_FRAMEBUFFER, decoder->fbo_rgba);
     
     glGenTextures(1, &decoder->uncompressed_rgba_tex); 
     glBindTexture(GL_TEXTURE_2D, decoder->uncompressed_rgba_tex); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
     glTexImage2D(GL_TEXTURE_2D, 0 , DXT_IMAGE_GL_FORMAT, decoder->width, decoder->height, 0, GL_RGBA, DXT_IMAGE_GL_TYPE, 0); 
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, decoder->uncompressed_rgba_tex, 0);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, decoder->uncompressed_rgba_tex, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     // Create program [display] and its shader
-    decoder->program_display = glCreateProgramObjectARB();  
+    decoder->program_display = glCreateProgram();  
     // Create shader from file
     decoder->shader_fragment_display = 0;
     switch(decoder->type) 
     {
         case DXT_TYPE_DXT5_YCOCG:
-                decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
+                if(legacy)
+                    decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg_legacy, GL_FRAGMENT_SHADER);
+                else
+                    decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt5ycocg, GL_FRAGMENT_SHADER);
                 break;
         case DXT_TYPE_DXT1:
-                decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER_ARB);
+                if(legacy)
+                    decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_legacy, GL_FRAGMENT_SHADER);
+                else
+                    decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display, GL_FRAGMENT_SHADER);
                 break;
         case DXT_TYPE_DXT1_YUV:
-                decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt1_yuv, GL_FRAGMENT_SHADER_ARB);
+                if(legacy)
+                    decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt1_yuv_legacy, GL_FRAGMENT_SHADER);
+                else
+                    decoder->shader_fragment_display = dxt_shader_create_from_source(fp_display_dxt1_yuv, GL_FRAGMENT_SHADER);
                 break;
     }
-    if ( decoder->shader_fragment_display == 0 )
+    if(legacy) {
+        decoder->shader_vertex_display = dxt_shader_create_from_source(vp_compress_legacy, GL_VERTEX_SHADER);
+    } else {
+        decoder->shader_vertex_display = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER);
+    }
+    if ( decoder->shader_fragment_display == 0 || decoder->shader_vertex_display == 0 )
         return NULL;
     // Attach shader to program and link the program
-    glAttachObjectARB(decoder->program_display, decoder->shader_fragment_display);
-    glLinkProgramARB(decoder->program_display);
+    glAttachShader(decoder->program_display, decoder->shader_fragment_display);
+    glAttachShader(decoder->program_display, decoder->shader_vertex_display);
+    glLinkProgram(decoder->program_display);
     
     if(out_format == DXT_FORMAT_YUV422) {
             glGenTextures(1, &decoder->uncompressed_yuv422_tex);
             glBindTexture(GL_TEXTURE_2D, decoder->uncompressed_yuv422_tex); 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
             glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA, decoder->width / 2, decoder->height, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, 0); 
             
-            glGenFramebuffersEXT(1, &decoder->fbo_yuv422);
+            glGenFramebuffers(1, &decoder->fbo_yuv422);
             
-            decoder->shader_fragment_rgba_to_yuv422 = dxt_shader_create_from_source(fp_display_rgba_to_yuv422, GL_FRAGMENT_SHADER_ARB);
-            decoder->shader_vertex_rgba_to_yuv422 = dxt_shader_create_from_source(vp_display_rgba_to_yuv422, GL_VERTEX_SHADER_ARB);
+            if(legacy) {
+                decoder->shader_fragment_rgba_to_yuv422 = dxt_shader_create_from_source(fp_display_rgba_to_yuv422_legacy, GL_FRAGMENT_SHADER);
+                decoder->shader_vertex_rgba_to_yuv422 = dxt_shader_create_from_source(vp_compress_legacy, GL_VERTEX_SHADER);
+            } else {
+                decoder->shader_fragment_rgba_to_yuv422 = dxt_shader_create_from_source(fp_display_rgba_to_yuv422, GL_FRAGMENT_SHADER);
+                decoder->shader_vertex_rgba_to_yuv422 = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER);
+            }
             
-            decoder->program_rgba_to_yuv422 = glCreateProgramObjectARB();
-            glAttachObjectARB(decoder->program_rgba_to_yuv422, decoder->shader_fragment_rgba_to_yuv422);
-            glAttachObjectARB(decoder->program_rgba_to_yuv422, decoder->shader_vertex_rgba_to_yuv422);
-            glLinkProgramARB(decoder->program_rgba_to_yuv422);
+            decoder->program_rgba_to_yuv422 = glCreateProgram();
+            glAttachShader(decoder->program_rgba_to_yuv422, decoder->shader_fragment_rgba_to_yuv422);
+            glAttachShader(decoder->program_rgba_to_yuv422, decoder->shader_vertex_rgba_to_yuv422);
+            glLinkProgram(decoder->program_rgba_to_yuv422);
             
-            glUseProgramObjectARB(decoder->program_rgba_to_yuv422);
+            glUseProgram(decoder->program_rgba_to_yuv422);
             glUniform1i(glGetUniformLocation(decoder->program_rgba_to_yuv422, "image"), 0);
             glUniform1f(glGetUniformLocation(decoder->program_rgba_to_yuv422, "imageWidth"),
                         (GLfloat) decoder->width);
+
+            if(!decoder->legacy) {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+                GLint g_vertexLocation;
+                GLuint g_vertices;
+
+                // ToDo:
+                glGenVertexArrays(1, &decoder->g_vao_422);
+
+                // ToDo:
+                glBindVertexArray(decoder->g_vao_422);
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocation.xml
+                g_vertexLocation = glGetAttribLocation(decoder->program_rgba_to_yuv422, "position");
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glGenBuffers.xml
+                glGenBuffers(1, &g_vertices);
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml
+                glBindBuffer(GL_ARRAY_BUFFER, g_vertices);
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml
+                //glBufferData(GL_ARRAY_BUFFER, 3 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+                glBufferData(GL_ARRAY_BUFFER, 8 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml
+                glUseProgram(decoder->program_rgba_to_yuv422);
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
+                glVertexAttribPointer(g_vertexLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+                // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
+                glEnableVertexAttribArray(g_vertexLocation);
+#endif
+            }
                         
-            glUseProgramObjectARB(0);
+            glUseProgram(0);
+    }
+    if(!decoder->legacy) {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+        GLint g_vertexLocation;
+        GLuint g_vertices;
+
+        // ToDo:
+        glGenVertexArrays(1, &decoder->g_vao);
+
+        // ToDo:
+        glBindVertexArray(decoder->g_vao);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocation.xml
+        g_vertexLocation = glGetAttribLocation(decoder->program_display, "position");
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glGenBuffers.xml
+        glGenBuffers(1, &g_vertices);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml
+        glBindBuffer(GL_ARRAY_BUFFER, g_vertices);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml
+        //glBufferData(GL_ARRAY_BUFFER, 3 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, 8 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml
+        glUseProgram(decoder->program_display);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
+        glVertexAttribPointer(g_vertexLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
+        glEnableVertexAttribArray(g_vertexLocation);
+
+        glUseProgram(0);
+#endif
     }
     
     return decoder;
@@ -201,23 +314,31 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
 #endif
     
     // Render to framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_rgba);
+    glBindFramebuffer(GL_FRAMEBUFFER, decoder->fbo_rgba);
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, decoder->width, decoder->height);
 
-    glUseProgramObjectARB(decoder->program_display);
+    glUseProgram(decoder->program_display);
     
     glBindTexture(GL_TEXTURE_2D, decoder->compressed_tex);
     
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-    glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-    glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-    glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-    glEnd();
+    if(decoder->legacy) {
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+        glEnd();
+    } else {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+        glBindVertexArray(decoder->g_vao);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+#endif
+    }
     
-    glUseProgramObjectARB(0);
+    glUseProgram(0);
 #ifdef RTDXT_DEBUG
     glFinish();
     TIMER_STOP_PRINT("Texture Decompress:");
@@ -227,31 +348,39 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     if(decoder->out_format != DXT_FORMAT_YUV422) { /* so RGBA */
             // Disable framebuffer
             glReadPixels(0, 0, decoder->width, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
     } else {
 
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, decoder->fbo_yuv422);
-            glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, decoder->uncompressed_yuv422_tex, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, decoder->fbo_yuv422);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, decoder->uncompressed_yuv422_tex, 0);
             
             glBindTexture(GL_TEXTURE_2D, decoder->uncompressed_rgba_tex); /* to texturing unit 0 */
 
             glPushAttrib(GL_VIEWPORT_BIT);
             glViewport( 0, 0, decoder->width / 2, decoder->height);
 
-            glUseProgramObjectARB(decoder->program_rgba_to_yuv422);
+            glUseProgram(decoder->program_rgba_to_yuv422);
             
-            glBegin(GL_QUADS);
-            glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-            glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-            glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-            glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-            glEnd();
+            if(decoder->legacy) {
+                glBegin(GL_QUADS);
+                glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                glEnd();
+            } else {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+                glBindVertexArray(decoder->g_vao_422);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+                glBindVertexArray(0);
+#endif
+            }
             
             glPopAttrib();
 
             glReadPixels(0, 0, decoder->width / 2, decoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-            glUseProgramObjectARB(0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glUseProgram(0);
     }
     
 #ifdef RTDXT_DEBUG    
@@ -278,11 +407,11 @@ dxt_decoder_destroy(struct dxt_decoder* decoder)
     glDeleteProgram(decoder->program_display);
     glDeleteTextures(1, &decoder->compressed_tex);
     glDeleteTextures(1, &decoder->uncompressed_rgba_tex);
-    glDeleteFramebuffersEXT(1,  &decoder->fbo_rgba);
+    glDeleteFramebuffers(1,  &decoder->fbo_rgba);
     
     if(decoder->out_format == DXT_FORMAT_YUV422) {
         glDeleteTextures(1, &decoder->uncompressed_yuv422_tex);
-        glDeleteFramebuffersEXT(1,  &decoder->fbo_yuv422);
+        glDeleteFramebuffers(1,  &decoder->fbo_yuv422);
     }
     free(decoder);
     return 0;

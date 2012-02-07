@@ -45,6 +45,10 @@
  *
  */
 
-void *glx_init(void);
+typedef uint32_t glx_opengl_version_t;
+#define OPENGL_VERSION_UNSPECIFIED 0u
+#define MK_OPENGL_VERSION(major,minor) (major << 8u | minor)
+
+void *glx_init(glx_opengl_version_t version_t);
 void glx_validate(void *);
 void glx_free(void *);

@@ -1,7 +1,24 @@
+#if GL_legacy
+#define TEXCOORD gl_TexCoord[0]
+#else
+#define TEXCOORD TEX0
+#define texture2D texture
+#endif
+
+#if GL_legacy
+#define colorOut gl_FragColor
+#else
+out vec4 colorOut;
+#endif
+
+#if ! GL_legacy
+in vec4 TEX0;
+#endif
+
 uniform sampler2D yuvtex;
 
 void main(void) {
-vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);
+vec4 col = texture2D(yuvtex, TEXCOORD.st);
 
 float Y = col[0];
 float U = col[1]-0.5;
@@ -12,5 +29,5 @@ float G = Y-0.39173*U-0.81290*V;
 float B = Y+2.017*U;
 float R = Y+1.5958*V;
 
-gl_FragColor=vec4(R,G,B,1.0);
+colorOut=vec4(R,G,B,1.0);
 }

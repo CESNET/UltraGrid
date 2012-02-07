@@ -45,5 +45,10 @@
  *
  */
 
-void *mac_gl_init(void);
+#define MAC_GL_PROFILE_LEGACY 0
+#define MAC_GL_PROFILE_3_2 1
+typedef int mac_opengl_version_t;
+
+int get_mac_kernel_version_major();
+void *mac_gl_init(mac_opengl_version_t);
 void mac_gl_free(void *);

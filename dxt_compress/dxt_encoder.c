@@ -30,9 +30,20 @@
 #include "dxt_encoder.h"
 #include "dxt_util.h"
 #include "dxt_glsl.h"
+#if defined HAVE_MACOSX && OS_VERSION_MAJOR >= 11
+#include <OpenGL/gl3.h>
+#endif
 
 #include <string.h>
 
+static GLfloat points[] = { -1.0f, -1.0f, 0.0f, 1.0f,
+    1.0f, -1.0f, 0.0f, 1.0f,
+    -1.0f, 1.0f, 0.0f, 1.0f,
+    /* second triangle */
+    1.0f, -1.0f, 0.0f, 1.0f,
+    -1.0f, 1.0f, 0.0f, 1.0f,
+    1.0f, 1.0f, 0.0f, 1.0f
+};
 
 const int FORMAT_RGB = 0;
 const int FORMAT_YUV = 1;
@@ -40,6 +51,8 @@ const int FORMAT_YUV = 1;
 /** Documented at declaration */ 
 struct dxt_encoder
 {
+    unsigned int legacy:1;
+
     // DXT type
     enum dxt_type type;
     
@@ -64,32 +77,92 @@ struct dxt_encoder
     GLuint fbo_id;
   
     // Program and shader handles
-    GLhandleARB program_compress;
-    GLhandleARB shader_fragment_compress;
-    GLhandleARB shader_vertex_compress;
+    GLuint program_compress;
+    GLuint shader_fragment_compress;
+    GLuint shader_vertex_compress;
 
-    GLhandleARB yuv422_to_444_program;
-    GLhandleARB yuv422_to_444_fp;
+    GLuint yuv422_to_444_program;
+    GLuint yuv422_to_444_fp;
+    GLuint yuv422_to_444_vp;
     GLuint fbo444_id;
+
+    /**
+     * The VAO for the vertices etc.
+     */
+    GLuint g_vao;
+    GLuint g_vao_422;
+
+    /**
+     * The VBO for the vertices.
+     */
+    GLuint g_vertices;
 };
 
 int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder);
 
 int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
         encoder->yuv422_to_444_fp = 0;    
-        encoder->yuv422_to_444_fp = dxt_shader_create_from_source(fp_yuv422_to_yuv_444, GL_FRAGMENT_SHADER_ARB);
+        if(encoder->legacy) {
+            encoder->yuv422_to_444_fp = dxt_shader_create_from_source(fp_yuv422_to_yuv_444_legacy, GL_FRAGMENT_SHADER);
+        } else {
+            encoder->yuv422_to_444_fp = dxt_shader_create_from_source(fp_yuv422_to_yuv_444, GL_FRAGMENT_SHADER);
+        }
+
         if ( encoder->yuv422_to_444_fp == 0) {
                 printf("Failed to compile YUV422->YUV444 fragment program!\n");
                 return 0;
         }
+
+        if(encoder->legacy) {
+            encoder->yuv422_to_444_vp = dxt_shader_create_from_source(vp_compress_legacy, GL_VERTEX_SHADER);
+        } else {
+            encoder->yuv422_to_444_vp = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER);
+        }
         
-        encoder->yuv422_to_444_program = glCreateProgramObjectARB();
-        glAttachObjectARB(encoder->yuv422_to_444_program, encoder->shader_vertex_compress);
-        glAttachObjectARB(encoder->yuv422_to_444_program, encoder->yuv422_to_444_fp);
-        glLinkProgramARB(encoder->yuv422_to_444_program);
+        encoder->yuv422_to_444_program = glCreateProgram();
+        glAttachShader(encoder->yuv422_to_444_program, encoder->yuv422_to_444_fp);
+        glAttachShader(encoder->yuv422_to_444_program, encoder->yuv422_to_444_vp);
+        glLinkProgram(encoder->yuv422_to_444_program);
+
+        if(!encoder->legacy) {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+            GLint g_vertexLocation;
+            GLuint g_vertices;
+
+            // ToDo:
+            glGenVertexArrays(1, &encoder->g_vao_422);
+
+            // ToDo:
+            glBindVertexArray(encoder->g_vao_422);
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocation.xml
+            g_vertexLocation = glGetAttribLocation(encoder->yuv422_to_444_program, "position");
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glGenBuffers.xml
+            glGenBuffers(1, &g_vertices);
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml
+            glBindBuffer(GL_ARRAY_BUFFER, g_vertices);
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml
+            //glBufferData(GL_ARRAY_BUFFER, 3 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, 8 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml
+            glUseProgram(encoder->yuv422_to_444_program);
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
+            glVertexAttribPointer(g_vertexLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+            // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
+            glEnableVertexAttribArray(g_vertexLocation);
+
+            glUseProgram(0);
+#endif
+        }
         
         char log[32768];
-        glGetInfoLogARB(encoder->yuv422_to_444_program, 32768, NULL, (GLchar*)log);
+        glGetProgramInfoLog(encoder->yuv422_to_444_program, 32768, NULL, (GLchar*)log);
         if ( strlen(log) > 0 )
                 printf("Link Log: %s\n", log);
         
@@ -102,20 +175,20 @@ int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, encoder->width / 2, encoder->height,
                         0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, NULL);
         
-        glUseProgramObjectARB(encoder->yuv422_to_444_program);
+        glUseProgram(encoder->yuv422_to_444_program);
         glUniform1i(glGetUniformLocation(encoder->yuv422_to_444_program, "image"), 0);
         glUniform1f(glGetUniformLocation(encoder->yuv422_to_444_program, "imageWidth"),
                         (GLfloat) encoder->width);
 
         // Create fbo    
-        glGenFramebuffersEXT(1, &encoder->fbo444_id);
+        glGenFramebuffers(1, &encoder->fbo444_id);
         return 1;
 }
 
 
 /** Documented at declaration */
 struct dxt_encoder*
-dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format format)
+dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format format, int legacy)
 {
     struct dxt_encoder* encoder = (struct dxt_encoder*)malloc(sizeof(struct dxt_encoder));
     if ( encoder == NULL )
@@ -124,67 +197,66 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     encoder->width = width;
     encoder->height = height;
     encoder->format = format;
+    encoder->legacy = legacy;
+
     
-    // Create empty data
-    /*GLubyte * data = NULL;
-    int data_size = 0;
-    dxt_encoder_buffer_allocate(encoder, &data, &data_size);
-    // Create empty compressed texture
-    glGenTextures(1, &encoder->texture_compressed_id);
-    glBindTexture(GL_TEXTURE_2D, encoder->texture_compressed_id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-    if ( encoder->type == DXT_TYPE_DXT5_YCOCG )   
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, encoder->width, encoder->height, 0, data_size, data);
-    else
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, encoder->width, encoder->height, 0, data_size, data);
-    // Free empty data
-    dxt_encoder_buffer_free(data);*/
-    
-    // Create fbo    
-    glGenFramebuffersEXT(1, &encoder->fbo_id);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
+    //glEnable(GL_TEXTURE_2D);
+
+
+    glGenFramebuffers(1, &encoder->fbo_id);
+    glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
     
     GLuint fbo_tex;
     glGenTextures(1, &fbo_tex); 
     glBindTexture(GL_TEXTURE_2D, fbo_tex); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, encoder->width / 4, encoder->height /  4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     // Create program [display] and its shader
-    encoder->program_compress = glCreateProgramObjectARB();
+    encoder->program_compress = glCreateProgram();
     // Create fragment shader from file
     encoder->shader_fragment_compress = 0;
-    if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER_ARB);
-    else
-        encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER_ARB);
+    if ( encoder->type == DXT_TYPE_DXT5_YCOCG ) {
+        if(encoder->legacy) {
+            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg_legacy, GL_FRAGMENT_SHADER);
+        } else {
+            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER);
+        }
+    } else {
+        if(encoder->legacy) {
+            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_legacy, GL_FRAGMENT_SHADER);
+        } else {
+            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER);
+        }
+    }
     if ( encoder->shader_fragment_compress == 0 )
         return NULL;
     // Create vertex shader from file
     encoder->shader_vertex_compress = 0;
-    encoder->shader_vertex_compress = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER_ARB);
+    if(encoder->legacy) {
+        encoder->shader_vertex_compress = dxt_shader_create_from_source(vp_compress_legacy, GL_VERTEX_SHADER);
+    } else {
+        encoder->shader_vertex_compress = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER);
+    }
     if ( encoder->shader_vertex_compress == 0 ) {
         printf("Failed to compile vertex compress program!\n");
         return NULL;
     }
     // Attach shader to program and link the program
-    glAttachObjectARB(encoder->program_compress, encoder->shader_fragment_compress);
-    glAttachObjectARB(encoder->program_compress, encoder->shader_vertex_compress);
-    glLinkProgramARB(encoder->program_compress);
+    glAttachShader(encoder->program_compress, encoder->shader_fragment_compress);
+    glAttachShader(encoder->program_compress, encoder->shader_vertex_compress);
+    glLinkProgram(encoder->program_compress);
     
     char log[32768];
-    glGetInfoLogARB(encoder->program_compress, 32768, NULL, (GLchar*)log);
+    glGetProgramInfoLog(encoder->program_compress, 32768, NULL, (GLchar*)log);
     if ( strlen(log) > 0 )
         printf("Link Log: %s\n", log);
     
@@ -202,7 +274,6 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     }
     
     //glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_2D);
     
     if(format == DXT_FORMAT_YUV422) {
             if(!dxt_prepare_yuv422_shader(encoder))
@@ -210,13 +281,13 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     }
 
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glClear(GL_COLOR_BUFFER_BIT);
  
     glViewport(0, 0, encoder->width / 4, encoder->height / 4);
     glDisable(GL_DEPTH_TEST);
     
     // User compress program and set image size parameters
-    glUseProgramObjectARB(encoder->program_compress);
+    glUseProgram(encoder->program_compress);
 //glBindFragDataLocation(encoder->program_compress, 0, "colorInt");
     glUniform1i(glGetUniformLocation(encoder->program_compress, "image"), 0);
     
@@ -227,8 +298,42 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     }
     glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
 
+    if(!encoder->legacy) {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+        GLint g_vertexLocation;
+
+        // ToDo:
+        glGenVertexArrays(1, &encoder->g_vao);
+
+        // ToDo:
+        glBindVertexArray(encoder->g_vao);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocation.xml
+        g_vertexLocation = glGetAttribLocation(encoder->program_compress, "position");
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glGenBuffers.xml
+        glGenBuffers(1, &encoder->g_vertices);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml
+        glBindBuffer(GL_ARRAY_BUFFER, encoder->g_vertices);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml
+        //glBufferData(GL_ARRAY_BUFFER, 3 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, 8 * 4 * sizeof(GLfloat), (GLfloat*) points, GL_STATIC_DRAW);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml
+        //glUseProgram(g_program.program);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml
+        glVertexAttribPointer(g_vertexLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+        // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
+        glEnableVertexAttribArray(g_vertexLocation);
+#endif
+    }
+
     // Render to framebuffer
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
+    glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
 
     return encoder;
 }
@@ -266,30 +371,42 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 #endif
     switch(encoder->format) {
             case DXT_FORMAT_YUV422:
-                        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo444_id);
-                        glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, encoder->texture_id, 0);
+                        glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo444_id);
+                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, encoder->texture_id, 0);
                         glBindTexture(GL_TEXTURE_2D, encoder->texture_yuv422);
                         
                         glPushAttrib(GL_VIEWPORT_BIT);
                         glViewport( 0, 0, encoder->width, encoder->height);
                 
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
-                        glUseProgramObjectARB(encoder->yuv422_to_444_program);
+                        glUseProgram(encoder->yuv422_to_444_program);
                         
                         
-                        glBegin(GL_QUADS);
-                        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-                        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-                        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-                        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-                        glEnd();
+                        if(encoder->legacy) {
+                            glBegin(GL_QUADS);
+                            glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                            glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                            glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                            glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                            glEnd();
+                        } else {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+                            // Compress
+                            glBindVertexArray(encoder->g_vao_422);
+                            //glDrawElements(GL_TRIANGLE_STRIP, sizeof(m_quad.indices) / sizeof(m_quad.indices[0]), GL_UNSIGNED_SHORT, BUFFER_OFFSET(0));
+                            glDrawArrays(GL_TRIANGLES, 0, 6);
+                            glBindVertexArray(0);
+#endif
+                        }
                         
                         glPopAttrib();
+                        /* there is some problem with restoring viewport state (Mac OS Lion, OpenGL 3.2) */
+                        glViewport( 0, 0, encoder->width / 4, encoder->height / 4);
                         
                         //glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
                         
-                        glUseProgramObjectARB(encoder->program_compress);
-                        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, encoder->fbo_id);
+                        glUseProgram(encoder->program_compress);
+                        glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
                         glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
                 
                         //gl_check_error();
@@ -311,16 +428,25 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 #endif
     
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
-    assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
+    assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_FRAMEBUFFER));
 
-    // Compress
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-    glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-    glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-    glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-    glEnd();
-        
+    if(encoder->legacy) {
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+        glEnd();
+    } else {
+#if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
+        // Compress
+        glBindVertexArray(encoder->g_vao);
+        //glDrawElements(GL_TRIANGLE_STRIP, sizeof(m_quad.indices) / sizeof(m_quad.indices[0]), GL_UNSIGNED_SHORT, BUFFER_OFFSET(0));
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+#endif
+    }
+
 #ifdef RTDXT_DEBUG
     glFinish();
     TIMER_STOP_PRINT("Texture Compress:  ");
@@ -338,7 +464,6 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glFinish();
     TIMER_STOP_PRINT("Texture Save:      ");
 #endif
-    //gl_check_error();
     
     return 0;
 }

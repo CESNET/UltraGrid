@@ -44,7 +44,7 @@ struct dxt_encoder;
  * @return encoder structure or zero if fails
  */
 struct dxt_encoder*
-dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format format);
+dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format format, int legacy);
 
 /**
  * Allocate buffer for compressed image by encoder

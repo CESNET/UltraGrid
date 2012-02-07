@@ -1,6 +1,19 @@
-#extension GL_ARB_texture_non_power_of_two : enable
+#if GL_legacy
+#define TEXCOORD gl_TexCoord[0]
+#else
+#define TEXCOORD TEX0
+#define texture2D texture
+#endif
 
-#define lerp mix
+#if GL_legacy
+#define colorOut gl_FragColor
+#else
+out vec4 colorOut;
+#endif
+
+#if ! GL_legacy
+in vec4 TEX0;
+#endif
 
 uniform sampler2D image;
 uniform float imageWidth; // is original image width, it means twice as wide as ours
@@ -12,8 +25,8 @@ void main()
         vec2 coor1, coor2;
         float U, V;
 
-        coor1 = gl_TexCoord[0].xy - vec2(1.0 / (imageWidth * 2.0), 0.0);
-        coor2 = gl_TexCoord[0].xy + vec2(1.0 / (imageWidth * 2.0), 0.0);
+        coor1 = TEXCOORD.xy - vec2(1.0 / (imageWidth * 2.0), 0.0);
+        coor2 = TEXCOORD.xy + vec2(1.0 / (imageWidth * 2.0), 0.0);
 
         rgba1  = texture2D(image, coor1);
         rgba2  = texture2D(image, coor2);
@@ -29,5 +42,5 @@ void main()
         U = mix(yuv1.y, yuv2.y, 0.5);
         V = mix(yuv1.z, yuv2.z, 0.5);
         
-        gl_FragColor = vec4(U,yuv1.x, V, yuv2.x);
+        colorOut = vec4(U,yuv1.x, V, yuv2.x);
 }

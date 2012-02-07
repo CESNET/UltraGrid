@@ -75,6 +75,7 @@ struct video_compress {
         
         int dxt_height;
         void *gl_context;
+        int legacy:1;
 };
 
 static int configure_with(struct video_compress *s, struct video_frame *frame);
@@ -150,10 +151,10 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         s->dxt_height = (s->out->tiles[0].height + 3) / 4 * 4;
 
         if(s->out->color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->dxt_height, format);
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->dxt_height, format, s->legacy);
                 s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height / 2;
         } else if(s->out->color_spec == DXT5){
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->dxt_height, format);
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->dxt_height, format, s->legacy);
                 s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height;
         }
         
@@ -200,16 +201,38 @@ void * dxt_glsl_compress_init(char * opts)
 
 #ifndef HAVE_MACOSX
         x11_enter_thread();
-        s->gl_context = glx_init();
+        printf("Trying OpenGL 3.1 first.\n");
+        s->gl_context = glx_init(MK_OPENGL_VERSION(3,1));
+        s->legacy = FALSE;
+        if(!s->gl_context) {
+                fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
+                s->gl_context = glx_init(OPENGL_VERSION_UNSPECIFIED);
+                s->legacy = TRUE;
+        }
         glx_validate(s->gl_context);
+#else
+        s->gl_context = NULL;
+        if(get_mac_kernel_version_major() >= 11) {
+                printf("[RTDXT] Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
+                s->gl_context = mac_gl_init(MAC_GL_PROFILE_3_2);
+                if(!s->gl_context) {
+                        fprintf(stderr, "[RTDXT] OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
+                } else {
+                        s->legacy = FALSE;
+                }
+        }
+
+        if(!s->gl_context) {
+                s->gl_context = mac_gl_init(MAC_GL_PROFILE_LEGACY);
+                s->legacy = TRUE;
+        }
+#endif
+
         if(!s->gl_context) {
                 fprintf(stderr, "[RTDXT] Error initializing GLX context");
                 exit_uv(128);
                 return NULL;
         }
-#else
-	s->gl_context = mac_gl_init();
-#endif
         
         if(opts && strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");

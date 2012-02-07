@@ -75,6 +75,7 @@ struct state_decompress {
         
         int dxt_height; /* dxt_height is alligned height to 4 lines boundry */
         void *gl_context;
+        unsigned int legacy:1;
 };
 
 static void configure_with(struct state_decompress *decompressor, struct video_desc desc)
@@ -82,10 +83,31 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         enum dxt_type type;
 
 #ifndef HAVE_MACOSX
-        decompressor->gl_context = glx_init();
+        printf("[RTDXT] Trying OpenGL 3.1 context first.\n");
+        decompressor->gl_context = glx_init(MK_OPENGL_VERSION(3,1));
+        decompressor->legacy = FALSE;
+        if(!decompressor->gl_context) {
+                fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
+                decompressor->gl_context = glx_init(OPENGL_VERSION_UNSPECIFIED);
+                decompressor->legacy = TRUE;
+        }
         glx_validate(decompressor->gl_context);
 #else
-        decompressor->gl_context = mac_gl_init();
+        decompressor->gl_context = NULL;
+        if(get_mac_kernel_version_major() >= 11) {
+                printf("[RTDXT] Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
+                decompressor->gl_context = mac_gl_init(MAC_GL_PROFILE_3_2);
+                if(!decompressor->gl_context) {
+                        fprintf(stderr, "[RTDXT] OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
+                } else {
+                        decompressor->legacy = FALSE;
+                }
+        }
+
+        if(!decompressor->gl_context) {
+                decompressor->gl_context = mac_gl_init(MAC_GL_PROFILE_LEGACY);
+                decompressor->legacy = TRUE;
+        }
 #endif
         if(!decompressor->gl_context) {
                 fprintf(stderr, "[RTDXT decompress] Failed to create GL context.");
@@ -110,7 +132,7 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         decompressor->desc = desc;
 
         decompressor->decoder = dxt_decoder_create(type, desc.width,
-                        decompressor->dxt_height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422);
+                        decompressor->dxt_height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422, decompressor->legacy);
         
         decompressor->compressed_len = desc.width * decompressor->dxt_height /
                 (desc.color_spec == DXT5 ? 1 : 2);

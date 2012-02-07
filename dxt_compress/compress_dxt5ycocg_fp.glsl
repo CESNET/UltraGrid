@@ -1,4 +1,10 @@
+#if GL_legacy
 #extension GL_EXT_gpu_shader4 : enable
+#define UINT unsigned int
+#else
+#define texture2D texture
+#define UINT uint
+#endif
 
 #define lerp mix
 
@@ -118,7 +124,7 @@ void SelectDiagonal(vec3 block[16], inout vec3 mincol, inout vec3 maxcol)
     }
 }
 
-vec3 RoundAndExpand(vec3 v, out unsigned int w)
+vec3 RoundAndExpand(vec3 v, out UINT w)
 {
     uvec3 c = uvec3(round(v * vec3(31, 63, 31)));
     w = (c.r << 11u) | (c.g << 5u) | c.b;
@@ -129,7 +135,7 @@ vec3 RoundAndExpand(vec3 v, out unsigned int w)
     return vec3(c) * (1.0 / 255.0);
 }
 
-unsigned int EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
+UINT EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
 {
     uvec2 outp;
     maxcol = RoundAndExpand(maxcol, outp.x);
@@ -146,7 +152,7 @@ unsigned int EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
     return outp.x | (outp.y << 16u);
 }
 
-unsigned int ScaleYCoCg(vec2 minColor, vec2 maxColor)
+UINT ScaleYCoCg(vec2 minColor, vec2 maxColor)
 {
     vec2 m0 = abs(minColor - offset);
     vec2 m1 = abs(maxColor - offset);
@@ -156,7 +162,7 @@ unsigned int ScaleYCoCg(vec2 minColor, vec2 maxColor)
     const float s0 = 64.0 / 255.0;
     const float s1 = 32.0 / 255.0;
 
-    unsigned int scale = 1u;
+    UINT scale = 1u;
     if ( m < s0 )
         scale = 2u;
     if ( m < s1 )
@@ -181,7 +187,7 @@ void SelectYCoCgDiagonal(const vec3 block[16], inout vec2 minColor, inout vec2 m
     }
 }
 
-unsigned int EmitEndPointsYCoCgDXT5(inout vec2 mincol, inout vec2 maxcol, unsigned int scale)
+UINT EmitEndPointsYCoCgDXT5(inout vec2 mincol, inout vec2 maxcol, UINT scale)
 {
     maxcol = (maxcol - offset) * float(scale) + float(offset);
     mincol = (mincol - offset) * float(scale) + float(offset);
@@ -195,8 +201,8 @@ unsigned int EmitEndPointsYCoCgDXT5(inout vec2 mincol, inout vec2 maxcol, unsign
     uvec2 imincol = uvec2(mincol);
 
     uvec2 outp;
-    outp.x = (imaxcol.r << 11u) | (imaxcol.g << 5u) | (scale - unsigned int(1));
-    outp.y = (imincol.r << 11u) | (imincol.g << 5u) | (scale - unsigned int(1));
+    outp.x = (imaxcol.r << 11u) | (imaxcol.g << 5u) | (scale - UINT(1));
+    outp.y = (imincol.r << 11u) | (imincol.g << 5u) | (scale - UINT(1));
 
     imaxcol.r = (imaxcol.r << 3u) | (imaxcol.r >> 2u);
     imaxcol.g = (imaxcol.g << 2u) | (imaxcol.g >> 4u);
@@ -213,7 +219,7 @@ unsigned int EmitEndPointsYCoCgDXT5(inout vec2 mincol, inout vec2 maxcol, unsign
     return outp.x | (outp.y << 16u);
 }
 
-unsigned int EmitIndicesYCoCgDXT5(vec3 block[16], vec2 mincol, vec2 maxcol)
+UINT EmitIndicesYCoCgDXT5(vec3 block[16], vec2 mincol, vec2 maxcol)
 {
     // Compute palette
     vec2 c[4];
@@ -223,7 +229,7 @@ unsigned int EmitIndicesYCoCgDXT5(vec3 block[16], vec2 mincol, vec2 maxcol)
     c[3] = lerp(c[0], c[1], 2.0/3.0);
 
     // Compute indices
-    unsigned int indices = 0u;
+    UINT indices = 0u;
     for ( int i = 0; i < 16; i++ )
     {
         // find index of closest color
@@ -238,21 +244,21 @@ unsigned int EmitIndicesYCoCgDXT5(vec3 block[16], vec2 mincol, vec2 maxcol)
         b.y = dist.y > dist.z ? 1u : 0u;
         b.z = dist.x > dist.z ? 1u : 0u;
         b.w = dist.y > dist.w ? 1u : 0u;
-        unsigned int b4 = dist.z > dist.w ? 1u : 0u;
+        UINT b4 = dist.z > dist.w ? 1u : 0u;
 
-        unsigned int index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
-        indices |= index << (unsigned int(i) * 2u);
+        UINT index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
+        indices |= index << (UINT(i) * 2u);
     }
 
     // Output indices
     return indices;
 }
 
-unsigned int EmitAlphaEndPointsYCoCgDXT5(float mincol, float maxcol)
+UINT EmitAlphaEndPointsYCoCgDXT5(float mincol, float maxcol)
 {
     uvec2 tmp = uvec2(round(mincol * 255.0), round(maxcol * 255.0));
-    unsigned int c0 = tmp.x;
-    unsigned int c1 = tmp.y;
+    UINT c0 = tmp.x;
+    UINT c1 = tmp.y;
 
     return (c0 << 8u) | c1;
 }
@@ -274,7 +280,7 @@ uvec2 EmitAlphaIndicesYCoCgDXT5(vec3 block[16], float minAlpha, float maxAlpha)
 
     uvec2 indices = uvec2(0, 0);
 
-    unsigned int index = 1u;
+    UINT index = 1u;
     for ( int i = 0; i < 6; i++ ) {
         float a = block[i].x;
         index = 1u;
@@ -287,7 +293,7 @@ uvec2 EmitAlphaIndicesYCoCgDXT5(vec3 block[16], float minAlpha, float maxAlpha)
         index += (a <= ab7) ? 1u : 0u;
         index &= 7u;
         index ^= (2u > index) ? 1u : 0u;
-        indices.x |= index << (3u * unsigned int(i) + 16u);
+        indices.x |= index << (3u * UINT(i) + 16u);
     }
 
     indices.y = index >> 1u;
@@ -304,7 +310,7 @@ uvec2 EmitAlphaIndicesYCoCgDXT5(vec3 block[16], float minAlpha, float maxAlpha)
         index += (a <= ab7) ? 1u : 0u;
         index &= 7u;
         index ^= (2u > index) ? 1u : 0u;
-        indices.y |= index << (3u * unsigned int(i) - 16u);
+        indices.y |= index << (3u * UINT(i) - 16u);
     }
 
     return indices;
@@ -313,16 +319,34 @@ uvec2 EmitAlphaIndicesYCoCgDXT5(vec3 block[16], float minAlpha, float maxAlpha)
 uniform sampler2D image;
 uniform int imageFormat;
 uniform vec2 imageSize;
-varying out uvec4 colorInt;
+#if GL_legacy
+varying
+#endif
+        out uvec4 colorInt;
+#if ! GL_legacy
+in vec4 TEX0;
+#endif
 
 void main()
 {
     // Read block of data
     vec3 block[16];
     if ( int(imageFormat) == FORMAT_YUV )
-        ExtractColorBlockYUV(block, image, gl_TexCoord[0], imageSize);
+        ExtractColorBlockYUV(block, image,
+#if GL_legacy
+                gl_TexCoord[0],
+#else
+                TEX0,
+#endif
+                imageSize);
     else
-        ExtractColorBlockRGB(block, image, gl_TexCoord[0], imageSize);
+        ExtractColorBlockRGB(block, image, 
+#if GL_legacy
+                gl_TexCoord[0],
+#else
+                TEX0,
+#endif
+                imageSize);
 
     // Find min and max colors
     vec3 mincol, maxcol;
@@ -330,7 +354,7 @@ void main()
 
     SelectYCoCgDiagonal(block, mincol.yz, maxcol.yz);
 
-    unsigned int scale = ScaleYCoCg(mincol.yz, maxcol.yz);
+    UINT scale = ScaleYCoCg(mincol.yz, maxcol.yz);
 
     // Output CoCg in DXT1 block.
     uvec4 outp;

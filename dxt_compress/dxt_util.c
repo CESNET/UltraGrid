@@ -28,22 +28,22 @@
 #include "dxt_util.h"
 
 /** Documented at declaration */
-GLhandleARB
+GLuint
 dxt_shader_create_from_source(const char* source, GLenum type)
 {
     // Create shader
-    GLhandleARB shader = glCreateShaderObjectARB(type);
+    GLuint shader = glCreateShader(type);
     
     // Compile shader source
-    glShaderSourceARB(shader, 1, (const GLcharARB**)&source, NULL);
-    glCompileShaderARB(shader);    
+    glShaderSource(shader, 1, (const GLchar**)&source, NULL);
+    glCompileShader(shader);    
     
     // Check result
     GLint status;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
     if ( status == GL_FALSE ) {
         char log[32768];
-        glGetInfoLogARB(shader, 32768, NULL, (GLchar*)log);
+        glGetShaderInfoLog(shader, 32768, NULL, (GLchar*)log);
         printf("Shader Compilation Failed : %s\n", log);
         return 0;
     }

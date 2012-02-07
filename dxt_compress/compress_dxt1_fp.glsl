@@ -1,4 +1,10 @@
+#if GL_legacy
 #extension GL_EXT_gpu_shader4 : enable
+#define UINT unsigned int
+#else
+#define texture2D texture
+#define UINT uint
+#endif
 
 #define lerp mix
 
@@ -96,7 +102,7 @@ void InsetBBox(inout vec3 mincol, inout vec3 maxcol)
     maxcol = clamp(maxcol - inset, 0.0, 1.0);
 }
 
-vec3 RoundAndExpand(vec3 v, out unsigned int w)
+vec3 RoundAndExpand(vec3 v, out UINT w)
 {
     uvec3 c = uvec3(round(v * vec3(31, 63, 31)));
     w = (c.r << 11u) | (c.g << 5u) | c.b;
@@ -107,7 +113,7 @@ vec3 RoundAndExpand(vec3 v, out unsigned int w)
     return vec3(c) * (1.0 / 255.0);
 }
 
-unsigned int EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
+UINT EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
 {
     uvec2 outp;
     maxcol = RoundAndExpand(maxcol, outp.x);
@@ -125,7 +131,7 @@ unsigned int EmitEndPointsDXT1(inout vec3 mincol, inout vec3 maxcol)
     return outp.x | (outp.y << 16u);
 }
 
-unsigned int EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
+UINT EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
 {
     // Compute palette
     vec3 c[4];
@@ -135,7 +141,7 @@ unsigned int EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
     c[3] = lerp(c[0], c[1], 2.0/3.0);
 
     // Compute indices
-    unsigned int indices = 0u;
+    UINT indices = 0u;
     for ( int i = 0; i < 16; i++ ) {
 
         // find index of closest color
@@ -150,10 +156,10 @@ unsigned int EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
         b.y = dist.y > dist.z ? 1u : 0u;
         b.z = dist.x > dist.z ? 1u : 0u;
         b.w = dist.y > dist.w ? 1u : 0u;
-        unsigned int b4 = dist.z > dist.w ? 1u : 0u;
+        UINT b4 = dist.z > dist.w ? 1u : 0u;
         
-        unsigned int index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
-        indices |= index << (unsigned int(i) * 2u);
+        UINT index = (b.x & b4) | (((b.y & b.z) | (b.x & b.w)) << 1u);
+        indices |= index << (UINT(i) * 2u);
     }
 
     // Output indices
@@ -163,16 +169,36 @@ unsigned int EmitIndicesDXT1(vec3 col[16], vec3 mincol, vec3 maxcol)
 uniform sampler2D image;
 uniform int imageFormat;
 uniform vec2 imageSize;
-varying out uvec4 colorInt;
+#if GL_legacy
+varying
+#endif
+        out uvec4 colorInt;
+
+#if ! GL_legacy
+in vec4 TEX0;
+#endif
+
 
 void main()
 {
     // Read block
     vec3 block[16];
     if ( int(imageFormat) == FORMAT_YUV )
-        ExtractColorBlockYUV(block, image, gl_TexCoord[0], imageSize);
+        ExtractColorBlockYUV(block, image,
+#if GL_legacy
+                gl_TexCoord[0],
+#else
+                TEX0,
+#endif
+                imageSize);
     else
-        ExtractColorBlockRGB(block, image, gl_TexCoord[0], imageSize);
+        ExtractColorBlockRGB(block, image,
+#if GL_legacy
+                gl_TexCoord[0],
+#else
+                TEX0,
+#endif
+                imageSize);
 
     // Find min and max colors
     vec3 mincol, maxcol;
