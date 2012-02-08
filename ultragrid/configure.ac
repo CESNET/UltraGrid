@@ -21,9 +21,6 @@ AC_C_CHAR_UNSIGNED
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
-LINKER=
-OBJS=""
-LIBS=""
 POST_COMPILE_MSG=""
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)

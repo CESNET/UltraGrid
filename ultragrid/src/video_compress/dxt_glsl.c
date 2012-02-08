@@ -318,6 +318,8 @@ void dxt_glsl_compress_done(void *arg)
 {
         struct video_compress *s = (struct video_compress *) arg;
         
+        dxt_encoder_destroy(s->encoder);
+
         if(s->out)
                 free(s->out->tiles[0].data);
         vf_free(s->out);

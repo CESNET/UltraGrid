@@ -45,8 +45,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#endif
 #include "debug.h"
 
 #include <GL/glew.h>
@@ -55,6 +57,10 @@
 #include <GL/glx.h>
 #include "x11_common.h"
 #include "glx_common.h"
+
+#ifdef HAVE_GPUPERFAPI
+#include "GPUPerfAPI.h"
+#endif
 
 #define GLX_MAGIC 0x665f43ffu
 
@@ -99,6 +105,11 @@ void glx_free(void *arg)
         assert(context->magic == GLX_MAGIC);
         
         x11_lock();
+
+#ifdef HAVE_GPUPERFAPI
+        GPA_CloseContext();
+#endif
+
         display = x11_get_display();
         if(!display) {
                 fprintf(stderr, "Unable to get shared display for GLX!\n");
@@ -110,6 +121,9 @@ void glx_free(void *arg)
         
         glXDestroyContext( display, context->ctx );
         fprintf(stderr, "GLX context destroyed\n");
+#ifdef HAVE_GPUPERFAPI
+        GPA_Destroy();
+#endif
         
         XDestroyWindow( display, context->win );
         XFreeColormap( display, context->cmap );
@@ -178,6 +192,13 @@ void *glx_init(glx_opengl_version_t version)
                 x11_unlock();
                 return NULL;
         }
+
+#ifdef HAVE_GPUPERFAPI
+        GPA_Status gpa_status;
+
+        gpa_status = GPA_Initialize();
+        assert(gpa_status == GPA_STATUS_OK);
+#endif
  
   
  
@@ -399,6 +420,12 @@ void *glx_init(glx_opengl_version_t version)
         x11_unlock();
   
         glx_validate(context);
+
+#ifdef HAVE_GPUPERFAPI
+        gpa_status = GPA_OpenContext( context->ctx );
+        assert(gpa_status == GPA_STATUS_OK);
+#endif
+
         return (void *) context;
 
 error:

@@ -26,12 +26,17 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#include "config_unix.h"
 #endif
 #include "dxt_encoder.h"
 #include "dxt_util.h"
 #include "dxt_glsl.h"
 #if defined HAVE_MACOSX && OS_VERSION_MAJOR >= 11
 #include <OpenGL/gl3.h>
+#endif
+#ifdef HAVE_GPUPERFAPI
+#include "GPUPerfAPI.h"
+static void WriteSession( gpa_uint32 currentWaitSessionID, const char* filename );
 #endif
 
 #include <string.h>
@@ -55,19 +60,19 @@ struct dxt_encoder
 
     // DXT type
     enum dxt_type type;
-    
+
     // Width in pixels
     int width;
-    
+
     // Height in pixels
     int height;
-    
+
     // Format
     enum dxt_format format;
-    
+
     // Texture id
     GLuint texture_id;
-    
+
     // Compressed texture
     GLuint texture_compressed_id;
     
@@ -96,6 +101,12 @@ struct dxt_encoder
      * The VBO for the vertices.
      */
     GLuint g_vertices;
+
+#ifdef HAVE_GPUPERFAPI
+    gpa_uint32 numRequiredPasses;
+    gpa_uint32 sessionID;
+    gpa_uint32 currentWaitSessionID;
+#endif
 };
 
 int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder);
@@ -193,6 +204,7 @@ struct dxt_encoder*
 dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format format, int legacy)
 {
     struct dxt_encoder* encoder = (struct dxt_encoder*)malloc(sizeof(struct dxt_encoder));
+
     if ( encoder == NULL )
         return NULL;
     encoder->type = type;
@@ -201,9 +213,10 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     encoder->format = format;
     encoder->legacy = legacy;
 
-    
     //glEnable(GL_TEXTURE_2D);
-
+#ifdef HAVE_GPUPERFAPI
+    GPA_EnableAllCounters();
+#endif
 
     glGenFramebuffers(1, &encoder->fbo_id);
     glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
@@ -339,6 +352,12 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     // Render to framebuffer
     glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
 
+#ifdef HAVE_GPUPERFAPI
+    GPA_BeginSession( &encoder->sessionID );
+    GPA_GetPassCount( &encoder->numRequiredPasses );
+    encoder->currentWaitSessionID = 0;
+#endif
+
     return encoder;
 }
 
@@ -373,6 +392,11 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
  
     TIMER_START();
 #endif
+
+#ifdef HAVE_GPUPERFAPI
+    GPA_BeginPass();
+    GPA_BeginSample(0);
+#endif
     switch(encoder->format) {
             case DXT_FORMAT_YUV422:
                         glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo444_id);
@@ -384,7 +408,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                 
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
                         glUseProgram(encoder->yuv422_to_444_program);
-                        
+#ifdef HAVE_GPUPERFAPI
+    GPA_EndSample();
+    GPA_BeginSample(1);
+#endif
                         
                         if(encoder->legacy) {
                             glBegin(GL_QUADS);
@@ -423,6 +450,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, image);
                         break;
     }
+#ifdef HAVE_GPUPERFAPI
+    GPA_EndSample();
+    GPA_BeginSample(2);
+#endif
                         
 #ifdef RTDXT_DEBUG
     glFinish();
@@ -450,6 +481,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
         glBindVertexArray(0);
 #endif
     }
+#ifdef HAVE_GPUPERFAPI
+    GPA_EndSample();
+    GPA_BeginSample(3);
+#endif
 
 #ifdef RTDXT_DEBUG
     glFinish();
@@ -468,6 +503,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glFinish();
     TIMER_STOP_PRINT("Texture Save:      ");
 #endif
+#ifdef HAVE_GPUPERFAPI
+    GPA_EndSample();
+    GPA_EndPass();
+#endif
     
     return 0;
 }
@@ -484,9 +523,113 @@ dxt_encoder_buffer_free(unsigned char* image_compressed)
 int
 dxt_encoder_destroy(struct dxt_encoder* encoder)
 {
+#ifdef HAVE_GPUPERFAPI
+    GPA_EndSession();
+    bool readyResult = FALSE;
+    if ( encoder->sessionID != encoder->currentWaitSessionID )
+    {
+        GPA_Status sessionStatus;
+        sessionStatus = GPA_IsSessionReady( &readyResult,
+                encoder->currentWaitSessionID );
+        while ( sessionStatus == GPA_STATUS_ERROR_SESSION_NOT_FOUND )
+        {
+            // skipping a session which got overwritten
+            encoder->currentWaitSessionID++;
+            sessionStatus = GPA_IsSessionReady( &readyResult,
+                    encoder->currentWaitSessionID );
+        }
+    }
+    if ( readyResult )
+    {
+        WriteSession( encoder->currentWaitSessionID,
+                "GPUPerfAPI-RTDXT-Results.csv" );
+        encoder->currentWaitSessionID++;
+    }
+
+#endif
     glDeleteShader(encoder->shader_fragment_compress);
     glDeleteShader(encoder->shader_vertex_compress);
     glDeleteProgram(encoder->program_compress);
     free(encoder);
     return 0;
 }
+
+#ifdef HAVE_GPUPERFAPI
+/// Given a sessionID, query the counter values and save them to a file
+static void WriteSession( gpa_uint32 currentWaitSessionID,
+        const char* filename )
+{
+    static bool doneHeadings = FALSE;
+    gpa_uint32 count;
+    GPA_GetEnabledCount( &count );
+    FILE* f;
+    if ( !doneHeadings )
+    {
+        const char* name;
+        f = fopen( filename, "w" );
+        assert( f );
+        fprintf( f, "Identifier, " );
+        for (gpa_uint32 counter = 0 ; counter < count ; counter++ )
+        {
+            gpa_uint32 enabledCounterIndex;
+            GPA_GetEnabledIndex( counter, &enabledCounterIndex );
+            GPA_GetCounterName( enabledCounterIndex, &name );
+            fprintf( f, "%s, ", name );
+        }
+        fprintf( f, "\n" );
+        fclose( f );
+        doneHeadings = TRUE;
+    }
+    f = fopen( filename, "a+" );
+    assert( f );
+    gpa_uint32 sampleCount;
+    GPA_GetSampleCount( currentWaitSessionID, &sampleCount );
+    for (gpa_uint32 sample = 0 ; sample < sampleCount ; sample++ )
+    {
+        fprintf( f, "session: %d; sample: %d, ", currentWaitSessionID,
+                sample );
+        for (gpa_uint32 counter = 0 ; counter < count ; counter++ )
+        {
+            gpa_uint32 enabledCounterIndex;
+            GPA_GetEnabledIndex( counter, &enabledCounterIndex );
+            GPA_Type type;
+            GPA_GetCounterDataType( enabledCounterIndex, &type );
+            if ( type == GPA_TYPE_UINT32 )
+            {
+                gpa_uint32 value;
+                GPA_GetSampleUInt32( currentWaitSessionID,
+                        sample, enabledCounterIndex, &value );
+                fprintf( f, "%u,", value );
+            }
+            else if ( type == GPA_TYPE_UINT64 )
+            {
+                gpa_uint64 value;
+                GPA_GetSampleUInt64( currentWaitSessionID,
+                        sample, enabledCounterIndex, &value );
+                fprintf( f, "%lu,", value );
+            }
+            else if ( type == GPA_TYPE_FLOAT32 )
+            {
+                gpa_float32 value;
+                GPA_GetSampleFloat32( currentWaitSessionID,
+                        sample, enabledCounterIndex, &value );
+                fprintf( f, "%f,", (double) value );
+            }
+            else if ( type == GPA_TYPE_FLOAT64 )
+            {
+                gpa_float64 value;
+                GPA_GetSampleFloat64( currentWaitSessionID,
+                        sample, enabledCounterIndex, &value );
+                fprintf( f, "%f,", value );
+            }
+            else
+            {
+                assert(FALSE);
+            }
+        }
+        fprintf( f, "\n" );
+    }
+    fclose( f );
+}
+#endif
+
