@@ -39,14 +39,14 @@ gpujpeg_get_devices_info()
     struct gpujpeg_devices_info devices_info;
     
     if ( cudaGetDeviceCount(&devices_info.device_count) != cudaSuccess ) {
-        fprintf(stderr, "cudaGetDeviceCount FAILED CUDA Driver and Runtime version may be mismatched.\n");
+        fprintf(stderr, "[GPUJPEG] [Error] CUDA Driver and Runtime version may be mismatched.\n");
         exit(-1);
     }
     
     if ( devices_info.device_count > GPUJPEG_MAX_DEVICE_COUNT ) {
-        fprintf(stderr, "Warning: There are available more CUDA devices (%d) than maximum count (%d).\n",
+        fprintf(stderr, "[GPUJPEG] [Warning] There are available more CUDA devices (%d) than maximum count (%d).\n",
             devices_info.device_count, GPUJPEG_MAX_DEVICE_COUNT);
-        fprintf(stderr, "Warning: Using maximum count (%d).\n", GPUJPEG_MAX_DEVICE_COUNT);
+        fprintf(stderr, "[GPUJPEG] [Warning] Using maximum count (%d).\n", GPUJPEG_MAX_DEVICE_COUNT);
         devices_info.device_count = GPUJPEG_MAX_DEVICE_COUNT;
     }
 
@@ -105,25 +105,27 @@ gpujpeg_init_device(int device_id, int flags)
     int dev_count;
     cudaGetDeviceCount(&dev_count);
     if ( dev_count == 0 ) {
-        fprintf(stderr, "No CUDA enabled device\n");
+        fprintf(stderr, "[GPUJPEG] [Error] No CUDA enabled device\n");
         return -1;
     }
 
     if ( device_id < 0 || device_id >= dev_count ) {
-        fprintf(stderr, "Selected device %d is out of bound. Devices on your system are in range %d - %d\n",
+        fprintf(stderr, "[GPUJPEG] [Error] Selected device %d is out of bound. Devices on your system are in range %d - %d\n",
             device_id, 0, dev_count - 1);
         return -1;
     }
 
     struct cudaDeviceProp devProp;
     if ( cudaSuccess != cudaGetDeviceProperties(&devProp, device_id) ) {
-        fprintf(stderr, "Can't get CUDA device properties!\n"
-            "Do you have proper driver for CUDA installed?\n");
+        fprintf(stderr,
+            "[GPUJPEG] [Error] Can't get CUDA device properties!\n"
+            "[GPUJPEG] [Error] Do you have proper driver for CUDA installed?\n"
+        );
         return -1;
     }
 
     if ( devProp.major < 1 ) {
-        fprintf(stderr, "Device %d does not support CUDA\n", device_id);
+        fprintf(stderr, "[GPUJPEG] [Error] Device %d does not support CUDA\n", device_id);
         return -1;
     }
     
@@ -156,6 +158,7 @@ gpujpeg_init_device(int device_id, int flags)
 void
 gpujpeg_set_default_parameters(struct gpujpeg_parameters* param)
 {
+    param->verbose = 0;
     param->quality = 75;
     param->restart_interval = 8;
     param->interleaved = 0;
@@ -253,6 +256,8 @@ int
 gpujpeg_coder_init(struct gpujpeg_coder* coder)
 {
     int result = 1;
+    
+    coder->preprocessor = NULL;
     
     // Allocate color components
     cudaMallocHost((void**)&coder->component, coder->param_image.comp_count * sizeof(struct gpujpeg_component));
@@ -543,7 +548,7 @@ gpujpeg_image_load_from_file(const char* filename, uint8_t** image, int* image_s
     FILE* file;
     file = fopen(filename, "rb");
     if ( !file ) {
-        fprintf(stderr, "Failed open %s for reading!\n", filename);
+        fprintf(stderr, "[GPUJPEG] [Error] Failed open %s for reading!\n", filename);
         return -1;
     }
 
@@ -556,7 +561,7 @@ gpujpeg_image_load_from_file(const char* filename, uint8_t** image, int* image_s
     uint8_t* data = NULL;
     cudaMallocHost((void**)&data, *image_size * sizeof(uint8_t));
     if ( *image_size != fread(data, sizeof(uint8_t), *image_size, file) ) {
-        fprintf(stderr, "Failed to load image data [%d bytes] from file %s!\n", *image_size, filename);
+        fprintf(stderr, "[GPUJPEG] [Error] Failed to load image data [%d bytes] from file %s!\n", *image_size, filename);
         return -1;
     }
     fclose(file);
@@ -573,12 +578,12 @@ gpujpeg_image_save_to_file(const char* filename, uint8_t* image, int image_size)
     FILE* file;
     file = fopen(filename, "wb");
     if ( !file ) {
-        fprintf(stderr, "Failed open %s for writing!\n", filename);
+        fprintf(stderr, "[GPUJPEG] [Error] Failed open %s for writing!\n", filename);
         return -1;
     }
     
     if ( image_size != fwrite(image, sizeof(uint8_t), image_size, file) ) {
-        fprintf(stderr, "Failed to write image data [%d bytes] to file %s!\n", image_size, filename);
+        fprintf(stderr, "[GPUJPEG] [Error] Failed to write image data [%d bytes] to file %s!\n", image_size, filename);
         return -1;
     }
     fclose(file);
@@ -591,4 +596,6 @@ int
 gpujpeg_image_destroy(uint8_t* image)
 {
     cudaFreeHost(image);
+
+    return 0;
 }

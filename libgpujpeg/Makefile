@@ -30,6 +30,8 @@
 SHARED_LIBRARY ?= 0
 # Use constant memory for huffman coder tables?
 HUFFMAN_CODER_TABLES_IN_CONSTANT ?= 1
+# Debug
+DEBUG ?= 0
 # CUDA install path
 CUDA_INSTALL_PATH ?= /usr/local/cuda
 
@@ -77,6 +79,11 @@ NVCCFLAGS += $(COMMONFLAGS) \
 	-gencode arch=compute_11,code=sm_11
 # Linker flags
 LDFLAGS += -shared
+
+# Debug
+ifeq ($(DEBUG),1)
+    COMMONFLAGS += -g -D_DEBUG
+endif    
 
 # Other Flags
 ifeq ($(HUFFMAN_CODER_TABLES_IN_CONSTANT),1)

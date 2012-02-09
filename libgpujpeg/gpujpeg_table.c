@@ -85,7 +85,7 @@ gpujpeg_table_quantization_encoder_init(struct gpujpeg_table_quantization* table
     
     // Fix NPP bug before version 4.1 [http://forums.nvidia.com/index.php?showtopic=191896]
     const NppLibraryVersion* npp_version = nppGetLibVersion();
-    if ( npp_version->major < 4 || npp_version->major == 4 && npp_version->minor == 0 ) {
+    if ( npp_version->major < 4 || (npp_version->major == 4 && npp_version->minor == 0) ) {
         for ( int i = 0; i < 64; i++ ) {
             table->table[gpujpeg_order_natural[i]] = ((1 << 15) / (double)table->table_raw[i]) + 0.5;
         }
@@ -113,7 +113,7 @@ gpujpeg_table_quantization_decoder_init(struct gpujpeg_table_quantization* table
     
     // Fix NPP bug before version 4.1 [http://forums.nvidia.com/index.php?showtopic=191896]
     const NppLibraryVersion* npp_version = nppGetLibVersion();
-    if ( npp_version->major < 4 || npp_version->major == 4 && npp_version->minor == 0 ) {
+    if ( npp_version->major < 4 || (npp_version->major == 4 && npp_version->minor == 0) ) {
         for ( int i = 0; i < 64; i++ ) {
             table->table[gpujpeg_order_natural[i]] = table->table_raw[i];
         }
@@ -134,7 +134,7 @@ gpujpeg_table_quantization_decoder_compute(struct gpujpeg_table_quantization* ta
 {
     // Fix NPP bug before version 4.1 [http://forums.nvidia.com/index.php?showtopic=191896]
     const NppLibraryVersion* npp_version = nppGetLibVersion();
-    if ( npp_version->major < 4 || npp_version->major == 4 && npp_version->minor == 0 ) {
+    if ( npp_version->major < 4 || (npp_version->major == 4 && npp_version->minor == 0) ) {
         for ( int i = 0; i < 64; i++ ) {
             table->table[gpujpeg_order_natural[i]] = table->table_raw[i];
         }
@@ -249,44 +249,44 @@ static unsigned char gpujpeg_table_huffman_cbcr_ac_value[] = {
 void
 gpujpeg_table_huffman_encoder_compute(struct gpujpeg_table_huffman_encoder* table)
 {
-	char huffsize[257];
-	unsigned int huffcode[257];
+    char huffsize[257];
+    unsigned int huffcode[257];
 
-	// Figure C.1: make table of Huffman code length for each symbol
-	// Note that this is in code-length order
-	int p = 0;
-	for ( int l = 1; l <= 16; l++ ) {
-		for ( int i = 1; i <= (int) table->bits[l]; i++ )
-			huffsize[p++] = (char) l;
-	}
-	huffsize[p] = 0;
-	int lastp = p;
+    // Figure C.1: make table of Huffman code length for each symbol
+    // Note that this is in code-length order
+    int p = 0;
+    for ( int l = 1; l <= 16; l++ ) {
+        for ( int i = 1; i <= (int) table->bits[l]; i++ )
+            huffsize[p++] = (char) l;
+    }
+    huffsize[p] = 0;
+    int lastp = p;
 
-	// Figure C.2: generate the codes themselves
-	// Note that this is in code-length order
-	unsigned int code = 0;
-	int si = huffsize[0];
-	p = 0;
-	while ( huffsize[p] ) {
-		while ( ((int) huffsize[p]) == si ) {
-			huffcode[p++] = code;
-			code++;
-		}
-		code <<= 1;
-		si++;
-	}
+    // Figure C.2: generate the codes themselves
+    // Note that this is in code-length order
+    unsigned int code = 0;
+    int si = huffsize[0];
+    p = 0;
+    while ( huffsize[p] ) {
+        while ( ((int) huffsize[p]) == si ) {
+            huffcode[p++] = code;
+            code++;
+        }
+        code <<= 1;
+        si++;
+    }
 
-	// Figure C.3: generate encoding tables
-	// These are code and size indexed by symbol value
+    // Figure C.3: generate encoding tables
+    // These are code and size indexed by symbol value
 
-	// Set any codeless symbols to have code length 0;
-	// this allows EmitBits to detect any attempt to emit such symbols.
-	memset(table->size, 0, sizeof(table->size));
+    // Set any codeless symbols to have code length 0;
+    // this allows EmitBits to detect any attempt to emit such symbols.
+    memset(table->size, 0, sizeof(table->size));
 
-	for (p = 0; p < lastp; p++) {
-		table->code[table->huffval[p]] = huffcode[p];
-		table->size[table->huffval[p]] = huffsize[p];
-	}
+    for (p = 0; p < lastp; p++) {
+        table->code[table->huffval[p]] = huffcode[p];
+        table->size[table->huffval[p]] = huffsize[p];
+    }
 }
 
 /** Documented at declaration */
@@ -355,69 +355,69 @@ gpujpeg_table_huffman_decoder_init(struct gpujpeg_table_huffman_decoder* table, 
 void
 gpujpeg_table_huffman_decoder_compute(struct gpujpeg_table_huffman_decoder* table, struct gpujpeg_table_huffman_decoder* d_table)
 {
-	// Figure C.1: make table of Huffman code length for each symbol
-	// Note that this is in code-length order.
+    // Figure C.1: make table of Huffman code length for each symbol
+    // Note that this is in code-length order.
     char huffsize[257];
-	int p = 0;
-	for ( int l = 1; l <= 16; l++ ) {
-		for ( int i = 1; i <= (int) table->bits[l]; i++ )
-			huffsize[p++] = (char) l;
-	}
-	huffsize[p] = 0;
+    int p = 0;
+    for ( int l = 1; l <= 16; l++ ) {
+        for ( int i = 1; i <= (int) table->bits[l]; i++ )
+            huffsize[p++] = (char) l;
+    }
+    huffsize[p] = 0;
 
-	// Figure C.2: generate the codes themselves
-	// Note that this is in code-length order.
+    // Figure C.2: generate the codes themselves
+    // Note that this is in code-length order.
     unsigned int huffcode[257];
-	unsigned int code = 0;
-	int si = huffsize[0];
-	p = 0;
-	while ( huffsize[p] ) {
-		while ( ((int) huffsize[p]) == si ) {
-			huffcode[p++] = code;
-			code++;
-		}
-		code <<= 1;
-		si++;
-	}
+    unsigned int code = 0;
+    int si = huffsize[0];
+    p = 0;
+    while ( huffsize[p] ) {
+        while ( ((int) huffsize[p]) == si ) {
+            huffcode[p++] = code;
+            code++;
+        }
+        code <<= 1;
+        si++;
+    }
 
-	// Figure F.15: generate decoding tables for bit-sequential decoding
-	p = 0;
-	for ( int l = 1; l <= 16; l++ ) {
-		if ( table->bits[l] ) {
-			table->valptr[l] = p; // huffval[] index of 1st symbol of code length l
-			table->mincode[l] = huffcode[p]; // minimum code of length l
-			p += table->bits[l];
-			table->maxcode[l] = huffcode[p-1]; // maximum code of length l
-		} else {
-			table->maxcode[l] = -1;	// -1 if no codes of this length
-		}
-	}
+    // Figure F.15: generate decoding tables for bit-sequential decoding
+    p = 0;
+    for ( int l = 1; l <= 16; l++ ) {
+        if ( table->bits[l] ) {
+            table->valptr[l] = p; // huffval[] index of 1st symbol of code length l
+            table->mincode[l] = huffcode[p]; // minimum code of length l
+            p += table->bits[l];
+            table->maxcode[l] = huffcode[p-1]; // maximum code of length l
+        } else {
+            table->maxcode[l] = -1;    // -1 if no codes of this length
+        }
+    }
     // Ensures gpujpeg_huff_decode terminates
-	table->maxcode[17] = 0xFFFFFL;
+    table->maxcode[17] = 0xFFFFFL;
 
-	// Compute lookahead tables to speed up decoding.
+    // Compute lookahead tables to speed up decoding.
     //First we set all the table entries to 0, indicating "too long";
     //then we iterate through the Huffman codes that are short enough and
     //fill in all the entries that correspond to bit sequences starting
     //with that code.
-	memset(table->look_nbits, 0, sizeof(int) * 256);
+    memset(table->look_nbits, 0, sizeof(int) * 256);
 
-	int HUFF_LOOKAHEAD = 8;
-	p = 0;
-	for ( int l = 1; l <= HUFF_LOOKAHEAD; l++ ) {
-		for ( int i = 1; i <= (int) table->bits[l]; i++, p++ ) {
-			// l = current code's length, 
-			// p = its index in huffcode[] & huffval[]. Generate left-justified
-			// code followed by all possible bit sequences
-			int lookbits = huffcode[p] << (HUFF_LOOKAHEAD - l);
-			for ( int ctr = 1 << (HUFF_LOOKAHEAD - l); ctr > 0; ctr-- ) 
-			{
-				table->look_nbits[lookbits] = l;
-				table->look_sym[lookbits] = table->huffval[p];
-				lookbits++;
-			}
-		}
-	}
+    int HUFF_LOOKAHEAD = 8;
+    p = 0;
+    for ( int l = 1; l <= HUFF_LOOKAHEAD; l++ ) {
+        for ( int i = 1; i <= (int) table->bits[l]; i++, p++ ) {
+            // l = current code's length, 
+            // p = its index in huffcode[] & huffval[]. Generate left-justified
+            // code followed by all possible bit sequences
+            int lookbits = huffcode[p] << (HUFF_LOOKAHEAD - l);
+            for ( int ctr = 1 << (HUFF_LOOKAHEAD - l); ctr > 0; ctr-- ) 
+            {
+                table->look_nbits[lookbits] = l;
+                table->look_sym[lookbits] = table->huffval[p];
+                lookbits++;
+            }
+        }
+    }
     
 #ifndef GPUJPEG_HUFFMAN_CODER_TABLES_IN_CONSTANT
     // Copy table to device memory

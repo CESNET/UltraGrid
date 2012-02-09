@@ -26,9 +26,10 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
 #include "gpujpeg_huffman_gpu_decoder.h"
 #include "gpujpeg_util.h"
+
 
 #ifdef GPUJPEG_HUFFMAN_CODER_TABLES_IN_CONSTANT
 /** Allocate huffman tables in constant memory */
@@ -62,11 +63,11 @@ gpujpeg_huffman_gpu_decoder_decode_fill_bit_buffer(int & get_bits, int & get_buf
 
             // If it's 0xFF, check and discard stuffed zero byte
             if ( uc == 0xFF ) {
-                do {
+            	while ( uc == 0xFF ) {
                     //printf("read byte %X 0x%X\n", (int)data, (unsigned char)*data);
                     uc = *data++;
                     data_size--;
-                } while ( uc == 0xFF );
+                }
 
                 if ( uc == 0 ) {
                     // Found FF/00, which represents an FF data byte
@@ -416,7 +417,7 @@ gpujpeg_huffman_gpu_decoder_init()
 {
     // Copy natural order to constant device memory
     cudaMemcpyToSymbol(
-        gpujpeg_huffman_gpu_decoder_order_natural,
+        (const char*)gpujpeg_huffman_gpu_decoder_order_natural,
         gpujpeg_order_natural, 
         64 * sizeof(int),
         0,

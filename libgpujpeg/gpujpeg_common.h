@@ -100,6 +100,9 @@ gpujpeg_init_device(int device_id, int flags);
  */
 struct gpujpeg_parameters
 {
+    // Verbose output
+    int verbose;
+    
     // Encoder quality level (0-100)
     int quality;
     
@@ -290,6 +293,9 @@ struct gpujpeg_coder
     struct gpujpeg_segment* segment;
     // Segments in device memory for all components
     struct gpujpeg_segment* d_segment;
+    
+    // Preprocessor data (kernel function pointer)
+    void* preprocessor;
 
     // Maximum sampling factor from components
     struct gpujpeg_component_sampling_factor sampling_factor;

@@ -167,7 +167,7 @@ gpujpeg_huffman_cpu_encoder_encode_block(struct gpujpeg_huffman_cpu_encoder* cod
 
     //    Write category number
     if ( gpujpeg_huffman_cpu_encoder_emit_bits(coder, table_dc->code[nbits], table_dc->size[nbits]) != 0 ) {
-        fprintf(stderr, "Fail emit bits %d [code: %d, size: %d]!\n", nbits, table_dc->code[nbits], table_dc->size[nbits]);
+        fprintf(stderr, "[GPUJPEG] [Error] Fail emit bits %d [code: %d, size: %d]!\n", nbits, table_dc->code[nbits], table_dc->size[nbits]);
         return -1;
     }
 
@@ -349,7 +349,7 @@ gpujpeg_huffman_cpu_encoder_encode(struct gpujpeg_encoder* encoder)
         // Encode segment MCUs
         for ( int mcu_index = 0; mcu_index < segment->mcu_count; mcu_index++ ) {
             if ( gpujpeg_huffman_cpu_encoder_encode_mcu(&coder, segment->scan_segment_index, mcu_index) != 0 ) {
-                fprintf(stderr, "Huffman encoder failed at block [%d, %d]!\n", segment_index, mcu_index);
+                fprintf(stderr, "[GPUJPEG] [Error] Huffman encoder failed at block [%d, %d]!\n", segment_index, mcu_index);
                 return -1;
             }
         }

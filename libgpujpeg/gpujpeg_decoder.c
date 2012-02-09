@@ -130,7 +130,7 @@ gpujpeg_decoder_init(struct gpujpeg_decoder* decoder, struct gpujpeg_parameters*
     
     // For now we can't reinitialize decoder, we can only do first initialization
     if ( coder->param_image.width != 0 || coder->param_image.height != 0 || coder->param_image.comp_count != 0 ) {
-        fprintf(stderr, "Can't reinitialize decoder, implement if needed!\n");
+        fprintf(stderr, "[GPUJPEG] [Error] Can't reinitialize decoder, implement if needed!\n");
         return -1;
     }
     
@@ -140,6 +140,12 @@ gpujpeg_decoder_init(struct gpujpeg_decoder* decoder, struct gpujpeg_parameters*
     // Initialize coder
     if ( gpujpeg_coder_init(coder) != 0 )
         return -1;
+        
+    // Init postprocessor
+    if ( gpujpeg_preprocessor_decoder_init(decoder) != 0 ) {
+        fprintf(stderr, "Failed to init postprocessor!");
+        return -1;
+    }
     
     return 0;
 }
@@ -148,11 +154,14 @@ gpujpeg_decoder_init(struct gpujpeg_decoder* decoder, struct gpujpeg_parameters*
 int
 gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int image_size, struct gpujpeg_decoder_output* output)
 {
-    //GPUJPEG_TIMER_INIT();
-    //GPUJPEG_TIMER_START();
+    GPUJPEG_TIMER_INIT();
     
     // Get coder
     struct gpujpeg_coder* coder = &decoder->coder;
+    
+    if ( coder->param.verbose ) {
+        GPUJPEG_TIMER_START();
+    }
     
     // Set custom output buffer
     if ( output->type == GPUJPEG_DECODER_OUTPUT_CUSTOM_BUFFER ) {
@@ -162,17 +171,19 @@ gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int imag
     
     // Read JPEG image data
     if ( gpujpeg_reader_read_image(decoder, image, image_size) != 0 ) {
-        fprintf(stderr, "Decoder failed when decoding image data!\n");
+        fprintf(stderr, "[GPUJPEG] [Error] Decoder failed when decoding image data!\n");
         return -1;
     }
     
-    //GPUJPEG_TIMER_STOP_PRINT("-Stream Reader:     ");
-    //GPUJPEG_TIMER_START();
+    if ( coder->param.verbose ) {
+        GPUJPEG_TIMER_STOP_PRINT("-Stream Reader:     ");
+        GPUJPEG_TIMER_START();
+    }
     
     // Perform huffman decoding on CPU (when restart interval is not set)
     if ( coder->param.restart_interval == 0 ) {
         if ( gpujpeg_huffman_cpu_decoder_decode(decoder) != 0 ) {
-            fprintf(stderr, "Huffman decoder failed!\n", index);
+            fprintf(stderr, "[GPUJPEG] [Error] Huffman decoder failed!\n");
             return -1;
         }
         // Copy quantized data to device memory from cpu memory
@@ -213,13 +224,15 @@ gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int imag
         
         // Perform huffman decoding
         if ( gpujpeg_huffman_gpu_decoder_decode(decoder) != 0 ) {
-            fprintf(stderr, "Huffman decoder on GPU failed!\n");
+            fprintf(stderr, "[GPUJPEG] [Error] Huffman decoder on GPU failed!\n");
             return -1;
         }
     }
     
-    //GPUJPEG_TIMER_STOP_PRINT("-Huffman Decoder:   ");
-    //GPUJPEG_TIMER_START();
+    if ( coder->param.verbose ) {
+        GPUJPEG_TIMER_STOP_PRINT("-Huffman Decoder:   ");
+        GPUJPEG_TIMER_START();
+    }
     
     // Perform IDCT and dequantization
     for ( int comp = 0; comp < coder->param_image.comp_count; comp++ ) {
@@ -252,14 +265,18 @@ gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int imag
         //gpujpeg_component_print8(component, component->d_data);
     }
     
-    //GPUJPEG_TIMER_STOP_PRINT("-DCT & Quantization:");
-    //GPUJPEG_TIMER_START();
+    if ( coder->param.verbose ) {
+        GPUJPEG_TIMER_STOP_PRINT("-DCT & Quantization:");
+        GPUJPEG_TIMER_START();
+    }
     
     // Preprocessing
     if ( gpujpeg_preprocessor_decode(decoder) != 0 )
         return -1;
         
-    //GPUJPEG_TIMER_STOP_PRINT("-Postprocessing:    ");
+    if ( coder->param.verbose ) {
+        GPUJPEG_TIMER_STOP_PRINT("-Postprocessing:    ");
+    }
     
     // Set decompressed image size
     output->data_size = coder->data_raw_size * sizeof(uint8_t);

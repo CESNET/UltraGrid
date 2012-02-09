@@ -364,9 +364,9 @@ gpujpeg_huffman_encoder_encode_kernel(
     // Emit left bits
     if ( put_bits > 0 )
         gpujpeg_huffman_gpu_encoder_emit_left_bits(put_value, put_bits, data_compressed);
-                        
+
     // Output restart marker
-    int restart_marker = GPUJPEG_MARKER_RST0 + (segment->scan_segment_index & 0x7);
+    int restart_marker = GPUJPEG_MARKER_RST0 + (segment->scan_segment_index % 8);
     gpujpeg_huffman_gpu_encoder_marker(data_compressed, restart_marker);
                 
     // Set compressed size
@@ -379,7 +379,7 @@ gpujpeg_huffman_gpu_encoder_init()
 {
     // Copy natural order to constant device memory
     cudaMemcpyToSymbol(
-        gpujpeg_huffman_gpu_encoder_order_natural,
+        (const char*)gpujpeg_huffman_gpu_encoder_order_natural,
         gpujpeg_order_natural, 
         64 * sizeof(int),
         0,

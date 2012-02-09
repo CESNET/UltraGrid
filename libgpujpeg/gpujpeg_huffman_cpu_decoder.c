@@ -402,7 +402,7 @@ gpujpeg_huffman_cpu_decoder_decode(struct gpujpeg_decoder* decoder)
         // Decode segment MCUs
         for ( int mcu_index = 0; mcu_index < segment->mcu_count; mcu_index++ ) {
             if ( gpujpeg_huffman_cpu_decoder_decode_mcu(&coder, segment->scan_segment_index, mcu_index) != 0 ) {
-                fprintf(stderr, "Huffman decoder failed at block [%d, %d]!\n", segment_index, mcu_index);
+                fprintf(stderr, "[GPUJPEG] [Error] Huffman decoder failed at block [%d, %d]!\n", segment_index, mcu_index);
                 return -1;
             }
         }

@@ -128,7 +128,6 @@ struct gpujpeg_preprocessor_data_component
 {
     uint8_t* d_data;
     int data_width;
-    int data_height;
     struct gpujpeg_component_sampling_factor sampling_factor;
 };
 
@@ -140,46 +139,87 @@ struct gpujpeg_preprocessor_data
     struct gpujpeg_preprocessor_data_component comp[3];
 };
 
+/** Value that means that sampling factor has dynamic value */
+#define GPUJPEG_DYNAMIC 16
+
+/** Sampling factor for all components */
+typedef int gpujpeg_preprocessor_sampling_factor_t;
+
 /**
- * Store value to component data buffer in specified position by buffer size and subsampling
+ * Compose sampling factor for all components to single type
  * 
- * @param value
- * @param position_x
- * @param position_y
- * @param comp
+ * @return integer that contains all sampling factors
  */
-__device__ void
-gpujpeg_preprocessor_raw_to_comp_store(uint8_t value, int position_x, int position_y, struct gpujpeg_preprocessor_data_component & comp)
-{
-    if ( (position_x % comp.sampling_factor.horizontal) != 0 && (position_x % comp.sampling_factor.vertical) != 0 )
-        return;
-    position_x = position_x / comp.sampling_factor.horizontal;
-    position_y = position_y / comp.sampling_factor.vertical;
+inline gpujpeg_preprocessor_sampling_factor_t
+gpujpeg_preprocessor_make_sampling_factor(int comp1_h, int comp1_v, int comp2_h, int comp2_v, int comp3_h, int comp3_v)
+{    
+    gpujpeg_preprocessor_sampling_factor_t sampling_factor = 0;
+    sampling_factor |= ((comp1_h << 4) | comp1_v) << 16;
+    sampling_factor |= ((comp2_h << 4) | comp2_v) << 8;
+    sampling_factor |= ((comp3_h << 4) | comp3_v) << 0;
     
-    int data_position = position_y * comp.data_width + position_x;
-    comp.d_data[data_position] = value;
+    return sampling_factor;
 }
 
 /**
+ * Store value to component data buffer in specified position by buffer size and subsampling
+ */
+template<
+    uint8_t s_samp_factor_h = GPUJPEG_DYNAMIC,
+    uint8_t s_samp_factor_v = GPUJPEG_DYNAMIC
+>
+struct gpujpeg_preprocessor_raw_to_comp_store
+{
+    static __device__ void
+    perform(uint8_t value, int position_x, int position_y, struct gpujpeg_preprocessor_data_component & comp)
+    {
+        uint8_t samp_factor_h = s_samp_factor_h;
+        if ( samp_factor_h == GPUJPEG_DYNAMIC ) {
+            samp_factor_h = comp.sampling_factor.horizontal;
+        }
+        uint8_t samp_factor_v = s_samp_factor_v;
+        if ( samp_factor_v == GPUJPEG_DYNAMIC ) {
+            samp_factor_v = comp.sampling_factor.vertical;
+        }
+        
+        if ( (position_x % samp_factor_h) != 0 && (position_x % samp_factor_v) != 0 )
+            return;
+        position_x = position_x / samp_factor_h;
+        position_y = position_y / samp_factor_v;
+
+        int data_position = position_y * comp.data_width + position_x;
+        comp.d_data[data_position] = value;
+    }
+};
+template<>
+struct gpujpeg_preprocessor_raw_to_comp_store<1, 1>
+{
+    static __device__ void
+    perform(uint8_t value, int position_x, int position_y, struct gpujpeg_preprocessor_data_component & comp)
+    {
+        int data_position = position_y * comp.data_width + position_x;
+        comp.d_data[data_position] = value;
+    }
+};
+
+/**
  * Kernel - Copy raw image source data into three separated component buffers
- *
- * @param d_c1  First component buffer
- * @param d_c2  Second component buffer
- * @param d_c3  Third component buffer
- * @param d_source  Image source data
- * @param pixel_count  Number of pixels to copy
- * @return void
  */
 typedef void (*gpujpeg_preprocessor_encode_kernel)(struct gpujpeg_preprocessor_data data, const uint8_t* d_data_raw, int image_width, int image_height);
  
 /** Specialization [sampling factor is 4:4:4] */
-template<enum gpujpeg_color_space color_space>
+template<
+    enum gpujpeg_color_space color_space,
+    uint8_t s_comp1_samp_factor_h, uint8_t s_comp1_samp_factor_v,
+    uint8_t s_comp2_samp_factor_h, uint8_t s_comp2_samp_factor_v,
+    uint8_t s_comp3_samp_factor_h, uint8_t s_comp3_samp_factor_v
+>
 __global__ void 
 gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4(struct gpujpeg_preprocessor_data data, const uint8_t* d_data_raw, int image_width, int image_height)
 {
     int x  = threadIdx.x;
     int gX = blockDim.x * blockIdx.x;
-        
+            
     // Load to shared
     __shared__ unsigned char s_data[RGB_8BIT_THREADS * 3];
     if ( (x * 4) < RGB_8BIT_THREADS * 3 ) {
@@ -194,21 +234,30 @@ gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4(struct gpujpeg_preprocessor_data d
     float r1 = (float)(s_data[offset]);
     float r2 = (float)(s_data[offset + 1]);
     float r3 = (float)(s_data[offset + 2]);
+
     // Color transform
     gpujpeg_color_transform<color_space, GPUJPEG_YCBCR_JPEG>::perform(r1, r2, r3);
-    // Store
+    
+    // Position
     int image_position = gX + x;
+    int image_position_x = image_position % image_width;
+    int image_position_y = image_position / image_width;
+        
+    // Store
     if ( image_position < (image_width * image_height) ) {
-        int image_position_x = image_position % image_width;
-        int image_position_y = image_position / image_width;
-        gpujpeg_preprocessor_raw_to_comp_store((uint8_t)r1, image_position_x, image_position_y, data.comp[0]);
-        gpujpeg_preprocessor_raw_to_comp_store((uint8_t)r2, image_position_x, image_position_y, data.comp[1]);
-        gpujpeg_preprocessor_raw_to_comp_store((uint8_t)r3, image_position_x, image_position_y, data.comp[2]);
+        gpujpeg_preprocessor_raw_to_comp_store<s_comp1_samp_factor_h, s_comp1_samp_factor_v>::perform((uint8_t)r1, image_position_x, image_position_y, data.comp[0]);
+        gpujpeg_preprocessor_raw_to_comp_store<s_comp2_samp_factor_h, s_comp2_samp_factor_v>::perform((uint8_t)r2, image_position_x, image_position_y, data.comp[1]);
+        gpujpeg_preprocessor_raw_to_comp_store<s_comp3_samp_factor_h, s_comp3_samp_factor_v>::perform((uint8_t)r3, image_position_x, image_position_y, data.comp[2]);
     }
 }
 
 /** Specialization [sampling factor is 4:2:2] */
-template<enum gpujpeg_color_space color_space>
+template<
+    enum gpujpeg_color_space color_space,
+    uint8_t s_comp1_samp_factor_h, uint8_t s_comp1_samp_factor_v,
+    uint8_t s_comp2_samp_factor_h, uint8_t s_comp2_samp_factor_v,
+    uint8_t s_comp3_samp_factor_h, uint8_t s_comp3_samp_factor_v
+>
 __global__ void 
 gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2(struct gpujpeg_preprocessor_data data, const uint8_t* d_data_raw, int image_width, int image_height)
 {
@@ -236,16 +285,20 @@ gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2(struct gpujpeg_preprocessor_data d
         r2 = (float)(s_data[offset - 2]);
         r3 = (float)(s_data[offset]);
     }
+    
     // Color transform
     gpujpeg_color_transform<color_space, GPUJPEG_YCBCR_JPEG>::perform(r1, r2, r3);
-    // Store
+    
+    // Position
     int image_position = gX + x;
+    int image_position_x = image_position % image_width;
+    int image_position_y = image_position / image_width;
+    
+    // Store
     if ( image_position < (image_width * image_height) ) {
-        int image_position_x = image_position % image_width;
-        int image_position_y = image_position / image_width;
-        gpujpeg_preprocessor_raw_to_comp_store((uint8_t)r1, image_position_x, image_position_y, data.comp[0]);
-        gpujpeg_preprocessor_raw_to_comp_store((uint8_t)r2, image_position_x, image_position_y, data.comp[1]);
-        gpujpeg_preprocessor_raw_to_comp_store((uint8_t)r3, image_position_x, image_position_y, data.comp[2]);
+        gpujpeg_preprocessor_raw_to_comp_store<s_comp1_samp_factor_h, s_comp1_samp_factor_v>::perform((uint8_t)r1, image_position_x, image_position_y, data.comp[0]);
+        gpujpeg_preprocessor_raw_to_comp_store<s_comp2_samp_factor_h, s_comp2_samp_factor_v>::perform((uint8_t)r2, image_position_x, image_position_y, data.comp[1]);
+        gpujpeg_preprocessor_raw_to_comp_store<s_comp3_samp_factor_h, s_comp3_samp_factor_v>::perform((uint8_t)r3, image_position_x, image_position_y, data.comp[2]);
     }
 }
 
@@ -261,17 +314,48 @@ gpujpeg_preprocessor_select_encode_kernel(struct gpujpeg_encoder* encoder)
     // Get coder
     struct gpujpeg_coder* coder = &encoder->coder;
     
+    gpujpeg_preprocessor_sampling_factor_t sampling_factor = gpujpeg_preprocessor_make_sampling_factor(
+        coder->sampling_factor.horizontal / coder->component[0].sampling_factor.horizontal,
+        coder->sampling_factor.vertical / coder->component[0].sampling_factor.vertical,
+        coder->sampling_factor.horizontal / coder->component[1].sampling_factor.horizontal,
+        coder->sampling_factor.vertical / coder->component[1].sampling_factor.vertical,
+        coder->sampling_factor.horizontal / coder->component[2].sampling_factor.horizontal,
+        coder->sampling_factor.vertical / coder->component[2].sampling_factor.vertical
+    );
+    
+#define RETURN_KERNEL_IF(KERNEL, COLOR, P1, P2, P3, P4, P5, P6) \
+    if ( sampling_factor == gpujpeg_preprocessor_make_sampling_factor(P1, P2, P3, P4, P5, P6) ) { \
+        int max_h = max(P1, max(P3, P5)); \
+        int max_v = max(P2, max(P4, P6)); \
+        if ( coder->param.verbose ) { \
+            printf("Using faster kernel for preprocessor (precompiled %dx%d, %dx%d, %dx%d).\n", max_h / P1, max_v / P2, max_h / P3, max_v / P4, max_h / P5, max_v / P6); \
+        } \
+        return &KERNEL<COLOR, P1, P2, P3, P4, P5, P6>; \
+    } 
+#define RETURN_KERNEL(KERNEL, COLOR) \
+    RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 1, 1, 1, 1) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 2, 2, 2, 2) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 1, 2, 1, 2) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 2, 1, 2, 1) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 4, 4, 4, 4) \
+    else { \
+        if ( coder->param.verbose ) { \
+            printf("Using slower kernel for preprocessor (dynamic %dx%d, %dx%d, %dx%d).\n", coder->component[0].sampling_factor.horizontal, coder->component[0].sampling_factor.vertical, coder->component[1].sampling_factor.horizontal, coder->component[1].sampling_factor.vertical, coder->component[2].sampling_factor.horizontal, coder->component[2].sampling_factor.vertical); \
+        } \
+        return &KERNEL<COLOR, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC>; \
+    } \
+
     // RGB color space
     if ( coder->param_image.color_space == GPUJPEG_RGB ) {
         assert(coder->param_image.sampling_factor == GPUJPEG_4_4_4);
-        return &gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4<GPUJPEG_RGB>;
+        RETURN_KERNEL(gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4, GPUJPEG_RGB);
     } 
     // YCbCr ITU-R color space
     else if ( coder->param_image.color_space == GPUJPEG_YCBCR_ITU_R ) {
         if ( coder->param_image.sampling_factor == GPUJPEG_4_4_4 ) {
-            return &gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4<GPUJPEG_YCBCR_ITU_R>;
+            RETURN_KERNEL(gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4, GPUJPEG_YCBCR_ITU_R);
         } else if ( coder->param_image.sampling_factor == GPUJPEG_4_2_2 ) {
-            return &gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2<GPUJPEG_YCBCR_ITU_R>;
+            RETURN_KERNEL(gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2, GPUJPEG_YCBCR_ITU_R);
         } else {
             assert(false);
         }
@@ -279,9 +363,9 @@ gpujpeg_preprocessor_select_encode_kernel(struct gpujpeg_encoder* encoder)
     // YCbCr JPEG color space
     else if ( coder->param_image.color_space == GPUJPEG_YCBCR_JPEG ) {
         if ( coder->param_image.sampling_factor == GPUJPEG_4_4_4 ) {
-            return &gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4<GPUJPEG_YCBCR_JPEG>;
+            RETURN_KERNEL(gpujpeg_preprocessor_raw_to_comp_kernel_4_4_4, GPUJPEG_YCBCR_JPEG);
         } else if ( coder->param_image.sampling_factor == GPUJPEG_4_2_2 ) {
-            return &gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2<GPUJPEG_YCBCR_JPEG>;
+            RETURN_KERNEL(gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2, GPUJPEG_YCBCR_JPEG);
         } else {
             assert(false);
         }
@@ -290,7 +374,21 @@ gpujpeg_preprocessor_select_encode_kernel(struct gpujpeg_encoder* encoder)
     else {
         assert(false);
     }
+    
+#undef RETURN_KERNEL_IF
+#undef RETURN_KERNEL
+
     return NULL;
+}
+
+/** Documented at declaration */
+int
+gpujpeg_preprocessor_encoder_init(struct gpujpeg_encoder* encoder)
+{
+    encoder->coder.preprocessor = (void*)gpujpeg_preprocessor_select_encode_kernel(encoder);
+    if ( encoder->coder.preprocessor == NULL )
+        return -1;
+    return 0;
 }
 
 /** Documented at declaration */
@@ -303,7 +401,8 @@ gpujpeg_preprocessor_encode(struct gpujpeg_encoder* encoder)
     cudaMemset(coder->d_data, 0, coder->data_size * sizeof(uint8_t));
 
     // Select kernel
-    gpujpeg_preprocessor_encode_kernel kernel = gpujpeg_preprocessor_select_encode_kernel(encoder);
+    gpujpeg_preprocessor_encode_kernel kernel = (gpujpeg_preprocessor_encode_kernel)coder->preprocessor;
+    assert(kernel != NULL);
     
     int image_width = coder->param_image.width;
     int image_height = coder->param_image.height;
@@ -332,11 +431,10 @@ gpujpeg_preprocessor_encode(struct gpujpeg_encoder* encoder)
         data.comp[comp].sampling_factor.horizontal = coder->sampling_factor.horizontal / coder->component[comp].sampling_factor.horizontal;
         data.comp[comp].sampling_factor.vertical = coder->sampling_factor.vertical / coder->component[comp].sampling_factor.vertical;
         data.comp[comp].data_width = coder->component[comp].data_width;
-        data.comp[comp].data_height = coder->component[comp].data_height;
     }
     kernel<<<grid, threads>>>(
         data,
-        coder->d_data_raw, 
+        coder->d_data_raw,
         image_width,
         image_height
     );
@@ -357,15 +455,41 @@ gpujpeg_preprocessor_encode(struct gpujpeg_encoder* encoder)
  * @param position_y
  * @param comp
  */
-__device__ void
-gpujpeg_preprocessor_comp_to_raw_load(float & value, int position_x, int position_y, struct gpujpeg_preprocessor_data_component & comp)
+ template<
+    uint8_t s_samp_factor_h = GPUJPEG_DYNAMIC,
+    uint8_t s_samp_factor_v = GPUJPEG_DYNAMIC
+>
+struct gpujpeg_preprocessor_comp_to_raw_load
 {
-    position_x = position_x / comp.sampling_factor.horizontal;
-    position_y = position_y / comp.sampling_factor.vertical;
-    
-    int data_position = position_y * comp.data_width + position_x;
-    value = (float)comp.d_data[data_position];
-}
+    static __device__ void
+    perform(float & value, int position_x, int position_y, struct gpujpeg_preprocessor_data_component & comp)
+    {
+        uint8_t samp_factor_h = s_samp_factor_h;
+        if ( samp_factor_h == GPUJPEG_DYNAMIC ) {
+            samp_factor_h = comp.sampling_factor.horizontal;
+        }
+        uint8_t samp_factor_v = s_samp_factor_v;
+        if ( samp_factor_v == GPUJPEG_DYNAMIC ) {
+            samp_factor_v = comp.sampling_factor.vertical;
+        }
+        
+        position_x = position_x / samp_factor_h;
+        position_y = position_y / samp_factor_v;
+        
+        int data_position = position_y * comp.data_width + position_x;
+        value = (float)comp.d_data[data_position];
+    }
+};
+template<>
+struct gpujpeg_preprocessor_comp_to_raw_load<1, 1>
+{
+    static __device__ void
+    perform(float & value, int position_x, int position_y, struct gpujpeg_preprocessor_data_component & comp)
+    {
+        int data_position = position_y * comp.data_width + position_x;
+        value = (float)comp.d_data[data_position];
+    }
+};
 
 /**
  * Kernel - Copy three separated component buffers into target image data
@@ -380,7 +504,12 @@ gpujpeg_preprocessor_comp_to_raw_load(float & value, int position_x, int positio
 typedef void (*gpujpeg_preprocessor_decode_kernel)(struct gpujpeg_preprocessor_data data, uint8_t* d_data_raw, int image_width, int image_height);
 
 /** Specialization [sampling factor is 4:4:4] */
-template<enum gpujpeg_color_space color_space>
+template<
+    enum gpujpeg_color_space color_space,
+    uint8_t s_comp1_samp_factor_h, uint8_t s_comp1_samp_factor_v,
+    uint8_t s_comp2_samp_factor_h, uint8_t s_comp2_samp_factor_v,
+    uint8_t s_comp3_samp_factor_h, uint8_t s_comp3_samp_factor_v
+>
 __global__ void
 gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4(struct gpujpeg_preprocessor_data data, uint8_t* d_data_raw, int image_width, int image_height)
 {
@@ -396,9 +525,9 @@ gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4(struct gpujpeg_preprocessor_data d
     float r1;
     float r2;
     float r3;
-    gpujpeg_preprocessor_comp_to_raw_load(r1, image_position_x, image_position_y, data.comp[0]);
-    gpujpeg_preprocessor_comp_to_raw_load(r2, image_position_x, image_position_y, data.comp[1]);
-    gpujpeg_preprocessor_comp_to_raw_load(r3, image_position_x, image_position_y, data.comp[2]);
+    gpujpeg_preprocessor_comp_to_raw_load<s_comp1_samp_factor_h, s_comp1_samp_factor_v>::perform(r1, image_position_x, image_position_y, data.comp[0]);
+    gpujpeg_preprocessor_comp_to_raw_load<s_comp2_samp_factor_h, s_comp2_samp_factor_v>::perform(r2, image_position_x, image_position_y, data.comp[1]);
+    gpujpeg_preprocessor_comp_to_raw_load<s_comp3_samp_factor_h, s_comp3_samp_factor_v>::perform(r3, image_position_x, image_position_y, data.comp[2]);
     
     // Color transform
     gpujpeg_color_transform<GPUJPEG_YCBCR_JPEG, color_space>::perform(r1, r2, r3);
@@ -411,7 +540,12 @@ gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4(struct gpujpeg_preprocessor_data d
 }
 
 /** Specialization [sampling factor is 4:2:2] */
-template<enum gpujpeg_color_space color_space>
+template<
+    enum gpujpeg_color_space color_space,
+    uint8_t s_comp1_samp_factor_h, uint8_t s_comp1_samp_factor_v,
+    uint8_t s_comp2_samp_factor_h, uint8_t s_comp2_samp_factor_v,
+    uint8_t s_comp3_samp_factor_h, uint8_t s_comp3_samp_factor_v
+>
 __global__ void
 gpujpeg_preprocessor_comp_to_raw_kernel_4_2_2(struct gpujpeg_preprocessor_data data, uint8_t* d_data_raw, int image_width, int image_height)
 {
@@ -427,9 +561,9 @@ gpujpeg_preprocessor_comp_to_raw_kernel_4_2_2(struct gpujpeg_preprocessor_data d
     float r1;
     float r2;
     float r3;
-    gpujpeg_preprocessor_comp_to_raw_load(r1, image_position_x, image_position_y, data.comp[0]);
-    gpujpeg_preprocessor_comp_to_raw_load(r2, image_position_x, image_position_y, data.comp[1]);
-    gpujpeg_preprocessor_comp_to_raw_load(r3, image_position_x, image_position_y, data.comp[2]);    
+    gpujpeg_preprocessor_comp_to_raw_load<s_comp1_samp_factor_h, s_comp1_samp_factor_v>::perform(r1, image_position_x, image_position_y, data.comp[0]);
+    gpujpeg_preprocessor_comp_to_raw_load<s_comp2_samp_factor_h, s_comp2_samp_factor_v>::perform(r2, image_position_x, image_position_y, data.comp[1]);
+    gpujpeg_preprocessor_comp_to_raw_load<s_comp3_samp_factor_h, s_comp3_samp_factor_v>::perform(r3, image_position_x, image_position_y, data.comp[2]);
     
     // Color transform
     gpujpeg_color_transform<GPUJPEG_YCBCR_JPEG, color_space>::perform(r1, r2, r3);
@@ -455,17 +589,48 @@ gpujpeg_preprocessor_select_decode_kernel(struct gpujpeg_decoder* decoder)
     // Get coder
     struct gpujpeg_coder* coder = &decoder->coder;
     
+    gpujpeg_preprocessor_sampling_factor_t sampling_factor = gpujpeg_preprocessor_make_sampling_factor(
+        coder->sampling_factor.horizontal / coder->component[0].sampling_factor.horizontal,
+        coder->sampling_factor.vertical / coder->component[0].sampling_factor.vertical,
+        coder->sampling_factor.horizontal / coder->component[1].sampling_factor.horizontal,
+        coder->sampling_factor.vertical / coder->component[1].sampling_factor.vertical,
+        coder->sampling_factor.horizontal / coder->component[2].sampling_factor.horizontal,
+        coder->sampling_factor.vertical / coder->component[2].sampling_factor.vertical
+    );
+    
+#define RETURN_KERNEL_IF(KERNEL, COLOR, P1, P2, P3, P4, P5, P6) \
+    if ( sampling_factor == gpujpeg_preprocessor_make_sampling_factor(P1, P2, P3, P4, P5, P6) ) { \
+        int max_h = max(P1, max(P3, P5)); \
+        int max_v = max(P2, max(P4, P6)); \
+        if ( coder->param.verbose ) { \
+            printf("Using faster kernel for postprocessor (precompiled %dx%d, %dx%d, %dx%d).\n", max_h / P1, max_v / P2, max_h / P3, max_v / P4, max_h / P5, max_v / P6); \
+        } \
+        return &KERNEL<COLOR, P1, P2, P3, P4, P5, P6>; \
+    } 
+#define RETURN_KERNEL(KERNEL, COLOR) \
+    RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 1, 1, 1, 1) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 2, 2, 2, 2) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 1, 2, 1, 2) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 2, 1, 2, 1) \
+    else RETURN_KERNEL_IF(KERNEL, COLOR, 1, 1, 4, 4, 4, 4) \
+    else { \
+        if ( coder->param.verbose ) { \
+            printf("Using slower kernel for postprocessor (dynamic %dx%d, %dx%d, %dx%d).\n", coder->component[0].sampling_factor.horizontal, coder->component[0].sampling_factor.vertical, coder->component[1].sampling_factor.horizontal, coder->component[1].sampling_factor.vertical, coder->component[2].sampling_factor.horizontal, coder->component[2].sampling_factor.vertical); \
+        } \
+        return &KERNEL<COLOR, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC, GPUJPEG_DYNAMIC>; \
+    } \
+    
     // RGB color space
     if ( coder->param_image.color_space == GPUJPEG_RGB ) {
         assert(coder->param_image.sampling_factor == GPUJPEG_4_4_4);
-        return &gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4<GPUJPEG_RGB>;
+        RETURN_KERNEL(gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4, GPUJPEG_RGB);
     } 
     // YCbCr ITU-R color space
     else if ( coder->param_image.color_space == GPUJPEG_YCBCR_ITU_R ) {
         if ( coder->param_image.sampling_factor == GPUJPEG_4_4_4 ) {
-            return &gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4<GPUJPEG_YCBCR_ITU_R>;
+            RETURN_KERNEL(gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4, GPUJPEG_YCBCR_ITU_R)
         } else if ( coder->param_image.sampling_factor == GPUJPEG_4_2_2 ) {
-            return &gpujpeg_preprocessor_comp_to_raw_kernel_4_2_2<GPUJPEG_YCBCR_ITU_R>;
+            RETURN_KERNEL(gpujpeg_preprocessor_comp_to_raw_kernel_4_2_2, GPUJPEG_YCBCR_ITU_R)
         } else {
             assert(false);
         }
@@ -473,9 +638,9 @@ gpujpeg_preprocessor_select_decode_kernel(struct gpujpeg_decoder* decoder)
     // YCbCr JPEG color space
     else if ( coder->param_image.color_space == GPUJPEG_YCBCR_JPEG ) {
         if ( coder->param_image.sampling_factor == GPUJPEG_4_4_4 ) {
-            return &gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4<GPUJPEG_YCBCR_JPEG>;
+            RETURN_KERNEL(gpujpeg_preprocessor_comp_to_raw_kernel_4_4_4, GPUJPEG_YCBCR_JPEG)
         } else if ( coder->param_image.sampling_factor == GPUJPEG_4_2_2 ) {
-            return &gpujpeg_preprocessor_comp_to_raw_kernel_4_2_2<GPUJPEG_YCBCR_JPEG>;
+            RETURN_KERNEL(gpujpeg_preprocessor_comp_to_raw_kernel_4_2_2, GPUJPEG_YCBCR_JPEG)
         } else {
             assert(false);
         }
@@ -484,7 +649,21 @@ gpujpeg_preprocessor_select_decode_kernel(struct gpujpeg_decoder* decoder)
     else {
         assert(false);
     }
+    
+#undef RETURN_KERNEL_IF
+#undef RETURN_KERNEL
+    
     return NULL;
+}
+
+/** Documented at declaration */
+int
+gpujpeg_preprocessor_decoder_init(struct gpujpeg_decoder* decoder)
+{
+    decoder->coder.preprocessor = (void*)gpujpeg_preprocessor_select_decode_kernel(decoder);
+    if ( decoder->coder.preprocessor == NULL )
+        return -1;
+    return 0;
 }
 
 /** Documented at declaration */
@@ -497,7 +676,8 @@ gpujpeg_preprocessor_decode(struct gpujpeg_decoder* decoder)
     cudaMemset(coder->d_data_raw, 0, coder->data_raw_size * sizeof(uint8_t));
     
     // Select kernel
-    gpujpeg_preprocessor_decode_kernel kernel = gpujpeg_preprocessor_select_decode_kernel(decoder);
+    gpujpeg_preprocessor_decode_kernel kernel = (gpujpeg_preprocessor_decode_kernel)coder->preprocessor;
+    assert(kernel != NULL);
     
     int image_width = coder->param_image.width;
     int image_height = coder->param_image.height;
@@ -525,7 +705,6 @@ gpujpeg_preprocessor_decode(struct gpujpeg_decoder* decoder)
         data.comp[comp].sampling_factor.horizontal = coder->sampling_factor.horizontal / coder->component[comp].sampling_factor.horizontal;
         data.comp[comp].sampling_factor.vertical = coder->sampling_factor.vertical / coder->component[comp].sampling_factor.vertical;
         data.comp[comp].data_width = coder->component[comp].data_width;
-        data.comp[comp].data_height = coder->component[comp].data_height;
     }
     kernel<<<grid, threads>>>(
         data,
