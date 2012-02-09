@@ -90,6 +90,7 @@
 #define PORT_AUDIO              5006
 
 struct state_uv {
+        int port_number;
         struct rtp **network_devices;
         unsigned int connections_count;
         
@@ -169,7 +170,7 @@ static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
         printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] \n");
-        printf("          [-m <mtu>] [-c] [-i] [-M <video_mode>] [-p <postprocess>] [-f <FEC_options>] address(es)\n\n");
+        printf("          [-m <mtu>] [-c] [-i] [-M <video_mode>] [-p <postprocess>] [-f <FEC_options>] [-P <port>] address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help' to get\n");
         printf("\t                         \tlist of supported devices\n");
@@ -193,6 +194,8 @@ static void usage(void)
         printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
         printf("\t-f <settings>            \tconfig forward error checking, currently \"XOR:<leap>:<nr_streams>\" or \"mult:<nr>\"\n");
+        printf("\n");
+        printf("\t-P <port>                \tbase port number, also 3 subsequent ports can be used (default: %d)\n", PORT_BASE);
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -298,7 +301,7 @@ struct vidcap *initialize_video_capture(const char *requested_capture,
         return vidcap_init(id, fmt, flags);
 }
 
-static struct rtp **initialize_network(char *addrs, struct pdb *participants)
+static struct rtp **initialize_network(char *addrs, int port_base, struct pdb *participants)
 {
 	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
@@ -307,7 +310,7 @@ static struct rtp **initialize_network(char *addrs, struct pdb *participants)
 	char *addr;
 	char *tmp;
 	int required_connections, index;
-        int port = PORT_BASE;
+        int port = port_base;
 
 	tmp = strdup(addrs);
 	if(strtok_r(tmp, ",", &saveptr) == NULL) {
@@ -623,6 +626,7 @@ int main(int argc, char *argv[])
                 {"help", no_argument, 0, 'h'},
                 {"jack", required_argument, 0, 'j'},
                 {"fec", required_argument, 0, 'f'},
+                {"port", required_argument, 0, 'P'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -645,12 +649,13 @@ int main(int argc, char *argv[])
         uv->participants = NULL;
         uv->tx = NULL;
         uv->network_devices = NULL;
+        uv->port_number = PORT_BASE;
 
         perf_init();
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:f:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:f:P:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -706,6 +711,9 @@ int main(int argc, char *argv[])
 		case 'h':
 			usage();
 			return 0;
+                case 'P':
+                        uv->port_number = atoi(optarg);
+                        break;
                 case '?':
                         break;
                 default:
@@ -731,7 +739,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        uv->audio = audio_cfg_init (network_device, audio_send, audio_recv, jack_cfg);
+        uv->audio = audio_cfg_init (network_device, uv->port_number + 2, audio_send, audio_recv, jack_cfg);
         if(!uv->audio)
                 goto cleanup;
 
@@ -873,7 +881,7 @@ int main(int argc, char *argv[])
 
         } else {
                 if ((uv->network_devices =
-                     initialize_network(network_device, uv->participants)) == NULL) {
+                     initialize_network(network_device, uv->port_number, uv->participants)) == NULL) {
                         printf("Unable to open network\n");
                         exit_status = EXIT_FAIL_NETWORK;
                         goto cleanup;

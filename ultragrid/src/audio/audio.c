@@ -187,7 +187,7 @@ void sdi_playback_done(void *s);
 struct audio_frame * sdi_read(void *state);
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
-static struct rtp *initialize_audio_network(char *addr, struct pdb *participants);
+static struct rtp *initialize_audio_network(char *addr, int port, struct pdb *participants);
 void initialize_audio_capture(void);
 void initialize_audio_playback(void);
 void print_audio_capture_devices(void);
@@ -480,7 +480,7 @@ void print_audio_playback_devices()
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg, char *jack_cfg)
+struct state_audio * audio_cfg_init(char *addrs, int port, char *send_cfg, char *recv_cfg, char *jack_cfg)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -514,7 +514,7 @@ struct state_audio * audio_cfg_init(char *addrs, char *send_cfg, char *recv_cfg,
         s->audio_participants = pdb_init();
         addr = strtok_r(tmp, ",", &unused);
         if ((s->audio_network_device =
-             initialize_audio_network(addr,
+             initialize_audio_network(addr, port,
                                       s->audio_participants)) ==
             NULL) {
                 printf("Unable to open audio network\n");
@@ -693,12 +693,12 @@ struct audio_frame * sdi_read(void *state)
                 return NULL;
 }
 
-static struct rtp *initialize_audio_network(char *addr, struct pdb *participants)       // GiX
+static struct rtp *initialize_audio_network(char *addr, int port, struct pdb *participants)       // GiX
 {
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
 
-        r = rtp_init(addr, PORT_AUDIO, PORT_AUDIO, 255, rtcp_bw, FALSE, rtp_recv_callback,
+        r = rtp_init(addr, port, port, 255, rtcp_bw, FALSE, rtp_recv_callback,
                      (void *)participants);
         if (r != NULL) {
                 pdb_add(participants, rtp_my_ssrc(r));
