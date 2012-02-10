@@ -400,6 +400,11 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 #ifdef RTDXT_DEBUG
     glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[0]);
 #endif
+#ifdef RTDXT_DEBUG_HOST
+    TIMER_INIT();
+
+    TIMER_START();
+#endif
 #ifdef HAVE_GPUPERFAPI
     GPA_BeginPass();
     GPA_BeginSample(0);
@@ -465,6 +470,12 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glEndQuery(GL_TIME_ELAPSED_EXT);
     glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[2]);
 #endif
+#ifdef RTDXT_DEBUG_HOST
+    glFinish();
+    TIMER_STOP_PRINT("Tex Load (+->444): ");
+    TIMER_START();
+#endif
+
 #ifdef HAVE_GPUPERFAPI
     GPA_EndSample();
     GPA_BeginSample(2);
@@ -497,6 +508,12 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glEndQuery(GL_TIME_ELAPSED_EXT);
     glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[3]);
 #endif
+#ifdef RTDXT_DEBUG_HOST
+    glFinish();
+    TIMER_STOP_PRINT("Texture Compress:  ");
+    TIMER_START();
+#endif
+
 
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -505,6 +522,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     else
         glReadPixels(0, 0, encoder->width / 4 , encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
         
+#ifdef RTDXT_DEBUG_HOST
+    glFinish();
+    TIMER_STOP_PRINT("Texture Save:      ");
+#endif
 #ifdef RTDXT_DEBUG
     glEndQuery(GL_TIME_ELAPSED_EXT);
     {
