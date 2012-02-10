@@ -77,10 +77,6 @@ extern "C" {
 } // END of extern "C"
 #endif
 
-void display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
-                                int sample_rate);
-
-
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
         {VHD_VIDEOSTD_S274M_1080p_25Hz, "SMPTE 274M 1080p 25 Hz", 1920u, 1080u, 25.0, PROGRESSIVE},
         {VHD_VIDEOSTD_S274M_1080p_30Hz, "SMPTE 274M 1080p 30 Hz", 1920u, 1080u, 30.0, PROGRESSIVE},
@@ -302,8 +298,6 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
         s->initialized = FALSE;
         if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
                 s->play_audio = TRUE;
-                s->audio_frame.state = s;
-                s->audio_frame.reconfigure_audio = display_deltacast_reconfigure_audio;
         } else {
                 s->play_audio = FALSE;
         }
@@ -462,7 +456,7 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
         return TRUE;
 }
 
-void display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
+int display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
                                 int sample_rate)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -508,12 +502,15 @@ void display_deltacast_reconfigure_audio(void *state, int quant_samples, int cha
                                 break;
                         default:
                                 fprintf(stderr, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
+                                return FALSE;
                 }
                 pAudioChn->pData = new BYTE[s->audio_frame.bps * s->audio_frame.sample_rate];
         }
 
         s->audio_configured = TRUE;
         pthread_mutex_unlock(&s->lock);
+
+        return TRUE;
 }
 
 struct audio_frame * display_deltacast_get_audio_frame(void *state)

@@ -396,3 +396,9 @@ void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
         display_put_audio_frame(s->devices[0], frame);
 }
 
+int display_aggregate_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate)
+{
+        struct display_aggregate_state *s = (struct display_aggregate_state *)state;
+        return display_reconfigure_audio(s->devices[0], quant_samples, channels, sample_rate);
+}

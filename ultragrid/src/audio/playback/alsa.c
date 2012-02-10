@@ -238,6 +238,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 snd_pcm_prepare(s->handle);
                 /* duplicate last data into stream */
                 snd_pcm_writei(s->handle, frame->data, frames);
+                snd_pcm_writei(s->handle, frame->data, frames);
         } else if (rc < 0) {
                 fprintf(stderr, "error from writei: %s\n",
                         snd_strerror(rc));

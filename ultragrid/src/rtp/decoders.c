@@ -665,8 +665,12 @@ unsigned int ll_count (struct linked_list *ll) {
         return ret;
 }
 
-int decode_frame(struct coded_data *cdata, struct video_frame *frame, struct state_decoder *decoder)
+int decode_frame(struct coded_data *cdata, void *decode_data)
 {
+        struct pbuf_video_data *pbuf_data = (struct pbuf_video_data *) decode_data;
+        struct video_frame *frame = pbuf_data->frame_buffer;
+        struct state_decoder *decoder = pbuf_data->decoder;
+
         int ret = TRUE;
         uint32_t width;
         uint32_t height;

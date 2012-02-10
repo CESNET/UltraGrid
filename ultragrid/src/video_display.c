@@ -100,6 +100,9 @@ typedef struct {
         const char               *func_get_audio_frame_str;
         void                    (*func_put_audio_frame) (void *state, struct audio_frame *frame);
         const char               *func_put_audio_frame_str;
+        int                     (*func_reconfigure_audio) (void *state, int quant_samples, int channels,
+                        int sample_rate);
+        const char               *func_reconfigure_audio_str;
 
         void                     *handle;
 } display_table_t;
@@ -119,6 +122,7 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_aggregate_get_property),
          MK_STATIC(display_aggregate_get_audio_frame),
          MK_STATIC(display_aggregate_put_audio_frame),
+         MK_STATIC(display_aggregate_reconfigure_audio),
          NULL
          },
 #if defined HAVE_SDL || defined BUILD_LIBRARIES
@@ -136,6 +140,7 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_sdl_get_property),
          MK_NAME(display_sdl_get_audio_frame),
          MK_NAME(display_sdl_put_audio_frame),
+         MK_NAME(display_sdl_reconfigure_audio),
          NULL
          },
 #endif                          /* HAVE_SDL */
@@ -154,8 +159,10 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_gl_get_property),
          MK_NAME(display_gl_get_audio_frame),
          MK_NAME(display_gl_put_audio_frame),
+         MK_NAME(display_gl_reconfigure_audio),
          NULL
          },
+#endif                          /* HAVE_GL */
 #if defined HAVE_SAGE || defined BUILD_LIBRARIES
         {
          0,
@@ -171,10 +178,10 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_sage_get_property),
          MK_NAME(display_sage_get_audio_frame),
          MK_NAME(display_sage_put_audio_frame),
+         MK_NAME(display_sage_reconfigure_audio),
          NULL
          },
 #endif                          /* HAVE_SAGE */
-#endif                          /* HAVE_GL */
 #if defined HAVE_DECKLINK || defined BUILD_LIBRARIES
         {
          0,
@@ -190,6 +197,7 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_decklink_get_property),
          MK_NAME(display_decklink_get_audio_frame),
          MK_NAME(display_decklink_put_audio_frame),
+         MK_NAME(display_decklink_reconfigure_audio),
          NULL
          },
 #endif                          /* HAVE_DECKLINK */
@@ -208,6 +216,7 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_deltacast_get_property),
          MK_NAME(display_deltacast_get_audio_frame),
          MK_NAME(display_deltacast_put_audio_frame),
+         MK_NAME(display_deltacast_reconfigure_audio),
          NULL
          },
 #endif                          /* HAVE_DELTACAST */
@@ -226,6 +235,7 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_dvs_get_property),
          MK_NAME(display_dvs_get_audio_frame),
          MK_NAME(display_dvs_put_audio_frame),
+         MK_NAME(display_dvs_reconfigure_audio),
          NULL
          },
 #endif                          /* HAVE_DVS */
@@ -244,6 +254,7 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_quicktime_get_property),
          MK_NAME(display_quicktime_get_audio_frame),
          MK_NAME(display_quicktime_put_audio_frame),
+         MK_NAME(display_quicktime_reconfigure_audio),
          NULL
          },
 #endif                          /* HAVE_MACOSX */
@@ -261,6 +272,7 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_null_get_property),
          MK_STATIC(display_null_get_audio_frame),
          MK_STATIC(display_null_put_audio_frame),
+         MK_STATIC(display_null_reconfigure_audio),
          NULL
          }
 };
@@ -350,13 +362,16 @@ static int display_fill_symbols(display_table_t *device)
                 dlsym(handle, device->func_get_audio_frame_str);
         device->func_put_audio_frame = (void (*) (void *, struct audio_frame *))
                 dlsym(handle, device->func_put_audio_frame_str);
+        device->func_reconfigure_audio = (int (*) (void *, int, int,
+                        int))
+                dlsym(handle, device->func_reconfigure_audio_str);
 
         if(!device->func_probe || !device->func_init || !device->func_run ||
                         !device->func_done || !device->func_finish ||
                         !device->func_getf || !device->func_getf ||
                         !device->func_putf || !device->func_reconfigure ||
                         !device->func_get_property || !device->func_get_audio_frame ||
-                        !device->func_put_audio_frame) {
+                        !device->func_put_audio_frame || !device->func_reconfigure_audio) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
                 return FALSE;
         }
@@ -520,6 +535,6 @@ void display_put_audio_frame(struct display *d, struct audio_frame *frame)
 int display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
 {
         assert(d->magic == DISPLAY_MAGIC);
-        lay_device_table[d->index].func_put_audio_frame(d->state, frame);
+        return display_device_table[d->index].func_reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
 

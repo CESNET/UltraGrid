@@ -329,8 +329,6 @@ volatile int worker_waiting;
 };
 
 static void show_help(void);
-void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
 
 static void show_help(void)
 {
@@ -689,13 +687,11 @@ void *display_dvs_init(char *fmt, unsigned int flags)
                 }
         }
 
-        s->audio.state = s;
         s->audio.data = NULL;
         s->audio_ring_buffer = NULL;
         s->audio_fifo_data = NULL;
         if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
                 s->play_audio = TRUE;
-                s->audio.reconfigure_audio = display_dvs_reconfigure_audio;
                 s->audio.ch_count = 0;
         } else {
                 s->play_audio = FALSE;
@@ -883,8 +879,9 @@ void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
         free(tmp);
 }
 
-void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
+int display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
+        int ret;
         struct state_hdsp *s = (struct state_hdsp *)state;
         int res = SV_OK;
         
@@ -980,17 +977,21 @@ void display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
 
         s->audio_reconf_done = FALSE;
 
+        ret = TRUE;
         goto unlock;
 error:
         fprintf(stderr, "Setting audio error  %s\n",
                   sv_geterrortext(res));
         s->audio.max_size = 0;
         s->play_audio = FALSE;
+        ret = FALSE;
 
 unlock:
         s->audio_reconf_done = TRUE;
         pthread_cond_signal(&s->audio_reconf_done_cv);
         pthread_mutex_unlock(&s->audio_reconf_lock);
+
+        return ret;
 }
 
 display_type_t *display_dvs_probe(void)

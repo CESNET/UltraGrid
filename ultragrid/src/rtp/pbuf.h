@@ -75,13 +75,34 @@ struct coded_data {
 /* The playout buffer */
 struct pbuf;
 struct state_decoder;
+struct state_audio_decoder;
 
+struct pbuf_video_data {
+        struct video_frame *frame_buffer;
+        struct state_decoder *decoder;
+};
+
+struct pbuf_audio_data {
+        audio_frame *buffer;
+        struct state_audio *audio_state;
+        int saved_channels;
+        int saved_bps;
+        int saved_sample_rate;
+};
+
+/**
+ * @param decode_data
+ */
+typedef int decode_frame_t(struct coded_data *cdata, void *decode_data);
 /* 
  * External interface: 
  */
 struct pbuf	*pbuf_init(void);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
-                             struct video_frame *framebuffer, int i, struct state_decoder *decoder);
+                             decode_frame_t decode_func, void *data, int wait_for_playout_time);
+                             //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
-int          audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time, audio_frame *frame);
+
+int decode_audio_frame(struct coded_data *cdata, void *data);
+

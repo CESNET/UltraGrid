@@ -53,7 +53,7 @@ struct tile;
 /* 
  * External interface: 
  */
-int decode_frame(struct coded_data *compressed_frame, struct video_frame *framebuffer, struct state_decoder *s);
+int decode_frame(struct coded_data *compressed_frame, void *decode_data);
 
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess);
 void decoder_destroy(struct state_decoder *decoder);

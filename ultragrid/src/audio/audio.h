@@ -85,6 +85,10 @@ void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*c
 void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(void *, int, int, int),
                 void *udata);
 
+struct audio_frame * audio_get_frame(struct state_audio *s);
+int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
+                int sample_rate);
+
 /**
  * Changes bps for everey sample.
  * 

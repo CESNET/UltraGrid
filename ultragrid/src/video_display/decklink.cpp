@@ -236,9 +236,6 @@ struct state_decklink {
  };
 
 static void show_help(void);
-void display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
-
 
 static void show_help(void)
 {
@@ -681,11 +678,9 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 }
         }
 
-	s->audio.state = s;
         if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
                 s->play_audio = TRUE;
                 s->audio.data = NULL;
-                s->audio.reconfigure_audio = display_decklink_reconfigure_audio;
         } else {
                 s->play_audio = FALSE;
         }
@@ -856,7 +851,7 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 
 }
 
-void display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
+int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
@@ -874,7 +869,7 @@ void display_decklink_reconfigure_audio(void *state, int quant_samples, int chan
                 fprintf(stderr, "[decklink] requested channel count isn't supported: "
                         "%d\n", s->audio.ch_count);
                 s->play_audio = FALSE;
-                return;
+                return FALSE;
         }
         
         /* toggle one channel to supported two */
@@ -888,7 +883,7 @@ void display_decklink_reconfigure_audio(void *state, int quant_samples, int chan
                         "samples: %d, sample rate: %d\n",
                         quant_samples, sample_rate);
                 s->play_audio = FALSE;
-                return;
+                return FALSE;
         }
         switch(quant_samples) {
                 case 16:
@@ -897,6 +892,8 @@ void display_decklink_reconfigure_audio(void *state, int quant_samples, int chan
                 case 32:
                         sample_type = bmdAudioSampleType32bitInteger;
                         break;
+                default:
+                        return FALSE;
         }
                         
         s->state[0].deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz,
@@ -909,6 +906,8 @@ void display_decklink_reconfigure_audio(void *state, int quant_samples, int chan
                         * s->audio.ch_count
                         * sample_rate;                
         s->audio.data = (char *) malloc (s->audio.max_size);
+
+        return TRUE;
 }
 
 bool operator==(const REFIID & first, const REFIID & second){

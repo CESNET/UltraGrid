@@ -89,6 +89,8 @@ enum audio_transport_device {
         NET_JACK
 };
 
+int decode_audio_frame(struct coded_data *cdata, void *data);
+
 struct state_audio {
         struct audio_device_t audio_capture_device;
         struct audio_device_t audio_playback_device;
@@ -738,10 +740,12 @@ static void *audio_receiver_thread(void *arg)
         struct timeval timeout, curr_time;
         uint32_t ts;
         struct pdb_e *cp;
-        struct audio_frame *frame;
-        
-        frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
+        struct pbuf_audio_data pbuf_data;
+
+        pbuf_data.buffer = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                         s->audio_playback_device.state);
+        pbuf_data.audio_state = s;
+        pbuf_data.saved_channels = pbuf_data.saved_bps = pbuf_data.saved_sample_rate = 0;
                 
         printf("Audio receiving started.\n");
         while (!should_exit) {
@@ -757,15 +761,15 @@ static void *audio_receiver_thread(void *arg)
                         cp = pdb_iter_init(s->audio_participants);
                 
                         while (cp != NULL) {
-                                if(frame != NULL) {
-                                        if (audio_pbuf_decode(cp->playout_buffer, curr_time, frame)) {
+                                if(pbuf_data.buffer != NULL) {
+                                        if (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data, FALSE)) {
                                                 available_audio_playback[s->audio_playback_device.index]->audio_put_frame(
-                                                        s->audio_playback_device.state, frame);
-                                                frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
+                                                        s->audio_playback_device.state, pbuf_data.buffer);
+                                                pbuf_data.buffer= available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                                                         s->audio_playback_device.state);
                                         }
                                 } else {
-                                        frame = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
+                                        pbuf_data.buffer = available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
                                                 s->audio_playback_device.state);
                                 }
                                 pbuf_remove(cp->playout_buffer, curr_time);
@@ -914,5 +918,19 @@ int sdi_reconfigure(void *state, int quant_samples, int channels,
                 return s->reconfigure_callback(s->put_udata, quant_samples, channels, sample_rate);
         else
                 return FALSE;
+}
+
+struct audio_frame * audio_get_frame(struct state_audio *s)
+{
+        return available_audio_playback[s->audio_playback_device.index]->audio_get_frame(
+                                                        s->audio_playback_device.state);
+}
+
+int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
+                int sample_rate)
+{
+        return available_audio_playback[s->audio_playback_device.index]->audio_reconfigure(
+                                                        s->audio_playback_device.state,
+                                                        quant_samples, channels, sample_rate);
 }
 

@@ -133,8 +133,6 @@ void deinterlace(struct state_sdl *s, unsigned char *buffer);
 static void show_help(void);
 void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
-void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
 int display_sdl_handle_events(void *arg, int post);
 void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
                 
@@ -797,8 +795,6 @@ void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {
 static void configure_audio(struct state_sdl *s)
 {
         s->audio_frame.data = NULL;
-        s->audio_frame.reconfigure_audio = display_sdl_reconfigure_audio;
-        s->audio_frame.state = s;
         
         SDL_Init(SDL_INIT_AUDIO);
         
@@ -811,7 +807,7 @@ static void configure_audio(struct state_sdl *s)
         s->audio_buffer = ring_buffer_init(1<<20);
 }
 
-void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
+int display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) {
         struct state_sdl *s = (struct state_sdl *)state;
         SDL_AudioSpec desired, obtained;
@@ -836,13 +832,15 @@ void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 case 8:
                         sample_type = AUDIO_S8;
                         break;
-                default:
+                case 16:
                         sample_type = AUDIO_S16LSB;
                         break;
                 /* TO enable in sdl 1.3
                  * case 32:
                         sample_type = AUDIO_S32;
                         break; */
+                default:
+                        return FALSE;
         }
         
         desired.freq=sample_rate;
@@ -870,11 +868,12 @@ void display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
         /* Start playing */
         SDL_PauseAudio(0);
 
-        return;
+        return TRUE;
 error:
         s->play_audio = FALSE;
         s->audio_frame.max_size = 0;
         s->audio_frame.data = NULL;
+        return FALSE;
 }
 
 

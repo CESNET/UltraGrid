@@ -307,3 +307,14 @@ void display_sage_put_audio_frame(void *state, struct audio_frame *frame)
         UNUSED(frame);
 }
 
+int display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
+                int sample_rate)
+{
+        UNUSED(state);
+        UNUSED(quant_samples);
+        UNUSED(channels);
+        UNUSED(sample_rate);
+
+        return FALSE;
+}
+

@@ -242,8 +242,6 @@ char *four_char_decode(int format);
 static int find_mode(ComponentInstance *ci, int width, int height, 
                 const char * codec_name, double fps);
 void display_quicktime_audio_init(struct state_quicktime *s);
-void display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
-                int sample_rate);
 
 static void
 nprintf(char *str)
@@ -717,7 +715,6 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 }
         }
         
-        s->audio.state = s;
         if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
                 display_quicktime_audio_init(s);
         } else {
@@ -779,7 +776,6 @@ void display_quicktime_audio_init(struct state_quicktime *s)
         s->audio.data = NULL;
         s->audio_data = NULL;
         s->audio.max_size = 0;
-        s->audio.reconfigure_audio = display_quicktime_reconfigure_audio;
         Component audioComponent;
         ret = QTVideoOutputGetIndSoundOutput(s->videoDisplayComponentInstance[0], 1, &audioComponent);
         if (ret != noErr) goto audio_error;
@@ -1160,7 +1156,7 @@ static OSStatus theRenderProc(void *inRefCon,
         return noErr;
 }
 
-void display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
+int display_quicktime_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate) 
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
@@ -1248,7 +1244,7 @@ void display_quicktime_reconfigure_audio(void *state, int quant_samples, int cha
         ret = AudioOutputUnitStart(s->auHALComponentInstance);
         if(ret) goto error;
 
-        return;
+        return TRUE;
 error:
         fprintf(stderr, "Audio setting error, disabling audio.\n");
         debug_msg("[quicktime] error: %d", ret);
@@ -1258,6 +1254,7 @@ error:
         s->audio.data = NULL;
 
         s->play_audio = FALSE;
+        return FALSE;
 }
 
 #endif                          /* HAVE_MACOSX */

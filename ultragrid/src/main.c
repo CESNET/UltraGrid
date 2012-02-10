@@ -426,20 +426,21 @@ static void *receiver_thread(void *arg)
         struct pdb_e *cp;
         struct timeval timeout;
         int fr;
-        int i = 0;
         int ret;
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
-        struct state_decoder *dec_state = NULL;
+        struct pbuf_video_data pbuf_data;
+
 
         initialize_video_decompress();
-        dec_state = decoder_init(uv->decoder_mode, uv->postprocess);
-        if(!dec_state) {
+        pbuf_data.decoder = decoder_init(uv->decoder_mode, uv->postprocess);
+        if(!pbuf_data.decoder) {
                 fprintf(stderr, "Error initializing decoder ('-M' option).\n");
                 exit_uv(1);
         } else {
-                decoder_register_video_display(dec_state, uv->display_device);
+                decoder_register_video_display(pbuf_data.decoder, uv->display_device);
         }
+        pbuf_data.frame_buffer = frame_buffer;
 
         fr = 1;
 
@@ -454,7 +455,6 @@ static void *receiver_thread(void *arg)
                 /* to match the video capture rate, so the transmitter works.  */
                 if (fr) {
                         gettimeofday(&uv->curr_time, NULL);
-                        frame_begin[i] = uv->curr_time.tv_usec;
                         fr = 0;
                 }
 
@@ -479,8 +479,7 @@ static void *receiver_thread(void *arg)
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, uv->curr_time, frame_buffer,
-                             i, dec_state)) {
+                            (cp->playout_buffer, uv->curr_time, decode_frame, &pbuf_data, TRUE)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
@@ -489,9 +488,8 @@ static void *receiver_thread(void *arg)
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
                                         display_put_frame(uv->display_device,
-                                                          (char *) frame_buffer);
-                                        i = (i + 1) % 2;
-                                        frame_buffer =
+                                                          (char *) pbuf_data.frame_buffer);
+                                        pbuf_data.frame_buffer =
                                             display_get_frame(uv->display_device);
                                 }
                                 last_tile_received = uv->curr_time;
@@ -508,15 +506,14 @@ static void *receiver_thread(void *arg)
                         gettimeofday(&uv->curr_time, NULL);
                         fr = 1;
                         display_put_frame(uv->display_device,
-                                          frame_buffer->tiles[0].data);
-                        i = (i + 1) % 2;
-                        frame_buffer =
+                                          pbuf_data.frame_buffer->tiles[0].data);
+                        pbuf_data.frame_buffer =
                             display_get_frame(uv->display_device);
                         last_tile_received = uv->curr_time;
                 }
         }
         
-        decoder_destroy(dec_state);
+        decoder_destroy(pbuf_data.decoder);
 
         return 0;
 }
