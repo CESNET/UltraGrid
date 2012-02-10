@@ -34,6 +34,10 @@
 #if defined HAVE_MACOSX && OS_VERSION_MAJOR >= 11
 #include <OpenGL/gl3.h>
 #endif
+#ifndef HAVE_MACOSX /* Linux */
+#include <GL/glew.h>
+#endif
+
 #ifdef HAVE_GPUPERFAPI
 #include "GPUPerfAPI.h"
 static void WriteSession( gpa_uint32 currentWaitSessionID, const char* filename );
@@ -106,6 +110,9 @@ struct dxt_encoder
     gpa_uint32 numRequiredPasses;
     gpa_uint32 sessionID;
     gpa_uint32 currentWaitSessionID;
+#endif
+#ifdef RTDXT_DEBUG
+    GLuint queries[4];
 #endif
 };
 
@@ -357,6 +364,9 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     GPA_GetPassCount( &encoder->numRequiredPasses );
     encoder->currentWaitSessionID = 0;
 #endif
+#ifdef RTDXT_DEBUG
+    glGenQueries(4, encoder->queries);
+#endif
 
     return encoder;
 }
@@ -388,11 +398,8 @@ int
 dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed)
 {        
 #ifdef RTDXT_DEBUG
-    TIMER_INIT();
- 
-    TIMER_START();
+    glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[0]);
 #endif
-
 #ifdef HAVE_GPUPERFAPI
     GPA_BeginPass();
     GPA_BeginSample(0);
@@ -408,6 +415,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                 
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
                         glUseProgram(encoder->yuv422_to_444_program);
+#ifdef RTDXT_DEBUG
+    glEndQuery(GL_TIME_ELAPSED_EXT);
+    glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[1]);
+#endif
 #ifdef HAVE_GPUPERFAPI
     GPA_EndSample();
     GPA_BeginSample(1);
@@ -450,16 +461,13 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, image);
                         break;
     }
+#ifdef RTDXT_DEBUG
+    glEndQuery(GL_TIME_ELAPSED_EXT);
+    glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[2]);
+#endif
 #ifdef HAVE_GPUPERFAPI
     GPA_EndSample();
     GPA_BeginSample(2);
-#endif
-                        
-#ifdef RTDXT_DEBUG
-    glFinish();
-    TIMER_STOP_PRINT("Texture Load:      ");
-    
-    TIMER_START();
 #endif
     
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
@@ -485,13 +493,11 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     GPA_EndSample();
     GPA_BeginSample(3);
 #endif
-
 #ifdef RTDXT_DEBUG
-    glFinish();
-    TIMER_STOP_PRINT("Texture Compress:  ");
-            
-    TIMER_START();
+    glEndQuery(GL_TIME_ELAPSED_EXT);
+    glBeginQuery(GL_TIME_ELAPSED_EXT, encoder->queries[3]);
 #endif
+
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
@@ -500,8 +506,23 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
         glReadPixels(0, 0, encoder->width / 4 , encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
         
 #ifdef RTDXT_DEBUG
-    glFinish();
-    TIMER_STOP_PRINT("Texture Save:      ");
+    glEndQuery(GL_TIME_ELAPSED_EXT);
+    {
+        GLint available = 0;
+        GLuint64 load = 0,
+                 convert = 0,
+                 compress = 0,
+                 store = 0;
+        while (!available) {
+            glGetQueryObjectiv(encoder->queries[3], GL_QUERY_RESULT_AVAILABLE, &available);
+        }
+        glGetQueryObjectui64vEXT(encoder->queries[0], GL_QUERY_RESULT, &load);
+        glGetQueryObjectui64vEXT(encoder->queries[1], GL_QUERY_RESULT, &convert);
+        glGetQueryObjectui64vEXT(encoder->queries[2], GL_QUERY_RESULT, &compress);
+        glGetQueryObjectui64vEXT(encoder->queries[3], GL_QUERY_RESULT, &store);
+        printf("Load: %8lu; YUV444->YUV422: %8lu; compress: %8lu; store: %8lu\n",
+                load, convert, compress, store);
+    }
 #endif
 #ifdef HAVE_GPUPERFAPI
     GPA_EndSample();
