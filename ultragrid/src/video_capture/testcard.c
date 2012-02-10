@@ -307,6 +307,7 @@ char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
         return (char *) ret;
 }
 
+#if defined HAVE_LIBSDL_MIXER && ! defined HAVE_MACOSX
 static void grab_audio(int chan, void *stream, int len, void *udata)
 {
         UNUSED(chan);
@@ -324,6 +325,7 @@ static void grab_audio(int chan, void *stream, int len, void *udata)
         /* just hack - Mix_Volume doesn't mute correctly the audio */
         memset(stream, 0, len);
 }
+#endif
 
 static int configure_audio(struct testcard_state *s)
 {

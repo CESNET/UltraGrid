@@ -580,8 +580,8 @@ void gl_reconfigure_screen(struct state_gl *s)
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
                 glUseProgramObjectARB(s->PHandle);
-                glUniform1i(glGetUniformLocation(s->PHandle, "image"), 2);
-                glUniform1f(glGetUniformLocation(s->PHandle, "imageWidth"),
+                glUniform1i(glGetUniformLocationARB(s->PHandle, "image"), 2);
+                glUniform1f(glGetUniformLocationARB(s->PHandle, "imageWidth"),
                         (GLfloat) s->tile->width);
                 glUseProgramObjectARB(0);
                 glActiveTexture(GL_TEXTURE0 + 0);

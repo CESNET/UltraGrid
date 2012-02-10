@@ -621,7 +621,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 do {
                         cardIdx[s->devices_cnt] = atoi(ptr);
                         ++s->devices_cnt;
-                } while (ptr = strtok_r(NULL, ",", &saveptr2));
+                } while ((ptr = strtok_r(NULL, ",", &saveptr2)));
                 free(devices);
                 
                 ptr = strtok_r(NULL, ":", &saveptr1);

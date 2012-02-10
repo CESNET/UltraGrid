@@ -486,7 +486,7 @@ settings_init(void *state, char *fmt)
                         do {
                                 s->state[s->devices_cnt].index = atoi(ptr);
                                 ++s->devices_cnt;
-                        } while (ptr = strtok_r(NULL, ",", &saveptr));
+                        } while ((ptr = strtok_r(NULL, ",", &saveptr)));
                         free (devices);
                 }
 

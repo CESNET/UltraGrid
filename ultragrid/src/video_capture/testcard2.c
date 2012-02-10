@@ -340,8 +340,6 @@ void * vidcap_testcard2_thread(void *arg)
         struct timeval next_frame_time;
         SDL_Surface *copy;
         SDL_Surface *old = NULL;
-        SDL_Surface *text;
-        SDL_Color col = { 0, 0, 0, 0 };
         unsigned int seed = time(NULL);
         int prev_x1 = rand_r(&seed) % (s->tile->width - 300);
         int prev_y1 = rand_r(&seed) % (s->tile->height - 300);
@@ -355,6 +353,8 @@ void * vidcap_testcard2_thread(void *arg)
         gettimeofday(&s->last_audio_time, NULL);
         
 #ifdef HAVE_LIBSDL_TTF
+        SDL_Surface *text;
+        SDL_Color col = { 0, 0, 0, 0 };
         TTF_Font * font;
         
         if(TTF_Init() == -1)
@@ -412,10 +412,9 @@ void * vidcap_testcard2_thread(void *arg)
                 r.y = s->tile->height - r.h - 30;
                 SDL_FillRect(copy, &r, 0xffffffff);
                 
+#ifdef HAVE_LIBSDL_TTF                
                 char frames[20];
                 double since_start = tv_diff(next_frame_time, s->start_time);
-
-#ifdef HAVE_LIBSDL_TTF                
                 snprintf(frames, 20, "%02d:%02d:%02d %3d", (int) since_start / 3600 ,
                                 (int) since_start / 60 % 60,
                                 (int) since_start % 60,

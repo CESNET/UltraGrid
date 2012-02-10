@@ -106,6 +106,9 @@ struct qt_grabber_state {
 };
 
 void * vidcap_quicktime_thread(void *state);
+void InitCursor(void);
+void GetPort(GrafPtr *port);
+void SetPort(GrafPtr port);
 
 /*
  * Sequence grabber data procedure

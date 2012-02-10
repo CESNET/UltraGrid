@@ -163,12 +163,12 @@ static OSStatus InputProc(void *inRefCon,
                 if(s->nominal_sample_rate != s->frame.sample_rate) {
                         int err;
                         uint32_t in_frames = inNumberFrames;
-                        err = speex_resampler_process_interleaved_int(s->resampler, s->tmp, &in_frames, s->resampled, &write_bytes);
+                        err = speex_resampler_process_interleaved_int(s->resampler, (spx_int16_t *) s->tmp, &in_frames, (spx_int16_t *) s->resampled, &write_bytes);
                         //speex_resampler_process_int(resampler, channelID, in, &in_length, out, &out_length); 
                         write_bytes *= s->frame.bps * s->frame.ch_count;
                         if(err) {
                                 fprintf(stderr, "Resampling data error.\n");
-                                return;
+                                return err;
                         }
                 }
 #endif
@@ -304,23 +304,23 @@ void * audio_cap_ca_init(char *cfg)
         desc.componentFlagsMask = 0;
 
 #if MACOSX_VERSION_MAJOR <= 9
-        comp = FindNextComponent(NULL, &desc);
-        if(!comp) {
-                fprintf(stderr, "Error finding AUHAL component.\n");
-                goto error;
-        }
-        ret = OpenAComponent(comp, &s->auHALComponentInstance);
-        if (ret != noErr) {
-                fprintf(stderr, "Error opening AUHAL component.\n");
-                goto error;
-        }
-#else
         comp = AudioComponentFindNext(NULL, &desc);
         if(!comp) {
                 fprintf(stderr, "Error finding AUHAL component.\n");
                 goto error;
         }
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
+        if (ret != noErr) {
+                fprintf(stderr, "Error opening AUHAL component.\n");
+                goto error;
+        }
+#else
+        comp = FindNextComponent(NULL, &desc);
+        if(!comp) {
+                fprintf(stderr, "Error finding AUHAL component.\n");
+                goto error;
+        }
+        ret = OpenAComponent(comp, &s->auHALComponentInstance);
         if (ret != noErr) {
                 fprintf(stderr, "Error opening AUHAL component.\n");
                 goto error;
