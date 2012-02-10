@@ -46,9 +46,12 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif
+
 #include "host.h"
 
 #define GL_GLEXT_PROTOTYPES 1
@@ -94,9 +97,9 @@ void main()
         yuv.rgba  = texture2D(image, gl_TexCoord[0].xy).grba;
         if(gl_TexCoord[0].x * imageWidth / 2.0 - floor(gl_TexCoord[0].x * imageWidth / 2.0) > 0.5)
                 yuv.r = yuv.a;
-        yuv.r = 1.1643*(yuv.r-0.0625);
-        yuv.g = yuv.g - 0.5;
-        yuv.b = yuv.b - 0.5;
+        yuv.r = 1.1643 * (yuv.r - 0.0625);
+        yuv.g = 1.1384 * (yuv.g - 0.5);
+        yuv.b = 1.1384 * (yuv.b - 0.5);
         gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
         gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
         gl_FragColor.b = yuv.r + 1.7926 * yuv.g;
@@ -109,52 +112,53 @@ void main() {
 });
 
 /* DXT YUV (FastDXT) related */
-static char * frag = "\
-uniform sampler2D yuvtex;\
-\
-void main(void) {\
-vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);\
-\
-float Y = col[0];\
-float U = col[1]-0.5;\
-float V = col[2]-0.5;\
-Y=1.1643*(Y-0.0625);\
-\
-float G = Y-0.39173*U-0.81290*V;\
-float B = Y+2.017*U;\
-float R = Y+1.5958*V;\
-\
-gl_FragColor=vec4(R,G,B,1.0);}";
+static char * frag = STRINGIFY(
+        uniform sampler2D yuvtex;
 
-static char * vert = "\
-void main() {\
-gl_TexCoord[0] = gl_MultiTexCoord0;\
-gl_Position = ftransform();}";
+        void main(void) {
+        vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);
 
-static const char fp_display_dxt5ycocg[] = 
-    "#extension GL_EXT_gpu_shader4 : enable\n"
-    "uniform sampler2D _image;\n"
-    "void main()\n"
-    "{\n"
-    "    vec4 _rgba;\n"
-    "    float _scale;\n"
-    "    float _Co;\n"
-    "    float _Cg;\n"
-    "    float _R;\n"
-    "    float _G;\n"
-    "    float _B;\n"
-    "    _rgba = texture2D(_image, gl_TexCoord[0].xy);\n"
-    "    _scale = 1.00000000E+00/(3.18750000E+01*_rgba.z + 1.00000000E+00);\n"
-    "    _Co = (_rgba.x - 5.01960814E-01)*_scale;\n"
-    "    _Cg = (_rgba.y - 5.01960814E-01)*_scale;\n"
-    "    _R = (_rgba.w + _Co) - _Cg;\n"
-    "    _G = _rgba.w + _Cg;\n"
-    "    _B = (_rgba.w - _Co) - _Cg;\n"
-    "    _rgba = vec4(_R, _G, _B, 1.00000000E+00);\n"
-    "    gl_FragColor = _rgba;\n"
-    "    return;\n"
-    "} // main end\n"
-;
+        float Y = 1.1643 * (col[0] - 0.0625);
+        float U = 1.1384 * (col[1] - 0.5);
+        float V = 1.1384 * (col[2] - 0.5);
+
+        float G = Y-0.39173*U-0.81290*V;
+        float B = Y+2.017*U;
+        float R = Y+1.5958*V;
+
+        gl_FragColor=vec4(R,G,B,1.0);
+}
+);
+
+static char * vert = STRINGIFY(
+void main() {
+        gl_TexCoord[0] = gl_MultiTexCoord0;
+        gl_Position = ftransform();}
+);
+
+static const char fp_display_dxt5ycocg[] = STRINGIFY(
+uniform sampler2D _image;
+void main()
+{
+        vec4 _rgba;
+        float _scale;
+        float _Co;
+        float _Cg;
+        float _R;
+        float _G;
+        float _B;
+        _rgba = texture2D(_image, gl_TexCoord[0].xy);
+        _scale = 1.00000000E+00/(3.18750000E+01*_rgba.z + 1.00000000E+00);
+        _Co = (_rgba.x - 5.01960814E-01)*_scale;
+        _Cg = (_rgba.y - 5.01960814E-01)*_scale;
+        _R = (_rgba.w + _Co) - _Cg;
+        _G = _rgba.w + _Cg;
+        _B = (_rgba.w - _Co) - _Cg;
+        _rgba = vec4(_R, _G, _B, 1.00000000E+00);
+        gl_FragColor = _rgba;
+        return;
+} // main end
+);
 
 /* defined in main.c */
 extern int uv_argc;

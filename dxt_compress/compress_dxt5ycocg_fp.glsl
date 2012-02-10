@@ -15,10 +15,9 @@ const int FORMAT_YUV = 1;
 // Covert YUV to RGB
 vec3 ConvertYUVToRGB(vec3 color)
 {
-    float Y = color[0];
-    float U = color[1] - 0.5;
-    float V = color[2] - 0.5;
-    Y = 1.1643 * (Y - 0.0625);
+    float Y = 1.1643 * (color[0] - 0.0625);
+    float U = 1.1384 * (color[1] - 0.5);
+    float V = 1.1384 * (color[2] - 0.5);
 
     float R = Y + 1.7926 * V;
     float G = Y - 0.2132 * U - 0.5328 * V;
