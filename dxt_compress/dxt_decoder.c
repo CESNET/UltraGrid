@@ -230,6 +230,8 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
 
                 // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
                 glEnableVertexAttribArray(g_vertexLocation);
+
+                glBindFragDataLocation(decoder->program_rgba_to_yuv422, 0, "colorOut");
 #endif
             }
                         
@@ -267,6 +269,8 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
 
         // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
         glEnableVertexAttribArray(g_vertexLocation);
+
+        glBindFragDataLocation(decoder->program_display, 0, "colorOut");
 
         glUseProgram(0);
 #endif

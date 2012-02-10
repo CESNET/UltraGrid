@@ -157,6 +157,8 @@ int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
             // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
             glEnableVertexAttribArray(g_vertexLocation);
 
+            glBindFragDataLocation(encoder->yuv422_to_444_program, 0, "colorOut");
+
             glUseProgram(0);
 #endif
         }
@@ -329,6 +331,8 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 
         // http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml
         glEnableVertexAttribArray(g_vertexLocation);
+
+        glBindFragDataLocation(encoder->program_compress, 0, "colorOut");
 #endif
     }
 
