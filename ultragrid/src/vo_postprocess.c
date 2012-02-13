@@ -55,11 +55,13 @@
 #include "vo_postprocess.h"
 #include "vo_postprocess/3d-interlaced.h"
 #include "vo_postprocess/split.h"
+#include "vo_postprocess/double-framerate.h"
 
 struct vo_postprocess_t {
         const char * name;
         vo_postprocess_init_t init;
         vo_postprocess_reconfigure_t reconfigure;
+        vo_postprocess_getf_t getf;
         vo_postprocess_get_out_desc_t get_out_desc;
         vo_postprocess_t vo_postprocess;
         vo_postprocess_done_t done;
@@ -72,11 +74,14 @@ struct vo_postprocess_state {
 
 struct vo_postprocess_t vo_postprocess_modules[] = {
         {"3d-interlaced", interlaced_3d_init, interlaced_3d_postprocess_reconfigure, 
-                        interlaced_3d_get_out_desc,
+                        interlaced_3d_getf, interlaced_3d_get_out_desc,
                         interlaced_3d_postprocess, interlaced_3d_done },
         {"split", split_init, split_postprocess_reconfigure, 
-                        split_get_out_desc,
+                        split_getf, split_get_out_desc,
                         split_postprocess, split_done },
+        {"double-framerate", df_init, df_reconfigure, 
+                        df_getf, df_get_out_desc,
+                        df_postprocess, df_done },
         {NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
@@ -128,11 +133,20 @@ struct vo_postprocess_state *vo_postprocess_init(char *config_string)
         return s;
 }
 
-struct video_frame * vo_postprocess_reconfigure(struct vo_postprocess_state *s,
+int vo_postprocess_reconfigure(struct vo_postprocess_state *s,
                 struct video_desc desc)
 {
         if(s) {
                 return s->handle->reconfigure(s->state, desc);
+        } else {
+                return FALSE;
+        }
+}
+
+struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *s)
+{
+        if(s) {
+                return s->handle->getf(s->state);
         } else {
                 return NULL;
         }
@@ -150,8 +164,8 @@ void vo_postprocess_done(struct vo_postprocess_state *s)
         if(s) s->handle->done(s->state);
 }
 
-void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc *out, int *display_mode)
+void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc *out, int *display_mode, int *out_frames_count)
 {
-        if(s) s->handle->get_out_desc(s->state, out, display_mode);
+        if(s) s->handle->get_out_desc(s->state, out, display_mode, out_frames_count);
 }
 

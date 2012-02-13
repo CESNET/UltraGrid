@@ -113,6 +113,7 @@ struct state_decoder {
         struct {
                 struct vo_postprocess_state *postprocess;
                 struct video_frame *pp_frame;
+                int pp_output_frames_count;
         };
 
         unsigned int      video_mode;
@@ -396,8 +397,9 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         if(decoder->postprocess) {
                 struct video_desc pp_desc = desc;
                 pp_desc.color_spec = out_codec;
-                decoder->pp_frame = vo_postprocess_reconfigure(decoder->postprocess, pp_desc);
-                vo_postprocess_get_out_desc(decoder->postprocess, &display_desc, &render_mode);
+                vo_postprocess_reconfigure(decoder->postprocess, pp_desc);
+                decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
+                vo_postprocess_get_out_desc(decoder->postprocess, &display_desc, &render_mode, &decoder->pp_output_frames_count);
         }
         
         if(!is_codec_opaque(out_codec)) {
@@ -937,6 +939,7 @@ packet_restored:
                                 char *out;
                                 if(decoder->merged_fb) {
                                         tile = vf_get_tile(output, 0);
+                                        // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
                                         out = tile->data + y * decoder->pitch * tile_height +
                                                 vc_get_linesize(tile_width, decoder->out_codec) * x;
                                 } else {
@@ -952,10 +955,22 @@ packet_restored:
         }
         
         if(decoder->postprocess) {
+                int i;
                 vo_postprocess(decoder->postprocess,
                                decoder->pp_frame,
                                frame,
-                               decoder->requested_pitch);
+                               decoder->pitch);
+                for (i = 1; i < decoder->pp_output_frames_count; ++i) {
+                        display_put_frame(decoder->display, (char *) frame);
+                        frame = display_get_frame(decoder->display);
+                        vo_postprocess(decoder->postprocess,
+                                       NULL,
+                                       frame,
+                                       decoder->pitch);
+                }
+
+                /* get new postprocess frame */
+                decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
         }
 
         if(decoder->change_il) {

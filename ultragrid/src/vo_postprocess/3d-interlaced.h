@@ -48,8 +48,9 @@
 #include "video_codec.h"
 
 void * interlaced_3d_init(char *config);
-struct video_frame * interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc);
-void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *display_mode);
+int interlaced_3d_postprocess_reconfigure(void *state, struct video_desc desc);
+struct video_frame * interlaced_3d_getf(void *state);
+void interlaced_3d_get_out_desc(void *state, struct video_desc *out, int *display_mode, int *out_frames);
 void interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
 void interlaced_3d_done(void *state);
 

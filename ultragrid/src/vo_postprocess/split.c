@@ -94,7 +94,7 @@ void * split_init(char *config) {
         return s;
 }
 
-struct video_frame * split_postprocess_reconfigure(void *state, struct video_desc desc)
+int split_postprocess_reconfigure(void *state, struct video_desc desc)
 {
         struct state_split *s = (struct state_split *) state;
         struct tile *in_tile = vf_get_tile(s->in, 0);
@@ -110,6 +110,13 @@ struct video_frame * split_postprocess_reconfigure(void *state, struct video_des
         in_tile->data_len = in_tile->linesize * desc.height;
         in_tile->data = malloc(in_tile->data_len);
         
+        return TRUE;
+}
+
+struct video_frame * split_getf(void *state)
+{
+        struct state_split *s = (struct state_split *) state;
+
         return s->in;
 }
 
@@ -130,7 +137,7 @@ void split_done(void *state)
         free(state);
 }
 
-void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mode)
+void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mode, int *out_frames)
 {
         struct state_split *s = (struct state_split *) state;
 
@@ -142,4 +149,6 @@ void split_get_out_desc(void *state, struct video_desc *out, int *in_display_mod
         out->tile_count = s->grid_width * s->grid_height;
 
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
+        *out_frames = 1;
 }
+
