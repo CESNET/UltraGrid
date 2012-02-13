@@ -138,6 +138,7 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
                         printf("Video mode options\n\n");
                         printf("-M {tiled-4K | 3D | dual-link }\n");
                         free(s);
+                        exit_uv(129);
                         return NULL;
                 } else if(strcasecmp(requested_mode, "tiled-4K") == 0) {
                         s->video_mode = VIDEO_4K;
@@ -148,6 +149,7 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
                 } else {
                         fprintf(stderr, "[decoder] Unknown video mode (see -M help)\n");
                         free(s);
+                        exit_uv(129);
                         return NULL;
                 }
         }
@@ -159,6 +161,7 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
                 if(!s->postprocess) {
                         fprintf(stderr, "Initializing postprocessor \"%s\" failed.\n", postprocess);
                         free(s);
+                        exit_uv(129);
                         return NULL;
                 }
         }
