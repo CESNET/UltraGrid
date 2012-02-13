@@ -813,9 +813,7 @@ packet_restored:
                 }
 
                 if(!frame) {
-                        frame = display_get_frame(decoder->display);
-                        if(!frame)
-                                return FALSE;
+                        return FALSE;
                 }
                 
                 if(!decoder->postprocess) {
