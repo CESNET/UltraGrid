@@ -85,7 +85,6 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         unsigned int x;
         enum dxt_format format;
         
-        assert(vf_get_tile(frame, 0)->width % 4 == 0);
         s->out = vf_alloc(frame->tile_count);
         
         for (x = 0; x < frame->tile_count; ++x) {
@@ -152,10 +151,10 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
 
         if(s->out->color_spec == DXT1) {
                 s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->dxt_height, format, s->legacy);
-                s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height / 2;
+                s->out->tiles[0].data_len = (s->out->tiles[0].width + 3) / 4 * 4 * s->dxt_height / 2;
         } else if(s->out->color_spec == DXT5){
                 s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->dxt_height, format, s->legacy);
-                s->out->tiles[0].data_len = s->out->tiles[0].width * s->dxt_height;
+                s->out->tiles[0].data_len = (s->out->tiles[0].width + 3) / 4 * 4 * s->dxt_height;
         }
         
         for (x = 0; x < frame->tile_count; ++x) {

@@ -318,6 +318,7 @@ uvec2 EmitAlphaIndicesYCoCgDXT5(vec3 block[16], float minAlpha, float maxAlpha)
 uniform sampler2D image;
 uniform int imageFormat;
 uniform vec2 imageSize;
+uniform float textureWidth;
 #if GL_legacy
 varying
 #endif
@@ -333,18 +334,20 @@ void main()
     if ( int(imageFormat) == FORMAT_YUV )
         ExtractColorBlockYUV(block, image,
 #if GL_legacy
-                gl_TexCoord[0],
+                gl_TexCoord[0]
 #else
-                TEX0,
+                TEX0
 #endif
+                * vec4(textureWidth / imageSize.x, 1.0, 1.0, 1.0),
                 imageSize);
     else
         ExtractColorBlockRGB(block, image, 
 #if GL_legacy
-                gl_TexCoord[0],
+                gl_TexCoord[0]
 #else
-                TEX0,
+                TEX0
 #endif
+                * vec4(textureWidth / imageSize.x, 1.0, 1.0, 1.0),
                 imageSize);
 
     // Find min and max colors

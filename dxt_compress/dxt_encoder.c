@@ -236,9 +236,9 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, encoder->width / 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, (encoder->width + 3) / 4 * 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
-        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, encoder->width / 4, encoder->height /  4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, (encoder->width + 3) / 4 * 4, encoder->height /  4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
@@ -305,7 +305,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
     //glClear(GL_COLOR_BUFFER_BIT);
  
-    glViewport(0, 0, encoder->width / 4, encoder->height / 4);
+    glViewport(0, 0, (encoder->width + 3) / 4, encoder->height / 4);
     glDisable(GL_DEPTH_TEST);
     
     // User compress program and set image size parameters
@@ -319,6 +319,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
             glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), FORMAT_RGB); 
     }
     glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
+    glUniform1f(glGetUniformLocation(encoder->program_compress, "textureWidth"), (encoder->width + 3) / 4 * 4); 
 
     if(!encoder->legacy) {
 #if ! defined HAVE_MACOSX || OS_VERSION_MAJOR >= 11
@@ -448,7 +449,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         
                         glPopAttrib();
                         /* there is some problem with restoring viewport state (Mac OS Lion, OpenGL 3.2) */
-                        glViewport( 0, 0, encoder->width / 4, encoder->height / 4);
+                        glViewport( 0, 0, (encoder->width + 3) / 4, encoder->height / 4);
                         
                         //glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
                         
@@ -518,9 +519,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     // Read back
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        glReadPixels(0, 0, encoder->width / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
+        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
     else
-        glReadPixels(0, 0, encoder->width / 4 , encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
+        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
         
 #ifdef RTDXT_DEBUG_HOST
     glFinish();

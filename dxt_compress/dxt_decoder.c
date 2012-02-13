@@ -113,10 +113,10 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
     
     if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0,
-                        decoder->width * decoder->height, 0);
+                        (decoder->width + 3) / 4 * 4 * decoder->height, 0);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0,
-                        decoder->width * decoder->height / 2, 0);
+                        (decoder->width + 3) / 4 * 4 * decoder->height / 2, 0);
     
     // Create fbo    
     glGenFramebuffers(1, &decoder->fbo_rgba);
@@ -306,10 +306,10 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                        decoder->width, decoder->height, 0, decoder->width * decoder->height, image_compressed);
+                        (decoder->width + 3) / 4 * 4, decoder->height, 0, (decoder->width + 3) / 4 * 4 * decoder->height, image_compressed);
     else
         glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
-                        decoder->width, decoder->height, 0, decoder->width * decoder->height / 2, image_compressed);
+                        (decoder->width + 3) / 4 * 4, decoder->height, 0, (decoder->width + 3) / 4 * 4 * decoder->height / 2, image_compressed);
 #ifdef RTDXT_DEBUG
     glFinish();
     TIMER_STOP_PRINT("Texture Load:      ");

@@ -537,7 +537,7 @@ void gl_reconfigure_screen(struct state_gl *s)
         
         if(s->frame->color_spec == DXT1 || s->frame->color_spec == DXT1_YUV || s->frame->color_spec == DXT5) {
                 s->dxt_height = (s->tile->height + 3) / 4 * 4;
-                s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec)
+                s->tile->data_len = vc_get_linesize((s->tile->width + 3) / 4 * 4, s->frame->color_spec)
                         * s->dxt_height;
         } else {
                 s->dxt_height = s->tile->height;
@@ -565,8 +565,8 @@ void gl_reconfigure_screen(struct state_gl *s)
 		glBindTexture(GL_TEXTURE_2D,s->texture_display);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-				s->tile->width, s->dxt_height, 0,
-				(s->tile->width * s->dxt_height/16)*8,
+				(s->tile->width + 3) / 4 * 4, s->dxt_height, 0,
+				((s->tile->width + 3) / 4 * 4* s->dxt_height)/2,
 				NULL);
 		if(s->frame->color_spec == DXT1_YUV) {
 			glBindTexture(GL_TEXTURE_2D,s->texture_display);
@@ -608,8 +608,8 @@ void gl_reconfigure_screen(struct state_gl *s)
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
 				GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-				s->tile->width, s->dxt_height, 0,
-				s->tile->width * s->dxt_height,
+				(s->tile->width + 3) / 4 * 4, s->dxt_height, 0,
+				(s->tile->width + 3) / 4 * 4 * s->dxt_height,
 				NULL);
         }
         gl_check_error();
@@ -648,9 +648,9 @@ void glut_idle_callback(void)
         switch(s->frame->color_spec) {
                 case DXT1:
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->tile->width, s->dxt_height,
+                                        (s->tile->width + 3) / 4 * 4, s->dxt_height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                                        (s->tile->width * s->dxt_height/16)*8,
+                                        ((s->tile->width + 3) / 4 * 4 * s->dxt_height)/2,
                                         s->buffers[s->image_display]);
                         break;
                 case DXT1_YUV:
@@ -673,9 +673,9 @@ void glut_idle_callback(void)
                         break;
                 case DXT5:                        
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                        s->tile->width, s->dxt_height,
+                                        (s->tile->width + 3) / 4 * 4, s->dxt_height,
                                         GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-                                        s->tile->width * s->dxt_height,
+                                        (s->tile->width + 3) / 4 * 4 * s->dxt_height,
                                         s->buffers[s->image_display]);
                         break;
                 default:

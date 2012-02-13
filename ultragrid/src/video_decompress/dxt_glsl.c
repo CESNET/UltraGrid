@@ -134,7 +134,7 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         decompressor->decoder = dxt_decoder_create(type, desc.width,
                         decompressor->dxt_height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422, decompressor->legacy);
         
-        decompressor->compressed_len = desc.width * decompressor->dxt_height /
+        decompressor->compressed_len = (desc.width + 3) / 4 * 4 * decompressor->dxt_height /
                 (desc.color_spec == DXT5 ? 1 : 2);
         decompressor->configured = TRUE;
 }
