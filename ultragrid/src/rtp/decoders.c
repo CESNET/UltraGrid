@@ -158,6 +158,10 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
 
         if(postprocess) {
                 s->postprocess = vo_postprocess_init(postprocess);
+                if(strcmp(postprocess, "help") == 0) {
+                        exit_uv(0);
+                        return NULL;
+                }
                 if(!s->postprocess) {
                         fprintf(stderr, "Initializing postprocessor \"%s\" failed.\n", postprocess);
                         free(s);

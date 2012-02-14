@@ -82,7 +82,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
         {"double-framerate", df_init, df_reconfigure, 
                         df_getf, df_get_out_desc,
                         df_postprocess, df_done },
-        {NULL, NULL, NULL, NULL, NULL, NULL}
+        {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
 void show_vo_postprocess_help()

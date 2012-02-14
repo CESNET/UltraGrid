@@ -55,7 +55,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include "vo_postprocess/double-framerate.h"
-#include "video_display.h"`
+#include "video_display.h"
 
 struct state_df {
         struct video_frame *in;
@@ -69,8 +69,12 @@ static void usage()
 }
 
 void * df_init(char *config) {
-        UNUSED(config);
         struct state_df *s;
+
+        if(config && strcmp(config, "help") == 0) {
+                usage();
+                return NULL;
+        }
 
         s = (struct state_df *) 
                         malloc(sizeof(struct state_df));
@@ -126,7 +130,7 @@ struct video_frame * df_getf(void *state)
 void df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_df *s = (struct state_df *) state;
-        int y;
+        unsigned int y;
 
         if(in != NULL) {
                 char *src = s->buffers[(s->buffer_current + 1) % 2] + vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
