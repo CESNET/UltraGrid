@@ -110,6 +110,8 @@ struct testcard_state {
         char *audio_data;
         volatile int audio_start, audio_end;
         unsigned int grab_audio:1;
+
+        unsigned int still_image;
 };
 
 const int rect_colors[] = {
@@ -469,10 +471,11 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         if (fmt == NULL || strcmp(fmt, "help") == 0) {
                 printf("testcard options:\n");
-                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>][:i|:sf]\n");
+                printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>][:i|:sf]:still\n");
                 printf("\tp - pan with frame\n");
                 printf("\ts - split the frames into XxY separate tiles\n");
-                printf("\ti|sf - send as interlaced or segmented frame (only attribute\n");
+                printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
+                printf("\tstill - send still image\n");
                 show_codec_help("testcard");
                 return NULL;
         }
@@ -528,6 +531,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         }
 
         s->frame->color_spec = codec;
+        s->still_image = FALSE;
 
         if(bpp == 0) {
                 fprintf(stderr, "Unknown codec '%s'\n", tmp);
@@ -666,6 +670,8 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                         s->frame->interlacing = INTERLACED_MERGED;
                 } else if (strcmp(tmp, "sf") == 0) {
                         s->frame->interlacing = SEGMENTED_FRAME;
+                } else if (strcmp(tmp, "still") == 0) {
+                        s->still_image = TRUE;
                 }
                 tmp = strtok(NULL, ":");
         }
@@ -764,9 +770,9 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                         *audio = NULL;
                 }
 
-#ifndef TESTCARD_STATIC_PICTURE
-                vf_get_tile(state->frame, 0)->data += vf_get_tile(state->frame, 0)->linesize;
-#endif
+                if(!state->still_image) {
+                        vf_get_tile(state->frame, 0)->data += vf_get_tile(state->frame, 0)->linesize;
+                }
                 if(vf_get_tile(state->frame, 0)->data > state->data + state->size)
                         vf_get_tile(state->frame, 0)->data = state->data;
 
@@ -831,3 +837,5 @@ struct vidcap_type *vidcap_testcard_probe(void)
         }
         return vt;
 }
+
+/* vim: set expandtab: sw=8 */
