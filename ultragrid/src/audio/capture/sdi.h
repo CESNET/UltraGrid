@@ -46,25 +46,20 @@
  *
  */
 
-#include "config.h"
+//void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
+//int audio_does_send_sdi(struct state_audio *s);
+struct audio_frame;
 
-#ifndef _SDI_H_
-#define _SDI_H_
-
-void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
-int audio_does_send_sdi(struct state_audio *s);
-int audio_does_receive_sdi(struct state_audio *s);
-struct audio_frame * sdi_get_frame(void *state);
-void sdi_put_frame(void *state, struct audio_frame *frame);
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
-                void *udata);
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
-                void *udata);
+/* audio capture API */
+void sdi_capture_help(void);
 void * sdi_capture_init(char *cfg);
 void * sdi_capture_finish(void *state);
 void * sdi_capture_done(void *state);
-void * sdi_playback_init(char *cfg);
-void sdi_playback_done(void *s);
 struct audio_frame * sdi_read(void *state);
 
-#endif
+/* SDI specific API */
+void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame);
+
+
+/* vim: set expandtab: sw=8 */
+

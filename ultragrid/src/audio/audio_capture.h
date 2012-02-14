@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/capture/none.h
+ * FILE:    audio/audio_capture.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -46,52 +46,30 @@
  *
  */
 
-#include "audio/capture/none.h" 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
 #endif
-#include "debug.h"
-#include <assert.h>
-#include <stdlib.h>
 
-#define AUDIO_CAPTURE_NONE_MAGIC 0x43fb99ccu
+struct state_audio_capture;
+struct audio_frame;
 
-struct state_audio_capture_none {
-        uint32_t magic;
-};
 
-void audio_cap_none_help(void)
-{
-}
+void                        audio_capture_init_devices(void);
+void                        audio_capture_print_help(void);
 
-void * audio_cap_none_init(char *cfg)
-{
-        struct state_audio_capture_none *s;
+struct state_audio_capture *audio_capture_init(char *driver, char *cfg);
+struct state_audio_capture *audio_capture_init_null_device(void);
+struct audio_frame         *audio_capture_read(struct state_audio_capture * state);
+void                        audio_capture_finish(struct state_audio_capture * state);
+void                        audio_capture_done(struct state_audio_capture * state);
 
-        s = (struct state_audio_capture_none *) malloc(sizeof(struct state_audio_capture_none));
-        s->magic = AUDIO_CAPTURE_NONE_MAGIC;
-        assert(s != 0);
-        UNUSED(cfg);
-        return s;
-}
-
-struct audio_frame *audio_cap_none_read(void *state)
-{
-        UNUSED(state);
-        return NULL;
-}
-
-void audio_cap_none_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void audio_cap_none_done(void *state)
-{
-        struct state_audio_capture_none *s = (struct state_audio_capture_none *) state;
-
-        assert(s->magic == AUDIO_CAPTURE_NONE_MAGIC);
-        free(s);
-}
+/**
+ * @return TRUE if embedded sound is send, FALSE othrewise */
+int                         audio_capture_does_send_sdi(struct state_audio_capture *s);
+/**
+ * returns directly state of audio capture device. Little bit silly, but it is needed for
+ * SDI (embedded sound).
+ */
+void                       *audio_capture_get_state_pointer(struct state_audio_capture *s);
+/* vim: set expandtab: sw=8 */
 

@@ -67,8 +67,6 @@
 #include "rtp/ptime.h"
 #include "rtp/pbuf.h"
 #include "rtp/decoders.h"
-#include "audio/audio.h"
-#include "audio/utils.h"
 
 #define PBUF_MAGIC	0xcafebabe
 
@@ -364,79 +362,5 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                 curr = curr->nxt;
         }
         return 0;
-}
-
-int decode_audio_frame(struct coded_data *cdata, void *data)
-{
-        struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
-        struct audio_frame *buffer = s->buffer;
-
-        int total_channels = 0;
-        int bps, sample_rate, channel;
-        static int prints = 0;
-
-        while (cdata != NULL) {
-                char *data;
-                audio_payload_hdr_t *hdr = 
-                        (audio_payload_hdr_t *) cdata->data->data;
-                        
-                /* we receive last channel first (with m bit, last packet) */
-                /* thus can be set only with m-bit packet */
-                if(cdata->data->m) {
-                        total_channels = ((ntohl(hdr->substream_bufnum) >> 22) & 0x3ff) + 1;
-                }
-                assert(total_channels > 0);
-
-                channel = (ntohl(hdr->substream_bufnum) >> 22) & 0x3ff;
-                sample_rate = ntohl(hdr->quant_sample_rate) & 0x3fffff;
-                bps = (ntohl(hdr->quant_sample_rate) >> 26) / 8;
-                
-                if(s->saved_channels != total_channels ||
-                                s->saved_bps != bps ||
-                                s->saved_sample_rate != sample_rate) {
-                        if(audio_reconfigure(s->audio_state, bps * 8, total_channels,
-                                                sample_rate) != TRUE) {
-                                fprintf(stderr, "Audio reconfiguration failed!\n");
-                                return FALSE;
-                        }
-                        else fprintf(stderr, "Audio reconfiguration succeeded.\n");
-                        s->saved_channels = total_channels;
-                        s->saved_bps = bps;
-                        s->saved_sample_rate = sample_rate;
-                        buffer = audio_get_frame(s->audio_state);
-                }
-                
-                data = cdata->data->data + sizeof(audio_payload_hdr_t);
-                
-                int length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
-
-                int offset = ntohl(hdr->offset);
-                if(length * total_channels <= ((int) buffer->max_size) - offset) {
-                        mux_channel(buffer->data + offset * total_channels, data, bps, length, total_channels, channel);
-                        //memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
-                } else { /* discarding data - buffer to small */
-                        int copy_len = buffer->max_size - offset * total_channels;
-
-                        if(copy_len > 0)
-                                mux_channel(buffer->data + offset * total_channels, data, bps, copy_len, total_channels, channel);
-                                //memcpy(buffer->data + ntohl(hdr->offset), data, 
-                                //        copy_len);
-                        if(++prints % 100 == 0)
-                                fprintf(stdout, "Warning: "
-                                        "discarding audio data "
-                                        "- buffer too small (audio init failed?)\n");
-                }
-                
-                /* buffer size same for every packet of the frame */
-                if(ntohl(hdr->length) <= buffer->max_size) {
-                        buffer->data_len = ntohl(hdr->length) * total_channels;
-                } else { /* overflow */
-                        buffer->data_len = buffer->max_size;
-                }
-                
-                cdata = cdata->nxt;
-        }
-        
-        return TRUE;
 }
 

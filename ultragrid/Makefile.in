@@ -43,12 +43,15 @@ OBJS	      = @OBJS@ \
 		src/rtp/xor.o \
 		src/rtp/pbuf.o \
 		src/rtp/decoders.o \
+		src/rtp/audio_decoders.o \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
 		src/audio/audio.o \
+		src/audio/audio_capture.o \
 		src/audio/capture/none.o \
+		src/audio/capture/sdi.o \
 		src/audio/playback/none.o \
 		src/audio/utils.o \
 		@COREAUDIO_OBJ@ \

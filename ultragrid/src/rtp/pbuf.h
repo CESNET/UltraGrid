@@ -104,5 +104,4 @@ int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
 
-int decode_audio_frame(struct coded_data *cdata, void *data);
 
