@@ -74,6 +74,7 @@ struct state_audio_capture {
         void *state;
 };
 
+struct audio_capture_t;
 
 typedef void (*audio_device_help_t)(void);
 /**
