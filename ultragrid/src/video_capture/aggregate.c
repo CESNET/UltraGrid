@@ -270,7 +270,7 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
         double seconds = tv_diff(s->t, s->t0);    
         if (seconds >= 5) {
             float fps  = s->frames / seconds;
-            fprintf(stderr, "[aggregate] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+            fprintf(stderr, "[aggregate cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
             s->t0 = s->t;
             s->frames = 0;
         }  

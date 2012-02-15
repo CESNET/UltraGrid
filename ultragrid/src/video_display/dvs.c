@@ -326,6 +326,9 @@ volatile int worker_waiting;
         int output_audio_channel_count;
         
         unsigned int mode_set_manually:1;
+
+        int                     frames;
+        struct timeval          t, t0;
 };
 
 static void show_help(void);
@@ -423,6 +426,14 @@ void display_dvs_run(void *arg)
                         exit_uv(1);
                         return;
                 }
+                double seconds = tv_diff(s->t, s->t0);    
+
+                if (seconds >= 5) {
+                    float fps  = s->frames / seconds;
+                    fprintf(stderr, "[DVS disp.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                    s->t0 = s->t;
+                    s->frames = 0;
+                }  
         }
 }
 

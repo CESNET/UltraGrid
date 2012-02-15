@@ -742,7 +742,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                 double seconds = tv_diff(curr_time, state->t0);
                 if (seconds >= 5) {
                         float fps = state->count / seconds;
-                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n",
+                        fprintf(stderr, "[testcard] %d frames in %g seconds = %g FPS\n",
                                 state->count, seconds, fps);
                         state->t0 = curr_time;
                         state->count = 0;

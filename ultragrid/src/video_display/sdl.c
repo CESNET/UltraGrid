@@ -391,7 +391,7 @@ void display_sdl_run(void *arg)
 		double seconds = tv_diff(tv, s->tv);
 		if (seconds > 5) {
 			double fps = s->frames / seconds;
-			fprintf(stdout, "%d frames in %g seconds = %g FPS\n",
+			fprintf(stdout, "[SDL] %d frames in %g seconds = %g FPS\n",
 				s->frames, seconds, fps);
 			s->tv = tv;
 			s->frames = 0;

@@ -89,6 +89,9 @@ struct state_sage {
         int appID, nodeID;
         
         void *sage_state;
+
+        int                     frames;
+        struct timeval          t, t0;
 };
 
 /** Prototyping */
@@ -116,6 +119,15 @@ void display_sage_run(void *arg)
                 s->buffer_writable = 1;
                 pthread_cond_broadcast(&s->buffer_writable_cond);
                 pthread_mutex_unlock(&s->buffer_writable_lock);
+
+                double seconds = tv_diff(t, t0);
+                if (seconds >= 5) {
+                        float fps = frames / seconds;
+                        fprintf(stderr, "[SAGE] %d frames in %g seconds = %g FPS\n",
+                                frames, seconds, fps);
+                        t0 = t;
+                        frames = 0;
+                }
         }
 }
 
@@ -133,6 +145,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
         s = (struct state_sage *)malloc(sizeof(struct state_sage));
         s->magic = MAGIC_SAGE;
 
+        s->frames = 0;
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
         

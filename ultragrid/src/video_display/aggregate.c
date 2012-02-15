@@ -51,6 +51,7 @@
 #include "config_win32.h"
 
 #include "debug.h"
+#include "tv.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/aggregate.h"
@@ -76,6 +77,9 @@ struct display_aggregate_state {
 
         /* For debugging... */
         uint32_t magic;
+
+        int                     frames;
+        struct timeval          t, t0;
 };
 
 static void show_help(void);
@@ -393,6 +397,15 @@ struct audio_frame * display_aggregate_get_audio_frame(void *state)
 void display_aggregate_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
+        double seconds = tv_diff(s->t, s->t0);    
+
+        if (seconds >= 5) {
+            float fps  = s->frames / seconds;
+            fprintf(stderr, "[aggregate disp.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+            s->t0 = s->t;
+            s->frames = 0;
+        }  
+
         display_put_audio_frame(s->devices[0], frame);
 }
 

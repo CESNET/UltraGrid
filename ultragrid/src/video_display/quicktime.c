@@ -363,10 +363,11 @@ void display_quicktime_run(void *arg)
 
                 frames++;
                 gettimeofday(&t, NULL);
+
                 double seconds = tv_diff(t, t0);
                 if (seconds >= 5) {
                         float fps = frames / seconds;
-                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n",
+                        fprintf(stderr, "[QuickTime disp.] %d frames in %g seconds = %g FPS\n",
                                 frames, seconds, fps);
                         t0 = t;
                         frames = 0;

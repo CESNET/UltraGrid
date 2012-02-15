@@ -840,7 +840,7 @@ vidcap_quad_grab(void *state, struct audio_frame **audio)
         double seconds = tv_diff(t, t0);    
         if (seconds >= 5) {
             float fps  = frames / seconds;
-            fprintf(stderr, "%d frames in %g seconds = %g FPS\n", frames, seconds, fps);
+            fprintf(stderr, "[quad] %d frames in %g seconds = %g FPS\n", frames, seconds, fps);
             t0 = t;
             frames = 0;
         }  

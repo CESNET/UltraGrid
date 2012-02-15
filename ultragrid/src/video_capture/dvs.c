@@ -89,6 +89,9 @@ struct vidcap_dvs_state {
         const hdsp_mode_table_t *mode;
         unsigned grab_audio:1;
         unsigned int detect_mode:1;
+
+        int frames;
+        struct       timeval t, t0;
 };
 
 static void show_help(void);
@@ -219,6 +222,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
             
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
+        s->frames = 0;
 
         s->detect_mode = FALSE;
         
@@ -547,12 +551,23 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
 
         if (s->rtp_buffer != NULL) {
                 s->tile->data = s->rtp_buffer;
-                if(s->grab_audio && s->audio.data_len)
-                        *audio = &s->audio;
-                else 
-                        *audio = NULL;
-                return s->frame;
         
+                s->frames++;
+                gettimeofday(&s->t, NULL);
+                double seconds = tv_diff(s->t, s->t0);    
+                if (seconds >= 5) {
+                    float fps  = s->frames / seconds;
+                    fprintf(stderr, "[DVS cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                    s->t0 = s->t;
+                    s->frames = 0;
+                }  
+
+                if(s->grab_audio && s->audio.data_len) {
+                        *audio = &s->audio;
+                } else {
+                        *audio = NULL;
+                }
+                return s->frame;
         }
 
         return NULL;
