@@ -50,9 +50,11 @@ OBJS	      = @OBJS@ \
 		src/rtp/rtp_callback.o \
 		src/audio/audio.o \
 		src/audio/audio_capture.o \
+		src/audio/audio_playback.o \
 		src/audio/capture/none.o \
 		src/audio/capture/sdi.o \
 		src/audio/playback/none.o \
+		src/audio/playback/sdi.o \
 		src/audio/utils.o \
 		@COREAUDIO_OBJ@ \
 		@JACK_TRANS_OBJ@ \

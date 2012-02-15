@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/capture/sdi.h
+ * FILE:    audio/playback/sdi.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -46,25 +46,25 @@
  *
  */
 
-#include "config.h"
+struct audio_frame;
 
-#ifndef _SDI_H_
-#define _SDI_H_
+void                     sdi_playback_help(void);
+void                    *sdi_playback_init(char *cfg);
+struct audio_frame      *sdi_get_frame(void *state);
+void                     sdi_put_frame(void *state, struct audio_frame *frame);
+void                     sdi_playback_done(void *state);
+int                      sdi_reconfigure(void *state, int quant_samples, int channels,
+                int sample_rate);
 
-void audio_sdi_send(struct state_audio *s, struct audio_frame *frame);
-int audio_does_send_sdi(struct state_audio *s);
-int audio_does_receive_sdi(struct state_audio *s);
-struct audio_frame * sdi_get_frame(void *state);
-void sdi_put_frame(void *state, struct audio_frame *frame);
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
+
+void sdi_register_get_callback(void *s, struct audio_frame * (*callback)(void *),
                 void *udata);
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
+void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
                 void *udata);
-void * sdi_capture_init(char *cfg);
-void * sdi_capture_finish(void *state);
-void * sdi_capture_done(void *state);
-void * sdi_playback_init(char *cfg);
-void sdi_playback_done(void *s);
-struct audio_frame * sdi_read(void *state);
+void sdi_register_reconfigure_callback(void *s, int (*callback)(void *, int, int,
+                        int),
+                void *udata);
 
-#endif
+
+/* vim: set expandtab: sw=8 */
+

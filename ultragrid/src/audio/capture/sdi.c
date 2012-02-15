@@ -53,6 +53,7 @@
 #include "debug.h"
 #include "host.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 
@@ -86,7 +87,7 @@ struct audio_frame * sdi_read(void *state)
                 return NULL;
 }
 
-void * sdi_capture_finish(void *state)
+void sdi_capture_finish(void *state)
 {
         struct state_sdi_capture *s;
         
@@ -94,7 +95,7 @@ void * sdi_capture_finish(void *state)
         platform_sem_post(&s->audio_frame_ready);
 }
 
-void * sdi_capture_done(void *state)
+void sdi_capture_done(void *state)
 {
         UNUSED(state);
 }

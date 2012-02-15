@@ -47,104 +47,67 @@
  */
 
 #include "audio/audio.h" 
-#include "audio/capture/sdi.h" 
+#include "audio/playback/sdi.h" 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#endif
+#include "debug.h"
 
-struct state_sdi_capture {
-        struct audio_frame * audio_buffer;
-        sem_t audio_frame_ready;
-};
+#include <stdlib.h>
 
 struct state_sdi_playback {
         struct audio_frame * (*get_callback)(void *);
         void (*put_callback)(void *, struct audio_frame *);
+        int (*reconfigure_callback)(void *state, int quant_samples, int channels,
+                int sample_rate);
         void *get_udata;
         void *put_udata;
+        void *reconfigure_udata;
 };
 
-void * sdi_capture_init(char *cfg);
-void * sdi_capture_finish(void *state);
-void * sdi_capture_done(void *state);
-void * sdi_playback_init(char *cfg);
-void sdi_playback_done(void *s);
-struct audio_frame * sdi_read(void *state);
 
-void * sdi_capture_init(char *cfg)
+void sdi_playback_help(void)
 {
-        struct state_sdi_capture *s;
-        UNUSED(cfg);
-        
-        s = (struct state_sdi_capture *) calloc(1, sizeof(struct state_sdi_capture));
-        platform_sem_init(&s->audio_frame_ready, 0, 0);
-        
-        return s;
+        printf("\tembedded : SDI audio (if available)\n");
 }
 
 void * sdi_playback_init(char *cfg)
 {
-        struct state_sdi_playback *s = calloc(1, sizeof(struct state_sdi_playback));
+        struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
         UNUSED(cfg);
         s->get_callback = NULL;
         s->put_callback = NULL;
+        s->reconfigure_callback = NULL;
         return s;
 }
 
-
-struct audio_frame * sdi_read(void *state)
-{
-        struct state_sdi_capture *s;
-        
-        s = (struct state_sdi_capture *) state;
-        platform_sem_wait(&s->audio_frame_ready);
-        if(!should_exit)
-                return s->audio_buffer;
-        else
-                return NULL;
-}
-
-void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
-        struct state_sdi_capture *sdi;
-        if(s->audio_capture_device.index != AUDIO_DEV_SDI)
-                return;
-        
-        sdi = (struct state_sdi_capture *) s->audio_capture_device.state;
-        sdi->audio_buffer = frame;
-        platform_sem_post(&sdi->audio_frame_ready);
-}
-
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
+void sdi_register_get_callback(void *state, struct audio_frame * (*callback)(void *),
                 void *udata)
 {
-        struct state_sdi_playback *sdi;
-        assert(s->audio_playback_device.index == AUDIO_DEV_SDI);
+        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
         
-        sdi = (struct state_sdi_playback *) s->audio_playback_device.state;
-        sdi->get_callback = callback;
-        sdi->get_udata = udata;
+        s->get_callback = callback;
+        s->get_udata = udata;
 }
 
-void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
+void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
                 void *udata)
 {
-        struct state_sdi_playback *sdi;
-        assert(s->audio_playback_device.index == AUDIO_DEV_SDI);
+        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
         
-        sdi = (struct state_sdi_playback *) s->audio_playback_device.state;
-        sdi->put_callback = callback;
-        sdi->put_udata = udata;
+        s->put_callback = callback;
+        s->put_udata = udata;
 }
 
-int audio_does_send_sdi(struct state_audio *s)
+void sdi_register_reconfigure_callback(void *state, int (*callback)(void *, int, int,
+                        int),
+                void *udata)
 {
-        if(!s) 
-                return FALSE;
-        return s->audio_capture_device.index == AUDIO_DEV_SDI;
-}
-
-int audio_does_receive_sdi(struct state_audio *s)
-{
-        if(!s) 
-                return FALSE;
-        return s->audio_playback_device.index == AUDIO_DEV_SDI;
+        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
+        
+        s->reconfigure_callback = callback;
+        s->reconfigure_udata = udata;
 }
 
 void sdi_put_frame(void *state, struct audio_frame *frame)
@@ -161,27 +124,31 @@ struct audio_frame * sdi_get_frame(void *state)
         struct state_sdi_playback *s;
         s = (struct state_sdi_playback *) state;
         
-        if(s->get_callback)
+        if(s->get_callback) {
                 return s->get_callback(s->get_udata);
-        else
+        } else {
                 return NULL;
+        }
 }
+
+int sdi_reconfigure(void *state, int quant_samples, int channels,
+                int sample_rate)
+{
+        struct state_sdi_playback *s;
+        s = (struct state_sdi_playback *) state;
+
+        if(s->reconfigure_callback) {
+                return s->reconfigure_callback(s->reconfigure_udata, quant_samples, channels, sample_rate);
+        } else {
+                return FALSE;
+        }
+}
+
 
 void sdi_playback_done(void *s)
 {
         UNUSED(s);
 }
 
-void * sdi_capture_finish(void *state)
-{
-        struct state_sdi_capture *s;
-        
-        s = (struct state_sdi_capture *) state;
-        platform_sem_post(&s->audio_frame_ready);
-}
-
-void * sdi_capture_done(void *state)
-{
-        UNUSED(state);
-}
+/* vim: set expandtab: sw=8 */
 

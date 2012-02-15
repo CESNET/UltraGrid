@@ -63,7 +63,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
 #include "rtp/pbuf.h"
-#include "rtp/decoders.h"
+#include "rtp/audio_decoders.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 
