@@ -60,18 +60,18 @@ static int get_halign(codec_t codec);
 #define to_fourcc(a,b,c,d)     (((a)<<24) | ((b)<<16) | ((c)<<8) | (d))
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", 0, 1, 4.0, TRUE, FALSE},
+        {RGBA, "RGBA", 0x41424752, 1, 4.0, TRUE, FALSE},
         {UYVY, "UYVY", 846624121, 1, 2, FALSE, FALSE},
         {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE},
-        {DVS8, "DVS8", 0, 1, 2, FALSE, FALSE},
+        {DVS8, "DVS8", to_fourcc('D','V','S','8'), 1, 2, FALSE, FALSE},
         {R10k, "R10k", 1378955371, 1, 4, TRUE, FALSE},
         {v210, "v210", 1983000880, 48, 8.0 / 3.0, FALSE, FALSE},
-        {DVS10, "DVS10", 0, 48, 8.0 / 3.0, FALSE, FALSE},
+        {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
         {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE},
         {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packet YCbCr inside DXT1 channels */
         {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
         {RGB, "RGB", 0x32424752, 1, 3.0, TRUE, FALSE},
-        {DPX10, "DPX10", 0, 1, 4.0, TRUE, FALSE},
+        {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
         {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
         {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
         {0, NULL, 0, 0, 0.0, FALSE, FALSE}
