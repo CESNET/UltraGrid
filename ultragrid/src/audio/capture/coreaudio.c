@@ -303,7 +303,7 @@ void * audio_cap_ca_init(char *cfg)
         desc.componentFlags = 0;
         desc.componentFlagsMask = 0;
 
-#if MACOSX_VERSION_MAJOR <= 9
+#if MACOSX_VERSION_MAJOR > 9
         comp = AudioComponentFindNext(NULL, &desc);
         if(!comp) {
                 fprintf(stderr, "Error finding AUHAL component.\n");

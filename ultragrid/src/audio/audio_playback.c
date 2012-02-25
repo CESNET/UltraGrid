@@ -142,7 +142,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_STATIC(audio_play_ca_get_frame),
                 MK_STATIC(audio_play_ca_put_frame),
                 MK_STATIC(audio_play_ca_done),
-                MK_STATIC(audio_play_reconfigure),
+                MK_STATIC(audio_play_ca_reconfigure),
                 NULL
         },
 #endif
