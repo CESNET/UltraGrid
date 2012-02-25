@@ -38,6 +38,16 @@
 #include <GL/glew.h>
 #endif
 
+#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
+#define glGenFramebuffers glGenFramebuffersEXT
+#define glBindFramebuffer glBindFramebufferEXT
+#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
+#define glFramebufferTexture2D glFramebufferTexture2DEXT
+#define glDeleteFramebuffers glDeleteFramebuffersEXT
+#define GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE_EXT
+#define glCheckFramebufferStatus glCheckFramebufferStatusEXT
+#endif
+
 #ifdef HAVE_GPUPERFAPI
 #include "GPUPerfAPI.h"
 static void WriteSession( gpa_uint32 currentWaitSessionID, const char* filename );

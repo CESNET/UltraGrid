@@ -35,6 +35,14 @@
 #include <OpenGL/gl3.h>
 #endif
 
+#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
+#define glGenFramebuffers glGenFramebuffersEXT
+#define glBindFramebuffer glBindFramebufferEXT
+#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
+#define glFramebufferTexture2D glFramebufferTexture2DEXT
+#define glDeleteFramebuffers glDeleteFramebuffersEXT
+#endif
+
 static GLfloat points[] = { -1.0f, -1.0f, 0.0f, 1.0f,
     1.0f, -1.0f, 0.0f, 1.0f,
     -1.0f, 1.0f, 0.0f, 1.0f,
