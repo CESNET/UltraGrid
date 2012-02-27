@@ -319,22 +319,52 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	echo "static const char fp_compress_dxt1[] = " >> $@    
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
+	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_compress_dxt1 yuv
+	echo "static const char fp_compress_dxt1_yuv[] = " >> $@    
+	printf "\"#version 140\\\n\"\n" >> $@
+	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_legacy[] = " >> $@    
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
+	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_compress_dxt1_legacy
+	echo "static const char fp_compress_dxt1_yuv_legacy[] = " >> $@    
+	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg
 	echo "static const char fp_compress_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
+	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_compress_dxt5ycocg yuv
+	echo "static const char fp_compress_dxt5ycocg_yuv[] = " >> $@
+	printf "\"#version 140\\\n\"\n" >> $@
+	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy
 	echo "static const char fp_compress_dxt5ycocg_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
+	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	echo ";" >> $@
+	# Write fp_compress_dxt5ycocg_legacy yuv
+	echo "static const char fp_compress_dxt5ycocg_yuv_legacy[] = " >> $@
+	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1

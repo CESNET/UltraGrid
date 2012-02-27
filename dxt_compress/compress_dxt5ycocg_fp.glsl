@@ -8,10 +8,6 @@
 
 #define lerp mix
 
-// Image formats
-const int FORMAT_RGB = 0;
-const int FORMAT_YUV = 1;
-
 // Covert YUV to RGB
 vec3 ConvertYUVToRGB(vec3 color)
 {
@@ -331,24 +327,29 @@ void main()
 {
     // Read block of data
     vec3 block[16];
-    if ( int(imageFormat) == FORMAT_YUV )
-        ExtractColorBlockYUV(block, image,
+
+   /* Here shall not be run-time branching, since it causes
+    * significant performance drop with NVidia 580 (ca 75 %)
+    */
+#if FORMAT_YUV
+    ExtractColorBlockYUV(block, image,
 #if GL_legacy
-                gl_TexCoord[0]
+            gl_TexCoord[0]
 #else
-                TEX0
+            TEX0
 #endif
-                * vec4(textureWidth / imageSize.x, 1.0, 1.0, 1.0),
-                imageSize);
-    else
-        ExtractColorBlockRGB(block, image, 
+            * vec4(textureWidth / imageSize.x, 1.0, 1.0, 1.0),
+            imageSize);
+#else /* ! FORMAT_YUV */
+    ExtractColorBlockRGB(block, image, 
 #if GL_legacy
-                gl_TexCoord[0]
+            gl_TexCoord[0]
 #else
-                TEX0
+            TEX0
 #endif
-                * vec4(textureWidth / imageSize.x, 1.0, 1.0, 1.0),
-                imageSize);
+            * vec4(textureWidth / imageSize.x, 1.0, 1.0, 1.0),
+            imageSize);
+#endif /* FORMAT_YUV */
 
     // Find min and max colors
     vec3 mincol, maxcol;

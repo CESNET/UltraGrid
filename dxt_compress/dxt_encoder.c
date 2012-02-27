@@ -258,15 +258,31 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     encoder->shader_fragment_compress = 0;
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG ) {
         if(encoder->legacy) {
-            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg_legacy, GL_FRAGMENT_SHADER);
+            if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg_yuv_legacy, GL_FRAGMENT_SHADER);
+            } else {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg_legacy, GL_FRAGMENT_SHADER);
+            }
         } else {
-            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER);
+            if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg_yuv, GL_FRAGMENT_SHADER);
+            } else {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt5ycocg, GL_FRAGMENT_SHADER);
+            }
         }
     } else {
         if(encoder->legacy) {
-            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_legacy, GL_FRAGMENT_SHADER);
+            if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_yuv_legacy, GL_FRAGMENT_SHADER);
+            } else {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_legacy, GL_FRAGMENT_SHADER);
+            }
         } else {
-            encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER);
+            if(format == DXT_FORMAT_YUV422 || format == DXT_FORMAT_YUV) {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1_yuv, GL_FRAGMENT_SHADER);
+            } else {
+                encoder->shader_fragment_compress = dxt_shader_create_from_source(fp_compress_dxt1, GL_FRAGMENT_SHADER);
+            }
         }
     }
     if ( encoder->shader_fragment_compress == 0 )
@@ -685,4 +701,6 @@ static void WriteSession( gpa_uint32 currentWaitSessionID,
     fclose( f );
 }
 #endif
+
+/* vim: set expandtab: sw=4 */
 
