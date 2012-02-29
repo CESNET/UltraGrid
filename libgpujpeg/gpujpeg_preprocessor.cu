@@ -76,9 +76,26 @@ struct gpujpeg_color_transform<GPUJPEG_YCBCR_ITU_R, GPUJPEG_YCBCR_JPEG> {
     /** YUV -> YCbCr transform (8 bit) */
     static __device__ void 
     perform(float & c1, float & c2, float & c3) {
+        /* V1 - Martin Srom's original
         c1 -= 16;
         // Check minimum value 0
-        c1 = (c1 >= 0.0f) ? c1 : 0.0f;
+        c1 = (c1 >= 0.0f) ? c1 : 0.0f; */
+
+        /* V2 - partially correct - should work
+        c1 = __saturatef(((c1 - 16.0f) / 0.8588f) / 255.0f) * 255.0f;
+        c2 = __saturatef(((c2 - 128.0f) / 0.8784f + 128.0f) / 255.0f) * 255.0f;
+        c3 = __saturatef(((c3 - 128.0f) / 0.8784f + 128.0f) / 255.0f) * 255.0f;
+        */
+
+        /* V3 - temoporarily we convert through RGB (it seems to be only viable */
+        float Y = 1.1643 * (c1 - 16);
+        float U = (c2 - 128);
+        float V = (c3 - 128);
+
+        c1 = __saturatef((Y + 1.7926 * V) / 255.0f) * 255.0f;
+        c2 = __saturatef((Y - 0.2132 * U - 0.5328 * V) / 255.0f) * 255.0f;
+        c3 = __saturatef((Y + 2.1124 * U) / 255.0f) * 255.0f;
+        gpujpeg_color_transform<GPUJPEG_RGB, GPUJPEG_YCBCR_JPEG>::perform(c1,c2,c3);
     }
 };
 
@@ -113,9 +130,20 @@ struct gpujpeg_color_transform<GPUJPEG_YCBCR_JPEG, GPUJPEG_YCBCR_ITU_R> {
     /** YCbCr -> YUV transform (8 bit) */
     static __device__ void 
     perform(float & c1, float & c2, float & c3) {
+        /* Martin Srom's original version
         c1 += 16;
         // Check maximum value 255
         c1 = (c1 <= 255.0) ? c1 : 255.0f;
+        */
+
+        /* current version - throught RGB */
+        gpujpeg_color_transform<GPUJPEG_YCBCR_JPEG, GPUJPEG_RGB>::perform(c1,c2,c3);
+        float y = 16.0 + (c1 * 0.2126 + c2 * 0.7152 + c3 * 0.0722) * 0.8588f; // Y
+        float u = 128 + (-c1 * 0.1145 - c2 * 0.3854 + c3 * 0.5) * 0.8784;
+        float v = 128 + (c1 * 0.5 - c2 * 0.4541 - c3 * 0.0458) * 0.8784;
+        c1 = __saturatef(y/255) * 255;
+        c2 = __saturatef(u/255) * 255;
+        c3 = __saturatef(v/255) * 255;
     }
 };
 
