@@ -87,6 +87,10 @@ struct dxt_encoder
     // Texture id
     GLuint texture_id;
 
+    // PBO
+    GLuint pbo_in;
+    GLuint pbo_out;
+
     // Compressed texture
     GLuint texture_compressed_id;
     
@@ -237,6 +241,19 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 
     glGenFramebuffers(1, &encoder->fbo_id);
     glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
+
+    int bpp;
+    if(format == DXT_FORMAT_RGB) {
+        bpp = 3;
+    } else {
+        bpp = 4;
+    }
+
+    glGenBuffersARB(1, &encoder->pbo_in); //Allocate PBO
+    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in);
+    glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB,width*height*bpp,0,GL_STREAM_DRAW_ARB);
+    glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
+        
     
     GLuint fbo_tex;
     glGenTextures(1, &fbo_tex); 
@@ -436,6 +453,22 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     GPA_BeginPass();
     GPA_BeginSample(0);
 #endif
+    GLubyte *ptr;
+
+    int data_size = encoder->width * encoder->height;
+    switch(encoder->format) {
+            case DXT_FORMAT_YUV422:
+                data_size *= 2;
+                break;
+            case DXT_FORMAT_RGB:
+                data_size *= 3;
+                break;
+            case DXT_FORMAT_RGBA:
+            case DXT_FORMAT_YUV:
+                data_size *= 4;
+                break;
+    }
+
     switch(encoder->format) {
             case DXT_FORMAT_YUV422:
                         glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo444_id);
@@ -487,10 +520,31 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         break;
                 case DXT_FORMAT_YUV:
                 case DXT_FORMAT_RGBA:
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+                        glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+                        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in); // current pbo
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, 0);
+                        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
+                        ptr = (GLubyte*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+                        if(ptr)
+                        {
+                            // update data directly on the mapped buffer
+                            memcpy(ptr, image, data_size); 
+                            glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+                        }
+
                         break;
                 case DXT_FORMAT_RGB:
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, image);
+                        glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+                        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in); // current pbo
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, 0);
+                        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
+                        ptr = (GLubyte*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+                        if(ptr)
+                        {
+                            // update data directly on the mapped buffer
+                            memcpy(ptr, image, data_size); 
+                            glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+                        }
                         break;
     }
 #ifdef RTDXT_DEBUG
