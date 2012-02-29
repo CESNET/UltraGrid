@@ -268,6 +268,11 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
         glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, (encoder->width + 3) / 4 * 4, encoder->height /  4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenBuffersARB(1, &encoder->pbo_out); //Allocate PBO
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
+    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, (width + 3) / 4 * 4 * height / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2), 0, GL_STREAM_READ_ARB);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
     
     // Create program [display] and its shader
     encoder->program_compress = glCreateProgram();
@@ -597,11 +602,28 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 
 
     // Read back
+    // read pixels from framebuffer to PBO
+    // glReadPixels() should return immediately.
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, image_compressed);
+        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, 0);
     else
-        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, image_compressed);
+        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, 0);
+
+    // map the PBO to process its data by CPU
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
+    ptr = (GLubyte*)glMapBufferARB(GL_PIXEL_PACK_BUFFER_ARB,
+                                            GL_READ_ONLY_ARB);
+    if(ptr)
+    {
+        memcpy(image_compressed, ptr, (encoder->width + 3) / 4 * 4 * encoder->height / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2));
+        glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
+    }
+
+    // back to conventional pixel operation
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+
         
 #ifdef RTDXT_DEBUG_HOST
     glFinish();
