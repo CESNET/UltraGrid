@@ -12,12 +12,12 @@
 vec3 ConvertYUVToRGB(vec3 color)
 {
     float Y = 1.1643 * (color[0] - 0.0625);
-    float U = 1.1384 * (color[1] - 0.5);
-    float V = 1.1384 * (color[2] - 0.5);
+    float U = (color[1] - 0.5);
+    float V = (color[2] - 0.5);
 
     float R = Y + 1.7926 * V;
     float G = Y - 0.2132 * U - 0.5328 * V;
-    float B = Y + 1.7926 * U;
+    float B = Y + 2.1124 * U;
     
     return vec3(R, G, B);
 }

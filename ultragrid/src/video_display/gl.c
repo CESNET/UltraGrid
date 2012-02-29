@@ -102,7 +102,7 @@ void main()
         yuv.b = 1.1384 * (yuv.b - 0.5);
         gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
         gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
-        gl_FragColor.b = yuv.r + 1.7926 * yuv.g;
+        gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
 });
 
 static char * yuv422_to_rgb_vp = STRINGIFY(
@@ -119,8 +119,8 @@ static char * frag = STRINGIFY(
         vec4 col = texture2D(yuvtex, gl_TexCoord[0].st);
 
         float Y = 1.1643 * (col[0] - 0.0625);
-        float U = 1.1384 * (col[1] - 0.5);
-        float V = 1.1384 * (col[2] - 0.5);
+        float U = (col[1] - 0.5);
+        float V = (col[2] - 0.5);
 
         float G = Y-0.39173*U-0.81290*V;
         float B = Y+2.017*U;
