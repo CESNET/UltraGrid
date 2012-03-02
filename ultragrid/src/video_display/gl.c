@@ -122,9 +122,9 @@ static char * frag = STRINGIFY(
         float U = (col[1] - 0.5);
         float V = (col[2] - 0.5);
 
-        float G = Y-0.39173*U-0.81290*V;
-        float B = Y+2.017*U;
-        float R = Y+1.5958*V;
+        float R = Y + 1.7926 * V;
+        float G = Y - 0.2132 * U - 0.5328 * V;
+        float B = Y + 2.1124 * U;
 
         gl_FragColor=vec4(R,G,B,1.0);
 }
