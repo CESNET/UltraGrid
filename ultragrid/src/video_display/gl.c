@@ -98,8 +98,8 @@ void main()
         if(gl_TexCoord[0].x * imageWidth / 2.0 - floor(gl_TexCoord[0].x * imageWidth / 2.0) > 0.5)
                 yuv.r = yuv.a;
         yuv.r = 1.1643 * (yuv.r - 0.0625);
-        yuv.g = 1.1384 * (yuv.g - 0.5);
-        yuv.b = 1.1384 * (yuv.b - 0.5);
+        yuv.g = yuv.g - 0.5;
+        yuv.b = yuv.b - 0.5;
         gl_FragColor.r = yuv.r + 1.7926 * yuv.b;
         gl_FragColor.g = yuv.r - 0.2132 * yuv.g - 0.5328 * yuv.b;
         gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
