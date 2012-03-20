@@ -42,6 +42,15 @@ struct gpujpeg_writer
     uint8_t* buffer;
     // Output buffer current position
     uint8_t* buffer_current;
+
+    // Segment info buffers (every buffer is placed inside another header)
+    uint8_t* segment_info[GPUJPEG_MAX_SEGMENT_INFO_HEADER_COUNT];
+    // Segment info buffers count (equals number of segment info headers)
+    int segment_info_count;
+    // Segment info current position in scan
+    uint8_t* segment_info_position;
+    // Segment info current segment index
+    int segment_info_index;
 };
 
 /**
@@ -106,6 +115,15 @@ gpujpeg_writer_destroy(struct gpujpeg_writer* writer);
  */
 void
 gpujpeg_writer_write_header(struct gpujpeg_encoder* encoder);
+
+/**
+ * Write segment info for current position in write buffer
+ *
+ * @param encoder  Encoder structure
+ * @return void
+ */
+void
+gpujpeg_writer_write_segment_info(struct gpujpeg_encoder* encoder);
 
 /**
  * Write scan header for one component

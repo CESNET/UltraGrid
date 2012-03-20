@@ -30,10 +30,6 @@
 #include "gpujpeg_huffman_cpu_encoder.h"
 #include "gpujpeg_util.h"
 
-#ifdef _DEBUG
-#define inline
-#endif
-
 /** Huffman encoder structure */
 struct gpujpeg_huffman_cpu_encoder
 {
@@ -71,7 +67,7 @@ struct gpujpeg_huffman_cpu_encoder
  * @param size  Size in bits of the Huffman code
  * @return void
  */
-inline int
+static inline int
 gpujpeg_huffman_cpu_encoder_emit_bits(struct gpujpeg_huffman_cpu_encoder* coder, unsigned int code, int size)
 {
     // This routine is heavily used, so it's worth coding tightly
@@ -114,7 +110,7 @@ gpujpeg_huffman_cpu_encoder_emit_bits(struct gpujpeg_huffman_cpu_encoder* coder,
  * @param coder  Huffman coder structure
  * @return void
  */
-inline void
+static inline void
 gpujpeg_huffman_cpu_encoder_emit_left_bits(struct gpujpeg_huffman_cpu_encoder* coder)
 {
     // Fill 7 bits with ones

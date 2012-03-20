@@ -38,6 +38,11 @@ gpujpeg_reader_create()
     struct gpujpeg_reader* reader = malloc(sizeof(struct gpujpeg_reader));
     if ( reader == NULL )
         return NULL;
+    reader->comp_count = 0;
+    reader->scan_count = 0;
+    reader->segment_count = 0;
+    reader->segment_info_count = 0;
+    reader->segment_info_size = 0;
     
     return reader;
 }
@@ -74,13 +79,16 @@ gpujpeg_reader_destroy(struct gpujpeg_reader* reader)
  * Read marker from image data
  * 
  * @param image
- * @return marker code
+ * @return marker code or -1 if failed
  */
 int
 gpujpeg_reader_read_marker(uint8_t** image)
 {
-    if( gpujpeg_reader_read_byte(*image) != 0xFF )
+    uint8_t byte = gpujpeg_reader_read_byte(*image);
+    if( byte != 0xFF ) {
+        fprintf(stderr, "[GPUJPEG] [Error] Failed to read marker from JPEG data (0xFF was expected but 0x%X was presented)\n", byte);
         return -1;
+    }
     int marker = gpujpeg_reader_read_byte(*image);
     return marker;
 }
@@ -347,90 +355,52 @@ gpujpeg_reader_read_dri(struct gpujpeg_decoder* decoder, uint8_t** image)
 }
 
 /**
- * Read start of scan block from image
- * 
+ * Read segment info for following scan
+ *
+ * @param decoder
  * @param image
- * @param image_end
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_t* image_end)
-{    
+gpujpeg_reader_read_segment_info(struct gpujpeg_decoder* decoder, uint8_t** image)
+{
     int length = (int)gpujpeg_reader_read_2byte(*image);
-    length -= 2;
-    
-    int comp_count = (int)gpujpeg_reader_read_byte(*image);
-    // Not interleaved mode
-    if ( comp_count == 1 ) {
-        decoder->reader->param.interleaved = 0;
-    }
-    // Interleaved mode
-    else if ( comp_count == decoder->reader->param_image.comp_count ) {
-        if ( decoder->reader->comp_count != 0 ) {
-            fprintf(stderr, "[GPUJPEG] [Error] SOS marker component count %d is not supported for multiple scans!\n", comp_count);
-            return -1;
-        }
-        decoder->reader->param.interleaved = 1;
-    }
-    // Unknown mode
-    else {
-        fprintf(stderr, "[GPUJPEG] [Error] SOS marker component count %d is not supported (should be 1 or equals to total component count)!\n", comp_count);
+    int scan_index = (int)gpujpeg_reader_read_byte(*image);
+    if ( length <= 3 ) {
+        fprintf(stderr, "[GPUJPEG] [Error] %s marker (segment info) length should be greater than 3 but %d was presented!\n",
+                gpujpeg_marker_name(GPUJPEG_MARKER_SEGMENT_INFO), length);
         return -1;
     }
-    
-    // We must init decoder before data is loaded into it
-    if ( decoder->reader->comp_count == 0 ) {
-        // Init decoder
-        gpujpeg_decoder_init(decoder, &decoder->reader->param, &decoder->reader->param_image);
-    }
-    
-    // Check maximum component count
-    decoder->reader->comp_count += comp_count;
-    if ( decoder->reader->comp_count > decoder->reader->param_image.comp_count ) {
-        fprintf(stderr, "[GPUJPEG] [Error] SOS marker component count for all scans %d exceeds maximum component count %d!\n", 
-            decoder->reader->comp_count, decoder->reader->param_image.comp_count);
-    }
-    
-    // Collect the component-spec parameters
-    for ( int comp = 0; comp < comp_count; comp++ ) 
-    {
-        int index = (int)gpujpeg_reader_read_byte(*image);
-        int table = (int)gpujpeg_reader_read_byte(*image);
-        int table_dc = (table >> 4) & 15;
-        int table_ac = table & 15;
-        
-        if ( index == 1 && (table_ac != 0 || table_dc != 0) ) {
-            fprintf(stderr, "[GPUJPEG] [Error] SOS marker for Y should have huffman tables 0,0 but %d,%d was presented!\n", table_dc, table_ac);
-            return -1;
-        }
-        if ( (index == 2 || index == 3) && (table_ac != 1 || table_dc != 1) ) {
-            fprintf(stderr, "[GPUJPEG] [Error] SOS marker for Cb or Cr should have huffman tables 1,1 but %d,%d was presented!\n", table_dc, table_ac);
-            return -1;
-        }
+    if ( scan_index != decoder->reader->scan_count ) {
+        fprintf(stderr, "[GPUJPEG] [Error] %s marker (segment info) scan index should be %d but %d was presented!\n",
+                gpujpeg_marker_name(GPUJPEG_MARKER_SEGMENT_INFO), decoder->reader->scan_count, scan_index);
+        return -1;
     }
 
-    // Collect the additional scan parameters Ss, Se, Ah/Al.
-    int Ss = (int)gpujpeg_reader_read_byte(*image);
-    int Se = (int)gpujpeg_reader_read_byte(*image);
-    int Ax = (int)gpujpeg_reader_read_byte(*image);
-    int Ah = (Ax >> 4) & 15;
-    int Al = (Ax) & 15;
-    
-    // Check maximum scan count
-    if ( decoder->reader->scan_count >= GPUJPEG_MAX_COMPONENT_COUNT ) {
-        fprintf(stderr, "[GPUJPEG] [Error] SOS marker reached maximum number of scans (3)!\n");
-        return -1;
-    }
-    
-    int scan_index = decoder->reader->scan_count;
-    
-    // Get scan structure
-    struct gpujpeg_reader_scan* scan = &decoder->reader->scan[scan_index];
-    decoder->reader->scan_count++;
-    // Scan segments begin at the end of previous scan segments or from zero index
-    scan->segment_index = decoder->reader->segment_count;
-    scan->segment_count = 0;
-    
+    int data_size = length - 3;
+    decoder->reader->segment_info[decoder->reader->segment_info_count] = *image;
+    decoder->reader->segment_info_count++;
+    decoder->reader->segment_info_size += data_size;
+
+    *image += data_size;
+
+    return 0;
+}
+
+/**
+ * Read scan content by parsing byte-by-byte
+ *
+ * @param decoder
+ * @param image
+ * @param image_end
+ * @param scan
+ * @param scan_index
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_reader_read_scan_content_by_parsing(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_t* image_end,
+        struct gpujpeg_reader_scan* scan, int scan_index)
+{
     // Get first segment in scan
     struct gpujpeg_segment* segment = &decoder->coder.segment[scan->segment_index];
     segment->scan_index = scan_index;
@@ -439,6 +409,7 @@ gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_
     scan->segment_count++;
     
     // Read scan data
+    int result = -1;
     uint8_t byte = 0;
     uint8_t byte_previous = 0;
     uint8_t previous_marker = GPUJPEG_MARKER_RST0 - 1;
@@ -459,35 +430,35 @@ gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_
                 // Check expected marker
                 uint8_t expected_marker = (previous_marker < GPUJPEG_MARKER_RST7) ? (previous_marker + 1) : GPUJPEG_MARKER_RST0;
                 if ( expected_marker != byte ) {
-                	fprintf(stderr, "[GPUJPEG] [Error] Expected marker 0x%X but 0x%X was presented!\n", expected_marker, byte);
+                    fprintf(stderr, "[GPUJPEG] [Error] Expected marker 0x%X but 0x%X was presented!\n", expected_marker, byte);
 
-                	// Skip bytes to expected marker
-                	int found_expected_marker = 0;
-                	int skip_count = 0;
-                	byte_previous = byte;
-                	while ( *image < image_end ) {
-                		skip_count++;
-                		byte = gpujpeg_reader_read_byte(*image);
-                		if ( byte_previous == 0xFF ) {
-                			// Expected marker was found so notify about it
-                			if ( byte == expected_marker ) {
-                				fprintf(stderr, "[GPUJPEG] [Recovery] Skipping %d bytes of data until marker 0x%X was found!\n", skip_count, expected_marker, byte);
-                				found_expected_marker = 1;
-                				break;
-                			} else if ( byte == GPUJPEG_MARKER_EOI || byte == GPUJPEG_MARKER_SOS ) {
-                				// Go back last marker (will be read again by main read cycle)
-                				*image -= 2;
-                				break;
-                			}
-                		}
-                		byte_previous = byte;
-                	}
+                    // Skip bytes to expected marker
+                    int found_expected_marker = 0;
+                    int skip_count = 0;
+                    byte_previous = byte;
+                    while ( *image < image_end ) {
+                        skip_count++;
+                        byte = gpujpeg_reader_read_byte(*image);
+                        if ( byte_previous == 0xFF ) {
+                            // Expected marker was found so notify about it
+                            if ( byte == expected_marker ) {
+                                fprintf(stderr, "[GPUJPEG] [Recovery] Skipping %d bytes of data until marker 0x%X was found!\n", skip_count, expected_marker, byte);
+                                found_expected_marker = 1;
+                                break;
+                            } else if ( byte == GPUJPEG_MARKER_EOI || byte == GPUJPEG_MARKER_SOS ) {
+                                // Go back last marker (will be read again by main read cycle)
+                                *image -= 2;
+                                break;
+                            }
+                        }
+                        byte_previous = byte;
+                    }
 
-                	// If expected marker was not found to end of stream
-                	if ( found_expected_marker == 0 ) {
-                		fprintf(stderr, "[GPUJPEG] [Error] No marker 0x%X was found until end of current scan!\n", expected_marker);
-                		continue;
-                	}
+                    // If expected marker was not found to end of stream
+                    if ( found_expected_marker == 0 ) {
+                        fprintf(stderr, "[GPUJPEG] [Error] No marker 0x%X was found until end of current scan!\n", expected_marker);
+                        continue;
+                    }
                 }
                 // Set previous marker
                 previous_marker = byte;
@@ -505,7 +476,7 @@ gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_
                 scan->segment_count++;    
             }
             // Check scan end
-            else if ( byte == GPUJPEG_MARKER_EOI || byte == GPUJPEG_MARKER_SOS ) {                
+            else if ( byte == GPUJPEG_MARKER_EOI || byte == GPUJPEG_MARKER_SOS || (byte >= GPUJPEG_MARKER_APP0 && byte <= GPUJPEG_MARKER_APP15) ) {
                 *image -= 2;
                 decoder->reader->data_compressed_size -= 2;
                 
@@ -514,8 +485,10 @@ gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_
                 
                 // Add scan segment count to decoder segment count
                 decoder->reader->segment_count += scan->segment_count;
-                
-                return 0;
+
+                // Successfully read end of scan, so the result is OK
+                result = 0;
+                break;
             } else {
                 fprintf(stderr, "[GPUJPEG] [Error] JPEG scan contains unexpected marker 0x%X!\n", byte);
                 return -1;
@@ -523,9 +496,185 @@ gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_
         }
     } while( *image < image_end );
     
-    fprintf(stderr, "[GPUJPEG] [Error] JPEG data unexpected ended while reading SOS marker!\n");
-    
-    return -1;
+    if ( result == -1) {
+        fprintf(stderr, "[GPUJPEG] [Error] JPEG data unexpected ended while reading SOS marker!\n");
+    }
+    return result;
+}
+
+/**
+ * Read scan content by segment info contained inside the JPEG stream
+ *
+ * @param decoder
+ * @param image
+ * @param image_end
+ * @param scan
+ * @param scan_index
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_reader_read_scan_content_by_segment_info(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_t* image_end,
+        struct gpujpeg_reader_scan* scan, int scan_index)
+{
+    // Calculate segment count
+    int segment_count = decoder->reader->segment_info_size / 4 - 1;
+
+    // Read first record from segment info, which means beginning of the first segment
+    int scan_start = (decoder->reader->segment_info[0][0] << 24)
+        + (decoder->reader->segment_info[0][1] << 16)
+        + (decoder->reader->segment_info[0][2] << 8)
+        + (decoder->reader->segment_info[0][3] << 0);
+
+    // Read all segments from segment info
+    for ( int segment_index = 0; segment_index < segment_count; segment_index++ ) {
+        // Determine header index
+        int header_index = ((segment_index + 1) * 4) / GPUJPEG_MAX_HEADER_SIZE;
+
+        // Determine header data index
+        int header_data_index = ((segment_index + 1) * 4) % GPUJPEG_MAX_HEADER_SIZE;
+
+        // Determine segment ending in the scan
+        int scan_end = (decoder->reader->segment_info[header_index][header_data_index + 0] << 24)
+            + (decoder->reader->segment_info[header_index][header_data_index + 1] << 16)
+            + (decoder->reader->segment_info[header_index][header_data_index + 2] << 8)
+            + (decoder->reader->segment_info[header_index][header_data_index + 3] << 0);
+
+        // Setup segment
+        struct gpujpeg_segment* segment = &decoder->coder.segment[scan->segment_index + segment_index];
+        segment->scan_index = scan_index;
+        segment->scan_segment_index = segment_index;
+        segment->data_compressed_index = decoder->reader->data_compressed_size + scan_start;
+        segment->data_compressed_size = decoder->reader->data_compressed_size + scan_end;
+
+        // If segment is not last it contains restart marker at the end so remove it
+        if ( (segment_index + 1) < segment_count ) {
+            segment->data_compressed_size -= 2;
+        }
+
+        // Move info for next segment
+        scan_start = scan_end;
+    }
+
+    // Set segment count in the scan
+    scan->segment_count = segment_count;
+
+    // Increase number of segment count in reader
+    decoder->reader->segment_count += scan->segment_count;
+
+    // Copy scan data to buffer
+    memcpy(
+        &decoder->coder.data_compressed[decoder->reader->data_compressed_size],
+        *image,
+        scan_start
+    );
+    *image += scan_start;
+    decoder->reader->data_compressed_size += scan_start;
+
+    // Reset segment info, for next scan it has to be loaded again from other header
+    decoder->reader->segment_info_count = 0;
+    decoder->reader->segment_info_size = 0;
+
+    return 0;
+}
+
+/**
+ * Read start of scan block from image
+ *
+ * @param decoder
+ * @param image
+ * @param image_end
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+gpujpeg_reader_read_sos(struct gpujpeg_decoder* decoder, uint8_t** image, uint8_t* image_end)
+{
+    int length = (int)gpujpeg_reader_read_2byte(*image);
+    length -= 2;
+
+    int comp_count = (int)gpujpeg_reader_read_byte(*image);
+    // Not interleaved mode
+    if ( comp_count == 1 ) {
+        decoder->reader->param.interleaved = 0;
+    }
+    // Interleaved mode
+    else if ( comp_count == decoder->reader->param_image.comp_count ) {
+        if ( decoder->reader->comp_count != 0 ) {
+            fprintf(stderr, "[GPUJPEG] [Error] SOS marker component count %d is not supported for multiple scans!\n", comp_count);
+            return -1;
+        }
+        decoder->reader->param.interleaved = 1;
+    }
+    // Unknown mode
+    else {
+        fprintf(stderr, "[GPUJPEG] [Error] SOS marker component count %d is not supported (should be 1 or equals to total component count)!\n", comp_count);
+        return -1;
+    }
+
+    // We must init decoder before data is loaded into it
+    if ( decoder->reader->comp_count == 0 ) {
+        // Init decoder
+        gpujpeg_decoder_init(decoder, &decoder->reader->param, &decoder->reader->param_image);
+    }
+
+    // Check maximum component count
+    decoder->reader->comp_count += comp_count;
+    if ( decoder->reader->comp_count > decoder->reader->param_image.comp_count ) {
+        fprintf(stderr, "[GPUJPEG] [Error] SOS marker component count for all scans %d exceeds maximum component count %d!\n",
+            decoder->reader->comp_count, decoder->reader->param_image.comp_count);
+    }
+
+    // Collect the component-spec parameters
+    for ( int comp = 0; comp < comp_count; comp++ )
+    {
+        int index = (int)gpujpeg_reader_read_byte(*image);
+        int table = (int)gpujpeg_reader_read_byte(*image);
+        int table_dc = (table >> 4) & 15;
+        int table_ac = table & 15;
+
+        if ( index == 1 && (table_ac != 0 || table_dc != 0) ) {
+            fprintf(stderr, "[GPUJPEG] [Error] SOS marker for Y should have huffman tables 0,0 but %d,%d was presented!\n", table_dc, table_ac);
+            return -1;
+        }
+        if ( (index == 2 || index == 3) && (table_ac != 1 || table_dc != 1) ) {
+            fprintf(stderr, "[GPUJPEG] [Error] SOS marker for Cb or Cr should have huffman tables 1,1 but %d,%d was presented!\n", table_dc, table_ac);
+            return -1;
+        }
+    }
+
+    // Collect the additional scan parameters Ss, Se, Ah/Al.
+    int Ss = (int)gpujpeg_reader_read_byte(*image);
+    int Se = (int)gpujpeg_reader_read_byte(*image);
+    int Ax = (int)gpujpeg_reader_read_byte(*image);
+    int Ah = (Ax >> 4) & 15;
+    int Al = (Ax) & 15;
+
+    // Check maximum scan count
+    if ( decoder->reader->scan_count >= GPUJPEG_MAX_COMPONENT_COUNT ) {
+        fprintf(stderr, "[GPUJPEG] [Error] SOS marker reached maximum number of scans (3)!\n");
+        return -1;
+    }
+
+    int scan_index = decoder->reader->scan_count;
+
+    // Get scan structure
+    struct gpujpeg_reader_scan* scan = &decoder->reader->scan[scan_index];
+    decoder->reader->scan_count++;
+    // Scan segments begin at the end of previous scan segments or from zero index
+    scan->segment_index = decoder->reader->segment_count;
+    scan->segment_count = 0;
+
+    // Read scan content
+    if ( decoder->reader->segment_info_count > 0 ) {
+        // Read scan content by segment info contained in special header
+        if ( gpujpeg_reader_read_scan_content_by_segment_info(decoder, image, image_end, scan, scan_index) != 0 )
+            return -1;
+    } else {
+        // Read scan content byte-by-byte
+        if ( gpujpeg_reader_read_scan_content_by_parsing(decoder, image, image_end, scan, scan_index) != 0 )
+            return -1;
+    }
+
+    return 0;
 }
 
 /** Documented at declaration */
@@ -539,6 +688,8 @@ gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int i
     decoder->reader->scan_count = 0;
     decoder->reader->segment_count = 0;
     decoder->reader->data_compressed_size = 0;
+    decoder->reader->segment_info_count = 0;
+    decoder->reader->segment_info_size = 0;
     
     // Get image end
     uint8_t* image_end = image + image_size;
@@ -554,10 +705,18 @@ gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int i
     while ( eoi_presented == 0 ) {
         // Read marker
         int marker = gpujpeg_reader_read_marker(&image);
+        if ( marker == -1 ) {
+            return -1;
+        }
 
         // Read more info according to the marker
         switch (marker) 
         {
+        case GPUJPEG_MARKER_SEGMENT_INFO:
+            if ( gpujpeg_reader_read_segment_info(decoder, &image) != 0 )
+                return -1;
+            break;
+
         case GPUJPEG_MARKER_APP0:
             if ( gpujpeg_reader_read_app0(&image) != 0 )
                 return -1;
@@ -574,7 +733,7 @@ gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int i
         case GPUJPEG_MARKER_APP10:
         case GPUJPEG_MARKER_APP11:
         case GPUJPEG_MARKER_APP12:
-        case GPUJPEG_MARKER_APP13:
+        //case GPUJPEG_MARKER_APP13:
         case GPUJPEG_MARKER_APP14:
         case GPUJPEG_MARKER_APP15:
             fprintf(stderr, "[GPUJPEG] [Warning] JPEG data contains not supported %s marker\n", gpujpeg_marker_name((enum gpujpeg_marker_code)marker));
@@ -673,8 +832,6 @@ gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int i
     // Set decoder parameters
     decoder->segment_count = decoder->reader->segment_count;
     decoder->data_compressed_size = decoder->reader->data_compressed_size;
-    
-    //decoder->segment_count += 100;
     
     if ( decoder->segment_count > decoder->coder.segment_count ) {
         fprintf(stderr, "[GPUJPEG] [Error] Decoder can't decode image that has segment count %d (maximum segment count for specified parameters is %d)!\n",

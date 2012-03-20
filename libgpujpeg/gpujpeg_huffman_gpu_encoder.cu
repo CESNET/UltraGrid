@@ -30,6 +30,8 @@
 #include "gpujpeg_huffman_gpu_encoder.h"
 #include "gpujpeg_util.h"
 
+#define THREAD_BLOCK_SIZE 48
+
 #ifdef GPUJPEG_HUFFMAN_CODER_TABLES_IN_CONSTANT
 /** Allocate huffman tables in constant memory */
 __constant__ struct gpujpeg_table_huffman_encoder gpujpeg_huffman_gpu_encoder_table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
@@ -91,38 +93,38 @@ __constant__ int gpujpeg_huffman_gpu_encoder_order_natural[64];
 __device__ inline int
 gpujpeg_huffman_gpu_encoder_emit_bits(unsigned int code, int size, int & put_value, int & put_bits, uint8_t* & data_compressed)
 {
-	// This routine is heavily used, so it's worth coding tightly
-	int _put_buffer = (int)code;
-	int _put_bits = put_bits;
-	// If size is 0, caller used an invalid Huffman table entry
-	if ( size == 0 )
-		return -1;
+    // This routine is heavily used, so it's worth coding tightly
+    int _put_buffer = (int)code;
+    int _put_bits = put_bits;
+    // If size is 0, caller used an invalid Huffman table entry
+    if ( size == 0 )
+        return -1;
     // Mask off any extra bits in code
-	_put_buffer &= (((int)1) << size) - 1; 
+    _put_buffer &= (((int)1) << size) - 1; 
     // New number of bits in buffer
-	_put_bits += size;					
+    _put_bits += size;                    
     // Align incoming bits
-	_put_buffer <<= 24 - _put_bits;		
+    _put_buffer <<= 24 - _put_bits;        
     // And merge with old buffer contents
-	_put_buffer |= put_value;    
-	// If there are more than 8 bits, write it out
-	unsigned char uc;
-	while ( _put_bits >= 8 ) {
-		// Write one byte out
-		uc = (unsigned char) ((_put_buffer >> 16) & 0xFF);
-		gpujpeg_huffman_gpu_encoder_emit_byte(data_compressed, uc);
+    _put_buffer |= put_value;    
+    // If there are more than 8 bits, write it out
+    unsigned char uc;
+    while ( _put_bits >= 8 ) {
+        // Write one byte out
+        uc = (unsigned char) ((_put_buffer >> 16) & 0xFF);
+        gpujpeg_huffman_gpu_encoder_emit_byte(data_compressed, uc);
         // If need to stuff a zero byte
-		if ( uc == 0xFF ) {  
+        if ( uc == 0xFF ) {  
             // Write zero byte out
-			gpujpeg_huffman_gpu_encoder_emit_byte(data_compressed, 0);
-		}
-		_put_buffer <<= 8;
-		_put_bits -= 8;
-	}
+            gpujpeg_huffman_gpu_encoder_emit_byte(data_compressed, 0);
+        }
+        _put_buffer <<= 8;
+        _put_bits -= 8;
+    }
     // update state variables
-	put_value = _put_buffer; 
-	put_bits = _put_bits;
-	return 0;
+    put_value = _put_buffer; 
+    put_bits = _put_bits;
+    return 0;
 }
 
 /**
@@ -135,15 +137,15 @@ __device__ inline void
 gpujpeg_huffman_gpu_encoder_emit_left_bits(int & put_value, int & put_bits, uint8_t* & data_compressed)
 {
     // Fill 7 bits with ones
-	if ( gpujpeg_huffman_gpu_encoder_emit_bits(0x7F, 7, put_value, put_bits, data_compressed) != 0 )
-		return;
-	
-	//unsigned char uc = (unsigned char) ((put_value >> 16) & 0xFF);
-    // Write one byte out
-	//gpujpeg_huffman_gpu_encoder_emit_byte(data_compressed, uc);
+    if ( gpujpeg_huffman_gpu_encoder_emit_bits(0x7F, 7, put_value, put_bits, data_compressed) != 0 )
+        return;
     
-	put_value = 0; 
-	put_bits = 0;
+    //unsigned char uc = (unsigned char) ((put_value >> 16) & 0xFF);
+    // Write one byte out
+    //gpujpeg_huffman_gpu_encoder_emit_byte(data_compressed, uc);
+    
+    put_value = 0; 
+    put_bits = 0;
 }
 
 /**
@@ -155,86 +157,97 @@ __device__ int
 gpujpeg_huffman_gpu_encoder_encode_block(int & put_value, int & put_bits, int & dc, int16_t* data, uint8_t* & data_compressed, 
     struct gpujpeg_table_huffman_encoder* d_table_dc, struct gpujpeg_table_huffman_encoder* d_table_ac)
 {
-	// Encode the DC coefficient difference per section F.1.2.1
-	int temp = data[0] - dc;
-	dc = data[0];
+    typedef uint64_t loading_t;
+    const int loading_iteration_count = 64 * 2 / sizeof(loading_t);
+    
+    // Load block to shared memory
+    __shared__ int16_t s_data[64 * THREAD_BLOCK_SIZE];
+    for ( int i = 0; i < loading_iteration_count; i++ ) {
+        ((loading_t*)s_data)[loading_iteration_count * threadIdx.x + i] = ((loading_t*)data)[i];
+    }
+    int data_start = 64 * threadIdx.x;
 
+    // Encode the DC coefficient difference per section F.1.2.1
+    int temp = s_data[data_start + 0] - dc;
+    dc = s_data[data_start + 0];
+    
     int temp2 = temp;
-	if ( temp < 0 ) {
+    if ( temp < 0 ) {
         // Temp is abs value of input
-		temp = -temp;
-		// For a negative input, want temp2 = bitwise complement of abs(input)
-		// This code assumes we are on a two's complement machine
-		temp2--;
-	}
-
-	// Find the number of bits needed for the magnitude of the coefficient
-	int nbits = 0;
-	while ( temp ) {
-		nbits++;
-		temp >>= 1;
-	}
-
-	//	Write category number
-	if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_dc->code[nbits], d_table_dc->size[nbits], put_value, put_bits, data_compressed) != 0 ) {
-		return -1;
+        temp = -temp;
+        // For a negative input, want temp2 = bitwise complement of abs(input)
+        // This code assumes we are on a two's complement machine
+        temp2--;
     }
 
-	//	Write category offset (EmitBits rejects calls with size 0)
-	if ( nbits ) {
-		if ( gpujpeg_huffman_gpu_encoder_emit_bits((unsigned int) temp2, nbits, put_value, put_bits, data_compressed) != 0 )
-			return -1;
-	}
+    // Find the number of bits needed for the magnitude of the coefficient
+    int nbits = 0;
+    while ( temp ) {
+        nbits++;
+        temp >>= 1;
+    }
+
+    // Write category number
+    if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_dc->code[nbits], d_table_dc->size[nbits], put_value, put_bits, data_compressed) != 0 ) {
+        return -1;
+    }
+
+    // Write category offset (EmitBits rejects calls with size 0)
+    if ( nbits ) {
+        if ( gpujpeg_huffman_gpu_encoder_emit_bits((unsigned int) temp2, nbits, put_value, put_bits, data_compressed) != 0 )
+            return -1;
+    }
     
-	// Encode the AC coefficients per section F.1.2.2 (r = run length of zeros)
-	int r = 0;
-	for ( int k = 1; k < 64; k++ ) 
-	{
-		if ( (temp = data[gpujpeg_huffman_gpu_encoder_order_natural[k]]) == 0 ) {
-			r++;
-		}
-		else {
-			// If run length > 15, must emit special run-length-16 codes (0xF0)
-			while ( r > 15 ) {
-				if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_ac->code[0xF0], d_table_ac->size[0xF0], put_value, put_bits, data_compressed) != 0 )
-					return -1;
-				r -= 16;
-			}
+    // Encode the AC coefficients per section F.1.2.2 (r = run length of zeros)
+    int r = 0;
+    for ( int k = 1; k < 64; k++ ) 
+    {
+        temp = s_data[data_start + gpujpeg_huffman_gpu_encoder_order_natural[k]];
+        if ( temp == 0 ) {
+            r++;
+        }
+        else {
+            // If run length > 15, must emit special run-length-16 codes (0xF0)
+            while ( r > 15 ) {
+                if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_ac->code[0xF0], d_table_ac->size[0xF0], put_value, put_bits, data_compressed) != 0 )
+                    return -1;
+                r -= 16;
+            }
 
-			temp2 = temp;
-			if ( temp < 0 ) {
+            temp2 = temp;
+            if ( temp < 0 ) {
                 // temp is abs value of input
-				temp = -temp;		
-				// This code assumes we are on a two's complement machine
-				temp2--;
-			}
+                temp = -temp;        
+                // This code assumes we are on a two's complement machine
+                temp2--;
+            }
 
-			// Find the number of bits needed for the magnitude of the coefficient
+            // Find the number of bits needed for the magnitude of the coefficient
             // there must be at least one 1 bit
-			nbits = 1;
-			while ( (temp >>= 1) )
-				nbits++;
+            nbits = 1;
+            while ( (temp >>= 1) )
+                nbits++;
 
-			// Emit Huffman symbol for run length / number of bits
-			int i = (r << 4) + nbits;
-			if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_ac->code[i], d_table_ac->size[i], put_value, put_bits, data_compressed) != 0 )
-				return -1;
+            // Emit Huffman symbol for run length / number of bits
+            int i = (r << 4) + nbits;
+            if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_ac->code[i], d_table_ac->size[i], put_value, put_bits, data_compressed) != 0 )
+                return -1;
 
-			// Write Category offset
-			if ( gpujpeg_huffman_gpu_encoder_emit_bits((unsigned int) temp2, nbits, put_value, put_bits, data_compressed) != 0 )
-				return -1;
+            // Write Category offset
+            if ( gpujpeg_huffman_gpu_encoder_emit_bits((unsigned int) temp2, nbits, put_value, put_bits, data_compressed) != 0 )
+                return -1;
 
-			r = 0;
-		}
-	}
+            r = 0;
+        }
+    }
 
-	// If all the left coefs were zero, emit an end-of-block code
-	if ( r > 0 ) {
-		if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_ac->code[0], d_table_ac->size[0], put_value, put_bits, data_compressed) != 0 )
-			return -1;
-	}
+    // If all the left coefs were zero, emit an end-of-block code
+    if ( r > 0 ) {
+        if ( gpujpeg_huffman_gpu_encoder_emit_bits(d_table_ac->code[0], d_table_ac->size[0], put_value, put_bits, data_compressed) != 0 )
+            return -1;
+    }
 
-	return 0;
+    return 0;
 }
 
 /**
@@ -405,7 +418,7 @@ gpujpeg_huffman_gpu_encoder_encode(struct gpujpeg_encoder* encoder)
     assert(comp_count >= 1 && comp_count <= GPUJPEG_MAX_COMPONENT_COUNT);
             
     // Run kernel
-    dim3 thread(32);
+    dim3 thread(THREAD_BLOCK_SIZE);
     dim3 grid(gpujpeg_div_and_round_up(coder->segment_count, thread.x));
     gpujpeg_huffman_encoder_encode_kernel<<<grid, thread>>>(
         coder->d_component, 
@@ -420,11 +433,8 @@ gpujpeg_huffman_gpu_encoder_encode(struct gpujpeg_encoder* encoder)
         ,encoder->d_table_huffman[GPUJPEG_COMPONENT_CHROMINANCE][GPUJPEG_HUFFMAN_AC]
     #endif
     );
-    cudaError cuerr = cudaThreadSynchronize();
-    if ( cuerr != cudaSuccess ) {
-        fprintf(stderr, "Huffman encoding failed: %s!\n", cudaGetErrorString(cuerr));
-        return -1;
-    }
+    cudaThreadSynchronize();
+    gpujpeg_cuda_check_error("Huffman encoding failed");
     
     return 0;
 }

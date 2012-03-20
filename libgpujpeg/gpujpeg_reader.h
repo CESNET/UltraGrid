@@ -67,6 +67,13 @@ struct gpujpeg_reader
     
     // Total readed size
     int data_compressed_size;
+
+    // Segment info (every buffer is placed inside another header)
+    uint8_t* segment_info[GPUJPEG_MAX_SEGMENT_INFO_HEADER_COUNT];
+    // Segment info buffers count (equals number of segment info headers)
+    int segment_info_count;
+    // Segment info total buffers size
+    int segment_info_size;
 };
 
 /**

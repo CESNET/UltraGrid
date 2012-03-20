@@ -63,7 +63,7 @@ gpujpeg_huffman_gpu_decoder_decode_fill_bit_buffer(int & get_bits, int & get_buf
 
             // If it's 0xFF, check and discard stuffed zero byte
             if ( uc == 0xFF ) {
-            	while ( uc == 0xFF ) {
+                while ( uc == 0xFF ) {
                     //printf("read byte %X 0x%X\n", (int)data, (unsigned char)*data);
                     uc = *data++;
                     data_size--;
@@ -265,7 +265,7 @@ gpujpeg_huffman_gpu_decoder_decode_block(int & get_bits, int & get_buff, int & d
             //    s: ac value
             s = gpujpeg_huffman_gpu_decoder_value_from_category(s, r);
 
-            data_output[gpujpeg_huffman_gpu_decoder_order_natural[k]] = s;            
+            data_output[gpujpeg_huffman_gpu_decoder_order_natural[k]] = s;
         } else {
             // s = 0, means ac value is 0 ? Only if r = 15.  
             //means all the left ac are zero
@@ -459,10 +459,7 @@ gpujpeg_huffman_gpu_decoder_decode(struct gpujpeg_decoder* decoder)
     #endif
     );
     cudaError cuerr = cudaThreadSynchronize();
-    if ( cuerr != cudaSuccess ) {
-        fprintf(stderr, "Huffman decoding failed: %s!\n", cudaGetErrorString(cuerr));
-        return -1;
-    }
+    gpujpeg_cuda_check_error("Huffman decoding failed");
     
     return 0;
 }

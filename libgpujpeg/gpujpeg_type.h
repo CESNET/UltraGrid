@@ -31,24 +31,62 @@
 #define GPUJPEG_TYPE_H
 
 #include <stdint.h>
+#include <cuda_runtime.h>
 
 /** Contants */
-#define GPUJPEG_BLOCK_SIZE                  8
-#define GPUJPEG_MAX_COMPONENT_COUNT         3
-#define GPUJPEG_MAX_BLOCK_COMPRESSED_SIZE   (GPUJPEG_BLOCK_SIZE * GPUJPEG_BLOCK_SIZE * 2)
+#define GPUJPEG_BLOCK_SIZE                      8
+#define GPUJPEG_BLOCK_SQUARED_SIZE              64
+#define GPUJPEG_MAX_COMPONENT_COUNT             3
+#define GPUJPEG_MAX_BLOCK_COMPRESSED_SIZE       (GPUJPEG_BLOCK_SIZE * GPUJPEG_BLOCK_SIZE * 2)
+
+/** Maximum JPEG header size (MUST be divisible by 4!!!) */
+#define GPUJPEG_MAX_HEADER_SIZE                 (65536 - 100)
 
 /** Flags */
-#define GPUJPEG_VERBOSE                     1
-#define GPUJPEG_OPENGL_INTEROPERABILITY     2
+#define GPUJPEG_VERBOSE                         1
+#define GPUJPEG_OPENGL_INTEROPERABILITY         2
+
+/** Maximum number of segment info header in stream */
+#define GPUJPEG_MAX_SEGMENT_INFO_HEADER_COUNT   100
 
 /**
  * Color spaces for JPEG codec
  */
 enum gpujpeg_color_space {
+    GPUJPEG_NONE = 0,
     GPUJPEG_RGB = 1,
-    GPUJPEG_YCBCR_ITU_R = 2,
-    GPUJPEG_YCBCR_JPEG = 3,
+    GPUJPEG_YCBCR_BT601 = 2,
+    GPUJPEG_YCBCR_BT601_256LVLS = 3,
+    GPUJPEG_YCBCR_BT709 = 4,
+    GPUJPEG_YCBCR = GPUJPEG_YCBCR_BT709,
+    GPUJPEG_YUV = 5
 };
+
+/**
+ * Get color space name
+ *
+ * @param color_space
+ */
+static inline __device__ __host__ const char*
+gpujpeg_color_space_get_name(enum gpujpeg_color_space color_space)
+{
+    switch ( color_space ) {
+    case GPUJPEG_NONE:
+        return "None";
+    case GPUJPEG_RGB:
+        return "RGB";
+    case GPUJPEG_YUV:
+        return "YUV";
+    case GPUJPEG_YCBCR_BT601:
+        return "YCbCr BT.601";
+    case GPUJPEG_YCBCR_BT601_256LVLS:
+        return "YCbCr BT.601 256 Levels";
+    case GPUJPEG_YCBCR_BT709:
+        return "YCbCr BT.709";
+    default:
+        return "Unknown";
+    }
+}
 
 /**
  * Sampling factor for image data
@@ -90,7 +128,7 @@ enum gpujpeg_huffman_type {
 /** 
  * JPEG marker codes 
  */
-enum gpujpeg_marker_code {		
+enum gpujpeg_marker_code {        
     GPUJPEG_MARKER_SOF0  = 0xc0,
     GPUJPEG_MARKER_SOF1  = 0xc1,
     GPUJPEG_MARKER_SOF2  = 0xc2,

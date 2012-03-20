@@ -82,7 +82,7 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
                 s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_4_4;
                 s->compressed_len = desc.width * desc.height * 2;
         } else {
-                s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_ITU_R;
+                s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_BT709;
                 s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_2_2;
                 s->compressed_len = desc.width * desc.height * 3;
         }

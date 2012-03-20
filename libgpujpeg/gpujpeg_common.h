@@ -33,6 +33,9 @@
 #include <stdint.h>
 #include "gpujpeg_type.h"
 
+/** Marker used as segment info */
+#define GPUJPEG_MARKER_SEGMENT_INFO GPUJPEG_MARKER_APP13
+
 /** Maximum number of devices for get device info */
 #define GPUJPEG_MAX_DEVICE_COUNT 10
 
@@ -50,9 +53,9 @@ struct gpujpeg_device_info
     // Amount of global memory
     long global_memory;
     // Amount of constant memory
-    int constant_memory;
+    long constant_memory;
     // Amount of shared memory
-    int shared_memory;
+    long shared_memory;
     // Number of registers per block
     int register_count;
     // Number of multiprocessors
@@ -114,8 +117,14 @@ struct gpujpeg_parameters
     // or "0" = one scan for each color component (e.g. Y Y Y ..., Cb Cb Cb ..., Cr Cr Cr ...)
     int interleaved;
     
+    // Use segment info in stream for fast decoding
+    int segment_info;
+
     // Sampling factors for each color component
     struct gpujpeg_component_sampling_factor sampling_factor[GPUJPEG_MAX_COMPONENT_COUNT];
+
+    // JPEG stream internal color space
+    enum gpujpeg_color_space color_space_internal;
 };
 
 /**
@@ -338,6 +347,15 @@ struct gpujpeg_coder
     uint8_t* data_compressed;
     // Huffman coder data in device memory (output/input for encoder/decoder)
     uint8_t* d_data_compressed;
+
+    // Operation durations
+    float duration_memory_to;
+    float duration_memory_from;
+    float duration_preprocessor;
+    float duration_dct_quantization;
+    float duration_huffman_coder;
+    float duration_stream;
+    float duration_in_gpu;
 };
 
 /**
@@ -397,5 +415,28 @@ gpujpeg_image_save_to_file(const char* filename, uint8_t* image, int image_size)
  */
 int
 gpujpeg_image_destroy(uint8_t* image);
+
+/**
+ * Print range info for image samples
+ *
+ * @param filename
+ * @param width
+ * @param height
+ * @param sampling_factor
+ */
+void
+gpujpeg_image_range_info(const char* filename, int width, int height, enum gpujpeg_sampling_factor sampling_factor);
+
+/**
+ * Convert image
+ *
+ * @param input
+ * @param filename
+ * @param param_image_from
+ * @param param_image_to
+ */
+void
+gpujpeg_image_convert(const char* input, const char* output, struct gpujpeg_image_parameters param_image_from,
+        struct gpujpeg_image_parameters param_image_to);
 
 #endif // GPUJPEG_COMMON_H

@@ -173,6 +173,8 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         
         s->out->color_spec = JPEG;
         struct gpujpeg_image_parameters param_image;
+        gpujpeg_image_set_default_parameters(&param_image);
+
         s->jpeg_height = (s->out->tiles[0].height + 7) / 8 * 8;
         param_image.width = s->out->tiles[0].width;
         param_image.height = s->jpeg_height;
@@ -181,7 +183,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                 param_image.color_space = GPUJPEG_RGB;
                 param_image.sampling_factor = GPUJPEG_4_4_4;
         } else {
-                param_image.color_space = GPUJPEG_YCBCR_ITU_R;
+                param_image.color_space = GPUJPEG_YCBCR_BT709;
                 param_image.sampling_factor = GPUJPEG_4_2_2;
         }
         
@@ -222,6 +224,7 @@ void * jpeg_compress_init(char * opts)
 
         if(opts) {
                 char *tok, *save_ptr = NULL;
+                gpujpeg_set_default_parameters(&s->encoder_param);
                 tok = strtok_r(opts, ":", &save_ptr);
                 s->encoder_param.quality = atoi(tok);
                 tok = strtok_r(NULL, ":", &save_ptr);

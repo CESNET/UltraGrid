@@ -27,8 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GPUJPEG_PREPROCESSOR_H
-#define GPUJPEG_PREPROCESSOR_H
+#ifndef GPUJPEG_DCT_GPU_H
+#define GPUJPEG_DCT_GPU_H
 
 #include "gpujpeg_encoder.h"
 #include "gpujpeg_decoder.h"
@@ -38,45 +38,23 @@ extern "C" {
 #endif
 
 /**
- * Init preprocessor encoder
- * 
- * @param encoder
- * @return 0 if succeeds, otherwise nonzero
+ * Peform forward DCT on GPU in integers
+ *
+ * @param decoder
  */
-int
-gpujpeg_preprocessor_encoder_init(struct gpujpeg_coder* coder);
+void
+gpujpeg_dct_gpu(struct gpujpeg_encoder* encoder);
 
 /**
- * Preprocessor encode
- * 
- * @param encoder  Encoder structure
- * @param image  Image source data
- * @return 0 if succeeds, otherwise nonzero
+ * Peform inverse DCT on GPU in integers
+ *
+ * @param decoder
  */
-int
-gpujpeg_preprocessor_encode(struct gpujpeg_coder* coder);
-
-/**
- * Init preprocessor decoder
- * 
- * @param encoder
- * @return 0 if succeeds, otherwise nonzero
- */
-int
-gpujpeg_preprocessor_decoder_init(struct gpujpeg_coder* coder);
-
-/**
- * Preprocessor decode
- * 
- * @param encoder  Encoder structure
- * @param image  Image source data
- * @return 0 if succeeds, otherwise nonzero
- */
-int
-gpujpeg_preprocessor_decode(struct gpujpeg_coder* coder);
+void
+gpujpeg_idct_gpu(struct gpujpeg_decoder* decoder);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // GPUJPEG_PREPROCESSOR_H
+#endif // GPUJPEG_DCT_GPU_H

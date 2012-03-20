@@ -30,10 +30,6 @@
 #include "gpujpeg_huffman_cpu_decoder.h"
 #include "gpujpeg_util.h"
 
-#ifdef _DEBUG
-#define inline
-#endif
-
 /** Huffman encoder structure */
 struct gpujpeg_huffman_cpu_decoder
 {
@@ -115,7 +111,7 @@ gpujpeg_huffman_cpu_decoder_decode_fill_bit_buffer(struct gpujpeg_huffman_cpu_de
  * @param nbits  Number of bits to get
  * @return bits
  */
-inline int
+static inline int
 gpujpeg_huffman_cpu_decoder_get_bits(struct gpujpeg_huffman_cpu_decoder* coder, int nbits) 
 {
     //we should read nbits bits to get next data
@@ -163,7 +159,7 @@ gpujpeg_huffman_cpu_decoder_decode_special_decode(struct gpujpeg_huffman_cpu_dec
  * 
  * @return int
  */
-inline int
+static inline int
 gpujpeg_huffman_cpu_decoder_value_from_category(int category, int offset)
 {
     // Method 1: 
@@ -201,7 +197,7 @@ gpujpeg_huffman_cpu_decoder_value_from_category(int category, int offset)
  * 
  * @return int
  */
-inline int
+static inline int
 gpujpeg_huffman_cpu_decoder_get_category(struct gpujpeg_huffman_cpu_decoder* coder, struct gpujpeg_table_huffman_decoder* table)
 {
     // If left bits < 8, we should get more data

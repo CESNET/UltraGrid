@@ -38,23 +38,30 @@
 #include <assert.h>
 #include <cuda_runtime.h>
 
-// Timer
-#define GPUJPEG_TIMER_INIT() \
-    cudaEvent_t __start, __stop; \
-    cudaEventCreate(&__start); \
-    cudaEventCreate(&__stop); \
-    float __elapsedTime;
-#define GPUJPEG_TIMER_START() \
-    cudaEventRecord(__start,0)
-#define GPUJPEG_TIMER_STOP() \
-    cudaEventRecord(__stop,0); \
-    cudaEventSynchronize(__stop); \
-    cudaEventElapsedTime(&__elapsedTime, __start, __stop)
-#define GPUJPEG_TIMER_DURATION() __elapsedTime
-#define GPUJPEG_TIMER_STOP_PRINT(text) \
-    GPUJPEG_TIMER_STOP(); \
-    printf("%s %f ms\n", text, __elapsedTime)
-	
+// Custom Timer
+#define GPUJPEG_CUSTOM_TIMER_INIT(name) \
+    cudaEvent_t __start ## name, __stop ## name; \
+    cudaEventCreate(&__start ## name); \
+    cudaEventCreate(&__stop ## name); \
+    float __elapsedTime ## name;
+#define GPUJPEG_CUSTOM_TIMER_START(name) \
+    cudaEventRecord(__start ## name, 0)
+#define GPUJPEG_CUSTOM_TIMER_STOP(name) \
+    cudaEventRecord(__stop ## name, 0); \
+    cudaEventSynchronize(__stop ## name); \
+    cudaEventElapsedTime(&__elapsedTime ## name, __start ## name, __stop ## name)
+#define GPUJPEG_CUSTOM_TIMER_DURATION(name) __elapsedTime ## name
+#define GPUJPEG_CUSTOM_TIMER_STOP_PRINT(name, text) \
+    GPUJPEG_CUSTOM_TIMER_STOP(name); \
+    printf("%s %f ms\n", text, __elapsedTime ## name)
+
+// Default Timer
+#define GPUJPEG_TIMER_INIT() GPUJPEG_CUSTOM_TIMER_INIT(def)
+#define GPUJPEG_TIMER_START() GPUJPEG_CUSTOM_TIMER_START(def)
+#define GPUJPEG_TIMER_STOP() GPUJPEG_CUSTOM_TIMER_STOP(def)
+#define GPUJPEG_TIMER_DURATION() GPUJPEG_CUSTOM_TIMER_DURATION(def)
+#define GPUJPEG_TIMER_STOP_PRINT(text) GPUJPEG_CUSTOM_TIMER_STOP_PRINT(def, text)
+    
 // CUDA check error
 #define gpujpeg_cuda_check_error(msg) \
     { \
@@ -69,6 +76,9 @@
 // Divide and round up
 #define gpujpeg_div_and_round_up(value, div) \
     (((value % div) != 0) ? (value / div + 1) : (value / div))
+
+// CUDA maximum grid size
+#define GPUJPEG_CUDA_MAXIMUM_GRID_SIZE 65535
 
 // CUDA C++ extension for Eclipse CDT
 #ifdef __CDT_PARSER__
