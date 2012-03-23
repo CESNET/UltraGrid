@@ -62,7 +62,6 @@ struct compress_jpeg_state {
         struct gpujpeg_parameters encoder_param;
         
         struct video_frame *out;
-        int     jpeg_height;
         
         decoder_t decoder;
         char *decoded;
@@ -175,9 +174,8 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         struct gpujpeg_image_parameters param_image;
         gpujpeg_image_set_default_parameters(&param_image);
 
-        s->jpeg_height = (s->out->tiles[0].height + 7) / 8 * 8;
         param_image.width = s->out->tiles[0].width;
-        param_image.height = s->jpeg_height;
+        param_image.height = s->out->tiles[0].height;
         param_image.comp_count = 3;
         if(s->rgb) {
                 param_image.color_space = GPUJPEG_RGB;
@@ -190,7 +188,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         s->encoder = gpujpeg_encoder_create(&s->encoder_param, &param_image);
         
         for (x = 0; x < frame->tile_count; ++x) {
-                        vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].width * s->jpeg_height * 3);
+                        vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].width * s->out->tiles[0].height * 3);
                         vf_get_tile(s->out, x)->linesize = s->out->tiles[0].width * (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
         }
@@ -201,7 +199,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                 return FALSE;
         }
         
-        s->decoded = malloc(4 * s->out->tiles[0].width * s->jpeg_height);
+        s->decoded = malloc(4 * s->out->tiles[0].width * s->out->tiles[0].height);
         return TRUE;
 }
 
@@ -291,14 +289,14 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
                 }
                 
                 line1 = (unsigned char *) out_tile->data + (in_tile->height - 1) * out_tile->linesize;
-                for( ; i < s->jpeg_height; ++i) {
+                for( ; i < s->out->tiles[0].height; ++i) {
                         memcpy(line2, line1, out_tile->linesize);
                         line2 += out_tile->linesize;
                 }
                 
                 if(s->interlaced_input)
                         vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
-                                        s->jpeg_height);
+                                        s->out->tiles[0].height);
                 
                 uint8_t *compressed;
                 int size;

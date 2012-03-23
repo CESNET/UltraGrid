@@ -62,7 +62,6 @@ struct state_decompress_jpeg {
         struct video_desc desc;
         int compressed_len;
         int rshift, gshift, bshift;
-        int jpeg_height;
         int pitch;
         codec_t out_codec;
 };
@@ -113,7 +112,6 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         s->rshift = rshift;
         s->gshift = gshift;
         s->bshift = bshift;
-        s->jpeg_height = (desc.height + 7) / 8 * 8;
         if(!s->decoder) {
                 ret = configure_with(s, desc);
         } else {
