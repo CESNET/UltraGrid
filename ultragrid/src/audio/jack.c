@@ -46,15 +46,18 @@
  *
  */
 
+#include <jack/jack.h>
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "audio/audio.h"
 #include "audio/jack.h"
 #include "config_unix.h"
 #include "pthread.h"
-#include <jack/jack.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
-#include <string.h>
+#include "rtp/rtp.h"
+#include "rtp/pbuf.h"
 
 #define CLIENT_NAME "UltraGrid Transport"
 #define BUFF_ELEM (1<<16)
@@ -367,9 +370,11 @@ void jack_send(void *state, struct audio_frame *frame)
         s->play_buffer_end = (s->play_buffer_end + frame->data_len / (frame->bps * frame->ch_count) * sizeof(float)) % BUFF_SIZE;
 }
 
-void jack_receive(void *state, struct audio_frame *buffer)
+void jack_receive(void *state, void *data)
 {
         struct state_jack *s = (struct state_jack *) state;
+        struct pbuf_audio_data *audio_data = (struct pbuf_audio_data *) data;
+        struct audio_frame *buffer = audio_data->buffer;
         
         while(s->rec_buffer_start == s->rec_buffer_end);
         //fprintf(stderr, "%d ", s->record.data_len);
@@ -378,7 +383,7 @@ void jack_receive(void *state, struct audio_frame *buffer)
         if(buffer->ch_count != s->record.ch_count ||
                         buffer->bps != s->record.bps ||
                         buffer->sample_rate != s->record.sample_rate) {
-                buffer->reconfigure_audio(buffer->state, s->record.bps * 8, s->record.ch_count,
+                audio_reconfigure(audio_data->audio_state, s->record.bps * 8, s->record.ch_count,
                         s->record.sample_rate);
         }
         

@@ -325,10 +325,9 @@ static void *audio_receiver_thread(void *arg)
                         pdb_iter_done(s->audio_participants);
                 } else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
-                        struct audio_frame *frame;
-                        jack_receive(s->jack_connection, frame);
-                        audio_playback_put_frame(s->audio_playback_device, frame);
-                        frame = audio_playback_get_frame(s->audio_playback_device);
+                        jack_receive(s->jack_connection, &pbuf_data);
+                        audio_playback_put_frame(s->audio_playback_device, pbuf_data.buffer);
+                        pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
 #endif
                 }
         }

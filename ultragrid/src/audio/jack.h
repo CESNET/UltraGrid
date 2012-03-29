@@ -46,7 +46,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#include "config_unix.h"
+#endif
 
 #ifndef _JACK_H_
 #define _JACK_H_
@@ -55,7 +58,7 @@ struct audio_frame;
 
 void * jack_start(char *cfg);
 void jack_send(void *s, struct audio_frame *frame);
-void jack_receive(void *state, struct audio_frame *buffer);
+void jack_receive(void *state, void *data);
 
 int is_jack_sender(void *state);
 int is_jack_receiver(void *state);
