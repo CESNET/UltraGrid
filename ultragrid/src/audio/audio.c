@@ -161,8 +161,9 @@ struct state_audio * audio_cfg_init(char *addrs, int port, char *send_cfg, char 
         free(tmp);
 
         if (send_cfg != NULL) {
-                char *device = strtok(send_cfg, ":");
-                char *cfg = strtok(NULL, ":");
+                char *save_ptr = NULL;
+                char *device = strtok_r(send_cfg, ":", &save_ptr);
+                char *cfg = save_ptr;
 
                 s->audio_capture_device = audio_capture_init(device, cfg);
                 
@@ -175,8 +176,9 @@ struct state_audio * audio_cfg_init(char *addrs, int port, char *send_cfg, char 
         }
         
         if (recv_cfg != NULL) {
-                char *device = strtok(recv_cfg, ":");
-                char *cfg = strtok(NULL, ":");
+                char *save_ptr = NULL;
+                char *device = strtok_r(recv_cfg, ":", &save_ptr);
+                char *cfg = save_ptr;
 
                 s->audio_playback_device = audio_playback_init(device, cfg);
                 if(!s->audio_playback_device) {
