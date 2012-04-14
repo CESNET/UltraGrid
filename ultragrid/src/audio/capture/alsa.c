@@ -86,7 +86,7 @@ void * audio_cap_alsa_init(char *cfg)
         s->frame.sample_rate = 48000;
         s->frame.ch_count = 2;
 
-        if(cfg) {
+        if(cfg && strlen(cfg) > 0) {
                 name = cfg;
         }
 

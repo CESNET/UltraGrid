@@ -197,10 +197,11 @@ void * audio_play_alsa_init(char *cfg)
         char *name;
 
         s = calloc(1, sizeof(struct state_alsa_playback));
-        if(cfg)
+        if(cfg && strlen(cfg) > 0) {
                 name = cfg;
-        else
+        } else {
                 name = "default";
+        }
         rc = snd_pcm_open(&s->handle, name,
                                             SND_PCM_STREAM_PLAYBACK, 0);
 
