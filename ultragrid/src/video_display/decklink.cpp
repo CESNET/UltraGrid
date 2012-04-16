@@ -232,6 +232,7 @@ struct state_decklink {
         bool                emit_timecode;
         int                 devices_cnt;
         unsigned int        play_audio:1;
+
         int                 output_audio_channel_count;
  };
 
@@ -592,6 +593,8 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         HRESULT                                         result;
         int                                             cardIdx[MAX_DEVICES];
         int                                             dnum = 0;
+        IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
+        BMDAudioOutputAnalogAESSwitch audioConnection = 0;
 
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
@@ -678,8 +681,22 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 }
         }
 
-        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
+        if(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
                 s->play_audio = TRUE;
+                switch(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
+                        case DISPLAY_FLAG_AUDIO_EMBEDDED:
+                                audioConnection = 0;
+                                break;
+                        case DISPLAY_FLAG_AUDIO_AESEBU:
+                                audioConnection = bmdAudioOutputSwitchAESEBU;
+                                break;
+                        case DISPLAY_FLAG_AUDIO_ANALOG:
+                                audioConnection = bmdAudioOutputSwitchAnalog;
+                                break;
+                        default:
+                                fprintf(stderr, "[Decklink display] [Fatal] Unsupporetd audio connection.\n");
+                                abort();
+                }
                 s->audio.data = NULL;
         } else {
                 s->play_audio = FALSE;
@@ -705,6 +722,40 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         s->state[i].deckLink->Release();
                         return NULL;
                 }
+
+                // Query the DeckLink for its configuration interface
+                result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
+                if (result != S_OK)
+                {
+                        printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
+                        return NULL;
+                }
+
+                if(s->play_audio == FALSE || i != 0) { //TODO: figure out output from multiple streams
+                                s->state[i].deckLinkOutput->DisableAudioOutput();
+                } else {
+                        if (audioConnection == 0 || // already SDI
+                                        deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
+                                                audioConnection) == S_OK) {
+                                printf("[Decklink playback] Audio output set to: ");
+                                switch(audioConnection) {
+                                        case 0:
+                                                printf("embedded");
+                                                break;
+                                        case bmdAudioOutputSwitchAESEBU:
+                                                printf("AES/EBU");
+                                                break;
+                                        case bmdAudioOutputSwitchAnalog:
+                                                printf("analog");
+                                                break;
+                                }
+                                printf(".\n");
+                        } else {
+                                fprintf(stderr, "[Decklink playback] Unable to set audio output. Please verify that it is ok. Continuing anyway.\n");
+                        }
+                }
+                deckLinkConfiguration->Release();
+
 
                 s->state[i].delegate = new PlaybackDelegate(s, i);
                 // Provide this class as a delegate to the audio and video output interfaces

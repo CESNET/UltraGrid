@@ -674,6 +674,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 	IDeckLinkDisplayModeIterator*	displayModeIterator = NULL;
 	IDeckLinkDisplayMode*		displayMode = NULL;
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
+        BMDAudioConnection              audioConnection;
+
 
 	s = (struct vidcap_decklink_state *) calloc(1, sizeof(struct vidcap_decklink_state));
 	if (s == NULL) {
@@ -682,8 +684,22 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 		return NULL;
 	}
 
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
+                switch(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
+                        case VIDCAP_FLAG_AUDIO_EMBEDDED:
+                                audioConnection = bmdAudioConnectionEmbedded;
+                                break;
+                        case VIDCAP_FLAG_AUDIO_AESEBU:
+                                audioConnection = bmdAudioConnectionAESEBU;
+                                break;
+                        case VIDCAP_FLAG_AUDIO_ANALOG:
+                                audioConnection = bmdAudioConnectionAnalog;
+                                break;
+                        default:
+                                fprintf(stderr, "[Decklink capture] Unexpected audio flag encountered.\n");
+                                abort();
+                }
                 s->audio.bps = 2;
                 s->audio.sample_rate = 48000;
                 s->audio.ch_count = 2;
@@ -863,13 +879,33 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         }
 
                                         if(s->grab_audio == FALSE || 
-                                                        i != 0)//TODO: figure out output from multiple streams
+                                                        i != 0) { //TODO: figure out output from multiple streams
                                                 deckLinkInput->DisableAudioInput();
-                                        else
+                                        } else {
+                                                if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioInputConnection,
+                                                                        audioConnection) == S_OK) {
+                                                        printf("[Decklink capture] Audio input set to: ");
+                                                        switch(audioConnection) {
+                                                                case bmdAudioConnectionEmbedded:
+                                                                        printf("embedded");
+                                                                        break;
+                                                                case bmdAudioConnectionAESEBU:
+                                                                        printf("AES/EBU");
+                                                                        break;
+                                                                case bmdAudioConnectionAnalog:
+                                                                        printf("analog");
+                                                                        break;
+                                                        }
+                                                        printf(".\n");
+                                                } else {
+                                                        fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
+
+                                                }
                                                 deckLinkInput->EnableAudioInput(
                                                         bmdAudioSampleRate48kHz,
                                                         bmdAudioSampleType16bitInteger,
                                                         2);
+                                        }
 
                                         // set Callback which returns frames
                                         s->state[i].delegate = new VideoDelegate();
