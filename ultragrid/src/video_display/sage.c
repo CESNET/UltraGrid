@@ -67,6 +67,7 @@
 
 #include "video_display/sage_wrapper.h"
 #include <host.h>
+#include <tv.h>
 
 #include <video_codec.h>
 
@@ -120,13 +121,13 @@ void display_sage_run(void *arg)
                 pthread_cond_broadcast(&s->buffer_writable_cond);
                 pthread_mutex_unlock(&s->buffer_writable_lock);
 
-                double seconds = tv_diff(t, t0);
+                double seconds = tv_diff(s->t, s->t0);
                 if (seconds >= 5) {
-                        float fps = frames / seconds;
+                        float fps = s->frames / seconds;
                         fprintf(stderr, "[SAGE] %d frames in %g seconds = %g FPS\n",
-                                frames, seconds, fps);
-                        t0 = t;
-                        frames = 0;
+                                s->frames, seconds, fps);
+                        s->t0 = s->t;
+                        s->frames = 0;
                 }
         }
 }
