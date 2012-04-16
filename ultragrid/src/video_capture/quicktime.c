@@ -879,7 +879,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->sg_idle_enough = 0;
                 s->frame->color_spec = 0xffffffff;
 
-                if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+                if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                         s->grab_audio = TRUE;
                 } else {
                         s->grab_audio = FALSE;

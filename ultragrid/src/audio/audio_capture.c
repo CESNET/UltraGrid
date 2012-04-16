@@ -46,13 +46,10 @@
  *
  */
 
-#include "audio/audio_capture.h" 
-#include "audio/capture/portaudio.h" 
-#include "audio/capture/alsa.h" 
-#include "audio/capture/coreaudio.h" 
-#include "audio/capture/none.h" 
-#include "audio/capture/jack.h" 
-#include "audio/capture/sdi.h" 
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -62,10 +59,17 @@
 #include "debug.h"
 #include "host.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+
+#include "audio/audio_capture.h" 
+#include "audio/capture/portaudio.h" 
+#include "audio/capture/alsa.h" 
+#include "audio/capture/coreaudio.h" 
+#include "audio/capture/none.h" 
+#include "audio/capture/jack.h" 
+#include "audio/capture/sdi.h" 
+
+/* vidcap flags */
+#include "video_capture.h"
 
 #include "lib_common.h"
 
@@ -110,6 +114,24 @@ struct audio_capture_t {
 
 static struct audio_capture_t audio_capture_table[] = {
         { "embedded",
+                NULL,
+                MK_STATIC(sdi_capture_help),
+                MK_STATIC(sdi_capture_init),
+                MK_STATIC(sdi_read),
+                MK_STATIC(sdi_capture_finish),
+                MK_STATIC(sdi_capture_done),
+                NULL
+        },
+        { "AESEBU",
+                NULL,
+                MK_STATIC(sdi_capture_help),
+                MK_STATIC(sdi_capture_init),
+                MK_STATIC(sdi_read),
+                MK_STATIC(sdi_capture_finish),
+                MK_STATIC(sdi_capture_done),
+                NULL
+        },
+        { "analog",
                 NULL,
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
@@ -246,7 +268,7 @@ struct state_audio_capture *audio_capture_init(char *driver, char *cfg)
         assert(s != NULL);
 
         for (i = 0; i < available_audio_capture_count; ++i) {
-                if(strcmp(driver, available_audio_capture[i]->name) == 0) {
+                if(strcasecmp(driver, available_audio_capture[i]->name) == 0) {
                         s->index = i;
                         break;
                 }
@@ -312,11 +334,20 @@ struct audio_frame * audio_capture_read(struct state_audio_capture *s)
         }
 }
 
-int audio_capture_does_send_sdi(struct state_audio_capture *s)
+unsigned int audio_capture_get_vidcap_flags(struct state_audio_capture *s)
 {
         if(!s) 
-                return FALSE;
-        return strcmp(available_audio_capture[s->index]->name, "embedded") == 0;
+                return 0u;
+
+        if(strcasecmp(available_audio_capture[s->index]->name, "embedded") == 0) {
+                return VIDCAP_FLAG_AUDIO_EMBEDDED;
+        } else if(strcasecmp(available_audio_capture[s->index]->name, "AESEBU") == 0) {
+                return VIDCAP_FLAG_AUDIO_AESEBU;
+        } else if(strcasecmp(available_audio_capture[s->index]->name, "analog") == 0) {
+                return VIDCAP_FLAG_AUDIO_ANALOG;
+        } else {
+                return 0u;
+        }
 }
 
 void *audio_capture_get_state_pointer(struct state_audio_capture *s)

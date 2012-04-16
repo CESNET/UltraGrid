@@ -678,7 +678,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 }
         }
 
-        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->play_audio = TRUE;
                 s->audio.data = NULL;
         } else {

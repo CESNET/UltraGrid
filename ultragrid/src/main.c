@@ -740,10 +740,8 @@ int main(int argc, char *argv[])
         if(!uv->audio)
                 goto cleanup;
 
-        if(audio_does_send_sdi(uv->audio))
-                vidcap_flags |= VIDCAP_FLAG_ENABLE_AUDIO;
-        if(audio_does_receive_sdi(uv->audio))
-                display_flags |= DISPLAY_FLAG_ENABLE_AUDIO;
+        vidcap_flags |= audio_get_vidcap_flags(uv->audio);
+        display_flags |= audio_get_display_flags(uv->audio);
 
         printf("%s\n", PACKAGE_STRING);
         printf("Display device: %s\n", uv->requested_display);
@@ -937,7 +935,7 @@ int main(int argc, char *argv[])
                 }
         }
         
-        if(audio_does_receive_sdi(uv->audio)) {
+        if(audio_get_display_flags(uv->audio)) {
                 audio_register_get_callback(uv->audio, (struct audio_frame * (*)(void *)) display_get_audio_frame, uv->display_device);
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
                 audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int, 

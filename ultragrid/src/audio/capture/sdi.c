@@ -103,6 +103,8 @@ void sdi_capture_done(void *state)
 void sdi_capture_help(void)
 {
         printf("\tembedded : SDI audio (if available)\n");
+        printf("\tAESEBU : separatly connected AES/EBU to a grabbing card (if available)\n");
+        printf("\tanalog : analog input of grabbing card (if available)\n");
 }
 
 void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)

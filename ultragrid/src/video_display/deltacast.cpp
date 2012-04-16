@@ -296,7 +296,7 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
         gettimeofday(&s->tv, NULL);
         
         s->initialized = FALSE;
-        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->play_audio = TRUE;
         } else {
                 s->play_audio = FALSE;

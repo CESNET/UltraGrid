@@ -57,7 +57,9 @@
 
 #include "video.h"
 
-#define DISPLAY_FLAG_ENABLE_AUDIO (1<<1)
+#define DISPLAY_FLAG_AUDIO_EMBEDDED (1<<1)
+#define DISPLAY_FLAG_AUDIO_AESEBU (1<<2)
+#define DISPLAY_FLAG_AUDIO_ANALOG (1<<3)
 
 struct audio_frame;
 

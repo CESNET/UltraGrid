@@ -151,8 +151,10 @@ void *display_aggregate_init(char *fmt, unsigned int flags)
                 unsigned int dev_flags = 0u;
                 device = strtok_r(config, ":", &save_ptr_dev);
                 device_cfg = save_ptr_dev;
-                if(i == 0 && flags == DISPLAY_FLAG_ENABLE_AUDIO) {
-                        dev_flags = DISPLAY_FLAG_ENABLE_AUDIO;
+                if(i == 0) {
+                        dev_flags = flags;
+                } else { // push audio only to first device
+                        dev_flags = flags & ~(DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG);
                 }
 
                 s->devices[i] = initialize_video_display(device,

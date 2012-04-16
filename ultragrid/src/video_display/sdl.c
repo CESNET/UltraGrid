@@ -658,7 +658,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
                 return NULL;
         }*/
         
-        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->play_audio = TRUE;
                 configure_audio(s);
         } else {

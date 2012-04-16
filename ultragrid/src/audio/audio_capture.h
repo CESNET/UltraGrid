@@ -64,8 +64,8 @@ void                        audio_capture_finish(struct state_audio_capture * st
 void                        audio_capture_done(struct state_audio_capture * state);
 
 /**
- * @return TRUE if embedded sound is send, FALSE othrewise */
-int                         audio_capture_does_send_sdi(struct state_audio_capture *s);
+ * @return flags to be passed to video capture driver */
+unsigned int                audio_capture_get_vidcap_flags(struct state_audio_capture *s);
 /**
  * returns directly state of audio capture device. Little bit silly, but it is needed for
  * SDI (embedded sound).

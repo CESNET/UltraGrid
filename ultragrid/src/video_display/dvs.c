@@ -701,7 +701,7 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         s->audio.data = NULL;
         s->audio_ring_buffer = NULL;
         s->audio_fifo_data = NULL;
-        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->play_audio = TRUE;
                 s->audio.ch_count = 0;
         } else {

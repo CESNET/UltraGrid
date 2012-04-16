@@ -272,7 +272,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                 }
         }
         
-        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
@@ -293,7 +293,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         s->tile->data_len = s->size;
 
-        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;

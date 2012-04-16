@@ -301,7 +301,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
         } else {
                 s->grab_audio = FALSE;

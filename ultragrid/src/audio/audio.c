@@ -360,23 +360,18 @@ static void *audio_sender_thread(void *arg)
 
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         void *sdi_capture;
-        if(!audio_capture_does_send_sdi(s->audio_capture_device))
+        if(!audio_capture_get_vidcap_flags(s->audio_capture_device))
                 return;
         
         sdi_capture = audio_capture_get_state_pointer(s->audio_capture_device);
         sdi_capture_new_incoming_frame(sdi_capture, frame);
 }
 
-int audio_does_send_sdi(struct state_audio *s)
-{
-        return audio_capture_does_send_sdi(s->audio_capture_device);
-}
-
 void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
                 void *udata)
 {
         struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_does_receive_sdi(s->audio_playback_device))
+        if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
         sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
@@ -387,7 +382,7 @@ void audio_register_put_callback(struct state_audio *s, void (*callback)(void *,
                 void *udata)
 {
         struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_does_receive_sdi(s->audio_playback_device))
+        if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
         sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
@@ -399,16 +394,21 @@ void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(
                 void *udata)
 {
         struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_does_receive_sdi(s->audio_playback_device))
+        if(!audio_playback_get_display_flags(s->audio_playback_device))
                 return;
         
         sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_reconfigure_callback(sdi_playback, callback, udata);
 }
 
-int audio_does_receive_sdi(struct state_audio *s)
+unsigned int audio_get_vidcap_flags(struct state_audio *s)
 {
-        return audio_playback_does_receive_sdi(s->audio_playback_device);
+        return audio_capture_get_vidcap_flags(s->audio_capture_device);
+}
+
+unsigned int audio_get_display_flags(struct state_audio *s)
+{
+        return audio_playback_get_display_flags(s->audio_playback_device);
 }
 
 struct audio_frame * audio_get_frame(struct state_audio *s)

@@ -303,7 +303,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
         /* Create a logical stream to receive from RX0 connector */
         if(!s->autodetect_format && s->frame->color_spec == RAW)
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_RAW,NULL,&s->StreamHandle,NULL);
-        else if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+        else if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_JOINED,NULL,&s->StreamHandle,NULL);
         } else {
                 Result = VHD_OpenStreamHandle(s->BoardHandle,VHD_ST_RX0,VHD_SDI_STPROC_DISJOINED_VIDEO,NULL,&s->StreamHandle,NULL);
@@ -374,7 +374,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                 goto no_pixfmt;
         }
         
-        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 s->audio_frame.bps = 3;
                 s->audio_frame.sample_rate = 48000;
                 s->audio_frame.ch_count = 2;

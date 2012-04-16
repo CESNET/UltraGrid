@@ -61,7 +61,7 @@ void                            audio_playback_put_frame(struct state_audio_play
 void                            audio_playback_finish(struct state_audio_playback *state);
 void                            audio_playback_done(struct state_audio_playback *state);
 
-int                             audio_playback_does_receive_sdi(struct state_audio_playback *s);
+unsigned int                    audio_playback_get_display_flags(struct state_audio_playback *s);
 void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
                 void *udata);
 void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),

@@ -231,7 +231,15 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
         int frames = frame->data_len / (frame->bps * frame->ch_count);
+snd_pcm_sframes_t delay;
+snd_pcm_delay       (       s->handle,
+                                &delay   
+                                        );
+fprintf(stderr, "%d \n", (int)delay);
 
+static int i = 0;
+
+if(++i < 10) return;
         rc = snd_pcm_writei(s->handle, frame->data, frames);
         if (rc == -EPIPE) {
                 /* EPIPE means underrun */

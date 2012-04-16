@@ -682,7 +682,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 		return NULL;
 	}
 
-        if(flags & VIDCAP_FLAG_ENABLE_AUDIO) {
+        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 s->audio.bps = 2;
                 s->audio.sample_rate = 48000;

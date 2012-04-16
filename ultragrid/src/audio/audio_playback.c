@@ -46,6 +46,18 @@
  *
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+#include "debug.h"
+#include "host.h"
+
 #include "audio/audio.h" 
 #include "audio/audio_playback.h" 
 #include "audio/playback/portaudio.h" 
@@ -54,19 +66,10 @@
 #include "audio/playback/none.h" 
 #include "audio/playback/jack.h" 
 #include "audio/playback/sdi.h" 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
-#include "debug.h"
-#include "host.h"
+
 #include "lib_common.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
+#include "video_display.h" /* flags */
 
 struct state_audio_playback {
         int index;
@@ -113,6 +116,26 @@ struct audio_playback_t {
 
 static struct audio_playback_t audio_playback_table[] = {
         { "embedded",
+               NULL,
+               MK_STATIC(sdi_playback_help),
+               MK_STATIC(sdi_playback_init),
+               MK_STATIC(sdi_get_frame),
+               MK_STATIC(sdi_put_frame),
+               MK_STATIC(sdi_playback_done),
+               MK_STATIC(sdi_reconfigure),
+               NULL
+        },
+        { "AESEBU",
+               NULL,
+               MK_STATIC(sdi_playback_help),
+               MK_STATIC(sdi_playback_init),
+               MK_STATIC(sdi_get_frame),
+               MK_STATIC(sdi_put_frame),
+               MK_STATIC(sdi_playback_done),
+               MK_STATIC(sdi_reconfigure),
+               NULL
+        },
+        { "analog",
                NULL,
                MK_STATIC(sdi_playback_help),
                MK_STATIC(sdi_playback_init),
@@ -265,7 +288,7 @@ struct state_audio_playback * audio_playback_init(char *device, char *cfg)
         s = (struct state_audio_playback *) malloc(sizeof(struct state_audio_playback));
 
         for (i = 0; i < available_audio_playback_count; ++i) {
-                if(strcmp(device, available_audio_playback[i]->name) == 0) {
+                if(strcasecmp(device, available_audio_playback[i]->name) == 0) {
                         s->index = i;
                         break;
                 }
@@ -308,12 +331,20 @@ void audio_playback_done(struct state_audio_playback *s)
         }
 }
 
-int audio_playback_does_receive_sdi(struct state_audio_playback *s)
+unsigned int audio_playback_get_display_flags(struct state_audio_playback *s)
 {
         if(!s) 
-                return FALSE;
+                return 0u;
 
-        return strcmp(available_audio_playback[s->index]->name, "embedded") == 0;
+        if(strcasecmp(available_audio_playback[s->index]->name, "embedded") == 0) {
+                return DISPLAY_FLAG_AUDIO_EMBEDDED;
+        } else if(strcasecmp(available_audio_playback[s->index]->name, "AESEBU") == 0) {
+                return DISPLAY_FLAG_AUDIO_AESEBU;
+        } else if(strcasecmp(available_audio_playback[s->index]->name, "analog") == 0) {
+                return DISPLAY_FLAG_AUDIO_ANALOG;
+        } else  {
+                return 0;
+        }
 }
 
 struct audio_frame * audio_playback_get_frame(struct state_audio_playback *s)

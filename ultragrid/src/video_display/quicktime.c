@@ -716,7 +716,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 }
         }
         
-        if(flags & DISPLAY_FLAG_ENABLE_AUDIO) {
+        if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
                 display_quicktime_audio_init(s);
         } else {
                 s->play_audio = FALSE;

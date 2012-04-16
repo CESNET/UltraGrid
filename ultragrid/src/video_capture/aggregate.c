@@ -154,8 +154,10 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
                 unsigned int dev_flags = 0u;
                 device = strtok_r(config, ":", &save_ptr_dev);
                 device_cfg = save_ptr_dev;
-                if(i == 0 && flags == DISPLAY_FLAG_ENABLE_AUDIO) {
-                        dev_flags = DISPLAY_FLAG_ENABLE_AUDIO;
+                if(i == 0) {
+                        dev_flags = flags;
+                } else { // do not grab from second and other devices
+                        dev_flags = flags & ~(VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG);
                 }
 
                 s->devices[i] = initialize_video_capture(device,

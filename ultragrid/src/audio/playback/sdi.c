@@ -70,6 +70,8 @@ struct state_sdi_playback {
 void sdi_playback_help(void)
 {
         printf("\tembedded : SDI audio (if available)\n");
+        printf("\tAESEBU : separately connected AES/EBU cabling to grabbing card (if available)\n");
+        printf("\tanalog : separately connected audio input (if available)\n");
 }
 
 void * sdi_playback_init(char *cfg)

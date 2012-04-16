@@ -87,8 +87,8 @@ struct audio_frame * audio_get_frame(struct state_audio *s);
 int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
                 int sample_rate);
 
-int audio_does_send_sdi(struct state_audio *s);
-int audio_does_receive_sdi(struct state_audio *s);
+unsigned int audio_get_vidcap_flags(struct state_audio *s);
+unsigned int audio_get_display_flags(struct state_audio *s);
 
 /**
  * Changes bps for everey sample.
