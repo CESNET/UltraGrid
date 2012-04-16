@@ -53,6 +53,7 @@
 #include "audio/playback/none.h" 
 #include "debug.h"
 #include <stdlib.h>
+#include <string.h>
 
 #define AUDIO_PLAYBACK_NONE_MAGIC 0x3bcf376au
 
@@ -61,8 +62,9 @@ struct state_audio_playback_none
         uint32_t magic;
 };
 
-void audio_play_none_help(void)
+void audio_play_none_help(const char *driver_name)
 {
+        UNUSED(driver_name);
 }
 
 void * audio_play_none_init(char *cfg)

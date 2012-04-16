@@ -119,8 +119,9 @@ static void print_device_info(PaDeviceIndex device)
 	printf(" %s (output channels: %d; input channels: %d)", device_info->name, device_info->maxOutputChannels, device_info->maxInputChannels);
 }
 
-void portaudio_playback_help()
+void portaudio_playback_help(const char *driver_name)
 {
+        UNUSED(driver_name);
         portaudio_print_available_devices(AUDIO_OUT);
 }
 

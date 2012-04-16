@@ -54,6 +54,7 @@
 #include "debug.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define AUDIO_CAPTURE_NONE_MAGIC 0x43fb99ccu
 
@@ -61,8 +62,9 @@ struct state_audio_capture_none {
         uint32_t magic;
 };
 
-void audio_cap_none_help(void)
+void audio_cap_none_help(const char *driver_name)
 {
+        UNUSED(driver_name);
 }
 
 void * audio_cap_none_init(char *cfg)

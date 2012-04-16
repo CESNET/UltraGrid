@@ -56,6 +56,7 @@
 #include "utils/ring_buffer.h"
 #include "debug.h"
 #include <stdlib.h>
+#include <string.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
 #include <QuickTime/QuickTime.h>
@@ -191,8 +192,9 @@ static OSStatus InputProc(void *inRefCon,
         return err;
 }
 
-void audio_cap_ca_help(void)
+void audio_cap_ca_help(const char *driver_name)
 {
+        UNUSED(driver_name);
         OSErr ret;
         AudioDeviceID *dev_ids;
         int dev_items;

@@ -80,7 +80,7 @@ struct state_audio_capture {
 
 struct audio_capture_t;
 
-typedef void (*audio_device_help_t)(void);
+typedef void (*audio_device_help_t)(const char *driver_name);
 /**
  * @return state
  */
@@ -304,7 +304,7 @@ void audio_capture_print_help()
         int i;
         printf("Available audio capture devices:\n");
         for (i = 0; i < available_audio_capture_count; ++i) {
-                available_audio_capture[i]->audio_help();
+                available_audio_capture[i]->audio_help(available_audio_capture[i]->name);
                 printf("\n");
         }
 }

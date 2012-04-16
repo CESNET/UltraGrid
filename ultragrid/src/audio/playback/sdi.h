@@ -48,7 +48,7 @@
 
 struct audio_frame;
 
-void                     sdi_playback_help(void);
+void                     sdi_playback_help(const char *driver_name);
 void                    *sdi_playback_init(char *cfg);
 struct audio_frame      *sdi_get_frame(void *state);
 void                     sdi_put_frame(void *state, struct audio_frame *frame);

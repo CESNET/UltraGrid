@@ -65,6 +65,7 @@
 #include "audio/playback/alsa.h" 
 #include "debug.h"
 #include <stdlib.h>
+#include <string.h>
 
 struct state_alsa_playback {
         snd_pcm_t *handle;
@@ -151,8 +152,9 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         return TRUE;
 }
 
-void audio_play_alsa_help(void)
+void audio_play_alsa_help(const char *driver_name)
 {
+        UNUSED(driver_name);
         void **hints;
 
         printf("\talsa %27s default ALSA device (same as \"alsa:default\")\n", ":");

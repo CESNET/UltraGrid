@@ -55,6 +55,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 struct state_sdi_capture {
@@ -100,11 +101,15 @@ void sdi_capture_done(void *state)
         UNUSED(state);
 }
 
-void sdi_capture_help(void)
+void sdi_capture_help(const char *driver_name)
 {
-        printf("\tembedded : SDI audio (if available)\n");
-        printf("\tAESEBU : separatly connected AES/EBU to a grabbing card (if available)\n");
-        printf("\tanalog : analog input of grabbing card (if available)\n");
+        if(strcmp(driver_name, "embedded") == 0) {
+                printf("\tembedded : SDI audio (if available)\n");
+        } else if(strcmp(driver_name, "AESEBU") == 0) {
+                printf("\tAESEBU : separatly connected AES/EBU to a grabbing card (if available)\n");
+        } else if(strcmp(driver_name, "analog") == 0) {
+                printf("\tanalog : analog input of grabbing card (if available)\n");
+        }
 }
 
 void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)

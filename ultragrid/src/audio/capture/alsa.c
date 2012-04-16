@@ -53,6 +53,7 @@
 #include "audio/capture/alsa.h" 
 #include "debug.h"
 #include <stdlib.h>
+#include <string.h>
 /* Use the newer ALSA API */
 #define ALSA_PCM_NEW_HW_PARAMS_API
 
@@ -65,10 +66,10 @@ struct state_alsa_capture {
         snd_pcm_uframes_t frames;
 };
 
-void audio_play_alsa_help(void);
-void audio_cap_alsa_help(void)
+void audio_play_alsa_help(const char *driver_name);
+void audio_cap_alsa_help(const char *driver_name)
 {
-        audio_play_alsa_help();
+        audio_play_alsa_help(driver_name);
 }
 
 void * audio_cap_alsa_init(char *cfg)

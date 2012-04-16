@@ -51,7 +51,7 @@
 struct audio_frame;
 
 /* audio capture API */
-void sdi_capture_help(void);
+void sdi_capture_help(const char *driver_name);
 void * sdi_capture_init(char *cfg);
 void sdi_capture_finish(void *state);
 void sdi_capture_done(void *state);

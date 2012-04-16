@@ -77,7 +77,7 @@ struct state_audio_playback {
 };
 
 
-typedef void (*audio_device_help_t)(void);
+typedef void (*audio_device_help_t)(const char *driver_name);
 /**
  * @return state
  */
@@ -275,7 +275,7 @@ void audio_playback_help()
         int i;
         printf("Available audio playback devices:\n");
         for (i = 0; i < available_audio_playback_count; ++i) {
-                available_audio_playback[i]->audio_help();
+                available_audio_playback[i]->audio_help(available_audio_playback[i]->name);
                 printf("\n");
         }
 }

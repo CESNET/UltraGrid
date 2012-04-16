@@ -50,7 +50,7 @@
 
 struct audio_frame;
 
-void audio_cap_ca_help(void);
+void audio_cap_ca_help(const char *driver_name);
 void * audio_cap_ca_init(char *cfg);
 struct audio_frame *audio_cap_ca_read(void *state);
 void audio_cap_ca_finish(void *state);

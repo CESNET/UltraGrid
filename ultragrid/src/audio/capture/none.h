@@ -50,7 +50,7 @@
 
 struct audio_frame;
 
-void audio_cap_none_help(void);
+void audio_cap_none_help(const char *driver_name);
 void * audio_cap_none_init(char *cfg);
 struct audio_frame *audio_cap_none_read(void *state);
 void audio_cap_none_finish(void *state);

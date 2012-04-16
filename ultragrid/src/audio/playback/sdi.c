@@ -55,6 +55,7 @@
 #include "debug.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 struct state_sdi_playback {
         struct audio_frame * (*get_callback)(void *);
@@ -67,11 +68,15 @@ struct state_sdi_playback {
 };
 
 
-void sdi_playback_help(void)
+void sdi_playback_help(const char *driver_name)
 {
-        printf("\tembedded : SDI audio (if available)\n");
-        printf("\tAESEBU : separately connected AES/EBU cabling to grabbing card (if available)\n");
-        printf("\tanalog : separately connected audio input (if available)\n");
+        if(strcmp(driver_name, "embedded") == 0) {
+                printf("\tembedded : SDI audio (if available)\n");
+        } else if(strcmp(driver_name, "AESEBU") == 0) {
+                printf("\tAESEBU : separately connected AES/EBU cabling to grabbing card (if available)\n");
+        } else if(strcmp(driver_name, "analog") == 0) {
+                printf("\tanalog : separately connected audio input (if available)\n");
+        }
 }
 
 void * sdi_playback_init(char *cfg)

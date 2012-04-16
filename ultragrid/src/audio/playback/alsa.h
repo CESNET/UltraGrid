@@ -50,7 +50,7 @@
 
 struct audio_frame;
 
-void audio_play_alsa_help(void);
+void audio_play_alsa_help(const char *driver_name);
 void * audio_play_alsa_init(char *cfg);
 struct audio_frame *audio_play_alsa_get_frame(void *state);
 void audio_play_alsa_put_frame(void *state, struct audio_frame *frame);

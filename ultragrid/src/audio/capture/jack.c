@@ -101,8 +101,9 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         return 0;
 }
 
-void audio_cap_jack_help(void)
+void audio_cap_jack_help(const char *driver_name)
 {
+        UNUSED(driver_name);
         jack_client_t *client;
         jack_status_t status;
         const char **ports;
@@ -159,7 +160,7 @@ void * audio_cap_jack_init(char *cfg)
 
 
         if(!cfg || strcmp(cfg, "help") == 0) {
-                audio_cap_jack_help();
+                audio_cap_jack_help("jack");
                 return NULL;
         }
 

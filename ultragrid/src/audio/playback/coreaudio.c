@@ -55,6 +55,7 @@
 #include "utils/ring_buffer.h"
 #include "debug.h"
 #include <stdlib.h>
+#include <string.h>
 #include <AudioUnit/AudioUnit.h>
 #include <CoreAudio/AudioHardware.h>
 
@@ -189,8 +190,9 @@ error:
 }
 
 
-void audio_play_ca_help(void)
+void audio_play_ca_help(const char *driver_name)
 {
+        UNUSED(driver_name);
         OSErr ret;
         AudioDeviceID *dev_ids;
         int dev_items;

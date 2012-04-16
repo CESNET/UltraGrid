@@ -47,7 +47,7 @@
 
 struct audio_frame;
 
-void portaudio_playback_help(void);
+void portaudio_playback_help(const char *driver_name);
 
 void           *portaudio_playback_init(char *cfg);
 void            portaudio_close_playback(void *s);
