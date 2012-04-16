@@ -81,7 +81,8 @@ struct state_sage {
         pthread_t thread_id;
         sem_t semaphore;
 
-        volatile int buffer_writable;
+        volatile unsigned int buffer_writable:1;
+        volatile unsigned int grab_waiting:1;
         pthread_cond_t buffer_writable_cond;
         pthread_mutex_t buffer_writable_lock;
 
@@ -118,7 +119,9 @@ void display_sage_run(void *arg)
 
                 pthread_mutex_lock(&s->buffer_writable_lock);
                 s->buffer_writable = 1;
-                pthread_cond_broadcast(&s->buffer_writable_cond);
+                if(s->grab_waiting) {
+                        pthread_cond_broadcast(&s->buffer_writable_cond);
+                }
                 pthread_mutex_unlock(&s->buffer_writable_lock);
 
                 double seconds = tv_diff(s->t, s->t0);
@@ -161,6 +164,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
         sem_init(&s->semaphore, 0, 0);
 
         s->buffer_writable = 1;
+        s->grab_waiting = 1;
         pthread_mutex_init(&s->buffer_writable_lock, 0);
         pthread_cond_init(&s->buffer_writable_cond, NULL);
 
@@ -180,7 +184,19 @@ void display_sage_finish(void *state)
         struct state_sage *s = (struct state_sage *)state;
 
         assert(s->magic == MAGIC_SAGE);
+
+        // there was already issued should_exit...
         display_sage_putf(s, NULL);
+        // .. so thread should exit after this call
+
+        // release grab
+        pthread_mutex_lock(&s->buffer_writable_lock);
+        s->buffer_writable = TRUE;
+        if(s->grab_waiting) {
+                pthread_cond_signal(&s->buffer_writable_cond);
+        }
+        pthread_mutex_unlock(&s->buffer_writable_lock);
+
 }
 
 void display_sage_done(void *state)
@@ -188,6 +204,7 @@ void display_sage_done(void *state)
         struct state_sage *s = (struct state_sage *)state;
 
         assert(s->magic == MAGIC_SAGE);
+
         sem_destroy(&s->semaphore);
         pthread_cond_destroy(&s->buffer_writable_cond);
         pthread_mutex_destroy(&s->buffer_writable_lock);
@@ -203,9 +220,16 @@ struct video_frame *display_sage_getf(void *state)
         assert(s->magic == MAGIC_SAGE);
 
         pthread_mutex_lock(&s->buffer_writable_lock);
-        while (!s->buffer_writable)
+        if(should_exit) {
+                pthread_mutex_unlock(&s->buffer_writable_lock);
+                return NULL;
+        }
+        while (!s->buffer_writable) {
+                s->grab_waiting = TRUE;
                 pthread_cond_wait(&s->buffer_writable_cond,
                                 &s->buffer_writable_lock);
+                s->grab_waiting = FALSE;
+        }
         pthread_mutex_unlock(&s->buffer_writable_lock);
 
         return s->frame;
