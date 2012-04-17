@@ -34,6 +34,8 @@ HUFFMAN_CODER_TABLES_IN_CONSTANT ?= 1
 # If set to 0, own implementation is used, it doesn't cause color change
 # but for non-fermi GPUs it is slower
 DCT_FROM_NPP ?= 1
+# Flag if use OpenGL
+USE_OPENGL ?= 1
 # Debug
 DEBUG ?= 0
 # CUDA install path
@@ -74,7 +76,7 @@ COMMONFLAGS += -I. -I$(CUDA_INSTALL_PATH)/include -O2
 # Ultragrid changes
 ARCH := $(shell uname -s)
 ifeq ($(ARCH),Darwin)
-    COMMONFLAGS += -m32
+    COMMONFLAGS += -m32 -DHAVE_MACOSX
 endif
 
 # C flags
@@ -98,6 +100,10 @@ endif
 ifeq ($(DCT_FROM_NPP),1)
     COMMONFLAGS += -DGPUJPEG_DCT_FROM_NPP
 endif
+ifeq ($(USE_OPENGL),1)
+    LDFLAGS += -lGLEW
+    COMMONFLAGS += -DGPUJPEG_USE_OPENGL
+endif 
 
 # Do 32bit vs. 64bit setup
 LBITS := $(shell getconf LONG_BIT)

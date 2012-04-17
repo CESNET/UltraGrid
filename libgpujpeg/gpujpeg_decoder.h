@@ -60,40 +60,37 @@ struct gpujpeg_decoder_output
     // Compressed data size
     int data_size;
     
-    // Texture PBO resource (used as target for saving decoder output when you want
-    // to save decoder output into OpenGL texture)
-    struct cudaGraphicsResource* texture_pbo_resource;
-    // Texture callbacks parameter
-    void * texture_callback_param;
-    // Texture callback for attaching OpenGL context (by default not used)
-    void (*texture_callback_attach_opengl)(void* param);
-    // Texture callback for detaching OpenGL context (by default not used)
-    void (*texture_callback_detach_opengl)(void* param);
-    // If you develop multi-threaded application where one thread use CUDA
-    // for JPEG decoding and other thread use OpenGL for displaying results
-    // from JPEG decoder, when a image is decoded you must detach OpenGL context
-    // from displaying thread and attach it to compressing thread (inside
-    // code of texture_callback_attach_opengl which is automatically invoked 
-    // by decoder), decoder then is able to copy data from GPU memory used 
-    // for compressing to GPU memory used by OpenGL texture for displaying, 
-    // then decoder call the second callback and you have to detach OpenGL context 
-    // from compressing thread and attach it to displaying thread (inside code of
-    // texture_callback_detach_opengl).
-    //
-    // If you develop single-thread application where the only thread use CUDA
-    // for compressing and OpenGL for displaying you don't have to implement
-    // these callbacks because OpenGL context is already attached to thread
-    // that use CUDA for JPEG decoding.
+    // OpenGL texture
+    struct gpujpeg_opengl_texture* texture;
 };
 
 /**
  * Set default parameters to decoder output structure
  * 
- * @param decoder_output  Decoder output structure
+ * @param output  Decoder output structure
  * @return void
  */
 void
-gpujpeg_decoder_output_set_default(struct gpujpeg_decoder_output* decoder_output);
+gpujpeg_decoder_output_set_default(struct gpujpeg_decoder_output* output);
+
+/**
+ * Setup decoder output to custom buffer
+ *
+ * @param output        Decoder output structure
+ * @param custom_buffer Custom buffer
+ * @return void
+ */
+void
+gpujpeg_decoder_output_set_custom(struct gpujpeg_decoder_output* output, uint8_t* custom_buffer);
+
+/**
+ * Set decoder output to OpenGL texture
+ *
+ * @param output  Decoder output structure
+ * @return void
+ */
+void
+gpujpeg_decoder_output_set_texture(struct gpujpeg_decoder_output* output, struct gpujpeg_opengl_texture* texture);
 
 /**
  * JPEG decoder structure
@@ -119,6 +116,10 @@ struct gpujpeg_decoder
     
     // Current data compressed size for decoded image
     int data_compressed_size;
+
+    // Timers
+    GPUJPEG_CUSTOM_TIMER_DECLARE(def)
+    GPUJPEG_CUSTOM_TIMER_DECLARE(in_gpu)
 };
 
 /**

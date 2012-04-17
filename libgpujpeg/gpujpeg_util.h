@@ -37,30 +37,6 @@
 #include <strings.h>
 #include <assert.h>
 #include <cuda_runtime.h>
-
-// Custom Timer
-#define GPUJPEG_CUSTOM_TIMER_INIT(name) \
-    cudaEvent_t __start ## name, __stop ## name; \
-    cudaEventCreate(&__start ## name); \
-    cudaEventCreate(&__stop ## name); \
-    float __elapsedTime ## name;
-#define GPUJPEG_CUSTOM_TIMER_START(name) \
-    cudaEventRecord(__start ## name, 0)
-#define GPUJPEG_CUSTOM_TIMER_STOP(name) \
-    cudaEventRecord(__stop ## name, 0); \
-    cudaEventSynchronize(__stop ## name); \
-    cudaEventElapsedTime(&__elapsedTime ## name, __start ## name, __stop ## name)
-#define GPUJPEG_CUSTOM_TIMER_DURATION(name) __elapsedTime ## name
-#define GPUJPEG_CUSTOM_TIMER_STOP_PRINT(name, text) \
-    GPUJPEG_CUSTOM_TIMER_STOP(name); \
-    printf("%s %f ms\n", text, __elapsedTime ## name)
-
-// Default Timer
-#define GPUJPEG_TIMER_INIT() GPUJPEG_CUSTOM_TIMER_INIT(def)
-#define GPUJPEG_TIMER_START() GPUJPEG_CUSTOM_TIMER_START(def)
-#define GPUJPEG_TIMER_STOP() GPUJPEG_CUSTOM_TIMER_STOP(def)
-#define GPUJPEG_TIMER_DURATION() GPUJPEG_CUSTOM_TIMER_DURATION(def)
-#define GPUJPEG_TIMER_STOP_PRINT(text) GPUJPEG_CUSTOM_TIMER_STOP_PRINT(def, text)
     
 // CUDA check error
 #define gpujpeg_cuda_check_error(msg) \
@@ -87,5 +63,10 @@ struct { int x; int y; int z; } blockIdx;
 struct { int x; int y; int z; } blockDim;
 struct { int x; int y; int z; } gridDim;
 #endif
+
+// OpenGL missing error
+#define GPUJPEG_EXIT_MISSING_OPENGL() \
+    fprintf(stderr, "[GPUJPEG] [Error] Can't use OpenGL. The codec was compiled without OpenGL!\n"); \
+    exit(-1); \
 
 #endif // GPUJPEG_UTIL_H

@@ -35,6 +35,51 @@
 #include "gpujpeg_writer.h"
 
 /**
+ * Encoder input type
+ */
+enum gpujpeg_encoder_input_type {
+    // Encoder will use custom input buffer
+    GPUJPEG_ENCODER_INPUT_IMAGE,
+    // Encoder will use OpenGL Texture PBO Resource as input buffer
+    GPUJPEG_ENCODER_INPUT_OPENGL_TEXTURE,
+};
+
+/**
+ * Encoder input structure
+ */
+struct gpujpeg_encoder_input
+{
+    // Output type
+    enum gpujpeg_encoder_input_type type;
+
+    // Image data
+    uint8_t* image;
+
+    // Registered OpenGL Texture
+    struct gpujpeg_opengl_texture* texture;
+};
+
+/**
+ * Set encoder input to image data
+ *
+ * @param encoder_input  Encoder input structure
+ * @param image  Input image data
+ * @return void
+ */
+void
+gpujpeg_encoder_input_set_image(struct gpujpeg_encoder_input* input, uint8_t* image);
+
+/**
+ * Set encoder input to OpenGL texture
+ *
+ * @param encoder_input  Encoder input structure
+ * @param texture_id  OpenGL texture id
+ * @return void
+ */
+void
+gpujpeg_encoder_input_set_texture(struct gpujpeg_encoder_input* input, struct gpujpeg_opengl_texture* texture);
+
+/**
  * JPEG encoder structure
  */
 struct gpujpeg_encoder
@@ -52,6 +97,10 @@ struct gpujpeg_encoder
     struct gpujpeg_table_huffman_encoder table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
     // Huffman coder tables in device memory
     struct gpujpeg_table_huffman_encoder* d_table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
+
+    // Timers
+    GPUJPEG_CUSTOM_TIMER_DECLARE(def)
+    GPUJPEG_CUSTOM_TIMER_DECLARE(in_gpu)
 };
 
 /**
@@ -74,7 +123,7 @@ gpujpeg_encoder_create(struct gpujpeg_parameters* param, struct gpujpeg_image_pa
  * @return 0 if succeeds, otherwise nonzero
  */
 int
-gpujpeg_encoder_encode(struct gpujpeg_encoder* encoder, uint8_t* image, uint8_t** image_compressed, int* image_compressed_size);
+gpujpeg_encoder_encode(struct gpujpeg_encoder* encoder, struct gpujpeg_encoder_input* input, uint8_t** image_compressed, int* image_compressed_size);
 
 /**
  * Destory JPEG encoder
