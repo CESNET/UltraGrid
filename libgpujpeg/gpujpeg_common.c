@@ -38,7 +38,7 @@
 #       ifdef HAVE_MACOSX
 #               include <OpenGL/GL.h>
 #       else
-#               include <GL/GL.h>
+#               include <GL/gl.h>
 #       endif
 #endif
 
