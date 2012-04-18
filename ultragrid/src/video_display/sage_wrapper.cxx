@@ -46,7 +46,6 @@
  *
  */
 
-#include <GL/glut.h>
 #include "sage_wrapper.h"
 #include <sail.h>
 #include <misc.h>
