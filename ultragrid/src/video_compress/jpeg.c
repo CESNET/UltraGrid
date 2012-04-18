@@ -301,7 +301,11 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
                 uint8_t *compressed;
                 int size;
                 int ret;
-                ret = gpujpeg_encoder_encode(s->encoder, (unsigned char *) s->decoded, &compressed, &size);
+
+
+                struct gpujpeg_encoder_input encoder_input;
+                gpujpeg_encoder_input_set_image(&encoder_input, (uint8_t *) s->decoded);
+                ret = gpujpeg_encoder_encode(s->encoder, &encoder_input, &compressed, &size);
                 
                 if(ret != 0)
                         return NULL;
