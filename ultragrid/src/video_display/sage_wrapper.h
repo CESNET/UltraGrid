@@ -50,6 +50,7 @@
 #define _SAGE_WRAPPER
 
 #include "video_codec.h"
+#include <GL/gl.h>
 
 //switching between dircet sage YUV support and yuv2rgba conversion in ug 
 #define SAGE_GLSL_YUV 1
