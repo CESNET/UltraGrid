@@ -238,6 +238,7 @@ public:
 
 void
 print_output_modes (IDeckLink* deckLink);
+static int blackmagic_api_version_check(STRING *current_version);
 
 HRESULT	
 VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, IDeckLinkAudioInputPacket *audioPacket)
@@ -333,8 +334,34 @@ void VideoDelegate::set_device_state(struct vidcap_decklink_state *state, int in
         i = index;
 }
 
-/* HELP */
+static int blackmagic_api_version_check(STRING *current_version)
+{
+        int ret = TRUE;
+        *current_version = NULL;
 
+        IDeckLinkAPIInformation *APIInformation = CreateDeckLinkAPIInformationInstance();
+        if(APIInformation == NULL) {
+                return FALSE;
+        }
+        int64_t value;
+        HRESULT res;
+        res = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
+        if(res != S_OK) {
+                APIInformation->Release();
+                return FALSE;
+        }
+
+        if(BLACKMAGIC_DECKLINK_API_VERSION > value) { // this is safe comparision, for internal structure please see SDK documentation
+                APIInformation->GetString(BMDDeckLinkAPIVersion, current_version);
+                ret  = FALSE;
+        }
+
+
+        APIInformation->Release();
+        return ret;
+}
+
+/* HELP */
 int
 decklink_help()
 {
@@ -675,6 +702,32 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 	IDeckLinkDisplayMode*		displayMode = NULL;
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
         BMDAudioConnection              audioConnection;
+
+        STRING current_version; 
+        if(!blackmagic_api_version_check(&current_version)) {
+                fprintf(stderr, "\nThe DeckLink drivers may not be installed or are outdated.\n");
+                fprintf(stderr, "This UltraGrid version was compiled against DeckLink drivers %s. You should have at least this version.\n\n",
+                                BLACKMAGIC_DECKLINK_API_VERSION_STRING);
+                fprintf(stderr, "Vendor download page is http://http://www.blackmagic-design.com/support/ \n");
+                if(current_version) {
+                        const char *currentVersionCString;
+#ifdef HAVE_MACOSX
+                        curretnVersionCString = (char *) malloc(128);
+                        CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+#else
+                        currentVersionCString = current_version;
+#endif
+                        fprintf(stderr, "Currently installed version is: %s\n", currentVersionCString);
+#ifdef HAVE_MACOSX
+                        CFRelease(current_version);
+#endif
+                        free((void *)currentVersionCString);
+                } else {
+                        fprintf(stderr, "No installed drivers detected\n");
+                }
+                        fprintf(stderr, "\n");
+                return NULL;
+        }
 
 
 	s = (struct vidcap_decklink_state *) calloc(1, sizeof(struct vidcap_decklink_state));
