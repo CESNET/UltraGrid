@@ -73,6 +73,8 @@ enum _BMDDeckLinkConfigurationID {
     bmdDeckLinkConfigAnalogVideoOutputFlags                      = /* 'avof' */ 0x61766F66,
     bmdDeckLinkConfigReferenceInputTimingOffset                  = /* 'glot' */ 0x676C6F74,
     bmdDeckLinkConfigVideoOutputIdleOperation                    = /* 'voio' */ 0x766F696F,
+    bmdDeckLinkConfigDefaultVideoOutputMode                      = /* 'dvom' */ 0x64766F6D,
+    bmdDeckLinkConfigDefaultVideoOutputModeFlags                 = /* 'dvof' */ 0x64766F66,
 
     /* Video Output Floats */
 
