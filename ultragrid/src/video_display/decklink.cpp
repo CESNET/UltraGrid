@@ -788,6 +788,13 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         return NULL;
                 }
 
+#ifdef DECKLINK_LOW_LATENCY
+                HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigLowLatencyVideoOutput, true);
+                if(res != S_OK) {
+                        fprintf(stderr, "[DeckLink display] Unable to set to low-latency mode.\n");
+                }
+#endif /* DECKLINK_LOW_LATENCY */
+
                 if(s->play_audio == FALSE || i != 0) { //TODO: figure out output from multiple streams
                                 s->state[i].deckLinkOutput->DisableAudioOutput();
                 } else {
