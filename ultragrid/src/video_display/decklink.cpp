@@ -594,6 +594,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         int                                             cardIdx[MAX_DEVICES];
         int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
+        // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
         BMDAudioOutputAnalogAESSwitch audioConnection = 0;
 
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
@@ -734,24 +735,35 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 if(s->play_audio == FALSE || i != 0) { //TODO: figure out output from multiple streams
                                 s->state[i].deckLinkOutput->DisableAudioOutput();
                 } else {
-                        if (audioConnection == 0 || // already SDI
-                                        deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
-                                                audioConnection) == S_OK) {
-                                printf("[Decklink playback] Audio output set to: ");
-                                switch(audioConnection) {
-                                        case 0:
-                                                printf("embedded");
-                                                break;
-                                        case bmdAudioOutputSwitchAESEBU:
-                                                printf("AES/EBU");
-                                                break;
-                                        case bmdAudioOutputSwitchAnalog:
-                                                printf("analog");
-                                                break;
+                        /* Actually no action is required to set audio connection because Blackmagic card plays audio through all its outputs (AES/SDI/analog) ....
+                         */
+                        printf("[Decklink playback] Audio output set to: ");
+                        switch(audioConnection) {
+                                case 0:
+                                        printf("embedded");
+                                        break;
+                                case bmdAudioOutputSwitchAESEBU:
+                                        printf("AES/EBU");
+                                        break;
+                                case bmdAudioOutputSwitchAnalog:
+                                        printf("analog");
+                                        break;
+                        }
+                        printf(".\n");
+                         /*
+                          * .... one exception is a card that has switchable cables between AES/EBU and analog. (But this applies only for channels 3 and above.)
+                         */
+                        if (audioConnection != 0) { // not embedded 
+                                HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
+                                                audioConnection);
+                                if(res == S_OK) { // has switchable channels
+                                        printf("[Decklink playback] Card with switchable audio channels detected. Switched to correct format.\n");
+                                } else if(res == E_NOTIMPL) {
+                                        // normal case - without switchable channels
+                                } else {
+                                        fprintf(stderr, "[Decklink playback] Unable to switch audio output for channels 3 or above although \n"
+                                                        "card shall support it. Check if it is ok. Continuing anyway.\n");
                                 }
-                                printf(".\n");
-                        } else {
-                                fprintf(stderr, "[Decklink playback] Unable to set audio output. Please verify that it is ok. Continuing anyway.\n");
                         }
                 }
                 deckLinkConfiguration->Release();
