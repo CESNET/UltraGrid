@@ -1,0 +1,5 @@
+to produce a bundle, you should run:
+$ xcodebuild -alltargets -arch x86_64
+Then, expecting you have compiled Ultragrid, you should copy its binary to bundle:
+$ cp ../../bin/uv build/Release/UltraGrid\ GUI.app/Contents/MacOS/
+
