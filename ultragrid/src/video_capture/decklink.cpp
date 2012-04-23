@@ -712,8 +712,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 if(current_version) {
                         const char *currentVersionCString;
 #ifdef HAVE_MACOSX
-                        curretnVersionCString = (char *) malloc(128);
-                        CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+                        currentVersionCString = (char *) malloc(128);
+                        CFStringGetCString(current_version, (char *) currentVersionCString, 128, kCFStringEncodingMacRoman);
 #else
                         currentVersionCString = current_version;
 #endif
