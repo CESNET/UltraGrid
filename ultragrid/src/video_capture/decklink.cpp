@@ -1064,6 +1064,10 @@ vidcap_decklink_done(void *state)
         for (int i = 0; i < s->devices_cnt; ++i)
         {
 		result = s->state[i].deckLinkInput->StopStreams();
+                if(s->grab_audio && i == 0) {
+                        result = s->state[i].deckLinkInput->DisableAudioInput();
+                }
+		result = s->state[i].deckLinkInput->DisableVideoInput();
 		if (result != S_OK)
 		{
 			printf("Could not stop stream: %08x\n", (int) result);
