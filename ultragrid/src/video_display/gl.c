@@ -58,10 +58,12 @@
 
 #ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
+#include <OpenGL/OpenGL.h> // CGL
 #include <OpenGL/glext.h>
 #include <GLUT/glut.h>
 #else /* HAVE_MACOSX */
 #include <GL/gl.h>
+#include <GL/glx.h>
 #include <GL/glext.h>
 #include <GL/glut.h>
 #include "x11_common.h"
@@ -225,6 +227,7 @@ void glut_idle_callback(void);
 void glut_key_callback(unsigned char key, int x, int y);
 void glut_close_callback(void);
 void glut_resize_window(struct state_gl *s);
+void display_gl_enable_sync_on_vblank(void);
 
 #ifdef HAVE_MACOSX
 void NSApplicationLoad(void);
@@ -524,6 +527,30 @@ void glut_resize_window(struct state_gl *s)
         }
 }
 
+void display_gl_enable_sync_on_vblank() {
+#ifdef HAVE_MACOSX
+        int swap_interval = 1;
+        CGLContextObj cgl_context = CGLGetCurrentContext();
+        CGLSetParameter(cgl_context, kCGLCPSwapInterval, &swap_interval);
+#else
+        /* using GLX_SGI_swap_control
+         *
+         * Also it is worth considering to use GLX_EXT_swap_control (instead?).
+         * But we would need both Display and GLXDrawable variables which we do not currently have
+         */
+        int (*glXSwapIntervalSGIProc)(int interval) = 0;
+
+        glXSwapIntervalSGIProc = (int (*)(int))
+                glXGetProcAddressARB( (const GLubyte *) "glXSwapIntervalSGI");
+
+        if(glXSwapIntervalSGIProc) {
+                glXSwapIntervalSGIProc(1);
+        } else {
+                fprintf(stderr, "[GL display] GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
+        }
+#endif
+}
+
 /**
  * This function must be called only from GL thread 
  * (display_thread_gl) !!!
@@ -612,6 +639,8 @@ void gl_reconfigure_screen(struct state_gl *s)
 				(s->tile->width + 3) / 4 * 4 * s->dxt_height,
 				NULL);
         }
+
+        display_gl_enable_sync_on_vblank();
         gl_check_error();
 }
 
