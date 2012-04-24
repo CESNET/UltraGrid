@@ -307,7 +307,7 @@ static void *audio_receiver_thread(void *arg)
                         rtp_update(s->audio_network_device, curr_time);
                         rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
                         timeout.tv_sec = 0;
-                        timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
+                        timeout.tv_usec =100* 999999 / 59.94; /* audio goes almost always at the same rate
                                                              as video frames */
                         rtp_recv_r(s->audio_network_device, &timeout, ts);
                         cp = pdb_iter_init(s->audio_participants);

@@ -486,6 +486,7 @@ void display_done(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_done(d->state);
+        free(d);
 }
 
 void display_run(struct display *d)

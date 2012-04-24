@@ -720,6 +720,7 @@ void vidcap_testcard_done(void *state)
                 }
                 vf_free(s->tiled);
         }
+        vf_free(s->frame);
         if(s->audio_data) {
                 free(s->audio_data);
         }

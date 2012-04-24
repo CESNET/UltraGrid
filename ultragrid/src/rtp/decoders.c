@@ -233,6 +233,9 @@ void decoder_destroy(struct state_decoder *decoder)
                 vo_postprocess_done(decoder->postprocess);
                 decoder->pp_frame = NULL;
         }
+        if(decoder->line_decoder) {
+                free(decoder->line_decoder);
+        }
         free(decoder->native_codecs);
         free(decoder->disp_supported_il);
         free(decoder);
@@ -489,9 +492,6 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 decoder->requested_pitch = PITCH_DEFAULT;
         }
         
-
-
-
         int linewidth;
         if(render_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
                 linewidth = desc.width; 
@@ -654,7 +654,7 @@ void ll_insert(struct linked_list *ll, int val) {
 
 void ll_destroy(struct linked_list *ll) {
         struct node *cur = ll->head;
-        struct node *tmp = tmp;
+        struct node *tmp;
 
         while (cur != NULL) {
                 tmp = cur->next;
@@ -993,6 +993,7 @@ cleanup:
                 xor_restore_destroy(xors[i]);
                 ++i;
         }
+        free(xors);
 
         return ret;
 }

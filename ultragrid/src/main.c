@@ -581,7 +581,6 @@ static void *sender_thread(void *arg)
 
 int main(int argc, char *argv[])
 {
-
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
@@ -971,6 +970,9 @@ cleanup:
                 display_done(uv->display_device);
         if (uv->participants != NULL)
                 pdb_destroy(&uv->participants);
+
+        free(uv);
+
         printf("Exit\n");
 
         return exit_status;
