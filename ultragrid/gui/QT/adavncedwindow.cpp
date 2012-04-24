@@ -18,6 +18,7 @@ AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
     connect( pushButton_cancel, SIGNAL( clicked() ), this, SLOT( doCancel() ) );
     connect( toolButton_capture_help, SIGNAL( clicked() ), this, SLOT( showCaptureHelp() ) );
     connect( toolButton_display_help, SIGNAL( clicked() ), this, SLOT( showDisplayHelp() ) );
+    connect( compress_JPEG, SIGNAL( toggled(bool) ), compress_JPEG_quality, SLOT( setEnabled(bool)) );
 
     comboBox_capture->addItem("");
     comboBox_display->addItem("");
@@ -41,28 +42,65 @@ AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
         comboBox_audio_cap->addItem(item, item.section(' ', 0, 0));
     }
 
-    comboBox_capture->setCurrentIndex(comboBox_capture->findText(settings->getSettings().capture));
-    comboBox_display->setCurrentIndex(comboBox_display->findText(settings->getSettings().display));
-    comboBox_audio_cap->setCurrentIndex(comboBox_audio_cap->findData(settings->getSettings().audio_cap));
-    comboBox_audio_play->setCurrentIndex(comboBox_audio_play->findData(settings->getSettings().audio_play));
-    lineEdit_display_details->insert(settings->getSettings().display_details);
-    lineEdit_capture_details->insert(settings->getSettings().capture_details);
-    lineEdit_mtu->insert(settings->getSettings().mtu);
-    lineEdit_other->insert(settings->getSettings().other);
+    comboBox_capture->setCurrentIndex(comboBox_capture->findText(settings->getValue("capture")));
+    comboBox_display->setCurrentIndex(comboBox_display->findText(settings->getValue("display")));
+    comboBox_audio_cap->setCurrentIndex(comboBox_audio_cap->findData(settings->getValue("audio_cap")));
+    comboBox_audio_play->setCurrentIndex(comboBox_audio_play->findData(settings->getValue("audio_play")));
+    lineEdit_display_details->insert(settings->getValue("display_details"));
+    lineEdit_capture_details->insert(settings->getValue("capture_details"));
+
+    bool ok;
+    QString mtu = settings->getValue("mtu");
+    int MTUInt = mtu.toInt(&ok);
+    if(ok) {
+        spin_mtu->setValue(MTUInt);
+    }
+
+    lineEdit_other->insert(settings->getValue("other"));
+
+    QString JPEGQuality = settings->getValue("compress_jpeg_quality");
+    int JPEGQualityInt = JPEGQuality.toInt(&ok);
+    if(ok) {
+        compress_JPEG_quality->setValue(JPEGQualityInt);
+    }
+
+    QString compress = settings->getValue("compress");
+    if(compress == QString("none")) {
+        compress_none->setChecked(true);
+    } else if(compress == QString("RTDXT:DXT1")) {
+        compress_DXT1->setChecked(true);
+    } else if(compress == QString("RTDXT:DXT5")) {
+        compress_DXT5->setChecked(true);
+    } else if(compress.startsWith("JPEG")) {
+        compress_JPEG->setChecked(true);
+    }
 }
 
 void AdvancedWindow::saveSettings()
 {
-    Settings cur;
-    cur.mtu = lineEdit_mtu->text();
-    cur.display = comboBox_display->currentText();
-    cur.capture = comboBox_capture->currentText();
-    cur.audio_cap = comboBox_audio_cap->itemData(comboBox_audio_cap->currentIndex()).toString();
-    cur.audio_play = comboBox_audio_play->itemData(comboBox_audio_play->currentIndex()).toString();
-    cur.display_details = lineEdit_display_details->text();
-    cur.capture_details = lineEdit_capture_details->text();
-    cur.other = lineEdit_other->text();
-    settings->setSettings(cur);
+    settings->setValue("mtu", QString(spin_mtu->value()));
+    settings->setValue("display", comboBox_display->currentText());
+    settings->setValue("capture", comboBox_capture->currentText());
+    settings->setValue("audio_cap", comboBox_audio_cap->itemData(comboBox_audio_cap->currentIndex()).toString());
+    settings->setValue("audio_play", comboBox_audio_play->itemData(comboBox_audio_play->currentIndex()).toString());
+    settings->setValue("display_details", lineEdit_display_details->text());
+    settings->setValue("capture_details", lineEdit_capture_details->text());
+    settings->setValue("other", lineEdit_other->text());
+    settings->setValue("compress_jpeg_quality", QString(compress_JPEG_quality->value()));
+
+    QString compress;
+
+    if(compress_none->isChecked()) {
+        compress = QString("none");
+    } else if(compress_DXT1->isChecked()) {
+        compress = QString("RTDXT:DXT1");
+    } else if(compress_DXT5->isChecked()) {
+        compress = QString("RTDXT:DXT5");
+    } else if(compress_JPEG->isChecked()) {
+        compress = QString("JPEG");
+    }
+
+    settings->setValue("compress", compress);
 }
 
 void AdvancedWindow::doOK()

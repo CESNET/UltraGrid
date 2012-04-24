@@ -41,31 +41,39 @@ void UltraGridMainWindow::doStart()
         pushButton_start->setText("Stop");
         started = true;
         statusBar.showMessage("Running");
-        Settings sett = settings.getSettings();
+        QHash<QString, QString> sett = settings.getSettings();
         QString command("uv ");
-        if(!sett.audio_cap.isEmpty())
-            command += "-s " + sett.audio_cap ;
+        if(sett.find("audio_cap") != sett.end())
+            command += "-s " + sett.find("audio_cap").value();
         command += + " ";
-        if(!sett.audio_play.isEmpty())
-            command += "-r " + sett.audio_play;
+        if(sett.find("audio_play") != sett.end())
+            command += "-r " + sett.find("audio_play").value();
         command += + " ";
-        if(!sett.display.isEmpty()) {
-            command += "-d " + sett.display;
-            if(!sett.display_details.isEmpty())
-                command +=  ":" + sett.display_details ;
+        if(sett.find("display") != sett.end()) {
+            command += "-d " + sett.find("display").value();
+            if(sett.find("display_details") != sett.end())
+                command +=  ":" + sett.find("display_details").value();
         }
         command += + " ";
-        if(!sett.capture.isEmpty()) {
-            command += "-t " + sett.capture;
-            if(!sett.capture_details.isEmpty())
-                command +=  ":" + sett.capture_details ;
+        if(sett.find("capture") != sett.end()) {
+            command += "-t " + sett.find("capture").value();
+            if(sett.find("capture_details") != sett.end())
+                command +=  ":" + sett.find("capture_details").value();
         }
         command += + " ";
-        if(!sett.mtu.isEmpty())
-            command += "-m " + sett.mtu;
+        if(sett.find("mtu") != sett.end())
+            command += "-m " + sett.find("mtu").value();
         command += + " ";
-        if(!sett.other.isEmpty())
-            command += sett.other;
+        if(sett.find("compress") != sett.end()) {
+            command += sett.find("compress").value();
+            if(sett.find("compress").value().compare("JPEG") == 0 &&
+                    sett.find("compress_jpeg_quality") != sett.end()) {
+                command += ":" + sett.find("compress_jpeg_quality").value();
+            }
+        }
+        command += + " ";
+        if(sett.find("other") != sett.end())
+            command += sett.find("other").value();
         command += + " ";
 
         history.insert(address->text());

@@ -6,7 +6,7 @@
 #include <QFile>
 #include <QSet>
 
-struct Settings {
+/*struct Settings {
     QString mtu;
     QString display;
     QString capture;
@@ -15,23 +15,27 @@ struct Settings {
     QString display_details;
     QString capture_details;
 
+    QString compress;
+
     QString other;
-};
+};*/
 
 class UltragridSettings : public QObject
 {
     Q_OBJECT
 public:
     explicit UltragridSettings(QObject *parent = 0);
-    Settings getSettings();
-    void setSettings(Settings settings);
+    QHash<QString, QString> getSettings();
+    QString getValue(QString key);
+    void setValue(QString key, QString value);
+    void setSettings(QHash<QString, QString> settings);
     void save();
 
     QSet<QString> getHistory();
     void saveHistory(QSet<QString>);
 
 private:
-    Settings settings;
+    QHash<QString, QString> settings;
     QString fileName;
 
     QString histFileName;
