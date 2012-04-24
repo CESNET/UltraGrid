@@ -27,6 +27,10 @@ if [ -f /etc/issue ]; then
         cat /etc/issue 
 fi
 
+if [ -f /proc/cpuinfo ]; then
+        cat /proc/cpuinfo
+fi
+
 if [ -x /usr/bin/sw_vers ]; then
         /usr/bin/sw_vers
 fi
