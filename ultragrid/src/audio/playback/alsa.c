@@ -182,10 +182,11 @@ void audio_play_alsa_help(const char *driver_name)
                 int i;
 
                 for (i = 0; i < 30 - (int) strlen(name); ++i) putchar(' ');
-                printf(" : %s\n", desc_short);
+                printf(" : %s", desc_short);
                 if(desc_long) {
-                        printf("\t\t\t\t\t\t%s\n", desc_long);
+                        printf(" - %s", desc_long);
                 }
+                printf("\n");
                 hints++;
                 free(tmp);
                 free(name);
