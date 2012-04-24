@@ -335,6 +335,10 @@ static int frame_complete(struct pbuf_node *frame)
         return (frame->mbit == 1);
 }
 
+/*
+ * wait_for_playout parameter specifies if we want to wait for playout time or not
+ * (audio case). If not, we play the frame immediatelly after it is complete.
+ */
 int
 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data, int wait_for_playout)
@@ -354,9 +358,10 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                                 curr->decoded = 1;
                                 return ret;
                         } else {
-                                debug_msg
-                                    ("Unable to decode frame due to missing data (RTP TS=%u)\n",
-                                     curr->rtp_timestamp);
+                                if(wait_for_playout)
+                                        debug_msg
+                                            ("Unable to decode frame due to missing data (RTP TS=%u)\n",
+                                             curr->rtp_timestamp);
                         }
                 }
                 curr = curr->nxt;
