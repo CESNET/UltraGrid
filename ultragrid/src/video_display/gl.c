@@ -354,6 +354,62 @@ void * display_gl_init(char *fmt, unsigned int flags) {
                         s->fs ? "ON" : "OFF", s->deinterlace ? "ON" : "OFF");
 
 	s->new_frame = 0;
+
+        char *tmp, *gl_ver_major;
+        char *save_ptr = NULL;
+
+#ifdef HAVE_MACOSX
+        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+        /* Avoids uncaught exception (1002)  when creating CGSWindow */
+        NSApplicationLoad();
+#endif
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+#ifndef HAVE_MACOSX
+        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+#endif
+        glutIdleFunc(glut_idle_callback);
+	s->window = glutCreateWindow(WIN_NAME);
+        glutHideWindow();
+	glutKeyboardFunc(glut_key_callback);
+	glutDisplayFunc(glutSwapBuffers);
+#ifdef HAVE_MACOSX
+        glutWMCloseFunc(glut_close_callback);
+#else
+        glutCloseFunc(glut_close_callback);
+#endif
+	glutReshapeFunc(gl_resize);
+
+        tmp = strdup((const char *)glGetString(GL_VERSION));
+        gl_ver_major = strtok_r(tmp, ".", &save_ptr);
+        if(atoi(gl_ver_major) >= 2) {
+                fprintf(stderr, "OpenGL 2.0 is supported...\n");
+        } else {
+                fprintf(stderr, "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
+                free(tmp);
+                exit(65);
+        }
+        free(tmp);
+
+        glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+        glEnable( GL_TEXTURE_2D );
+        
+	glGenTextures(1, &s->texture_display);
+	glBindTexture(GL_TEXTURE_2D, s->texture_display);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glGenTextures(1, &s->texture_uyvy);
+	glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glsl_arb_init(s);
+	dxt_arb_init(s);
+        dxt5_arb_init(s);
 	/*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
 		perror("Unable to create display thread\n");
 		return NULL;
@@ -759,61 +815,6 @@ void glut_key_callback(unsigned char key, int x, int y)
 void display_gl_run(void *arg)
 {
         struct state_gl        *s = (struct state_gl *) arg;
-        char *tmp, *gl_ver_major;
-        char *save_ptr = NULL;
-
-#ifdef HAVE_MACOSX
-        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
-        /* Avoids uncaught exception (1002)  when creating CGSWindow */
-        NSApplicationLoad();
-#endif
-        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-#ifndef HAVE_MACOSX
-        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-#endif
-        glutIdleFunc(glut_idle_callback);
-	s->window = glutCreateWindow(WIN_NAME);
-        glutHideWindow();
-	glutKeyboardFunc(glut_key_callback);
-	glutDisplayFunc(glutSwapBuffers);
-#ifdef HAVE_MACOSX
-        glutWMCloseFunc(glut_close_callback);
-#else
-        glutCloseFunc(glut_close_callback);
-#endif
-	glutReshapeFunc(gl_resize);
-
-        tmp = strdup((const char *)glGetString(GL_VERSION));
-        gl_ver_major = strtok_r(tmp, ".", &save_ptr);
-        if(atoi(gl_ver_major) >= 2) {
-                fprintf(stderr, "OpenGL 2.0 is supported...\n");
-        } else {
-                fprintf(stderr, "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
-                free(tmp);
-                exit(65);
-        }
-        free(tmp);
-
-        glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-        glEnable( GL_TEXTURE_2D );
-        
-	glGenTextures(1, &s->texture_display);
-	glBindTexture(GL_TEXTURE_2D, s->texture_display);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        glGenTextures(1, &s->texture_uyvy);
-	glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-	glsl_arb_init(s);
-	dxt_arb_init(s);
-        dxt5_arb_init(s);
         
         while(!should_exit) {
                 glut_idle_callback();
