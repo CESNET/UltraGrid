@@ -56,6 +56,8 @@
 #include "video_codec.h"
 
 static int get_halign(codec_t codec);
+void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
+void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
 #define to_fourcc(a,b,c,d)     (((a)<<24) | ((b)<<16) | ((c)<<8) | (d))
 
@@ -209,6 +211,15 @@ int vc_get_linesize(unsigned int width, codec_t codec)
 /* linear blend deinterlace */
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
 {
+        if(((long int) src & 0x0F) == 0 && src_linesize % 16 == 0) {
+                vc_deinterlace_aligned(src, src_linesize, lines);
+        } else {
+                vc_deinterlace_unaligned(src, src_linesize, lines);
+        }
+}
+
+void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
+{
         int i, j;
         long pitch = src_linesize;
         register long pitch2 = pitch * 2;
@@ -236,6 +247,49 @@ void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
                                       "pavgb %%xmm1, %%xmm0\n"
                                       "pavgb %%xmm2, %%xmm0\n"
                                       "movdqa %%xmm0, (%1)\n"::"r" ((unsigned
+                                                                     long *)
+                                                                    line1),
+                                      "r"((unsigned long *)line2),
+                                      "r"((unsigned long *)line3)
+                            );
+                        line1 += pitch2;
+                        line2 += pitch2;
+                        line3 += pitch2;
+                }
+                bline1 += 16;
+                bline2 += 16;
+                bline3 += 16;
+        }
+}
+void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
+{
+        int i, j;
+        long pitch = src_linesize;
+        register long pitch2 = pitch * 2;
+        unsigned char *bline1, *bline2, *bline3;
+        register unsigned char *line1, *line2, *line3;
+
+        bline1 = src;
+        bline2 = src + pitch;
+        bline3 = src + 3 * pitch;
+        for (i = 0; i < src_linesize; i += 16) {
+                /* preload first two lines */
+                asm volatile ("movdqu (%0), %%xmm0\n"
+                              "movdqu (%1), %%xmm1\n"::"r" ((unsigned long *)
+                                                            bline1),
+                              "r"((unsigned long *)bline2));
+                line1 = bline2;
+                line2 = bline2 + pitch;
+                line3 = bline3;
+                for (j = 0; j < lines - 4; j += 2) {
+                        asm volatile ("movdqu (%1), %%xmm2\n"
+                                      "pavgb %%xmm2, %%xmm0\n"
+                                      "pavgb %%xmm1, %%xmm0\n"
+                                      "movdqu (%2), %%xmm1\n"
+                                      "movdqu %%xmm0, (%0)\n"
+                                      "pavgb %%xmm1, %%xmm0\n"
+                                      "pavgb %%xmm2, %%xmm0\n"
+                                      "movdqu %%xmm0, (%1)\n"::"r" ((unsigned
                                                                      long *)
                                                                     line1),
                                       "r"((unsigned long *)line2),
