@@ -1,0 +1,38 @@
+1.1rc4
+=====
+* interlacing - allow switching at field-rate while naturally interlacing field
+* DeckLink - allow specification for audion input connection (SDI/AESEBU/analog)
+* OpenGL - automatically enable sync on VBlank from application scope
+* QT GUI - updated + allow compression setting
+
+1.1rc3
+=====
+* Mac - use native (Cocoa) context instead of GLUT
+* added JACK audio devices
+* DeckLink - add source selection (SDI/HDMI/Component/Compisite)
+* switched to ITU-T BT. 709 Rec color space
+* support for Mac OS X 10.7 (+ support for core 3.2 OpenGL profile)
+
+1.1rc2
+=====
+
+* updated documentation
+* few small fixes
+
+1.1rc1
+=====
+
+* DeckLink - added format autodetection (not all cards support it, eg. Deck SDI
+  does)
+* added aggregate video capture/display - allows grabbing/displaying from 2 or more
+  discrete cards. This allows eg. grabbing left eye with one grabbing card while
+  right eye with another
+* DVS - allow choosing input card (if there is more than one)
+* Deltacast - format autodetection (perhaps all cards supported)
+* Deltacast - added audio (both input and output)
+* Mac OS X - enable DXT compression (with GL_EXT_GPU_SHADER4)
+* modularized design - modules can be now build and installed independently from core
+  UltraGrid - this allows i. a. distribution binary of UG with JPEG without knowing if
+  target system has installed CUDA Toolkit.
+* format detection for DVS cards
+* DVS support for Mac OS X
