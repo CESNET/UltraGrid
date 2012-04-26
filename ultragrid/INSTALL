@@ -19,7 +19,12 @@ UltraGrid installation instructions
    full terms and conditions.
 
 Installation instructions
+  UltraGrid is compiled with following commands:
+  $ ./autogen.sh
+  $ make
+  And optionally:
+  $ make install
 
-  For installation instructions please visit the following web-pages:
+  For further installation instructions please visit the following web-pages:
   https://www.sitola.cz/igrid/index.php/UltraGrid
 

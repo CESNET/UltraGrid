@@ -19,6 +19,8 @@ BUNDLE        = uv.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 NVCC	      = @NVCC@
 
+DOCS 	      = COPYRIGHT README REPORTING-BUGS
+
 PREFIX = @prefix@
 prefix = $(PREFIX)
 exec_prefix = @exec_prefix@
@@ -26,6 +28,7 @@ INSTALL = @INSTALL@
 bindir = @bindir@
 libdir = @libdir@
 datadir = @datadir@
+docdir = @docdir@/ultragrid/
 datarootdir = @datarootdir@
 uv_datadir = @datadir@/ultragrid/
 
@@ -608,9 +611,11 @@ install: all
 	fi
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(uv_datadir)
 	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
+	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)/$(docdir)
 
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv
 	if [ -n "@LIB_TARGETS@" ]; then for n in @LIB_TARGETS@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
-	
+	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
+	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh 	

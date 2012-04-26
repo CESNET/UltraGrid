@@ -1,0 +1,16 @@
+There are couple of ways to report a problem:
+
+* primary channel is an e-mail conference ultragrid-dev@cesnet.cz which leads
+  to developers of UltraGrid
+* you can use our bug-tracking system - https://sitola.fi.muni.cz/mantis/
+  For reporting bugs, you need to register, but it is only matter of filling
+  username and password
+
+In order to allow us detect the problem more precisely, you can send us also 
+output of diagnostic script (ultragrid/data/ultragrid-bugreport-collect.sh in
+sources or /usr/share/ultragrid/ultragrid-bugreport-collect.sh once installed).
+
+If the problem is a crash (SEGV), you can send also a core dump and a binary
+(if you compiled by yourself, otherwise package version). 
+
+
