@@ -104,8 +104,7 @@ struct state_uv {
         uint32_t ts;
         struct tx *tx;
         struct display *display_device;
-        char *compress_options;
-        int requested_compression;
+        char *requested_compression;
         const char *requested_display;
         const char *requested_capture;
         unsigned requested_mtu;
@@ -528,9 +527,8 @@ static void *sender_thread(void *arg)
         int tile_y_count;
         
         struct compress_state *compression; 
-        compression = compress_init(uv->compress_options);
-        if(uv->requested_compression
-                        && compression == NULL) {
+        compression = compress_init(uv->requested_compression);
+        if(compression == NULL) {
                 fprintf(stderr, "Error initializing compression.\n");
                 exit_uv(0);
         }
@@ -551,9 +549,7 @@ static void *sender_thread(void *arg)
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //TODO: Unghetto this
-                        if (uv->requested_compression) {
-                                tx_frame = compress_frame(compression, tx_frame);
-                        }
+                        tx_frame = compress_frame(compression, tx_frame);
                         if(!tx_frame)
                                 continue;
                         if(uv->connections_count == 1) { /* normal case - only one connection */
@@ -636,8 +632,7 @@ int main(int argc, char *argv[])
         uv->display_device = NULL;
         uv->requested_display = "none";
         uv->requested_capture = "none";
-        uv->requested_compression = FALSE;
-        uv->compress_options = NULL;
+        uv->requested_compression = "none";
         uv->decoder_mode = NULL;
         uv->postprocess = NULL;
         uv->requested_mtu = 0;
@@ -685,8 +680,7 @@ int main(int argc, char *argv[])
                         printf("%s\n", PACKAGE_STRING);
                         return EXIT_SUCCESS;
                 case 'c':
-                        uv->requested_compression = TRUE;
-                        uv->compress_options = optarg;
+                        uv->requested_compression = optarg;
                         break;
                 case 'i':
                         uv->use_ihdtv_protocol = 1;
@@ -746,13 +740,7 @@ int main(int argc, char *argv[])
         printf("Display device: %s\n", uv->requested_display);
         printf("Capture device: %s\n", uv->requested_capture);
         printf("MTU           : %d\n", uv->requested_mtu);
-        /*printf("Compression   : ");
-        if (uv->requested_compression) {
-                printf("%s", get_compress_name(uv->compression));
-        } else {
-                printf("none");
-        }
-        printf("\n");*/
+        printf("Compression   : %s\n", uv->requested_compression);
 
         if (uv->use_ihdtv_protocol)
                 printf("Network protocol: ihdtv\n");
@@ -907,8 +895,8 @@ int main(int argc, char *argv[])
                         goto cleanup;
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
-                if(uv->requested_compression && strstr(uv->compress_options,"help") != NULL) {
-                        struct compress_state *compression = compress_init(uv->compress_options);
+                if(strstr(uv->requested_compression,"help") != NULL) {
+                        struct compress_state *compression = compress_init(uv->requested_compression);
                         compress_done(compression);
                         exit_status = EXIT_SUCCESS;
                         goto cleanup;
@@ -947,7 +935,7 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (strcmp("none", uv->requested_capture) != 0 || uv->requested_compression)
+        if (strcmp("none", uv->requested_capture) != 0)
                 pthread_join(sender_thread_id, NULL);
         
         /* also wait for audio threads */
