@@ -20,8 +20,26 @@
 
 -(void) print: (NSString *) msg
 {
-	[[view textStorage] replaceCharactersInRange: NSMakeRange([[view textStorage] length], 
-															0) withString: msg];
+    // Get the length of the textview contents
+    NSRange theEnd=NSMakeRange([[view string] length],0);
+    theEnd.location+=[msg length];
+    
+    // Smart Scrolling
+    if (NSMaxY([view visibleRect]) == NSMaxY([view bounds])) {
+        // Append string to textview and scroll to bottom
+        //[[textView textStorage] appendString:outputString]; - this didn't work
+        [[view textStorage] replaceCharactersInRange: NSMakeRange([[view textStorage] length], 
+                                                                  0) withString: msg];
+        [view scrollRangeToVisible:theEnd];
+    }else{
+        // Append string to textview
+        // [[textView textStorage] appendString:outputString];
+        [[view textStorage] replaceCharactersInRange: NSMakeRange([[view textStorage] length], 
+                                                                  0) withString: msg];
+    }
+
+        
+	
 }
 
 -(void) clear

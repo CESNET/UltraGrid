@@ -35,5 +35,6 @@
 -(void) doPlay;
 -(void) outputReady: (id) sender;
 -(void) terminated: (id) sender;
+-(NSString *) getCompressionString;
 
 @end

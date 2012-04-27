@@ -57,10 +57,9 @@
 		controller = [[UGController alloc] init];
 		NSMutableArray *args = [NSMutableArray arrayWithCapacity: 30];
 		
-		if([settings.mtu length] > 0) {
-			[args addObject: @"-m"];
-			[args addObject: settings.mtu];
-		}
+		
+        [args addObject: @"-m"];
+		[args addObject: [NSString stringWithFormat:@"%d", settings.mtu]];
 		
 		if([settings.display length] > 0) {
 			[args addObject: @"-d"];
@@ -92,6 +91,11 @@
 			[args addObject: @"-s "];
 			[args addObject: settings.audio_cap];
 		}
+        
+        if([settings.compression length] > 0) {
+			[args addObject: @"-c"];
+			[args addObject: [self getCompressionString]];
+		}
 		
 		if([settings.other length] > 0) {
 			[args addObjectsFromArray: [settings.other componentsSeparatedByString:@" "]];
@@ -103,6 +107,8 @@
 		
 		[terminal clear];
 		[terminal show];
+        
+        
 		
 		outputHandle = [controller getOutputHandle: args];
 		[outputHandle waitForDataInBackgroundAndNotify];
@@ -128,6 +134,28 @@
 {
 	if([sender object] == [controller task])
 		[startButton setTitle: @"Start UltraGrid"];
+}
+
+-(NSString *) getCompressionString
+{
+    NSDictionary *matching = [NSDictionary dictionaryWithObjectsAndKeys: 
+                              @"none", @"none",
+                              @"RTDXT:DXT1", @"DXT1",
+                              @"RTDXT:DXT5", @"DXT5",
+                              @"JPEG", @"JPEG",
+                              nil];
+
+    NSString *compression = [matching objectForKey: settings.compression];
+    NSString *ret;
+    
+    if([compression compare: @"JPEG"] == NSOrderedSame) {
+        ret = [NSString stringWithFormat:@"JPEG:%d", settings.JPEGQuality];
+    } else {
+        ret = compression;
+    }
+    
+    return ret;
+    
 }
 
 @end

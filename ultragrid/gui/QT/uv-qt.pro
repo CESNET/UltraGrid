@@ -1,4 +1,4 @@
-CONFIG += console debug
+CONFIG += console
 HEADERS     = ultragrid.h ultragridsettings.h \
     terminal.h \
     adavncedwindow.h
