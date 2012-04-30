@@ -1098,11 +1098,11 @@ CPPFLAGS=$SAVED_CPPFLAGS
 
 if test -n "$NVCC"
 then
-        if test \( $nvcc_major -eq 4 -a $nvcc_minor -eq 1 \) -o $version_check = no
+        if test \( $nvcc_major -gt 4 \) -o \( $nvcc_major -eq 4 -a $nvcc_minor -ge 1 \) -o $version_check = no
         then
                 jpeg_cuda_version_ok=yes
         else
-                AC_MSG_WARN([*** CUDA Toolkit other than 4.1 detected. Please install v4.1 to use JPEG.])
+                AC_MSG_WARN([*** CUDA Toolkit older than 4.1 detected. Please install at least v4.1 to use JPEG.])
                 HM_VERSION_WARNING
         fi
 fi
