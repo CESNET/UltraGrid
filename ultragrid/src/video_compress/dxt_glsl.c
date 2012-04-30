@@ -208,7 +208,9 @@ void * dxt_glsl_compress_init(char * opts)
                 s->gl_context = glx_init(OPENGL_VERSION_UNSPECIFIED);
                 s->legacy = TRUE;
         }
-        glx_validate(s->gl_context);
+        if(s->gl_context) {
+                glx_validate(s->gl_context);
+        }
 #else
         s->gl_context = NULL;
         if(get_mac_kernel_version_major() >= 11) {
@@ -229,7 +231,6 @@ void * dxt_glsl_compress_init(char * opts)
 
         if(!s->gl_context) {
                 fprintf(stderr, "[RTDXT] Error initializing GLX context");
-                exit_uv(128);
                 return NULL;
         }
         
