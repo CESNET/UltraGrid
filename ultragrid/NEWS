@@ -1,4 +1,4 @@
-1.1rc4
+next
 =====
 * interlacing - allow switching at field-rate while naturally interlacing field
 * DeckLink - allow specification for audion input connection (SDI/AESEBU/analog)

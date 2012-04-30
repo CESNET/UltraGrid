@@ -3,7 +3,7 @@ RANLIB        = ranlib
 CC            = @CC@
 CXX	      = @CXX@
 LINKER	      = @LINKER@
-CFLAGS        = -fPIC @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
+CFLAGS        = -fPIC -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
 CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = -fPIC @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
 NVCCFLAGS     = @NVCCFLAGS@ -Xcompiler -fPIC
