@@ -13,6 +13,14 @@
 @synthesize window;
 @synthesize view;
 
+-(void) awakeFromNib
+{
+    font = [NSFont fontWithName:@"Monaco" size: 11.0];
+    [font retain];
+
+    [view setContinuousSpellCheckingEnabled:NO];
+}
+
 -(void) show
 {
 	[window makeKeyAndOrderFront: self];
@@ -37,9 +45,9 @@
         [[view textStorage] replaceCharactersInRange: NSMakeRange([[view textStorage] length], 
                                                                   0) withString: msg];
     }
-
-        
-	
+    if(font) {
+        [view setFont:font];
+    }
 }
 
 -(void) clear
