@@ -928,6 +928,58 @@ AC_SUBST(GL_OBJ)
 
 
 # -------------------------------------------------------------------------------------------------
+# Screen capture stuff
+
+SCREEN_CAP_INC=
+SCREEN_CAP_OBJ=
+SCREEN_CAP_LIB=
+screen_cap=no
+
+AC_ARG_ENABLE(screen, 
+      AS_HELP_STRING([--disable-gl], [disable screen capture (default is auto)]), 
+    [screen_cap_req=$enableval],
+    [screen_cap_req=yes]
+    )
+
+case "$host_os" in
+	*darwin*)
+                screen_cap=no
+	;;
+	*) 
+                # Linux
+                SAVED_LIBS=$LIBS
+                AC_CHECK_HEADER(GL/glew.h)
+                AC_CHECK_LIB(GLEW, glewInit)
+                AC_CHECK_HEADER(GL/glx.h)
+                AC_CHECK_HEADER(X11/Xlib.h)
+		AC_CHECK_LIB(GL, glBindTexture)
+                LIBS=$SAVED_LIBS
+
+		if test $screen_cap_req = yes -a $ac_cv_header_GL_glew_h = yes -a $ac_cv_lib_GLEW_glewInit \
+                        -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
+                        $ac_cv_lib_GL_glBindTexture = yes
+		then
+                        screen_cap=yes
+		else
+                        screen_cap=no
+		fi
+	;;
+esac
+
+if test $screen_cap = yes
+then
+        SCREEN_CAP_LIB+=" -lGL -lGLEW"
+        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen_capture])
+        AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
+        SCREEN_CAP_OBJ="src/video_capture/screen.o"
+fi
+
+AC_SUBST(SCREEN_CAP_INC)
+AC_SUBST(SCREEN_CAP_LIB)
+AC_SUBST(SCREEN_CAP_OBJ)
+
+
+# -------------------------------------------------------------------------------------------------
 # FastDXT stuff
 fastdxt=no
 fastdxt_req=yes
@@ -1394,17 +1446,17 @@ AC_SUBST(COREAUDIO_OBJ)
 # this is only needed when passing to "clean" make target
 LIB_OBJS="$QUICKTIME_OBJ $SDL_OBJ $GL_OBJ $SAGE_OBJ $TESTCARD_OBJ $TESTCARD2_OBJ $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_COMMON $QUAD_OBJ "\
 "$DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ $DVS_CAP_OBJ $DVS_DISP_OBJ $FASTDXT_OBJ $RTDXT_COMPRESS_OBJ $JPEG_COMPRESS_OBJ $RTDXT_COMMON_OBJ $RTDXT_DECOMPRESS_OBJ $JPEG_COMMON_OBJ $JPEG_DECOMPRESS_OBJ "\
-"$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ"
+"$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ $SCREEN_CAP_OBJ"
 
 if test "$build_libraries" = yes
 then
         LIB_TARGETS="$SDL_LIB_TARGET $GL_LIB_TARGET $TESTCARD_LIB_TARGET $TESTCARD2_LIB_TARGET $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $QUAD_LIB_TARGET "\
 "$DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET $SAGE_LIB_TARGET $FASTDXT_LIB_TARGET $RTDXT_COMPRESS_LIB_TARGET $JPEG_COMPRESS_LIB_TARGET "\
 "$RTDXT_DECOMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET $PORTAUDIO_CAP_LIB_TARGET $JACK_CAP_LIB_TARGET "\
-"$JACK_PLAY_LIB_TARGET"
+"$JACK_PLAY_LIB_TARGET $SCREEN_CAP_LIB_TARGET"
 else
         LIBS+=" $GL_LIB $SDL_LIBS $DECKLINK_LIB $DELTACAST_LIB $QUICKTIME_LIB $SAGE_LIB $TESTCARD_LIB $TESTCARD2_LIB $DECKLINK_LIB $DELTACAST_LIB $DVS_LIB $FASTDXT_LIB $RTDXT_LIB $JPEG_LIB $ALSA_LIB "\
-"$PORTAUDIO_LIB $JACK_LIB"
+"$PORTAUDIO_LIB $JACK_LIB $SCREEN_CAP_LIB"
         OBJS+=" $LIB_OBJS"
         LIB_OBJS=
         LIB_TARGETS=
@@ -1438,6 +1490,7 @@ Configuration summary:
   Quicktime ................... $quicktime
   SAGE ........................ $sage
   SDL ......................... $sdl
+  screen capture .............. $screen_cap
   
   Portaudio ................... $portaudio
   ALSA ........................ $alsa

@@ -1,5 +1,5 @@
 /*
- * FILE:    glx_common.h
+ * FILE:    screen.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -44,12 +44,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#define VIDCAP_SCREEN_ID 0x5645ba22
 
-typedef uint32_t glx_opengl_version_t;
-#define OPENGL_VERSION_UNSPECIFIED 0u
-#define MK_OPENGL_VERSION(major,minor) (major << 8u | minor)
-
-void *glx_init(glx_opengl_version_t version_t);
-void glx_make_current(void *context);
-void glx_validate(void *);
-void glx_free(void *);
+struct vidcap_type      *vidcap_screen_probe(void);
+void                    *vidcap_screen_init(char *fmt, unsigned int flags);
+void                     vidcap_screen_finish(void *state);
+void                     vidcap_screen_done(void *state);
+struct video_frame      *vidcap_screen_grab(void *state, struct audio_frame **audio);

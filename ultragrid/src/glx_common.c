@@ -288,9 +288,11 @@ void *glx_init(glx_opengl_version_t version)
  
   printf( "Creating window\n" );
   context->win = XCreateWindow( display, RootWindow( display, vi->screen ), 
-                              0, 0, 100, 100, 0, vi->depth, InputOutput, 
+                              0, 0, 1920, 1080, 0, vi->depth, InputOutput, 
                               vi->visual, 
                               CWBorderPixel|CWColormap|CWEventMask, &swa );
+  XMoveWindow(display, context->win, 0, 0);
+
   if ( !context->win )
   {
     printf( "Failed to create window.\n" );
@@ -432,5 +434,25 @@ error:
         free(context);
         x11_unlock();
         return NULL;
+}
+
+void glx_make_current(void *arg)
+{
+        if(arg) {
+                struct state_glx *context = (struct state_glx *) arg;
+                Bool res;
+
+                res = glXMakeCurrent( x11_get_display(), context->win, context->ctx );
+                if(res != True) {
+                        fprintf(stderr, "Acquiring GLX context failed!\n");
+                }
+        } else {
+                Bool res;
+
+                res = glXMakeCurrent( x11_get_display(), None, NULL);
+                if(res != True) {
+                        fprintf(stderr, "Releasing GLX context failed!\n");
+                }
+        }
 }
 

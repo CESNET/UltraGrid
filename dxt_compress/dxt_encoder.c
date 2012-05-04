@@ -141,7 +141,7 @@ int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
         }
 
         if ( encoder->yuv422_to_444_fp == 0) {
-                printf("Failed to compile YUV422->YUV444 fragment program!\n");
+                fprintf(stderr, "Failed to compile YUV422->YUV444 fragment program!\n");
                 return 0;
         }
 
@@ -307,8 +307,10 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
             }
         }
     }
-    if ( encoder->shader_fragment_compress == 0 )
+    if ( encoder->shader_fragment_compress == 0 ) {
+        fprintf(stderr, "Failed to compile fragment compress program!\n");
         return NULL;
+    }
     // Create vertex shader from file
     encoder->shader_vertex_compress = 0;
     if(encoder->legacy) {
@@ -317,7 +319,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
         encoder->shader_vertex_compress = dxt_shader_create_from_source(vp_compress, GL_VERTEX_SHADER);
     }
     if ( encoder->shader_vertex_compress == 0 ) {
-        printf("Failed to compile vertex compress program!\n");
+        fprintf(stderr, "Failed to compile vertex compress program!\n");
         return NULL;
     }
     // Attach shader to program and link the program

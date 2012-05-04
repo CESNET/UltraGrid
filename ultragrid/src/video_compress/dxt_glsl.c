@@ -268,6 +268,10 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
         unsigned char *line1, *line2;
         
         unsigned int x;
+
+#ifndef HAVE_MACOSX
+        glx_make_current(s->gl_context);
+#endif
         
         if(!s->configured) {
                 int ret;
@@ -275,6 +279,7 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                 if(!ret)
                         return NULL;
         }
+
 
         for (x = 0; x < tx->tile_count;  ++x) {
                 struct tile *in_tile = vf_get_tile(tx, x);
@@ -310,6 +315,8 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                                 (unsigned char *) s->decoded,
                                 (unsigned char *) out_tile->data);
         }
+
+        glx_make_current(NULL);
         
         return s->out;
 }

@@ -201,6 +201,12 @@ SAGE_LIB_OBJ  = \
 		src/video_codec.o \
 		@SAGE_OBJ@
 
+SCREEN_CAP_LIB_OBJ = src/video.o \
+			 src/video_codec.o \
+			 src/tv.o \
+		src/crypto/random.o \
+			 @SCREEN_CAP_OBJ@
+
 FASTDXT_LIB_OBJ = src/video.o \
 		src/video_codec.o \
 		@FASTDXT_OBJ@
@@ -554,6 +560,10 @@ perf: src/tv.o src/crypto/random.o
 @DVS_DISP_LIB_TARGET@: $(DVS_DISP_LIB_OBJ)
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_dvs.so.@video_display_abi_version@ $(DVS_DISP_LIB_OBJ) @DVS_LIB@ -o $@
+
+@SCREEN_CAP_LIB_TARGET@: $(SCREEN_CAP_LIB_OBJ)
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_screen.so.@video_capture_abi_version@ $(SCREEN_CAP_LIB_OBJ) @SCREEN_CAP_LIB@ -o $@
 
 @SAGE_LIB_TARGET@: $(SAGE_LIB_OBJ)
 	mkdir -p lib/ultragrid

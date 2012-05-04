@@ -1,0 +1,13 @@
+To allow modules to be separatebly buildable, you need to follow these rules:
+
+in configure.ac:
+
+1) declare target in proper format, eg.:
+        AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen_cap.so.$video_capture_abi_version")
+2) give the target to LIB_TARGETS
+3) propagate variables you need (typically *_INC, *_LIB and *_OBJ
+2) give objects to LIB_OBJS
+
+in Makefile.in
+1) create declared target - this will be separate library, so make sure that every dependency is tracked within that librarz
+

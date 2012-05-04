@@ -64,6 +64,7 @@
 #include "video_capture/deltacast.h"
 #include "video_capture/quad.h"
 #include "video_capture/aggregate.h"
+#include "video_capture/screen.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
@@ -111,6 +112,17 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_finish),
          MK_STATIC(vidcap_aggregate_done),
          MK_STATIC(vidcap_aggregate_grab),
+         NULL
+        },
+        {
+         /* The screen capture card */
+         0,
+         "screen",
+         MK_NAME(vidcap_screen_probe),
+         MK_NAME(vidcap_screen_init),
+         MK_NAME(vidcap_screen_finish),
+         MK_NAME(vidcap_screen_done),
+         MK_NAME(vidcap_screen_grab),
          NULL
         },
 #if defined HAVE_DVS || defined BUILD_LIBRARIES
