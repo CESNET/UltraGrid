@@ -681,7 +681,7 @@ int main(int argc, char *argv[])
 #ifdef GIT_VERSION
                         printf(" (rev %s)", GIT_VERSION);
 #endif
-                        printf("\n", GIT_VERSION);
+                        printf("\n");
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = optarg;
@@ -744,7 +744,7 @@ int main(int argc, char *argv[])
 #ifdef GIT_VERSION
         printf(" (rev %s)", GIT_VERSION);
 #endif
-        printf("\n", GIT_VERSION);
+        printf("\n");
         printf("Display device: %s\n", uv->requested_display);
         printf("Capture device: %s\n", uv->requested_capture);
         printf("MTU           : %d\n", uv->requested_mtu);

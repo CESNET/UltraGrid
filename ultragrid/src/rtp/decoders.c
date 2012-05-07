@@ -707,7 +707,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         perf_record(UVP_DECODEFRAME, frame);
 
         if(decoder->decoder_type == EXTERNAL_DECODER) {
-                memset(decoder->total_bytes, 0, sizeof(unsigned int) * 2); 
+                memset(decoder->total_bytes, 0, (get_video_mode_tiles_x(decoder->video_mode) *
+                                        get_video_mode_tiles_y(decoder->video_mode)) * sizeof(unsigned int));
         }
 
         while (cdata != NULL) {
