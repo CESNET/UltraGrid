@@ -63,6 +63,7 @@
 #include "audio/playback/portaudio.h" 
 #include "audio/playback/alsa.h" 
 #include "audio/playback/coreaudio.h" 
+#include "audio/playback/decklink.h" 
 #include "audio/playback/none.h" 
 #include "audio/playback/jack.h" 
 #include "audio/playback/sdi.h" 
@@ -190,6 +191,18 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_NAME(portaudio_put_frame),
                 MK_NAME(portaudio_close_playback),
                 MK_NAME(portaudio_reconfigure),
+                NULL
+        },
+#endif
+#if defined HAVE_DECKLINK || defined BUILD_LIBRARIES
+        { "decklink",
+                "decklink",
+                MK_NAME(decklink_playback_help),
+                MK_NAME(decklink_playback_init),
+                MK_NAME(decklink_get_frame),
+                MK_NAME(decklink_put_frame),
+                MK_NAME(decklink_close_playback),
+                MK_NAME(decklink_reconfigure),
                 NULL
         },
 #endif

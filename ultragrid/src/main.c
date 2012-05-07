@@ -677,7 +677,11 @@ int main(int argc, char *argv[])
                         uv->postprocess = optarg;
                         break;
                 case 'v':
-                        printf("%s\n", PACKAGE_STRING);
+                        printf("%s", PACKAGE_STRING);
+#ifdef GIT_VERSION
+                        printf(" (rev %s)", GIT_VERSION);
+#endif
+                        printf("\n", GIT_VERSION);
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = optarg;
@@ -736,7 +740,11 @@ int main(int argc, char *argv[])
         vidcap_flags |= audio_get_vidcap_flags(uv->audio);
         display_flags |= audio_get_display_flags(uv->audio);
 
-        printf("%s\n", PACKAGE_STRING);
+        printf("%s", PACKAGE_STRING);
+#ifdef GIT_VERSION
+        printf(" (rev %s)", GIT_VERSION);
+#endif
+        printf("\n", GIT_VERSION);
         printf("Display device: %s\n", uv->requested_display);
         printf("Capture device: %s\n", uv->requested_capture);
         printf("MTU           : %d\n", uv->requested_mtu);

@@ -5,7 +5,7 @@ CXX	      = @CXX@
 LINKER	      = @LINKER@
 CFLAGS        = -fPIC -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
 CPPFLAGS      = @CPPFLAGS@
-CXXFLAGS      = -fPIC @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
+CXXFLAGS      = -fPIC @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated
 NVCCFLAGS     = @NVCCFLAGS@ -Xcompiler -fPIC
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
@@ -252,6 +252,9 @@ JACK_PLAY_LIB_OBJ = @JACK_PLAY_OBJ@ \
 		   src/utils/ring_buffer.o \
 		   src/audio/utils.o
 
+DECKLINK_SOUND_PLAY_LIB_OBJ = @DECKLINK_SOUND_PLAY_OBJ@ \
+		@DECKLINK_COMMON@ \
+
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) modules ag-plugins configure-messages
 
@@ -263,6 +266,9 @@ $(TARGET): $(OBJS) src/main.o
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
+
+.cpp.o:
+	$(CC) $(CXXFLAGS) $(INC) -c $< -o $@
 	
 # Set suffix for CUDA files
 .SUFFIXES: .cu
@@ -280,23 +286,11 @@ src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h
 src/utils/autorelease_pool.o: src/utils/autorelease_pool.m src/utils/autorelease_pool.h
 	$(CC) $(CFLAGS) $(INC) -x objective-c -c $< -o $@
 
-src/video_capture/deltacast.o: src/video_capture/deltacast.cpp
-	$(CXX) $(CXXFLAGS) $(INC) -fno-rtti -c $< -o $@
-	
-src/video_display/deltacast.o: src/video_display/deltacast.cpp
-	$(CXX) $(CXXFLAGS) $(INC) -fno-rtti -c $< -o $@
-
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
-	$(CXX) $(CXXFLAGS) -Wno-multichar -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
-
-src/video_capture/decklink.o: src/video_capture/decklink.cpp
-	$(CXX) $(CXXFLAGS) -Wno-multichar -c $(INC) -o src/video_capture/decklink.o src/video_capture/decklink.cpp
-
-src/video_display/decklink.o: src/video_display/decklink.cpp
-	$(CXX) $(CXXFLAGS) -Wno-multichar -c $(INC) -o src/video_display/decklink.o src/video_display/decklink.cpp
+	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
-	$(CXX) $(CXXFLAGS) -Wno-deprecated -fPIC -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
+	$(CXX) $(CXXFLAGS) -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
 
 ../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
@@ -612,6 +606,10 @@ perf: src/tv.o src/crypto/random.o
 @JACK_PLAY_LIB_TARGET@: $(JACK_PLAY_LIB_OBJ)
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $(JACK_PLAY_LIB_OBJ) @JACK_LIB@ -o $@
+
+@DECKLINK_SOUND_PLAY_LIB_TARGET@: $(DECKLINK_SOUND_PLAY_LIB_OBJ)
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $(DECKLINK_SOUND_PLAY_LIB_OBJ) @DECKLINK_LIB@ -o $@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
