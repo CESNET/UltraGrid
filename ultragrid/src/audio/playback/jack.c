@@ -102,17 +102,21 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
 {
         struct state_jack_playback *s = (struct state_jack_playback *) arg;
         int i;
+	int channels; // actual written channels (max of available and required)
+
+	channels = s->frame.ch_count;
+	if(channels > s->jack_ports_count)
+		channels = s->jack_ports_count;
 
         if(should_exit)
                 return 1;
 
-        for (i = 0; i < s->jack_ports_count; ++i) {
+        for (i = 0; i < channels; ++i) {
                 if(ring_get_current_size(s->data[i]) <= (int) (nframes * sizeof(float))) {
                         fprintf(stderr, "[JACK playback] Buffer underflow detected.\n");
-                        return 0;
                 }
         }
-        for (i = 0; i < s->jack_ports_count; ++i) {
+        for (i = 0; i < channels; ++i) {
                 int ret;
                 jack_default_audio_sample_t *out =
                         jack_port_get_buffer (s->output_port[i], nframes);
@@ -204,7 +208,7 @@ void * audio_play_jack_init(char *cfg)
         }
 
         if(jack_set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
-                fprintf(stderr, "[JACK capture] Registring callback problem.\n");
+                fprintf(stderr, "[JACK capture] Registering callback problem.\n");
                 goto release_client;
         }
 
@@ -215,7 +219,7 @@ void * audio_play_jack_init(char *cfg)
         }
 
         s->jack_sample_rate = jack_get_sample_rate (s->client);
-
+	fprintf(stderr, "JACK sample rate: %d\n", (int) s->jack_sample_rate);
 
 
         ports = jack_get_ports(s->client, cfg, NULL, JackPortIsInput);
@@ -272,8 +276,9 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
                 s->data[i] = NULL;
         }
         /* for all channels previously connected */
-        for(i = 0; i < s->frame.ch_count; ++i) {
+        for(i = 0; i < channels; ++i) {
                 jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
+		fprintf(stderr, "[JACK playback] Port %d: %s\n", i, ports[i]);
         }
         free(s->frame.data);
         free(s->channel);
