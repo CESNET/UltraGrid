@@ -168,7 +168,7 @@ void (*exit_uv)(int status) = _exit_uv;
 static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
-        printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] \n");
+        printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] [-l <limit_bitrate>\n");
         printf("          [-m <mtu>] [-c] [-i] [-M <video_mode>] [-p <postprocess>] [-f <FEC_options>] [-P <port>] address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help' to get\n");
@@ -195,6 +195,9 @@ static void usage(void)
         printf("\t-f <settings>            \tconfig forward error checking, currently \"XOR:<leap>:<nr_streams>\" or \"mult:<nr>\"\n");
         printf("\n");
         printf("\t-P <port>                \tbase port number, also 3 subsequent ports can be used (default: %d)\n", PORT_BASE);
+        printf("\n");
+        printf("\t-l <limit_bitrate> \tlimit sending bitrate (aggregate)\n");
+        printf("\t                   \tto limit_bitrate Mb/s\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -589,6 +592,8 @@ int main(int argc, char *argv[])
         char *jack_cfg = NULL;
         char *requested_fec = NULL;
         char *save_ptr = NULL;
+
+        int bitrate = 0;
         
         struct state_uv *uv;
         int ch;
@@ -619,6 +624,7 @@ int main(int argc, char *argv[])
                 {"jack", required_argument, 0, 'j'},
                 {"fec", required_argument, 0, 'f'},
                 {"port", required_argument, 0, 'P'},
+                {"limit-bitrate", required_argument, 0, 'l'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -646,7 +652,7 @@ int main(int argc, char *argv[])
         perf_record(UVP_INIT, 0);
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:f:P:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:f:P:l:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -708,6 +714,14 @@ int main(int argc, char *argv[])
                 case 'P':
                         uv->port_number = atoi(optarg);
                         break;
+                case 'l':
+                        bitrate = atoi(optarg);
+                        if(bitrate <= 0) {
+                                usage();
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
+
                 case '?':
                         break;
                 default:
@@ -887,6 +901,11 @@ int main(int argc, char *argv[])
                 {
                         uv->requested_mtu = 1500;       // the default value for rpt
                 }
+
+                if(bitrate != 0) { // else packet_rate defaults to 13600 or so
+                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+                }
+
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
                         printf("Unable to initialize transmitter\n");
