@@ -65,7 +65,6 @@ struct compress_jpeg_state {
         
         decoder_t decoder;
         char *decoded;
-        unsigned int interlaced_input:1;
         unsigned int rgb:1;
         codec_t color_spec;
 };
@@ -90,7 +89,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                 vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
         }
         
-        s->out->interlacing = PROGRESSIVE;
+        s->out->interlacing = frame->interlacing;
         s->out->fps = frame->fps;
         s->out->color_spec = s->color_spec;
 
@@ -132,17 +131,6 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                         return FALSE;
         }
 
-        /* We will deinterlace the output frame */
-        if(frame->interlacing == INTERLACED_MERGED)
-                s->interlaced_input = TRUE;
-        else if(frame->interlacing == PROGRESSIVE)
-                s->interlaced_input = FALSE;
-        else {
-                fprintf(stderr, "Unsupported interlacing option: %s.\n", get_interlacing_description(frame->interlacing));
-                exit_uv(128);
-                return FALSE;
-        }
-
 	s->encoder_param.verbose = 0;
 
         if(s->rgb) {
@@ -176,6 +164,17 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
 
         param_image.width = s->out->tiles[0].width;
         param_image.height = s->out->tiles[0].height;
+        
+        /*
+         * IMPORTANT: 
+         * if video is interleaced and merged we pretend that the video is twice as wide as it is in order to keep interlacing.
+         * From JPEG point of view, this is transparent.
+         */
+        if(frame->interlacing == INTERLACED_MERGED) {
+                param_image.width *= 2;
+                param_image.height /= 2;
+        }
+
         param_image.comp_count = 3;
         if(s->rgb) {
                 param_image.color_space = GPUJPEG_RGB;
@@ -294,9 +293,9 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx)
                         line2 += out_tile->linesize;
                 }
                 
-                if(s->interlaced_input)
+                /*if(s->interlaced_input)
                         vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
-                                        s->out->tiles[0].height);
+                                        s->out->tiles[0].height);*/
                 
                 uint8_t *compressed;
                 int size;
