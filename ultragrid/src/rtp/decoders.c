@@ -815,6 +815,7 @@ packet_restored:
 
                         frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                         frame);
+                        pbuf_data->frame_buffer = frame;
                 }
 
                 if(!frame) {
