@@ -48,5 +48,5 @@
 #include "video_codec.h"
 
 void * fastdxt_init(const char *num_threads_str);
-struct video_frame * fastdxt_compress(void *args, struct video_frame * tx);
+struct video_frame * fastdxt_compress(void *args, struct video_frame * tx, int buffer_index);
 void fastdxt_done(void *args);

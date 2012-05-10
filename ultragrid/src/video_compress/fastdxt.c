@@ -272,7 +272,7 @@ void *fastdxt_init(const char *num_threads_str)
         return compress;
 }
 
-struct video_frame * fastdxt_compress(void *args, struct video_frame *tx)
+struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int buffer_idx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
         struct video_compress *compress = (struct video_compress *)args;

@@ -48,5 +48,5 @@
 #include "video_codec.h"
 
 void * dxt_glsl_compress_init(char * opts);
-struct video_frame * dxt_glsl_compress(void *args, struct video_frame * tx);
+struct video_frame * dxt_glsl_compress(void *args, struct video_frame * tx, int buffer_index);
 void dxt_glsl_compress_done(void *args);

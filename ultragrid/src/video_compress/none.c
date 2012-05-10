@@ -72,7 +72,7 @@ void * none_compress_init(char * opts)
         return s;
 }
 
-struct video_frame * none_compress(void *arg, struct video_frame * tx)
+struct video_frame * none_compress(void *arg, struct video_frame * tx, int buffer_idx)
 {
         struct none_video_compress *s = (struct none_video_compress *) arg;
 
