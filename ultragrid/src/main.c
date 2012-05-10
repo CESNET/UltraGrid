@@ -763,8 +763,8 @@ int main(int argc, char *argv[])
                         initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
-                exit_status = EXIT_FAIL_CAPTURE;
-                goto cleanup;
+                exit_uv(EXIT_FAIL_CAPTURE);
+                goto cleanup_wait_audio;
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
@@ -772,8 +772,8 @@ int main(int argc, char *argv[])
              initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
-                exit_status = EXIT_FAIL_DISPLAY;
-                goto cleanup;
+                exit_uv(EXIT_FAIL_DISPLAY);
+                goto cleanup_wait_capture;
         }
 
         printf("Display initialized-%s\n", uv->requested_display);
@@ -873,8 +873,8 @@ int main(int argc, char *argv[])
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->port_number, uv->participants)) == NULL) {
                         printf("Unable to open network\n");
-                        exit_status = EXIT_FAIL_NETWORK;
-                        goto cleanup;
+                        exit_uv(EXIT_FAIL_NETWORK);
+                        goto cleanup_wait_display;
                 } else {
                         struct rtp **item;
                         uv->connections_count = 0;
@@ -890,8 +890,8 @@ int main(int argc, char *argv[])
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
                         printf("Unable to initialize transmitter\n");
-                        exit_status = EXIT_FAIL_TRANSMIT;
-                        goto cleanup;
+                        exit_uv(EXIT_FAIL_TRANSMIT);
+                        goto cleanup_wait_display;
                 }
 
                 /* following block only shows help (otherwise initialized in receiver thread */
@@ -899,15 +899,15 @@ int main(int argc, char *argv[])
                                 (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
                         struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess);
                         decoder_destroy(dec);
-                        exit_status = EXIT_SUCCESS;
-                        goto cleanup;
+                        exit_uv(EXIT_SUCCESS);
+                        goto cleanup_wait_display;
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
                 if(strstr(uv->requested_compression,"help") != NULL) {
                         struct compress_state *compression = compress_init(uv->requested_compression);
                         compress_done(compression);
-                        exit_status = EXIT_SUCCESS;
-                        goto cleanup;
+                        exit_uv(EXIT_SUCCESS);
+                        goto cleanup_wait_display;
                 }
                         
                 if (strcmp("none", uv->requested_display) != 0) {
@@ -915,8 +915,8 @@ int main(int argc, char *argv[])
                             (&receiver_thread_id, NULL, receiver_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create display thread!\n");
-                                exit_status = 1;
-                                goto cleanup;
+                                exit_uv(EXIT_FAILURE);
+                                goto cleanup_wait_display;
                         }
                 }
                 if (strcmp("none", uv->requested_capture) != 0) {
@@ -924,8 +924,8 @@ int main(int argc, char *argv[])
                             (&sender_thread_id, NULL, sender_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create capture thread!\n");
-                                exit_status = 1;
-                                goto cleanup;
+                                exit_uv(EXIT_FAILURE);
+                                goto cleanup_wait_display;
                         }
                 }
         }
@@ -940,12 +940,15 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
 
+cleanup_wait_display:
         if (strcmp("none", uv->requested_display) != 0)
                 pthread_join(receiver_thread_id, NULL);
 
+cleanup_wait_capture:
         if (strcmp("none", uv->requested_capture) != 0)
                 pthread_join(sender_thread_id, NULL);
         
+cleanup_wait_audio:
         /* also wait for audio threads */
         audio_join(uv->audio);
 
