@@ -114,6 +114,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
+#if defined HAVE_SCREEN || defined BUILD_LIBRARIES
         {
          /* The screen capture card */
          0,
@@ -125,6 +126,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_screen_grab),
          NULL
         },
+#endif /* HAVE_SCREEN */
 #if defined HAVE_DVS || defined BUILD_LIBRARIES
         {
          /* The DVS capture card */

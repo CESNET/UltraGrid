@@ -316,7 +316,9 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                                 (unsigned char *) out_tile->data);
         }
 
+#ifndef HAVE_MACOSX
         glx_make_current(NULL);
+#endif
         
         return s->out;
 }
