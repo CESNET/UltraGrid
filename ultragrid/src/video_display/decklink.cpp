@@ -381,8 +381,9 @@ int display_decklink_putf(void *state, char *frame)
                         if(s->emit_timecode) {
                                 s->state[j].deckLinkFrame->SetTimecode(bmdVideoOutputRP188, s->timecode);
                         }
-                        s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
-                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                        s->state[j].deckLinkOutput->DisplayVideoFrameSync(s->state[j].deckLinkFrame);
+                        /*s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
+                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);*/
                 }
                 s->frames++;
                 if(s->emit_timecode) {
@@ -521,7 +522,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 
                 dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&right);
                 right->GetBytes((void **) &s->frame->tiles[1].data);
-                s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
+                //s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
         } else {
                 if(desc.tile_count > s->devices_cnt) {
                         fprintf(stderr, "[decklink] Expected at most %d streams. Got %d.\n", s->devices_cnt,
@@ -576,7 +577,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	        }
 	
 	        for(int i = 0; i < s->devices_cnt; ++i) {
-	                s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
+	                //s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
 	        }
 	}
 
@@ -834,7 +835,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
 
                 s->state[i].delegate = new PlaybackDelegate(s, i);
                 // Provide this class as a delegate to the audio and video output interfaces
-                s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+                //s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
                 //s->state[i].deckLinkOutput->DisableAudioOutput();
         }
 
