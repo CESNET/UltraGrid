@@ -236,6 +236,7 @@ struct state_decklink {
         unsigned int        play_audio:1;
 
         int                 output_audio_channel_count;
+        BMDPixelFormat                    pixelFormat;
  };
 
 static void show_help(void);
@@ -310,8 +311,24 @@ display_decklink_getf(void *state)
         assert(s->magic == DECKLINK_MAGIC);
 
         if (s->initialized) {
-                for(int i = 0; i < s->devices_cnt; ++i)
-                        s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
+                if(s->stereo) {
+                        assert(s->devices_cnt == 0);
+                        s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
+                                                s->frame->tiles[0].linesize, s->pixelFormat);
+                                
+                        s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
+                        IDeckLinkVideoFrame *right;
+                        
+                        dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&right);
+                        right->GetBytes((void **) &s->frame->tiles[1].data);
+                } else {
+                        for(int i = 0; i < s->devices_cnt; ++i) {
+                                s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
+                                                s->frame->tiles[0].linesize, s->pixelFormat);
+                                
+                                s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
+                        }
+                }
         }
 
         /* stub -- real frames are taken with get_sub_frame call */
@@ -374,7 +391,8 @@ int display_decklink_putf(void *state, char *frame)
 
         uint32_t i;
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
-        if (i > 2) 
+        //if (i > 2) 
+        if (0) 
                 fprintf(stderr, "Frame dropped!\n");
         else {
                 for (int j = 0; j < s->devices_cnt; ++j) {
@@ -467,7 +485,6 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
         struct state_decklink            *s = (struct state_decklink *)state;
         
         bool                              modeFound = false;
-        BMDPixelFormat                    pixelFormat;
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
         int h_align = 0;
@@ -480,13 +497,13 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 
 	switch (desc.color_spec) {
                 case UYVY:
-                        pixelFormat = bmdFormat8BitYUV;
+                        s->pixelFormat = bmdFormat8BitYUV;
                         break;
                 case v210:
-                        pixelFormat = bmdFormat10BitYUV;
+                        s->pixelFormat = bmdFormat10BitYUV;
                         break;
                 case RGBA:
-                        pixelFormat = bmdFormat8BitBGRA;
+                        s->pixelFormat = bmdFormat8BitBGRA;
                         break;
                 default:
                         fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
@@ -505,7 +522,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 if(displayMode == (BMDDisplayMode) -1)
                         goto error;
 		
-		s->state[0].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, bmdVideoOutputDualStream3D,
+		s->state[0].deckLinkOutput->DoesSupportVideoMode(displayMode, s->pixelFormat, bmdVideoOutputDualStream3D,
 	                                &supported, NULL);
                 if(supported == bmdDisplayModeNotSupported)
                 {
@@ -513,14 +530,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         goto error;
                 }
                 
-                s->state[0].deckLinkFrame = DeckLink3DFrame::Create(desc.width, desc.height, vf_get_tile(s->frame, 0)->linesize, pixelFormat);
-                        
+
                 s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
-                s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
-                IDeckLinkVideoFrame *right;
-                
-                dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&right);
-                right->GetBytes((void **) &s->frame->tiles[1].data);
                 s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
         } else {
                 if(desc.tile_count > s->devices_cnt) {
@@ -547,7 +558,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                                 outputFlags = bmdVideoOutputRP188;
                         }
 	
-	                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, pixelFormat, outputFlags,
+	                s->state[i].deckLinkOutput->DoesSupportVideoMode(displayMode, s->pixelFormat, outputFlags,
 	                                &supported, NULL);
 	                if(supported == bmdDisplayModeNotSupported)
 	                {
@@ -558,21 +569,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                        goto error;
 	                }
 	
-	                IDeckLinkMutableVideoFrame *frame;
-	                /*if (s->state[i].deckLinkOutput->CreateVideoFrame(tile->width, tile->height,
-	                                tile->linesize, pixelFormat, bmdFrameFlagDefault,
-	                                &frame) != S_OK)
-	                {
-	                        fprintf(stderr, "[decklink] Failed to create video frame.\n");
-	                        exit(128);
-	                }*/
-                        frame = DeckLinkFrame::Create(tile->width, tile->height,
-	                                tile->linesize, pixelFormat);
-	                
-	                s->state[i].deckLinkFrame = frame;
-	                        
 	                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
-	                s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
 	        }
 	
 	        for(int i = 0; i < s->devices_cnt; ++i) {
@@ -927,6 +924,7 @@ PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner, int index)
 
 HRESULT         PlaybackDelegate::ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) 
 {
+	completedFrame->Release();
         return S_OK;
 }
 
