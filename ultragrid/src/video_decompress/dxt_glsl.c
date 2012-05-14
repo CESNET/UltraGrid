@@ -73,7 +73,6 @@ struct state_decompress {
         codec_t out_codec;
         unsigned int configured:1;
         
-        int dxt_height; /* dxt_height is alligned height to 4 lines boundry */
         void *gl_context;
         unsigned int legacy:1;
 };
@@ -127,15 +126,12 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
                 return;
         }
         
-        decompressor->dxt_height = (desc.height + 3) / 4 * 4;
-        
         decompressor->desc = desc;
 
         decompressor->decoder = dxt_decoder_create(type, desc.width,
-                        decompressor->dxt_height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422, decompressor->legacy);
+                        desc.height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422, decompressor->legacy);
         
-        decompressor->compressed_len = (desc.width + 3) / 4 * 4 * decompressor->dxt_height /
-                (desc.color_spec == DXT5 ? 1 : 2);
+        decompressor->compressed_len = dxt_get_size(desc.width, desc.height, type);
         decompressor->configured = TRUE;
 }
 
@@ -189,13 +185,13 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                         linesize = s->desc.width * 2;
                 else
                         linesize = s->desc.width * 4;
-                tmp = malloc(linesize * s->dxt_height);
+                tmp = malloc(linesize * s->desc.height);
 
                 dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
                                 (unsigned char *) tmp);
                 line_dst = dst;
                 line_src = tmp;
-                for(i = (s->dxt_height - s->desc.height); i < s->dxt_height; i++) {
+                for(i = 0; i < s->desc.height; i++) {
                         if(s->out_codec == RGBA) {
                                 vc_copylineRGBA(line_dst, line_src, linesize,
                                                 s->rshift, s->gshift, s->bshift);

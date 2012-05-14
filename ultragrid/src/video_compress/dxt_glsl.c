@@ -73,7 +73,6 @@ struct video_compress {
         unsigned int interlaced_input:1;
         codec_t color_spec;
         
-        int dxt_height;
         void *gl_context;
         int legacy:1;
 };
@@ -147,14 +146,12 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         else
                 s->interlaced_input = FALSE;
 
-        s->dxt_height = (s->out->tiles[0].height + 3) / 4 * 4;
-
         if(s->out->color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->dxt_height, format, s->legacy);
-                s->out->tiles[0].data_len = (s->out->tiles[0].width + 3) / 4 * 4 * s->dxt_height / 2;
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->out->tiles[0].height, format, s->legacy);
+                s->out->tiles[0].data_len = dxt_get_size(s->out->tiles[0].width, s->out->tiles[0].height, DXT_TYPE_DXT1);
         } else if(s->out->color_spec == DXT5){
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->dxt_height, format, s->legacy);
-                s->out->tiles[0].data_len = (s->out->tiles[0].width + 3) / 4 * 4 * s->dxt_height;
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->out->tiles[0].height, format, s->legacy);
+                s->out->tiles[0].data_len = dxt_get_size(s->out->tiles[0].width, s->out->tiles[0].height, DXT_TYPE_DXT5_YCOCG);
         }
         
         for (x = 0; x < frame->tile_count; ++x) {
@@ -184,7 +181,7 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                 return FALSE;
         }
         
-        s->decoded = malloc(4 * s->out->tiles[0].width * s->dxt_height);
+        s->decoded = malloc(4 * s->out->tiles[0].width * s->out->tiles[0].height);
         
         s->configured = TRUE;
         return TRUE;
@@ -295,21 +292,9 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
                         line2 += out_tile->linesize;
                 }
                 
-                /* if height % 4 != 0, copy last line to align */
-                if((unsigned int) s->dxt_height != out_tile->height) {
-                        int y;
-                        line1 = (unsigned char *) s->decoded + out_tile->linesize * (out_tile->height - 1);
-                        for (y = out_tile->height; y < s->dxt_height; ++y)
-                        {
-                                memcpy(line2, line1, out_tile->linesize);
-                                line2 += out_tile->linesize;
-                        }
-                        line2 += out_tile->linesize;
-                }
-                
                 if(s->interlaced_input)
                         vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
-                                        s->dxt_height);
+                                        in_tile->height);
                 
                 dxt_encoder_compress(s->encoder,
                                 (unsigned char *) s->decoded,

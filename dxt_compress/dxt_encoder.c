@@ -263,15 +263,15 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, (encoder->width + 3) / 4 * 4, encoder->height / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA32UI_EXT, (encoder->width + 3) / 4 * 4, (encoder->height + 3) / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     else
-        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, (encoder->width + 3) / 4 * 4, encoder->height /  4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA16UI_EXT, (encoder->width + 3) / 4 * 4, (encoder->height + 3) / 4, 0, GL_RGBA_INTEGER_EXT, GL_INT, 0); 
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glGenBuffersARB(1, &encoder->pbo_out); //Allocate PBO
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
-    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, (width + 3) / 4 * 4 * height / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2), 0, GL_STREAM_READ_ARB);
+    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4)  / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2), 0, GL_STREAM_READ_ARB);
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
     
     // Create program [display] and its shader
@@ -368,7 +368,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     } else {
             glUniform1i(glGetUniformLocation(encoder->program_compress, "imageFormat"), FORMAT_RGB); 
     }
-    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, encoder->height); 
+    glUniform2f(glGetUniformLocation(encoder->program_compress, "imageSize"), encoder->width, (encoder->height + 3) / 4 * 4); 
     glUniform1f(glGetUniformLocation(encoder->program_compress, "textureWidth"), (encoder->width + 3) / 4 * 4); 
 
     if(!encoder->legacy) {
@@ -420,6 +420,16 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 #endif
 
     return encoder;
+}
+
+int dxt_get_size(int width, int height, enum dxt_type format)
+{
+    if ( format == DXT_TYPE_DXT5_YCOCG )
+        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4);
+    else if ( format == DXT_TYPE_DXT1 ||  format == DXT_TYPE_DXT1_YUV )
+        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4) / 2;
+    else
+            abort();
 }
 
 /** Documented at declaration */
@@ -609,9 +619,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
-        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, 0);
+        glReadPixels(0, 0, (encoder->width + 3) / 4, (encoder->height + 3) / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, 0);
     else
-        glReadPixels(0, 0, (encoder->width + 3) / 4, encoder->height / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, 0);
+        glReadPixels(0, 0, (encoder->width + 3) / 4, (encoder->height + 3) / 4 , GL_RGBA_INTEGER_EXT, GL_UNSIGNED_SHORT, 0);
 
     // map the PBO to process its data by CPU
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
@@ -619,7 +629,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                                             GL_READ_ONLY_ARB);
     if(ptr)
     {
-        memcpy(image_compressed, ptr, (encoder->width + 3) / 4 * 4 * encoder->height / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2));
+        memcpy(image_compressed, ptr, ((encoder->width + 3) / 4 * 4) * ((encoder->height + 3) / 4 * 4) / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2));
         glUnmapBufferARB(GL_PIXEL_PACK_BUFFER_ARB);
     }
 
