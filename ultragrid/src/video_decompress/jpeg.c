@@ -130,9 +130,16 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         int ret;
         struct gpujpeg_decoder_output decoder_output;
+        int linesize;
 
+        if(s->out_codec == RGB) {
+                linesize = s->desc.width * 3;
+        } else {
+                linesize = s->desc.width * 2;
+        }
         
-        if(s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) {
+        if((s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
+                        s->pitch == linesize) {
                 gpujpeg_decoder_output_set_default(&decoder_output);
                 decoder_output.type = GPUJPEG_DECODER_OUTPUT_CUSTOM_BUFFER;
                 decoder_output.data = dst;
@@ -142,7 +149,6 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                 if (ret != 0) return;
         } else {
                 unsigned int i;
-                int linesize;
                 unsigned char *line_src, *line_dst;
                 
                 gpujpeg_decoder_output_set_default(&decoder_output);
@@ -152,11 +158,6 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                 ret = gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output);
 
                 if (ret != 0) return;
-                if(s->out_codec == RGB) {
-                        linesize = s->desc.width * 3;
-                } else {
-                        linesize = s->desc.width * 2;
-                }
                 
                 line_dst = dst;
                 line_src = decoder_output.data;
