@@ -44,12 +44,25 @@
 #include <string.h>
 #ifdef HAVE_GLUT
 #include <GL/glut.h>
+
+#include "dxt_common.h"
+
 /**
  * Predeclaration of glutMainLoopEvent
  */
 extern void
 glutMainLoopEvent(void);
 #endif
+
+static inline int dxt_get_size(int width, int height, enum dxt_type format)
+{
+    if ( format == DXT_TYPE_DXT5_YCOCG )
+        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4);
+    else if ( format == DXT_TYPE_DXT1 ||  format == DXT_TYPE_DXT1_YUV )
+        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4) / 2;
+    else
+            abort();
+}
 
 /**
  * Create shader from source

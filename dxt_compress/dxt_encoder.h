@@ -86,6 +86,4 @@ dxt_encoder_buffer_free(unsigned char* image_compressed);
 int
 dxt_encoder_destroy(struct dxt_encoder* encoder);
 
-int dxt_get_size(int width, int height, enum dxt_type format);
-
 #endif // DXT_ENCODER_H

@@ -51,6 +51,7 @@
 #include "host.h"
 #include "video_compress/dxt_glsl.h"
 #include "dxt_compress/dxt_encoder.h"
+#include "dxt_compress/dxt_util.h"
 #include "compat/platform_semaphore.h"
 #include "video_codec.h"
 #include <pthread.h>

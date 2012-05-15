@@ -422,16 +422,6 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     return encoder;
 }
 
-int dxt_get_size(int width, int height, enum dxt_type format)
-{
-    if ( format == DXT_TYPE_DXT5_YCOCG )
-        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4);
-    else if ( format == DXT_TYPE_DXT1 ||  format == DXT_TYPE_DXT1_YUV )
-        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4) / 2;
-    else
-            abort();
-}
-
 /** Documented at declaration */
 int
 dxt_encoder_buffer_allocate(struct dxt_encoder* encoder, unsigned char** image_compressed, int* image_compressed_size)
