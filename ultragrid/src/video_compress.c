@@ -78,6 +78,8 @@ struct compress_t {
 struct compress_state {
         struct compress_t *handle;
         void *state;
+
+        unsigned int uncompressed:1;
 };
 
 void init_compressions(void);
@@ -182,6 +184,11 @@ struct compress_state *compress_init(char *config_string)
         
         s = (struct compress_state *) malloc(sizeof(struct compress_state));
         s->handle = NULL;
+        if(strcmp(config_string, "none")) {
+                s->uncompressed = TRUE;
+        } else {
+                s->uncompressed = FALSE;
+        }
         int i;
         for(i = 0; i < compress_modules_count; ++i) {
                 if(strncasecmp(config_string, available_compress_modules[i]->name,
@@ -229,5 +236,12 @@ struct video_frame *compress_frame(struct compress_state *s, struct video_frame 
 void compress_done(struct compress_state *s)
 {
         if(s) s->handle->done(s->state);
+}
+
+int is_compress_none(struct compress_state *s)
+{
+        assert(s != NULL);
+
+        return s->uncompressed;
 }
 

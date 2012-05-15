@@ -116,9 +116,9 @@ struct state_uv {
 
         volatile unsigned int has_item_to_send:1;
         volatile unsigned int sender_waiting:1;
-        volatile unsigned int grabber_waiting:1;
+        volatile unsigned int compress_thread_waiting:1;
         pthread_mutex_t sender_lock;
-        pthread_cond_t grabber_cv;
+        pthread_cond_t compress_thread_cv;
         pthread_cond_t sender_cv;
 
         struct video_frame * volatile tx_frame;
@@ -547,8 +547,8 @@ static void sender_finish(struct state_uv *uv) {
 
                 pthread_mutex_lock(&uv->sender_lock);
                 uv->has_item_to_send = FALSE;
-                if(uv->grabber_waiting) {
-                        pthread_cond_signal(&uv->grabber_cv);
+                if(uv->compress_thread_waiting) {
+                        pthread_cond_signal(&uv->compress_thread_cv);
                 }
                 pthread_mutex_unlock(&uv->sender_lock);
 
@@ -604,8 +604,8 @@ static void *sender_thread(void *arg) {
 
                 uv->has_item_to_send = FALSE;
 
-                if(uv->grabber_waiting) {
-                        pthread_cond_signal(&uv->grabber_cv);
+                if(uv->compress_thread_waiting) {
+                        pthread_cond_signal(&uv->compress_thread_cv);
                 }
                 pthread_mutex_unlock(&uv->sender_lock);
         }
@@ -618,7 +618,7 @@ exit:
         return NULL;
 }
 
-static void *grabber_thread(void *arg)
+static void *compress_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
 
@@ -660,20 +660,43 @@ static void *grabber_thread(void *arg)
 
                         i = (i + 1) % 2;
 
-                        pthread_mutex_lock(&uv->sender_lock);
-                        while(uv->has_item_to_send) {
-                                uv->grabber_waiting = TRUE;
-                                pthread_cond_wait(&uv->grabber_cv, &uv->sender_lock);
-                                uv->grabber_waiting = FALSE;
-                        }
+                        /* when sending uncompressed video, we simply post it for send
+                         * and wait until done */
+                        if(is_compress_none(compression)) {
+                                pthread_mutex_lock(&uv->sender_lock);
 
-                        uv->tx_frame = tx_frame;
+                                uv->tx_frame = tx_frame;
 
-                        uv->has_item_to_send = TRUE;
-                        if(uv->sender_waiting) {
-                                pthread_cond_signal(&uv->sender_cv);
+                                uv->has_item_to_send = TRUE;
+                                if(uv->sender_waiting) {
+                                        pthread_cond_signal(&uv->sender_cv);
+                                }
+
+                                while(uv->has_item_to_send) {
+                                        uv->compress_thread_waiting = TRUE;
+                                        pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
+                                        uv->compress_thread_waiting = FALSE;
+                                }
+                                pthread_mutex_unlock(&uv->sender_lock);
+                        }  else
+                        /* we post for sending (after previous frame is done) and schedule a new one
+                         * frames may overlap then */
+                        {
+                                pthread_mutex_lock(&uv->sender_lock);
+                                while(uv->has_item_to_send) {
+                                        uv->compress_thread_waiting = TRUE;
+                                        pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
+                                        uv->compress_thread_waiting = FALSE;
+                                }
+
+                                uv->tx_frame = tx_frame;
+
+                                uv->has_item_to_send = TRUE;
+                                if(uv->sender_waiting) {
+                                        pthread_cond_signal(&uv->sender_cv);
+                                }
+                                pthread_mutex_unlock(&uv->sender_lock);
                         }
-                        pthread_mutex_unlock(&uv->sender_lock);
                 }
         }
 
@@ -709,7 +732,8 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
         
-        pthread_t receiver_thread_id, grabber_thread_id;
+        pthread_t receiver_thread_id, compress_thread_id,
+                  ihdtv_sender_thread_id;
         unsigned vidcap_flags = 0,
                  display_flags = 0;
 
@@ -761,9 +785,9 @@ int main(int argc, char *argv[])
 
         uv->has_item_to_send = FALSE;
         uv->sender_waiting = FALSE;
-        uv->grabber_waiting = FALSE;
+        uv->compress_thread_waiting = FALSE;
         pthread_mutex_init(&uv->sender_lock, NULL);
-        pthread_cond_init(&uv->grabber_cv, NULL);
+        pthread_cond_init(&uv->compress_thread_cv, NULL);
         pthread_cond_init(&uv->sender_cv, NULL);
 
         perf_init();
@@ -851,6 +875,22 @@ int main(int argc, char *argv[])
         argc -= optind;
         argv += optind;
 
+        printf("%s", PACKAGE_STRING);
+#ifdef GIT_VERSION
+        printf(" (rev %s)", GIT_VERSION);
+#endif
+        printf("\n");
+        printf("Display device: %s\n", uv->requested_display);
+        printf("Capture device: %s\n", uv->requested_capture);
+        printf("MTU           : %d\n", uv->requested_mtu);
+        printf("Compression   : %s\n", uv->requested_compression);
+
+        if (uv->use_ihdtv_protocol)
+                printf("Network protocol: ihdtv\n");
+        else
+                printf("Network protocol: ultragrid rtp\n");
+
+        gettimeofday(&uv->start_time, NULL);
 
         if (uv->use_ihdtv_protocol) {
                 if ((argc != 0) && (argc != 1) && (argc != 2)) {
@@ -871,23 +911,6 @@ int main(int argc, char *argv[])
 
         vidcap_flags |= audio_get_vidcap_flags(uv->audio);
         display_flags |= audio_get_display_flags(uv->audio);
-
-        printf("%s", PACKAGE_STRING);
-#ifdef GIT_VERSION
-        printf(" (rev %s)", GIT_VERSION);
-#endif
-        printf("\n");
-        printf("Display device: %s\n", uv->requested_display);
-        printf("Capture device: %s\n", uv->requested_capture);
-        printf("MTU           : %d\n", uv->requested_mtu);
-        printf("Compression   : %s\n", uv->requested_compression);
-
-        if (uv->use_ihdtv_protocol)
-                printf("Network protocol: ihdtv\n");
-        else
-                printf("Network protocol: ultragrid rtp\n");
-
-        gettimeofday(&uv->start_time, NULL);
 
         uv->participants = pdb_init();
 
@@ -930,7 +953,6 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */         
 
         if (uv->use_ihdtv_protocol) {
-#if 0
                 ihdtv_connection tx_connection, rx_connection;
 
                 printf("Initializing ihdtv protocol\n");
@@ -991,7 +1013,7 @@ int main(int argc, char *argv[])
                         }
 
                         if (pthread_create
-                            (&sender_thread_id, NULL, ihdtv_sender_thread,
+                            (&ihdtv_sender_thread_id, NULL, ihdtv_sender_thread,
                              tx_connection_and_display) != 0) {
                                 fprintf(stderr,
                                         "Error creating sender thread. Quitting\n");
@@ -1001,7 +1023,6 @@ int main(int argc, char *argv[])
 
                 while (!should_exit)
                         sleep(1);
-#endif
         } else {
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->port_number, uv->participants)) == NULL) {
@@ -1061,7 +1082,7 @@ int main(int argc, char *argv[])
 
                 if (strcmp("none", uv->requested_capture) != 0) {
                         if (pthread_create
-                            (&grabber_thread_id, NULL, grabber_thread,
+                            (&compress_thread_id, NULL, compress_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
@@ -1086,7 +1107,10 @@ cleanup_wait_display:
 
 cleanup_wait_capture:
         if (strcmp("none", uv->requested_capture) != 0)
-                pthread_join(grabber_thread_id, NULL);
+                pthread_join(uv->use_ihdtv_protocol ?
+                                        ihdtv_sender_thread_id :
+                                        compress_thread_id,
+                                NULL);
         
 cleanup_wait_audio:
         /* also wait for audio threads */

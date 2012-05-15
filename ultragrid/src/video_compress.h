@@ -74,6 +74,9 @@ typedef  void (*compress_done_t)(void *);
 void show_compress_help(void);
 struct compress_state *compress_init(char *config_string);
 const char *get_compress_name(struct compress_state *);
+
+int is_compress_none(struct compress_state *);
+
 struct video_frame *compress_frame(struct compress_state *, struct video_frame*, int buffer_index);
 void compress_done(struct compress_state *);
 
