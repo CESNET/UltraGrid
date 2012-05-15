@@ -48,5 +48,5 @@
 #include "video.h"
 
 void * jpeg_compress_init(char * opts);
-struct video_frame * jpeg_compress(void *args, struct video_frame * tx);
+struct video_frame * jpeg_compress(void *args, struct video_frame * tx, int buffer_index);
 void jpeg_compress_done(void *args);

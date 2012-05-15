@@ -261,7 +261,7 @@ void * dxt_glsl_compress_init(char * opts)
         return s;
 }
 
-struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx)
+struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int buffer_idx)
 {
         struct video_compress *s = (struct video_compress *) arg;
         int i;

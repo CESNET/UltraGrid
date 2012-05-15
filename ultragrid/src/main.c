@@ -54,6 +54,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <pthread.h>
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -112,6 +113,15 @@ struct state_uv {
         int use_ihdtv_protocol;
 
         struct state_audio *audio;
+
+        volatile unsigned int has_item_to_send:1;
+        volatile unsigned int sender_waiting:1;
+        volatile unsigned int grabber_waiting:1;
+        pthread_mutex_t sender_lock;
+        pthread_cond_t grabber_cv;
+        pthread_cond_t sender_cv;
+
+        struct video_frame * volatile tx_frame;
 };
 
 long packet_rate = 13600;
@@ -136,6 +146,7 @@ struct display *initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags);
 struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags);
+static void sender_finish(struct state_uv *uv);
 
 #ifndef WIN32
 static void signal_handler(int signal)
@@ -153,8 +164,9 @@ void _exit_uv(int status) {
         wait_to_finish = TRUE;
         should_exit = TRUE;
         if(!threads_joined) {
-                if(uv_state->capture_device)
+                if(uv_state->capture_device) {
                         vidcap_finish(uv_state->capture_device);
+                }
                 if(uv_state->display_device)
                         display_finish(uv_state->display_device);
                 if(uv_state->audio)
@@ -520,21 +532,32 @@ static void *receiver_thread(void *arg)
         return 0;
 }
 
-static void *sender_thread(void *arg)
-{
-        struct state_uv *uv = (struct state_uv *)arg;
+static void sender_finish(struct state_uv *uv) {
+                pthread_mutex_lock(&uv->sender_lock);
 
-        struct video_frame *tx_frame, *splitted_frames = NULL;
-        struct audio_frame *audio;
-        //struct video_frame *splitted_frames = NULL;
+                if(uv->sender_waiting) {
+                        uv->has_item_to_send = TRUE;
+                        pthread_cond_signal(&uv->sender_cv);
+                }
+
+                pthread_mutex_unlock(&uv->sender_lock);
+
+                while(uv->sender_waiting)
+                        ;
+
+                pthread_mutex_lock(&uv->sender_lock);
+                uv->has_item_to_send = FALSE;
+                if(uv->grabber_waiting) {
+                        pthread_cond_signal(&uv->grabber_cv);
+                }
+                pthread_mutex_unlock(&uv->sender_lock);
+
+}
+
+static void *sender_thread(void *arg) {
+        struct state_uv *uv = (struct state_uv *)arg;
+        struct video_frame *splitted_frames = NULL;
         int tile_y_count;
-        
-        struct compress_state *compression; 
-        compression = compress_init(uv->requested_compression);
-        if(compression == NULL) {
-                fprintf(stderr, "Error initializing compression.\n");
-                exit_uv(0);
-        }
 
         tile_y_count = uv->connections_count;
 
@@ -544,6 +567,85 @@ static void *sender_thread(void *arg)
                 splitted_frames = vf_alloc(tile_y_count);
         }
 
+        while(!should_exit) {
+                pthread_mutex_lock(&uv->sender_lock);
+                while(!uv->has_item_to_send) {
+                        uv->sender_waiting = TRUE;
+                        pthread_cond_wait(&uv->sender_cv, &uv->sender_lock);
+                        uv->sender_waiting = FALSE;
+                }
+                struct video_frame *tx_frame = uv->tx_frame;
+
+                if(should_exit) {
+                        uv->has_item_to_send = FALSE;
+                        pthread_mutex_unlock(&uv->sender_lock);
+                        goto exit;
+                }
+
+                pthread_mutex_unlock(&uv->sender_lock);
+
+
+                if(uv->connections_count == 1) { /* normal case - only one connection */
+                        tx_send(uv->tx, tx_frame, 
+                                        uv->network_devices[0]);
+                } else { /* split */
+                        int i;
+
+                        //assert(frame_count == 1);
+                        vf_split_horizontal(splitted_frames, tx_frame,
+                                       tile_y_count);
+                        for (i = 0; i < tile_y_count; ++i) {
+                                tx_send_tile(uv->tx, splitted_frames, i,
+                                                uv->network_devices[i]);
+                        }
+                }
+
+                pthread_mutex_lock(&uv->sender_lock);
+
+                uv->has_item_to_send = FALSE;
+
+                if(uv->grabber_waiting) {
+                        pthread_cond_signal(&uv->grabber_cv);
+                }
+                pthread_mutex_unlock(&uv->sender_lock);
+        }
+
+exit:
+        vf_free(splitted_frames);
+
+
+
+        return NULL;
+}
+
+static void *grabber_thread(void *arg)
+{
+        struct state_uv *uv = (struct state_uv *)arg;
+
+        struct video_frame *tx_frame;
+        struct audio_frame *audio;
+        //struct video_frame *splitted_frames = NULL;
+        pthread_t sender_thread_id;
+        int i = 0;
+
+        struct compress_state *compression; 
+        compression = compress_init(uv->requested_compression);
+        if(compression == NULL) {
+                fprintf(stderr, "Error initializing compression.\n");
+                exit_uv(0);
+                goto compress_done;
+        }
+
+        if (pthread_create
+            (&sender_thread_id, NULL, sender_thread,
+             (void *)uv) != 0) {
+                perror("Unable to create sender thread!\n");
+                exit_uv(EXIT_FAILURE);
+                goto join_thread;
+        }
+
+        
+
         while (!should_exit) {
                 /* Capture and transmit video... */
                 tx_frame = vidcap_grab(uv->capture_device, &audio);
@@ -552,27 +654,36 @@ static void *sender_thread(void *arg)
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //TODO: Unghetto this
-                        tx_frame = compress_frame(compression, tx_frame);
+                        tx_frame = compress_frame(compression, tx_frame, i);
                         if(!tx_frame)
                                 continue;
-                        if(uv->connections_count == 1) { /* normal case - only one connection */
-                                tx_send(uv->tx, tx_frame, 
-                                                uv->network_devices[0]);
-                        } else { /* split */
-                                int i;
 
-                                //assert(frame_count == 1);
-                                vf_split_horizontal(splitted_frames, tx_frame,
-                                               tile_y_count);
-                                for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send_tile(uv->tx, splitted_frames, i,
-                                                        uv->network_devices[i]);
-                                }
+                        i = (i + 1) % 2;
+
+                        pthread_mutex_lock(&uv->sender_lock);
+                        while(uv->has_item_to_send) {
+                                uv->grabber_waiting = TRUE;
+                                pthread_cond_wait(&uv->grabber_cv, &uv->sender_lock);
+                                uv->grabber_waiting = FALSE;
                         }
+
+                        uv->tx_frame = tx_frame;
+
+                        uv->has_item_to_send = TRUE;
+                        if(uv->sender_waiting) {
+                                pthread_cond_signal(&uv->sender_cv);
+                        }
+                        pthread_mutex_unlock(&uv->sender_lock);
                 }
         }
-        vf_free(splitted_frames);
-        
+
+
+
+join_thread:
+        sender_finish(uv);
+        pthread_join(sender_thread_id, NULL);
+
+compress_done:
         compress_done(compression);
 
         return NULL;
@@ -598,7 +709,7 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
         
-        pthread_t receiver_thread_id, sender_thread_id;
+        pthread_t receiver_thread_id, grabber_thread_id;
         unsigned vidcap_flags = 0,
                  display_flags = 0;
 
@@ -647,6 +758,13 @@ int main(int argc, char *argv[])
         uv->tx = NULL;
         uv->network_devices = NULL;
         uv->port_number = PORT_BASE;
+
+        uv->has_item_to_send = FALSE;
+        uv->sender_waiting = FALSE;
+        uv->grabber_waiting = FALSE;
+        pthread_mutex_init(&uv->sender_lock, NULL);
+        pthread_cond_init(&uv->grabber_cv, NULL);
+        pthread_cond_init(&uv->sender_cv, NULL);
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -812,6 +930,7 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */         
 
         if (uv->use_ihdtv_protocol) {
+#if 0
                 ihdtv_connection tx_connection, rx_connection;
 
                 printf("Initializing ihdtv protocol\n");
@@ -882,7 +1001,7 @@ int main(int argc, char *argv[])
 
                 while (!should_exit)
                         sleep(1);
-
+#endif
         } else {
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->port_number, uv->participants)) == NULL) {
@@ -928,6 +1047,7 @@ int main(int argc, char *argv[])
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup_wait_display;
                 }
+
                         
                 if (strcmp("none", uv->requested_display) != 0) {
                         if (pthread_create
@@ -938,13 +1058,14 @@ int main(int argc, char *argv[])
                                 goto cleanup_wait_display;
                         }
                 }
+
                 if (strcmp("none", uv->requested_capture) != 0) {
                         if (pthread_create
-                            (&sender_thread_id, NULL, sender_thread,
+                            (&grabber_thread_id, NULL, grabber_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
-                                goto cleanup_wait_display;
+                                goto cleanup_wait_capture;
                         }
                 }
         }
@@ -965,7 +1086,7 @@ cleanup_wait_display:
 
 cleanup_wait_capture:
         if (strcmp("none", uv->requested_capture) != 0)
-                pthread_join(sender_thread_id, NULL);
+                pthread_join(grabber_thread_id, NULL);
         
 cleanup_wait_audio:
         /* also wait for audio threads */

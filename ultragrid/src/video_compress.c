@@ -218,10 +218,10 @@ const char *get_compress_name(struct compress_state *s)
                 return NULL;
 }
 
-struct video_frame *compress_frame(struct compress_state *s, struct video_frame *frame)
+struct video_frame *compress_frame(struct compress_state *s, struct video_frame *frame, int buffer_index)
 {
         if(s)
-                return s->handle->compress(s->state, frame);
+                return s->handle->compress(s->state, frame, buffer_index);
         else
                 return NULL;
 }
