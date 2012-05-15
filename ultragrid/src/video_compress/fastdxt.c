@@ -104,8 +104,11 @@ struct video_compress {
         
         decoder_t decoder;
 
-        struct video_frame *frame;
-        struct tile *tile;
+        struct video_frame *out[2];
+        /* this is just shortcut for (only) tiles from the above frame */
+        struct tile *tile[2];
+
+        volatile int buffer_idx;
 };
 
 static void compress_thread(void *args);
@@ -114,19 +117,28 @@ int reconfigure_compress(struct video_compress *compress, int width, int height,
 int reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t interlacing, double fps)
 {
         int x;
+        int i;
 
         fprintf(stderr, "Compression reinitialized for %ux%u video.\n", 
                         width, height);
         /* Store original attributes to allow format change detection */
+        for(i = 0; i < 2; ++i) {
+                compress->tile[i]->width = width;
+                compress->tile[i]->height = height;
+                compress->out[i]->color_spec = codec;
+                compress->out[i]->fps = fps;
+                
+                if(interlacing == INTERLACED_MERGED) {
+                        fprintf(stderr, "[FastDXT] Warning: deinterlacing input prior to compress!\n");
+                        compress->out[i]->interlacing = PROGRESSIVE;
+                } else {
+                        compress->out[i]->interlacing = interlacing;
+                }
+        }
         compress->tx_color_spec = codec;
         compress->interlacing_source = interlacing;
 
-        compress->tile->width = width;
-        compress->tile->height = height;
-        compress->dxt_height = (compress->tile->height + 3) / 4 * 4;
-        compress->frame->color_spec = codec;
-        compress->frame->interlacing = PROGRESSIVE;
-        compress->frame->fps = fps;
+        compress->dxt_height = (compress->tile[0]->height + 3) / 4 * 4;
 
         switch (codec) {
                 case RGB:
@@ -166,21 +178,25 @@ int reconfigure_compress(struct video_compress *compress, int width, int height,
         }
         
         int h_align = 0;
-        int i;
+
         for(i = 0; codec_info[i].name != NULL; ++i) {
                 if(codec == codec_info[i].codec) {
                         h_align = codec_info[i].h_align;
                 }
         }
         assert(h_align != 0);
-        compress->tile->linesize = vf_get_tile(compress->frame, 0)->width * 
-                (compress->rgb ? 4 /*RGBA*/: 2/*YUV 422*/);
-        
-        if(compress->rgb) {
-                compress->frame->color_spec = DXT1;
-        } else {
-                compress->frame->color_spec = DXT1_YUV;
+
+        for(i = 0; i < 2; ++i) {
+                compress->tile[i]->linesize = vf_get_tile(compress->out[i], 0)->width * 
+                        (compress->rgb ? 4 /*RGBA*/: 2/*YUV 422*/);
+
+                if(compress->rgb) {
+                        compress->out[i]->color_spec = DXT1;
+                } else {
+                        compress->out[i]->color_spec = DXT1_YUV;
+                }
         }
+        
 
         for (x = 0; x < compress->num_threads; x++) {
                 int my_height = (compress->dxt_height / compress->num_threads) / 4 * 4;
@@ -190,9 +206,12 @@ int reconfigure_compress(struct video_compress *compress, int width, int height,
                 compress->buffer[x] =
                     (unsigned char *)malloc(width * my_height * 4);
         }
+
 #ifdef HAVE_MACOSX
         compress->output_data = (unsigned char *)malloc(width * compress->dxt_height * 4);
-        compress->tile->data = (char *)malloc(width * compress->dxt_height * 4);
+        for(i = 0; i < 2; ++i) {
+                compress->tile[i]->data = (char *)malloc(width * compress->dxt_height * 4);
+        }
 #else
         /*
          *  memalign doesn't exist on Mac OS. malloc always returns 16  
@@ -201,10 +220,14 @@ int reconfigure_compress(struct video_compress *compress, int width, int height,
          *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
          */
         compress->output_data = (unsigned char *)memalign(16, width * compress->dxt_height * 4);
-        compress->tile->data = (char *)memalign(16, width * compress->dxt_height * 4);
+        for(i = 0; i < 2; ++i) {
+                compress->tile[i]->data = (char *)memalign(16, width * compress->dxt_height * 4);
+        }
 #endif                          /* HAVE_MACOSX */
         memset(compress->output_data, 0, width * compress->dxt_height * 4);
-        memset(compress->tile->data, 0, width * compress->dxt_height * 4 / 8);
+        for(i = 0; i < 2; ++i) {
+                memset(compress->tile[i]->data, 0, width * compress->dxt_height * 4 / 8);
+        }
 
         return TRUE;
 }
@@ -216,6 +239,7 @@ void *fastdxt_init(const char *num_threads_str)
          * 2. Spawn compressor threads
          */
         int x;
+        int i;
         struct video_compress *compress;
 
         if(num_threads_str && strcmp(num_threads_str, "help") == 0) {
@@ -234,16 +258,19 @@ void *fastdxt_init(const char *num_threads_str)
                 compress->num_threads = atoi(num_threads_str);
         assert (compress->num_threads >= 1 && compress->num_threads <= MAX_THREADS);
 
-        compress->frame = vf_alloc(1);
-        compress->tile = vf_get_tile(compress->frame, 0);
+        for(i = 0; i < 2; ++i) {
+                compress->out[i] = vf_alloc(1);
+                compress->tile[i] = vf_get_tile(compress->out[i], 0);
+        }
         
-        compress->tile->width = 0;
-        compress->tile->height = 0;
+        for(i = 0; i < 2; ++i) {
+                compress->tile[i]->width = 0;
+                compress->tile[i]->height = 0;
+        }
 
         compress->thread_count = 0;
         if (pthread_mutex_init(&(compress->lock), NULL)) {
                 perror("Error initializing mutex!");
-                exit_uv(128);
                 return NULL;
         }
 
@@ -278,14 +305,16 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
         struct video_compress *compress = (struct video_compress *)args;
         unsigned int x;
         unsigned char *line1, *line2;
+        struct video_frame *out = compress->out[buffer_idx];
+        struct tile *out_tile = &out->tiles[0];
 
         assert(tx->tile_count == 1);
         assert(vf_get_tile(tx, 0)->width % 4 == 0);
         
         pthread_mutex_lock(&(compress->lock));
 
-        if(vf_get_tile(tx, 0)->width != compress->tile->width ||
-                        vf_get_tile(tx, 0)->height != compress->tile->height ||
+        if(vf_get_tile(tx, 0)->width != out_tile->width ||
+                        vf_get_tile(tx, 0)->height != out_tile->height ||
                         tx->interlacing != compress->interlacing_source ||
                         tx->color_spec != compress->tx_color_spec)
         {
@@ -295,15 +324,15 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
                         return NULL;
         }
 
-        line1 = (unsigned char *)tx->tiles[0].data;
+        line1 = (unsigned char *) tx->tiles[0].data;
         line2 = compress->output_data;
 
-        for (x = 0; x < compress->tile->height; ++x) {
-                int src_linesize = vc_get_linesize(compress->tile->width, compress->tx_color_spec);
-                compress->decoder(line2, line1, compress->tile->linesize,
+        for (x = 0; x < out_tile->height; ++x) {
+                int src_linesize = vc_get_linesize(out_tile->width, compress->tx_color_spec);
+                compress->decoder(line2, line1, out_tile->linesize,
                                 0, 8, 16);
                 line1 += src_linesize;
-                line2 += compress->tile->linesize;
+                line2 += out_tile->linesize;
         }
 
         if(tx->interlacing != INTERLACED_MERGED && tx->interlacing != PROGRESSIVE) {
@@ -312,10 +341,11 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
         }
 
         if(tx->interlacing == INTERLACED_MERGED) {
-                vc_deinterlace(compress->output_data, compress->tile->linesize,
-                                compress->tile->height);
+                vc_deinterlace(compress->output_data, out_tile->linesize,
+                                out_tile->height);
         }
 
+        compress->buffer_idx = buffer_idx;
 
         for (x = 0; x < compress->num_threads; x++) {
                 platform_sem_post(&compress->thread_compress[x]);
@@ -325,11 +355,11 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
                 platform_sem_wait(&compress->thread_done[x]);
         }
 
-        compress->tile->data_len = compress->tile->width * compress->tile->height / 2;
+        out_tile->data_len = out_tile->width * compress->dxt_height / 2;
         
         pthread_mutex_unlock(&(compress->lock));
 
-        return compress->frame;
+        return out;
 }
 
 static void compress_thread(void *args)
@@ -350,13 +380,13 @@ static void compress_thread(void *args)
                 platform_sem_wait(&compress->thread_compress[myId]);
                 if(fastdxt_should_exit) break;
 
-                my_height = (compress->tile->height / compress->num_threads) / 4 * 4;
-                range = my_height * compress->tile->width; /* for all threads except the last */
+                my_height = (compress->tile[compress->buffer_idx]->height / compress->num_threads) / 4 * 4;
+                range = my_height * compress->tile[compress->buffer_idx]->width; /* for all threads except the last */
 
                 if(myId == compress->num_threads - 1) {
-                        my_height = compress->tile->height - my_height /* "their height" */ * myId;
+                        my_height = compress->tile[compress->buffer_idx]->height - my_height /* "their height" */ * myId;
                 }
-                my_range = my_height * compress->tile->width;
+                my_range = my_height * compress->tile[compress->buffer_idx]->width;
 
                 if(!compress->rgb)
                 {
@@ -381,8 +411,8 @@ static void compress_thread(void *args)
                 }
 
                 DirectDXT1(retv,
-                               ((unsigned char *) compress->tile->data) + myId * range / 2,
-                               compress->tile->width, my_height);
+                               ((unsigned char *) compress->tile[compress->buffer_idx]->data) + myId * range / 2,
+                               compress->tile[compress->buffer_idx]->width, my_height);
 
                 platform_sem_post(&compress->thread_done[myId]);
         }
