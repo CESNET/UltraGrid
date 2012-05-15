@@ -99,7 +99,6 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                 vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
         }
         
-        s->out->interlacing = PROGRESSIVE;
         s->out->fps = frame->fps;
         s->out->color_spec = s->color_spec;
 
@@ -141,10 +140,14 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         }
 
         /* We will deinterlace the output frame */
-        if(frame->interlacing  == INTERLACED_MERGED)
+        if(frame->interlacing  == INTERLACED_MERGED) {
+                s->out->interlacing = PROGRESSIVE;
                 s->interlaced_input = TRUE;
-        else
+                fprintf(stderr, "[DXT compress] Enabling automatic deinterlacing.\n");
+        } else {
+                s->out->interlacing = frame->interlacing;
                 s->interlaced_input = FALSE;
+        }
 
         if(s->out->color_spec == DXT1) {
                 s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->out->tiles[0].height, format, s->legacy);
