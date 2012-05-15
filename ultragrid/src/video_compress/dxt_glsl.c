@@ -66,7 +66,7 @@
 struct video_compress {
         struct dxt_encoder *encoder;
 
-        struct video_frame *out;
+        struct video_frame *out[2];
         decoder_t decoder;
         char *decoded;
         unsigned int configured:1;
@@ -83,8 +83,11 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
 {
         unsigned int x;
         enum dxt_format format;
+        int i;
         
-        s->out = vf_alloc(frame->tile_count);
+        for (i = 0; i < 2; ++i) {
+                s->out[i] = vf_alloc(frame->tile_count);
+        }
         
         for (x = 0; x < frame->tile_count; ++x) {
                 if (vf_get_tile(frame, x)->width != vf_get_tile(frame, 0)->width ||
@@ -94,13 +97,17 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                         exit_uv(128);
                         return FALSE;
                 }
-                        
-                vf_get_tile(s->out, x)->width = vf_get_tile(frame, 0)->width;
-                vf_get_tile(s->out, x)->height = vf_get_tile(frame, 0)->height;
         }
         
-        s->out->fps = frame->fps;
-        s->out->color_spec = s->color_spec;
+        for (i = 0; i < 2; ++i) {
+                s->out[i]->fps = frame->fps;
+                s->out[i]->color_spec = s->color_spec;
+
+                for (x = 0; x < frame->tile_count; ++x) {
+                        vf_get_tile(s->out[i], x)->width = vf_get_tile(frame, 0)->width;
+                        vf_get_tile(s->out[i], x)->height = vf_get_tile(frame, 0)->height;
+                }
+        }
 
         switch (frame->color_spec) {
                 case RGB:
@@ -141,41 +148,56 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
 
         /* We will deinterlace the output frame */
         if(frame->interlacing  == INTERLACED_MERGED) {
-                s->out->interlacing = PROGRESSIVE;
+                for (i = 0; i < 2; ++i) {
+                        s->out[i]->interlacing = PROGRESSIVE;
+                }
                 s->interlaced_input = TRUE;
                 fprintf(stderr, "[DXT compress] Enabling automatic deinterlacing.\n");
         } else {
-                s->out->interlacing = frame->interlacing;
+                for (i = 0; i < 2; ++i) {
+                        s->out[i]->interlacing = frame->interlacing;
+                }
                 s->interlaced_input = FALSE;
         }
-
-        if(s->out->color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out->tiles[0].width, s->out->tiles[0].height, format, s->legacy);
-                s->out->tiles[0].data_len = dxt_get_size(s->out->tiles[0].width, s->out->tiles[0].height, DXT_TYPE_DXT1);
-        } else if(s->out->color_spec == DXT5){
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out->tiles[0].width, s->out->tiles[0].height, format, s->legacy);
-                s->out->tiles[0].data_len = dxt_get_size(s->out->tiles[0].width, s->out->tiles[0].height, DXT_TYPE_DXT5_YCOCG);
-        }
         
-        for (x = 0; x < frame->tile_count; ++x) {
-                vf_get_tile(s->out, x)->linesize = s->out->tiles[0].width;
-                switch(format) { 
-                        case DXT_FORMAT_RGBA:
-                                vf_get_tile(s->out, x)->linesize *= 4;
-                                break;
-                        case DXT_FORMAT_RGB:
-                                vf_get_tile(s->out, x)->linesize *= 3;
-                                break;
-                        case DXT_FORMAT_YUV422:
-                                vf_get_tile(s->out, x)->linesize *= 2;
-                                break;
-                        case DXT_FORMAT_YUV:
-                                /* not used - just not compilator to complain */
-                                abort();
-                                break;
+        int data_len = 0;
+        int linesize = 0;
+
+        if(s->out[0]->color_spec == DXT1) {
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT1);
+        } else if(s->out[0]->color_spec == DXT5){
+                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT5_YCOCG);
+        }
+
+        
+        linesize = s->out[0]->tiles[0].width;
+        switch(format) { 
+                case DXT_FORMAT_RGBA:
+                        linesize *= 4;
+                        break;
+                case DXT_FORMAT_RGB:
+                        linesize *= 3;
+                        break;
+                case DXT_FORMAT_YUV422:
+                        linesize *= 2;
+                        break;
+                case DXT_FORMAT_YUV:
+                        /* not used - just not compilator to complain */
+                        abort();
+                        break;
+        }
+
+        assert(data_len > 0);
+        assert(linesize > 0);
+
+        for (i = 0; i < 2; ++i) {
+                for (x = 0; x < frame->tile_count; ++x) {
+                        vf_get_tile(s->out[i], x)->linesize = linesize;
+                        vf_get_tile(s->out[i], x)->data_len = data_len;
+                        vf_get_tile(s->out[i], x)->data = (char *) malloc(data_len);
                 }
-                vf_get_tile(s->out, x)->data_len = s->out->tiles[0].data_len;
-                vf_get_tile(s->out, x)->data = (char *) malloc(s->out->tiles[0].data_len);
         }
         
         if(!s->encoder) {
@@ -184,7 +206,7 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                 return FALSE;
         }
         
-        s->decoded = malloc(4 * s->out->tiles[0].width * s->out->tiles[0].height);
+        s->decoded = malloc(4 * s->out[0]->tiles[0].width * s->out[0]->tiles[0].height);
         
         s->configured = TRUE;
         return TRUE;
@@ -193,9 +215,13 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
 void * dxt_glsl_compress_init(char * opts)
 {
         struct video_compress *s;
+        int i;
         
         s = (struct video_compress *) malloc(sizeof(struct video_compress));
-        s->out = NULL;
+
+        for (i = 0; i < 2; ++i) {
+                s->out[i] = NULL;
+        }
         s->decoded = NULL;
 
 #ifndef HAVE_MACOSX
@@ -266,6 +292,8 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
         struct video_compress *s = (struct video_compress *) arg;
         int i;
         unsigned char *line1, *line2;
+
+        assert(buffer_idx >= 0 && buffer_idx < 2);
         
         unsigned int x;
 
@@ -283,7 +311,7 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
 
         for (x = 0; x < tx->tile_count;  ++x) {
                 struct tile *in_tile = vf_get_tile(tx, x);
-                struct tile *out_tile = vf_get_tile(s->out, x);
+                struct tile *out_tile = vf_get_tile(s->out[buffer_idx], x);
                 
                 line1 = (unsigned char *) in_tile->data;
                 line2 = (unsigned char *) s->decoded;
@@ -308,18 +336,24 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
         glx_make_current(NULL);
 #endif
         
-        return s->out;
+        return s->out[buffer_idx];
 }
 
 void dxt_glsl_compress_done(void *arg)
 {
         struct video_compress *s = (struct video_compress *) arg;
+        int i, x;
         
         dxt_encoder_destroy(s->encoder);
 
-        if(s->out)
-                free(s->out->tiles[0].data);
-        vf_free(s->out);
+        for (i = 0; i < 2; ++i) {
+                if(s->out[i]) {
+                        for (x = 0; x < s->out[i]->tile_count; ++x) {
+                                free(s->out[i]->tiles[x].data);
+                        }
+                }
+                vf_free(s->out[i]);
+        }
 
         free(s->decoded);
 
