@@ -84,6 +84,7 @@ CFLAGS += $(COMMONFLAGS) -std=c99
 # CUDA flags
 NVCCFLAGS += $(COMMONFLAGS) \
 	-gencode arch=compute_20,code=sm_20 \
+	-gencode arch=compute_13,code=sm_13 \
 	-gencode arch=compute_11,code=sm_11 \
 	-gencode arch=compute_10,code=sm_10
 # Linker flags

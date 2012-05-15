@@ -1178,7 +1178,7 @@ fi
 if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a $ac_cv_file____libgpujpeg_libgpujpeg_a = yes
 then
         jpeg=yes
-        JPEG_LIB="$CUDA_LIB -lnpp ../libgpujpeg/libgpujpeg.a"
+        JPEG_LIB="../libgpujpeg/libgpujpeg.a -lnpp $CUDA_LIB"
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
