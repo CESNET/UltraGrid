@@ -1267,7 +1267,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                 double seconds = tv_diff(t, t0);	
                 if (seconds >= 5) {
                         float fps  = s->frames / seconds;
-                        fprintf(stderr, "%d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+                        fprintf(stderr, "[Decklink capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                         t0 = t;
                         s->frames = 0;
                 }

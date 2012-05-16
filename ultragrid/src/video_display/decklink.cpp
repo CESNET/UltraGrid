@@ -413,7 +413,7 @@ int display_decklink_putf(void *state, char *frame)
         double seconds = tv_diff(tv, s->tv);
         if (seconds > 5) {
                 double fps = (s->frames - s->frames_last) / seconds;
-                fprintf(stdout, "%lu frames in %g seconds = %g FPS\n",
+                fprintf(stdout, "[Decklink display] %lu frames in %g seconds = %g FPS\n",
                         s->frames - s->frames_last, seconds, fps);
                 s->tv = tv;
                 s->frames_last = s->frames;
