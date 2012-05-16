@@ -4,6 +4,9 @@ next
 * DeckLink - allow specification for audion input connection (SDI/AESEBU/analog)
 * OpenGL - automatically enable sync on VBlank from application scope
 * QT GUI - updated + allow compression setting
+* added screen capture
+* inserted packet mirror
+* added possibility to limit sending bitrate
 
 1.1rc3
 =====
