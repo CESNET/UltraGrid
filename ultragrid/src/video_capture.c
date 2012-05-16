@@ -114,7 +114,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
-#if defined HAVE_SCREEN || defined BUILD_LIBRARIES
+#if defined HAVE_SCREEN_CAP || defined BUILD_LIBRARIES
         {
          /* The screen capture card */
          0,

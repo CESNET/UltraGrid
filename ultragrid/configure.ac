@@ -959,7 +959,13 @@ AC_ARG_ENABLE(screen,
 
 case "$host_os" in
 	*darwin*)
-                screen_cap=no
+		if test $screen_cap_req = yes
+		then
+                        screen_cap=yes
+                        SCREEN_CAP_LIB="-framework CoreFoundation"
+		else
+                        screen_cap=no
+		fi
 	;;
 	*) 
                 # Linux
@@ -976,6 +982,7 @@ case "$host_os" in
                         $ac_cv_lib_GL_glBindTexture = yes
 		then
                         screen_cap=yes
+                        SCREEN_CAP_LIB+=" -lGL -lGLEW"
 		else
                         screen_cap=no
 		fi
@@ -984,7 +991,6 @@ esac
 
 if test $screen_cap = yes
 then
-        SCREEN_CAP_LIB+=" -lGL -lGLEW"
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen_capture])
         AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
         SCREEN_CAP_OBJ="src/video_capture/screen.o"

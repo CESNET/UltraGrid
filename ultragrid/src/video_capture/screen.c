@@ -68,11 +68,14 @@
 #include "video_display.h"
 #include "video.h"
 
-#include <GL/glew.h>
-
 #include <pthread.h>
 
-#ifndef HAVE_MACOSX
+#ifdef HAVE_MACOSX
+#include <OpenGL/OpenGL.h>
+#include <OpenGL/gl.h>
+#include <Carbon/Carbon.h>
+#else
+#include <GL/glew.h>
 #include <X11/Xlib.h>
 #include <GL/glx.h>
 #include "x11_common.h"
@@ -94,13 +97,10 @@ static void show_help(void);
 
 static void show_help()
 {
-#if 0
-        printf("Aggregate capture\n");
+        printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t aggregate:<dev1_config>#<dev2_config>[#....]\n");
-        printf("\t\twhere devn_config is a complete configuration string of device involved in an aggregate device\n");
-#endif
-
+        printf("\t-t screen[:<fps>]\n");
+        printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
 }
 
 /* defined in main.c */
@@ -114,19 +114,27 @@ struct vidcap_screen_state {
         struct tile       *tile; 
         int frames;
         struct       timeval t, t0;
+#ifdef HAVE_MACOSX
+        CGDirectDisplayID display;
+#else
         Display *dpy;
         Window root;
         GLXContext glc;
+#endif
 
         GLuint tex;
         GLuint tex_out;
         GLuint fbo;
+
+        struct timeval prev_time;
+
+        double fps;
 };
 
 pthread_once_t initialized = PTHREAD_ONCE_INIT;
 
 static void initialize() {
-	struct vidcap_screen_state *s = (struct vidcap_aggregate_state *) state;
+        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
 
 #ifndef HAVE_MACOSX
@@ -153,24 +161,15 @@ static void initialize() {
         XGetWindowAttributes(s->dpy, DefaultRootWindow(s->dpy), &xattr);
         s->tile->width = xattr.width;
         s->tile->height = xattr.height;
-#endif
-        
+
         GLenum err = glewInit();
         if (GLEW_OK != err)
         {
-          /* Problem: glewInit failed, something is seriously wrong. */
-          fprintf(stderr, "GLEW Error: %s\n", glewGetErrorString(err));
-          abort();
+                /* Problem: glewInit failed, something is seriously wrong. */
+                fprintf(stderr, "GLEW Error: %s\n", glewGetErrorString(err));
+                abort();
         }
 
-        s->tile->width = 1920;
-        s->tile->height = 1080;
-
-        s->frame->color_spec = RGBA;
-        s->frame->fps = 30;
-        s->frame->interlacing = PROGRESSIVE;
-        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
-        s->tile->data = (char *) malloc(s->tile->data_len);
 
         glEnable(GL_TEXTURE_2D);
 
@@ -182,7 +181,7 @@ static void initialize() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, state->tile->width, state->tile->height,
                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        
+
         glGenTextures(1, &state->tex_out);
         glBindTexture(GL_TEXTURE_2D, state->tex_out);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -198,68 +197,95 @@ static void initialize() {
         glViewport(0, 0, state->tile->width, state->tile->height);
         glDisable(GL_DEPTH_TEST);
 
+#else
+        s->display = CGMainDisplayID();
+        CGImageRef image = CGDisplayCreateImage(s->display);
+
+        s->tile->width = CGImageGetWidth(image);
+        s->tile->height = CGImageGetHeight(image);
+        CFRelease(image);
+#endif
+
+        s->frame->color_spec = RGBA;
+        if(s->fps > 0.0) {
+                s->frame->fps = s->fps;
+        } else {
+                s->frame->fps = 30;
+        }
+        s->frame->interlacing = PROGRESSIVE;
+        s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
+        s->tile->data = (char *) malloc(s->tile->data_len);
+
+        return;
+error:
+        fprintf(stderr, "[Screen cap.] Initialization failed!\n");
 }
 
 
 
-struct vidcap_type *
-vidcap_screen_probe(void)
+struct vidcap_type * vidcap_screen_probe(void)
 {
-	struct vidcap_type*		vt;
-    
-	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
-	if (vt != NULL) {
-		vt->id          = VIDCAP_SCREEN_ID;
-		vt->name        = "screen";
-		vt->description = "Grabbing screen";
-	}
-	return vt;
+        struct vidcap_type*		vt;
+
+        vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
+        if (vt != NULL) {
+                vt->id          = VIDCAP_SCREEN_ID;
+                vt->name        = "screen";
+                vt->description = "Grabbing screen";
+        }
+        return vt;
 }
 
-void *
-vidcap_screen_init(char *init_fmt, unsigned int flags)
+void * vidcap_screen_init(char *init_fmt, unsigned int flags)
 {
-	struct vidcap_screen_state *s;
+        struct vidcap_screen_state *s;
 
-	printf("vidcap_screen_init\n");
+        printf("vidcap_screen_init\n");
 
         UNUSED(flags);
 
 
         state = s = (struct vidcap_screen_state *) malloc(sizeof(struct vidcap_screen_state));
-	if(s == NULL) {
-		printf("Unable to allocate screen capture state\n");
-		return NULL;
-	}
+        if(s == NULL) {
+                printf("Unable to allocate screen capture state\n");
+                return NULL;
+        }
+
+        s->fps = 0.0;
 
         s->frame = NULL;
         s->tile = NULL;
 
+        s->prev_time.tv_sec = 
+                s->prev_time.tv_usec = 0;
+
 
         s->frames = 0;
 
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
-                show_help();
-                return NULL;
+        if(init_fmt) {
+                if (strcmp(init_fmt, "help") == 0) {
+                        show_help();
+                        return NULL;
+                } else {
+                        s->fps = atoi(init_fmt);
+                }
         }
 
-	return s;
+        return s;
 }
 
-void
-vidcap_screen_finish(void *state)
+void vidcap_screen_finish(void *state)
 {
-	struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
+        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
-	assert(s != NULL);
+        assert(s != NULL);
 }
 
-void
-vidcap_screen_done(void *state)
+void vidcap_screen_done(void *state)
 {
-	struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
+        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
-	assert(s != NULL);
+        assert(s != NULL);
 
         if(s->tile) {
                 free(s->tile->data);
@@ -268,37 +294,36 @@ vidcap_screen_done(void *state)
         free(s);
 }
 
-struct video_frame *
-vidcap_screen_grab(void *state, struct audio_frame **audio)
+struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
 {
-	struct vidcap_screen_state *s = (struct vidcap_aggregate_state *) state;
+        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
         pthread_once(&initialized, initialize);
 
         *audio = NULL;
 
+#ifndef HAVE_MACOSX
         glXMakeCurrent(s->dpy, s->root, s->glc);
 
         glDrawBuffer(GL_FRONT);
 
         /*                        
-        glDrawBuffer(GL_FRONT);
-        glx_swap(s->context);
+                                  glDrawBuffer(GL_FRONT);
+                                  glx_swap(s->context);
 
-        GLint ReadBuffer;
-        glGetIntegerv(GL_READ_BUFFER,&ReadBuffer);
-        glPixelStorei(GL_READ_BUFFER,GL_RGB);
-                            
-        GLint PackAlignment;
-        glGetIntegerv(GL_PACK_ALIGNMENT,&PackAlignment); 
-        glPixelStorei(GL_PACK_ALIGNMENT,1);
+                                  GLint ReadBuffer;
+                                  glGetIntegerv(GL_READ_BUFFER,&ReadBuffer);
+                                  glPixelStorei(GL_READ_BUFFER,GL_RGB);
 
-        glPixelStorei(GL_PACK_ALIGNMENT, 3);
-        glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-        glPixelStorei(GL_PACK_SKIP_ROWS, 0);
-        glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
-        */
+                                  GLint PackAlignment;
+                                  glGetIntegerv(GL_PACK_ALIGNMENT,&PackAlignment); 
+                                  glPixelStorei(GL_PACK_ALIGNMENT,1);
 
+                                  glPixelStorei(GL_PACK_ALIGNMENT, 3);
+                                  glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+                                  glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+                                  glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+                                  */
 
         glBindTexture(GL_TEXTURE_2D, s->tex);
 
@@ -331,17 +356,39 @@ vidcap_screen_grab(void *state, struct audio_frame **audio)
         glReadBuffer(GL_COLOR_ATTACHMENT0_EXT); 
 
         glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-static int i;
-if (i++ == -1)  {
-int fd = open("res.rgb", O_CREAT| O_WRONLY, 0666);
-assert(fd != -1);
-write(fd, s->tile->data, s->tile->data_len);
-close(fd); abort();
-}
-
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
+
+#else
+        CGImageRef image = CGDisplayCreateImage(s->display);
+        CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
+        char *pixels = CFDataGetBytePtr(data);
+
+        int linesize = s->tile->width * 4;
+        int y;
+        unsigned char *dst = s->tile->data;
+        unsigned char *src = pixels;
+        for(y = 0; y < s->tile->height; ++y) {
+                vc_copylineRGBA (dst, src, linesize, 16, 8, 0);
+                src += linesize;
+                dst += linesize;
+        }
+
+        CFRelease(data);
+        CFRelease(image);
+
+#endif
+
+        if(s->fps > 0.0) {
+                struct timeval cur_time;
+
+                gettimeofday(&cur_time, NULL);
+                while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
+                        gettimeofday(&cur_time, NULL);
+                }
+                s->prev_time = cur_time;
+        }
 
         gettimeofday(&s->t, NULL);
         double seconds = tv_diff(s->t, s->t0);        
@@ -354,8 +401,10 @@ close(fd); abort();
 
         s->frames++;
 
+#ifndef HAVE_MACOSX
         glXMakeCurrent(s->dpy, None, NULL);
+#endif
 
-	return s->frame;
+        return s->frame;
 }
 

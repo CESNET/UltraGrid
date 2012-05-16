@@ -36,6 +36,7 @@ uv_datadir = @datadir@/ultragrid/
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
 		src/debug.o \
+		src/gl_context.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
