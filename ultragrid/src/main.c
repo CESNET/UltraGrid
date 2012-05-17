@@ -117,6 +117,7 @@ struct state_uv {
         volatile unsigned int has_item_to_send:1;
         volatile unsigned int sender_waiting:1;
         volatile unsigned int compress_thread_waiting:1;
+        volatile unsigned int should_exit_sender:1;
         pthread_mutex_t sender_lock;
         pthread_cond_t compress_thread_cv;
         pthread_cond_t sender_cv;
@@ -166,6 +167,13 @@ void _exit_uv(int status) {
         if(!threads_joined) {
                 if(uv_state->capture_device) {
                         vidcap_finish(uv_state->capture_device);
+
+                        pthread_mutex_lock(&uv_state->sender_lock);
+                        uv_state->has_item_to_send = FALSE;
+                        if(uv_state->compress_thread_waiting) {
+                                pthread_cond_signal(&uv_state->compress_thread_cv);
+                        }
+                        pthread_mutex_unlock(&uv_state->sender_lock);
                 }
                 if(uv_state->display_device)
                         display_finish(uv_state->display_device);
@@ -533,24 +541,16 @@ static void *receiver_thread(void *arg)
 }
 
 static void sender_finish(struct state_uv *uv) {
-                pthread_mutex_lock(&uv->sender_lock);
+        pthread_mutex_lock(&uv->sender_lock);
 
-                if(uv->sender_waiting) {
-                        uv->has_item_to_send = TRUE;
-                        pthread_cond_signal(&uv->sender_cv);
-                }
+        uv->should_exit_sender = TRUE;
 
-                pthread_mutex_unlock(&uv->sender_lock);
+        if(uv->sender_waiting) {
+                uv->has_item_to_send = TRUE;
+                pthread_cond_signal(&uv->sender_cv);
+        }
 
-                while(uv->sender_waiting)
-                        ;
-
-                pthread_mutex_lock(&uv->sender_lock);
-                uv->has_item_to_send = FALSE;
-                if(uv->compress_thread_waiting) {
-                        pthread_cond_signal(&uv->compress_thread_cv);
-                }
-                pthread_mutex_unlock(&uv->sender_lock);
+        pthread_mutex_unlock(&uv->sender_lock);
 
 }
 
@@ -567,8 +567,12 @@ static void *sender_thread(void *arg) {
                 splitted_frames = vf_alloc(tile_y_count);
         }
 
-        while(!should_exit) {
+        while(!uv->should_exit_sender) {
                 pthread_mutex_lock(&uv->sender_lock);
+                if(uv->should_exit_sender) {
+                        pthread_mutex_unlock(&uv->sender_lock);
+                        goto exit;
+                }
                 while(!uv->has_item_to_send) {
                         uv->sender_waiting = TRUE;
                         pthread_cond_wait(&uv->sender_cv, &uv->sender_lock);
@@ -576,7 +580,7 @@ static void *sender_thread(void *arg) {
                 }
                 struct video_frame *tx_frame = uv->tx_frame;
 
-                if(should_exit) {
+                if(uv->should_exit_sender) {
                         uv->has_item_to_send = FALSE;
                         pthread_mutex_unlock(&uv->sender_lock);
                         goto exit;
@@ -672,6 +676,11 @@ static void *compress_thread(void *arg)
                                         pthread_cond_signal(&uv->sender_cv);
                                 }
 
+                                if(should_exit) {
+                                        pthread_mutex_unlock(&uv->sender_lock);
+                                        goto join_thread;
+                                }
+
                                 while(uv->has_item_to_send) {
                                         uv->compress_thread_waiting = TRUE;
                                         pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
@@ -683,6 +692,10 @@ static void *compress_thread(void *arg)
                          * frames may overlap then */
                         {
                                 pthread_mutex_lock(&uv->sender_lock);
+                                if(should_exit) {
+                                        pthread_mutex_unlock(&uv->sender_lock);
+                                        goto join_thread;
+                                }
                                 while(uv->has_item_to_send) {
                                         uv->compress_thread_waiting = TRUE;
                                         pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
@@ -786,6 +799,7 @@ int main(int argc, char *argv[])
         uv->has_item_to_send = FALSE;
         uv->sender_waiting = FALSE;
         uv->compress_thread_waiting = FALSE;
+        uv->should_exit_sender = FALSE;
         pthread_mutex_init(&uv->sender_lock, NULL);
         pthread_cond_init(&uv->compress_thread_cv, NULL);
         pthread_cond_init(&uv->sender_cv, NULL);

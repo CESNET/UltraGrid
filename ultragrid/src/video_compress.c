@@ -184,7 +184,7 @@ struct compress_state *compress_init(char *config_string)
         
         s = (struct compress_state *) malloc(sizeof(struct compress_state));
         s->handle = NULL;
-        if(strcmp(config_string, "none")) {
+        if(strcmp(config_string, "none") == 0) {
                 s->uncompressed = TRUE;
         } else {
                 s->uncompressed = FALSE;

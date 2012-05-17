@@ -1066,7 +1066,7 @@ int display_gl_putf(void *state, char *frame)
         UNUSED(frame);
 
         if(s->double_buf) {
-                while(!s->processed) 
+                while(!s->processed && !should_exit) 
                         ;
                 s->processed = FALSE;
 
