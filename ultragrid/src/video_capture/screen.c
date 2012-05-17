@@ -64,6 +64,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #include "video_display.h"
 #include "video.h"
@@ -99,7 +100,7 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:<fps>]\n");
+        printf("\t-t screen[:fps=<fps>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
 }
 
@@ -266,8 +267,8 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
                 if (strcmp(init_fmt, "help") == 0) {
                         show_help();
                         return NULL;
-                } else {
-                        s->fps = atoi(init_fmt);
+                } else if (strncasecmp(init_fmt, "fps=", strlen("fps=")) == 0) {
+                        s->fps = atoi(init_fmt + strlen("fps="));
                 }
         }
 
@@ -329,10 +330,10 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
 
         glReadBuffer(GL_FRONT);
 
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, s->tile->height, s->tile->width, s->tile->height);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, s->tile->width, s->tile->height);
         //glCopyTexImage2D(GL_TEXTURE_2D,  0,  GL_RGBA,  0,  0,  s->tile->width,  s->tile->height,  0);
-        glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+        //glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
 
         //gl_check_error();
 
@@ -342,9 +343,6 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
 
         glBindTexture(GL_TEXTURE_2D, s->tex);
-
-        glClearColor(0.5,0,0,0);
-        glClear(GL_COLOR_BUFFER_BIT);
 
         glBegin(GL_QUADS);
         glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, 1.0);
