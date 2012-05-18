@@ -32,6 +32,8 @@
 
 #include "gpujpeg_type.h"
 
+#define GPUJPEG_ORDER_NATURAL_SIZE (64 + 16)
+
 /**
  * JPEG natural order from zigzag order
  * 
@@ -49,9 +51,21 @@
  *   4096 5461 6554 ...      4096 5461 5461 4681 5461 6554 ...
  *   5461 5461 ...       
  *   4681 ...
- *   ...                 
+ *   ...
+ *
+ * Based on http://svn.ghostscript.com/ghostscript/tags/jpeg-6b/jutils.c
+ * additional 16 entries are added.
+ *
+ *  "When reading corrupted data, the Huffman decoders could attempt
+ *   to reference an entry beyond the end of this array (if the decoded
+ *   zero run length reaches past the end of the block).  To prevent
+ *   wild stores without adding an inner-loop test, we put some extra
+ *   "63"s after the real entries.  This will cause the extra coefficient
+ *   to be stored in location 63 of the block, not somewhere random.
+ *   The worst case would be a run-length of 15, which means we need 16
+ *   fake entries."
  */
-static const int gpujpeg_order_natural[64] = {
+static const int gpujpeg_order_natural[GPUJPEG_ORDER_NATURAL_SIZE] = {
      0,  1,  8, 16,  9,  2,  3, 10,
     17, 24, 32, 25, 18, 11,  4,  5,
     12, 19, 26, 33, 40, 48, 41, 34,
@@ -59,7 +73,9 @@ static const int gpujpeg_order_natural[64] = {
     35, 42, 49, 56, 57, 50, 43, 36,
     29, 22, 15, 23, 30, 37, 44, 51,
     58, 59, 52, 45, 38, 31, 39, 46,
-    53, 60, 61, 54, 47, 55, 62, 63
+    53, 60, 61, 54, 47, 55, 62, 63,
+    63, 63, 63, 63, 63, 63, 63, 63, // Extra entries for safety in decoder
+    63, 63, 63, 63, 63, 63, 63, 63
 };
 
 /** JPEG quantization table structure */

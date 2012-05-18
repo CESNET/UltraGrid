@@ -40,7 +40,7 @@ extern struct gpujpeg_table_huffman_encoder (*gpujpeg_encoder_table_huffman)[GPU
 #endif
 
 /** Natural order in constant memory */
-__constant__ int gpujpeg_huffman_gpu_encoder_order_natural[64];
+__constant__ int gpujpeg_huffman_gpu_encoder_order_natural[GPUJPEG_ORDER_NATURAL_SIZE];
 
 /**
  * Write one byte to compressed data
@@ -394,7 +394,7 @@ gpujpeg_huffman_gpu_encoder_init()
     cudaMemcpyToSymbol(
         (const char*)gpujpeg_huffman_gpu_encoder_order_natural,
         gpujpeg_order_natural, 
-        64 * sizeof(int),
+        GPUJPEG_ORDER_NATURAL_SIZE * sizeof(int),
         0,
         cudaMemcpyHostToDevice
     );

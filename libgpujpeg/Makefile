@@ -85,8 +85,19 @@ CFLAGS += $(COMMONFLAGS) -std=c99
 NVCCFLAGS += $(COMMONFLAGS) \
 	-gencode arch=compute_20,code=sm_20 \
 	-gencode arch=compute_13,code=sm_13 \
-	-gencode arch=compute_11,code=sm_11 \
-	-gencode arch=compute_10,code=sm_10
+	-gencode arch=compute_10,code=sm_10 \
+	-gencode arch=compute_10,code=sm_10 \
+
+NVCC_VERSION_MAJOR := $(shell $(NVCC) --version |grep release|sed  's/^.*release \([0-9][0-9]*\).*$$/\1/')
+NVCC_VERSION_MINOR := $(shell $(NVCC) --version |grep release|sed  's/^.*release [0-9][0-9]*\.\([0-9][0-9]*\).*$$/\1/')
+NVCC_VERSION_GE_4_2 := $(shell test $(NVCC_VERSION_MAJOR) -ge 4 -a $(NVCC_VERSION_MINOR) -ge 2 && echo yes)
+
+ifeq ($(NVCC_VERSION_GE_4_2),yes)
+NVCCFLAGS += \
+	-gencode arch=compute_30,code=sm_30 
+endif
+
+
 # Linker flags
 LDFLAGS += -shared
 
