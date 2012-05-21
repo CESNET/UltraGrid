@@ -65,15 +65,9 @@ struct state_scale {
         struct gl_context context;
 
         int scaled_width, scaled_height;
-        codec_t out_codec;
         GLuint tex_input;
         GLuint tex_output;
         GLuint fbo;
-
-        char *decoded;
-
-
-        decoder_t decoder;
 };
 
 void scale_get_supported_codecs(codec_t ** supported_codecs, int *count)
@@ -116,7 +110,7 @@ void * scale_init(char *config) {
         s->scaled_height = atoi(ptr);
 
         assert(s != NULL);
-        s->in = vf_alloc(1);
+        s->in = NULL;
 
         init_gl_context(&s->context, GL_CONTEXT_LEGACY);
         gl_context_make_current(&s->context);
@@ -139,89 +133,70 @@ void * scale_init(char *config) {
 
         glGenFramebuffers(1, &s->fbo);
 
-        s->decoded = NULL;
-
-        
         return s;
 }
 
 int scale_reconfigure(void *state, struct video_desc desc)
 {
         struct state_scale *s = (struct state_scale *) state;
-        struct tile *in_tile = vf_get_tile(s->in, 0);
+        struct tile *in_tile;
+        int i;
+        int width, height;
 
-        free(s->decoded);
-
-        switch(desc.color_spec) {
-                case RGB:
-                        s->decoder = (decoder_t) vc_copylineRGBtoRGBA;
-                        s->out_codec = RGBA;
-                case RGBA:
-                        s->decoder = (decoder_t) memcpy;
-                        s->out_codec = RGBA;
-                        break;
-                case R10k:
-                        s->decoder = (decoder_t) vc_copyliner10k;
-                        s->out_codec = RGBA;
-                        break;
-                case UYVY:
-                case Vuy2:
-                case DVS8:
-                        s->decoder = (decoder_t) memcpy;
-                        s->out_codec = UYVY;
-                        break;
-                case v210:
-                        s->decoder = (decoder_t) vc_copylinev210;
-                        s->out_codec = UYVY;
-                        break;
-                case DVS10:
-                        s->decoder = (decoder_t) vc_copylineDVS10;
-                        s->out_codec = UYVY;
-                        break;
-                case DPX10:        
-                        s->decoder = (decoder_t) vc_copylineDPX10toRGB;
-                        s->out_codec = UYVY;
-                        break;
-                default:
-                        fprintf(stderr, "[scale] Unknown codec: %d\n", desc.color_spec);
-                        exit_uv(128);
-                        return FALSE;
-
+        if(s->in) {
+                int i;
+                for(i = 0; i < (int) s->in->tile_count; ++i) {
+                        free(s->in->tiles[0].data);
+                }
+                vf_free(s->in);
         }
 
-        s->decoded = (char *) malloc(vc_get_linesize(desc.width, s->out_codec) * desc.height);
+        s->in = vf_alloc(desc.tile_count);
 
-        
+
         s->in->color_spec = desc.color_spec;
         s->in->fps = desc.fps;
         s->in->interlacing = desc.interlacing;
 
-        in_tile->width = desc.width;
-        in_tile->height = desc.height;
+        for(i = 0; i < (int) desc.tile_count; ++i) {
+                in_tile = vf_get_tile(s->in, i);
+                in_tile->width = desc.width;
+                in_tile->height = desc.height;
 
-        in_tile->linesize = vc_get_linesize(desc.width, desc.color_spec);
-        in_tile->data_len = in_tile->linesize * desc.height;
-        in_tile->data = malloc(in_tile->data_len);
+                in_tile->linesize = vc_get_linesize(desc.width, desc.color_spec);
+                in_tile->data_len = in_tile->linesize * desc.height;
+                in_tile->data = malloc(in_tile->data_len);
+        }
 
         gl_context_make_current(&s->context);
 
         glBindTexture(GL_TEXTURE_2D, s->tex_input);
-        if(s->out_codec == RGBA) {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, in_tile->width, in_tile->height,
-                                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        } else {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, in_tile->width / 2, in_tile->height,
-                                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        width = in_tile->width;
+        height = in_tile->height;
+        if(s->in->color_spec == UYVY) {
+                width /= 2;
         }
+        if(s->in->interlacing == INTERLACED_MERGED) {
+                width *= 2;
+                height /= 2;
+        }
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+
 
         glBindTexture(GL_TEXTURE_2D, s->tex_output);
-        if(s->out_codec == RGBA) {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, s->scaled_width, s->scaled_height,
-                                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        } else {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, s->scaled_width / 2, s->scaled_height,
-                                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        width = s->scaled_width;
+        height = s->scaled_height;
+        if(s->in->color_spec == UYVY) {
+                width /= 2;
         }
+        if(s->in->interlacing == INTERLACED_MERGED) {
+                width *= 2;
+                height /= 2;
+        }
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
 
         return TRUE;
@@ -237,54 +212,89 @@ struct video_frame * scale_getf(void *state)
 void scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_scale *s = (struct state_scale *) state;
-        int y;
-        unsigned char *line1, *line2;
+        int i;
+        int width, height;
+
+        int src_linesize = vc_get_linesize(out->tiles[0].width, out->color_spec);
+
+        char *tmp_data = NULL;
+
+        if(req_pitch != src_linesize) {
+                tmp_data = malloc(src_linesize *
+                                out->tiles[0].height);
+        }
 
         gl_context_make_current(&s->context);
 
-        struct tile *in_tile = vf_get_tile(in, 0);
+        for(i = 0; i < (int) in->tile_count; ++i) {
+                struct tile *in_tile = vf_get_tile(s->in, i);
 
-        line1 = in_tile->data;
-        line2 = s->decoded;
+                glBindTexture(GL_TEXTURE_2D, s->tex_input);
+                width = in_tile->width;
+                height = in_tile->height;
+                if(s->in->color_spec == UYVY) {
+                        width /= 2;
+                }
+                if(s->in->interlacing == INTERLACED_MERGED) {
+                        width *= 2;
+                        height /= 2;
+                }
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
+                                GL_RGBA, GL_UNSIGNED_BYTE, in_tile->data); 
 
-        for(y = 0; y < in_tile->height; ++y) {
-                int out_linesize = vc_get_linesize(in_tile->width, s->out_codec);
+                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_output, 0);
 
-                s->decoder(line2, line1, out_linesize, 0, 8, 16);
-                line1 += vc_get_linesize(in_tile->width, in->color_spec);
-                line2 += out_linesize;
+                width = s->scaled_width;
+                height = s->scaled_height;
+                if(s->in->color_spec == UYVY) {
+                        width /= 2;
+                }
+                if(s->in->interlacing == INTERLACED_MERGED) {
+                        width *= 2;
+                        height /= 2;
+                }
+                glViewport(0, 0, width, height);
+                glBindTexture(GL_TEXTURE_2D, s->tex_input);
+
+                glClearColor(1,0,0,1);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                glBegin(GL_QUADS);
+                glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                glEnd();
+
+                glBindTexture(GL_TEXTURE_2D, s->tex_output);
+                if(tmp_data) { /* we need to change pitch */
+                        int y;
+                        glReadPixels(0, 0, width , height, GL_RGBA, GL_UNSIGNED_BYTE, tmp_data);
+                        char *src = tmp_data;
+                        char *dst = out->tiles[i].data;
+                        for (y = 0; y < out->tiles[i].height; y += 1) {
+                                memcpy(dst, src, src_linesize);
+                                dst += req_pitch;
+                                src += src_linesize;
+                        }
+                } else {
+                        glReadPixels(0, 0, width , height, GL_RGBA, GL_UNSIGNED_BYTE, out->tiles[i].data);
+                }
         }
 
-        glBindTexture(GL_TEXTURE_2D, s->tex_input);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, in->tiles[0].width / (s->out_codec == UYVY ? 2 : 1), in->tiles[0].height,
-                        GL_RGBA, GL_UNSIGNED_BYTE, s->decoded); 
-
-        glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_output, 0);
-
-        glViewport(0, 0, s->scaled_width / (s->out_codec == UYVY ? 2 : 1), s->scaled_height);
-        glBindTexture(GL_TEXTURE_2D, s->tex_input);
-
-        glClearColor(1,0,0,1);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-        glEnd();
-
-        glBindTexture(GL_TEXTURE_2D, s->tex_output);
-        glReadPixels(0, 0, s->scaled_width / (s->out_codec == UYVY ? 2 : 1), s->scaled_height, GL_RGBA, GL_UNSIGNED_BYTE, out->tiles[0].data);
+        free(tmp_data);
 }
 
 void scale_done(void *state)
 {
         struct state_scale *s = (struct state_scale *) state;
 
-        if(s->in->tiles[0].data) 
-                free(s->in->tiles[0].data);
+        glDeleteTextures(1, &s->tex_input);
+        glDeleteTextures(1, &s->tex_output);
+        glDeleteFramebuffers(1, &s->fbo);
+
+        free(s->in->tiles[0].data);
 
         vf_free(s->in);
 
@@ -299,7 +309,7 @@ void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mod
 
         out->width = s->scaled_width;
         out->height = s->scaled_height;
-        out->color_spec = s->out_codec;
+        out->color_spec = s->in->color_spec;
         out->interlacing = s->in->interlacing;
         out->fps = s->in->fps;
         out->tile_count = 1;
