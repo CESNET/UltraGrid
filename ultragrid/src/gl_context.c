@@ -25,7 +25,9 @@ void init_gl_context(struct gl_context *context, int which) {
                 context->legacy = FALSE;
         }
         if(!context->context) {
-                fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
+                if(which != GL_CONTEXT_LEGACY) {
+                        fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
+                }
                 context->context = glx_init(OPENGL_VERSION_UNSPECIFIED);
                 context->legacy = TRUE;
         }
