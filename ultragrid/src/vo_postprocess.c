@@ -55,6 +55,7 @@
 #include "vo_postprocess.h"
 #include "vo_postprocess/3d-interlaced.h"
 #include "vo_postprocess/split.h"
+#include "vo_postprocess/scale.h"
 #include "vo_postprocess/double-framerate.h"
 
 struct vo_postprocess_t {
@@ -63,6 +64,7 @@ struct vo_postprocess_t {
         vo_postprocess_reconfigure_t reconfigure;
         vo_postprocess_getf_t getf;
         vo_postprocess_get_out_desc_t get_out_desc;
+        vo_postprocess_get_supported_codecs_t get_supported_codecs;
         vo_postprocess_t vo_postprocess;
         vo_postprocess_done_t done;
 };
@@ -75,13 +77,20 @@ struct vo_postprocess_state {
 struct vo_postprocess_t vo_postprocess_modules[] = {
         {"3d-interlaced", interlaced_3d_init, interlaced_3d_postprocess_reconfigure, 
                         interlaced_3d_getf, interlaced_3d_get_out_desc,
+                        interlaced_3d_get_supported_codecs,
                         interlaced_3d_postprocess, interlaced_3d_done },
         {"split", split_init, split_postprocess_reconfigure, 
                         split_getf, split_get_out_desc,
+                        split_get_supported_codecs,
                         split_postprocess, split_done },
         {"double-framerate", df_init, df_reconfigure, 
                         df_getf, df_get_out_desc,
+                        df_get_supported_codecs,
                         df_postprocess, df_done },
+        {"scale", scale_init, scale_reconfigure, 
+                        scale_getf, scale_get_out_desc,
+                        scale_get_supported_codecs,
+                        scale_postprocess, scale_done },
         {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
@@ -167,5 +176,10 @@ void vo_postprocess_done(struct vo_postprocess_state *s)
 void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_desc *out, int *display_mode, int *out_frames_count)
 {
         if(s) s->handle->get_out_desc(s->state, out, display_mode, out_frames_count);
+}
+
+void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *s, codec_t ** supported_codecs, int *count)
+{
+        if(s) s->handle->get_supported_codecs(supported_codecs, count);
 }
 

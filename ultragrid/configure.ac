@@ -1,4 +1,4 @@
-dnl Process this file with autoconf to produce a configure script.
+scalednl Process this file with autoconf to produce a configure script.
 
 AC_INIT([UltraGrid], [1.1-rc3], [ultragrid-dev@cesnet.cz])
 AM_INIT_AUTOMAKE([1.10])
@@ -1463,6 +1463,49 @@ AC_SUBST(COREAUDIO_OBJ)
 
 
 # -------------------------------------------------------------------------------------------------
+# Scale Stuff
+SCALE_INC=
+SCALE_LIB=
+SCALE_OBJ=
+scale=no
+
+AC_ARG_ENABLE(scale, 
+      AS_HELP_STRING([--disable-scale], [disable scale support(default is auto)]), 
+    [scale_req=$enableval],
+    [scale_req=yes]
+    )
+
+case $host_os in
+	*darwin*)
+		if test $scale_req = yes
+		then
+                        scale=yes
+                        SCALE_LIB+=" -framework OpenGL -framework Cocoa"
+                        SCALE_OBJ+="src/vo_postprocess/scale.o"
+		else
+                        scale=no
+		fi
+        ;;
+        *)
+		if test $scale_req = yes -a $ac_cv_header_GL_glew_h = yes -a $ac_cv_lib_GLEW_glewInit \
+                        -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
+                        $ac_cv_lib_GL_glBindTexture = yes
+		then
+                        scale=yes
+                        SCALE_LIB+=" -lGL -lGLEW"
+                        SCALE_OBJ+="src/vo_postprocess/scale.o"
+		else
+                        scale=no
+		fi
+    ;;
+esac
+
+AC_SUBST(SCALE_INC)
+AC_SUBST(SCALE_LIB)
+AC_SUBST(SCALE_OBJ)
+
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 
 # this is only needed when passing to "clean" make target
@@ -1524,5 +1567,7 @@ Configuration summary:
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg
+
+  scale postprocessor ......... $scale
 ])
 

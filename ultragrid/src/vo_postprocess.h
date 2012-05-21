@@ -62,6 +62,7 @@ typedef  void *(*vo_postprocess_init_t)(char *cfg);
 typedef  int (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
 typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
 typedef void (*vo_postprocess_get_out_desc_t)(void *, struct video_desc *out, int *display_mode, int *out_frame_count);
+typedef void (*vo_postprocess_get_supported_codecs_t)(codec_t ** supported_codecs, int *count);
 
 /**
  * Postprocesses video frame
@@ -81,6 +82,16 @@ struct vo_postprocess_state *vo_postprocess_init(char *config_string);
 int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);
 void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_desc *out, int *display_mode, int *out_frames_count);
+
+/**
+ * Returns supported codecs
+ *
+ * @param supported_codecs output list of supported codecs
+ *                         if NULL, this postprocessor is codec agnostic
+ * @param count count of codecs
+ */
+void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *, codec_t ** supported_codecs, int *count);
+
 void vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct video_frame*, int req_pitch);
 void vo_postprocess_done(struct vo_postprocess_state *s);
 

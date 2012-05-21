@@ -61,6 +61,7 @@ struct state_decoder;
 struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
                                 struct video_frame *frame);
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
+void restrict_returned_codecs(codec_t *display_codecs, size_t *display_codecs_count, codec_t *pp_codecs, int pp_codecs_count);
 
 enum decoder_type_t {
         UNSET,
@@ -173,6 +174,30 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         return s;
 }
 
+void restrict_returned_codecs(codec_t *display_codecs, size_t *display_codecs_count, codec_t *pp_codecs, int pp_codecs_count)
+{
+        int i;
+
+        for (i = 0; i < (int) *display_codecs_count; ++i) {
+                int j;
+
+                int found = FALSE;
+
+                for (j = 0; j < pp_codecs_count; ++j) {
+                        if(display_codecs[i] == pp_codecs[j]) {
+                                found = TRUE;
+                        }
+                }
+
+                if(!found) {
+                        memmove(&display_codecs[i], (const void *) &display_codecs[i + 1],
+                                        sizeof(codec_t) * (*display_codecs_count - i - 1));
+                        --*display_codecs_count;
+                        --i;
+                }
+        }
+}
+
 void decoder_register_video_display(struct state_decoder *decoder, struct display *display)
 {
         int ret, i;
@@ -194,6 +219,15 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
         for(i = 0; i < (int) decoder->native_count; ++i) {
                 assert(decoder->native_codecs[i] != Vuy2 &&
                                 decoder->native_codecs[i] != DVS8);
+        }
+
+        if(decoder->postprocess) {
+                codec_t *postprocess_supported_codecs;
+                int count;
+                vo_postprocess_get_supported_codecs(decoder->postprocess, &postprocess_supported_codecs, &count);
+
+                if(postprocess_supported_codecs)
+                        restrict_returned_codecs(decoder->native_codecs, &decoder->native_count, postprocess_supported_codecs, count);
         }
 
 

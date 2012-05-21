@@ -59,6 +59,13 @@ struct state_interlaced_3d {
         struct video_frame *in;
 };
 
+void interlaced_3d_get_supported_codecs(codec_t ** supported_codecs, int *count)
+{
+        *supported_codecs = NULL;
+        *count = -1;
+}
+
+
 void * interlaced_3d_init(char *config) {
         struct state_interlaced_3d *s;
         

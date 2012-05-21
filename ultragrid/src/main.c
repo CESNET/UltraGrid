@@ -457,7 +457,7 @@ static void *receiver_thread(void *arg)
         initialize_video_decompress();
         pbuf_data.decoder = decoder_init(uv->decoder_mode, uv->postprocess);
         if(!pbuf_data.decoder) {
-                fprintf(stderr, "Error initializing decoder ('-M' option).\n");
+                fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option).\n");
                 exit_uv(1);
         } else {
                 decoder_register_video_display(pbuf_data.decoder, uv->display_device);
@@ -569,11 +569,8 @@ static void *sender_thread(void *arg) {
 
         while(!uv->should_exit_sender) {
                 pthread_mutex_lock(&uv->sender_lock);
-                if(uv->should_exit_sender) {
-                        pthread_mutex_unlock(&uv->sender_lock);
-                        goto exit;
-                }
-                while(!uv->has_item_to_send) {
+
+                while(!uv->has_item_to_send && !uv->should_exit_sender) {
                         uv->sender_waiting = TRUE;
                         pthread_cond_wait(&uv->sender_cv, &uv->sender_lock);
                         uv->sender_waiting = FALSE;

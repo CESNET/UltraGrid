@@ -15,12 +15,15 @@
 
 #include "gl_context.h"
 
-void init_gl_context(struct gl_context *context) {
+void init_gl_context(struct gl_context *context, int which) {
 #ifndef HAVE_MACOSX
         x11_enter_thread();
-        printf("Trying OpenGL 3.1 first.\n");
-        context->context = glx_init(MK_OPENGL_VERSION(3,1));
-        context->legacy = FALSE;
+        context->context = NULL;
+        if(which == GL_CONTEXT_ANY) {
+                printf("Trying OpenGL 3.1 first.\n");
+                context->context = glx_init(MK_OPENGL_VERSION(3,1));
+                context->legacy = FALSE;
+        }
         if(!context->context) {
                 fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
                 context->context = glx_init(OPENGL_VERSION_UNSPECIFIED);
@@ -31,13 +34,15 @@ void init_gl_context(struct gl_context *context) {
         }
 #else
         context->context = NULL;
-        if(get_mac_kernel_version_major() >= 11) {
-                printf("[RTDXT] Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
-                context->context = mac_gl_init(MAC_GL_PROFILE_3_2);
-                if(!context->context) {
-                        fprintf(stderr, "[RTDXT] OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
-                } else {
-                        context->legacy = FALSE;
+        if(which == GL_CONTEXT_ANY) {
+                if(get_mac_kernel_version_major() >= 11) {
+                        printf("[RTDXT] Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
+                        context->context = mac_gl_init(MAC_GL_PROFILE_3_2);
+                        if(!context->context) {
+                                fprintf(stderr, "[RTDXT] OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
+                        } else {
+                                context->legacy = FALSE;
+                        }
                 }
         }
 
