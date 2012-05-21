@@ -264,7 +264,7 @@ modules: @LIB_TARGETS@
 
 $(TARGET): $(OBJS) src/main.o 
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) $(CFLAGS) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@

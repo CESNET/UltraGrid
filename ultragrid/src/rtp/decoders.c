@@ -109,7 +109,10 @@ struct state_decoder {
                 };
         };
         codec_t           out_codec;
+        // display or postprocessor
         int               pitch;
+        // display pitch, can differ from previous if we have postprocessor
+        int               display_pitch;
         
         struct {
                 struct vo_postprocess_state *postprocess;
@@ -541,6 +544,12 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                         decoder->pitch = decoder->requested_pitch;
         } else {
                 decoder->pitch = vc_get_linesize(linewidth, out_codec);
+        }
+
+        if(decoder->requested_pitch == PITCH_DEFAULT) {
+                decoder->display_pitch = vc_get_linesize(display_desc.width, out_codec);
+        } else {
+                decoder->display_pitch = decoder->requested_pitch;
         }
 
         int src_x_tiles = get_video_mode_tiles_x(decoder->video_mode);
@@ -1000,14 +1009,14 @@ packet_restored:
                 vo_postprocess(decoder->postprocess,
                                decoder->pp_frame,
                                frame,
-                               decoder->pitch);
+                               decoder->display_pitch);
                 for (i = 1; i < decoder->pp_output_frames_count; ++i) {
                         display_put_frame(decoder->display, (char *) frame);
                         frame = display_get_frame(decoder->display);
                         vo_postprocess(decoder->postprocess,
                                        NULL,
                                        frame,
-                                       decoder->pitch);
+                                       decoder->display_pitch);
                 }
 
                 /* get new postprocess frame */
