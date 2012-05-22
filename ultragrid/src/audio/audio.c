@@ -114,12 +114,12 @@ typedef void (*audio_device_help_t)(void);
 
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
-static struct rtp *initialize_audio_network(char *addr, int port, struct pdb *participants);
+static struct rtp *initialize_audio_network(char *addr, int recv_port, int send_port, struct pdb *participants);
 
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(char *addrs, int port, char *send_cfg, char *recv_cfg, char *jack_cfg)
+struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg, char *jack_cfg)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -152,7 +152,7 @@ struct state_audio * audio_cfg_init(char *addrs, int port, char *send_cfg, char 
         s->audio_participants = pdb_init();
         addr = strtok_r(tmp, ",", &unused);
         if ((s->audio_network_device =
-             initialize_audio_network(addr, port,
+             initialize_audio_network(addr, recv_port, send_port,
                                       s->audio_participants)) ==
             NULL) {
                 printf("Unable to open audio network\n");
@@ -269,12 +269,12 @@ void audio_done(struct state_audio *s)
         }
 }
 
-static struct rtp *initialize_audio_network(char *addr, int port, struct pdb *participants)       // GiX
+static struct rtp *initialize_audio_network(char *addr, int recv_port, int send_port, struct pdb *participants)       // GiX
 {
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
 
-        r = rtp_init(addr, port, port, 255, rtcp_bw, FALSE, rtp_recv_callback,
+        r = rtp_init(addr, recv_port, send_port, 255, rtcp_bw, FALSE, rtp_recv_callback,
                      (void *)participants);
         if (r != NULL) {
                 pdb_add(participants, rtp_my_ssrc(r));

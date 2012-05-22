@@ -91,7 +91,8 @@
 #define PORT_AUDIO              5006
 
 struct state_uv {
-        int port_number;
+        int recv_port_number;
+        int send_port_number;
         struct rtp **network_devices;
         unsigned int connections_count;
         
@@ -214,7 +215,10 @@ static void usage(void)
         printf("\n");
         printf("\t-f <settings>            \tconfig forward error checking, currently \"XOR:<leap>:<nr_streams>\" or \"mult:<nr>\"\n");
         printf("\n");
-        printf("\t-P <port>                \tbase port number, also 3 subsequent ports can be used (default: %d)\n", PORT_BASE);
+        printf("\t-P <port> | <recv_port>:<send_port>\n");
+        printf("\t                         \tbase port number, also 3 subsequent ports can be used for RTCP and audio streams. Default: %d.\n", PORT_BASE);
+        printf("\t                         \tIf one given, it will be used for both sending and receiving, if two, first one\n");
+        printf("\t                         \twill be used for receiving, second one for sending.\n");
         printf("\n");
         printf("\t-l <limit_bitrate> \tlimit sending bitrate (aggregate)\n");
         printf("\t                   \tto limit_bitrate Mb/s\n");
@@ -323,7 +327,7 @@ struct vidcap *initialize_video_capture(const char *requested_capture,
         return vidcap_init(id, fmt, flags);
 }
 
-static struct rtp **initialize_network(char *addrs, int port_base, struct pdb *participants)
+static struct rtp **initialize_network(char *addrs, int recv_port_base, int send_port_base, struct pdb *participants)
 {
 	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
@@ -332,7 +336,8 @@ static struct rtp **initialize_network(char *addrs, int port_base, struct pdb *p
 	char *addr;
 	char *tmp;
 	int required_connections, index;
-        int port = port_base;
+        int recv_port = recv_port_base;
+        int send_port = send_port_base;
 
 	tmp = strdup(addrs);
 	if(strtok_r(tmp, ",", &saveptr) == NULL) {
@@ -351,11 +356,15 @@ static struct rtp **initialize_network(char *addrs, int port_base, struct pdb *p
 
 	for(index = 0, addr = strtok_r(addrs, ",", &saveptr); 
 		index < required_connections;
-		++index, addr = strtok_r(NULL, ",", &saveptr), port += 2)
+		++index, addr = strtok_r(NULL, ",", &saveptr), recv_port += 2, send_port += 2)
 	{
-                if (port == PORT_AUDIO)
-                        port += 2;
-		devices[index] = rtp_init(addr, port, port, ttl, rtcp_bw, 
+                /* port + 2 is reserved for audio */
+                if (recv_port == recv_port_base + 2)
+                        recv_port += 2;
+                if (send_port == send_port_base + 2)
+                        send_port += 2;
+
+		devices[index] = rtp_init(addr, recv_port, send_port, ttl, rtcp_bw, 
                                 FALSE, rtp_recv_callback, 
                                 (void *)participants);
 		if (devices[index] != NULL) {
@@ -791,7 +800,9 @@ int main(int argc, char *argv[])
         uv->participants = NULL;
         uv->tx = NULL;
         uv->network_devices = NULL;
-        uv->port_number = PORT_BASE;
+        uv->recv_port_number =
+                uv->send_port_number =
+                PORT_BASE;
 
         uv->has_item_to_send = FALSE;
         uv->sender_waiting = FALSE;
@@ -865,7 +876,15 @@ int main(int argc, char *argv[])
 			usage();
 			return 0;
                 case 'P':
-                        uv->port_number = atoi(optarg);
+                        if(strchr(optarg, ':')) {
+                                char *save_ptr = NULL;
+                                uv->recv_port_number = atoi(strtok_r(optarg, ":", &save_ptr));
+                                uv->send_port_number = atoi(strtok_r(NULL, ":", &save_ptr));
+                        } else {
+                                uv->recv_port_number =
+                                        uv->send_port_number =
+                                        atoi(optarg);
+                        }
                         break;
                 case 'l':
                         bitrate = atoi(optarg);
@@ -916,7 +935,7 @@ int main(int argc, char *argv[])
                 }
         }
 
-        uv->audio = audio_cfg_init (network_device, uv->port_number + 2, audio_send, audio_recv, jack_cfg);
+        uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg);
         if(!uv->audio)
                 goto cleanup;
 
@@ -1036,7 +1055,7 @@ int main(int argc, char *argv[])
                         sleep(1);
         } else {
                 if ((uv->network_devices =
-                     initialize_network(network_device, uv->port_number, uv->participants)) == NULL) {
+                     initialize_network(network_device, uv->recv_port_number, uv->send_port_number, uv->participants)) == NULL) {
                         printf("Unable to open network\n");
                         exit_uv(EXIT_FAIL_NETWORK);
                         goto cleanup_wait_display;
