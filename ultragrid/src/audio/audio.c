@@ -296,6 +296,7 @@ static void *audio_receiver_thread(void *arg)
         struct pbuf_audio_data pbuf_data;
 
         pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
+        pbuf_data.decoder = audio_decoder_init();
         pbuf_data.audio_state = s;
         pbuf_data.saved_channels = pbuf_data.saved_bps = pbuf_data.saved_sample_rate = 0;
                 
@@ -333,6 +334,8 @@ static void *audio_receiver_thread(void *arg)
 #endif
                 }
         }
+
+        audio_decoder_destroy(pbuf_data.decoder);
 
         return NULL;
 }

@@ -67,6 +67,31 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 
+#define AUDIO_DECODER_MAGIC 0x12ab332bu
+struct state_audio_decoder {
+        uint32_t magic;
+};
+
+void *audio_decoder_init(void)
+{
+        struct state_audio_decoder *s;
+
+        s = (struct state_audio_decoder *) malloc(sizeof(struct state_audio_decoder));
+        s->magic = AUDIO_DECODER_MAGIC;
+
+        return s;
+}
+
+void audio_decoder_destroy(void *state)
+{
+        struct state_audio_decoder *s = (struct state_audio_decoder *) state;
+
+        assert(s != NULL);
+        assert(s->magic == AUDIO_DECODER_MAGIC);
+
+        free(s);
+}
+
 int decode_audio_frame(struct coded_data *cdata, void *data)
 {
         struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;

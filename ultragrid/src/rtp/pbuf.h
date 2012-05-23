@@ -84,6 +84,7 @@ struct pbuf_video_data {
 
 struct pbuf_audio_data {
         audio_frame *buffer;
+        struct state_audio_decoder *decoder;
         struct state_audio *audio_state;
         int saved_channels;
         int saved_bps;
