@@ -1257,11 +1257,17 @@ PORTAUDIO_LIB=
 PORTAUDIO_CAP_OBJ=
 PORTAUDIO_PLAY_OBJ=
 portaudio=no
+portaudio_static=no
 
 AC_ARG_ENABLE(portaudio, 
       AS_HELP_STRING([--disable-portaudio], [disable Portaudio (default is auto)]), 
 	[portaudio_req=$enableval],
         [portaudio_req=yes])
+
+AC_ARG_ENABLE(portaudio-static, 
+      AS_HELP_STRING([--enable-portaudio-static], [link with static Portaudio instance even if dynamic libraries are present]), 
+	[portaudio_static=$enableval],
+        [portaudio_static=no])
 
 AC_ARG_WITH(portaudio,
 	[  --with-portaudio=DIR    specify location of Portaudio],
@@ -1270,31 +1276,59 @@ AC_ARG_WITH(portaudio,
 	[PORTAUDIO_INC=${PARENT}/portaudio/include
 	 PORTAUDIO_LIB=${PARENT}/portaudio/lib/.libs])
 
-AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
-AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
-#AC_CHECK_LIB(portaudio, Pa_Initialize, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no, -L${PORTAUDIO_LIB})
-
-if test $portaudio_req = yes -a $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
+# first look for dynamic libraries
+if test $portaudio_static = no
 then
-    PORTAUDIO_INC=-I${PORTAUDIO_INC}
-    # we have now portaudio linked statically
-    # TODO: consider linking it dynamically
-    PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
-    # libs taken from .pc file won't work - there are missing some optional dependencies, eg. jack
-    PORTAUDIO_LIB+=" `( . ../portaudio/lib/libportaudio.la ; echo $inherited_linker_flags $dependency_libs | sed 's/\/usr\/lib\/lib\(.*\)\.la/-l\1/')`"
-    CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
-    PORTAUDIO_CAP_OBJ="src/audio/capture/portaudio.o"
-    PORTAUDIO_PLAY_OBJ="src/audio/playback/portaudio.o"
-    AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
-    portaudio=yes
-    AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/acap_portaudio.so.$audio_capture_abi_version")
-    AC_SUBST(PORTAUDIO_PLAY_LIB_TARGET, "lib/ultragrid/aplay_portaudio.so.$audio_playback_abi_version")
-else
-    PORTAUDIO_INC=
-    PORTAUDIO_LIB=
-    PORTAUDIO_CAP_OBJ=
-    PORTAUDIO_PLAY_OBJ=
+        SAVED_LIBS=$LIBS
+
+        AC_CHECK_HEADER(portaudio.h)
+        AC_CHECK_LIB(portaudio, Pa_WriteStream) # this is relevant, it is an additional API, standard are callbacks
+        LIBS=$SAVED_LIBS
+
+        if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes
+        then
+                PORTAUDIO_LIB='-lportaudio'
+                portaudio=yes
+        else
+                # try static
+                portaudio_static=yes
+        fi
 fi
+
+
+if test $portaudio_static = no
+then
+        AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
+        AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
+        #AC_CHECK_LIB(portaudio, Pa_Initialize, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no, -L${PORTAUDIO_LIB})
+
+        if test $portaudio_req = yes -a $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
+        then
+            PORTAUDIO_INC=-I${PORTAUDIO_INC}
+            # we have now portaudio linked statically
+            # TODO: consider linking it dynamically
+            PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
+            # libs taken from .pc file won't work - there are missing some optional dependencies, eg. jack
+            PORTAUDIO_LIB+=" `( . ../portaudio/lib/libportaudio.la ; echo $inherited_linker_flags $dependency_libs | sed 's/\/usr\/lib\/lib\(.*\)\.la/-l\1/')`"
+            CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
+            portaudio=yes
+        fi
+fi
+
+if test $portaudio = yes
+then
+            PORTAUDIO_CAP_OBJ="src/audio/capture/portaudio.o"
+            PORTAUDIO_PLAY_OBJ="src/audio/playback/portaudio.o"
+            AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
+            AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/acap_portaudio.so.$audio_capture_abi_version")
+            AC_SUBST(PORTAUDIO_PLAY_LIB_TARGET, "lib/ultragrid/aplay_portaudio.so.$audio_playback_abi_version")
+else
+            PORTAUDIO_INC=
+            PORTAUDIO_LIB=
+            PORTAUDIO_CAP_OBJ=
+            PORTAUDIO_PLAY_OBJ=
+fi
+
 
 AC_SUBST(PORTAUDIO_INC)
 AC_SUBST(PORTAUDIO_LIB)
@@ -1557,7 +1591,7 @@ Configuration summary:
   SDL ......................... $sdl
   screen capture .............. $screen_cap
   
-  Portaudio ................... $portaudio
+  Portaudio ................... $portaudio (static: $portaudio_static)
   ALSA ........................ $alsa
   CoreAudio ................... $coreaudio
   JACK  ....................... $jack
