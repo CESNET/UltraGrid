@@ -60,6 +60,8 @@
 #include "debug.h"
 #include "utils/fs_lock.h"
 
+#define MODULE_NAME "[Portaudio playback] "
+
 struct state_portaudio_playback {
         audio_frame frame;
         int samples;
@@ -194,10 +196,19 @@ void * portaudio_playback_init(char *cfg)
         assert(output_device >= -1);
         s->device = output_device;
         const	PaDeviceInfo *device_info;
-        if(output_device >= 0)
+        if(output_device >= 0) {
                 device_info = Pa_GetDeviceInfo(output_device);
-        else
+        } else {
                 device_info = Pa_GetDeviceInfo(Pa_GetDefaultOutputDevice());
+        }
+        if(device_info == NULL) {
+                fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
+                                MODULE_NAME "Follows list of available Portaudio devices.\n");
+                portaudio_playback_help(NULL);
+                free(s);
+                Pa_Terminate();
+                return NULL;
+        }
 	s->max_output_channels = device_info->maxOutputChannels;
         
         portaudio_reconfigure(s, 16, 2, 48000);

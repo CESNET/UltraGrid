@@ -68,6 +68,8 @@
 #define CHANNELS 2
 #define SECONDS 5
 
+#define MODULE_NAME "[Portaudio capture] "
+
 struct state_portaudio_capture {
         struct audio_frame frame;
         PaStream *stream;
@@ -229,6 +231,15 @@ void * portaudio_capture_init(char *cfg)
 		inputParameters.device = input_device;
                 device_info = Pa_GetDeviceInfo(input_device);
 	}
+
+        if(device_info == NULL) {
+                fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
+                               MODULE_NAME "Follows list of available Portaudio devices.\n");
+                portaudio_playback_help(NULL);
+                free(s);
+                Pa_Terminate();
+                return NULL;
+        }
 
         if(CHANNELS <= device_info->maxInputChannels)
                 inputParameters.channelCount = CHANNELS;
