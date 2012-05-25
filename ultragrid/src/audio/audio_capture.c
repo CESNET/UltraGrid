@@ -61,12 +61,14 @@
 
 
 #include "audio/audio_capture.h" 
-#include "audio/capture/portaudio.h" 
+
 #include "audio/capture/alsa.h" 
 #include "audio/capture/coreaudio.h" 
-#include "audio/capture/none.h" 
 #include "audio/capture/jack.h" 
+#include "audio/capture/none.h" 
+#include "audio/capture/portaudio.h" 
 #include "audio/capture/sdi.h" 
+#include "audio/capture/testcard.h" 
 
 /* vidcap flags */
 #include "video_capture.h"
@@ -184,6 +186,15 @@ static struct audio_capture_t audio_capture_table[] = {
                 NULL
         },
 #endif
+        { "testcard",
+                NULL,
+                MK_STATIC(audio_cap_testcard_help),
+                MK_STATIC(audio_cap_testcard_init),
+                MK_STATIC(audio_cap_testcard_read),
+                MK_STATIC(audio_cap_testcard_finish),
+                MK_STATIC(audio_cap_testcard_done),
+                NULL
+        },
         { "none",
                 NULL,
                 MK_STATIC(audio_cap_none_help),

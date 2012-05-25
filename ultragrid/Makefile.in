@@ -58,6 +58,7 @@ OBJS	      = @OBJS@ \
 		src/audio/audio_playback.o \
 		src/audio/capture/none.o \
 		src/audio/capture/sdi.o \
+		src/audio/capture/testcard.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
 		src/audio/utils.o \
