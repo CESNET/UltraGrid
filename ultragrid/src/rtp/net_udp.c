@@ -489,7 +489,11 @@ error:
 #endif
                         "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
                         "\n***\n\n",
-                        size, size, size * 4, size);
+                        size, size,
+#ifdef HAVE_MACOSX
+                        size * 4,
+#endif /* HAVE_MACOSX */
+                        size);
         return FALSE;
 }
 
