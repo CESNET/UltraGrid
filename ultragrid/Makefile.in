@@ -73,6 +73,7 @@ OBJS	      = @OBJS@ \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
 		src/utils/fs_lock.o \
+		src/utils/packet_counter.o \
 		src/utils/ring_buffer.o \
 		src/video.o \
 		src/video_codec.o \
@@ -288,6 +289,9 @@ src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h
 
 src/utils/autorelease_pool.o: src/utils/autorelease_pool.m src/utils/autorelease_pool.h
 	$(CC) $(CFLAGS) $(INC) -x objective-c -c $< -o $@
+
+src/utils/packet_counter.o: src/utils/packet_counter.cpp src/utils/packet_counter.h
+	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp

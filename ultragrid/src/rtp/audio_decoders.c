@@ -67,9 +67,17 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 
+#include "utils/packet_counter.h"
+
+#include <time.h>
+
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 struct state_audio_decoder {
         uint32_t magic;
+
+        struct timeval t0;
+
+        struct packet_counter *packet_counter;
 };
 
 void *audio_decoder_init(void)
@@ -78,6 +86,9 @@ void *audio_decoder_init(void)
 
         s = (struct state_audio_decoder *) malloc(sizeof(struct state_audio_decoder));
         s->magic = AUDIO_DECODER_MAGIC;
+
+        gettimeofday(&s->t0, NULL);
+        s->packet_counter = NULL;
 
         return s;
 }
@@ -89,6 +100,8 @@ void audio_decoder_destroy(void *state)
         assert(s != NULL);
         assert(s->magic == AUDIO_DECODER_MAGIC);
 
+        packet_counter_destroy(s->packet_counter);
+
         free(s);
 }
 
@@ -96,6 +109,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
 {
         struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
         struct audio_frame *buffer = s->buffer;
+        struct state_audio_decoder *decoder = s->decoder;
 
         int total_channels = 0;
         int bps, sample_rate, channel;
@@ -114,6 +128,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 assert(total_channels > 0);
 
                 channel = (ntohl(hdr->substream_bufnum) >> 22) & 0x3ff;
+                int bufnum = ntohl(hdr->substream_bufnum) & 0x3fffff;
                 sample_rate = ntohl(hdr->quant_sample_rate) & 0x3fffff;
                 bps = (ntohl(hdr->quant_sample_rate) >> 26) / 8;
                 
@@ -122,14 +137,18 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                 s->saved_sample_rate != sample_rate) {
                         if(audio_reconfigure(s->audio_state, bps * 8, total_channels,
                                                 sample_rate) != TRUE) {
-                                fprintf(stderr, "Audio reconfiguration failed!\n");
+                                fprintf(stderr, "Audio reconfiguration failed!");
                                 return FALSE;
                         }
-                        else fprintf(stderr, "Audio reconfiguration succeeded.\n");
+                        else fprintf(stderr, "Audio reconfiguration succeeded.");
+                        fprintf(stderr, " (%d channels, %d bps, %d Hz)\n", total_channels,
+                                        bps, sample_rate);
                         s->saved_channels = total_channels;
                         s->saved_bps = bps;
                         s->saved_sample_rate = sample_rate;
                         buffer = audio_get_frame(s->audio_state);
+                        packet_counter_destroy(decoder->packet_counter);
+                        decoder->packet_counter = packet_counter_init(total_channels);
                 }
                 
                 data = cdata->data->data + sizeof(audio_payload_hdr_t);
@@ -137,6 +156,8 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 int length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
 
                 int offset = ntohl(hdr->offset);
+                //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
+                packet_counter_register_packet(decoder->packet_counter, channel, bufnum, offset, length);
                 if(length * total_channels <= ((int) buffer->max_size) - offset) {
                         mux_channel(buffer->data + offset * total_channels, data, bps, length, total_channels, channel);
                         //memcpy(buffer->data + ntohl(hdr->offset), data, ntohs(hdr->length));
@@ -161,6 +182,22 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 }
                 
                 cdata = cdata->nxt;
+        }
+
+        double seconds;
+        struct timeval t;
+
+        gettimeofday(&t, 0);
+        seconds = tv_diff(t, decoder->t0);
+        if(seconds > 5.0) {
+                int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
+                fprintf(stderr, "[Audio decoder] Received and decoded %u bytes (%d channels, %d samples) in last %f seconds (expected %d).\n",
+                                bytes_received, total_channels,
+                                bytes_received / (bps * total_channels),
+                                seconds,
+                                packet_counter_get_all_bytes(decoder->packet_counter));
+                decoder->t0 = t;
+                packet_counter_clear(decoder->packet_counter);
         }
         
         return TRUE;

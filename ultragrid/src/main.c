@@ -90,6 +90,10 @@
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
 
+/* please see comments before transmit.c:audio_tx_send() */
+/* also note that this actually differs from video */
+#define DEFAULT_AUDIO_FEC       "mult:3"
+
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -510,7 +514,7 @@ static void *receiver_thread(void *arg)
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, uv->curr_time, decode_frame, &pbuf_data, TRUE)) {
+                            (cp->playout_buffer, uv->curr_time, decode_frame, &pbuf_data)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
@@ -935,7 +939,10 @@ int main(int argc, char *argv[])
                 }
         }
 
-        uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg);
+        char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
+        uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg,
+                        tmp_requested_fec);
+        free(tmp_requested_fec);
         if(!uv->audio)
                 goto cleanup;
 

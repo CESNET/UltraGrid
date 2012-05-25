@@ -100,8 +100,10 @@ typedef int decode_frame_t(struct coded_data *cdata, void *decode_data);
  */
 struct pbuf	*pbuf_init(void);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
+int 	 	 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
+                             decode_frame_t decode_func, void *data);
 int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
-                             decode_frame_t decode_func, void *data, int wait_for_playout_time);
+                             decode_frame_t decode_func, void *data);
                              //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
 

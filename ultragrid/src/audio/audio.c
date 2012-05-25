@@ -119,7 +119,7 @@ static struct rtp *initialize_audio_network(char *addr, int recv_port, int send_
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg, char *jack_cfg)
+struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg, char *jack_cfg, char *fec_cfg)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -145,7 +145,8 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         s = calloc(1, sizeof(struct state_audio));
         s->audio_participants = NULL;
         
-        s->tx_session = tx_init(1500, NULL);
+        printf("Using audio FEC: %s\n", fec_cfg);
+        s->tx_session = tx_init(1500, fec_cfg);
         gettimeofday(&s->start_time, NULL);        
         
         tmp = strdup(addrs);
@@ -315,7 +316,7 @@ static void *audio_receiver_thread(void *arg)
                 
                         while (cp != NULL) {
                                 if(pbuf_data.buffer != NULL) {
-                                        if (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data, FALSE)) {
+                                        if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
                                                 audio_playback_put_frame(s->audio_playback_device, pbuf_data.buffer);
                                                 pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
                                         }

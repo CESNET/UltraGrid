@@ -335,13 +335,9 @@ static int frame_complete(struct pbuf_node *frame)
         return (frame->mbit == 1);
 }
 
-/*
- * wait_for_playout parameter specifies if we want to wait for playout time or not
- * (audio case). If not, we play the frame immediatelly after it is complete.
- */
 int
 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
-                             decode_frame_t decode_func, void *data, int wait_for_playout)
+                             decode_frame_t decode_func, void *data)
 {
         /* Find the first complete frame that has reached it's playout */
         /* time, and decode it into the framebuffer. Mark the frame as */
@@ -352,16 +348,46 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
 
         curr = playout_buf->frst;
         while (curr != NULL) {
-                if (!curr->decoded && (!wait_for_playout || tv_gt(curr_time, curr->playout_time))) {
+                if (!curr->decoded && tv_gt(curr_time, curr->playout_time)) {
                         if (frame_complete(curr)) {
                                 int ret = decode_func(curr->cdata, data);
                                 curr->decoded = 1;
                                 return ret;
                         } else {
-                                if(wait_for_playout)
-                                        debug_msg
-                                            ("Unable to decode frame due to missing data (RTP TS=%u)\n",
-                                             curr->rtp_timestamp);
+                                debug_msg
+                                    ("Unable to decode frame due to missing data (RTP TS=%u)\n",
+                                     curr->rtp_timestamp);
+                        }
+                }
+                curr = curr->nxt;
+        }
+        return 0;
+}
+
+int
+audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
+                             decode_frame_t decode_func, void *data)
+{
+        /* Find the first complete frame that has reached it's playout */
+        /* time, and decode it into the framebuffer. Mark the frame as */
+        /* decoded, but otherwise leave it in the playout buffer.      */
+        struct pbuf_node *curr;
+
+        pbuf_validate(playout_buf);
+
+        curr = playout_buf->frst;
+        while (curr != NULL) {
+                /* WARNING: this one differs from video - we need to push audio immediately, because we do
+                 * _not_ know the granularity of audio (typically 256 B for ALSA) which is only small fractal
+                 * of frame time. The current RTP library isn't currently able to keep concurrently more frames.
+                 */
+                UNUSED(curr_time);
+                if (!curr->decoded // && tv_gt(curr_time, curr->playout_time)
+                                ) {
+                        if (frame_complete(curr)) {
+                                int ret = decode_func(curr->cdata, data);
+                                curr->decoded = 1;
+                                return ret;
                         }
                 }
                 curr = curr->nxt;

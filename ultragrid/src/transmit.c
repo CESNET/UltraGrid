@@ -401,6 +401,10 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         return packets;
 }
 
+/* 
+ * This multiplication scheme relies upon the fact, that our RTP/pbuf implementation is
+ * not sensitive to packet duplication. Otherwise, we can get into serious problems.
+ */
 void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 {
         const int pt = 21; /* PT set for audio in our packet format */
@@ -418,7 +422,11 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
         struct timespec start, stop;
 #endif                          /* HAVE_MACOSX */
         long delta;
+        int mult_pos[FEC_MAX_MULT];
+        int mult_index = 0;
+        int mult_first_sent = 0;
         
+
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
 
@@ -426,6 +434,14 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
         {
                 demux_channel(chan_data, buffer->data, buffer->bps, buffer->data_len, buffer->ch_count, channel);
                 pos = 0u;
+
+                if(tx->fec_scheme == FEC_MULT) {
+                        int i;
+                        for (i = 0; i < tx->mult_count; ++i) {
+                                mult_pos[i] = 0;
+                        }
+                        mult_index = 0;
+                }
 
                 uint32_t tmp;
                 tmp = channel << 22; /* bits 0-9 */
@@ -443,6 +459,10 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                 payload_hdr.audio_tag = htonl(1); /* PCM */
 
                 do {
+                        if(tx->fec_scheme == FEC_MULT) {
+                                pos = mult_pos[mult_index];
+                        }
+
                         data = chan_data + pos;
                         data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
                         if(pos + data_len >= (unsigned int) buffer->data_len / buffer->ch_count) {
@@ -455,17 +475,33 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                         
                         GET_STARTTIME;
                         
-                        rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
-                              0,        /* contributing sources length */
-                              (char *) &payload_hdr, sizeof(payload_hdr),
-                              data, data_len,
-                              0, 0, 0);
+                        if(data_len) { /* check needed for FEC_MULT */
+                                rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
+                                      0,        /* contributing sources length */
+                                      (char *) &payload_hdr, sizeof(payload_hdr),
+                                      data, data_len,
+                                      0, 0, 0);
+                        }
+
+                        if(tx->fec_scheme == FEC_MULT) {
+                                mult_pos[mult_index] = pos;
+                                mult_first_sent ++;
+                                if(mult_index != 0 || mult_first_sent >= (tx->mult_count - 1))
+                                                mult_index = (mult_index + 1) % tx->mult_count;
+                        }
+
                         do {
                                 GET_STOPTIME;
                                 GET_DELTA;
                                 if (delta < 0)
                                         delta += 1000000000L;
                         } while (packet_rate - delta > 0);
+
+                        /* when trippling, we need all streams goes to end */
+                        if(tx->fec_scheme == FEC_MULT) {
+                                pos = mult_pos[tx->mult_count - 1];
+                        }
+
                       
                 } while (pos < (unsigned int) buffer->data_len / buffer->ch_count);
         }

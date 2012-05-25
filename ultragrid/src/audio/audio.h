@@ -68,7 +68,7 @@ typedef struct audio_frame
 }
 audio_frame;
 
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg, char *jack_cfg);
+struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg, char *jack_cfg, char *fec_cfg);
 void audio_finish(struct state_audio *s);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);
