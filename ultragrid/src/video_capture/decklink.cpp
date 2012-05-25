@@ -45,6 +45,8 @@
  *
  */
 
+#define MODULE_NAME "[Decklink capture] "
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1064,14 +1066,20 @@ vidcap_decklink_done(void *state)
         for (int i = 0; i < s->devices_cnt; ++i)
         {
 		result = s->state[i].deckLinkInput->StopStreams();
+		if (result != S_OK) {
+			fprintf(stderr, MODULE_NAME "Could not stop stream: %08x\n", (int) result);
+		}
+
                 if(s->grab_audio && i == 0) {
                         result = s->state[i].deckLinkInput->DisableAudioInput();
+                        if (result != S_OK) {
+                                fprintf(stderr, MODULE_NAME "Could disable audio input: %08x\n", (int) result);
+                        }
                 }
 		result = s->state[i].deckLinkInput->DisableVideoInput();
-		if (result != S_OK)
-		{
-			printf("Could not stop stream: %08x\n", (int) result);
-		}
+                if (result != S_OK) {
+                        fprintf(stderr, MODULE_NAME "Could disable video input: %08x\n", (int) result);
+                }
 
 		if(s->state[i].deckLinkInput != NULL)
 		{
