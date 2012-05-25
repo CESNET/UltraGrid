@@ -349,7 +349,7 @@ void dxt_glsl_compress_done(void *arg)
 
         for (i = 0; i < 2; ++i) {
                 if(s->out[i]) {
-                        for (x = 0; x < s->out[i]->tile_count; ++x) {
+                        for (x = 0; x < (int) s->out[i]->tile_count; ++x) {
                                 free(s->out[i]->tiles[x].data);
                         }
                 }

@@ -1082,7 +1082,8 @@ fi
 if test $rtdxt = yes
 then
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
-        RTDXT_COMMON_OBJ+=" ../dxt_compress/dxt_util.o ../dxt_compress/dxt_glsl.h"
+        RTDXT_COMMON_OBJ+=" ../dxt_compress/dxt_util.o"
+        RTDXT_COMMON_HEADERS+="../dxt_compress/dxt_glsl.h"
         RTDXT_COMPRESS_OBJ="../dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="../dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
@@ -1091,6 +1092,7 @@ then
 fi    
 
 AC_SUBST(RTDXT_COMMON_OBJ)
+AC_SUBST(RTDXT_COMMON_HEADERS)
 AC_SUBST(RTDXT_COMPRESS_OBJ)
 AC_SUBST(RTDXT_DECOMPRESS_OBJ)
 AC_SUBST(RTDXT_LIB)
@@ -1271,10 +1273,10 @@ AC_ARG_ENABLE(portaudio-static,
 
 AC_ARG_WITH(portaudio,
 	[  --with-portaudio=DIR    specify location of Portaudio],
-	[PORTAUDIO_INC=$withval/include
-	 PORTAUDIO_LIB=$withval/lib],
-	[PORTAUDIO_INC=${PARENT}/portaudio/include
-	 PORTAUDIO_LIB=${PARENT}/portaudio/lib/.libs])
+	[PORTAUDIO_INC_PATH=$withval/include
+	 PORTAUDIO_LIB_PATH=$withval/lib],
+	[PORTAUDIO_INC_PATH=${PARENT}/portaudio/include
+	 PORTAUDIO_LIB_PATH=${PARENT}/portaudio/lib/.libs])
 
 # first look for dynamic libraries
 if test $portaudio_static = no
@@ -1296,18 +1298,18 @@ then
 fi
 
 
-if test $portaudio_static = no
+if test $portaudio_static = yes
 then
-        AC_CHECK_FILE(${PORTAUDIO_INC}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
-        AC_CHECK_FILE(${PORTAUDIO_LIB}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
+        AC_CHECK_FILE(${PORTAUDIO_INC_PATH}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
+        AC_CHECK_FILE(${PORTAUDIO_LIB_PATH}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
         #AC_CHECK_LIB(portaudio, Pa_Initialize, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no, -L${PORTAUDIO_LIB})
 
         if test $portaudio_req = yes -a $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
         then
-            PORTAUDIO_INC=-I${PORTAUDIO_INC}
+            PORTAUDIO_INC=-I${PORTAUDIO_INC_PATH}
             # we have now portaudio linked statically
             # TODO: consider linking it dynamically
-            PORTAUDIO_LIB="${PORTAUDIO_LIB}/libportaudio.a"
+            PORTAUDIO_LIB="${PORTAUDIO_LIB_PATH}/libportaudio.a"
             # libs taken from .pc file won't work - there are missing some optional dependencies, eg. jack
             PORTAUDIO_LIB+=" `( . ../portaudio/lib/libportaudio.la ; echo $inherited_linker_flags $dependency_libs | sed 's/\/usr\/lib\/lib\(.*\)\.la/-l\1/')`"
             CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
@@ -1547,6 +1549,8 @@ LIB_OBJS="$QUICKTIME_OBJ $SDL_OBJ $GL_OBJ $SAGE_OBJ $TESTCARD_OBJ $TESTCARD2_OBJ
 "$DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ $DVS_CAP_OBJ $DVS_DISP_OBJ $FASTDXT_OBJ $RTDXT_COMPRESS_OBJ $JPEG_COMPRESS_OBJ $RTDXT_COMMON_OBJ $RTDXT_DECOMPRESS_OBJ $JPEG_COMMON_OBJ $JPEG_DECOMPRESS_OBJ "\
 "$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ $SCREEN_CAP_OBJ $DECKLINK_SOUND_PLAY_OBJ"
 
+LIB_HEADERS="$RTDXT_COMMON_HEADERS"
+
 if test "$build_libraries" = yes
 then
         LIB_TARGETS="$SDL_LIB_TARGET $GL_LIB_TARGET $TESTCARD_LIB_TARGET $TESTCARD2_LIB_TARGET $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $QUAD_LIB_TARGET "\
@@ -1557,12 +1561,16 @@ else
         LIBS+=" $GL_LIB $SDL_LIBS $DECKLINK_LIB $DELTACAST_LIB $QUICKTIME_LIB $SAGE_LIB $TESTCARD_LIB $TESTCARD2_LIB $DECKLINK_LIB $DELTACAST_LIB $DVS_LIB $FASTDXT_LIB $RTDXT_LIB $JPEG_LIB $ALSA_LIB "\
 "$PORTAUDIO_LIB $JACK_LIB $SCREEN_CAP_LIB"
         OBJS+=" $LIB_OBJS"
+        HEADERS+=" $LIB_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
+        LIB_HEADERS=
 fi
 
 AC_SUBST(LIB_OBJS)
 AC_SUBST(LIB_TARGETS)
+AC_SUBST(HEADERS)
+AC_SUBST(LIB_HEADERS)
 
 
 # -------------------------------------------------------------------------------------------------

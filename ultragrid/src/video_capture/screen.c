@@ -168,7 +168,7 @@ static void initialize() {
         {
                 /* Problem: glewInit failed, something is seriously wrong. */
                 fprintf(stderr, "GLEW Error: %s\n", glewGetErrorString(err));
-                abort();
+                goto error;
         }
 
 
@@ -220,6 +220,7 @@ static void initialize() {
         return;
 error:
         fprintf(stderr, "[Screen cap.] Initialization failed!\n");
+        exit_uv(128);
 }
 
 

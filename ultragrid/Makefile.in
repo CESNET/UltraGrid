@@ -32,6 +32,7 @@ docdir = @docdir@/ultragrid/
 datarootdir = @datarootdir@
 uv_datadir = @datadir@/ultragrid/
 
+HEADERS	      = @HEADERS@
 
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
@@ -262,7 +263,7 @@ all: $(TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
-$(TARGET): $(OBJS) src/main.o 
+$(TARGET): $(OBJS) src/main.o $(HEADERS)
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
@@ -486,12 +487,12 @@ ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 
 # -------------------------------------------------------------------------------------------------
 clean:
-	-rm -f $(OBJS) src/main.o $(TARGET) src/version.h 
+	-rm -f $(OBJS) $(HEADERS) src/main.o $(TARGET) src/version.h 
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)/Contents/MacOS/$(TARGET)
 	-rm -rf $(PERF) src/uv_perf.o
-	-rm -rf @LIB_OBJS@ @LIB_TARGETS@
+	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
@@ -569,7 +570,7 @@ perf: src/tv.o src/crypto/random.o
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_fastdxt.so.@video_compress_abi_version@ $(FASTDXT_LIB_OBJ) @FASTDXT_LIB@ -o $@
 
-@RTDXT_COMPRESS_LIB_TARGET@: $(RTDXT_COMPRESS_LIB_OBJ)
+@RTDXT_COMPRESS_LIB_TARGET@: $(RTDXT_COMPRESS_LIB_OBJ) @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ $(RTDXT_COMPRESS_LIB_OBJ) @RTDXT_LIB@ -o $@
 
@@ -577,7 +578,7 @@ perf: src/tv.o src/crypto/random.o
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $(JPEG_COMPRESS_LIB_OBJ) @JPEG_LIB@ -o $@
 
-@RTDXT_DECOMPRESS_LIB_TARGET@: $(RTDXT_DECOMPRESS_LIB_OBJ)
+@RTDXT_DECOMPRESS_LIB_TARGET@: $(RTDXT_DECOMPRESS_LIB_OBJ)) @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@ $(RTDXT_DECOMPRESS_LIB_OBJ) @RTDXT_LIB@ -o $@
 

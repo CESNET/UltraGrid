@@ -8,6 +8,7 @@ next
 * inserted packet mirror
 * added possibility to limit sending bitrate
 * added scaling postprocessor
+* can be compiled with Clang/LLVM
 
 1.1rc3
 =====

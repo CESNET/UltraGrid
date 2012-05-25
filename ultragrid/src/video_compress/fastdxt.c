@@ -232,7 +232,7 @@ int reconfigure_compress(struct video_compress *compress, int width, int height,
         return TRUE;
 }
 
-void *fastdxt_init(const char *num_threads_str)
+void *fastdxt_init(char *num_threads_str)
 {
         /* This function does the following:
          * 1. Allocate memory for buffers 
@@ -347,11 +347,11 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
 
         compress->buffer_idx = buffer_idx;
 
-        for (x = 0; x < compress->num_threads; x++) {
+        for (x = 0; x < (unsigned int) compress->num_threads; x++) {
                 platform_sem_post(&compress->thread_compress[x]);
         }
 
-        for (x = 0; x < compress->num_threads; x++) {
+        for (x = 0; x < (unsigned int) compress->num_threads; x++) {
                 platform_sem_wait(&compress->thread_done[x]);
         }
 

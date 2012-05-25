@@ -273,7 +273,7 @@ void scale_postprocess(void *state, struct video_frame *in, struct video_frame *
                         glReadPixels(0, 0, width , height, GL_RGBA, GL_UNSIGNED_BYTE, tmp_data);
                         char *src = tmp_data;
                         char *dst = out->tiles[i].data;
-                        for (y = 0; y < out->tiles[i].height; y += 1) {
+                        for (y = 0; y < (int) out->tiles[i].height; y += 1) {
                                 memcpy(dst, src, src_linesize);
                                 dst += req_pitch;
                                 src += src_linesize;

@@ -814,8 +814,8 @@ void glut_key_callback(unsigned char key, int x, int y)
 
 void display_gl_run(void *arg)
 {
-        struct state_gl        *s = (struct state_gl *) arg;
-        
+        UNUSED(arg);
+
         while(!should_exit) {
                 glut_idle_callback();
 #ifndef HAVE_MACOSX

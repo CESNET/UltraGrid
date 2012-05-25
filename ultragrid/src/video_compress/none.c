@@ -52,6 +52,7 @@
 #include "debug.h"
 #include "host.h"
 #include "video_codec.h"
+#include "none.h"
 
 #include <stdlib.h>
 
@@ -64,6 +65,8 @@ struct none_video_compress {
 
 void * none_compress_init(char * opts)
 {
+        UNUSED(opts);
+
         struct none_video_compress *s;
         
         s = (struct none_video_compress *) malloc(sizeof(struct none_video_compress));
@@ -74,6 +77,7 @@ void * none_compress_init(char * opts)
 
 struct video_frame * none_compress(void *arg, struct video_frame * tx, int buffer_idx)
 {
+        UNUSED(buffer_idx);
         struct none_video_compress *s = (struct none_video_compress *) arg;
 
         assert(s->magic == MAGIC);

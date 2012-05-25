@@ -194,7 +194,7 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                                 (unsigned char *) tmp);
                 line_dst = dst;
                 line_src = tmp;
-                for(i = 0; i < s->desc.height; i++) {
+                for(i = 0; i < (int) s->desc.height; i++) {
                         if(s->out_codec == RGBA) {
                                 vc_copylineRGBA(line_dst, line_src, linesize,
                                                 s->rshift, s->gshift, s->bshift);

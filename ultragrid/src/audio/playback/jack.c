@@ -75,9 +75,9 @@ struct state_jack_playback {
         jack_port_t *output_port[MAX_PORTS];
         struct audio_frame frame;
         char *channel;
-        char *converted;
+        float *converted;
 #ifdef HAVE_SPEEX
-        char *converted_resampled;
+        float *converted_resampled;
         SpeexResamplerState *resampler; 
 #endif
 
@@ -295,7 +295,7 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
         if(s->resampler) {
                 speex_resampler_destroy(s->resampler);
         }
-        s->converted_resampled = malloc(sizeof(float) * s->jack_sample_rate);
+        s->converted_resampled = (float *) malloc(sizeof(float) * s->jack_sample_rate);
 
         {
                 int err;
@@ -308,7 +308,7 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
 #endif
 
         s->channel = malloc(s->frame.bps * sample_rate);
-        s->converted = malloc(sample_rate * sizeof(float));
+        s->converted = (float *) malloc(sample_rate * sizeof(float));
 
         for(i = 0; i < channels; ++i) {
                 s->data[i] = ring_buffer_init(sizeof(float) * s->jack_sample_rate);
@@ -348,19 +348,19 @@ void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
 
         for(i = 0; i < frame->ch_count; ++i) {
                 demux_channel(s->channel, frame->data, frame->bps, frame->data_len, frame->ch_count, i);
-                change_bps(s->converted, sizeof(int32_t), s->channel, frame->bps, channel_size);
-                int2float(s->converted, s->converted, converted_size);
+                change_bps((char *) s->converted, sizeof(int32_t), s->channel, frame->bps, channel_size);
+                int2float((char *) s->converted, (char *) s->converted, converted_size);
 #ifdef HAVE_SPEEX
                 spx_uint32_t in_len = channel_size / frame->bps;
                 spx_uint32_t out_len;
                 speex_resampler_process_float(s->resampler, 
                                            i, 
-                                           (float *) s->converted, 
+                                           s->converted, 
                                            &in_len, 
-                                           (float *) s->converted_resampled, 
+                                           s->converted_resampled, 
                                            &out_len);
                 out_len *= sizeof(float);
-                ring_buffer_write(s->data[i], s->converted_resampled, out_len);
+                ring_buffer_write(s->data[i], (const char *) s->converted_resampled, out_len);
 #else
                 ring_buffer_write(s->data[i], s->converted, converted_size);
 #endif

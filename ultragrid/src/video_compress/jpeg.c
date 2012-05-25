@@ -338,7 +338,7 @@ void jpeg_compress_done(void *arg)
         for (frame_idx = 0; frame_idx < 2; frame_idx++) {
                 if(s->out[frame_idx]) {
                         int x;
-                        for (x = 0; x < s->out[frame_idx]->tile_count; ++x) {
+                        for (x = 0; x < (int) s->out[frame_idx]->tile_count; ++x) {
                                 free(s->out[frame_idx]->tiles[x].data);
                         }
                 }

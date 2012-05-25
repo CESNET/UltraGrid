@@ -201,7 +201,7 @@ enum gpujpeg_marker_code {
  * @param code
  * @return marker name
  */
-static const char* 
+static inline const char* 
 gpujpeg_marker_name(enum gpujpeg_marker_code code)
 {
     switch (code) {

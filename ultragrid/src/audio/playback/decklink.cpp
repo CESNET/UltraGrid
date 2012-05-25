@@ -128,6 +128,7 @@ public:
                         s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame,
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
                         s->frames++;
+                        return S_OK;
         }
         virtual HRESULT         ScheduledPlaybackHasStopped () { return S_OK; } 
         //virtual HRESULT         RenderAudioSamples (bool preroll);

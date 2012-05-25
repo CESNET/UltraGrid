@@ -235,7 +235,7 @@ void * portaudio_capture_init(char *cfg)
         if(device_info == NULL) {
                 fprintf(stderr, MODULE_NAME "Couldn't obtain requested portaudio device.\n"
                                MODULE_NAME "Follows list of available Portaudio devices.\n");
-                portaudio_playback_help(NULL);
+                portaudio_capture_help(NULL);
                 free(s);
                 Pa_Terminate();
                 return NULL;

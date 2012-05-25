@@ -91,7 +91,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                         scale_getf, scale_get_out_desc,
                         scale_get_supported_codecs,
                         scale_postprocess, scale_done },
-        {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+        {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
 void show_vo_postprocess_help()
