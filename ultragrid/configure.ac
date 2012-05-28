@@ -247,7 +247,7 @@ fi
 video_display_abi_version=2
 video_capture_abi_version=1
 video_compress_abi_version=1
-video_decompress_abi_version=1
+video_decompress_abi_version=2
 audio_capture_abi_version=2
 audio_playback_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])

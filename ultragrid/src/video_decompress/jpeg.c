@@ -176,6 +176,18 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
         }
 }
 
+int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len)
+{
+        struct state_decompress *s = (struct state_decompress *) state;
+
+        UNUSED(s);
+        UNUSED(property);
+        UNUSED(val);
+        UNUSED(len);
+
+        return FALSE;
+}
+
 void jpeg_decompress_done(void *state)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;

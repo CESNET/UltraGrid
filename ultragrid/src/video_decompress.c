@@ -71,6 +71,8 @@ typedef struct {
         const char *reconfigure_str;
         decompress_decompress_t decompress;
         const char *decompress_str;
+        decompress_get_property_t get_property;
+        const char *get_property_str;
         decompress_done_t done;
         const char *done_str;
 
@@ -103,10 +105,12 @@ static int decompress_fill_symbols(decoder_table_t *device)
                 dlsym(handle, device->reconfigure_str);
         device->decompress = (decompress_decompress_t)
                 dlsym(handle, device->decompress_str);
+        device->get_property = (decompress_get_property_t)
+                dlsym(handle, device->get_property_str);
         device->done = (decompress_done_t)
                 dlsym(handle, device->done_str);
         if(!device->init || !device->reconfigure || !device->decompress || 
-                        !device->done) {
+                        !device->get_property || !device->done) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
                 return FALSE;
         }
@@ -131,14 +135,17 @@ const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct
 decoder_table_t decoders[] = {
 #if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
         { RTDXT_MAGIC, "rtdxt", MK_NAME(dxt_glsl_decompress_init), MK_NAME(dxt_glsl_decompress_reconfigure),
-                MK_NAME(dxt_glsl_decompress), MK_NAME(dxt_glsl_decompress_done), NULL},
+                MK_NAME(dxt_glsl_decompress), MK_NAME(dxt_glsl_decompress_get_property),
+                MK_NAME(dxt_glsl_decompress_done), NULL},
 #endif
 #if defined HAVE_JPEG || defined BUILD_LIBRARIES
         { JPEG_MAGIC, "jpeg", MK_NAME(jpeg_decompress_init), MK_NAME(jpeg_decompress_reconfigure),
-                MK_NAME(jpeg_decompress), MK_NAME(jpeg_decompress_done), NULL},
+                MK_NAME(jpeg_decompress), MK_NAME(jpeg_decompress_get_property),
+                MK_NAME(jpeg_decompress_done), NULL},
 #endif 
         { NULL_MAGIC, NULL, MK_STATIC(null_decompress_init), MK_STATIC(null_decompress_reconfigure),
-                MK_STATIC(null_decompress), MK_STATIC(null_decompress_done), NULL}
+                MK_STATIC(null_decompress), MK_NAME(null_decompress_get_property),
+                MK_STATIC(null_decompress_done), NULL}
 };
 
 #define MAX_DECODERS (sizeof(decoders) / sizeof(decoder_table_t))
@@ -196,6 +203,11 @@ void decompress_frame(struct state_decompress *s, unsigned char *dst, unsigned c
         assert(s->magic == DECOMPRESS_MAGIC);
 
         s->functions->decompress(s->state, dst, buffer, src_len);
+}
+
+int decompress_get_property(struct state_decompress *s, int property, void *val, size_t *len)
+{
+        return s->functions->get_property(s->state, property, val, len);
 }
 
 void decompress_done(struct state_decompress *s)

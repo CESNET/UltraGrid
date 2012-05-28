@@ -64,6 +64,16 @@ typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc,
  * Decompresses data from buffer of src_len into dst
  */
 typedef  void (*decompress_decompress_t)(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+
+/**
+ * @param state decoder state
+ * @param property  ID of queried property
+ * @param val return value
+ * @param len  IN - max bytes that may be written to val
+ *             OUT - number of bytes actually written
+ */
+typedef  int (*decompress_get_property_t)(void *state, int property, void *val, size_t *len);
+
 /**
  * Cleanup function
  */
@@ -85,6 +95,10 @@ void initialize_video_decompress(void);
 struct state_decompress *decompress_init(unsigned int decoder_index);
 int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
 void decompress_frame(struct state_decompress *, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+/**
+ * For description see above - decompress_get_property_t
+ */
+int decompress_get_property(struct state_decompress *state, int property, void *val, size_t *len);
 void decompress_done(struct state_decompress *);
 
 #endif /* __video_decompress_h */
