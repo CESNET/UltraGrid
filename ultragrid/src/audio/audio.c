@@ -147,6 +147,11 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         
         printf("Using audio FEC: %s\n", fec_cfg);
         s->tx_session = tx_init(1500, fec_cfg);
+        if(!s->tx_session) {
+                fprintf(stderr, "Unable to initialize audio transmit.\n");
+                goto error;
+        }
+
         gettimeofday(&s->start_time, NULL);        
         
         tmp = strdup(addrs);

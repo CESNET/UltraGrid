@@ -140,6 +140,10 @@ struct tx *tx_init(unsigned mtu, char *fec)
                                 assert(item);
                                 tx->mult_count = (unsigned int) atoi(item);
                                 assert(tx->mult_count <= FEC_MAX_MULT);
+                        } else {
+                                fprintf(stderr, "Unknown FEC: %s\n", item);
+                                free(tx);
+                                return NULL;
                         }
                 }
         }
