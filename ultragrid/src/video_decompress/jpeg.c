@@ -48,6 +48,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "video_decompress.h"
 
 #include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
@@ -179,13 +180,22 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
 int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_decompress *s = (struct state_decompress *) state;
-
         UNUSED(s);
-        UNUSED(property);
-        UNUSED(val);
-        UNUSED(len);
+        int ret = FALSE;
 
-        return FALSE;
+        switch(property) {
+                case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
+                        if(*len >= sizeof(int)) {
+                                *(int *) val = FALSE;
+                                *len = sizeof(int);
+                                ret = TRUE;
+                        }
+                        break;
+                default:
+                        ret = FALSE;
+        }
+
+        return ret;
 }
 
 void jpeg_decompress_done(void *state)

@@ -51,6 +51,8 @@
 
 struct state_decompress;
 
+#define DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME  1          /* int */
+
 /**
  * initializes decompression and returns internal state
  */

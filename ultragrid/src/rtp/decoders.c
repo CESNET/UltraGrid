@@ -105,6 +105,7 @@ struct state_decoder {
                 struct line_decoder *line_decoder;
                 struct {                           /* OR - it is not union for easier freeing*/
                         struct state_decompress *ext_decoder;
+                        unsigned int accepts_corrupted_frame:1;
                         char **ext_recv_buffer;
                 };
         };
@@ -349,10 +350,24 @@ after_linedecoder_lookup:
                                 if(*in_codec == decoders_for_codec[trans].from &&
                                                 out_codec == decoders_for_codec[trans].to) {
                                         decoder->ext_decoder = decompress_init(decoders_for_codec[trans].decompress_index);
+
                                         if(!decoder->ext_decoder) {
                                                 debug_msg("Decompressor with magic %x was not found.\n");
                                                 continue;
                                         }
+
+                                        int res = 0, ret;
+                                        size_t size = sizeof(res);
+                                        ret = decompress_get_property(decoder->ext_decoder,
+                                                        DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
+                                                        &res,
+                                                        &size);
+                                        if(ret && res) {
+                                                decoder->accepts_corrupted_frame = TRUE;
+                                        } else {
+                                                decoder->accepts_corrupted_frame = FALSE;
+                                        }
+
                                         decoder->decoder_type = EXTERNAL_DECODER;
 
                                         goto after_decoder_lookup;
@@ -675,9 +690,11 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         int i;
         struct linked_list **pckt_list = malloc(decoder->max_substreams * sizeof(struct linked_list *));
         uint32_t *buffer_len = malloc(decoder->max_substreams * sizeof(uint32_t));
+        uint32_t *buffer_num = malloc(decoder->max_substreams * sizeof(uint32_t));
         for (i = 0; i < (int) decoder->max_substreams; ++i) {
                 pckt_list[i] = ll_create();
                 buffer_len[i] = 0;
+                buffer_num[i] = 0;
         }
         uint32_t total_packets_sent = 0u;
 
@@ -748,8 +765,8 @@ packet_restored:
                 data_pos = ntohl(hdr->offset);
                 tmp = ntohl(hdr->substream_bufnum);
 
-
                 substream = tmp >> 22;
+                buffer_num[substream] = tmp & 0x3ffff;
 
                 tmp = ntohl(hdr->il_fps);
                 interlacing = (enum interlacing_t) (tmp >> 29);
@@ -896,17 +913,17 @@ packet_restored:
                 cdata = cdata->nxt;
         }
 
-        int packets_for_all_substreams = 0;
-
         for(i = 0; i < (int) decoder->max_substreams; ++i) {
-                packets_for_all_substreams += ll_count(pckt_list[i]);
-        }
-
-        if(total_packets_sent && (int) total_packets_sent != packets_for_all_substreams) {
-                fprintf(stderr, "Frame incomplete: expected %u packets, got %u.\n",
-                                (unsigned int) total_packets_sent, (unsigned int) packets_for_all_substreams);
-                ret = FALSE;
-                goto cleanup;
+                if(buffer_len[i] != ll_count_bytes(pckt_list[i])) {
+                        fprintf(stderr, "Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
+                                        (unsigned int) buffer_num[i], buffer_len[i], (unsigned int) ll_count_bytes(pckt_list[i]));
+                        if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
+                                ret = FALSE;
+                                fprintf(stderr, "dropped.\n");
+                                goto cleanup;
+                        }
+                        fprintf(stderr, "\n");
+                }
         }
 
         if(decoder->decoder_type == EXTERNAL_DECODER) {
@@ -973,6 +990,7 @@ cleanup:
         }
         free(pckt_list);
         free(buffer_len);
+        free(buffer_num);
 
         i = 0;
         while (xors[i]) {
