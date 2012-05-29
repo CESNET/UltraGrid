@@ -1076,7 +1076,7 @@ int main(int argc, char *argv[])
 
                 if (uv->requested_mtu == 0)     // mtu wasn't specified on the command line
                 {
-                        uv->requested_mtu = 1500;       // the default value for rpt
+                        uv->requested_mtu = 1500;       // the default value for RTP
                 }
 
                 if(bitrate != 0) { // else packet_rate defaults to 13600 or so
@@ -1085,7 +1085,7 @@ int main(int argc, char *argv[])
 
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
-                        printf("Unable to initialize transmitter\n");
+                        printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup_wait_display;
                 }

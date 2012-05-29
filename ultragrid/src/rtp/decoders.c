@@ -45,6 +45,7 @@
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
+#include "rtp/ll.h"
 #include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -104,7 +105,6 @@ struct state_decoder {
                 struct line_decoder *line_decoder;
                 struct {                           /* OR - it is not union for easier freeing*/
                         struct state_decompress *ext_decoder;
-                        unsigned int *total_bytes;
                         char **ext_recv_buffer;
                 };
         };
@@ -262,7 +262,6 @@ void decoder_destroy(struct state_decoder *decoder)
                         free(*buf);
                         buf++;
                 }
-                free(decoder->total_bytes);
                 free(decoder->ext_recv_buffer);
                 decoder->ext_recv_buffer = NULL;
         }
@@ -275,6 +274,7 @@ void decoder_destroy(struct state_decoder *decoder)
         }
         free(decoder->native_codecs);
         free(decoder->disp_supported_il);
+
         free(decoder);
 }
 
@@ -409,7 +409,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         codec_t out_codec, in_codec;
         decoder_t decode_line;
         enum interlacing_t display_il = 0;
-        struct video_frame *frame;
+        //struct video_frame *frame;
         int render_mode;
 
         assert(decoder != NULL);
@@ -428,7 +428,6 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                         free(*buf);
                         buf++;
                 }
-                free(decoder->total_bytes);
                 free(decoder->ext_recv_buffer);
                 decoder->ext_recv_buffer = NULL;
         }
@@ -497,11 +496,11 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                 frame_display = display_get_frame(decoder->display);
                 decoder->display_desc = display_desc;
         }
-        if(decoder->postprocess) {
+        /*if(decoder->postprocess) {
                 frame = decoder->pp_frame;
         } else {
                 frame = frame_display;
-        }
+        }*/
         
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RSHIFT,
                         &decoder->rshift, &len);
@@ -633,7 +632,6 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                         return NULL;
                 }
                 decoder->ext_recv_buffer = malloc((src_x_tiles * src_y_tiles + 1) * sizeof(char *));
-                decoder->total_bytes = calloc(1, (src_x_tiles * src_y_tiles) * sizeof(unsigned int));
                 for (i = 0; i < src_x_tiles * src_y_tiles; ++i)
                         decoder->ext_recv_buffer[i] = malloc(buf_size);
                 decoder->ext_recv_buffer[i] = NULL;
@@ -645,76 +643,6 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         }
         
         return frame_display;
-}
-
-struct node {
-        struct node *next;
-        int val;
-};
-
-struct linked_list {
-        struct node *head;
-};
-
-struct linked_list  *ll_create(void);
-void ll_insert(struct linked_list *ll, int val);
-void ll_destroy(struct linked_list *ll);
-unsigned int ll_count (struct linked_list *ll);
-
-struct linked_list  *ll_create()
-{
-        return (struct linked_list *) calloc(1, sizeof(struct linked_list));
-}
-
-void ll_insert(struct linked_list *ll, int val) {
-        struct node *cur;
-        struct node **ref;
-        if(!ll->head) {
-                ll->head = malloc(sizeof(struct node));
-                ll->head->val = val;
-                ll->head->next = NULL;
-                return;
-        }
-        ref = &ll->head;
-        cur = ll->head;
-        while (cur != NULL) {
-                if (val == cur->val) return;
-                if (val < cur->val) {
-                        struct node *new_node = malloc(sizeof(struct node));
-                        (*ref) = new_node; 
-                        new_node->val = val;
-                        new_node->next = cur;
-                        return;
-                }
-                ref = &cur->next;
-                cur = cur->next;
-        }
-        struct node *new_node = malloc(sizeof(struct node));
-        (*ref) = new_node; 
-        new_node->val = val;
-        new_node->next = NULL;
-}
-
-void ll_destroy(struct linked_list *ll) {
-        struct node *cur = ll->head;
-        struct node *tmp;
-
-        while (cur != NULL) {
-                tmp = cur->next;
-                free(cur);
-                cur = tmp;
-        }
-        free(ll);
-}
-
-unsigned int ll_count (struct linked_list *ll) {
-        unsigned int ret = 0u;
-        struct node *cur = ll->head;
-        while(cur != NULL) {
-                ++ret;
-                cur = cur->next;
-        }
-        return ret;
 }
 
 int decode_frame(struct coded_data *cdata, void *decode_data)
@@ -730,7 +658,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         enum interlacing_t interlacing;
         int len;
         codec_t color_spec;
-        rtp_packet *pckt;
+        rtp_packet *pckt = NULL;
         unsigned char *source;
         video_payload_hdr_t *hdr;
         char *data;
@@ -744,15 +672,16 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
         struct xor_session **xors = calloc(10, sizeof(struct xor_session *));
         uint16_t last_rtp_seq = 0;
-        struct linked_list *pckt_list = ll_create();
+        int i;
+        struct linked_list **pckt_list = malloc(decoder->max_substreams * sizeof(struct linked_list *));
+        uint32_t *buffer_len = malloc(decoder->max_substreams * sizeof(uint32_t));
+        for (i = 0; i < (int) decoder->max_substreams; ++i) {
+                pckt_list[i] = ll_create();
+                buffer_len[i] = 0;
+        }
         uint32_t total_packets_sent = 0u;
 
         perf_record(UVP_DECODEFRAME, frame);
-
-        if(decoder->decoder_type == EXTERNAL_DECODER) {
-                memset(decoder->total_bytes, 0, (get_video_mode_tiles_x(decoder->video_mode) *
-                                        get_video_mode_tiles_y(decoder->video_mode)) * sizeof(unsigned int));
-        }
 
         while (cdata != NULL) {
                 pckt = cdata->data;
@@ -829,6 +758,7 @@ packet_restored:
                 fd = (tmp >> 14) & 0x1;
                 fi = (tmp >> 13) & 0x1;
 
+
                 fps = compute_fps(fps_pt, fpsd, fd, fi);
 
                 if(substream >= decoder->max_substreams) {
@@ -837,8 +767,9 @@ packet_restored:
                         return FALSE;
                 }
 
+                buffer_len[substream] = ntohl(hdr->length);
 
-                ll_insert(pckt_list, substream * (1<<24) + data_pos);
+                ll_insert(pckt_list[substream], data_pos, len);
                 
                 /* Critical section 
                  * each thread *MUST* wait here if this condition is true
@@ -960,19 +891,24 @@ packet_restored:
                         //int pos = (substream >> 3) & 0x7 + (substream & 0x7) * frame->grid_width;
                         memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
                                 len);
-                        decoder->total_bytes[substream] = max(decoder->total_bytes[substream], data_pos + len);
                 }
 
                 cdata = cdata->nxt;
         }
 
-        if(total_packets_sent && total_packets_sent != ll_count(pckt_list)) {
+        int packets_for_all_substreams = 0;
+
+        for(i = 0; i < (int) decoder->max_substreams; ++i) {
+                packets_for_all_substreams += ll_count(pckt_list[i]);
+        }
+
+        if(total_packets_sent && (int) total_packets_sent != packets_for_all_substreams) {
                 fprintf(stderr, "Frame incomplete: expected %u packets, got %u.\n",
-                                (unsigned int) total_packets_sent, (unsigned int) ll_count(pckt_list));
+                                (unsigned int) total_packets_sent, (unsigned int) packets_for_all_substreams);
                 ret = FALSE;
                 goto cleanup;
         }
-        
+
         if(decoder->decoder_type == EXTERNAL_DECODER) {
                 int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
                 int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
@@ -999,7 +935,7 @@ packet_restored:
                                 decompress_frame(decoder->ext_decoder,
                                                 (unsigned char *) out,
                                                 (unsigned char *) decoder->ext_recv_buffer[pos],
-                                                decoder->total_bytes[pos]);
+                                                buffer_len[pos]);
                         }
                 }
         }
@@ -1032,8 +968,13 @@ packet_restored:
         }
 
 cleanup:
-        ll_destroy(pckt_list);
-        int i = 0;
+        for(i = 0; i < (int) decoder->max_substreams; ++i) {
+                ll_destroy(pckt_list[i]);
+        }
+        free(pckt_list);
+        free(buffer_len);
+
+        i = 0;
         while (xors[i]) {
                 xor_restore_destroy(xors[i]);
                 ++i;
