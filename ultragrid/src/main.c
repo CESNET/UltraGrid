@@ -119,6 +119,9 @@ struct state_uv {
 
         struct state_audio *audio;
 
+        /* used maily to serialize initialization */
+        pthread_mutex_t master_lock;
+
         volatile unsigned int has_item_to_send:1;
         volatile unsigned int sender_waiting:1;
         volatile unsigned int compress_thread_waiting:1;
@@ -477,6 +480,8 @@ static void *receiver_thread(void *arg)
         }
         pbuf_data.frame_buffer = frame_buffer;
 
+        pthread_mutex_unlock(&uv->master_lock);
+
         fr = 1;
 
         while (!should_exit) {
@@ -644,6 +649,9 @@ static void *compress_thread(void *arg)
 
         struct compress_state *compression; 
         compression = compress_init(uv->requested_compression);
+        
+        pthread_mutex_unlock(&uv->master_lock);
+        /* NOTE: unlock before propagating possible error */
         if(compression == NULL) {
                 fprintf(stderr, "Error initializing compression.\n");
                 exit_uv(0);
@@ -722,7 +730,6 @@ static void *compress_thread(void *arg)
                         }
                 }
         }
-
 
 
 join_thread:
@@ -807,6 +814,8 @@ int main(int argc, char *argv[])
         uv->recv_port_number =
                 uv->send_port_number =
                 PORT_BASE;
+
+        pthread_mutex_init(&uv->master_lock, NULL);
 
         uv->has_item_to_send = FALSE;
         uv->sender_waiting = FALSE;
@@ -1106,8 +1115,8 @@ int main(int argc, char *argv[])
                         goto cleanup_wait_display;
                 }
 
-                        
                 if (strcmp("none", uv->requested_display) != 0) {
+                        pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&receiver_thread_id, NULL, receiver_thread,
                              (void *)uv) != 0) {
@@ -1118,6 +1127,7 @@ int main(int argc, char *argv[])
                 }
 
                 if (strcmp("none", uv->requested_capture) != 0) {
+                        pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&compress_thread_id, NULL, compress_thread,
                              (void *)uv) != 0) {
@@ -1128,6 +1138,8 @@ int main(int argc, char *argv[])
                 }
         }
         
+        pthread_mutex_lock(&uv->master_lock); 
+
         if(audio_get_display_flags(uv->audio)) {
                 audio_register_get_callback(uv->audio, (struct audio_frame * (*)(void *)) display_get_audio_frame, uv->display_device);
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
@@ -1170,6 +1182,15 @@ cleanup:
                 display_done(uv->display_device);
         if (uv->participants != NULL)
                 pdb_destroy(&uv->participants);
+
+
+        pthread_mutex_destroy(&uv->sender_lock);
+        pthread_cond_destroy(&uv->compress_thread_cv);
+        pthread_cond_destroy(&uv->sender_cv);
+
+        pthread_mutex_unlock(&uv->master_lock); 
+
+        pthread_mutex_destroy(&uv->master_lock);
 
         free(uv);
 
