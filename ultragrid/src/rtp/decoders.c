@@ -696,18 +696,12 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
         }
-        uint32_t total_packets_sent = 0u;
 
         perf_record(UVP_DECODEFRAME, frame);
 
         while (cdata != NULL) {
                 pckt = cdata->data;
                 hdr = (video_payload_hdr_t *) pckt->data;
-                if(pckt->pt == 120) {
-                                total_packets_sent = ntohl(* (uint32_t *) pckt->data);
-                                cdata = cdata->nxt;
-                                continue;
-                }
                 if(pckt->pt >= 98) {
                         struct xor_session *xor;
                         xor = xors[pckt->pt - 98];
@@ -746,7 +740,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         while (xors[i]) {
                                 if(xors[i]) {
                                         if(last_rtp_seq >= pckt->seq) {
-                                                xor_add_packet(xors[i], (char *) hdr, (char *) (hdr + sizeof(video_payload_hdr_t)), pckt->data_len - sizeof(video_payload_hdr_t));
+                                                xor_add_packet(xors[i], (char *) hdr, (char *) hdr + sizeof(video_payload_hdr_t), pckt->data_len - sizeof(video_payload_hdr_t));
                                         } else {
                                                 xor_restore_invalidate(xors[i]);
                                         }

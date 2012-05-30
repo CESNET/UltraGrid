@@ -88,14 +88,9 @@ enum fec_scheme_t {
 #define GET_DELTA delta = stop.tv_nsec - start.tv_nsec
 #endif                          /* HAVE_MACOSX */
 
-/**
- * @param total_packets packets sent so far (for another tiles but within same session)
- *                    Used only when m bit is sent.
- * @return      packets sent within this function (only!!)
- */
-int
+void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
-                uint32_t ts, int send_m, unsigned long int total_packets,
+                uint32_t ts, int send_m,
                 codec_t color_spec, double input_fps,
                 enum interlacing_t interlacing, unsigned int substream);
 
@@ -164,7 +159,6 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 {
         unsigned int i;
         uint32_t ts = 0;
-        unsigned long int packets_sent = 0u;
 
         ts = get_local_mediatime();
 
@@ -174,7 +168,7 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                 
                 if (i == frame->tile_count - 1)
                         last = TRUE;
-                packets_sent += tx_send_base(tx, vf_get_tile(frame, i), rtp_session, ts, last, packets_sent,
+                tx_send_base(tx, vf_get_tile(frame, i), rtp_session, ts, last,
                                 frame->color_spec, frame->fps, frame->interlacing,
                                 i);
         }
@@ -189,12 +183,12 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         tile = vf_get_tile(frame, pos);
         uint32_t ts = 0;
         ts = get_local_mediatime();
-        tx_send_base(tx, tile, rtp_session, ts, TRUE, 0 /* packets sent */, frame->color_spec, frame->fps, frame->interlacing, pos);
+        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->color_spec, frame->fps, frame->interlacing, pos);
 }
 
-int
+void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
-                uint32_t ts, int send_m, unsigned long int total_packets,
+                uint32_t ts, int send_m,
                 codec_t color_spec, double input_fps,
                 enum interlacing_t interlacing, unsigned int substream)
 {
@@ -217,7 +211,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
-        unsigned long int packets = 0u;
         int hdrs_len = 40 + (sizeof(video_payload_hdr_t));
 
         if(tx->fec_scheme == FEC_XOR) {
@@ -285,7 +278,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 data_len = tx->mtu - hdrs_len;
                 data_len = (data_len / 48) * 48;
                 if (pos + data_len >= tile->data_len) {
-                        if (send_m && tx->fec_scheme == FEC_NONE)
+                        if (send_m && tx->fec_scheme != FEC_XOR)
                                 m = 1;
                         data_len = tile->data_len - pos;
                 }
@@ -295,7 +288,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
                                   (char *)&payload_hdr, sizeof(video_payload_hdr_t),
                                   data, data_len, 0, 0, 0);
-                        packets++;
                 }
 
                 if(tx->fec_scheme == FEC_MULT) {
@@ -367,7 +359,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         xor_emit_xor_packet(xor[i], (const char **) &hdr, &hdr_len, (const char **) &payload, &payload_len);
                 
                         GET_STARTTIME;
-                        rtp_send_data_hdr(rtp_session, ts, xor_pt + i, 0 /* mbit */, 0, 0,
+                        rtp_send_data_hdr(rtp_session, ts, xor_pt + i, 1 /* mbit */, 0, 0,
                                   (char *)hdr, hdr_len,
                                   (char *)payload, payload_len, 0, 0, 0);
                         do {
@@ -384,25 +376,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 free(xor);
                 free(xor_pkts);
         }
-
-        if(tx->fec_scheme == FEC_MULT) {
-                packets /= tx->mult_count;
-        }
-
-        if(tx->fec_scheme != FEC_NONE) {
-                if(send_m) {
-                        uint32_t pckts_n;
-                        int i;
-                        pckts_n = htonl((uint32_t) (total_packets + packets));
-                        /* send 3-times - only for redundancy */
-                        for(i = 0; i < 3; ++i) {
-                                rtp_send_data_hdr(rtp_session, ts, 120, 1 /* mbit */, 0, 0,
-                                          (char *)NULL, 0,
-                                          (char *) &pckts_n, sizeof(uint32_t), 0, 0, 0);
-                        }
-                }
-        }
-        return packets;
 }
 
 /* 
