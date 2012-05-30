@@ -78,6 +78,10 @@
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
 
+#if defined DEBUG && defined HAVE_LINUX
+#include <mcheck.h>
+#endif
+
 #define EXIT_FAIL_USAGE		1
 #define EXIT_FAIL_UI   		2
 #define EXIT_FAIL_DISPLAY	3
@@ -767,6 +771,10 @@ int main(int argc, char *argv[])
         unsigned vidcap_flags = 0,
                  display_flags = 0;
 
+#if defined DEBUG && defined HAVE_LINUX
+        mtrace();
+#endif
+
         if (argc == 1) {
                 usage();
                 return EXIT_FAIL_USAGE;
@@ -1195,6 +1203,10 @@ cleanup:
         free(uv);
 
         printf("Exit\n");
+
+#if defined DEBUG && defined HAVE_LINUX
+        muntrace();
+#endif
 
         return exit_status;
 }

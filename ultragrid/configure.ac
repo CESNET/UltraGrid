@@ -78,6 +78,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
         OBJS+=" src/utils/autorelease_pool.o"
 else
         system=Linux
+	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 	LINKER=$CC
 fi
 
