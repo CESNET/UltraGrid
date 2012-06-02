@@ -1,4 +1,4 @@
-next
+1.1-rc4
 =====
 * interlacing - allow switching at field-rate while naturally interlacing field
 * DeckLink - allow specification for audion input connection (SDI/AESEBU/analog)
@@ -9,8 +9,9 @@ next
 * added possibility to limit sending bitrate
 * added scaling postprocessor
 * can be compiled with Clang/LLVM
+* added LDGM
 
-1.1rc3
+1.1-rc3
 =====
 * Mac - use native (Cocoa) context instead of GLUT
 * added JACK audio devices
@@ -18,13 +19,13 @@ next
 * switched to ITU-T BT. 709 Rec color space
 * support for Mac OS X 10.7 (+ support for core 3.2 OpenGL profile)
 
-1.1rc2
+1.1-rc2
 =====
 
 * updated documentation
 * few small fixes
 
-1.1rc1
+1.1-rc1
 =====
 
 * DeckLink - added format autodetection (not all cards support it, eg. Deck SDI
