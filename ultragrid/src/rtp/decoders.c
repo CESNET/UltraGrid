@@ -45,6 +45,7 @@
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
+#include "rtp/ldgm.h"
 #include "rtp/ll.h"
 #include "rtp/xor.h"
 #include "rtp/rtp.h"
@@ -124,6 +125,8 @@ struct state_decoder {
         unsigned int      video_mode;
         
         unsigned          merged_fb:1;
+
+        void             *fec_state;
 };
 
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
@@ -136,6 +139,8 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         s->postprocess = NULL;
         s->change_il = NULL;
         s->video_mode = VIDEO_NORMAL;
+
+        s->fec_state = NULL;
         
         if(requested_mode) {
                 /* these are data comming from newtork ! */
@@ -275,6 +280,9 @@ void decoder_destroy(struct state_decoder *decoder)
         }
         free(decoder->native_codecs);
         free(decoder->disp_supported_il);
+
+        if(decoder->fec_state)
+                ldgm_decoder_destroy(decoder->fec_state);
 
         free(decoder);
 }
@@ -660,6 +668,48 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         return frame_display;
 }
 
+static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame)
+{
+        uint32_t tmp;
+        int ret = FALSE;
+        unsigned int width, height;
+        codec_t color_spec;
+        enum interlacing_t interlacing;
+        double fps;
+        int fps_pt, fpsd, fd, fi;
+
+        width = ntohs(hdr->hres);
+        height = ntohs(hdr->vres);
+        color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
+
+        tmp = ntohl(hdr->il_fps);
+        interlacing = (enum interlacing_t) (tmp >> 29);
+        fps_pt = (tmp >> 19) & 0x3ff;
+        fpsd = (tmp >> 15) & 0xf;
+        fd = (tmp >> 14) & 0x1;
+        fi = (tmp >> 13) & 0x1;
+
+        fps = compute_fps(fps_pt, fpsd, fd, fi);
+        if (!(decoder->received_vid_desc.width == width &&
+              decoder->received_vid_desc.height == height &&
+              decoder->received_vid_desc.color_spec == color_spec &&
+              decoder->received_vid_desc.interlacing == interlacing  &&
+              //decoder->received_vid_desc.video_type == video_type &&
+              decoder->received_vid_desc.fps == fps
+              )) {
+                decoder->received_vid_desc.width = width;
+                decoder->received_vid_desc.height = height;
+                decoder->received_vid_desc.color_spec = color_spec;
+                decoder->received_vid_desc.interlacing = interlacing;
+                decoder->received_vid_desc.fps = fps;
+
+                *frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
+                                *frame);
+                ret = TRUE;
+        }
+        return ret;
+}
+
 int decode_frame(struct coded_data *cdata, void *decode_data)
 {
         struct pbuf_video_data *pbuf_data = (struct pbuf_video_data *) decode_data;
@@ -675,7 +725,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         codec_t color_spec;
         rtp_packet *pckt = NULL;
         unsigned char *source;
-        video_payload_hdr_t *hdr;
         char *data;
         uint32_t data_pos;
         int prints=0;
@@ -686,7 +735,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         int fps_pt, fpsd, fd, fi;
 
         struct xor_session **xors = calloc(10, sizeof(struct xor_session *));
-        uint16_t last_rtp_seq = 0;
         int i;
         struct linked_list **pckt_list = malloc(decoder->max_substreams * sizeof(struct linked_list *));
         uint32_t *buffer_len = malloc(decoder->max_substreams * sizeof(uint32_t));
@@ -696,11 +744,17 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
         }
+        char **ext_recv_buffer = malloc(decoder->max_substreams * sizeof(char *));
+        char **fec_buffers = (char **) calloc(decoder->max_substreams, sizeof(char *));
 
         perf_record(UVP_DECODEFRAME, frame);
+        
+        int k, m, c, seed; // LDGM
+        int buffer_number, buffer_length;
 
         while (cdata != NULL) {
                 pckt = cdata->data;
+#if 0
                 hdr = (video_payload_hdr_t *) pckt->data;
                 if(pckt->pt >= 98) {
                         struct xor_session *xor;
@@ -750,176 +804,319 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 i++;
                         }
                 }
-                data = (char *) hdr + sizeof(video_payload_hdr_t);
-                len = pckt->data_len - sizeof(video_payload_hdr_t);
 packet_restored:
-                width = ntohs(hdr->hres);
-                height = ntohs(hdr->vres);
-                color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
-                data_pos = ntohl(hdr->offset);
-                tmp = ntohl(hdr->substream_bufnum);
+#endif
 
-                substream = tmp >> 22;
-                buffer_num[substream] = tmp & 0x3ffff;
+                if(pckt->pt == 20) {
+                        video_payload_hdr_t *hdr;
+                        hdr = (video_payload_hdr_t *) pckt->data;
+                        len = pckt->data_len - sizeof(video_payload_hdr_t);
+                        data = (char *) hdr + sizeof(video_payload_hdr_t);
 
-                tmp = ntohl(hdr->il_fps);
-                interlacing = (enum interlacing_t) (tmp >> 29);
-                fps_pt = (tmp >> 19) & 0x3ff;
-                fpsd = (tmp >> 15) & 0xf;
-                fd = (tmp >> 14) & 0x1;
-                fi = (tmp >> 13) & 0x1;
+                        width = ntohs(hdr->hres);
+                        height = ntohs(hdr->vres);
+                        color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
+                        data_pos = ntohl(hdr->offset);
+                        tmp = ntohl(hdr->substream_bufnum);
 
+                        substream = tmp >> 22;
+                        buffer_number = tmp & 0x3ffff;
 
-                fps = compute_fps(fps_pt, fpsd, fd, fi);
+                        buffer_length = ntohl(hdr->length);
+
+                        tmp = ntohl(hdr->il_fps);
+                        interlacing = (enum interlacing_t) (tmp >> 29);
+                        fps_pt = (tmp >> 19) & 0x3ff;
+                        fpsd = (tmp >> 15) & 0xf;
+                        fd = (tmp >> 14) & 0x1;
+                        fi = (tmp >> 13) & 0x1;
+
+                        fps = compute_fps(fps_pt, fpsd, fd, fi);
+                } else if (pckt->pt == 22) {
+                        ldgm_payload_hdr_t *hdr;
+                        hdr = (ldgm_payload_hdr_t *) pckt->data;
+                        len = pckt->data_len - sizeof(ldgm_payload_hdr_t);
+
+                        tmp = ntohl(hdr->substream_bufnum);
+                        substream = tmp >> 22;
+                        buffer_num[substream] = tmp & 0x3ffff;
+                        data_pos = ntohl(hdr->offset);
+
+                        buffer_length = ntohl(hdr->length);
+
+                        if(!fec_buffers[substream]) {
+                                fec_buffers[substream] = (char *) malloc(buffer_length);
+                        }
+
+                        tmp = ntohl(hdr->k_m_c);
+                        k = (tmp >> 23) << 5;
+                        m = (0x1ff & (tmp >> 14)) << 5;
+                        c = 0x1f & (tmp >> 9);
+                        if((tmp & 0x1ff) != 0) {
+                                fprintf(stderr, "[decoder] Unexpected data in packet format. Sender uses newer UltraGrid version?\n");
+                                exit_uv(1);
+                                ret = FALSE;
+                                goto cleanup;
+                        }
+                        seed = ntohl(hdr->seed);
+                } else {
+                        fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);
+                        exit_uv(1);
+                        ret = FALSE;
+                        goto cleanup;
+                }
 
                 if(substream >= decoder->max_substreams) {
                         fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n", substream, decoder->max_substreams);
                         exit_uv(1);
-                        return FALSE;
+                        ret = FALSE;
+                        goto cleanup;
                 }
 
-                buffer_len[substream] = ntohl(hdr->length);
+                buffer_num[substream] = buffer_number;
+                buffer_len[substream] = buffer_length;
 
                 ll_insert(pckt_list[substream], data_pos, len);
                 
-                /* Critical section 
-                 * each thread *MUST* wait here if this condition is true
-                 */
-                if (!(decoder->received_vid_desc.width == width &&
-                      decoder->received_vid_desc.height == height &&
-                      decoder->received_vid_desc.color_spec == color_spec &&
-                      decoder->received_vid_desc.interlacing == interlacing  &&
-                      //decoder->received_vid_desc.video_type == video_type &&
-                      decoder->received_vid_desc.fps == fps
-                      )) {
-                        decoder->received_vid_desc.width = width;
-                        decoder->received_vid_desc.height = height;
-                        decoder->received_vid_desc.color_spec = color_spec;
-                        decoder->received_vid_desc.interlacing = interlacing;
-                        decoder->received_vid_desc.fps = fps;
+                if (pckt->pt == 20) {
+                        /* Critical section 
+                         * each thread *MUST* wait here if this condition is true
+                         */
+                        if (!(decoder->received_vid_desc.width == width &&
+                              decoder->received_vid_desc.height == height &&
+                              decoder->received_vid_desc.color_spec == color_spec &&
+                              decoder->received_vid_desc.interlacing == interlacing  &&
+                              //decoder->received_vid_desc.video_type == video_type &&
+                              decoder->received_vid_desc.fps == fps
+                              )) {
+                                decoder->received_vid_desc.width = width;
+                                decoder->received_vid_desc.height = height;
+                                decoder->received_vid_desc.color_spec = color_spec;
+                                decoder->received_vid_desc.interlacing = interlacing;
+                                decoder->received_vid_desc.fps = fps;
 
-                        frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
-                                        frame);
-                        pbuf_data->frame_buffer = frame;
+                                frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
+                                                frame);
+                                pbuf_data->frame_buffer = frame;
+                                if(!frame) {
+                                        ret = FALSE;
+                                        goto cleanup;
+                                }
+                        }
+                } else if (pckt->pt == 22) {
+                        if(!decoder->fec_state) {
+                                decoder->fec_state = ldgm_decoder_init(k, m, c, seed);
+                                if(decoder->fec_state == NULL) {
+                                        fprintf(stderr, "[decoder] Unable to initialize LDGM.\n");
+                                        exit_uv(1);
+                                        ret = FALSE;
+                                        goto cleanup;
+                                }
+                                int i;
+                        }
                 }
 
-                if(!frame) {
-                        return FALSE;
+                if(decoder->decoder_type == EXTERNAL_DECODER) {
+                        memcpy(ext_recv_buffer, decoder->ext_recv_buffer, decoder->max_substreams * sizeof(char *));
                 }
                 
-                if(!decoder->postprocess) {
-                        if (!decoder->merged_fb) {
-                                tile = vf_get_tile(frame, substream);
+                if (pckt->pt == 20) {
+                        if(!decoder->postprocess) {
+                                if (!decoder->merged_fb) {
+                                        tile = vf_get_tile(frame, substream);
+                                } else {
+                                        tile = vf_get_tile(frame, 0);
+                                }
                         } else {
-                                tile = vf_get_tile(frame, 0);
+                                if (!decoder->merged_fb) {
+                                        tile = vf_get_tile(decoder->pp_frame, substream);
+                                } else {
+                                        tile = vf_get_tile(decoder->pp_frame, 0);
+                                }
+                        }
+
+                        if(decoder->decoder_type == LINE_DECODER) {
+                                struct line_decoder *line_decoder = 
+                                        &decoder->line_decoder[substream];
+                                
+                                /* End of critical section */
+                
+                                /* MAGIC, don't touch it, you definitely break it 
+                                 *  *source* is data from network, *destination* is frame buffer
+                                 */
+                
+                                /* compute Y pos in source frame and convert it to 
+                                 * byte offset in the destination frame
+                                 */
+                                int y = (data_pos / line_decoder->src_linesize) * line_decoder->dst_pitch;
+                
+                                /* compute X pos in source frame */
+                                int s_x = data_pos % line_decoder->src_linesize;
+                
+                                /* convert X pos from source frame into the destination frame.
+                                 * it is byte offset from the beginning of a line. 
+                                 */
+                                int d_x = ((int)((s_x) / line_decoder->src_bpp)) *
+                                        line_decoder->dst_bpp;
+                
+                                /* pointer to data payload in packet */
+                                source = (unsigned char*)(data);
+                
+                                /* copy whole packet that can span several lines. 
+                                 * we need to clip data (v210 case) or center data (RGBA, R10k cases)
+                                 */
+                                while (len > 0) {
+                                        /* len id payload length in source BPP
+                                         * decoder needs len in destination BPP, so convert it 
+                                         */                        
+                                        int l = ((int)(len / line_decoder->src_bpp)) * line_decoder->dst_bpp;
+                
+                                        /* do not copy multiple lines, we need to 
+                                         * copy (& clip, center) line by line 
+                                         */
+                                        if (l + d_x > (int) line_decoder->dst_linesize) {
+                                                l = line_decoder->dst_linesize - d_x;
+                                        }
+                
+                                        /* compute byte offset in destination frame */
+                                        offset = y + d_x;
+                
+                                        /* watch the SEGV */
+                                        if (l + line_decoder->base_offset + offset <= tile->data_len) {
+                                                /*decode frame:
+                                                 * we have offset for destination
+                                                 * we update source contiguously
+                                                 * we pass {r,g,b}shifts */
+                                                line_decoder->decode_line((unsigned char*)tile->data + line_decoder->base_offset + offset, source, l,
+                                                               line_decoder->rshift, line_decoder->gshift,
+                                                               line_decoder->bshift);
+                                                /* we decoded one line (or a part of one line) to the end of the line
+                                                 * so decrease *source* len by 1 line (or that part of the line */
+                                                len -= line_decoder->src_linesize - s_x;
+                                                /* jump in source by the same amount */
+                                                source += line_decoder->src_linesize - s_x;
+                                        } else {
+                                                /* this should not ever happen as we call reconfigure before each packet
+                                                 * iff reconfigure is needed. But if it still happens, something is terribly wrong
+                                                 * say it loudly 
+                                                 */
+                                                if((prints % 100) == 0) {
+                                                        fprintf(stderr, "WARNING!! Discarding input data as frame buffer is too small.\n"
+                                                                        "Well this should not happened. Expect troubles pretty soon.\n");
+                                                }
+                                                prints++;
+                                                len = 0;
+                                        }
+                                        /* each new line continues from the beginning */
+                                        d_x = 0;        /* next line from beginning */
+                                        s_x = 0;
+                                        y += line_decoder->dst_pitch;  /* next line */
+                                }
+                        } else if(decoder->decoder_type == EXTERNAL_DECODER) {
+                                //int pos = (substream >> 3) & 0x7 + (substream & 0x7) * frame->grid_width;
+                                memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
+                                        len);
                         }
                 } else {
-                        if (!decoder->merged_fb) {
-                                tile = vf_get_tile(decoder->pp_frame, substream);
-                        } else {
-                                tile = vf_get_tile(decoder->pp_frame, 0);
-                        }
-                }
-                
-                if(decoder->decoder_type == LINE_DECODER) {
-                        struct line_decoder *line_decoder = 
-                                &decoder->line_decoder[substream];
-                        
-                        /* End of critical section */
-        
-                        /* MAGIC, don't touch it, you definitely break it 
-                         *  *source* is data from network, *destination* is frame buffer
-                         */
-        
-                        /* compute Y pos in source frame and convert it to 
-                         * byte offset in the destination frame
-                         */
-                        int y = (data_pos / line_decoder->src_linesize) * line_decoder->dst_pitch;
-        
-                        /* compute X pos in source frame */
-                        int s_x = data_pos % line_decoder->src_linesize;
-        
-                        /* convert X pos from source frame into the destination frame.
-                         * it is byte offset from the beginning of a line. 
-                         */
-                        int d_x = ((int)((s_x) / line_decoder->src_bpp)) *
-                                line_decoder->dst_bpp;
-        
-                        /* pointer to data payload in packet */
-                        source = (unsigned char*)(data);
-        
-                        /* copy whole packet that can span several lines. 
-                         * we need to clip data (v210 case) or center data (RGBA, R10k cases)
-                         */
-                        while (len > 0) {
-                                /* len id payload length in source BPP
-                                 * decoder needs len in destination BPP, so convert it 
-                                 */                        
-                                int l = ((int)(len / line_decoder->src_bpp)) * line_decoder->dst_bpp;
-        
-                                /* do not copy multiple lines, we need to 
-                                 * copy (& clip, center) line by line 
-                                 */
-                                if (l + d_x > (int) line_decoder->dst_linesize) {
-                                        l = line_decoder->dst_linesize - d_x;
-                                }
-        
-                                /* compute byte offset in destination frame */
-                                offset = y + d_x;
-        
-                                /* watch the SEGV */
-                                if (l + line_decoder->base_offset + offset <= tile->data_len) {
-                                        /*decode frame:
-                                         * we have offset for destination
-                                         * we update source contiguously
-                                         * we pass {r,g,b}shifts */
-                                        line_decoder->decode_line((unsigned char*)tile->data + line_decoder->base_offset + offset, source, l,
-                                                       line_decoder->rshift, line_decoder->gshift,
-                                                       line_decoder->bshift);
-                                        /* we decoded one line (or a part of one line) to the end of the line
-                                         * so decrease *source* len by 1 line (or that part of the line */
-                                        len -= line_decoder->src_linesize - s_x;
-                                        /* jump in source by the same amount */
-                                        source += line_decoder->src_linesize - s_x;
-                                } else {
-                                        /* this should not ever happen as we call reconfigure before each packet
-                                         * iff reconfigure is needed. But if it still happens, something is terribly wrong
-                                         * say it loudly 
-                                         */
-                                        if((prints % 100) == 0) {
-                                                fprintf(stderr, "WARNING!! Discarding input data as frame buffer is too small.\n"
-                                                                "Well this should not happened. Expect troubles pretty soon.\n");
-                                        }
-                                        prints++;
-                                        len = 0;
-                                }
-                                /* each new line continues from the beginning */
-                                d_x = 0;        /* next line from beginning */
-                                s_x = 0;
-                                y += line_decoder->dst_pitch;  /* next line */
-                        }
-                } else if(decoder->decoder_type == EXTERNAL_DECODER) {
-                        //int pos = (substream >> 3) & 0x7 + (substream & 0x7) * frame->grid_width;
-                        memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
+                        memcpy(fec_buffers[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(ldgm_payload_hdr_t)),
                                 len);
                 }
 
                 cdata = cdata->nxt;
         }
 
-        for(i = 0; i < (int) decoder->max_substreams; ++i) {
-                if(buffer_len[i] != ll_count_bytes(pckt_list[i])) {
-                        fprintf(stderr, "Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
-                                        (unsigned int) buffer_num[i], buffer_len[i], (unsigned int) ll_count_bytes(pckt_list[i]));
-                        if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
-                                ret = FALSE;
-                                fprintf(stderr, "dropped.\n");
-                                goto cleanup;
-                        }
-                        fprintf(stderr, "\n");
-                }
+        if(!pckt) {
+                return FALSE;
         }
 
+        if (pckt->pt == 22) {
+                int x,y;
+                for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
+                        for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
+                                int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
+                                char *out_buffer = NULL;
+                                int out_len = 0;
+
+                                ldgm_decoder_decode(decoder->fec_state, fec_buffers[pos], buffer_len[pos],
+                                        &out_buffer, &out_len, pckt_list[pos]);
+
+                                //static int good = 0, bad = 0;
+                                if(out_len == 0) {
+                                        ret = FALSE;
+                                        fprintf(stderr, "[decoder] LDGM: unable to reconstruct data.\n");
+                                        goto cleanup;
+                                }
+                                //good++;
+                                //fprintf(stderr, "good: %d bad: %d\n", good, bad);
+ 
+                                check_for_mode_change(decoder, (video_payload_hdr_t *) out_buffer, &frame);
+                                pbuf_data->frame_buffer = frame;
+
+                                if(!frame) {
+                                        ret = FALSE;
+                                        goto cleanup;
+                                }
+
+                                struct video_frame *out_frame;
+                                int divisor;
+                                if(!decoder->postprocess) {
+                                        out_frame = frame;
+                                } else {
+                                        out_frame = decoder->pp_frame;
+                                }
+
+                                if (!decoder->merged_fb) {
+                                        divisor = decoder->max_substreams;
+                                } else {
+                                        divisor = 1;
+                                }
+
+                                tile = vf_get_tile(out_frame, pos % divisor);
+
+
+                                out_buffer += sizeof(video_payload_hdr_t);
+                                out_len -= sizeof(video_payload_hdr_t);
+
+
+                                if(decoder->decoder_type == EXTERNAL_DECODER) {
+                                        buffer_len[pos] = out_len;
+                                        ext_recv_buffer[pos] = out_buffer;
+                                } else { // linedecoder
+                                        struct line_decoder *line_decoder = 
+                                                &decoder->line_decoder[pos];
+                                        //fprintf(stderr, "%d %d \n", ll_count_bytes(pckt_list[pos]), length[pos]);
+
+                                        buffer_len[pos] = out_len;
+
+                                        int data_pos = 0;
+                                        char *src = out_buffer;
+                                        char *dst = tile->data;
+                                        while(data_pos < (int) out_len) {
+                                                line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, vc_get_linesize(tile->width ,frame->color_spec),
+                                                               line_decoder->rshift, line_decoder->gshift,
+                                                               line_decoder->bshift);
+                                                src += line_decoder->src_linesize;
+                                                dst += vc_get_linesize(tile->width ,frame->color_spec);
+                                                data_pos += line_decoder->src_linesize;
+                                        }
+                                }
+                        }
+                }
+        } else {
+	        for(i = 0; i < (int) decoder->max_substreams; ++i) {
+                        if(buffer_len[i] != ll_count_bytes(pckt_list[i])) {
+                                fprintf(stderr, "Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
+                                                (unsigned int) buffer_num[i], buffer_len[i], (unsigned int) ll_count_bytes(pckt_list[i]));
+                                if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
+                                        ret = FALSE;
+                                        fprintf(stderr, "dropped.\n");
+                                        goto cleanup;
+                                }
+                                fprintf(stderr, "\n");
+                        }
+                }
+        }
+        
         if(decoder->decoder_type == EXTERNAL_DECODER) {
                 int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
                 int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
@@ -945,7 +1142,7 @@ packet_restored:
                                 }
                                 decompress_frame(decoder->ext_decoder,
                                                 (unsigned char *) out,
-                                                (unsigned char *) decoder->ext_recv_buffer[pos],
+                                                (unsigned char *) ext_recv_buffer[pos],
                                                 buffer_len[pos]);
                         }
                 }
@@ -981,10 +1178,12 @@ packet_restored:
 cleanup:
         for(i = 0; i < (int) decoder->max_substreams; ++i) {
                 ll_destroy(pckt_list[i]);
+                free(fec_buffers[i]);
         }
         free(pckt_list);
         free(buffer_len);
         free(buffer_num);
+        free(fec_buffers);
 
         i = 0;
         while (xors[i]) {

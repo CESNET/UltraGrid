@@ -644,6 +644,8 @@ void gl_reconfigure_screen(struct state_gl *s)
 
 	glUseProgramObjectARB(0);
 
+        gl_check_error();
+
         if(s->frame->color_spec == DXT1 || s->frame->color_spec == DXT1_YUV) {
 		glBindTexture(GL_TEXTURE_2D,s->texture_display);
 		glCompressedTexImage2D(GL_TEXTURE_2D, 0,
@@ -695,6 +697,8 @@ void gl_reconfigure_screen(struct state_gl *s)
 				(s->tile->width + 3) / 4 * 4 * s->dxt_height,
 				NULL);
         }
+
+        gl_check_error();
 
         display_gl_enable_sync_on_vblank();
         gl_check_error();

@@ -79,7 +79,7 @@ typedef struct {
         /* fifth word */
         uint32_t fourcc;
         
-        /* temporary */
+        /* sixth word */
         uint32_t il_fps; /* bits 0 - 2 interlace flag
                             bits 3 - 12 FPS
                             bits 13 - 16 FPSd
@@ -87,6 +87,7 @@ typedef struct {
                             bit 18 Fi */
 
 } __attribute__((__packed__)) video_payload_hdr_t;
+
 
 typedef struct {
         /* first word */
@@ -106,6 +107,28 @@ typedef struct {
         /* fifth word */
         uint32_t audio_tag;
 } __attribute__((__packed__)) audio_payload_hdr_t;
+
+typedef struct {
+        /* first word */
+        uint32_t substream_bufnum; /* bits 0 - 9 substream
+                                      bits 10 - 31 buffer  */
+
+        /* second word */
+        uint32_t offset;
+
+        /* third word */
+        uint32_t length;
+
+        /* fourth word */
+        uint32_t k_m_c; /* bits 0-8 (k>>5)
+                           bits 9-17 (m>>5)
+                           18 - 22 c 
+                           23 - 31 currently unused (must be 0)
+                           */
+
+        /* fifth word */
+        uint32_t seed;
+} __attribute__((__packed__)) ldgm_payload_hdr_t;
 
 
 void rtp_recv_callback(struct rtp *session, rtp_event *e);

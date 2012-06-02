@@ -46,6 +46,7 @@ OBJS	      = @OBJS@ \
 		src/transmit.o \
 		src/tfrc.o \
 		src/rtp/xor.o \
+		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
 		src/rtp/decoders.o \
 		src/rtp/audio_decoders.o \
@@ -94,7 +95,12 @@ OBJS	      = @OBJS@ \
 		src/vo_postprocess/double-framerate.o \
 		@SCALE_OBJ@ \
 		src/vo_postprocess/split.o \
-		@X_OBJ@ 
+		@X_OBJ@ \
+		../ldgm-coding/ldgm-session-cpu.o \
+		../ldgm-coding/ldgm-session.o \
+		../ldgm-coding/tanner.o \
+		../ldgm-coding/matrix-gen/matrix-generator.o \
+		../ldgm-coding/matrix-gen/ldpc-matrix.o \
 
 SDL_LIB_OBJ  = \
 		src/audio/utils.o \

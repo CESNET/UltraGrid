@@ -224,7 +224,7 @@ static void usage(void)
         printf("\n");
         printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
-        printf("\t-f <settings>            \tconfig forward error checking, currently \"XOR:<leap>:<nr_streams>\" or \"mult:<nr>\"\n");
+        printf("\t-f <settings>            \tconfig forward error checking, currently \"mult:<nr>\" or\"ldgm[:<k>:<m>]\"\n");
         printf("\n");
         printf("\t-P <port> | <recv_port>:<send_port>\n");
         printf("\t                         \tbase port number, also 3 subsequent ports can be used for RTCP and audio streams. Default: %d.\n", PORT_BASE);

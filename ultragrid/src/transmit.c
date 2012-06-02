@@ -57,6 +57,7 @@
 #include "perf.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
+#include "rtp/ldgm.h"
 #include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -73,7 +74,8 @@ extern long packet_rate;
 enum fec_scheme_t {
         FEC_NONE,
         FEC_XOR,
-        FEC_MULT
+        FEC_MULT,
+        FEC_LDGM
 };
 
 #define FEC_MAX_MULT 10
@@ -101,6 +103,7 @@ struct tx {
         unsigned int buffer:20;
 
         enum fec_scheme_t fec_scheme;
+        void *fec_state;
         unsigned xor_leap;
         unsigned xor_streams;
         int mult_count;
@@ -135,6 +138,15 @@ struct tx *tx_init(unsigned mtu, char *fec)
                                 assert(item);
                                 tx->mult_count = (unsigned int) atoi(item);
                                 assert(tx->mult_count <= FEC_MAX_MULT);
+                        } else if(strcasecmp(item, "LDGM") == 0) {
+                                tx->fec_scheme = FEC_LDGM;
+                                item = save_ptr;
+                                tx->fec_state = ldgm_encoder_init(item);
+                                if(tx->fec_state == NULL) {
+                                        fprintf(stderr, "Unable to initialize LDGM.\n");
+                                        free(tx);
+                                        return NULL;
+                                }
                         } else {
                                 fprintf(stderr, "Unknown FEC: %s\n", item);
                                 free(tx);
@@ -193,7 +205,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 enum interlacing_t interlacing, unsigned int substream)
 {
         int m, data_len;
-        video_payload_hdr_t payload_hdr;
+        video_payload_hdr_t video_hdr;
+        ldgm_payload_hdr_t ldgm_hdr;
         int pt = 20;            /* A value specified in our packet format */
         const int xor_pt = 98;
         char *data;
@@ -212,6 +225,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         int mult_index = 0;
         int mult_first_sent = 0;
         int hdrs_len = 40 + (sizeof(video_payload_hdr_t));
+        char *data_to_send;
+        int data_to_send_len;
 
         if(tx->fec_scheme == FEC_XOR) {
                 hdrs_len += xor_get_hdr_size();
@@ -220,6 +235,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         assert(tx->magic == TRANSMIT_MAGIC);
 
         perf_record(UVP_SEND, ts);
+
+        data_to_send = tile->data;
+        data_to_send_len = tile->data_len;
 
         if(tx->fec_scheme == FEC_XOR) {
                 unsigned int i;
@@ -242,13 +260,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
-        payload_hdr.hres = htons(tile->width);
-        payload_hdr.vres = htons(tile->height);
-        payload_hdr.fourcc = htonl(get_fourcc(color_spec));
-        payload_hdr.length = htonl(tile->data_len);
+        video_hdr.hres = htons(tile->width);
+        video_hdr.vres = htons(tile->height);
+        video_hdr.fourcc = htonl(get_fourcc(color_spec));
+        video_hdr.length = htonl(data_to_send_len);
         tmp = substream << 22;
-        tmp |= tx->buffer;
-        payload_hdr.substream_bufnum = htonl(tmp);
+        tmp |= 0x3fffff & tx->buffer;
+        video_hdr.substream_bufnum = htonl(tmp);
 
         /* word 6 */
         tmp = interlacing << 29;
@@ -264,30 +282,65 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         tmp |= fpsd << 15;
         tmp |= fd << 14;
         tmp |= fi << 13;
-        payload_hdr.il_fps = htonl(tmp);
+        video_hdr.il_fps = htonl(tmp);
+
+        char *hdr;
+        int hdr_len;
+
+        if(tx->fec_scheme == FEC_LDGM) {
+                ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_hdr),
+                                tile->data, tile->data_len, &data_to_send, &data_to_send_len);
+                tmp = substream << 22;
+                tmp |= 0x3fffff & tx->buffer;
+                ldgm_hdr.substream_bufnum = htonl(tmp);
+                ldgm_hdr.length = htonl(data_to_send_len);
+                ldgm_hdr.k_m_c = htonl(
+                                (ldgm_encoder_get_k(tx->fec_state) >> 5) << 23 |
+                                (ldgm_encoder_get_m(tx->fec_state) >> 5) << 14 |
+                                ldgm_encoder_get_c(tx->fec_state) << 9);
+                ldgm_hdr.seed = htonl(ldgm_encoder_get_seed(tx->fec_state));
+
+                pt = 22;
+
+                hdr = &ldgm_hdr;
+                hdr_len = sizeof(ldgm_hdr);
+        } else {
+                hdr = &video_hdr;
+                hdr_len = sizeof(video_hdr);
+        }
 
         do {
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
                 }
 
-                payload_hdr.offset = htonl(pos);
+                video_hdr.offset = htonl(pos);
+                if(tx->fec_scheme == FEC_LDGM) {
+                        ldgm_hdr.offset = htonl(pos);
+                }
 
-
-                data = tile->data + pos;
+                data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;
                 data_len = (data_len / 48) * 48;
-                if (pos + data_len >= tile->data_len) {
+                if (pos + data_len >= data_to_send_len) {
                         if (send_m && tx->fec_scheme != FEC_XOR)
                                 m = 1;
-                        data_len = tile->data_len - pos;
+                        data_len = data_to_send_len - pos;
                 }
                 pos += data_len;
                 GET_STARTTIME;
                 if(data_len) { /* check needed for FEC_MULT */
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                  (char *)&payload_hdr, sizeof(video_payload_hdr_t),
+                                  hdr, hdr_len,
                                   data, data_len, 0, 0, 0);
+                        if(m && tx->fec_scheme != FEC_NONE) {
+                                int i;
+                                for(i = 0; i < 5; ++i) {
+                                        rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
+                                                  hdr, hdr_len,
+                                                  data, data_len, 0, 0, 0);
+                                }
+                        }
                 }
 
                 if(tx->fec_scheme == FEC_MULT) {
@@ -300,7 +353,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 if(tx->fec_scheme == FEC_XOR) {
                         unsigned int i;
                         for (i = 0; i < tx->xor_streams; ++i) {
-                                xor_add_packet(xor[i], (const char *) &payload_hdr, data, data_len);
+                                xor_add_packet(xor[i], (const char *) &video_hdr, data, data_len);
                         }
                 }
 
@@ -322,7 +375,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                                 if((unsigned int) ++xor_pkts[i] == tx->xor_leap) {
                                         xor_emit_xor_packet(xor[i], (const char **) &hdr, &hdr_len, (const char **) &payload, &payload_len);
                                 
-                                        if (pos + data_len >= tile->data_len) {
+                                        if (pos + data_len >= data_to_send_len) {
                                                 if (send_m)
                                                         m = 1;
                                         }
@@ -346,7 +399,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         pos = mult_pos[tx->mult_count - 1];
                 }
 
-        } while (pos < tile->data_len);
+        } while (pos < data_to_send_len);
 
         tx->buffer ++;
         if(tx->fec_scheme == FEC_XOR) {
@@ -375,6 +428,10 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 }
                 free(xor);
                 free(xor_pkts);
+        }
+
+        if(tx->fec_scheme == FEC_LDGM) {
+               ldgm_encoder_free_buffer(tx->fec_state, data_to_send);
         }
 }
 
