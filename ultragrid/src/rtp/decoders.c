@@ -47,7 +47,6 @@
 #include "perf.h"
 #include "rtp/ldgm.h"
 #include "rtp/ll.h"
-#include "rtp/xor.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -734,7 +733,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         uint32_t substream;
         int fps_pt, fpsd, fd, fi;
 
-        struct xor_session **xors = calloc(10, sizeof(struct xor_session *));
         int i;
         struct linked_list **pckt_list = malloc(decoder->max_substreams * sizeof(struct linked_list *));
         uint32_t *buffer_len = malloc(decoder->max_substreams * sizeof(uint32_t));
@@ -754,60 +752,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
         while (cdata != NULL) {
                 pckt = cdata->data;
-#if 0
-                hdr = (video_payload_hdr_t *) pckt->data;
-                if(pckt->pt >= 98) {
-                        struct xor_session *xor;
-                        xor = xors[pckt->pt - 98];
-                        if(xor && last_rtp_seq < pckt->seq) {
-                                        xor_restore_invalidate(xor);
-                        }
-                        last_rtp_seq = pckt->seq;
-                        if(!xor) {
-                                xor = xors[pckt->pt - 98] = 
-                                                xor_restore_init();
-                                /* register the xor packet */
-                                xor_restore_start(xor, pckt->data);
-                                cdata = cdata->nxt;
-                                /* and jump to next */
-                                continue;
-                        } else {
-                                int ret = FALSE;
-                                uint16_t payload_len;
-                                rtp_packet *pckt_old = pckt;
-                                /* try to restore packet */
-                                ret = xor_restore_packet(xor, (char **) &hdr, &payload_len);
-                                /* register current xor packet */
-                                xor_restore_start(xor, pckt_old->data);
-                                /* if we didn't recovered any packet, jump to next */
-                                if(!ret) {
-                                        cdata = cdata->nxt;
-                                        continue;
-                                }
-                                /* otherwise process the restored packet */
-                                data = (char *) hdr + sizeof(video_payload_hdr_t);
-                                len = payload_len;
-                                goto packet_restored;
-                        }
-                } else {
-                        int i = 0;
-                        while (xors[i]) {
-                                if(xors[i]) {
-                                        if(last_rtp_seq >= pckt->seq) {
-                                                xor_add_packet(xors[i], (char *) hdr, (char *) hdr + sizeof(video_payload_hdr_t), pckt->data_len - sizeof(video_payload_hdr_t));
-                                        } else {
-                                                xor_restore_invalidate(xors[i]);
-                                        }
 
-                                        last_rtp_seq = pckt->seq;
-                                }
-                                i++;
-                        }
-                }
-packet_restored:
-#endif
-
-                if(pckt->pt == 20) {
+                if(pckt->pt == PT_VIDEO) {
                         video_payload_hdr_t *hdr;
                         hdr = (video_payload_hdr_t *) pckt->data;
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
@@ -832,7 +778,7 @@ packet_restored:
                         fi = (tmp >> 13) & 0x1;
 
                         fps = compute_fps(fps_pt, fpsd, fd, fi);
-                } else if (pckt->pt == 22) {
+                } else if (pckt->pt == PT_VIDEO_LDGM) {
                         ldgm_payload_hdr_t *hdr;
                         hdr = (ldgm_payload_hdr_t *) pckt->data;
                         len = pckt->data_len - sizeof(ldgm_payload_hdr_t);
@@ -878,7 +824,7 @@ packet_restored:
 
                 ll_insert(pckt_list[substream], data_pos, len);
                 
-                if (pckt->pt == 20) {
+                if (pckt->pt == PT_VIDEO) {
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
@@ -903,7 +849,7 @@ packet_restored:
                                         goto cleanup;
                                 }
                         }
-                } else if (pckt->pt == 22) {
+                } else if (pckt->pt == PT_VIDEO_LDGM) {
                         if(!decoder->fec_state) {
                                 decoder->fec_state = ldgm_decoder_init(k, m, c, seed);
                                 if(decoder->fec_state == NULL) {
@@ -920,7 +866,7 @@ packet_restored:
                         memcpy(ext_recv_buffer, decoder->ext_recv_buffer, decoder->max_substreams * sizeof(char *));
                 }
                 
-                if (pckt->pt == 20) {
+                if (pckt->pt == PT_VIDEO) {
                         if(!decoder->postprocess) {
                                 if (!decoder->merged_fb) {
                                         tile = vf_get_tile(frame, substream);
@@ -1017,7 +963,7 @@ packet_restored:
                                 memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
                                         len);
                         }
-                } else {
+                } else { /* PT_VIDEO_LDGM */
                         memcpy(fec_buffers[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(ldgm_payload_hdr_t)),
                                 len);
                 }
@@ -1026,10 +972,11 @@ packet_restored:
         }
 
         if(!pckt) {
-                return FALSE;
+                ret = FALSE;
+                goto cleanup;
         }
 
-        if (pckt->pt == 22) {
+        if (pckt->pt == PT_VIDEO_LDGM) {
                 int x,y;
                 for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
                         for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
@@ -1102,7 +1049,7 @@ packet_restored:
                                 }
                         }
                 }
-        } else {
+        } else { /* PT_VIDEO */
 	        for(i = 0; i < (int) decoder->max_substreams; ++i) {
                         if(buffer_len[i] != ll_count_bytes(pckt_list[i])) {
                                 fprintf(stderr, "Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
@@ -1184,13 +1131,6 @@ cleanup:
         free(buffer_len);
         free(buffer_num);
         free(fec_buffers);
-
-        i = 0;
-        while (xors[i]) {
-                xor_restore_destroy(xors[i]);
-                ++i;
-        }
-        free(xors);
 
         return ret;
 }

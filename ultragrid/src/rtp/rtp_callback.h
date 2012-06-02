@@ -46,20 +46,9 @@
  * Packet formats:
  * http://www.cesnet.cz/doc/techzpravy/2010/4k-packet-format/
  */
-
-#if 0
-typedef struct {
-    uint16_t    width;      /* pixels */
-    uint16_t    height;     /* pixels */
-    uint32_t    offset;     /* in bytes */
-    uint16_t    length;     /* octets */
-    uint8_t     colorspc;
-    uint8_t     flags;
-    uint32_t    fps;        /* fixed point fps. take care! */
-    uint32_t    aux;        /* auxiliary data */
-    uint32_t    tileinfo;   /* info about tile position (if tiled) */
-} payload_hdr_t;
-#endif
+#define PT_VIDEO 20
+#define PT_AUDIO 21
+#define PT_VIDEO_LDGM 22
 
 typedef struct {
         /* first word */

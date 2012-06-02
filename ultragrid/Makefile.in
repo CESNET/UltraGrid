@@ -45,7 +45,6 @@ OBJS	      = @OBJS@ \
 		src/tv.o \
 		src/transmit.o \
 		src/tfrc.o \
-		src/rtp/xor.o \
 		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
 		src/rtp/decoders.o \
