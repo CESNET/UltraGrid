@@ -49,6 +49,9 @@
 #include "config.h"
 #include "config_unix.h"
 #endif
+
+#ifdef HAVE_LINUX
+
 #include "debug.h"
 
 #include "video_codec.h"
@@ -317,4 +320,6 @@ void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mod
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
+
+#endif /* HAVE_LINUX */
 

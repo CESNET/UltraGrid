@@ -45,9 +45,11 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
 #include <stdint.h>
@@ -87,10 +89,12 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                         df_getf, df_get_out_desc,
                         df_get_supported_codecs,
                         df_postprocess, df_done },
+#ifdef HAVE_LINUX
         {"scale", scale_init, scale_reconfigure, 
                         scale_getf, scale_get_out_desc,
                         scale_get_supported_codecs,
                         scale_postprocess, scale_done },
+#endif /* HAVE_LINUX */
         {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 };
 
