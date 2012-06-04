@@ -832,6 +832,11 @@ AC_ARG_ENABLE(gl,
     [gl_req=yes]
     )
 
+SAVED_LIBS=$LIBS
+AC_CHECK_HEADER(GL/glew.h)
+AC_CHECK_LIB(GLEW, glewInit)
+LIBS=$SAVED_LIBS
+
 case "$host_os" in
 	*darwin*)
 	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
@@ -889,12 +894,12 @@ case "$host_os" in
 	fi
 	;;
 	*) 
-	AC_CHECK_HEADERS([GL/gl.h GL/glext.h],
+	AC_CHECK_HEADERS([GL/gl.h GL/glx.h ],
 			 [FOUND_GL_H=yes],
 			 [FOUND_GL_H=no], 
 			 [
 		 	  #include <GL/gl.h>
-			  #include <GL/glext.h>
+			  #include <GL/glx.h>
 			 ]
 			)
 
@@ -906,30 +911,33 @@ case "$host_os" in
 		then
 			GL_LIB+=" -lGL"
 	
-			#FOUND_GLEW_L=no
-			#AC_CHECK_HEADERS([GL/glew.h],
-			#		 [AC_CHECK_LIB(GLEW, main, FOUND_GLEW_L=yes , echo "GLEW library not found or not usable.")],
-			#		 [echo "GL/glew.h not found."]
-			#		)
 			AC_CHECK_HEADERS([GL/glut.h],
 					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.")],
 					 [echo "GL/glut.h not found."]
 					)
-			if test "$FOUND_GLUT" = yes
+			if test "$FOUND_GLUT" = yes -a $ac_cv_header_GL_glew_h = yes -a $ac_cv_lib_GLEW_glewInit = yes
 			then
-				GL_LIB+=" -lglut"
+				GL_LIB+=" -lglut -lGLEW"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
                                 gl=yes
 			else
-				echo "OpenGL (GLUT) libraries not found or not usable."
+                                if test "$FOUND_GLUT" = no
+                                then
+                                        AC_MSG_WARN([OpenGL (GLUT) libraries not found or not usable.])
+                                fi
+
+                                if test $ac_cv_header_GL_glew_h = no -o $ac_cv_lib_GLEW_glewInit = no
+                                then
+                                        AC_MSG_WARN([OpenGL GLEW libraries or headers not found or not usable.])
+                                fi
 			fi
 		else
-			echo "OpenGL libraries not found or not usable."
+			AC_MSG_WARN([OpenGL libraries not found or not usable.])
 		fi
 
 	else
-		echo "OpenGL headers not found or not usable."
+		AC_MSG_WARN([OpenGL headers (gl.h, glx.h) not found or not usable.])
 	fi
 	;;
 esac
