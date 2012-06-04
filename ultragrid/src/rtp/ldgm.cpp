@@ -244,7 +244,7 @@ void *ldgm_encoder_init(char *cfg)
                         m = atoi(item);
                         item = strtok_r(NULL, ":", &save_ptr);
                         if(item) {
-                                c = DEFAULT_C;
+                                c = atoi(item);
                         }
                 } else {
                         k = DEFAULT_K;
