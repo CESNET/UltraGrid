@@ -5,10 +5,11 @@
 #include "config_unix.h"
 #endif
 
+#if defined HAVE_MACOS_X || (defined HAVE_LINUX && defined HAVE_LIBGL)
+
 #ifdef HAVE_MACOSX
 #include "mac_gl_common.h"
 #else
-#include <GL/glew.h>
 #include "x11_common.h"
 #include "glx_common.h"
 #endif
@@ -73,3 +74,4 @@ void gl_context_make_current(struct gl_context *context)
 #endif
 }
 
+#endif /* defined HAVE_MACOS_X || (defined HAVE_LINUX && defined HAVE_LIBGLEW) */

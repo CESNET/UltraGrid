@@ -3,9 +3,9 @@ RANLIB        = ranlib
 CC            = @CC@
 CXX	      = @CXX@
 LINKER	      = @LINKER@
-CFLAGS        = -fPIC -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@
+CFLAGS        = -fPIC -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -msse2
 CPPFLAGS      = @CPPFLAGS@
-CXXFLAGS      = -fPIC @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated
+CXXFLAGS      = -fPIC @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated -msse2
 NVCCFLAGS     = @NVCCFLAGS@ -Xcompiler -fPIC
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
