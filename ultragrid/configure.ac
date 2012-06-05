@@ -44,7 +44,7 @@ if which git
 then
         AC_MSG_CHECKING([unreleased changes in GIT tree])
         git_version=`git describe | tr -d '\012'`
-        if test "$git_version" != "$VERSION" ; then
+        if test "$git_version" -a "$git_version" != "$VERSION" ; then
                 AC_DEFINE_UNQUOTED([GIT_VERSION], "$git_version", [Current GIT revision])
                 AC_MSG_RESULT($git_version);
         else
