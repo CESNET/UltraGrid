@@ -120,7 +120,9 @@ struct tx *tx_init(unsigned mtu, char *fec)
                         char *item;
 
                         item = strtok_r(fec, ":", &save_ptr);
-                        if(strcasecmp(item, "mult") == 0) {
+                        if(strcasecmp(item, "none") == 0) {
+                                tx->fec_scheme = FEC_NONE;
+                        } else if(strcasecmp(item, "mult") == 0) {
                                 tx->fec_scheme = FEC_MULT;
                                 item = strtok_r(NULL, ":", &save_ptr);
                                 assert(item);
