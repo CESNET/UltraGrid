@@ -49,7 +49,9 @@
 -(int) mtu
 {
     NSString *MTUStr = [settings objectForKey: @"mtu"];
-    int ret = [MTUStr integerValue];
+    int ret = 1500;
+    if(MTUStr)
+        ret = [MTUStr integerValue];
     
     return ret;
 }
@@ -144,7 +146,13 @@
 
 -(NSString *) compression
 {
-	return [settings objectForKey: @"compression"];
+	NSString *ret = [settings objectForKey: @"compression"];
+    
+    if (ret == nil) {
+        ret = @"none";
+    }
+    
+    return ret;
 }
 
 -(void) setCompression : (NSString *) newValue;
