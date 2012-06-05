@@ -23,6 +23,8 @@
 - (IBAction)doCaptureHelp:(id)pId;
 - (IBAction)doDisplayHelp:(id)pId;
 
+- (IBAction)doShowTerminal:(id)pId;
+
 @property (assign) IBOutlet NSWindow *advancedWin;
 @property (assign) IBOutlet Settings *settings;
 @property (assign) IBOutlet Terminal *terminal;

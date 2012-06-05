@@ -96,12 +96,17 @@
 			[args addObject: @"-c"];
 			[args addObject: [self getCompressionString]];
 		}
+        
+		if([settings.fec length] > 0) {
+            [args addObject: @"-f"];
+			[args addObject: [self getFecString]];
+        }
 		
 		if([settings.other length] > 0) {
 			[args addObjectsFromArray: [settings.other componentsSeparatedByString:@" "]];
 		}
-		
-		if([remoteAddress length] > 0) {
+        
+        if([remoteAddress length] > 0) {
 			[args addObject: remoteAddress];
 		}
 		
@@ -144,7 +149,7 @@
                               @"RTDXT:DXT5", @"DXT5",
                               @"JPEG", @"JPEG",
                               nil];
-
+    
     NSString *compression = [matching objectForKey: settings.compression];
     NSString *ret;
     
@@ -156,6 +161,24 @@
     
     return ret;
     
+}
+
+-(NSString *) getFecString
+{
+    NSString *fec = settings.fec;
+    NSString *ret;
+    
+    //NSLog(@"FEC: %@",fec);
+    
+    if([fec compare: @"mult"] == NSOrderedSame) {
+        ret = [NSString stringWithFormat:@"mult:%d", settings.multCount];
+    } else {
+        ret = fec;
+    }
+    
+
+    
+    return ret;
 }
 
 @end

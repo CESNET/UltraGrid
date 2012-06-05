@@ -59,4 +59,9 @@
 	[terminal print: [controller getOutput: arg]];
 }
 
+- (IBAction)doShowTerminal:(id)pId
+{
+    [terminal show];
+}
+
 @end

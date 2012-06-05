@@ -156,7 +156,11 @@
 -(int) JPEGQuality
 {
     NSString *JPEGQualityStr = [settings objectForKey: @"jpeg_quality"];
-    int ret = [JPEGQualityStr integerValue];
+    int ret;
+    if(JPEGQualityStr)
+        ret = [JPEGQualityStr integerValue];
+    else
+        ret = 80;
 
     return ret;
 }
@@ -171,6 +175,47 @@
     }
     NSString *JPEGQuality = [NSString stringWithFormat: @"%d", newVal];
     [settings setValue:JPEGQuality forKey: @"jpeg_quality"];
+}
+
+-(NSString *) fec
+{
+	NSString *ret = [settings objectForKey: @"fec"];
+    
+    if(ret == nil) {
+        ret = @"none";
+    }
+
+    return ret;
+}
+
+-(void) setFec: (NSString *) newValue;
+{
+	[settings setValue:newValue forKey: @"fec"];
+    //NSLog(@"%@", newValue);
+}
+
+
+-(int) multCount
+{
+    int ret = 2;
+    NSString *multCountStr = [settings objectForKey: @"mult_count"];
+    if(multCountStr) {
+        ret = [multCountStr integerValue];
+    }
+    
+    return ret;
+}
+
+-(void) setMultCount:(int)multCount
+{
+    if (multCount < 1) {
+        multCount = 1;
+    }
+    if(multCount > 10) {
+        multCount = 10;
+    }
+    NSString *multCountStr = [NSString stringWithFormat: @"%d", multCount];
+    [settings setValue:multCountStr forKey: @"mult_count"];
 }
 
 @end

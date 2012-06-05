@@ -36,5 +36,6 @@
 -(void) outputReady: (id) sender;
 -(void) terminated: (id) sender;
 -(NSString *) getCompressionString;
+-(NSString *) getFecString;
 
 @end

@@ -29,6 +29,9 @@
 
 @property (nonatomic, readwrite) int JPEGQuality;
 
+@property (assign) IBOutlet NSString *fec;
+@property (nonatomic, readwrite) int multCount;
+
 -(void) save;
 
 @end

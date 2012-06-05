@@ -10,7 +10,7 @@
 
 
 @interface Terminal : NSObject {
-
+    NSFont *font;
 }
 @property (assign) IBOutlet NSWindow *window;
 @property (assign) IBOutlet NSTextView *view;
