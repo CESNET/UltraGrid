@@ -59,16 +59,29 @@
 #include "vo_postprocess/split.h"
 #include "vo_postprocess/scale.h"
 #include "vo_postprocess/double-framerate.h"
+#include "lib_common.h"
+
+extern char **uv_argv;
 
 struct vo_postprocess_t {
-        const char * name;
+        const char * name; /* this is the user given name */
+        const char * library_name; /* must be NULL if library is allways statically lined */
         vo_postprocess_init_t init;
+        const char *init_str;
         vo_postprocess_reconfigure_t reconfigure;
+        const char *reconfigure_str;
         vo_postprocess_getf_t getf;
+        const char *getf_str;
         vo_postprocess_get_out_desc_t get_out_desc;
+        const char *get_out_desc_str;
         vo_postprocess_get_supported_codecs_t get_supported_codecs;
+        const char *get_supported_codecs_str;
         vo_postprocess_t vo_postprocess;
+        const char *vo_postprocess_str;
         vo_postprocess_done_t done;
+        const char *done_str;
+
+        void *handle; /* for dynamically loaded libraries */
 };
 
 struct vo_postprocess_state {
@@ -77,26 +90,113 @@ struct vo_postprocess_state {
 };
 
 struct vo_postprocess_t vo_postprocess_modules[] = {
-        {"3d-interlaced", interlaced_3d_init, interlaced_3d_postprocess_reconfigure, 
-                        interlaced_3d_getf, interlaced_3d_get_out_desc,
-                        interlaced_3d_get_supported_codecs,
-                        interlaced_3d_postprocess, interlaced_3d_done },
-        {"split", split_init, split_postprocess_reconfigure, 
-                        split_getf, split_get_out_desc,
-                        split_get_supported_codecs,
-                        split_postprocess, split_done },
-        {"double-framerate", df_init, df_reconfigure, 
-                        df_getf, df_get_out_desc,
-                        df_get_supported_codecs,
-                        df_postprocess, df_done },
-#if defined HAVE_SCREEN_CAP && defined HAVE_LINUX
-        {"scale", scale_init, scale_reconfigure, 
-                        scale_getf, scale_get_out_desc,
-                        scale_get_supported_codecs,
-                        scale_postprocess, scale_done },
-#endif /* HAVE_LINUX */
-        {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+        {"3d-interlaced",
+                NULL,
+                MK_STATIC(interlaced_3d_init),
+                MK_STATIC(interlaced_3d_postprocess_reconfigure),
+                MK_STATIC(interlaced_3d_getf),
+                MK_STATIC(interlaced_3d_get_out_desc),
+                MK_STATIC(interlaced_3d_get_supported_codecs),
+                MK_STATIC(interlaced_3d_postprocess),
+                MK_STATIC(interlaced_3d_done),
+                NULL
+        },
+        {"split",
+                NULL,
+                MK_STATIC(split_init),
+                MK_STATIC(split_postprocess_reconfigure),
+                MK_STATIC(split_getf),
+                MK_STATIC(split_get_out_desc),
+                MK_STATIC(split_get_supported_codecs),
+                MK_STATIC(split_postprocess),
+                MK_STATIC(split_done),
+                NULL
+        },
+        {"double-framerate",
+                NULL,
+                MK_STATIC(df_init),
+                MK_STATIC(df_reconfigure),
+                MK_STATIC(df_getf),
+                MK_STATIC(df_get_out_desc),
+                MK_STATIC(df_get_supported_codecs),
+                MK_STATIC(df_postprocess),
+                MK_STATIC(df_done),
+                NULL
+        },
+#if defined HAVE_SCREEN_CAP || defined BUILD_LIBRARIES
+        {"scale",
+                "scale",
+                MK_NAME(scale_init),
+                MK_NAME(scale_reconfigure), 
+                MK_NAME(scale_getf),
+                MK_NAME(scale_get_out_desc),
+                MK_NAME(scale_get_supported_codecs),
+                MK_NAME(scale_postprocess), 
+                MK_NAME(scale_done),
+                NULL
+        },
+#endif /* HAVE_SCREEN_CAP */
+        { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
+
+
+
+#ifdef BUILD_LIBRARIES
+/* definded in video_display.c */
+void *open_library(const char *name);
+static void *vo_pp_open_library(const char *vidcap_name);
+static int vo_pp_fill_symbols(struct vo_postprocess_t *device);
+
+static void *vo_pp_open_library(const char *vidcap_name)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "vo_pp_%s.so.%d", vidcap_name, VO_PP_ABI_VERSION);
+
+        return open_library(name);
+}
+
+
+static int vo_pp_fill_symbols(struct vo_postprocess_t *device)
+{
+        void *handle = device->handle;
+        
+        device->init = (vo_postprocess_init_t)
+                dlsym(handle, device->init_str);
+        device->reconfigure =
+                (vo_postprocess_reconfigure_t )
+                dlsym(handle, device->reconfigure_str);
+        device->getf =
+                (vo_postprocess_getf_t)
+                dlsym(handle, device->getf_str);
+        device->get_out_desc =
+                (vo_postprocess_get_out_desc_t)
+                dlsym(handle, device->get_out_desc_str);
+        device->get_supported_codecs =
+                (vo_postprocess_get_supported_codecs_t)
+                dlsym(handle, device->get_supported_codecs_str);
+        device->vo_postprocess=
+                (vo_postprocess_t)
+                dlsym(handle, device->vo_postprocess_str);
+        device->done =
+                (vo_postprocess_done_t)
+                dlsym(handle, device->done_str);
+
+        if(!device->init || !device->reconfigure ||
+                        !device->getf ||
+                        !device->get_out_desc ||
+                        !device->get_supported_codecs ||
+                        !device->vo_postprocess ||
+                        !device->done) {
+                fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
+                return FALSE;
+        }
+
+        return TRUE;
+}
+#endif /* BUILD_LIBRARIES */
+
+
 
 void show_vo_postprocess_help()
 {
@@ -110,26 +210,44 @@ struct vo_postprocess_state *vo_postprocess_init(char *config_string)
 {
         struct vo_postprocess_state *s;
         char *vo_postprocess_options = NULL;
-        
+
         if(!config_string) 
                 return NULL;
-        
+
         if(strcmp(config_string, "help") == 0)
         {
                 show_vo_postprocess_help();
                 return NULL;
         }
-        
+
         s = (struct vo_postprocess_state *) malloc(sizeof(struct vo_postprocess_state));
         s->handle = NULL;
         int i;
         for(i = 0; vo_postprocess_modules[i].name != NULL; ++i) {
                 if(strncasecmp(config_string, vo_postprocess_modules[i].name,
-                                strlen(vo_postprocess_modules[i].name)) == 0) {
+                                        strlen(vo_postprocess_modules[i].name)) == 0) {
+                        /* found it */
+#ifdef BUILD_LIBRARIES
+                        if(vo_postprocess_modules[i].library_name) {
+                                vo_postprocess_modules[i].handle =
+                                        vo_pp_open_library(vo_postprocess_modules[i].library_name);
+                                if(!vo_postprocess_modules[i].handle) {
+                                        free(s);
+                                        fprintf(stderr, "Unable to load postprocess library.\n");
+                                        return NULL;
+                                }
+                                int ret = vo_pp_fill_symbols(&vo_postprocess_modules[i]);
+                                if(!ret) {
+                                        free(s);
+                                        fprintf(stderr, "Unable to load postprocess library.\n");
+                                        return NULL;
+                                }
+                        }
+#endif /* BUILD_LIBRARIES */
                         s->handle = &vo_postprocess_modules[i];
                         if(config_string[strlen(vo_postprocess_modules[i].name)] == ':') 
-                                        vo_postprocess_options = config_string +
-                                                strlen(vo_postprocess_modules[i].name) + 1;
+                                vo_postprocess_options = config_string +
+                                        strlen(vo_postprocess_modules[i].name) + 1;
                 }
         }
         if(!s->handle) {
@@ -182,7 +300,7 @@ void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_de
         if(s) s->handle->get_out_desc(s->state, out, display_mode, out_frames_count);
 }
 
-void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *s, codec_t ** supported_codecs, int *count)
+void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *s, codec_t * supported_codecs, int *count)
 {
         if(s) s->handle->get_supported_codecs(supported_codecs, count);
 }

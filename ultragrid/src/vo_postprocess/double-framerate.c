@@ -87,10 +87,9 @@ void * df_init(char *config) {
         return s;
 }
 
-void df_get_supported_codecs(codec_t ** supported_codecs, int *count)
+void df_get_supported_codecs(codec_t * supported_codecs, int *count)
 {
-        *supported_codecs = NULL;
-        *count = -1;
+        *count = 0;
 }
 
 

@@ -60,10 +60,9 @@ struct state_split {
         int grid_width, grid_height;
 };
 
-void split_get_supported_codecs(codec_t ** supported_codecs, int *count)
+void split_get_supported_codecs(codec_t * supported_codecs, int *count)
 {
-        *supported_codecs = NULL;
-        *count = -1;
+        *count = 0;
 }
 
 

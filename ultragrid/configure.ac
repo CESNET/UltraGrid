@@ -1,4 +1,4 @@
-scalednl Process this file with autoconf to produce a configure script.
+dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT([UltraGrid], [1.1-rc4], [ultragrid-dev@cesnet.cz])
 AM_INIT_AUTOMAKE([1.10])
@@ -251,18 +251,21 @@ video_compress_abi_version=1
 video_decompress_abi_version=2
 audio_capture_abi_version=2
 audio_playback_abi_version=3
+vo_pp_abi_version=1
 AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])
 AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([AUDIO_CAPTURE_ABI_VERSION], $audio_capture_abi_version, [Specifies ABI version for audio capture])
 AC_DEFINE_UNQUOTED([AUDIO_PLAYBACK_ABI_VERSION], $audio_playback_abi_version, [Specifies ABI version for audio playback])
+AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
 AC_SUBST(video_display_abi_version)
 AC_SUBST(video_capture_abi_version)
 AC_SUBST(video_compress_abi_version)
 AC_SUBST(video_decompress_abi_version)
 AC_SUBST(audio_capture_abi_version)
 AC_SUBST(audio_playback_abi_version)
+AC_SUBST(vo_pp_abi_version)
 
 
 # -------------------------------------------------------------------------------------------------
@@ -386,7 +389,7 @@ then
 	then
 		DVS_LIB+=" -framework IOKit"
 	fi
-        AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/vidcap_dvs.so.$video_display_abi_version")
+        AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/vidcap_dvs.so.$video_capture_abi_version")
         AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/display_dvs.so.$video_display_abi_version")
         dvs=yes
 else
@@ -519,7 +522,7 @@ case $host in
             QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
             QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
             AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
-            AC_SUBST(QUAD_LIB_TARGET, "lib/ultragrid/vidcap_quad.so.$video_display_abi_version")
+            AC_SUBST(QUAD_LIB_TARGET, "lib/ultragrid/vidcap_quad.so.$video_capture_abi_version")
             quad=yes
         else
             QUAD_PATH=
@@ -596,7 +599,7 @@ case $host in
             DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
             DELTACAST_LIB="-lvideomasterhd -lvideomasterhd_audio"
             AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
-            AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_display_abi_version")
+            AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
             AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
             deltacast=yes
         else
@@ -992,6 +995,7 @@ case "$host_os" in
 		then
                         screen_cap=yes
                         SCREEN_CAP_LIB+=" -lGL -lGLEW"
+                        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
 		else
                         screen_cap=no
 		fi
@@ -1005,6 +1009,7 @@ then
         SCREEN_CAP_OBJ="src/video_capture/screen.o"
 fi
 
+AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(SCREEN_CAP_INC)
 AC_SUBST(SCREEN_CAP_LIB)
 AC_SUBST(SCREEN_CAP_OBJ)
@@ -1074,7 +1079,7 @@ LIBS=$SAVED_LIBS
 if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
-        RTDXT_COMMON_OBJ="src/glx_common.o"
+        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
         RTDXT_LIB=" -lGLEW -lGL -lX11"
         rtdxt=yes
 fi
@@ -1083,7 +1088,7 @@ fi
 if test $rtdxt_req = yes -a  "$system" = MacOSX
 then
 	RTDXT_LIB="-framework OpenGL -framework Cocoa"
-        RTDXT_COMMON_OBJ="src/mac_gl_common.o"
+        GL_COMMON_OBJ="src/mac_gl_common.o"
         rtdxt=yes
 fi
 
@@ -1100,6 +1105,7 @@ then
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
 fi    
 
+AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_HEADERS)
 AC_SUBST(RTDXT_COMPRESS_OBJ)
@@ -1539,6 +1545,7 @@ case $host_os in
                         scale=yes
                         SCALE_LIB+=" -lGL -lGLEW"
                         SCALE_OBJ+="src/vo_postprocess/scale.o"
+                        AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
 		else
                         scale=no
 		fi
@@ -1556,7 +1563,8 @@ AC_SUBST(SCALE_OBJ)
 # this is only needed when passing to "clean" make target
 LIB_OBJS="$QUICKTIME_OBJ $SDL_OBJ $GL_OBJ $SAGE_OBJ $TESTCARD_OBJ $TESTCARD2_OBJ $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_COMMON $QUAD_OBJ "\
 "$DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ $DVS_CAP_OBJ $DVS_DISP_OBJ $FASTDXT_OBJ $RTDXT_COMPRESS_OBJ $JPEG_COMPRESS_OBJ $RTDXT_COMMON_OBJ $RTDXT_DECOMPRESS_OBJ $JPEG_COMMON_OBJ $JPEG_DECOMPRESS_OBJ "\
-"$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ $SCREEN_CAP_OBJ $DECKLINK_SOUND_PLAY_OBJ"
+"$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ $SCREEN_CAP_OBJ $DECKLINK_SOUND_PLAY_OBJ "\
+"$SCALE_OBJ $GL_COMMON_OBJ"
 
 LIB_HEADERS="$RTDXT_COMMON_HEADERS"
 
@@ -1565,10 +1573,11 @@ then
         LIB_TARGETS="$SDL_LIB_TARGET $GL_LIB_TARGET $TESTCARD_LIB_TARGET $TESTCARD2_LIB_TARGET $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $QUAD_LIB_TARGET "\
 "$DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET $SAGE_LIB_TARGET $FASTDXT_LIB_TARGET $RTDXT_COMPRESS_LIB_TARGET $JPEG_COMPRESS_LIB_TARGET "\
 "$RTDXT_DECOMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET $PORTAUDIO_CAP_LIB_TARGET $JACK_CAP_LIB_TARGET "\
-"$JACK_PLAY_LIB_TARGET $SCREEN_CAP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
+"$JACK_PLAY_LIB_TARGET $SCREEN_CAP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET "\
+"$SCALE_LIB_TARGET"
 else
         LIBS+=" $GL_LIB $SDL_LIBS $DECKLINK_LIB $DELTACAST_LIB $QUICKTIME_LIB $SAGE_LIB $TESTCARD_LIB $TESTCARD2_LIB $DECKLINK_LIB $DELTACAST_LIB $DVS_LIB $FASTDXT_LIB $RTDXT_LIB $JPEG_LIB $ALSA_LIB "\
-"$PORTAUDIO_LIB $JACK_LIB $SCREEN_CAP_LIB"
+"$PORTAUDIO_LIB $JACK_LIB $SCREEN_CAP_LIB $SCALE_LIB"
         OBJS+=" $LIB_OBJS"
         HEADERS+=" $LIB_HEADERS"
         LIB_OBJS=

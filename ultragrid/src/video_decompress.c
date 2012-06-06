@@ -90,7 +90,7 @@ struct state_decompress {
 static void *decompress_open_library(const char *vidcap_name)
 {
         char name[128];
-        snprintf(name, sizeof(name), "vdecompress_%s.so.%d", vidcap_name, VIDEO_CAPTURE_ABI_VERSION);
+        snprintf(name, sizeof(name), "vdecompress_%s.so.%d", vidcap_name, VIDEO_DECOMPRESS_ABI_VERSION);
 
         return open_library(name);
 }

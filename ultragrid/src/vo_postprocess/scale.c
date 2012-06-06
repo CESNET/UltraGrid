@@ -73,11 +73,16 @@ struct state_scale {
         GLuint fbo;
 };
 
-void scale_get_supported_codecs(codec_t ** supported_codecs, int *count)
+void scale_get_supported_codecs(codec_t * supported_codecs, int *count)
 {
         codec_t supported[] = {UYVY, RGBA};
 
-        *supported_codecs = supported;
+        if(*count < sizeof(supported) / sizeof(codec_t)) {
+                fprintf(stderr, "Scale postprocessor query little space.\n");
+                *count = -1;
+        }
+
+        memcpy(supported_codecs, &supported, sizeof(supported));
         *count = sizeof(supported) / sizeof(codec_t);
 }
 

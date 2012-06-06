@@ -230,12 +230,17 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
         }
 
         if(decoder->postprocess) {
-                codec_t *postprocess_supported_codecs;
-                int count;
-                vo_postprocess_get_supported_codecs(decoder->postprocess, &postprocess_supported_codecs, &count);
+                codec_t postprocess_supported_codecs[20];
+                int count = 20;
+                vo_postprocess_get_supported_codecs(decoder->postprocess, postprocess_supported_codecs, &count);
 
-                if(postprocess_supported_codecs)
+                if(count > 0)
                         restrict_returned_codecs(decoder->native_codecs, &decoder->native_count, postprocess_supported_codecs, count);
+                if(count < 0) {
+                        fprintf(stderr, "[Decoder] Unable to get supported codecs.\n");
+                        exit_uv(1);
+                        return;
+                }
         }
 
 

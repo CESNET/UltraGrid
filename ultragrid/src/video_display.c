@@ -67,6 +67,8 @@
 #include "video_display/sage.h"
 #include "lib_common.h"
 
+#include <string.h>
+
 extern char **uv_argv;
 
 /*
@@ -309,8 +311,9 @@ void *open_library(const char *name)
 
         /* firstly expect we are opening from a build */
         tmp = strdup(uv_argv[0]);
-        dir = dirname(tmp);
-        if(strcmp(dir, ".") != 0) {
+        /* binary not from $PATH */
+        if(strchr(tmp, '/') != NULL) {
+                dir = dirname(tmp);
                 snprintf(path, sizeof(path), "%s/../lib/%s", dir, kLibName);
                 if(!handle && stat(path, &buf) == 0) {
                         handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);

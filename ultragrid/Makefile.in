@@ -37,7 +37,6 @@ HEADERS	      = @HEADERS@
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
 		src/debug.o \
-		src/gl_context.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
@@ -92,7 +91,6 @@ OBJS	      = @OBJS@ \
 		src/vo_postprocess.o \
 		src/vo_postprocess/3d-interlaced.o \
 		src/vo_postprocess/double-framerate.o \
-		@SCALE_OBJ@ \
 		src/vo_postprocess/split.o \
 		@X_OBJ@ \
 		../ldgm-coding/ldgm-session-cpu.o \
@@ -224,11 +222,13 @@ FASTDXT_LIB_OBJ = src/video.o \
 
 RTDXT_COMPRESS_LIB_OBJ = src/video.o \
 			 src/video_codec.o \
+			 @GL_COMMON_OBJ@ \
 			 @RTDXT_COMMON_OBJ@ \
 			 @RTDXT_COMPRESS_OBJ@
 
 RTDXT_DECOMPRESS_LIB_OBJ = src/video.o \
 			 src/video_codec.o \
+			 @GL_COMMON_OBJ@ \
 			 @RTDXT_COMMON_OBJ@ \
 			 @RTDXT_DECOMPRESS_OBJ@
 
@@ -265,6 +265,9 @@ JACK_PLAY_LIB_OBJ = @JACK_PLAY_OBJ@ \
 
 DECKLINK_SOUND_PLAY_LIB_OBJ = @DECKLINK_SOUND_PLAY_OBJ@ \
 		@DECKLINK_COMMON@ \
+
+SCALE_LIB_OBJ = @SCALE_OBJ@ \
+		@GL_COMMON_OBJ@ \
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) modules ag-plugins configure-messages
@@ -595,7 +598,7 @@ perf: src/tv.o src/crypto/random.o
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $(JPEG_COMPRESS_LIB_OBJ) @JPEG_LIB@ -o $@
 
-@RTDXT_DECOMPRESS_LIB_TARGET@: $(RTDXT_DECOMPRESS_LIB_OBJ)) @RTDXT_COMMON_HEADERS@
+@RTDXT_DECOMPRESS_LIB_TARGET@: $(RTDXT_DECOMPRESS_LIB_OBJ) @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@ $(RTDXT_DECOMPRESS_LIB_OBJ) @RTDXT_LIB@ -o $@
 
@@ -630,6 +633,10 @@ perf: src/tv.o src/crypto/random.o
 @DECKLINK_SOUND_PLAY_LIB_TARGET@: $(DECKLINK_SOUND_PLAY_LIB_OBJ)
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $(DECKLINK_SOUND_PLAY_LIB_OBJ) @DECKLINK_LIB@ -o $@
+
+@SCALE_LIB_TARGET@: $(SCALE_LIB_OBJ)
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $(SCALE_LIB_OBJ) @SCALE_LIB@ -o $@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
