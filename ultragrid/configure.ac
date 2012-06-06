@@ -1496,7 +1496,7 @@ case $host_os in
 			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit"
 			COREAUDIO_OBJ="src/audio/capture/coreaudio.o src/audio/playback/coreaudio.o"
                         coreaudio=yes
-                        AC_DEFINE([HAVE_COREAUDIO], [1], [Build with ALSA support])
+                        AC_DEFINE([HAVE_COREAUDIO], [1], [Build with CoreAudio support])
 		fi
     ;;
 esac
@@ -1530,9 +1530,11 @@ case $host_os in
 	*darwin*)
 		if test $scale_req = yes
 		then
-                        scale=yes
-                        SCALE_LIB+=" -framework OpenGL -framework Cocoa"
-                        SCALE_OBJ+="src/vo_postprocess/scale.o"
+                        #scale=yes
+                        #SCALE_LIB+=" -framework OpenGL -framework Cocoa"
+                        #SCALE_OBJ+="src/vo_postprocess/scale.o"
+                        #AC_DEFINE([HAVE_COREAUDIO], [1], [Build with ALSA support])
+                        scale=no
 		else
                         scale=no
 		fi
@@ -1546,6 +1548,7 @@ case $host_os in
                         SCALE_LIB+=" -lGL -lGLEW"
                         SCALE_OBJ+="src/vo_postprocess/scale.o"
                         AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
+                        AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 		else
                         scale=no
 		fi
