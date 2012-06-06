@@ -496,12 +496,12 @@ gpujpeg_coder_init(struct gpujpeg_coder* coder)
         printf("\nAllocation Info:\n");
         printf("    Segment Count:            %d\n", coder->segment_count);
         printf("    Allocated Data Size:      %dx%d\n", coder->data_width, coder->data_height);
-        printf("    Raw Buffer Size:          %d MB\n", coder->data_raw_size / (1024 * 1024));
-        printf("    Preprocessor Buffer Size: %d MB\n", coder->data_size / (1024 * 1024));
-        printf("    DCT Buffer Size:          %d MB\n", 2 * coder->data_size / (1024 * 1024));
-        printf("    Compressed Buffer Size:   %d MB\n", coder->data_compressed_size / (1024 * 1024));
-        printf("    Structures Size:          %d kB\n", structures_size / (1024));
-        printf("    Total GPU Memory Size:    %d MB\n", total_size / (1024 * 1024));
+        printf("    Raw Buffer Size:          %0.1f MB\n", (double)coder->data_raw_size / (1024.0 * 1024.0));
+        printf("    Preprocessor Buffer Size: %0.1f MB\n", (double)coder->data_size / (1024.0 * 1024.0));
+        printf("    DCT Buffer Size:          %0.1f MB\n", (double)2 * coder->data_size / (1024.0 * 1024.0));
+        printf("    Compressed Buffer Size:   %0.1f MB\n", (double)coder->data_compressed_size / (1024.0 * 1024.0));
+        printf("    Structures Size:          %0.1f kB\n", (double)structures_size / (1024.0));
+        printf("    Total GPU Memory Size:    %0.1f MB\n", (double)total_size / (1024.0 * 1024.0));
         printf("");
     }
 

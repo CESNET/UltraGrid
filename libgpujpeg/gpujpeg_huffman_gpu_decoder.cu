@@ -442,6 +442,9 @@ gpujpeg_huffman_gpu_decoder_decode(struct gpujpeg_decoder* decoder)
         comp_count = coder->param_image.comp_count;
     assert(comp_count >= 1 && comp_count <= GPUJPEG_MAX_COMPONENT_COUNT);
     
+    // Configure more L1 memory
+    cudaFuncSetCacheConfig(gpujpeg_huffman_decoder_decode_kernel, cudaFuncCachePreferL1);
+
     // Run kernel
     dim3 thread(32);
     dim3 grid(gpujpeg_div_and_round_up(decoder->segment_count, thread.x));
