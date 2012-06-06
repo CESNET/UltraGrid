@@ -1,7 +1,10 @@
 #include <QtGui> 
 #include <QStringList>
+#include <QCoreApplication>
 #include "ultragrid.h"
 #include "ultragridsettings.h"
+
+#include <iostream>
 
 // including <QtGui> saves us to include every class user, <QString>, <QFileDialog>,...
 
@@ -9,6 +12,16 @@ UltraGridMainWindow::UltraGridMainWindow(QWidget *parent)
 {
     setupUi(this); // this sets up GUI
     started = false;
+
+    QStringList args = QCoreApplication::arguments();
+
+    int index = args.indexOf("--with-uv");
+    if(index != -1 && args.size() >= index + 1) {
+        //found
+        ultragridExecutable = args.at(index + 1);
+    } else {
+        ultragridExecutable = "uv";
+    }
 
     history = settings.getHistory();
     completer = new QCompleter(QStringList::fromSet(history), this);
@@ -23,6 +36,8 @@ UltraGridMainWindow::UltraGridMainWindow(QWidget *parent)
     connect( actionAbout, SIGNAL( triggered() ), this, SLOT( about() ) );
     connect( &process, SIGNAL( finished( int, QProcess::ExitStatus ) ),
              this, SLOT( UGHasFinished( int, QProcess::ExitStatus ) ) );
+    connect( &process, SIGNAL( started( ) ),
+             this, SLOT( UGHasStarted( ) ) );
 
     connect( &process, SIGNAL( readyReadStandardOutput () ),
              this, SLOT( outputAvailable ()) );
@@ -38,41 +53,40 @@ void UltraGridMainWindow::doStart()
 {
     if(!started)
     {
-        pushButton_start->setText("Stop");
-        started = true;
-        statusBar.showMessage("Running");
         QHash<QString, QString> sett = settings.getSettings();
-        QString command("uv ");
-        if(sett.find("audio_cap") != sett.end())
+        QString command(ultragridExecutable);
+        command += " ";
+
+        if(sett.find("audio_cap") != sett.end() && !sett.find("audio_cap").value().isEmpty())
             command += "-s " + sett.find("audio_cap").value();
         command += + " ";
-        if(sett.find("audio_play") != sett.end())
+        if(sett.find("audio_play") != sett.end() && !sett.find("audio_play").value().isEmpty())
             command += "-r " + sett.find("audio_play").value();
         command += + " ";
-        if(sett.find("display") != sett.end()) {
+        if(sett.find("display") != sett.end() && !sett.find("display").value().isEmpty()) {
             command += "-d " + sett.find("display").value();
-            if(sett.find("display_details") != sett.end())
+            if(sett.find("display_details") != sett.end() && !sett.find("display_details").value().isEmpty())
                 command +=  ":" + sett.find("display_details").value();
         }
         command += + " ";
-        if(sett.find("capture") != sett.end()) {
+        if(sett.find("capture") != sett.end() && !sett.find("capture").value().isEmpty()) {
             command += "-t " + sett.find("capture").value();
-            if(sett.find("capture_details") != sett.end())
+            if(sett.find("capture_details") != sett.end() && !sett.find("capture_details").value().isEmpty())
                 command +=  ":" + sett.find("capture_details").value();
         }
         command += + " ";
-        if(sett.find("mtu") != sett.end())
+        if(sett.find("mtu") != sett.end() && !sett.find("mtu").value().isEmpty())
             command += "-m " + sett.find("mtu").value();
         command += + " ";
-        if(sett.find("compress") != sett.end()) {
-            command += sett.find("compress").value();
+        if(sett.find("compress") != sett.end() && !sett.find("compress").value().isEmpty()) {
+            command += "-c " + sett.find("compress").value();
             if(sett.find("compress").value().compare("JPEG") == 0 &&
-                    sett.find("compress_jpeg_quality") != sett.end()) {
+                    sett.find("compress_jpeg_quality") != sett.end() && !sett.find("compress_jpeg_quality").value().isEmpty()) {
                 command += ":" + sett.find("compress_jpeg_quality").value();
             }
         }
         command += + " ";
-        if(sett.find("other") != sett.end())
+        if(sett.find("other") != sett.end() && !sett.find("other").value().isEmpty())
             command += sett.find("other").value();
         command += + " ";
 
@@ -100,9 +114,19 @@ void UltraGridMainWindow::UGHasFinished( int exitCode, QProcess::ExitStatus exit
     started = false;
 }
 
+void UltraGridMainWindow::UGHasStarted()
+{
+    pushButton_start->setText("Stop");
+    started = true;
+    statusBar.showMessage("Running");
+}
+
 void UltraGridMainWindow::doAdvanced()
 {
+    statusBar.showMessage("please wait few seconds");
     advanced = new AdvancedWindow(&settings, this);
+
+    statusBar.clearMessage();
 
     advanced->show();
 }

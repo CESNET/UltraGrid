@@ -5,11 +5,22 @@
 #include <QList>
 #include <QDebug>
 #include <QStringList>
+#include <iostream>
 #include "terminal.h"
 
 AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
         QDialog(parent)
 {
+    QStringList args = QCoreApplication::arguments();
+
+    int index = args.indexOf("--with-uv");
+    if(index != -1 && args.size() >= index + 1) {
+        //found
+        ultragridExecutable = args.at(index + 1);
+    } else {
+        ultragridExecutable = "uv";
+    }
+
     this->settings = settings;
     setupUi(this); // this sets up GUI
 
@@ -78,7 +89,10 @@ AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
 
 void AdvancedWindow::saveSettings()
 {
-    settings->setValue("mtu", QString(spin_mtu->value()));
+    QString number;
+
+    number.setNum(spin_mtu->value());
+    settings->setValue("mtu", number);
     settings->setValue("display", comboBox_display->currentText());
     settings->setValue("capture", comboBox_capture->currentText());
     settings->setValue("audio_cap", comboBox_audio_cap->itemData(comboBox_audio_cap->currentIndex()).toString());
@@ -86,7 +100,8 @@ void AdvancedWindow::saveSettings()
     settings->setValue("display_details", lineEdit_display_details->text());
     settings->setValue("capture_details", lineEdit_capture_details->text());
     settings->setValue("other", lineEdit_other->text());
-    settings->setValue("compress_jpeg_quality", QString(compress_JPEG_quality->value()));
+    number.setNum(compress_JPEG_quality->value());
+    settings->setValue("compress_jpeg_quality", number);
 
     QString compress;
 
@@ -125,7 +140,10 @@ void AdvancedWindow::doCancel()
      QStringList out;
 
      QProcess process;
-     QString command("uv ");
+
+     QString command = ultragridExecutable;
+
+     command += " ";
      command += param;
 
      process.start(command);
@@ -146,7 +164,7 @@ void AdvancedWindow::doCancel()
  void AdvancedWindow::showCaptureHelp()
  {
      QProcess process;
-     QString command("uv -t ");
+     QString command = ultragridExecutable + (" -t ");
      command += comboBox_capture->currentText() + ":help";
 
      process.start(command);
@@ -162,7 +180,7 @@ void AdvancedWindow::doCancel()
  void AdvancedWindow::showDisplayHelp()
  {
      QProcess process;
-     QString command("uv -d ");
+     QString command = ultragridExecutable + (" -d ");
      command += comboBox_display->currentText() + ":help";
 
      process.start(command);

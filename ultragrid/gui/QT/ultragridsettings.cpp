@@ -15,8 +15,12 @@ UltragridSettings::UltragridSettings(QObject *parent) :
 
     QString line;
     while((line = stream.readLine()) != QString()) {
-        QStringList tokenized = line.split(" ");
-        settings.insert(tokenized[0], tokenized[1]);
+        if(line.indexOf(" ") != -1) {
+            QString key, value;
+            key = line.left(line.indexOf(" "));
+            value = line.right(line.size() - line.indexOf(" ") - 1);
+            settings.insert(key, value);
+        }
     }
 
     /*stream >> "audio_cap " >> settings.audio_cap >> '\n' >>

@@ -19,6 +19,8 @@ private:
 
     UltragridSettings *settings;
 
+    QString ultragridExecutable;
+
 public slots:
     void doOK();
     void doSave();

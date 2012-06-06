@@ -23,6 +23,8 @@ private:
     QStatusBar statusBar;
     QLabel *label;
 
+    QString ultragridExecutable;
+
     QCompleter *completer;
     QSet<QString> history;
 
@@ -37,6 +39,7 @@ public slots:
     void doTerminal();
     void about();
     void UGHasFinished( int exitCode, QProcess::ExitStatus exitStatus );
+    void UGHasStarted();
     void outputAvailable();
     void updateHistory();
 };
