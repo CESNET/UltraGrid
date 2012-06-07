@@ -127,6 +127,8 @@ void AdvancedWindow::saveSettings()
         compress = QString("RTDXT:DXT5");
     } else if(compress_JPEG->isChecked()) {
         compress = QString("JPEG");
+    } else if(compress_FastDXT->isChecked()) {
+        compress = QString("FastDXT");
     }
 
     settings->setValue("compress", compress);

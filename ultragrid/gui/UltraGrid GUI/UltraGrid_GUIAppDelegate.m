@@ -148,6 +148,7 @@
                               @"RTDXT:DXT1", @"DXT1",
                               @"RTDXT:DXT5", @"DXT5",
                               @"JPEG", @"JPEG",
+                              @"FastDXT", @"FastDXT",
                               nil];
     
     NSString *compression = [matching objectForKey: settings.compression];

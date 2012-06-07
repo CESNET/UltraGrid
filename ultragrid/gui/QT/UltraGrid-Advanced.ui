@@ -181,6 +181,16 @@
        </widget>
       </item>
       <item>
+       <widget class="QRadioButton" name="compress_FastDXT">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;CPU based DXT1 (YUV) compression&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Provides same bandwidth as GPU DXT1. Has the worse quality from other options. On the other hand, because is completly CPU based, it can act as a fallback if we cannot use GPU based compressions (eg. lack of suitable graphic card).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>FastDXT</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QRadioButton" name="compress_DXT1">
         <property name="toolTip">
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;GLSL based DXT compression&lt;/p&gt;&lt;p&gt;It usually takes 250 Mbps bandwidth for FullHD video stream. It is relatively modest to HW resources (GPU).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
