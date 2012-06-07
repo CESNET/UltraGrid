@@ -1,5 +1,5 @@
 /*
- * FILE:    vo_postprocess/double-framerate.c
+ * FILE:    vo_postprocess/scale.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -50,8 +50,6 @@
 #include "config_unix.h"
 #endif
 
-#ifdef HAVE_LINUX
-
 #include "debug.h"
 
 #include "video_codec.h"
@@ -60,8 +58,23 @@
 #include "vo_postprocess/scale.h"
 #include "video_display.h"
 
-#include <GL/glew.h>
 #include "gl_context.h"
+
+#ifdef HAVE_LINUX
+#include <GL/glew.h>
+#else
+#include <OpenGL/GL.h>
+#endif /* HAVE_LINUX */
+
+#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
+#define glGenFramebuffers glGenFramebuffersEXT
+#define glBindFramebuffer glBindFramebufferEXT
+#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
+#define glFramebufferTexture2D glFramebufferTexture2DEXT
+#define glDeleteFramebuffers glDeleteFramebuffersEXT
+#define GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE_EXT
+#define glCheckFramebufferStatus glCheckFramebufferStatusEXT
+#endif
 
 struct state_scale {
         struct video_frame *in;
@@ -325,6 +338,4 @@ void scale_get_out_desc(void *state, struct video_desc *out, int *in_display_mod
         *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }
-
-#endif /* HAVE_LINUX */
 

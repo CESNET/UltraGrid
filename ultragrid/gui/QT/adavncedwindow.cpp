@@ -29,7 +29,6 @@ AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
     connect( pushButton_cancel, SIGNAL( clicked() ), this, SLOT( doCancel() ) );
     connect( toolButton_capture_help, SIGNAL( clicked() ), this, SLOT( showCaptureHelp() ) );
     connect( toolButton_display_help, SIGNAL( clicked() ), this, SLOT( showDisplayHelp() ) );
-    connect( compress_JPEG, SIGNAL( toggled(bool) ), compress_JPEG_quality, SLOT( setEnabled(bool)) );
 
     comboBox_capture->addItem("");
     comboBox_display->addItem("");
@@ -85,6 +84,21 @@ AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
     } else if(compress.startsWith("JPEG")) {
         compress_JPEG->setChecked(true);
     }
+
+    QString fec = settings->getValue("fec");
+    if(fec == QString("none")) {
+        fec_none->setChecked(true);
+    } else if(fec == QString("mult")) {
+        fec_mult->setChecked(true);
+    } else if(fec == QString("LDGM")) {
+        fec_ldgm->setChecked(true);
+    }
+
+    QString fecMultCount = settings->getValue("fec_mult_count");
+    int fecMultCountInt = fecMultCount.toInt(&ok);
+    if(ok) {
+        fec_mult_count->setValue(fecMultCountInt);
+    }
 }
 
 void AdvancedWindow::saveSettings()
@@ -116,6 +130,22 @@ void AdvancedWindow::saveSettings()
     }
 
     settings->setValue("compress", compress);
+
+    number.setNum(fec_mult_count->value());
+    settings->setValue("fec_mult_count", number);
+
+    QString fec;
+
+    if(fec_none->isChecked()) {
+        fec = QString("fec");
+    } else if(fec_mult->isChecked()) {
+        fec = QString("mult");
+    } else if(fec_ldgm->isChecked()) {
+        fec = QString("LDGM");
+    }
+
+    settings->setValue("fec", fec);
+
 }
 
 void AdvancedWindow::doOK()

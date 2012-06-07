@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>558</width>
-    <height>299</height>
+    <width>542</width>
+    <height>385</height>
    </rect>
   </property>
   <property name="font">
@@ -60,18 +60,34 @@
       </widget>
      </item>
      <item row="4" column="3">
-      <widget class="QComboBox" name="comboBox_audio_cap"/>
+      <widget class="QComboBox" name="comboBox_audio_cap">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Audio capture (sender)&lt;/p&gt;&lt;p&gt;Embedded/Analog/AESEBU devices indicate that we take sound from same source as a video.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
      </item>
      <item row="5" column="3">
-      <widget class="QComboBox" name="comboBox_audio_play"/>
+      <widget class="QComboBox" name="comboBox_audio_play">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Audio playback (receiver)&lt;/p&gt;&lt;p&gt;Embedded/Analog/AESEBU devices indicate that we take sound from same source as a video.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+      </widget>
      </item>
      <item row="3" column="3">
       <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
-        <widget class="QComboBox" name="comboBox_capture"/>
+        <widget class="QComboBox" name="comboBox_capture">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Capture device.&lt;/p&gt;&lt;p&gt;Put here a appropriate video device. Needed only if we act as a sender.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit_capture_details"/>
+        <widget class="QLineEdit" name="lineEdit_capture_details">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Parameters for capture&lt;/p&gt;&lt;p&gt;Add here parameter specifiing input video signal (see help displayed with righmost button on this line). Required for sender only.&lt;/p&gt;&lt;p&gt;This parameter is usually required, if capture device is set.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="QToolButton" name="toolButton_capture_help">
@@ -85,10 +101,18 @@
      <item row="1" column="3">
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <widget class="QComboBox" name="comboBox_display"/>
+        <widget class="QComboBox" name="comboBox_display">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Display device.&lt;/p&gt;&lt;p&gt;Put here a appropriate video device. Needed only if we act as a receiver.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
        </item>
        <item>
-        <widget class="QLineEdit" name="lineEdit_display_details"/>
+        <widget class="QLineEdit" name="lineEdit_display_details">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Parameters for video display – please see help (righmost button on this line).&lt;/p&gt;&lt;p&gt;Generally, options for display are optional in most cases.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="QToolButton" name="toolButton_display_help">
@@ -103,6 +127,9 @@
       <layout class="QHBoxLayout" name="horizontalLayout_8">
        <item>
         <widget class="QSpinBox" name="spin_mtu">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Maximal packet size that will UltraGrid utilize (including headers).&lt;/p&gt;&lt;p&gt;It is recommended to put a maximal possible value if sending uncompressed video.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="minimum">
           <number>500</number>
          </property>
@@ -132,96 +159,102 @@
     </layout>
    </item>
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_2">
-     <property name="sizeConstraint">
-      <enum>QLayout::SetDefaultConstraint</enum>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>compression</string>
      </property>
-     <item>
-      <widget class="QLabel" name="label_7">
-       <property name="text">
-        <string>Compression:</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_5">
-       <item>
-        <widget class="QRadioButton" name="compress_none">
-         <property name="enabled">
-          <bool>true</bool>
-         </property>
-         <property name="text">
-          <string>none</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QRadioButton" name="compress_DXT1">
-         <property name="text">
-          <string>DXT1</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QRadioButton" name="compress_DXT5">
-         <property name="text">
-          <string>DXT5</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_6">
-         <item>
-          <widget class="QRadioButton" name="compress_JPEG">
-           <property name="text">
-            <string>JPEG</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_8">
-           <property name="text">
-            <string>quality:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="compress_JPEG_quality">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="minimum">
-            <number>1</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="value">
-            <number>80</number>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </item>
-    </layout>
+     <layout class="QHBoxLayout" name="horizontalLayout_9">
+      <item>
+       <widget class="QRadioButton" name="compress_none">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Uncompressed video&lt;/p&gt;&lt;p&gt;Usually requires 10GE Ethernet and usage of Jumbo frames.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>none</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="compress_DXT1">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;GLSL based DXT compression&lt;/p&gt;&lt;p&gt;It usually takes 250 Mbps bandwidth for FullHD video stream. It is relatively modest to HW resources (GPU).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>DXT1</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="compress_DXT5">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;GLSL based DXT compression&lt;/p&gt;&lt;p&gt;It usually takes 450 Mbps bandwidth for FullHD video stream. It is relatively modest to HW resources (GPU). The overall quality is better compared to DXT1.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>DXT5</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="compress_JPEG">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Variable bitrate JPEG compression&lt;/p&gt;&lt;p&gt;It needs CUDA capable NVidia graphic card. Quality can be configured - 90 is usually indistinguishable from uncompressed stream with BW just below 100 Mbps.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>JPEG</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <item>
+         <widget class="QLabel" name="label_8">
+          <property name="text">
+           <string>quality:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="compress_JPEG_quality">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="toolTip">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;JPEG quality&lt;/p&gt;&lt;p&gt;0 &amp;ndash; worst&lt;/p&gt;&lt;p&gt;100 &amp;ndash; best&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+          <property name="minimum">
+           <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>100</number>
+          </property>
+          <property name="value">
+           <number>80</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -239,9 +272,84 @@
       </widget>
      </item>
      <item>
-      <widget class="QLineEdit" name="lineEdit_other"/>
+      <widget class="QLineEdit" name="lineEdit_other">
+       <property name="toolTip">
+        <string>here you can write any options passed directly to UltraGrid</string>
+       </property>
+      </widget>
      </item>
     </layout>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="FEC">
+     <property name="title">
+      <string>FEC</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_11">
+      <item>
+       <widget class="QRadioButton" name="fec_none">
+        <property name="toolTip">
+         <string>no additional FEC</string>
+        </property>
+        <property name="text">
+         <string>none</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="fec_mult">
+        <property name="toolTip">
+         <string>use interleaved multiplication</string>
+        </property>
+        <property name="text">
+         <string>mult</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QSpinBox" name="fec_mult_count">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>20</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="minimum">
+         <number>2</number>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="fec_ldgm">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Low-density parity-check codes provide good error correction ability with modes overhead.&lt;/p&gt;&lt;p&gt;Currently it can repair 10% loss at an expense of BW increase of 3/4.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>LDGM</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_3">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
     <spacer name="verticalSpacer">
@@ -284,5 +392,38 @@
   </layout>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>fec_mult</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>fec_mult_count</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>114</x>
+     <y>287</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>177</x>
+     <y>287</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>compress_JPEG</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>compress_JPEG_quality</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>252</x>
+     <y>202</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>367</x>
+     <y>202</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>
