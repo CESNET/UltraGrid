@@ -1064,6 +1064,11 @@ AC_ARG_ENABLE(rtdxt,
 	[rtdxt_req=$enableval],
         [rtdxt_req=yes])
 
+AC_ARG_ENABLE(rtdxt-pbo, 
+      AS_HELP_STRING([--disable-rtdxt-pbo], [disable use of PBO in RTDXT (default is on)]), 
+	[rtdxt_pbo_req=$enableval],
+        [rtdxt_pbo_req=yes])
+
 SAVED_LIBS=$LIBS
 
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
@@ -1074,6 +1079,11 @@ AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
 AC_CHECK_LIB(X11, XCreateWindow)
 
 LIBS=$SAVED_LIBS
+
+if test $rtdxt_pbo_req = yes
+then
+        AC_DEFINE([USE_PBO], [1], [We want to use PBO])
+fi
 
 # Linux
 if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
@@ -1104,6 +1114,7 @@ then
         AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_rtdxt.so.$video_compress_abi_version")
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
 fi    
+
 
 AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_OBJ)

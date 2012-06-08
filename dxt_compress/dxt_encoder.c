@@ -87,9 +87,11 @@ struct dxt_encoder
     // Texture id
     GLuint texture_id;
 
+#ifdef USE_PBO
     // PBO
     GLuint pbo_in;
     GLuint pbo_out;
+#endif
 
     // Compressed texture
     GLuint texture_compressed_id;
@@ -242,6 +244,7 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glGenFramebuffers(1, &encoder->fbo_id);
     glBindFramebuffer(GL_FRAMEBUFFER, encoder->fbo_id);
 
+#ifdef USE_PBO
     int bpp;
     if(format == DXT_FORMAT_RGB) {
         bpp = 3;
@@ -254,6 +257,12 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB,width*height*bpp,0,GL_STREAM_DRAW_ARB);
     glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
         
+    glGenBuffersARB(1, &encoder->pbo_out); //Allocate PBO
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
+    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4)  / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2), 0, GL_STREAM_READ_ARB);
+    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+    
+#endif
     
     GLuint fbo_tex;
     glGenTextures(1, &fbo_tex); 
@@ -269,11 +278,6 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo_tex, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    glGenBuffersARB(1, &encoder->pbo_out); //Allocate PBO
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
-    glBufferDataARB(GL_PIXEL_PACK_BUFFER_ARB, ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4)  / (encoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2), 0, GL_STREAM_READ_ARB);
-    glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
-    
     // Create program [display] and its shader
     encoder->program_compress = glCreateProgram();
     // Create fragment shader from file
@@ -460,7 +464,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     GPA_BeginPass();
     GPA_BeginSample(0);
 #endif
+#ifdef USE_PBO
     GLubyte *ptr;
+#endif
 
     int data_size = encoder->width * encoder->height;
     switch(encoder->format) {
@@ -485,6 +491,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         glPushAttrib(GL_VIEWPORT_BIT);
                         glViewport( 0, 0, encoder->width, encoder->height);
                 
+#ifdef USE_PBO
                         glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in); // current pbo
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, 0);
                         glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
@@ -495,6 +502,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                             memcpy(ptr, image, data_size); 
                             glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                         }
+#else
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
+#endif
                         glUseProgram(encoder->yuv422_to_444_program);
 #ifdef RTDXT_DEBUG
     glEndQuery(GL_TIME_ELAPSED_EXT);
@@ -537,6 +547,7 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                 case DXT_FORMAT_YUV:
                 case DXT_FORMAT_RGBA:
                         glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+#ifdef USE_PBO
                         glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in); // current pbo
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, 0);
                         glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
@@ -547,10 +558,14 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                             memcpy(ptr, image, data_size); 
                             glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                         }
+#else
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGBA, DXT_IMAGE_GL_TYPE, image);
+#endif
 
                         break;
                 case DXT_FORMAT_RGB:
                         glBindTexture(GL_TEXTURE_2D, encoder->texture_id);
+#ifdef USE_PBO
                         glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in); // current pbo
                         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, 0);
                         glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
@@ -561,6 +576,9 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                             memcpy(ptr, image, data_size); 
                             glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
                         }
+#else
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width, encoder->height, GL_RGB, GL_UNSIGNED_BYTE, image);
+#endif
                         break;
     }
 #ifdef RTDXT_DEBUG
@@ -612,11 +630,13 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 #endif
 
 
+    glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+
+#ifdef USE_PBO
     // Read back
     // read pixels from framebuffer to PBO
     // glReadPixels() should return immediately.
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, encoder->pbo_out);
-    glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
     if ( encoder->type == DXT_TYPE_DXT5_YCOCG )
         glReadPixels(0, 0, (encoder->width + 3) / 4, (encoder->height + 3) / 4, GL_RGBA_INTEGER_EXT, GL_UNSIGNED_INT, 0);
     else
@@ -634,6 +654,10 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
 
     // back to conventional pixel operation
     glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, 0);
+#else
+        glReadPixels(0, 0, (encoder->width + 3) / 4, (encoder->height + 3) / 4, GL_RGBA_INTEGER_EXT,
+                        encoder->type == DXT_TYPE_DXT5_YCOCG ? GL_UNSIGNED_INT : GL_UNSIGNED_SHORT, image_compressed);
+#endif
 
         
 #ifdef RTDXT_DEBUG_HOST
