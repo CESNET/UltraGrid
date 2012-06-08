@@ -485,7 +485,16 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
                         glPushAttrib(GL_VIEWPORT_BIT);
                         glViewport( 0, 0, encoder->width, encoder->height);
                 
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, image);
+                        glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, encoder->pbo_in); // current pbo
+                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, encoder->width / 2, encoder->height,  GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, 0);
+                        glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB, data_size, 0, GL_STREAM_DRAW_ARB);
+                        ptr = (GLubyte*)glMapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+                        if(ptr)
+                        {
+                            // update data directly on the mapped buffer
+                            memcpy(ptr, image, data_size); 
+                            glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB); // release pointer to mapping buffer
+                        }
                         glUseProgram(encoder->yuv422_to_444_program);
 #ifdef RTDXT_DEBUG
     glEndQuery(GL_TIME_ELAPSED_EXT);
