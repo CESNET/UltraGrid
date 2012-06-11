@@ -61,6 +61,7 @@ extern "C" {
 #include "video_capture.h"
 #include "video_codec.h"
 #include "audio/audio.h"
+#include "audio/utils.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
@@ -126,6 +127,7 @@ struct vidcap_decklink_state {
         
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
+        unsigned int            audio_channels; /* count of audio channels used */
         unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
         unsigned int            use_timecode:1; /* use timecode when grabbing from multiple inputs */
         unsigned int            autodetect_mode:1;
@@ -219,13 +221,14 @@ public:
                 if(result == S_OK) {
                         result = deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags);
                         if(s->grab_audio == FALSE || 
-                                        this->i != 0)//TODO: figure out output from multiple streams
+                                        this->i != 0) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
-                        else
+                        } else {
                                 deckLinkInput->EnableAudioInput(
                                         bmdAudioSampleRate48kHz,
                                         bmdAudioSampleType16bitInteger,
-                                        2);
+                                        s->audio_channels == 1 ? 2 : s->audio_channels); // BMD isn't able to grab single channel
+                        }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
                         deckLinkInput->StartStreams();
                 }
@@ -269,8 +272,16 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
         
         if(audioPacket) {
                 audioPacket->GetBytes(&audioFrame);
-                s->audio.data_len = audioPacket->GetSampleFrameCount() * 2 * 2;
-                memcpy(s->audio.data, audioFrame, s->audio.data_len);
+                if(s->audio_channels == 1) { // ther are actually 2 channels grabbed
+                        demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * s->audio_channels * 2,
+                                        2, /* channels (originally( */
+                                        0 /* we want first channel */
+                                                );
+                        s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * 2;
+                } else {
+                        s->audio.data_len = audioPacket->GetSampleFrameCount() * s->audio_channels * 2;
+                        memcpy(s->audio.data, audioFrame, s->audio.data_len);
+                }
         } else {
                 audioFrame = NULL;
         }
@@ -569,9 +580,17 @@ settings_init(void *state, char *fmt)
                                                 s->connection = bmdVideoConnectionSVideo;
                                         else {
                                                 fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
-                                                return NULL;
+                                                return 0;
                                         }
-
+                                } else if(strncasecmp(tmp, "audio_channels=", strlen("audio_channels=")) == 0) {
+                                        s->audio_channels = atoi(tmp + strlen("connection="));
+                                        if(s->audio_channels != 1 &&
+                                                        s->audio_channels != 2 &&
+                                                        s->audio_channels != 8 &&
+                                                        s->audio_channels != 16) {
+                                                fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
+                                                                "Only 1, 2, 8 or 16 are poosible.", s->audio_channels);
+                                        }
                                 } else {
                                         fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
                                 }
@@ -742,6 +761,21 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 
         gettimeofday(&t0, NULL);
 
+        s->audio_channels = 2; // default - stereo
+                               // may be overriden in settings_init
+        
+        s->stereo = FALSE;
+        s->use_timecode = FALSE;
+        s->autodetect_mode = FALSE;
+        s->connection = 0;
+        s->flags = 0;
+
+	// SET UP device and mode
+	if(settings_init(s, fmt) == 0) {
+		free(s);
+		return NULL;
+	}
+
         if(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
                 switch(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
@@ -760,23 +794,11 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 }
                 s->audio.bps = 2;
                 s->audio.sample_rate = 48000;
-                s->audio.ch_count = 2;
-                s->audio.data = (char *) malloc (48000 * 2 * 2);
+                s->audio.ch_count = s->audio_channels;
+                s->audio.data = (char *) malloc (48000 * s->audio_channels * 2);
         } else {
                 s->grab_audio = FALSE;
         }
-        
-        s->stereo = FALSE;
-        s->use_timecode = FALSE;
-        s->autodetect_mode = FALSE;
-        s->connection = 0;
-        s->flags = 0;
-
-	// SET UP device and mode
-	if(settings_init(s, fmt) == 0) {
-		free(s);
-		return NULL;
-	}
 
 	bool device_found[MAX_DEVICES];
         for(int i = 0; i < s->devices_cnt; ++i)
@@ -964,7 +986,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 deckLinkInput->EnableAudioInput(
                                                         bmdAudioSampleRate48kHz,
                                                         bmdAudioSampleType16bitInteger,
-                                                        2);
+                                                        s->audio_channels == 1 ? 2 : s->audio_channels);
                                         }
 
                                         // set Callback which returns frames
