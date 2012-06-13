@@ -80,6 +80,12 @@ extern "C" {
 #define STRING const char *
 #endif
 
+enum link {
+        LINK_UNSPECIFIED,
+        LINK_3G,
+        LINK_DUAL
+};
+
 // defined int video_capture/decklink.cpp
 void print_output_modes(IDeckLink *);
 static int blackmagic_api_version_check(STRING *current_version);
@@ -237,6 +243,8 @@ struct state_decklink {
 
         int                 output_audio_channel_count;
         BMDPixelFormat                    pixelFormat;
+
+        enum link           link;
  };
 
 static void show_help(void);
@@ -249,7 +257,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_numbers>[:3D][:timecode] - coma-separated numbers of output devices\n");
+        printf("\t-d decklink:<device_numbers>[:3D][:timecode][:3G|:dual-link] - coma-separated numbers of output devices\n");
         
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = CreateDeckLinkIteratorInstance();
@@ -654,6 +662,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         s->magic = DECKLINK_MAGIC;
         s->stereo = FALSE;
         s->emit_timecode = false;
+        s->link = LINK_UNSPECIFIED;
         
         if(fmt == NULL) {
                 cardIdx[0] = 0;
@@ -688,6 +697,10 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                                 }
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
+                        } else if(strcasecmp(ptr, "3G") == 0) {
+                                s->link = LINK_3G;
+                        } else if(strcasecmp(ptr, "dual-link") == 0) {
+                                s->link = LINK_DUAL;
                         } else {
                                 fprintf(stderr, "[DeckLink] Warning: unknown options in config string.\n");
                         }
@@ -791,6 +804,14 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         fprintf(stderr, "[DeckLink display] Unable to set to low-latency mode.\n");
                 }
 #endif /* DECKLINK_LOW_LATENCY */
+
+                if(s->link != LINK_UNSPECIFIED) {
+                        HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
+                                        s->link == LINK_3G ? true : false);
+                        if(res != S_OK) {
+                                fprintf(stderr, "[DeckLink display] Unable to set to low-latency mode.\n");
+                        }
+                }
 
                 if(s->play_audio == FALSE || i != 0) { //TODO: figure out output from multiple streams
                                 s->state[i].deckLinkOutput->DisableAudioOutput();
