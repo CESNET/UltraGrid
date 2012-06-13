@@ -320,7 +320,7 @@ display_decklink_getf(void *state)
 
         if (s->initialized) {
                 if(s->stereo) {
-                        assert(s->devices_cnt == 0);
+                        assert(s->devices_cnt == 1);
                         s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
                                                 s->frame->tiles[0].linesize, s->pixelFormat);
                                 
@@ -692,7 +692,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         if(strcasecmp(ptr, "3D") == 0) {
                                 s->stereo = true;
                                 ptr = strtok_r(NULL, ":", &saveptr1);
-                                if(strcasecmp(ptr, "timecode") == 0) {
+                                if(ptr && strcasecmp(ptr, "timecode") == 0) {
                                         s->emit_timecode = true;
                                 }
                         } else if(strcasecmp(ptr, "timecode") == 0) {
