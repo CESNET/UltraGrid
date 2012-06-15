@@ -253,6 +253,8 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
                 return NULL;
         }
 
+        gettimeofday(&s->t0, NULL);
+
         s->fps = 0.0;
 
         s->frame = NULL;

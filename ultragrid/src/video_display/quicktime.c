@@ -336,6 +336,8 @@ void display_quicktime_run(void *arg)
         int frames = 0;
         struct timeval t, t0;
 
+        gettimeofday(&t0, NULL);
+
         while (!should_exit) {
                 int i;
                 platform_sem_wait((void *) &s->semaphore);

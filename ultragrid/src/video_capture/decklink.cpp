@@ -739,6 +739,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 		return NULL;
 	}
 
+        gettimeofday(&t0, NULL);
+
         if(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
                 switch(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {

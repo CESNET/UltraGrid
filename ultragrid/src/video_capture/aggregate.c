@@ -128,6 +128,7 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
 	}
 
         s->frames = 0;
+        gettimeofday(&s->t0, NULL);
 
         if(!init_fmt || strcmp(init_fmt, "help") == 0) {
                 show_help();

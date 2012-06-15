@@ -292,6 +292,8 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 s->detect_mode = TRUE;
         }
 
+        gettimeofday(&s->t0, NULL);
+
         res = sv_openex(&s->sv, card_name, SV_OPENPROGRAM_DEFAULT, SV_OPENTYPE_DEFAULT, 0, 0);
         if (s->sv == NULL) {
                 printf

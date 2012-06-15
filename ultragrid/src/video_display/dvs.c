@@ -426,6 +426,8 @@ void display_dvs_run(void *arg)
                         exit_uv(1);
                         return;
                 }
+
+                gettimeofday(&s->t, NULL);
                 double seconds = tv_diff(s->t, s->t0);    
 
                 if (seconds >= 5) {
@@ -489,6 +491,7 @@ display_dvs_getf(void *state)
 int display_dvs_putf(void *state, char *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
+        struct timeval t;
 
         UNUSED(frame);
 
@@ -647,6 +650,8 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
+
+        gettimeofday(&s->t0, NULL);
         
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {

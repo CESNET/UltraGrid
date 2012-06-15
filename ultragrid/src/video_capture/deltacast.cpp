@@ -180,6 +180,8 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 		printf("Unable to allocate DELTACAST state\n");
 		return NULL;
 	}
+
+        gettimeofday(&s->t0, NULL);
         
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);

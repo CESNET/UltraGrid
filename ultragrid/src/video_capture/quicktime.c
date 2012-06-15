@@ -891,6 +891,8 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                         return NULL;
                 }
 
+                gettimeofday(&s->t0, NULL);
+
                 pthread_mutex_init(&s->lock, NULL);
                 pthread_cond_init(&s->boss_cv, NULL);
                 pthread_cond_init(&s->worker_cv, NULL);

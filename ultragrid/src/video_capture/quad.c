@@ -415,6 +415,8 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         
         s->frame = vf_alloc(s->devices_cnt);
 
+        gettimeofday(&t0, NULL);
+
 	/* CHECK IF QUAD CAN WORK CORRECTLY */
     
         /*Printing current settings from the sysfs info */
