@@ -30,29 +30,28 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#if defined HAVE_CONFIG_H && defined HAVE_MACOSX
+#include "dxt_common.h"
+
+#ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
-#include <GLUT/glut.h>
 #else /* HAVE_MACOSX */
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
-#include <GL/glut.h>
 #endif /* HAVE_MACOSX */
 
 #include <string.h>
+
 #ifdef HAVE_GLUT
+#ifdef HAVE_MACOSX
+#include <GLUT/glut.h>
+extern void glutCheckLoop(void);
+#else /* HAVE_MACOSX */
 #include <GL/glut.h>
-
-#include "dxt_common.h"
-
-/**
- * Predeclaration of glutMainLoopEvent
- */
-extern void
-glutMainLoopEvent(void);
-#endif
+extern void glutMainLoopEvent(void);
+#endif /* HAVE_MACOSX */
+#endif /* HAVE_GLUT */
 
 static inline int dxt_get_size(int width, int height, enum dxt_type format)
 {
