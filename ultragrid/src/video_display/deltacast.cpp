@@ -79,18 +79,25 @@ extern "C" {
 
 const struct deltacast_frame_mode_t deltacast_frame_modes[] = {
         {VHD_VIDEOSTD_S274M_1080p_25Hz, "SMPTE 274M 1080p 25 Hz", 1920u, 1080u, 25.0, PROGRESSIVE},
+        {VHD_VIDEOSTD_S274M_1080p_30Hz, "SMPTE 274M 1080p 29.97 Hz", 1920u, 1080u, 29.97, PROGRESSIVE},
         {VHD_VIDEOSTD_S274M_1080p_30Hz, "SMPTE 274M 1080p 30 Hz", 1920u, 1080u, 30.0, PROGRESSIVE},
         {VHD_VIDEOSTD_S274M_1080i_50Hz, "SMPTE 274M 1080i 50 Hz", 1920u, 1080u, 25.0, UPPER_FIELD_FIRST},
-        {VHD_VIDEOSTD_S274M_1080i_60Hz, "SMPTE 274M 1080i 60 Hz", 1920u, 1080u, 29.97, UPPER_FIELD_FIRST},
+        {VHD_VIDEOSTD_S274M_1080i_60Hz, "SMPTE 274M 1080i 59.94 Hz", 1920u, 1080u, 29.97, UPPER_FIELD_FIRST},
+        {VHD_VIDEOSTD_S274M_1080i_60Hz, "SMPTE 274M 1080i 60 Hz", 1920u, 1080u, 30.0, UPPER_FIELD_FIRST},
         {VHD_VIDEOSTD_S296M_720p_50Hz, "SMPTE 296M 720p 50 Hz", 1280u, 720u, 50.0, PROGRESSIVE},
+        {VHD_VIDEOSTD_S296M_720p_60Hz, "SMPTE 296M 720p 59.94 Hz", 1280u, 720u, 59.94, PROGRESSIVE},
         {VHD_VIDEOSTD_S296M_720p_60Hz, "SMPTE 296M 720p 60 Hz", 1280u, 720u, 60.0, PROGRESSIVE},
         {VHD_VIDEOSTD_S259M_PAL, "SMPTE 259M PAL", 720u, 576u, 25.0, UPPER_FIELD_FIRST},
         {VHD_VIDEOSTD_S259M_NTSC, "SMPTE 259M NTSC", 720u, 487u, 29.97, UPPER_FIELD_FIRST},
+        {VHD_VIDEOSTD_S274M_1080p_24Hz, "SMPTE 274M 1080p 23.98 Hz", 1920u, 1080u, 23.98, PROGRESSIVE},
         {VHD_VIDEOSTD_S274M_1080p_24Hz, "SMPTE 274M 1080p 24 Hz", 1920u, 1080u, 24.0, PROGRESSIVE},
+        {VHD_VIDEOSTD_S274M_1080p_60Hz, "SMPTE 274M 1080p 59.94 Hz", 1920u, 1080u, 59.94, PROGRESSIVE},
         {VHD_VIDEOSTD_S274M_1080p_60Hz, "SMPTE 274M 1080p 60 Hz", 1920u, 1080u, 60.0, PROGRESSIVE},
         {VHD_VIDEOSTD_S274M_1080p_24Hz, "SMPTE 274M 1080p 50 Hz", 1920u, 1080u, 50.0, PROGRESSIVE},
+        {VHD_VIDEOSTD_S274M_1080psf_24Hz, "SMPTE 274M 1080psf 23.98 Hz", 1920u, 1080u, 23.98, SEGMENTED_FRAME},
         {VHD_VIDEOSTD_S274M_1080psf_24Hz, "SMPTE 274M 1080psf 24 Hz", 1920u, 1080u, 24.0, SEGMENTED_FRAME},
         {VHD_VIDEOSTD_S274M_1080psf_25Hz, "SMPTE 274M 1080psf 25 Hz", 1920u, 1080u, 25.0, SEGMENTED_FRAME},
+        {VHD_VIDEOSTD_S274M_1080psf_30Hz, "SMPTE 274M 1080psf 29.97 Hz", 1920u, 1080u, 29.97, SEGMENTED_FRAME}
         {VHD_VIDEOSTD_S274M_1080psf_30Hz, "SMPTE 274M 1080psf 30 Hz", 1920u, 1080u, 30.0, SEGMENTED_FRAME}
 };
 
@@ -230,6 +237,14 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
                 VHD_StopStream(s->StreamHandle);
                 VHD_CloseStreamHandle(s->StreamHandle);
         }
+
+        assert(desc.tile_count == 1);
+
+        s->tile->width = desc.width;
+        s->tile->height = desc.height;
+        s->frame->color_spec = desc.color_spec;
+        s->frame->interlacing = desc.interlacing;
+        s->frame->fps = desc.fps;
         
         for (i = 0; i < deltacast_frame_modes_count; ++i)
         {
@@ -263,8 +278,8 @@ display_deltacast_reconfigure(void *state, struct video_desc desc)
         }
         
         VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD,VideoStandard);
-        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFERQUEUE_DEPTH,4);
-        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFERQUEUE_PRELOAD,2);
+        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFERQUEUE_DEPTH,2);
+        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFERQUEUE_PRELOAD,0);
 
         Result = VHD_StartStream(s->StreamHandle);
         if (Result != VHDERR_NOERROR) {
