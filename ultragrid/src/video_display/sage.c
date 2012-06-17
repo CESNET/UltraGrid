@@ -124,7 +124,7 @@ void display_sage_run(void *arg)
                 }
                 pthread_mutex_unlock(&s->buffer_writable_lock);
 
-                gettimeofday(&s->t);
+                gettimeofday(&s->t, NULL);
                 double seconds = tv_diff(s->t, s->t0);
                 if (seconds >= 5) {
                         float fps = s->frames / seconds;
@@ -150,7 +150,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
         s = (struct state_sage *)malloc(sizeof(struct state_sage));
         s->magic = MAGIC_SAGE;
 
-        gettimeofday(&s->t0);
+        gettimeofday(&s->t0, NULL);
 
         s->frames = 0;
         s->frame = vf_alloc(1);
