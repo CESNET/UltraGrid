@@ -800,15 +800,9 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         buffer_length = ntohl(hdr->length);
 
                         tmp = ntohl(hdr->k_m_c);
-                        k = (tmp >> 23) << 5;
-                        m = (0x1ff & (tmp >> 14)) << 5;
-                        c = 0x1f & (tmp >> 9);
-                        if((tmp & 0x1ff) != 0) {
-                                fprintf(stderr, "[decoder] Unexpected data in packet format. Sender uses newer UltraGrid version?\n");
-                                exit_uv(1);
-                                ret = FALSE;
-                                abort();
-                        }
+                        k = tmp >> 19;
+                        m = 0x1fff & (tmp >> 6);
+                        c = 0x3f & tmp;
                         seed = ntohl(hdr->seed);
                 } else {
                         fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);

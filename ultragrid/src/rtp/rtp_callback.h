@@ -109,10 +109,9 @@ typedef struct {
         uint32_t length;
 
         /* fourth word */
-        uint32_t k_m_c; /* bits 0-8 (k>>5)
-                           bits 9-17 (m>>5)
-                           18 - 22 c 
-                           23 - 31 currently unused (must be 0)
+        uint32_t k_m_c; /* bits  0-12 k
+                           bits 13-25 m
+                           bits 26-31 c
                            */
 
         /* fifth word */

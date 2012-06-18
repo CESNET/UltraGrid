@@ -74,7 +74,8 @@
 #define SEED 1
 #define DEFAULT_C 5
 #define MIN_C 2 // reasonable minimum
-#define MAX_C 31 // from packet format
+#define MAX_C 63 // from packet format
+#define MAX_K (1<<13) - 1
 
 static bool file_exists(char *filename);
 
@@ -213,9 +214,8 @@ void usage() {
                         "\t\tm - matrix height\n"
                         "\n\t\t\tthe bigger ratio m/k, the better correction (but also needed bandwidth)\n"
                         "\n\t\t\tk,m should be in interval [%d, %d]; c in [%d, %d]\n"
-                        "\n\t\t\tk,m must be divisible by 32\n"
                         "\n\t\t\tdefault: k = %d, m = %d, c = %d\n",
-                        MINIMAL_VALUE, LDGM_MAX_K,
+                        MINIMAL_VALUE, MAX_K,
                         MIN_C, MAX_C,
                         DEFAULT_K, DEFAULT_M, DEFAULT_C
                         );
@@ -257,8 +257,8 @@ void *ldgm_encoder_init(char *cfg)
                 c = DEFAULT_C;
         }
 
-        if(k > LDGM_MAX_K) {
-                fprintf(stderr, "[LDGM] K value exceeds maximal value %d.\n", LDGM_MAX_K);
+        if(k > MAX_K) {
+                fprintf(stderr, "[LDGM] K value exceeds maximal value %d.\n", MAX_K);
                 k = DEFAULT_K;
                 m = DEFAULT_M;
         }

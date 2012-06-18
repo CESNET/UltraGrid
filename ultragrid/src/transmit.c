@@ -268,9 +268,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 ldgm_hdr.substream_bufnum = htonl(tmp);
                 ldgm_hdr.length = htonl(data_to_send_len);
                 ldgm_hdr.k_m_c = htonl(
-                                (ldgm_encoder_get_k(tx->fec_state) >> 5) << 23 |
-                                (ldgm_encoder_get_m(tx->fec_state) >> 5) << 14 |
-                                ldgm_encoder_get_c(tx->fec_state) << 9);
+                                (ldgm_encoder_get_k(tx->fec_state)) << 19 |
+                                (ldgm_encoder_get_m(tx->fec_state)) << 6 |
+                                ldgm_encoder_get_c(tx->fec_state));
                 ldgm_hdr.seed = htonl(ldgm_encoder_get_seed(tx->fec_state));
 
                 pt = PT_VIDEO_LDGM;
