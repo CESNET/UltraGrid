@@ -247,32 +247,24 @@ void *ldgm_encoder_init(char *cfg)
                                 c = atoi(item);
                         }
                 } else {
-                        k = DEFAULT_K;
-                        fprintf(stderr, "[LDGM] Was set k value but not m. Using default values.\n");
+                        fprintf(stderr, "[LDGM] Was set k value but not m.\n");
+                        return NULL;
                 }
         }
 
         if(c < MIN_C || c > MAX_C) {
                 fprintf(stderr, "[LDGM] C value shoud be inside interval [%d, %d].\n", MIN_C, MAX_C);
-                c = DEFAULT_C;
+                return NULL;
         }
 
         if(k > MAX_K) {
                 fprintf(stderr, "[LDGM] K value exceeds maximal value %d.\n", MAX_K);
-                k = DEFAULT_K;
-                m = DEFAULT_M;
+                return NULL;
         }
 
         if(k < MINIMAL_VALUE || m < MINIMAL_VALUE) {
                 fprintf(stderr, "[LDGM] Either k or m is lower than minimal value %d.\n", MINIMAL_VALUE);
-                k = DEFAULT_K;
-                m = DEFAULT_M;
-        }
-
-        if(k % 32 != 0 || m % 32 != 0) {
-                fprintf(stderr, "[LDGM] Either k or m is not divisible by 32.\n");
-                k = DEFAULT_K;
-                m = DEFAULT_M;
+                return NULL;
         }
 
         printf("[LDGM] Using values k = %u, m = %u, c = %u.\n", k, m, c);

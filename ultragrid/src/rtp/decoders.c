@@ -83,6 +83,12 @@ struct line_decoder {
         unsigned int         src_linesize; /* display data pitch */
 };
 
+struct fec {
+        int               k, m, c;
+        int               seed;
+        void             *state;
+};
+
 struct state_decoder {
         struct video_desc received_vid_desc;
         struct video_desc display_desc;
@@ -125,7 +131,7 @@ struct state_decoder {
         
         unsigned          merged_fb:1;
 
-        void             *fec_state;
+        struct fec        fec_state;
 };
 
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
@@ -139,7 +145,8 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         s->change_il = NULL;
         s->video_mode = VIDEO_NORMAL;
 
-        s->fec_state = NULL;
+        s->fec_state.state = NULL;
+        s->fec_state.k = s->fec_state.m = s->fec_state.c = s->fec_state.seed = 0;
         
         if(requested_mode) {
                 /* these are data comming from newtork ! */
@@ -285,8 +292,8 @@ void decoder_destroy(struct state_decoder *decoder)
         free(decoder->native_codecs);
         free(decoder->disp_supported_il);
 
-        if(decoder->fec_state)
-                ldgm_decoder_destroy(decoder->fec_state);
+        if(decoder->fec_state.state)
+                ldgm_decoder_destroy(decoder->fec_state.state);
 
         free(decoder);
 }
@@ -854,9 +861,20 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 }
                         }
                 } else if (pt == PT_VIDEO_LDGM) {
-                        if(!decoder->fec_state) {
-                                decoder->fec_state = ldgm_decoder_init(k, m, c, seed);
-                                if(decoder->fec_state == NULL) {
+                        if(!decoder->fec_state.state || k != decoder->fec_state.k != k ||
+                                        decoder->fec_state.m != m ||
+                                        decoder->fec_state.c != c ||
+                                        decoder->fec_state.seed != seed
+                          ) {
+                                if(decoder->fec_state.state) {
+                                        ldgm_decoder_destroy(decoder->fec_state.state);
+                                }
+                                decoder->fec_state.k = k;
+                                decoder->fec_state.m = m;
+                                decoder->fec_state.c = c;
+                                decoder->fec_state.seed = seed;
+                                decoder->fec_state.state = ldgm_decoder_init(k, m, c, seed);
+                                if(decoder->fec_state.state == NULL) {
                                         fprintf(stderr, "[decoder] Unable to initialize LDGM.\n");
                                         exit_uv(1);
                                         ret = FALSE;
@@ -987,7 +1005,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 char *out_buffer = NULL;
                                 int out_len = 0;
 
-                                ldgm_decoder_decode(decoder->fec_state, fec_buffers[pos], buffer_len[pos],
+                                ldgm_decoder_decode(decoder->fec_state.state, fec_buffers[pos], buffer_len[pos],
                                         &out_buffer, &out_len, pckt_list[pos]);
 
                                 //static int good = 0, bad = 0;
