@@ -124,13 +124,8 @@ struct state_sdl {
 
 static void toggleFullscreen(struct state_sdl *s);
 static void loadSplashscreen(struct state_sdl *s);
-inline void copyline64(unsigned char *dst, unsigned char *src, int len);
-inline void copyline128(unsigned char *dst, unsigned char *src, int len);
-inline void copylinev210(unsigned char *dst, unsigned char *src, int len);
-inline void copyliner10k(struct state_sdl *s, unsigned char *dst, unsigned char *src, int len);
-void copylineRGBA(struct state_sdl *s, unsigned char *dst, unsigned char *src, int len);
-void deinterlace(struct state_sdl *s, unsigned char *buffer);
 static void show_help(void);
+
 void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
 int display_sdl_handle_events(void *arg, int post);

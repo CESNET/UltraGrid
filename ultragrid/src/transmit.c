@@ -275,10 +275,10 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 pt = PT_VIDEO_LDGM;
 
-                hdr = &ldgm_hdr;
+                hdr = (char *) &ldgm_hdr;
                 hdr_len = sizeof(ldgm_hdr);
         } else {
-                hdr = &video_hdr;
+                hdr = (char *) &video_hdr;
                 hdr_len = sizeof(video_hdr);
         }
 
@@ -295,7 +295,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;
                 data_len = (data_len / 48) * 48;
-                if (pos + data_len >= data_to_send_len) {
+                if (pos + data_len >= (unsigned int) data_to_send_len) {
                         if (send_m)
                                 m = 1;
                         data_len = data_to_send_len - pos;
@@ -335,7 +335,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         pos = mult_pos[tx->mult_count - 1];
                 }
 
-        } while (pos < data_to_send_len);
+        } while (pos < (unsigned int) data_to_send_len);
 
         tx->buffer ++;
 

@@ -62,9 +62,9 @@ struct state_split {
 
 void split_get_supported_codecs(codec_t * supported_codecs, int *count)
 {
+        UNUSED(supported_codecs);
         *count = 0;
 }
-
 
 static void usage()
 {

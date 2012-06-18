@@ -45,8 +45,11 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
+#endif /* HAVE_CONFIG_H */
 #include "debug.h"
 
 #include "video_codec.h"
@@ -61,6 +64,7 @@ struct state_interlaced_3d {
 
 void interlaced_3d_get_supported_codecs(codec_t * supported_codecs, int *count)
 {
+        UNUSED(supported_codecs);
         *count = 0;
 }
 

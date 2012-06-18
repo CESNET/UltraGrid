@@ -115,6 +115,10 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         int bps, sample_rate, channel;
         static int prints = 0;
 
+        if(!cdata) {
+                return FALSE;
+        }
+
         while (cdata != NULL) {
                 char *data;
                 audio_payload_hdr_t *hdr = 
@@ -125,6 +129,10 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 if(cdata->data->m) {
                         total_channels = ((ntohl(hdr->substream_bufnum) >> 22) & 0x3ff) + 1;
                 }
+
+                // we have:
+                // 1) last packet, then we have just set total channels
+                // 2) not last, but the last one was processed at first
                 assert(total_channels > 0);
 
                 channel = (ntohl(hdr->substream_bufnum) >> 22) & 0x3ff;

@@ -90,7 +90,7 @@ void scale_get_supported_codecs(codec_t * supported_codecs, int *count)
 {
         codec_t supported[] = {UYVY, RGBA};
 
-        if(*count < sizeof(supported) / sizeof(codec_t)) {
+        if(*count < (int) (sizeof(supported) / sizeof(codec_t))) {
                 fprintf(stderr, "Scale postprocessor query little space.\n");
                 *count = -1;
         }
@@ -188,6 +188,9 @@ int scale_reconfigure(void *state, struct video_desc desc)
                 in_tile->data_len = in_tile->linesize * desc.height;
                 in_tile->data = malloc(in_tile->data_len);
         }
+
+        assert(desc.tile_count >= 1);
+        in_tile = vf_get_tile(s->in, 0);
 
         gl_context_make_current(&s->context);
 

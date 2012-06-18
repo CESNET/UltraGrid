@@ -271,6 +271,9 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                         strip_fmt = tmp;
                 }
         }
+
+        // we cannot generate tiles by now
+        UNUSED(strip_fmt);
         
         if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;

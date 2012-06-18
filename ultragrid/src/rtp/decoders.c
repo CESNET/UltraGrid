@@ -755,10 +755,14 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         int k, m, c, seed; // LDGM
         int buffer_number, buffer_length;
 
+        int pt;
+
         while (cdata != NULL) {
                 pckt = cdata->data;
 
-                if(pckt->pt == PT_VIDEO) {
+                pt = pckt->pt;
+
+                if(pt == PT_VIDEO) {
                         video_payload_hdr_t *hdr;
                         hdr = (video_payload_hdr_t *) pckt->data;
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
@@ -783,21 +787,17 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         fi = (tmp >> 13) & 0x1;
 
                         fps = compute_fps(fps_pt, fpsd, fd, fi);
-                } else if (pckt->pt == PT_VIDEO_LDGM) {
+                } else if (pt == PT_VIDEO_LDGM) {
                         ldgm_payload_hdr_t *hdr;
                         hdr = (ldgm_payload_hdr_t *) pckt->data;
                         len = pckt->data_len - sizeof(ldgm_payload_hdr_t);
 
                         tmp = ntohl(hdr->substream_bufnum);
                         substream = tmp >> 22;
-                        buffer_num[substream] = tmp & 0x3ffff;
+                        buffer_number = tmp & 0x3ffff;
                         data_pos = ntohl(hdr->offset);
 
                         buffer_length = ntohl(hdr->length);
-
-                        if(!fec_buffers[substream]) {
-                                fec_buffers[substream] = (char *) malloc(buffer_length);
-                        }
 
                         tmp = ntohl(hdr->k_m_c);
                         k = (tmp >> 23) << 5;
@@ -807,7 +807,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 fprintf(stderr, "[decoder] Unexpected data in packet format. Sender uses newer UltraGrid version?\n");
                                 exit_uv(1);
                                 ret = FALSE;
-                                goto cleanup;
+                                abort();
                         }
                         seed = ntohl(hdr->seed);
                 } else {
@@ -824,12 +824,17 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         goto cleanup;
                 }
 
+                if(!fec_buffers[substream]) {
+                        fec_buffers[substream] = (char *) malloc(buffer_length);
+                }
+
+
                 buffer_num[substream] = buffer_number;
                 buffer_len[substream] = buffer_length;
 
                 ll_insert(pckt_list[substream], data_pos, len);
                 
-                if (pckt->pt == PT_VIDEO) {
+                if (pt == PT_VIDEO) {
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
@@ -854,7 +859,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         goto cleanup;
                                 }
                         }
-                } else if (pckt->pt == PT_VIDEO_LDGM) {
+                } else if (pt == PT_VIDEO_LDGM) {
                         if(!decoder->fec_state) {
                                 decoder->fec_state = ldgm_decoder_init(k, m, c, seed);
                                 if(decoder->fec_state == NULL) {
@@ -863,7 +868,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         ret = FALSE;
                                         goto cleanup;
                                 }
-                                int i;
                         }
                 }
 
@@ -871,7 +875,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         memcpy(ext_recv_buffer, decoder->ext_recv_buffer, decoder->max_substreams * sizeof(char *));
                 }
                 
-                if (pckt->pt == PT_VIDEO) {
+                if (pt == PT_VIDEO) {
                         if(!decoder->postprocess) {
                                 if (!decoder->merged_fb) {
                                         tile = vf_get_tile(frame, substream);

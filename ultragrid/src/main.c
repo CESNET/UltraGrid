@@ -511,6 +511,7 @@ static void *receiver_thread(void *arg)
                    printf("Failed to receive data\n");
                    }
                  */
+                UNUSED(ret);
 
                 /* Decode and render for each participant in the conference... */
                 cp = pdb_iter_init(uv->participants);

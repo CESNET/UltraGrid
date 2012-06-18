@@ -65,7 +65,7 @@
 #include "video_compress.h"
 #include "libdxt.h"
 
-volatile static int fastdxt_should_exit = FALSE;
+static volatile int fastdxt_should_exit = FALSE;
 
 #ifndef HAVE_MACOSX
 #define uint64_t 	unsigned long
