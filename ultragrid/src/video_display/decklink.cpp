@@ -809,7 +809,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
                                         s->link == LINK_3G ? true : false);
                         if(res != S_OK) {
-                                fprintf(stderr, "[DeckLink display] Unable to set to low-latency mode.\n");
+                                fprintf(stderr, "[DeckLink display] Unable set output SDI standard.\n");
                         }
                 }
 
