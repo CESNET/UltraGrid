@@ -75,7 +75,7 @@
 #define CHUNK 128 * 3 // has to be divisor of AUDIO_SAMLE_RATE
 
 #define FREQUENCY 440
-#define VOLUME 0.5
+#define VOLUME 1
 
 enum which_sample {
         TONE,
@@ -119,9 +119,10 @@ void * audio_cap_testcard_init(char *cfg)
         
         s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
         short int * data = (short int *) s->audio_tone;
-        for( i=0; i < AUDIO_BUFFER_SIZE/2; i+=2 )
+        for( i=0; i < AUDIO_BUFFER_SIZE/2; i+=AUDIO_CHANNELS )
         {
-                data[i] = data[i+1] = (float) sin( ((double)i/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * SHRT_MAX * VOLUME;
+                for (int channel = 0; channel < AUDIO_CHANNELS; ++channel)
+                        data[i + channel] = (float) sin( ((double)(i/AUDIO_CHANNELS)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * SHRT_MAX * VOLUME;
         }
 
         

@@ -93,7 +93,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         for (i = 0; i < s->frame.ch_count; ++i) {
                 jack_default_audio_sample_t *in = jack_port_get_buffer(s->input_ports[i], nframes);
                 float2int((char *) in, (char *) in, channel_size);
-                mux_channel(s->tmp, (char *) in, sizeof(int32_t), channel_size, s->frame.ch_count, i);
+                mux_channel(s->tmp, (char *) in, sizeof(int32_t), channel_size, s->frame.ch_count, i, 1.0);
         }
 
         ring_buffer_write(s->data, s->tmp, channel_size * s->frame.ch_count);

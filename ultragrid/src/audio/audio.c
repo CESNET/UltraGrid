@@ -101,6 +101,9 @@ struct state_audio {
         
         pthread_t audio_sender_thread_id,
                   audio_receiver_thread_id;
+
+        char *audio_channel_map;
+        const char *audio_scale;
 };
 
 /** 
@@ -119,7 +122,8 @@ static struct rtp *initialize_audio_network(char *addr, int recv_port, int send_
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg, char *jack_cfg, char *fec_cfg)
+struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg,
+                char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -144,6 +148,8 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         
         s = calloc(1, sizeof(struct state_audio));
         s->audio_participants = NULL;
+        s->audio_channel_map = audio_channel_map;
+        s->audio_scale = audio_scale;
         
         printf("Using audio FEC: %s\n", fec_cfg);
         s->tx_session = tx_init(1500, fec_cfg);
@@ -302,7 +308,8 @@ static void *audio_receiver_thread(void *arg)
         struct pbuf_audio_data pbuf_data;
 
         pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
-        pbuf_data.decoder = audio_decoder_init();
+        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale);
+        assert(pbuf_data.decoder != NULL);
         pbuf_data.audio_state = s;
         pbuf_data.saved_channels = pbuf_data.saved_bps = pbuf_data.saved_sample_rate = 0;
                 

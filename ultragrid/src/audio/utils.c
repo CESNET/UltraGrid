@@ -51,6 +51,9 @@
 #include <assert.h>
 #include <string.h>
 #include <limits.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdint.h>
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
@@ -103,11 +106,19 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
 {
         int samples = in_len / (in_stream_channels * bps);
         int i;
+        int mask = 0xffff << (bps * 8);
+
+        assert (bps <= 4);
+
+        if(bps == 4) /* take care of 32b shifts above ! */
+                mask = 0;
         
         in += pos_in_stream * bps;
 
         for (i = 0; i < samples; ++i) {
-                memcpy(out, in, bps);
+                int32_t in_value = (*((unsigned int *) in) & ~mask);
+                *((unsigned int *) out) &= mask;
+                *((int *) out) |= in_value;
 
                 out += bps;
                 in += in_stream_channels * bps;
@@ -115,20 +126,139 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
         }
 }
 
-void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream)
+void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
 {
         int samples = in_len / bps;
         int i;
         
+        int mask = 0xffff << (bps * 8);
+
+        assert (bps <= 4);
+
+        if(bps == 4) /* take care of 32b shifts above ! */
+                mask = 0;
+
         out += pos_in_stream * bps;
 
-        for (i = 0; i < samples; ++i) {
-                memcpy(out, in, bps);
+        if(scale == 1.0) {
+                for (i = 0; i < samples; ++i) {
+                        int32_t in_value = (*((unsigned int *) in) & ~mask);
+                        *((unsigned int *) out) &= mask;
+                        *((int *) out) |= in_value;
+
+                        in += bps;
+                        out += out_stream_channels * bps;
+
+                }
+        } else {
+                for (i = 0; i < samples; ++i) {
+                        int32_t in_value = (*((unsigned int *) in) & ~mask);
+                        *((unsigned int *) out) &= mask;
+
+                        if(in_value >> (bps * 8 - 1) && bps != 4) { //negative
+                                in_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
+                        }
+
+                        in_value *= scale;
+
+                        if(in_value > (1 << (bps * 8 - 1)) -1) {
+                                in_value = (1 << (bps * 8 - 1)) -1;
+                        }
+
+                        if(in_value < -(1 << (bps * 8 - 1))) {
+                                in_value = -(1 << (bps * 8 - 1));
+                        }
+
+                        *((int *) out) |= (-1 * (in_value >> 31)) << (bps * 8 - 1) | (in_value & ((1 << (bps * 8)) - 1));
+
+                        in += bps;
+                        out += out_stream_channels * bps;
+
+                }
+        }
+}
+
+void mux_and_mix_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int pos_in_stream, double scale)
+{
+        int mask = 0xffff << (bps * 8);
+        int i;
+
+        assert (bps <= 4);
+
+        out += pos_in_stream * bps;
+
+        if(bps == 4) /* take care of 32b shifts above ! */
+                mask = 0;
+        for(i = 0; i < in_len / bps; i++) {
+                int32_t out_value = (*((unsigned int *) out) & ~mask);
+                int32_t in_value = (*((unsigned int *) in) & ~mask);
+                //int new_value = (double)in_value;
+                //in_value = (1 - 2 * (in_value >> (bps * 8 - 1))) * (in_value & 0x7fff);
+                //out_value = (1 - 2 * (out_value >> (bps * 8 - 1))) * (out_value & 0x7fff);
+                //fprintf(stderr, "-%x-%x ", in_value, out_value);
+                if(in_value >> (bps * 8 - 1) && bps != 4) { //negative
+                        in_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
+                }
+
+                if(out_value >> (bps * 8 - 1) && bps != 4) { //negative
+                        out_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
+                }
+
+                int32_t new_value = (double)in_value * scale + out_value;
+
+                //printf("%f ", fabs(((double) new_value / ((1 << (bps * 8 - 1)) - 1)) / (i + 1)));
+
+                *((unsigned int *) out) &= mask;
+                
+                if(new_value > (1 << (bps * 8 - 1)) -1) {
+                        new_value = (1 << (bps * 8 - 1)) -1;
+                }
+
+                if(new_value < -(1 << (bps * 8 - 1))) {
+                        new_value = -(1 << (bps * 8 - 1));
+                }
+
+                //printf("%d ", new_value);
+                new_value = (-1 * (new_value >> 31)) << (bps * 8 - 1) | (new_value & ((1 << (bps * 8)) - 1));
+                //printf("%d ", new_value);
+                //fprintf(stderr, "%x ", new_value);
+                *((int *) out) |= new_value;
 
                 in += bps;
                 out += out_stream_channels * bps;
-
         }
+}
+
+double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int pos_in_stream)
+{
+        float average_vol = 0;
+        int mask = 0xffff << (bps * 8);
+        int i;
+
+        assert (bps <= 4);
+
+        data += pos_in_stream * bps;
+
+        if(bps == 4) /* take care of 32b shifts above ! */
+                mask = 0;
+        for(i = 0; i < in_len / bps; i++) {
+                int32_t in_value = (*((unsigned int *) data) & ~mask);
+                //int new_value = (double)in_value;
+                //in_value = (1 - 2 * (in_value >> (bps * 8 - 1))) * (in_value & 0x7fff);
+                //out_value = (1 - 2 * (out_value >> (bps * 8 - 1))) * (out_value & 0x7fff);
+                if(in_value >> (bps * 8 - 1) && bps != 4) { //negative
+                        in_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
+                }
+
+                //if(pos_in_stream) fprintf(stderr, "%d-%d ", pos_in_stream, data);
+
+                average_vol = average_vol * (i / ((double) i + 1)) + 
+                        fabs(((double) in_value / ((1 << (bps * 8 - 1)) - 1)) / (i + 1));
+
+                data += bps * stream_channels;
+        }
+
+        return average_vol;
 }
 
 void float2int(char *out, char *in, int len)

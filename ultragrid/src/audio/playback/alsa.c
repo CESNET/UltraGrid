@@ -238,7 +238,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 #ifdef DEBUG
         snd_pcm_sframes_t delay;
         snd_pcm_delay(s->handle, &delay);
-        fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int)delay, (unsigned int) s->frame.sample_rate);
+        //fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int)delay, (unsigned int) s->frame.sample_rate);
 #endif
     
         rc = snd_pcm_writei(s->handle, frame->data, frames);

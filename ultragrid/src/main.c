@@ -98,6 +98,8 @@
 /* also note that this actually differs from video */
 #define DEFAULT_AUDIO_FEC       "mult:3"
 
+#define AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
+#define AUDIO_SCALE (('a' << 8) | 's')
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -231,8 +233,22 @@ static void usage(void)
         printf("\t                         \tIf one given, it will be used for both sending and receiving, if two, first one\n");
         printf("\t                         \twill be used for receiving, second one for sending.\n");
         printf("\n");
-        printf("\t-l <limit_bitrate> \tlimit sending bitrate (aggregate)\n");
-        printf("\t                   \tto limit_bitrate Mb/s\n");
+        printf("\t-l <limit_bitrate>       \tlimit sending bitrate (aggregate)\n");
+        printf("\t                         \tto limit_bitrate Mb/s\n");
+        printf("\n");
+        printf("\t--audio-channel-map <mapping> \tmapping of input audio channels to output audio channels\n");
+        printf("\t                         \tcomma-separated list of channel mapping\n");
+        printf("\t                         \teg. 0:0,1:0 - mixes first 2 channels into one mono stream\n");
+        printf("\t                         \t    0:0,0:1 - splits mono stream into 2 channels\n");
+        printf("\t                         \t\n");
+        printf("\n");
+        printf("\t--audio-scale [<factor>|<method>]\n");
+        printf("\t                         \tFloating point number which tells a static scaling factor for all output channels.\n");
+        printf("\t                         \tScaling method can be one from these:\n");
+        printf("\t                         \t\tmixauto - automatically adjust volume if using channel mixing/remapping (default)\n");
+        printf("\t                         \t\tauto - automatically adjust volume\n");
+        printf("\t                         \t\tnone - no scaling will be performed\n");
+        printf("\t                         \t\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -761,6 +777,8 @@ int main(int argc, char *argv[])
         char *jack_cfg = NULL;
         char *requested_fec = NULL;
         char *save_ptr = NULL;
+        char *audio_channel_map = NULL;
+        char *audio_scale = "mixauto";
 
         int bitrate = 0;
         
@@ -799,6 +817,8 @@ int main(int argc, char *argv[])
                 {"fec", required_argument, 0, 'f'},
                 {"port", required_argument, 0, 'P'},
                 {"limit-bitrate", required_argument, 0, 'l'},
+                {"audio-channel-map", required_argument, 0, AUDIO_CHANNEL_MAP},
+                {"audio-scale", required_argument, 0, AUDIO_SCALE},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -918,6 +938,12 @@ int main(int argc, char *argv[])
 
                 case '?':
                         break;
+                case AUDIO_CHANNEL_MAP:
+                        audio_channel_map = optarg;
+                        break;
+                case AUDIO_SCALE:
+                        audio_scale = optarg;
+                        break;
                 default:
                         usage();
                         return EXIT_FAIL_USAGE;
@@ -959,7 +985,7 @@ int main(int argc, char *argv[])
 
         char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
         uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg,
-                        tmp_requested_fec);
+                        tmp_requested_fec, audio_channel_map, audio_scale);
         free(tmp_requested_fec);
         if(!uv->audio)
                 goto cleanup;

@@ -71,8 +71,16 @@ void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, in
 /*
  * Multiplexes channel into interleaved stream
  */
-void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream);
+void mux_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_channels, int pos_in_stream);
+
+/*
+ * Additional function that allosw mixing channels
+ *
+ * @return avareage volume
+ */
+void mux_and_mix_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
+double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int chan_pos_stream);
 
 /* 
  * Those 2 fuctions convert from/to normalized float and int32_t representations.

@@ -49,6 +49,8 @@
 
 #define __PACKET_COUNTER_H
 
+#include <stdbool.h>
+
 struct packet_counter;
 
 #ifdef __cplusplus
@@ -58,6 +60,8 @@ extern "C" {
 struct packet_counter *packet_counter_init(int num_substreams);
 void packet_counter_destroy(struct packet_counter *state);
 void packet_counter_register_packet(struct packet_counter *state, unsigned int substream_id,
+                unsigned int bufnum, unsigned int offset, unsigned int len);
+bool packet_counter_has_packet(struct packet_counter *state, unsigned int substream_id,
                 unsigned int bufnum, unsigned int offset, unsigned int len);
 int packet_counter_get_total_bytes(struct packet_counter *state);
 int packet_counter_get_all_bytes(struct packet_counter *state);
