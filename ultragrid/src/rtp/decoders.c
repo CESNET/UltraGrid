@@ -861,7 +861,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 }
                         }
                 } else if (pt == PT_VIDEO_LDGM) {
-                        if(!decoder->fec_state.state || k != decoder->fec_state.k != k ||
+                        if(!decoder->fec_state.state || decoder->fec_state.k != k ||
                                         decoder->fec_state.m != m ||
                                         decoder->fec_state.c != c ||
                                         decoder->fec_state.seed != seed
