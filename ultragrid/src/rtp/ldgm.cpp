@@ -60,6 +60,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <sys/types.h>
+
 
 #include "ldgm.h"
 
@@ -100,10 +103,12 @@ struct ldgm_state_encoder {
                 coding_session.set_params(k, m, c);
 
                 char filename[512];
+                char path[256];
+                snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
 
                 int res;
 
-                res = mkdir("/var/tmp/ultragrid/", 0755);
+                res = mkdir(path, 0755);
                 if(res != 0) {
                         if(errno != EEXIST) {
                                 perror("mkdir");
@@ -111,7 +116,7 @@ struct ldgm_state_encoder {
                                 throw 1;
                         }
                 }
-                snprintf(filename, 512, "/var/tmp/ultragrid/ldgm_matrix-%u-%u-%u-%u.bin", k, m, c, seed);
+                snprintf(filename, 512, "%s/ldgm_matrix-%u-%u-%u-%u.bin", path, k, m, c, seed);
                 if(!file_exists(filename)) {
                         int ret = generate_ldgm_matrix(filename, k, m, c, seed);
                         if(ret != 0) {
@@ -164,10 +169,12 @@ struct ldgm_state_decoder {
         ldgm_state_decoder(unsigned int k, unsigned int m, unsigned int c, unsigned int seed) {
                 coding_session.set_params(k, m, c);
                 char filename[512];
+                char path[256];
 
                 int res;
 
-                res = mkdir("/var/tmp/ultragrid/", 0755);
+                snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
+                res = mkdir(path, 0755);
                 if(res != 0) {
                         if(errno != EEXIST) {
                                 perror("mkdir");
@@ -175,7 +182,7 @@ struct ldgm_state_decoder {
                                 throw 1;
                         }
                 }
-                snprintf(filename, 512, "/var/tmp/ultragrid/ldgm_matrix-%u-%u-%u-%u.bin", k, m, c, seed);
+                snprintf(filename, 512, "%s/ldgm_matrix-%u-%u-%u-%u.bin", path, k, m, c, seed);
                 if(!file_exists(filename)) {
                         int ret = generate_ldgm_matrix(filename, k, m, c, seed);
                         if(ret != 0) {
