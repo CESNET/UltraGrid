@@ -132,6 +132,10 @@ struct state_decoder {
         unsigned          merged_fb:1;
 
         struct fec        fec_state;
+
+        // for statistics
+        unsigned long int   good;
+        unsigned long int   bad;
 };
 
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
@@ -147,6 +151,8 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
 
         s->fec_state.state = NULL;
         s->fec_state.k = s->fec_state.m = s->fec_state.c = s->fec_state.seed = 0;
+
+        s->good = s->bad = 0ul;
         
         if(requested_mode) {
                 /* these are data comming from newtork ! */
@@ -295,6 +301,8 @@ void decoder_destroy(struct state_decoder *decoder)
         if(decoder->fec_state.state)
                 ldgm_decoder_destroy(decoder->fec_state.state);
 
+
+        fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped\n", decoder->good, decoder->bad);
         free(decoder);
 }
 
@@ -1152,6 +1160,12 @@ cleanup:
         free(buffer_len);
         free(buffer_num);
         free(fec_buffers);
+
+        if(ret) {
+                decoder->good++;
+        } else {
+                decoder->bad++;
+        }
 
         return ret;
 }
