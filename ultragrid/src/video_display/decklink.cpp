@@ -215,7 +215,7 @@ struct device_state {
         IDeckLink               *deckLink;
         IDeckLinkOutput         *deckLinkOutput;
         IDeckLinkMutableVideoFrame *deckLinkFrame;
-        //IDeckLinkVideoFrame *deckLinkFrame;
+        IDeckLinkVideoFrame     *deckLinkFrameRight;
 };
 
 struct state_decklink {
@@ -325,10 +325,9 @@ display_decklink_getf(void *state)
                                                 s->frame->tiles[0].linesize, s->pixelFormat);
                                 
                         s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
-                        IDeckLinkVideoFrame *right;
                         
-                        dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&right);
-                        right->GetBytes((void **) &s->frame->tiles[1].data);
+                        dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&s->state[0].deckLinkFrameRight);
+                        s->state[0].deckLinkFrameRight->GetBytes((void **) &s->frame->tiles[1].data);
                 } else {
                         for(int i = 0; i < s->devices_cnt; ++i) {
                                 s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
@@ -409,6 +408,13 @@ int display_decklink_putf(void *state, char *frame)
                         }
                         s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                        if(s->stereo) {
+                                assert(s->devices_cnt == 1);
+                                // was allocated in _getf to obtain data pointer. Anyway,
+                                // parent still holds one reference, so this definitely
+                                // won't destruct the object
+                                s->state[0].deckLinkFrameRight->Release();
+                        }
                 }
                 s->frames++;
                 if(s->emit_timecode) {
@@ -1201,14 +1207,12 @@ DeckLink3DFrame::~DeckLink3DFrame()
 
 ULONG DeckLink3DFrame::AddRef()
 {
-        return ++ref;
+        return DeckLinkFrame::AddRef();
 }
 
 ULONG DeckLink3DFrame::Release()
 {
-        if(--ref == 0)
-                delete this;
-	return ref;
+        return DeckLinkFrame::Release();
 }
 
 HRESULT DeckLink3DFrame::QueryInterface(REFIID id, void**frame)
