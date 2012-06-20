@@ -104,6 +104,7 @@ struct device_state {
 	IDeckLink*		deckLink;
 	IDeckLinkInput*		deckLinkInput;
 	VideoDelegate*		delegate;
+	IDeckLinkConfiguration*		deckLinkConfiguration;
         int                     index;
 };
 
@@ -928,6 +929,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 goto error;
                                         }
 
+                                        s->state[i].deckLinkConfiguration = deckLinkConfiguration;
+
                                         if(s->connection) {
                                                 if (deckLinkConfiguration->SetInt(bmdDeckLinkConfigVideoInputConnection,
                                                                         s->connection) == S_OK) {
@@ -1083,6 +1086,10 @@ vidcap_decklink_done(void *state)
                         fprintf(stderr, MODULE_NAME "Could disable video input: %08x\n", (int) result);
                 }
 
+		if(s->state[i].deckLinkConfiguration != NULL) {
+			s->state[i].deckLinkConfiguration->Release();
+                }
+
 		if(s->state[i].deckLinkInput != NULL)
 		{
 			s->state[i].deckLinkInput->Release();
@@ -1094,9 +1101,10 @@ vidcap_decklink_done(void *state)
 			s->state[i].deckLink->Release();
 			s->state[i].deckLink = NULL;
 		}
-
-		//free(s); /* TODO: causes double free */
 	}
+
+        vf_free(s->frame);
+        free(s);
 }
 
 /*  lock needs to be hold during all function call */

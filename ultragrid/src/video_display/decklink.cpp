@@ -49,6 +49,7 @@
  *
  *
  */
+#define MODULE_NAME "[Decklink display] "
 
 #ifdef __cplusplus
 extern "C" {
@@ -215,7 +216,7 @@ struct device_state {
         IDeckLink               *deckLink;
         IDeckLinkOutput         *deckLinkOutput;
         IDeckLinkMutableVideoFrame *deckLinkFrame;
-        IDeckLinkVideoFrame     *deckLinkFrameRight;
+        IDeckLinkConfiguration*         deckLinkConfiguration;
 };
 
 struct state_decklink {
@@ -320,14 +321,17 @@ display_decklink_getf(void *state)
 
         if (s->initialized) {
                 if(s->stereo) {
+                        IDeckLinkVideoFrame     *deckLinkFrameRight;
                         assert(s->devices_cnt == 1);
                         s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
                                                 s->frame->tiles[0].linesize, s->pixelFormat);
                                 
                         s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
                         
-                        dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&s->state[0].deckLinkFrameRight);
-                        s->state[0].deckLinkFrameRight->GetBytes((void **) &s->frame->tiles[1].data);
+                        dynamic_cast<DeckLink3DFrame *>(s->state[0].deckLinkFrame)->GetFrameForRightEye(&deckLinkFrameRight);
+                        deckLinkFrameRight->GetBytes((void **) &s->frame->tiles[1].data);
+                        // release immedieatelly (parent still holds the reference)
+                        deckLinkFrameRight->Release();
                 } else {
                         for(int i = 0; i < s->devices_cnt; ++i) {
                                 s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
@@ -406,15 +410,16 @@ int display_decklink_putf(void *state, char *frame)
                         if(s->emit_timecode) {
                                 s->state[j].deckLinkFrame->SetTimecode(bmdVideoOutputRP188, s->timecode);
                         }
+
+#ifdef DECKLINK_LOW_LATENCY
+                        s->state[j].deckLinkOutput->DisplayVideoFrameSync(s->state[j].deckLinkFrame);
+                        s->state[j].deckLinkFrame->Release();
+#else
                         s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
-                        if(s->stereo) {
-                                assert(s->devices_cnt == 1);
-                                // was allocated in _getf to obtain data pointer. Anyway,
-                                // parent still holds one reference, so this definitely
-                                // won't destruct the object
-                                s->state[0].deckLinkFrameRight->Release();
-                        }
+#endif /* DECKLINK_LOW_LATENCY */
+
+                        s->state[j].deckLinkFrame = NULL;
                 }
                 s->frames++;
                 if(s->emit_timecode) {
@@ -523,6 +528,10 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         fprintf(stderr, "[DeckLink] Unsupported pixel format!\n");
         }
 
+        for(int i = 0; i < s->devices_cnt; ++i) {
+                s->state[0].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
+        }
+
 	if(s->stereo) {
 		for (int i = 0; i < 2; ++i) {
 			struct tile  *tile = vf_get_tile(s->frame, i);
@@ -546,7 +555,9 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 
 
                 s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
+#ifndef DECKLINK_LOW_LATENCY
                 s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
+#endif /* ! defined DECKLINK_LOW_LATENCY */
         } else {
                 if(desc.tile_count > s->devices_cnt) {
                         fprintf(stderr, "[decklink] Expected at most %d streams. Got %d.\n", s->devices_cnt,
@@ -587,7 +598,9 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	        }
 	
 	        for(int i = 0; i < s->devices_cnt; ++i) {
+#ifndef DECKLINK_LOW_LATENCY
 	                s->state[i].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
+#endif /* ! defined DECKLINK_LOW_LATENCY */
 	        }
 	}
 
@@ -728,8 +741,11 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         }
 
         for(int i = 0; i < s->devices_cnt; ++i) {
+                s->state[i].delegate = NULL;
                 s->state[i].deckLink = NULL;
                 s->state[i].deckLinkOutput = NULL;
+                s->state[i].deckLinkFrame = NULL;
+                s->state[i].deckLinkConfiguration = NULL;
         }
 
         // Connect to the first DeckLink instance
@@ -798,6 +814,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
 
                 // Query the DeckLink for its configuration interface
                 result = s->state[i].deckLink->QueryInterface(IID_IDeckLinkConfiguration, (void**)&deckLinkConfiguration);
+                s->state[i].deckLinkConfiguration = deckLinkConfiguration;
                 if (result != S_OK)
                 {
                         printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
@@ -853,12 +870,12 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                                 }
                         }
                 }
-                deckLinkConfiguration->Release();
-
 
                 s->state[i].delegate = new PlaybackDelegate(s, i);
                 // Provide this class as a delegate to the audio and video output interfaces
+#ifndef DECKLINK_LOW_LATENCY
                 s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+#endif /* ! defined DECKLINK_LOW_LATENCY */
                 //s->state[i].deckLinkOutput->DisableAudioOutput();
         }
 
@@ -880,9 +897,53 @@ void display_decklink_finish(void *state)
 
 void display_decklink_done(void *state)
 {
+        debug_msg("display_decklink_done\n"); /* TOREMOVE */
         struct state_decklink *s = (struct state_decklink *)state;
+        HRESULT result;
+
+        assert (s != NULL);
 
         delete s->timecode;
+
+        for (int i = 0; i < s->devices_cnt; ++i)
+        {
+                result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
+                if (result != S_OK) {
+                        fprintf(stderr, MODULE_NAME "Cannot stop playback: %08x\n", (int) result);
+                }
+
+                if(s->play_audio && i == 0) {
+                        result = s->state[i].deckLinkOutput->DisableAudioOutput();
+                        if (result != S_OK) {
+                                fprintf(stderr, MODULE_NAME "Could disable audio output: %08x\n", (int) result);
+                        }
+                }
+                result = s->state[i].deckLinkOutput->DisableVideoOutput();
+                if (result != S_OK) {
+                        fprintf(stderr, MODULE_NAME "Could disable video output: %08x\n", (int) result);
+                }
+
+                if(s->state[i].deckLinkConfiguration != NULL) {
+                        s->state[i].deckLinkConfiguration->Release();
+                }
+
+                if(s->state[i].deckLinkOutput != NULL) {
+                        s->state[i].deckLinkOutput->Release();
+                }
+
+                if(s->state[i].deckLinkFrame != NULL) {
+                        s->state[i].deckLinkFrame->Release();
+                }
+
+                if(s->state[i].deckLink != NULL) {
+                        s->state[i].deckLink->Release();
+                }
+
+                if(s->state[i].delegate != NULL) {
+                        delete s->state[i].delegate;
+                }
+        }
+
         vf_free(s->frame);
         free(s);
 }
