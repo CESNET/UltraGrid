@@ -67,14 +67,24 @@ struct compress_jpeg_state {
         char *decoded;
         unsigned int rgb:1;
         codec_t color_spec;
+
+        struct video_desc saved_desc;
 };
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
+static void cleanup_state(struct compress_jpeg_state *s);
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
 {
         unsigned int x;
         int frame_idx;
+
+        s->saved_desc.width = frame->tiles[0].width;
+        s->saved_desc.height = frame->tiles[0].height;
+        s->saved_desc.color_spec = frame->color_spec;
+        s->saved_desc.fps = frame->fps;
+        s->saved_desc.interlacing = frame->interlacing;
+        s->saved_desc.tile_count = frame->tile_count;
         
         for (frame_idx = 0; frame_idx < 2; frame_idx++) {
                 s->out[frame_idx] = vf_alloc(frame->tile_count);
@@ -271,8 +281,22 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx, int buffe
         if(!s->encoder) {
                 int ret;
                 ret = configure_with(s, tx);
-                if(!ret)
+                if(!ret) {
                         return NULL;
+                }
+        }
+
+        struct video_desc desc;
+        desc = video_desc_from_frame(tx);
+
+        // if format changed, reconfigure
+        if(!video_desc_eq_excl_param(s->saved_desc, desc, PARAM_INTERLACING)) {
+                cleanup_state(s);
+                int ret;
+                ret = configure_with(s, tx);
+                if(!ret) {
+                        return NULL;
+                }
         }
 
         out = s->out[buffer_idx];
@@ -323,6 +347,14 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx, int buffe
 void jpeg_compress_done(void *arg)
 {
         struct compress_jpeg_state *s = (struct compress_jpeg_state *) arg;
+
+        cleanup_state(s);
+        
+        free(s);
+}
+
+static void cleanup_state(struct compress_jpeg_state *s)
+{
         int frame_idx;
         
         for (frame_idx = 0; frame_idx < 2; frame_idx++) {
@@ -336,6 +368,5 @@ void jpeg_compress_done(void *arg)
         }
         if(s->encoder)
                 gpujpeg_encoder_destroy(s->encoder);
-        
-        free(s);
 }
+

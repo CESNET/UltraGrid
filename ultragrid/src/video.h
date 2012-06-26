@@ -79,6 +79,12 @@ enum interlacing_t {
 #define VIDEO_STEREO                    2u
 #define VIDEO_4K                        3u
 
+#define PARAM_WIDTH                     1u
+#define PARAM_HEIGHT                    2u
+#define PARAM_CODEC                     3u
+#define PARAM_INTERLACING               4u
+#define PARAM_FPS                       5u
+#define PARAM_TILE_COUNT                6u
 
 
 /* please note that tiles have also its own widths and heights */
@@ -127,6 +133,8 @@ struct video_frame * vf_alloc(int count);
 void vf_free(struct video_frame *buf);
 struct tile * vf_get_tile(struct video_frame *buf, int pos);
 int video_desc_eq(struct video_desc, struct video_desc);
+int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params);
+struct video_desc video_desc_from_frame(struct video_frame *frame);
 int get_video_mode_tiles_x(int video_mode);
 int get_video_mode_tiles_y(int video_mode);
 const char *get_interlacing_description(enum interlacing_t);

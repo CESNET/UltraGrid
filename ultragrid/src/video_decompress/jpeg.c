@@ -97,6 +97,8 @@ void * jpeg_decompress_init(void)
         s = (struct state_decompress_jpeg *) malloc(sizeof(struct state_decompress_jpeg));
         s->decoder = NULL;
 
+        s->pitch = 0;
+
         return s;
 }
 
@@ -108,22 +110,32 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         
         assert(out_codec == RGB || out_codec == UYVY);
         
-        s->out_codec = out_codec;
-        s->pitch = pitch;
-        s->rshift = rshift;
-        s->gshift = gshift;
-        s->bshift = bshift;
-        if(!s->decoder) {
-                ret = configure_with(s, desc);
+        if(s->out_codec == out_codec &&
+                        s->pitch == pitch &&
+                        s->rshift == rshift &&
+                        s->gshift == gshift &&
+                        s->bshift == bshift &&
+                        video_desc_eq_excl_param(s->desc, desc, PARAM_INTERLACING)) {
+                ret = TRUE;
         } else {
-                gpujpeg_decoder_destroy(s->decoder);
-                ret = configure_with(s, desc);
+                s->out_codec = out_codec;
+                s->pitch = pitch;
+                s->rshift = rshift;
+                s->gshift = gshift;
+                s->bshift = bshift;
+                if(!s->decoder) {
+                        ret = configure_with(s, desc);
+                } else {
+                        gpujpeg_decoder_destroy(s->decoder);
+                        ret = configure_with(s, desc);
+                }
         }
 
-        if(ret)
+        if(ret) {
                 return s->compressed_len;
-        else
+        } else {
                 return 0;
+        }
 }
 
 void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)

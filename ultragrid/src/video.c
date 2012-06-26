@@ -58,6 +58,7 @@
 struct video_frame * vf_alloc(int count)
 {
         struct video_frame *buf;
+        assert(count > 0);
         
         buf = (struct video_frame *) calloc(1, sizeof(struct video_frame));
         
@@ -85,13 +86,37 @@ struct tile * vf_get_tile(struct video_frame *buf, int pos)
 
 int video_desc_eq(struct video_desc a, struct video_desc b)
 {
-        return a.width == b.width &&
-               a.height == b.height &&
-               a.color_spec == b.color_spec &&
-               a.interlacing == b.interlacing &&
-               fabs(a.fps - b.fps) < 0.01;// &&
+        return video_desc_eq_excl_param(a, b, PARAM_TILE_COUNT); // TILE_COUNT is excluded because it
+                                                                 // was omitted so not to break 
+                                                                 // compatibility...
+}
+
+int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params)
+{
+        return ((excluded_params & PARAM_WIDTH) || a.width == b.width) &&
+                ((excluded_params & PARAM_HEIGHT) || a.height == b.height) &&
+                ((excluded_params & PARAM_CODEC) || a.color_spec == b.color_spec) &&
+                ((excluded_params & PARAM_INTERLACING) || a.interlacing == b.interlacing) &&
+                ((excluded_params & PARAM_TILE_COUNT) || a.tile_count == b.tile_count) &&
+                ((excluded_params & PARAM_FPS) || fabs(a.fps - b.fps) < 0.01);// &&
                // TODO: remove these obsolete constants
                //(a.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit)) == (b.aux & (~AUX_RGB & ~AUX_YUV & ~AUX_10Bit));
+}
+
+struct video_desc video_desc_from_frame(struct video_frame *frame)
+{
+        struct video_desc desc;
+
+        assert(frame != NULL);
+
+        desc.width = frame->tiles[0].width;
+        desc.height = frame->tiles[0].height;
+        desc.color_spec = frame->color_spec;
+        desc.fps = frame->fps;
+        desc.interlacing = frame->interlacing;
+        desc.tile_count = frame->tile_count;
+
+        return desc;
 }
 
 int get_video_mode_tiles_x(int video_type)
