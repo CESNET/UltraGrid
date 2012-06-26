@@ -36,6 +36,7 @@
 #define MATH_APPROX_H
 
 #include "arch.h"
+#include "speex_types.h"
 
 #ifndef FIXED_POINT
 

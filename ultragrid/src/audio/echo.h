@@ -1,5 +1,5 @@
 /*
- * FILE:    utils/ring_buffer.h
+ * FILE:    audio/echo.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -26,10 +26,10 @@
  * 
  *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
- *    used to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
+ * 4. Neither the name of CESNET nor the names of its contributors may be used 
+ *    to endorse or promote products derived from this software without specific
+ *    prior written permission.
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -43,32 +43,23 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ *
  */
- 
- /*
-  * Provides abstraction for ring buffers.
-  * Note that it doesn't offer advanced synchronization primitives and
-  * therefore is mainly intended for one producer and one consumer.
-  */
-#ifndef __RING_BUFFER_H
 
-#define __RING_BUFFER_H
+#ifndef _ECHO_H_
+#define _ECHO_H_
 
-struct ring_buffer;
-typedef struct ring_buffer ring_buffer_t;
+#include "audio/audio.h"
 
-struct ring_buffer *ring_buffer_init(int size);
-void ring_buffer_destroy(struct ring_buffer * ring);
-/*
- * @param ring           ring buffer structure
- * @param out            allocated buffer to read to
- * @param max_len        maximal amount of data
- * @return               actual data length read (ranges between 0 and max_len)
- */
-int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len);
-void ring_buffer_write(struct ring_buffer * ring, const char *in, int len);
-int ring_get_size(struct ring_buffer * ring);
+struct echo_cancellation;
 
-int ring_get_current_size(struct ring_buffer * ring);
+typedef struct echo_cancellation echo_cancellation_t;
 
-#endif /* __RING_BUFFER_H */
+struct echo_cancellation * echo_cancellation_init(void);
+void echo_cancellation_destroy(struct echo_cancellation *state);
+void echo_play(struct echo_cancellation *state, struct audio_frame *frame);
+
+struct audio_frame * echo_cancel(struct echo_cancellation *state, struct audio_frame *frame);
+
+
+#endif /* _ECHO_H_ */

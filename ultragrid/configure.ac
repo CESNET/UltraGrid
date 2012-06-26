@@ -1364,13 +1364,15 @@ SAVED_CPPFLAGS=$CPPFLAGS
 CFLAGS+=" -I${SPEEX_PATH}/include"
 CPPFLAGS+=" -I${SPEEX_PATH}/include"
 AC_CHECK_HEADER(${SPEEX_PATH}/include/speex/speex_resampler.h, FOUND_SPEEX_RES_H=yes, FOUND_SPEEX_RES_H=no)
+AC_CHECK_HEADER(${SPEEX_PATH}/include/speex/speex_preprocess.h, FOUND_SPEEX_PREPR_H=yes, FOUND_SPEEX_PREPR_H=no)
 CFLAGS=$SAVED_CFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
-if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes
+if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes -a $FOUND_SPEEX_PREPR_H = yes
 then
 	SPEEX_INC=-I${SPEEX_PATH}/include
-	SPEEX_OBJ="src/audio/resample.o"
+        SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
+        SPEEX_OBJ+=" src/audio/echo.o"
 	SPEEX_LIB=
         AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
         speex=yes
@@ -1624,7 +1626,7 @@ Configuration summary:
   CoreAudio ................... $coreaudio
   JACK  ....................... $jack
   JACK transport .............. $jack_trans
-  speex resampler ............. $speex
+  speex ....................... $speex
   
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt

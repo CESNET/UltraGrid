@@ -101,6 +101,7 @@
 #define AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
 #define AUDIO_SCALE (('a' << 8) | 's')
+#define ECHO_CANCELLATION (('E' << 8) | 'C')
 
 struct state_uv {
         int recv_port_number;
@@ -258,6 +259,8 @@ static void usage(void)
         printf("\t--audio-capture-channels <count>\n");
         printf("\t                         \tHow many of input channels should be captured (default 2).\n");
         printf("\t                         \t\n");
+        printf("\n");
+        printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -789,6 +792,8 @@ int main(int argc, char *argv[])
         char *audio_channel_map = NULL;
         char *audio_scale = "mixauto";
 
+        bool echo_cancellation = false;
+
         int bitrate = 0;
         
         struct state_uv *uv;
@@ -829,6 +834,7 @@ int main(int argc, char *argv[])
                 {"audio-channel-map", required_argument, 0, AUDIO_CHANNEL_MAP},
                 {"audio-scale", required_argument, 0, AUDIO_SCALE},
                 {"audio-capture-channels", required_argument, 0, AUDIO_CAPTURE_CHANNELS},
+                {"echo-cancellation", no_argument, 0, ECHO_CANCELLATION},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -957,6 +963,9 @@ int main(int argc, char *argv[])
                 case AUDIO_CAPTURE_CHANNELS:
                         audio_capture_channels = atoi(optarg);
                         break;
+                case ECHO_CANCELLATION:
+                        echo_cancellation = true;
+                        break;
                 default:
                         usage();
                         return EXIT_FAIL_USAGE;
@@ -1004,7 +1013,7 @@ int main(int argc, char *argv[])
 
         char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
         uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg,
-                        tmp_requested_fec, audio_channel_map, audio_scale);
+                        tmp_requested_fec, audio_channel_map, audio_scale, echo_cancellation);
         free(tmp_requested_fec);
         if(!uv->audio)
                 goto cleanup;

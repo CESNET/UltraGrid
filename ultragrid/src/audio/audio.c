@@ -47,6 +47,8 @@
  */
 
 #include "audio/audio.h" 
+
+#include "audio/echo.h" 
 #include "audio/audio_capture.h" 
 #include "audio/audio_playback.h" 
 #include "audio/capture/sdi.h"
@@ -104,6 +106,7 @@ struct state_audio {
 
         char *audio_channel_map;
         const char *audio_scale;
+        echo_cancellation_t *echo_state;
 };
 
 /** 
@@ -123,7 +126,8 @@ static struct rtp *initialize_audio_network(char *addr, int recv_port, int send_
  * take care that addrs can also be comma-separated list of addresses !
  */
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg,
-                char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale)
+                char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
+                bool echo_cancellation)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -150,6 +154,18 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         s->audio_participants = NULL;
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
+
+        if(echo_cancellation) {
+#ifdef HAVE_SPEEX
+                s->echo_state = echo_cancellation_init();
+#else
+                fprintf(stderr, "Speex not compiled in. Could not enable echo cancellation.\n");
+                free(s);
+                return NULL;
+#endif /* HAVE_SPEEX */
+        } else {
+                s->echo_state = NULL;
+        }
         
         printf("Using audio FEC: %s\n", fec_cfg);
         s->tx_session = tx_init(1500, fec_cfg);
@@ -329,6 +345,10 @@ static void *audio_receiver_thread(void *arg)
                         while (cp != NULL) {
                                 if(pbuf_data.buffer != NULL) {
                                         if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
+                                                if(s->echo_state) {
+                                                        echo_play(s->echo_state, pbuf_data.buffer);
+                                                }
+
                                                 audio_playback_put_frame(s->audio_playback_device, pbuf_data.buffer);
                                                 pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
                                         }
@@ -362,6 +382,11 @@ static void *audio_sender_thread(void *arg)
         while (!should_exit) {
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
+                        if(s->echo_state) {
+                                buffer = echo_cancel(s->echo_state, buffer);
+                                if(!buffer)
+                                        continue;
+                        }
                         if(s->sender == NET_NATIVE)
                                 audio_tx_send(s->tx_session, s->audio_network_device, buffer);
 #ifdef HAVE_JACK_TRANS
