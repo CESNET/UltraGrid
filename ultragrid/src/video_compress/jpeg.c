@@ -171,16 +171,6 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         param_image.width = s->out[0]->tiles[0].width;
         param_image.height = s->out[0]->tiles[0].height;
         
-        /*
-         * IMPORTANT: 
-         * if video is interleaced and merged we pretend that the video is twice as wide as it is in order to keep interlacing.
-         * From JPEG point of view, this is transparent.
-         */
-        if(frame->interlacing == INTERLACED_MERGED) {
-                param_image.width *= 2;
-                param_image.height /= 2;
-        }
-
         param_image.comp_count = 3;
         if(s->rgb) {
                 param_image.color_space = GPUJPEG_RGB;
