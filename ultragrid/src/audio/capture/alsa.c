@@ -47,6 +47,8 @@
  */
 #include "config.h"
 
+#include "host.h"
+
 #ifdef HAVE_ALSA
 
 #include "audio/audio.h"
@@ -85,7 +87,7 @@ void * audio_cap_alsa_init(char *cfg)
 
         s->frame.bps = 2;
         s->frame.sample_rate = 48000;
-        s->frame.ch_count = 2;
+        s->frame.ch_count = audio_input_channels;
 
         if(cfg && strlen(cfg) > 0) {
                 name = cfg;

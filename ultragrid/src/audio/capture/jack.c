@@ -50,7 +50,7 @@
 #include "config.h"
 #endif
 #include "debug.h"
-
+#include "host.h"
 
 #include "audio/audio.h"
 #include "audio/utils.h"
@@ -186,7 +186,14 @@ void * audio_cap_jack_init(char *cfg)
         i = 0;
         while(ports[i]) i++;
 
-        s->frame.ch_count = i;
+        if(i < audio_input_channels) {
+                fprintf(stderr, "[JACK capture] Requested channel count %d not found (matching pattern %s).\n",
+                                audio_input_channels, cfg);
+                goto release_client;
+
+        }
+
+        s->frame.ch_count = audio_input_channels;
         s->frame.bps = 4;
         s->frame.sample_rate = jack_get_sample_rate (s->client);
         s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;
@@ -217,7 +224,7 @@ void * audio_cap_jack_init(char *cfg)
                 int port;
                 char name[32];
 
-                for(port = 0; port < i; port++) {
+                for(port = 0; port < s->frame.ch_count; port++) {
                         snprintf(name, 32, "capture_%02u", port);
                         s->input_ports[port] = jack_port_register(s->client, name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
                         /* attach ports */

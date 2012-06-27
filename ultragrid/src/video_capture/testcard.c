@@ -55,11 +55,11 @@
 #include "config_win32.h"
 
 #include "debug.h"
+#include "host.h"
 #include "tv.h"
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_capture/testcard.h"
-#include "host.h"
 #include "song1.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,10 +71,9 @@
 
 #define AUDIO_SAMPLE_RATE 48000
 #define AUDIO_BPS 2
-#define AUDIO_CHANNELS 2
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
-                AUDIO_CHANNELS * BUFFER_SEC)
+                audio_input_channels * BUFFER_SEC)
 
 struct testcard_rect {
         int x, y, w, h;
@@ -342,7 +341,7 @@ static int configure_audio(struct testcard_state *s)
         SDL_Init(SDL_INIT_AUDIO);
         
         if( Mix_OpenAudio( AUDIO_SAMPLE_RATE, AUDIO_S16LSB,
-                        AUDIO_CHANNELS, 4096 ) == -1 ) {
+                        audio_input_channels, 4096 ) == -1 ) {
                 fprintf(stderr,"[testcard] error initalizing sound\n");
                 return -1;
         }
@@ -364,7 +363,7 @@ static int configure_audio(struct testcard_state *s)
         s->audio_start = 0;
         s->audio_end = 0;
         s->audio.bps = AUDIO_BPS;
-        s->audio.ch_count = AUDIO_CHANNELS;
+        s->audio.ch_count = audio_input_channels;
         s->audio.sample_rate = AUDIO_SAMPLE_RATE;
         
         // register grab as a postmix processor

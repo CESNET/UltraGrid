@@ -424,13 +424,15 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 if (res != SV_OK) {
                         goto error;
                 }
-                /* TODO: figure out real channels number
-                 * for now it suffices stereo */
-                res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, 1);
+                if(audio_channel_count != 2) {
+                        fprintf(stderr, "[DVS cap.] Invalid channel count %d. Currently only 2 channels are supported.\n");
+                        goto error;
+                }
+                res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, audio_channel_count / 2); // in pairs
                 if (res != SV_OK) {
                         goto error;
                 }
-                s->audio.ch_count = 2;
+                s->audio.ch_count = audio_input_channels;
 
                 sv_query(s->sv, SV_QUERY_AUDIOBITS, 0, &i);
                 s->audio.bps = i / 8;

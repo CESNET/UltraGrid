@@ -329,6 +329,16 @@ static int open_audio(struct vidcap_quad_state *s) {
                 return -1;
         }
 
+        unsigned long int channels;
+        snprintf (name, sizeof (name), fmt, num, "channels");
+        if (util_strtoul (name, &channels) < 0) {
+                fprintf (stderr, "%s: ", audio_dev);
+                perror ("unable to get the receiver buffer size");
+                return -1;
+        }
+
+        s->audio.ch_count = channels;
+
         /* Allocate some memory */
         /*if ((s->audio.data = (char *)malloc (s->audio_bufsize)) == NULL) {
                 fprintf (stderr, "%s: ", audio_dev);
@@ -373,11 +383,17 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 
                 s->audio.bps = QUAD_AUDIO_BPS;
                 s->audio.sample_rate = QUAD_AUDIO_SAMPLE_RATE;
-                s->audio.ch_count = QUAD_AUDIO_CHANNELS;
+                //s->audio.ch_count = QUAD_AUDIO_CHANNELS;
                 s->audio.data = (char *) malloc(QUAD_AUDIO_BUFSIZE);
                 s->audio_bytes_read = 0u;
                 if(open_audio(s) != 0)
                         s->grab_audio = FALSE;
+                if(s->audio.ch_count != audio_input_channels) {
+                        fprintf(stderr, "[Quad] Unable to grab %d channels. Current value provided by driver is %d. "
+                                        "You can change this value by writing 2,4,6 or 8 to /sys/class/sdiaudio/sdiaudiotx1/bufsize.\n",
+                                        audio_input_channels, s->audio.ch_count);
+                        s->grab_audio = FALSE;
+                }
         } else {
                 s->grab_audio = FALSE;
         }

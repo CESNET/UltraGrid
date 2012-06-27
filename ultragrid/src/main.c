@@ -99,7 +99,9 @@
 #define DEFAULT_AUDIO_FEC       "mult:3"
 
 #define AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
+#define AUDIO_INPUT_CHANNELS (('a' << 8) | 'i')
 #define AUDIO_SCALE (('a' << 8) | 's')
+
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -144,6 +146,8 @@ volatile int should_exit = FALSE;
 volatile int wait_to_finish = FALSE;
 volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
+
+unsigned int audio_input_channels = 2;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
@@ -248,6 +252,10 @@ static void usage(void)
         printf("\t                         \t\tmixauto - automatically adjust volume if using channel mixing/remapping (default)\n");
         printf("\t                         \t\tauto - automatically adjust volume\n");
         printf("\t                         \t\tnone - no scaling will be performed\n");
+        printf("\t                         \t\n");
+        printf("\n");
+        printf("\t--audio-input-channels <count>\n");
+        printf("\t                         \tHow many of input channels should be captured (default 2).\n");
         printf("\t                         \t\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
@@ -772,8 +780,8 @@ int main(int argc, char *argv[])
 
         char *capture_cfg = NULL;
         char *display_cfg = NULL;
-        char *audio_send = NULL;
         char *audio_recv = NULL;
+        char *audio_send = NULL;
         char *jack_cfg = NULL;
         char *requested_fec = NULL;
         char *save_ptr = NULL;
@@ -819,6 +827,7 @@ int main(int argc, char *argv[])
                 {"limit-bitrate", required_argument, 0, 'l'},
                 {"audio-channel-map", required_argument, 0, AUDIO_CHANNEL_MAP},
                 {"audio-scale", required_argument, 0, AUDIO_SCALE},
+                {"audio-input-channels", required_argument, 0, AUDIO_INPUT_CHANNELS},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -943,6 +952,9 @@ int main(int argc, char *argv[])
                         break;
                 case AUDIO_SCALE:
                         audio_scale = optarg;
+                        break;
+                case AUDIO_INPUT_CHANNELS:
+                        audio_input_channels = atoi(optarg);
                         break;
                 default:
                         usage();

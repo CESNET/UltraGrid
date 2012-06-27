@@ -58,6 +58,7 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "host.h"
 #include "utils/fs_lock.h"
 
 
@@ -65,7 +66,6 @@
 #define BPS 2 /* paInt16 */
 #define SAMPLE_RATE 48000
 #define SAMPLES_PER_FRAME 2048
-#define CHANNELS 2
 #define SECONDS 5
 
 #define MODULE_NAME "[Portaudio capture] "
@@ -241,10 +241,16 @@ void * portaudio_capture_init(char *cfg)
                 return NULL;
         }
 
-        if(CHANNELS <= device_info->maxInputChannels)
-                inputParameters.channelCount = CHANNELS;
-        else
-                inputParameters.channelCount = device_info->maxInputChannels;
+        if(audio_input_channels <= device_info->maxInputChannels) {
+                inputParameters.channelCount = audio_input_channels;
+        } else {
+                fprintf(stderr, MODULE_NAME "Requested %d input channels, devide offers only %d.\n",
+                                audio_input_channels,
+                                device_info->maxInputChannels);
+                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
+                free(s);
+		return NULL;
+        }
         inputParameters.sampleFormat = paInt16;
         inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultHighInputLatency ;
         inputParameters.hostApiSpecificStreamInfo = NULL;

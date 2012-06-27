@@ -47,6 +47,7 @@
  */
 
 #include "config.h"
+#include "host.h"
 
 #ifdef HAVE_COREAUDIO
 
@@ -257,7 +258,7 @@ void * audio_cap_ca_init(char *cfg)
         s->boss_waiting = FALSE;
         s->data_ready = FALSE;
         s->frame.bps = 2;
-        s->frame.ch_count = 2;
+        s->frame.ch_count = audio_input_channels;
 
         double rate;
         size = sizeof(double);
