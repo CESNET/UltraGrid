@@ -66,6 +66,7 @@ struct state_alsa_capture {
         struct audio_frame frame;
 
         snd_pcm_uframes_t frames;
+        unsigned int device_channels;
 };
 
 void audio_play_alsa_help(const char *driver_name);
@@ -106,25 +107,55 @@ void * audio_cap_alsa_init(char *cfg)
         snd_pcm_hw_params_alloca(&params);
 
         /* Fill it in with default values. */
-        snd_pcm_hw_params_any(s->handle, params);
+        rc = snd_pcm_hw_params_any(s->handle, params);
+        if (rc < 0) {
+                fprintf(stderr, "unable to set default parameters: %s\n",
+                        snd_strerror(rc));
+                goto error;
+        }
 
         /* Set the desired hardware parameters. */
 
         /* Interleaved mode */
-        snd_pcm_hw_params_set_access(s->handle, params,
+        rc = snd_pcm_hw_params_set_access(s->handle, params,
                 SND_PCM_ACCESS_RW_INTERLEAVED);
+        if (rc < 0) {
+                fprintf(stderr, "unable to set interleaved mode: %s\n",
+                        snd_strerror(rc));
+                goto error;
+        }
 
         /* Signed 16-bit little-endian format */
-        snd_pcm_hw_params_set_format(s->handle, params,
+        rc = snd_pcm_hw_params_set_format(s->handle, params,
                 SND_PCM_FORMAT_S16_LE);
+        if (rc < 0) {
+                fprintf(stderr, "unable to set capture format: %s\n",
+                        snd_strerror(rc));
+                goto error;
+        }
 
         /* Two channels (stereo) */
-        snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
+        rc = snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
+        if (rc < 0) {
+                if(s->frame.ch_count == 1) { // some devices cannot do mono
+                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->device_channels);
+                } else {
+                        fprintf(stderr, "unable to set channel count: %s\n",
+                                        snd_strerror(rc));
+                        goto error;
+                }
+        }
 
         /* sampling rate (CD quality) */
         val = s->frame.sample_rate;
-        snd_pcm_hw_params_set_rate_near(s->handle, params,
+        dir = 0;
+        rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                 &val, &dir);
+        if (rc < 0) {
+                fprintf(stderr, "unable to sampling rate: %s\n",
+                        snd_strerror(rc));
+                goto error;
+        }
 
         /* Set period size to 32 frames. */
         s->frames = 128;
