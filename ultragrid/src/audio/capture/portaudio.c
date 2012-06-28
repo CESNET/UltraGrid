@@ -51,10 +51,10 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "portaudio/include/portaudio.h" /* from PortAudio API */
+#include <portaudio.h> /* from PortAudio API */
 
 #include "audio/audio.h"
-#include "audio/capture/portaudio.h"
+#include <portaudio.h>
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"

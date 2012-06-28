@@ -51,7 +51,7 @@
 #include <string.h>
 #include <pthread.h>
 
-#include "portaudio/include/portaudio.h" /* from PortAudio */
+#include <portaudio.h> /* from PortAudio */
 
 #include "audio/audio.h"
 #include "audio/playback/portaudio.h"
