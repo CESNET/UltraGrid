@@ -1,0 +1,17 @@
+!Makefile
+2dxt
+example
+libdxt.a
+main
+*.a
+*.o
+*~
+main
+example
+2dxt
+playdxt
+viewdxt
+*.rgba
+*.dxt
+out.*
+
