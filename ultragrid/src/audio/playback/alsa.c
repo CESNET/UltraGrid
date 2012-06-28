@@ -67,6 +67,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BUFFER_MIN 41
+#define BUFFER_MAX 100
+
 struct state_alsa_playback {
         snd_pcm_t *handle;
         struct audio_frame frame;
@@ -92,13 +95,23 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         snd_pcm_hw_params_alloca(&params);
 
         /* Fill it in with default values. */
-        snd_pcm_hw_params_any(s->handle, params);
+        rc = snd_pcm_hw_params_any(s->handle, params);
+        if (rc < 0) {
+                fprintf(stderr, "cannot obtain default hw parameters: %s\n",
+                        snd_strerror(rc));
+                return FALSE;
+        }
 
         /* Set the desired hardware parameters. */
 
         /* Interleaved mode */
-        snd_pcm_hw_params_set_access(s->handle, params,
+        rc = snd_pcm_hw_params_set_access(s->handle, params,
                         SND_PCM_ACCESS_RW_INTERLEAVED);
+        if (rc < 0) {
+                fprintf(stderr, "cannot set interleaved hw access: %s\n",
+                        snd_strerror(rc));
+                return FALSE;
+        }
 
         switch(quant_samples) {
                 case 8:
@@ -118,21 +131,63 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                         return FALSE;
         }
         /* Signed 16-bit little-endian format */
-        snd_pcm_hw_params_set_format(s->handle, params,
+        rc = snd_pcm_hw_params_set_format(s->handle, params,
                         format);
+        if (rc < 0) {
+                fprintf(stderr, "cannot set format: %s\n",
+                        snd_strerror(rc));
+                return FALSE;
+        }
 
         /* Two channels (stereo) */
-        snd_pcm_hw_params_set_channels(s->handle, params, channels);
+        rc = snd_pcm_hw_params_set_channels(s->handle, params, channels);
+        if (rc < 0) {
+                fprintf(stderr, "cannot set requested channel count: %s\n",
+                        snd_strerror(rc));
+                return FALSE;
+        }
 
         /* 44100 bits/second sampling rate (CD quality) */
         val = sample_rate;
-        snd_pcm_hw_params_set_rate_near(s->handle, params,
+        dir = 0;
+        rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                         &val, &dir);
+        if (rc < 0) {
+                fprintf(stderr, "cannot set requested sample rate: %s\n",
+                        snd_strerror(rc));
+                return FALSE;
+        }
 
         /* Set period size to 1 frame. */
         frames = 1;
-        snd_pcm_hw_params_set_period_size_near(s->handle,
+        dir = 1;
+        rc = snd_pcm_hw_params_set_period_size_near(s->handle,
                         params, &frames, &dir);
+        if (rc < 0) {
+                fprintf(stderr, "cannot set period time: %s\n",
+                        snd_strerror(rc));
+                return FALSE;
+        }
+
+
+        val = BUFFER_MIN * 1000;
+        dir = 1;
+        rc = snd_pcm_hw_params_set_buffer_time_min(s->handle, params,
+                        &val, &dir); 
+        if (rc < 0) {
+                fprintf(stderr, "Warining - unable to set minimal buffer size: %s\n",
+                        snd_strerror(rc));
+        }
+
+        val = BUFFER_MAX * 1000;
+        dir = -1;
+        rc = snd_pcm_hw_params_set_buffer_time_max(s->handle, params,
+                        &val, &dir); 
+        if (rc < 0) {
+                fprintf(stderr, "Warining - unable to set maximal buffer size: %s\n",
+                        snd_strerror(rc));
+        }
+
 
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
@@ -246,9 +301,19 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 /* EPIPE means underrun */
                 fprintf(stderr, "underrun occurred\n");
                 snd_pcm_prepare(s->handle);
-                /* duplicate last data into stream */
-                snd_pcm_writei(s->handle, frame->data, frames);
-                snd_pcm_writei(s->handle, frame->data, frames);
+                /* fill the stream with some sasmples */
+                for (double sec = 0.0; sec < BUFFER_MIN / 1000.0; sec += (double) frames / frame->sample_rate) {
+                        int frames_to_write = frames;
+                        if(sec + (double) frames/frame->sample_rate > BUFFER_MIN / 1000.0) {
+                                frames = (BUFFER_MIN / 1000.0 - sec) * frame->sample_rate;
+                        }
+                        int rc = snd_pcm_writei(s->handle, frame->data, frames_to_write);
+                        if(rc < 0) {
+                                fprintf(stderr, "error from writei: %s\n",
+                                                snd_strerror(rc));
+                                break;
+                        }
+                }
         } else if (rc < 0) {
                 fprintf(stderr, "error from writei: %s\n",
                         snd_strerror(rc));
