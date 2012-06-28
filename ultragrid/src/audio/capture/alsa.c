@@ -52,6 +52,8 @@
 #ifdef HAVE_ALSA
 
 #include "audio/audio.h"
+#include "audio/utils.h"
+
 #include "audio/capture/alsa.h" 
 #include "debug.h"
 #include <stdlib.h>
@@ -64,9 +66,10 @@
 struct state_alsa_capture {
         snd_pcm_t *handle;
         struct audio_frame frame;
+        char *tmp_data;
 
         snd_pcm_uframes_t frames;
-        unsigned int device_channels;
+        unsigned int min_device_channels;
 };
 
 void audio_play_alsa_help(const char *driver_name);
@@ -88,7 +91,8 @@ void * audio_cap_alsa_init(char *cfg)
 
         s->frame.bps = 2;
         s->frame.sample_rate = 48000;
-        s->frame.ch_count = audio_input_channels;
+        s->min_device_channels = s->frame.ch_count = audio_input_channels;
+        s->tmp_data = NULL;
 
         if(cfg && strlen(cfg) > 0) {
                 name = cfg;
@@ -134,11 +138,17 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
+        /* Set period size to 128 frames. */
+        s->frames = 128;
+        snd_pcm_hw_params_set_period_size_near(s->handle,
+                params, &s->frames, &dir);
+
         /* Two channels (stereo) */
         rc = snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
         if (rc < 0) {
                 if(s->frame.ch_count == 1) { // some devices cannot do mono
-                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->device_channels);
+                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
+                        s->tmp_data = malloc(s->frames  * s->min_device_channels * s->frame.bps);
                 } else {
                         fprintf(stderr, "unable to set channel count: %s\n",
                                         snd_strerror(rc));
@@ -156,11 +166,6 @@ void * audio_cap_alsa_init(char *cfg)
                         snd_strerror(rc));
                 goto error;
         }
-
-        /* Set period size to 32 frames. */
-        s->frames = 128;
-        snd_pcm_hw_params_set_period_size_near(s->handle,
-                params, &s->frames, &dir);
 
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
@@ -187,7 +192,12 @@ struct audio_frame *audio_cap_alsa_read(void *state)
         struct state_alsa_capture *s = (struct state_alsa_capture *) state;
         int rc;
 
-        rc = snd_pcm_readi(s->handle, s->frame.data, s->frames);
+        char *read_ptr = s->frame.data;
+        if((int) s->min_device_channels > s->frame.ch_count && s->frame.ch_count == 1) {
+                read_ptr = s->tmp_data;
+        }
+
+        rc = snd_pcm_readi(s->handle, read_ptr, s->frames);
         if (rc == -EPIPE) {
                 /* EPIPE means overrun */
                 fprintf(stderr, "overrun occurred\n");
@@ -199,6 +209,13 @@ struct audio_frame *audio_cap_alsa_read(void *state)
         }
 
         if(rc > 0) {
+                if(s->min_device_channels == 2 && s->frame.ch_count == 1) {
+                        demux_channel(s->frame.data, (char *) s->tmp_data, s->frame.bps,
+                                        rc * s->frame.bps * s->min_device_channels,
+                                        s->min_device_channels, /* channels (originally) */
+                                        0 /* we want first channel */
+                                );
+                }
                 s->frame.data_len = rc * s->frame.bps * s->frame.ch_count;
                 return &s->frame;
         } else {
@@ -218,6 +235,7 @@ void audio_cap_alsa_done(void *state)
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
         free(s->frame.data);
+        free(s->tmp_data);
         free(s);
 }
 

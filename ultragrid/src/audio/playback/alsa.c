@@ -73,6 +73,8 @@
 struct state_alsa_playback {
         snd_pcm_t *handle;
         struct audio_frame frame;
+
+        unsigned int min_device_channels;
 };
 
 int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
@@ -87,7 +89,7 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         snd_pcm_uframes_t frames;
 
         s->frame.bps = quant_samples / 8;
-        s->frame.ch_count = channels;
+        s->min_device_channels = s->frame.ch_count = channels;
         s->frame.sample_rate = sample_rate;
 
 
@@ -142,9 +144,13 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         /* Two channels (stereo) */
         rc = snd_pcm_hw_params_set_channels(s->handle, params, channels);
         if (rc < 0) {
-                fprintf(stderr, "cannot set requested channel count: %s\n",
-                        snd_strerror(rc));
-                return FALSE;
+                if(channels == 1) {
+                        snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
+                } else {
+                        fprintf(stderr, "cannot set requested channel count: %s\n",
+                                        snd_strerror(rc));
+                        return FALSE;
+                }
         }
 
         /* 44100 bits/second sampling rate (CD quality) */
@@ -288,6 +294,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
+        char *data = frame->data;
         int frames = frame->data_len / (frame->bps * frame->ch_count);
 
 #ifdef DEBUG
@@ -295,8 +302,14 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         snd_pcm_delay(s->handle, &delay);
         //fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int)delay, (unsigned int) s->frame.sample_rate);
 #endif
+
+        if((int) s->min_device_channels > frame->ch_count && frame->ch_count == 1) {
+                if(s->frame.data_len * s->min_device_channels < frame->max_size) {
+                        audio_frame_multiply_channel(frame, s->min_device_channels);
+                }
+        }
     
-        rc = snd_pcm_writei(s->handle, frame->data, frames);
+        rc = snd_pcm_writei(s->handle, data, frames);
         if (rc == -EPIPE) {
                 /* EPIPE means underrun */
                 fprintf(stderr, "underrun occurred\n");
@@ -307,7 +320,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                         if(sec + (double) frames/frame->sample_rate > BUFFER_MIN / 1000.0) {
                                 frames = (BUFFER_MIN / 1000.0 - sec) * frame->sample_rate;
                         }
-                        int rc = snd_pcm_writei(s->handle, frame->data, frames_to_write);
+                        int rc = snd_pcm_writei(s->handle, data, frames_to_write);
                         if(rc < 0) {
                                 fprintf(stderr, "error from writei: %s\n",
                                                 snd_strerror(rc));

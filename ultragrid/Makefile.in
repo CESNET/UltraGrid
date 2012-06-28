@@ -246,8 +246,10 @@ JPEG_DECOMPRESS_LIB_OBJ = src/video.o \
 
 ALSA_CAP_LIB_OBJ = @ALSA_CAP_OBJ@ \
 		   src/audio/playback/alsa.o
+		   src/audio/utils.o \
 
 ALSA_PLAY_LIB_OBJ = @ALSA_PLAY_OBJ@
+		   src/audio/utils.o \
 
 PORTAUDIO_CAP_LIB_OBJ = @PORTAUDIO_CAP_OBJ@ \
 		src/utils/fs_lock.o
@@ -258,7 +260,7 @@ PORTAUDIO_PLAY_LIB_OBJ = @PORTAUDIO_PLAY_OBJ@ \
 JACK_CAP_LIB_OBJ = @JACK_CAP_OBJ@ \
 		   @SPEEX_OBJ@ \
 		   src/utils/ring_buffer.o \
-		   src/audio/utils.o
+		   src/audio/utils.o \
 
 JACK_PLAY_LIB_OBJ = @JACK_PLAY_OBJ@ \
 		    @SPEEX_OBJ@ \
