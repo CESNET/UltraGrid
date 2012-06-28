@@ -268,6 +268,7 @@ void * audio_cap_ca_init(char *cfg)
         s->frame.sample_rate = rate;
         fprintf(stderr, "[CoreAudio] Libspeex support not compiled in, resampling won't work (check manual or wiki how to enable it)!\n");
 #else
+        s->resampler = NULL;
         s->frame.sample_rate = 48000;
         if(s->frame.sample_rate != s->nominal_sample_rate) {
                 int err;
@@ -486,6 +487,14 @@ void audio_cap_ca_done(void *state)
         free(s->frame.data);
         ring_buffer_destroy(s->buffer);
         free(s->tmp);
+
+#ifdef HAVE_SPEEX
+        if(s->resampler) {
+                speex_resampler_destroy(s->resampler);
+        }
+        free(s->resampled);
+#endif // HAVE_SPEEX
+
         free(s);
 }
 
