@@ -272,7 +272,7 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
         if(audioPacket) {
                 audioPacket->GetBytes(&audioFrame);
                 if(audio_input_channels == 1) { // ther are actually 2 channels grabbed
-                        demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * audio_input_channels * 2,
+                        demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * 2 /* channels */ * 2,
                                         2, /* channels (originally( */
                                         0 /* we want first channel */
                                                 );
