@@ -1285,63 +1285,25 @@ PORTAUDIO_LIB=
 PORTAUDIO_CAP_OBJ=
 PORTAUDIO_PLAY_OBJ=
 portaudio=no
-portaudio_static=no
 
 AC_ARG_ENABLE(portaudio, 
       AS_HELP_STRING([--disable-portaudio], [disable Portaudio (default is auto)]), 
 	[portaudio_req=$enableval],
         [portaudio_req=yes])
 
-AC_ARG_ENABLE(portaudio-static, 
-      AS_HELP_STRING([--enable-portaudio-static], [link with static Portaudio instance even if dynamic libraries are present]), 
-	[portaudio_static=$enableval],
-        [portaudio_static=no])
 
-AC_ARG_WITH(portaudio,
-	[  --with-portaudio=DIR    specify location of Portaudio],
-	[PORTAUDIO_INC_PATH=$withval/include
-	 PORTAUDIO_LIB_PATH=$withval/lib],
-	[PORTAUDIO_INC_PATH=${PARENT}/portaudio/include
-	 PORTAUDIO_LIB_PATH=${PARENT}/portaudio/lib/.libs])
+SAVED_LIBS=$LIBS
 
-# first look for dynamic libraries
-if test $portaudio_static = no
+AC_CHECK_HEADER(portaudio.h)
+AC_CHECK_LIB(portaudio, Pa_WriteStream) # this is relevant, it is an additional API, standard are callbacks
+LIBS=$SAVED_LIBS
+
+if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes
 then
-        SAVED_LIBS=$LIBS
-
-        AC_CHECK_HEADER(portaudio.h)
-        AC_CHECK_LIB(portaudio, Pa_WriteStream) # this is relevant, it is an additional API, standard are callbacks
-        LIBS=$SAVED_LIBS
-
-        if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes
-        then
-                PORTAUDIO_LIB='-lportaudio'
-                portaudio=yes
-        else
-                # try static
-                portaudio_static=yes
-        fi
+        PORTAUDIO_LIB='-lportaudio'
+        portaudio=yes
 fi
 
-
-if test $portaudio_static = yes
-then
-        AC_CHECK_FILE(${PORTAUDIO_INC_PATH}/portaudio.h, FOUND_PORTAUDIO_H=yes, FOUND_PORTAUDIO_H=no)
-        AC_CHECK_FILE(${PORTAUDIO_LIB_PATH}/libportaudio.a, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no)
-        #AC_CHECK_LIB(portaudio, Pa_Initialize, PORTAUDIO_STATIC=yes, PORTAUDIO_STATIC=no, -L${PORTAUDIO_LIB})
-
-        if test $portaudio_req = yes -a $FOUND_PORTAUDIO_H = yes -a $PORTAUDIO_STATIC = yes
-        then
-            PORTAUDIO_INC=-I${PORTAUDIO_INC_PATH}
-            # we have now portaudio linked statically
-            # TODO: consider linking it dynamically
-            PORTAUDIO_LIB="${PORTAUDIO_LIB_PATH}/libportaudio.a"
-            # libs taken from .pc file won't work - there are missing some optional dependencies, eg. jack
-            PORTAUDIO_LIB+=" `( . ../portaudio/lib/libportaudio.la ; echo $inherited_linker_flags $dependency_libs | sed 's/\/usr\/lib\/lib\(.*\)\.la/-l\1/')`"
-            CFLAGS+=" `cat  ../portaudio/portaudio-2.0.pc|grep '^Cflags: '|sed 's/^Cflags: -I\${includedir}//'`"
-            portaudio=yes
-        fi
-fi
 
 if test $portaudio = yes
 then
@@ -1632,7 +1594,7 @@ Configuration summary:
   SDL ......................... $sdl
   screen capture .............. $screen_cap
   
-  Portaudio ................... $portaudio (static: $portaudio_static)
+  Portaudio ................... $portaudio
   ALSA ........................ $alsa
   CoreAudio ................... $coreaudio
   JACK  ....................... $jack
