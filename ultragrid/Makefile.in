@@ -245,10 +245,10 @@ JPEG_DECOMPRESS_LIB_OBJ = src/video.o \
 			 @JPEG_DECOMPRESS_OBJ@
 
 ALSA_CAP_LIB_OBJ = @ALSA_CAP_OBJ@ \
-		   src/audio/playback/alsa.o
+		   src/audio/playback/alsa.o \
 		   src/audio/utils.o \
 
-ALSA_PLAY_LIB_OBJ = @ALSA_PLAY_OBJ@
+ALSA_PLAY_LIB_OBJ = @ALSA_PLAY_OBJ@ \
 		   src/audio/utils.o \
 
 PORTAUDIO_CAP_LIB_OBJ = @PORTAUDIO_CAP_OBJ@ \
