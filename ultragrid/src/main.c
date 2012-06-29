@@ -99,7 +99,7 @@
 #define DEFAULT_AUDIO_FEC       "mult:3"
 
 #define AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
-#define AUDIO_INPUT_CHANNELS (('a' << 8) | 'i')
+#define AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
 #define AUDIO_SCALE (('a' << 8) | 's')
 
 struct state_uv {
@@ -147,7 +147,7 @@ volatile int wait_to_finish = FALSE;
 volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
 
-unsigned int audio_input_channels = 2;
+unsigned int audio_capture_channels = 2;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
 struct video_frame *frame_buffer = NULL;
@@ -254,7 +254,7 @@ static void usage(void)
         printf("\t                         \t\tnone - no scaling will be performed\n");
         printf("\t                         \t\n");
         printf("\n");
-        printf("\t--audio-input-channels <count>\n");
+        printf("\t--audio-capture-channels <count>\n");
         printf("\t                         \tHow many of input channels should be captured (default 2).\n");
         printf("\t                         \t\n");
         printf("\n");
@@ -827,7 +827,7 @@ int main(int argc, char *argv[])
                 {"limit-bitrate", required_argument, 0, 'l'},
                 {"audio-channel-map", required_argument, 0, AUDIO_CHANNEL_MAP},
                 {"audio-scale", required_argument, 0, AUDIO_SCALE},
-                {"audio-input-channels", required_argument, 0, AUDIO_INPUT_CHANNELS},
+                {"audio-capture-channels", required_argument, 0, AUDIO_CAPTURE_CHANNELS},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -953,8 +953,8 @@ int main(int argc, char *argv[])
                 case AUDIO_SCALE:
                         audio_scale = optarg;
                         break;
-                case AUDIO_INPUT_CHANNELS:
-                        audio_input_channels = atoi(optarg);
+                case AUDIO_CAPTURE_CHANNELS:
+                        audio_capture_channels = atoi(optarg);
                         break;
                 default:
                         usage();

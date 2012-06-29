@@ -186,14 +186,14 @@ void * audio_cap_jack_init(char *cfg)
         i = 0;
         while(ports[i]) i++;
 
-        if(i < audio_input_channels) {
+        if(i < audio_capture_channels) {
                 fprintf(stderr, "[JACK capture] Requested channel count %d not found (matching pattern %s).\n",
-                                audio_input_channels, cfg);
+                                audio_capture_channels, cfg);
                 goto release_client;
 
         }
 
-        s->frame.ch_count = audio_input_channels;
+        s->frame.ch_count = audio_capture_channels;
         s->frame.bps = 4;
         s->frame.sample_rate = jack_get_sample_rate (s->client);
         s->frame.max_size = s->frame.ch_count * s->frame.bps * s->frame.sample_rate;

@@ -432,7 +432,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 if (res != SV_OK) {
                         goto error;
                 }
-                s->audio.ch_count = audio_input_channels;
+                s->audio.ch_count = audio_capture_channels;
 
                 sv_query(s->sv, SV_QUERY_AUDIOBITS, 0, &i);
                 s->audio.bps = i / 8;

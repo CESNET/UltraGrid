@@ -54,7 +54,7 @@
 #include <portaudio.h> /* from PortAudio API */
 
 #include "audio/audio.h"
-#include <portaudio.h>
+#include "portaudio.h"
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
@@ -241,11 +241,11 @@ void * portaudio_capture_init(char *cfg)
                 return NULL;
         }
 
-        if(audio_input_channels <= device_info->maxInputChannels) {
-                inputParameters.channelCount = audio_input_channels;
+        if((int) audio_capture_channels <= device_info->maxInputChannels) {
+                inputParameters.channelCount = audio_capture_channels;
         } else {
                 fprintf(stderr, MODULE_NAME "Requested %d input channels, devide offers only %d.\n",
-                                audio_input_channels,
+                                audio_capture_channels,
                                 device_info->maxInputChannels);
                 fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
                 free(s);

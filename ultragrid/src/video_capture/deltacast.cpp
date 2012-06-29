@@ -377,19 +377,19 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
         }
         
         if(flags & DISPLAY_FLAG_AUDIO_EMBEDDED) {
-                if(audio_input_channels != 1 &&
-                                audio_input_channels != 2) {
+                if(audio_capture_channels != 1 &&
+                                audio_capture_channels != 2) {
                         fprintf(stderr, "[DELTACAST capture] Unable to handle channel count other than 1 or 2.\n");
                         goto no_audio;
                 }
                 s->audio_frame.bps = 3;
                 s->audio_frame.sample_rate = 48000;
-                s->audio_frame.ch_count = audio_input_channels;
+                s->audio_frame.ch_count = audio_capture_channels;
                 memset(&s->AudioInfo, 0, sizeof(VHD_AUDIOINFO));
                 s->pAudioChn = &s->AudioInfo.pAudioGroups[0].pAudioChannels[0];
-                if(audio_input_channels == 1) {
+                if(audio_capture_channels == 1) {
                         s->pAudioChn->Mode = s->AudioInfo.pAudioGroups[0].pAudioChannels[1].Mode=VHD_AM_MONO;
-                } else if(audio_input_channels == 2) {
+                } else if(audio_capture_channels == 2) {
                         s->pAudioChn->Mode = s->AudioInfo.pAudioGroups[0].pAudioChannels[1].Mode=VHD_AM_STEREO;
                 } else abort();
                 s->pAudioChn->BufferFormat = s->AudioInfo.pAudioGroups[0].pAudioChannels[1].BufferFormat=VHD_AF_24;

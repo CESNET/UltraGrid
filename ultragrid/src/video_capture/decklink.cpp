@@ -226,7 +226,7 @@ public:
                                 deckLinkInput->EnableAudioInput(
                                         bmdAudioSampleRate48kHz,
                                         bmdAudioSampleType16bitInteger,
-                                        audio_input_channels == 1 ? 2 : audio_input_channels); // BMD isn't able to grab single channel
+                                        audio_capture_channels == 1 ? 2 : audio_capture_channels); // BMD isn't able to grab single channel
                         }
                         //deckLinkInput->SetCallback(s->state[i].delegate);
                         deckLinkInput->StartStreams();
@@ -271,14 +271,14 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
         
         if(audioPacket) {
                 audioPacket->GetBytes(&audioFrame);
-                if(audio_input_channels == 1) { // ther are actually 2 channels grabbed
+                if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
                         demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * 2 /* channels */ * 2,
                                         2, /* channels (originally( */
                                         0 /* we want first channel */
                                                 );
                         s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * 2;
                 } else {
-                        s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_input_channels * 2;
+                        s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * 2;
                         memcpy(s->audio.data, audioFrame, s->audio.data_len);
                 }
         } else {
@@ -781,8 +781,8 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 }
                 s->audio.bps = 2;
                 s->audio.sample_rate = 48000;
-                s->audio.ch_count = audio_input_channels;
-                s->audio.data = (char *) malloc (48000 * audio_input_channels * 2);
+                s->audio.ch_count = audio_capture_channels;
+                s->audio.data = (char *) malloc (48000 * audio_capture_channels * 2);
         } else {
                 s->grab_audio = FALSE;
         }
@@ -970,18 +970,18 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                         fprintf(stderr, "[Decklink capture] Unable to set audio input!!! Please check if it is OK. Continuing anyway.\n");
 
                                                 }
-                                                if(audio_input_channels != 1 &&
-                                                                audio_input_channels != 2 &&
-                                                                audio_input_channels != 8 &&
-                                                                audio_input_channels != 16) {
+                                                if(audio_capture_channels != 1 &&
+                                                                audio_capture_channels != 2 &&
+                                                                audio_capture_channels != 8 &&
+                                                                audio_capture_channels != 16) {
                                                         fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
-                                                                        "Only 1, 2, 8 or 16 are poosible.", audio_input_channels);
+                                                                        "Only 1, 2, 8 or 16 are poosible.", audio_capture_channels);
                                                         goto error;
                                                 }
                                                 deckLinkInput->EnableAudioInput(
                                                         bmdAudioSampleRate48kHz,
                                                         bmdAudioSampleType16bitInteger,
-                                                        audio_input_channels == 1 ? 2 : audio_input_channels);
+                                                        audio_capture_channels == 1 ? 2 : audio_capture_channels);
                                         }
 
                                         // set Callback which returns frames

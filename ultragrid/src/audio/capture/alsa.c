@@ -91,7 +91,7 @@ void * audio_cap_alsa_init(char *cfg)
 
         s->frame.bps = 2;
         s->frame.sample_rate = 48000;
-        s->min_device_channels = s->frame.ch_count = audio_input_channels;
+        s->min_device_channels = s->frame.ch_count = audio_capture_channels;
         s->tmp_data = NULL;
 
         if(cfg && strlen(cfg) > 0) {

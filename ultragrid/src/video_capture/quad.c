@@ -388,10 +388,10 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 s->audio_bytes_read = 0u;
                 if(open_audio(s) != 0)
                         s->grab_audio = FALSE;
-                if(s->audio.ch_count != audio_input_channels) {
+                if(s->audio.ch_count != audio_capture_channels) {
                         fprintf(stderr, "[Quad] Unable to grab %d channels. Current value provided by driver is %d. "
                                         "You can change this value by writing 2,4,6 or 8 to /sys/class/sdiaudio/sdiaudiotx1/bufsize.\n",
-                                        audio_input_channels, s->audio.ch_count);
+                                        audio_capture_channels, s->audio.ch_count);
                         s->grab_audio = FALSE;
                 }
         } else {

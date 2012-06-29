@@ -784,7 +784,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                 &ch_count, &compression);
                 s->audio.bps = bps;
                 s->audio.ch_count = ch_count;
-                if(audio_input_channels != ch_count) {
+                if(audio_capture_channels != ch_count) {
                         fprintf(stderr, "[QuickTime cap.] Ignoring requested channel count. Capturing %d instead!!!\n",
                                         ch_count);
                 }
