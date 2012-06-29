@@ -143,8 +143,13 @@ static void *vidcap_dvs_grab_thread(void *arg)
 
                 s->tmp_buffer = s->dma_buffer->video[0].addr;
 
-                s->audio.data = s->dma_buffer->audio[0].addr[0];
-                s->audio.data_len = s->dma_buffer->audio[0].size;
+                if(s->audio.ch_count == 1) {
+                        demux_channel(s->audio.data, s->dma_buffer->audio[0].addr[0], s->audio.bps, s->dma_buffer->audio[0].size, 2, 0);
+                        s->audio.data_len = s->dma_buffer->audio[0].size / 2;
+                } else {
+                        s->audio.data = s->dma_buffer->audio[0].addr[0];
+                        s->audio.data_len = s->dma_buffer->audio[0].size;
+                } 
 
                 s->work_to_do = FALSE;
 
@@ -416,7 +421,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 goto error;
         }
 
-
+        s->audio.data = NULL;
 
         if(s->grab_audio) {
                 int i;
@@ -424,11 +429,11 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 if (res != SV_OK) {
                         goto error;
                 }
-                if(audio_channel_count != 2) {
-                        fprintf(stderr, "[DVS cap.] Invalid channel count %d. Currently only 2 channels are supported.\n");
+                if(audio_channel_count != 2 && audio_channel_count != 1) {
+                        fprintf(stderr, "[DVS cap.] Invalid channel count %d. Currently only 1 or 2 channels are supported.\n");
                         goto error;
                 }
-                res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, audio_channel_count / 2); // in pairs
+                res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, 1); // one pair
                 if (res != SV_OK) {
                         goto error;
                 }
@@ -441,8 +446,13 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 s->audio.data_len = 0;
 
                 /* two 1-sec buffers */
-                s->audio_bufs[0] = malloc(s->audio.sample_rate * s->audio.ch_count * s->audio.bps);
-                s->audio_bufs[1] = malloc(s->audio.sample_rate * s->audio.ch_count * s->audio.bps);
+                s->audio_bufs[0] = malloc(s->audio.sample_rate * 2 * s->audio.bps);
+                s->audio_bufs[1] = malloc(s->audio.sample_rate * 2 * s->audio.bps);
+
+                if(audio_channel_count == 1) {
+                        // data need to be demultiplexed
+                        s->audio.data = audio.sample_rate * s->audio.bps;
+                }
         }
 
         res = sv_fifo_init(s->sv, &(s->fifo), 1, /* jack - must be 1 for default input FIFO */
@@ -521,6 +531,10 @@ void vidcap_dvs_done(void *state)
             (struct vidcap_dvs_state *)state;
         
          pthread_join(s->thread_id, NULL);
+
+         if(s->grab_audio && s->frame.ch_count == 1) {
+                 free(s->audio.data);
+         }
 
          sv_fifo_free(s->sv, s->fifo);
          sv_close(s->sv);
