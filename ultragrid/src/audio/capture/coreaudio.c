@@ -159,7 +159,7 @@ static OSStatus InputProc(void *inRefCon,
                 int i;
                 int len = inNumberFrames * s->audio_packet_size;
                 for(i = 0; i < s->frame.ch_count; ++i)
-                        mux_channel(s->tmp, s->theBufferList->mBuffers[i].mData, s->frame.bps, len, s->frame.ch_count, i);
+                        mux_channel(s->tmp, s->theBufferList->mBuffers[i].mData, s->frame.bps, len, s->frame.ch_count, i, 1.0);
                 uint32_t write_bytes = len * s->frame.ch_count;
 #ifdef HAVE_SPEEX
                 if(s->nominal_sample_rate != s->frame.sample_rate) {
