@@ -982,6 +982,12 @@ int main(int argc, char *argv[])
 
         gettimeofday(&uv->start_time, NULL);
 
+        if(uv->requested_mtu > RTP_MAX_PACKET_LEN) {
+                fprintf(stderr, "Requested MTU exceeds maximal value allowed by RTP library (%d).\n",
+                                RTP_MAX_PACKET_LEN);
+                return EXIT_FAIL_USAGE;
+        }
+
         if (uv->use_ihdtv_protocol) {
                 if ((argc != 0) && (argc != 1) && (argc != 2)) {
                         usage();
