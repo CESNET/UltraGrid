@@ -49,7 +49,12 @@
 #ifndef _IHDTV_H_
 #define _IHDTV_H_
 
-#include <stdint.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include <ctype.h>
 #include <sys/socket.h>
 

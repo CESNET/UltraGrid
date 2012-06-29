@@ -45,13 +45,14 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
 #include "debug.h"
 
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 #include "video.h"
 

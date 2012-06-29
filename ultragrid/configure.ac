@@ -9,6 +9,7 @@ PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
 
 AC_CANONICAL_HOST
 AC_PROG_CC
+AC_PROG_CC_C99
 AC_PROG_CPP
 AC_PROG_CXX
 AC_PROG_INSTALL
@@ -17,6 +18,25 @@ AC_C_CONST
 AC_TYPE_SIZE_T
 AC_C_BIGENDIAN
 AC_C_CHAR_UNSIGNED
+AC_HEADER_STDBOOL
+
+AH_BOTTOM([
+#ifdef HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# ifndef HAVE__BOOL
+#  ifdef __cplusplus
+typedef bool _Bool;
+#  else
+#   define _Bool signed char
+#  endif
+# endif
+# define bool _Bool
+# define false 0
+# define true 1
+# define __bool_true_false_are_defined 1
+#endif 
+])
 
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
@@ -109,6 +129,11 @@ then
         AC_MSG_WARN([*** Currently only Mac OS X versions 10.5 to 10.7 are supported.])
         HM_VERSION_WARNING
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
+fi
+
+if test $ac_cv_prog_cc_c99 = no
+then
+        AC_MSG_ERROR([Your compiler does not accept C99.])
 fi
 
 # -------------------------------------------------------------------------------------------------

@@ -52,7 +52,6 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdio.h>
-#include <stdint.h>
 #include <string.h>
 #include "vo_postprocess.h"
 #include "vo_postprocess/3d-interlaced.h"

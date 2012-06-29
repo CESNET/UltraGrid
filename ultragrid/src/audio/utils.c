@@ -47,13 +47,20 @@
  */
 
 #include "audio/audio.h"
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
+
 #include "audio/utils.h" 
 #include <assert.h>
 #include <string.h>
 #include <limits.h>
 #include <math.h>
 #include <stdio.h>
-#include <stdint.h>
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
 {
