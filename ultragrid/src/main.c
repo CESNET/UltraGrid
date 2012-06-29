@@ -243,6 +243,7 @@ static void usage(void)
         printf("\t--audio-channel-map <mapping> \tmapping of input audio channels to output audio channels\n");
         printf("\t                         \tcomma-separated list of channel mapping\n");
         printf("\t                         \teg. 0:0,1:0 - mixes first 2 channels into one mono stream\n");
+        printf("\t                         \t    0:0,:1 - first stream is left as is, second stream is set to silence\n");
         printf("\t                         \t    0:0,0:1 - splits mono stream into 2 channels\n");
         printf("\t                         \t\n");
         printf("\n");

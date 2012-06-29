@@ -72,6 +72,7 @@
 
 #include "utils/packet_counter.h"
 
+#include <ctype.h>
 #include <time.h>
 #include <string.h>
 
@@ -112,10 +113,6 @@ static int validate_mapping(struct channel_map *map)
 {
         int ret = TRUE;
 
-        if(map->size <= 0) {
-                ret = FALSE;
-                goto return_value;
-        }
         for(int i = 0; i < map->size; ++i) {
                 for(int j = 0; j < map->sizes[i]; ++j) {
                         if(map->map[i][j] < 0) {
@@ -186,8 +183,10 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
                 s->channel_map.size = 0;
                 while((item = strtok_r(ptr, ",", &save_ptr))) {
                         ptr = NULL;
-                        // item is in format x1:y1,x2,y2
-                        s->channel_map.size = max(s->channel_map.size, atoi(item) + 1);
+                        // item is in format x1:y1
+                        if(isdigit(item[0])) {
+                                s->channel_map.size = max(s->channel_map.size, atoi(item) + 1);
+                        }
                 }
                 
                 s->channel_map.map = (int **) malloc(s->channel_map.size * sizeof(int *));
@@ -207,21 +206,29 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
                         ptr = NULL;
 
                         assert(strchr(item, ':') != NULL);
-                        int src = atoi(item);
-                        int dst = atoi(strchr(item, ':') + 1);
-                        s->channel_map.sizes[src] += 1;
-                        if(s->channel_map.map[src] == NULL) {
-                                s->channel_map.map[src] = (int *) malloc(1 * sizeof(int));
+                        int src;
+                        if(isdigit(item[0])) {
+                                src = atoi(item);
                         } else {
-                                s->channel_map.map[src] = realloc(s->channel_map.map[src], s->channel_map.sizes[src] * sizeof(int));
+                                src = -1;
                         }
-                        s->channel_map.map[src][s->channel_map.sizes[src] - 1] = dst;
+                        int dst = atoi(strchr(item, ':') + 1);
+                        if(src >= 0) {
+                                s->channel_map.sizes[src] += 1;
+                                if(s->channel_map.map[src] == NULL) {
+                                        s->channel_map.map[src] = (int *) malloc(1 * sizeof(int));
+                                } else {
+                                        s->channel_map.map[src] = realloc(s->channel_map.map[src], s->channel_map.sizes[src] * sizeof(int));
+                                }
+                                s->channel_map.map[src][s->channel_map.sizes[src] - 1] = dst;
+                        }
                         s->channel_map.max_output = max(dst, s->channel_map.max_output);
                 }
 
 
                 if(!validate_mapping(&s->channel_map)) {
                         free(s);
+                        fprintf(stderr, "Wrong audio mapping.\n");
                         return NULL;
                 } else {
                         s->channel_remapping = TRUE;
