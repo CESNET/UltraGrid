@@ -538,7 +538,7 @@ case $host in
             [  --with-linsys=DIR         specify location of Linsys SDK],
             [LINSYS_PATH=$withval
             ],
-            [LINSYS_PATH=linsys
+            [LINSYS_PATH=Linsys
             ])
 
         LINSYS_INC=${LINSYS_PATH}/include

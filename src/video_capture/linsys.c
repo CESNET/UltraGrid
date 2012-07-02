@@ -87,9 +87,9 @@
    LINSYS SDK Examples. That is where util.h comes from.
 */
 
-#include "linsys/include/sdivideo.h"
-#include "linsys/include/master.h"
-#include "linsys/Examples/util.h"
+#include "Linsys/include/sdivideo.h"
+#include "Linsys/include/master.h"
+#include "Linsys/Examples/util.h"
 
 #define MAXLEN 256
 
