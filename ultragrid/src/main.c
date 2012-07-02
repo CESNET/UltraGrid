@@ -1045,7 +1045,6 @@ int main(int argc, char *argv[])
 #ifndef WIN32
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
-        signal(SIGQUIT, signal_handler);
         signal(SIGHUP, signal_handler);
         signal(SIGABRT, signal_handler);
 #endif
