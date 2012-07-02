@@ -100,8 +100,9 @@ static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>]\n");
+        printf("\t-t screen[:fps=<fps>][:nogl]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
+        printf("\t\tnogl - do not grab with OpenGL, use Xlib instead (slower but OpenGL isn't guaranteed to work always, Linux only)\n");
 }
 
 /* defined in main.c */
@@ -121,6 +122,8 @@ struct vidcap_screen_state {
         Display *dpy;
         Window root;
         GLXContext glc;
+
+        bool nogl;
 #endif
 
         GLuint tex;
@@ -130,6 +133,7 @@ struct vidcap_screen_state {
         struct timeval prev_time;
 
         double fps;
+
 };
 
 pthread_once_t initialized = PTHREAD_ONCE_INIT;
@@ -218,6 +222,8 @@ static void initialize() {
         s->tile->data = (char *) malloc(s->tile->data_len);
 
         return;
+
+        goto error; // dummy use (otherwise compiler would complain about unreachable code (Mac)
 error:
         fprintf(stderr, "[Screen cap.] Initialization failed!\n");
         exit_uv(128);
@@ -256,6 +262,9 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
         gettimeofday(&s->t0, NULL);
 
         s->fps = 0.0;
+#ifdef LINUX
+        s->nogl = false;
+#endif // LINUX
 
         s->frame = NULL;
         s->tile = NULL;
@@ -272,6 +281,10 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
                         return NULL;
                 } else if (strncasecmp(init_fmt, "fps=", strlen("fps=")) == 0) {
                         s->fps = atoi(init_fmt + strlen("fps="));
+#ifdef LINUX
+                } else if (strcasecmp(init_fmt, "nogl") == 0) {
+                        s->nogl = true;
+#endif // LINUX
                 }
         }
 
@@ -307,70 +320,94 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
         *audio = NULL;
 
 #ifndef HAVE_MACOSX
-        glXMakeCurrent(s->dpy, s->root, s->glc);
+        if(s->nogl) {
+                XImage *image = XGetImage(s->dpy,s->root, 0,0 ,s->tile->width, s->tile->height,AllPlanes, ZPixmap);
 
-        glDrawBuffer(GL_FRONT);
+                unsigned long red_mask = image->red_mask;
+                unsigned long green_mask = image->green_mask;
+                unsigned long blue_mask = image->blue_mask;
 
-        /*                        
-                                  glDrawBuffer(GL_FRONT);
-                                  glx_swap(s->context);
+                int width = s->tile->width;
 
-                                  GLint ReadBuffer;
-                                  glGetIntegerv(GL_READ_BUFFER,&ReadBuffer);
-                                  glPixelStorei(GL_READ_BUFFER,GL_RGB);
+                for (int x = 0; x < (int) s->tile->width; x++) {
+                        for (int y = 0; y < (int) s->tile->height ; y++) {
+                                unsigned long pixel = XGetPixel(image,x,y);
 
-                                  GLint PackAlignment;
-                                  glGetIntegerv(GL_PACK_ALIGNMENT,&PackAlignment); 
-                                  glPixelStorei(GL_PACK_ALIGNMENT,1);
+                                unsigned char blue = pixel & blue_mask;
+                                unsigned char green = (pixel & green_mask) >> 8;
+                                unsigned char red = (pixel & red_mask) >> 16;
 
-                                  glPixelStorei(GL_PACK_ALIGNMENT, 3);
-                                  glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-                                  glPixelStorei(GL_PACK_SKIP_ROWS, 0);
-                                  glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
-                                  */
+                                *((uint32_t *) s->tile->data + (x + width * y)) = red | green << 8 | blue << 16;
+                        }
+                }
 
-        glBindTexture(GL_TEXTURE_2D, s->tex);
+                XDestroyImage(image);
+        } else {
+                glXMakeCurrent(s->dpy, s->root, s->glc);
 
-        glReadBuffer(GL_FRONT);
+                glDrawBuffer(GL_FRONT);
 
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, s->tile->width, s->tile->height);
-        //glCopyTexImage2D(GL_TEXTURE_2D,  0,  GL_RGBA,  0,  0,  s->tile->width,  s->tile->height,  0);
-        //glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-        //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+                /*                        
+                                          glDrawBuffer(GL_FRONT);
+                                          glx_swap(s->context);
 
-        //gl_check_error();
+                                          GLint ReadBuffer;
+                                          glGetIntegerv(GL_READ_BUFFER,&ReadBuffer);
+                                          glPixelStorei(GL_READ_BUFFER,GL_RGB);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_out, 0);
-        assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_FRAMEBUFFER));
-        glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+                                          GLint PackAlignment;
+                                          glGetIntegerv(GL_PACK_ALIGNMENT,&PackAlignment); 
+                                          glPixelStorei(GL_PACK_ALIGNMENT,1);
 
-        glBindTexture(GL_TEXTURE_2D, s->tex);
+                                          glPixelStorei(GL_PACK_ALIGNMENT, 3);
+                                          glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+                                          glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+                                          glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+                                          */
 
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, 1.0);
-        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, 1.0);
-        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, -1.0);
-        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, -1.0);
-        glEnd();
+                glBindTexture(GL_TEXTURE_2D, s->tex);
 
-        glReadBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+                glReadBuffer(GL_FRONT);
 
-        glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, s->tile->width, s->tile->height);
+                //glCopyTexImage2D(GL_TEXTURE_2D,  0,  GL_RGBA,  0,  0,  s->tile->width,  s->tile->height,  0);
+                //glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+                //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glBindTexture(GL_TEXTURE_2D, 0);
+                //gl_check_error();
+
+                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_out, 0);
+                assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_FRAMEBUFFER));
+                glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+
+                glBindTexture(GL_TEXTURE_2D, s->tex);
+
+                glBegin(GL_QUADS);
+                glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, 1.0);
+                glTexCoord2f(1.0, 0.0); glVertex2f(1.0, 1.0);
+                glTexCoord2f(1.0, 1.0); glVertex2f(1.0, -1.0);
+                glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, -1.0);
+                glEnd();
+
+                glReadBuffer(GL_COLOR_ATTACHMENT0_EXT); 
+
+                glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glBindTexture(GL_TEXTURE_2D, 0);
+        }
 
 #else
         CGImageRef image = CGDisplayCreateImage(s->display);
         CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
-        char *pixels = CFDataGetBytePtr(data);
+        const unsigned char *pixels = CFDataGetBytePtr(data);
 
         int linesize = s->tile->width * 4;
         int y;
-        unsigned char *dst = s->tile->data;
-        unsigned char *src = pixels;
-        for(y = 0; y < s->tile->height; ++y) {
+        unsigned char *dst = (unsigned char *) s->tile->data;
+        const unsigned char *src = (const unsigned char *) pixels;
+        for(y = 0; y < (int) s->tile->height; ++y) {
                 vc_copylineRGBA (dst, src, linesize, 16, 8, 0);
                 src += linesize;
                 dst += linesize;
@@ -403,7 +440,9 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
         s->frames++;
 
 #ifndef HAVE_MACOSX
-        glXMakeCurrent(s->dpy, None, NULL);
+        if(s->nogl) {
+                glXMakeCurrent(s->dpy, None, NULL);
+        }
 #endif
 
         return s->frame;
