@@ -307,19 +307,19 @@ void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
         }
 }
 
-void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len)
+void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         struct {
                 unsigned a:10;
                 unsigned b:10;
                 unsigned c:10;
                 unsigned p1:2;
-        } *s;
+        } const *s;
         register uint32_t *d;
         register uint32_t tmp;
 
         d = (uint32_t *) dst;
-        s = (void *)src;
+        s = (const void *)src;
 
         while (dst_len >= 12) {
                 tmp = (s->a >> 2) | (s->b >> 2) << 8 | (((s)->c >> 2) << 16);
@@ -350,7 +350,7 @@ void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len)
 }
 
 void
-vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift,
+vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift,
                 int gshift, int bshift)
 {
         struct {
@@ -366,12 +366,12 @@ vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift,
                 unsigned p3:2;
                 unsigned p4:2;
                 unsigned bl:4;
-        } *s;
+        } const *s;
         register uint32_t *d;
         register uint32_t tmp;
 
         d = (uint32_t *) dst;
-        s = (void *)src;
+        s = (const void *)src;
 
         while (len > 0) {
                 tmp =
@@ -407,11 +407,11 @@ vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift,
 }
 
 void
-vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift,
+vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift,
                 int gshift, int bshift)
 {
         register uint32_t *d = (uint32_t *) dst;
-        register uint32_t *s = (uint32_t *) src;
+        register const uint32_t *s = (const uint32_t *) src;
         register uint32_t tmp;
 
         if (rshift == 0 && gshift == 8 && bshift == 16) {
@@ -448,12 +448,13 @@ vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift,
         }
 }
 
-void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len)
+void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        unsigned int *d, *s1;
+        unsigned int *d;
+        const unsigned int *s1;
         register unsigned int a,b;
         d = (unsigned int *) dst;
-        s1 = (unsigned int *) src;
+        s1 = (const unsigned int *) src;
 
         while(dst_len > 0) {
                 a = b = *s1++;
@@ -532,15 +533,16 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 
 #else
 
-void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len)
+void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         int src_len = dst_len / 1.5; /* right units */
-        register uint64_t *d, *s;
+        register const uint64_t *s;
+        register uint64_t *d;
 
         register uint64_t a1, a2, a3, a4;
 
         d = (uint64_t *) dst;
-        s = (uint64_t *) src;
+        s = (const uint64_t *) src;
 
         while (src_len > 0) {
                 a1 = *(s++);
@@ -563,7 +565,7 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len)
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
-void vc_copylineRGB(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
         union {
@@ -587,7 +589,7 @@ void vc_copylineRGB(unsigned char *dst, unsigned char *src, int dst_len, int rsh
         }
 }
 
-void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int dst_len)
+void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         while(dst_len > 0) {
                 *dst++ = *src++;
@@ -598,7 +600,7 @@ void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int dst_len)
         }
 }
 
-void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
         register uint32_t *d = (uint32_t *) dst;
@@ -614,10 +616,10 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int dst_len, i
 }
 
 void
-vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
+vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         
-        register unsigned int *in = (unsigned int *) src;
+        register const unsigned int *in = (const unsigned int *) src;
         register unsigned int *out = (unsigned int *) dst;
         register int r,g,b;
        
@@ -634,10 +636,10 @@ vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int 
 }
 
 void
-vc_copylineDPX10toRGB(unsigned char *dst, unsigned char *src, int dst_len)
+vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         
-        register unsigned int *in = (unsigned int *) src;
+        register const unsigned int *in = (const unsigned int *) src;
         register unsigned int *out = (unsigned int *) dst;
         register int r1,g1,b1,r2,g2,b2;
        

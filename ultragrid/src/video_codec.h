@@ -49,7 +49,7 @@
 #define __video_codec_h
 #include "video.h"
 
-typedef  void (*decoder_t)(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
+typedef  void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 
 struct codec_info_t {
         codec_t codec;
@@ -81,16 +81,16 @@ int get_haligned(int width_pixels, codec_t codec);
 int vc_get_linesize(unsigned int width, codec_t codec);
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
-void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int dst_len);
-void vc_copylinev210(unsigned char *dst, unsigned char *src, int dst_len);
-void vc_copyliner10k(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineDVS10toV210(unsigned char *dst, unsigned char *src, int dst_len);
-void vc_copylineRGBAtoRGB(unsigned char *dst, unsigned char *src, int len);
-void vc_copylineRGBtoRGBA(unsigned char *dst, unsigned char *src, int len, int rshift, int gshift, int bshift);
-void vc_copylineDPX10toRGBA(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
-void vc_copylineDPX10toRGB(unsigned char *dst, unsigned char *src, int dst_len);
-void vc_copylineRGB(unsigned char *dst, unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
+void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
+void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len);
+void vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
+void vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
+void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len);
+void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
+void vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
+void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len);
+void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 /*
  * @return TRUE or FALSE
  */
