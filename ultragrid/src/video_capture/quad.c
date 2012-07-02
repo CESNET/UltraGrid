@@ -63,13 +63,13 @@
 
 #define QUAD_AUDIO_BPS 2
 #define QUAD_AUDIO_SAMPLE_RATE 48000
-#define QUAD_AUDIO_CHANNELS 2
 
 #define QUAD_AUDIO_BUFSIZE (QUAD_AUDIO_BPS * QUAD_AUDIO_SAMPLE_RATE *\
-        QUAD_AUDIO_CHANNELS * 1)
+        audio_capture_channels * 1)
 
 #include "video_capture/quad.h"
 #include "audio/audio.h"
+#include "audio/utils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -206,6 +206,7 @@ struct vidcap_quad_state {
         pthread_t           grabber;
         
         struct audio_frame  audio;
+        unsigned int        audio_channels_preset; // by driver
         unsigned int        audio_bytes_read;
         unsigned int        grab_audio:1; /* wheather we process audio or not */
 };
@@ -337,7 +338,7 @@ static int open_audio(struct vidcap_quad_state *s) {
                 return -1;
         }
 
-        s->audio.ch_count = channels;
+        s->audio_channels_preset = channels;
 
         /* Allocate some memory */
         /*if ((s->audio.data = (char *)malloc (s->audio_bufsize)) == NULL) {
@@ -383,16 +384,20 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 
                 s->audio.bps = QUAD_AUDIO_BPS;
                 s->audio.sample_rate = QUAD_AUDIO_SAMPLE_RATE;
-                //s->audio.ch_count = QUAD_AUDIO_CHANNELS;
                 s->audio.data = (char *) malloc(QUAD_AUDIO_BUFSIZE);
                 s->audio_bytes_read = 0u;
-                if(open_audio(s) != 0)
+                if(open_audio(s) != 0) {
                         s->grab_audio = FALSE;
-                if(s->audio.ch_count != audio_capture_channels) {
-                        fprintf(stderr, "[Quad] Unable to grab %d channels. Current value provided by driver is %d. "
-                                        "You can change this value by writing 2,4,6 or 8 to /sys/class/sdiaudio/sdiaudiotx1/bufsize.\n",
-                                        audio_capture_channels, s->audio.ch_count);
-                        s->grab_audio = FALSE;
+                } else {
+                        if(s->audio_channels_preset != audio_capture_channels && audio_capture_channels != 1) {
+                                fprintf(stderr, "[Quad] Unable to grab %d channels. Current value provided by driver is %d.\n"
+                                                "Also grabbing 1 channel is possible.\n"
+                                                "You can change this value by writing 2,4,6 or 8 to /sys/class/sdiaudio/sdiaudiotx1/bufsize.\n",
+                                                audio_capture_channels, s->audio_channels_preset);
+                                s->grab_audio = FALSE;
+                        } else {
+                                s->audio.ch_count = audio_capture_channels;
+                        }
                 }
         } else {
                 s->grab_audio = FALSE;
@@ -828,10 +833,21 @@ static void * vidcap_grab_thread(void *args)
                         /* read all audio data that are in buffers */
                         s->audio.data_len = 0;
                         while (poll (&s->audio_pfd, 1, 0) > 0) {
-                                if(s->audio.data_len + s->audio_bufsize <= QUAD_AUDIO_BUFSIZE)
-                                        s->audio.data_len += read(s->audio_fd, s->audio.data + s->audio.data_len, s->audio_bufsize);
-                                else
+                                if(s->audio.data_len + s->audio_bufsize / s->audio_channels_preset * s->audio.ch_count <= QUAD_AUDIO_BUFSIZE) {
+                                        if((int) s->audio_channels_preset == s->audio.ch_count) {
+                                                s->audio.data_len += read(s->audio_fd, s->audio.data + s->audio.data_len, s->audio_bufsize);
+                                        } else { //we need to demux one mono channel
+                                                assert(s->audio.ch_count == 1);
+
+                                                char *tmp = malloc(s->audio_bufsize);
+                                                int data_read = read(s->audio_fd, tmp, s->audio_bufsize);
+                                                demux_channel(s->audio.data + s->audio.data_len, tmp, s->audio.bps, data_read,
+                                                                s->audio_channels_preset, 0);
+                                                free(tmp);
+                                        }
+                                } else {
                                         break; // we have our buffer full
+                                }
                         }
                 }
                 sem_post(&s->have_item);

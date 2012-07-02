@@ -158,6 +158,7 @@ DECKLINK_DISP_LIB_OBJ  = \
 		@DECKLINK_DISP_OBJ@
 
 QUAD_LIB_OBJ  = \
+		src/audio/utils.o \
 		src/debug.o \
 		src/tv.o \
 		src/crypto/random.o \
