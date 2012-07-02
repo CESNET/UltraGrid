@@ -79,12 +79,12 @@ enum interlacing_t {
 #define VIDEO_STEREO                    2u
 #define VIDEO_4K                        3u
 
-#define PARAM_WIDTH                     1u
-#define PARAM_HEIGHT                    2u
-#define PARAM_CODEC                     3u
-#define PARAM_INTERLACING               4u
-#define PARAM_FPS                       5u
-#define PARAM_TILE_COUNT                6u
+#define PARAM_WIDTH                     (1<<0u)
+#define PARAM_HEIGHT                    (1<<2u)
+#define PARAM_CODEC                     (1<<3u)
+#define PARAM_INTERLACING               (1<<4u)
+#define PARAM_FPS                       (1<<5u)
+#define PARAM_TILE_COUNT                (1<<6u)
 
 
 /* please note that tiles have also its own widths and heights */
