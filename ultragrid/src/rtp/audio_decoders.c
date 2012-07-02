@@ -383,6 +383,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         // there is a mapping for channel
                         if(channel < decoder->channel_map.size) {
                                 for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
+                                        // there might be packet mutiplication in which case the result would be wrong
                                         if(!packet_counter_has_packet(decoder->packet_counter, channel, bufnum, offset, length)) {
                                                 mux_and_mix_channel(buffer->data + offset * output_channels, data, bps, length, output_channels,
                                                                 decoder->channel_map.map[channel][i], 
@@ -432,7 +433,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         }
 
         if(!decoder->fixed_scale) {
-                for(int i = 0; i <= output_channels; ++i) {
+                for(int i = 0; i <= decoder->channel_map.max_output; ++i) {
                         double avg = get_avg_volume(buffer->data, bps, buffer->data_len / output_channels, output_channels, i);
                         compute_scale(&decoder->scale[i], avg, buffer->data_len / output_channels / bps, sample_rate);
                 }
