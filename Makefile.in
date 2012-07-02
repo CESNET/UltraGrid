@@ -11,7 +11,7 @@ LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -lm -pthread
 INC           = -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
+                @GL_INC@ @SAGE_INC@ @LINSYS_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
 PERF          = bin/uv_perf
@@ -157,14 +157,14 @@ DECKLINK_DISP_LIB_OBJ  = \
 		@DECKLINK_COMMON@ \
 		@DECKLINK_DISP_OBJ@
 
-QUAD_LIB_OBJ  = \
+LINSYS_LIB_OBJ  = \
 		src/audio/utils.o \
 		src/debug.o \
 		src/tv.o \
 		src/crypto/random.o \
 		src/video_codec.o \
 		src/video.o \
-		@QUAD_OBJ@
+		@LINSYS_OBJ@
 
 DELTACAST_CAP_LIB_OBJ  = \
 		src/audio/utils.o \
@@ -585,9 +585,9 @@ perf: src/tv.o src/crypto/random.o
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $(DECKLINK_DISP_LIB_OBJ) @DECKLINK_LIB@ -o $@
 
-@QUAD_LIB_TARGET@: $(QUAD_LIB_OBJ)
+@LINSYS_LIB_TARGET@: $(LINSYS_LIB_OBJ)
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_quad.so.@video_display_abi_version@ $(QUAD_LIB_OBJ) -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_linsys.so.@video_display_abi_version@ $(LINSYS_LIB_OBJ) -o $@
 
 @DELTACAST_CAP_LIB_TARGET@: $(DELTACAST_CAP_LIB_OBJ)
 	mkdir -p lib/ultragrid

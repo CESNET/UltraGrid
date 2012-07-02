@@ -62,7 +62,7 @@
 #include "video_capture/null.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
-#include "video_capture/quad.h"
+#include "video_capture/linsys.h"
 #include "video_capture/aggregate.h"
 #include "video_capture/screen.h"
 
@@ -166,19 +166,19 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL
         },
 #endif                          /* HAVE_DELTACAST */
-#if defined HAVE_QUAD || defined BUILD_LIBRARIES
+#if defined HAVE_LINSYS || defined BUILD_LIBRARIES
         {
          /* The HD-SDI Master Quad capture card */
          0,
-         "quad",
-         MK_NAME(vidcap_quad_probe),
-         MK_NAME(vidcap_quad_init),
-         MK_NAME(vidcap_quad_finish),
-         MK_NAME(vidcap_quad_done),
-         MK_NAME(vidcap_quad_grab),
+         "linsys",
+         MK_NAME(vidcap_linsys_probe),
+         MK_NAME(vidcap_linsys_init),
+         MK_NAME(vidcap_linsys_finish),
+         MK_NAME(vidcap_linsys_done),
+         MK_NAME(vidcap_linsys_grab),
          NULL
         },
-#endif                          /* HAVE_QUAD */
+#endif                          /* HAVE_LINSYS */
 #if defined HAVE_MACOSX
         {
          /* The QuickTime API */

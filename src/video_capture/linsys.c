@@ -1,5 +1,5 @@
 /*
- * FILE:    quad.c
+ * FILE:    linsys.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -56,18 +56,18 @@
 #include "tv.h"
 
 #ifndef HAVE_MACOSX
-#ifdef HAVE_QUAD		/* From config.h */
+#ifdef HAVE_LINSYS              /* From config.h */
 
 #define FMODE_MAGIC             0x9B7DA07u
 #define MAX_TILES               4
 
-#define QUAD_AUDIO_BPS 2
-#define QUAD_AUDIO_SAMPLE_RATE 48000
+#define LINSYS_AUDIO_BPS 2
+#define LINSYS_AUDIO_SAMPLE_RATE 48000
 
-#define QUAD_AUDIO_BUFSIZE (QUAD_AUDIO_BPS * QUAD_AUDIO_SAMPLE_RATE *\
+#define LINSYS_AUDIO_BUFSIZE (LINSYS_AUDIO_BPS * LINSYS_AUDIO_SAMPLE_RATE *\
         audio_capture_channels * 1)
 
-#include "video_capture/quad.h"
+#include "video_capture/linsys.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 
@@ -83,13 +83,13 @@
 #include <semaphore.h>
 
 /* 
-   QUAD SDK includes. We are also using a couple of utility functions from the
-   QUAD SDK Examples. That is where util.h comes from.
+   LINSYS SDK includes. We are also using a couple of utility functions from the
+   LINSYS SDK Examples. That is where util.h comes from.
 */
 
-#include "quad/include/sdivideo.h"
-#include "quad/include/master.h"
-#include "quad/Examples/util.h"
+#include "linsys/include/sdivideo.h"
+#include "linsys/include/master.h"
+#include "linsys/Examples/util.h"
 
 #define MAXLEN 256
 
@@ -190,7 +190,7 @@ static const struct frame_mode frame_modes[] = {
                         FMODE_MAGIC }
 };
 
-struct vidcap_quad_state {
+struct vidcap_linsys_state {
         int                 devices_cnt;
         int                 fd[MAX_TILES];
         struct              pollfd pfd[MAX_TILES];
@@ -263,20 +263,20 @@ get_carrier (int fd, const char *device)
 }*/
 
 struct vidcap_type *
-vidcap_quad_probe(void)
+vidcap_linsys_probe(void)
 {
 	struct vidcap_type*		vt;
     
 	vt = (struct vidcap_type *) malloc(sizeof(struct vidcap_type));
 	if (vt != NULL) {
-		vt->id          = VIDCAP_QUAD_ID;
-		vt->name        = "quad";
-		vt->description = "HD-SDI Maste Quad/i PCIe card";
+		vt->id          = VIDCAP_LINSYS_ID;
+		vt->name        = "linsys";
+		vt->description = "HD-SDI Linsys PCIe card";
 	}
 	return vt;
 }
 
-static int open_audio(struct vidcap_quad_state *s) {
+static int open_audio(struct vidcap_linsys_state *s) {
         struct stat buf;
         const char fmt[] = "/sys/class/sdiaudio/sdiaudiorx%i/%s";
         char name[MAXLEN], str[MAXLEN], *endptr;
@@ -355,9 +355,9 @@ static int open_audio(struct vidcap_quad_state *s) {
 }
 
 void *
-vidcap_quad_init(char *init_fmt, unsigned int flags)
+vidcap_linsys_init(char *init_fmt, unsigned int flags)
 {
-	struct vidcap_quad_state *s;
+	struct vidcap_linsys_state *s;
 
         const struct frame_mode   *frame_mode;
         int                       frame_mode_number;
@@ -366,11 +366,11 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         char                      *fmt_dup, *item;
         int                       devices[4];
 
-	printf("vidcap_quad_init\n");
+	printf("vidcap_linsys_init\n");
 
-        s = (struct vidcap_quad_state *) malloc(sizeof(struct vidcap_quad_state));
+        s = (struct vidcap_linsys_state *) malloc(sizeof(struct vidcap_linsys_state));
 	if(s == NULL) {
-		printf("Unable to allocate Quad state\n");
+		printf("Unable to allocate linsys state\n");
 		return NULL;
 	}
 
@@ -382,15 +382,15 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
         if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 
-                s->audio.bps = QUAD_AUDIO_BPS;
-                s->audio.sample_rate = QUAD_AUDIO_SAMPLE_RATE;
-                s->audio.data = (char *) malloc(QUAD_AUDIO_BUFSIZE);
+                s->audio.bps = LINSYS_AUDIO_BPS;
+                s->audio.sample_rate = LINSYS_AUDIO_SAMPLE_RATE;
+                s->audio.data = (char *) malloc(LINSYS_AUDIO_BUFSIZE);
                 s->audio_bytes_read = 0u;
                 if(open_audio(s) != 0) {
                         s->grab_audio = FALSE;
                 } else {
                         if(s->audio_channels_preset != audio_capture_channels && audio_capture_channels != 1) {
-                                fprintf(stderr, "[Quad] Unable to grab %d channels. Current value provided by driver is %d.\n"
+                                fprintf(stderr, "[Linsys] Unable to grab %d channels. Current value provided by driver is %d.\n"
                                                 "Also grabbing 1 channel is possible.\n"
                                                 "You can change this value by writing 2,4,6 or 8 to /sys/class/sdiaudio/sdiaudiotx1/bufsize.\n",
                                                 audio_capture_channels, s->audio_channels_preset);
@@ -438,7 +438,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
 
         gettimeofday(&t0, NULL);
 
-	/* CHECK IF QUAD CAN WORK CORRECTLY */
+	/* CHECK IF LINSYS CAN WORK CORRECTLY */
     
         /*Printing current settings from the sysfs info */
 
@@ -470,19 +470,19 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 if(stat (dev_name, &buf) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the file status");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
                 /* Check if it is a character device or not */
                 if(!S_ISCHR (buf.st_mode)) {
                         fprintf (stderr, "%s: not a character device\n", dev_name);
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
                 if(!(buf.st_rdev & 0x0080)) {
                         fprintf (stderr, "%s: not a receiver\n", dev_name);
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -500,20 +500,20 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 if (util_read (name,data, sizeof (data)) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the device number");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
                 /* Compare the major number taken from sysfs file to the one taken from device node */
                 if (strtoul (data, &endptr, 0) != (buf.st_rdev >> 8)) {
                         fprintf (stderr, "%s: not a SMPTE 292M/SMPTE 259M-C device\n", dev_name);
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
                 if (*endptr != ':') {
                         fprintf (stderr, "%s: error reading %s\n", dev_name, name);
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -521,7 +521,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 if (util_strtoul (name, &mode) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the pixel mode");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -546,7 +546,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                    default:
                        printf ("(unknown)\n");
                        fprintf(stderr, "Unknown colour space not (yet) supported!");
-                       vidcap_quad_done(s);
+                       vidcap_linsys_done(s);
                        return NULL;
                }
 
@@ -570,7 +570,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 if (util_strtoul (name, &s->buffers) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the number of buffers");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -578,7 +578,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 if (util_strtoul (name, &s->bufsize) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the buffer size");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -593,18 +593,18 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                         fprintf (stderr, "%s: ", dev_name);
                         fprintf (stderr, "Buffer size doesn't match frame size.");
                         fprintf (stderr, "Please run 'echo %d > %s' as root.", needed_size, name);
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
-                /* END OF CHECK IF QUAD CAN WORK CORRECTLY */
+                /* END OF CHECK IF LINSYS CAN WORK CORRECTLY */
 
     
                 /* Open the file */
                 if((s->fd[i] = open (dev_name, O_RDONLY,0)) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to open file for reading");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
     
@@ -613,7 +613,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                 if (ioctl (s->fd[i], SDIVIDEO_IOC_RXGETCAP, &cap) < 0) {
                         fprintf (stderr, "%s: ", dev_name);
                         perror ("unable to get the receiver capabilities");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -665,7 +665,7 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
                                 malloc (tile->data_len)) == NULL) {
                         fprintf (stderr, "%s: ", dev_name);
                         fprintf (stderr, "unable to allocate memory\n");
-                        vidcap_quad_done(s);
+                        vidcap_linsys_done(s);
                         return NULL;
                 }
 
@@ -682,15 +682,15 @@ vidcap_quad_init(char *init_fmt, unsigned int flags)
 }
 
 void
-vidcap_quad_finish(void *state)
+vidcap_linsys_finish(void *state)
 {
         UNUSED(state);
 }
 
 void
-vidcap_quad_done(void *state)
+vidcap_linsys_done(void *state)
 {
-	struct vidcap_quad_state *s = (struct vidcap_quad_state *) state;
+	struct vidcap_linsys_state *s = (struct vidcap_linsys_state *) state;
 
 	assert(s != NULL);
 
@@ -712,7 +712,7 @@ vidcap_quad_done(void *state)
 
 static void * vidcap_grab_thread(void *args)
 {
-	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) args;
+	struct vidcap_linsys_state 	*s = (struct vidcap_linsys_state *) args;
         struct timespec timeout;
 
         timeout.tv_sec = 0;
@@ -833,7 +833,7 @@ static void * vidcap_grab_thread(void *args)
                         /* read all audio data that are in buffers */
                         s->audio.data_len = 0;
                         while (poll (&s->audio_pfd, 1, 0) > 0) {
-                                if(s->audio.data_len + s->audio_bufsize / s->audio_channels_preset * s->audio.ch_count <= QUAD_AUDIO_BUFSIZE) {
+                                if(s->audio.data_len + s->audio_bufsize / s->audio_channels_preset * s->audio.ch_count <= LINSYS_AUDIO_BUFSIZE) {
                                         if((int) s->audio_channels_preset == s->audio.ch_count) {
                                                 s->audio.data_len += read(s->audio_fd, s->audio.data + s->audio.data_len, s->audio_bufsize);
                                         } else { //we need to demux one mono channel
@@ -856,10 +856,10 @@ static void * vidcap_grab_thread(void *args)
 }
 
 struct video_frame *
-vidcap_quad_grab(void *state, struct audio_frame **audio)
+vidcap_linsys_grab(void *state, struct audio_frame **audio)
 {
 
-	struct vidcap_quad_state 	*s = (struct vidcap_quad_state *) state;
+	struct vidcap_linsys_state 	*s = (struct vidcap_linsys_state *) state;
 
         sem_post(&s->boss_waiting);
         sem_wait(&s->have_item);
@@ -874,7 +874,7 @@ vidcap_quad_grab(void *state, struct audio_frame **audio)
         double seconds = tv_diff(t, t0);    
         if (seconds >= 5) {
             float fps  = frames / seconds;
-            fprintf(stderr, "[quad] %d frames in %g seconds = %g FPS\n", frames, seconds, fps);
+            fprintf(stderr, "[Linsys] %d frames in %g seconds = %g FPS\n", frames, seconds, fps);
             t0 = t;
             frames = 0;
         }  
@@ -885,7 +885,7 @@ vidcap_quad_grab(void *state, struct audio_frame **audio)
 static void print_output_modes()
 {
         unsigned int i;
-        printf("usage: -t quad:<device(s)>:<mode>\n\twhere mode is one of following.\n");
+        printf("usage: -t linsys:<device(s)>:<mode>\n\twhere mode is one of following.\n");
         printf("\nAvailable devices (inputs):\n");
                 
         for(i = 0; i < 16; ++i) {
@@ -945,6 +945,6 @@ static void print_output_modes()
 }
 
 
-#endif /* HAVE_QUAD */
+#endif /* HAVE_LINSYS */
 #endif /* HAVE_MACOSX */
 

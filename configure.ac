@@ -520,50 +520,50 @@ AC_SUBST(LINKER)
 # -------------------------------------------------------------------------------------------------
 # HD-SDI Master Quad stuff
 
-QUAD_PATH=
-QUAD_OBJ=
-QUAD_INC=
-quad=no
+LINSYS_PATH=
+LINSYS_OBJ=
+LINSYS_INC=
+linsys=no
 
 case $host in
     *-linux-*)
 
-        AC_ARG_ENABLE(quad, 
-              AS_HELP_STRING([--disable-quad], [disable Linsys Quad (default is auto)]), 
-            [quad_req=$enableval],
-            [quad_req=yes]
+        AC_ARG_ENABLE(linsys, 
+              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]), 
+            [linsys_req=$enableval],
+            [linsys_req=yes]
             )
 
         AC_ARG_WITH(decklink,
-            [  --with-quad=DIR         specify location of QUAD],
-            [QUAD_PATH=$withval
+            [  --with-linsys=DIR         specify location of Linsys SDK],
+            [LINSYS_PATH=$withval
             ],
-            [QUAD_PATH=quad
+            [LINSYS_PATH=linsys
             ])
 
-        QUAD_INC=${QUAD_PATH}/include
+        LINSYS_INC=${LINSYS_PATH}/include
 
-        AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD_MASTER_H=yes, FOUND_QUAD_MASTER_H=no)
-        AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD_SDI_H=yes, FOUND_QUAD_SDI_H=no)
+        AC_CHECK_FILE(${LINSYS_INC}/master.h, FOUND_LINSYS_MASTER_H=yes, FOUND_LINSYS_MASTER_H=no)
+        AC_CHECK_FILE(${LINSYS_INC}/sdi.h, FOUND_LINSYS_SDI_H=yes, FOUND_LINSYS_SDI_H=no)
 
-        if test $quad_req = yes -a $FOUND_QUAD_MASTER_H = yes -a $FOUND_QUAD_SDI_H = yes
+        if test $linsys_req = yes -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
         then
-            QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
-            QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
-            AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
-            AC_SUBST(QUAD_LIB_TARGET, "lib/ultragrid/vidcap_quad.so.$video_capture_abi_version")
-            quad=yes
+            LINSYS_INC="-I$LINSYS_INC -I$LINSYS_PATH/Examples"
+            LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
+            AC_DEFINE([HAVE_LINSYS], [1], [Build with Linsys support])
+            AC_SUBST(LINSYS_LIB_TARGET, "lib/ultragrid/vidcap_linsys.so.$video_capture_abi_version")
+            linsys=yes
         else
-            QUAD_PATH=
-            QUAD_INC=
-            QUAD_OBJ=
+            LINSYS_PATH=
+            LINSYS_INC=
+            LINSYS_OBJ=
         fi
     ;;
 esac
 
-AC_SUBST(QUAD_PATH)
-AC_SUBST(QUAD_INC)
-AC_SUBST(QUAD_OBJ)
+AC_SUBST(LINSYS_PATH)
+AC_SUBST(LINSYS_INC)
+AC_SUBST(LINSYS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
@@ -1569,7 +1569,7 @@ AC_SUBST(SCALE_OBJ)
 # We need to add libraries then
 
 # this is only needed when passing to "clean" make target
-LIB_OBJS="$QUICKTIME_OBJ $SDL_OBJ $GL_OBJ $SAGE_OBJ $TESTCARD_OBJ $TESTCARD2_OBJ $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_COMMON $QUAD_OBJ "\
+LIB_OBJS="$QUICKTIME_OBJ $SDL_OBJ $GL_OBJ $SAGE_OBJ $TESTCARD_OBJ $TESTCARD2_OBJ $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_COMMON $LINSYS_OBJ "\
 "$DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ $DVS_CAP_OBJ $DVS_DISP_OBJ $FASTDXT_OBJ $RTDXT_COMPRESS_OBJ $JPEG_COMPRESS_OBJ $RTDXT_COMMON_OBJ $RTDXT_DECOMPRESS_OBJ $JPEG_COMMON_OBJ $JPEG_DECOMPRESS_OBJ "\
 "$ALSA_CAP_OBJ $ALSA_PLAY_OBJ $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ $JACK_CAP_OBJ $JACK_PLAY_OBJ $SCREEN_CAP_OBJ $DECKLINK_SOUND_PLAY_OBJ "\
 "$SCALE_OBJ $GL_COMMON_OBJ"
@@ -1578,7 +1578,7 @@ LIB_HEADERS="$RTDXT_COMMON_HEADERS"
 
 if test "$build_libraries" = yes
 then
-        LIB_TARGETS="$SDL_LIB_TARGET $GL_LIB_TARGET $TESTCARD_LIB_TARGET $TESTCARD2_LIB_TARGET $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $QUAD_LIB_TARGET "\
+        LIB_TARGETS="$SDL_LIB_TARGET $GL_LIB_TARGET $TESTCARD_LIB_TARGET $TESTCARD2_LIB_TARGET $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $LINSYS_LIB_TARGET "\
 "$DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET $SAGE_LIB_TARGET $FASTDXT_LIB_TARGET $RTDXT_COMPRESS_LIB_TARGET $JPEG_COMPRESS_LIB_TARGET "\
 "$RTDXT_DECOMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET $PORTAUDIO_CAP_LIB_TARGET $JACK_CAP_LIB_TARGET "\
 "$JACK_PLAY_LIB_TARGET $SCREEN_CAP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET "\
@@ -1618,7 +1618,7 @@ Configuration summary:
   DeckLink .................... $decklink
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
-  Linsys Quad ................. $quad
+  Linsys capture .............. $linsys
   OpenGL ...................... $gl
   Quicktime ................... $quicktime
   SAGE ........................ $sage
