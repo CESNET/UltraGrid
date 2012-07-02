@@ -783,11 +783,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 ret = SGGetSoundInputParameters(s->audio_channel, &bps,
                                 &ch_count, &compression);
                 s->audio.bps = bps;
-                s->audio.ch_count = ch_count;
-                if(audio_capture_channels != ch_count) {
-                        fprintf(stderr, "[QuickTime cap.] Ignoring requested channel count. Capturing %d instead!!!\n",
-                                        ch_count);
-                }
+                s->audio.ch_count = audio_capture_channels;
 
                 if(ret != noErr) {
                         fprintf(stderr, "Quicktime: failed to get audio properties");
@@ -796,13 +792,13 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 }
                 /* if we need to specify format explicitly, we would use it here
                  * but take care that sowt is 16-bit etc.! */
-                /*ret = SGSetSoundInputParameters(s->audio_channel, s->audio.bps,
+                ret = SGSetSoundInputParameters(s->audio_channel, s->audio.bps,
                                 s->audio.ch_count, 'sowt');
                 if(ret != noErr) {
                         fprintf(stderr, "Quicktime: failed to set audio properties");
                         s->grab_audio = FALSE;
                         goto AFTER_AUDIO;
-                }*/
+                }
                 s->audio.bps /= 8; /* bits -> bytes */
                 Fixed tmp;
                 tmp = SGGetSoundInputRate(s->audio_channel);
