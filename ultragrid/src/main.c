@@ -143,7 +143,7 @@ struct state_uv {
         struct video_frame * volatile tx_frame;
 };
 
-long packet_rate = 13600;
+long packet_rate;
 volatile int should_exit = FALSE;
 volatile int wait_to_finish = FALSE;
 volatile int threads_joined = FALSE;
@@ -1153,9 +1153,11 @@ int main(int argc, char *argv[])
                         uv->requested_mtu = 1500;       // the default value for RTP
                 }
 
-                if(bitrate != 0) { // else packet_rate defaults to 13600 or so
-                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+                if(bitrate == 0) { // else packet_rate defaults to 13600 or so
+                        bitrate = 6618;
                 }
+
+                packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
 
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
