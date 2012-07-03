@@ -75,6 +75,7 @@
 #include "transmit.h"
 #include "tfrc.h"
 #include "ihdtv/ihdtv.h"
+#include "lib_common.h"
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
 
@@ -873,6 +874,8 @@ int main(int argc, char *argv[])
         perf_init();
         perf_record(UVP_INIT, 0);
 
+        init_lib_common();
+
         while ((ch =
                 getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:f:P:l:", getopt_options,
                             &option_index)) != -1) {
@@ -1255,12 +1258,14 @@ cleanup:
         pthread_mutex_destroy(&uv->master_lock);
 
         free(uv);
-
-        printf("Exit\n");
+        
+        lib_common_done();
 
 #if defined DEBUG && defined HAVE_LINUX
         muntrace();
 #endif
+
+        printf("Exit\n");
 
         return exit_status;
 }

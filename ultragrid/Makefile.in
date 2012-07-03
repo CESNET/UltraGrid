@@ -98,181 +98,20 @@ OBJS	      = @OBJS@ \
 		../ldgm-coding/tanner.o \
 		../ldgm-coding/matrix-gen/matrix-generator.o \
 		../ldgm-coding/matrix-gen/ldpc-matrix.o \
+		@LIB_SUPPORT_OBJ@ \
 
-SDL_LIB_OBJ  = \
+LIB_COMMON = \
 		src/audio/utils.o \
-		src/debug.o \
-		src/utils/ring_buffer.o \
-		src/video.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/video_codec.o \
-		@SDL_OBJ@
-
-GL_LIB_OBJ  = \
-		src/debug.o \
-		src/video.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/video_codec.o \
-		@GL_OBJ@
-
-TESTCARD_LIB_OBJ  = \
-		src/debug.o \
-		src/video.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/tile.o \
-		src/video_codec.o \
-		@TESTCARD_OBJ@
-
-TESTCARD2_LIB_OBJ  = \
-		src/debug.o \
-		src/video.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/tile.o \
-		src/video_codec.o \
 		src/compat/platform_semaphore.o \
-		@TESTCARD2_OBJ@
-
-DECKLINK_CAP_LIB_OBJ  = \
-		src/audio/utils.o \
-		src/debug.o \
-		src/tv.o \
 		src/crypto/random.o \
-		src/video_codec.o \
-		src/video.o \
-		@DECKLINK_COMMON@ \
-		@DECKLINK_CAP_OBJ@
-		
-DECKLINK_DISP_LIB_OBJ  = \
-		src/audio/utils.o \
 		src/debug.o \
+		src/tile.o \
 		src/tv.o \
-		src/crypto/random.o \
-		src/video_codec.o \
-		src/video.o \
-		src/video_capture/decklink.o \
-		@DECKLINK_COMMON@ \
-		@DECKLINK_DISP_OBJ@
-
-QUAD_LIB_OBJ  = \
-		src/audio/utils.o \
-		src/debug.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/video_codec.o \
-		src/video.o \
-		@QUAD_OBJ@
-
-DELTACAST_CAP_LIB_OBJ  = \
-		src/audio/utils.o \
-		src/debug.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/utils/ring_buffer.o \
-		src/video_codec.o \
-		src/video.o \
-		@DELTACAST_DISP_OBJ@ \
-		@DELTACAST_CAP_OBJ@
-		
-DELTACAST_DISP_LIB_OBJ  = \
-		src/debug.o \
-		src/tv.o \
-		src/crypto/random.o \
-		src/video_codec.o \
-		src/video.o \
-		@DELTACAST_DISP_OBJ@
-
-DVS_CAP_LIB_OBJ  = \
-		src/audio/utils.o \
-		src/debug.o \
-		src/tv.o \
+		src/utils/fs_lock.o \
 		src/utils/ring_buffer.o \
 		src/video.o \
 		src/video_codec.o \
-		src/video_display/dvs.o \
-		@DVS_CAP_OBJ@
-		
-DVS_DISP_LIB_OBJ  = \
-		src/audio/utils.o \
-		src/debug.o \
-		src/tv.o \
-		src/utils/ring_buffer.o \
-		src/video.o \
-		src/video_codec.o \
-		@DVS_DISP_OBJ@
 
-SAGE_LIB_OBJ  = \
-		src/audio/utils.o \
-		src/debug.o \
-		src/tv.o \
-		src/utils/ring_buffer.o \
-		src/video.o \
-		src/video_codec.o \
-		@SAGE_OBJ@
-
-SCREEN_CAP_LIB_OBJ = src/video.o \
-			 src/video_codec.o \
-			 src/tv.o \
-		src/crypto/random.o \
-			 @SCREEN_CAP_OBJ@
-
-FASTDXT_LIB_OBJ = src/video.o \
-		src/video_codec.o \
-		@FASTDXT_OBJ@
-
-RTDXT_COMPRESS_LIB_OBJ = src/video.o \
-			 src/video_codec.o \
-			 @GL_COMMON_OBJ@ \
-			 @RTDXT_COMMON_OBJ@ \
-			 @RTDXT_COMPRESS_OBJ@
-
-RTDXT_DECOMPRESS_LIB_OBJ = src/video.o \
-			 src/video_codec.o \
-			 @GL_COMMON_OBJ@ \
-			 @RTDXT_COMMON_OBJ@ \
-			 @RTDXT_DECOMPRESS_OBJ@
-
-JPEG_COMPRESS_LIB_OBJ = src/video.o \
-			 src/video_codec.o \
-			 @JPEG_COMMON_OBJ@ \
-			 @JPEG_COMPRESS_OBJ@
-
-JPEG_DECOMPRESS_LIB_OBJ = src/video.o \
-			 src/video_codec.o \
-			 @JPEG_COMMON_OBJ@ \
-			 @JPEG_DECOMPRESS_OBJ@
-
-ALSA_CAP_LIB_OBJ = @ALSA_CAP_OBJ@ \
-		   src/audio/playback/alsa.o \
-		   src/audio/utils.o \
-
-ALSA_PLAY_LIB_OBJ = @ALSA_PLAY_OBJ@ \
-		   src/audio/utils.o \
-
-PORTAUDIO_CAP_LIB_OBJ = @PORTAUDIO_CAP_OBJ@ \
-		src/utils/fs_lock.o
-
-PORTAUDIO_PLAY_LIB_OBJ = @PORTAUDIO_PLAY_OBJ@ \
-		src/utils/fs_lock.o
-
-JACK_CAP_LIB_OBJ = @JACK_CAP_OBJ@ \
-		   @SPEEX_OBJ@ \
-		   src/utils/ring_buffer.o \
-		   src/audio/utils.o \
-
-JACK_PLAY_LIB_OBJ = @JACK_PLAY_OBJ@ \
-		    @SPEEX_OBJ@ \
-		   src/utils/ring_buffer.o \
-		   src/audio/utils.o
-
-DECKLINK_SOUND_PLAY_LIB_OBJ = @DECKLINK_SOUND_PLAY_OBJ@ \
-		@DECKLINK_COMMON@ \
-
-SCALE_LIB_OBJ = @SCALE_OBJ@ \
-		@GL_COMMON_OBJ@ \
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) modules ag-plugins configure-messages
@@ -287,7 +126,7 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
 
 .cpp.o:
-	$(CC) $(CXXFLAGS) $(INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 	
 # Set suffix for CUDA files
 .SUFFIXES: .cu
@@ -561,109 +400,131 @@ bundle: all
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
-@SDL_LIB_TARGET@: $(SDL_LIB_OBJ)
+@COMMON_LIB_TARGET@: $(LIB_COMMON)
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sdl.so.@video_display_abi_version@ $(SDL_LIB_OBJ) @SDL_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,ug_lib_common.so.@lib_common_abi_version@ $(LIB_COMMON) -o $@
 
-@GL_LIB_TARGET@: $(GL_LIB_OBJ)
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $(GL_LIB_OBJ) @GL_LIB@ -o $@
+sdl: @SDL_LIB_TARGET@
+gl: @GL_LIB_TARGET@
+testcard: @TESTCARD_LIB_TARGET@
+testcard2: @TESTCARD2_LIB_TARGET@
+decklink: @DECKLINK_PLAY_LIB_TARGET@ @DECKLINK_CAP_LIB_TARGET@ @DECKLINK_SOUND_PLAY_LIB_TARGET@
+quad: @QUAD_LIB_TARGET@
+deltacast: @DELTACAST_DISP_LIB_TARGET@ @DELTACAST_CAP_LIB_TARGET@
+dvs: @DVS_CAP_LIB_TARGET@ @DVS_DISP_LIB_TARGET@
+screen: @SCREEN_CAP_LIB_TARGET@
+sage: @SAGE_LIB_TARGET@
+fastdxt: @FASTDXT_LIB_TARGET@
+rtdxt: @RTDXT_COMPRESS_LIB_TARGET@ @RTDXT_DECOMPRESS_LIB_TARGET@
+jpeg: @JPEG_DECOMPRESS_LIB_TARGET@ @JPEG_COMPRESS_LIB_TARGET@
+alsa: @ALSA_PLAY_LIB_TARGET@ @ALSA_CAP_LIB_TARGET@
+portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
+jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
+scale: @SCALE_LIB_TARGET@
 
-@TESTCARD_LIB_TARGET@: $(TESTCARD_LIB_OBJ)
+@SDL_LIB_TARGET@: @SDL_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $(TESTCARD_LIB_OBJ) @TESTCARD_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sdl.so.@video_display_abi_version@ $^ @SDL_LIBS@ -o $@
 
-@TESTCARD2_LIB_TARGET@: $(TESTCARD2_LIB_OBJ)
+@GL_LIB_TARGET@: @GL_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard2.so.@video_capture_abi_version@ $(TESTCARD2_LIB_OBJ) @TESTCARD2_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
 
-@DECKLINK_CAP_LIB_TARGET@: $(DECKLINK_CAP_LIB_OBJ)
+@TESTCARD_LIB_TARGET@: @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_decklink.so.@video_capture_abi_version@ $(DECKLINK_CAP_LIB_OBJ) @DECKLINK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
 
-@DECKLINK_DISP_LIB_TARGET@: $(DECKLINK_DISP_LIB_OBJ)
+@TESTCARD2_LIB_TARGET@: @TESTCARD2_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $(DECKLINK_DISP_LIB_OBJ) @DECKLINK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard2.so.@video_capture_abi_version@ $^ @TESTCARD2_LIB@ -o $@
 
-@QUAD_LIB_TARGET@: $(QUAD_LIB_OBJ)
+@DECKLINK_CAP_LIB_TARGET@: @DECKLINK_COMMON@ @DECKLINK_CAP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_quad.so.@video_display_abi_version@ $(QUAD_LIB_OBJ) -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_decklink.so.@video_capture_abi_version@ $^ @DECKLINK_LIB@ -o $@
 
-@DELTACAST_CAP_LIB_TARGET@: $(DELTACAST_CAP_LIB_OBJ)
+@DECKLINK_DISP_LIB_TARGET@: src/video_capture/decklink.o @DECKLINK_COMMON@ @DECKLINK_DISP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_deltacast.so.@video_capture_abi_version@ $(DELTACAST_CAP_LIB_OBJ) @DELTACAST_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $^ @DECKLINK_LIB@ -o $@
 
-@DELTACAST_DISP_LIB_TARGET@: $(DELTACAST_DISP_LIB_OBJ)
+@QUAD_LIB_TARGET@: @QUAD_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_deltacast.so.@video_display_abi_version@ $(DELTACAST_DISP_LIB_OBJ) @DELTACAST_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_quad.so.@video_display_abi_version@ $^ -o $@
 
-@DVS_CAP_LIB_TARGET@: $(DVS_CAP_LIB_OBJ)
+@DELTACAST_CAP_LIB_TARGET@: @DELTACAST_DISP_OBJ@ @DELTACAST_CAP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_dvs.so.@video_capture_abi_version@ $(DVS_CAP_LIB_OBJ) @DVS_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_deltacast.so.@video_capture_abi_version@ $^ @DELTACAST_LIB@ -o $@
 
-@DVS_DISP_LIB_TARGET@: $(DVS_DISP_LIB_OBJ)
+@DELTACAST_DISP_LIB_TARGET@: @DELTACAST_DISP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_dvs.so.@video_display_abi_version@ $(DVS_DISP_LIB_OBJ) @DVS_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_deltacast.so.@video_display_abi_version@ $^ @DELTACAST_LIB@ -o $@
 
-@SCREEN_CAP_LIB_TARGET@: $(SCREEN_CAP_LIB_OBJ)
+@DVS_CAP_LIB_TARGET@: src/video_display/dvs.o @DVS_CAP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_screen.so.@video_capture_abi_version@ $(SCREEN_CAP_LIB_OBJ) @SCREEN_CAP_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_dvs.so.@video_capture_abi_version@ $^ @DVS_LIB@ -o $@
 
-@SAGE_LIB_TARGET@: $(SAGE_LIB_OBJ)
+@DVS_DISP_LIB_TARGET@: @DVS_DISP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sage.so.@video_display_abi_version@ $(SAGE_LIB_OBJ) @SAGE_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_dvs.so.@video_display_abi_version@ $^ @DVS_LIB@ -o $@
 
-@FASTDXT_LIB_TARGET@: $(FASTDXT_LIB_OBJ)
+@SCREEN_CAP_LIB_TARGET@: @SCREEN_CAP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_fastdxt.so.@video_compress_abi_version@ $(FASTDXT_LIB_OBJ) @FASTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_screen.so.@video_capture_abi_version@ $^ @SCREEN_CAP_LIB@ -o $@
 
-@RTDXT_COMPRESS_LIB_TARGET@: $(RTDXT_COMPRESS_LIB_OBJ) @RTDXT_COMMON_HEADERS@
+@SAGE_LIB_TARGET@: @SAGE_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ $(RTDXT_COMPRESS_LIB_OBJ) @RTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sage.so.@video_display_abi_version@ $^ @SAGE_LIB@ -o $@
 
-@JPEG_COMPRESS_LIB_TARGET@: $(JPEG_COMPRESS_LIB_OBJ)
+@FASTDXT_LIB_TARGET@: @FASTDXT_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $(JPEG_COMPRESS_LIB_OBJ) @JPEG_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_fastdxt.so.@video_compress_abi_version@ $^ @FASTDXT_LIB@ -o $@
 
-@RTDXT_DECOMPRESS_LIB_TARGET@: $(RTDXT_DECOMPRESS_LIB_OBJ) @RTDXT_COMMON_HEADERS@
+@RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@ $(RTDXT_DECOMPRESS_LIB_OBJ) @RTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
-@JPEG_DECOMPRESS_LIB_TARGET@: $(JPEG_DECOMPRESS_LIB_OBJ)
+@JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMMON_OBJ@ @JPEG_COMPRESS_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $(JPEG_DECOMPRESS_LIB_OBJ) @JPEG_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
 
-@ALSA_PLAY_LIB_TARGET@: $(ALSA_PLAY_LIB_OBJ)
+@RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_alsa.so.@audio_playback_abi_version@ $(ALSA_PLAY_LIB_OBJ) @ALSA_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
-@ALSA_CAP_LIB_TARGET@: $(ALSA_CAP_LIB_OBJ)
+@JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_COMMON_OBJ@ @JPEG_DECOMPRESS_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_alsa.so.@audio_capture_abi_version@ $(ALSA_CAP_LIB_OBJ) @ALSA_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $^ @JPEG_LIB@ -o $@
 
-@PORTAUDIO_PLAY_LIB_TARGET@: $(PORTAUDIO_PLAY_LIB_OBJ)
+@ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_portaudio.so.@audio_playback_abi_version@ $(PORTAUDIO_PLAY_LIB_OBJ) @PORTAUDIO_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_alsa.so.@audio_playback_abi_version@ $^ @ALSA_LIB@ -o $@
 
-@PORTAUDIO_CAP_LIB_TARGET@: $(PORTAUDIO_CAP_LIB_OBJ)
+@ALSA_CAP_LIB_TARGET@: @ALSA_CAP_OBJ@ src/audio/playback/alsa.o
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_portaudio.so.@audio_capture_abi_version@ $(PORTAUDIO_CAP_LIB_OBJ) @PORTAUDIO_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_alsa.so.@audio_capture_abi_version@ $^ @ALSA_LIB@ -o $@
 
-@JACK_CAP_LIB_TARGET@: $(JACK_CAP_LIB_OBJ)
+@PORTAUDIO_PLAY_LIB_TARGET@: @PORTAUDIO_PLAY_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_jack.so.@audio_capture_abi_version@ $(JACK_CAP_LIB_OBJ) @JACK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_portaudio.so.@audio_playback_abi_version@ $^ @PORTAUDIO_LIB@ -o $@
 
-@JACK_PLAY_LIB_TARGET@: $(JACK_PLAY_LIB_OBJ)
+@PORTAUDIO_CAP_LIB_TARGET@: @PORTAUDIO_CAP_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $(JACK_PLAY_LIB_OBJ) @JACK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_portaudio.so.@audio_capture_abi_version@ $^ @PORTAUDIO_LIB@ -o $@
 
-@DECKLINK_SOUND_PLAY_LIB_TARGET@: $(DECKLINK_SOUND_PLAY_LIB_OBJ)
+@JACK_CAP_LIB_TARGET@: @JACK_CAP_OBJ@ @SPEEX_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $(DECKLINK_SOUND_PLAY_LIB_OBJ) @DECKLINK_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acap_jack.so.@audio_capture_abi_version@ $^ @JACK_LIB@ -o $@
 
-@SCALE_LIB_TARGET@: $(SCALE_LIB_OBJ)
+@JACK_PLAY_LIB_TARGET@: @JACK_PLAY_OBJ@ @SPEEX_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $(SCALE_LIB_OBJ) @SCALE_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $^ @JACK_LIB@ -o $@
+
+@DECKLINK_SOUND_PLAY_LIB_TARGET@: @DECKLINK_SOUND_PLAY_OBJ@ @DECKLINK_COMMON@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $^ @DECKLINK_LIB@ -o $@
+
+@SCALE_LIB_TARGET@: @SCALE_OBJ@ @GL_COMMON_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $^ @SCALE_LIB@ -o $@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)

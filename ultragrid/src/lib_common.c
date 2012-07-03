@@ -57,25 +57,65 @@
 
 #include "debug.h"
 
-#define MK_STATIC(A) A, NULL
-#define STRINGIFY(A) #A
-#define TOSTRING(x) STRINGIFY(x)
+#include "lib_common.h"
 
-#ifdef BUILD_LIBRARIES
-#include <dlfcn.h>
-#include <libgen.h>
-#define MK_NAME(A) NULL, #A
+extern char **uv_argv;
 
-/* defined in video_display.c */
-void *open_library(const char *name);
-void init_lib_common(void);
-void lib_common_done(void);
+static void *lib_common_handle = NULL;
 
-#else /* BUILD_LIBRARIES */
+void *open_library(const char *name)
+{
+        void *handle = NULL;
+        struct stat buf;
+        char kLibName[128];
+        char path[512];
+        char *dir;
+        char *tmp;
+        
+        snprintf(kLibName, sizeof(kLibName), "ultragrid/%s", name);
 
-#define MK_NAME(A) A, NULL
-#define init_lib_common() { }
-#define lib_common_done() { }
 
-#endif /* BUILD_LIBRARIES */
+        /* firstly expect we are opening from a build */
+        tmp = strdup(uv_argv[0]);
+        /* binary not from $PATH */
+        if(strchr(tmp, '/') != NULL) {
+                dir = dirname(tmp);
+                snprintf(path, sizeof(path), "%s/../lib/%s", dir, kLibName);
+                if(!handle && stat(path, &buf) == 0) {
+                        handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
+                        if(!handle)
+                                fprintf(stderr, "Library opening error: %s \n", dlerror());
+                }
+        }
+        free(tmp);
+
+        /* next try $LIB_DIR/ultragrid */
+        snprintf(path, sizeof(path), TOSTRING(LIB_DIR) "/%s", kLibName);
+        if(!handle && stat(path, &buf) == 0) {
+                handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
+                if(!handle)
+                        fprintf(stderr, "Library opening error: %s \n", dlerror());
+        }
+        
+        if(!handle) {
+                fprintf(stderr, "Unable to find %s library.\n", kLibName);
+        }
+                
+        return handle;
+}
+
+void init_lib_common(void)
+{
+        char name[128];
+        snprintf(name, sizeof(name), "ug_lib_common.so.%d", COMMON_LIB_ABI_VERSION);
+
+        lib_common_handle = open_library(name);
+}
+
+void lib_common_done(void)
+{
+        if(lib_common_handle) {
+                dlclose(lib_common_handle);
+        }
+}
 

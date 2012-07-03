@@ -69,8 +69,6 @@
 
 #include <string.h>
 
-extern char **uv_argv;
-
 /*
  * Interface to probing the valid display types. 
  *
@@ -288,54 +286,12 @@ static int available_device_count = 0;
 static int display_fill_symbols(display_table_t *device);
 static void *display_open_library(const char *display_name);
 
-void *open_library(const char *name);
 static void *display_open_library(const char *display_name)
 {
         char name[128];
         snprintf(name, sizeof(name), "display_%s.so.%d", display_name, VIDEO_DISPLAY_ABI_VERSION);
 
         return open_library(name);
-}
-
-void *open_library(const char *name)
-{
-        void *handle = NULL;
-        struct stat buf;
-        char kLibName[128];
-        char path[512];
-        char *dir;
-        char *tmp;
-        
-        snprintf(kLibName, sizeof(kLibName), "ultragrid/%s", name);
-
-
-        /* firstly expect we are opening from a build */
-        tmp = strdup(uv_argv[0]);
-        /* binary not from $PATH */
-        if(strchr(tmp, '/') != NULL) {
-                dir = dirname(tmp);
-                snprintf(path, sizeof(path), "%s/../lib/%s", dir, kLibName);
-                if(!handle && stat(path, &buf) == 0) {
-                        handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
-                        if(!handle)
-                                fprintf(stderr, "Library opening error: %s \n", dlerror());
-                }
-        }
-        free(tmp);
-
-        /* next try $LIB_DIR/ultragrid */
-        snprintf(path, sizeof(path), TOSTRING(LIB_DIR) "/%s", kLibName);
-        if(!handle && stat(path, &buf) == 0) {
-                handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
-                if(!handle)
-                        fprintf(stderr, "Library opening error: %s \n", dlerror());
-        }
-        
-        if(!handle) {
-                fprintf(stderr, "Unable to find %s library.\n", kLibName);
-        }
-                
-        return handle;
 }
 
 static int display_fill_symbols(display_table_t *device)
