@@ -1011,7 +1011,7 @@ SCREEN_CAP_LIB=
 screen_cap=no
 
 AC_ARG_ENABLE(screen, 
-      AS_HELP_STRING([--disable-gl], [disable screen capture (default is auto)]), 
+      AS_HELP_STRING([--disable-screen], [disable screen capture (default is auto)]), 
     [screen_cap_req=$enableval],
     [screen_cap_req=yes]
     )
