@@ -10,8 +10,8 @@ NVCCFLAGS     = @NVCCFLAGS@ -Xcompiler -fPIC
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -lm -pthread
-INC           = -I.. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @QUAD_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
+INC           = -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
+                @GL_INC@ @SAGE_INC@ @LINSYS_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = bin/uv
 PERF          = bin/uv_perf
@@ -93,12 +93,11 @@ OBJS	      = @OBJS@ \
 		src/vo_postprocess/double-framerate.o \
 		src/vo_postprocess/split.o \
 		@X_OBJ@ \
-		../ldgm-coding/ldgm-session-cpu.o \
-		../ldgm-coding/ldgm-session.o \
-		../ldgm-coding/tanner.o \
-		../ldgm-coding/matrix-gen/matrix-generator.o \
-		../ldgm-coding/matrix-gen/ldpc-matrix.o \
-		@LIB_SUPPORT_OBJ@ \
+		ldgm-coding/ldgm-session-cpu.o \
+		ldgm-coding/ldgm-session.o \
+		ldgm-coding/tanner.o \
+		ldgm-coding/matrix-gen/matrix-generator.o \
+		ldgm-coding/matrix-gen/ldpc-matrix.o \
 
 LIB_COMMON = \
 		src/audio/utils.o \
@@ -136,22 +135,22 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
 src/audio/resample.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
 
 src/audio/preprocess.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/preprocess.c  -fPIC -DPIC -o $@
 
 src/audio/filterbank.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -I/include -fvisibility=hidden  -c speex-1.2rc1/libspeex/filterbank.c  -fPIC -DPIC -o $@
 
 src/audio/fftwrap.o:
-	$(CC) $(CFLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(INC) -DUSE_SMALLFT -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/fftwrap.c  -fPIC -DPIC -o $@
 
 src/audio/smallft.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/smallft.c  -fPIC -DPIC -o $@
 
 src/audio/mdf.o:
-	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I. -I.. -I ../speex-1.2rc1/include/speex -I../include -I.. -fvisibility=hidden  -c ../speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
+	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/mdf.c  -fPIC -DPIC -o $@
 
 
 src/mac_gl_common.o: src/mac_gl_common.m src/mac_gl_common.h
@@ -169,17 +168,17 @@ src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cp
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CXXFLAGS) -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
 
-../dxt_compress/dxt_encoder.o: ../dxt_compress/dxt_encoder.c ../dxt_compress/dxt_glsl.h
+dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 
-../dxt_compress/dxt_decoder.o: ../dxt_compress/dxt_decoder.c ../dxt_compress/dxt_glsl.h
+dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
 	
-../dxt_compress/dxt_glsl.h:../dxt_compress/compress_vp.glsl \
-		../dxt_compress/compress_dxt1_fp.glsl ../dxt_compress/compress_dxt5ycocg_fp.glsl \
-		../dxt_compress/display_fp.glsl ../dxt_compress/display_dxt5ycocg_fp.glsl \
-		../dxt_compress/yuv422_to_yuv444.glsl ../dxt_compress/display_dxt1_yuv_fp.glsl \
-		../dxt_compress/rgba_to_yuv422.glsl
+dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
+		dxt_compress/compress_dxt1_fp.glsl dxt_compress/compress_dxt5ycocg_fp.glsl \
+		dxt_compress/display_fp.glsl dxt_compress/display_dxt5ycocg_fp.glsl \
+		dxt_compress/yuv422_to_yuv444.glsl dxt_compress/display_dxt1_yuv_fp.glsl \
+		dxt_compress/rgba_to_yuv422.glsl
 	echo "/**" > $@
 	echo " * GLSL source codes for DXT compressions" >> $@
 	echo " *" >> $@
@@ -189,123 +188,123 @@ src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	echo "static const char vp_compress[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
-	cat ../dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write vp_compress_legacy
 	echo "static const char vp_compress_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
-	cat ../dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1
 	echo "static const char fp_compress_dxt1[] = " >> $@    
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
-	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1 yuv
 	echo "static const char fp_compress_dxt1_yuv[] = " >> $@    
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
-	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_legacy[] = " >> $@    
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
-	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_yuv_legacy[] = " >> $@    
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
-	cat  ../dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg
 	echo "static const char fp_compress_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
-	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg yuv
 	echo "static const char fp_compress_dxt5ycocg_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
-	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy
 	echo "static const char fp_compress_dxt5ycocg_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
-	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy yuv
 	echo "static const char fp_compress_dxt5ycocg_yuv_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
-	cat ../dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1
 	echo "static const char fp_display[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
-	cat ../dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1 legacy
 	echo "static const char fp_display_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
-	cat ../dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt5ycocg
 	echo "static const char fp_display_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
-	cat ../dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt5ycocg (legacy)
 	echo "static const char fp_display_dxt5ycocg_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
-	cat ../dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# yuv 422 to yuv 444 shader
 	echo "static const char fp_yuv422_to_yuv_444[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
-	cat ../dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# yuv 422 to yuv 444 shader (legacy)
 	echo "static const char fp_yuv422_to_yuv_444_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
-	cat ../dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# display YUV dxt1
 	echo "static const char fp_display_dxt1_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
-	cat ../dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# display YUV dxt1 (legacy)
 	echo "static const char fp_display_dxt1_yuv_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
-	cat ../dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 shader
 	echo "static const char fp_display_rgba_to_yuv422[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
-	cat ../dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 shader legacy
 	echo "static const char fp_display_rgba_to_yuv422_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
-	cat ../dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	cat dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 vertex
 	#echo "static const char vp_display_rgba_to_yuv422[] = " >> $@
-	#cat ../dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
+	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 	
 
@@ -395,7 +394,7 @@ bundle: all
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
 	
-	echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
+	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
@@ -446,9 +445,9 @@ scale: @SCALE_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $^ @DECKLINK_LIB@ -o $@
 
-@QUAD_LIB_TARGET@: @QUAD_OBJ@
+@LINSYS_LIB_TARGET@: @LINSYS_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_quad.so.@video_display_abi_version@ $^ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_linsys.so.@video_display_abi_version@ $^ -o $@
 
 @DELTACAST_CAP_LIB_TARGET@: @DELTACAST_DISP_OBJ@ @DELTACAST_CAP_OBJ@
 	mkdir -p lib/ultragrid

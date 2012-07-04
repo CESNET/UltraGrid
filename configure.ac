@@ -395,8 +395,8 @@ AC_ARG_WITH(dvs,
 	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
-	[DVS_INC=${PARENT}/sdk4.0.1.17/development/header
-	 DVS_LIB=${PARENT}/sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
+	[DVS_INC=sdk4.0.1.17/development/header
+	 DVS_LIB=sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
 
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
 
@@ -458,12 +458,12 @@ AC_ARG_WITH(decklink,
 case "$host_os" in
 	*darwin*)
                 if test -z $DECKLINK; then
-                        DECKLINK_INC=${PARENT}/DeckLink/Mac
+                        DECKLINK_INC=DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
-                LIBS+=" -framework CoreFoundation ../DeckLink/include/DeckLinkAPIDispatch.cpp"
+                LIBS+=" -framework CoreFoundation DeckLink/include/DeckLinkAPIDispatch.cpp"
                 AC_LANG_PUSH(C++)
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "../DeckLink/include/DeckLinkAPI.h"
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/include/DeckLinkAPI.h"
                                    ]], 
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
@@ -474,7 +474,7 @@ case "$host_os" in
                 ;;
         *)
                 if test -z $DECKLINK; then
-                        DECKLINK_INC=${PARENT}/DeckLink/include
+                        DECKLINK_INC=DeckLink/include
                 fi
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
@@ -526,52 +526,52 @@ AC_SUBST(LINKER)
 # -------------------------------------------------------------------------------------------------
 # HD-SDI Master Quad stuff
 
-QUAD_PATH=
-QUAD_OBJ=
-QUAD_INC=
-quad=no
+LINSYS_PATH=
+LINSYS_OBJ=
+LINSYS_INC=
+linsys=no
 
 case $host in
     *-linux-*)
 
-        AC_ARG_ENABLE(quad, 
-              AS_HELP_STRING([--disable-quad], [disable Linsys Quad (default is auto)]), 
-            [quad_req=$enableval],
-            [quad_req=yes]
+        AC_ARG_ENABLE(linsys, 
+              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]), 
+            [linsys_req=$enableval],
+            [linsys_req=yes]
             )
 
         AC_ARG_WITH(decklink,
-            [  --with-quad=DIR         specify location of QUAD],
-            [QUAD_PATH=$withval
+            [  --with-linsys=DIR         specify location of Linsys SDK],
+            [LINSYS_PATH=$withval
             ],
-            [QUAD_PATH=${PARENT}/quad
+            [LINSYS_PATH=Linsys
             ])
 
-        QUAD_INC=${QUAD_PATH}/include
+        LINSYS_INC=${LINSYS_PATH}/include
 
-        AC_CHECK_FILE(${QUAD_INC}/master.h, FOUND_QUAD_MASTER_H=yes, FOUND_QUAD_MASTER_H=no)
-        AC_CHECK_FILE(${QUAD_INC}/sdi.h, FOUND_QUAD_SDI_H=yes, FOUND_QUAD_SDI_H=no)
+        AC_CHECK_FILE(${LINSYS_INC}/master.h, FOUND_LINSYS_MASTER_H=yes, FOUND_LINSYS_MASTER_H=no)
+        AC_CHECK_FILE(${LINSYS_INC}/sdi.h, FOUND_LINSYS_SDI_H=yes, FOUND_LINSYS_SDI_H=no)
 
-        if test $quad_req = yes -a $FOUND_QUAD_MASTER_H = yes -a $FOUND_QUAD_SDI_H = yes
+        if test $linsys_req = yes -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
         then
-            QUAD_INC="-I$QUAD_INC -I$QUAD_PATH/Examples"
-            QUAD_OBJ="$QUAD_PATH/Examples/util.o src/video_capture/quad.o"
-            AC_DEFINE([HAVE_QUAD], [1], [Build with Quad support])
-            AC_SUBST(QUAD_LIB_TARGET, "lib/ultragrid/vidcap_quad.so.$video_capture_abi_version")
-            LIB_TARGETS+=" $QUAD_LIB_TARGET"
-            LIB_OBJS+=" $QUAD_OBJ"
-            quad=yes
+            LINSYS_INC="-I$LINSYS_INC -I$LINSYS_PATH/Examples"
+            LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
+            AC_DEFINE([HAVE_LINSYS], [1], [Build with Linsys support])
+            AC_SUBST(LINSYS_LIB_TARGET, "lib/ultragrid/vidcap_linsys.so.$video_capture_abi_version")
+            LIB_TARGETS+=" $LINSYS_LIB_TARGET"
+            LIB_OBJS+=" $LINSYS_OBJ"
+            linsys=yes
         else
-            QUAD_PATH=
-            QUAD_INC=
-            QUAD_OBJ=
+            LINSYS_PATH=
+            LINSYS_INC=
+            LINSYS_OBJ=
         fi
     ;;
 esac
 
-AC_SUBST(QUAD_PATH)
-AC_SUBST(QUAD_INC)
-AC_SUBST(QUAD_OBJ)
+AC_SUBST(LINSYS_PATH)
+AC_SUBST(LINSYS_INC)
+AC_SUBST(LINSYS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
@@ -597,7 +597,7 @@ case $host in
             [  --with-deltacast=DIR         specify location of DELTACAST],
             [DELTACAST_PATH=$withval
             ],
-            [DELTACAST_PATH=${PARENT}/VideoMasterHD
+            [DELTACAST_PATH=VideoMasterHD
             ])
 
         DELTACAST_INC=${DELTACAST_PATH}/Include
@@ -1078,8 +1078,8 @@ AC_ARG_WITH(fastdxt,
 	[  --with-fastdxt=DIR      specify location of FastDXT],
 	[FASTDXT_INC=$withval
 	 FASTDXT_PATH=$withval],
-	[FASTDXT_INC=${PARENT}/FastDXT
-	 FASTDXT_PATH=${PARENT}/FastDXT])
+	[FASTDXT_INC=FastDXT
+	 FASTDXT_PATH=FastDXT])
 
 AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
 AC_LANG_PUSH(C++)
@@ -1157,10 +1157,10 @@ fi
 if test $rtdxt = yes
 then
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
-        RTDXT_COMMON_OBJ+=" ../dxt_compress/dxt_util.o"
-        RTDXT_COMMON_HEADERS+="../dxt_compress/dxt_glsl.h"
-        RTDXT_COMPRESS_OBJ="../dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
-        RTDXT_DECOMPRESS_OBJ="../dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
+        RTDXT_COMMON_OBJ+=" dxt_compress/dxt_util.o"
+        RTDXT_COMMON_HEADERS+="dxt_compress/dxt_glsl.h"
+        RTDXT_COMPRESS_OBJ="dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
+        RTDXT_DECOMPRESS_OBJ="dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
         AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_rtdxt.so.$video_compress_abi_version")
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
@@ -1247,7 +1247,7 @@ CXXFLAGS+=" $CUDA_INC"
 CPPFLAGS+=" $CUDA_INC"
 AC_LANG_PUSH(C++)
 AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
-AC_CHECK_FILE(../libgpujpeg/libgpujpeg.a)
+AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
 AC_LANG_POP(C++)
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
@@ -1263,10 +1263,10 @@ then
         fi
 fi
 
-if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a $ac_cv_file____libgpujpeg_libgpujpeg_a = yes
+if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a $ac_cv_file_libgpujpeg_libgpujpeg_a = yes
 then
         jpeg=yes
-        JPEG_LIB="../libgpujpeg/libgpujpeg.a -lnpp $CUDA_LIB"
+        JPEG_LIB="libgpujpeg/libgpujpeg.a -lnpp $CUDA_LIB"
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
@@ -1307,8 +1307,8 @@ AC_ARG_WITH(sage,
 	[  --with-sage=DIR         specify location of SAGE],
 	[SAGE_INC=$withval/include
 	 SAGE_LIB=$withval/lib],
-	[SAGE_INC=${PARENT}/sage3.0/include
-	 SAGE_LIB=${PARENT}/sage3.0/lib])
+	[SAGE_INC=sage3.0/include
+	 SAGE_LIB=sage3.0/lib])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SAGE_LIB})
@@ -1393,7 +1393,7 @@ AC_ARG_ENABLE(speex,
               AS_HELP_STRING([--disable-speex], [disable speex (default is auto)]), 
 	[speex_req=$enableval])
 
-SPEEX_PATH=${PARENT}/speex-1.2rc1/
+SPEEX_PATH=speex-1.2rc1/
 SAVED_CFLAGS=$CFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
 CFLAGS+=" -I${SPEEX_PATH}/include"
@@ -1646,7 +1646,7 @@ Configuration summary:
   DeckLink .................... $decklink
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
-  Linsys Quad ................. $quad
+  Linsys capture .............. $linsys
   OpenGL ...................... $gl
   Quicktime ................... $quicktime
   SAGE ........................ $sage
