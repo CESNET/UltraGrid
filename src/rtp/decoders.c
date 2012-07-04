@@ -862,6 +862,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
                                 frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                                 frame);
+                                pbuf_data->max_frame_size = 0u;
+                                pbuf_data->decoded = 0u;
                                 pbuf_data->frame_buffer = frame;
                                 if(!frame) {
                                         ret = FALSE;
@@ -1155,6 +1157,8 @@ cleanup:
         for(i = 0; i < (int) decoder->max_substreams; ++i) {
                 ll_destroy(pckt_list[i]);
                 free(fec_buffers[i]);
+
+                pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, buffer_len[i]);
         }
         free(pckt_list);
         free(buffer_len);
@@ -1163,9 +1167,11 @@ cleanup:
 
         if(ret) {
                 decoder->good++;
+                pbuf_data->decoded++;
         } else {
                 decoder->bad++;
         }
 
         return ret;
 }
+

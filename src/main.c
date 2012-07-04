@@ -534,7 +534,7 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         struct pbuf_video_data pbuf_data;
-
+        int last_buf_size = 0;
 
         initialize_video_decompress();
         pbuf_data.decoder = decoder_init(uv->decoder_mode, uv->postprocess);
@@ -617,6 +617,19 @@ static void *receiver_thread(void *arg)
                         pbuf_data.frame_buffer =
                             display_get_frame(uv->display_device);
                         last_tile_received = uv->curr_time;
+                }
+
+                if(pbuf_data.decoded % 100 == 99) {
+                        int new_size = pbuf_data.max_frame_size * 101ull / 100;
+                        if(new_size != last_buf_size) {
+                                struct rtp **device = uv->network_devices;
+                                while(*device) {
+                                        int ret = rtp_set_recv_buf(*device, new_size);
+                                        debug_msg("Recv buffer adjusted to %d\n", new_size);
+                                        device++;
+                                }
+                                last_buf_size = new_size;
+                        }
                 }
         }
         

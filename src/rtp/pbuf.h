@@ -80,6 +80,9 @@ struct state_audio_decoder;
 struct pbuf_video_data {
         struct video_frame *frame_buffer;
         struct state_decoder *decoder;
+        unsigned int max_frame_size; // maximal frame size
+                                     // to be returned to caller by a decoder to allow him adjust buffers accordingly
+        unsigned int decoded;
 };
 
 struct pbuf_audio_data {
