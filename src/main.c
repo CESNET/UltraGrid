@@ -55,10 +55,15 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <pthread.h>
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
 #include "debug.h"
+#ifdef HAVE_CUDA
+#include "libgpujpeg/gpujpeg_common.h"
+#endif // HAVE_CUDA
 #include "perf.h"
 #include "rtp/decoders.h"
 #include "rtp/rtp.h"
@@ -103,6 +108,7 @@
 #define AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
 #define AUDIO_SCALE (('a' << 8) | 's')
 #define ECHO_CANCELLATION (('E' << 8) | 'C')
+#define CUDA_DEVICE (('C' << 8) | 'D')
 
 struct state_uv {
         int recv_port_number;
@@ -149,6 +155,7 @@ volatile int wait_to_finish = FALSE;
 volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
 
+unsigned int cuda_device = 0;
 unsigned int audio_capture_channels = 2;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
@@ -261,7 +268,10 @@ static void usage(void)
         printf("\t                         \tHow many of input channels should be captured (default 2).\n");
         printf("\t                         \t\n");
         printf("\n");
+        printf("\n");
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
+        printf("\n");
+        printf("\t--cuda-device [<index>|help]\tuse specified CUDA device\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -836,6 +846,7 @@ int main(int argc, char *argv[])
                 {"audio-scale", required_argument, 0, AUDIO_SCALE},
                 {"audio-capture-channels", required_argument, 0, AUDIO_CAPTURE_CHANNELS},
                 {"echo-cancellation", no_argument, 0, ECHO_CANCELLATION},
+                {"cuda-device", required_argument, 0, CUDA_DEVICE},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -969,6 +980,19 @@ int main(int argc, char *argv[])
                 case ECHO_CANCELLATION:
                         echo_cancellation = true;
                         break;
+                case CUDA_DEVICE:
+#ifdef HAVE_CUDA
+                        if(strcmp("help", optarg) == 0) {
+                                printf("\nCUDA devices:\n");
+                                gpujpeg_print_devices_info();
+                        } else {
+                                cuda_device = atoi(optarg);
+                        }
+                        break;
+#else
+                        fprintf(stderr, "CUDA support is not enabled!\n");
+                        return EXIT_FAIL_USAGE;
+#endif // HAVE_CUDA
                 default:
                         usage();
                         return EXIT_FAIL_USAGE;

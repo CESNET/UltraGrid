@@ -1275,6 +1275,7 @@ then
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o libgpujpeg/libgpujpeg.a"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         LINKER=$CXX
+        AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")

@@ -63,4 +63,6 @@ extern void (*exit_uv)(int status);
 
 extern unsigned int audio_capture_channels;
 
+extern unsigned int cuda_device;
+
 #endif

@@ -224,9 +224,7 @@ void * jpeg_compress_init(char * opts)
                 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
-                printf("\t-c JPEG[:<quality>][:<cuda_device>]]\n");
-                printf("\nCUDA devices:\n");
-                gpujpeg_print_devices_info();
+                printf("\t-c JPEG[:<quality>]\n");
                 return NULL;
         }
 
@@ -235,22 +233,13 @@ void * jpeg_compress_init(char * opts)
                 gpujpeg_set_default_parameters(&s->encoder_param);
                 tok = strtok_r(opts, ":", &save_ptr);
                 s->encoder_param.quality = atoi(tok);
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        int ret;
-                        ret = gpujpeg_init_device(atoi(tok), TRUE);
+                int ret;
+                printf("Initializing CUDA device %d...\n", cuda_device);
+                ret = gpujpeg_init_device(cuda_device, TRUE);
 
-                        if(ret != 0) {
-                                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", atoi(tok));
-                                return NULL;
-                        }
-                } else {
-                        printf("Initializing CUDA device 0...\n");
-                        int ret = gpujpeg_init_device(0, TRUE);
-                        if(ret != 0) {
-                                fprintf(stderr, "[JPEG] initializing default CUDA device failed.\n");
-                                return NULL;
-                        }
+                if(ret != 0) {
+                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_device);
+                        return NULL;
                 }
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {

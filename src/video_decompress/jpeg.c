@@ -45,14 +45,18 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 #include "debug.h"
+#include "host.h"
+#include "video_codec.h"
 #include "video_decompress.h"
 
 #include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
-#include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/jpeg.h"
@@ -93,11 +97,21 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
 void * jpeg_decompress_init(void)
 {
         struct state_decompress_jpeg *s;
-        
-        s = (struct state_decompress_jpeg *) malloc(sizeof(struct state_decompress_jpeg));
-        s->decoder = NULL;
 
+        s = (struct state_decompress_jpeg *) malloc(sizeof(struct state_decompress_jpeg));
+
+        s->decoder = NULL;
         s->pitch = 0;
+
+        int ret;
+        printf("Initializing CUDA device %d...\n", cuda_device);
+        ret = gpujpeg_init_device(cuda_device, TRUE);
+        if(ret != 0) {
+                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_device);
+                free(s);
+                return NULL;
+        }
+
 
         return s;
 }
