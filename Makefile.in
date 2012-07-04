@@ -309,10 +309,10 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	
 
 libgpujpeg/libgpujpeg.a:
-	make -C libgpujpeg/
+	make -j -C libgpujpeg/
 
 @FASTDXT_PATH@/libdxt.a:
-	make -C @FASTDXT_PATH@/
+	make -j -C @FASTDXT_PATH@/
 
 
 # -------------------------------------------------------------------------------------------------
@@ -369,7 +369,7 @@ clean:
 	-rm -f $(OBJS) $(HEADERS) src/main.o $(TARGET) src/version.h 
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
-	-rm -rf $(BUNDLE)/Contents/MacOS/$(TARGET)
+	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	make -C libgpujpeg/ clean
@@ -390,6 +390,7 @@ release:
 bundle: all
 	mkdir -p $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
+	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
 	
 	@if `which dylibbundler`; then \
 		dylibbundler -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
