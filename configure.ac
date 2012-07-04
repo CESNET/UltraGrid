@@ -1119,11 +1119,6 @@ AC_ARG_ENABLE(rtdxt,
 	[rtdxt_req=$enableval],
         [rtdxt_req=yes])
 
-AC_ARG_ENABLE(rtdxt-pbo, 
-      AS_HELP_STRING([--disable-rtdxt-pbo], [disable use of PBO in RTDXT (default is on)]), 
-	[rtdxt_pbo_req=$enableval],
-        [rtdxt_pbo_req=yes])
-
 SAVED_LIBS=$LIBS
 
 AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
@@ -1135,10 +1130,7 @@ AC_CHECK_LIB(X11, XCreateWindow)
 
 LIBS=$SAVED_LIBS
 
-if test $rtdxt_pbo_req = yes
-then
-        AC_DEFINE([USE_PBO], [1], [We want to use PBO])
-fi
+AC_DEFINE([USE_PBO], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
 if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
@@ -1392,35 +1384,13 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # SPEEX
-speex=no
-speex_req=yes
-AC_ARG_ENABLE(speex,
-              AS_HELP_STRING([--disable-speex], [disable speex (default is enabled)]), 
-	[speex_req=$enableval])
 
 SPEEX_PATH=speex-1.2rc1/
-SAVED_CFLAGS=$CFLAGS
-SAVED_CPPFLAGS=$CPPFLAGS
-CFLAGS+=" -I${SPEEX_PATH}/include"
-CPPFLAGS+=" -I${SPEEX_PATH}/include"
-AC_CHECK_HEADER(speex/speex_resampler.h, FOUND_SPEEX_RES_H=yes, FOUND_SPEEX_RES_H=no)
-AC_CHECK_HEADER(speex/speex_preprocess.h, FOUND_SPEEX_PREPR_H=yes, FOUND_SPEEX_PREPR_H=no)
-CFLAGS=$SAVED_CFLAGS
-CPPFLAGS=$SAVED_CPPFLAGS
-
-if test $speex_req = yes -a $FOUND_SPEEX_RES_H = yes -a $FOUND_SPEEX_PREPR_H = yes
-then
-	SPEEX_INC=-I${SPEEX_PATH}/include
-        SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
-        SPEEX_OBJ+=" src/audio/echo.o"
-	SPEEX_LIB=
-        AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
-        speex=yes
-else
-	SPEEX_INC=
-	SPEEX_LIB=
-	SPEEX_OBJ=
-fi
+SPEEX_INC=-I${SPEEX_PATH}/include
+SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
+SPEEX_OBJ+=" src/audio/echo.o"
+SPEEX_LIB=
+AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
 
 AC_SUBST(SPEEX_INC)
 AC_SUBST(SPEEX_LIB)
@@ -1663,7 +1633,6 @@ Configuration summary:
   CoreAudio ................... $coreaudio
   JACK  ....................... $jack
   JACK transport .............. $jack_trans
-  speex ....................... $speex
   
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
