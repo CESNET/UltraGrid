@@ -308,6 +308,12 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#echo ";" >> $@
 	
 
+libgpujpeg/libgpujpeg.a:
+	make -C libgpujpeg/
+
+@FASTDXT_PATH@/libdxt.a:
+	make -C @FASTDXT_PATH@/
+
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
@@ -366,6 +372,8 @@ clean:
 	-rm -rf $(BUNDLE)/Contents/MacOS/$(TARGET)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
+	make -C libgpujpeg/ clean
+	make -C @FASTDXT_PATH@/ clean
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags

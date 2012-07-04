@@ -42,6 +42,9 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
+CFLAGS+=" -I."
+CPPFLAGS+=" -I."
+CXXLAGS+=" -I."
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
 AC_SUBST(POST_COMPILE_MSG)
@@ -1082,15 +1085,15 @@ AC_ARG_WITH(fastdxt,
 	 FASTDXT_PATH=FastDXT])
 
 AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
-AC_LANG_PUSH(C++)
-AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
-AC_LANG_POP(C++)
+#AC_LANG_PUSH(C++)
+#AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
+#AC_LANG_POP(C++)
 
-if test $fastdxt_req = yes -a $FOUND_FASTDXT_L = yes -a $FOUND_FASTDXT_H = yes
+if test $fastdxt_req = yes -a $FOUND_FASTDXT_H = yes
 then
 	FASTDXT_INC=-I${FASTDXT_INC}
-	FASTDXT_LIB="-L${FASTDXT_PATH} -ldxt"
-	FASTDXT_OBJ="$FASTDXT_OBJ src/video_compress/fastdxt.o"
+	FASTDXT_LIB=""
+	FASTDXT_OBJ="$FASTDXT_OBJ src/video_compress/fastdxt.o ${FASTDXT_PATH}/libdxt.a"
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 	LINKER=$CXX
         AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
@@ -1102,6 +1105,7 @@ else
 	FASTDXT_LIB=
 fi
 
+AC_SUBST(FASTDXT_PATH)
 AC_SUBST(FASTDXT_INC)
 AC_SUBST(FASTDXT_LIB)
 AC_SUBST(FASTDXT_OBJ)
@@ -1247,7 +1251,7 @@ CXXFLAGS+=" $CUDA_INC"
 CPPFLAGS+=" $CUDA_INC"
 AC_LANG_PUSH(C++)
 AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
-AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
+#AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
 AC_LANG_POP(C++)
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
@@ -1263,19 +1267,19 @@ then
         fi
 fi
 
-if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a $ac_cv_file_libgpujpeg_libgpujpeg_a = yes
+if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes
 then
         jpeg=yes
-        JPEG_LIB="libgpujpeg/libgpujpeg.a -lnpp $CUDA_LIB"
+        JPEG_LIB=" -lnpp $CUDA_LIB"
         JPEG_INC=$CUDA_INC
-        JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
+        JPEG_COMMON_OBJ="src/video_compress/jpeg.o libgpujpeg/libgpujpeg.a"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         LINKER=$CXX
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
         LIB_TARGETS+=" $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET" 
-        LIB_OBJS+=" $JPEG_COMMON_OBJ $JPEG_DECOMPRESS_OBJ"
+        LIB_OBJS+=" $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
         POST_COMPILE_MSG+="\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
@@ -1390,7 +1394,7 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 speex=no
 speex_req=yes
 AC_ARG_ENABLE(speex,
-              AS_HELP_STRING([--disable-speex], [disable speex (default is auto)]), 
+              AS_HELP_STRING([--disable-speex], [disable speex (default is enabled)]), 
 	[speex_req=$enableval])
 
 SPEEX_PATH=speex-1.2rc1/
