@@ -346,7 +346,9 @@ static void *audio_receiver_thread(void *arg)
                                 if(pbuf_data.buffer != NULL) {
                                         if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
                                                 if(s->echo_state) {
+#ifdef HAVE_SPEEX
                                                         echo_play(s->echo_state, pbuf_data.buffer);
+#endif
                                                 }
 
                                                 audio_playback_put_frame(s->audio_playback_device, pbuf_data.buffer);
@@ -383,9 +385,11 @@ static void *audio_sender_thread(void *arg)
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
                         if(s->echo_state) {
+#ifdef HAVE_SPEEX
                                 buffer = echo_cancel(s->echo_state, buffer);
                                 if(!buffer)
                                         continue;
+#endif
                         }
                         if(s->sender == NET_NATIVE)
                                 audio_tx_send(s->tx_session, s->audio_network_device, buffer);
