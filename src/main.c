@@ -1019,8 +1019,14 @@ int main(int argc, char *argv[])
                 case CUDA_DEVICE:
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
+#ifdef BUILD_LIBRARIES
+                                fprintf(stderr, "CUDA device listing currently not available in modular build!!!\n");
+                                return EXIT_FAIL_USAGE;
+#else
                                 printf("\nCUDA devices:\n");
                                 gpujpeg_print_devices_info();
+                                return EXIT_SUCCESS;
+#endif // BUILD_LIBRARIES
                         } else {
                                 cuda_device = atoi(optarg);
                         }
