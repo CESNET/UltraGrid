@@ -1576,6 +1576,16 @@ AC_SUBST(SCALE_INC)
 AC_SUBST(SCALE_LIB)
 AC_SUBST(SCALE_OBJ)
 
+# -------------------------------------------------------------------------------------------------
+# QT GUI
+GUI_TARGET=
+
+AC_ARG_ENABLE(qt, 
+      AS_HELP_STRING([--enable-qt], [build QT GUI (default is disabled)]), 
+    [GUI_TARGET=gui/QT/uv-qt]
+    )
+
+AC_SUBST(GUI_TARGET)
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then

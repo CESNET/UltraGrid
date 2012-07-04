@@ -21,6 +21,8 @@ NVCC	      = @NVCC@
 
 DOCS 	      = COPYRIGHT README REPORTING-BUGS
 
+GUI_TARGET    = @GUI_TARGET@
+
 PREFIX = @prefix@
 prefix = $(PREFIX)
 exec_prefix = @exec_prefix@
@@ -113,7 +115,7 @@ LIB_COMMON = \
 
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
@@ -314,6 +316,8 @@ libgpujpeg/libgpujpeg.a:
 @FASTDXT_PATH@/libdxt.a:
 	make -j -C @FASTDXT_PATH@/
 
+gui/QT/uv-qt:
+	cd gui/QT; qmake; make -j; cd -
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
@@ -374,6 +378,7 @@ clean:
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	make -C libgpujpeg/ clean
 	make -C @FASTDXT_PATH@/ clean
+	make -C gui/QT/ clean
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
@@ -537,6 +542,7 @@ scale: @SCALE_LIB_TARGET@
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
+	if [ -f "$(GUI_TARGET)" ]; then $(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)/$(bindir); fi
 	if [ -n "@LIB_TARGETS@" ]; then\
 		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/ultragrid;\
 		$(INSTALL) -m 644 @LIB_TARGETS@ $(DESTDIR)/$(libdir)/ultragrid/;\
@@ -552,3 +558,4 @@ uninstall:
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh 	
+	if [ -f "$(GUI_TARGET)" ]; then $(RM) $(DESTDIR)/$(bindir)/`basename $(GUI_TARGET)`; done
