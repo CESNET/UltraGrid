@@ -424,10 +424,33 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base, int send
 				RTCP_SDES_TOOL,
 				PACKAGE_STRING, strlen(PACKAGE_STRING));
 #ifdef HAVE_MACOSX
-                        rtp_set_recv_buf(devices[index], 5944320);
+                        int size = 5944320;
 #else
-                        rtp_set_recv_buf(devices[index], 8*1024*1024);
+                        int size = 8*1024*1024;
 #endif
+                        int ret = rtp_set_recv_buf(devices[index], size);
+                        if(!ret) {
+                                fprintf(stderr, "\n***\n"
+                                                "Unable to set buffer size to %d B.\n"
+                                                "Please set net.core.rmem_max value to %d or greater. (see also\n"
+                                                "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
+#ifdef HAVE_MACOSX
+                                                "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
+                                                "\tsysctl -w net.inet.udp.recvspace=%d\n"
+#else
+                                                "\tsysctl -w net.core.rmem_max=%d\n"
+#endif
+                                                "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
+                                                "\n***\n\n",
+                                                size, size,
+#ifdef HAVE_MACOSX
+                                                size * 4,
+#endif /* HAVE_MACOSX */
+                                                size);
+
+                        }
+
+                        rtp_set_send_buf(devices[index], 1024 * 56);
 
 			pdb_add(participants, rtp_my_ssrc(devices[index]));
 		}

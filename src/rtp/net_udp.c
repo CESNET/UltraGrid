@@ -458,7 +458,7 @@ int udp_set_recv_buf(socket_udp *s, int size)
         if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_RCVBUF, (const void *)&size,
                         sizeof(size)) != 0) {
                 perror("Unable to set socket buffer size");
-                goto error;
+                return FALSE;
         }
 
         opt_size = sizeof(opt);
@@ -469,32 +469,38 @@ int udp_set_recv_buf(socket_udp *s, int size)
         }
 
         if(opt < size) {
-                goto error;
+                return FALSE;
         }
 
         debug_msg("Socket buffer size set to %d B.\n", opt);
 
         return TRUE;
+}
 
-error:
-        fprintf(stderr, "\n***\n"
-                        "Unable to set buffer size to %d B.\n"
-                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
-                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
-#ifdef HAVE_MACOSX
-                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
-                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
-#else
-                        "\tsysctl -w net.core.rmem_max=%d\n"
-#endif
-                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
-                        "\n***\n\n",
-                        size, size,
-#ifdef HAVE_MACOSX
-                        size * 4,
-#endif /* HAVE_MACOSX */
-                        size);
-        return FALSE;
+int udp_set_send_buf(socket_udp *s, int size)
+{
+        int opt = 0;
+        socklen_t opt_size;
+        if(SETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (const void *)&size,
+                        sizeof(size)) != 0) {
+                perror("Unable to set socket buffer size");
+                return FALSE;
+        }
+
+        opt_size = sizeof(opt);
+        if(GETSOCKOPT (s->fd, SOL_SOCKET, SO_SNDBUF, (void *)&opt,
+                        &opt_size) != 0) {
+                perror("Unable to get socket buffer size");
+                return FALSE;
+        }
+
+        if(opt < size) {
+                return FALSE;
+        }
+
+        debug_msg("Socket buffer size set to %d B.\n", opt);
+
+        return TRUE;
 }
 
 /*****************************************************************************/

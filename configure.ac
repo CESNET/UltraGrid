@@ -1161,7 +1161,7 @@ then
         AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_rtdxt.so.$video_compress_abi_version")
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
         LIB_TARGETS+=" $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET" 
-        LIB_OBJS+=" $RTDXT_COMMON_OBJ $RTDXT_COMMON_HEADERS $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
+        LIB_OBJS+=" $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
         LIB_HEADERS="$RTDXT_COMMON_HEADERS"
 fi    
 
