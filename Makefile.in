@@ -379,7 +379,7 @@ clean:
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	make -C libgpujpeg/ clean
 	make -C @FASTDXT_PATH@/ clean
-	make -C gui/QT/ clean
+	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
@@ -559,4 +559,4 @@ uninstall:
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh 	
-	if [ -f "$(GUI_TARGET)" ]; then $(RM) $(DESTDIR)/$(bindir)/`basename $(GUI_TARGET)`; done
+	if [ -f "$(GUI_TARGET)" ]; then $(RM) $(DESTDIR)/$(bindir)/`basename $(GUI_TARGET)`; fi

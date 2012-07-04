@@ -45,6 +45,7 @@ POST_COMPILE_MSG=""
 CFLAGS+=" -I."
 CPPFLAGS+=" -I."
 CXXLAGS+=" -I."
+LIB_MODULES=
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
 AC_SUBST(POST_COMPILE_MSG)
@@ -434,6 +435,8 @@ else
 	DVS_OBJ=
 fi
 
+LIB_MODULES+=" $DVS_LIB"
+
 AC_SUBST(DVS_INC)
 AC_SUBST(DVS_LIB)
 AC_SUBST(DVS_CAP_OBJ)
@@ -516,6 +519,8 @@ else
     DECKLINK_DISP_OBJ=
     DECKLINK_LIB=
 fi
+
+LIB_MODULES+=" $DECKLINK_LIB"
 
 AC_SUBST(DECKLINK_PATH)
 AC_SUBST(DECKLINK_COMMON)
@@ -654,6 +659,8 @@ case $host in
     ;;
 esac
 
+LIB_MODULES+=" $DELTACAST_LIB"
+
 AC_SUBST(DELTACAST_PATH)
 AC_SUBST(DELTACAST_INC)
 AC_SUBST(DELTACAST_LIB)
@@ -685,10 +692,14 @@ case $host_os in
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
+                        #LIB_TARGETS not needed here since we are not building modules on Mac
+                        LIB_OBJS+=" $QUICKTIME_OBJ"
                         quicktime=yes
 		fi
     ;;
 esac
+
+LIB_MODULES+=" $QUICKTIME_LIB"
 
 AC_SUBST(QUICKTIME_INC)
 AC_SUBST(QUICKTIME_LIB)
@@ -822,6 +833,8 @@ then
         LIB_OBJS+=" $SDL_OBJ"
 fi
 
+LIB_MODULES+=" $SDL_LIBS"
+
 AC_SUBST(SDL_OBJ)
 AC_SUBST(SDL_LIBS)
 
@@ -863,6 +876,8 @@ then
         LIB_OBJS+=" $TESTCARD2_OBJ"
 fi
 
+LIB_MODULES+=" $TESTCARD_LIB"
+LIB_MODULES+=" $TESTCARD2_LIB"
 
 AC_SUBST(TESTCARD2_OBJ)
 AC_SUBST(TESTCARD2_LIB)
@@ -1000,6 +1015,8 @@ then
         LIB_OBJS+=" $GL_OBJ"
 fi
 
+LIB_MODULES+=" $GL_LIB"
+
 AC_SUBST(GL_INC)
 AC_SUBST(GL_LIB)
 AC_SUBST(GL_OBJ)
@@ -1061,6 +1078,8 @@ then
         LIB_OBJS+=" $SCREEN_CAP_OBJ"
 fi
 
+LIB_MODULES+=" $SCREEN_CAP_LIB"
+
 AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(SCREEN_CAP_INC)
 AC_SUBST(SCREEN_CAP_LIB)
@@ -1104,6 +1123,8 @@ else
 	FASTDXT_INC=
 	FASTDXT_LIB=
 fi
+
+LIB_MODULES+=" $FASTDXT_LIB"
 
 AC_SUBST(FASTDXT_PATH)
 AC_SUBST(FASTDXT_INC)
@@ -1165,6 +1186,7 @@ then
         LIB_HEADERS="$RTDXT_COMMON_HEADERS"
 fi    
 
+LIB_MODULES+=" $RTDXT_LIB"
 
 AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_OBJ)
@@ -1281,6 +1303,8 @@ to your .bashrc file (in home directory). To take effect immediatelly, you will 
         exec bash\n***\n"
 fi
 
+LIB_MODULES+=" $JPEG_LIB"
+
 AC_SUBST(JPEG_COMMON_OBJ)
 AC_SUBST(JPEG_COMPRESS_OBJ)
 AC_SUBST(JPEG_DECOMPRESS_OBJ)
@@ -1326,6 +1350,8 @@ else
     SAGE_LIB=
     SAGE_OBJ=
 fi
+
+LIB_MODULES+=" $SAGE_LIB"
 
 AC_SUBST(SAGE_INC)
 AC_SUBST(SAGE_LIB)
@@ -1376,6 +1402,7 @@ else
             PORTAUDIO_PLAY_OBJ=
 fi
 
+LIB_MODULES+=" $PORTAUDIO_LIB"
 
 AC_SUBST(PORTAUDIO_INC)
 AC_SUBST(PORTAUDIO_LIB)
@@ -1449,6 +1476,8 @@ then
                      order to enable resampling (if needed).])
 fi
 
+LIB_MODULES+=" $JACK_LIB"
+
 AC_SUBST(JACK_CAP_OBJ)
 AC_SUBST(JACK_PLAY_OBJ)
 AC_SUBST(JACK_LIB)
@@ -1482,6 +1511,8 @@ else
         ALSA_OBJ=
         ALSA_LIB=
 fi
+
+LIB_MODULES+=" $ALSA_LIB"
 
 AC_SUBST(ALSA_CAP_OBJ)
 AC_SUBST(ALSA_PLAY_OBJ)
@@ -1546,9 +1577,7 @@ case $host_os in
 		then
                         scale=yes
                         SCALE_LIB+=" -framework OpenGL -framework Cocoa"
-                        SCALE_OBJ+="src/vo_postprocess/scale.o"
                         GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
-                        AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 		else
                         scale=no
 		fi
@@ -1560,17 +1589,23 @@ case $host_os in
 		then
                         scale=yes
                         SCALE_LIB+=" -lGL -lGLEW"
-                        SCALE_OBJ+="src/vo_postprocess/scale.o"
                         GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
-                        AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
-                        LIB_TARGETS+=" $SCALE_LIB_TARGET" 
-                        LIB_OBJS+=" $SCALE_OBJ $GL_COMMON_OBJ"
-                        AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 		else
                         scale=no
 		fi
     ;;
 esac
+
+if test $scale = yes
+then
+        SCALE_OBJ+="src/vo_postprocess/scale.o"
+        AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
+        LIB_TARGETS+=" $SCALE_LIB_TARGET"
+        LIB_OBJS+=" $SCALE_OBJ $GL_COMMON_OBJ"
+        AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
+fi
+
+LIB_MODULES+=" $SCALE_LIB"
 
 AC_SUBST(SCALE_INC)
 AC_SUBST(SCALE_LIB)
@@ -1595,8 +1630,7 @@ if test "$build_libraries" = yes
 then
         LIB_SUPPORT_OBJ="src/lib_common.o"
 else
-        LIBS+=" $GL_LIB $SDL_LIBS $DECKLINK_LIB $DELTACAST_LIB $QUICKTIME_LIB $SAGE_LIB $TESTCARD_LIB $TESTCARD2_LIB $DECKLINK_LIB $DELTACAST_LIB $DVS_LIB $FASTDXT_LIB $RTDXT_LIB $JPEG_LIB $ALSA_LIB "\
-"$PORTAUDIO_LIB $JACK_LIB $SCREEN_CAP_LIB $SCALE_LIB"
+        LIBS+=" $LIB_MODULES"
         OBJS+=" $LIB_OBJS"
         HEADERS+=" $LIB_HEADERS"
         LIB_OBJS=
