@@ -754,16 +754,17 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         int fps_pt, fpsd, fd, fi;
 
         int i;
-        struct linked_list **pckt_list = malloc(decoder->max_substreams * sizeof(struct linked_list *));
-        uint32_t *buffer_len = malloc(decoder->max_substreams * sizeof(uint32_t));
-        uint32_t *buffer_num = malloc(decoder->max_substreams * sizeof(uint32_t));
+        struct linked_list *pckt_list[decoder->max_substreams];
+        uint32_t buffer_len[decoder->max_substreams];
+        uint32_t buffer_num[decoder->max_substreams];
+        char *ext_recv_buffer[decoder->max_substreams];
+        char *fec_buffers[decoder->max_substreams];
         for (i = 0; i < (int) decoder->max_substreams; ++i) {
                 pckt_list[i] = ll_create();
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
+                fec_buffers[i] = NULL;
         }
-        char **ext_recv_buffer = malloc(decoder->max_substreams * sizeof(char *));
-        char **fec_buffers = (char **) calloc(decoder->max_substreams, sizeof(char *));
 
         perf_record(UVP_DECODEFRAME, frame);
         
@@ -1160,10 +1161,6 @@ cleanup:
 
                 pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, buffer_len[i]);
         }
-        free(pckt_list);
-        free(buffer_len);
-        free(buffer_num);
-        free(fec_buffers);
 
         if(ret) {
                 decoder->good++;
