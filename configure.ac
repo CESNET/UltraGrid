@@ -135,6 +135,30 @@ then
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
 fi
 
+AH_BOTTOM([
+/*
+ * Mac OS X Snow Leopard does not have posix_memalign
+ * so supplying a fake one (Macs allocate always aligned pointers
+ * to a 16 byte boundry.
+ */
+#if defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
+#include <errno.h>
+#include <stdlib.h>
+#ifndef POSIX_MEMALIGN
+#define POSIX_MEMALIGN
+static inline int posix_memalign(void **memptr, size_t alignment, size_t size);
+
+static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
+{
+       if(!alignment || (alignment & (alignment - 1)) || alignment > 16) return EINVAL;
+       *memptr=malloc(size);
+       if(!*memptr) return ENOMEM;
+       return 0;
+}
+#endif // POSIX_MEMALIGN
+#endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
+])
+
 if test $ac_cv_prog_cc_c99 = no
 then
         AC_MSG_ERROR([Your compiler does not accept C99.])
@@ -1038,13 +1062,18 @@ AC_ARG_ENABLE(screen,
 
 case "$host_os" in
 	*darwin*)
-		if test $screen_cap_req = yes
+		if test $screen_cap_req = yes -a $os_version_major -ge 10
 		then
                         screen_cap=yes
                         SCREEN_CAP_LIB="-framework CoreFoundation"
 		else
+                        if test $screen_cap_req = yes
+                        then
+                                AC_MSG_WARN([*** Screen capture supported for Mac version 10.6 and higher.])
+                        fi
                         screen_cap=no
 		fi
+
 	;;
 	*) 
                 # Linux
@@ -1279,9 +1308,19 @@ then
                 AC_MSG_WARN([*** CUDA Toolkit older than 4.1 detected. Please install at least v4.1 to use JPEG.])
                 HM_VERSION_WARNING
         fi
+
+        if test $version_check = no -o \
+                \( $system = Linux -o $os_version_major -ge 10 \) # Linux or Mac at least Snow Leopard
+        then
+                jpeg_os_version_ok=yes
+        else
+                AC_MSG_WARN([*** Detected unsupported OS version for CUDA.])
+                HM_VERSION_WARNING
+        fi
 fi
 
-if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes
+if test "$jpeg_req" = yes -a -n "$NVCC" -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a \
+        "$jpeg_os_version_ok" = yes
 then
         jpeg=yes
         JPEG_LIB=" -lnpp $CUDA_LIB"
@@ -1412,6 +1451,7 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 # -------------------------------------------------------------------------------------------------
 # SPEEX
 
+speex=yes
 SPEEX_PATH=speex-1.2rc1/
 SPEEX_INC=-I${SPEEX_PATH}/include
 SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
