@@ -285,7 +285,7 @@ AC_ARG_ENABLE(ipv6,
 # Dynamic libraries stuff
 #
 build_libraries=no
-AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build moodules as libraries (default is off)]), 
+AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build modules as libraries (default is off)]), 
 	[build_libraries=$enableval])
 
 if test "$build_libraries" = yes
