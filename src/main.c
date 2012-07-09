@@ -61,9 +61,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 #include "debug.h"
-#ifdef HAVE_CUDA
-#include "libgpujpeg/gpujpeg_common.h"
-#endif // HAVE_CUDA
 #include "perf.h"
 #include "rtp/decoders.h"
 #include "rtp/rtp.h"
@@ -1019,14 +1016,10 @@ int main(int argc, char *argv[])
                 case CUDA_DEVICE:
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
-#ifdef BUILD_LIBRARIES
-                                fprintf(stderr, "CUDA device listing currently not available in modular build!!!\n");
-                                return EXIT_FAIL_USAGE;
-#else
-                                printf("\nCUDA devices:\n");
-                                gpujpeg_print_devices_info();
+                                struct compress_state *compression; 
+                                compression = compress_init("JPEG:list_devices");
+                                compress_done(compression);
                                 return EXIT_SUCCESS;
-#endif // BUILD_LIBRARIES
                         } else {
                                 cuda_device = atoi(optarg);
                         }

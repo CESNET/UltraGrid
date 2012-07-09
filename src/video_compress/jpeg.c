@@ -226,6 +226,10 @@ void * jpeg_compress_init(char * opts)
                 printf("JPEG comperssion usage:\n");
                 printf("\t-c JPEG[:<quality>]\n");
                 return NULL;
+        } else if(opts && strcmp(opts, "list_devices") == 0) {
+                printf("CUDA devices:\n");
+                gpujpeg_print_devices_info();
+                return NULL;
         }
 
         if(opts) {
