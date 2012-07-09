@@ -21,6 +21,7 @@ AC_C_CHAR_UNSIGNED
 AC_HEADER_STDBOOL
 
 AH_BOTTOM([
+#ifndef __cplusplus
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
@@ -36,6 +37,7 @@ typedef bool _Bool;
 # define true 1
 # define __bool_true_false_are_defined 1
 #endif 
+#endif // ! defined __cplusplus
 ])
 
 AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
