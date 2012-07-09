@@ -90,5 +90,7 @@ void float2int(char *out, char *in, int len);
 void int2float(char *out, char *in, int len);
 void short_int2float(char *out, char *in, int in_len);
 
+void signed2unsigned(char *out, char *in, int in_len);
+
 
 #endif

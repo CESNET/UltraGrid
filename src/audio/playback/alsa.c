@@ -58,14 +58,17 @@
 #include "config.h"
 #include "config_unix.h"
 #endif
-#include "debug.h"
+
 #ifdef HAVE_ALSA
-#include "audio/audio.h"
+
 #include <alsa/asoundlib.h>
-#include "audio/playback/alsa.h" 
-#include "debug.h"
 #include <stdlib.h>
 #include <string.h>
+
+#include "audio/audio.h"
+#include "audio/utils.h"
+#include "audio/playback/alsa.h" 
+#include "debug.h"
 
 #define BUFFER_MIN 41
 #define BUFFER_MAX 100
@@ -302,6 +305,10 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         snd_pcm_delay(s->handle, &delay);
         //fprintf(stderr, "Alsa delay: %d samples (%u Hz)\n", (int)delay, (unsigned int) s->frame.sample_rate);
 #endif
+
+        if(frame->bps == 1) { // convert to unsigned
+                signed2unsigned(frame->data, frame->data, frame->data_len);
+        }
 
         if((int) s->min_device_channels > frame->ch_count && frame->ch_count == 1) {
                 if(s->frame.data_len * s->min_device_channels < frame->max_size) {
