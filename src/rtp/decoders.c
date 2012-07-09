@@ -134,8 +134,9 @@ struct state_decoder {
         struct fec        fec_state;
 
         // for statistics
-        unsigned long int   good;
-        unsigned long int   bad;
+        unsigned long int   displayed;
+        unsigned long int   dropped;
+        unsigned long int   corrupted;
 };
 
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
@@ -152,7 +153,7 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         s->fec_state.state = NULL;
         s->fec_state.k = s->fec_state.m = s->fec_state.c = s->fec_state.seed = 0;
 
-        s->good = s->bad = 0ul;
+        s->displayed = s->dropped = s->corrupted = 0ul;
         
         if(requested_mode) {
                 /* these are data comming from newtork ! */
@@ -302,7 +303,8 @@ void decoder_destroy(struct state_decoder *decoder)
                 ldgm_decoder_destroy(decoder->fec_state.state);
 
 
-        fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped\n", decoder->good, decoder->bad);
+        fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
+                        decoder->displayed, decoder->dropped, decoder->corrupted);
         free(decoder);
 }
 
@@ -1019,14 +1021,11 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 ldgm_decoder_decode(decoder->fec_state.state, fec_buffers[pos], buffer_len[pos],
                                         &out_buffer, &out_len, pckt_list[pos]);
 
-                                //static int good = 0, bad = 0;
                                 if(out_len == 0) {
                                         ret = FALSE;
                                         fprintf(stderr, "[decoder] LDGM: unable to reconstruct data.\n");
                                         goto cleanup;
                                 }
-                                //good++;
-                                //fprintf(stderr, "good: %d bad: %d\n", good, bad);
  
                                 check_for_mode_change(decoder, (video_payload_hdr_t *) out_buffer, &frame);
                                 pbuf_data->frame_buffer = frame;
@@ -1083,15 +1082,20 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
         } else { /* PT_VIDEO */
 	        for(i = 0; i < (int) decoder->max_substreams; ++i) {
+                        bool corrupted_frame_counted = false;
                         if(buffer_len[i] != ll_count_bytes(pckt_list[i])) {
-                                fprintf(stderr, "Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
+                                debug_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
                                                 (unsigned int) buffer_num[i], buffer_len[i], (unsigned int) ll_count_bytes(pckt_list[i]));
+                                if(!corrupted_frame_counted) {
+                                        corrupted_frame_counted = true;
+                                        decoder->corrupted++;
+                                }
                                 if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                         ret = FALSE;
-                                        fprintf(stderr, "dropped.\n");
+                                        debug_msg("dropped.\n");
                                         goto cleanup;
                                 }
-                                fprintf(stderr, "\n");
+                                debug_msg("\n");
                         }
                 }
         }
@@ -1163,10 +1167,15 @@ cleanup:
         }
 
         if(ret) {
-                decoder->good++;
+                decoder->displayed++;
                 pbuf_data->decoded++;
         } else {
-                decoder->bad++;
+                decoder->dropped++;
+        }
+
+        if(decoder->displayed % 600 == 599) {
+                fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
+                                decoder->displayed, decoder->dropped, decoder->corrupted);
         }
 
         return ret;
