@@ -203,7 +203,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_testcard_grab),
          NULL
         },
-#if defined HAVE_SDL || defined BUILD_LIBRARIES
+#if defined HAVE_TESTCARD2 || defined BUILD_LIBRARIES
         {
          /* Dummy sender for testing purposes */
          0,

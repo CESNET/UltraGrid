@@ -738,7 +738,7 @@ SDL_LIBS=
 sdl=no
 
 AC_ARG_ENABLE(sdl, 
-      AS_HELP_STRING([--enable-sdl], [enable SDL(default is enable)]), 
+              AS_HELP_STRING([--disable-sdl], [enable SDL(default is enable)]), 
     [sdl_req=$enableval],
     [sdl_req=yes]
     )
@@ -866,44 +866,57 @@ AC_SUBST(SDL_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # Testcard stuff
+
+AC_ARG_ENABLE(testcard-extras, 
+      AS_HELP_STRING([--enable-testcard-extras], [enable testcard addons - audio and testcard2 (default is disabled)]), 
+    [testcard_extras_req=$enableval],
+    [testcard_extras_req=no]
+    )
+
 TESTCARD_OBJ="src/video_capture/testcard.o"
 TESTCARD_LIB=
-AC_SUBST(TESTCARD_OBJ)
-AC_SUBST(TESTCARD_LIB)
+TESTCARD2_OBJ=
+TESTCARD2_LIB=
 
-SAVED_LIBS=$LIBS
-AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
-LIBS=$SAVED_LIBS
-if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
-then
-        TESTCARD_LIB="-lSDL -lSDL_mixer"
-fi
-
-# we build testcard in any case
 AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/vidcap_testcard.so.$video_capture_abi_version")
 LIB_TARGETS+=" $TESTCARD_LIB_TARGET" 
 LIB_OBJS+=" $TESTCARD_OBJ"
 
-TESTCARD2_OBJ=
-TESTCARD2_LIB=
-if test $sdl = yes
+if test $testcard_extras_req = yes
 then
-        TESTCARD2_OBJ="src/video_capture/testcard2.o"
-        TESTCARD2_LIB=$SDL_LIB
         SAVED_LIBS=$LIBS
-        AC_CHECK_LIB(SDL_ttf, TTF_Init)
+        AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
         LIBS=$SAVED_LIBS
-        if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
+        if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
         then
-                TESTCARD2_LIB+=" -lSDL_ttf"
+                TESTCARD_LIB="-lSDL -lSDL_mixer"
         fi
-        AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
-        LIB_TARGETS+=" $TESTCARD2_LIB_TARGET" 
-        LIB_OBJS+=" $TESTCARD2_OBJ"
+
+        TESTCARD2_OBJ=
+        TESTCARD2_LIB=
+        if test $sdl = yes
+        then
+                TESTCARD2_OBJ="src/video_capture/testcard2.o"
+                TESTCARD2_LIB=$SDL_LIB
+                SAVED_LIBS=$LIBS
+                AC_CHECK_LIB(SDL_ttf, TTF_Init)
+                LIBS=$SAVED_LIBS
+                if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
+                then
+                        TESTCARD2_LIB+=" -lSDL_ttf"
+                fi
+                AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
+                AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
+                LIB_TARGETS+=" $TESTCARD2_LIB_TARGET" 
+                LIB_OBJS+=" $TESTCARD2_OBJ"
+        fi
 fi
 
 LIB_MODULES+=" $TESTCARD_LIB"
 LIB_MODULES+=" $TESTCARD2_LIB"
+
+AC_SUBST(TESTCARD_OBJ)
+AC_SUBST(TESTCARD_LIB)
 
 AC_SUBST(TESTCARD2_OBJ)
 AC_SUBST(TESTCARD2_LIB)
@@ -1409,7 +1422,7 @@ PORTAUDIO_PLAY_OBJ=
 portaudio=no
 
 AC_ARG_ENABLE(portaudio, 
-      AS_HELP_STRING([--disable-portaudio], [disable Portaudio (default is auto)]), 
+      AS_HELP_STRING([--enable-portaudio], [disable Portaudio (default is auto)]), 
 	[portaudio_req=$enableval],
         [portaudio_req=yes])
 
@@ -1725,5 +1738,6 @@ Configuration summary:
   JPEG ........................ $jpeg
 
   scale postprocessor ......... $scale
+  testcard extras ............. $testcard_extras_req
 ])
 
