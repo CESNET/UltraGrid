@@ -1677,7 +1677,7 @@ then
         SCALE_OBJ+="src/vo_postprocess/scale.o"
         AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
         LIB_TARGETS+=" $SCALE_LIB_TARGET"
-        LIB_OBJS+=" $SCALE_OBJ $GL_COMMON_OBJ"
+        LIB_OBJS+=" $SCALE_OBJ"
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 fi
 
@@ -1708,7 +1708,7 @@ then
         LIB_SUPPORT_OBJ="src/lib_common.o"
 else
         LIBS+=" $LIB_MODULES"
-        OBJS+=" $LIB_OBJS"
+        OBJS+=" $LIB_OBJS $GL_COMMON_OBJ"
         HEADERS+=" $LIB_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
