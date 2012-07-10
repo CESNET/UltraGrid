@@ -95,7 +95,6 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-	LINKER=$CXX
 	CFLAGS+=" -arch i386 -I/opt/local/include"
 	CPPFLAGS+=" -m32 -I/opt/local/include"
 	CXXFLAGS+=" -m32 -I/opt/local/include"
@@ -105,7 +104,6 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 else
         system=Linux
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
-	LINKER=$CC
 fi
 
 AC_MSG_RESULT($system);
@@ -119,6 +117,8 @@ AC_MSG_RESULT($os_version_minor);
 
 AC_DEFINE_UNQUOTED([OS_VERSION_MAJOR], $os_version_major, [OS kernel major version])
 AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor version])
+
+LINKER=$CXX
 
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
@@ -555,7 +555,6 @@ AC_SUBST(DECKLINK_LIB)
 AC_SUBST(DECKLINK_CAP_OBJ)
 AC_SUBST(DECKLINK_DISP_OBJ)
 AC_SUBST(DECKLINK_SOUND_PLAY_OBJ)
-AC_SUBST(LINKER)
 
 # -------------------------------------------------------------------------------------------------
 # HD-SDI Master Quad stuff
@@ -1410,7 +1409,6 @@ LIB_MODULES+=" $SAGE_LIB"
 AC_SUBST(SAGE_INC)
 AC_SUBST(SAGE_LIB)
 AC_SUBST(SAGE_OBJ)
-AC_SUBST(LINKER)
 
 # -------------------------------------------------------------------------------------------------
 # AUDIO stuff
