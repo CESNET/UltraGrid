@@ -282,7 +282,6 @@ AC_ARG_ENABLE(ipv6,
                 ipv6=YES
 	fi])
 
-
 # ------------------------------------------------------------------------------------------------
 # Dynamic libraries stuff
 #
@@ -328,6 +327,13 @@ AC_SUBST(audio_capture_abi_version)
 AC_SUBST(audio_playback_abi_version)
 AC_SUBST(vo_pp_abi_version)
 
+# ------------------------------------------------------------------------------------------------
+# environment variables
+#
+AC_ARG_VAR([CUDA_DIRECTORY], [Directory of your Nvidia toolkit instalation.])
+AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
+AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
+AC_ARG_VAR([VIDEOMASTERHD_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -421,12 +427,21 @@ case "$host" in
 	;;
 esac	
 
+if test -n "$DVS_DIRECTORY"
+then
+        DVS_INC=$DVS_DIRECTORY/development/header
+        DVS_LIB=$DVS_DIRECTORY/${DVS_SDK_SUBDIR}/lib
+else
+        DVS_INC=sdk4.0.1.17/development/header
+	DVS_LIB=sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib
+fi
+
 AC_ARG_WITH(dvs,           
 	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
-	[DVS_INC=sdk4.0.1.17/development/header
-	 DVS_LIB=sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib])
+	[]
+        )
 
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
 
@@ -480,12 +495,7 @@ decklink_req=yes
 
 AC_ARG_ENABLE(decklink, AS_HELP_STRING([--disable-decklink], [disable DeckLink (default is auto)]), 
 	[decklink_req=$enableval])
-AC_ARG_WITH(decklink,
-        [  --with-decklink=DIR     specify location of DECKLINK],
-        [DECKLINK_INC=$withval/include
-        ],
-        [DECKLINK_INC=""]
-        )
+DECKLINK_INC=
 
 case "$host_os" in
 	*darwin*)
@@ -573,12 +583,7 @@ case $host in
             [linsys_req=yes]
             )
 
-        AC_ARG_WITH(decklink,
-            [  --with-linsys=DIR         specify location of Linsys SDK],
-            [LINSYS_PATH=$withval
-            ],
-            [LINSYS_PATH=Linsys
-            ])
+        LINSYS_PATH=Linsys
 
         LINSYS_INC=${LINSYS_PATH}/include
 
@@ -625,13 +630,18 @@ case $host in
             [deltacast_req=$enableval],
             [deltacast_req=yes]
             )
+        if test -n "$CUDA_DIRECTORY"
+        then
+                DELTACAST_PATH=$VIDEOMASTERHD_DIRECTORY
+        else
+                DELTACAST_PATH=VideoMasterHD
+        fi
 
         AC_ARG_WITH(deltacast,
             [  --with-deltacast=DIR         specify location of DELTACAST],
             [DELTACAST_PATH=$withval
             ],
-            [DELTACAST_PATH=VideoMasterHD
-            ])
+            [])
 
         DELTACAST_INC=${DELTACAST_PATH}/Include
         
@@ -1139,12 +1149,8 @@ AC_ARG_ENABLE(fastdxt,
 	[  --disable-fastdxt        disable FastDXT],
 	[fastdxt_req=$enableval])
 
-AC_ARG_WITH(fastdxt,
-	[  --with-fastdxt=DIR      specify location of FastDXT],
-	[FASTDXT_INC=$withval
-	 FASTDXT_PATH=$withval],
-	[FASTDXT_INC=FastDXT
-	 FASTDXT_PATH=FastDXT])
+FASTDXT_INC=FastDXT
+FASTDXT_PATH=FastDXT
 
 AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
 #AC_LANG_PUSH(C++)
@@ -1241,18 +1247,25 @@ AC_SUBST(DXT_GLSL_CFLAGS)
 
 # -------------------------------------------------------------------------------------------------
 # CUDA staff
-CUDA_PATH=
+CUDA_PATH=$CUDA_DIRECTORY
 CUDA_INC=
 CUDA_LIB=
 NVCC=
 NVCCFLAGS=
 CUDA_LIB_PATH=
 
+if test -n "$CUDA_DIRECTORY"
+then
+        CUDA_PATH=$CUDA_DIRECTORY
+else
+        CUDA_PATH=/usr/local/cuda
+fi
+
 AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
             ],
-            [CUDA_PATH=/usr/local/cuda/])
+            [])
 
 AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
                   [],
@@ -1377,12 +1390,20 @@ AC_ARG_ENABLE(sage,
 	[sage_req=$enableval],
         [sage_req=yes])
 
+if test -n "$SAGE_DIRECTORY"
+then
+        SAGE_INC=$SAGE_DIRECTORY/include
+        SAGE_LIB=$SAGE_DIRECTORY/lib
+else
+        SAGE_INC=sage3.0/include
+        SAGE_LIB=sage3.0/lib
+fi
+
 AC_ARG_WITH(sage,
 	[  --with-sage=DIR         specify location of SAGE],
 	[SAGE_INC=$withval/include
 	 SAGE_LIB=$withval/lib],
-	[SAGE_INC=sage3.0/include
-	 SAGE_LIB=sage3.0/lib])
+	[])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SAGE_LIB})
