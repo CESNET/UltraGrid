@@ -38,8 +38,6 @@ DCT_FROM_NPP ?= 1
 USE_OPENGL ?= 0
 # Debug
 DEBUG ?= 0
-# CUDA install path
-CUDA_INSTALL_PATH ?= /usr/local/cuda
 
 # Target executable
 TARGET := libgpujpeg.a
@@ -65,13 +63,19 @@ CUFILES := \
     gpujpeg_huffman_gpu_encoder.cu \
     gpujpeg_huffman_gpu_decoder.cu
 
+# Common flags
+COMMONFLAGS += -I. -O2 -g
+
 # Compilers
 CC := gcc -fPIC
 LINK := g++ -fPIC
-NVCC := $(CUDA_INSTALL_PATH)/bin/nvcc -Xcompiler -fPIC
+ifdef CUDA_INSTALL_PATH
+	NVCC := $(CUDA_INSTALL_PATH)/bin/nvcc -Xcompiler -fPIC
+	COMMONFLAGS += -I$(CUDA_INSTALL_PATH)/include
+else
+	NVCC := nvcc
+endif
 
-# Common flags
-COMMONFLAGS += -I. -I$(CUDA_INSTALL_PATH)/include -O2 -g
 
 # Ultragrid changes
 ARCH := $(shell uname -s)
@@ -122,10 +126,14 @@ endif
 LBITS := $(shell getconf LONG_BIT)
 ifeq ($(LBITS),64)
     # 64bit
-    LDFLAGS += -L$(CUDA_INSTALL_PATH)/lib64
+    CUDA_LIB = -L$(CUDA_INSTALL_PATH)/lib64
 else
     # 32bit
-    LDFLAGS += -L$(CUDA_INSTALL_PATH)/lib
+    CUDA_LIB = -L$(CUDA_INSTALL_PATH)/lib
+endif
+
+ifdef CUDA_INSTALL_PATH
+	LDFLAGS += $(CUDA_LIB)
 endif
 LDFLAGS += -lcudart -lnpp
 

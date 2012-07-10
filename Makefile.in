@@ -312,7 +312,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	
 
 libgpujpeg/libgpujpeg.a:
-	make -j -C libgpujpeg/
+	CUDA_INSTALL_PATH=@CUDA_PATH@ make -j -C libgpujpeg/
 
 @FASTDXT_PATH@/libdxt.a:
 	make -j -C @FASTDXT_PATH@/ lib
