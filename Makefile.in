@@ -315,7 +315,7 @@ libgpujpeg/libgpujpeg.a:
 	make -j -C libgpujpeg/
 
 @FASTDXT_PATH@/libdxt.a:
-	make -j -C @FASTDXT_PATH@/
+	make -j -C @FASTDXT_PATH@/ lib
 
 gui/QT/uv-qt:
 	cd gui/QT; qmake; make -j; cd -
