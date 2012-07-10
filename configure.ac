@@ -291,8 +291,10 @@ AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build modules as librarie
 
 if test "$build_libraries" = yes
 then
-        if test "$system" != "Linux"
+        if test "$system" = "Linux"
         then
+                LIBS+=' -ldl'
+        else
                 AC_MSG_WARN([*** Building libraries is not supported with Mac OS X])
                 build_libraries=no
         fi

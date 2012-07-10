@@ -35,7 +35,7 @@ HUFFMAN_CODER_TABLES_IN_CONSTANT ?= 1
 # but for non-fermi GPUs it is slower
 DCT_FROM_NPP ?= 1
 # Flag if use OpenGL
-USE_OPENGL ?= 1
+USE_OPENGL ?= 0
 # Debug
 DEBUG ?= 0
 # CUDA install path
