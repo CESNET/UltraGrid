@@ -335,7 +335,7 @@ AC_SUBST(vo_pp_abi_version)
 AC_ARG_VAR([CUDA_DIRECTORY], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
-AC_ARG_VAR([VIDEOMASTERHD_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
+AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -632,9 +632,9 @@ case $host in
             [deltacast_req=$enableval],
             [deltacast_req=yes]
             )
-        if test -n "$CUDA_DIRECTORY"
+        if test -n "$DELTACAST_DIRECTORY"
         then
-                DELTACAST_PATH=$VIDEOMASTERHD_DIRECTORY
+                DELTACAST_PATH=$DELTACAST_DIRECTORY
         else
                 DELTACAST_PATH=VideoMasterHD
         fi
