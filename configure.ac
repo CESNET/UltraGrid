@@ -1413,7 +1413,7 @@ AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SA
 if test $sage_req = yes -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
     SAGE_INC=-I${SAGE_INC}
-    SAGE_LIB=-"L${SAGE_LIB} -lsail"
+    SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
     SAGE_OBJ="src/video_display/sage.o src/video_display/sage_wrapper.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
