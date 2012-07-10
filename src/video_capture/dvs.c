@@ -56,6 +56,8 @@
 
 #ifdef HAVE_DVS           /* From config.h */
 
+#include "audio/audio.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include "video_capture.h"
 #include "video_capture/dvs.h"
@@ -429,8 +431,10 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 if (res != SV_OK) {
                         goto error;
                 }
-                if(audio_channel_count != 2 && audio_channel_count != 1) {
-                        fprintf(stderr, "[DVS cap.] Invalid channel count %d. Currently only 1 or 2 channels are supported.\n");
+                if(audio_capture_channels != 2 && audio_capture_channels != 1) {
+                        fprintf(stderr, "[DVS cap.] Invalid channel count %d. "
+                                        "Currently only 1 or 2 channels are supported.\n",
+                                        audio_capture_channels);
                         goto error;
                 }
                 res = sv_option(s->sv, SV_OPTION_AUDIOCHANNELS, 1); // one pair
@@ -449,9 +453,10 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 s->audio_bufs[0] = malloc(s->audio.sample_rate * 2 * s->audio.bps);
                 s->audio_bufs[1] = malloc(s->audio.sample_rate * 2 * s->audio.bps);
 
-                if(audio_channel_count == 1) {
+                if(audio_capture_channels == 1) {
                         // data need to be demultiplexed
-                        s->audio.data = audio.sample_rate * s->audio.bps;
+                        s->audio.max_size = s->audio.sample_rate * s->audio.bps;
+                        s->audio.data = (char *) malloc(s->audio.max_size);
                 }
         }
 
@@ -532,7 +537,7 @@ void vidcap_dvs_done(void *state)
         
          pthread_join(s->thread_id, NULL);
 
-         if(s->grab_audio && s->frame.ch_count == 1) {
+         if(s->grab_audio && s->audio.ch_count == 1) {
                  free(s->audio.data);
          }
 
