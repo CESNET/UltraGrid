@@ -621,7 +621,7 @@ static void *receiver_thread(void *arg)
                         if(new_size != last_buf_size) {
                                 struct rtp **device = uv->network_devices;
                                 while(*device) {
-                                        int ret = rtp_set_recv_buf(*device, new_size);
+                                        rtp_set_recv_buf(*device, new_size);
                                         debug_msg("Recv buffer adjusted to %d\n", new_size);
                                         device++;
                                 }
@@ -843,8 +843,9 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
         
-        pthread_t receiver_thread_id, compress_thread_id,
-                  ihdtv_sender_thread_id;
+        pthread_t receiver_thread_id = 0,
+                  compress_thread_id = 0,
+                  ihdtv_sender_thread_id = 0;
         unsigned vidcap_flags = 0,
                  display_flags = 0;
 
@@ -1277,16 +1278,19 @@ int main(int argc, char *argv[])
                 display_run(uv->display_device);
 
 cleanup_wait_display:
-        if (strcmp("none", uv->requested_display) != 0)
+        if (strcmp("none", uv->requested_display) != 0 && receiver_thread_id)
                 pthread_join(receiver_thread_id, NULL);
 
 cleanup_wait_capture:
-        if (strcmp("none", uv->requested_capture) != 0)
+        if (strcmp("none", uv->requested_capture) != 0 &&
+                        (uv->use_ihdtv_protocol ?
+                         ihdtv_sender_thread_id :
+                         compress_thread_id))
                 pthread_join(uv->use_ihdtv_protocol ?
-                                        ihdtv_sender_thread_id :
-                                        compress_thread_id,
+                                ihdtv_sender_thread_id :
+                                compress_thread_id,
                                 NULL);
-        
+
 cleanup_wait_audio:
         /* also wait for audio threads */
         audio_join(uv->audio);
