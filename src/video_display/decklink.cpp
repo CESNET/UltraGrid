@@ -258,8 +258,7 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_numbers>[:3D][:timecode][:3G|:dual-link] - coma-separated numbers of output devices\n");
-        
+        printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]] - coma-separated numbers of output devices\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (deckLinkIterator == NULL)
@@ -309,6 +308,14 @@ static void show_help(void)
                 printf("\nNo Blackmagic Design devices were found.\n");
                 return;
         } 
+
+        printf("\nHDMI 3D packing can be one of following (optional for HDMI 1.4, mandatory for pre-1.4 HDMI):\n");
+        printf("\tSideBySideHalf\n");
+        printf("\tLineByLine\n");
+        printf("\tTopAndBottom\n");
+        printf("\tFramePacking\n");
+        printf("\tLeftOnly\n");
+        printf("\tRightOnly\n");
 }
 
 
@@ -649,6 +656,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
         BMDAudioOutputAnalogAESSwitch audioConnection = 0;
+        BMDVideo3DPackingFormat HDMI3DPacking = 0;
 
         STRING current_version;
         if(!blackmagic_api_version_check(&current_version)) {
@@ -706,20 +714,32 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 } while ((ptr = strtok_r(NULL, ",", &saveptr2)));
                 free(devices);
                 
-                ptr = strtok_r(NULL, ":", &saveptr1);
-                if(ptr) {
+                while((ptr = strtok_r(NULL, ":", &saveptr1)))  {
                         if(strcasecmp(ptr, "3D") == 0) {
                                 s->stereo = true;
-                                ptr = strtok_r(NULL, ":", &saveptr1);
-                                if(ptr && strcasecmp(ptr, "timecode") == 0) {
-                                        s->emit_timecode = true;
-                                }
                         } else if(strcasecmp(ptr, "timecode") == 0) {
                                 s->emit_timecode = true;
                         } else if(strcasecmp(ptr, "3G") == 0) {
                                 s->link = LINK_3G;
                         } else if(strcasecmp(ptr, "dual-link") == 0) {
                                 s->link = LINK_DUAL;
+                        } else if(strncasecmp(ptr, "HDMI3DPacking=", strlen("HDMI3DPacking=")) == 0) {
+                                char *packing = ptr + strlen("HDMI3DPacking=");
+                                if(strcasecmp(packing, "SideBySideHalf") == 0) {
+                                        HDMI3DPacking = bmdVideo3DPackingSidebySideHalf;
+                                } else if(strcasecmp(packing, "LineByLine") == 0) {
+                                        HDMI3DPacking = bmdVideo3DPackingLinebyLine;
+                                } else if(strcasecmp(packing, "TopAndBottom") == 0) {
+                                        HDMI3DPacking = bmdVideo3DPackingTopAndBottom;
+                                } else if(strcasecmp(packing, "FramePacking") == 0) {
+                                        HDMI3DPacking = bmdVideo3DPackingFramePacking;
+                                } else if(strcasecmp(packing, "LeftOnly") == 0) {
+                                        HDMI3DPacking = bmdVideo3DPackingRightOnly;
+                                } else if(strcasecmp(packing, "RightOnly") == 0) {
+                                        HDMI3DPacking = bmdVideo3DPackingLeftOnly;
+                                } else {
+                                        fprintf(stderr, "[DeckLink] Warning: HDMI 3D packing %s.\n", packing);
+                                }
                         } else {
                                 fprintf(stderr, "[DeckLink] Warning: unknown options in config string.\n");
                         }
@@ -827,6 +847,14 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         fprintf(stderr, "[DeckLink display] Unable to set to low-latency mode.\n");
                 }
 #endif /* DECKLINK_LOW_LATENCY */
+
+                if(HDMI3DPacking != 0) {
+                        HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigHDMI3DPackingFormat,
+                                        HDMI3DPacking);
+                        if(res != S_OK) {
+                                fprintf(stderr, "[DeckLink display] Unable set 3D packing.\n");
+                        }
+                }
 
                 if(s->link != LINK_UNSPECIFIED) {
                         HRESULT res = deckLinkConfiguration->SetFlag(bmdDeckLinkConfig3GBpsVideoOutput,
