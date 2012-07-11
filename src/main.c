@@ -616,6 +616,7 @@ static void *receiver_thread(void *arg)
                         last_tile_received = uv->curr_time;
                 }
 
+#if 0
                 if(pbuf_data.decoded % 100 == 99) {
                         int new_size = pbuf_data.max_frame_size * 101ull / 100;
                         if(new_size != last_buf_size) {
@@ -628,6 +629,9 @@ static void *receiver_thread(void *arg)
                                 last_buf_size = new_size;
                         }
                 }
+#else
+                UNUSED(last_buf_size);
+#endif
         }
         
         decoder_destroy(pbuf_data.decoder);
