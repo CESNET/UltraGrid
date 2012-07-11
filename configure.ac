@@ -442,7 +442,6 @@ AC_ARG_WITH(dvs,
 	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
-	[]
         )
 
 AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
@@ -642,8 +641,7 @@ case $host in
         AC_ARG_WITH(deltacast,
             [  --with-deltacast=DIR         specify location of DELTACAST],
             [DELTACAST_PATH=$withval
-            ],
-            [])
+            ])
 
         DELTACAST_INC=${DELTACAST_PATH}/Include
         
@@ -1268,8 +1266,7 @@ CUDA_PATH=$CUDA_DIRECTORY
 AC_ARG_WITH(cuda,
             [  --with-cuda=DIR         specify location of CUDA Toolkit],
             [CUDA_PATH=$withval
-            ],
-            [])
+            ])
 
 AC_CHECK_SIZEOF([int *])
 
@@ -1451,8 +1448,7 @@ fi
 AC_ARG_WITH(sage,
 	[  --with-sage=DIR         specify location of SAGE],
 	[SAGE_INC=$withval/include
-	 SAGE_LIB=$withval/lib],
-	[])
+	 SAGE_LIB=$withval/lib])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SAGE_LIB})
