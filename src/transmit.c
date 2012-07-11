@@ -98,7 +98,7 @@ struct tx {
         uint32_t magic;
         unsigned mtu;
 
-        unsigned int buffer:20;
+        unsigned int buffer:22;
 
         enum fec_scheme_t fec_scheme;
         void *fec_state;
@@ -113,7 +113,7 @@ struct tx *tx_init(unsigned mtu, char *fec)
         if (tx != NULL) {
                 tx->magic = TRANSMIT_MAGIC;
                 tx->mtu = mtu;
-                tx->buffer = lrand48() & 0x3ff;
+                tx->buffer = lrand48() & 0x3fffff;
                 tx->fec_scheme = FEC_NONE;
                 if (fec) {
                         char *save_ptr = NULL;
