@@ -89,7 +89,7 @@ CFLAGS += $(COMMONFLAGS) -std=c99
 NVCCFLAGS += $(COMMONFLAGS) \
 	-gencode arch=compute_20,code=sm_20 \
 	-gencode arch=compute_13,code=sm_13 \
-	-gencode arch=compute_10,code=sm_10 \
+	-gencode arch=compute_11,code=sm_11 \
 	-gencode arch=compute_10,code=sm_10 \
 
 NVCC_VERSION_MAJOR := $(shell $(NVCC) --version |grep release|sed  's/^.*release \([0-9][0-9]*\).*$$/\1/')
