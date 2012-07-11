@@ -400,11 +400,9 @@ bundle: all
 	
 	@if `which dylibbundler`; then \
 		dylibbundler -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
-		if test -n @NVCC@; then \
-			install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/MacOS/uv ; \
-			install_name_tool -change @rpath/libnpp.dylib @executable_path/../libs/libnpp.dylib $(BUNDLE)/Contents/MacOS/uv ; \
-	       	        install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/libs/libnpp.dylib ; \
-		fi; \
+		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
+		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libnpp.dylib ) ; then install_name_tool -change @rpath/libnpp.dylib @executable_path/../libs/libnpp.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
+		if ( otool -L $(BUNDLE)/Contents/libs/libnpp.dylib | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/libs/libnpp.dylib ; fi ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
