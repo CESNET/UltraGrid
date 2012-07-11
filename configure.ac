@@ -1779,14 +1779,9 @@ AC_SUBST(LIB_HEADERS)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
-AC_CONFIG_HEADER(src/config.h)
-AC_CONFIG_FILES([Makefile])
-AC_OUTPUT
 
-AC_MSG_RESULT([
-Configuration summary:
-
-  Target ...................... $host
+RESULT=\
+"  Target ...................... $host
   Debug output ................ $debug_output
   Profiling support ........... $profile
   IPv6 support ................ $ipv6
@@ -1815,5 +1810,19 @@ Configuration summary:
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
+  "
+
+AC_MSG_RESULT(
+[
+Configuration summary
 ])
+AC_MSG_RESULT([$RESULT])
+
+RES_STR=`printf "$RESULT" | sed 's/$/\\\\n/' | tr -d '\n'`
+
+AC_DEFINE_UNQUOTED([AUTOCONF_RESULT], "$RES_STR", [Autoconf result])
+
+AC_CONFIG_HEADER(src/config.h)
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
 

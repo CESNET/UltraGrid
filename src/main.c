@@ -958,6 +958,8 @@ int main(int argc, char *argv[])
                         printf(" (rev %s)", GIT_VERSION);
 #endif
                         printf("\n");
+                        printf("\n" PACKAGE_NAME " was compiled with following features:\n");
+                        printf(AUTOCONF_RESULT);
                         return EXIT_SUCCESS;
                 case 'c':
                         uv->requested_compression = optarg;
