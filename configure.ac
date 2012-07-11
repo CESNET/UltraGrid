@@ -161,7 +161,7 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 #endif // defined HAVE_MACOSX && OS_VERSION_MAJOR <= 9
 ])
 
-if test $ac_cv_prog_cc_c99 = no
+if test "$ac_cv_prog_cc_c99" = no
 then
         AC_MSG_ERROR([Your compiler does not accept C99.])
 fi
