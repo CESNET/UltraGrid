@@ -1251,7 +1251,7 @@ AC_SUBST(DXT_GLSL_CFLAGS)
 # CUDA lookup order:
 # 1) --with-cuda
 # 2) CUDA_DIRECTORY env variable
-# 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH)
+# 3) default system path (PATH, LD_LIBRARY_PATH, C_INCLUDE_PATH/CPATH)
 # 4) default CUDA path
 
 CUDA_INC=
@@ -1290,8 +1290,8 @@ then
         if test -z "$CUDA_PATH"; then
                 CUDA_PATH=/usr/local/cuda
         fi
-        SAVED_C_INCLUDE_PATH=$C_INCLUDE_PATH
-        C_INCLUDE_PATH="$CUDA_PATH/include/"
+        SAVED_CFLAGS=$CFLAGS
+        CFLAGS+=" -I$CUDA_PATH/include/"
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
                 LIBS+=" -L$CUDA_PATH/lib64"
@@ -1303,7 +1303,7 @@ then
                            [[int devices_count;
                             cudaGetDeviceCount(&devices_count);
                             ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
-        C_INCLUDE_PATH=$SAVED_C_INCLUDE_PATH
+        CFLAGS=$SAVED_CFLAGS
         AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
                       [],
                       [$CUDA_PATH/bin])
