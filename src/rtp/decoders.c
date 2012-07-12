@@ -1184,12 +1184,17 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         }
 
 cleanup:
+        ;
+        unsigned int frame_size = 0;
+
         for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct linked_list *)); ++i) {
                 ll_destroy(pckt_list[i]);
                 free(fec_buffers[i]);
 
-                pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, buffer_len[i]);
+                frame_size += buffer_len[i];
         }
+
+        pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);
 
         if(ret) {
                 decoder->displayed++;

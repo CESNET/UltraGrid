@@ -107,6 +107,12 @@
 #define ECHO_CANCELLATION (('E' << 8) | 'C')
 #define CUDA_DEVICE (('C' << 8) | 'D')
 
+#ifdef HAVE_MACOSX
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
+#else
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  8*1024*1024
+#endif
+
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -172,6 +178,7 @@ struct display *initialize_video_display(const char *requested_display,
 struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags);
 static void sender_finish(struct state_uv *uv);
+static void display_buf_increase_warning(int size);
 
 #ifndef WIN32
 static void signal_handler(int signal)
@@ -374,6 +381,28 @@ struct vidcap *initialize_video_capture(const char *requested_capture,
         return vidcap_init(id, fmt, flags);
 }
 
+static void display_buf_increase_warning(int size)
+{
+        fprintf(stderr, "\n***\n"
+                        "Unable to set buffer size to %d B.\n"
+                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
+                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
+#ifdef HAVE_MACOSX
+                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
+                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
+#else
+                        "\tsysctl -w net.core.rmem_max=%d\n"
+#endif
+                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
+                        "\n***\n\n",
+                        size, size,
+#ifdef HAVE_MACOSX
+                        size * 4,
+#endif /* HAVE_MACOSX */
+                        size);
+
+}
+
 static struct rtp **initialize_network(char *addrs, int recv_port_base, int send_port_base, struct pdb *participants)
 {
 	struct rtp **devices = NULL;
@@ -420,31 +449,11 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base, int send
 			rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
 				RTCP_SDES_TOOL,
 				PACKAGE_STRING, strlen(PACKAGE_STRING));
-#ifdef HAVE_MACOSX
-                        int size = 5944320;
-#else
-                        int size = 8*1024*1024;
-#endif
-                        int ret = rtp_set_recv_buf(devices[index], size);
-                        if(!ret) {
-                                fprintf(stderr, "\n***\n"
-                                                "Unable to set buffer size to %d B.\n"
-                                                "Please set net.core.rmem_max value to %d or greater. (see also\n"
-                                                "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
-#ifdef HAVE_MACOSX
-                                                "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
-                                                "\tsysctl -w net.inet.udp.recvspace=%d\n"
-#else
-                                                "\tsysctl -w net.core.rmem_max=%d\n"
-#endif
-                                                "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
-                                                "\n***\n\n",
-                                                size, size,
-#ifdef HAVE_MACOSX
-                                                size * 4,
-#endif /* HAVE_MACOSX */
-                                                size);
 
+                        int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+                        int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);
+                        if(!ret) {
+                                display_buf_increase_warning(size);
                         }
 
                         rtp_set_send_buf(devices[index], 1024 * 56);
@@ -531,7 +540,7 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         struct pbuf_video_data pbuf_data;
-        int last_buf_size = 0;
+        int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
 
         initialize_video_decompress();
         pbuf_data.decoder = decoder_init(uv->decoder_mode, uv->postprocess);
@@ -617,11 +626,14 @@ static void *receiver_thread(void *arg)
                 }
 
                 if(pbuf_data.decoded % 100 == 99) {
-                        int new_size = pbuf_data.max_frame_size * 101ull / 100;
-                        if(new_size != last_buf_size) {
+                        int new_size = pbuf_data.max_frame_size * 110ull / 100;
+                        if(new_size >= last_buf_size) {
                                 struct rtp **device = uv->network_devices;
                                 while(*device) {
-                                        rtp_set_recv_buf(*device, new_size);
+                                        int ret = rtp_set_recv_buf(*device, new_size);
+                                        if(!ret) {
+                                                display_buf_increase_warning(new_size);
+                                        }
                                         debug_msg("Recv buffer adjusted to %d\n", new_size);
                                         device++;
                                 }
