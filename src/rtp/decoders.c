@@ -767,7 +767,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         int i;
         struct linked_list *pckt_list[decoder->max_substreams];
         uint32_t buffer_len[decoder->max_substreams];
-        uint32_t received_len[decoder->max_substreams];
         uint32_t buffer_num[decoder->max_substreams];
         char *ext_recv_buffer[decoder->max_substreams];
         char *fec_buffers[decoder->max_substreams];
@@ -868,7 +867,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
 
                 buffer_num[substream] = buffer_number;
-                received_len[substream] = buffer_len[substream] = buffer_length;
+                buffer_len[substream] = buffer_length;
 
                 ll_insert(pckt_list[substream], data_pos, len);
                 
@@ -1189,7 +1188,7 @@ cleanup:
                 ll_destroy(pckt_list[i]);
                 free(fec_buffers[i]);
 
-                pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, received_len[i]);
+                pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, buffer_len[i]);
         }
 
         if(ret) {
