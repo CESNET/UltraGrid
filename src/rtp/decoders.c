@@ -63,6 +63,7 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
                                 struct video_frame *frame);
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
 void restrict_returned_codecs(codec_t *display_codecs, size_t *display_codecs_count, codec_t *pp_codecs, int pp_codecs_count);
+static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
 
 enum decoder_type_t {
         UNSET,
@@ -139,6 +140,13 @@ struct state_decoder {
         unsigned long int   corrupted;
 };
 
+static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode)
+{
+        decoder->video_mode = video_mode;
+        decoder->max_substreams = get_video_mode_tiles_x(decoder->video_mode)
+                        * get_video_mode_tiles_y(decoder->video_mode);
+}
+
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
 {
         struct state_decoder *s;
@@ -148,13 +156,14 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         s->disp_supported_il = NULL;
         s->postprocess = NULL;
         s->change_il = NULL;
-        s->video_mode = VIDEO_NORMAL;
 
         s->fec_state.state = NULL;
         s->fec_state.k = s->fec_state.m = s->fec_state.c = s->fec_state.seed = 0;
 
         s->displayed = s->dropped = s->corrupted = 0ul;
         
+        int video_mode = VIDEO_NORMAL;
+
         if(requested_mode) {
                 /* these are data comming from newtork ! */
                 if(strcasecmp(requested_mode, "help") == 0) {
@@ -164,11 +173,11 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
                         exit_uv(129);
                         return NULL;
                 } else if(strcasecmp(requested_mode, "tiled-4K") == 0) {
-                        s->video_mode = VIDEO_4K;
+                        video_mode = VIDEO_4K;
                 } else if(strcasecmp(requested_mode, "3D") == 0) {
-                        s->video_mode = VIDEO_STEREO;
+                        video_mode = VIDEO_STEREO;
                 } else if(strcasecmp(requested_mode, "dual-link") == 0) {
-                        s->video_mode = VIDEO_DUAL;
+                        video_mode = VIDEO_DUAL;
                 } else {
                         fprintf(stderr, "[decoder] Unknown video mode (see -M help)\n");
                         free(s);
@@ -176,8 +185,8 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
                         return NULL;
                 }
         }
-        s->max_substreams = get_video_mode_tiles_x(s->video_mode)
-                        * get_video_mode_tiles_y(s->video_mode);
+
+        decoder_set_video_mode(s, video_mode);
 
         if(postprocess) {
                 s->postprocess = vo_postprocess_init(postprocess);
@@ -831,8 +840,24 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
 
                 if(substream >= decoder->max_substreams) {
-                        fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n", substream, decoder->max_substreams);
-                        exit_uv(1);
+                        fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n",
+                                        substream, decoder->max_substreams);
+                        // the guess is valid - we start with highest substream number (anytime - since it holds a m-bit)
+                        // in next iterations, index is valid
+                        if(substream == 1 || substream == 3) {
+                                fprintf(stderr, "[decoder] Guessing mode: ");
+                                if(substream == 1) {
+                                        decoder_set_video_mode(decoder, VIDEO_STEREO);
+                                } else {
+                                        decoder_set_video_mode(decoder, VIDEO_4K);
+                                }
+                                decoder->received_vid_desc.width = 0; // just for sure, that we reconfigure in next iteration
+                                fprintf(stderr, "%s\n", get_video_mode_description(decoder->video_mode));
+                        } else {
+                                exit_uv(1);
+                        }
+                        // we need skip this frame (variables are illegal in this iteration
+                        // and in case that we got unrecognized number of substreams - exit
                         ret = FALSE;
                         goto cleanup;
                 }
@@ -1160,7 +1185,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         }
 
 cleanup:
-        for(i = 0; i < (int) decoder->max_substreams; ++i) {
+        for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct linked_list *)); ++i) {
                 ll_destroy(pckt_list[i]);
                 free(fec_buffers[i]);
 
