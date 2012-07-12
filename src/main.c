@@ -236,7 +236,7 @@ static void usage(void)
         printf("\n");
         printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
-        printf("\t-f <settings>            \tconfig forward error checking, currently \"mult:<nr>\" or\"ldgm[:<k>:<m>]\"\n");
+        printf("\t-f <settings>            \tconfig forward error checking, currently \"mult:<nr>\", \"ldgm:<max_expected_loss>%%\" or \"ldgm:<k>:<m>:<c>\"\n");
         printf("\n");
         printf("\t-P <port> | <recv_port>:<send_port>\n");
         printf("\t                         \tbase port number, also 3 subsequent ports can be used for RTCP and audio streams. Default: %d.\n", PORT_BASE);

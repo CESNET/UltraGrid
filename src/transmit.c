@@ -88,6 +88,10 @@ enum fec_scheme_t {
 #define GET_DELTA delta = stop.tv_nsec - start.tv_nsec
 #endif                          /* HAVE_MACOSX */
 
+
+static bool fec_is_ldgm(struct tx *tx);
+static void tx_update(struct tx *tx, struct tile *tile);
+
 void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
@@ -97,13 +101,51 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 struct tx {
         uint32_t magic;
         unsigned mtu;
+        double max_loss;
 
         unsigned int buffer:22;
+        unsigned long int sent_frames;
+        int32_t avg_len;
+        int32_t avg_len_last;
 
         enum fec_scheme_t fec_scheme;
         void *fec_state;
         int mult_count;
 };
+
+static bool fec_is_ldgm(struct tx *tx)
+{
+        return tx->fec_scheme == FEC_LDGM && tx->fec_state;
+}
+
+static void tx_update(struct tx *tx, struct tile *tile)
+{
+        if(!tile) {
+                return;
+        }
+        
+        uint64_t tmp_avg = tx->avg_len * tx->sent_frames + tile->data_len;
+        tx->sent_frames++;
+        tx->avg_len = tmp_avg / tx->sent_frames;
+        if(tx->sent_frames >= 100) {
+                if(tx->fec_scheme == FEC_LDGM) {
+                        if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
+                                int data_len = tx->mtu -  (40 + (sizeof(ldgm_payload_hdr_t)));
+                                data_len = (data_len / 48) * 48;
+                                void *fec_state_old = tx->fec_state;
+                                tx->fec_state = ldgm_encoder_init_with_param(data_len, tx->avg_len, tx->max_loss);
+                                if(tx->fec_state != NULL) {
+                                        tx->avg_len_last = tx->avg_len;
+                                        ldgm_encoder_destroy(fec_state_old);
+                                } else {
+                                        tx->fec_state = fec_state_old;
+                                }
+                        }
+                }
+                tx->avg_len = 0;
+                tx->sent_frames = 0;
+        }
+}
 
 struct tx *tx_init(unsigned mtu, char *fec)
 {
@@ -112,8 +154,11 @@ struct tx *tx_init(unsigned mtu, char *fec)
         tx = (struct tx *)malloc(sizeof(struct tx));
         if (tx != NULL) {
                 tx->magic = TRANSMIT_MAGIC;
+                tx->mult_count = 0;
+                tx->fec_state = NULL;
                 tx->mtu = mtu;
                 tx->buffer = lrand48() & 0x3fffff;
+                tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
                 tx->fec_scheme = FEC_NONE;
                 if (fec) {
                         char *save_ptr = NULL;
@@ -131,11 +176,19 @@ struct tx *tx_init(unsigned mtu, char *fec)
                         } else if(strcasecmp(item, "LDGM") == 0) {
                                 tx->fec_scheme = FEC_LDGM;
                                 item = save_ptr;
-                                tx->fec_state = ldgm_encoder_init(item);
-                                if(tx->fec_state == NULL) {
-                                        fprintf(stderr, "Unable to initialize LDGM.\n");
-                                        free(tx);
-                                        return NULL;
+                                if(item && strlen(item) > 0 && strchr(item, '%') == NULL) {
+                                        tx->fec_state = ldgm_encoder_init_with_cfg(item);
+                                        if(tx->fec_state == NULL) {
+                                                fprintf(stderr, "Unable to initialize LDGM.\n");
+                                                free(tx);
+                                                return NULL;
+                                        }
+                                } else { // delay creation until we have avarage frame size
+                                        if(item && strlen(item) > 0 && strchr(item, '%') != NULL) {
+                                                tx->max_loss = atof(item);
+                                        } else {
+                                                tx->max_loss = 5.0;
+                                        }
                                 }
                         } else {
                                 fprintf(stderr, "Unknown FEC: %s\n", item);
@@ -150,6 +203,7 @@ struct tx *tx_init(unsigned mtu, char *fec)
 void tx_done(struct tx *tx)
 {
         assert(tx->magic == TRANSMIT_MAGIC);
+        ldgm_encoder_destroy(tx->fec_state);
         free(tx);
 }
 
@@ -215,6 +269,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         char *data_to_send;
         int data_to_send_len;
 
+        tx_update(tx, tile);
+
         assert(tx->magic == TRANSMIT_MAGIC);
 
         perf_record(UVP_SEND, ts);
@@ -260,7 +316,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         char *hdr;
         int hdr_len;
 
-        if(tx->fec_scheme == FEC_LDGM) {
+        if(fec_is_ldgm(tx)) {
+                hdrs_len = 40 + (sizeof(ldgm_payload_hdr_t));
                 ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_hdr),
                                 tile->data, tile->data_len, &data_to_send, &data_to_send_len);
                 tmp = substream << 22;
@@ -288,7 +345,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 }
 
                 video_hdr.offset = htonl(pos);
-                if(tx->fec_scheme == FEC_LDGM) {
+                if(fec_is_ldgm(tx)) {
                         ldgm_hdr.offset = htonl(pos);
                 }
 
@@ -339,7 +396,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
         tx->buffer ++;
 
-        if(tx->fec_scheme == FEC_LDGM) {
+        if(fec_is_ldgm(tx)) {
                ldgm_encoder_free_buffer(tx->fec_state, data_to_send);
         }
 }

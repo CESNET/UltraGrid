@@ -45,7 +45,12 @@
 extern "C" {
 #endif /* __cplusplus */
 
-void *ldgm_encoder_init(char *cfg);
+/* 
+ * @param packet_size - approximate size of packet payload
+ * @param frame_size - approximate size of whole protected frame
+ */ 
+void *ldgm_encoder_init_with_cfg(char *cfg);
+void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_expected_loss);
 unsigned int ldgm_encoder_get_k(void *state);
 unsigned int ldgm_encoder_get_m(void *state);
 unsigned int ldgm_encoder_get_c(void *state);

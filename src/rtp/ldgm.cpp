@@ -63,8 +63,56 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#include <limits>
 
 #include "ldgm.h"
+
+typedef enum {
+        STD1500 = 1500,
+        JUMBO9000 = 9000,
+} packet_type_t;
+
+typedef struct {
+        packet_type_t packet_type;
+        int frame_size;
+        double loss;
+        // result
+        int k, m, c;
+
+} configuration_t;
+
+
+#define PCT2 2.0
+#define PCT5 5.0
+#define PCT10 10.0
+typedef double loss_t;
+
+loss_t losses[] = {
+        std::numeric_limits<double>::min(),
+                PCT2,
+                PCT5,
+                PCT10,
+};
+
+#define JPEG60_SIZE (217 * 1000)
+#define JPEG80_SIZE (177 * 1000)
+#define JPEG90_SIZE (144 * 1000)
+
+const configuration_t suggested_configurations[] = {
+        // JPEG 60
+        { STD1500, JPEG60_SIZE, PCT2, 750, 120, 5 },
+        { STD1500, JPEG60_SIZE, PCT5, 1500, 450, 6 },
+        { STD1500, JPEG60_SIZE, PCT10, 1000, 500, 7 },
+        // JPEG 80
+        { STD1500, JPEG80_SIZE, PCT2, 1500, 240, 5 },
+        { STD1500, JPEG80_SIZE, PCT5, 1250, 375, 6 },
+        { STD1500, JPEG80_SIZE, PCT10, 1500, 750, 8 },
+        // JPEG 90
+        { STD1500, JPEG90_SIZE, PCT2, 1500, 240, 6 },
+        { STD1500, JPEG90_SIZE, PCT5, 1500, 450, 6 },
+        { STD1500, JPEG90_SIZE, PCT10, 1500, 750, 8 },
+
+};
 
 #include "ldgm-coding/ldgm-session.h"
 #include "ldgm-coding/ldgm-session-cpu.h"
@@ -227,7 +275,7 @@ void usage() {
                         DEFAULT_K, DEFAULT_M, DEFAULT_C
                         );
 }
-void *ldgm_encoder_init(char *cfg)
+void *ldgm_encoder_init_with_cfg(char *cfg)
 {
         unsigned int k = DEFAULT_K,
                      m = DEFAULT_M,
@@ -284,6 +332,73 @@ void *ldgm_encoder_init(char *cfg)
         return (void *) s;
 }
 
+void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_expected_loss)
+{
+        struct ldgm_state_encoder *s = NULL;
+        packet_type_t packet_type;
+        int nearest = INT_MAX;
+        loss_t loss = -1.0;
+        int k, m, c;
+
+        assert(max_expected_loss >= 0.0 && max_expected_loss <= 100.0);
+
+        if(frame_size < 2000000 && packet_size >= (STD1500 + JUMBO9000) / 2) {
+                fprintf(stderr, "LDGM: with frames smaller than 2M you should use standard Ethernet frames.\n");
+                return NULL;
+        }
+
+        if(packet_size < (STD1500 + JUMBO9000) / 2) {
+                packet_type = STD1500;
+        } else {
+                packet_type = JUMBO9000;
+        }
+
+        for(int i = 1; i < sizeof(losses) / sizeof(loss_t); ++i) {
+                if(max_expected_loss >= losses[i - 1] && max_expected_loss <= losses[i]) {
+                        loss = losses[i];
+                        break;
+                }
+        }
+
+        if(loss == -1.0) {
+                fprintf(stderr, "LDGM: Cannot provide predefined settings for correction of loss of %f%%.\n", max_expected_loss);
+                fprintf(stderr, "LDGM: You have to try and set LDGM parameters manually. You can inform us if you need better protection.\n");
+                return NULL;
+        }
+
+        printf("LDGM: Choosing maximal loss %2.2f percent.\n", loss);
+
+        for(int i = 0; i < sizeof(suggested_configurations) / sizeof(configuration_t); ++i) {
+                if(suggested_configurations[i].packet_type == packet_type &&
+                                suggested_configurations[i].loss == loss) {
+                        if(abs(suggested_configurations[i].frame_size - frame_size) < abs(nearest - frame_size)) {
+                                nearest = suggested_configurations[i].frame_size;
+                                k = suggested_configurations[i].k;
+                                m = suggested_configurations[i].m;
+                                c = suggested_configurations[i].c;
+                        }
+                }
+        }
+
+        assert(nearest != INT_MAX);
+
+        double difference_from_frame_size = abs(nearest - frame_size) / (double) frame_size;
+        if(difference_from_frame_size > 0.5) {
+                fprintf(stderr, "LDGM: Chosen frame size setting is %.2f percent %s than your frame size.\n",
+                                difference_from_frame_size * 100.0, (nearest - frame_size > 0 ? "higher" : "lower"));
+                fprintf(stderr, "LDGM: This is the most approching one to your values.\n");
+                fprintf(stderr, "You may wish to set the parameters manually.\n");
+        }
+
+        try {
+                fprintf(stderr, "%d %d %d %d\n", nearest, k, m, c);
+                s = new ldgm_state_encoder(k, m, c);
+        } catch(...) {
+        }
+
+        return (void *) s;
+}
+
 unsigned int ldgm_encoder_get_k(void *state)
 {
         struct ldgm_state_encoder *s = (struct ldgm_state_encoder *) state;
@@ -327,6 +442,10 @@ void ldgm_encoder_free_buffer(void *state, char *buffer)
 
 void ldgm_encoder_destroy(void *state)
 {
+        if(!state) {
+                return;
+        }
+
         struct ldgm_state_encoder *s = (struct ldgm_state_encoder *) state;
 
         delete s;
@@ -357,6 +476,10 @@ void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, in
 
 void ldgm_decoder_destroy(void *state)
 {
+        if(!state) {
+                return;
+        }
+
         struct ldgm_state_decoder *s = (struct ldgm_state_decoder *) state;
 
         delete s;
