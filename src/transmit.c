@@ -128,7 +128,7 @@ static void tx_update(struct tx *tx, struct tile *tile)
         tx->sent_frames++;
         tx->avg_len = tmp_avg / tx->sent_frames;
         if(tx->sent_frames >= 100) {
-                if(tx->fec_scheme == FEC_LDGM) {
+                if(tx->fec_scheme == FEC_LDGM && tx->max_loss > 0.0) {
                         if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
                                 int data_len = tx->mtu -  (40 + (sizeof(ldgm_payload_hdr_t)));
                                 data_len = (data_len / 48) * 48;
@@ -155,6 +155,7 @@ struct tx *tx_init(unsigned mtu, char *fec)
         if (tx != NULL) {
                 tx->magic = TRANSMIT_MAGIC;
                 tx->mult_count = 0;
+                tx->max_loss = 0.0;
                 tx->fec_state = NULL;
                 tx->mtu = mtu;
                 tx->buffer = lrand48() & 0x3fffff;
