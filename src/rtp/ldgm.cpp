@@ -361,7 +361,7 @@ void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_e
         }
 
         if(loss == -1.0) {
-                fprintf(stderr, "LDGM: Cannot provide predefined settings for correction of loss of %f%%.\n", max_expected_loss);
+                fprintf(stderr, "LDGM: Cannot provide predefined settings for correction of loss of %.2f%%.\n", max_expected_loss);
                 fprintf(stderr, "LDGM: You have to try and set LDGM parameters manually. You can inform us if you need better protection.\n");
                 return NULL;
         }
@@ -380,14 +380,26 @@ void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_e
                 }
         }
 
-        assert(nearest != INT_MAX);
+        if (nearest == INT_MAX) {
+                // TODO: This is only temporal - because we miss JUMBO frame setting (uncompressed)
+                // then there should be assertion, because first is picked packet size and loss
+                // (table for any combination of loss and PS should be filled). At last, the nearest
+                // frame size is found.
+                fprintf(stderr, "LDGM: Could not find configuration matching your parameters.\n"
+                                "Please, set LDGM parameter manually.");
+                return NULL;
+        }
 
         double difference_from_frame_size = abs(nearest - frame_size) / (double) frame_size;
-        if(difference_from_frame_size > 0.5) {
+        if(difference_from_frame_size > 0.2) {
                 fprintf(stderr, "LDGM: Chosen frame size setting is %.2f percent %s than your frame size.\n",
                                 difference_from_frame_size * 100.0, (nearest - frame_size > 0 ? "higher" : "lower"));
                 fprintf(stderr, "LDGM: This is the most approching one to your values.\n");
                 fprintf(stderr, "You may wish to set the parameters manually.\n");
+        }
+
+        if(difference_from_frame_size > 0.5) {
+                return NULL;
         }
 
         try {
