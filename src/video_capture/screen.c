@@ -202,7 +202,7 @@ static void initialize() {
         glViewport(0, 0, state->tile->width, state->tile->height);
         glDisable(GL_DEPTH_TEST);
 
-        const char *vendor = glGetString(GL_VENDOR);
+        const char *vendor = (const char *) glGetString(GL_VENDOR);
         if(strcmp(vendor, "Tungsten Graphics, Inc") == 0) {
                 fprintf(stderr, "[screen capture] Intel graphic card detected, switching to Xlib screen capture.\n");
                 s->nogl = true;

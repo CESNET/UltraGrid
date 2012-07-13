@@ -66,10 +66,10 @@
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 #endif // WORDS_BIGENDIAN
 
-static inline int32_t format_from_in_bps(char *in, int bps);
+static inline int32_t format_from_in_bps(const char *in, int bps);
 static inline void format_to_out_bps(char *out, int bps, int32_t out_value);
 
-static inline int32_t format_from_in_bps(char * in, int bps) {
+static inline int32_t format_from_in_bps(const char * in, int bps) {
         int32_t in_value = 0;
         memcpy(&in_value, in, bps);
 
@@ -105,7 +105,7 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
 {
         int i;
 
-        assert (out_bps <= sizeof(int32_t));
+        assert ((unsigned int) out_bps <= sizeof(int32_t));
 
         for(i = 0; i < in_len / in_bps; i++) {
                 int32_t in_value = format_from_in_bps(in, in_bps);
@@ -228,7 +228,7 @@ double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int 
         float average_vol = 0;
         int i;
 
-        assert (bps <= sizeof(int32_t));
+        assert ((unsigned int) bps <= sizeof(int32_t));
 
         data += pos_in_stream * bps;
 

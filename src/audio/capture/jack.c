@@ -186,7 +186,7 @@ void * audio_cap_jack_init(char *cfg)
         i = 0;
         while(ports[i]) i++;
 
-        if(i < audio_capture_channels) {
+        if(i < (int) audio_capture_channels) {
                 fprintf(stderr, "[JACK capture] Requested channel count %d not found (matching pattern %s).\n",
                                 audio_capture_channels, cfg);
                 goto release_client;
