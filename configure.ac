@@ -1508,7 +1508,7 @@ AC_CHECK_HEADER(portaudio.h)
 AC_CHECK_LIB(portaudio, Pa_WriteStream) # this is relevant, it is an additional API, standard are callbacks
 LIBS=$SAVED_LIBS
 
-if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes
+if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes -a $portaudio_req = yes
 then
         PORTAUDIO_LIB='-lportaudio'
         portaudio=yes
