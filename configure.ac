@@ -1365,6 +1365,7 @@ JPEG_LIB=
 
 jpeg_req=yes
 jpeg=no
+jpeg_static=no
 
 AC_ARG_ENABLE(jpeg,
       AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]),
@@ -1407,9 +1408,20 @@ if test "$jpeg_req" = yes -a $HAVE_CUDA = yes -a "$FOUND_NPP_H" = yes -a "$jpeg_
         "$jpeg_os_version_ok" = yes
 then
         jpeg=yes
+
+        SAVED_LIBS=$LIBS
+        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+        LIBS=$SAVED_LIBS
+
         JPEG_LIB=" -lnpp $CUDA_LIB"
         JPEG_INC=$CUDA_INC
-        JPEG_COMMON_OBJ="src/video_compress/jpeg.o libgpujpeg/libgpujpeg.a"
+        JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
+        if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
+                JPEG_COMMON_OBJ+=" libgpujpeg/libgpujpeg.a"
+                jpeg_static=yes
+        else
+                JPEG_LIB+=" -lgpujpeg"
+        fi
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         LINKER=$CXX
         AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
@@ -1817,7 +1829,7 @@ RESULT=\
 
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
-  JPEG ........................ $jpeg
+  JPEG ........................ $jpeg (static: $jpeg_static)
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
