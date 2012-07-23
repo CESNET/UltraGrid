@@ -449,7 +449,7 @@ int display_decklink_putf(void *state, char *frame)
 }
 
 static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_desc desc, BMDTimeValue *frameRateDuration,
-		BMDTimeScale        *frameRateScale, int index)
+		BMDTimeScale        *frameRateScale)
 {	IDeckLinkDisplayModeIterator     *displayModeIterator;
         IDeckLinkDisplayMode*             deckLinkDisplayMode;
         BMDDisplayMode			  displayMode = bmdModeUnknown;
@@ -493,7 +493,7 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
                                 if(fabs(desc.fps - displayFPS) < 0.01 && (desc.interlacing == INTERLACED_MERGED ? interlaced : !interlaced)
                                   )
                                 {
-                                        printf("Device %d - selected mode: %s\n", index, modeNameCString);
+                                        printf("DeckLink - selected mode: %s\n", modeNameCString);
                                         displayMode = deckLinkDisplayMode->GetDisplayMode();
                                         break;
                                 }
@@ -548,7 +548,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                tile->data_len = tile->linesize * tile->height;
 	        }
 		displayMode = get_mode(s->state[0].deckLinkOutput, desc, &s->frameRateDuration,
-                                                &s->frameRateScale, 0);
+                                                &s->frameRateScale);
                 if(displayMode == (BMDDisplayMode) -1)
                         goto error;
 		
@@ -582,7 +582,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                tile->data_len = tile->linesize * tile->height;
 	                
 	                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
-                                                &s->frameRateScale, i);
+                                                &s->frameRateScale);
                         if(displayMode == (BMDDisplayMode) -1)
                                 goto error;
 
