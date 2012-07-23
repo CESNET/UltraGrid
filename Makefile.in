@@ -1,8 +1,9 @@
 AR            = ar
 RANLIB        = ranlib
 CC            = @CC@
-CXX	      = @CXX@
-LINKER	      = @LINKER@
+CXX           = @CXX@
+QMAKE         = @QMAKE@
+LINKER        = @LINKER@
 CFLAGS        = -fPIC -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -msse2
 CPPFLAGS      = @CPPFLAGS@
 CXXFLAGS      = -fPIC -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated -msse2
@@ -129,7 +130,7 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 
 .cpp.o:
 	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
-	
+
 # Set suffix for CUDA files
 .SUFFIXES: .cu
 
@@ -176,7 +177,7 @@ dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
 
 dxt_compress/dxt_decoder.o: dxt_compress/dxt_decoder.c dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
-	
+
 dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 		dxt_compress/compress_dxt1_fp.glsl dxt_compress/compress_dxt5ycocg_fp.glsl \
 		dxt_compress/display_fp.glsl dxt_compress/display_dxt5ycocg_fp.glsl \
@@ -199,27 +200,27 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	cat dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1
-	echo "static const char fp_compress_dxt1[] = " >> $@    
+	echo "static const char fp_compress_dxt1[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1 yuv
-	echo "static const char fp_compress_dxt1_yuv[] = " >> $@    
+	echo "static const char fp_compress_dxt1_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
 	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
-	echo "static const char fp_compress_dxt1_legacy[] = " >> $@    
+	echo "static const char fp_compress_dxt1_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
-	echo "static const char fp_compress_dxt1_yuv_legacy[] = " >> $@    
+	echo "static const char fp_compress_dxt1_yuv_legacy[] = " >> $@
 	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
@@ -309,7 +310,7 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#echo "static const char vp_display_rgba_to_yuv422[] = " >> $@
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
-	
+
 
 libgpujpeg/libgpujpeg.a:
 	CUDA_INSTALL_PATH=@CUDA_PATH@ make -j -C libgpujpeg/
@@ -318,7 +319,7 @@ libgpujpeg/libgpujpeg.a:
 	make -j -C @FASTDXT_PATH@/ lib
 
 gui/QT/uv-qt:
-	cd gui/QT; qmake; make -j; cd -
+	cd gui/QT; $(QMAKE) ; make -j; cd -
 
 # -------------------------------------------------------------------------------------------------
 TEST_OBJS = test/test_bitstream.o \
@@ -333,7 +334,7 @@ TEST_OBJS = test/test_bitstream.o \
 	    test/test_rtp.o \
 	    test/run_tests.o
 
-test/run_tests: $(TEST_OBJS) $(OBJS) 
+test/run_tests: $(TEST_OBJS) $(OBJS)
 	$(LINKER) $(CFLAGS) $(TEST_OBJS) $(OBJS) $(LIBS) -o test/run_tests
 
 suggest-tests:
@@ -345,7 +346,7 @@ configure-messages:
 	@echo "@POST_COMPILE_MSG@"
 
 
-tests: test/run_tests 
+tests: test/run_tests
 	@test/run_tests
 
 # -------------------------------------------------------------------------------------------------
@@ -357,7 +358,7 @@ AG_PLUGIN_TX_SCRIPTS = ag_plugin/uvSenderService.py \
 
 ag_plugin/uvSenderService.zip: $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
 	@echo "Creating AccessGrid plugin: uvSenderService.zip"
-	@rm  -f ag_plugin/uvSenderService.zip 
+	@rm  -f ag_plugin/uvSenderService.zip
 	@zip -j ag_plugin/uvSenderService.zip $(AG_PLUGIN_TX_SCRIPTS) $(TARGET)
 
 AG_PLUGIN_RX_SCRIPTS = ag_plugin/uvReceiverService.py \
@@ -366,12 +367,12 @@ AG_PLUGIN_RX_SCRIPTS = ag_plugin/uvReceiverService.py \
 
 ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 	@echo "Creating AccessGrid plugin: uvReceiverService.zip"
-	@rm  -f ag_plugin/uvReceiverService.zip 
+	@rm  -f ag_plugin/uvReceiverService.zip
 	@zip -j ag_plugin/uvReceiverService.zip $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 
 # -------------------------------------------------------------------------------------------------
 clean:
-	-rm -f $(OBJS) $(HEADERS) src/main.o $(TARGET) src/version.h 
+	-rm -f $(OBJS) $(HEADERS) src/main.o $(TARGET) src/version.h
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
@@ -397,7 +398,7 @@ bundle: all
 	mkdir -p $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
-	
+
 	@if `which dylibbundler`; then \
 		dylibbundler -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
 		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
@@ -406,7 +407,7 @@ bundle: all
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
-	
+
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
 
 perf: src/tv.o src/crypto/random.o
@@ -556,5 +557,5 @@ uninstall:
 	if [ -n "@LIB_TARGETS@" ]; then for n in @LIB_TARGETS@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
-	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh 	
+	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	if [ -f "$(GUI_TARGET)" ]; then $(RM) $(DESTDIR)/$(bindir)/`basename $(GUI_TARGET)`; fi

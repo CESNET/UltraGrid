@@ -36,7 +36,7 @@ typedef bool _Bool;
 # define false 0
 # define true 1
 # define __bool_true_false_are_defined 1
-#endif 
+#endif
 #endif // ! defined __cplusplus
 ])
 
@@ -88,7 +88,7 @@ case "$host" in
 	i*86-*-linux-*)
 		AC_DEFINE([HAVE_32B_LINUX], [1], [We have 32-bit Linux])
 	;;
-esac	
+esac
 
 AC_MSG_CHECKING([OS family])
 
@@ -125,7 +125,7 @@ AC_SUBST(LDFLAGS)
 AC_SUBST(CXXFLAGS)
 
 AC_ARG_ENABLE(depends-version-check,
-        AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]), 
+        AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]),
 	[version_check=$enableval],
         [version_check=yes]
         )
@@ -230,7 +230,7 @@ AC_SUBST(MATHLIBS)
 AC_CHECK_FUNCS(sched_setscheduler)
 use_rt=no
 AC_ARG_ENABLE(rt,
-              AS_HELP_STRING([--enable-rt], [enable RT priority]), 
+              AS_HELP_STRING([--enable-rt], [enable RT priority]),
 	[use_rt=$enableval])
 if test "$use_rt" = "yes"; then
         AC_DEFINE([USE_RT], [1], [We use RT priority])
@@ -286,7 +286,7 @@ AC_ARG_ENABLE(ipv6,
 # Dynamic libraries stuff
 #
 build_libraries=no
-AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build modules as libraries (default is off)]), 
+AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build modules as libraries (default is off)]),
 	[build_libraries=$enableval])
 
 if test "$build_libraries" = yes
@@ -350,8 +350,8 @@ case "$host_os" in
         ;;
         *)
         AC_PATH_XTRA
-        
-        if test ! $no_x ; then 
+
+        if test ! $no_x ; then
                 # Check if X headers are broken.  GCC 2.95 and up reject headers that don't
                 # have omit types, X11 headers have implicit int declarations on some systems
                 # (e.g. Solaris).
@@ -362,12 +362,12 @@ case "$host_os" in
                         #include <X11/Xutil.h>]], [[return 0]])],[x11_cv_broken_headers=no],[x11_cv_broken_headers=yes])
                         CFLAGS=$SAVED_CFLAGS
                 ]);
-        
-                # If X headers look broken, check if we can use -istdinc.  If so replace 
+
+                # If X headers look broken, check if we can use -istdinc.  If so replace
                 # -IXDIR with -istdincXDIR to suppress warnings.  NB it is possible to use
                 # -fpermissive, but not in conjunction with -Werror since warnings are still
                 # generated.  Could pull local headers through:
-                #			 's/^\(extern\) \([[A-Za-z0-9]]*($\)/\1 int \2/' 
+                #			 's/^\(extern\) \([[A-Za-z0-9]]*($\)/\1 int \2/'
                 if test $x11_cv_broken_headers = yes -a $GCC = "yes" ; then
                         SAVED_X_CFLAGS=$X_CFLAGS
                         X_CFLAGS=`echo $X_CFLAGS | sed 's%-I%-istdinc%'`
@@ -406,7 +406,7 @@ case "$host_os" in
 	;;
 esac
 
-# This should be conditional on finding libdv 
+# This should be conditional on finding libdv
 AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 
 # -------------------------------------------------------------------------------------------------
@@ -414,7 +414,7 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 dvs=no
 dvs_req=yes
 AC_ARG_ENABLE(dvs,
-              AS_HELP_STRING([--disable-dvs], [disable DVS (default is auto)]), 
+              AS_HELP_STRING([--disable-dvs], [disable DVS (default is auto)]),
 	[dvs_req=$enableval])
 
 case "$host" in
@@ -427,7 +427,7 @@ case "$host" in
 	i*86-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86"
 	;;
-esac	
+esac
 
 if test -n "$DVS_DIRECTORY"
 then
@@ -438,7 +438,7 @@ else
 	DVS_LIB=sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib
 fi
 
-AC_ARG_WITH(dvs,           
+AC_ARG_WITH(dvs,
 	[  --with-dvs=DIR    specify location of DVS SDK],
 	[DVS_INC=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
@@ -494,7 +494,7 @@ DECKLINK_PATH=
 decklink=no
 decklink_req=yes
 
-AC_ARG_ENABLE(decklink, AS_HELP_STRING([--disable-decklink], [disable DeckLink (default is auto)]), 
+AC_ARG_ENABLE(decklink, AS_HELP_STRING([--disable-decklink], [disable DeckLink (default is auto)]),
 	[decklink_req=$enableval])
 DECKLINK_INC=
 
@@ -507,7 +507,7 @@ case "$host_os" in
                 LIBS+=" -framework CoreFoundation DeckLink/include/DeckLinkAPIDispatch.cpp"
                 AC_LANG_PUSH(C++)
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/include/DeckLinkAPI.h"
-                                   ]], 
+                                   ]],
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
                 if test $FOUND_DECKLINK = yes; then
@@ -578,8 +578,8 @@ linsys=no
 case $host in
     *-linux-*)
 
-        AC_ARG_ENABLE(linsys, 
-              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]), 
+        AC_ARG_ENABLE(linsys,
+              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
             [linsys_req=$enableval],
             [linsys_req=yes]
             )
@@ -626,8 +626,8 @@ deltacast=no
 case $host in
     *-linux-*)
 
-        AC_ARG_ENABLE(deltacast, 
-              AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]), 
+        AC_ARG_ENABLE(deltacast,
+              AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]),
             [deltacast_req=$enableval],
             [deltacast_req=yes]
             )
@@ -639,7 +639,7 @@ case $host in
             ])
 
         AC_LANG_PUSH(C++)
-        
+
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS_SAVE=$CXXFLAGS
@@ -670,15 +670,15 @@ case $host in
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[# include <VideoMasterHD_Core.h>
                           # include <VideoMasterHD_Sdi.h>
                           # include <VideoMasterHD_Sdi_Audio.h>
-                           ]], 
+                           ]],
                            [[VHD_SlotExtractAudio(0, 0);
                             VHD_LockSlotHandle(0, 0);
                             ]])],FOUND_VHD_AUDIO_L=yes,FOUND_VHD_AUDIO_L=no)
         #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
         LIBS=$SAVED_LIBS
-        
+
         AC_LANG_POP(C++)
-        
+
         if test $deltacast_req = yes -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
                 -a "$ac_cv_lib_videomasterhd_VHD_OpenBoardHandle" = yes -a "$FOUND_VHD_AUDIO_L"
         then
@@ -692,7 +692,7 @@ case $host in
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
                 AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
-                LIB_TARGETS+=" $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET" 
+                LIB_TARGETS+=" $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
                 LIB_OBJS+=" $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
                 deltacast=yes
         else
@@ -722,8 +722,8 @@ QUICKTIME_LIB=
 QUICKTIME_OBJ=
 quicktime=no
 
-AC_ARG_ENABLE(quicktime, 
-      AS_HELP_STRING([--disable-quicktime], [disable QuickTime support(default is auto)]), 
+AC_ARG_ENABLE(quicktime,
+      AS_HELP_STRING([--disable-quicktime], [disable QuickTime support(default is auto)]),
     [quicktime_req=$enableval],
     [quicktime_req=yes]
     )
@@ -732,7 +732,7 @@ case $host_os in
 	*darwin*)
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
-	
+
 		if test $quicktime_req = yes -a $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
 		then
 			QUICKTIME_INC=
@@ -757,8 +757,8 @@ SDL_OBJ=
 SDL_LIBS=
 sdl=no
 
-AC_ARG_ENABLE(sdl, 
-              AS_HELP_STRING([--disable-sdl], [enable SDL(default is enable)]), 
+AC_ARG_ENABLE(sdl,
+              AS_HELP_STRING([--disable-sdl], [enable SDL(default is enable)]),
     [sdl_req=$enableval],
     [sdl_req=yes]
     )
@@ -875,7 +875,7 @@ esac
 if test $sdl = yes
 then
         AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/display_sdl.so.$video_display_abi_version")
-        LIB_TARGETS+=" $SDL_LIB_TARGET" 
+        LIB_TARGETS+=" $SDL_LIB_TARGET"
         LIB_OBJS+=" $SDL_OBJ"
 fi
 
@@ -887,8 +887,8 @@ AC_SUBST(SDL_LIBS)
 # -------------------------------------------------------------------------------------------------
 # Testcard stuff
 
-AC_ARG_ENABLE(testcard-extras, 
-      AS_HELP_STRING([--enable-testcard-extras], [enable testcard addons - audio and testcard2 (default is disabled)]), 
+AC_ARG_ENABLE(testcard-extras,
+      AS_HELP_STRING([--enable-testcard-extras], [enable testcard addons - audio and testcard2 (default is disabled)]),
     [testcard_extras_req=$enableval],
     [testcard_extras_req=no]
     )
@@ -899,7 +899,7 @@ TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
 AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/vidcap_testcard.so.$video_capture_abi_version")
-LIB_TARGETS+=" $TESTCARD_LIB_TARGET" 
+LIB_TARGETS+=" $TESTCARD_LIB_TARGET"
 LIB_OBJS+=" $TESTCARD_OBJ"
 
 if test $testcard_extras_req = yes
@@ -927,7 +927,7 @@ then
                 fi
                 AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
-                LIB_TARGETS+=" $TESTCARD2_LIB_TARGET" 
+                LIB_TARGETS+=" $TESTCARD2_LIB_TARGET"
                 LIB_OBJS+=" $TESTCARD2_OBJ"
         fi
 fi
@@ -951,8 +951,8 @@ GL_OBJ=
 GL_LIB=
 gl=no
 
-AC_ARG_ENABLE(gl, 
-      AS_HELP_STRING([--disable-gl], [disable OpenGL (default is auto)]), 
+AC_ARG_ENABLE(gl,
+      AS_HELP_STRING([--disable-gl], [disable OpenGL (default is auto)]),
     [gl_req=$enableval],
     [gl_req=yes]
     )
@@ -966,7 +966,7 @@ case "$host_os" in
 	*darwin*)
 	AC_CHECK_HEADERS([OpenGL/gl.h OpenGL/glext.h],
 			 [FOUND_GL_H=yes],
-			 [FOUND_GL_H=no], 
+			 [FOUND_GL_H=no],
 			 [
 		 	  #include <OpenGL/gl.h>
 			  #include <OpenGL/glext.h>
@@ -1018,10 +1018,10 @@ case "$host_os" in
 		echo "OpenGL headers not found or not usable."
 	fi
 	;;
-	*) 
+	*)
 	AC_CHECK_HEADERS([GL/gl.h GL/glx.h ],
 			 [FOUND_GL_H=yes],
-			 [FOUND_GL_H=no], 
+			 [FOUND_GL_H=no],
 			 [
 		 	  #include <GL/gl.h>
 			  #include <GL/glx.h>
@@ -1035,7 +1035,7 @@ case "$host_os" in
 		if test $gl_req = yes -a $FOUND_GL_L = yes
 		then
 			GL_LIB+=" -lGL"
-	
+
 			AC_CHECK_HEADERS([GL/glut.h],
 					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.")],
 					 [echo "GL/glut.h not found."]
@@ -1070,7 +1070,7 @@ esac
 if test $gl = yes
 then
         AC_SUBST(GL_LIB_TARGET, "lib/ultragrid/display_gl.so.$video_display_abi_version")
-        LIB_TARGETS+=" $GL_LIB_TARGET" 
+        LIB_TARGETS+=" $GL_LIB_TARGET"
         LIB_OBJS+=" $GL_OBJ"
 fi
 
@@ -1089,8 +1089,8 @@ SCREEN_CAP_OBJ=
 SCREEN_CAP_LIB=
 screen_cap=no
 
-AC_ARG_ENABLE(screen, 
-      AS_HELP_STRING([--disable-screen], [disable screen capture (default is auto)]), 
+AC_ARG_ENABLE(screen,
+      AS_HELP_STRING([--disable-screen], [disable screen capture (default is auto)]),
     [screen_cap_req=$enableval],
     [screen_cap_req=yes]
     )
@@ -1110,7 +1110,7 @@ case "$host_os" in
 		fi
 
 	;;
-	*) 
+	*)
                 # Linux
                 SAVED_LIBS=$LIBS
                 AC_CHECK_HEADER(GL/glew.h)
@@ -1138,7 +1138,7 @@ then
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen_capture])
         AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
         SCREEN_CAP_OBJ="src/video_capture/screen.o"
-        LIB_TARGETS+=" $SCREEN_CAP_LIB_TARGET" 
+        LIB_TARGETS+=" $SCREEN_CAP_LIB_TARGET"
         LIB_OBJS+=" $SCREEN_CAP_OBJ"
 fi
 
@@ -1156,7 +1156,7 @@ fastdxt=no
 fastdxt_req=yes
 FASTDXT_OBJ=
 
-AC_ARG_ENABLE(fastdxt, 
+AC_ARG_ENABLE(fastdxt,
 	[  --disable-fastdxt        disable FastDXT],
 	[fastdxt_req=$enableval])
 
@@ -1176,7 +1176,7 @@ then
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 	LINKER=$CXX
         AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
-        LIB_TARGETS+=" $FASTDXT_LIB_TARGET" 
+        LIB_TARGETS+=" $FASTDXT_LIB_TARGET"
         LIB_OBJS+=" $FASTDXT_OBJ"
         fastdxt=yes
 else
@@ -1195,8 +1195,8 @@ AC_SUBST(FASTDXT_OBJ)
 # GLSL DXT
 rtdxt=no
 
-AC_ARG_ENABLE(rtdxt, 
-      AS_HELP_STRING([--disable-rtdxt], [disable Real-Time OpenGL DXT compression (default is auto)]), 
+AC_ARG_ENABLE(rtdxt,
+      AS_HELP_STRING([--disable-rtdxt], [disable Real-Time OpenGL DXT compression (default is auto)]),
 	[rtdxt_req=$enableval],
         [rtdxt_req=yes])
 
@@ -1241,10 +1241,10 @@ then
         DXT_GLSL_CFLAGS="-std=gnu99"
         AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_rtdxt.so.$video_compress_abi_version")
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
-        LIB_TARGETS+=" $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET" 
+        LIB_TARGETS+=" $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS+=" $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
         LIB_HEADERS="$RTDXT_COMMON_HEADERS"
-fi    
+fi
 
 LIB_MODULES+=" $RTDXT_LIB"
 
@@ -1286,7 +1286,7 @@ LIBS+=" -lcudart"
 if test -z "$CUDA_PATH"
 then
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
-                           ]], 
+                           ]],
                            [[int devices_count;
                             cudaGetDeviceCount(&devices_count);
                             ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
@@ -1310,7 +1310,7 @@ then
                 LIBS+=" -L$CUDA_PATH/lib"
         fi
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
-                           ]], 
+                           ]],
                            [[int devices_count;
                             cudaGetDeviceCount(&devices_count);
                             ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
@@ -1366,8 +1366,8 @@ JPEG_LIB=
 jpeg_req=yes
 jpeg=no
 
-AC_ARG_ENABLE(jpeg, 
-      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]), 
+AC_ARG_ENABLE(jpeg,
+      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]),
 	[jpeg_req=$enableval],
         [jpeg_req=yes])
 
@@ -1416,7 +1416,7 @@ then
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
-        LIB_TARGETS+=" $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET" 
+        LIB_TARGETS+=" $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
         LIB_OBJS+=" $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
         POST_COMPILE_MSG+="\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
@@ -1442,8 +1442,8 @@ SAGE_INC=
 SAGE_LIB=
 sage=no
 
-AC_ARG_ENABLE(sage, 
-      AS_HELP_STRING([--disable-sage], [disable SAGE (default is auto)]), 
+AC_ARG_ENABLE(sage,
+      AS_HELP_STRING([--disable-sage], [disable SAGE (default is auto)]),
 	[sage_req=$enableval],
         [sage_req=yes])
 
@@ -1472,7 +1472,7 @@ then
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
     AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
-    LIB_TARGETS+=" $SAGE_LIB_TARGET" 
+    LIB_TARGETS+=" $SAGE_LIB_TARGET"
     LIB_OBJS+=" $SAGE_OBJ"
     sage=yes
 else
@@ -1496,8 +1496,8 @@ PORTAUDIO_CAP_OBJ=
 PORTAUDIO_PLAY_OBJ=
 portaudio=no
 
-AC_ARG_ENABLE(portaudio, 
-      AS_HELP_STRING([--enable-portaudio], [disable Portaudio (default is auto)]), 
+AC_ARG_ENABLE(portaudio,
+      AS_HELP_STRING([--enable-portaudio], [disable Portaudio (default is auto)]),
 	[portaudio_req=$enableval],
         [portaudio_req=yes])
 
@@ -1522,7 +1522,7 @@ then
             AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
             AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/acap_portaudio.so.$audio_capture_abi_version")
             AC_SUBST(PORTAUDIO_PLAY_LIB_TARGET, "lib/ultragrid/aplay_portaudio.so.$audio_playback_abi_version")
-            LIB_TARGETS+=" $PORTAUDIO_CAP_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET" 
+            LIB_TARGETS+=" $PORTAUDIO_CAP_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET"
             LIB_OBJS+=" $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ"
 else
             PORTAUDIO_INC=
@@ -1542,7 +1542,7 @@ AC_SUBST(PORTAUDIO_PLAY_OBJ)
 # SPEEX
 
 speex=yes
-SPEEX_PATH=speex-1.2rc1/
+SPEEX_PATH=speex-1.2rc1
 SPEEX_INC=-I${SPEEX_PATH}/include
 SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
 SPEEX_OBJ+=" src/audio/echo.o"
@@ -1562,8 +1562,8 @@ AC_SUBST(SPEEX_OBJ)
 jack_trans=no
 jack=no
 
-AC_ARG_ENABLE(jack-transport, 
-      AS_HELP_STRING([--enable-jack-transport], [enable JACK transport (default is disable)]), 
+AC_ARG_ENABLE(jack-transport,
+      AS_HELP_STRING([--enable-jack-transport], [enable JACK transport (default is disable)]),
 	[jack_trans_req=$enableval],
         [jack_trans_req=no])
 
@@ -1582,7 +1582,7 @@ AC_SUBST(JACK_TRANS_INC)
 
 # sound system
 AC_ARG_ENABLE(jack,
-      AS_HELP_STRING([--enable-jack], [enable JACK (default is disable)]), 
+      AS_HELP_STRING([--enable-jack], [enable JACK (default is disable)]),
 	[jack_req=$enableval],
         [jack_req=yes])
 
@@ -1595,7 +1595,7 @@ then
     jack=yes
     AC_SUBST(JACK_CAP_LIB_TARGET, "lib/ultragrid/acap_jack.so.$audio_capture_abi_version")
     AC_SUBST(JACK_PLAY_LIB_TARGET, "lib/ultragrid/aplay_jack.so.$audio_playback_abi_version")
-    LIB_TARGETS+=" $JACK_CAP_LIB_TARGET $JACK_PLAY_LIB_TARGET" 
+    LIB_TARGETS+=" $JACK_CAP_LIB_TARGET $JACK_PLAY_LIB_TARGET"
     LIB_OBJS+=" $JACK_CAP_OBJ $JACK_PLAY_OBJ"
 fi
 
@@ -1617,8 +1617,8 @@ AC_SUBST(JACK_INC)
 #
 # ALSA
 #
-AC_ARG_ENABLE(alsa, 
-      AS_HELP_STRING([--disable-alsa], [disable ALSA (default is auto)]), 
+AC_ARG_ENABLE(alsa,
+      AS_HELP_STRING([--disable-alsa], [disable ALSA (default is auto)]),
 	[alsa_req=$enableval],
         [alsa_req=yes])
 AC_CHECK_HEADER(alsa/asoundlib.h)
@@ -1634,7 +1634,7 @@ then
         ALSA_LIB="-lasound"
         AC_SUBST(ALSA_CAP_LIB_TARGET, "lib/ultragrid/acap_alsa.so.$audio_capture_abi_version")
         AC_SUBST(ALSA_PLAY_LIB_TARGET, "lib/ultragrid/aplay_alsa.so.$audio_playback_abi_version")
-        LIB_TARGETS+=" $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET" 
+        LIB_TARGETS+=" $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET"
         LIB_OBJS+=" $ALSA_CAP_OBJ $ALSA_PLAY_OBJ"
 else
         alsa=no
@@ -1655,8 +1655,8 @@ COREAUDIO_LIB=
 COREAUDIO_OBJ=
 coreaudio=no
 
-AC_ARG_ENABLE(coreaudio, 
-      AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto)]), 
+AC_ARG_ENABLE(coreaudio,
+      AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto)]),
     [coreaudio_req=$enableval],
     [coreaudio_req=yes]
     )
@@ -1664,7 +1664,7 @@ AC_ARG_ENABLE(coreaudio,
 case $host_os in
 	*darwin*)
 		AC_CHECK_HEADERS([AudioUnit/AudioUnit.h], [FOUND_AUDIOUNIT_H=yes], [echo "AudioUnit headers not found."])
-	
+
 		if test $coreaudio_req = yes -a $FOUND_AUDIOUNIT_H = yes
 		then
 			COREAUDIO_INC=
@@ -1695,8 +1695,8 @@ SCALE_LIB=
 SCALE_OBJ=
 scale=no
 
-AC_ARG_ENABLE(scale, 
-      AS_HELP_STRING([--disable-scale], [disable scale support(default is auto)]), 
+AC_ARG_ENABLE(scale,
+      AS_HELP_STRING([--disable-scale], [disable scale support(default is auto)]),
     [scale_req=$enableval],
     [scale_req=yes]
     )
@@ -1744,21 +1744,25 @@ AC_SUBST(SCALE_OBJ)
 # -------------------------------------------------------------------------------------------------
 # QT GUI
 GUI_TARGET=
+QMAKE=
+#qmake # default for most distributions
 
-AC_ARG_ENABLE(qt, 
-      AS_HELP_STRING([--enable-qt], [build QT GUI (default is disabled)]), 
+AC_ARG_ENABLE(qt,
+    AS_HELP_STRING([--enable-qt], [build QT GUI (default is disabled)]),
     [qt_req=$enableval],
     [qt_req=no]
     )
 
 if test $qt_req = yes
 then
+        AC_CHECK_PROGS(QMAKE, [qmake qmake-qt4])
         GUI_TARGET=gui/QT/uv-qt
 else
         GUI_TARGET=
 fi
 
 AC_SUBST(GUI_TARGET)
+AC_SUBST(QMAKE)
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
@@ -1804,13 +1808,13 @@ RESULT=\
   SAGE ........................ $sage
   SDL ......................... $sdl
   screen capture .............. $screen_cap
-  
+
   Portaudio ................... $portaudio
   ALSA ........................ $alsa
   CoreAudio ................... $coreaudio
   JACK  ....................... $jack
   JACK transport .............. $jack_trans
-  
+
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg
