@@ -273,9 +273,9 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
         gettimeofday(&s->t0, NULL);
 
         s->fps = 0.0;
-#ifdef LINUX
+#ifdef HAVE_LINUX
         s->nogl = false;
-#endif // LINUX
+#endif // HAVE_LINUX
 
         s->frame = NULL;
         s->tile = NULL;
@@ -292,10 +292,10 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
                         return NULL;
                 } else if (strncasecmp(init_fmt, "fps=", strlen("fps=")) == 0) {
                         s->fps = atoi(init_fmt + strlen("fps="));
-#ifdef LINUX
+#ifdef HAVE_LINUX
                 } else if (strcasecmp(init_fmt, "nogl") == 0) {
                         s->nogl = true;
-#endif // LINUX
+#endif // HAVE_LINUX
                 }
         }
 
