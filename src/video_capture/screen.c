@@ -208,6 +208,11 @@ static void initialize() {
                 s->nogl = true;
         }
 
+        if(strcmp(vendor, "ATI Technologies Inc.") == 0) {
+                fprintf(stderr, "[screen capture] AMD graphic card detected, switching to Xlib screen capture.\n");
+                s->nogl = true;
+        }
+
 #else
         s->display = CGMainDisplayID();
         CGImageRef image = CGDisplayCreateImage(s->display);
