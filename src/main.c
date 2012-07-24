@@ -219,15 +219,19 @@ void (*exit_uv)(int status) = _exit_uv;
 static void usage(void)
 {
         /* TODO -c -p -b are deprecated options */
-        printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>] [-s <audio_caputre>] [-l <limit_bitrate>\n");
-        printf("          [-m <mtu>] [-c] [-i] [-M <video_mode>] [-p <postprocess>] [-f <FEC_options>] [-P <port>] address(es)\n\n");
+        printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>]\n");
+        printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
+                        "[-m <mtu>] [-c] [-i]\n");
+        printf("          [-M <video_mode>] [-p <postprocess>] "
+                        "[-f <FEC_options>] [-P <port>]\n");
+        printf("          address(es)\n\n");
         printf
-            ("\t-d <display_device>        \tselect display device, use '-d help' to get\n");
-        printf("\t                         \tlist of supported devices\n");
+            ("\t-d <display_device>        \tselect display device, use '-d help'\n");
+        printf("\t                         \tto get list of supported devices\n");
         printf("\n");
         printf
-            ("\t-t <capture_device>        \tselect capture device, use '-t help' to get\n");
-        printf("\t                         \tlist of supported devices\n");
+            ("\t-t <capture_device>        \tselect capture device, use '-t help'\n");
+        printf("\t                         \tto get list of supported devices\n");
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
@@ -237,51 +241,47 @@ static void usage(void)
         printf("\n");
         printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
         printf("\n");
-        printf("\t-j <settings>            \tJACK Audio Connection Kit settings (see '-j help')\n");
+        printf("\t-j <settings>            \tJACK Audio Connection Kit settings\n");
         printf("\n");
-        printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D, dual-link)\n");
+        printf("\t-M <video_mode>          \treceived video mode (eg tiled-4K, 3D,\n");
+        printf("\t                         \tdual-link)\n");
         printf("\n");
         printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
-        printf("\t-f <settings>            \tconfig forward error checking, currently \"mult:<nr>\", \"ldgm:<max_expected_loss>%%\" or \"ldgm:<k>:<m>:<c>\"\n");
+        printf("\t-f <settings>            \tFEC settings - use \"mult:<nr>\",\n");
+        printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
+        printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
         printf("\n");
         printf("\t-P <port> | <recv_port>:<send_port>\n");
-        printf("\t                         \tbase port number, also 3 subsequent ports can be used for RTCP and audio streams. Default: %d.\n", PORT_BASE);
-        printf("\t                         \tIf one given, it will be used for both sending and receiving, if two, first one\n");
-        printf("\t                         \twill be used for receiving, second one for sending.\n");
+        printf("\t                         \tbase port number, also 3 subsequent\n");
+        printf("\t                         \tports can be used for RTCP and audio\n");
+        printf("\t                         \tstreams. Default: %d.\n", PORT_BASE);
+        printf("\t                         \tIf one given, it will be used for both\n");
+        printf("\t                         \tsending and receiving, if two, first one\n");
+        printf("\t                         \twill be used for receiving, second one\n");
+        printf("\t                         \tfor sending.\n");
         printf("\n");
         printf("\t-l <limit_bitrate>       \tlimit sending bitrate (aggregate)\n");
         printf("\t                         \tto limit_bitrate Mb/s\n");
         printf("\n");
-        printf("\t--audio-channel-map <mapping> \tmapping of input audio channels to output audio channels\n");
-        printf("\t                         \tcomma-separated list of channel mapping\n");
-        printf("\t                         \teg. 0:0,1:0 - mixes first 2 channels into one mono stream\n");
-        printf("\t                         \t    0:0,:1 - first stream is left as is, second stream is set to silence\n");
-        printf("\t                         \t    0:0,0:1 - splits mono stream into 2 channels\n");
-        printf("\t                         \t\n");
+        printf("\t--audio-channel-map      <mapping> | help\n");
         printf("\n");
-        printf("\t--audio-scale [<factor>|<method>]\n");
-        printf("\t                         \tFloating point number which tells a static scaling factor for all output channels.\n");
-        printf("\t                         \tScaling method can be one from these:\n");
-        printf("\t                         \t\tmixauto - automatically adjust volume if using channel mixing/remapping (default)\n");
-        printf("\t                         \t\tauto - automatically adjust volume\n");
-        printf("\t                         \t\tnone - no scaling will be performed\n");
-        printf("\t                         \t\n");
+        printf("\t--audio-scale            <factor> | <method> | help\n");
         printf("\n");
-        printf("\t--audio-capture-channels <count>\n");
-        printf("\t                         \tHow many of input channels should be captured (default 2).\n");
-        printf("\t                         \t\n");
-        printf("\n");
+        printf("\t--audio-capture-channels <count> number of input channels that will\n");
+        printf("\t                                 be captured (default 2).\n");
         printf("\n");
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
         printf("\t--cuda-device [<index>|help]\tuse specified CUDA device\n");
         printf("\n");
+        printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
         printf("\t                         \tIf comma-separated list of addresses\n");
         printf("\t                         \tis entered, video frames are split\n");
-        printf("\t                         \tand chunks are sent/received independently.\n");
+        printf("\t                         \tand chunks are sent/received\n");
+        printf("\t                         \tindependently.\n");
         printf("\n");
 }
 

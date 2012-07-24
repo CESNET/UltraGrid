@@ -122,6 +122,37 @@ static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
 static struct rtp *initialize_audio_network(char *addr, int recv_port, int send_port, struct pdb *participants);
 
+static void audio_channel_map_usage(void);
+static void audio_scale_usage(void);
+
+static void audio_channel_map_usage(void)
+{
+        printf("\t--audio-channel-map <mapping>   mapping of input audio channels\n");
+        printf("\t                                to output audio channels comma-separated\n");
+        printf("\t                                list of channel mapping\n");
+        printf("\t                                eg. 0:0,1:0 - mixes first 2 channels\n");
+        printf("\t                                    0:0,:1 - sets second channel to\n");
+        printf("\t                                             a silence, first one is\n");
+        printf("\t                                             left as is\n");
+        printf("\t                                    0:0,0:1 - splits mono into\n");
+        printf("\t                                              2 channels\n");
+}
+
+static void audio_scale_usage(void)
+{
+        printf("\t--audio-scale [<factor>|<method>]\n");
+        printf("\t                                 Floating point number that tells\n");
+        printf("\t                                 a static scaling factor for all\n");
+        printf("\t                                 output channels.\n");
+        printf("\t                                 Scaling method can be one from these:\n");
+        printf("\t                                   mixauto - automatically adjust\n");
+        printf("\t                                             volume if using channel\n");
+        printf("\t                                             mixing/remapping\n");
+        printf("\t                                             (default)\n");
+        printf("\t                                   auto - automatically adjust volume\n");
+        printf("\t                                   none - no scaling will be performed\n");
+}
+
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
@@ -146,6 +177,20 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         if (recv_cfg != NULL &&
                         !strcmp("help", recv_cfg)) {
                 audio_playback_help();
+                exit_uv(0);
+                return NULL;
+        }
+
+        if(audio_channel_map &&
+                     strcmp("help", audio_channel_map) == 0) {
+                audio_channel_map_usage();
+                exit_uv(0);
+                return NULL;
+        }
+
+        if(audio_scale &&
+                     strcmp("help", audio_scale) == 0) {
+                audio_scale_usage();
                 exit_uv(0);
                 return NULL;
         }
