@@ -3745,3 +3745,13 @@ int rtp_set_send_buf(struct rtp *session, int bufsize)
         return udp_set_send_buf(session->rtp_socket, bufsize);
 }
 
+/**
+ * rtp_flush_recv_buf:
+ * Flushes receiver buffer contents.
+ * @session: The RTP Session.
+ */
+void rtp_flush_recv_buf(struct rtp *session)
+{
+        return udp_flush_recv_buf(session->rtp_socket);
+}
+

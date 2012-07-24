@@ -67,6 +67,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/select.h>
 #include <sys/types.h>
 
 #ifdef HAVE_SYS_WAIT_H

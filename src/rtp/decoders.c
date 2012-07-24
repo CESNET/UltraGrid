@@ -743,6 +743,7 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
 
                 *frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                 *frame);
+                pbuf_data->reconfigured = true;
                 pbuf_data->max_frame_size = 0u;
                 pbuf_data->decoded = 0u;
                 pbuf_data->frame_buffer = *frame;

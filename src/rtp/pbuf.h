@@ -59,7 +59,12 @@
 /* Internet" Figure 6.8 (page 167) for a diagram.                       [csp] */
 /******************************************************************************/
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include "video_display.h"
 
 #include "audio/audio.h"
@@ -83,6 +88,8 @@ struct pbuf_video_data {
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly
         unsigned int decoded;
+
+        bool reconfigured;
 };
 
 struct pbuf_audio_data {

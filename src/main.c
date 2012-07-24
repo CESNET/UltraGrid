@@ -558,6 +558,7 @@ static void *receiver_thread(void *arg)
 
         initialize_video_decompress();
         pbuf_data.decoder = decoder_init(uv->decoder_mode, uv->postprocess);
+        pbuf_data.reconfigured = false;
         if(!pbuf_data.decoder) {
                 fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option).\n");
                 exit_uv(1);
@@ -633,9 +634,9 @@ static void *receiver_thread(void *arg)
                         gettimeofday(&uv->curr_time, NULL);
                         fr = 1;
                         display_put_frame(uv->display_device,
-                                          pbuf_data.frame_buffer->tiles[0].data);
+                                        pbuf_data.frame_buffer->tiles[0].data);
                         pbuf_data.frame_buffer =
-                            display_get_frame(uv->display_device);
+                                display_get_frame(uv->display_device);
                         last_tile_received = uv->curr_time;
                 }
 
@@ -653,6 +654,15 @@ static void *receiver_thread(void *arg)
                                 }
                                 last_buf_size = new_size;
                         }
+                }
+
+                if(pbuf_data.reconfigured) {
+                        struct rtp **session = uv->network_devices;
+                        while(*session) {
+                                rtp_flush_recv_buf(*session);
+                                ++session;
+                        }
+                        pbuf_data.reconfigured = false;
                 }
         }
         

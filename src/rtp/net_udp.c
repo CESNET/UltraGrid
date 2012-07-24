@@ -502,6 +502,29 @@ int udp_set_send_buf(socket_udp *s, int size)
         return TRUE;
 }
 
+void udp_flush_recv_buf(socket_udp *s)
+{
+        const int len = 1024 * 1024;
+        fd_set select_fd;
+        struct timeval timeout;
+
+        char *buf = (char *) malloc(len);
+
+        assert (buf != NULL);
+
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 0;
+
+        FD_ZERO(&select_fd);
+        FD_SET(s->fd, &select_fd);
+
+        while(select(s->fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
+                read(s->fd, buf, len);
+        }
+
+        free(buf);
+}
+
 /*****************************************************************************/
 /* IPv6 specific functions...                                                */
 /*****************************************************************************/
