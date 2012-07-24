@@ -430,6 +430,8 @@ void display_dvs_run(void *arg)
                 gettimeofday(&s->t, NULL);
                 double seconds = tv_diff(s->t, s->t0);    
 
+                s->frames++;
+
                 if (seconds >= 5) {
                     float fps  = s->frames / seconds;
                     fprintf(stderr, "[DVS disp.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
