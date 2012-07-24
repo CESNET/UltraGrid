@@ -82,17 +82,6 @@
 #include "x11_common.h"
 #endif
 
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
-#define glGenFramebuffers glGenFramebuffersEXT
-#define glBindFramebuffer glBindFramebufferEXT
-#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
-#define glFramebufferTexture2D glFramebufferTexture2DEXT
-#define glDeleteFramebuffers glDeleteFramebuffersEXT
-#define GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE_EXT
-#define glCheckFramebufferStatus glCheckFramebufferStatusEXT
-#endif
-
-
 /* prototypes of functions defined in this module */
 static void show_help(void);
 
@@ -197,7 +186,7 @@ static void initialize() {
                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
         glBindTexture(GL_TEXTURE_2D, 0);
-        glGenFramebuffers(1, &state->fbo);
+        glGenFramebuffersEXT(1, &state->fbo);
 
         glViewport(0, 0, state->tile->width, state->tile->height);
         glDisable(GL_DEPTH_TEST);
@@ -387,9 +376,9 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
 
                 //gl_check_error();
 
-                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_out, 0);
-                assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_FRAMEBUFFER));
+                glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, s->fbo);
+                glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_out, 0);
+                assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
                 glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
 
                 glBindTexture(GL_TEXTURE_2D, s->tex);
@@ -405,7 +394,7 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
 
                 glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
 
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
                 glBindTexture(GL_TEXTURE_2D, 0);
         }
 
