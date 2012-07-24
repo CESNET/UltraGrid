@@ -406,7 +406,10 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
         fmt_dup = strdup(init_fmt);
 
         item = strtok_r(fmt_dup, ":", &save_ptr);
-        assert(item != NULL);
+        if(item == NULL) {
+                fprintf(stderr, "[Linsys] Card index not given.\n");
+                return NULL;
+        }
         char *devices_str = strdup(item);
         s->devices_cnt = 0;
         char *ptr, *saveptr2 = NULL;
@@ -418,7 +421,10 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
         free(devices_str);
 
         item = strtok_r(NULL, ":", &save_ptr);
-        assert(item);
+        if(item == NULL) {
+                fprintf(stderr, "[Linsys] Card index or mode not given.\n");
+                return NULL;
+        }
 	frame_mode_number = atoi(item);
 	if(frame_mode_number < 0 || 
                         (unsigned int) frame_mode_number >= 
