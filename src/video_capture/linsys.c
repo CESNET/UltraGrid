@@ -690,7 +690,10 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
 void
 vidcap_linsys_finish(void *state)
 {
-        UNUSED(state);
+	struct vidcap_linsys_state *s = (struct vidcap_linsys_state *) state;
+	assert(s != NULL);
+
+	pthread_join(s->grabber, NULL);
 }
 
 void
@@ -711,7 +714,6 @@ vidcap_linsys_done(void *state)
 	}
         
         vf_free(s->frame);
-	pthread_join(s->grabber, NULL);
 	sem_destroy(&s->boss_waiting);
 	sem_destroy(&s->have_item);
 }
