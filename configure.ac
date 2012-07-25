@@ -251,7 +251,7 @@ esac
 # -------------------------------------------------------------------------------------------------
 debug_output=no
 profile=no
-ipv6=no
+ipv6=yes
 
 AC_ARG_ENABLE(profile,
 	[  --enable-profile        enable profiling],
@@ -275,12 +275,16 @@ AC_ARG_ENABLE(debug,
 	fi])
 
 AC_ARG_ENABLE(ipv6,
-	[  --enable-ipv6           enable ipv6],
-	[if test $enableval = yes
-	then
-		AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
-                ipv6=YES
-	fi])
+              AS_HELP_STRING([--disable-ipv6], [disable ipv6]),
+              [if test $enableval = no
+               then
+                       ipv6=no
+               fi])
+
+if test "$ipv6" != no
+then
+        AC_DEFINE([HAVE_IPv6], [1], [Enable IPv6 support])
+fi
 
 # ------------------------------------------------------------------------------------------------
 # Dynamic libraries stuff
