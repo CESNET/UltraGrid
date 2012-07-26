@@ -71,9 +71,9 @@ struct audio_frame;
 typedef uint32_t	display_id_t;
 
 typedef struct {
-	display_id_t		 id;
-	const char		*name;		/* Single word name 		*/
-	const char		*description;
+        display_id_t		 id;
+        const char		*name;		/* Single word name 		*/
+        const char		*description;
 } display_type_t;
 
 #define DISPLAY_PROPERTY_CODECS  0 /* codec_t[] */
@@ -94,40 +94,88 @@ int		 display_get_device_count(void);
 display_type_t	*display_get_device_details(int index);
 display_id_t 	 display_get_null_device_id(void);
 
+
 /* 
  * Interface to initialize displays, and playout video
  *
  */
-
 struct display;
 
-struct display	*display_init(display_id_t id, char *fmt, unsigned int flags);
-void 		 display_run(struct display *d);
-void 		 display_done(struct display *d);
+/**
+ * Initializes video display
+ *
+ * @param fmt    command-line entered format string
+ * @param flags  bit sum of DISPLAY_FLAG_* params defined above
+ * @return       opaque struct which will be passed in subsequent calls
+ */
+struct display	        *display_init(display_id_t id, char *fmt, unsigned int flags);
+
+/**
+ * This call is entered in main thread and the display may stay in this call until end of the program.
+ * This is mainly for GUI displays (GL/SDL), which usually need to be run from main thread of the
+ * program.
+ * The function must finish after calling display_finish.
+ */
+void                     display_run(struct display *d);
+
+/**  
+ * This function performs final cleanup after display.
+ */
+void 	                 display_done(struct display *d);
+
 /**
  * This function should tell the driver to finish (eg. unlocking semaphores, locks, signalling cv etc.)
  * When this function is called, should_exit variable is set to TRUE
  */
-void 		 display_finish(struct display *d);
-struct video_frame *display_get_frame(struct display *d);
+void 		         display_finish(struct display *d);
+
+/**
+ * Returns video frame which will be written to.
+ */
+struct video_frame      *display_get_frame(struct display *d);
 /* TODO: figure out what with frame parameter, which is no longer used. Leave out? */
-void 		 display_put_frame(struct display *d, char *frame);
-int              display_reconfigure(struct display *d, struct video_desc desc);
+/**
+ * Puts filled video frame.
+ */
+void 		         display_put_frame(struct display *d, char *frame);
+/**
+ * Tells display to reconfigure according to video description
+ */
+int                      display_reconfigure(struct display *d, struct video_desc desc);
 
-struct audio_frame * display_get_audio_frame(struct display *d);
-void 		 display_put_audio_frame(struct display *d, struct audio_frame *frame);
-int              display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
+/**
+ * Gets property from video display
+ * @param       property  one of DISPLAY_PROPERTY_* defines listed above
+ * @param       val       output value localtion
+ * @param       len       IN provided buffer length
+ *                        OUT actual size written
+ * @return      true      if succeeded and result is contained in val and len
+ *              false     if the query didn't succeeded (either not supported or error)
+ */
+int                      display_get_property(struct display *d, int property, void *val, size_t *len);
 
-int              display_get_property(struct display *d, int property, void *val, size_t *len);
-
+/* 
+ * Audio related functions (embedded audio)
+ */
+/**
+ * Gets empty audio frame from driver
+ */
+struct audio_frame      *display_get_audio_frame(struct display *d);
 /*
- * Additional interface allowing querying properties and monitoring changes
- *
  * TODO: currently unused - should be implemented at least for SDL (toggling fullscreen for RGB videos)
  */
-typedef void (*observer_callback_t)(void *udata);
- 
-void display_register_properties_change_observer(struct display *d, observer_callback_t observer);
-
+/**
+ * Puts audio data
+ */
+void                     display_put_audio_frame(struct display *d, char *frame);
+/**
+ * This function instructs video driver to reconfigure itself
+ *
+ * @param               d               video display structure
+ * @param               quant_samples   number of bits per sample
+ * @param               channels        count of channels
+ * @param               sample_rate     samples per second
+ */
+int                      display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 
 #endif /* _VIDEO_DISPLAY_H */
