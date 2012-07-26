@@ -64,6 +64,8 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
 void restrict_returned_codecs(codec_t *display_codecs, size_t *display_codecs_count, codec_t *pp_codecs, int pp_codecs_count);
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
+static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame,
+                struct pbuf_video_data *pbuf_data);
 
 enum decoder_type_t {
         UNSET,
@@ -698,7 +700,8 @@ struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, s
         return frame_display;
 }
 
-static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame)
+static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame,
+                struct pbuf_video_data *pbuf_data)
 {
         uint32_t tmp;
         int ret = FALSE;
@@ -721,20 +724,24 @@ static int check_for_mode_change(struct state_decoder *decoder, video_payload_hd
 
         fps = compute_fps(fps_pt, fpsd, fd, fi);
         if (!(decoder->received_vid_desc.width == width &&
-              decoder->received_vid_desc.height == height &&
-              decoder->received_vid_desc.color_spec == color_spec &&
-              decoder->received_vid_desc.interlacing == interlacing  &&
-              //decoder->received_vid_desc.video_type == video_type &&
-              decoder->received_vid_desc.fps == fps
-              )) {
-                decoder->received_vid_desc.width = width;
-                decoder->received_vid_desc.height = height;
-                decoder->received_vid_desc.color_spec = color_spec;
-                decoder->received_vid_desc.interlacing = interlacing;
-                decoder->received_vid_desc.fps = fps;
+                                decoder->received_vid_desc.height == height &&
+                                decoder->received_vid_desc.color_spec == color_spec &&
+                                decoder->received_vid_desc.interlacing == interlacing  &&
+                                //decoder->received_vid_desc.video_type == video_type &&
+                                decoder->received_vid_desc.fps == fps
+             )) {
+                decoder->received_vid_desc = (struct video_desc) {
+                        .width = width, 
+                        .height = height,
+                        .color_spec = color_spec,
+                        .interlacing = interlacing,
+                        .fps = fps };
 
                 *frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
                                 *frame);
+                pbuf_data->max_frame_size = 0u;
+                pbuf_data->decoded = 0u;
+                pbuf_data->frame_buffer = *frame;
                 ret = TRUE;
         }
         return ret;
@@ -747,22 +754,16 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         struct state_decoder *decoder = pbuf_data->decoder;
 
         int ret = TRUE;
-        uint32_t width;
-        uint32_t height;
         uint32_t offset;
-        enum interlacing_t interlacing;
         int len;
-        codec_t color_spec;
         rtp_packet *pckt = NULL;
         unsigned char *source;
         char *data;
         uint32_t data_pos;
         int prints=0;
-        double fps;
         struct tile *tile = NULL;
         uint32_t tmp;
         uint32_t substream;
-        int fps_pt, fpsd, fd, fi;
 
         int i;
         struct linked_list *pckt_list[decoder->max_substreams];
@@ -795,9 +796,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
 
-                        width = ntohs(hdr->hres);
-                        height = ntohs(hdr->vres);
-                        color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
                         data_pos = ntohl(hdr->offset);
                         tmp = ntohl(hdr->substream_bufnum);
 
@@ -805,15 +803,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         buffer_number = tmp & 0x3ffff;
 
                         buffer_length = ntohl(hdr->length);
-
-                        tmp = ntohl(hdr->il_fps);
-                        interlacing = (enum interlacing_t) (tmp >> 29);
-                        fps_pt = (tmp >> 19) & 0x3ff;
-                        fpsd = (tmp >> 15) & 0xf;
-                        fd = (tmp >> 14) & 0x1;
-                        fi = (tmp >> 13) & 0x1;
-
-                        fps = compute_fps(fps_pt, fpsd, fd, fi);
                 } else if (pt == PT_VIDEO_LDGM) {
                         ldgm_payload_hdr_t *hdr;
                         hdr = (ldgm_payload_hdr_t *) pckt->data;
@@ -875,24 +864,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
-                        if (!(decoder->received_vid_desc.width == width &&
-                              decoder->received_vid_desc.height == height &&
-                              decoder->received_vid_desc.color_spec == color_spec &&
-                              decoder->received_vid_desc.interlacing == interlacing  &&
-                              //decoder->received_vid_desc.video_type == video_type &&
-                              decoder->received_vid_desc.fps == fps
-                              )) {
-                                decoder->received_vid_desc.width = width;
-                                decoder->received_vid_desc.height = height;
-                                decoder->received_vid_desc.color_spec = color_spec;
-                                decoder->received_vid_desc.interlacing = interlacing;
-                                decoder->received_vid_desc.fps = fps;
-
-                                frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
-                                                frame);
-                                pbuf_data->max_frame_size = 0u;
-                                pbuf_data->decoded = 0u;
-                                pbuf_data->frame_buffer = frame;
+                        if(check_for_mode_change(decoder, (video_payload_hdr_t *) pckt->data, &frame, pbuf_data)) {
                                 if(!frame) {
                                         ret = FALSE;
                                         goto cleanup;
@@ -1052,8 +1024,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         goto cleanup;
                                 }
  
-                                check_for_mode_change(decoder, (video_payload_hdr_t *) out_buffer, &frame);
-                                pbuf_data->frame_buffer = frame;
+                                check_for_mode_change(decoder, (video_payload_hdr_t *) out_buffer, &frame,
+                                                pbuf_data);
 
                                 if(!frame) {
                                         ret = FALSE;
