@@ -167,7 +167,7 @@ struct audio_frame      *display_get_audio_frame(struct display *d);
 /**
  * Puts audio data
  */
-void                     display_put_audio_frame(struct display *d, char *frame);
+void                     display_put_audio_frame(struct display *d, struct audio_frame *frame);
 /**
  * This function instructs video driver to reconfigure itself
  *
