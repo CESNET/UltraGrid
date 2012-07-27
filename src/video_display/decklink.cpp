@@ -243,9 +243,15 @@ struct state_decklink {
         unsigned int        play_audio:1;
 
         int                 output_audio_channel_count;
-        BMDPixelFormat                    pixelFormat;
+        BMDPixelFormat      pixelFormat;
 
         enum link           link;
+
+        /*
+         * Fast mode means partially incorrect moder when there are data
+         * continually written to same video frame instaed to separate ones.
+         */
+        bool                fast;
  };
 
 static void show_help(void);
@@ -258,7 +264,8 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]] - coma-separated numbers of output devices\n");
+        printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]][:fast]\n");
+        printf("\t\tcoma-separated numbers of output devices\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (deckLinkIterator == NULL)
@@ -316,6 +323,10 @@ static void show_help(void)
         printf("\tFramePacking\n");
         printf("\tLeftOnly\n");
         printf("\tRightOnly\n");
+        printf("\n");
+
+        printf("Fast mode has lower latency at the expense of incorrect displaying (frame rewriting).\n");
+        printf("\n");
 }
 
 
@@ -330,8 +341,10 @@ display_decklink_getf(void *state)
                 if(s->stereo) {
                         IDeckLinkVideoFrame     *deckLinkFrameRight;
                         assert(s->devices_cnt == 1);
-                        s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
+                        if(!s->fast) {
+                                s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
                                                 s->frame->tiles[0].linesize, s->pixelFormat);
+                        }
                                 
                         s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
                         
@@ -341,8 +354,10 @@ display_decklink_getf(void *state)
                         deckLinkFrameRight->Release();
                 } else {
                         for(int i = 0; i < s->devices_cnt; ++i) {
-                                s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
-                                                s->frame->tiles[0].linesize, s->pixelFormat);
+                                if(!s->fast) {
+                                        s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
+                                                        s->frame->tiles[0].linesize, s->pixelFormat);
+                                }
                                 
                                 s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
                         }
@@ -420,13 +435,17 @@ int display_decklink_putf(void *state, char *frame)
 
 #ifdef DECKLINK_LOW_LATENCY
                         s->state[j].deckLinkOutput->DisplayVideoFrameSync(s->state[j].deckLinkFrame);
-                        s->state[j].deckLinkFrame->Release();
+                        if(!s->fast) {
+                                s->state[j].deckLinkFrame->Release();
+                        }
 #else
                         s->state[j].deckLinkOutput->ScheduleVideoFrame(s->state[j].deckLinkFrame,
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
 #endif /* DECKLINK_LOW_LATENCY */
 
-                        s->state[j].deckLinkFrame = NULL;
+                        if(!s->fast) {
+                                s->state[j].deckLinkFrame = NULL;
+                        }
                 }
                 s->frames++;
                 if(s->emit_timecode) {
@@ -560,6 +579,13 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                         goto error;
                 }
                 
+                if(s->fast) {
+                        if(s->state[0].deckLinkFrame) {
+                                s->state[0].deckLinkFrame->Release();
+                        }
+                        s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
+                                        s->frame->tiles[0].linesize, s->pixelFormat);
+                }
 
                 s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
 #ifndef DECKLINK_LOW_LATENCY
@@ -600,6 +626,14 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                                                 (outputFlags & bmdVideoOutputRP188 ? "ON": "OFF"));
 	                        goto error;
 	                }
+                        if(s->fast) {
+                                if(s->state[i].deckLinkFrame) {
+                                        s->state[i].deckLinkFrame->Release();
+                                }
+                                s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
+                                                s->frame->tiles[0].linesize, s->pixelFormat);
+                        }
+
 	
 	                s->state[i].deckLinkOutput->EnableVideoOutput(displayMode, outputFlags);
 	        }
@@ -690,6 +724,8 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         s->stereo = FALSE;
         s->emit_timecode = false;
         s->link = LINK_UNSPECIFIED;
+
+        s->fast = false;
         
         if(fmt == NULL) {
                 cardIdx[0] = 0;
@@ -740,6 +776,8 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                                 } else {
                                         fprintf(stderr, "[DeckLink] Warning: HDMI 3D packing %s.\n", packing);
                                 }
+                        } else if(strcasecmp(ptr, "fast") == 0) {
+                                s->fast = true;
                         } else {
                                 fprintf(stderr, "[DeckLink] Warning: unknown options in config string.\n");
                         }
@@ -902,7 +940,9 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 s->state[i].delegate = new PlaybackDelegate(s, i);
                 // Provide this class as a delegate to the audio and video output interfaces
 #ifndef DECKLINK_LOW_LATENCY
-                s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+                if(!s->fast) {
+                        s->state[i].deckLinkOutput->SetScheduledFrameCompletionCallback(s->state[i].delegate);
+                }
 #endif /* ! defined DECKLINK_LOW_LATENCY */
                 //s->state[i].deckLinkOutput->DisableAudioOutput();
         }
