@@ -89,7 +89,7 @@ struct dxt_decoder
     GLuint g_vao;
     GLuint g_vao_422;
 
-#ifdef USE_PBO
+#ifdef USE_PBO_DXT_DECODER
     GLuint pbo_in;
     GLuint pbo_out;
 #endif
@@ -289,7 +289,7 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
 #endif
 
 
-#ifdef USE_PBO
+#ifdef USE_PBO_DXT_DECODER
             glGenBuffersARB(1, &decoder->pbo_in); //Allocate PBO
             glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, decoder->pbo_in);
             glBufferDataARB(GL_PIXEL_UNPACK_BUFFER_ARB,
@@ -339,7 +339,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
 
         int data_size = ((decoder->width + 3) / 4 * 4) * ((decoder->height + 3) / 4 * 4) /
                                (decoder->type == DXT_TYPE_DXT5_YCOCG ? 1 : 2);
-#ifdef USE_PBO
+#ifdef USE_PBO_DXT_DECODER
     glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, decoder->pbo_in); // current pbo
     glCompressedTexSubImage2DARB (GL_TEXTURE_2D, 0, 0, 0,
                     (decoder->width + 3) / 4 * 4,
@@ -407,7 +407,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
     if(decoder->out_format != DXT_FORMAT_YUV422) { /* so RGBA */
             // Disable framebuffer
 
-#ifdef USE_PBO
+#ifdef USE_PBO_DXT_DECODER
             // glReadPixels() should return immediately.
             glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, decoder->pbo_out);
             glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
@@ -459,7 +459,7 @@ dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compres
             
             glPopAttrib();
 
-#ifdef USE_PBO
+#ifdef USE_PBO_DXT_DECODER
             // glReadPixels() should return immediately.
             glBindBufferARB(GL_PIXEL_PACK_BUFFER_ARB, decoder->pbo_out);
             glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);

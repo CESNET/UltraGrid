@@ -1215,7 +1215,10 @@ AC_CHECK_LIB(X11, XCreateWindow)
 
 LIBS=$SAVED_LIBS
 
-AC_DEFINE([USE_PBO], [1], [We want to use OpenGL pixel buffer objects])
+AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer objects])
+# We probably want this only if there is need to maximalize bandwidth
+# With NVidia cards, it increases latency up about 1.5x frame time
+#AC_DEFINE([USE_PBO_DXT_ECODER], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
 if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
