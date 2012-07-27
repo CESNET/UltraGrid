@@ -286,12 +286,6 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl        *s;
         
-#ifndef HAVE_MACOSX
-        x11_enter_thread();
-#endif
-
-        glutInit(&uv_argc, uv_argv);
-        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
         
@@ -360,8 +354,13 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
         /* Avoids uncaught exception (1002)  when creating CGSWindow */
         NSApplicationLoad();
+#else
+        x11_enter_thread();
 #endif
+
+        glutInit(&uv_argc, uv_argv);
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+
 #ifndef HAVE_MACOSX
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 #endif
