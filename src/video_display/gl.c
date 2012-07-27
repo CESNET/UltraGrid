@@ -350,16 +350,18 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         char *tmp, *gl_ver_major;
         char *save_ptr = NULL;
 
-#ifdef HAVE_MACOSX
-        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
-        /* Avoids uncaught exception (1002)  when creating CGSWindow */
-        NSApplicationLoad();
-#else
+#ifndef HAVE_MACOSX
         x11_enter_thread();
 #endif
 
         glutInit(&uv_argc, uv_argv);
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+
+#ifdef HAVE_MACOSX
+        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+        /* Avoids uncaught exception (1002)  when creating CGSWindow */
+        NSApplicationLoad();
+#endif
 
 #ifndef HAVE_MACOSX
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
