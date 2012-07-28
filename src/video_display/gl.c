@@ -205,6 +205,8 @@ struct state_gl {
         unsigned int    double_buf;
 
         struct timeval  tv;
+
+        bool            sync_on_vblank;
 };
 
 static struct state_gl *gl;
@@ -240,6 +242,7 @@ void gl_show_help(void) {
         printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
+        printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
 }
 
@@ -303,6 +306,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         s->processed  = FALSE;
         s->double_buf = TRUE;
 
+        s->sync_on_vblank = true;
+
 	// parse parameters
 	if (fmt != NULL) {
 		if (strcmp(fmt, "help") == 0) {
@@ -325,6 +330,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
                                 if(pos) s->video_aspect /= atof(pos + 1);
                         } else if(!strcmp(tok, "single")) {
                                 s->double_buf = FALSE;
+                        } else if(!strcasecmp(tok, "novsync")) {
+                                s->sync_on_vblank = false;
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
                         }
@@ -597,6 +604,10 @@ void glut_resize_window(struct state_gl *s)
         }
 }
 
+/*
+ * Please note, that setting the value of 0 to GLX function is invalid according to
+ * documentation. However. reportedly NVidia driver does unset VSync.
+ */
 void display_gl_enable_sync_on_vblank() {
 #ifdef HAVE_MACOSX
         int swap_interval = 1;
@@ -714,7 +725,9 @@ void gl_reconfigure_screen(struct state_gl *s)
 
         gl_check_error();
 
-        display_gl_enable_sync_on_vblank();
+        if(s->sync_on_vblank) {
+                display_gl_enable_sync_on_vblank();
+        }
         gl_check_error();
 }
 
