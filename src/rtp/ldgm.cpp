@@ -98,6 +98,8 @@ loss_t losses[] = {
 #define JPEG80_SIZE (177 * 1000)
 #define JPEG90_SIZE (144 * 1000)
 
+#define UNCOMPRESSED_SIZE (1920 * 1080 * 2)
+
 const configuration_t suggested_configurations[] = {
         // JPEG 60
         { STD1500, JPEG60_SIZE, PCT2, 750, 120, 5 },
@@ -112,6 +114,14 @@ const configuration_t suggested_configurations[] = {
         { STD1500, JPEG90_SIZE, PCT5, 1500, 450, 6 },
         { STD1500, JPEG90_SIZE, PCT10, 1500, 750, 8 },
 
+        // uncompressed
+        { JUMBO9000, UNCOMPRESSED_SIZE, PCT2, 1500, 180, 5 },
+        { JUMBO9000, UNCOMPRESSED_SIZE, PCT5, 1000, 300, 6 },
+        { JUMBO9000, UNCOMPRESSED_SIZE, PCT10, 1000, 500, 7 },
+
+        { STD1500, UNCOMPRESSED_SIZE, PCT2, 1500, 250, 5 },
+        { STD1500, UNCOMPRESSED_SIZE, PCT5, 1500, 650, 6 },
+        { STD1500, UNCOMPRESSED_SIZE, PCT10, 1500, 1500, 8 },
 };
 
 #include "ldgm-coding/ldgm-session.h"
