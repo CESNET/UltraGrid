@@ -106,6 +106,7 @@
 #define AUDIO_SCALE (('a' << 8) | 's')
 #define ECHO_CANCELLATION (('E' << 8) | 'C')
 #define CUDA_DEVICE (('C' << 8) | 'D')
+#define MCAST_IF (('M' << 8) | 'I')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -175,7 +176,8 @@ static struct state_uv *uv_state;
 // prototypes
 //
 static struct rtp **initialize_network(char *addrs, int recv_port_base,
-                int send_port_base, struct pdb *participants, bool use_ipv6);
+                int send_port_base, struct pdb *participants, bool use_ipv6,
+                char *mcast_if);
 
 void list_video_display_devices(void);
 void list_video_capture_devices(void);
@@ -228,9 +230,9 @@ static void usage(void)
         printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>]\n");
         printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
                         "[-m <mtu>] [-c] [-i] [-6]\n");
-        printf("          [-M <video_mode>] [-p <postprocess>] "
-                        "[-f <FEC_options>] [-P <port>]\n");
-        printf("          address(es)\n\n");
+        printf("          [-m <video_mode>] [-p <postprocess>] "
+                        "[-f <fec_options>] [-p <port>]\n");
+        printf("          [--mcast-if <iface>] address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -247,6 +249,8 @@ static void usage(void)
         printf("\t-6                       \tUse IPv6\n");
         printf("\n");
 #endif //  HAVE_IPv6
+        printf("\t--mcast-if <iface>       \tBind to specified interface for multicast\n");
+        printf("\n");
         printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
         printf("\n");
         printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
@@ -414,7 +418,8 @@ static void display_buf_increase_warning(int size)
 }
 
 static struct rtp **initialize_network(char *addrs, int recv_port_base,
-                int send_port_base, struct pdb *participants, bool use_ipv6)
+                int send_port_base, struct pdb *participants, bool use_ipv6,
+                char *mcast_if)
 {
 	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
@@ -451,9 +456,10 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base,
                 if (send_port == send_port_base + 2)
                         send_port += 2;
 
-		devices[index] = rtp_init(addr, recv_port, send_port, ttl, rtcp_bw, 
-                                FALSE, rtp_recv_callback, 
-                                (void *)participants, use_ipv6);
+		devices[index] = rtp_init_if(addr, mcast_if, recv_port,
+                                send_port, ttl, rtcp_bw, FALSE,
+                                rtp_recv_callback, (void *)participants,
+                                use_ipv6);
 		if (devices[index] != NULL) {
 			rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION, 
 				TRUE);
@@ -861,6 +867,7 @@ int main(int argc, char *argv[])
 
         bool echo_cancellation = false;
         bool use_ipv6 = false;
+        char *mcast_if = NULL;
 
         int bitrate = 0;
         
@@ -906,6 +913,7 @@ int main(int argc, char *argv[])
                 {"audio-capture-channels", required_argument, 0, AUDIO_CAPTURE_CHANNELS},
                 {"echo-cancellation", no_argument, 0, ECHO_CANCELLATION},
                 {"cuda-device", required_argument, 0, CUDA_DEVICE},
+                {"mcast-if", required_argument, 0, MCAST_IF},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1058,6 +1066,9 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "CUDA support is not enabled!\n");
                         return EXIT_FAIL_USAGE;
 #endif // HAVE_CUDA
+                case MCAST_IF:
+                        mcast_if = optarg;
+                        break;
                 default:
                         usage();
                         return EXIT_FAIL_USAGE;
@@ -1104,8 +1115,10 @@ int main(int argc, char *argv[])
         }
 
         char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
-        uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg,
-                        tmp_requested_fec, audio_channel_map, audio_scale, echo_cancellation, use_ipv6);
+        uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2,
+                        uv->send_port_number + 2, audio_send, audio_recv,
+                        jack_cfg, tmp_requested_fec, audio_channel_map,
+                        audio_scale, echo_cancellation, use_ipv6, mcast_if);
         free(tmp_requested_fec);
         if(!uv->audio)
                 goto cleanup;
@@ -1226,7 +1239,7 @@ int main(int argc, char *argv[])
         } else {
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->recv_port_number,
-                             uv->send_port_number, uv->participants, use_ipv6))
+                             uv->send_port_number, uv->participants, use_ipv6, mcast_if))
                                 == NULL) {
                         printf("Unable to open network\n");
                         exit_uv(EXIT_FAIL_NETWORK);

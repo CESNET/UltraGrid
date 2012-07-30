@@ -127,6 +127,7 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <netinet/in.h>
+#include <net/if.h>
 #include <unistd.h>
 #include <sys/param.h>
 #include <sys/fcntl.h>

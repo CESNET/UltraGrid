@@ -121,7 +121,8 @@ typedef void (*audio_device_help_t)(void);
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
 static struct rtp *initialize_audio_network(char *addr, int recv_port,
-                int send_port, struct pdb *participants, bool use_ipv6);
+                int send_port, struct pdb *participants, bool use_ipv6,
+                char *mcast_if);
 
 static void audio_channel_map_usage(void);
 static void audio_scale_usage(void);
@@ -159,7 +160,7 @@ static void audio_scale_usage(void)
  */
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6)
+                bool echo_cancellation, bool use_ipv6, char *mcast_if)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -227,8 +228,8 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         addr = strtok_r(tmp, ",", &unused);
         if ((s->audio_network_device =
              initialize_audio_network(addr, recv_port, send_port,
-                                      s->audio_participants, use_ipv6)) ==
-                        NULL) {
+                                      s->audio_participants, use_ipv6, mcast_if))
+                        == NULL) {
                 printf("Unable to open audio network\n");
                 goto error;
         }
@@ -344,13 +345,15 @@ void audio_done(struct state_audio *s)
 }
 
 static struct rtp *initialize_audio_network(char *addr, int recv_port,
-                int send_port, struct pdb *participants, bool use_ipv6)       // GiX
+                int send_port, struct pdb *participants, bool use_ipv6,
+                char *mcast_if)       // GiX
 {
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
 
-        r = rtp_init(addr, recv_port, send_port, 255, rtcp_bw, FALSE, rtp_recv_callback,
-                     (void *)participants, use_ipv6);
+        r = rtp_init_if(addr, mcast_if, recv_port, send_port, 255, rtcp_bw,
+                        FALSE, rtp_recv_callback, (void *)participants,
+                        use_ipv6);
         if (r != NULL) {
                 pdb_add(participants, rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);

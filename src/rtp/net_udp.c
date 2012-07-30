@@ -271,7 +271,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         int reuse = 1;
         int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_in s_in;
-        struct in_addr iface_addr;
+        unsigned int ifindex;
         socket_udp *s = (socket_udp *) malloc(sizeof(socket_udp));
         s->mode = IPv4;
         s->addr = NULL;
@@ -288,13 +288,13 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 memcpy(&(s->addr4), h->h_addr_list[0], sizeof(s->addr4));
         }
         if (iface != NULL) {
-                if (inet_pton(AF_INET, iface, &iface_addr) != 1) {
+                if ((ifindex = if_nametoindex(iface)) == 0) {
                         debug_msg("Illegal interface specification\n");
                         free(s);
                         return NULL;
                 }
         } else {
-                iface_addr.s_addr = 0;
+                ifindex = 0;
         }
         s->fd = socket(AF_INET, SOCK_DGRAM, 0);
         if (s->fd < 0) {
@@ -337,7 +337,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 struct ip_mreq imr;
 
                 imr.imr_multiaddr.s_addr = s->addr4.s_addr;
-                imr.imr_interface.s_addr = iface_addr.s_addr;
+                imr.imr_interface.s_addr = ifindex;
 
                 if (SETSOCKOPT
                     (s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
@@ -359,13 +359,11 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                         socket_error("setsockopt IP_MULTICAST_TTL");
                         return NULL;
                 }
-                if (iface_addr.s_addr != 0) {
-                        if (SETSOCKOPT
-                            (s->fd, IPPROTO_IP, IP_MULTICAST_IF,
-                             (char *)&iface_addr, sizeof(iface_addr)) != 0) {
-                                socket_error("setsockopt IP_MULTICAST_IF");
-                                return NULL;
-                        }
+                if (SETSOCKOPT
+                    (s->fd, IPPROTO_IP, IP_MULTICAST_IF,
+                     (char *)&ifindex, sizeof(ifindex)) != 0) {
+                        socket_error("setsockopt IP_MULTICAST_IF");
+                        return NULL;
                 }
         }
         s->addr = strdup(addr);
@@ -541,11 +539,17 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         s->tx_port = tx_port;
         s->ttl = ttl;
         struct addrinfo hints, *res0;
+        unsigned int ifindex;
         int err;
 
         if (iface != NULL) {
-                debug_msg("Not yet implemented\n");
-                abort();
+                if ((ifindex = if_nametoindex(iface)) == 0) {
+                        debug_msg("Illegal interface specification\n");
+                        free(s);
+                        return NULL;
+                }
+        } else {
+                ifindex = 0;
         }
 
         memset(&hints, 0, sizeof(hints));
@@ -607,7 +611,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                 imr.i6mr_multiaddr = s->addr6;
 #else
                 imr.ipv6mr_multiaddr = s->addr6;
-                imr.ipv6mr_interface = 0;
+                imr.ipv6mr_interface = ifindex;
 #endif
 
                 if (SETSOCKOPT
@@ -627,6 +631,11 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                     (s->fd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&ttl,
                      sizeof(ttl)) != 0) {
                         socket_error("setsockopt IPV6_MULTICAST_HOPS");
+                        return NULL;
+                }
+                if (SETSOCKOPT(s->fd, IPPROTO_IPV6, IPV6_MULTICAST_IF,
+                                        (char *)&ifindex, sizeof(ifindex)) != 0) {
+                        socket_error("setsockopt IPV6_MULTICAST_IF");
                         return NULL;
                 }
         }
@@ -722,7 +731,8 @@ static const char *udp_host_addr6(socket_udp * s)
         int gai_err, newsock;
         struct addrinfo hints, *ai;
         struct sockaddr_in6 local, addr6;
-        int len = sizeof(local), result = 0;
+        socklen_t len = sizeof(local);
+        int result = 0;
 
         newsock = socket(AF_INET6, SOCK_DGRAM, 0);
         memset((char *)&addr6, 0, len);
