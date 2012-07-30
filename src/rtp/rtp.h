@@ -40,6 +40,12 @@
 #ifndef __RTP_H__
 #define __RTP_H__
 
+#ifdef HAVE_CONFIG_H
+#include "config.h" // bool
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #define RTP_VERSION 2
 #define RTP_PACKET_HEADER_SIZE	((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
 #define RTP_MAX_PACKET_LEN 9000
@@ -206,13 +212,15 @@ rtp_t		rtp_init(const char *addr,
 			 int ttl, double rtcp_bw, 
 			 int tfrc_on,
 			 rtp_callback callback,
-			 uint8_t *userdata);
+			 uint8_t *userdata,
+                         bool use_ipv6);
 rtp_t		rtp_init_if(const char *addr, char *iface, 
 			    uint16_t rx_port, uint16_t tx_port, 
 			    int ttl, double rtcp_bw, 
 			    int tfrc_on,
 			    rtp_callback callback,
-			    uint8_t *userdata);
+			    uint8_t *userdata,
+                            bool use_ipv6);
 
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);

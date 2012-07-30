@@ -46,8 +46,8 @@ extern "C" {
 #endif
 
 int         udp_addr_valid(const char *addr);
-socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port, int ttl);
-socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port, uint16_t tx_port, int ttl);
+socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6);
+socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6);
 void        udp_exit(socket_udp *s);
 
 int         udp_peek(socket_udp *s, char *buffer, int buflen);

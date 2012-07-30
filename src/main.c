@@ -171,6 +171,12 @@ int uv_argc;
 char **uv_argv;
 static struct state_uv *uv_state;
 
+//
+// prototypes
+//
+static struct rtp **initialize_network(char *addrs, int recv_port_base,
+                int send_port_base, struct pdb *participants, bool use_ipv6);
+
 void list_video_display_devices(void);
 void list_video_capture_devices(void);
 struct display *initialize_video_display(const char *requested_display,
@@ -221,7 +227,7 @@ static void usage(void)
         /* TODO -c -p -b are deprecated options */
         printf("\nUsage: uv [-d <display_device>] [-t <capture_device>] [-r <audio_playout>]\n");
         printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
-                        "[-m <mtu>] [-c] [-i]\n");
+                        "[-m <mtu>] [-c] [-i] [-6]\n");
         printf("          [-M <video_mode>] [-p <postprocess>] "
                         "[-f <FEC_options>] [-P <port>]\n");
         printf("          address(es)\n\n");
@@ -237,6 +243,10 @@ static void usage(void)
         printf("\n");
         printf("\t-i                       \tiHDTV compatibility mode\n");
         printf("\n");
+#ifdef HAVE_IPv6
+        printf("\t-6                       \tUse IPv6\n");
+        printf("\n");
+#endif //  HAVE_IPv6
         printf("\t-r <playback_device>     \tAudio playback device (see '-r help')\n");
         printf("\n");
         printf("\t-s <capture_device>      \tAudio capture device (see '-s help')\n");
@@ -403,7 +413,8 @@ static void display_buf_increase_warning(int size)
 
 }
 
-static struct rtp **initialize_network(char *addrs, int recv_port_base, int send_port_base, struct pdb *participants)
+static struct rtp **initialize_network(char *addrs, int recv_port_base,
+                int send_port_base, struct pdb *participants, bool use_ipv6)
 {
 	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
@@ -442,7 +453,7 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base, int send
 
 		devices[index] = rtp_init(addr, recv_port, send_port, ttl, rtcp_bw, 
                                 FALSE, rtp_recv_callback, 
-                                (void *)participants);
+                                (void *)participants, use_ipv6);
 		if (devices[index] != NULL) {
 			rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION, 
 				TRUE);
@@ -849,6 +860,7 @@ int main(int argc, char *argv[])
         char *audio_scale = "mixauto";
 
         bool echo_cancellation = false;
+        bool use_ipv6 = false;
 
         int bitrate = 0;
         
@@ -877,6 +889,7 @@ int main(int argc, char *argv[])
                 {"display", required_argument, 0, 'd'},
                 {"capture", required_argument, 0, 't'},
                 {"mtu", required_argument, 0, 'm'},
+                {"ipv6", no_argument, 0, '6'},
                 {"mode", required_argument, 0, 'M'},
                 {"version", no_argument, 0, 'v'},
                 {"compress", required_argument, 0, 'c'},
@@ -934,7 +947,7 @@ int main(int argc, char *argv[])
         init_lib_common();
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:vc:ihj:M:p:f:P:l:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:v6c:ihj:M:p:f:P:l:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -1013,7 +1026,9 @@ int main(int argc, char *argv[])
                                 return EXIT_FAIL_USAGE;
                         }
                         break;
-
+                case '6':
+                        use_ipv6 = true;
+                        break;
                 case '?':
                         break;
                 case AUDIO_CHANNEL_MAP:
@@ -1090,7 +1105,7 @@ int main(int argc, char *argv[])
 
         char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
         uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2, uv->send_port_number + 2, audio_send, audio_recv, jack_cfg,
-                        tmp_requested_fec, audio_channel_map, audio_scale, echo_cancellation);
+                        tmp_requested_fec, audio_channel_map, audio_scale, echo_cancellation, use_ipv6);
         free(tmp_requested_fec);
         if(!uv->audio)
                 goto cleanup;
@@ -1210,7 +1225,9 @@ int main(int argc, char *argv[])
                         sleep(1);
         } else {
                 if ((uv->network_devices =
-                     initialize_network(network_device, uv->recv_port_number, uv->send_port_number, uv->participants)) == NULL) {
+                     initialize_network(network_device, uv->recv_port_number,
+                             uv->send_port_number, uv->participants, use_ipv6))
+                                == NULL) {
                         printf("Unable to open network\n");
                         exit_uv(EXIT_FAIL_NETWORK);
                         goto cleanup_wait_display;

@@ -1009,10 +1009,11 @@ static void init_rng(const char *s)
 struct rtp *rtp_init(const char *addr,
                      uint16_t rx_port, uint16_t tx_port,
                      int ttl, double rtcp_bw,
-                     int tfrc_on, rtp_callback callback, uint8_t * userdata)
+                     int tfrc_on, rtp_callback callback, uint8_t * userdata,
+                     bool use_ipv6)
 {
         return rtp_init_if(addr, NULL, rx_port, tx_port, ttl, rtcp_bw, tfrc_on,
-                           callback, userdata);
+                           callback, userdata, use_ipv6);
 }
 
 /**
@@ -1041,7 +1042,8 @@ struct rtp *rtp_init(const char *addr,
 struct rtp *rtp_init_if(const char *addr, char *iface,
                         uint16_t rx_port, uint16_t tx_port,
                         int ttl, double rtcp_bw,
-                        int tfrc_on, rtp_callback callback, uint8_t * userdata)
+                        int tfrc_on, rtp_callback callback, uint8_t * userdata,
+                        bool use_ipv6)
 {
         struct rtp *session;
         int i, j;
@@ -1070,10 +1072,10 @@ struct rtp *rtp_init_if(const char *addr, char *iface,
         session->rx_port = rx_port;
         session->tx_port = tx_port;
         session->ttl = min(ttl, 127);
-        session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl);
+        session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6);
         session->rtcp_socket =
             udp_init_if(addr, iface, (uint16_t) (rx_port + 1),
-                        (uint16_t) (tx_port + 1), ttl);
+                        (uint16_t) (tx_port + 1), ttl, use_ipv6);
 
         init_opt(session);
 

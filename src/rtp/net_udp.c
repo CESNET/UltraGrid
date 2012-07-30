@@ -818,9 +818,9 @@ int udp_addr_valid(const char *addr)
  * Returns: a pointer to a valid socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
-                     int ttl)
+                     int ttl, bool use_ipv6)
 {
-        return udp_init_if(addr, NULL, rx_port, tx_port, ttl);
+        return udp_init_if(addr, NULL, rx_port, tx_port, ttl, use_ipv6);
 }
 
 /**
@@ -838,11 +838,11 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
  * Return value: a pointer to a socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
-                        uint16_t tx_port, int ttl)
+                        uint16_t tx_port, int ttl, bool use_ipv6)
 {
         socket_udp *res;
 
-        if (strchr(addr, ':') == NULL) {
+        if (strchr(addr, ':') == NULL && !use_ipv6) {
                 res = udp_init4(addr, iface, rx_port, tx_port, ttl);
         } else {
                 res = udp_init6(addr, iface, rx_port, tx_port, ttl);
