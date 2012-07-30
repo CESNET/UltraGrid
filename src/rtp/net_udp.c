@@ -111,6 +111,7 @@ struct _socket_udp {
         struct in_addr addr4;
 #ifdef HAVE_IPv6
         struct in6_addr addr6;
+        struct sockaddr_in6 sock6;
 #endif                          /* HAVE_IPv6 */
 };
 
@@ -539,19 +540,33 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         s->rx_port = rx_port;
         s->tx_port = tx_port;
         s->ttl = ttl;
+        struct addrinfo hints, *res0;
+        int err;
 
         if (iface != NULL) {
                 debug_msg("Not yet implemented\n");
                 abort();
         }
 
-        if (inet_pton(AF_INET6, addr, &s->addr6) != 1) {
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_INET6;
+        hints.ai_socktype = SOCK_DGRAM;
+
+        char tx_port_str[7];
+        sprintf(tx_port_str, "%u", tx_port);
+        if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
                 /* We should probably try to do a DNS lookup on the name */
                 /* here, but I'm trying to get the basics going first... */
-                debug_msg("IPv6 address conversion failed\n");
+                debug_msg("IPv6 address conversion failed: %s\n", gai_strerror(err));
                 free(s);
                 return NULL;
+        } else {
+                memcpy(&s->sock6, res0->ai_addr, res0->ai_addrlen);
+                memcpy(&s->addr6, &((struct sockaddr_in6 *) res0->ai_addr)->sin6_addr,
+                                sizeof(((struct sockaddr_in6 *) res0->ai_addr)->sin6_addr));
         }
+        freeaddrinfo(res0);
+
         s->fd = socket(AF_INET6, SOCK_DGRAM, 0);
         if (s->fd < 0) {
                 socket_error("socket");
@@ -661,22 +676,13 @@ static void udp_exit6(socket_udp * s)
 static int udp_send6(socket_udp * s, char *buffer, int buflen)
 {
 #ifdef HAVE_IPv6
-        struct sockaddr_in6 s_in;
-
         assert(s != NULL);
         assert(s->mode == IPv6);
         assert(buffer != NULL);
         assert(buflen > 0);
 
-        memset((char *)&s_in, 0, sizeof(s_in));
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_addr = s->addr6;
-        s_in.sin6_port = htons(s->tx_port);
-#ifdef HAVE_SIN6_LEN
-        s_in.sin6_len = sizeof(s_in);
-#endif
-        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s_in,
-                      sizeof(s_in));
+        return sendto(s->fd, buffer, buflen, 0, (struct sockaddr *)&s->sock6,
+                      sizeof(s->sock6));
 #else
         UNUSED(s);
         UNUSED(buffer);
@@ -689,20 +695,12 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count)
 {
 #ifdef HAVE_IPv6
         struct msghdr msg;
-        struct sockaddr_in6 s_in;
 
         assert(s != NULL);
         assert(s->mode == IPv6);
 
-        memset((char *)&s_in, 0, sizeof(s_in));
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_addr = s->addr6;
-        s_in.sin6_port = htons(s->tx_port);
-#ifdef HAVE_SIN6_LEN
-        s_in.sin6_len = sizeof(s_in);
-#endif
-        msg.msg_name = (void *)&s_in;
-        msg.msg_namelen = sizeof(s_in);
+        msg.msg_name = (void *)&s->sock6;
+        msg.msg_namelen = sizeof(s->sock6);
         msg.msg_iov = vector;
         msg.msg_iovlen = count;
         msg.msg_control = 0;
