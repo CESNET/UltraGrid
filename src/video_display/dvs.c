@@ -423,8 +423,11 @@ void display_dvs_run(void *arg)
                     sv_fifo_putbuffer(s->sv, s->fifo, s->display_buffer, NULL);
                 if (res != SV_OK) {
                         fprintf(stderr, "Error %s\n", sv_geterrortext(res));
-                        exit_uv(1);
-                        return;
+                        /*  Here is probably bug in recent DVS SDK (4.2.1.1) that triggers
+                         *  this error multiple times after device reconfiguration. After few
+                         *  frames it disappears.
+                         *  TODO: If ther is no longer the error, remove this comment and exit here.
+                         */
                 }
 
                 gettimeofday(&s->t, NULL);
