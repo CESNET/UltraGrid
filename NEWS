@@ -1,3 +1,17 @@
+1.1
+=====
+* support for specifying multicast interface for both IPv4 and IPv6
+* IPv6 - support zone ID (RFC 4007), name resolving into IPv6
+* LDGM - added profiles
+* added acoustic echo canceller
+* ALSA - fixed latency problem when using PulseAudio
+* cmdline parameter to capture specified number of channels
+* allow audio scaling (by a fixed ratio or adaptively)
+* audio - added audio mapping/mixer
+* Mac - produce complete self-contained bundle (with libs)
+* updated GUIs - added FEC, tooltips etc.
+* GL - hide cursor
+
 1.1-rc4
 =====
 * interlacing - allow switching at field-rate while naturally interlacing field
