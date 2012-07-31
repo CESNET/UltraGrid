@@ -83,12 +83,12 @@ struct testcard_pixmap {
         char *data;
 };
 
-void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
-unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
+static void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
+static unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
                       unsigned int height, double bpp);
-void toR10k(unsigned char *in, unsigned int width, unsigned int height);
-void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color);
-char * toRGB(unsigned char *in, unsigned int width, unsigned int height);
+static void toR10k(unsigned char *in, unsigned int width, unsigned int height);
+static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color);
+static char * toRGB(unsigned char *in, unsigned int width, unsigned int height);
 
 struct testcard_state {
         struct timeval last_frame_time;
@@ -124,7 +124,7 @@ const int rect_colors[] = {
 
 #define COL_NUM 6
 
-void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
+static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
 {
         int cur_x, cur_y;
         int *data = (int *) s->data;
@@ -135,7 +135,7 @@ void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int c
                                 *(data + s->w * cur_y + cur_x) = color;
 }
 
-void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
+static void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
 {
         unsigned int i, j;
         int r, g, b;
@@ -201,7 +201,7 @@ void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
         }
 }
 
-unsigned char *tov210(unsigned char *in, unsigned int width,
+static unsigned char *tov210(unsigned char *in, unsigned int width,
                       unsigned int aligned_x, unsigned int height, double bpp)
 {
         struct {
@@ -252,7 +252,7 @@ unsigned char *tov210(unsigned char *in, unsigned int width,
         return ret;
 }
 
-void toR10k(unsigned char *in, unsigned int width, unsigned int height)
+static void toR10k(unsigned char *in, unsigned int width, unsigned int height)
 {
         struct {
                 unsigned r:8;
@@ -298,7 +298,7 @@ void toR10k(unsigned char *in, unsigned int width, unsigned int height)
         }
 }
 
-char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
+static char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
 {
         unsigned int i;
         unsigned char *ret = malloc(width * height * 3);
@@ -465,7 +465,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         struct stat sb;
         unsigned int i, j;
         unsigned int rect_size = COL_NUM;
-        codec_t codec=0;
+        codec_t codec = RGBA;
         int aligned_x;
 
         if (fmt == NULL || strcmp(fmt, "help") == 0) {

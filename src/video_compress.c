@@ -83,7 +83,7 @@ struct compress_state {
         unsigned int uncompressed:1;
 };
 
-void init_compressions(void);
+static void init_compressions(void);
 
 
 struct compress_t compress_modules[] = {
@@ -136,7 +136,7 @@ static int compress_fill_symbols(struct compress_t *compression)
 }
 #endif
 
-void init_compressions(void)
+static void init_compressions(void)
 {
         unsigned int i;
         for(i = 0; i < sizeof(compress_modules)/sizeof(struct compress_t); ++i) {

@@ -126,10 +126,10 @@ static void toggleFullscreen(struct state_sdl *s);
 static void loadSplashscreen(struct state_sdl *s);
 static void show_help(void);
 
-void cleanup_screen(struct state_sdl *s);
+static void cleanup_screen(struct state_sdl *s);
 static void configure_audio(struct state_sdl *s);
-int display_sdl_handle_events(void *arg, int post);
-void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
+static int display_sdl_handle_events(void *arg, int post);
+static void sdl_audio_callback(void *userdata, Uint8 *stream, int len);
                 
 /** 
  * Load splashscreen
@@ -282,7 +282,7 @@ static void toggleFullscreen(struct state_sdl *s) {
  * @param arg Structure (state_sdl) contains the current settings
  * @return zero value everytime
  */
-int display_sdl_handle_events(void *arg, int post)
+static int display_sdl_handle_events(void *arg, int post)
 {
         SDL_Event sdl_event;
         struct state_sdl *s = arg;
@@ -362,7 +362,7 @@ void display_sdl_run(void *arg)
 #ifndef HAVE_MACOSX
                         SDL_LockSurface(s->sdl_screen);
 #endif
-                        s->tile->data = s->sdl_screen->pixels +
+                        s->tile->data = (char *) s->sdl_screen->pixels +
                             s->sdl_screen->pitch * s->dst_rect.y +
                             s->dst_rect.x *
                             s->sdl_screen->format->BytesPerPixel;
@@ -404,7 +404,7 @@ static void show_help(void)
         show_codec_help("sdl");
 }
 
-void cleanup_screen(struct state_sdl *s)
+static void cleanup_screen(struct state_sdl *s)
 {
         if (s->rgb == 0) {
                 if (s->yuv_image != NULL) {
@@ -532,7 +532,7 @@ int display_sdl_reconfigure(void *state, struct video_desc desc)
                 s->dst_rect.h, s->dst_rect.x, s->dst_rect.y);
         
         if (s->rgb) {
-                s->tile->data = s->sdl_screen->pixels +
+                s->tile->data = (char *) s->sdl_screen->pixels +
                     s->sdl_screen->pitch * s->dst_rect.y +
                     s->dst_rect.x * s->sdl_screen->format->BytesPerPixel;
                 s->tile->data_len =
@@ -778,7 +778,7 @@ int display_sdl_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {
+static void sdl_audio_callback(void *userdata, Uint8 *stream, int len) {
         struct state_sdl *s = (struct state_sdl *)userdata;
         if (ring_buffer_read(s->audio_buffer, (char *) stream, len) != len)
         {

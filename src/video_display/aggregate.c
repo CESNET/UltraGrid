@@ -46,11 +46,14 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
 #include "debug.h"
+#include "host.h"
 #include "tv.h"
 #include "video.h"
 #include "video_display.h"
@@ -62,11 +65,6 @@
 #include <video_codec.h>
 
 #define MAGIC_AGGREGATE DISPLAY_AGGREGATE_ID
-
-/* defined in main.c */
-struct display *initialize_video_display(const char *requested_display,
-                char *fmt, unsigned int flags);
-
 
 struct display_aggregate_state {
         struct display        **devices;

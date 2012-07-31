@@ -63,16 +63,16 @@ static int display_opened_here = TRUE; /* indicates wheather we opened the displ
                                           we close it */
 static int ref_num = 0;
 
-void _x11_set_display(void *disp);
-void _x11_enter_thread(void);
-void _x11_unused(void);
-void * _x11_acquire_display(void);
-void * _x11_get_display(void);
-void _x11_release_display(void);
-void _x11_lock(void);
-void _x11_unlock(void);
+static void _x11_set_display(void *disp);
+static void _x11_enter_thread(void);
+static void _x11_unused(void);
+static void * _x11_acquire_display(void);
+static void * _x11_get_display(void);
+static void _x11_release_display(void);
+static void _x11_lock(void);
+static void _x11_unlock(void);
 
-void _x11_enter_thread(void)
+static void _x11_enter_thread(void)
 {
         pthread_mutex_lock(&lock);
         pthread_once(&XInitThreadsHasRun, (void ((*)(void)))XInitThreads);
@@ -81,7 +81,7 @@ void _x11_enter_thread(void)
 }
 void (*x11_enter_thread)(void) = _x11_enter_thread;
 
-void _x11_set_display(void *disp)
+static void _x11_set_display(void *disp)
 {
         Display *d = disp;
         if (d == NULL)
@@ -99,7 +99,7 @@ void _x11_set_display(void *disp)
         pthread_mutex_unlock(&lock);
 }
 
-void * _x11_acquire_display(void)
+static void * _x11_acquire_display(void)
 {
         if(!display) {
                 display = XOpenDisplay(0);
@@ -117,13 +117,13 @@ void * _x11_acquire_display(void)
 }
 void * (*x11_acquire_display)(void) = _x11_acquire_display;
 
-void * _x11_get_display(void)
+static void * _x11_get_display(void)
 {
         return display;
 }
 void * (*x11_get_display)(void) = _x11_get_display;
 
-void _x11_release_display() {
+static void _x11_release_display() {
         ref_num--;
         
         if(ref_num < 0) {
@@ -140,14 +140,14 @@ void (*x11_release_display)(void) = _x11_release_display;
 
 void (*x11_set_display)(void *) = _x11_set_display;
 
-void _x11_lock(void)
+static void _x11_lock(void)
 {
         pthread_mutex_lock(&lock);
 }
 
 void (*x11_lock)(void) = _x11_lock;
 
-void _x11_unlock(void)
+static void _x11_unlock(void)
 {
         pthread_mutex_unlock(&lock);
 }
@@ -155,7 +155,7 @@ void _x11_unlock(void)
 void (*x11_unlock)(void) = _x11_unlock;
 
 /* used only to force compilator to export symbols */
-void _x11_unused()
+static void _x11_unused()
 {
         x11_enter_thread();
         x11_set_display(0);

@@ -372,7 +372,7 @@ case "$host_os" in
                 # -fpermissive, but not in conjunction with -Werror since warnings are still
                 # generated.  Could pull local headers through:
                 #			 's/^\(extern\) \([[A-Za-z0-9]]*($\)/\1 int \2/'
-                if test $x11_cv_broken_headers = yes -a $GCC = "yes" ; then
+                if test $x11_cv_broken_headers = yes -a "$GCC" = "yes" ; then
                         SAVED_X_CFLAGS=$X_CFLAGS
                         X_CFLAGS=`echo $X_CFLAGS | sed 's%-I%-istdinc%'`
                         AC_CACHE_CHECK(whether -istdinc fixes X11 headers, x11_cv_gcc_istdinc_works, [

@@ -92,7 +92,7 @@ enum fec_scheme_t {
 static bool fec_is_ldgm(struct tx *tx);
 static void tx_update(struct tx *tx, struct tile *tile);
 
-void
+static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
                 codec_t color_spec, double input_fps,
@@ -243,7 +243,7 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->color_spec, frame->fps, frame->interlacing, pos);
 }
 
-void
+static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
                 codec_t color_spec, double input_fps,
@@ -349,6 +349,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 if(fec_is_ldgm(tx)) {
                         ldgm_hdr.offset = htonl(pos);
                 }
+
 
                 data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;

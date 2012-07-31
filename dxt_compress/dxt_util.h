@@ -55,12 +55,12 @@ extern void glutMainLoopEvent(void);
 
 static inline int dxt_get_size(int width, int height, enum dxt_type format)
 {
+    assert( format == DXT_TYPE_DXT5_YCOCG || format == DXT_TYPE_DXT1 ||  format == DXT_TYPE_DXT1_YUV );
+
     if ( format == DXT_TYPE_DXT5_YCOCG )
         return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4);
-    else if ( format == DXT_TYPE_DXT1 ||  format == DXT_TYPE_DXT1_YUV )
-        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4) / 2;
     else
-            abort();
+        return ((width + 3) / 4 * 4) * ((height + 3) / 4 * 4) / 2;
 }
 
 /**

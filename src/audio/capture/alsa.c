@@ -52,6 +52,7 @@
 #ifdef HAVE_ALSA
 
 #include "audio/audio.h"
+#include "audio/playback/alsa.h"
 #include "audio/utils.h"
 
 #include "audio/capture/alsa.h" 
@@ -72,7 +73,6 @@ struct state_alsa_capture {
         unsigned int min_device_channels;
 };
 
-void audio_play_alsa_help(const char *driver_name);
 void audio_cap_alsa_help(const char *driver_name)
 {
         audio_play_alsa_help(driver_name);

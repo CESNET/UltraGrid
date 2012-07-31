@@ -132,9 +132,9 @@ struct dxt_encoder
 #endif
 };
 
-int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder);
+static int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder);
 
-int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
+static int dxt_prepare_yuv422_shader(struct dxt_encoder *encoder) {
         encoder->yuv422_to_444_fp = 0;    
         if(encoder->legacy) {
             encoder->yuv422_to_444_fp = dxt_shader_create_from_source(fp_yuv422_to_yuv_444_legacy, GL_FRAGMENT_SHADER);

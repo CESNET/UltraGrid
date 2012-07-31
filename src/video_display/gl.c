@@ -212,22 +212,22 @@ struct state_gl {
 static struct state_gl *gl;
 
 /* Prototyping */
-void gl_draw(double ratio);
-void gl_show_help(void);
+static void gl_draw(double ratio);
+static void gl_show_help(void);
 
-void gl_check_error(void);
-void gl_resize(int width, int height);
-void glsl_arb_init(void *arg);
-void dxt_arb_init(void *arg);
-void gl_bind_texture(void *args);
-void dxt_bind_texture(void *arg);
-void dxt5_arb_init(struct state_gl *s);
-void gl_reconfigure_screen(struct state_gl *s);
-void glut_idle_callback(void);
-void glut_key_callback(unsigned char key, int x, int y);
-void glut_close_callback(void);
-void glut_resize_window(struct state_gl *s);
-void display_gl_enable_sync_on_vblank(void);
+static void gl_check_error(void);
+static void gl_resize(int width, int height);
+static void glsl_arb_init(void *arg);
+static void dxt_arb_init(void *arg);
+static void gl_bind_texture(void *args);
+static void dxt_bind_texture(void *arg);
+static void dxt5_arb_init(struct state_gl *s);
+static void gl_reconfigure_screen(struct state_gl *s);
+static void glut_idle_callback(void);
+static void glut_key_callback(unsigned char key, int x, int y);
+static void glut_close_callback(void);
+static void glut_resize_window(struct state_gl *s);
+static void display_gl_enable_sync_on_vblank(void);
 
 #ifdef HAVE_MACOSX
 void NSApplicationLoad(void);
@@ -237,7 +237,7 @@ void NSApplicationLoad(void);
  * Show help
  * @since 23-03-2010, xsedmik
  */
-void gl_show_help(void) {
+static void gl_show_help(void) {
         printf("GL options:\n");
         printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
@@ -246,7 +246,7 @@ void gl_show_help(void) {
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
 }
 
-void gl_check_error()
+static void gl_check_error()
 {
 	GLenum msg;
 	int flag=0;
@@ -288,6 +288,9 @@ void gl_check_error()
 void * display_gl_init(char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl        *s;
+#ifdef HAVE_LINUX
+        GLenum err;
+#endif // HAVE_LINUX
         
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
@@ -398,7 +401,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         free(tmp);
 
 #ifdef HAVE_LINUX
-        GLenum err = glewInit();
+        err = glewInit();
         if (GLEW_OK != err)
         {
                 /* Problem: glewInit failed, something is seriously wrong. */
@@ -444,7 +447,7 @@ error:
  * Consider that the latter stores alpha (has to) while this shader doesn't,
  * which is perhaps a little bit better.
  */
-void glsl_arb_init(void *arg)
+static void glsl_arb_init(void *arg)
 {
         struct state_gl	*s = (struct state_gl *) arg;
         char 		*log;
@@ -487,7 +490,7 @@ void glsl_arb_init(void *arg)
         glGenFramebuffersEXT(1, &s->fbo_id);
 }
 
-void dxt_arb_init(void *arg)
+static void dxt_arb_init(void *arg)
 {
         struct state_gl        *s = (struct state_gl *) arg;
         char *log;
@@ -528,7 +531,7 @@ void dxt_arb_init(void *arg)
         free(log);
 }
 
-void dxt5_arb_init(struct state_gl *s)
+static void dxt5_arb_init(struct state_gl *s)
 {
         char *log;
         const GLcharARB *FProgram;
@@ -595,7 +598,7 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
         return TRUE;
 }
 
-void glut_resize_window(struct state_gl *s)
+static void glut_resize_window(struct state_gl *s)
 {
         if (!s->fs) {
                 glutReshapeWindow(s->tile->height * s->aspect, s->tile->height);
@@ -608,7 +611,7 @@ void glut_resize_window(struct state_gl *s)
  * Please note, that setting the value of 0 to GLX function is invalid according to
  * documentation. However. reportedly NVidia driver does unset VSync.
  */
-void display_gl_enable_sync_on_vblank() {
+static void display_gl_enable_sync_on_vblank() {
 #ifdef HAVE_MACOSX
         int swap_interval = 1;
         CGLContextObj cgl_context = CGLGetCurrentContext();
@@ -731,7 +734,7 @@ void gl_reconfigure_screen(struct state_gl *s)
         gl_check_error();
 }
 
-void glut_idle_callback(void)
+static void glut_idle_callback(void)
 {
         struct state_gl *s = gl;
         struct timeval tv;
@@ -822,7 +825,7 @@ void glut_idle_callback(void)
         s->processed = TRUE;
 }
 
-void glut_key_callback(unsigned char key, int x, int y) 
+static void glut_key_callback(unsigned char key, int x, int y)
 {
         UNUSED(x);
         UNUSED(y);
@@ -863,7 +866,7 @@ void display_gl_run(void *arg)
 }
 
 
-void gl_resize(int width,int height)
+static void gl_resize(int width,int height)
 {
         glViewport( 0, 0, ( GLint )width, ( GLint )height );
         glMatrixMode( GL_PROJECTION );
@@ -890,7 +893,7 @@ void gl_resize(int width,int height)
         glLoadIdentity( );
 }
 
-void gl_bind_texture(void *arg)
+static void gl_bind_texture(void *arg)
 {
         struct state_gl        *s = (struct state_gl *) arg;
 
@@ -900,7 +903,7 @@ void gl_bind_texture(void *arg)
         gl_check_error();
         glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->texture_display, 0);
         status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-        assert(status = GL_FRAMEBUFFER_COMPLETE_EXT);
+        assert(status == GL_FRAMEBUFFER_COMPLETE_EXT);
         glActiveTexture(GL_TEXTURE0 + 2);
         glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
 
@@ -942,7 +945,7 @@ void gl_bind_texture(void *arg)
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
 }    
 
-void dxt_bind_texture(void *arg)
+static void dxt_bind_texture(void *arg)
 {
         struct state_gl        *s = (struct state_gl *) arg;
         static int i=0;
@@ -959,7 +962,7 @@ void dxt_bind_texture(void *arg)
                         s->buffers[s->image_display]);
 }    
 
-void gl_draw(double ratio)
+static void gl_draw(double ratio)
 {
         float bottom;
         gl_check_error();
@@ -991,7 +994,7 @@ void gl_draw(double ratio)
         gl_check_error();
 }
 
-void glut_close_callback(void)
+static void glut_close_callback(void)
 {
         exit_uv(0);
 }

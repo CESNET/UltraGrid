@@ -222,6 +222,15 @@ void *glx_init(glx_opengl_version_t version)
     };
  
   int glx_major, glx_minor;
+
+  int fbcount;
+  int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
+  GLXFBConfig *fbc;
+  GLXFBConfig bestFbc;
+  XVisualInfo *vi;
+  const char *glxExts;
+  glXCreateContextAttribsARBProc glXCreateContextAttribsARB;
+  int (*oldHandler)(Display*, XErrorEvent*);
  
   // FBConfigs were added in GLX version 1.3.
   if ( !glXQueryVersion( display, &glx_major, &glx_minor ) || 
@@ -232,8 +241,7 @@ void *glx_init(glx_opengl_version_t version)
   }
  
   printf( "Getting matching framebuffer configs\n" );
-  int fbcount;
-  GLXFBConfig *fbc = glXChooseFBConfig( display, DefaultScreen( display ), 
+  fbc = glXChooseFBConfig( display, DefaultScreen( display ), 
                                         visual_attribs, &fbcount );
   if ( !fbc )
   {
@@ -244,10 +252,8 @@ void *glx_init(glx_opengl_version_t version)
  
   // Pick the FB config/visual with the most samples per pixel
   printf( "Getting XVisualInfos\n" );
-  int best_fbc = -1, worst_fbc = -1, best_num_samp = -1, worst_num_samp = 999;
  
-  int i;
-  for ( i = 0; i < fbcount; i++ )
+  for ( int i = 0; i < fbcount; i++ )
   {
     XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
     if ( vi )
@@ -268,13 +274,13 @@ void *glx_init(glx_opengl_version_t version)
     XFree( vi );
   }
  
-  GLXFBConfig bestFbc = fbc[ best_fbc ];
+  bestFbc = fbc[ best_fbc ];
  
   // Be sure to free the FBConfig list allocated by glXChooseFBConfig()
   XFree( fbc );
  
   // Get a visual
-  XVisualInfo *vi = glXGetVisualFromFBConfig( display, bestFbc );
+  vi = glXGetVisualFromFBConfig( display, bestFbc );
   printf( "Chosen visual ID = 0x%x\n", (unsigned int) vi->visualid );
  
   printf( "Creating colormap\n" );
@@ -309,12 +315,12 @@ void *glx_init(glx_opengl_version_t version)
   XMapWindow( display, win );*/
  
   // Get the default screen's GLX extension list
-  const char *glxExts = glXQueryExtensionsString( display,
+  glxExts = glXQueryExtensionsString( display,
                                                   DefaultScreen( display ) );
  
   // NOTE: It is not necessary to create or make current to a context before
   // calling glXGetProcAddressARB
-  glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
+  glXCreateContextAttribsARB = 0;
   glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
            glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
  
@@ -327,8 +333,7 @@ void *glx_init(glx_opengl_version_t version)
   // of a process use the same error handler, so be sure to guard against other
   // threads issuing X commands while this code is running.
   ctxErrorOccurred = FALSE;
-  int (*oldHandler)(Display*, XErrorEvent*) =
-      XSetErrorHandler(&ctxErrorHandler);
+  oldHandler = XSetErrorHandler(&ctxErrorHandler);
  
   // Check for the GLX_ARB_create_context extension string and the function.
   // If either is not present, use GLX 1.3 context creation method.

@@ -83,12 +83,10 @@ enum audio_device_kind {
  */
 
 /* prototyping */
-void portaudio_decode_frame(void *dst, void *src, int data_len, int buffer_len, void *state);
 static void      print_device_info(PaDeviceIndex device);
 static int       portaudio_start_stream(PaStream *stream);
 static void      portaudio_close(PaStream *stream);  /* closes and frees all audio resources ( according to valgrind this is not true..  ) */
 static void      portaudio_print_available_devices(enum audio_device_kind);
-void             free_audio_frame(audio_frame *buffer);
 
  /*
   * Shared functions

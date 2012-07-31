@@ -65,4 +65,9 @@ extern unsigned int audio_capture_channels;
 
 extern unsigned int cuda_device;
 
+// for aggregate.c
+struct display *initialize_video_display(const char *requested_display,
+                                                char *fmt, unsigned int flags);
+struct vidcap *initialize_video_capture(const char *requested_capture,
+                                               char *fmt, unsigned int flags);
 #endif

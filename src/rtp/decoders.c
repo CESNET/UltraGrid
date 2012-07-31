@@ -59,10 +59,12 @@
 
 struct state_decoder;
 
-struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
+static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
                                 struct video_frame *frame);
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
-void restrict_returned_codecs(codec_t *display_codecs, size_t *display_codecs_count, codec_t *pp_codecs, int pp_codecs_count);
+static void restrict_returned_codecs(codec_t *display_codecs,
+                size_t *display_codecs_count, codec_t *pp_codecs,
+                int pp_codecs_count);
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
 static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame,
                 struct pbuf_video_data *pbuf_data);
@@ -207,7 +209,9 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         return s;
 }
 
-void restrict_returned_codecs(codec_t *display_codecs, size_t *display_codecs_count, codec_t *pp_codecs, int pp_codecs_count)
+static void restrict_returned_codecs(codec_t *display_codecs,
+                size_t *display_codecs_count, codec_t *pp_codecs,
+                int pp_codecs_count)
 {
         int i;
 
@@ -458,12 +462,12 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
         return NULL;
 }
 
-struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
-                                struct video_frame *frame_display)
+static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder,
+                struct video_desc desc, struct video_frame *frame_display)
 {
         codec_t out_codec, in_codec;
         decoder_t decode_line;
-        enum interlacing_t display_il = 0;
+        enum interlacing_t display_il = PROGRESSIVE;
         //struct video_frame *frame;
         int render_mode;
 

@@ -61,6 +61,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 #include "debug.h"
+#include "host.h"
 #include "perf.h"
 #include "rtp/decoders.h"
 #include "rtp/rtp.h"
@@ -179,12 +180,8 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base,
                 int send_port_base, struct pdb *participants, bool use_ipv6,
                 char *mcast_if);
 
-void list_video_display_devices(void);
-void list_video_capture_devices(void);
-struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags);
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags);
+static void list_video_display_devices(void);
+static void list_video_capture_devices(void);
 static void sender_finish(struct state_uv *uv);
 static void display_buf_increase_warning(int size);
 
@@ -197,9 +194,9 @@ static void signal_handler(int signal)
 }
 #endif                          /* WIN32 */
 
-void _exit_uv(int status);
+static void _exit_uv(int status);
 
-void _exit_uv(int status) {
+static void _exit_uv(int status) {
         exit_status = status;
         wait_to_finish = TRUE;
         should_exit = TRUE;
@@ -299,7 +296,7 @@ static void usage(void)
         printf("\n");
 }
 
-void list_video_display_devices()
+static void list_video_display_devices()
 {
         int i;
         display_type_t *dt;
@@ -353,7 +350,7 @@ struct display *initialize_video_display(const char *requested_display,
         return d;
 }
 
-void list_video_capture_devices()
+static void list_video_capture_devices()
 {
         int i;
         struct vidcap_type *vt;

@@ -66,8 +66,6 @@
 #include "ihdtv.h"
 #include "debug.h"
 
-void init_reciever(void);
-
 int
 ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
                       const char *address_2, unsigned int port1,

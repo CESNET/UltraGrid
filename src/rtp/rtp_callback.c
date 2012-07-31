@@ -203,6 +203,7 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
                 if (pckt_rtp->data_len > 0) {   /* Only process packets that contain data... */
                         pbuf_insert(state->playout_buffer, pckt_rtp);
                 }
+                gettimeofday(&curr_time, NULL);
                 tfrc_recv_data(state->tfrc_state, curr_time, pckt_rtp->seq,
                                pckt_rtp->data_len + 40);
                 break;
@@ -226,8 +227,8 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
         case RX_APP:
                 pckt_app = (rtcp_app *) e->data;
                 if (strncmp(pckt_app->name, "RTT_", 4) == 0) {
-                        assert(pckt_app->length = 3);
-                        assert(pckt_app->subtype = 0);
+                        assert(pckt_app->length == 3);
+                        assert(pckt_app->subtype == 0);
                         gettimeofday(&curr_time, NULL);
 //                      tfrc_recv_rtt(state->tfrc_state, curr_time, ntohl(*((int *) pckt_app->data)));
                 }

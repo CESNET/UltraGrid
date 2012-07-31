@@ -60,6 +60,11 @@ struct rtp;
  * struct *'s. */
 typedef struct rtp *rtp_t;
 
+/*
+ * TODO: this usage of bit-array is incorrect and the attribute "packed"
+ * doesn't ensure proper behaviour. With GCC-incompatible mode of Intel
+ * C Compiler this is broken.
+ */
 typedef struct __attribute__((packed)) {
 	/* The following are pointers to the data in the packet as    */
 	/* it came off the wire. The packet it read in such that the  */

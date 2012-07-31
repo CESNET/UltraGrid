@@ -111,10 +111,12 @@ struct video_compress {
         volatile int buffer_idx;
 };
 
-static void compress_thread(void *args);
-int reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t, double fps);
+static void *compress_thread(void *args);
+static int reconfigure_compress(struct video_compress *compress, int width,
+                int height, codec_t codec, enum interlacing_t, double fps);
 
-int reconfigure_compress(struct video_compress *compress, int width, int height, codec_t codec, enum interlacing_t interlacing, double fps)
+static int reconfigure_compress(struct video_compress *compress, int width,
+                int height, codec_t codec, enum interlacing_t interlacing, double fps)
 {
         int x;
         int i;
@@ -283,7 +285,7 @@ void *fastdxt_init(char *num_threads_str)
 
         for (x = 0; x < compress->num_threads; x++) {
                 if (pthread_create
-                    (&(compress->thread_ids[x]), NULL, (void *)compress_thread,
+                    (&(compress->thread_ids[x]), NULL, compress_thread,
                      (void *)compress)) {
                         perror("Unable to create compressor thread!");
                         exit_uv(x);
@@ -362,7 +364,7 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
         return out;
 }
 
-static void compress_thread(void *args)
+static void *compress_thread(void *args)
 {
         struct video_compress *compress = (struct video_compress *)args;
         int myId, range, my_range, x;
@@ -418,6 +420,8 @@ static void compress_thread(void *args)
         }
         
         platform_sem_post(&compress->thread_done[myId]);
+
+        return NULL;
 }
 
 void fastdxt_done(void *args)

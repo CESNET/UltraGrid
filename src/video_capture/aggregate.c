@@ -64,14 +64,10 @@
 #include "video_display.h"
 #include "video.h"
 
-/* defined in main.c */
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags);
-
 /* prototypes of functions defined in this module */
-void show_help(void);
+static void show_help(void);
 
-void show_help()
+static void show_help()
 {
         printf("Aggregate capture\n");
         printf("Usage\n");

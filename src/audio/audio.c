@@ -114,8 +114,6 @@ struct state_audio {
  * 
  * Input and output data may overlap. 
  */
-void copy_channel(char *out, const char *in, int bps, int in_len /* bytes */, int out_channel_count); 
-
 typedef void (*audio_device_help_t)(void);
 
 static void *audio_sender_thread(void *arg);

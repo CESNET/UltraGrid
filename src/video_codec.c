@@ -58,8 +58,8 @@
 #include "video_codec.h"
 
 static int get_halign(codec_t codec);
-void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
-void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
+static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
+static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
 #define to_fourcc(a,b,c,d)     (((a)<<24) | ((b)<<16) | ((c)<<8) | (d))
 
@@ -78,7 +78,7 @@ const struct codec_info_t codec_info[] = {
         {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
         {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
         {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
-        {0, NULL, 0, 0, 0.0, FALSE, FALSE}
+        {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE}
 };
 
 /* take care that UYVY is alias for both 2vuy and dvs8, do not use
@@ -98,7 +98,7 @@ const struct line_decode_from_to line_decoders[] = {
         { RGB, RGBA, vc_copylineRGBtoRGBA},
         { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
-        { 0, 0, NULL }
+        { (codec_t) 0, (codec_t) 0, NULL }
 };
 
 void show_codec_help(char *module)
@@ -166,7 +166,7 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
                         return codec_info[i].codec;
                 i++;
         }
-        return 0;
+        return (codec_t) -1;
 }
 
 int is_codec_opaque(codec_t codec)
@@ -220,7 +220,7 @@ void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
         }
 }
 
-void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
+static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
 {
         int i, j;
         long pitch = src_linesize;
@@ -263,7 +263,7 @@ void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
                 bline3 += 16;
         }
 }
-void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
+static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
 {
         int i, j;
         long pitch = src_linesize;
