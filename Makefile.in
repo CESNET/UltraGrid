@@ -394,11 +394,12 @@ ctags:
 release:
 	cvs tag release-`cat VERSION | sed "s/\./-/g"`
 
-bundle: all
+bundle-nolib: all
 	mkdir -p $(BUNDLE)/Contents/MacOS
 	cp $(TARGET) $(BUNDLE)/Contents/MacOS/
 	cp -r data/MacOS-bundle-template/* $(BUNDLE)/
 
+bundle: bundle-nolib
 	@if `which dylibbundler`; then \
 		dylibbundler -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
 		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
