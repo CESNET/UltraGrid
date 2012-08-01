@@ -311,13 +311,13 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
 
         while (cdata != NULL) {
                 char *data;
-                audio_payload_hdr_t *hdr = 
-                        (audio_payload_hdr_t *) cdata->data->data;
+                // for definition see rtp_callbacks.h
+                uint32_t *hdr = (uint32_t *) cdata->data->data;
                         
                 /* we receive last channel first (with m bit, last packet) */
                 /* thus can be set only with m-bit packet */
                 if(cdata->data->m) {
-                        input_channels = ((ntohl(hdr->substream_bufnum) >> 22) & 0x3ff) + 1;
+                        input_channels = ((ntohl(hdr[0]) >> 22) & 0x3ff) + 1;
                 }
 
                 // we have:
@@ -325,10 +325,10 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 // 2) not last, but the last one was processed at first
                 assert(input_channels > 0);
 
-                channel = (ntohl(hdr->substream_bufnum) >> 22) & 0x3ff;
-                int bufnum = ntohl(hdr->substream_bufnum) & 0x3fffff;
-                sample_rate = ntohl(hdr->quant_sample_rate) & 0x3fffff;
-                bps = (ntohl(hdr->quant_sample_rate) >> 26) / 8;
+                channel = (ntohl(hdr[0]) >> 22) & 0x3ff;
+                int bufnum = ntohl(hdr[0]) & 0x3fffff;
+                sample_rate = ntohl(hdr[3]) & 0x3fffff;
+                bps = (ntohl(hdr[3]) >> 26) / 8;
                 
                 output_channels = decoder->channel_remapping ? decoder->channel_map.max_output + 1: input_channels;
 
@@ -367,8 +367,8 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 
                 unsigned int length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
 
-                unsigned int offset = ntohl(hdr->offset);
-                unsigned int buffer_len = ntohl(hdr->length);
+                unsigned int offset = ntohl(hdr[1]);
+                unsigned int buffer_len = ntohl(hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
 
 

@@ -44,80 +44,85 @@
 
 /*
  * Packet formats:
- * http://www.cesnet.cz/doc/techzpravy/2010/4k-packet-format/
+ * http://www.sitola.cz/files/4K-packet-format.pdf
  */
 #define PT_VIDEO 20
 #define PT_AUDIO 21
 #define PT_VIDEO_LDGM 22
 
-typedef struct {
-        /* first word */
-        uint32_t substream_bufnum; /* bits 0 - 9 substream
-                                      bits 10 - 31 buffer  */
+/*
+ * Video payload
+ *
+ * 1st word
+ * bits 0 - 9 substream
+ * bits 10 - 31 buffer
+ *
+ * 2nd word
+ * bits 0 - 31 offset
+ *
+ * 3rd word
+ * bits 0 - 31 length
+ *
+ * 4rd word
+ * bits 0-15 horizontal resolution
+ * bits 16-31 vertical resolution
+ *
+ * 5th word
+ * bits 0 - 31 FourCC
+ *
+ * 6th word
+ * bits 0 - 2 interlace flag
+ * bits 3 - 12 FPS
+ * bits 13 - 16 FPSd
+ * bit 17 Fd
+ * bit 18 Fi
+ */
+typedef uint32_t video_payload_hdr_t[6];
 
-        /* second word */
-        uint32_t offset;
+/*
+ * Audio payload
+ *
+ * 1st word
+ * bits 0 - 9 substream
+ * bits 10 - 31 buffer
+ *
+ * 2nd word
+ * bits 0 - 31 offset
+ *
+ * 3rd word
+ * bits 0 - 31 length
+ *
+ * 4rd word
+ * bits 0-5 audio quantization
+ * bits 6-31 audio sample rate
+ *
+ * 5th word
+ * bits 0 - 31 AudioTag
+ */
+typedef uint32_t audio_payload_hdr_t[5];
 
-        /* third word */
-        uint32_t length;
-
-        /* fourth word */
-        uint16_t hres;
-        uint16_t vres;
-
-        /* fifth word */
-        uint32_t fourcc;
-        
-        /* sixth word */
-        uint32_t il_fps; /* bits 0 - 2 interlace flag
-                            bits 3 - 12 FPS
-                            bits 13 - 16 FPSd
-                            bit 17 Fd
-                            bit 18 Fi */
-
-} __attribute__((__packed__)) video_payload_hdr_t;
-
-
-typedef struct {
-        /* first word */
-        uint32_t substream_bufnum; /* bits 0 - 9 substream
-                                      bits 10 - 31 buffer */
-
-        /* second word */
-        uint32_t offset;
-
-        /* third word */
-        uint32_t length;
-
-        /* fourth word */
-        uint32_t quant_sample_rate; /* bits 0 - 5 audio quant.
-                                       bits 6 - 31 audio sample rate */
-
-        /* fifth word */
-        uint32_t audio_tag;
-} __attribute__((__packed__)) audio_payload_hdr_t;
-
-typedef struct {
-        /* first word */
-        uint32_t substream_bufnum; /* bits 0 - 9 substream
-                                      bits 10 - 31 buffer  */
-
-        /* second word */
-        uint32_t offset;
-
-        /* third word */
-        uint32_t length;
-
-        /* fourth word */
-        uint32_t k_m_c; /* bits  0-12 k
-                           bits 13-25 m
-                           bits 26-31 c
-                           */
-
-        /* fifth word */
-        uint32_t seed;
-} __attribute__((__packed__)) ldgm_payload_hdr_t;
-
+/*
+ * LDGM video payload
+ *
+ * 1st word
+ * bits 0 - 9 substream
+ * bits 10 - 31 buffer
+ *
+ * 2nd word
+ * bits 0 - 31 offset
+ *
+ * 3rd word
+ * bits 0 - 31 length
+ *
+ * 4rd word
+ * bits 0-12 K
+ * bits 13-25 M
+ * bits 26-31 C
+ *
+ * 5th word
+ * bits 0 - 31 LDGM random generator seed
+ */
+typedef uint32_t ldgm_video_payload_hdr_t[5];
 
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);

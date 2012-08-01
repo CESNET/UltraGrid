@@ -130,7 +130,7 @@ static void tx_update(struct tx *tx, struct tile *tile)
         if(tx->sent_frames >= 100) {
                 if(tx->fec_scheme == FEC_LDGM && tx->max_loss > 0.0) {
                         if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
-                                int data_len = tx->mtu -  (40 + (sizeof(ldgm_payload_hdr_t)));
+                                int data_len = tx->mtu -  (40 + (sizeof(ldgm_video_payload_hdr_t)));
                                 data_len = (data_len / 48) * 48;
                                 void *fec_state_old = tx->fec_state;
                                 tx->fec_state = ldgm_encoder_init_with_param(data_len, tx->avg_len, tx->max_loss);
@@ -250,8 +250,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 enum interlacing_t interlacing, unsigned int substream)
 {
         int m, data_len;
+        // see definition in rtp_callback.h
         video_payload_hdr_t video_hdr;
-        ldgm_payload_hdr_t ldgm_hdr;
+        ldgm_video_payload_hdr_t ldgm_hdr;
         int pt = PT_VIDEO;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
@@ -290,13 +291,12 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
-        video_hdr.hres = htons(tile->width);
-        video_hdr.vres = htons(tile->height);
-        video_hdr.fourcc = htonl(get_fourcc(color_spec));
-        video_hdr.length = htonl(data_to_send_len);
+        video_hdr[3] = htonl(tile->width << 16 | tile->height);
+        video_hdr[4] = htonl(get_fourcc(color_spec));
+        video_hdr[2] = htonl(data_to_send_len);
         tmp = substream << 22;
         tmp |= 0x3fffff & tx->buffer;
-        video_hdr.substream_bufnum = htonl(tmp);
+        video_hdr[0] = htonl(tmp);
 
         /* word 6 */
         tmp = interlacing << 29;
@@ -312,24 +312,25 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         tmp |= fpsd << 15;
         tmp |= fd << 14;
         tmp |= fi << 13;
-        video_hdr.il_fps = htonl(tmp);
+        video_hdr[5] = htonl(tmp);
 
         char *hdr;
         int hdr_len;
 
         if(fec_is_ldgm(tx)) {
-                hdrs_len = 40 + (sizeof(ldgm_payload_hdr_t));
+                hdrs_len = 40 + (sizeof(ldgm_video_payload_hdr_t));
                 ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_hdr),
                                 tile->data, tile->data_len, &data_to_send, &data_to_send_len);
                 tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
-                ldgm_hdr.substream_bufnum = htonl(tmp);
-                ldgm_hdr.length = htonl(data_to_send_len);
-                ldgm_hdr.k_m_c = htonl(
+                // see definition in rtp_callback.h
+                ldgm_hdr[0] = htonl(tmp);
+                ldgm_hdr[2] = htonl(data_to_send_len);
+                ldgm_hdr[3] = htonl(
                                 (ldgm_encoder_get_k(tx->fec_state)) << 19 |
                                 (ldgm_encoder_get_m(tx->fec_state)) << 6 |
                                 ldgm_encoder_get_c(tx->fec_state));
-                ldgm_hdr.seed = htonl(ldgm_encoder_get_seed(tx->fec_state));
+                ldgm_hdr[4] = htonl(ldgm_encoder_get_seed(tx->fec_state));
 
                 pt = PT_VIDEO_LDGM;
 
@@ -345,9 +346,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         pos = mult_pos[mult_index];
                 }
 
-                video_hdr.offset = htonl(pos);
+                video_hdr[1] = htonl(pos);
                 if(fec_is_ldgm(tx)) {
-                        ldgm_hdr.offset = htonl(pos);
+                        ldgm_hdr[1] = htonl(pos);
                 }
 
 
@@ -416,6 +417,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
         char *chan_data = (char *) malloc(buffer->data_len);
         int data_len;
         char *data;
+        // see definition in rtp_callback.h
         audio_payload_hdr_t payload_hdr;
         uint32_t timestamp;
 #if HAVE_MACOSX
@@ -448,17 +450,17 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                 uint32_t tmp;
                 tmp = channel << 22; /* bits 0-9 */
                 tmp |= tx->buffer; /* bits 10-31 */
-                payload_hdr.substream_bufnum = htonl(tmp);
+                payload_hdr[0] = htonl(tmp);
 
-                payload_hdr.length = htonl(buffer->data_len / buffer->ch_count);
+                payload_hdr[2] = htonl(buffer->data_len / buffer->ch_count);
 
                 /* fourth word */
                 tmp = (buffer->bps * 8) << 26;
                 tmp |= buffer->sample_rate;
-                payload_hdr.quant_sample_rate = htonl(tmp);
+                payload_hdr[3] = htonl(tmp);
 
                 /* fifth word */
-                payload_hdr.audio_tag = htonl(1); /* PCM */
+                payload_hdr[4] = htonl(1); /* PCM */
 
                 do {
                         if(tx->fec_scheme == FEC_MULT) {
@@ -472,7 +474,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                                 if(channel == buffer->ch_count - 1)
                                         m = 1;
                         }
-                        payload_hdr.offset = htonl(pos);
+                        payload_hdr[1] = htonl(pos);
                         pos += data_len;
                         
                         GET_STARTTIME;

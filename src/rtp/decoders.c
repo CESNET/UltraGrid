@@ -66,7 +66,7 @@ static void restrict_returned_codecs(codec_t *display_codecs,
                 size_t *display_codecs_count, codec_t *pp_codecs,
                 int pp_codecs_count);
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
-static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame,
+static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame,
                 struct pbuf_video_data *pbuf_data);
 
 enum decoder_type_t {
@@ -704,7 +704,7 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         return frame_display;
 }
 
-static int check_for_mode_change(struct state_decoder *decoder, video_payload_hdr_t *hdr, struct video_frame **frame,
+static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame,
                 struct pbuf_video_data *pbuf_data)
 {
         uint32_t tmp;
@@ -715,11 +715,11 @@ static int check_for_mode_change(struct state_decoder *decoder, video_payload_hd
         double fps;
         int fps_pt, fpsd, fd, fi;
 
-        width = ntohs(hdr->hres);
-        height = ntohs(hdr->vres);
-        color_spec = get_codec_from_fcc(ntohl(hdr->fourcc));
+        width = ntohl(hdr[3]) >> 16;
+        height = ntohl(hdr[3]) & 0xffff;
+        color_spec = get_codec_from_fcc(ntohl(hdr[4]));
 
-        tmp = ntohl(hdr->il_fps);
+        tmp = ntohl(hdr[5]);
         interlacing = (enum interlacing_t) (tmp >> 29);
         fps_pt = (tmp >> 19) & 0x3ff;
         fpsd = (tmp >> 15) & 0xf;
@@ -790,40 +790,29 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         int pt;
 
         while (cdata != NULL) {
+                uint32_t *hdr;
                 pckt = cdata->data;
 
                 pt = pckt->pt;
+                hdr = (uint32_t *) pckt->data;
+                data_pos = ntohl(hdr[1]);
+                tmp = ntohl(hdr[0]);
+
+                substream = tmp >> 22;
+                buffer_number = tmp & 0x3ffff;
+                buffer_length = ntohl(hdr[2]);
 
                 if(pt == PT_VIDEO) {
-                        video_payload_hdr_t *hdr;
-                        hdr = (video_payload_hdr_t *) pckt->data;
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
-
-                        data_pos = ntohl(hdr->offset);
-                        tmp = ntohl(hdr->substream_bufnum);
-
-                        substream = tmp >> 22;
-                        buffer_number = tmp & 0x3ffff;
-
-                        buffer_length = ntohl(hdr->length);
                 } else if (pt == PT_VIDEO_LDGM) {
-                        ldgm_payload_hdr_t *hdr;
-                        hdr = (ldgm_payload_hdr_t *) pckt->data;
-                        len = pckt->data_len - sizeof(ldgm_payload_hdr_t);
+                        len = pckt->data_len - sizeof(ldgm_video_payload_hdr_t);
 
-                        tmp = ntohl(hdr->substream_bufnum);
-                        substream = tmp >> 22;
-                        buffer_number = tmp & 0x3ffff;
-                        data_pos = ntohl(hdr->offset);
-
-                        buffer_length = ntohl(hdr->length);
-
-                        tmp = ntohl(hdr->k_m_c);
+                        tmp = ntohl(hdr[3]);
                         k = tmp >> 19;
                         m = 0x1fff & (tmp >> 6);
                         c = 0x3f & tmp;
-                        seed = ntohl(hdr->seed);
+                        seed = ntohl(hdr[4]);
                 } else {
                         fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);
                         exit_uv(1);
@@ -868,7 +857,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
-                        if(check_for_mode_change(decoder, (video_payload_hdr_t *) pckt->data, &frame, pbuf_data)) {
+                        if(check_for_mode_change(decoder, (uint32_t *) pckt->data, &frame, pbuf_data)) {
                                 if(!frame) {
                                         ret = FALSE;
                                         goto cleanup;
@@ -999,7 +988,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         len);
                         }
                 } else { /* PT_VIDEO_LDGM */
-                        memcpy(fec_buffers[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(ldgm_payload_hdr_t)),
+                        memcpy(fec_buffers[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(ldgm_video_payload_hdr_t)),
                                 len);
                 }
 
@@ -1028,7 +1017,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         goto cleanup;
                                 }
  
-                                check_for_mode_change(decoder, (video_payload_hdr_t *) out_buffer, &frame,
+                                check_for_mode_change(decoder, (uint32_t *) out_buffer, &frame,
                                                 pbuf_data);
 
                                 if(!frame) {
