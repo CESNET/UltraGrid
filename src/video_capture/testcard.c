@@ -83,12 +83,12 @@ struct testcard_pixmap {
         char *data;
 };
 
-static void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
-static unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
+void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
+unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
                       unsigned int height, double bpp);
-static void toR10k(unsigned char *in, unsigned int width, unsigned int height);
+void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color);
-static char * toRGB(unsigned char *in, unsigned int width, unsigned int height);
+char * toRGB(unsigned char *in, unsigned int width, unsigned int height);
 
 struct testcard_state {
         struct timeval last_frame_time;
@@ -135,7 +135,7 @@ static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r
                                 *(data + s->w * cur_y + cur_x) = color;
 }
 
-static void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
+void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
 {
         unsigned int i, j;
         int r, g, b;
@@ -201,7 +201,7 @@ static void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int heigh
         }
 }
 
-static unsigned char *tov210(unsigned char *in, unsigned int width,
+unsigned char *tov210(unsigned char *in, unsigned int width,
                       unsigned int aligned_x, unsigned int height, double bpp)
 {
         struct {
@@ -252,7 +252,7 @@ static unsigned char *tov210(unsigned char *in, unsigned int width,
         return ret;
 }
 
-static void toR10k(unsigned char *in, unsigned int width, unsigned int height)
+void toR10k(unsigned char *in, unsigned int width, unsigned int height)
 {
         struct {
                 unsigned r:8;
@@ -298,7 +298,7 @@ static void toR10k(unsigned char *in, unsigned int width, unsigned int height)
         }
 }
 
-static char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
+char *toRGB(unsigned char *in, unsigned int width, unsigned int height)
 {
         unsigned int i;
         unsigned char *ret = malloc(width * height * 3);

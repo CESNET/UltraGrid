@@ -61,6 +61,7 @@
 #include "tv.h"
 #include "video_codec.h"
 #include "video_capture.h"
+#include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
 #include "compat/platform_semaphore.h"
 #include <stdio.h>
