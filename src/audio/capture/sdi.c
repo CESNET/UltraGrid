@@ -106,7 +106,7 @@ void sdi_capture_help(const char *driver_name)
         if(strcmp(driver_name, "embedded") == 0) {
                 printf("\tembedded : SDI audio (if available)\n");
         } else if(strcmp(driver_name, "AESEBU") == 0) {
-                printf("\tAESEBU : separatly connected AES/EBU to a grabbing card (if available)\n");
+                printf("\tAESEBU : separately connected AES/EBU to a grabbing card (if available)\n");
         } else if(strcmp(driver_name, "analog") == 0) {
                 printf("\tanalog : analog input of grabbing card (if available)\n");
         }

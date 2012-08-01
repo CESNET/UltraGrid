@@ -19,7 +19,7 @@
 * OpenGL - automatically enable sync on VBlank from application scope
 * QT GUI - updated + allow compression setting
 * added screen capture
-* inserted packet mirror
+* inserted packet reflector
 * added possibility to limit sending bitrate
 * added scaling postprocessor
 * can be compiled with Clang/LLVM

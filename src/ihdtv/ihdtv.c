@@ -80,12 +80,12 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
         connection->check_peer_ip = 0;
 
         if ((connection->rx_socket_1 = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-                fprintf(stderr, "Error creating first recieving socket");
+                fprintf(stderr, "Error creating first receiving socket");
                 exit(1);
         }
 
         if ((connection->rx_socket_2 = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
-                fprintf(stderr, "Error creating second recieving socket");
+                fprintf(stderr, "Error creating second receiving socket");
                 exit(1);
         }
 
@@ -94,7 +94,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
                 struct hostent *target = gethostbyname(address_1);      // FIXME: should free?
                 if (target == NULL) {
                         printf("Unknown target 1");
-                        exit(1);        // FIXME: maybe should just return but it requires not returnin ihdtv_connection
+                        exit(1);        // FIXME: maybe should just return but it requires not to return ihdtv_connection
                 }
 
                 connection->peer_address_1 = *(struct in_addr *)target->h_addr;
@@ -107,7 +107,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
                 struct hostent *target = gethostbyname(address_2);      // FIXME: should free?
                 if (target == NULL) {
                         printf("Unknown target 2");
-                        exit(1);        // FIXME: maybe should just return but it requires not returnin ihdtv_connection
+                        exit(1);        // FIXME: maybe should just return but it requires not to return ihdtv_connection
                 }
 
                 connection->peer_address_2 = *(struct in_addr *)target->h_addr;
@@ -123,7 +123,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
         if (bind
             (connection->rx_socket_1, (struct sockaddr *)&rx_address,
              sizeof(rx_address)) == -1) {
-                fprintf(stderr, "Error binding reciever to the first socket");
+                fprintf(stderr, "Error binding receiver to the first socket");
                 exit(1);
         }
 
@@ -134,7 +134,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
         if (bind
             (connection->rx_socket_2, (struct sockaddr *)&rx_address,
              sizeof(rx_address)) == -1) {
-                fprintf(stderr, "Error binding reciever to the second socket");
+                fprintf(stderr, "Error binding receiver to the second socket");
                 exit(1);
         }
 
@@ -175,7 +175,7 @@ ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,
         connection->current_frame = 0;
         connection->pending_packet = 0;
 
-        // set sockets to nonblocking(will utilitize 100% of a CPU)
+        // set sockets to nonblocking(will utilize 100% of a CPU)
         if (fcntl(connection->rx_socket_1, F_SETFL, O_NONBLOCK) < 0) {
                 fprintf(stderr, "Error setting rx_socket_1 as nonblocking\n");
                 exit(1);
@@ -202,13 +202,13 @@ ihdtv_init_tx_session(ihdtv_connection * connection, const char *address_1,
         struct hostent *target_1 = gethostbyname(address_1);
         if (target_1 == NULL) {
                 printf("Unknown target 1");
-                exit(1);        // FIXME: maybe should just return but it requires not returnin ihdtv_connection
+                exit(1);        // FIXME: maybe should just return but it requires not to return ihdtv_connection
         }
 
         struct hostent *target_2 = gethostbyname(address_2);
         if (target_2 == NULL) {
                 printf("Unknown target 2");
-                exit(1);        // FIXME: maybe should just return but it requires not returnin ihdtv_connection
+                exit(1);        // FIXME: maybe should just return but it requires not to return ihdtv_connection
         }
 
         if ((connection->tx_socket_1 = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -392,7 +392,7 @@ inline static int packet_to_buffer(const ihdtv_connection * connection, char *bu
 }
 
 int
-ihdtv_recieve(ihdtv_connection * connection, char *buffer,
+ihdtv_receive(ihdtv_connection * connection, char *buffer,
               const unsigned long buffer_length)
 {
         int packets_number = 0;
@@ -406,7 +406,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
 
         if (buffer == NULL) {
                 fprintf(stderr,
-                        "iHDTV reciever: buffer is empty, not recieving.\n");
+                        "iHDTV receiver: buffer is empty, not receiving.\n");
                 return -1;
         }
 //      memset(buffer, 0, buffer_length);       // make holes in frame more visible -- your computer might not be fast enough for this, if you experience performance problems, try to comment this out
@@ -433,7 +433,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
                             || (connection->peer_address_2.s_addr ==
                                 sender_address.sin_addr.s_addr)) {
                                 if (packet.stream_id == 0 || packet.stream_id == 1) {   // it is strange, but ihdtv seems to be sending video and audio with different frame numbers in some cases, so we only work with video here
-                                        if ((connection->current_frame < packet.frame_number) || (packet.frame_number + 10 < connection->current_frame))        // we just recieved frame we didn't expect
+                                        if ((connection->current_frame < packet.frame_number) || (packet.frame_number + 10 < connection->current_frame))        // we just received frame we didn't expect
                                         {
 //                                              printf("current frame: %llu (packets: %u)   incoming frame: %llu\n", connection->current_frame, packets_number, packet.frame_number);
                                                 connection->current_frame =
@@ -464,7 +464,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
                         }
 
                 } else if (errno != EWOULDBLOCK) {
-                        fprintf(stderr, "Error recieving packet\n");
+                        fprintf(stderr, "Error receiving packet\n");
                         exit(1);
                 }
 
@@ -478,7 +478,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
                             || (connection->peer_address_2.s_addr ==
                                 sender_address.sin_addr.s_addr)) {
                                 if (packet.stream_id == 0 || packet.stream_id == 1) {   // it is strange, but ihdtv seems to be sending video and audio with different frame numbers in some cases, so we only work with video here
-                                        if ((connection->current_frame < packet.frame_number) || (packet.frame_number + 10 < connection->current_frame))        // we just recieved frame we didn't expect
+                                        if ((connection->current_frame < packet.frame_number) || (packet.frame_number + 10 < connection->current_frame))        // we just received frame we didn't expect
                                         {
 //                                              printf("current frame: %llu (packets: %u)   incoming frame: %llu\n", connection->current_frame, packets_number, packet.frame_number);
                                                 connection->current_frame =
@@ -508,7 +508,7 @@ ihdtv_recieve(ihdtv_connection * connection, char *buffer,
                         }
 
                 } else if (errno != EWOULDBLOCK) {
-                        fprintf(stderr, "Error recieving packet\n");
+                        fprintf(stderr, "Error receiving packet\n");
                         exit(1);
                 }
         }

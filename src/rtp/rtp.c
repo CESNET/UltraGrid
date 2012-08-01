@@ -2031,7 +2031,7 @@ static void rtp_process_ctrl(struct rtp *session, uint8_t * buffer, int buflen)
                                                             packet->r.rx.rx);
                                         } else
                                                 debug_msg
-                                                    ("RTCP_RX recieved without congestion control?");
+                                                    ("RTCP_RX received without congestion control?");
                                         break;
                                 case RTCP_SDES:
                                         if (first

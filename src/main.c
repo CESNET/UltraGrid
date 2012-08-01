@@ -140,7 +140,7 @@ struct state_uv {
 
         struct state_audio *audio;
 
-        /* used maily to serialize initialization */
+        /* used mainly to serialize initialization */
         pthread_mutex_t master_lock;
 
         volatile unsigned int has_item_to_send:1;
@@ -507,13 +507,13 @@ static struct tx *initialize_transmit(unsigned requested_mtu, char *fec)
         return tx_init(requested_mtu, fec);
 }
 
-static void *ihdtv_reciever_thread(void *arg)
+static void *ihdtv_receiver_thread(void *arg)
 {
         ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
         struct display *display_device = (struct display *)((void **)arg)[1];
 
         while (!should_exit) {
-                if (ihdtv_recieve
+                if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
                 display_put_frame(display_device, frame_buffer->tiles[0].data);
@@ -535,7 +535,7 @@ static void *ihdtv_sender_thread(void *arg)
                         free(tx_frame);
                 } else {
                         fprintf(stderr,
-                                "Error recieving frame from capture device\n");
+                                "Error receiving frame from capture device\n");
                         return 0;
                 }
         }
@@ -1167,11 +1167,11 @@ int main(int argc, char *argv[])
 
                 printf("Initializing ihdtv protocol\n");
 
-                // we cannot act as both together, because parameter parsing whould have to be revamped
+                // we cannot act as both together, because parameter parsing would have to be revamped
                 if ((strcmp("none", uv->requested_display) != 0)
                     && (strcmp("none", uv->requested_capture) != 0)) {
                         printf
-                            ("Error: cannot act as both sender and reciever together in ihdtv mode\n");
+                            ("Error: cannot act as both sender and receiver together in ihdtv mode\n");
                         return -1;
                 }
 
@@ -1192,15 +1192,15 @@ int main(int argc, char *argv[])
                               0) ? NULL : ((argc == 1) ? argv[0] : argv[1]),
                              3000, 3001, uv->requested_mtu) != 0) {
                                 fprintf(stderr,
-                                        "Error initializing reciever session\n");
+                                        "Error initializing receiver session\n");
                                 return 1;
                         }
 
                         if (pthread_create
-                            (&receiver_thread_id, NULL, ihdtv_reciever_thread,
+                            (&receiver_thread_id, NULL, ihdtv_receiver_thread,
                              rx_connection_and_display) != 0) {
                                 fprintf(stderr,
-                                        "Error creating reciever thread. Quitting\n");
+                                        "Error creating receiver thread. Quitting\n");
                                 return 1;
                         }
                 }

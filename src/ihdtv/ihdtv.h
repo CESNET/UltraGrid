@@ -60,7 +60,7 @@
 
 #include "video_codec.h"
 
-void ihdtv_recieve_frames(void);
+void ihdtv_receive_frames(void);
 
 typedef struct {
 	uint32_t stream_id;
@@ -70,7 +70,7 @@ typedef struct {
 } __attribute__((packed)) ihdtv_packet;
 
 typedef struct {
-	unsigned int rx_port_1;	// recieving ports
+	unsigned int rx_port_1;	// receiving ports
 	unsigned int rx_port_2;
 
 	unsigned int tx_port;
@@ -114,7 +114,7 @@ ihdtv_init_tx_session(ihdtv_connection* connection, const char *address_1, const
 
 
 int
-ihdtv_recieve(ihdtv_connection *rx_connection, char *buffer, unsigned long buffer_length);
+ihdtv_receive(ihdtv_connection *rx_connection, char *buffer, unsigned long buffer_length);
 
 int
 ihdtv_send(ihdtv_connection *tx_connection, struct video_frame *tx_frame, unsigned long buffer_length);

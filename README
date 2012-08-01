@@ -68,7 +68,7 @@ Hardware and Software Requirements
                 JPEG2000 compression is not yet supported 
         For uncompressed 1.5Gbps streams (either sending or receiving), 10GbE network interface card is needed
             we test with PCIe Myrinet 10GbE 
-        For SDI send/recieve capabilities, DVS, DeckLink or Linsys Quad card is required
+        For SDI send/receive capabilities, DVS, DeckLink or Linsys Quad card is required
             Linsys module in UG supports only capturing 
 
         Grabbing card should be located on a separate PCI bus from network card if possible.
