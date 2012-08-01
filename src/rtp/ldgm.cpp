@@ -67,6 +67,12 @@
 
 #include "ldgm.h"
 
+#include "ldgm-coding/ldgm-session.h"
+#include "ldgm-coding/ldgm-session-cpu.h"
+#include "ldgm-coding/matrix-gen/matrix-generator.h"
+#include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
+
+
 typedef enum {
         STD1500 = 1500,
         JUMBO9000 = 9000,
@@ -124,11 +130,6 @@ const configuration_t suggested_configurations[] = {
         { STD1500, UNCOMPRESSED_SIZE, PCT10, 1500, 1500, 8 },
 };
 
-#include "ldgm-coding/ldgm-session.h"
-#include "ldgm-coding/ldgm-session-cpu.h"
-#include "ldgm-coding/matrix-gen/matrix-generator.h"
-#include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
-
 #define MINIMAL_VALUE 64 // reasonable minimum (seems that 32 crashes sometimes)
 #define DEFAULT_K 256
 #define DEFAULT_M 192
@@ -139,6 +140,7 @@ const configuration_t suggested_configurations[] = {
 #define MAX_K (1<<13) - 1
 
 static bool file_exists(char *filename);
+static void usage(void);
 
 static bool file_exists(char *filename)
 {
@@ -272,14 +274,18 @@ struct ldgm_state_decoder {
 //////////////////////////////////
 // ENCODER
 //////////////////////////////////
-void usage() {
+static void usage() {
         printf("LDGM usage:\n"
-                        "\t-f ldgm[:<k>:<m>[:c]]\n"
-                        "\t\tk - matrix width\n"
-                        "\t\tm - matrix height\n"
-                        "\n\t\t\tthe bigger ratio m/k, the better correction (but also needed bandwidth)\n"
-                        "\n\t\t\tk,m should be in interval [%d, %d]; c in [%d, %d]\n"
-                        "\n\t\t\tdefault: k = %d, m = %d, c = %d\n",
+                        "\t-f ldgm:<expected_loss>%% | ldgm[:<k>:<m>[:c]]\n"
+                        "\n"
+                        "\t\t<expected_loss> - expected maximal loss in percent (including '%%'-sign)\n\n"
+                        "\t\t<k> - matrix width\n"
+                        "\t\t<m> - matrix height\n"
+                        "\t\t<c> - number of ones per column\n"
+                        "\t\t\tthe bigger ratio m/k, the better correction (but also needed bandwidth)\n"
+                        "\t\t\tk,m should be in interval [%d, %d]; c in [%d, %d]\n"
+                        "\t\t\tdefault: k = %d, m = %d, c = %d\n"
+                        "\n",
                         MINIMAL_VALUE, MAX_K,
                         MIN_C, MAX_C,
                         DEFAULT_K, DEFAULT_M, DEFAULT_C
