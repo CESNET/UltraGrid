@@ -65,7 +65,7 @@
 #endif
 
 struct video_compress {
-        struct dxt_encoder *encoder;
+        struct dxt_encoder **encoder;
 
         struct video_frame *out[2];
         decoder_t decoder;
@@ -164,11 +164,18 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         int data_len = 0;
         int linesize = 0;
 
+        s->encoder = malloc(frame->tile_count * sizeof(struct dxt_encoder *));
         if(s->out[0]->color_spec == DXT1) {
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT1, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                for(int i = 0; i < (int) frame->tile_count; ++i) {
+                        s->encoder[i] =
+                                dxt_encoder_create(DXT_TYPE_DXT1, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                }
                 data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT1);
         } else if(s->out[0]->color_spec == DXT5){
-                s->encoder = dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                for(int i = 0; i < (int) frame->tile_count; ++i) {
+                        s->encoder[i] =
+                                dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                }
                 data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT5_YCOCG);
         }
 
@@ -328,7 +335,7 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
                         vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
                                         in_tile->height);
                 
-                dxt_encoder_compress(s->encoder,
+                dxt_encoder_compress(s->encoder[x],
                                 (unsigned char *) s->decoded,
                                 (unsigned char *) out_tile->data);
         }
@@ -345,7 +352,11 @@ void dxt_glsl_compress_done(void *arg)
         struct video_compress *s = (struct video_compress *) arg;
         int i, x;
         
-        dxt_encoder_destroy(s->encoder);
+        if(s->out[0]) {
+                for(int i = 0; i < (int) s->out[0]->tile_count; ++i) {
+                        dxt_encoder_destroy(s->encoder[i]);
+                }
+        }
 
         for (i = 0; i < 2; ++i) {
                 if(s->out[i]) {
