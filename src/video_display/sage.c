@@ -124,6 +124,8 @@ void display_sage_run(void *arg)
                 }
                 pthread_mutex_unlock(&s->buffer_writable_lock);
 
+                s->frames++;
+
                 gettimeofday(&s->t, NULL);
                 double seconds = tv_diff(s->t, s->t0);
                 if (seconds >= 5) {

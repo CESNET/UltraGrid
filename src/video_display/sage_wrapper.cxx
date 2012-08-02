@@ -98,6 +98,9 @@ void *initSage(int appID, int nodeID, int width, int height, codec_t codec)
 
 void sage_shutdown(void * state)
 {
+    if(!state) {
+            return;
+    }
     sail *sageInf = (sail *) state;
     sageInf->shutdown();
     // don't try to delete, since it would probably cause crash with current SAGE
