@@ -904,7 +904,8 @@ TESTCARD2_LIB=
 
 AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/vidcap_testcard.so.$video_capture_abi_version")
 LIB_TARGETS+=" $TESTCARD_LIB_TARGET"
-LIB_OBJS+=" $TESTCARD_OBJ"
+TESTCARD_COMMON="src/video_capture/testcard_common.o"
+LIB_OBJS+=" $TESTCARD_OBJ $TESTCARD_COMMON"
 
 if test $testcard_extras_req = yes
 then
@@ -938,6 +939,8 @@ fi
 
 LIB_MODULES+=" $TESTCARD_LIB"
 LIB_MODULES+=" $TESTCARD2_LIB"
+
+AC_SUBST(TESTCARD_COMMON)
 
 AC_SUBST(TESTCARD_OBJ)
 AC_SUBST(TESTCARD_LIB)

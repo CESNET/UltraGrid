@@ -444,11 +444,11 @@ scale: @SCALE_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
 
-@TESTCARD_LIB_TARGET@: @TESTCARD_OBJ@
+@TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
 
-@TESTCARD2_LIB_TARGET@: @TESTCARD2_OBJ@
+@TESTCARD2_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD2_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard2.so.@video_capture_abi_version@ $^ @TESTCARD2_LIB@ -o $@
 
