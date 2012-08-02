@@ -50,7 +50,15 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include "video_capture/testcard_common.h"
+
+#include <stdlib.h>
 
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
 {
