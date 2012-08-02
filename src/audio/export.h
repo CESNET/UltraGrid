@@ -1,5 +1,5 @@
 /*
- * FILE:    host.h
+ * FILE:    audio/export.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -26,10 +26,10 @@
  * 
  *      This product includes software developed by CESNET z.s.p.o.
  * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
- *    used to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
+ * 4. Neither the name of CESNET nor the names of its contributors may be used 
+ *    to endorse or promote products derived from this software without specific
+ *    prior written permission.
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -43,35 +43,17 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ *
  */
-#ifndef __host_h
-#define __host_h
 
-/* TODO: remove these variables (should be safe) */
-extern unsigned int hd_size_x;
-extern unsigned int hd_size_y;
-extern unsigned int hd_color_spc;
-extern unsigned int hd_color_bpp;
+#ifndef _EXPORT_H_
+#define _EXPORT_H_
 
-extern unsigned int bitdepth;
+struct audio_export;
+struct audio_frame;
 
-extern unsigned int progressive;
+struct audio_export * audio_export_init(char *filename);
+void audio_export_destroy(struct audio_export *state);
+void audio_export(struct audio_export *state, struct audio_frame *frame);
 
-extern void (*exit_uv)(int status);
-
-extern unsigned int audio_capture_channels;
-
-extern unsigned int cuda_device;
-
-// for aggregate.c
-struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags);
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags);
-
-
-// export dir is export.<export_dir_suffix> where the suffix should have 4 digits
-// incl. leading zeros
-extern unsigned int export_dir_suffix;
-
-#endif
+#endif /* _EXPORT_H_ */

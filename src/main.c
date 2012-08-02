@@ -102,12 +102,13 @@
 /* also note that this actually differs from video */
 #define DEFAULT_AUDIO_FEC       "mult:3"
 
-#define AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
-#define AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
-#define AUDIO_SCALE (('a' << 8) | 's')
-#define ECHO_CANCELLATION (('E' << 8) | 'C')
-#define CUDA_DEVICE (('C' << 8) | 'D')
-#define MCAST_IF (('M' << 8) | 'I')
+#define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
+#define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
+#define OPT_AUDIO_SCALE (('a' << 8) | 's')
+#define OPT_ECHO_CANCELLATION (('E' << 8) | 'C')
+#define OPT_CUDA_DEVICE (('C' << 8) | 'D')
+#define OPT_MCAST_IF (('M' << 8) | 'I')
+#define OPT_EXPORT (('E' << 8) | 'X')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -174,6 +175,8 @@ int uv_argc;
 char **uv_argv;
 static struct state_uv *uv_state;
 
+unsigned int export_dir_suffix = 0;
+
 //
 // prototypes
 //
@@ -185,6 +188,7 @@ static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
 static void sender_finish(struct state_uv *uv);
 static void display_buf_increase_warning(int size);
+static bool enable_export(void);
 
 #ifndef WIN32
 static void signal_handler(int signal)
@@ -223,7 +227,7 @@ static void usage(void)
                         "[-m <mtu>] [-c] [-i] [-6]\n");
         printf("          [-m <video_mode>] [-p <postprocess>] "
                         "[-f <fec_options>] [-p <port>]\n");
-        printf("          [--mcast-if <iface>] address(es)\n\n");
+        printf("          [--mcast-if <iface>] [--export] address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -889,6 +893,29 @@ compress_done:
         return NULL;
 }
 
+static bool enable_export()
+{
+        for (int i = 1; i <= 9999; i++) {
+                char name[16];
+                snprintf(name, 16, "export.%04d", i);
+                int ret = mkdir(name, 0777);
+                if(ret == -1) {
+                        if(errno == EEXIST) {
+                                continue;
+                        } else {
+                                fprintf(stderr, "[Export] Directory creation failed: %s\n",
+                                                strerror(errno));
+                                return false;
+                        }
+                } else {
+                        export_dir_suffix = i;
+                        return true;
+                }
+        }
+
+        return false;
+}
+
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
@@ -949,12 +976,13 @@ int main(int argc, char *argv[])
                 {"fec", required_argument, 0, 'f'},
                 {"port", required_argument, 0, 'P'},
                 {"limit-bitrate", required_argument, 0, 'l'},
-                {"audio-channel-map", required_argument, 0, AUDIO_CHANNEL_MAP},
-                {"audio-scale", required_argument, 0, AUDIO_SCALE},
-                {"audio-capture-channels", required_argument, 0, AUDIO_CAPTURE_CHANNELS},
-                {"echo-cancellation", no_argument, 0, ECHO_CANCELLATION},
-                {"cuda-device", required_argument, 0, CUDA_DEVICE},
-                {"mcast-if", required_argument, 0, MCAST_IF},
+                {"audio-channel-map", required_argument, 0, OPT_AUDIO_CHANNEL_MAP},
+                {"audio-scale", required_argument, 0, OPT_AUDIO_SCALE},
+                {"audio-capture-channels", required_argument, 0, OPT_AUDIO_CAPTURE_CHANNELS},
+                {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
+                {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
+                {"mcast-if", required_argument, 0, OPT_MCAST_IF},
+                {"export", no_argument, 0, OPT_EXPORT},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1084,19 +1112,19 @@ int main(int argc, char *argv[])
                         break;
                 case '?':
                         break;
-                case AUDIO_CHANNEL_MAP:
+                case OPT_AUDIO_CHANNEL_MAP:
                         audio_channel_map = optarg;
                         break;
-                case AUDIO_SCALE:
+                case OPT_AUDIO_SCALE:
                         audio_scale = optarg;
                         break;
-                case AUDIO_CAPTURE_CHANNELS:
+                case OPT_AUDIO_CAPTURE_CHANNELS:
                         audio_capture_channels = atoi(optarg);
                         break;
-                case ECHO_CANCELLATION:
+                case OPT_ECHO_CANCELLATION:
                         echo_cancellation = true;
                         break;
-                case CUDA_DEVICE:
+                case OPT_CUDA_DEVICE:
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression; 
@@ -1111,8 +1139,14 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "CUDA support is not enabled!\n");
                         return EXIT_FAIL_USAGE;
 #endif // HAVE_CUDA
-                case MCAST_IF:
+                case OPT_MCAST_IF:
                         mcast_if = optarg;
+                        break;
+                case OPT_EXPORT:
+                        if(!enable_export()) {
+                                fprintf(stderr, "Export initialization failed.\n");
+                                return EXIT_FAILURE;
+                        }
                         break;
                 default:
                         usage();

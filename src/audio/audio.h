@@ -46,16 +46,18 @@
  *
  */
 
-#include "config.h"
-
-#include <stdbool.h>
-
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 
-#include "compat/platform_semaphore.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
 #define PORT_AUDIO              5006
+
+#define AUDIO_TAG_PCM           0x0001
 
 struct state_audio;
 
@@ -69,6 +71,13 @@ typedef struct audio_frame
         unsigned int max_size;  /* maximal size of data in buffer */
 }
 audio_frame;
+
+struct audio_fmt {
+        int bps;
+        int sample_rate;
+        int ch_count;
+        uint32_t audio_tag;
+};
 
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
@@ -105,5 +114,17 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
  * Makes n copies of first channel (interleaved).
  */
 void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
+
+/**
+ * Compares audio format a and b and returns if equal or not
+ *
+ * @param a     first audio format
+ * @param b     second audio format
+ *
+ * @return      result of the comparision
+ */
+bool audio_fmt_eq(struct audio_fmt a, struct audio_fmt b);
+
+struct audio_fmt audio_fmt_from_frame(struct audio_frame *frame);
 
 #endif

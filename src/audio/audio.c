@@ -46,19 +46,26 @@
  *
  */
 
-#include "audio/audio.h" 
-
-#include "audio/echo.h" 
-#include "audio/audio_capture.h" 
-#include "audio/audio_playback.h" 
-#include "audio/capture/sdi.h"
-#include "audio/playback/sdi.h"
-#include "audio/jack.h" 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#include "audio/audio.h" 
+
+#include "audio/echo.h" 
+#include "audio/export.h" 
+#include "audio/audio_capture.h" 
+#include "audio/audio_playback.h" 
+#include "audio/capture/sdi.h"
+#include "audio/playback/sdi.h"
+#include "audio/jack.h" 
+#include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
@@ -69,10 +76,6 @@
 #include "tv.h"
 #include "transmit.h"
 #include "pdb.h"
-
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 
 #define EXIT_FAIL_USAGE		1
 #define EXIT_FAIL_NETWORK	5
@@ -109,6 +112,7 @@ struct state_audio {
         char *audio_channel_map;
         const char *audio_scale;
         echo_cancellation_t *echo_state;
+        struct audio_export *exporter;
 };
 
 /** 
@@ -201,6 +205,14 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         s->audio_participants = NULL;
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
+
+        if(export_dir_suffix) {
+                char name[512];
+                snprintf(name, 512, "export.%04d/sound.wav", export_dir_suffix);
+                s->exporter = audio_export_init(name);
+        } else {
+                s->exporter = NULL;
+        }
 
         if(echo_cancellation) {
 #ifdef HAVE_SPEEX
@@ -352,6 +364,7 @@ void audio_done(struct state_audio *s)
                         pdb_iter_done(s->audio_participants);
                         pdb_destroy(&s->audio_participants);
                 }
+                audio_export_destroy(s->exporter);
                 free(s);
         }
 }
@@ -446,6 +459,7 @@ static void *audio_sender_thread(void *arg)
         while (!should_exit_audio) {
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
+                        audio_export(s->exporter, buffer);
                         if(s->echo_state) {
 #ifdef HAVE_SPEEX
                                 buffer = echo_cancel(s->echo_state, buffer);
@@ -528,5 +542,19 @@ int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
 {
         return audio_playback_reconfigure(s->audio_playback_device, quant_samples,
                         channels, sample_rate);
+}
+
+bool audio_fmt_eq(struct audio_fmt a, struct audio_fmt b)
+{
+        return a.bps == b.bps &&
+                a.sample_rate == b.sample_rate &&
+                a.ch_count == b.ch_count &&
+                a.audio_tag == b.audio_tag;
+}
+
+struct audio_fmt audio_fmt_from_frame(struct audio_frame *frame)
+{
+        return (struct audio_fmt) { frame->bps, frame->sample_rate,
+                frame->ch_count, AUDIO_TAG_PCM };
 }
 
