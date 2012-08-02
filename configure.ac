@@ -103,6 +103,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
         OBJS+=" src/utils/autorelease_pool.o"
 else
         system=Linux
+	LDFLAGS+=" -Wl,--dynamic-list-data"
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 fi
 
