@@ -18,6 +18,44 @@ UltraGrid installation instructions
    This software is distributed under license, see the file COPYRIGHT for
    full terms and conditions.
 
+
+Software Prerequisites
+  Modules may have some addition dependencies not necessarily included in system:
+
+  * OpenGL display and OpenGL-based processors (RTDXT, scale, screen capture)
+        [ Linux only - this requirement do not apply to Mac OS X ] 
+        GLEW, GL libraries, freeglut (all including headers)
+        X11 libs and headers
+
+  * SDL [ Mac, Linux ]
+        SDL library and headers (for Mac preferably from MacPorts)
+        X11 libs and headers
+
+  * JACK related [ Mac, Linux ]
+        JACK library and headers (for Mac preferably from MacPorts)
+
+  * DVS[ Mac, Linux ]
+        DVS SDK
+
+  * SAGE [ Linux ]
+        SAGE installation, GL includes
+
+  * DELTACAST [ Linux ]
+        VideoMasterHD
+
+  * ALSA [ Linux ]
+        ALSA libs and headers
+
+  * Portaudio [ Linux, Mac ]
+        Portaudio libs and headers (for Mac preferably from MacPorts)
+
+  * JPEG [ Linux, Mac ]
+        CUDA Toolkit 4.1 or higher
+ 
+  Remaining modules shoudn't have additional dependencies (mainly Mac-related
+  ones).
+
+
 Installation instructions
   UltraGrid is compiled with following commands:
   $ ./autogen.sh
