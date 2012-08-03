@@ -57,6 +57,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "video_capture/testcard_common.h"
+#include "video_codec.h"
 
 #include <stdlib.h>
 
