@@ -965,9 +965,11 @@ AC_ARG_ENABLE(gl,
     [gl_req=yes]
     )
 
+# this variable is shared multiple times in code, so make sure that change in this
+# lines does not inferre with something below
 SAVED_LIBS=$LIBS
-AC_CHECK_HEADER(GL/glew.h)
-AC_CHECK_LIB(GLEW, glewInit)
+PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
+AC_SUBST(FOUND_GLEW)
 LIBS=$SAVED_LIBS
 
 case "$host_os" in
@@ -1048,7 +1050,7 @@ case "$host_os" in
 					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.")],
 					 [echo "GL/glut.h not found."]
 					)
-			if test "$FOUND_GLUT" = yes -a $ac_cv_header_GL_glew_h = yes -a $ac_cv_lib_GLEW_glewInit = yes
+			if test "$FOUND_GLUT" = yes -a $FOUND_GLEW = yes
 			then
 				GL_LIB+=" -lglut -lGLEW"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
@@ -1060,7 +1062,7 @@ case "$host_os" in
                                         AC_MSG_WARN([OpenGL (GLUT) libraries not found or not usable.])
                                 fi
 
-                                if test $ac_cv_header_GL_glew_h = no -o $ac_cv_lib_GLEW_glewInit = no
+                                if test $FOUND_GLEW = no
                                 then
                                         AC_MSG_WARN([OpenGL GLEW libraries or headers not found or not usable.])
                                 fi
@@ -1121,14 +1123,12 @@ case "$host_os" in
 	*)
                 # Linux
                 SAVED_LIBS=$LIBS
-                AC_CHECK_HEADER(GL/glew.h)
-                AC_CHECK_LIB(GLEW, glewInit)
                 AC_CHECK_HEADER(GL/glx.h)
                 AC_CHECK_HEADER(X11/Xlib.h)
 		AC_CHECK_LIB(GL, glBindTexture)
                 LIBS=$SAVED_LIBS
 
-		if test $screen_cap_req = yes -a $ac_cv_header_GL_glew_h = yes -a $ac_cv_lib_GLEW_glewInit \
+		if test $screen_cap_req = yes -a $FOUND_GLEW = yes \
                         -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
                         $ac_cv_lib_GL_glBindTexture = yes
 		then
@@ -1210,8 +1210,6 @@ AC_ARG_ENABLE(rtdxt,
 
 SAVED_LIBS=$LIBS
 
-AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
-AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
 AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
 AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
 AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
@@ -1225,7 +1223,7 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 #AC_DEFINE([USE_PBO_DXT_ECODER], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
-if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
         GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
@@ -1736,7 +1734,7 @@ case $host_os in
 		fi
         ;;
         *)
-		if test $scale_req = yes -a $ac_cv_header_GL_glew_h = yes -a $ac_cv_lib_GLEW_glewInit \
+		if test $scale_req = yes -a $FOUND_GLEW = yes \
                         -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
                         $ac_cv_lib_GL_glBindTexture = yes
 		then
