@@ -53,13 +53,14 @@ extern "C" {
 #include "host.h"
 }
 
-void *initSage(int appID, int nodeID, int width, int height, codec_t codec)
+void *initSage(const char *confName, int appID, int nodeID, int width,
+                int height, codec_t codec)
 {
         sail *sageInf; // sage sail object
 
         sageInf = new sail;
         sailConfig sailCfg;
-        sailCfg.init("ultragrid.conf");
+        sailCfg.init(confName);
         sailCfg.setAppName("ultragrid");
         sailCfg.rank = nodeID;
         sailCfg.resX = width;

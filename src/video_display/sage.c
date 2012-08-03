@@ -46,9 +46,11 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
 #include "debug.h"
 #include "video_codec.h"
@@ -91,6 +93,8 @@ struct state_sage {
         int appID, nodeID;
         
         void *sage_state;
+
+        const char             *confName;
 
         int                     frames;
         struct timeval          t, t0;
@@ -144,12 +148,37 @@ void *display_sage_init(char *fmt, unsigned int flags)
         UNUSED(flags);
         struct state_sage *s;
 
-        if(fmt && strcmp(fmt, "help") == 0) {
-                printf("No configuration needed for SAGE\n");
-                return NULL;
-        }
-        
         s = (struct state_sage *)malloc(sizeof(struct state_sage));
+        assert(s != NULL);
+
+        s->confName = "ultragrid.conf";
+
+        if(fmt) {
+                if(strcmp(fmt, "help") == 0) {
+                        printf("SAGE usage:\n");
+                        printf("\tuv -t sage:[config=<config_file>]\n");
+                        printf("\t                      <config_file> - SAGE app config file, default \"ultragrid.conf\"\n");
+                        return NULL;
+                } else {
+                        char *save_ptr = NULL;
+                        char *item;
+
+                        while((item = strtok_r(fmt, ":", &save_ptr))) {
+                                fmt = NULL;
+                                if(strncmp(item, "config=", strlen("config=")) == 0) {
+                                        s->confName = item + strlen("config=");
+                                } else {
+                                        fprintf(stderr, "[SAGE] unrecognized configuration: %s\n",
+                                                        item);
+                                        free(s);
+                                        return NULL;
+                                }
+                        }
+                }
+        }
+
+        printf("[SAGE] Using config file %s.\n", s->confName);
+        
         s->magic = MAGIC_SAGE;
 
         gettimeofday(&s->t0, NULL);
@@ -280,7 +309,8 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
                 sage_shutdown(s->sage_state);
         }
 
-        s->sage_state = initSage(s->appID, s->nodeID, s->tile->width, s->tile->height, desc.color_spec);
+        s->sage_state = initSage(s->confName, s->appID, s->nodeID,
+                        s->tile->width, s->tile->height, desc.color_spec);
 
         s->tile->data = (char *) sage_getBuffer(s->sage_state);
         s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) * s->tile->height;
