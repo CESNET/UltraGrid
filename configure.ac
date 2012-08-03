@@ -131,9 +131,9 @@ AC_ARG_ENABLE(depends-version-check,
         [version_check=yes]
         )
 
-if test $system = MacOSX -a \( $os_version_major -lt 9 -o $os_version_major -gt 11 \) -a $version_check = yes
+if test $system = MacOSX -a \( $os_version_major -lt 10 -o $os_version_major -gt 11 \) -a $version_check = yes
 then
-        AC_MSG_WARN([*** Currently only Mac OS X versions 10.5 to 10.7 are supported.])
+        AC_MSG_WARN([*** Currently only Mac OS X versions 10.6 to 10.7 are supported.])
         HM_VERSION_WARNING
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
 fi
