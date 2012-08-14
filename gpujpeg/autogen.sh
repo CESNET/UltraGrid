@@ -23,7 +23,7 @@ $LIBTOOLIZE --copy && \
 aclocal -I m4 && \
 automake --copy --add-missing && \
 autoconf && \
-./configure "$@"
+[ -n "$DO_NOT_CONFIGURE" ] || ./configure "$@"
 
 STATUS=$?
 

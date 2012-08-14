@@ -1808,6 +1808,18 @@ AC_SUBST(LIB_TARGETS)
 AC_SUBST(HEADERS)
 AC_SUBST(LIB_HEADERS)
 
+# -------------------------------------------------------------------------------------------------
+# Run subsequent configure scripts
+# -------------------------------------------------------------------------------------------------
+if test $jpeg = yes -a $jpeg_static = yes
+then
+        AC_MSG_NOTICE(
+[
+Configuring JPEG
+])
+        /bin/sh -c "cd gpujpeg; ./configure --with-cuda=$CUDA_PATH"
+fi
+
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
@@ -1846,7 +1858,7 @@ RESULT=\
 
 AC_MSG_RESULT(
 [
-Configuration summary
+UltraGrid Configuration summary:
 ])
 AC_MSG_RESULT([$RESULT])
 

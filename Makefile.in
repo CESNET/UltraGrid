@@ -313,7 +313,6 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 
 
 gpujpeg/.libs/libgpujpeg.a:
-	cd gpujpeg/; ./autogen.sh --with-cuda=@CUDA_PATH@; cd -
 	make -j -C gpujpeg/ static
 
 @FASTDXT_PATH@/libdxt.a:
@@ -385,6 +384,8 @@ clean:
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
+	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ distclean
+	make -C @FASTDXT_PATH@/ distclean
 
 etags:
 	etags src/*.[ch] src/*/*.[ch]
