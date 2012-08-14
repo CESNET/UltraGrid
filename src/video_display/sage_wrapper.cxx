@@ -60,7 +60,7 @@ void *initSage(const char *confName, int appID, int nodeID, int width,
 
         sageInf = new sail;
         sailConfig sailCfg;
-        sailCfg.init(confName);
+        sailCfg.init((char *) confName);
         sailCfg.setAppName("ultragrid");
         sailCfg.rank = nodeID;
         sailCfg.resX = width;
