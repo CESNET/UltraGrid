@@ -10,6 +10,13 @@ else
     LIBTOOLIZE=libtoolize
 fi
 
+if [ ! -x ../ltmain.sh ]
+then
+        cd ..
+        $LIBTOOLIZE --copy
+        cd -
+fi
+
 autoheader && \
 $LIBTOOLIZE --copy && \
 ( [ -d m4 ] || mkdir m4 ) && \
