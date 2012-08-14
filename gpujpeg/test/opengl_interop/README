@@ -1,0 +1,4 @@
+Demonstration of libgpujpeg interoperability with OpenGL. Application
+runs two threads, first does rendering in infinite loop, the second
+thread generates and encode and decodes image data. Image data are
+transfered from CUDA memory right to OpenGL texture.

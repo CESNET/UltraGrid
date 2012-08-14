@@ -1,0 +1,19 @@
+== Requires ==
+NVidia CUDA toolkit & NVidia CUDA SDK
+
+== Compilation ==
+run:
+# ./autogen.sh
+# ./configure # (optional, called automatically by autogen.sh)
+# make
+
+If you wish to specify path to your CUDA instalation, call
+configure as
+# ./configure --with-cuda=/path/to/cuda/root
+
+== Instalation ==
+# make install
+
+For the default install DESTDIR value (/usr/local), consider updating your
+PKG_CONFIG_PATH and LD_LIBRARY_PATH variables
+

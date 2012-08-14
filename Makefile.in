@@ -312,8 +312,9 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#echo ";" >> $@
 
 
-libgpujpeg/libgpujpeg.a:
-	CUDA_INSTALL_PATH=@CUDA_PATH@ make -j -C libgpujpeg/
+gpujpeg/.libs/libgpujpeg.a:
+	cd gpujpeg/; ./autogen.sh --with-cuda=@CUDA_PATH@; cd -
+	make -j -C gpujpeg/ static
 
 @FASTDXT_PATH@/libdxt.a:
 	make -j -C @FASTDXT_PATH@/ lib
@@ -378,7 +379,7 @@ clean:
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
-	make -C libgpujpeg/ clean
+	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
 	make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 

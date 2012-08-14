@@ -1,0 +1,128 @@
+#
+# Copyright (c) 2011, CESNET z.s.p.o
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+
+# Use shared/static libgpujpeg library?
+SHARED_LIBRARY ?= 1
+# CUDA install path
+CUDA_INSTALL_PATH ?= /usr/local/cuda
+
+# Target executable
+TARGET := opengl_interop
+# C files
+CFILES := main.c view.c
+# CUDA files
+CUFILES := image.cu
+
+# Compilers
+CC := gcc
+NVCC := $(CUDA_INSTALL_PATH)/bin/nvcc
+
+# Common flags
+COMMONFLAGS += -I. -I$(CUDA_INSTALL_PATH)/include -O2
+# C flags
+CFLAGS += $(COMMONFLAGS)
+# CUDA flags
+NVCCFLAGS += $(COMMONFLAGS) \
+	-gencode arch=compute_20,code=sm_20 \
+	-gencode arch=compute_11,code=sm_11
+    
+# Do 32bit vs. 64bit setup
+LBITS := $(shell getconf LONG_BIT)
+ifeq ($(LBITS),64)
+    # 64bit
+    LDFLAGS += -L$(CUDA_INSTALL_PATH)/lib64
+else
+    # 32bit
+    LDFLAGS += -L$(CUDA_INSTALL_PATH)/lib
+endif
+    
+# Link libgpujpeg library
+ifeq ($(SHARED_LIBRARY),1)
+    LDFLAGS += -L../../libgpujpeg -lgpujpeg
+else
+    LDFLAGS += -lcudart ../../libgpujpeg/libgpujpeg.a
+endif
+LDFLAGS += -lcuda -lcudart -lglut -lGLU -lGLEW -lGL -lpthread 
+
+# Build
+build: $(TARGET) $(TARGET).sh
+
+# Clean
+clean:
+	rm -f *.o $(TARGET)
+	@cd ../../libgpujpeg; make clean
+    
+# Lists of object files
+COBJS=$(CFILES:.c=.c.o)
+CUOBJS=$(CUFILES:.cu=.cu.o)
+
+# Build target
+$(TARGET): $(COBJS) $(CUOBJS) ../../libgpujpeg/libgpujpeg.build
+	$(CC) $(CFLAGS) $(LDFLAGS) $(COBJS) $(CUOBJS) -o $@
+
+# Build target run script
+ifeq ($(SHARED_LIBRARY),1)
+    $(TARGET).sh:
+		@printf "PATH=$$" > $(TARGET).sh
+		@printf "(dirname $$" >> $(TARGET).sh
+		@printf "0)\n" >> $(TARGET).sh
+		@printf "LD_LIBRARY_PATH=\"$$" >> $(TARGET).sh
+		@printf "LD_LIBRARY_PATH;$$" >> $(TARGET).sh
+		@printf "PATH/../../libgpujpeg\" $$" >> $(TARGET).sh
+		@printf "PATH/$(TARGET) $$" >> $(TARGET).sh
+		@printf "@\n" >> $(TARGET).sh
+		@chmod a+x $(TARGET).sh
+else
+    $(TARGET).sh:
+		@printf "PATH=$$" > $(TARGET).sh
+		@printf "(dirname $$" >> $(TARGET).sh
+		@printf "0)\n" >> $(TARGET).sh
+		@printf "$$" >> $(TARGET).sh
+		@printf "PATH/$(TARGET) $$" >> $(TARGET).sh
+		@printf "@\n" >> $(TARGET).sh
+		@chmod a+x $(TARGET).sh
+endif
+    
+# Build gpujpeg library
+../../libgpujpeg/libgpujpeg.build:
+	@cd ../../libgpujpeg; make SHARED_LIBRARY=$(SHARED_LIBRARY) USE_OPENGL=1
+    
+# Set suffix for CUDA files
+.SUFFIXES: .cu
+
+# Pattern rule for compiling C files
+%.c.o: %.c 
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Pattern rule for compiling CUDA files
+%.cu.o: %.cu
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@;
+
+# Set file dependencies
+view.c.o: view.c view.h    
+image.cu.o: image.cu image.h
+    

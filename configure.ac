@@ -562,7 +562,7 @@ else
     DECKLINK_LIB=
 fi
 
-LIB_MODULES="$LIB_MODULES $DECKLINK_LIB"
+LIB_MODULES+=" $DECKLINK_LIB"
 
 AC_SUBST(DECKLINK_PATH)
 AC_SUBST(DECKLINK_COMMON)
@@ -1426,7 +1426,7 @@ then
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
-                JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ libgpujpeg/libgpujpeg.a"
+                JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ gpujpeg/.libs/libgpujpeg.a"
                 jpeg_static=yes
         else
                 JPEG_LIB="$JPEG_LIB -lgpujpeg"
