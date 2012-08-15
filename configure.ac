@@ -44,9 +44,9 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 
 # -------------------------------------------------------------------------------------------------
 POST_COMPILE_MSG=""
-CFLAGS+=" -I."
-CPPFLAGS+=" -I."
-CXXLAGS+=" -I."
+CFLAGS="$CFLAGS -I."
+CPPFLAGS="$CPPFLAGS -I."
+CXXLAGS="$CXXLAGS -I."
 LIB_MODULES=
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
@@ -95,15 +95,15 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-	CFLAGS+=" -arch i386 -I/opt/local/include"
-	CPPFLAGS+=" -m32 -I/opt/local/include"
-	CXXFLAGS+=" -m32 -I/opt/local/include"
-	LDFLAGS+=" -m32 -mmacosx-version-min=10.5"
-	X_CFLAGS+="-I/usr/X11R6/include"
-        OBJS+=" src/utils/autorelease_pool.o"
+	CFLAGS="$CFLAGS -arch i386 -I/opt/local/include"
+	CPPFLAGS="$CPPFLAGS -m32 -I/opt/local/include"
+	CXXFLAGS="$CXXFLAGS -m32 -I/opt/local/include"
+	LDFLAGS="$LDFLAGS -m32 -mmacosx-version-min=10.5"
+	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
+        OBJS="$OBJS src/utils/autorelease_pool.o"
 else
         system=Linux
-	LDFLAGS+=" -Wl,--dynamic-list-data"
+	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 fi
 
@@ -310,7 +310,7 @@ common_lib_abi_version=1
 AC_DEFINE_UNQUOTED([COMMON_LIB_ABI_VERSION], $common_lib_abi_version, [Specifies ABI version for shared objects])
 AC_SUBST(common_lib_abi_version)
 AC_SUBST(COMMON_LIB_TARGET, "lib/ultragrid/ug_lib_common.so.$common_lib_abi_version")
-LIB_TARGETS+=" $COMMON_LIB_TARGET"
+LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
 
 video_display_abi_version=2
 video_capture_abi_version=2
@@ -387,9 +387,9 @@ case "$host_os" in
                                 X_CFLAGS=$SAVED_X_CFLAGS
                         fi
                 fi
-                X_LIBS+=" -lX11"
+                X_LIBS="$X_LIBS -lX11"
                 X_OBJ="src/x11_common.o"
-                CFLAGS+=""
+                CFLAGS="$CFLAGS"
         fi
         ;;
 esac
@@ -454,7 +454,7 @@ AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
 SAVED_LIBS=$LIBS
 if test $system = MacOSX
 then
-	LIBS+=" -framework IOKit"
+	LIBS="$LIBS -framework IOKit"
 fi
 AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
 LIBS=$SAVED_LIBS
@@ -466,15 +466,15 @@ then
 	DVS_CAP_OBJ="src/video_capture/dvs.o"
 	DVS_DISP_OBJ="src/video_display/dvs.o"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
-        DVS_LIB+=" -ldl"
+        DVS_LIB="$DVS_LIB -ldl"
 	if test $system = MacOSX
 	then
-		DVS_LIB+=" -framework IOKit"
+		DVS_LIB="$DVS_LIB -framework IOKit"
 	fi
         AC_SUBST(DVS_CAP_LIB_TARGET, "lib/ultragrid/vidcap_dvs.so.$video_capture_abi_version")
         AC_SUBST(DVS_DISP_LIB_TARGET, "lib/ultragrid/display_dvs.so.$video_display_abi_version")
-        LIB_TARGETS+=" $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET"
-        LIB_OBJS+=" $DVS_CAP_OBJ $DVS_DISP_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $DVS_CAP_LIB_TARGET $DVS_DISP_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $DVS_CAP_OBJ $DVS_DISP_OBJ"
         dvs=yes
 else
 	DVS_INC=
@@ -482,7 +482,7 @@ else
 	DVS_OBJ=
 fi
 
-LIB_MODULES+=" $DVS_LIB"
+LIB_MODULES="$LIB_MODULES $DVS_LIB"
 
 AC_SUBST(DVS_INC)
 AC_SUBST(DVS_LIB)
@@ -509,14 +509,14 @@ case "$host_os" in
                         DECKLINK_INC=DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
-                LIBS+=" -framework CoreFoundation DeckLink/include/DeckLinkAPIDispatch.cpp"
+                LIBS="$LIBS -framework CoreFoundation DeckLink/include/DeckLinkAPIDispatch.cpp"
                 AC_LANG_PUSH(C++)
 		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/include/DeckLinkAPI.h"
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
                 if test $FOUND_DECKLINK = yes; then
-                        DECKLINK_LIB+=" -framework CoreFoundation"
+                        DECKLINK_LIB="$DECKLINK_LIB -framework CoreFoundation"
                 fi
                 AC_LANG_POP(C++)
                 ;;
@@ -531,7 +531,7 @@ case "$host_os" in
                 #if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes -a $FOUND_DECKLINK_L = yes; then
                 if test $FOUND_DECKLINK_H = yes -a $FOUND_DECKLINK_SRC = yes; then
                         FOUND_DECKLINK=yes
-                        DECKLINK_LIB+=" -ldl"
+                        DECKLINK_LIB="$DECKLINK_LIB -ldl"
                 else
                         FOUND_DECKLINK=no
                 fi
@@ -551,8 +551,8 @@ then
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
     AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/display_decklink.so.$video_display_abi_version")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/aplay_decklink.so.$audio_playback_abi_version")
-    LIB_TARGETS+=" $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
-    LIB_OBJS+=" $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ $DECKLINK_COMMON"
+    LIB_TARGETS="$LIB_TARGETS $DECKLINK_CAP_LIB_TARGET $DECKLINK_DISP_LIB_TARGET $DECKLINK_SOUND_PLAY_LIB_TARGET"
+    LIB_OBJS="$LIB_OBJS $DECKLINK_CAP_OBJ $DECKLINK_DISP_OBJ $DECKLINK_SOUND_PLAY_OBJ $DECKLINK_COMMON"
     decklink=yes
 else
     DECKLINK_PATH=
@@ -562,7 +562,7 @@ else
     DECKLINK_LIB=
 fi
 
-LIB_MODULES+=" $DECKLINK_LIB"
+LIB_MODULES="$LIB_MODULES $DECKLINK_LIB"
 
 AC_SUBST(DECKLINK_PATH)
 AC_SUBST(DECKLINK_COMMON)
@@ -602,8 +602,8 @@ case $host in
             LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
             AC_DEFINE([HAVE_LINSYS], [1], [Build with Linsys support])
             AC_SUBST(LINSYS_LIB_TARGET, "lib/ultragrid/vidcap_linsys.so.$video_capture_abi_version")
-            LIB_TARGETS+=" $LINSYS_LIB_TARGET"
-            LIB_OBJS+=" $LINSYS_OBJ"
+            LIB_TARGETS="$LIB_TARGETS $LINSYS_LIB_TARGET"
+            LIB_OBJS="$LIB_OBJS $LINSYS_OBJ"
             linsys=yes
         else
             LINSYS_PATH=
@@ -648,9 +648,9 @@ case $host in
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS_SAVE=$CXXFLAGS
-                CXXFLAGS+=" -I$DELTACAST_PATH/Include"
+                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
                 CPPFLAGS_SAVE=$CPPFLAGS
-                CPPFLAGS+=" -I$DELTACAST_PATH/Include"
+                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
         fi
 
         AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
@@ -671,7 +671,7 @@ case $host in
 
         SAVED_LIBS=$LIBS
         AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle)
-        LIBS+=" -lvideomasterhd_audio -lvideomasterhd"
+        LIBS="$LIBS -lvideomasterhd_audio -lvideomasterhd"
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[# include <VideoMasterHD_Core.h>
                           # include <VideoMasterHD_Sdi.h>
                           # include <VideoMasterHD_Sdi_Audio.h>
@@ -697,8 +697,8 @@ case $host in
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
                 AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
-                LIB_TARGETS+=" $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
-                LIB_OBJS+=" $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
+                LIB_TARGETS="$LIB_TARGETS $DELTACAST_CAP_LIB_TARGET $DELTACAST_DISP_LIB_TARGET"
+                LIB_OBJS="$LIB_OBJS $DELTACAST_CAP_OBJ $DELTACAST_DISP_OBJ"
                 deltacast=yes
         else
                 DELTACAST_PATH=
@@ -710,7 +710,7 @@ case $host in
     ;;
 esac
 
-LIB_MODULES+=" $DELTACAST_LIB"
+LIB_MODULES="$LIB_MODULES $DELTACAST_LIB"
 
 AC_SUBST(DELTACAST_PATH)
 AC_SUBST(DELTACAST_INC)
@@ -744,13 +744,13 @@ case $host_os in
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
 			QUICKTIME_OBJ="src/video_capture/quicktime.o src/video_display/quicktime.o"
                         #LIB_TARGETS not needed here since we are not building modules on Mac
-                        LIB_OBJS+=" $QUICKTIME_OBJ"
+                        LIB_OBJS="$LIB_OBJS $QUICKTIME_OBJ"
                         quicktime=yes
 		fi
     ;;
 esac
 
-LIB_MODULES+=" $QUICKTIME_LIB"
+LIB_MODULES="$LIB_MODULES $QUICKTIME_LIB"
 
 AC_SUBST(QUICKTIME_INC)
 AC_SUBST(QUICKTIME_LIB)
@@ -880,11 +880,11 @@ esac
 if test $sdl = yes
 then
         AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/display_sdl.so.$video_display_abi_version")
-        LIB_TARGETS+=" $SDL_LIB_TARGET"
-        LIB_OBJS+=" $SDL_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $SDL_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $SDL_OBJ"
 fi
 
-LIB_MODULES+=" $SDL_LIBS"
+LIB_MODULES="$LIB_MODULES $SDL_LIBS"
 
 AC_SUBST(SDL_OBJ)
 AC_SUBST(SDL_LIBS)
@@ -904,9 +904,9 @@ TESTCARD2_OBJ=
 TESTCARD2_LIB=
 
 AC_SUBST(TESTCARD_LIB_TARGET, "lib/ultragrid/vidcap_testcard.so.$video_capture_abi_version")
-LIB_TARGETS+=" $TESTCARD_LIB_TARGET"
+LIB_TARGETS="$LIB_TARGETS $TESTCARD_LIB_TARGET"
 TESTCARD_COMMON="src/video_capture/testcard_common.o"
-LIB_OBJS+=" $TESTCARD_OBJ $TESTCARD_COMMON"
+LIB_OBJS="$LIB_OBJS $TESTCARD_OBJ $TESTCARD_COMMON"
 
 if test $testcard_extras_req = yes
 then
@@ -929,17 +929,17 @@ then
                 LIBS=$SAVED_LIBS
                 if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
                 then
-                        TESTCARD2_LIB+=" -lSDL_ttf"
+                        TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
                 fi
                 AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
-                LIB_TARGETS+=" $TESTCARD2_LIB_TARGET"
-                LIB_OBJS+=" $TESTCARD2_OBJ"
+                LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
+                LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
         fi
 fi
 
-LIB_MODULES+=" $TESTCARD_LIB"
-LIB_MODULES+=" $TESTCARD2_LIB"
+LIB_MODULES="$LIB_MODULES $TESTCARD_LIB"
+LIB_MODULES="$LIB_MODULES $TESTCARD2_LIB"
 
 AC_SUBST(TESTCARD_COMMON)
 
@@ -1044,7 +1044,7 @@ case "$host_os" in
 
 		if test $gl_req = yes -a $FOUND_GL_L = yes
 		then
-			GL_LIB+=" -lGL"
+			GL_LIB="$GL_LIB -lGL"
 
 			AC_CHECK_HEADERS([GL/glut.h],
 					 [AC_CHECK_LIB(glut, glutInit, FOUND_GLUT=yes , echo "GLUT library not found or not usable.")],
@@ -1052,7 +1052,7 @@ case "$host_os" in
 					)
 			if test "$FOUND_GLUT" = yes -a $FOUND_GLEW = yes
 			then
-				GL_LIB+=" -lglut -lGLEW"
+				GL_LIB="$GL_LIB -lglut -lGLEW"
 				GL_OBJ="$GL_OBJ src/video_display/gl.o"
 				AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
                                 gl=yes
@@ -1080,11 +1080,11 @@ esac
 if test $gl = yes
 then
         AC_SUBST(GL_LIB_TARGET, "lib/ultragrid/display_gl.so.$video_display_abi_version")
-        LIB_TARGETS+=" $GL_LIB_TARGET"
-        LIB_OBJS+=" $GL_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $GL_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $GL_OBJ"
 fi
 
-LIB_MODULES+=" $GL_LIB"
+LIB_MODULES="$LIB_MODULES $GL_LIB"
 
 AC_SUBST(GL_INC)
 AC_SUBST(GL_LIB)
@@ -1133,7 +1133,7 @@ case "$host_os" in
                         $ac_cv_lib_GL_glBindTexture = yes
 		then
                         screen_cap=yes
-                        SCREEN_CAP_LIB+=" -lGL -lGLEW"
+                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lGL -lGLEW"
                         GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
 		else
                         screen_cap=no
@@ -1146,11 +1146,11 @@ then
         AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen_capture])
         AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
         SCREEN_CAP_OBJ="src/video_capture/screen.o"
-        LIB_TARGETS+=" $SCREEN_CAP_LIB_TARGET"
-        LIB_OBJS+=" $SCREEN_CAP_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $SCREEN_CAP_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
 fi
 
-LIB_MODULES+=" $SCREEN_CAP_LIB"
+LIB_MODULES="$LIB_MODULES $SCREEN_CAP_LIB"
 
 AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(SCREEN_CAP_INC)
@@ -1184,15 +1184,15 @@ then
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
 	LINKER=$CXX
         AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
-        LIB_TARGETS+=" $FASTDXT_LIB_TARGET"
-        LIB_OBJS+=" $FASTDXT_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $FASTDXT_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $FASTDXT_OBJ"
         fastdxt=yes
 else
 	FASTDXT_INC=
 	FASTDXT_LIB=
 fi
 
-LIB_MODULES+=" $FASTDXT_LIB"
+LIB_MODULES="$LIB_MODULES $FASTDXT_LIB"
 
 AC_SUBST(FASTDXT_PATH)
 AC_SUBST(FASTDXT_INC)
@@ -1243,19 +1243,19 @@ fi
 if test $rtdxt = yes
 then
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
-        RTDXT_COMMON_OBJ+=" dxt_compress/dxt_util.o"
-        RTDXT_COMMON_HEADERS+="dxt_compress/dxt_glsl.h"
+        RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_util.o"
+        RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
         RTDXT_COMPRESS_OBJ="dxt_compress/dxt_encoder.o src/video_compress/dxt_glsl.o"
         RTDXT_DECOMPRESS_OBJ="dxt_compress/dxt_decoder.o src/video_decompress/dxt_glsl.o"
         DXT_GLSL_CFLAGS="-std=gnu99"
         AC_SUBST(RTDXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_rtdxt.so.$video_compress_abi_version")
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
-        LIB_TARGETS+=" $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS+=" $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
         LIB_HEADERS="$RTDXT_COMMON_HEADERS"
 fi
 
-LIB_MODULES+=" $RTDXT_LIB"
+LIB_MODULES="$LIB_MODULES $RTDXT_LIB"
 
 AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_OBJ)
@@ -1291,7 +1291,7 @@ AC_ARG_WITH(cuda,
 AC_CHECK_SIZEOF([int *])
 
 SAVED_LIBS=$LIBS
-LIBS+=" -lcudart"
+LIBS="$LIBS -lcudart"
 if test -z "$CUDA_PATH"
 then
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
@@ -1311,12 +1311,12 @@ then
                 CUDA_PATH=/usr/local/cuda
         fi
         SAVED_CFLAGS=$CFLAGS
-        CFLAGS+=" -I$CUDA_PATH/include/"
+        CFLAGS="$CFLAGS -I$CUDA_PATH/include/"
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
-                LIBS+=" -L$CUDA_PATH/lib64"
+                LIBS="$LIBS -L$CUDA_PATH/lib64"
         else
-                LIBS+=" -L$CUDA_PATH/lib"
+                LIBS="$LIBS -L$CUDA_PATH/lib"
         fi
         AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
                            ]],
@@ -1383,10 +1383,10 @@ AC_ARG_ENABLE(jpeg,
 
 SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
-CXXFLAGS+=" $CUDA_INC"
-CPPFLAGS+=" $CUDA_INC"
+CXXFLAGS="$CXXFLAGS $CUDA_INC"
+CPPFLAGS="$CPPFLAGS $CUDA_INC"
 SAVED_CFLAGS=$CFLAGS
-CFLAGS+=" $CUDA_INC"
+CFLAGS="$CFLAGS $CUDA_INC"
 AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
 CFLAGS=$SAVED_CFLAGS
 #AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
@@ -1426,10 +1426,10 @@ then
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
-                JPEG_COMMON_OBJ+=" libgpujpeg/libgpujpeg.a"
+                JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ libgpujpeg/libgpujpeg.a"
                 jpeg_static=yes
         else
-                JPEG_LIB+=" -lgpujpeg"
+                JPEG_LIB="$JPEG_LIB -lgpujpeg"
         fi
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         LINKER=$CXX
@@ -1437,9 +1437,9 @@ then
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
-        LIB_TARGETS+=" $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS+=" $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
-        POST_COMPILE_MSG+="\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
+        LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
+        POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
         export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
@@ -1447,7 +1447,7 @@ to your .bashrc file (in home directory). To take effect immediatelly, you will 
         exec bash\n***\n"
 fi
 
-LIB_MODULES+=" $JPEG_LIB"
+LIB_MODULES="$LIB_MODULES $JPEG_LIB"
 
 AC_SUBST(JPEG_COMMON_OBJ)
 AC_SUBST(JPEG_COMPRESS_OBJ)
@@ -1493,8 +1493,8 @@ then
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
     AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
-    LIB_TARGETS+=" $SAGE_LIB_TARGET"
-    LIB_OBJS+=" $SAGE_OBJ"
+    LIB_TARGETS="$LIB_TARGETS $SAGE_LIB_TARGET"
+    LIB_OBJS="$LIB_OBJS $SAGE_OBJ"
     sage=yes
 else
     SAGE_INC=
@@ -1502,7 +1502,7 @@ else
     SAGE_OBJ=
 fi
 
-LIB_MODULES+=" $SAGE_LIB"
+LIB_MODULES="$LIB_MODULES $SAGE_LIB"
 
 AC_SUBST(SAGE_INC)
 AC_SUBST(SAGE_LIB)
@@ -1543,8 +1543,8 @@ then
             AC_DEFINE([HAVE_PORTAUDIO], [1], [Build with Portaudio support])
             AC_SUBST(PORTAUDIO_CAP_LIB_TARGET, "lib/ultragrid/acap_portaudio.so.$audio_capture_abi_version")
             AC_SUBST(PORTAUDIO_PLAY_LIB_TARGET, "lib/ultragrid/aplay_portaudio.so.$audio_playback_abi_version")
-            LIB_TARGETS+=" $PORTAUDIO_CAP_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET"
-            LIB_OBJS+=" $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ"
+            LIB_TARGETS="$LIB_TARGETS $PORTAUDIO_CAP_LIB_TARGET $PORTAUDIO_PLAY_LIB_TARGET"
+            LIB_OBJS="$LIB_OBJS $PORTAUDIO_CAP_OBJ $PORTAUDIO_PLAY_OBJ"
 else
             PORTAUDIO_INC=
             PORTAUDIO_LIB=
@@ -1552,7 +1552,7 @@ else
             PORTAUDIO_PLAY_OBJ=
 fi
 
-LIB_MODULES+=" $PORTAUDIO_LIB"
+LIB_MODULES="$LIB_MODULES $PORTAUDIO_LIB"
 
 AC_SUBST(PORTAUDIO_INC)
 AC_SUBST(PORTAUDIO_LIB)
@@ -1566,7 +1566,7 @@ speex=yes
 SPEEX_PATH=speex-1.2rc1
 SPEEX_INC=-I${SPEEX_PATH}/include
 SPEEX_OBJ="src/audio/resample.o src/audio/preprocess.o src/audio/filterbank.o src/audio/fftwrap.o src/audio/smallft.o src/audio/mdf.o"
-SPEEX_OBJ+=" src/audio/echo.o"
+SPEEX_OBJ="$SPEEX_OBJ src/audio/echo.o"
 SPEEX_LIB=
 AC_DEFINE([HAVE_SPEEX], [1], [Build with SPEEX support])
 
@@ -1616,8 +1616,8 @@ then
     jack=yes
     AC_SUBST(JACK_CAP_LIB_TARGET, "lib/ultragrid/acap_jack.so.$audio_capture_abi_version")
     AC_SUBST(JACK_PLAY_LIB_TARGET, "lib/ultragrid/aplay_jack.so.$audio_playback_abi_version")
-    LIB_TARGETS+=" $JACK_CAP_LIB_TARGET $JACK_PLAY_LIB_TARGET"
-    LIB_OBJS+=" $JACK_CAP_OBJ $JACK_PLAY_OBJ"
+    LIB_TARGETS="$LIB_TARGETS $JACK_CAP_LIB_TARGET $JACK_PLAY_LIB_TARGET"
+    LIB_OBJS="$LIB_OBJS $JACK_CAP_OBJ $JACK_PLAY_OBJ"
 fi
 
 if test $jack = yes -a $speex = no
@@ -1627,7 +1627,7 @@ then
                      order to enable resampling (if needed).])
 fi
 
-LIB_MODULES+=" $JACK_LIB"
+LIB_MODULES="$LIB_MODULES $JACK_LIB"
 
 AC_SUBST(JACK_CAP_OBJ)
 AC_SUBST(JACK_PLAY_OBJ)
@@ -1655,15 +1655,15 @@ then
         ALSA_LIB="-lasound"
         AC_SUBST(ALSA_CAP_LIB_TARGET, "lib/ultragrid/acap_alsa.so.$audio_capture_abi_version")
         AC_SUBST(ALSA_PLAY_LIB_TARGET, "lib/ultragrid/aplay_alsa.so.$audio_playback_abi_version")
-        LIB_TARGETS+=" $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET"
-        LIB_OBJS+=" $ALSA_CAP_OBJ $ALSA_PLAY_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $ALSA_CAP_LIB_TARGET $ALSA_PLAY_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $ALSA_CAP_OBJ $ALSA_PLAY_OBJ"
 else
         alsa=no
         ALSA_OBJ=
         ALSA_LIB=
 fi
 
-LIB_MODULES+=" $ALSA_LIB"
+LIB_MODULES="$LIB_MODULES $ALSA_LIB"
 
 AC_SUBST(ALSA_CAP_OBJ)
 AC_SUBST(ALSA_PLAY_OBJ)
@@ -1727,7 +1727,7 @@ case $host_os in
 		if test $scale_req = yes
 		then
                         scale=yes
-                        SCALE_LIB+=" -framework OpenGL -framework Cocoa"
+                        SCALE_LIB="$SCALE_LIB -framework OpenGL -framework Cocoa"
                         GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
 		else
                         scale=no
@@ -1739,7 +1739,7 @@ case $host_os in
                         $ac_cv_lib_GL_glBindTexture = yes
 		then
                         scale=yes
-                        SCALE_LIB+=" -lGL -lGLEW"
+                        SCALE_LIB="$SCALE_LIB -lGL -lGLEW"
                         GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
 		else
                         scale=no
@@ -1749,14 +1749,14 @@ esac
 
 if test $scale = yes
 then
-        SCALE_OBJ+="src/vo_postprocess/scale.o"
+        SCALE_OBJ="$SCALE_OBJ src/vo_postprocess/scale.o"
         AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
-        LIB_TARGETS+=" $SCALE_LIB_TARGET"
-        LIB_OBJS+=" $SCALE_OBJ"
+        LIB_TARGETS="$LIB_TARGETS $SCALE_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $SCALE_OBJ"
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
 fi
 
-LIB_MODULES+=" $SCALE_LIB"
+LIB_MODULES="$LIB_MODULES $SCALE_LIB"
 
 AC_SUBST(SCALE_INC)
 AC_SUBST(SCALE_LIB)
@@ -1793,9 +1793,9 @@ if test "$build_libraries" = yes
 then
         LIB_SUPPORT_OBJ="src/lib_common.o"
 else
-        LIBS+=" $LIB_MODULES"
-        OBJS+=" $LIB_OBJS $GL_COMMON_OBJ"
-        HEADERS+=" $LIB_HEADERS"
+        LIBS="$LIBS $LIB_MODULES"
+        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ"
+        HEADERS="$HEADERS $LIB_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
         LIB_HEADERS=
