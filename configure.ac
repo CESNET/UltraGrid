@@ -1483,7 +1483,7 @@ AC_ARG_WITH(sage,
 	 SAGE_LIB=$withval/lib])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
-AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -I${SAGE_INC} -L${SAGE_LIB})
+AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
 
 if test $sage_req = yes -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
