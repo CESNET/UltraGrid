@@ -34,9 +34,6 @@ if test x$enable_debug = x ; then
 	enable_debug=no
 fi
 
-COMMON_CFLAGS=
-NVCCFLAGS=
-
 if test x$enable_debug = xyes ; then
 	COMMON_CFLAGS="$COMMON_CFLAGS -g -D_DEBUG -O0"
 	NVCCFLAGS="$NVCCFLAGS -G"
@@ -97,6 +94,15 @@ else
     CUDA_INSTALL_LIB="${CUDA_INSTALL_PATH}/lib"
 fi
 
+NVCC=$CUDA_INSTALL_PATH/bin/nvcc
+CUDA_MAJOR=`$NVCC --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+CUDA_MINOR=`$NVCC --version |grep release|sed  's/^.*release @<:@^.@:>@\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+
+if test $CUDA_MAJOR -gt 4 -o \( $CUDA_MAJOR -ge 4 -a $CUDA_MINOR -ge 2 \)
+then
+        CUDA_EXTRA_ARCH="$CUDA_EXTRA_ARCH -gencode arch=compute_30,code=sm_30"
+fi
+
 AM_CONDITIONAL([DARWIN], [test `uname -s` = Darwin])
 
 if test `uname -s` = 'Darwin'; then
@@ -117,6 +123,7 @@ fi
 GPUJPEG_LDFLAGS="$GPUJPEG_LDFLAGS -L${CUDA_INSTALL_LIB} -lcudart"
 COMMON_CFLAGS="$COMMON_CFLAGS -I. -I${CUDA_INSTALL_PATH}/include"
 
+AC_SUBST(CUDA_EXTRA_ARCH)
 AC_SUBST(CUDA_INSTALL_PATH)
 AC_SUBST(CUDA_INSTALL_LIB)
 AC_SUBST(COMMON_CFLAGS)

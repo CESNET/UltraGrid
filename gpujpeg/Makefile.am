@@ -11,7 +11,8 @@ NVCC=${CUDA_INSTALL_PATH}/bin/nvcc
 NVCC_CFLAGS= -Xcompiler -fPIC -Xcompiler '@COMMON_CFLAGS@' \
 	-gencode arch=compute_20,code=sm_20 \
 	-gencode arch=compute_11,code=sm_11 \
-	-gencode arch=compute_10,code=sm_10
+	-gencode arch=compute_10,code=sm_10 \
+	@CUDA_EXTRA_ARCH@
 
 SUFFIXES=.cu
 

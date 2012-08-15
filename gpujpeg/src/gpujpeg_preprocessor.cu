@@ -222,7 +222,7 @@ gpujpeg_preprocessor_raw_to_comp_kernel_4_2_2(struct gpujpeg_preprocessor_data d
         int* s = (int*)d_data_raw;
         uint8_t* d = s_data + 4 * x;
         if(d < d_data_raw_end) {
-            *((int*)d) = s[((gX * 3) >> 2) + x];
+            *((int*)d) = s[((gX * 2) >> 2) + x];
         }
     }
     __syncthreads();
