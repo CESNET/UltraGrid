@@ -49,6 +49,12 @@
 #define __vo_postprocess_h
 #include "video_codec.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 struct vo_postprocess_state;
 
 typedef  void *(*vo_postprocess_init_t)(char *cfg);
@@ -62,27 +68,6 @@ typedef  void *(*vo_postprocess_init_t)(char *cfg);
 typedef  int (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
 typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
 typedef void (*vo_postprocess_get_out_desc_t)(void *, struct video_desc *out, int *display_mode, int *out_frame_count);
-typedef void (*vo_postprocess_get_supported_codecs_t)(codec_t * supported_codecs, int *count);
-
-/**
- * Postprocesses video frame
- * 
- * @param state postprocess state
- * @param input frame
- * @return output frame
- */
-typedef  void (*vo_postprocess_t)(void *state, struct video_frame *in, struct video_frame *out, int req_out_pitch);
-
-/**
- * Cleanup function
- */
-typedef  void (*vo_postprocess_done_t)(void *);
-
-struct vo_postprocess_state *vo_postprocess_init(char *config_string);
-int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
-struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);
-void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_desc *out, int *display_mode, int *out_frames_count);
-
 /**
  * Returns supported codecs
  *
@@ -91,9 +76,33 @@ void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_des
  *        if *count is 0, this postprocessor is codec agnostic
  *        negative value indicates error
  */
+typedef void (*vo_postprocess_get_supported_codecs_t)(codec_t * supported_codecs, int *count);
+
+/**
+ * Postprocesses video frame
+ * 
+ * @param state postprocess state
+ * @param input frame
+ * @return flag if output video frame is filled with valid data
+ */
+typedef bool (*vo_postprocess_t)(void *state, struct video_frame *in, struct video_frame *out, int req_out_pitch);
+
+/**
+ * Cleanup function
+ */
+typedef  void (*vo_postprocess_done_t)(void *);
+
+/**
+ * Semantic and parameters of following funcitons is same as their typedef counterparts
+ */
+struct vo_postprocess_state *vo_postprocess_init(char *config_string);
+
+int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
+struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);
+void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_desc *out, int *display_mode, int *out_frames_count);
 void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *, codec_t * supported_codecs, int *count);
 
-void vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct video_frame*, int req_pitch);
+bool vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct video_frame*, int req_pitch);
 void vo_postprocess_done(struct vo_postprocess_state *s);
 
 void show_vo_postprocess_help(void);

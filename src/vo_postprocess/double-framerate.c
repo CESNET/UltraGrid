@@ -48,6 +48,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
 #endif
 #include "debug.h"
 
@@ -134,7 +135,7 @@ struct video_frame * df_getf(void *state)
         return s->in;
 }
 
-void df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_df *s = (struct state_df *) state;
         unsigned int y;
@@ -163,6 +164,8 @@ void df_postprocess(void *state, struct video_frame *in, struct video_frame *out
                         src += vc_get_linesize(s->in->tiles[0].width, s->in->color_spec);
                 }
         }
+
+        return true;
 }
 
 void df_done(void *state)

@@ -282,11 +282,13 @@ struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *s)
         }
 }
 
-void vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
+bool vo_postprocess(struct vo_postprocess_state *s, struct video_frame *in,
                 struct video_frame *out, int req_pitch)
 {
         if(s)
-                s->handle->vo_postprocess(s->state, in, out, req_pitch);
+                return s->handle->vo_postprocess(s->state, in, out, req_pitch);
+        else
+                return false;
 }
 
 void vo_postprocess_done(struct vo_postprocess_state *s)

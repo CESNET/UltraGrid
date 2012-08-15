@@ -53,6 +53,6 @@ void split_get_supported_codecs(codec_t * supported_codecs, int *count);
 int split_postprocess_reconfigure(void *state, struct video_desc desc);
 struct video_frame * split_getf(void *state);
 void split_get_out_desc(void *state, struct video_desc *out, int *display_mode, int *out_frames);
-void split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
+bool split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
 void split_done(void *state);
 

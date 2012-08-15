@@ -39,9 +39,11 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
@@ -1124,10 +1126,20 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         
         if(decoder->postprocess) {
                 int i;
-                vo_postprocess(decoder->postprocess,
+                bool pp_ret;
+
+                pp_ret = vo_postprocess(decoder->postprocess,
                                decoder->pp_frame,
                                frame,
                                decoder->display_pitch);
+
+                if(!pp_ret) {
+                        ret = FALSE;
+
+                        assert(decoder->pp_output_frames_count == 1);
+                        goto cleanup;
+                }
+
                 for (i = 1; i < decoder->pp_output_frames_count; ++i) {
                         display_put_frame(decoder->display, (char *) frame);
                         frame = display_get_frame(decoder->display);

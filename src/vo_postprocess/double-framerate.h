@@ -53,6 +53,6 @@ void df_get_supported_codecs(codec_t * supported_codecs, int *count);
 int df_reconfigure(void *state, struct video_desc desc);
 struct video_frame * df_getf(void *state);
 void df_get_out_desc(void *state, struct video_desc *out, int *display_mode, int *out_frames);
-void df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
+bool df_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
 void df_done(void *state);
 

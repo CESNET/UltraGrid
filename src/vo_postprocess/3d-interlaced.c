@@ -113,7 +113,7 @@ struct video_frame * interlaced_3d_getf(void *state)
         return s->in;
 }
 
-void interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         UNUSED (state);
         UNUSED (req_pitch);
@@ -143,6 +143,8 @@ void interlaced_3d_postprocess(void *state, struct video_frame *in, struct video
                         line2 += 16;
                 }
         }
+
+        return true;
 }
 
 void interlaced_3d_done(void *state)

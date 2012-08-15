@@ -53,6 +53,6 @@ void scale_get_supported_codecs(codec_t * supported_codecs, int *count);
 int scale_reconfigure(void *state, struct video_desc desc);
 struct video_frame * scale_getf(void *state);
 void scale_get_out_desc(void *state, struct video_desc *out, int *display_mode, int *out_frames);
-void scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
+bool scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch);
 void scale_done(void *state);
 

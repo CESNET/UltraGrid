@@ -48,6 +48,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
 #endif
 
 #include "debug.h"
@@ -233,7 +234,7 @@ struct video_frame * scale_getf(void *state)
         return s->in;
 }
 
-void scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+bool scale_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_scale *s = (struct state_scale *) state;
         int i;
@@ -308,6 +309,8 @@ void scale_postprocess(void *state, struct video_frame *in, struct video_frame *
         }
 
         free(tmp_data);
+
+        return true;
 }
 
 void scale_done(void *state)

@@ -45,8 +45,11 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 #include "debug.h"
 
 #include "video_codec.h"
@@ -126,12 +129,14 @@ struct video_frame * split_getf(void *state)
         return s->in;
 }
 
-void split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
+bool split_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         struct state_split *s = (struct state_split *) state;
         UNUSED(req_pitch);
 
         vf_split(out, in, s->grid_width, s->grid_height, FALSE);
+
+        return true;
 }
 
 void split_done(void *state)
