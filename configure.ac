@@ -168,6 +168,21 @@ then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# Additional macros
+
+AC_DEFUN([DEFINE_GL], [
+          AC_DEFINE([HAVE_LIBGL], 1, [We use GL libraries])
+
+          if test "$system" = MacOSX; then
+                  GL_COMMON_OBJ="src/mac_gl_common.o"
+          else
+                  GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
+          fi
+          AC_SUBST(GL_COMMON_OBJ)
+          ])
+
+
+# -------------------------------------------------------------------------------------------------
 # Check for standard size types.  The defaults are only valid on some
 # systems so we hope that <inttypes.h> exists when they're wrong.
 
@@ -1134,7 +1149,7 @@ case "$host_os" in
 		then
                         screen_cap=yes
                         SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lGL -lGLEW"
-                        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
+
 		else
                         screen_cap=no
 		fi
@@ -1148,11 +1163,12 @@ then
         SCREEN_CAP_OBJ="src/video_capture/screen.o"
         LIB_TARGETS="$LIB_TARGETS $SCREEN_CAP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
+
+        DEFINE_GL
 fi
 
 LIB_MODULES="$LIB_MODULES $SCREEN_CAP_LIB"
 
-AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(SCREEN_CAP_INC)
 AC_SUBST(SCREEN_CAP_LIB)
 AC_SUBST(SCREEN_CAP_OBJ)
@@ -1226,7 +1242,6 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
-        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
         RTDXT_LIB=" -lGLEW -lGL -lX11"
         rtdxt=yes
 fi
@@ -1235,7 +1250,6 @@ fi
 if test $rtdxt_req = yes -a  "$system" = MacOSX
 then
 	RTDXT_LIB="-framework OpenGL -framework Cocoa"
-        GL_COMMON_OBJ="src/mac_gl_common.o"
         rtdxt=yes
 fi
 
@@ -1253,11 +1267,11 @@ then
         LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
         LIB_HEADERS="$RTDXT_COMMON_HEADERS"
+        DEFINE_GL
 fi
 
 LIB_MODULES="$LIB_MODULES $RTDXT_LIB"
 
-AC_SUBST(GL_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_OBJ)
 AC_SUBST(RTDXT_COMMON_HEADERS)
 AC_SUBST(RTDXT_COMPRESS_OBJ)
@@ -1722,13 +1736,16 @@ AC_ARG_ENABLE(scale,
     [scale_req=yes]
     )
 
+SAVED_LIBS=$LIBS
+AC_CHECK_LIB(GL, glBindTexture)
+LIBS=$SAVED_LIBS
+
 case $host_os in
 	*darwin*)
 		if test $scale_req = yes
 		then
                         scale=yes
                         SCALE_LIB="$SCALE_LIB -framework OpenGL -framework Cocoa"
-                        GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
 		else
                         scale=no
 		fi
@@ -1740,7 +1757,6 @@ case $host_os in
 		then
                         scale=yes
                         SCALE_LIB="$SCALE_LIB -lGL -lGLEW"
-                        GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
 		else
                         scale=no
 		fi
@@ -1754,6 +1770,7 @@ then
         LIB_TARGETS="$LIB_TARGETS $SCALE_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SCALE_OBJ"
         AC_DEFINE([HAVE_SCALE], [1], [Build scale postprocessor])
+        DEFINE_GL
 fi
 
 LIB_MODULES="$LIB_MODULES $SCALE_LIB"
