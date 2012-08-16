@@ -76,22 +76,23 @@
 #include <OpenGL/gl.h>
 #include <Carbon/Carbon.h>
 #else
-#include <GL/glew.h>
 #include <X11/Xlib.h>
-#include <GL/glx.h>
+#include <X11/Xutil.h>
 #include "x11_common.h"
 #endif
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
+#ifdef HAVE_LINUX
+static void *grab_thread(void *args);
+#endif // HAVE_LINUX
 
 static void show_help()
 {
         printf("Screen capture\n");
         printf("Usage\n");
-        printf("\t-t screen[:fps=<fps>][:nogl]\n");
+        printf("\t-t screen[:fps=<fps>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
-        printf("\t\tnogl - do not grab with OpenGL, use Xlib instead (slower but OpenGL isn't guaranteed to work always, Linux only)\n");
 }
 
 /* defined in main.c */
@@ -110,14 +111,20 @@ struct vidcap_screen_state {
 #else
         Display *dpy;
         Window root;
-        GLXContext glc;
 
-        bool nogl;
+        char *buffer[2];
+        int buffer_net;
+        pthread_mutex_t lock;
+        pthread_cond_t boss_cv;
+        volatile bool boss_waiting;
+        pthread_cond_t worker_cv;
+        volatile bool worker_waiting;
+        volatile bool process_item;
+
+        volatile bool should_exit_worker;
+
+        pthread_t worker_id;
 #endif
-
-        GLuint tex;
-        GLuint tex_out;
-        GLuint fbo;
 
         struct timeval prev_time;
 
@@ -129,78 +136,36 @@ pthread_once_t initialized = PTHREAD_ONCE_INIT;
 
 static void initialize() {
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
-        const char *vendor;
-
-#ifndef HAVE_MACOSX
-        XWindowAttributes        xattr;
-#endif
 
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
 
+
 #ifndef HAVE_MACOSX
+        XWindowAttributes wa;
+
         x11_lock();
 
         s->dpy = x11_acquire_display();
 
         x11_unlock();
 
-
         s->root = DefaultRootWindow(s->dpy);
-        GLint att[] = {GLX_RGBA, None};
-        XVisualInfo *vis = glXChooseVisual(s->dpy, 0, att);
-        s->glc = glXCreateContext(s->dpy, vis, NULL, True);
-        glXMakeCurrent(s->dpy, s->root, s->glc);
 
-        XGetWindowAttributes(s->dpy, DefaultRootWindow(s->dpy), &xattr);
-        s->tile->width = xattr.width;
-        s->tile->height = xattr.height;
+        XGetWindowAttributes(s->dpy, DefaultRootWindow(s->dpy), &wa);
+        s->tile->width = wa.width;
+        s->tile->height = wa.height;
 
-        GLenum err = glewInit();
-        if (GLEW_OK != err)
-        {
-                /* Problem: glewInit failed, something is seriously wrong. */
-                fprintf(stderr, "GLEW Error: %s\n", glewGetErrorString(err));
-                goto error;
-        }
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+        pthread_cond_init(&s->worker_cv, NULL);
+        s->buffer_net = 1;
 
+        s->worker_waiting = false;
+        s->boss_waiting = false;
+        s->process_item = true; // start it
 
-        glEnable(GL_TEXTURE_2D);
-
-        glGenTextures(1, &state->tex);
-        glBindTexture(GL_TEXTURE_2D, state->tex);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, state->tile->width, state->tile->height,
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-        glGenTextures(1, &state->tex_out);
-        glBindTexture(GL_TEXTURE_2D, state->tex_out);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, state->tile->width, state->tile->height,
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glGenFramebuffersEXT(1, &state->fbo);
-
-        glViewport(0, 0, state->tile->width, state->tile->height);
-        glDisable(GL_DEPTH_TEST);
-
-        vendor = (const char *) glGetString(GL_VENDOR);
-        if(strcmp(vendor, "Tungsten Graphics, Inc") == 0) {
-                fprintf(stderr, "[screen capture] Intel graphic card detected, switching to Xlib screen capture.\n");
-                s->nogl = true;
-        }
-
-        if(strcmp(vendor, "ATI Technologies Inc.") == 0) {
-                fprintf(stderr, "[screen capture] AMD graphic card detected, switching to Xlib screen capture.\n");
-                s->nogl = true;
-        }
+        s->should_exit_worker = false;
 
 #else
         s->display = CGMainDisplayID();
@@ -219,7 +184,15 @@ static void initialize() {
         }
         s->frame->interlacing = PROGRESSIVE;
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
+
+#ifndef HAVE_MACOSX
+        s->buffer[0] = (char *) malloc(s->tile->data_len);
+        s->buffer[1] = (char *) malloc(s->tile->data_len);
+
+        pthread_create(&s->worker_id, NULL, grab_thread, s);
+#else
         s->tile->data = (char *) malloc(s->tile->data_len);
+#endif
 
         return;
 
@@ -230,6 +203,43 @@ error:
 }
 
 
+#ifdef HAVE_LINUX
+static void *grab_thread(void *args)
+{
+        struct vidcap_screen_state *s = args;
+
+        while(!s->should_exit_worker) {
+                pthread_mutex_lock(&s->lock);
+                while(!s->process_item) {
+                        s->worker_waiting = true;
+                        pthread_cond_wait(&s->worker_cv, &s->lock);
+                        s->worker_waiting = false;
+                }
+
+                XImage *image = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
+
+                /*
+                 * The more correct way is to use X pixel accessor (XGetPixel) as in previous version
+                 * Unfortunatelly, this approach is damn slow. Current approach might be incorrect in
+                 * some configurations, but seems to work currently. To be corrected if there is an
+                 * opposite case.
+                 */
+                vc_copylineRGBA((unsigned char *) s->buffer[(s->buffer_net + 1) % 2],
+                                (unsigned char *) &image->data[0], s->tile->data_len, 16, 8, 0);
+
+                XDestroyImage(image);
+
+                s->process_item = false;
+
+                if(s->boss_waiting)
+                        pthread_cond_signal(&s->boss_cv);
+
+                pthread_mutex_unlock(&s->lock);
+        }
+
+        return NULL;
+}
+#endif // HAVE_LINUX
 
 struct vidcap_type * vidcap_screen_probe(void)
 {
@@ -262,12 +272,15 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
         gettimeofday(&s->t0, NULL);
 
         s->fps = 0.0;
-#ifdef HAVE_LINUX
-        s->nogl = false;
-#endif // HAVE_LINUX
 
         s->frame = NULL;
         s->tile = NULL;
+
+        s->worker_id = 0;
+#ifdef HAVE_LINUX
+        s->buffer[0] = NULL;
+        s->buffer[1] = NULL;
+#endif
 
         s->prev_time.tv_sec = 
                 s->prev_time.tv_usec = 0;
@@ -281,10 +294,6 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
                         return NULL;
                 } else if (strncasecmp(init_fmt, "fps=", strlen("fps=")) == 0) {
                         s->fps = atoi(init_fmt + strlen("fps="));
-#ifdef HAVE_LINUX
-                } else if (strcasecmp(init_fmt, "nogl") == 0) {
-                        s->nogl = true;
-#endif // HAVE_LINUX
                 }
         }
 
@@ -296,6 +305,18 @@ void vidcap_screen_finish(void *state)
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
         assert(s != NULL);
+        pthread_mutex_lock(&s->lock);
+        if(s->boss_waiting) {
+                pthread_cond_signal(&s->boss_cv);
+        }
+
+        s->should_exit_worker = true;
+        if(s->worker_waiting) {
+                s->process_item = true; // get out of loop
+                pthread_cond_signal(&s->worker_cv);
+        }
+
+        pthread_mutex_unlock(&s->lock);
 }
 
 void vidcap_screen_done(void *state)
@@ -304,8 +325,19 @@ void vidcap_screen_done(void *state)
 
         assert(s != NULL);
 
+        if(s->worker_id) {
+                pthread_join(s->worker_id, NULL);
+        }
+
+#ifdef HAVE_LINUX
+        free(s->buffer[0]);
+        free(s->buffer[1]);
+#endif
+
         if(s->tile) {
+#ifdef HAVE_MACOS_X
                 free(s->tile->data);
+#endif
         }
         vf_free(s->frame);
         free(s);
@@ -320,83 +352,26 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
         *audio = NULL;
 
 #ifndef HAVE_MACOSX
-        if(s->nogl) {
-                XImage *image = XGetImage(s->dpy,s->root, 0,0 ,s->tile->width, s->tile->height,AllPlanes, ZPixmap);
+        pthread_mutex_lock(&s->lock);
 
-                unsigned long red_mask = image->red_mask;
-                unsigned long green_mask = image->green_mask;
-                unsigned long blue_mask = image->blue_mask;
-
-                int width = s->tile->width;
-
-                for (int x = 0; x < (int) s->tile->width; x++) {
-                        for (int y = 0; y < (int) s->tile->height ; y++) {
-                                unsigned long pixel = XGetPixel(image,x,y);
-
-                                unsigned char blue = pixel & blue_mask;
-                                unsigned char green = (pixel & green_mask) >> 8;
-                                unsigned char red = (pixel & red_mask) >> 16;
-
-                                *((uint32_t *) s->tile->data + (x + width * y)) = red | green << 8 | blue << 16;
-                        }
-                }
-
-                XDestroyImage(image);
-        } else {
-                glXMakeCurrent(s->dpy, s->root, s->glc);
-
-                glDrawBuffer(GL_FRONT);
-
-                /*                        
-                                          glDrawBuffer(GL_FRONT);
-                                          glx_swap(s->context);
-
-                                          GLint ReadBuffer;
-                                          glGetIntegerv(GL_READ_BUFFER,&ReadBuffer);
-                                          glPixelStorei(GL_READ_BUFFER,GL_RGB);
-
-                                          GLint PackAlignment;
-                                          glGetIntegerv(GL_PACK_ALIGNMENT,&PackAlignment); 
-                                          glPixelStorei(GL_PACK_ALIGNMENT,1);
-
-                                          glPixelStorei(GL_PACK_ALIGNMENT, 3);
-                                          glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-                                          glPixelStorei(GL_PACK_SKIP_ROWS, 0);
-                                          glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
-                                          */
-
-                glBindTexture(GL_TEXTURE_2D, s->tex);
-
-                glReadBuffer(GL_FRONT);
-
-                glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, s->tile->width, s->tile->height);
-                //glCopyTexImage2D(GL_TEXTURE_2D,  0,  GL_RGBA,  0,  0,  s->tile->width,  s->tile->height,  0);
-                //glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-                //glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-
-                //gl_check_error();
-
-                glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, s->fbo);
-                glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, s->tex_out, 0);
-                assert(GL_FRAMEBUFFER_COMPLETE_EXT == glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT));
-                glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
-
-                glBindTexture(GL_TEXTURE_2D, s->tex);
-
-                glBegin(GL_QUADS);
-                glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, 1.0);
-                glTexCoord2f(1.0, 0.0); glVertex2f(1.0, 1.0);
-                glTexCoord2f(1.0, 1.0); glVertex2f(1.0, -1.0);
-                glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, -1.0);
-                glEnd();
-
-                glReadBuffer(GL_COLOR_ATTACHMENT0_EXT); 
-
-                glReadPixels(0, 0, s->tile->width, s->tile->height, GL_RGBA, GL_UNSIGNED_BYTE, s->tile->data);
-
-                glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-                glBindTexture(GL_TEXTURE_2D, 0);
+        if(should_exit) {
+                pthread_mutex_unlock(&s->lock);
+                return NULL;
         }
+
+        while(s->process_item) {
+                s->boss_waiting = true;
+                pthread_cond_wait(&s->boss_cv, &s->lock);
+                s->boss_waiting = false;
+        }
+        
+        s->buffer_net = (s->buffer_net + 1) % 2;
+        s->tile->data = s->buffer[s->buffer_net];
+
+        s->process_item = true;
+        if(s->worker_waiting)
+                pthread_cond_signal(&s->worker_cv);
+        pthread_mutex_unlock(&s->lock);
 
 #else
         CGImageRef image = CGDisplayCreateImage(s->display);
@@ -438,12 +413,6 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
         }
 
         s->frames++;
-
-#ifndef HAVE_MACOSX
-        if(s->nogl) {
-                glXMakeCurrent(s->dpy, None, NULL);
-        }
-#endif
 
         return s->frame;
 }

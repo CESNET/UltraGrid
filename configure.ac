@@ -1138,18 +1138,16 @@ case "$host_os" in
 	*)
                 # Linux
                 SAVED_LIBS=$LIBS
-                AC_CHECK_HEADER(GL/glx.h)
                 AC_CHECK_HEADER(X11/Xlib.h)
-		AC_CHECK_LIB(GL, glBindTexture)
+                AC_CHECK_HEADER(X11/Xutil.h)
+                AC_CHECK_LIB(X11, XGetImage)
                 LIBS=$SAVED_LIBS
 
-		if test $screen_cap_req = yes -a $FOUND_GLEW = yes \
-                        -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
-                        $ac_cv_lib_GL_glBindTexture = yes
+		if test $screen_cap_req = yes -a $ac_cv_lib_X11_XGetImage = yes -a \
+                         $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes
 		then
                         screen_cap=yes
-                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lGL -lGLEW"
-
+                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
 		else
                         screen_cap=no
 		fi
@@ -1163,8 +1161,6 @@ then
         SCREEN_CAP_OBJ="src/video_capture/screen.o"
         LIB_TARGETS="$LIB_TARGETS $SCREEN_CAP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
-
-        DEFINE_GL
 fi
 
 LIB_MODULES="$LIB_MODULES $SCREEN_CAP_LIB"
