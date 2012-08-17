@@ -276,8 +276,8 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
         s->frame = NULL;
         s->tile = NULL;
 
-        s->worker_id = 0;
 #ifdef HAVE_LINUX
+        s->worker_id = 0;
         s->buffer[0] = NULL;
         s->buffer[1] = NULL;
 #endif
@@ -305,6 +305,7 @@ void vidcap_screen_finish(void *state)
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
         assert(s != NULL);
+#ifdef HAVE_LINUX
         pthread_mutex_lock(&s->lock);
         if(s->boss_waiting) {
                 pthread_cond_signal(&s->boss_cv);
@@ -317,6 +318,7 @@ void vidcap_screen_finish(void *state)
         }
 
         pthread_mutex_unlock(&s->lock);
+#endif HAVE_LINUX
 }
 
 void vidcap_screen_done(void *state)
@@ -324,12 +326,11 @@ void vidcap_screen_done(void *state)
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
         assert(s != NULL);
-
+#ifdef HAVE_LINUX
         if(s->worker_id) {
                 pthread_join(s->worker_id, NULL);
         }
 
-#ifdef HAVE_LINUX
         free(s->buffer[0]);
         free(s->buffer[1]);
 #endif

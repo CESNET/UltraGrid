@@ -174,7 +174,7 @@ AC_DEFUN([DEFINE_GL], [
           AC_DEFINE([HAVE_LIBGL], 1, [We use GL libraries])
 
           if test "$system" = MacOSX; then
-                  GL_COMMON_OBJ="src/mac_gl_common.o"
+                  GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
           else
                   GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
           fi
