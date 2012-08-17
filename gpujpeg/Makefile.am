@@ -63,7 +63,7 @@ static: $(libgpujpeg_la_DEPENDENCIES) all
 	[ -d build/tmp/universal ] || mkdir -p build/tmp/universal
 	for arch in i386 x86_64; do \
 		lipo -thin $$arch  .libs/libgpujpeg.a  -output build/tmp/$$arch/libgpujpeg.a ; \
-		cd build/tmp/$$arch; ar x libgpujpeg.a; rm libgpujpeg; cd -; \
+		cd build/tmp/$$arch; ar x libgpujpeg.a; rm libgpujpeg.a; cd -; \
 		for file in $(libgpujpeg_la_DEPENDENCIES); do \
 			BASENAME=$$(basename $$file) ; \
 			lipo -thin $$arch  $$file  -output build/tmp/$$arch/$$BASENAME ; \
