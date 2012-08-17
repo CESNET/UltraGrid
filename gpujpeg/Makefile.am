@@ -47,7 +47,7 @@ libgpujpeg_la_DEPENDENCIES = @LIBGPUJPEG_CUDA_OBJS@
 
 libgpujpeg_la_LIBADD = $(libgpujpeg_la_DEPENDENCIES)
 libgpujpeg_la_LDFLAGS = -export-dynamic -version-info $(GPUJPEG_LIBRARY_VERSION) @GPUJPEG_LDFLAGS@
-libgpujpeg_la_CFLAGS = -std=c99 @COMMON_CFLAGS@
+libgpujpeg_la_CFLAGS = -std=c99 -fPIC @COMMON_CFLAGS@
 #libgpujpeg_la_LINK = g++ -fPIC
 
 check-TESTS: tests

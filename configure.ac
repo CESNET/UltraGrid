@@ -1437,6 +1437,7 @@ then
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
                 JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ gpujpeg/.libs/libgpujpeg.a"
+                JPEG_INC="$JPEG_INC -Igpujpeg"
                 jpeg_static=yes
         else
                 JPEG_LIB="$JPEG_LIB -lgpujpeg"
