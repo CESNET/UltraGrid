@@ -55,6 +55,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "video.h"
+#include "video_codec.h"
 
 struct video_frame * vf_alloc(int count)
 {
@@ -70,12 +71,65 @@ struct video_frame * vf_alloc(int count)
         return buf;
 }
 
+struct video_frame * vf_alloc_desc(struct video_desc desc)
+{
+        struct video_frame *buf;
+        assert(desc.tile_count > 0);
+
+        buf = vf_alloc(desc.tile_count);
+        if(!buf) return NULL;
+
+        buf->color_spec = desc.color_spec;
+        buf->interlacing = desc.interlacing;
+        buf->fps = desc.fps;
+        // tile_count already filled
+        for(unsigned int i = 0u; i < desc.tile_count; ++i) {
+                buf->tiles[i].width = desc.width;
+                buf->tiles[i].height = desc.height;
+                buf->tiles[i].data = NULL;
+                buf->tiles[i].data_len = 0;
+                buf->tiles[i].linesize = 0;
+        }
+
+        return buf;
+}
+
+struct video_frame * vf_alloc_desc_data(struct video_desc desc)
+{
+        struct video_frame *buf;
+
+        buf = vf_alloc_desc(desc);
+
+        if(buf) {
+                for(unsigned int i = 0; i < desc.tile_count; ++i) {
+                        buf->tiles[i].linesize = vc_get_linesize(desc.width,
+                                        desc.color_spec);
+                        buf->tiles[i].data_len = buf->tiles[i].linesize *
+                                desc.height;
+                        buf->tiles[i].data = (char *) malloc(buf->tiles[i].data_len);
+                }
+        }
+
+        return buf;
+}
+
 void vf_free(struct video_frame *buf)
 {
         if(!buf)
                 return;
         free(buf->tiles);
         free(buf);
+}
+
+void vf_free_data(struct video_frame *buf)
+{
+        if(!buf)
+                return;
+
+        for(unsigned int i = 0u; i < buf->tile_count; ++i) {
+                free(buf->tiles[i].data);
+        }
+        vf_free(buf);
 }
 
 struct tile * vf_get_tile(struct video_frame *buf, int pos)

@@ -130,7 +130,29 @@ struct tile {
 };
 
 struct video_frame * vf_alloc(int count);
+/**
+ * Allocates video frame accordig given desc
+ *
+ * @param desc Description of video frame to be created
+ * @return allocated video frame
+ *         NULL if insufficient memory
+ */
+struct video_frame * vf_alloc_desc(struct video_desc desc);
+/**
+ * Same as vf_alloc_desc plus initializes data members of tiles
+ *
+ * @see vf_alloc_desc
+ *
+ * @param desc Description of video frame to be created
+ * @return allocated video frame
+ *         NULL if insufficient memory
+ */
+struct video_frame * vf_alloc_desc_data(struct video_desc desc);
 void vf_free(struct video_frame *buf);
+/**
+ * Same as vf_free plus removing (free) data fields
+ */
+void vf_free_data(struct video_frame *buf);
 struct tile * vf_get_tile(struct video_frame *buf, int pos);
 int video_desc_eq(struct video_desc, struct video_desc);
 int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params);
