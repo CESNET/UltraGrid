@@ -74,8 +74,8 @@ struct vo_postprocess_t {
         const char *getf_str;
         vo_postprocess_get_out_desc_t get_out_desc;
         const char *get_out_desc_str;
-        vo_postprocess_get_supported_codecs_t get_supported_codecs;
-        const char *get_supported_codecs_str;
+        vo_postprocess_get_property_t get_property;
+        const char *get_property_str;
         vo_postprocess_t vo_postprocess;
         const char *vo_postprocess_str;
         vo_postprocess_done_t done;
@@ -96,7 +96,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(interlace_reconfigure),
                 MK_STATIC(interlace_getf),
                 MK_STATIC(interlace_get_out_desc),
-                MK_STATIC(interlace_get_supported_codecs),
+                MK_STATIC(interlace_get_property),
                 MK_STATIC(interlace_postprocess),
                 MK_STATIC(interlace_done),
                 NULL
@@ -107,7 +107,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(df_reconfigure),
                 MK_STATIC(df_getf),
                 MK_STATIC(df_get_out_desc),
-                MK_STATIC(df_get_supported_codecs),
+                MK_STATIC(df_get_property),
                 MK_STATIC(df_postprocess),
                 MK_STATIC(df_done),
                 NULL
@@ -119,7 +119,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_NAME(scale_reconfigure), 
                 MK_NAME(scale_getf),
                 MK_NAME(scale_get_out_desc),
-                MK_NAME(scale_get_supported_codecs),
+                MK_NAME(scale_get_property),
                 MK_NAME(scale_postprocess), 
                 MK_NAME(scale_done),
                 NULL
@@ -131,7 +131,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(split_postprocess_reconfigure),
                 MK_STATIC(split_getf),
                 MK_STATIC(split_get_out_desc),
-                MK_STATIC(split_get_supported_codecs),
+                MK_STATIC(split_get_property),
                 MK_STATIC(split_postprocess),
                 MK_STATIC(split_done),
                 NULL
@@ -142,7 +142,7 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 MK_STATIC(interlaced_3d_postprocess_reconfigure),
                 MK_STATIC(interlaced_3d_getf),
                 MK_STATIC(interlaced_3d_get_out_desc),
-                MK_STATIC(interlaced_3d_get_supported_codecs),
+                MK_STATIC(interlaced_3d_get_property),
                 MK_STATIC(interlaced_3d_postprocess),
                 MK_STATIC(interlaced_3d_done),
                 NULL
@@ -183,9 +183,9 @@ static int vo_pp_fill_symbols(struct vo_postprocess_t *device)
         device->get_out_desc =
                 (vo_postprocess_get_out_desc_t)
                 dlsym(handle, device->get_out_desc_str);
-        device->get_supported_codecs =
-                (vo_postprocess_get_supported_codecs_t)
-                dlsym(handle, device->get_supported_codecs_str);
+        device->get_property =
+                (vo_postprocess_get_property_t)
+                dlsym(handle, device->get_property_str);
         device->vo_postprocess=
                 (vo_postprocess_t)
                 dlsym(handle, device->vo_postprocess_str);
@@ -196,7 +196,7 @@ static int vo_pp_fill_symbols(struct vo_postprocess_t *device)
         if(!device->init || !device->reconfigure ||
                         !device->getf ||
                         !device->get_out_desc ||
-                        !device->get_supported_codecs ||
+                        !device->get_property ||
                         !device->vo_postprocess ||
                         !device->done) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
@@ -313,8 +313,8 @@ void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_de
         if(s) s->handle->get_out_desc(s->state, out, display_mode, out_frames_count);
 }
 
-void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *s, codec_t * supported_codecs, int *count)
+bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, void *val, size_t *len)
 {
-        if(s) s->handle->get_supported_codecs(supported_codecs, count);
+        if(s) return s->handle->get_property(s, property, val, len);
 }
 

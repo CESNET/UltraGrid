@@ -63,10 +63,28 @@ struct state_split {
         int grid_width, grid_height;
 };
 
-void split_get_supported_codecs(codec_t * supported_codecs, int *count)
+
+bool split_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(supported_codecs);
-        *count = 0;
+        bool ret;
+
+        UNUSED(state);
+
+        switch(property) {
+                case VO_PP_DOES_CHANGE_TILING_MODE:
+                        if(len >= sizeof(bool)) {
+                                *val = true;
+                                *len = sizeof(bool);
+                        } else {
+                                *len = 0;
+                        }
+                        ret = true;
+                        break;
+                default:
+                        ret = false;
+        }
+
+        return ret;
 }
 
 static void usage()

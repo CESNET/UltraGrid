@@ -50,22 +50,27 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
-#include "debug.h"
 
-#include "video_codec.h"
-#include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include <pthread.h>
 #include <stdlib.h>
+
+#include "debug.h"
+#include "video_codec.h"
+#include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess/3d-interlaced.h"
 
 struct state_interlaced_3d {
         struct video_frame *in;
 };
 
-void interlaced_3d_get_supported_codecs(codec_t * supported_codecs, int *count)
+bool interlaced_3d_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(supported_codecs);
-        *count = 0;
+        UNUSED(state);
+        UNUSED(property);
+        UNUSED(val);
+        UNUSED(len);
+
+        return false;
 }
 
 

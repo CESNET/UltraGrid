@@ -88,12 +88,15 @@ void * df_init(char *config) {
         return s;
 }
 
-void df_get_supported_codecs(codec_t * supported_codecs, int *count)
+bool df_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(supported_codecs);
-        *count = 0;
-}
+        UNUSED(state);
+        UNUSED(property);
+        UNUSED(val);
+        UNUSED(len);
 
+        return false;
+}
 
 int df_reconfigure(void *state, struct video_desc desc)
 {

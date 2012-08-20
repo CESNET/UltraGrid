@@ -48,7 +48,7 @@
 #include "video_codec.h"
 
 void * interlace_init(char *config);
-void interlace_get_supported_codecs(codec_t * supported_codecs, int *count);
+bool interlace_get_property(void *state, int property, void *val, size_t *len);
 
 int interlace_reconfigure(void *state, struct video_desc desc);
 struct video_frame * interlace_getf(void *state);

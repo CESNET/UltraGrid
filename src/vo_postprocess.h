@@ -55,6 +55,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+/*          property                               type                   default          */
+#define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
+#define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
+
 struct vo_postprocess_state;
 
 typedef  void *(*vo_postprocess_init_t)(char *cfg);
@@ -62,26 +66,36 @@ typedef  void *(*vo_postprocess_init_t)(char *cfg);
 /**
  * Reconfigures postprocessor for frame
  * and returns resulting frame properties (they can be different)
+ *
+ * @param state postprocessor state
+ * @param desc  video description to be configured to
  * 
  * @return true or false
  */
 typedef  int (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
 typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
 typedef void (*vo_postprocess_get_out_desc_t)(void *, struct video_desc *out, int *display_mode, int *out_frame_count);
+
 /**
  * Returns supported codecs
  *
- * @param supported_codecs output list of supported codecs
- * @param count count of codecs
- *        if *count is 0, this postprocessor is codec agnostic
- *        negative value indicates error
+ * @param state    postprocessor state
+ * @param property property to be queried
+ * @param val      returned value,
+ *                      0 indicates that the property is understood, but there was a problem
+ *                        processing the query (true is returned)
+ * @param len      argument length
+ *                 IN - length of allocated block
+ *                 OUT - returned size (must be equal or less than allocated space)
+ * @return         true  if the flag is understood
+ *                 false if not, in that case, default values are assumed (if possible)
  */
-typedef void (*vo_postprocess_get_supported_codecs_t)(codec_t * supported_codecs, int *count);
+typedef bool (*vo_postprocess_get_property_t)(void *state, int property, void *val, size_t *len);
 
 /**
  * Postprocesses video frame
  * 
- * @param state postprocess state
+ * @param state postprocessor state
  * @param input frame
  * @return flag if output video frame is filled with valid data
  */
@@ -93,14 +107,14 @@ typedef bool (*vo_postprocess_t)(void *state, struct video_frame *in, struct vid
 typedef  void (*vo_postprocess_done_t)(void *);
 
 /**
- * Semantic and parameters of following funcitons is same as their typedef counterparts
+ * Semantic and parameters of following functions is same as their typedef counterparts
  */
 struct vo_postprocess_state *vo_postprocess_init(char *config_string);
 
 int vo_postprocess_reconfigure(struct vo_postprocess_state *, struct video_desc);
 struct video_frame * vo_postprocess_getf(struct vo_postprocess_state *);
 void vo_postprocess_get_out_desc(struct vo_postprocess_state *, struct video_desc *out, int *display_mode, int *out_frames_count);
-void vo_postprocess_get_supported_codecs(struct vo_postprocess_state *, codec_t * supported_codecs, int *count);
+bool vo_postprocess_get_property(struct vo_postprocess_state *, int property, void *val, size_t *len);
 
 bool vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct video_frame*, int req_pitch);
 void vo_postprocess_done(struct vo_postprocess_state *s);

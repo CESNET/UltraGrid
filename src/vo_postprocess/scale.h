@@ -48,7 +48,7 @@
 #include "video_codec.h"
 
 void * scale_init(char *config);
-void scale_get_supported_codecs(codec_t * supported_codecs, int *count);
+bool scale_get_property(void *state, int property, void *val, size_t *len);
 
 int scale_reconfigure(void *state, struct video_desc desc);
 struct video_frame * scale_getf(void *state);

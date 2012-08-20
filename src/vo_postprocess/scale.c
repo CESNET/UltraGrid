@@ -51,21 +51,21 @@
 #include "config_win32.h"
 #endif
 
-#include "debug.h"
-
-#include "video_codec.h"
-#include <pthread.h>
 #include <stdlib.h>
-#include "vo_postprocess/scale.h"
-#include "video_display.h"
-
-#include "gl_context.h"
+#include <pthread.h>
 
 #ifdef HAVE_LINUX
 #include <GL/glew.h>
 #else
 #include <OpenGL/GL.h>
 #endif /* HAVE_LINUX */
+
+#include "debug.h"
+#include "gl_context.h"
+#include "video_codec.h"
+#include "video_display.h"
+#include "vo_postprocess.h"
+#include "vo_postprocess/scale.h"
 
 #if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
 #define glGenFramebuffers glGenFramebuffersEXT
@@ -87,17 +87,27 @@ struct state_scale {
         GLuint fbo;
 };
 
-void scale_get_supported_codecs(codec_t * supported_codecs, int *count)
+bool scale_get_property(void *state, int property, void *val, size_t *len)
 {
+        bool ret = false;
         codec_t supported[] = {UYVY, RGBA};
 
-        if(*count < (int) (sizeof(supported) / sizeof(codec_t))) {
-                fprintf(stderr, "Scale postprocessor query little space.\n");
-                *count = -1;
+        UNUSED(state);
+
+        switch(property) {
+                case VO_PP_PROPERTY_CODECS:
+                        if(*len < (int) sizeof(supported)) {
+                                fprintf(stderr, "Scale postprocessor query little space.\n");
+                                *len = 0; 
+                        } else {
+                                memcpy(val, &supported, sizeof(supported));
+                                *len = sizeof(supported);
+                        }
+                        ret = true;
+                        break;
         }
 
-        memcpy(supported_codecs, &supported, sizeof(supported));
-        *count = sizeof(supported) / sizeof(codec_t);
+        return ret;
 }
 
 static void usage()

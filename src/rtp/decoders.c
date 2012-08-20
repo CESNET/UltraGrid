@@ -262,15 +262,19 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
 
         if(decoder->postprocess) {
                 codec_t postprocess_supported_codecs[20];
-                int count = 20;
-                vo_postprocess_get_supported_codecs(decoder->postprocess, postprocess_supported_codecs, &count);
+                int len = sizeof(postprocess_supported_codecs);
+                bool ret = vo_postprocess_get_property(decoder->postprocess, VO_PP_PROPERTY_CODECS,
+                                (void *) postprocess_supported_codecs, &len);
 
-                if(count > 0)
-                        restrict_returned_codecs(decoder->native_codecs, &decoder->native_count, postprocess_supported_codecs, count);
-                if(count < 0) {
-                        fprintf(stderr, "[Decoder] Unable to get supported codecs.\n");
-                        exit_uv(1);
-                        return;
+                if(ret) {
+                        if(len == 0) { // problem detected
+                                fprintf(stderr, "[Decoder] Unable to get supported codecs.\n");
+                                exit_uv(1);
+                                return;
+
+                        }
+                        restrict_returned_codecs(decoder->native_codecs, &decoder->native_count,
+                                        postprocess_supported_codecs, len / sizeof(codec_t));
                 }
         }
 

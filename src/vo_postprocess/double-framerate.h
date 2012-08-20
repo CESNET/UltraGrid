@@ -48,7 +48,7 @@
 #include "video_codec.h"
 
 void * df_init(char *config);
-void df_get_supported_codecs(codec_t * supported_codecs, int *count);
+bool df_get_property(void *state, int property, void *val, size_t *len);
 
 int df_reconfigure(void *state, struct video_desc desc);
 struct video_frame * df_getf(void *state);

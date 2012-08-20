@@ -94,12 +94,15 @@ void * interlace_init(char *config) {
         return s;
 }
 
-void interlace_get_supported_codecs(codec_t * supported_codecs, int *count)
+bool interlace_get_property(void *state, int property, void *val, size_t *len)
 {
-        UNUSED(supported_codecs);
-        *count = 0;
-}
+        UNUSED(state);
+        UNUSED(property);
+        UNUSED(val);
+        UNUSED(len);
 
+        return false;
+}
 
 int interlace_reconfigure(void *state, struct video_desc desc)
 {
