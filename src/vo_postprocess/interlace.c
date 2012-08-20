@@ -172,13 +172,14 @@ void interlace_get_out_desc(void *state, struct video_desc *out, int *in_display
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
-        out->width = vf_get_tile(s->odd, 0)->width * 2;
-        out->height = vf_get_tile(s->odd, 0)->height * 2;
+        out->width = vf_get_tile(s->odd, 0)->width;
+        out->height = vf_get_tile(s->odd, 0)->height;
         out->color_spec = s->odd->color_spec;
         out->interlacing = INTERLACED_MERGED;
         out->fps = s->odd->fps / 2.0;
-        out->tile_count =1; s->odd->tile_count;
+        out->tile_count = s->odd->tile_count;
 
-        *in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
+        UNUSED(in_display_mode);
+        //*in_display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
         *out_frames = 1;
 }

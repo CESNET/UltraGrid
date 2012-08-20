@@ -74,7 +74,19 @@ typedef  void *(*vo_postprocess_init_t)(char *cfg);
  */
 typedef  int (*vo_postprocess_reconfigure_t)(void *state, struct video_desc desc);
 typedef  struct video_frame * (*vo_postprocess_getf_t)(void *state);
-typedef void (*vo_postprocess_get_out_desc_t)(void *, struct video_desc *out, int *display_mode, int *out_frame_count);
+/*
+ * Returns various information about postprocessor format not only output (legacy name).
+ *
+ * @param s                        postprocessor state
+ * @param out                      output video description according to input parameters
+ * @param in_display_mode          some postprocessors change tiling mode (this is queryied by get_property
+ *                                 function). If postprocessor does not report that it changes tiling mode,
+ *                                 this parameter should be ignored.
+ * @param out_frame_count          Because the postprocess function is called synchronously, in case that 
+ *                                 from one input frame is generated more, this sets how many can be generated
+ *                                 at maximum.
+ */
+typedef void (*vo_postprocess_get_out_desc_t)(void *s, struct video_desc *out, int *in_tile_mode, int *out_frame_count);
 
 /**
  * Returns supported codecs
@@ -97,7 +109,9 @@ typedef bool (*vo_postprocess_get_property_t)(void *state, int property, void *v
  * 
  * @param state postprocessor state
  * @param input frame
- * @return flag if output video frame is filled with valid data
+ *
+ * @return flag If output video frame is filled with valid data.
+ *
  */
 typedef bool (*vo_postprocess_t)(void *state, struct video_frame *in, struct video_frame *out, int req_out_pitch);
 

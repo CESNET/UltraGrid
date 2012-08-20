@@ -54,6 +54,7 @@
 
 #include "video_codec.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
+#include "vo_postprocess.h" /* VO_PP_DOES_CHANGE_TILING_MODE */
 #include <pthread.h>
 #include <stdlib.h>
 #include "vo_postprocess/split.h"
@@ -72,8 +73,8 @@ bool split_get_property(void *state, int property, void *val, size_t *len)
 
         switch(property) {
                 case VO_PP_DOES_CHANGE_TILING_MODE:
-                        if(len >= sizeof(bool)) {
-                                *val = true;
+                        if(*len >= sizeof(bool)) {
+                                *(bool *) val = true;
                                 *len = sizeof(bool);
                         } else {
                                 *len = 0;

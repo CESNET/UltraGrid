@@ -262,7 +262,7 @@ void decoder_register_video_display(struct state_decoder *decoder, struct displa
 
         if(decoder->postprocess) {
                 codec_t postprocess_supported_codecs[20];
-                int len = sizeof(postprocess_supported_codecs);
+                size_t len = sizeof(postprocess_supported_codecs);
                 bool ret = vo_postprocess_get_property(decoder->postprocess, VO_PP_PROPERTY_CODECS,
                                 (void *) postprocess_supported_codecs, &len);
 
@@ -505,12 +505,47 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 return NULL;
         struct video_desc display_desc = desc;
 
+        int display_mode;
+        size_t len = sizeof(int);
+        int ret;
+
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
+                        &display_mode, &len);
+        if(!ret) {
+                debug_msg("Failed to get video display mode.");
+                display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
+        }
+
+        bool pp_does_change_tiling_mode = false;
+
+        if (decoder->postprocess) {
+                size_t len = sizeof(pp_does_change_tiling_mode);
+                if(vo_postprocess_get_property(decoder->postprocess, VO_PP_DOES_CHANGE_TILING_MODE,
+                                        &pp_does_change_tiling_mode, &len)) {
+                        if(len == 0) {
+                                // just for sake of completness since it shouldn't be a case
+                                fprintf(stderr, "[Decoder] Warning: unable to get pp tiling mode!\n");
+                        }
+                }
+        }
+
         if(decoder->postprocess) {
                 struct video_desc pp_desc = desc;
                 pp_desc.color_spec = out_codec;
+                if(!pp_does_change_tiling_mode) {
+                        pp_desc.width *= get_video_mode_tiles_x(decoder->video_mode);
+                        pp_desc.height *= get_video_mode_tiles_y(decoder->video_mode);
+                        pp_desc.tile_count = 1;
+                }
                 vo_postprocess_reconfigure(decoder->postprocess, pp_desc);
                 decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
                 vo_postprocess_get_out_desc(decoder->postprocess, &display_desc, &render_mode, &decoder->pp_output_frames_count);
+        } else {
+                if(display_mode == DISPLAY_PROPERTY_VIDEO_MERGED) {
+                        display_desc.width *= get_video_mode_tiles_x(decoder->video_mode);
+                        display_desc.height *= get_video_mode_tiles_y(decoder->video_mode);
+                        display_desc.tile_count = 1;
+                }
         }
         
         if(!is_codec_opaque(out_codec)) {
@@ -519,29 +554,12 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 decoder->change_il = NULL;
         }
 
-
-        size_t len = sizeof(int);
-        int ret;
-
-        int display_mode;
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_VIDEO_MODE,
-                        &display_mode, &len);
-        if(!ret) {
-                debug_msg("Failed to get video display mode.");
-                display_mode = DISPLAY_PROPERTY_VIDEO_MERGED;
-        }
-
-        if (!decoder->postprocess) { /* otherwise we need postprocessor mode, which we obtained before */
+        if (!decoder->postprocess || !pp_does_change_tiling_mode) { /* otherwise we need postprocessor mode, which we obtained before */
                 render_mode = display_mode;
         }
 
         display_desc.color_spec = out_codec;
         display_desc.interlacing = display_il;
-        if(!decoder->postprocess && display_mode == DISPLAY_PROPERTY_VIDEO_MERGED) {
-                display_desc.width *= get_video_mode_tiles_x(decoder->video_mode);
-                display_desc.height *= get_video_mode_tiles_y(decoder->video_mode);
-                display_desc.tile_count = 1;
-        }
 
         if(!video_desc_eq(decoder->display_desc, display_desc))
         {
@@ -599,7 +617,6 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         } else {
                 linewidth = desc.width * get_video_mode_tiles_x(decoder->video_mode);
         }
-
 
         if(!decoder->postprocess) {
                 if(decoder->requested_pitch == PITCH_DEFAULT)
@@ -1139,8 +1156,6 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
                 if(!pp_ret) {
                         ret = FALSE;
-
-                        assert(decoder->pp_output_frames_count == 1);
                         decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
                         goto cleanup;
                 }
@@ -1148,10 +1163,15 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 for (i = 1; i < decoder->pp_output_frames_count; ++i) {
                         display_put_frame(decoder->display, (char *) frame);
                         frame = display_get_frame(decoder->display);
-                        vo_postprocess(decoder->postprocess,
+                        pp_ret = vo_postprocess(decoder->postprocess,
                                        NULL,
                                        frame,
                                        decoder->display_pitch);
+                        if(!pp_ret) {
+                                ret = FALSE;
+                                decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
+                                goto cleanup;
+                        }
                 }
 
                 /* get new postprocess frame */
