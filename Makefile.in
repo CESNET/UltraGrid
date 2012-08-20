@@ -93,6 +93,7 @@ OBJS	      = @OBJS@ \
 		src/video_display/null.o \
 		src/vo_postprocess.o \
 		src/vo_postprocess/3d-interlaced.o \
+		src/vo_postprocess/interlace.o \
 		src/vo_postprocess/double-framerate.o \
 		src/vo_postprocess/split.o \
 		@X_OBJ@ \

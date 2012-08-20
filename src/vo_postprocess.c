@@ -54,10 +54,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "vo_postprocess.h"
-#include "vo_postprocess/3d-interlaced.h"
-#include "vo_postprocess/split.h"
-#include "vo_postprocess/scale.h"
+#include "vo_postprocess/interlace.h"
 #include "vo_postprocess/double-framerate.h"
+#include "vo_postprocess/scale.h"
+#include "vo_postprocess/split.h"
+#include "vo_postprocess/3d-interlaced.h"
 #include "lib_common.h"
 
 extern char **uv_argv;
@@ -89,26 +90,15 @@ struct vo_postprocess_state {
 };
 
 struct vo_postprocess_t vo_postprocess_modules[] = {
-        {"3d-interlaced",
+        {"interlace",
                 NULL,
-                MK_STATIC(interlaced_3d_init),
-                MK_STATIC(interlaced_3d_postprocess_reconfigure),
-                MK_STATIC(interlaced_3d_getf),
-                MK_STATIC(interlaced_3d_get_out_desc),
-                MK_STATIC(interlaced_3d_get_supported_codecs),
-                MK_STATIC(interlaced_3d_postprocess),
-                MK_STATIC(interlaced_3d_done),
-                NULL
-        },
-        {"split",
-                NULL,
-                MK_STATIC(split_init),
-                MK_STATIC(split_postprocess_reconfigure),
-                MK_STATIC(split_getf),
-                MK_STATIC(split_get_out_desc),
-                MK_STATIC(split_get_supported_codecs),
-                MK_STATIC(split_postprocess),
-                MK_STATIC(split_done),
+                MK_STATIC(interlace_init),
+                MK_STATIC(interlace_reconfigure),
+                MK_STATIC(interlace_getf),
+                MK_STATIC(interlace_get_out_desc),
+                MK_STATIC(interlace_get_supported_codecs),
+                MK_STATIC(interlace_postprocess),
+                MK_STATIC(interlace_done),
                 NULL
         },
         {"double-framerate",
@@ -135,6 +125,28 @@ struct vo_postprocess_t vo_postprocess_modules[] = {
                 NULL
         },
 #endif /* HAVE_SCREEN_CAP */
+        {"split",
+                NULL,
+                MK_STATIC(split_init),
+                MK_STATIC(split_postprocess_reconfigure),
+                MK_STATIC(split_getf),
+                MK_STATIC(split_get_out_desc),
+                MK_STATIC(split_get_supported_codecs),
+                MK_STATIC(split_postprocess),
+                MK_STATIC(split_done),
+                NULL
+        },
+        {"3d-interlaced",
+                NULL,
+                MK_STATIC(interlaced_3d_init),
+                MK_STATIC(interlaced_3d_postprocess_reconfigure),
+                MK_STATIC(interlaced_3d_getf),
+                MK_STATIC(interlaced_3d_get_out_desc),
+                MK_STATIC(interlaced_3d_get_supported_codecs),
+                MK_STATIC(interlaced_3d_postprocess),
+                MK_STATIC(interlaced_3d_done),
+                NULL
+        },
         { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
                 NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };

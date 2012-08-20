@@ -1137,6 +1137,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         ret = FALSE;
 
                         assert(decoder->pp_output_frames_count == 1);
+                        decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
                         goto cleanup;
                 }
 
