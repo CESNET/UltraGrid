@@ -543,6 +543,37 @@ static void *ihdtv_sender_thread(void *arg)
         return 0;
 }
 
+static struct vcodec_state *new_decoder(struct state_uv *uv) {
+        struct vcodec_state *state = malloc(sizeof(struct vcodec_state));
+
+        if(state) {
+                state->decoder = decoder_init(uv->decoder_mode, uv->postprocess);
+                state->reconfigured = false;
+                state->frame_buffer = NULL; // no frame until reconfiguration
+
+                if(!state->decoder) {
+                        fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option).\n");
+                        free(state);
+                        exit_uv(1);
+                        return NULL;
+                } else {
+                        decoder_register_video_display(state->decoder, uv->display_device);
+                }
+        }
+
+        return state;
+}
+
+static void destroy_decoder(struct vcodec_state *video_decoder_state) {
+        if(!video_decoder_state) {
+                return;
+        }
+
+        decoder_destroy(video_decoder_state->decoder);
+
+        free(video_decoder_state);
+}
+
 static void *receiver_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
@@ -553,19 +584,9 @@ static void *receiver_thread(void *arg)
         int ret;
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
-        struct pbuf_video_data pbuf_data;
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
 
         initialize_video_decompress();
-        pbuf_data.decoder = decoder_init(uv->decoder_mode, uv->postprocess);
-        pbuf_data.reconfigured = false;
-        if(!pbuf_data.decoder) {
-                fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option).\n");
-                exit_uv(1);
-        } else {
-                decoder_register_video_display(pbuf_data.decoder, uv->display_device);
-        }
-        pbuf_data.frame_buffer = frame_buffer;
 
         pthread_mutex_unlock(&uv->master_lock);
 
@@ -605,9 +626,19 @@ static void *receiver_thread(void *arg)
                                                                uv->curr_time));
                         }
 
+                        if(cp->video_decoder_state == NULL) {
+                                cp->video_decoder_state = new_decoder(uv);
+                                if(cp->video_decoder_state == NULL) {
+                                        fprintf(stderr, "Fatal: unable to find decoder state for "
+                                                        "participant %u.\n", cp->ssrc);
+                                        exit_uv(1);
+                                        break;
+                                }
+                        }
+
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, uv->curr_time, decode_frame, &pbuf_data)) {
+                            (cp->playout_buffer, uv->curr_time, decode_frame, cp->video_decoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
@@ -616,57 +647,66 @@ static void *receiver_thread(void *arg)
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
                                         display_put_frame(uv->display_device,
-                                                          (char *) pbuf_data.frame_buffer);
-                                        pbuf_data.frame_buffer =
+                                                          (char *) cp->video_decoder_state->frame_buffer);
+                                        cp->video_decoder_state->frame_buffer =
                                             display_get_frame(uv->display_device);
                                 }
                                 last_tile_received = uv->curr_time;
                         }
+
+                        /* dual-link TIMEOUT - we won't wait for next tiles */
+                        if(tiles_post > 1 && tv_diff(uv->curr_time, last_tile_received) > 
+                                        999999 / 59.94 / uv->connections_count) {
+                                tiles_post = 0;
+                                gettimeofday(&uv->curr_time, NULL);
+                                fr = 1;
+                                display_put_frame(uv->display_device,
+                                                cp->video_decoder_state->frame_buffer->tiles[0].data);
+                                cp->video_decoder_state->frame_buffer =
+                                        display_get_frame(uv->display_device);
+                                last_tile_received = uv->curr_time;
+                        }
+
+                        if(cp->video_decoder_state->decoded % 100 == 99) {
+                                int new_size = cp->video_decoder_state->max_frame_size * 110ull / 100;
+                                if(new_size >= last_buf_size) {
+                                        struct rtp **device = uv->network_devices;
+                                        while(*device) {
+                                                int ret = rtp_set_recv_buf(*device, new_size);
+                                                if(!ret) {
+                                                        display_buf_increase_warning(new_size);
+                                                }
+                                                debug_msg("Recv buffer adjusted to %d\n", new_size);
+                                                device++;
+                                        }
+                                        last_buf_size = new_size;
+                                }
+                        }
+
+                        if(cp->video_decoder_state->reconfigured) {
+                                struct rtp **session = uv->network_devices;
+                                while(*session) {
+                                        rtp_flush_recv_buf(*session);
+                                        ++session;
+                                }
+                                cp->video_decoder_state->reconfigured = false;
+                        }
+
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
                         cp = pdb_iter_next(uv->participants);
                 }
                 pdb_iter_done(uv->participants);
-
-                /* dual-link TIMEOUT - we won't wait for next tiles */
-                if(tiles_post > 1 && tv_diff(uv->curr_time, last_tile_received) > 
-                                999999 / 59.94 / uv->connections_count) {
-                        tiles_post = 0;
-                        gettimeofday(&uv->curr_time, NULL);
-                        fr = 1;
-                        display_put_frame(uv->display_device,
-                                        pbuf_data.frame_buffer->tiles[0].data);
-                        pbuf_data.frame_buffer =
-                                display_get_frame(uv->display_device);
-                        last_tile_received = uv->curr_time;
-                }
-
-                if(pbuf_data.decoded % 100 == 99) {
-                        int new_size = pbuf_data.max_frame_size * 110ull / 100;
-                        if(new_size >= last_buf_size) {
-                                struct rtp **device = uv->network_devices;
-                                while(*device) {
-                                        int ret = rtp_set_recv_buf(*device, new_size);
-                                        if(!ret) {
-                                                display_buf_increase_warning(new_size);
-                                        }
-                                        debug_msg("Recv buffer adjusted to %d\n", new_size);
-                                        device++;
-                                }
-                                last_buf_size = new_size;
-                        }
-                }
-
-                if(pbuf_data.reconfigured) {
-                        struct rtp **session = uv->network_devices;
-                        while(*session) {
-                                rtp_flush_recv_buf(*session);
-                                ++session;
-                        }
-                        pbuf_data.reconfigured = false;
-                }
         }
         
-        decoder_destroy(pbuf_data.decoder);
+        cp = pdb_iter_init(uv->participants);
+        while (cp != NULL) {
+                if(cp->video_decoder_state != NULL) {
+                        destroy_decoder(cp->video_decoder_state);
+                }
+
+                cp = pdb_iter_next(uv->participants);
+        }
+        pdb_iter_done(uv->participants);
 
         return 0;
 }
@@ -1361,8 +1401,18 @@ cleanup:
                 vidcap_done(uv->capture_device);
         if(uv->display_device)
                 display_done(uv->display_device);
-        if (uv->participants != NULL)
+        if (uv->participants != NULL) {
+                struct pdb_e *cp = pdb_iter_init(uv->participants);
+                while (cp != NULL) {
+                        struct pdb_e *item = NULL;
+                        pdb_remove(uv->participants, cp->ssrc, &item);
+                        free(item);
+
+                        cp = pdb_iter_next(uv->participants);
+                }
+                pdb_iter_done(uv->participants);
                 pdb_destroy(&uv->participants);
+        }
 
 
         pthread_mutex_destroy(&uv->sender_lock);

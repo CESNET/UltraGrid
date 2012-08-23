@@ -69,7 +69,7 @@ static void restrict_returned_codecs(codec_t *display_codecs,
                 int pp_codecs_count);
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
 static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame,
-                struct pbuf_video_data *pbuf_data);
+                struct vcodec_state *pbuf_data);
 
 enum decoder_type_t {
         UNSET,
@@ -728,7 +728,7 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
 }
 
 static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame,
-                struct pbuf_video_data *pbuf_data)
+                struct vcodec_state *pbuf_data)
 {
         uint32_t tmp;
         int ret = FALSE;
@@ -777,7 +777,7 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
 
 int decode_frame(struct coded_data *cdata, void *decode_data)
 {
-        struct pbuf_video_data *pbuf_data = (struct pbuf_video_data *) decode_data;
+        struct vcodec_state *pbuf_data = (struct vcodec_state *) decode_data;
         struct video_frame *frame = pbuf_data->frame_buffer;
         struct state_decoder *decoder = pbuf_data->decoder;
 

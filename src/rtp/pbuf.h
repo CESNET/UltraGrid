@@ -82,7 +82,7 @@ struct pbuf;
 struct state_decoder;
 struct state_audio_decoder;
 
-struct pbuf_video_data {
+struct vcodec_state {
         struct video_frame *frame_buffer;
         struct state_decoder *decoder;
         unsigned int max_frame_size; // maximal frame size

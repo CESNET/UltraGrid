@@ -305,8 +305,9 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
 error:
         if(s->tx_session)
                 tx_done(s->tx_session);
-        if(s->audio_participants)
+        if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
+        }
         free(s);
         exit_uv(1);
         return NULL;
@@ -336,8 +337,18 @@ void audio_done(struct state_audio *s)
                 tx_done(s->tx_session);
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
-                if(s->audio_participants)
+                if(s->audio_participants) {
+                        struct pdb_e *cp = pdb_iter_init(s->audio_participants);
+                        while (cp != NULL) {
+                                struct pdb_e *item = NULL;
+                                pdb_remove(s->audio_participants, cp->ssrc, &item);
+                                free(item);
+
+                                cp = pdb_iter_next(s->audio_participants);
+                        }
+                        pdb_iter_done(s->audio_participants);
                         pdb_destroy(&s->audio_participants);
+                }
                 free(s);
         }
 }
