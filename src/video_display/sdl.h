@@ -57,7 +57,7 @@ void                    display_sdl_run (void *state);
 void                    display_sdl_finish(void *state);
 void                    display_sdl_done (void *state);
 struct video_frame *    display_sdl_getf (void *state);
-int                     display_sdl_putf (void *state, char *frame);
+int                     display_sdl_putf (void *state, struct video_frame *frame);
 
 int                     display_sdl_reconfigure(void *state, struct video_desc desc);
 int                     display_sdl_get_property(void *state, int property, void *val, size_t *len);

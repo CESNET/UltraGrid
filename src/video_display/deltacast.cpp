@@ -165,7 +165,7 @@ display_deltacast_getf(void *state)
         return s->frame;
 }
 
-int display_deltacast_putf(void *state, char *frame)
+int display_deltacast_putf(void *state, struct video_frame *frame)
 {
         int tmp;
         struct state_deltacast *s = (struct state_deltacast *)state;

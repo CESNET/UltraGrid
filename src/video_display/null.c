@@ -93,7 +93,7 @@ struct video_frame *display_null_getf(void *state)
         return NULL;
 }
 
-int display_null_putf(void *state, char *frame)
+int display_null_putf(void *state, struct video_frame *frame)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);

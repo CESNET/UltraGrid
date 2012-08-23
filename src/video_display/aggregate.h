@@ -57,7 +57,7 @@ void 			 display_aggregate_run(void *state);
 void 			 display_aggregate_finish(void *state);
 void 			 display_aggregate_done(void *state);
 struct video_frame	*display_aggregate_getf(void *state);
-int  			 display_aggregate_putf(void *state, char *frame);
+int  			 display_aggregate_putf(void *state, struct video_frame *frame);
 int                      display_aggregate_reconfigure(void *state, struct video_desc desc);
 int                      display_aggregate_get_property(void *state, int property, void *val, size_t *len);
 

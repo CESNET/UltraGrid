@@ -647,7 +647,7 @@ static void *receiver_thread(void *arg)
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
                                         display_put_frame(uv->display_device,
-                                                          (char *) cp->video_decoder_state->frame_buffer);
+                                                          cp->video_decoder_state->frame_buffer);
                                         cp->video_decoder_state->frame_buffer =
                                             display_get_frame(uv->display_device);
                                 }

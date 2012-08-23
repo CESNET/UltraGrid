@@ -493,7 +493,7 @@ display_dvs_getf(void *state)
         return s->frame;
 }
 
-int display_dvs_putf(void *state, char *frame)
+int display_dvs_putf(void *state, struct video_frame *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         struct timeval t;

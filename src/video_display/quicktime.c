@@ -385,7 +385,7 @@ display_quicktime_getf(void *state)
         return &s->frame[0];
 }
 
-int display_quicktime_putf(void *state, char *frame)
+int display_quicktime_putf(void *state, struct video_frame *frame)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
 

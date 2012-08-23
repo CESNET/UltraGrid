@@ -131,13 +131,19 @@ void 		         display_finish(struct display *d);
 
 /**
  * Returns video frame which will be written to.
+ * Currently there is a restriction on number of concurrently acquired frames - only one frame
+ * can be hold at the moment.
+ *
+ * @return               video frame
  */
 struct video_frame      *display_get_frame(struct display *d);
 /* TODO: figure out what with frame parameter, which is no longer used. Leave out? */
 /**
  * Puts filled video frame.
+ * Currnetly, it must be the frame previously obtained by display_get_frame. Moreover, every frame
+ * acquired from video display should be put.
  */
-void 		         display_put_frame(struct display *d, char *frame);
+void 		         display_put_frame(struct display *d, struct video_frame *frame);
 /**
  * Tells display to reconfigure according to video description
  */

@@ -58,7 +58,7 @@ void                     display_gl_run(void *state);
 void                     display_gl_done(void *state);
 void                     display_gl_finish(void *state);
 struct video_frame      *display_gl_getf(void *state);
-int                      display_gl_putf(void *state, char *frame);
+int                      display_gl_putf(void *state, struct video_frame *frame);
 int                      display_gl_reconfigure(void *state, struct video_desc desc);
 int                      display_gl_get_property(void *state, int property, void *val, size_t *len);
 

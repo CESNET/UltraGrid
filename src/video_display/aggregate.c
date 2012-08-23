@@ -236,7 +236,7 @@ struct video_frame *display_aggregate_getf(void *state)
         return s->frame;
 }
 
-int display_aggregate_putf(void *state, char *frame)
+int display_aggregate_putf(void *state, struct video_frame *frame)
 {
         unsigned int i;
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;

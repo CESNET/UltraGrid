@@ -269,7 +269,7 @@ struct video_frame *display_sage_getf(void *state)
         return s->frame;
 }
 
-int display_sage_putf(void *state, char *frame)
+int display_sage_putf(void *state, struct video_frame *frame)
 {
         int tmp;
         struct state_sage *s = (struct state_sage *)state;

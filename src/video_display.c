@@ -89,7 +89,7 @@ typedef struct {
         const char               *func_finish_str;
         struct video_frame     *(*func_getf) (void *state);
         const char               *func_getf_str;
-        int                     (*func_putf) (void *state, char *frame);
+        int                     (*func_putf) (void *state, struct video_frame *frame);
         const char               *func_putf_str;
         int                     (*func_reconfigure)(void *state, struct video_desc desc);
         const char               *func_reconfigure_str;
@@ -461,7 +461,7 @@ struct video_frame *display_get_frame(struct display *d)
         return display_device_table[d->index].func_getf(d->state);
 }
 
-void display_put_frame(struct display *d, char *frame)
+void display_put_frame(struct display *d, struct video_frame *frame)
 {
         perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);

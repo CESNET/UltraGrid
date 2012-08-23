@@ -1100,7 +1100,7 @@ struct video_frame * display_gl_getf(void *state)
         return s->frame;
 }
 
-int display_gl_putf(void *state, char *frame)
+int display_gl_putf(void *state, struct video_frame *frame)
 {
         struct state_gl *s = (struct state_gl *) state;
 

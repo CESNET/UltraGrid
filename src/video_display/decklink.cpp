@@ -409,7 +409,7 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-int display_decklink_putf(void *state, char *frame)
+int display_decklink_putf(void *state, struct video_frame *frame)
 {
         int tmp;
         struct state_decklink *s = (struct state_decklink *)state;
