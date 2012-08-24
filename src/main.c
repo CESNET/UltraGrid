@@ -516,7 +516,7 @@ static void *ihdtv_receiver_thread(void *arg)
                 if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
-                display_put_frame(display_device, frame_buffer->tiles[0].data);
+                display_put_frame(display_device, frame_buffer);
                 frame_buffer = display_get_frame(display_device);
         }
         return 0;
@@ -661,7 +661,7 @@ static void *receiver_thread(void *arg)
                                 gettimeofday(&uv->curr_time, NULL);
                                 fr = 1;
                                 display_put_frame(uv->display_device,
-                                                cp->video_decoder_state->frame_buffer->tiles[0].data);
+                                                cp->video_decoder_state->frame_buffer);
                                 cp->video_decoder_state->frame_buffer =
                                         display_get_frame(uv->display_device);
                                 last_tile_received = uv->curr_time;
