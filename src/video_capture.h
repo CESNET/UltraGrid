@@ -46,15 +46,15 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.5.2.1 $
- * $Date: 2010/01/30 20:07:35 $
- *
  */
 
 /*
  * API for probing the valid video capture devices. 
  *
  */
+
+#ifndef _VIDEO_CAPTURE_H_
+#define _VIDEO_CAPTURE_H_
 
 #define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1)
 #define VIDCAP_FLAG_AUDIO_AESEBU (1<<2)
@@ -105,4 +105,6 @@ void			 vidcap_done(struct vidcap *state);
 void			 vidcap_finish(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 
+
+#endif // _VIDEO_CAPTURE_H_
 

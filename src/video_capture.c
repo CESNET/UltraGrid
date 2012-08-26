@@ -55,16 +55,17 @@
 #include "debug.h"
 #include "video_codec.h"
 #include "video_capture.h"
-#include "video_capture/dvs.h"
-#include "video_capture/quicktime.h"
-#include "video_capture/testcard.h"
-#include "video_capture/testcard2.h"
-#include "video_capture/null.h"
+#include "video_capture/aggregate.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
+#include "video_capture/dvs.h"
 #include "video_capture/linsys.h"
-#include "video_capture/aggregate.h"
+#include "video_capture/null.h"
+#include "video_capture/quicktime.h"
 #include "video_capture/screen.h"
+#include "video_capture/testcard.h"
+#include "video_capture/testcard2.h"
+#include "video_capture/v4l2.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
@@ -216,6 +217,19 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL
         },
 #endif /* HAVE_SDL */
+#if defined HAVE_V4L2 || defined BUILD_LIBRARIES
+        {
+         /* Dummy sender for testing purposes */
+         0,
+         "v4l2",
+         MK_NAME(vidcap_v4l2_probe),
+         MK_NAME(vidcap_v4l2_init),
+         MK_NAME(vidcap_v4l2_finish),
+         MK_NAME(vidcap_v4l2_done),
+         MK_NAME(vidcap_v4l2_grab),
+         NULL
+        },
+#endif /* HAVE_V4L2 */
         {
          0,
          NULL,

@@ -155,6 +155,10 @@ static int reconfigure_compress(struct video_compress *compress, int width,
                         compress->decoder = (decoder_t) vc_copyliner10k;
                         compress->rgb = TRUE;
                         break;
+                case YUYV:
+                        compress->decoder = (decoder_t) vc_copylineYUYV;
+                        compress->rgb = FALSE;
+                        break;
                 case UYVY:
                 case Vuy2:
                 case DVS8:

@@ -47,6 +47,13 @@
 #ifndef __video_codec_h
 
 #define __video_codec_h
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include "video.h"
 
 typedef  void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
@@ -54,11 +61,16 @@ typedef  void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst
 struct codec_info_t {
         codec_t codec;
         const char *name;
-        unsigned int fcc;
+        uint32_t fcc;
         int h_align;
         double bpp;
         unsigned rgb:1;
         unsigned opaque:1;
+};
+
+struct alternate_fourcc {
+        uint32_t primary_fcc;
+        uint32_t alias;
 };
 
 struct line_decode_from_to {
@@ -69,6 +81,8 @@ struct line_decode_from_to {
 
 extern const struct codec_info_t codec_info[];           /* defined int .c */
 extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
+
+extern const struct alternate_fourcc fourcc_aliases[];           /* defined int .c */
 
 void show_codec_help(char *mode);
 double get_bpp(codec_t codec);
@@ -83,6 +97,7 @@ int vc_get_linesize(unsigned int width, codec_t codec);
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len);
+void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len);

@@ -57,15 +57,16 @@
 #include <string.h>
 #include "video_codec.h"
 
+#define to_fourcc(a,b,c,d)     (((a)<<24) | ((b)<<16) | ((c)<<8) | (d))
+
 static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
-#define to_fourcc(a,b,c,d)     (((a)<<24) | ((b)<<16) | ((c)<<8) | (d))
-
 const struct codec_info_t codec_info[] = {
         {RGBA, "RGBA", 0x41424752, 1, 4.0, TRUE, FALSE},
         {UYVY, "UYVY", 846624121, 1, 2, FALSE, FALSE},
+        {YUYV, "YUYV", to_fourcc('Y', 'U', 'Y', 'V'), 1, 2, FALSE, FALSE},
         {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE},
         {DVS8, "DVS8", to_fourcc('D','V','S','8'), 1, 2, FALSE, FALSE},
         {R10k, "R10k", 1378955371, 1, 4, TRUE, FALSE},
@@ -94,11 +95,16 @@ const struct line_decode_from_to line_decoders[] = {
         { DVS10, UYVY, (decoder_t) vc_copylineDVS10},
         { R10k, RGBA, vc_copyliner10k},
         { v210, UYVY, (decoder_t) vc_copylinev210},
+        { YUYV, UYVY, (decoder_t) vc_copylineYUYV},
         { RGBA, RGB, (decoder_t) vc_copylineRGBAtoRGB},
         { RGB, RGBA, vc_copylineRGBtoRGBA},
         { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
         { (codec_t) 0, (codec_t) 0, NULL }
+};
+
+const struct alternate_fourcc fourcc_aliases[] = {
+        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')}
 };
 
 void show_codec_help(char *module)
@@ -346,6 +352,49 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
                 tmp = (s->b >> 2) | (((s)->c >> 2) << 8);
                 s++;
                 *(d++) = tmp | ((s->a >> 2) << 16) | ((s->b >> 2) << 24);
+        }
+}
+
+void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register uint32_t *d;
+        register const uint32_t *s;
+        const uint32_t * const end = (uint32_t *) dst + dst_len / 4;
+
+        d = (uint32_t *) dst;
+        s = (const uint32_t *)src;
+
+        assert(dst_len % 4 == 0);
+
+        if((dst_len % 16 == 0)) {
+                asm("movq %0, %%xmm4\n"
+                                "movq %0, %%xmm5\n"
+                                "pslldq $8, %%xmm4\n"
+                                "por %%xmm5, %%xmm4\n"
+                                "movdqa %%xmm4, %%xmm5\n"
+                                "psrldq $1, %%xmm5\n"
+                                : :"r"(0xff00ff00ff00ff00ull));
+                while(d < end) {
+                        asm volatile ("movdqu (%0), %%xmm0\n"
+                                        "movdqu %%xmm0, %%xmm1\n"
+                                        "pand %%xmm4, %%xmm0\n"
+                                        "psrldq $1, %%xmm0\n"
+                                        "pand %%xmm5, %%xmm1\n"
+                                        "pslldq $1, %%xmm1\n"
+                                        "por %%xmm0, %%xmm1\n"
+                                        "movdqu %%xmm1, (%1)\n"::"r" (s), "r"(d));
+                        s += 4;
+                        d += 4;
+                }
+        } else {
+                while(d < end) {
+                        register uint32_t tmp = *s;
+                        *d = ((tmp & 0x00ff0000) << 8) | ((tmp & 0xff000000) >> 8) |
+                                ((tmp & 0x000000ff) << 8) | ((tmp & 0x0000ff00) >> 8);
+                        s++;
+                        d++;
+
+                }
         }
 }
 
@@ -622,7 +671,7 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
         register const unsigned int *in = (const unsigned int *) src;
         register unsigned int *out = (unsigned int *) dst;
         register int r,g,b;
-       
+
         while(dst_len > 0) {
                 register unsigned int val = *in;
                 r = val >> 24;

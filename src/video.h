@@ -52,6 +52,7 @@
 typedef enum {
         RGBA,
         UYVY,
+        YUYV,
         Vuy2,
         DVS8,
         R10k,

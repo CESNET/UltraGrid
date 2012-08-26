@@ -123,6 +123,10 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                         s->decoder = (decoder_t) vc_copyliner10k;
                         format = DXT_FORMAT_RGBA;
                         break;
+                case YUYV:
+                        s->decoder = (decoder_t) vc_copylineYUYV;
+                        format = DXT_FORMAT_YUV422;
+                        break;
                 case UYVY:
                 case Vuy2:
                 case DVS8:

@@ -124,6 +124,10 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                         s->decoder = (decoder_t) vc_copyliner10k;
                         s->rgb = TRUE;
                         break;*/
+                case YUYV:
+                        s->decoder = (decoder_t) vc_copylineYUYV;
+                        s->rgb = FALSE;
+                        break;
                 case UYVY:
                 case Vuy2:
                 case DVS8:
