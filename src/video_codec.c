@@ -361,19 +361,22 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
         register const uint32_t *s;
         const uint32_t * const end = (uint32_t *) dst + dst_len / 4;
 
+        uint32_t mask[4] = {
+                0xff00ff00ul,
+                0xff00ff00ul,
+                0xff00ff00ul,
+                0xff00ff00ul};
+
         d = (uint32_t *) dst;
         s = (const uint32_t *)src;
 
         assert(dst_len % 4 == 0);
 
         if((dst_len % 16 == 0)) {
-                asm("movq %0, %%xmm4\n"
-                                "movq %0, %%xmm5\n"
-                                "pslldq $8, %%xmm4\n"
-                                "por %%xmm5, %%xmm4\n"
+                asm("movdqa (%0), %%xmm4\n"
                                 "movdqa %%xmm4, %%xmm5\n"
                                 "psrldq $1, %%xmm5\n"
-                                : :"r"(0xff00ff00ff00ff00ull));
+                                : :"r"(mask));
                 while(d < end) {
                         asm volatile ("movdqu (%0), %%xmm0\n"
                                         "movdqu %%xmm0, %%xmm1\n"
