@@ -137,26 +137,20 @@ void main() {
 );
 
 static const char fp_display_dxt5ycocg[] = STRINGIFY(
-uniform sampler2D _image;
+uniform sampler2D image;
 void main()
 {
-        vec4 _rgba;
-        float _scale;
-        float _Co;
-        float _Cg;
-        float _R;
-        float _G;
-        float _B;
-        _rgba = texture2D(_image, gl_TexCoord[0].xy);
-        _scale = 1.00000000E+00/(3.18750000E+01*_rgba.z + 1.00000000E+00);
-        _Co = (_rgba.x - 5.01960814E-01)*_scale;
-        _Cg = (_rgba.y - 5.01960814E-01)*_scale;
-        _R = (_rgba.w + _Co) - _Cg;
-        _G = _rgba.w + _Cg;
-        _B = (_rgba.w - _Co) - _Cg;
-        _rgba = vec4(_R, _G, _B, 1.00000000E+00);
-        gl_FragColor = _rgba;
-        return;
+        vec4 color;
+        float Co;
+        float Cg;
+        float Y;
+        float scale;
+        color = texture2D(image, gl_TexCoord[0].xy);
+        scale = (color.z * ( 255.0 / 8.0 )) + 1.0;
+        Co = (color.x - (0.5 * 256.0 / 255.0)) / scale;
+        Cg = (color.y - (0.5 * 256.0 / 255.0)) / scale;
+        Y = color.w;
+        gl_FragColor = vec4(Y + Co - Cg, Y + Cg, Y - Co - Cg, 1.0);
 } // main end
 );
 
