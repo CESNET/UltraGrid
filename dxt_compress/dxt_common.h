@@ -27,6 +27,20 @@
 #ifndef DXT_COMMON_H
 #define DXT_COMMON_H
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#else
+#define DXT_COMPRESS_STANDALONE
+#endif
+
+#ifdef DXT_COMPRESS_STANDALONE
+#include <GL/glew.h>
+#include <GL/glut.h>
+#endif
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>

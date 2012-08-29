@@ -70,7 +70,7 @@ perform_encode(const char* filename_in, const char* filename_out, enum dxt_type 
     if ( display == 1 )
         dxt_display_image("Encode Before", image, width, height);
     
-    struct dxt_encoder* encoder = dxt_encoder_create(type, width, height, format);
+    struct dxt_encoder* encoder = dxt_encoder_create(type, width, height, format, 1);
     if ( encoder == NULL ) {
         fprintf(stderr, "Create DXT encoder failed!\n");
         return -1;
@@ -124,7 +124,7 @@ perform_decode(const char* filename_in, const char* filename_out, enum dxt_type 
     if ( display == 1 )
         dxt_display_image_compressed("Decode Before", image_compressed, image_compressed_size, type, width, height);
     
-    struct dxt_decoder* decoder = dxt_decoder_create(type, width, height, DXT_FORMAT_RGBA);
+    struct dxt_decoder* decoder = dxt_decoder_create(type, width, height, DXT_FORMAT_RGBA, 1);
     if ( decoder == NULL ) {
         fprintf(stderr, "Create DXT decoder failed!\n");
         return -1;
