@@ -279,6 +279,7 @@ main(int argc, char *argv[])
         {"type",    required_argument, 0, 't'},
         {"format",  required_argument, 0, 'f'},
         {"run",     required_argument, 0, 'r'},
+        {"batch",   no_argument,       0, 'b'},
     };
 
     // Parameters
@@ -292,12 +293,13 @@ main(int argc, char *argv[])
     char output[255] = { '\0' };
     int display = 0;
     int run = 1;
+    int batch = 0;
     
     // Parse command line
     char ch = '\0';
     int optindex = 0;
     char* pos = 0;
-    while ( (ch = getopt_long(argc, argv, "heds:i:o:t:f:", longopts, &optindex)) != -1 ) {
+    while ( (ch = getopt_long(argc, argv, "heds:i:o:t:f:b", longopts, &optindex)) != -1 ) {
         switch (ch) {
         case 'h':
             print_help();
@@ -341,6 +343,9 @@ main(int argc, char *argv[])
         case 1:
             display = 1;
             break;
+        case 'b':
+            batch = 1;
+            break;
         case '?':
             return -1;
         default:
@@ -357,14 +362,14 @@ main(int argc, char *argv[])
     }
     
     // Input image must be presented
-    if ( input[0] == '\0' ) {
+    if ( !batch && input[0] == '\0' ) {
         printf("Please supply input image filename!\n");
         print_help();
         return -1;
     }
     
     // Output image must be presented for encoding or decoding
-    if ( output[0] == '\0' && (encode == 1 || decode == 1) ) {
+    if ( !batch && output[0] == '\0' && (encode == 1 || decode == 1) ) {
         printf("Please supply output image filename!\n");
         print_help();
         return -1;
@@ -376,9 +381,55 @@ main(int argc, char *argv[])
     
     // Perform encode
     if ( encode == 1 ) {
-        if ( perform_encode(input, output, type, width, height, format, display, run) != 0 ) {
-            fprintf(stderr, "Failed to encode image [%s]!\n", input);
-            return -1;        
+        if(batch) {
+            DXT_IMAGE_TYPE* image = NULL;
+            struct dxt_encoder* encoder = dxt_encoder_create(type, width, height, format);
+            if ( encoder == NULL ) {
+                fprintf(stderr, "Create DXT encoder failed!\n");
+                return -1;
+            }
+
+            unsigned char* image_compressed = NULL;
+            int image_compressed_size = 0;   
+            if ( dxt_encoder_buffer_allocate(encoder, &image_compressed, &image_compressed_size) != 0 ) {
+                fprintf(stderr, "DXT encoder allocation failed!\n");
+                return -1;
+            }
+
+            while (argc > 0) {
+                char *in_filename = argv[0];
+                char out_filename[512];
+
+                printf("encoding %s\n", in_filename);
+
+                snprintf(out_filename, 512, "%s.dxt", in_filename);
+                if ( dxt_image_load_from_file(in_filename, width, height, &image) != 0 ) {
+                    fprintf(stderr, "Failed to load image [%s]!\n", in_filename);
+                    return -1;
+                }
+
+                if ( dxt_encoder_compress(encoder, image, image_compressed) != 0 ) {
+                    fprintf(stderr, "DXT encoder compressing failed!\n");
+                    return -1;
+                }
+
+                if ( dxt_image_compressed_save_to_file(out_filename, image_compressed, image_compressed_size) != 0 ) {
+                    fprintf(stderr, "Failed to save compressed image [%s]!\n", out_filename);
+                    return -1;
+                }
+                dxt_image_destroy(image);
+
+                argc--;
+                argv++;
+            }
+
+            dxt_encoder_buffer_free(image_compressed);
+            dxt_encoder_destroy(encoder);
+        } else {
+            if ( perform_encode(input, output, type, width, height, format, display, run) != 0 ) {
+                fprintf(stderr, "Failed to encode image [%s]!\n", input);
+                return -1;        
+            }
         }
     }
     
