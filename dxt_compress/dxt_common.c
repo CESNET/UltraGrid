@@ -92,6 +92,8 @@ dxt_image_load_from_file(const char* filename, int width, int height, DXT_IMAGE_
             (*image)[index + 3] = 1.0;
         }
     }
+
+    free(data);
     
 #ifdef DEBUG
     printf("Load Image [file: %s, size: %d bytes, resolution: %dx%d]\n", filename, data_size, width, height);
