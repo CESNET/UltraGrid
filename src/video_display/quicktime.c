@@ -228,6 +228,10 @@ struct state_quicktime {
         sem_t semaphore;
 
         struct video_frame *frame;
+        char *buffer[2];
+        volatile bool buffer_processed[2];
+        volatile bool index_accepted;
+        volatile int index_network;
 
         struct audio_frame audio;
         int audio_packet_size;
@@ -311,9 +315,9 @@ static void reconf_common(struct state_quicktime *s)
                 (**(ImageDescriptionHandle) imageDesc).width = get_haligned(tile->width, s->frame->color_spec);
                 (**(ImageDescriptionHandle) imageDesc).height = tile->height;
         
-                ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, tile->data, 
+                ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, NULL, 
                                                // Size of the buffer, not size of the actual frame data inside
-                                               tile->data_len,    
+                                               tile->data_len,
                                                s->gworld[i],
                                                NULL,
                                                NULL,
@@ -343,27 +347,28 @@ void display_quicktime_run(void *arg)
         while (!should_exit) {
                 int i;
                 platform_sem_wait((void *) &s->semaphore);
+                int current_index = (s->index_network + 1) % 2;
+                s->index_accepted = true;
 
-                for (i = 0; i < s->devices_cnt; ++i) {
-                        struct tile *tile = vf_get_tile(s->frame, i);
-                        /* TODO: Running DecompressSequenceFrameWhen asynchronously 
-                         * in this way introduces a possible race condition! 
-                         */
-                        ret = DecompressSequenceFrameWhen(s->seqID[i], tile->data, 
-                                                        tile->data_len,
-                                                       /* If you set asyncCompletionProc to -1, 
-                                                        *  the operation is performed asynchronously but 
-                                                        * the decompressor does not call the completion 
-                                                        * function. 
-                                                        */
-                                                       0, &ignore, (void *) -1,       
-                                                          NULL);
-                        if (ret != noErr) {
-                                fprintf(stderr,
+                assert(s->devices_cnt == 1);
+                struct tile *tile = vf_get_tile(s->frame, 0);
+
+                ret = DecompressSequenceFrameWhen(s->seqID[i], s->buffer[current_index],
+                                tile->data_len,
+                                /* If you set asyncCompletionProc to -1,
+                                 *  the operation is performed asynchronously but
+                                 * the decompressor does not call the completion
+                                 * function.
+                                 */
+                                0, &ignore, (void *) 0,
+                                NULL);
+                if (ret != noErr) {
+                        fprintf(stderr,
                                         "Failed DecompressSequenceFrameWhen: %d\n",
                                         ret);
-                        }
                 }
+
+                s->buffer_processed[current_index] = true;
 
                 frames++;
                 gettimeofday(&t, NULL);
@@ -384,6 +389,11 @@ display_quicktime_getf(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
         assert(s->magic == MAGIC_QT_DISPLAY);
+
+        while(!s->buffer_processed[s->index_network])
+                ;
+        s->buffer_processed[s->index_network] = false;
+
         return &s->frame[0];
 }
 
@@ -394,8 +404,16 @@ int display_quicktime_putf(void *state, struct video_frame *frame)
         UNUSED(frame);
         assert(s->magic == MAGIC_QT_DISPLAY);
 
+        s->index_network = (s->index_network + 1) % 2;
+        s->frame->tiles[0].data = s->buffer[s->index_network];
+
+        s->index_accepted = false;
         /* ...and signal the worker */
         platform_sem_post((void *) &s->semaphore);
+
+        while(!s->index_accepted)
+                ;
+
         return 0;
 }
 
@@ -566,6 +584,11 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
         s->magic = MAGIC_QT_DISPLAY;
 
+        s->buffer[0] = s->buffer[1] = NULL;
+        s->index_network = 0;
+        s->index_accepted = false;
+        s->buffer_processed[0] = s->buffer_processed[1] = true;
+
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
                         show_help(0);
@@ -706,7 +729,9 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
 
                         tile->linesize = vc_get_linesize(tile->width, s->cinfo->codec);
                         tile->data_len = tile->linesize * tile->height;
-                        tile->data = calloc(1, tile->data_len);
+                        s->buffer[0] = calloc(1, tile->data_len);
+                        s->buffer[1] = calloc(1, tile->data_len);
+                        tile->data = s->buffer[0];
         
                         fprintf(stdout, "Selected mode: %dx%d, %fbpp\n", tile->width,
                                 tile->height, s->cinfo->bpp);
@@ -928,11 +953,14 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 tile->linesize = vc_get_linesize(tile_width, desc.color_spec);
                 tile->data_len = tile->linesize * tile->height;
                 
-                if(tile->data != NULL) {
-                        free(tile->data);
-                }
+                free(s->buffer[0]);
+                free(s->buffer[1]);
                 
-                tile->data = calloc(1, tile->data_len);
+                s->buffer[0] = calloc(1, tile->data_len);
+                s->buffer[1] = calloc(1, tile->data_len);
+                tile->data = s->buffer[0];
+                s->index_accepted = false;
+                s->buffer_processed[0] = s->buffer_processed[1] = true;
                 
                 s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
                 
