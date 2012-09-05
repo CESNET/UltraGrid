@@ -292,7 +292,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         pos = 0;
 
         video_hdr[3] = htonl(tile->width << 16 | tile->height);
-        video_hdr[4] = htonl(get_fourcc(color_spec));
+        video_hdr[4] = get_fourcc(color_spec);
         video_hdr[2] = htonl(data_to_send_len);
         tmp = substream << 22;
         tmp |= 0x3fffff & tx->buffer;

@@ -428,7 +428,7 @@ after_linedecoder_lookup:
 after_decoder_lookup:
 
         if(decoder->decoder_type == UNSET) {
-                fprintf(stderr, "Unable to find decoder for input codec!!!\n");
+                fprintf(stderr, "Unable to find decoder for input codec \"%s\"!!!\n", get_codec_name(desc.color_spec));
                 exit_uv(128);
                 return (codec_t) -1;
         }
@@ -740,7 +740,10 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
 
         width = ntohl(hdr[3]) >> 16;
         height = ntohl(hdr[3]) & 0xffff;
-        color_spec = get_codec_from_fcc(ntohl(hdr[4]));
+        color_spec = get_codec_from_fcc(hdr[4]);
+        if(color_spec == (codec_t) -1) {
+                fprintf(stderr, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
+        }
 
         tmp = ntohl(hdr[5]);
         interlacing = (enum interlacing_t) (tmp >> 29);
@@ -1161,7 +1164,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
 
                 for (i = 1; i < decoder->pp_output_frames_count; ++i) {
-                        display_put_frame(decoder->display, (char *) frame);
+                        display_put_frame(decoder->display, frame);
                         frame = display_get_frame(decoder->display);
                         pp_ret = vo_postprocess(decoder->postprocess,
                                        NULL,

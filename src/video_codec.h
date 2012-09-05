@@ -68,11 +68,6 @@ struct codec_info_t {
         unsigned opaque:1;
 };
 
-struct alternate_fourcc {
-        uint32_t primary_fcc;
-        uint32_t alias;
-};
-
 struct line_decode_from_to {
         codec_t from;
         codec_t to;
@@ -81,8 +76,6 @@ struct line_decode_from_to {
 
 extern const struct codec_info_t codec_info[];           /* defined int .c */
 extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
-
-extern const struct alternate_fourcc fourcc_aliases[];           /* defined int .c */
 
 void show_codec_help(char *mode);
 double get_bpp(codec_t codec);

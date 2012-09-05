@@ -57,25 +57,25 @@
 #include <string.h>
 #include "video_codec.h"
 
-#define to_fourcc(a,b,c,d)     (((a)<<24) | ((b)<<16) | ((c)<<8) | (d))
+#define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8) | ((uint32_t)(c)<<16) | ((uint32_t)(d)<<24))
 
 static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", 0x41424752, 1, 4.0, TRUE, FALSE},
-        {UYVY, "UYVY", 846624121, 1, 2, FALSE, FALSE},
-        {YUYV, "YUYV", to_fourcc('Y', 'U', 'Y', 'V'), 1, 2, FALSE, FALSE},
+        {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE},
+        {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE},
+        {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE},
         {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE},
-        {DVS8, "DVS8", to_fourcc('D','V','S','8'), 1, 2, FALSE, FALSE},
-        {R10k, "R10k", 1378955371, 1, 4, TRUE, FALSE},
-        {v210, "v210", 1983000880, 48, 8.0 / 3.0, FALSE, FALSE},
+        {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE},
+        {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE},
+        {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
         {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
         {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE},
         {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packet YCbCr inside DXT1 channels */
         {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
-        {RGB, "RGB", 0x32424752, 1, 3.0, TRUE, FALSE},
+        {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE},
         {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
         {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
         {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
@@ -103,8 +103,20 @@ const struct line_decode_from_to line_decoders[] = {
         { (codec_t) 0, (codec_t) 0, NULL }
 };
 
+struct alternate_fourcc {
+        uint32_t alias;
+        uint32_t primary_fcc;
+};
+
 const struct alternate_fourcc fourcc_aliases[] = {
-        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')}
+        // the following two are here because it was sent with wrong endiannes in past
+        {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
+        {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
+        // following ones are rather for further compatibility (proposed codecs rename)
+        {to_fourcc('U', 'Y', 'V', 'Y'), to_fourcc('2', 'v', 'u', 'y')},
+        {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
+        {to_fourcc('D', 'V', 'S', '8'), to_fourcc('d', 'v', 's', '8')},
+        {0,0}
 };
 
 void show_codec_help(char *module)
@@ -170,6 +182,20 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
         while (codec_info[i].name != NULL) {
                 if (fourcc == codec_info[i].fcc)
                         return codec_info[i].codec;
+                i++;
+        }
+
+        // try to look through aliases
+        i = 0;
+        while (fourcc_aliases[i].alias != 0) {
+                if (fourcc == fourcc_aliases[i].alias) {
+                        int j = 0;
+                        while (codec_info[j].name != NULL) {
+                                if (fourcc_aliases[i].primary_fcc == codec_info[j].fcc)
+                                        return codec_info[j].codec;
+                                j++;
+                        }
+                }
                 i++;
         }
         return (codec_t) -1;
