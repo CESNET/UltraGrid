@@ -674,7 +674,11 @@ void gl_reconfigure_screen(struct state_gl *s)
                                 GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
                                 (s->tile->width + 3) / 4 * 4, s->dxt_height, 0,
                                 ((s->tile->width + 3) / 4 * 4* s->dxt_height)/2,
-                                NULL);
+                                /* passing NULL here isn't allowed and some rigid implementations
+                                 * will crash here. We just pass some egliable buffer to fulfil
+                                 * this requirement. glCompressedSubTexImage2D works as expected.
+                                 */
+                                s->buffers[0]);
                 if(s->frame->color_spec == DXT1_YUV) {
                         glBindTexture(GL_TEXTURE_2D,s->texture_display);
                         glUseProgramObjectARB(s->PHandle_dxt);
