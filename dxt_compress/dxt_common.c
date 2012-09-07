@@ -85,7 +85,7 @@ dxt_image_load_from_file(const char* filename, int width, int height, DXT_IMAGE_
     for ( int y = 0; y < height; y++ ) {
         for ( int x = 0; x < width; x++ ) {
             int index = 4 * ((y * width) + x);
-            int index_data = 3 * (((height - y - 1) * width) + x);
+            int index_data = 3 * ((y * width) + x);
             (*image)[index + 0] = (DXT_IMAGE_TYPE)data[index_data + 0];
             (*image)[index + 1] = (DXT_IMAGE_TYPE)data[index_data + 1];
             (*image)[index + 2] = (DXT_IMAGE_TYPE)data[index_data + 2];
@@ -118,7 +118,7 @@ dxt_image_save_to_file(const char* filename, DXT_IMAGE_TYPE* image, int width, i
     for ( int y = 0; y < height; y++ ) {
         for ( int x = 0; x < width; x++ ) {
             int index = 4 * ((y * width) + x);
-            int index_data = 3 * (((height - y - 1) * width) + x);
+            int index_data = 3 * ((y * width) + x);
             data[index_data + 0] = (unsigned char)(image[index + 0]);
             data[index_data + 1] = (unsigned char)(image[index + 1]);
             data[index_data + 2] = (unsigned char)(image[index + 2]);

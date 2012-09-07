@@ -5,13 +5,22 @@ CFLAGS=-std=c99
 #-DDEBUG
 OBJECTS=dxt_common.c.o dxt_encoder.c.o dxt_decoder.c.o dxt_display.c.o dxt_util.c.o
 
+# Ultragrid changes
+ARCH := $(shell uname -s)
+ifeq ($(ARCH),Darwin)
+    LIBS += /opt/local/lib/libGLEW.a  -framework GLUT -framework OpenGL -framework Cocoa
+    CFLAGS += -I/opt/local/include -DHAVE_GLUT
+else
+    LIBS += -lGL -lglut -lGLU -lGLEW
+endif
+
 ################################################################################
 # Build compressor
 #
 build: $(TARGET) 
 
 $(TARGET): main.c.o dxt_glsl.h $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -lGL -lglut -lGLU -lGLEW -lpthread $< -o $@
+	$(CC) $(CFLAGS) $(OBJECTS) $(LIBS) -lpthread $< -o $@
 
 main.c.o: main.c
 	$(CC) $(CFLAGS) -c $< -o $@

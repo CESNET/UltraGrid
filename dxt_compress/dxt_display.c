@@ -187,7 +187,8 @@ dxt_display_run()
     g_display.show = 1;
     glutPostRedisplay();
     while( g_display.show ) {
-        glutMainLoopEvent();
+        //glutMainLoopEvent();
+        abort();
     }
     glutHideWindow();
 }

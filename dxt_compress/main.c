@@ -284,7 +284,7 @@ main(int argc, char *argv[])
 
     // Parameters
     enum dxt_type type = DXT_TYPE_DXT5_YCOCG;
-    enum dxt_format format = DXT_FORMAT_RGB;
+    enum dxt_format format = DXT_FORMAT_RGBA; // encoder _internal_ format (!)
     int width = 512;
     int height = 512;
     int encode = 0;
@@ -333,9 +333,12 @@ main(int argc, char *argv[])
             break;
         case 'f':
             if ( strcasecmp(optarg, "rgb") == 0 )
-                format = DXT_FORMAT_RGB;
-            else if ( strcasecmp(optarg, "yuv") == 0 )
+                format = DXT_FORMAT_RGBA;
+            else if ( strcasecmp(optarg, "yuv") == 0 ) {
                 format = DXT_FORMAT_YUV;
+                fprintf(stderr, "yuv not supported!\n");
+                abort();
+            }
             break;
         case 'r':
             run = atoi(optarg);
@@ -383,7 +386,7 @@ main(int argc, char *argv[])
     if ( encode == 1 ) {
         if(batch) {
             DXT_IMAGE_TYPE* image = NULL;
-            struct dxt_encoder* encoder = dxt_encoder_create(type, width, height, format);
+            struct dxt_encoder* encoder = dxt_encoder_create(type, width, height, format, 1);
             if ( encoder == NULL ) {
                 fprintf(stderr, "Create DXT encoder failed!\n");
                 return -1;
