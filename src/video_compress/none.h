@@ -1,5 +1,5 @@
 /*
- * FILE:    dxt_glsl_compress.h
+ * FILE:    none.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -45,10 +45,14 @@
  *
  */
 
-#include "video_codec.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
-struct gl_context;
+struct video_frame;
 
-void * none_compress_init(char * opts);
-struct video_frame * none_compress(void *args, struct video_frame * tx, int buffer_index);
-void none_compress_done(void *args);
+void               *none_compress_init(char * opts);
+struct video_frame *none_compress(void *args, struct video_frame * tx, int buffer_index);
+void                none_compress_done(void *args);

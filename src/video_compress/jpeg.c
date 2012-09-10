@@ -45,10 +45,15 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include "debug.h"
 #include "host.h"
+#include "video_compress.h"
 #include "video_compress/jpeg.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "libgpujpeg/gpujpeg_common.h"

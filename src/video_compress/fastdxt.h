@@ -45,8 +45,14 @@
  *
  */
 
-#include "video_codec.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
-void * fastdxt_init(char *num_threads_str);
-struct video_frame * fastdxt_compress(void *args, struct video_frame * tx, int buffer_index);
-void fastdxt_done(void *args);
+struct video_frame;
+
+void               *fastdxt_init(char *num_threads_str);
+struct video_frame *fastdxt_compress(void *args, struct video_frame * tx, int buffer_index);
+void                fastdxt_done(void *args);

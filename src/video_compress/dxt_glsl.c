@@ -45,19 +45,25 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
-#include "debug.h"
-#include "host.h"
-#include "video_compress/dxt_glsl.h"
-#include "dxt_compress/dxt_encoder.h"
-#include "dxt_compress/dxt_util.h"
-#include "compat/platform_semaphore.h"
-#include "video_codec.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include <pthread.h>
 #include <stdlib.h>
 
 #include "gl_context.h"
+
+#include "compat/platform_semaphore.h"
+#include "debug.h"
+#include "dxt_compress/dxt_encoder.h"
+#include "dxt_compress/dxt_util.h"
+#include "host.h"
+#include "video_codec.h"
+#include "video_compress.h"
+#include "video_compress/dxt_glsl.h"
 
 struct video_compress {
         struct dxt_encoder **encoder;
@@ -340,3 +346,4 @@ void dxt_glsl_compress_done(void *arg)
 
         free(s);
 }
+

@@ -45,8 +45,15 @@
  *
  */
 
-#include "video_codec.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
-void * dxt_glsl_compress_init(char * opts);
-struct video_frame * dxt_glsl_compress(void *args, struct video_frame * tx, int buffer_index);
-void dxt_glsl_compress_done(void *args);
+struct video_frame;
+
+void               *dxt_glsl_compress_init(char * opts);
+struct video_frame *dxt_glsl_compress(void *args, struct video_frame * tx, int buffer_index);
+void                dxt_glsl_compress_done(void *args);
+

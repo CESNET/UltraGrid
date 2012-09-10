@@ -89,18 +89,53 @@ static void init_compressions(void);
 
 struct compress_t compress_modules[] = {
 #if defined HAVE_FASTDXT || defined BUILD_LIBRARIES
-        {"FastDXT", "fastdxt", MK_NAME(fastdxt_init), MK_NAME(fastdxt_compress), MK_NAME(fastdxt_done), NULL },
+        {
+                "FastDXT",
+                "fastdxt",
+                MK_NAME(fastdxt_init),
+                MK_NAME(fastdxt_compress),
+                MK_NAME(fastdxt_done),
+                NULL
+        },
 #endif
 #if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
-        {"RTDXT", "rtdxt", MK_NAME(dxt_glsl_compress_init), MK_NAME(dxt_glsl_compress), MK_NAME(dxt_glsl_compress_done), NULL},
+        {
+                "RTDXT",
+                "rtdxt",
+                MK_NAME(dxt_glsl_compress_init),
+                MK_NAME(dxt_glsl_compress),
+                MK_NAME(dxt_glsl_compress_done),
+                NULL
+        },
 #endif
 #if defined HAVE_JPEG || defined  BUILD_LIBRARIES
-        {"JPEG", "jpeg", MK_NAME(jpeg_compress_init), MK_NAME(jpeg_compress), MK_NAME(jpeg_compress_done), NULL},
+        {
+                "JPEG",
+                "jpeg",
+                MK_NAME(jpeg_compress_init),
+                MK_NAME(jpeg_compress),
+                MK_NAME(jpeg_compress_done),
+                NULL
+        },
 #endif
 #if defined HAVE_COMPRESS_UYVY || defined  BUILD_LIBRARIES
-        {"UYVY", "uyvy", MK_NAME(uyvy_compress_init), MK_NAME(uyvy_compress), MK_NAME(uyvy_compress_done), NULL},
+        {
+                "UYVY",
+                "uyvy",
+                MK_NAME(uyvy_compress_init),
+                MK_NAME(uyvy_compress),
+                MK_NAME(uyvy_compress_done),
+                NULL
+        },
 #endif
-        {"none", NULL, MK_STATIC(none_compress_init), MK_STATIC(none_compress), MK_STATIC(none_compress_done), NULL},
+        {
+                "none",
+                NULL,
+                MK_STATIC(none_compress_init),
+                MK_STATIC(none_compress),
+                MK_STATIC(none_compress_done),
+                NULL
+        },
 };
 
 #define MAX_COMPRESS_MODULES (sizeof(compress_modules)/sizeof(struct compress_t))

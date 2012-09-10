@@ -49,6 +49,12 @@
 #define __video_compress_h
 #include "video_codec.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 struct compress_state;
 
 /**
@@ -58,6 +64,7 @@ struct compress_state;
  * @return intern state
  */
 typedef  void *(*compress_init_t)(char *cfg);
+
 /**
  * Compresses video frame
  * 
@@ -66,6 +73,7 @@ typedef  void *(*compress_init_t)(char *cfg);
  * @return compressed frame
  */
 typedef  struct video_frame * (*compress_compress_t)(void *state, struct video_frame *frame, int buffer_index);
+
 /**
  * Cleanup function
  */

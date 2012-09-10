@@ -45,8 +45,14 @@
  *
  */
 
-#include "video.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
-void * jpeg_compress_init(char * opts);
-struct video_frame * jpeg_compress(void *args, struct video_frame * tx, int buffer_index);
-void jpeg_compress_done(void *args);
+struct video_frame;
+
+void               *jpeg_compress_init(char * opts);
+struct video_frame *jpeg_compress(void *args, struct video_frame * tx, int buffer_index);
+void                jpeg_compress_done(void *args);

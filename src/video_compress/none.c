@@ -49,12 +49,16 @@
 #include "config.h"
 #include "config_unix.h"
 #endif /* HAVE_CONFIG_H */
-#include "debug.h"
-#include "host.h"
-#include "video_codec.h"
+
 #include "none.h"
 
 #include <stdlib.h>
+
+#include "debug.h"
+#include "host.h"
+#include "video_codec.h"
+#include "video_compress.h"
+
 
 #define MAGIC 0x45bb3321
 
@@ -93,3 +97,4 @@ void none_compress_done(void *arg)
 
         free(arg);
 }
+
