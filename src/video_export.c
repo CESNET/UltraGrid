@@ -191,6 +191,7 @@ void video_export_destroy(struct video_export *s)
                 {
                         if(s->head) {
                                 s->tail->next = entry;
+                                s->tail = entry;
                         } else {
                                 s->head = s->tail = entry;
                         }
@@ -258,6 +259,7 @@ void video_export(struct video_export *s, struct video_frame *frame)
 
                         if(s->head) {
                                 s->tail->next = entry;
+                                s->tail = entry;
                         } else {
                                 s->head = s->tail = entry;
                         }
