@@ -206,9 +206,9 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
 
-        if(export_dir_suffix) {
+        if(export_dir) {
                 char name[512];
-                snprintf(name, 512, "export.%04d/sound.wav", export_dir_suffix);
+                snprintf(name, 512, "%s/sound.wav", export_dir);
                 s->exporter = audio_export_init(name);
         } else {
                 s->exporter = NULL;

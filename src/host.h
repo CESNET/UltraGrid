@@ -64,14 +64,14 @@ extern unsigned int audio_capture_channels;
 extern unsigned int cuda_device;
 
 // for aggregate.c
+struct vidcap;
+struct display;
 struct display *initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags);
 struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags);
 
-
-// export dir is export.<export_dir_suffix> where the suffix should have 4 digits
-// incl. leading zeros
-extern unsigned int export_dir_suffix;
+// if not NULL, data should be exported
+extern char *export_dir;
 
 #endif

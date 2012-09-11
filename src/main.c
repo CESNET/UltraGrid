@@ -177,8 +177,7 @@ int uv_argc;
 char **uv_argv;
 static struct state_uv *uv_state;
 
-unsigned int export_dir_suffix = 0;
-char export_dir[16];
+char *export_dir = NULL;
 
 //
 // prototypes
@@ -191,7 +190,7 @@ static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
 static void sender_finish(struct state_uv *uv);
 static void display_buf_increase_warning(int size);
-static bool enable_export(void);
+static bool enable_export(char *dir);
 
 #ifndef WIN32
 static void signal_handler(int signal)
@@ -285,7 +284,9 @@ static void usage(void)
         printf("\n");
         printf("\t--echo-cancellation      \tapply acustic echo cancellation to audio\n");
         printf("\n");
-        printf("\t--cuda-device [<index>|help]\tuse specified CUDA device\n");
+        printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
+        printf("\n");
+        printf("\t--export[=<directory>]   \texport captured (and compressed) data\n");
         printf("\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
@@ -897,28 +898,46 @@ compress_done:
         return NULL;
 }
 
-static bool enable_export()
+static bool enable_export(char *dir)
 {
-        for (int i = 1; i <= 9999; i++) {
-                char name[16];
-                snprintf(name, 16, "export.%04d", i);
-                int ret = mkdir(name, 0777);
-                if(ret == -1) {
-                        if(errno == EEXIST) {
-                                continue;
+        if(!dir) {
+                for (int i = 1; i <= 9999; i++) {
+                        char name[16];
+                        snprintf(name, 16, "export.%04d", i);
+                        int ret = mkdir(name, 0777);
+                        if(ret == -1) {
+                                if(errno == EEXIST) {
+                                        continue;
+                                } else {
+                                        fprintf(stderr, "[Export] Directory creation failed: %s\n",
+                                                        strerror(errno));
+                                        return false;
+                                }
                         } else {
-                                fprintf(stderr, "[Export] Directory creation failed: %s\n",
-                                                strerror(errno));
-                                return false;
+                                export_dir = strdup(name);
+                                break;
                         }
-                } else {
-                        export_dir_suffix = i;
-                        strncpy(export_dir, name, sizeof(export_dir));
-                        return true;
                 }
+        } else {
+                int ret = mkdir(dir, 0777);
+                if(ret == -1) {
+                                if(errno == EEXIST) {
+                                        fprintf(stderr, "[Export] Warning: directory %s exists!\n", dir);
+                                } else {
+                                        perror("[Export] Directory creation failed");
+                                        return false;
+                                }
+                }
+
+                export_dir = strdup(dir);
         }
 
-        return false;
+        if(export_dir) {
+                printf("Using export directory: %s\n", export_dir);
+                return true;
+        } else {
+                return false;
+        }
 }
 
 int main(int argc, char *argv[])
@@ -941,6 +960,9 @@ int main(int argc, char *argv[])
         bool echo_cancellation = false;
         bool use_ipv6 = false;
         char *mcast_if = NULL;
+
+        bool should_export = false;
+        char *export_opts = NULL;
 
         int bitrate = 0;
         
@@ -987,7 +1009,7 @@ int main(int argc, char *argv[])
                 {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
                 {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, OPT_MCAST_IF},
-                {"export", no_argument, 0, OPT_EXPORT},
+                {"export", optional_argument, 0, OPT_EXPORT},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1149,11 +1171,8 @@ int main(int argc, char *argv[])
                         mcast_if = optarg;
                         break;
                 case OPT_EXPORT:
-                        if(!enable_export()) {
-                                fprintf(stderr, "Export initialization failed.\n");
-                                return EXIT_FAILURE;
-                        }
-                        uv->video_exporter = video_export_init(export_dir);
+                        should_export = true;
+                        export_opts = optarg;
                         break;
                 default:
                         usage();
@@ -1173,11 +1192,19 @@ int main(int argc, char *argv[])
         printf("Capture device: %s\n", uv->requested_capture);
         printf("MTU           : %d\n", uv->requested_mtu);
         printf("Compression   : %s\n", uv->requested_compression);
-
         if (uv->use_ihdtv_protocol)
                 printf("Network protocol: ihdtv\n");
         else
                 printf("Network protocol: ultragrid rtp\n");
+        printf("\n");
+
+        if(should_export) {
+                if(!enable_export(export_opts)) {
+                        fprintf(stderr, "Export initialization failed.\n");
+                        return EXIT_FAILURE;
+                }
+                uv->video_exporter = video_export_init(export_dir);
+        }
 
         gettimeofday(&uv->start_time, NULL);
 
@@ -1467,6 +1494,7 @@ cleanup:
         pthread_mutex_destroy(&uv->master_lock);
 
         free(uv);
+        free(export_dir);
         
         lib_common_done();
 

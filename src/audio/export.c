@@ -60,6 +60,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "audio/audio.h"
 #include "debug.h"
@@ -286,6 +287,7 @@ struct audio_export * audio_export_init(char *filename)
                 return NULL;
         }
 
+        unlink(filename);
         s->filename = strdup(filename);
         s->thread_id = 0;
         s->ring = NULL;
@@ -297,7 +299,6 @@ struct audio_export * audio_export_init(char *filename)
         s->should_exit_worker = false;
 
         s->total = 0;
-
 
         s->saved_format = (struct audio_fmt) { 0, 0, 0, 0 };
 
