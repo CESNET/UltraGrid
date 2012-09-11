@@ -91,6 +91,7 @@ static bool configure(struct audio_export *s, struct audio_fmt fmt);
 static void finalize(struct audio_export *s);
 
 struct audio_export {
+        char *filename;
         FILE *output;
 
         struct audio_fmt saved_format;
@@ -153,47 +154,94 @@ static bool configure(struct audio_export *s, struct audio_fmt fmt) {
         size_t res;
         s->saved_format = fmt;
 
-        fseek(s->output, NCHANNELS_OFFSET, SEEK_SET);
+        s->output = fopen(s->filename, "wb+");
+        if(!s->output) {
+                goto open_err;
+        }
+
+        res = fwrite("RIFF", 4, 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+        // chunk size - to be added
+        res = fwrite("    ", 4, 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+        res = fwrite("WAVE", 4, 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+        res = fwrite("fmt ", 4, 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+
+        uint32_t chunk_size = 16;
+        res = fwrite(&chunk_size, sizeof(chunk_size), 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+
+        uint16_t wave_format_pcm = 0x0001;
+        res = fwrite(&wave_format_pcm, sizeof(wave_format_pcm), 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+
         uint16_t channels = fmt.ch_count;
         res = fwrite(&channels, sizeof(channels), 1, s->output);
         if(res != 1) {
-                return false;
+                goto file_err;
         }
 
-        fseek(s->output, NSAMPLES_PER_SEC_OFFSET, SEEK_SET);
         uint32_t sample_rate = fmt.sample_rate;
         res = fwrite(&sample_rate, sizeof(sample_rate), 1, s->output);
         if(res != 1) {
-                return false;
+                goto file_err;
         }
 
-        fseek(s->output, NAVG_BYTES_PER_SEC_OFFSET, SEEK_SET);
         uint32_t avg_bytes_per_sec = fmt.sample_rate * fmt.bps * fmt.ch_count;
         res = fwrite(&avg_bytes_per_sec, sizeof(avg_bytes_per_sec), 1, s->output);
         if(res != 1) {
-                return false;
+                goto file_err;
         }
 
-        fseek(s->output, NBLOCK_ALIGN_OFFSET, SEEK_SET);
         uint16_t block_align_offset = fmt.bps * fmt.ch_count;
         res = fwrite(&block_align_offset, sizeof(block_align_offset), 1, s->output);
         if(res != 1) {
-                return false;
+                goto file_err;
         }
 
-        fseek(s->output, NBITS_PER_SAMPLE, SEEK_SET);
         uint16_t bits_per_sample = fmt.bps * 8;
         res = fwrite(&bits_per_sample, sizeof(bits_per_sample), 1, s->output);
         if(res != 1) {
-                return false;
+                goto file_err;
         }
 
-        fseek(s->output, DATA_OFFSET, SEEK_SET);
+        res = fwrite("data", 4, 1, s->output);
+        if(res != 1) {
+                goto file_err;
+        }
+
+        char blank[4];
+        memset((void *) blank, 1, 4);
+        res = fwrite(blank, 1, 4, s->output);
+        if(res != 4) {
+                goto file_err;
+        }
 
         s->ring = ring_buffer_init(CACHE_SECONDS * fmt.sample_rate * fmt.bps *
                         fmt.ch_count);
 
         return true;
+
+file_err:
+        fclose(s->output);
+open_err:
+        fprintf(stderr, "[Audio export] File opening error. Skipping audio export.\n");
+
+        return false;
 }
 
 static void finalize(struct audio_export *s)
@@ -238,6 +286,7 @@ struct audio_export * audio_export_init(char *filename)
                 return NULL;
         }
 
+        s->filename = strdup(filename);
         s->thread_id = 0;
         s->ring = NULL;
 
@@ -249,72 +298,10 @@ struct audio_export * audio_export_init(char *filename)
 
         s->total = 0;
 
-        s->output = fopen(filename, "wb+");
-        if(!s->output) {
-                goto no_mem;
-        }
-
-        size_t res;
-        res = fwrite("RIFF", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        // chunk size - to be added
-        res = fwrite("    ", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        res = fwrite("WAVE", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        res = fwrite("fmt ", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint32_t chunk_size = 16;
-        res = fwrite(&chunk_size, sizeof(chunk_size), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        uint16_t wave_format_pcm = 0x0001;
-        res = fwrite(&wave_format_pcm, sizeof(wave_format_pcm), 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-        
-        char blank[14];
-        memset((void *) blank, 1, 14);
-        // chunk size - to be added
-        res = fwrite(blank, 1, 14, s->output);
-        if(res != 14) {
-                goto file_err;
-        }
-
-        res = fwrite("data", 4, 1, s->output);
-        if(res != 1) {
-                goto file_err;
-        }
-
-        res = fwrite(blank, 1, 4, s->output);
-        if(res != 4) {
-                goto file_err;
-        }
 
         s->saved_format = (struct audio_fmt) { 0, 0, 0, 0 };
 
-
-        // and next data
         return s;
-
-file_err:
-        fclose(s->output);
-no_mem:
-        free(s);
-        fprintf(stderr, "[Audio export] File opening error. Skipping audio export.\n");
-        return NULL;
 }
 
 void audio_export_destroy(struct audio_export *s)
@@ -331,11 +318,14 @@ void audio_export_destroy(struct audio_export *s)
                         pthread_join(s->thread_id, NULL);
                 }
 
-                finalize(s);
-                fclose(s->output);
-                ring_buffer_destroy(s->ring);
+                if(s->total > 0) {
+                        finalize(s);
+                        fclose(s->output);
+                        ring_buffer_destroy(s->ring);
+                }
                 pthread_cond_destroy(&s->worker_cv);
                 pthread_mutex_destroy(&s->lock);
+                free(s->filename);
                 free(s);
         }
 }
