@@ -66,6 +66,7 @@ struct codec_info_t {
         double bpp;
         unsigned rgb:1;
         unsigned opaque:1;
+        const char *file_extension;
 };
 
 struct line_decode_from_to {
@@ -77,16 +78,22 @@ struct line_decode_from_to {
 extern const struct codec_info_t codec_info[];           /* defined int .c */
 extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
 
-void show_codec_help(char *mode);
-double get_bpp(codec_t codec);
-uint32_t get_fourcc(codec_t codec);
-const char * get_codec_name(codec_t codec);
-int is_codec_opaque(codec_t codec);
-/*
- * @return found codec
- *         (codec_t) -1 if not found
+void             show_codec_help(char *mode);
+double           get_bpp(codec_t codec);
+uint32_t         get_fourcc(codec_t codec);
+const char      *get_codec_name(codec_t codec);
+int              is_codec_opaque(codec_t codec);
+codec_t          get_codec_from_fcc(uint32_t fourcc);
+const char      *get_codec_file_extension(codec_t codec);
+
+/**
+ * Returns FCC for codec
+ *
+ * @param  codec        input codec
+ * @return              respective FourCC
+ *                      0 if not found in database
  */
-codec_t get_codec_from_fcc(uint32_t fourcc);
+uint32_t get_fcc_from_codec(codec_t codec);
 int get_haligned(int width_pixels, codec_t codec);
 
 int vc_get_linesize(unsigned int width, codec_t codec);

@@ -64,22 +64,22 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE},
-        {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE},
-        {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE},
-        {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE},
-        {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE},
-        {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE},
-        {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
-        {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
-        {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE},
-        {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packet YCbCr inside DXT1 channels */
-        {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
-        {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE},
-        {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
-        {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
-        {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
-        {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE}
+        {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, "rgba"},
+        {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, "yuv"},
+        {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, "yuv"},
+        {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, "yuv"},
+        {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, "yuv"},
+        {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, "r10k"},
+        {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "v210"},
+        {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "dvs10"},
+        {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, "dxt1"},
+        {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, "yog"},/* DXT5 YCoCg */
+        {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, "rgb"},
+        {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, "dpx"},
+        {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, "jpg"},
+        {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE, "raw"}, /* raw SDI */
+        {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE, NULL}
 };
 
 /* take care that UYVY is alias for both 2vuy and dvs8, do not use
@@ -175,6 +175,19 @@ const char * get_codec_name(codec_t codec)
         return 0;
 }
 
+uint32_t get_fcc_from_codec(codec_t codec)
+{
+        int i = 0;
+
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].fcc;
+                i++;
+        }
+
+        return 0;
+}
+
 codec_t get_codec_from_fcc(uint32_t fourcc)
 {
         int i = 0;
@@ -199,6 +212,19 @@ codec_t get_codec_from_fcc(uint32_t fourcc)
                 i++;
         }
         return (codec_t) -1;
+}
+
+const char *get_codec_file_extension(codec_t codec)
+{
+        int i = 0;
+
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].file_extension;
+                i++;
+        }
+
+        return 0;
 }
 
 int is_codec_opaque(codec_t codec)

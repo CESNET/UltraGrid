@@ -1,5 +1,5 @@
 /*
- * FILE:    platform_semaphore.h
+ * FILE:    video_export.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -8,7 +8,7 @@
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2209 CESNET z.s.p.o.
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -46,30 +46,24 @@
  *
  */
 
-#include "config.h"
+#ifndef _VIDEO_EXPORT_H_
+#define _VIDEO_EXPORT_H_
 
-#ifndef _PLATFORM_SEMAPHORE_H
-#define _PLATFORM_SEMAPHORE_H
-
-#ifdef HAVE_MACOSX
-#include <mach/semaphore.h>
-#include <mach/task.h>
-
-typedef semaphore_t sem_t;
-#else
-#include <semaphore.h>
-#endif /* HAVE_MACOSX */
+#define VIDEO_EXPORT_SUMMARY_VERSION 1
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-void platform_sem_init(void * semStructure, int pshared, int initialValue);
-void platform_sem_post(void * semStructure);
-void platform_sem_wait(void * semStructure);
+struct video_export;
+struct video_frame;
+
+struct video_export * video_export_init(char *path);
+void video_export_destroy(struct video_export *state);
+void video_export(struct video_export *state, struct video_frame *frame);
 
 #ifdef __cplusplus
 }
 #endif // __cplusplus
 
-#endif /* _PLATFORM_SEMAPHORE_H */
+#endif /* _VIDEO_EXPORT_H_ */

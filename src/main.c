@@ -73,6 +73,7 @@
 #include "video_display/sdl.h"
 #include "video_compress.h"
 #include "video_decompress.h"
+#include "video_export.h"
 #include "pdb.h"
 #include "tv.h"
 #include "transmit.h"
@@ -153,6 +154,7 @@ struct state_uv {
         pthread_cond_t sender_cv;
 
         struct video_frame * volatile tx_frame;
+        struct video_export *video_exporter;
 };
 
 long packet_rate;
@@ -176,6 +178,7 @@ char **uv_argv;
 static struct state_uv *uv_state;
 
 unsigned int export_dir_suffix = 0;
+char export_dir[16];
 
 //
 // prototypes
@@ -824,8 +827,6 @@ static void *compress_thread(void *arg)
                 goto join_thread;
         }
 
-        
-
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 tx_frame = vidcap_grab(uv->capture_device, &audio);
@@ -839,6 +840,9 @@ static void *compress_thread(void *arg)
                                 continue;
 
                         i = (i + 1) % 2;
+
+                        video_export(uv->video_exporter, tx_frame);
+
 
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
@@ -909,6 +913,7 @@ static bool enable_export()
                         }
                 } else {
                         export_dir_suffix = i;
+                        strncpy(export_dir, name, sizeof(export_dir));
                         return true;
                 }
         }
@@ -1004,6 +1009,7 @@ int main(int argc, char *argv[])
         uv->participants = NULL;
         uv->tx = NULL;
         uv->network_devices = NULL;
+        uv->video_exporter = NULL;
         uv->recv_port_number =
                 uv->send_port_number =
                 PORT_BASE;
@@ -1147,6 +1153,7 @@ int main(int argc, char *argv[])
                                 fprintf(stderr, "Export initialization failed.\n");
                                 return EXIT_FAILURE;
                         }
+                        uv->video_exporter = video_export_init(export_dir);
                         break;
                 default:
                         usage();
@@ -1449,6 +1456,7 @@ cleanup:
                 pdb_destroy(&uv->participants);
         }
 
+        video_export_destroy(uv->video_exporter);
 
         pthread_mutex_destroy(&uv->sender_lock);
         pthread_cond_destroy(&uv->compress_thread_cv);
