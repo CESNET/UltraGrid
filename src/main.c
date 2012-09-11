@@ -110,6 +110,7 @@
 #define OPT_CUDA_DEVICE (('C' << 8) | 'D')
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_EXPORT (('E' << 8) | 'X')
+#define OPT_IMPORT (('I' << 8) | 'M')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -229,7 +230,9 @@ static void usage(void)
                         "[-m <mtu>] [-c] [-i] [-6]\n");
         printf("          [-m <video_mode>] [-p <postprocess>] "
                         "[-f <fec_options>] [-p <port>]\n");
-        printf("          [--mcast-if <iface>] [--export] address(es)\n\n");
+        printf("          [--mcast-if <iface>]\n");
+        printf("          [--export[=<d>]|--import <d>]\n");
+        printf("          address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -288,6 +291,7 @@ static void usage(void)
         printf("\n");
         printf("\t--export[=<directory>]   \texport captured (and compressed) data\n");
         printf("\n");
+        printf("\t--import <directory>     \timport previous session from directory\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -1010,6 +1014,7 @@ int main(int argc, char *argv[])
                 {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, OPT_MCAST_IF},
                 {"export", optional_argument, 0, OPT_EXPORT},
+                {"import", required_argument, 0, OPT_IMPORT},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1173,6 +1178,10 @@ int main(int argc, char *argv[])
                 case OPT_EXPORT:
                         should_export = true;
                         export_opts = optarg;
+                        break;
+                case OPT_IMPORT:
+                        uv->requested_capture = "import";
+                        capture_cfg = optarg;
                         break;
                 default:
                         usage();

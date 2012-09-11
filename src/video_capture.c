@@ -59,6 +59,7 @@
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
 #include "video_capture/dvs.h"
+#include "video_capture/import.h"
 #include "video_capture/linsys.h"
 #include "video_capture/null.h"
 #include "video_capture/quicktime.h"
@@ -113,6 +114,16 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_finish),
          MK_STATIC(vidcap_aggregate_done),
          MK_STATIC(vidcap_aggregate_grab),
+         NULL
+        },
+        {
+         0,
+         NULL,
+         MK_STATIC(vidcap_import_probe),
+         MK_STATIC(vidcap_import_init),
+         MK_STATIC(vidcap_import_finish),
+         MK_STATIC(vidcap_import_done),
+         MK_STATIC(vidcap_import_grab),
          NULL
         },
 #if defined HAVE_SCREEN_CAP || defined BUILD_LIBRARIES
