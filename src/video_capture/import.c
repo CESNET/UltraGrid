@@ -57,6 +57,8 @@
 
 #include "tv.h"
 
+#include "audio/audio.h"
+#include "utils/ring_buffer.h"
 #include "video_export.h"
 #include "video_capture/import.h"
 //#include "audio/audio.h"
@@ -85,8 +87,30 @@ struct processed_entry {
         struct processed_entry *next;
 };
 
+struct audio_state {
+        bool has_audio;
+        FILE *file;
+        ring_buffer_t *data;
+        int total_samples;
+        int samples_read;
+        pthread_t thread_id;
+
+        pthread_cond_t reader_cv;
+        volatile bool reader_waiting;
+        pthread_cond_t boss_cv;
+        volatile bool boss_waiting;
+
+        pthread_mutex_t lock;
+        unsigned long long int played_samples;
+}; 
+
 struct vidcap_import_state {
+        struct audio_frame audio_frame;
+        struct audio_state audio_state;
         struct video_frame *frame;
+        int frames;
+        int frames_prev;
+        struct timeval t0;
         struct tile *tile;
         char *directory;
 
@@ -98,7 +122,7 @@ struct vidcap_import_state {
         struct processed_entry * volatile head, * volatile tail;
         volatile int queue_len;
 
-        volatile bool finish_thread;
+        volatile bool finish_threads;
         volatile bool reader_finished;
 
         pthread_t thread_id;
@@ -107,7 +131,9 @@ struct vidcap_import_state {
         int count;
 };
 
+static void * audio_reading_thread(void *args);
 static void * reading_thread(void *args);
+static bool init_audio(struct vidcap_import_state *state, char *audio_filename);
 
 struct vidcap_type *
 vidcap_import_probe(void)
@@ -123,10 +149,112 @@ vidcap_import_probe(void)
 	return vt;
 }
 
+#define READ_N(buf, len) if (fread(buf, len, 1, audio_file) != 1) goto error_format;
+
+static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
+{
+        FILE *audio_file = fopen(audio_filename, "r");
+        if(!audio_file) {
+                perror("Cannot open audio file");
+                return false;
+        }
+        char buffer[16];
+
+        // common commands - will run in any way
+        if(!audio_file) {
+                goto error_opening;
+        }
+
+        READ_N(buffer, 4);
+        if(strncmp(buffer, "RIFF", 4) != 0) {
+                goto error_format;
+        }
+
+        uint32_t chunk_size;
+        READ_N(&chunk_size, 4);
+
+        READ_N(buffer, 4);
+        if(strncmp(buffer, "WAVE", 4) != 0) {
+                goto error_format;
+        }
+
+        // format chunk
+        READ_N(buffer, 4);
+        if(strncmp(buffer, "fmt ", 4) != 0) {
+                goto error_format;
+        }
+
+        uint32_t fmt_chunk_size;
+        READ_N(&fmt_chunk_size, 4);
+        if(fmt_chunk_size != 16) {
+                goto error_format;
+        }
+
+        uint16_t format;
+        READ_N(&format, 2);
+        if(format != 0x0001) {
+                fprintf(stderr, "Only supported audio format is PCM.\n");
+                goto error_format;
+        }
+
+        uint16_t ch_count;
+        READ_N(&ch_count, 2);
+        s->audio_frame.ch_count = ch_count;
+
+        uint32_t sample_rate;
+        READ_N(&sample_rate, sizeof(sample_rate));
+        s->audio_frame.sample_rate = sample_rate;
+
+        uint32_t avg_bytes_per_sec;
+        READ_N(&avg_bytes_per_sec, sizeof(avg_bytes_per_sec));
+
+        uint16_t block_align_offset;
+        READ_N(&block_align_offset, sizeof(block_align_offset));
+
+        uint16_t bits_per_sample;
+        READ_N(&bits_per_sample, sizeof(bits_per_sample));
+        s->audio_frame.bps = bits_per_sample / 8;
+
+        // data chunk
+        READ_N(buffer, 4);
+        if(strncmp(buffer, "data", 4) != 0) {
+                goto error_format;
+        }
+
+        uint32_t data_chunk_size;
+        READ_N(&data_chunk_size, 4);
+        s->audio_state.total_samples = data_chunk_size / s->audio_frame.bps / s->audio_frame.ch_count;
+        s->audio_state.samples_read = 0;
+
+        s->audio_state.data = ring_buffer_init(s->audio_frame.bps * s->audio_frame.sample_rate *
+                        s->audio_frame.ch_count * 180);
+
+        s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.sample_rate * s->audio_frame.ch_count;
+        s->audio_frame.data_len = 0;
+        s->audio_frame.data = malloc(s->audio_frame.max_size);
+
+        s->audio_state.file = audio_file;
+
+        pthread_cond_init(&s->audio_state.reader_cv, NULL);
+        s->audio_state.reader_waiting = false;
+        pthread_cond_init(&s->audio_state.boss_cv, NULL);
+        s->audio_state.boss_waiting = false;
+        pthread_mutex_init(&s->audio_state.lock, NULL);
+        s->audio_state.played_samples = 0;
+
+
+        return true;
+
+error_format:
+        fprintf(stderr, "Audio format file error - unknown format\n");
+error_opening:
+        fclose(audio_file);
+        return false;
+}
+
 void *
 vidcap_import_init(char *directory, unsigned int flags)
 {
-        UNUSED(flags);
 	struct vidcap_import_state *s;
 
 	printf("vidcap_import_init\n");
@@ -134,16 +262,33 @@ vidcap_import_init(char *directory, unsigned int flags)
         s = (struct vidcap_import_state *) calloc(1, sizeof(struct vidcap_import_state));
         s->head = s->tail = NULL;
         s->queue_len = 0;
+        s->frames_prev = s->frames = 0;
+        gettimeofday(&s->t0, NULL);
 
         s->boss_waiting = false;
         s->reader_waiting = false;
 
-        s->finish_thread = false;
+        s->finish_threads = false;
         s->reader_finished = false;
         
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->reader_cv, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
+
+        char *audio_filename = malloc(strlen(directory) + sizeof("/soud.wav") + 1);
+        assert(audio_filename != NULL);
+        strcpy(audio_filename, directory);
+        strcat(audio_filename, "/sound.wav");
+        if((flags & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
+                s->audio_state.has_audio = true;
+                if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
+                        fprintf(stderr, "Unable to create thread.\n");
+                        goto free_frame;
+                }
+        } else {
+                s->audio_state.has_audio = false;
+        }
+        free(audio_filename);
         
         char *info_filename = malloc(strlen(directory) + sizeof("/video.info") + 1);
         assert(info_filename != NULL);
@@ -153,7 +298,7 @@ vidcap_import_init(char *directory, unsigned int flags)
         FILE *info = fopen(info_filename, "r");
         free(info_filename);
         if(info == NULL) {
-                perror("[import] Failed to open index file.");
+                perror("[import] Failed to open index file");
                 goto free_state;
         }
 
@@ -237,12 +382,12 @@ vidcap_import_init(char *directory, unsigned int flags)
                 goto free_frame;
         }
 
+        s->directory = strdup(directory);
+
         if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
                 fprintf(stderr, "Unable to create thread.\n");
                 goto free_frame;
         }
-
-        s->directory = strdup(directory);
 
         gettimeofday(&s->prev_time, NULL);
 
@@ -262,15 +407,26 @@ vidcap_import_finish(void *state)
 {
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 
+        s->finish_threads = true;
+
         pthread_mutex_lock(&s->lock);
         {
-                s->finish_thread = true;
                 if(s->reader_waiting)
                         pthread_cond_signal(&s->reader_cv);
         }
         pthread_mutex_unlock(&s->lock);
 
 	pthread_join(s->thread_id, NULL);
+
+        // audio
+        pthread_mutex_lock(&s->audio_state.lock);
+        {
+                if(s->audio_state.reader_waiting)
+                        pthread_cond_signal(&s->audio_state.reader_cv);
+        }
+        pthread_mutex_unlock(&s->audio_state.lock);
+
+	pthread_join(s->audio_state.thread_id, NULL);
 }
 
 void
@@ -293,7 +449,61 @@ vidcap_import_done(void *state)
         pthread_cond_destroy(&s->reader_cv);
         pthread_cond_destroy(&s->boss_cv);
         free(s->directory);
+
+        // audio
+        if(s->audio_state.has_audio) {
+                ring_buffer_destroy(s->audio_state.data);
+
+                free(s->audio_frame.data);
+
+                fclose(s->audio_state.file);
+
+                pthread_cond_destroy(&s->audio_state.reader_cv);
+                pthread_cond_destroy(&s->audio_state.boss_cv);
+                pthread_mutex_destroy(&s->audio_state.lock);
+        }
+
         free(s);
+}
+
+static void * audio_reading_thread(void *args)
+{
+	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
+
+        while(s->audio_state.samples_read < s->audio_state.total_samples && !s->finish_threads) {
+                int max_read;
+                pthread_mutex_lock(&s->audio_state.lock);
+                {
+                        while(ring_get_current_size(s->audio_state.data) >
+                                        ring_get_size(s->audio_state.data) * 2 / 3 && !s->finish_threads) {
+                                s->audio_state.reader_waiting = true;
+                                pthread_cond_wait(&s->audio_state.reader_cv, &s->audio_state.lock);
+                                s->audio_state.reader_waiting = false;
+                        }
+
+                        max_read = ring_get_size(s->audio_state.data) -
+                                        ring_get_current_size(s->audio_state.data);
+                }
+                pthread_mutex_unlock(&s->audio_state.lock);
+
+                char *buffer = (char *) malloc(max_read);
+
+                size_t ret = fread(buffer, s->audio_frame.ch_count * s->audio_frame.bps,
+                                max_read / s->audio_frame.ch_count / s->audio_frame.bps, s->audio_state.file);
+                s->audio_state.samples_read += ret;
+
+                pthread_mutex_lock(&s->audio_state.lock);
+                {
+                        ring_buffer_write(s->audio_state.data, buffer, ret * s->audio_frame.ch_count * s->audio_frame.bps);
+                        if(s->audio_state.boss_waiting)
+                                pthread_cond_signal(&s->audio_state.boss_cv);
+                }
+                pthread_mutex_unlock(&s->audio_state.lock);
+
+                free(buffer);
+        }
+
+        return NULL;
 }
 
 static void * reading_thread(void *args)
@@ -302,11 +512,11 @@ static void * reading_thread(void *args)
         int index = 0;
         char name[512];
 
-        while(index < s->count && !s->finish_thread) {
+        while(index < s->count && !s->finish_threads) {
                 struct processed_entry *new_entry = NULL;
                 pthread_mutex_lock(&s->lock);
                 {
-                        while(s->queue_len >= BUFFER_LEN_MAX - 1 && !s->finish_thread) {
+                        while(s->queue_len >= BUFFER_LEN_MAX - 1 && !s->finish_threads) {
                                 s->reader_waiting = true;
                                 pthread_cond_wait(&s->reader_cv, &s->lock);
                                 s->reader_waiting = false;
@@ -409,12 +619,55 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         s->tile->data = current->data;
         free(current);
 
+        // audio
+        if(s->audio_state.has_audio) {
+                unsigned long long int requested_samples = (unsigned long long int) (s->frames + 1) *
+                        s->audio_frame.sample_rate / s->frame->fps - s->audio_state.played_samples;
+                if((int) (s->audio_state.played_samples + requested_samples) > s->audio_state.total_samples) {
+                        requested_samples = s->audio_state.total_samples - s->audio_state.played_samples;
+                }
+                unsigned long long int requested_bytes = requested_samples * s->audio_frame.bps * s->audio_frame.ch_count;
+                if(requested_bytes) {
+                        pthread_mutex_lock(&s->audio_state.lock);
+                        {
+                                while(ring_get_current_size(s->audio_state.data) < (int) requested_bytes) {
+                                        s->audio_state.boss_waiting = true;
+                                        pthread_cond_wait(&s->audio_state.boss_cv, &s->audio_state.lock);
+                                        s->audio_state.boss_waiting = false;
+                                }
+
+                                int ret = ring_buffer_read(s->audio_state.data, s->audio_frame.data, requested_bytes);
+                                assert(ret == (int) requested_bytes);
+                                s->audio_frame.data_len = requested_bytes;
+
+                                if(s->reader_waiting)
+                                        pthread_cond_signal(&s->reader_cv);
+                        }
+                        pthread_mutex_unlock(&s->audio_state.lock);
+                }
+
+                s->audio_state.played_samples += requested_samples;
+                *audio = &s->audio_frame;
+        } else {
+                *audio = NULL;
+        }
+
+
         gettimeofday(&cur_time, NULL);
-        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps)
+        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
                 gettimeofday(&cur_time, NULL);
+        }
         tv_add_usec(&s->prev_time, 1000000.0 / s->frame->fps);
-        
-        *audio = NULL;
+
+        double seconds = tv_diff(cur_time, s->t0);
+        if (seconds >= 5) {
+                float fps  = (s->frames - s->frames_prev) / seconds;
+                fprintf(stderr, "[import] %d frames in %g seconds = %g FPS\n", s->frames - s->frames_prev, seconds, fps);
+                s->t0 = cur_time;
+                s->frames_prev = s->frames;
+        }
+
+        s->frames += 1;
 
 	return s->frame;
 }
