@@ -83,6 +83,8 @@ extern "C" {
 #include <VideoMasterHD_Sdi.h>
 #include <VideoMasterHD_Sdi_Audio.h>
 
+static volatile bool should_exit = false;
+
 struct vidcap_deltacast_state {
         struct video_frame *frame;
         struct tile        *tile;
@@ -439,6 +441,7 @@ void
 vidcap_deltacast_finish(void *state)
 {
         UNUSED(state);
+        should_exit = true;
 }
 
 void

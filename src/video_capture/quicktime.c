@@ -105,6 +105,8 @@ struct qt_grabber_state {
         volatile int work_to_do;
 };
 
+static volatile bool should_exit = false;
+
 void * vidcap_quicktime_thread(void *state);
 void InitCursor(void);
 void GetPort(GrafPtr *port);
@@ -914,6 +916,8 @@ void vidcap_quicktime_finish(void *state)
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
         assert(s != NULL);
+
+        should_exit = true;
 
         pthread_mutex_lock(&s->lock);
         if(s->work_to_do) {

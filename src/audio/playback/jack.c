@@ -108,9 +108,6 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
 	if(channels > s->jack_ports_count)
 		channels = s->jack_ports_count;
 
-        if(should_exit)
-                return 1;
-
         for (i = 0; i < channels; ++i) {
                 if(ring_get_current_size(s->data[i]) <= (int) (nframes * sizeof(float))) {
                         fprintf(stderr, "[JACK playback] Buffer underflow detected.\n");

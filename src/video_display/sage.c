@@ -100,6 +100,8 @@ struct state_sage {
         struct timeval          t, t0;
 };
 
+static volatile bool should_exit = false;
+
 /** Prototyping */
 int display_sage_handle_events(void)
 {
@@ -219,18 +221,11 @@ void display_sage_finish(void *state)
 
         assert(s->magic == MAGIC_SAGE);
 
+        should_exit = true;
+
         // there was already issued should_exit...
         display_sage_putf(s, NULL);
         // .. so thread should exit after this call
-
-        // release grab
-        pthread_mutex_lock(&s->buffer_writable_lock);
-        s->buffer_writable = TRUE;
-        if(s->grab_waiting) {
-                pthread_cond_signal(&s->buffer_writable_cond);
-        }
-        pthread_mutex_unlock(&s->buffer_writable_lock);
-
 }
 
 void display_sage_done(void *state)

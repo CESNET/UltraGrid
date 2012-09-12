@@ -200,7 +200,9 @@ const quicktime_mode_t quicktime_modes[] = {
         {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 8 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_YUV},
         {"Blackmagic NTSC/PAL", "Blackmagic NTSC/PAL - 10 Bit", 720, 486, 24, AUX_PROGRESSIVE|AUX_10Bit|AUX_YUV},
         {NULL, NULL, 0, 0, 0, 0},
-};        
+};
+
+static volatile bool should_exit = false;
 
 /* for audio see TN2091 (among others) */
 struct state_quicktime {
@@ -803,6 +805,7 @@ audio_error:
 void display_quicktime_finish(void *state)
 {
         UNUSED(state);
+        should_exit = true;
 }
 
 void display_quicktime_done(void *state)

@@ -81,6 +81,8 @@
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
 
+static volatile bool should_exit = false;
+
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
 unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
@@ -322,6 +324,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 void vidcap_testcard2_finish(void *state)
 {
         UNUSED(state);
+        should_exit = true;
 }
 
 void vidcap_testcard2_done(void *state)

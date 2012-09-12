@@ -98,6 +98,8 @@ static const char sys_fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
 static const char devfile_fmt[] = "/dev/sdivideorx%1u";
 static const char audio_dev[] = "/dev/sdiaudiorx0";
 
+static volatile bool should_exit = false;
+
 struct frame_mode {
         char  * const    name;
         unsigned int     width;
@@ -692,6 +694,8 @@ vidcap_linsys_finish(void *state)
 {
 	struct vidcap_linsys_state *s = (struct vidcap_linsys_state *) state;
 	assert(s != NULL);
+
+        should_exit = true;
 
 	pthread_join(s->grabber, NULL);
 }

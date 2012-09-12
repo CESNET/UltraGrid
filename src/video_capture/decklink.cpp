@@ -89,6 +89,8 @@ extern "C" {
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
 //static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
 
+static volatile bool should_exit = false;
+
 struct timeval t, t0;
 
 #ifdef __cplusplus
@@ -1072,6 +1074,7 @@ void
 vidcap_decklink_finish(void *state)
 {
         UNUSED(state);
+        should_exit = true;
 }
 
 void

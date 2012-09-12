@@ -57,8 +57,6 @@ extern unsigned int bitdepth;
 
 extern unsigned int progressive;
 
-extern volatile int should_exit;
-
 extern void (*exit_uv)(int status);
 
 extern unsigned int audio_capture_channels;

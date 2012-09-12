@@ -155,10 +155,11 @@ struct state_uv {
 };
 
 long packet_rate;
-volatile int should_exit = FALSE;
 volatile int wait_to_finish = FALSE;
 volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
+static bool should_exit_receiver = false;
+static bool should_exit_sender = false;
 
 unsigned int cuda_device = 0;
 unsigned int audio_capture_channels = 2;
@@ -199,20 +200,13 @@ static void _exit_uv(int status);
 static void _exit_uv(int status) {
         exit_status = status;
         wait_to_finish = TRUE;
-        should_exit = TRUE;
         if(!threads_joined) {
                 if(uv_state->capture_device) {
-                        vidcap_finish(uv_state->capture_device);
-
-                        pthread_mutex_lock(&uv_state->sender_lock);
-                        uv_state->has_item_to_send = FALSE;
-                        if(uv_state->compress_thread_waiting) {
-                                pthread_cond_signal(&uv_state->compress_thread_cv);
-                        }
-                        pthread_mutex_unlock(&uv_state->sender_lock);
+                        should_exit_sender = true;
                 }
-                if(uv_state->display_device)
-                        display_finish(uv_state->display_device);
+                if(uv_state->display_device) {
+                        should_exit_receiver = true;
+                }
                 if(uv_state->audio)
                         audio_finish(uv_state->audio);
         }
@@ -512,7 +506,7 @@ static void *ihdtv_receiver_thread(void *arg)
         ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
         struct display *display_device = (struct display *)((void **)arg)[1];
 
-        while (!should_exit) {
+        while (1) {
                 if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
@@ -529,7 +523,7 @@ static void *ihdtv_sender_thread(void *arg)
         struct video_frame *tx_frame;
         struct audio_frame *audio;
 
-        while (!should_exit) {
+        while (1) {
                 if ((tx_frame = vidcap_grab(capture_device, &audio)) != NULL) {
                         ihdtv_send(connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
                         free(tx_frame);
@@ -592,7 +586,7 @@ static void *receiver_thread(void *arg)
 
         fr = 1;
 
-        while (!should_exit) {
+        while (!should_exit_receiver) {
                 /* Housekeeping and RTCP... */
                 gettimeofday(&uv->curr_time, NULL);
                 uv->ts = tv_diff(uv->curr_time, uv->start_time) * 90000;
@@ -708,6 +702,8 @@ static void *receiver_thread(void *arg)
         }
         pdb_iter_done(uv->participants);
 
+        display_finish(uv_state->display_device);
+
         return 0;
 }
 
@@ -821,7 +817,7 @@ static void *compress_thread(void *arg)
 
         
 
-        while (!should_exit) {
+        while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 tx_frame = vidcap_grab(uv->capture_device, &audio);
                 if (tx_frame != NULL) {
@@ -847,11 +843,6 @@ static void *compress_thread(void *arg)
                                         pthread_cond_signal(&uv->sender_cv);
                                 }
 
-                                if(should_exit) {
-                                        pthread_mutex_unlock(&uv->sender_lock);
-                                        goto join_thread;
-                                }
-
                                 while(uv->has_item_to_send) {
                                         uv->compress_thread_waiting = TRUE;
                                         pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
@@ -863,10 +854,6 @@ static void *compress_thread(void *arg)
                          * frames may overlap then */
                         {
                                 pthread_mutex_lock(&uv->sender_lock);
-                                if(should_exit) {
-                                        pthread_mutex_unlock(&uv->sender_lock);
-                                        goto join_thread;
-                                }
                                 while(uv->has_item_to_send) {
                                         uv->compress_thread_waiting = TRUE;
                                         pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
@@ -883,6 +870,8 @@ static void *compress_thread(void *arg)
                         }
                 }
         }
+
+        vidcap_finish(uv_state->capture_device);
 
 
 join_thread:
@@ -1281,7 +1270,7 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                while (!should_exit)
+                while (!0) // was 'should_exit'
                         sleep(1);
         } else {
                 if ((uv->network_devices =

@@ -77,6 +77,8 @@
 #define EXIT_FAIL_USAGE		1
 #define EXIT_FAIL_NETWORK	5
 
+static volatile bool should_exit_audio = false;
+
 struct audio_device_t {
         int index;
         void *state;
@@ -324,6 +326,7 @@ void audio_join(struct state_audio *s) {
         
 void audio_finish(struct state_audio *s)
 {
+        should_exit_audio = true;
         if(s) {
                 audio_capture_finish(s->audio_capture_device);
         }
@@ -389,7 +392,7 @@ static void *audio_receiver_thread(void *arg)
         pbuf_data.saved_channels = pbuf_data.saved_bps = pbuf_data.saved_sample_rate = 0;
                 
         printf("Audio receiving started.\n");
-        while (!should_exit) {
+        while (!should_exit_audio) {
                 if(s->receiver == NET_NATIVE) {
                         gettimeofday(&curr_time, NULL);
                         ts = tv_diff(curr_time, s->start_time) * 90000;
@@ -440,7 +443,7 @@ static void *audio_sender_thread(void *arg)
         struct audio_frame *buffer = NULL;
         
         printf("Audio sending started.\n");
-        while (!should_exit) {
+        while (!should_exit_audio) {
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
                         if(s->echo_state) {

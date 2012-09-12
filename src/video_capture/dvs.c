@@ -96,6 +96,8 @@ struct vidcap_dvs_state {
         struct       timeval t, t0;
 };
 
+static volatile bool should_exit = false;
+
 static void show_help(void);
 
 static void *vidcap_dvs_grab_thread(void *arg)
@@ -512,6 +514,8 @@ void vidcap_dvs_finish(void *state)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
+
+        should_exit = true;
 
         pthread_mutex_lock(&(s->lock));
         if(s->boss_waiting) {

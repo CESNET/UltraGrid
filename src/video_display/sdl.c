@@ -122,6 +122,8 @@ struct state_sdl {
 #endif
 };
 
+static volatile bool should_exit = false;
+
 static void toggleFullscreen(struct state_sdl *s);
 static void loadSplashscreen(struct state_sdl *s);
 static void show_help(void);
@@ -666,6 +668,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
 void display_sdl_finish(void *state)
 {
         UNUSED(state);
+        should_exit = true;
 }
 
 void display_sdl_done(void *state)

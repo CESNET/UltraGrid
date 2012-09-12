@@ -288,6 +288,7 @@ const hdsp_mode_table_t hdsp_mode_table[] = {
         {0, 0, 0, 0, 0},
 };
 
+static volatile bool should_exit = false;
 
 struct state_hdsp {
         pthread_t thread_id;
@@ -406,10 +407,9 @@ void display_dvs_run(void *arg)
                         pthread_cond_signal(&s->boss_cv);
                 }
                 pthread_mutex_unlock(&s->lock);
-
                 if(should_exit)
-                        return;
-                
+                        break;
+
                 /* audio - copy appropriate amount of data from ring buffer */
                 if(s->play_audio) {
                         int read_b;
@@ -503,8 +503,6 @@ int display_dvs_putf(void *state, struct video_frame *frame)
         assert(s->magic == HDSP_MAGIC);
 
         pthread_mutex_lock(&s->lock);
-        if(should_exit)
-                return FALSE;
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
                 s->boss_waiting = TRUE;
@@ -784,20 +782,9 @@ void display_dvs_finish(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
+        should_exit = true;
+
         pthread_mutex_lock(&s->lock);
-        /* this one ends up putf */
-        if(s->boss_waiting) {
-                s->work_to_do = FALSE;
-                pthread_cond_signal(&s->boss_cv);
-
-                while (!s->work_to_do) {
-                        s->boss_waiting = TRUE;
-                        pthread_cond_wait(&s->worker_cv, &s->lock);
-                        s->boss_waiting = FALSE;
-                }
-        }
-
-        /* and this one thread */
         s->work_to_do = TRUE;
         if (s->worker_waiting) {
                 pthread_cond_signal(&s->worker_cv);

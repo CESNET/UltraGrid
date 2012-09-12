@@ -87,6 +87,8 @@ static void show_help(void);
 static void *grab_thread(void *args);
 #endif // HAVE_LINUX
 
+static volatile bool should_exit = false;
+
 static void show_help()
 {
         printf("Screen capture\n");
@@ -305,6 +307,7 @@ void vidcap_screen_finish(void *state)
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
         assert(s != NULL);
+        should_exit = true;
 #ifdef HAVE_LINUX
         pthread_mutex_lock(&s->lock);
         if(s->boss_waiting) {

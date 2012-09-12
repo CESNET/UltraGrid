@@ -82,10 +82,7 @@ struct audio_frame * sdi_read(void *state)
         
         s = (struct state_sdi_capture *) state;
         platform_sem_wait(&s->audio_frame_ready);
-        if(!should_exit)
-                return s->audio_buffer;
-        else
-                return NULL;
+        return s->audio_buffer;
 }
 
 void sdi_capture_finish(void *state)

@@ -87,6 +87,8 @@
 
 #define STRINGIFY(A) #A
 
+static volatile bool should_exit = false;
+
 // source code for a shader unit (xsedmik)
 static char * yuv422_to_rgb_fp = STRINGIFY(
 uniform sampler2D image;
@@ -1080,6 +1082,8 @@ void display_gl_finish(void *state)
 
         assert(s->magic == MAGIC_GL);
 
+        should_exit = true;
+
         s->processed = TRUE;
 }
 
@@ -1106,7 +1110,7 @@ int display_gl_putf(void *state, struct video_frame *frame)
         UNUSED(frame);
 
         if(s->double_buf) {
-                while(!s->processed && !should_exit) 
+                while(!s->processed) 
                         ;
                 s->processed = FALSE;
 
