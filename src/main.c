@@ -541,7 +541,7 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
         struct vcodec_state *state = malloc(sizeof(struct vcodec_state));
 
         if(state) {
-                state->decoder = decoder_init(uv->decoder_mode, uv->postprocess);
+                state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device);
                 state->reconfigured = false;
                 state->frame_buffer = NULL; // no frame until reconfiguration
 
@@ -551,7 +551,7 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
                         exit_uv(1);
                         return NULL;
                 } else {
-                        decoder_register_video_display(state->decoder, uv->display_device);
+                        //decoder_register_video_display(state->decoder, uv->display_device);
                 }
         }
 
@@ -628,6 +628,7 @@ static void *receiver_thread(void *arg)
                                         exit_uv(1);
                                         break;
                                 }
+                                cp->video_decoder_state->display = uv->display_device;
                         }
 
                         /* Decode and render video... */
@@ -640,10 +641,12 @@ static void *receiver_thread(void *arg)
                                         tiles_post = 0;
                                         gettimeofday(&uv->curr_time, NULL);
                                         fr = 1;
+#if 0
                                         display_put_frame(uv->display_device,
                                                           cp->video_decoder_state->frame_buffer);
                                         cp->video_decoder_state->frame_buffer =
                                             display_get_frame(uv->display_device);
+#endif
                                 }
                                 last_tile_received = uv->curr_time;
                         }
@@ -654,10 +657,12 @@ static void *receiver_thread(void *arg)
                                 tiles_post = 0;
                                 gettimeofday(&uv->curr_time, NULL);
                                 fr = 1;
+#if 0
                                 display_put_frame(uv->display_device,
                                                 cp->video_decoder_state->frame_buffer);
                                 cp->video_decoder_state->frame_buffer =
                                         display_get_frame(uv->display_device);
+#endif
                                 last_tile_received = uv->curr_time;
                         }
 
@@ -1316,7 +1321,7 @@ int main(int argc, char *argv[])
                 /* following block only shows help (otherwise initialized in receiver thread */
                 if((uv->postprocess && strstr(uv->postprocess, "help") != NULL) || 
                                 (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
-                        struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess);
+                        struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess, NULL);
                         decoder_destroy(dec);
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup_wait_display;

@@ -59,6 +59,8 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#include <pthread.h>
+
 struct state_decoder;
 
 static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
@@ -96,9 +98,14 @@ struct fec {
         void             *state;
 };
 
+struct extra_decompress_data;
+
 struct state_decoder {
+        pthread_t decompress_thread_id;
         struct video_desc received_vid_desc;
         struct video_desc display_desc;
+
+        struct video_frame *frame;
         
         /* requested values */
         int               requested_pitch;
@@ -119,7 +126,16 @@ struct state_decoder {
                 struct {                           /* OR - it is not union for easier freeing*/
                         struct state_decompress *ext_decoder;
                         unsigned int accepts_corrupted_frame:1;
-                        char **ext_recv_buffer;
+                        char **ext_recv_buffer[2];
+                        int ext_recv_buffer_index_network;
+                        pthread_mutex_t lock;
+                        pthread_cond_t boss_cv;
+                        pthread_cond_t worker_cv;
+                        volatile bool work_to_do;
+                        volatile bool boss_waiting;
+                        volatile bool worker_waiting;
+                        volatile bool thread_has_processed_input;
+                        struct extra_decompress_data *extra_decompress_data;
                 };
         };
         codec_t           out_codec;
@@ -146,6 +162,143 @@ struct state_decoder {
         unsigned long int   corrupted;
 };
 
+struct extra_decompress_data {
+        char **ext_recv_buffer;
+        int *buffer_len;
+};
+
+void *decompress_thread(void *args);
+static volatile bool should_exit_decompress_thread = false;
+
+void *decompress_thread(void *args) {
+        struct state_decoder *decoder = args;
+
+        struct tile *tile;
+
+        while(!should_exit_decompress_thread) {
+                pthread_mutex_lock(&decoder->lock);
+                {
+                        while (decoder->work_to_do == false && !should_exit_decompress_thread) {
+                                decoder->worker_waiting = true;
+                                pthread_cond_wait(&decoder->worker_cv, &decoder->lock);
+                                decoder->worker_waiting = false;
+                        }
+                        // we have double buffering so we can signal immediatelly....
+                        if(decoder->decoder_type == EXTERNAL_DECODER) {
+                                decoder->thread_has_processed_input = true;
+                                if(decoder->boss_waiting) {
+                                        pthread_cond_signal(&decoder->boss_cv);
+                                }
+                        }
+                }
+                pthread_mutex_unlock(&decoder->lock);
+
+                if(should_exit_decompress_thread)
+                        break;
+
+
+                if(decoder->decoder_type == EXTERNAL_DECODER) {
+                        int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
+                        int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
+                        int x, y;
+                        struct video_frame *output;
+                        if(decoder->postprocess) {
+                                output = decoder->pp_frame;
+                        } else {
+                                output = decoder->frame;
+                        }
+                        for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
+                                for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
+                                        int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
+                                        char *out;
+                                        if(decoder->merged_fb) {
+                                                tile = vf_get_tile(output, 0);
+                                                // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
+                                                out = tile->data + y * decoder->pitch * tile_height +
+                                                        vc_get_linesize(tile_width, decoder->out_codec) * x;
+                                        } else {
+                                                tile = vf_get_tile(output, x);
+                                                out = tile->data;
+                                        }
+                                        decompress_frame(decoder->ext_decoder,
+                                                        (unsigned char *) out,
+                                                        (unsigned char *) decoder->extra_decompress_data->ext_recv_buffer[pos],
+                                                        decoder->extra_decompress_data->buffer_len[pos]);
+                                }
+                        }
+                }
+
+                if(decoder->postprocess) {
+                        int i;
+                        bool pp_ret;
+
+                        pp_ret = vo_postprocess(decoder->postprocess,
+                                        decoder->pp_frame,
+                                        decoder->frame,
+                                        decoder->display_pitch);
+
+                        if(!pp_ret) {
+                                decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
+                                goto skip_frame;
+                        }
+
+                        for (i = 1; i < decoder->pp_output_frames_count; ++i) {
+                                display_put_frame(decoder->display, decoder->frame);
+                                decoder->frame = display_get_frame(decoder->display);
+                                pp_ret = vo_postprocess(decoder->postprocess,
+                                                NULL,
+                                                decoder->frame,
+                                                decoder->display_pitch);
+                                if(!pp_ret) {
+                                        decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
+                                        goto skip_frame;
+                                }
+                        }
+
+                        /* get new postprocess frame */
+                        decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
+                }
+
+                if(decoder->change_il) {
+                        unsigned int i;
+                        for(i = 0; i < decoder->frame->tile_count; ++i) {
+                                struct tile *tile = vf_get_tile(decoder->frame, i);
+                                decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width, decoder->out_codec), tile->height);
+                        }
+                }
+
+                display_put_frame(decoder->display,
+                                decoder->frame);
+                decoder->frame =
+                        display_get_frame(decoder->display);
+
+                free(decoder->extra_decompress_data->ext_recv_buffer);
+                free(decoder->extra_decompress_data->buffer_len);
+                free(decoder->extra_decompress_data);
+
+skip_frame:
+                pthread_mutex_lock(&decoder->lock);
+                {
+                        decoder->work_to_do = false;
+
+                        if (decoder->boss_waiting) {
+                                pthread_cond_signal(&decoder->boss_cv);
+                        }
+
+                        // we have double buffering so we can signal immediatelly....
+                        if(decoder->decoder_type != EXTERNAL_DECODER) {
+                                decoder->thread_has_processed_input = true;
+                                if(decoder->boss_waiting) {
+                                        pthread_cond_signal(&decoder->boss_cv);
+                                }
+                        }
+                }
+                pthread_mutex_unlock(&decoder->lock);
+        }
+
+        return NULL;
+}
+
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode)
 {
         decoder->video_mode = video_mode;
@@ -153,7 +306,7 @@ static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int v
                         * get_video_mode_tiles_y(decoder->video_mode);
 }
 
-struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
+struct state_decoder *decoder_init(char *requested_mode, char *postprocess, struct display *display)
 {
         struct state_decoder *s;
         
@@ -162,11 +315,18 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
         s->disp_supported_il = NULL;
         s->postprocess = NULL;
         s->change_il = NULL;
+        s->display = display;
 
         s->fec_state.state = NULL;
         s->fec_state.k = s->fec_state.m = s->fec_state.c = s->fec_state.seed = 0;
 
         s->displayed = s->dropped = s->corrupted = 0ul;
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+        pthread_cond_init(&s->worker_cv, NULL);
+        s->work_to_do = false;
+        s->boss_waiting = false;
+        s->worker_waiting = false;
         
         int video_mode = VIDEO_NORMAL;
 
@@ -206,6 +366,13 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess)
                         exit_uv(129);
                         return NULL;
                 }
+        }
+
+        decoder_register_video_display(s, display);
+
+        if(pthread_create(&s->decompress_thread_id, NULL, decompress_thread, s) != 0) {
+                perror("Unable to create thread");
+                return NULL;
         }
         
         return s;
@@ -297,18 +464,34 @@ void decoder_destroy(struct state_decoder *decoder)
         if(!decoder)
                 return;
 
+        pthread_mutex_lock(&decoder->lock);
+        {
+                should_exit_decompress_thread = true;
+                if(decoder->worker_waiting)
+                        pthread_cond_signal(&decoder->worker_cv);
+        }
+        pthread_mutex_unlock(&decoder->lock);
+
+        pthread_join(decoder->decompress_thread_id, NULL);
+
+        pthread_mutex_destroy(&decoder->lock);
+        pthread_cond_destroy(&decoder->boss_cv);
+        pthread_cond_destroy(&decoder->worker_cv);
+
         if(decoder->ext_decoder) {
                 decompress_done(decoder->ext_decoder);
                 decoder->ext_decoder = NULL;
         }
-        if(decoder->ext_recv_buffer) {
-                char **buf = decoder->ext_recv_buffer;
-                while(*buf != NULL) {
-                        free(*buf);
-                        buf++;
+        for (int i = 0; i < 2; ++i) {
+                if(decoder->ext_recv_buffer[i]) {
+                        char **buf = decoder->ext_recv_buffer[i];
+                        while(*buf != NULL) {
+                                free(*buf);
+                                buf++;
+                        }
+                        free(decoder->ext_recv_buffer[i]);
+                        decoder->ext_recv_buffer[i] = NULL;
                 }
-                free(decoder->ext_recv_buffer);
-                decoder->ext_recv_buffer = NULL;
         }
         if(decoder->pp_frame) {
                 vo_postprocess_done(decoder->postprocess);
@@ -477,6 +660,16 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         //struct video_frame *frame;
         int render_mode;
 
+        pthread_mutex_lock(&decoder->lock);
+        {
+                while (decoder->work_to_do) {
+                        decoder->boss_waiting = TRUE;
+                        pthread_cond_wait(&decoder->boss_cv, &decoder->lock);
+                        decoder->boss_waiting = FALSE;
+                }
+        }
+
+        pthread_mutex_unlock(&decoder->lock);
         assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
         
@@ -487,14 +680,16 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 decompress_done(decoder->ext_decoder);
                 decoder->ext_decoder = NULL;
         }
-        if(decoder->ext_recv_buffer) {
-                char **buf = decoder->ext_recv_buffer;
-                while(*buf != NULL) {
-                        free(*buf);
-                        buf++;
+        for(int i = 0; i < 2; ++i) {
+                if(decoder->ext_recv_buffer[i]) {
+                        char **buf = decoder->ext_recv_buffer[i];
+                        while(*buf != NULL) {
+                                free(*buf);
+                                buf++;
+                        }
+                        free(decoder->ext_recv_buffer[i]);
+                        decoder->ext_recv_buffer[i] = NULL;
                 }
-                free(decoder->ext_recv_buffer);
-                decoder->ext_recv_buffer = NULL;
         }
 
         desc.tile_count = get_video_mode_tiles_x(decoder->video_mode)
@@ -706,17 +901,20 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 }
         } else if (decoder->decoder_type == EXTERNAL_DECODER) {
                 int buf_size;
-                int i;
                 
                 buf_size = decompress_reconfigure(decoder->ext_decoder, desc, 
                                 decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch , out_codec);
                 if(!buf_size) {
                         return NULL;
                 }
-                decoder->ext_recv_buffer = malloc((src_x_tiles * src_y_tiles + 1) * sizeof(char *));
-                for (i = 0; i < src_x_tiles * src_y_tiles; ++i)
-                        decoder->ext_recv_buffer[i] = malloc(buf_size);
-                decoder->ext_recv_buffer[i] = NULL;
+                for(int i = 0; i < 2; ++i) {
+                        int j;
+                        decoder->ext_recv_buffer[i] = malloc((src_x_tiles * src_y_tiles + 1) * sizeof(char *));
+                        for (j = 0; j < src_x_tiles * src_y_tiles; ++j)
+                                decoder->ext_recv_buffer[i][j] = malloc(buf_size);
+                        decoder->ext_recv_buffer[i][j] = NULL;
+                }
+                decoder->ext_recv_buffer_index_network = 0;
                 if(render_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
                         decoder->merged_fb = FALSE;
                 } else {
@@ -773,6 +971,7 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
                 pbuf_data->max_frame_size = 0u;
                 pbuf_data->decoded = 0u;
                 pbuf_data->frame_buffer = *frame;
+                decoder->frame = *frame;
                 ret = TRUE;
         }
         return ret;
@@ -800,6 +999,9 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         struct linked_list *pckt_list[decoder->max_substreams];
         uint32_t buffer_len[decoder->max_substreams];
         uint32_t buffer_num[decoder->max_substreams];
+        // the following is just LDGM related optimalization - normally we fill up
+        // allocated buffers when we have compressed data. But in case of LDGM, there
+        // is just the LDGM buffer present, so we point to it instead to copying
         char *ext_recv_buffer[decoder->max_substreams];
         char *fec_buffers[decoder->max_substreams];
         for (i = 0; i < (int) decoder->max_substreams; ++i) {
@@ -914,7 +1116,9 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                        memcpy(ext_recv_buffer, decoder->ext_recv_buffer, decoder->max_substreams * sizeof(char *));
+                        memcpy(ext_recv_buffer,
+                                        decoder->ext_recv_buffer[decoder->ext_recv_buffer_index_network],
+                                        decoder->max_substreams * sizeof(char *));
                 }
                 
                 if (pt == PT_VIDEO) {
@@ -1011,7 +1215,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 }
                         } else if(decoder->decoder_type == EXTERNAL_DECODER) {
                                 //int pos = (substream >> 3) & 0x7 + (substream & 0x7) * frame->grid_width;
-                                memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
+                                memcpy(ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
                                         len);
                         }
                 } else { /* PT_VIDEO_LDGM */
@@ -1116,78 +1320,40 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         }
                 }
         }
+
+        pthread_mutex_lock(&decoder->lock);
+        {
+                while (decoder->work_to_do) {
+                        decoder->boss_waiting = true;
+                        pthread_cond_wait(&decoder->boss_cv, &decoder->lock);
+                        decoder->boss_waiting = false;
+                }
+
+                decoder->extra_decompress_data = malloc(sizeof(struct extra_decompress_data));
+                decoder->extra_decompress_data->buffer_len = malloc(sizeof(buffer_len));
+                decoder->extra_decompress_data->ext_recv_buffer = malloc(sizeof(ext_recv_buffer));
+                memcpy(decoder->extra_decompress_data->buffer_len, buffer_len, sizeof(buffer_len));
+                memcpy(decoder->extra_decompress_data->ext_recv_buffer, ext_recv_buffer, sizeof(ext_recv_buffer));
+
+                decoder->ext_recv_buffer_index_network = (decoder->ext_recv_buffer_index_network + 1) % 2;
+
+                decoder->work_to_do = true;
+
+                decoder->thread_has_processed_input = false;
+
+                /*  ...and signal the worker */
+                if (decoder->worker_waiting) {
+                        pthread_cond_signal(&decoder->worker_cv);
+                }
+
+                while (!decoder->thread_has_processed_input) {
+                        decoder->boss_waiting = true;
+                        pthread_cond_wait(&decoder->boss_cv, &decoder->lock);
+                        decoder->boss_waiting = false;
+                }
+        }
+        pthread_mutex_unlock(&decoder->lock);
         
-        if(decoder->decoder_type == EXTERNAL_DECODER) {
-                int tile_width = decoder->received_vid_desc.width; // get_video_mode_tiles_x(decoder->video_mode);
-                int tile_height = decoder->received_vid_desc.height; // get_video_mode_tiles_y(decoder->video_mode);
-                int x, y;
-                struct video_frame *output;
-                if(decoder->postprocess) {
-                        output = decoder->pp_frame;
-                } else {
-                        output = frame;
-                }
-                for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
-                        for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
-                                int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
-                                char *out;
-                                if(decoder->merged_fb) {
-                                        tile = vf_get_tile(output, 0);
-                                        // TODO: OK when rendering directly to display FB, otherwise, do not reflect pitch (we use PP)
-                                        out = tile->data + y * decoder->pitch * tile_height +
-                                                vc_get_linesize(tile_width, decoder->out_codec) * x;
-                                } else {
-                                        tile = vf_get_tile(output, x);
-                                        out = tile->data;
-                                }
-                                decompress_frame(decoder->ext_decoder,
-                                                (unsigned char *) out,
-                                                (unsigned char *) ext_recv_buffer[pos],
-                                                buffer_len[pos]);
-                        }
-                }
-        }
-        
-        if(decoder->postprocess) {
-                int i;
-                bool pp_ret;
-
-                pp_ret = vo_postprocess(decoder->postprocess,
-                               decoder->pp_frame,
-                               frame,
-                               decoder->display_pitch);
-
-                if(!pp_ret) {
-                        ret = FALSE;
-                        decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
-                        goto cleanup;
-                }
-
-                for (i = 1; i < decoder->pp_output_frames_count; ++i) {
-                        display_put_frame(decoder->display, frame);
-                        frame = display_get_frame(decoder->display);
-                        pp_ret = vo_postprocess(decoder->postprocess,
-                                       NULL,
-                                       frame,
-                                       decoder->display_pitch);
-                        if(!pp_ret) {
-                                ret = FALSE;
-                                decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
-                                goto cleanup;
-                        }
-                }
-
-                /* get new postprocess frame */
-                decoder->pp_frame = vo_postprocess_getf(decoder->postprocess);
-        }
-
-        if(decoder->change_il) {
-                unsigned int i;
-                for(i = 0; i < frame->tile_count; ++i) {
-                        struct tile *tile = vf_get_tile(frame, i);
-                        decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width, decoder->out_codec), tile->height);
-                }
-        }
 
 cleanup:
         ;
