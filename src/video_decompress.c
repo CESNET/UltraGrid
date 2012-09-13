@@ -58,6 +58,7 @@
 #include "video_decompress/dxt_glsl.h"
 #include "video_decompress/jpeg.h"
 #include "video_decompress/null.h"
+#include "video_decompress/transcode.h"
 #include "lib_common.h"
 
 #define DECOMPRESS_MAGIC 0xdff34f21u
@@ -129,6 +130,7 @@ struct decode_from_to decoders_for_codec[] = {
         { DXT5, UYVY, RTDXT_MAGIC },
         { JPEG, RGB, JPEG_MAGIC },
         { JPEG, UYVY, JPEG_MAGIC },
+        { JPEG, DXT1, TRANSCODE_MAGIC },
         { (codec_t) -1, (codec_t) -1, NULL_MAGIC }
 };
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
@@ -144,6 +146,11 @@ decoder_table_t decoders[] = {
                 MK_NAME(jpeg_decompress), MK_NAME(jpeg_decompress_get_property),
                 MK_NAME(jpeg_decompress_done), NULL},
 #endif 
+#if ! defined BUILD_LIBRARIES && defined HAVE_JPEG || defined HAVE_RTDXT
+        { TRANSCODE_MAGIC, "transcode", MK_STATIC(transcode_decompress_init), MK_STATIC(transcode_decompress_reconfigure),
+                MK_STATIC(transcode_decompress), MK_STATIC(transcode_decompress_get_property),
+                MK_STATIC(transcode_decompress_done), NULL},
+#endif // ! defined BUILD_LIBRARIES && defined HAVE_JPEG || defined HAVE_RTDXT
         { NULL_MAGIC, NULL, MK_STATIC(null_decompress_init), MK_STATIC(null_decompress_reconfigure),
                 MK_STATIC(null_decompress), MK_NAME(null_decompress_get_property),
                 MK_STATIC(null_decompress_done), NULL}

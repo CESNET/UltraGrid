@@ -595,9 +595,25 @@ dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigne
     GPA_EndSample();
     GPA_BeginSample(2);
 #endif
-    
+
+    return dxt_encoder_compress_texture(encoder, encoder->texture_id, image_compressed);
+}
+
+
+int
+dxt_encoder_compress_texture(struct dxt_encoder* encoder, int texture, unsigned char* image_compressed)
+{
+#ifdef USE_PBO_DXT_ENCODER
+    GLubyte *ptr;
+#endif
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+
     glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT); 
     assert(GL_FRAMEBUFFER_COMPLETE == glCheckFramebufferStatus(GL_FRAMEBUFFER));
+
+    glClearColor(1,0,0,1);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     if(encoder->legacy) {
         glBegin(GL_QUADS);

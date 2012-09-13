@@ -69,6 +69,17 @@ int
 dxt_encoder_compress(struct dxt_encoder* encoder, DXT_IMAGE_TYPE* image, unsigned char* image_compressed);
 
 /**
+ * Compress image by DXT encoder
+ * 
+ * @param encoder Encoder structure
+ * @param tex texture index
+ * @param image_compressed Pointer to buffer where compressed image data will be placed
+ * @return 0 if succeeds, otherwise nonzero
+ */
+int
+dxt_encoder_compress_texture(struct dxt_encoder* encoder, int texture, unsigned char* image_compressed);
+
+/**
  * Free buffer for compressed image
  * 
  * @param image_compressed Pointer to buffer where compressed image data are stored
