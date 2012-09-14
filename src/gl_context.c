@@ -16,7 +16,7 @@
 
 #include "gl_context.h"
 
-void init_gl_context(struct gl_context *context, int which) {
+bool init_gl_context(struct gl_context *context, int which) {
 #ifndef HAVE_MACOSX
         x11_enter_thread();
         context->context = NULL;
@@ -54,6 +54,12 @@ void init_gl_context(struct gl_context *context, int which) {
                 context->legacy = TRUE;
         }
 #endif
+
+        if(context->context) {
+                return true;
+        } else {
+                return false;
+        }
 }
 
 
@@ -70,7 +76,11 @@ void gl_context_make_current(struct gl_context *context)
 #ifdef HAVE_MACOSX
         // TODO
 #else
-        glx_make_current(context->context);
+        if(context) {
+                glx_make_current(context->context);
+        } else {
+                glx_make_current(NULL);
+        }
 #endif
 }
 

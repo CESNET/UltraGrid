@@ -56,13 +56,8 @@
 #include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
-#ifdef HAVE_MACOSX
-#include "mac_gl_common.h"
-#else
-#include <GL/glew.h>
-#include "x11_common.h"
-#include "glx_common.h"
-#endif
+
+#include "gl_context.h"
 
 struct video_compress {
         struct dxt_encoder **encoder;
@@ -74,8 +69,7 @@ struct video_compress {
         unsigned int interlaced_input:1;
         codec_t color_spec;
         
-        void *gl_context;
-        int legacy:1;
+        struct gl_context gl_context;
 };
 
 static int configure_with(struct video_compress *s, struct video_frame *frame);
@@ -172,13 +166,15 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         if(s->out[0]->color_spec == DXT1) {
                 for(int i = 0; i < (int) frame->tile_count; ++i) {
                         s->encoder[i] =
-                                dxt_encoder_create(DXT_TYPE_DXT1, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                                dxt_encoder_create(DXT_TYPE_DXT1, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format,
+                                                s->gl_context.legacy);
                 }
                 data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT1);
         } else if(s->out[0]->color_spec == DXT5){
                 for(int i = 0; i < (int) frame->tile_count; ++i) {
                         s->encoder[i] =
-                                dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format, s->legacy);
+                                dxt_encoder_create(DXT_TYPE_DXT5_YCOCG, s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, format,
+                                                s->gl_context.legacy);
                 }
                 data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT5_YCOCG);
         }
@@ -236,42 +232,11 @@ void * dxt_glsl_compress_init(char * opts)
         }
         s->decoded = NULL;
 
-#ifndef HAVE_MACOSX
-        x11_enter_thread();
-        printf("Trying OpenGL 3.1 first.\n");
-        s->gl_context = glx_init(MK_OPENGL_VERSION(3,1));
-        s->legacy = FALSE;
-        if(!s->gl_context) {
-                fprintf(stderr, "[RTDXT] OpenGL 3.1 profile failed to initialize, falling back to legacy profile.\n");
-                s->gl_context = glx_init(OPENGL_VERSION_UNSPECIFIED);
-                s->legacy = TRUE;
-        }
-        if(s->gl_context) {
-                glx_validate(s->gl_context);
-        }
-#else
-        s->gl_context = NULL;
-        if(get_mac_kernel_version_major() >= 11) {
-                printf("[RTDXT] Mac 10.7 or latter detected. Trying OpenGL 3.2 Core profile first.\n");
-                s->gl_context = mac_gl_init(MAC_GL_PROFILE_3_2);
-                if(!s->gl_context) {
-                        fprintf(stderr, "[RTDXT] OpenGL 3.2 Core profile failed to initialize, falling back to legacy profile.\n");
-                } else {
-                        s->legacy = FALSE;
-                }
-        }
-
-        if(!s->gl_context) {
-                s->gl_context = mac_gl_init(MAC_GL_PROFILE_LEGACY);
-                s->legacy = TRUE;
-        }
-#endif
-
-        if(!s->gl_context) {
+        if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
                 fprintf(stderr, "[RTDXT] Error initializing GLX context");
                 return NULL;
         }
-        
+
         if(opts && strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");
                 printf("\t-c RTDXT:DXT1\n");
@@ -296,6 +261,8 @@ void * dxt_glsl_compress_init(char * opts)
                 
         s->configured = FALSE;
 
+        gl_context_make_current(NULL);
+
         return s;
 }
 
@@ -309,9 +276,7 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
         
         unsigned int x;
 
-#ifndef HAVE_MACOSX
-        glx_make_current(s->gl_context);
-#endif
+        gl_context_make_current(&s->gl_context);
         
         if(!s->configured) {
                 int ret;
@@ -344,9 +309,7 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
                                 (unsigned char *) out_tile->data);
         }
 
-#ifndef HAVE_MACOSX
-        glx_make_current(NULL);
-#endif
+        gl_context_make_current(NULL);
         
         return s->out[buffer_idx];
 }
@@ -373,10 +336,7 @@ void dxt_glsl_compress_done(void *arg)
 
         free(s->decoded);
 
-#ifdef HAVE_MACOSX
-        mac_gl_free(s->gl_context);
-#else
-        glx_free(s->gl_context);
-#endif
+        destroy_gl_context(&s->gl_context);
+
         free(s);
 }
