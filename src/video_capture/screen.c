@@ -81,6 +81,9 @@
 #include "x11_common.h"
 #endif
 
+#define QUEUE_SIZE_MIN 2
+#define QUEUE_SIZE_MAX 20
+
 /* prototypes of functions defined in this module */
 static void show_help(void);
 #ifdef HAVE_LINUX
@@ -103,6 +106,13 @@ extern char **uv_argv;
 
 static struct vidcap_screen_state *state;
 
+struct grabbed_data;
+
+struct grabbed_data {
+        XImage *data;
+        struct grabbed_data *next;
+};
+
 struct vidcap_screen_state {
         struct video_frame       *frame; 
         struct tile       *tile; 
@@ -114,14 +124,14 @@ struct vidcap_screen_state {
         Display *dpy;
         Window root;
 
-        char *buffer[2];
-        int buffer_net;
+        struct grabbed_data * volatile head, * volatile tail;
+        volatile int queue_len;
+
         pthread_mutex_t lock;
-        pthread_cond_t boss_cv;
-        volatile bool boss_waiting;
         pthread_cond_t worker_cv;
         volatile bool worker_waiting;
-        volatile bool process_item;
+        pthread_cond_t boss_cv;
+        volatile bool boss_waiting;
 
         volatile bool should_exit_worker;
 
@@ -161,11 +171,12 @@ static void initialize() {
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
         pthread_cond_init(&s->worker_cv, NULL);
-        s->buffer_net = 1;
 
-        s->worker_waiting = false;
         s->boss_waiting = false;
-        s->process_item = true; // start it
+        s->worker_waiting = false;
+
+        s->head = s->tail = NULL;
+        s->queue_len = 0;
 
         s->should_exit_worker = false;
 
@@ -178,7 +189,7 @@ static void initialize() {
         CFRelease(image);
 #endif
 
-        s->frame->color_spec = RGBA;
+        s->frame->color_spec = RGB;
         if(s->fps > 0.0) {
                 s->frame->fps = s->fps;
         } else {
@@ -188,8 +199,7 @@ static void initialize() {
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
 
 #ifndef HAVE_MACOSX
-        s->buffer[0] = (char *) malloc(s->tile->data_len);
-        s->buffer[1] = (char *) malloc(s->tile->data_len);
+        s->tile->data = (char *) malloc(s->tile->data_len);
 
         pthread_create(&s->worker_id, NULL, grab_thread, s);
 #else
@@ -211,31 +221,34 @@ static void *grab_thread(void *args)
         struct vidcap_screen_state *s = args;
 
         while(!s->should_exit_worker) {
-                pthread_mutex_lock(&s->lock);
-                while(!s->process_item) {
-                        s->worker_waiting = true;
-                        pthread_cond_wait(&s->worker_cv, &s->lock);
-                        s->worker_waiting = false;
-                }
+                struct grabbed_data *new_item = malloc(sizeof(struct grabbed_data));
 
-                XImage *image = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
-
-                /*
-                 * The more correct way is to use X pixel accessor (XGetPixel) as in previous version
-                 * Unfortunatelly, this approach is damn slow. Current approach might be incorrect in
-                 * some configurations, but seems to work currently. To be corrected if there is an
-                 * opposite case.
-                 */
-                vc_copylineRGBA((unsigned char *) s->buffer[(s->buffer_net + 1) % 2],
-                                (unsigned char *) &image->data[0], s->tile->data_len, 16, 8, 0);
-
-                XDestroyImage(image);
-
-                s->process_item = false;
+                new_item->data = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
+                new_item->next = NULL;
 
                 if(s->boss_waiting)
                         pthread_cond_signal(&s->boss_cv);
 
+                pthread_mutex_lock(&s->lock);
+                {
+                        while(s->queue_len > QUEUE_SIZE_MAX && !s->should_exit_worker) {
+                                s->worker_waiting = true;
+                                pthread_cond_wait(&s->worker_cv, &s->lock);
+                                s->worker_waiting = false;
+                        }
+
+                        if(s->head) {
+                                s->tail->next = new_item;
+                                s->tail = new_item;
+                        } else {
+                                s->head = s->tail = new_item;
+                        }
+                        s->queue_len += 1;
+
+                        if(s->boss_waiting)
+                                pthread_cond_signal(&s->boss_cv);
+
+                }
                 pthread_mutex_unlock(&s->lock);
         }
 
@@ -280,8 +293,6 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
 
 #ifdef HAVE_LINUX
         s->worker_id = 0;
-        s->buffer[0] = NULL;
-        s->buffer[1] = NULL;
 #endif
 
         s->prev_time.tv_sec = 
@@ -316,12 +327,15 @@ void vidcap_screen_finish(void *state)
 
         s->should_exit_worker = true;
         if(s->worker_waiting) {
-                s->process_item = true; // get out of loop
                 pthread_cond_signal(&s->worker_cv);
         }
 
         pthread_mutex_unlock(&s->lock);
-#endif HAVE_LINUX
+
+        if(s->worker_id) {
+                pthread_join(s->worker_id, NULL);
+        }
+#endif // HAVE_LINUX
 }
 
 void vidcap_screen_done(void *state)
@@ -330,12 +344,20 @@ void vidcap_screen_done(void *state)
 
         assert(s != NULL);
 #ifdef HAVE_LINUX
-        if(s->worker_id) {
-                pthread_join(s->worker_id, NULL);
+        pthread_mutex_lock(&s->lock);
+        {
+                while(s->queue_len > 0) {
+                        struct grabbed_data *item = s->head;
+                        s->head = s->head->next;
+                        XDestroyImage(item->data);
+                        free(item);
+                        s->queue_len -= 1;
+                }
         }
+        pthread_mutex_unlock(&s->lock);
 
-        free(s->buffer[0]);
-        free(s->buffer[1]);
+        if(s->tile)
+                free(s->tile->data);
 #endif
 
         if(s->tile) {
@@ -356,27 +378,46 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
         *audio = NULL;
 
 #ifndef HAVE_MACOSX
+
+        struct grabbed_data *item = NULL;
+
         pthread_mutex_lock(&s->lock);
+        {
+                while(s->queue_len == 0) {
+                        s->boss_waiting = true;
+                        pthread_cond_wait(&s->boss_cv, &s->lock);
+                        s->boss_waiting = false;
+                }
 
-        if(should_exit) {
-                pthread_mutex_unlock(&s->lock);
-                return NULL;
+                while(s->queue_len > QUEUE_SIZE_MIN) {
+                        item = s->head;
+                        s->head = s->head->next;
+                        XDestroyImage(item->data);
+                        free(item);
+                        s->queue_len -= 1;
+                }
+
+                item = s->head;
+                s->head = s->head->next;
+                s->queue_len -= 1;
+
+                if(s->boss_waiting) {
+                        pthread_cond_signal(&s->boss_cv);
+                }
         }
-
-        while(s->process_item) {
-                s->boss_waiting = true;
-                pthread_cond_wait(&s->boss_cv, &s->lock);
-                s->boss_waiting = false;
-        }
-        
-        s->buffer_net = (s->buffer_net + 1) % 2;
-        s->tile->data = s->buffer[s->buffer_net];
-
-        s->process_item = true;
-        if(s->worker_waiting)
-                pthread_cond_signal(&s->worker_cv);
         pthread_mutex_unlock(&s->lock);
 
+        /*
+         * The more correct way is to use X pixel accessor (XGetPixel) as in previous version
+         * Unfortunatelly, this approach is damn slow. Current approach might be incorrect in
+         * some configurations, but seems to work currently. To be corrected if there is an
+         * opposite case.
+         */
+        vc_copylineABGRtoRGB((unsigned char *) s->tile->data,
+                        (unsigned char *) &item->data->data[0], s->tile->data_len);
+
+        XDestroyImage(item->data);
+        free(item);
 #else
         CGImageRef image = CGDisplayCreateImage(s->display);
         CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));

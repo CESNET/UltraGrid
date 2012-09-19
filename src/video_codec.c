@@ -667,14 +667,74 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
         }
 }
 
-void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
+	register uint32_t * src = src2;
+	register uint32_t * dst = dst2;
         while(dst_len > 0) {
-                *dst++ = *src++;
-                *dst++ = *src++;
-                *dst++ = *src++;
-                src++;
-                dst_len -= 3;
+		register uint32_t in1 = *src++;
+		register uint32_t in2 = *src++;
+		register uint32_t in3 = *src++;
+		register uint32_t in4 = *src++;
+		*dst++ = ((in2 & 0xff) << 24) | (in1 & 0xffffff);
+		*dst++ = ((in3 & 0xffff) << 16) |  ((in2 & 0xffff00) >> 8);
+		*dst++ = ((in4 & 0xffffff) << 8) | ((in3 & 0xff0000) >> 16) ;
+
+                dst_len -= 12;
+        }
+}
+
+void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
+{
+	register uint32_t * src = src2;
+	register uint32_t * dst = dst2;
+        while(dst_len > 0) {
+		register uint32_t in1 = *src++;
+		register uint32_t in2 = *src++;
+		register uint32_t in3 = *src++;
+		register uint32_t in4 = *src++;
+
+                *dst++ = ((in2 >> rshift)) << 24 |
+                        ((in1 >> bshift) & 0xff) << 16 |
+                        ((in1 >> gshift) & 0xff) << 8 |
+                        ((in1 >> rshift) & 0xff);
+                *dst++ = ((in3 >> gshift)) << 24 |
+                        ((in3 >> rshift) & 0xff) << 16 |
+                        ((in2 >> bshift) & 0xff) << 8 |
+                        ((in2 >> gshift) & 0xff);
+                *dst++  = ((in4 >> bshift)) << 24 |
+                        ((in4 >> gshift) & 0xff) << 16 |
+                        ((in4 >> rshift) & 0xff) << 8 |
+                        ((in3 >> bshift) & 0xff);
+
+                dst_len -= 12;
+        }
+}
+
+void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
+{
+	register uint32_t * src = src2;
+	register uint32_t * dst = dst2;
+        while(dst_len > 0) {
+		register uint32_t in1 = *src++;
+		register uint32_t in2 = *src++;
+		register uint32_t in3 = *src++;
+		register uint32_t in4 = *src++;
+
+                *dst++ = (in2 & 0xff0000) << 8 |
+                        (in1 & 0xff) << 16 |
+                        (in1 & 0xff00) |
+                        (in1 & 0xff0000) >> 16;
+                *dst++ = (in3 & 0xff00) << 16 |
+                        (in3 & 0xff0000) |
+                        (in2 & 0xff) << 8 |
+                        (in2 & 0xff00) >> 8;
+                *dst++  = (in4 & 0xff) << 24 |
+                        (in4 & 0xff00) << 8 |
+                        (in4 & 0xff0000) >> 8 |
+                        (in3 & 0xff);
+
+                dst_len -= 12;
         }
 }
 
