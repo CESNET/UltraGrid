@@ -87,7 +87,7 @@
 
 #define STRINGIFY(A) #A
 
-static volatile bool should_exit = false;
+static volatile bool should_exit_main_loop = false;
 
 // source code for a shader unit (xsedmik)
 static char * yuv422_to_rgb_fp = STRINGIFY(
@@ -840,8 +840,6 @@ static void glut_key_callback(unsigned char key, int x, int y)
                         glut_resize_window(gl);
                         break;
                 case 'q':
-                        if(gl->window != -1)
-                                glutDestroyWindow(gl->window);
                         exit_uv(0);
                         break;
                 case 'd':
@@ -855,7 +853,7 @@ void display_gl_run(void *arg)
 {
         UNUSED(arg);
 
-        while(!should_exit) {
+        while(!should_exit_main_loop) {
                 glut_idle_callback();
 #ifndef HAVE_MACOSX
                 glutMainLoopEvent();
@@ -1082,9 +1080,7 @@ void display_gl_finish(void *state)
 
         assert(s->magic == MAGIC_GL);
 
-        should_exit = true;
-
-        s->processed = TRUE;
+        should_exit_main_loop = true;
 }
 
 struct video_frame * display_gl_getf(void *state)
