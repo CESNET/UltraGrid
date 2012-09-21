@@ -77,6 +77,9 @@
 #include <Carbon/Carbon.h>
 #else
 #include <X11/Xlib.h>
+#ifdef HAVE_XFIXES
+#include <X11/extensions/Xfixes.h>
+#endif // HAVE_XFIXES
 #include <X11/Xutil.h>
 #include "x11_common.h"
 #endif
@@ -223,7 +226,43 @@ static void *grab_thread(void *args)
         while(!s->should_exit_worker) {
                 struct grabbed_data *new_item = malloc(sizeof(struct grabbed_data));
 
+#ifdef HAVE_XFIXES
+                XFixesCursorImage *cursor =
+                        XFixesGetCursorImage (s->dpy);
+#endif // HAVE_XFIXES
                 new_item->data = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
+
+#ifdef HAVE_XFIXES
+                uint32_t *image_data = (uint32_t *) new_item->data->data;
+                for(int x = 0; x < cursor->width; ++x) {
+                        for(int y = 0; y < cursor->height; ++y) {
+                                if(cursor->x + x >= (int) s->tile->width ||
+                                                cursor->y + y >= (int) s->tile->height)
+                                        continue;
+                                //image_data[x + y * s->tile->width] = cursor->pixels[x + y * cursor->width];
+                                uint_fast32_t cursor_pix = cursor->pixels[x + y * cursor->width];
+                                ///fprintf(stderr, "%d %d\n", cursor->x + x, cursor->y + y);
+                                int alpha = cursor_pix >> 24 & 0xff;
+                                int r1 = cursor_pix >> 16 & 0xff,
+                                         g1 = cursor_pix >> 8 & 0xff,
+                                         b1 = cursor_pix >> 0 & 0xff;
+                                uint_fast32_t image_pix = image_data[cursor->x + x + (cursor->y + y) * s->tile->width];
+                                int r2 = image_pix >> 16 & 0xff,
+                                         g2 = image_pix >> 8 & 0xff,
+                                         b2 = image_pix >> 0 & 0xff;
+                                float scale_image = (float) (255 - alpha)/ 255;
+                                float scale_cursor = (float) alpha / 255;
+
+                                image_data[cursor->x + x + (cursor->y + y) * s->tile->width] = 
+                                        ((int) (r1 * scale_cursor + r2 * scale_image) & 0xff) << 16 |
+                                        ((int) (g1 * scale_cursor + g2 * scale_image) & 0xff) << 8 |
+                                        ((int) (b1 * scale_cursor + b2 * scale_image) & 0xff) << 0;
+                        }
+                }
+
+                XFree(cursor);
+#endif // HAVE_XFIXES
+
                 new_item->next = NULL;
 
                 if(s->boss_waiting)
@@ -277,7 +316,6 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
 
         UNUSED(flags);
 
-
         state = s = (struct vidcap_screen_state *) malloc(sizeof(struct vidcap_screen_state));
         if(s == NULL) {
                 printf("Unable to allocate screen capture state\n");
@@ -293,7 +331,10 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
 
 #ifdef HAVE_LINUX
         s->worker_id = 0;
-#endif
+#ifndef HAVE_XFIXES
+        fprintf(stderr, "[Screen capture] Compiled without XFixes library, cursor won't be shown!\n");
+#endif // ! HAVE_XFIXES
+#endif // HAVE_LINUX
 
         s->prev_time.tv_sec = 
                 s->prev_time.tv_usec = 0;

@@ -1141,13 +1141,16 @@ case "$host_os" in
                 AC_CHECK_HEADER(X11/Xlib.h)
                 AC_CHECK_HEADER(X11/Xutil.h)
                 AC_CHECK_LIB(X11, XGetImage)
+                PKG_CHECK_MODULES([XFIXES], [xfixes], 
+                                  AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
+                                  )
                 LIBS=$SAVED_LIBS
 
 		if test $screen_cap_req = yes -a $ac_cv_lib_X11_XGetImage = yes -a \
                          $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes
 		then
                         screen_cap=yes
-                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
+                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11 $XFIXES_LIBS"
 		else
                         screen_cap=no
 		fi
