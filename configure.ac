@@ -1279,6 +1279,48 @@ AC_SUBST(RTDXT_LIB)
 AC_SUBST(DXT_GLSL_CFLAGS)
 
 # -------------------------------------------------------------------------------------------------
+# UYVY
+uyvy=no
+
+AC_ARG_ENABLE(uyvy,
+      AS_HELP_STRING([--disable-uyvy], [disable dummy RGB to UYVY compression (default is auto)]),
+	[uyvy_req=$enableval],
+        [uyvy_req=yes])
+
+SAVED_LIBS=$LIBS
+
+# Linux
+if test $uyvy_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+        -a "$FOUND_GL_H" = yes -a "$system" = Linux
+then
+        UYVY_LIB=" -lGLEW -lGL -lX11"
+        uyvy=yes
+fi
+
+# Mac
+if test "$system" = MacOSX
+then
+        uyvy=no
+fi
+
+# common
+if test $uyvy = yes
+then
+        AC_DEFINE([HAVE_COMPRESS_UYVY], [1], [Build with dummy UYVY compression])
+        UYVY_COMPRESS_OBJ="src/video_compress/uyvy.o"
+        AC_SUBST(UYVY_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_uyvy.so.$video_compress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $UYVY_COMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $UYVY_COMPRESS_OBJ"
+        DEFINE_GL
+fi
+
+LIB_MODULES="$LIB_MODULES $UYVY_LIB"
+
+AC_SUBST(UYVY_COMPRESS_OBJ)
+AC_SUBST(UYVY_LIB)
+
+
+# -------------------------------------------------------------------------------------------------
 # CUDA staff
 #
 # CUDA lookup order:
@@ -1900,6 +1942,7 @@ RESULT=\
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg (static: $jpeg_static)
+  UYVY dummy compression ...... $uyvy
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
