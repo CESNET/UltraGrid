@@ -84,8 +84,7 @@
 #include "x11_common.h"
 #endif
 
-#define QUEUE_SIZE_MIN 2
-#define QUEUE_SIZE_MAX 20
+#define QUEUE_SIZE_MAX 3
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
@@ -265,9 +264,6 @@ static void *grab_thread(void *args)
 
                 new_item->next = NULL;
 
-                if(s->boss_waiting)
-                        pthread_cond_signal(&s->boss_cv);
-
                 pthread_mutex_lock(&s->lock);
                 {
                         while(s->queue_len > QUEUE_SIZE_MAX && !s->should_exit_worker) {
@@ -430,20 +426,12 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
                         s->boss_waiting = false;
                 }
 
-                while(s->queue_len > QUEUE_SIZE_MIN) {
-                        item = s->head;
-                        s->head = s->head->next;
-                        XDestroyImage(item->data);
-                        free(item);
-                        s->queue_len -= 1;
-                }
-
                 item = s->head;
                 s->head = s->head->next;
                 s->queue_len -= 1;
 
-                if(s->boss_waiting) {
-                        pthread_cond_signal(&s->boss_cv);
+                if(s->worker_waiting) {
+                        pthread_cond_signal(&s->worker_cv);
                 }
         }
         pthread_mutex_unlock(&s->lock);
