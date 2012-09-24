@@ -266,7 +266,7 @@ static void usage(void)
         printf("\t                         \twill be used for receiving, second one\n");
         printf("\t                         \tfor sending.\n");
         printf("\n");
-        printf("\t-l <limit_bitrate>       \tlimit sending bitrate (aggregate)\n");
+        printf("\t-l <limit_bitrate> | unlimited\tlimit sending bitrate (aggregate)\n");
         printf("\t                         \tto limit_bitrate Mb/s\n");
         printf("\n");
         printf("\t--audio-channel-map      <mapping> | help\n");
@@ -1064,10 +1064,14 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case 'l':
-                        bitrate = atoi(optarg);
-                        if(bitrate <= 0) {
-                                usage();
-                                return EXIT_FAIL_USAGE;
+                        if(strcmp(optarg, "unlimited") == 0) {
+                                bitrate = -1;
+                        } else {
+                                bitrate = atoi(optarg);
+                                if(bitrate <= 0) {
+                                        usage();
+                                        return EXIT_FAIL_USAGE;
+                                }
                         }
                         break;
                 case '6':
@@ -1297,8 +1301,11 @@ int main(int argc, char *argv[])
                         bitrate = 6618;
                 }
 
-                packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
-
+                if(bitrate != -1) {
+                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+                } else {
+                        packet_rate = 0;
+                }
 
                 if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
