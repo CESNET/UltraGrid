@@ -1142,7 +1142,8 @@ case "$host_os" in
                 AC_CHECK_HEADER(X11/Xutil.h)
                 AC_CHECK_LIB(X11, XGetImage)
                 PKG_CHECK_MODULES([XFIXES], [xfixes], 
-                                  AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
+                                  [AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])],
+                                  [HAVE_XFIXES=no]
                                   )
                 LIBS=$SAVED_LIBS
 
