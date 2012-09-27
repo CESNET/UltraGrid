@@ -60,10 +60,11 @@ fi
 if test $enable_opengl = yes ; then
         AC_CHECK_HEADER(GL/glew.h, FOUND_GLEW_H=yes)
         AC_CHECK_LIB(GLEW, glewIsSupported, FOUND_GLEW_L=yes)
+        AC_CHECK_LIB(GL, glBindTexture, FOUND_GL_L=yes)
 
-        if test "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes ; then
+        if test "$FOUND_GLEW_L" = yes -a "$FOUND_GLEW_H" = yes -a "$FOUND_GL_L" = yes; then
                 AC_DEFINE([GPUJPEG_USE_OPENGL], [1], [Build with OpenGL support])
-                GPUJPEG_LIBS="$GPUJPEG_LIBS -lGLEW"
+                GPUJPEG_LIBS="$GPUJPEG_LIBS -lGLEW -lGL"
         else
                 enable_opengl=no
         fi
@@ -129,6 +130,7 @@ AC_SUBST(CUDA_INSTALL_LIB)
 AC_SUBST(COMMON_CFLAGS)
 AC_SUBST(GPUJPEG_CFLAGS)
 AC_SUBST(GPUJPEG_LDFLAGS)
+AC_SUBST(GPUJPEG_LIBS)
 AC_SUBST(LIBGPUJPEG_CUDA_OBJS)
 
 AC_CONFIG_FILES([Makefile libgpujpeg.pc test/memcheck/Makefile test/opengl_interop/Makefile ])
