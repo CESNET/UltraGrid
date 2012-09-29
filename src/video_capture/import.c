@@ -419,14 +419,16 @@ vidcap_import_finish(void *state)
 	pthread_join(s->thread_id, NULL);
 
         // audio
-        pthread_mutex_lock(&s->audio_state.lock);
-        {
-                if(s->audio_state.reader_waiting)
-                        pthread_cond_signal(&s->audio_state.reader_cv);
-        }
-        pthread_mutex_unlock(&s->audio_state.lock);
+        if(s->audio_state.has_audio) {
+                pthread_mutex_lock(&s->audio_state.lock);
+                {
+                        if(s->audio_state.reader_waiting)
+                                pthread_cond_signal(&s->audio_state.reader_cv);
+                }
+                pthread_mutex_unlock(&s->audio_state.lock);
 
-	pthread_join(s->audio_state.thread_id, NULL);
+                pthread_join(s->audio_state.thread_id, NULL);
+        }
 }
 
 void
@@ -544,6 +546,7 @@ static void * reading_thread(void *args)
                 assert(new_entry->data != NULL);
 
                 size_t res = fread(new_entry->data, new_entry->data_len, 1, file);
+                fclose(file);
                 if(res != 1) {
                         perror("fread");
                         goto next;
