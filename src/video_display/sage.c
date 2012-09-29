@@ -186,9 +186,9 @@ void *display_sage_init(char *fmt, unsigned int flags)
                                                  fprintf(stderr, "Codec not found according to FourCC.\n");
                                                  free(s); return NULL;
                                          }
-                                         if(s->requestedDisplayCodec != UYVY ||
-                                                         s->requestedDisplayCodec != RGBA ||
-                                                         s->requestedDisplayCodec != RGB ||
+                                         if(s->requestedDisplayCodec != UYVY &&
+                                                         s->requestedDisplayCodec != RGBA &&
+                                                         s->requestedDisplayCodec != RGB &&
                                                          s->requestedDisplayCodec != DXT1) {
                                                  fprintf(stderr, "Entered codec is not nativelly supported by SAGE.\n");
                                                  free(s); return NULL;
