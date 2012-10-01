@@ -61,7 +61,9 @@ extern void (*exit_uv)(int status);
 
 extern unsigned int audio_capture_channels;
 
-extern unsigned int cuda_device;
+#define MAX_CUDA_DEVICES 4
+extern unsigned int cuda_devices[];
+extern unsigned int cuda_devices_count;
 
 // for aggregate.c
 struct vidcap;

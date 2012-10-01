@@ -165,7 +165,8 @@ static int exit_status = EXIT_SUCCESS;
 static bool should_exit_receiver = false;
 static bool should_exit_sender = false;
 
-unsigned int cuda_device = 0;
+unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
+unsigned int cuda_devices_count = 1;
 unsigned int audio_capture_channels = 2;
 
 uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
@@ -1165,7 +1166,18 @@ int main(int argc, char *argv[])
                                 compress_done(compression);
                                 return EXIT_SUCCESS;
                         } else {
-                                cuda_device = atoi(optarg);
+                                char *item, *save_ptr = NULL;
+                                unsigned int i = 0;
+                                while((item = strtok_r(optarg, ",", &save_ptr))) {
+                                        if(i >= sizeof(cuda_devices) / sizeof(unsigned int)) {
+                                                fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
+                                                return EXIT_FAILURE;
+                                        }
+                                        cuda_devices[i] = atoi(item);
+                                        optarg = NULL;
+                                        ++i;
+                                }
+                                cuda_devices_count = i;
                         }
                         break;
 #else

@@ -104,10 +104,10 @@ void * jpeg_decompress_init(void)
         s->pitch = 0;
 
         int ret;
-        printf("Initializing CUDA device %d...\n", cuda_device);
-        ret = gpujpeg_init_device(cuda_device, TRUE);
+        printf("Initializing CUDA device %d...\n", cuda_devices[0]);
+        ret = gpujpeg_init_device(cuda_devices[0], TRUE);
         if(ret != 0) {
-                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_device);
+                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
                 free(s);
                 return NULL;
         }
