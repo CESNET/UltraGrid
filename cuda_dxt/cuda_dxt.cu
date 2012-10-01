@@ -11,12 +11,6 @@
 typedef unsigned int u32;
 
 
-/// Hack: 3-component textures are not supported - use 4 component texture 
-/// instead (such that each 4 3component pixels are loaded as 3 4component 
-/// pixels).
-texture<uchar4, cudaTextureType2D, cudaReadModeNormalizedFloat> inputTex; 
-
-
 /// Encodes color palette endpoint into 565 code and adjusts input values.
 __device__ static u32 encode_endpoint(float & r, float & g, float & b) {
     // clamp to range [0,1] and use full output range for each component
@@ -59,15 +53,18 @@ __device__ static void swap(T & a, T & b) {
 
 /// DXT compression - each thread compresses one 4x4 DXT block.
 /// Alpha-color palette mode is not used (always emmits 4color palette code).
-/// Input is taken from texture.
 template <bool YUV_TO_RGB>
-__global__ static void dxt_kernel(void * out, int size_x, int size_y) {
+__global__ static void dxt_kernel(const void * src, void * out, int size_x, int size_y) {
     // coordinates of this thread's 4x4 block
     const int block_idx_x = threadIdx.x + blockIdx.x * blockDim.x;
     const int block_idx_y = threadIdx.y + blockIdx.y * blockDim.y;
     
+    // coordinates of block's top-left pixel
+    const int block_x = block_idx_x * 4;
+    const int block_y = block_idx_y * 4;
+    
     // skip if out of bounds
-    if(block_idx_y * 4 >= size_y || block_idx_x * 4 >= size_x) {
+    if(block_y >= size_y || block_x >= size_x) {
         return;
     }
 
@@ -77,38 +74,40 @@ __global__ static void dxt_kernel(void * out, int size_x, int size_y) {
     float b[16];
 
     // load RGB samples for all 16 input pixels
+    const int src_stride = (size_x >> 2) * 3;
     for(int y = 0; y < 4; y++) {
         // offset of loaded pixels in the buffer
         const int load_offset = y * 4;
         
-        // texture row y-coordinate
-        const float tex_y = block_idx_y * 4.0f + y;
+        // pointer to source of this input row
+        const uchar4 * const row_src = (uchar4*)src
+                                     + src_stride * (block_y + y)
+                                     + block_idx_x * 3;
         
-        // HACK: load 3 texture pixels - each with 4 components
-        // (3component pixels are not supported)
-        const float4 p0 = tex2D(inputTex, block_idx_x * 3.0f + 0.0f, tex_y);
-        const float4 p1 = tex2D(inputTex, block_idx_x * 3.0f + 1.0f, tex_y);
-        const float4 p2 = tex2D(inputTex, block_idx_x * 3.0f + 2.0f, tex_y);
+        // load all 4 3component pixels of the row
+        const uchar4 p0 = row_src[0];
+        const uchar4 p1 = row_src[1];
+        const uchar4 p2 = row_src[2];
         
         // pixel #0
-        r[load_offset + 0] = p0.x;  
-        g[load_offset + 0] = p0.y;
-        b[load_offset + 0] = p0.z;
+        r[load_offset + 0] = p0.x * 0.00392156862745f;
+        g[load_offset + 0] = p0.y * 0.00392156862745f;
+        b[load_offset + 0] = p0.z * 0.00392156862745f;
         
         // pixel #1
-        r[load_offset + 1] = p0.w;
-        g[load_offset + 1] = p1.x;
-        b[load_offset + 1] = p1.y;
+        r[load_offset + 1] = p0.w * 0.00392156862745f;
+        g[load_offset + 1] = p1.x * 0.00392156862745f;
+        b[load_offset + 1] = p1.y * 0.00392156862745f;
         
         // pixel #2
-        r[load_offset + 2] = p1.z;
-        g[load_offset + 2] = p1.w;
-        b[load_offset + 2] = p2.x;
+        r[load_offset + 2] = p1.z * 0.00392156862745f;
+        g[load_offset + 2] = p1.w * 0.00392156862745f;
+        b[load_offset + 2] = p2.x * 0.00392156862745f;
         
         // pixel #3
-        r[load_offset + 3] = p2.y;
-        g[load_offset + 3] = p2.z;
-        b[load_offset + 3] = p2.w;
+        r[load_offset + 3] = p2.y * 0.00392156862745f;
+        g[load_offset + 3] = p2.z * 0.00392156862745f;
+        b[load_offset + 3] = p2.w * 0.00392156862745f;
     }
     
     // transform colors from YUV to RGB if required
@@ -224,7 +223,7 @@ __global__ static void dxt_kernel(void * out, int size_x, int size_y) {
 }
 
 
-/// Compute grid size, bind input as a texture and launch DXT kernel.
+/// Compute grid size and launch DXT kernel.
 template <bool YUV_TO_RGB>
 static int dxt_launch(const void * src, void * out, int sx, int sy, cudaStream_t str) {
     // check image size and alignment
@@ -232,31 +231,13 @@ static int dxt_launch(const void * src, void * out, int sx, int sy, cudaStream_t
         return -1;
     }
     
-    // 3-component texures not supported => use 4 components and alter width
-    const int tex_pitch = sx * 3;
-    const int tex_sx = tex_pitch / 4;
-    
-    // texture setup
-    inputTex.normalized = 0;
-    inputTex.filterMode = cudaFilterModePoint;
-    inputTex.addressMode[0] = cudaAddressModeClamp;
-    inputTex.addressMode[1] = cudaAddressModeClamp;
-    inputTex.addressMode[2] = cudaAddressModeClamp;
-    if(cudaSuccess != cudaBindTexture2D(0, inputTex, src, inputTex.channelDesc, tex_sx, sy, tex_pitch)) {
-        printf("CUDA error: %s.\n", cudaGetErrorString(cudaGetLastError()));
-        return -2;
-    }
-    
     // grid and threadblock sizes
     const dim3 tsiz(16, 16);
     const dim3 gsiz((sx + tsiz.x - 1) / tsiz.x, (sy + tsiz.y - 1) / tsiz.y);
     
     // launch kernel, sync and check the result
-    dxt_kernel<YUV_TO_RGB><<<gsiz, tsiz, 0, str>>>(out, sx, sy);
-    const int result = cudaSuccess != cudaStreamSynchronize(str) ? -3 : 0;
-    
-    // unbind the texture and return result
-    return cudaSuccess != cudaUnbindTexture(inputTex) ? -4 : result;
+    dxt_kernel<YUV_TO_RGB><<<gsiz, tsiz, 0, str>>>(src, out, sx, sy);
+    return cudaSuccess != cudaStreamSynchronize(str) ? -3 : 0;
 }
 
 
