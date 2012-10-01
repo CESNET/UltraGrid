@@ -146,7 +146,7 @@ decoder_table_t decoders[] = {
                 MK_NAME(jpeg_decompress), MK_NAME(jpeg_decompress_get_property),
                 MK_NAME(jpeg_decompress_done), NULL},
 #endif 
-#if ! defined BUILD_LIBRARIES && defined HAVE_JPEG || defined HAVE_RTDXT
+#if defined HAVE_TRANSCODE || defined BUILD_LIBRARIES
         { TRANSCODE_MAGIC, "transcode", MK_STATIC(transcode_decompress_init), MK_STATIC(transcode_decompress_reconfigure),
                 MK_STATIC(transcode_decompress), MK_STATIC(transcode_decompress_get_property),
                 MK_STATIC(transcode_decompress_done), NULL},

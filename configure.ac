@@ -1513,6 +1513,13 @@ AC_SUBST(JPEG_INC)
 AC_SUBST(JPEG_LIB)
 
 # -------------------------------------------------------------------------------------------------
+# TRANSCODE
+if test $jpeg = yes -a "$build_libraries" = no; then
+        LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.cu.o"
+        AC_DEFINE([HAVE_TRANSCODE], [1], [Build with JPEG to DXT1 transcode support])
+fi
+
+# -------------------------------------------------------------------------------------------------
 # SAGE stuff
 
 SAGE_OBJ=
