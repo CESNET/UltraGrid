@@ -132,8 +132,7 @@ static void *worker_thread(void *arg)
                         gpujpeg_decoder_output_set_cuda_buffer(&decoder_output);
                         gpujpeg_decoder_decode(s->jpeg_decoder[myID], s->input[myID], s->src_len[myID], &decoder_output);
 
-
-                        cuda_rgb_to_dxt1(decoder_output.data, s->dxt_out_buff[myID], s->desc.width, s->desc.height, 0);
+                        cuda_rgb_to_dxt1(decoder_output.data, s->dxt_out_buff[myID], s->desc.width, -s->desc.height, 0);
                         if(cudaSuccess != cudaMemcpy((char*) s->output[myID], s->dxt_out_buff[myID], s->desc.width * s->desc.height / 2, cudaMemcpyDeviceToHost)) {
                                 fprintf(stderr, "[transcode] unable to copy from device.");
                         }

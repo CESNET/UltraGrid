@@ -53,7 +53,7 @@ __device__ static void swap(T & a, T & b) {
 
 /// DXT compression - each thread compresses one 4x4 DXT block.
 /// Alpha-color palette mode is not used (always emmits 4color palette code).
-template <bool YUV_TO_RGB>
+template <bool YUV_TO_RGB, bool VERTICAL_MIRRORING>
 __global__ static void dxt_kernel(const void * src, void * out, int size_x, int size_y) {
     // coordinates of this thread's 4x4 block
     const int block_idx_x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -80,8 +80,12 @@ __global__ static void dxt_kernel(const void * src, void * out, int size_x, int 
         const int load_offset = y * 4;
         
         // pointer to source of this input row
+        int row_idx = block_y + y;
+        if(VERTICAL_MIRRORING) {
+            row_idx = size_y - 1 - row_idx;
+        }
         const uchar4 * const row_src = (uchar4*)src
-                                     + src_stride * (block_y + y)
+                                     + src_stride * row_idx
                                      + block_idx_x * 3;
         
         // load all 4 3component pixels of the row
@@ -226,6 +230,13 @@ __global__ static void dxt_kernel(const void * src, void * out, int size_x, int 
 /// Compute grid size and launch DXT kernel.
 template <bool YUV_TO_RGB>
 static int dxt_launch(const void * src, void * out, int sx, int sy, cudaStream_t str) {
+    // vertical mirroring?
+    bool mirrored = false;
+    if(sy < 0) {
+        mirrored = true;
+        sy = -sy;
+    }
+    
     // check image size and alignment
     if((sx & 3) || (sy & 3) || (15 & (size_t)src) || (7 & (size_t)out)) {
         return -1;
@@ -236,7 +247,11 @@ static int dxt_launch(const void * src, void * out, int sx, int sy, cudaStream_t
     const dim3 gsiz((sx + tsiz.x - 1) / tsiz.x, (sy + tsiz.y - 1) / tsiz.y);
     
     // launch kernel, sync and check the result
-    dxt_kernel<YUV_TO_RGB><<<gsiz, tsiz, 0, str>>>(src, out, sx, sy);
+    if(mirrored) {
+        dxt_kernel<YUV_TO_RGB, true><<<gsiz, tsiz, 0, str>>>(src, out, sx, sy);
+    } else {
+        dxt_kernel<YUV_TO_RGB, false><<<gsiz, tsiz, 0, str>>>(src, out, sx, sy);
+    }
     return cudaSuccess != cudaStreamSynchronize(str) ? -3 : 0;
 }
 

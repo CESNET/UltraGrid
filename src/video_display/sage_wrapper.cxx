@@ -88,8 +88,11 @@ void *initSage(const char *confName, int appID, int nodeID, int width,
                         break;
         }
 
-        //sailCfg.rowOrd = BOTTOM_TO_TOP;
-        sailCfg.rowOrd = TOP_TO_BOTTOM;
+        if(codec == DXT1) {
+                sailCfg.rowOrd = BOTTOM_TO_TOP;
+        } else {
+                sailCfg.rowOrd = TOP_TO_BOTTOM;
+        }
         sailCfg.master = true;
         
         sageInf->init(sailCfg);

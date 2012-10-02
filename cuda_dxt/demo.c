@@ -30,13 +30,13 @@ int main(int argc, char** argv) {
     /* get image size */
     size_x = atoi(argv[1]);
     size_y = atoi(argv[2]);
-    if(size_x <= 0 || (size_x & 3) || size_y <= 0 || (size_y & 3)) {
+    if(size_x <= 0 || (size_x & 3) || size_y == 0 || (abs(size_y) & 3)) {
         usage(argv[0], "Image sizes must be positive numbers divisible by 4.");
         return -1;
     }
     
     /* allocate buffers (both GPU and host buffers) */
-    in_size = size_x * size_y * 3;
+    in_size = size_x * abs(size_y) * 3;
     out_size = in_size / 6;
     dds_size = out_size + DDS_HEADER_SIZE;
     cudaMallocHost(&in_host, in_size);
@@ -55,6 +55,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     
+#if 0
     /* check file size */
     fseek(in_file, 0, SEEK_END);
     if(ftell(in_file) != (long int)in_size) {
@@ -62,6 +63,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     fseek(in_file, 0, SEEK_SET);
+#endif
     
     /* load data */
     if(1 != fread(in_host, in_size, 1, in_file)){
@@ -115,7 +117,7 @@ int main(int argc, char** argv) {
     *(header++) = 0x20534444;   /* magic */
     *(header++) = 124;          /* header size */
     *(header++) = 0xA1007;      /* flags */
-    *(header++) = size_y;       /* height */
+    *(header++) = abs(size_y);  /* height */
     *(header++) = size_x;       /* width */
     *(header++) = size_x * 2;   /* pitch (row size) in bytes */
     *(header++) = 1;            /* unused 3D depth */
