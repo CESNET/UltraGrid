@@ -946,7 +946,7 @@ then
                 then
                         TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
                 fi
-                AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
+                AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
