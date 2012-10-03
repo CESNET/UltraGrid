@@ -101,10 +101,15 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	LDFLAGS="$LDFLAGS -m32 -mmacosx-version-min=10.5"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
+else if test "$host_os" = mingw32; then
+        system=Windows
+	AC_DEFINE([HAVE_WINDOWS], [1], [This is an Windows OS])
+	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
+fi
 fi
 
 AC_MSG_RESULT($system);
@@ -983,7 +988,11 @@ AC_ARG_ENABLE(gl,
 # this variable is shared multiple times in code, so make sure that change in this
 # lines does not inferre with something below
 SAVED_LIBS=$LIBS
-PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
+if test $system = Windows; then
+        AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
+else
+        PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
+fi
 AC_SUBST(FOUND_GLEW)
 LIBS=$SAVED_LIBS
 
@@ -1135,6 +1144,9 @@ case "$host_os" in
 		fi
 
 	;;
+        mingw32)
+                screen_cap=no
+        ;;
 	*)
                 # Linux
                 SAVED_LIBS=$LIBS
@@ -1855,7 +1867,9 @@ AC_ARG_ENABLE(v4l2,
     [v4l2_req=yes]
     )
 
-PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
+if test $system = Linux; then
+        PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
+fi
 
 if test $v4l2_req = yes -a $found_v4l2 = yes
 then
