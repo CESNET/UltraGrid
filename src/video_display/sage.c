@@ -189,7 +189,11 @@ void *display_sage_init(char *fmt, unsigned int flags)
                                          if(s->requestedDisplayCodec != UYVY &&
                                                          s->requestedDisplayCodec != RGBA &&
                                                          s->requestedDisplayCodec != RGB &&
-                                                         s->requestedDisplayCodec != DXT1) {
+                                                         s->requestedDisplayCodec != DXT1
+#ifdef SAGE_NATIVE_DXT5YCOCG
+                                                         && s->requestedDisplayCodec != DXT5
+#endif // SAGE_NATIVE_DXT5YCOCG
+                                                         ) {
                                                  fprintf(stderr, "Entered codec is not nativelly supported by SAGE.\n");
                                                  free(s); return NULL;
                                          }

@@ -35,6 +35,12 @@ int main(int argc, char** argv) {
         return -1;
     }
     
+    /* Check CUDA device */
+    if(cudaSuccess != cudaSetDevice(0)) {
+        usage(argv[0], "Cannot set CUDA device #0.");
+        return -1;
+    }
+    
     /* allocate buffers (both GPU and host buffers) */
     in_size = size_x * abs(size_y) * 3;
     out_size = in_size / 6;
@@ -66,7 +72,7 @@ int main(int argc, char** argv) {
 #endif
     
     /* load data */
-    if(1 != fread(in_host, in_size, 1, in_file)){
+    if(1 != fread(in_host, in_size, 1, in_file)) {
         usage(argv[0], "Could not read from input file.");
         return -1;
     }

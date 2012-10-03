@@ -95,6 +95,9 @@ struct state_decompress_transcode {
  
         // which card is free to process next image
         int                      free;
+
+        int                      ppb; // pixels per byte
+        codec_t                  out_codec;
 };
 
 int transcode_decompress_reconfigure_real(void *state, struct video_desc desc, 
@@ -121,7 +124,7 @@ static void *worker_thread(void *arg)
 
 
                 if(s->should_reconfigure) {
-                        transcode_decompress_reconfigure_real(s, s->desc, 0, 8, 16, s->desc.width / 2, DXT1, myID);
+                        transcode_decompress_reconfigure_real(s, s->desc, 0, 8, 16, s->desc.width / s->ppb, s->out_codec, myID);
                         pthread_mutex_lock(&s->lock);
                         s->should_reconfigure -= 1;
                         pthread_mutex_unlock(&s->lock);
@@ -132,8 +135,12 @@ static void *worker_thread(void *arg)
                         gpujpeg_decoder_output_set_cuda_buffer(&decoder_output);
                         gpujpeg_decoder_decode(s->jpeg_decoder[myID], s->input[myID], s->src_len[myID], &decoder_output);
 
-                        cuda_rgb_to_dxt1(decoder_output.data, s->dxt_out_buff[myID], s->desc.width, -s->desc.height, 0);
-                        if(cudaSuccess != cudaMemcpy((char*) s->output[myID], s->dxt_out_buff[myID], s->desc.width * s->desc.height / 2, cudaMemcpyDeviceToHost)) {
+                        if(s->out_codec == DXT1) {
+                                cuda_rgb_to_dxt1(decoder_output.data, s->dxt_out_buff[myID], s->desc.width, -s->desc.height, 0);
+                        } else {
+                                cuda_rgb_to_dxt6(decoder_output.data, s->dxt_out_buff[myID], s->desc.width, -s->desc.height, 0);
+                        }
+                        if(cudaSuccess != cudaMemcpy((char*) s->output[myID], s->dxt_out_buff[myID], s->desc.width * s->desc.height / s->ppb, cudaMemcpyDeviceToHost)) {
                                 fprintf(stderr, "[transcode] unable to copy from device.");
                         }
                         //gl_context_make_current(NULL);
@@ -193,12 +200,21 @@ void * transcode_decompress_init(void)
 int transcode_decompress_reconfigure(void *state, struct video_desc desc, 
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec) 
 {
+        struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        assert(out_codec == DXT1);
-        assert(pitch == (int) desc.width / 2); // default for DXT1
-        struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+        assert(out_codec == DXT1 || out_codec == DXT5);
+
+        s->out_codec = out_codec;
+        if(out_codec == DXT1) {
+                s->ppb = 2;
+        } else { // DXT5
+                s->ppb = 1;
+        }
+
+        assert(pitch == (int) desc.width / s->ppb); // default for DXT1
         pthread_mutex_lock(&s->lock);
         {
                 s->worker_done = 0;
@@ -235,8 +251,8 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         UNUSED(bshift);
         struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
 
-        assert(out_codec == DXT1);
-        assert(pitch == (int) desc.width / 2); // default for DXT1
+        assert(out_codec == DXT1 || out_codec == DXT5);
+        assert(pitch == (int) desc.width / s->ppb); // default for DXT1
         
         if(s->jpeg_decoder[i] != NULL) {
                 fprintf(stderr, "Reconfiguration is not currently supported in module [%s:%d]\n",
@@ -245,7 +261,7 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         }
         
         gpujpeg_init_device(cuda_devices[i], 0);
-        cudaMallocHost((void **) &s->dxt_out_buff[i], desc.width * desc.height / 2);
+        cudaMallocHost((void **) &s->dxt_out_buff[i], desc.width * desc.height / s->ppb);
         //gpujpeg_init_device(cuda_device, GPUJPEG_OPENGL_INTEROPERABILITY);
 
         s->jpeg_decoder[i] = gpujpeg_decoder_create();
@@ -255,7 +271,7 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         }
         
         s->input[i] = malloc(desc.width * desc.height);
-        s->output[i] = malloc(desc.width / 2 * desc.height);
+        s->output[i] = malloc(desc.width / s->ppb * desc.height);
 
         return desc.width * desc.height;
 }
@@ -297,7 +313,7 @@ void transcode_decompress(void *state, unsigned char *dst, unsigned char *buffer
                 }
                 pthread_mutex_unlock(&s->lock);
 
-                memcpy(dst, s->output[s->free], s->desc.width * s->desc.height / 2);
+                memcpy(dst, s->output[s->free], s->desc.width * s->desc.height / s->ppb);
         }
 }
 

@@ -131,6 +131,7 @@ struct decode_from_to decoders_for_codec[] = {
         { JPEG, RGB, JPEG_MAGIC },
         { JPEG, UYVY, JPEG_MAGIC },
         { JPEG, DXT1, TRANSCODE_MAGIC },
+        { JPEG, DXT5, TRANSCODE_MAGIC },
         { (codec_t) -1, (codec_t) -1, NULL_MAGIC }
 };
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
