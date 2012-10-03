@@ -316,7 +316,11 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
 
         assert(s->magic == MAGIC_SAGE);
         assert(desc.color_spec == RGBA || desc.color_spec == RGB || desc.color_spec == UYVY ||
-                        desc.color_spec == DXT1);
+                        desc.color_spec == DXT1
+#ifdef SAGE_NATIVE_DXT5YCOCG
+                        || desc.color_spec == DXT5
+#endif // SAGE_NATIVE_DXT5YCOCG
+                        );
         
         s->tile->width = desc.width;
         s->tile->height = desc.height;
@@ -354,7 +358,11 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
 {
         struct state_sage *s = (struct state_sage *)state;
         UNUSED(state);
-        codec_t codecs[] = {UYVY, RGBA, RGB, DXT1};
+        codec_t codecs[] = {UYVY, RGBA, RGB, DXT1
+#ifdef SAGE_NATIVE_DXT5YCOCG
+                , DXT5
+#endif // SAGE_NATIVE_DXT5YCOCG
+        };
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:

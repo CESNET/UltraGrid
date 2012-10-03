@@ -1532,6 +1532,11 @@ AC_ARG_ENABLE(sage,
 	[sage_req=$enableval],
         [sage_req=yes])
 
+AC_ARG_ENABLE(sage-native-dxt5ycocg,
+      AS_HELP_STRING([--enable-sage-native-dxt5ycocg], [Assume that SAGE supports native DXT5 YCoCg (default is disable)]),
+	[native_ycocg=$enableval],
+        [native_ycocg=no])
+
 if test -n "$SAGE_DIRECTORY"
 then
         SAGE_INC=$SAGE_DIRECTORY/include
@@ -1539,6 +1544,11 @@ then
 else
         SAGE_INC=sage3.0/include
         SAGE_LIB=sage3.0/lib
+fi
+
+if test $native_ycocg = yes
+then
+        AC_DEFINE([SAGE_NATIVE_DXT5YCOCG], [1], [Assume that SAGE supports native DXT5 YCoCg])
 fi
 
 AC_ARG_WITH(sage,

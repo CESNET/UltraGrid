@@ -77,6 +77,11 @@ void *initSage(const char *confName, int appID, int nodeID, int width,
                 case DXT1:
                         sailCfg.pixFmt = PIXFMT_DXT;
                         break;
+#ifdef SAGE_NATIVE_DXT5YCOCG
+                case DXT5:
+                        sailCfg.pixFmt = PIXFMT_DXT6;
+                        break;
+#endif // SAGE_NATIVE_DXT5YCOCG
                 case RGBA:
                         sailCfg.pixFmt = PIXFMT_8888;
                         break;
@@ -90,6 +95,10 @@ void *initSage(const char *confName, int appID, int nodeID, int width,
 
         if(codec == DXT1) {
                 sailCfg.rowOrd = BOTTOM_TO_TOP;
+#ifdef SAGE_NATIVE_DXT5YCOCG
+        } else if(codec == DXT5) {
+                sailCfg.rowOrd = BOTTOM_TO_TOP;
+#endif // SAGE_NATIVE_DXT5YCOCG
         } else {
                 sailCfg.rowOrd = TOP_TO_BOTTOM;
         }
