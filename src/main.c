@@ -1193,7 +1193,7 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_IMPORT:
                         uv->requested_capture = "import";
-                        audio_send = "embedded";
+                        audio_send = strdup("embedded");
                         capture_cfg = optarg;
                         break;
                 default:
