@@ -52,7 +52,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#if ! defined BUILD_LIBRARIES && defined HAVE_JPEG || defined HAVE_RTDXT
+#ifdef HAVE_TRANSCODE
 
 #include "video_decompress/transcode.h"
 #include "cuda_dxt/cuda_dxt.h"
@@ -68,6 +68,8 @@
 #include "video_codec.h"
 #include "video_decompress.h"
 #include "video_decompress/jpeg.h"
+
+volatile bool should_exit_threads = false;
 
 struct state_decompress_transcode {
         struct gpujpeg_decoder  *jpeg_decoder[MAX_CUDA_DEVICES];
@@ -112,16 +114,19 @@ static void *worker_thread(void *arg)
 
         pthread_mutex_unlock(&s->lock);
 
-        while(1) {
+        while(!should_exit_threads) {
                 pthread_mutex_lock(&s->lock);
-                while(!s->work_ready[myID]) {
+                while(!s->work_ready[myID] && !should_exit_threads) {
                         s->worker_waiting[myID] = true;
                         pthread_cond_wait(&s->worker_cv[myID], &s->lock);
                         s->worker_waiting[myID] = false;
 
                 }
+                if(should_exit_threads) {
+                        pthread_mutex_unlock(&s->lock);
+                        break;
+                }
                 pthread_mutex_unlock(&s->lock);
-
 
                 if(s->should_reconfigure) {
                         transcode_decompress_reconfigure_real(s, s->desc, 0, 8, 16, s->desc.width / s->ppb, s->out_codec, myID);
@@ -143,7 +148,6 @@ static void *worker_thread(void *arg)
                         if(cudaSuccess != cudaMemcpy((char*) s->output[myID], s->dxt_out_buff[myID], s->desc.width * s->desc.height / s->ppb, cudaMemcpyDeviceToHost)) {
                                 fprintf(stderr, "[transcode] unable to copy from device.");
                         }
-                        //gl_context_make_current(NULL);
                 }
 
                 pthread_mutex_lock(&s->lock);
@@ -177,8 +181,10 @@ void * transcode_decompress_init(void)
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
                 pthread_cond_init(&s->worker_cv[i], NULL);
                 s->jpeg_decoder[i] = NULL;
+                s->dxt_out_buff[i] = NULL;
+                s->input[i] = NULL;
+                s->output[i] = NULL;
         }
-
 
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
                 pthread_mutex_lock(&s->lock);
@@ -243,6 +249,9 @@ int transcode_decompress_reconfigure(void *state, struct video_desc desc,
         return desc.width * desc.height;
 }
 
+/**
+ * @return maximal buffer size needed to image with such a properties
+ */
 int transcode_decompress_reconfigure_real(void *state, struct video_desc desc, 
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec, int i)
 {
@@ -254,14 +263,22 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         assert(out_codec == DXT1 || out_codec == DXT5);
         assert(pitch == (int) desc.width / s->ppb); // default for DXT1
         
+        gpujpeg_init_device(cuda_devices[i], 0);
+        free(s->input[i]);
+        free(s->output[i]);
+
         if(s->jpeg_decoder[i] != NULL) {
-                fprintf(stderr, "Reconfiguration is not currently supported in module [%s:%d]\n",
-                                __FILE__, __LINE__);
-                return 0;
+                gpujpeg_decoder_destroy(s->jpeg_decoder[i]);
+        }
+
+        if(s->dxt_out_buff[i] != NULL) {
+                cudaFree(s->dxt_out_buff[i]);
         }
         
-        gpujpeg_init_device(cuda_devices[i], 0);
-        cudaMallocHost((void **) &s->dxt_out_buff[i], desc.width * desc.height / s->ppb);
+        if(cudaSuccess != cudaMallocHost((void **) &s->dxt_out_buff[i], desc.width * desc.height / s->ppb)) {
+                fprintf(stderr, "Could not allocate CUDA output buffer.\n");
+                return 0;
+        }
         //gpujpeg_init_device(cuda_device, GPUJPEG_OPENGL_INTEROPERABILITY);
 
         s->jpeg_decoder[i] = gpujpeg_decoder_create();
@@ -329,20 +346,38 @@ int transcode_decompress_get_property(void *state, int property, void *val, size
 
 void transcode_decompress_done(void *state)
 {
-        UNUSED(state);
-#if 0
         struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
 
-        int texture_id = s->texture->texture_id;
-        gpujpeg_opengl_texture_unregister(s->texture);
-        gpujpeg_opengl_texture_destroy(texture_id);
-        gpujpeg_decoder_destroy(s->jpeg_decoder);
+        if(!state) {
+                return;
+        }
 
-        dxt_encoder_destroy(s->dxt_encoder);
+        pthread_mutex_lock(&s->lock);
+        {
+                should_exit_threads = true;
+                for(unsigned int i = 0; i < cuda_devices_count; ++i) {
+                        if(s->worker_waiting[i]) {
+                                pthread_cond_signal(&s->worker_cv[s->free]);
+                        }
+                }
+        }
+        pthread_mutex_unlock(&s->lock);
 
-        destroy_gl_context(&s->gl_context);
-#endif
+        for(unsigned int i = 0; i < cuda_devices_count; ++i) {
+                pthread_join(s->thread_id[i], NULL);
+        }
+
+        for(unsigned int i = 0; i < cuda_devices_count; ++i) {
+                if(s->jpeg_decoder[i]) {
+                        gpujpeg_decoder_destroy(s->jpeg_decoder[i]);
+                }
+                cudaFree(s->dxt_out_buff[i]);
+                free(s->input[i]);
+                free(s->output[i]);
+        }
+
+        free(s);
 }
 
-#endif // ! defined BUILD_LIBRARIES && defined HAVE_CUDA && defined HAVE_GL
+#endif // defined HAVE_TRANSCODE
 
