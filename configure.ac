@@ -1917,6 +1917,25 @@ AC_SUBST(HEADERS)
 AC_SUBST(LIB_HEADERS)
 
 # -------------------------------------------------------------------------------------------------
+# Import control - keyboard
+# -------------------------------------------------------------------------------------------------
+FOUND_NCURSES=no
+
+if test $system = Linux -o $system = MacOSX; then
+        PKG_CHECK_MODULES([NCURSES], [ncursesw], [FOUND_NCURSES=yes], [FOUND_NCURSES=no])
+        if test $FOUND_NCURSES = no; then
+                PKG_CHECK_MODULES([NCURSES], [ncurses], [FOUND_NCURSES=yes], [FOUND_NCURSES=no])
+        fi
+
+        if test $FOUND_NCURSES = yes; then
+                AC_DEFINE([HAVE_NCURSES], [1], [Build with ncurses support])
+                IMPORT_CONTROL_KEYBOARD_LIBS="$NCURSES_LIBS"
+        fi
+fi
+
+AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
+
+# -------------------------------------------------------------------------------------------------
 # Run subsequent configure scripts
 # -------------------------------------------------------------------------------------------------
 if test $jpeg = yes -a $jpeg_static = yes

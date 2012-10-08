@@ -122,13 +122,16 @@ LIB_COMMON = \
 
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
 $(TARGET): $(OBJS) src/main.o $(HEADERS)
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+
+bin/import_control_keyboard: src/import_control_keyboard.o
+	$(LINKER) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
@@ -383,6 +386,7 @@ clean:
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
+	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
 	make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
