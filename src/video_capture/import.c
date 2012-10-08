@@ -77,6 +77,7 @@
 
 #define BUFFER_LEN_MAX 40
 
+#define CONTROL_PORT 15004
 #define VIDCAP_IMPORT_ID 0x76FA7F6D
 
 struct processed_entry;
@@ -87,6 +88,37 @@ struct processed_entry {
         struct processed_entry *next;
 };
 
+typedef enum {
+        SEEK,
+        FINALIZE
+} message_t;
+
+struct message;
+
+struct message {
+        message_t       type;
+        void           *data;
+        size_t          data_len;
+        struct message *next;
+};
+
+typedef enum {
+        IMPORT_SEEK_SET,
+        IMPORT_SEEK_END,
+        IMPORT_SEEK_CUR
+} seek_direction_t;
+
+struct seek_data {
+        seek_direction_t whence;
+        ssize_t offset;
+};
+
+struct message_queue {
+        struct message *head;
+        struct message *tail;
+        size_t          len;
+};
+
 struct audio_state {
         bool has_audio;
         FILE *file;
@@ -95,13 +127,15 @@ struct audio_state {
         int samples_read;
         pthread_t thread_id;
 
-        pthread_cond_t reader_cv;
-        volatile bool reader_waiting;
+        pthread_cond_t worker_cv;
+        volatile bool worker_waiting;
         pthread_cond_t boss_cv;
         volatile bool boss_waiting;
 
         pthread_mutex_t lock;
         unsigned long long int played_samples;
+
+        struct message_queue message_queue;
 }; 
 
 struct vidcap_import_state {
@@ -114,26 +148,41 @@ struct vidcap_import_state {
         struct tile *tile;
         char *directory;
 
+        struct message_queue message_queue;
+
         pthread_mutex_t lock;
-        pthread_cond_t reader_cv;
-        volatile bool reader_waiting;
+        pthread_cond_t worker_cv;
+        volatile bool worker_waiting;
         pthread_cond_t boss_cv;
         volatile bool boss_waiting;
         struct processed_entry * volatile head, * volatile tail;
         volatile int queue_len;
 
-        volatile bool finish_threads;
-        volatile bool reader_finished;
+        volatile bool paused;
 
         pthread_t thread_id;
+        pthread_t control_thread_id;
 
         struct timeval prev_time;
         int count;
+
+        char *to_be_freeed;
 };
 
 static void * audio_reading_thread(void *args);
 static void * reading_thread(void *args);
+static void * control_thread(void *args);
 static bool init_audio(struct vidcap_import_state *state, char *audio_filename);
+static void send_message(struct message *msg, struct message_queue *queue);
+static struct message* pop_message(struct message_queue *queue);
+static void flush_processed(struct processed_entry *list);
+
+static void message_queue_clear(struct message_queue *queue);
+
+static void message_queue_clear(struct message_queue *queue) {
+        queue->head = queue->tail = NULL;
+        queue->len = 0;
+}
 
 struct vidcap_type *
 vidcap_import_probe(void)
@@ -235,8 +284,8 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
 
         s->audio_state.file = audio_file;
 
-        pthread_cond_init(&s->audio_state.reader_cv, NULL);
-        s->audio_state.reader_waiting = false;
+        pthread_cond_init(&s->audio_state.worker_cv, NULL);
+        s->audio_state.worker_waiting = false;
         pthread_cond_init(&s->audio_state.boss_cv, NULL);
         s->audio_state.boss_waiting = false;
         pthread_mutex_init(&s->audio_state.lock, NULL);
@@ -266,14 +315,18 @@ vidcap_import_init(char *directory, unsigned int flags)
         gettimeofday(&s->t0, NULL);
 
         s->boss_waiting = false;
-        s->reader_waiting = false;
+        s->worker_waiting = false;
 
-        s->finish_threads = false;
-        s->reader_finished = false;
-        
+        s->paused = false;
+
+        message_queue_clear(&s->message_queue);
+        message_queue_clear(&s->audio_state.message_queue);
+
         pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->reader_cv, NULL);
+        pthread_cond_init(&s->worker_cv, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
+
+        s->to_be_freeed = NULL;
 
         char *audio_filename = malloc(strlen(directory) + sizeof("/soud.wav") + 1);
         assert(audio_filename != NULL);
@@ -389,6 +442,11 @@ vidcap_import_init(char *directory, unsigned int flags)
                 goto free_frame;
         }
 
+        if(pthread_create(&s->control_thread_id, NULL, control_thread, (void *) s) != 0) {
+                fprintf(stderr, "Unable to create control thread.\n");
+                goto free_frame;
+        }
+
         gettimeofday(&s->prev_time, NULL);
 
 	return s;
@@ -407,12 +465,19 @@ vidcap_import_finish(void *state)
 {
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 
-        s->finish_threads = true;
+        struct message *msg = malloc(sizeof(struct message));
+
+        msg->type = FINALIZE;
+        msg->data = NULL;
+        msg->data_len = 0;
+        msg->next = NULL;
 
         pthread_mutex_lock(&s->lock);
         {
-                if(s->reader_waiting)
-                        pthread_cond_signal(&s->reader_cv);
+                send_message(msg, &s->message_queue);
+
+                if(s->worker_waiting)
+                        pthread_cond_signal(&s->worker_cv);
         }
         pthread_mutex_unlock(&s->lock);
 
@@ -420,14 +485,35 @@ vidcap_import_finish(void *state)
 
         // audio
         if(s->audio_state.has_audio) {
+                struct message *msg = malloc(sizeof(struct message));
+
+                msg->type = FINALIZE;
+                msg->data = NULL;
+                msg->data_len = 0;
+                msg->next = NULL;
+
                 pthread_mutex_lock(&s->audio_state.lock);
                 {
-                        if(s->audio_state.reader_waiting)
-                                pthread_cond_signal(&s->audio_state.reader_cv);
+                        send_message(msg, &s->audio_state.message_queue);
+
+                        if(s->audio_state.worker_waiting)
+                                pthread_cond_signal(&s->audio_state.worker_cv);
                 }
                 pthread_mutex_unlock(&s->audio_state.lock);
 
                 pthread_join(s->audio_state.thread_id, NULL);
+        }
+}
+
+static void flush_processed(struct processed_entry *list)
+{
+        struct processed_entry *current = list;
+
+        while(current != NULL) {
+                free(current->data);
+                struct processed_entry *tmp = current;
+                current = current->next;
+                free(tmp);
         }
 }
 
@@ -437,18 +523,13 @@ vidcap_import_done(void *state)
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 	assert(s != NULL);
 
-        struct processed_entry *current = s->head;
-        while(current != NULL) {
-                free(current->data);
-                struct processed_entry *tmp = current;
-                current = current->next;
-                free(tmp);
-        }
-        free(s->tile->data);
+        flush_processed(s->head);
+
+        free(s->to_be_freeed);
         vf_free(s->frame);
 
         pthread_mutex_destroy(&s->lock);
-        pthread_cond_destroy(&s->reader_cv);
+        pthread_cond_destroy(&s->worker_cv);
         pthread_cond_destroy(&s->boss_cv);
         free(s->directory);
 
@@ -460,7 +541,7 @@ vidcap_import_done(void *state)
 
                 fclose(s->audio_state.file);
 
-                pthread_cond_destroy(&s->audio_state.reader_cv);
+                pthread_cond_destroy(&s->audio_state.worker_cv);
                 pthread_cond_destroy(&s->audio_state.boss_cv);
                 pthread_mutex_destroy(&s->audio_state.lock);
         }
@@ -468,23 +549,268 @@ vidcap_import_done(void *state)
         free(s);
 }
 
+static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
+static void process_msg(struct vidcap_import_state *state, char *message);
+
+/*
+ * Message len can be at most buffer_len + 1 (including '\0')
+ */
+static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len)
+{
+        bool ret = false;
+        int i = 0;
+
+        while (i < buffer_len) {
+                if(buffer[i] == '\0' || buffer[i] == '\n' || buffer[i] == '\r') {
+                        ++i;
+                } else {
+                        break;
+                }
+        }
+
+        int start = i;
+
+        for( ; i < buffer_len; ++i) {
+                if(buffer[i] == '\0' || buffer[i] == '\n' || buffer[i] == '\r') {
+                        memcpy(message, buffer + start, i - start);
+                        message[i - start] = '\0';
+                        ret = true;
+                        break;
+                }
+        }
+        
+        if(ret) {
+                memmove(buffer, buffer + i, buffer_len - i);
+                *new_buffer_len = buffer_len - i;
+        }
+
+        return ret;
+}
+
+static void send_message(struct message *msg, struct message_queue *queue)
+{
+        if(queue->head) {
+                queue->head->next = msg;
+                queue->tail = msg;
+        } else {
+                queue->head = queue->tail = msg;
+        }
+
+        queue->len += 1;
+}
+
+static struct message *pop_message(struct message_queue *queue)
+{
+        assert(queue->len > 0);
+        struct message *ret;
+
+        ret = queue->head;
+        queue->head = queue->head->next;
+        if(queue->head == NULL) {
+                queue->tail = NULL;
+        }
+
+        queue->len -= 1;
+
+        return ret;
+}
+
+static void process_msg(struct vidcap_import_state *s, char *message)
+{
+        if(strcasecmp(message, "pause") == 0) {
+                pthread_mutex_lock(&s->lock);
+                {
+                        s->paused = !s->paused;
+                        if(s->boss_waiting) {
+                                pthread_cond_signal(&s->boss_cv);
+                        }
+                }
+                pthread_mutex_unlock(&s->lock);
+        } else if(strncasecmp(message, "seek ", strlen("seek ")) == 0) {
+                if(s->audio_state.has_audio == true) {
+                        fprintf(stderr, "Seeking now allowed if we have audio. (Not yet implemented)\n");
+                        return;
+                }
+
+                char *time_spec = message + strlen("seek ");
+
+                struct message *msg = malloc(sizeof(struct message));
+                struct seek_data *data = malloc(sizeof(struct seek_data));
+                msg->type = SEEK;
+                msg->data = data;
+                msg->data_len = sizeof(struct seek_data);
+                msg->next = NULL;
+
+                if(time_spec[0] == '+' || time_spec[0] == '-') {
+                        data->whence = IMPORT_SEEK_CUR;
+                        if(strchr(time_spec, 's') != NULL) {
+                                double val = atof(time_spec);
+                                data->offset = val * s->frame->fps;
+                        } else {
+                                data->offset = atoi(time_spec);
+                        }
+                } else {
+                        data->whence = IMPORT_SEEK_SET;
+                        if(strchr(time_spec, 's') != NULL) {
+                                double val = atof(time_spec);
+                                data->offset = val * s->frame->fps;
+                        } else {
+                                data->offset = atoi(time_spec);
+                        }
+                }
+
+                struct message *audio_msg;
+
+                if(s->audio_state.has_audio) {
+                        audio_msg = malloc(sizeof(struct message));
+                        memcpy(audio_msg, msg, sizeof(struct message));
+
+                        if(audio_msg->data) { // deep copy
+                                audio_msg->data = malloc(msg->data_len);
+                                memcpy(audio_msg->data, msg->data, msg->data_len);
+                        }
+                }
+
+                pthread_mutex_lock(&s->lock);
+                {
+                        send_message(msg, &s->message_queue);
+                        if(s->worker_waiting) {
+                                pthread_cond_signal(&s->worker_cv);
+                        }
+                }
+                pthread_mutex_unlock(&s->lock);
+
+                if(s->audio_state.has_audio) {
+                        pthread_mutex_lock(&s->audio_state.lock);
+                        {
+                                send_message(audio_msg, &s->audio_state.message_queue);
+                                if(s->audio_state.worker_waiting) {
+                                        pthread_cond_signal(&s->audio_state.worker_cv);
+                                }
+                        }
+                        pthread_mutex_unlock(&s->audio_state.lock);
+                }
+        } else if(strcasecmp(message, "quit") == 0) {
+                exit_uv(0);
+        } else {
+                fprintf(stderr, "Warning: unknown message: \'%s\'\n", message);
+        }
+}
+
+static void * control_thread(void *args)
+{
+	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
+        int fd;
+
+        fd = socket(AF_INET6, SOCK_STREAM, 0);
+        int val = 1;
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+        struct sockaddr_in6 s_in;
+        s_in.sin6_family = AF_INET6;
+        s_in.sin6_addr = in6addr_any;
+        s_in.sin6_port = htons(CONTROL_PORT);
+
+        bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+        listen(fd, 10);
+        struct sockaddr_storage client_addr;
+        socklen_t len;
+
+        int fd_client = -1;
+
+        char buff[1024];
+        char *buff_cur = buff;
+
+        while(1) {
+                if(fd_client == -1) {
+                        fd_set set;
+                        FD_ZERO(&set);
+                        FD_SET(fd, &set);
+                        struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
+                        if(select(fd + 1, &set, NULL, NULL, &timeout) >= 1) {
+                                fd_client = accept(fd, (struct sockaddr *) &client_addr, &len);
+                        }
+                } else {
+                        // check for new client
+                        fd_set set;
+                        FD_ZERO(&set);
+                        FD_SET(fd, &set);
+                        struct timeval timeout = { .tv_sec = 0, .tv_usec = 0 };
+                        if(select(fd + 1, &set, NULL, NULL, &timeout) >= 1) {
+                                int new_fd_client = accept(fd, (struct sockaddr *) &client_addr, &len);
+                                close(fd_client);
+                                fd_client = new_fd_client;
+                                buff_cur = buff;
+                        }
+                }
+
+                if(fd_client != -1) {
+                        fd_set read_set;
+                        FD_ZERO(&read_set);
+                        FD_SET(fd_client, &read_set);
+
+                        struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
+                        int ret = select(fd_client + 1, &read_set, NULL, NULL, &timeout);
+                        if(ret >= 1) {
+                                ssize_t ret = read(fd_client, buff_cur, 1024 - (buff_cur - buff));
+                                if(ret == -1) {
+                                        fprintf(stderr, "Error reading socket!!!\n");
+                                }
+                                // disconnected
+                                if(ret == 0) {
+                                        close(fd_client);
+                                        fd_client = -1;
+                                        buff_cur = buff;
+                                }
+                                buff_cur += ret;
+                        }
+                }
+
+                char msg[1024 + 1];
+                int cur_buffer_len;
+                if(parse_msg(buff, buff_cur - buff, msg, &cur_buffer_len)) {
+                        fprintf(stderr, "msg: %s\n", msg);
+                        buff_cur = buff + cur_buffer_len;
+                        process_msg(s, msg);
+                }
+        }
+
+        close(fd);
+
+        return NULL;
+}
+        
 static void * audio_reading_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
 
-        while(s->audio_state.samples_read < s->audio_state.total_samples && !s->finish_threads) {
+        //while(s->audio_state.samples_read < s->audio_state.total_samples && !s->finish_threads) {
+        while(1) {
                 int max_read;
                 pthread_mutex_lock(&s->audio_state.lock);
                 {
-                        while(ring_get_current_size(s->audio_state.data) >
-                                        ring_get_size(s->audio_state.data) * 2 / 3 && !s->finish_threads) {
-                                s->audio_state.reader_waiting = true;
-                                pthread_cond_wait(&s->audio_state.reader_cv, &s->audio_state.lock);
-                                s->audio_state.reader_waiting = false;
+                        while((ring_get_current_size(s->audio_state.data) > ring_get_size(s->audio_state.data) * 2 / 3 ||
+                                                s->audio_state.samples_read >= s->audio_state.total_samples)
+                                        && s->message_queue.len == 0) {
+                                s->audio_state.worker_waiting = true;
+                                pthread_cond_wait(&s->audio_state.worker_cv, &s->audio_state.lock);
+                                s->audio_state.worker_waiting = false;
+                        }
+
+                        while(s->audio_state.message_queue.len > 0) {
+                                struct message *msg = pop_message(&s->audio_state.message_queue);
+                                if(msg->type == FINALIZE) {
+                                        pthread_mutex_unlock(&s->lock);
+                                        free(msg);
+                                        goto exited;
+                                } else if (msg->type == SEEK) {
+                                        fprintf(stderr, "Seeking in audio import not yet implemented.\n");
+                                        abort();
+                                }
                         }
 
                         max_read = ring_get_size(s->audio_state.data) -
                                         ring_get_current_size(s->audio_state.data);
+
                 }
                 pthread_mutex_unlock(&s->audio_state.lock);
 
@@ -504,6 +830,7 @@ static void * audio_reading_thread(void *args)
 
                 free(buffer);
         }
+exited:
 
         return NULL;
 }
@@ -514,17 +841,54 @@ static void * reading_thread(void *args)
         int index = 0;
         char name[512];
 
-        while(index < s->count && !s->finish_threads) {
+        ///while(index < s->count && !s->finish_threads) {
+        while(1) {
                 struct processed_entry *new_entry = NULL;
                 pthread_mutex_lock(&s->lock);
                 {
-                        while(s->queue_len >= BUFFER_LEN_MAX - 1 && !s->finish_threads) {
-                                s->reader_waiting = true;
-                                pthread_cond_wait(&s->reader_cv, &s->lock);
-                                s->reader_waiting = false;
+                        while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count)
+                                       && s->message_queue.len == 0) {
+                                s->worker_waiting = true;
+                                pthread_cond_wait(&s->worker_cv, &s->lock);
+                                s->worker_waiting = false;
+                        }
+
+                        while(s->message_queue.len > 0) {
+                                struct message *msg = pop_message(&s->message_queue);
+                                if(msg->type == FINALIZE) {
+                                        pthread_mutex_unlock(&s->lock);
+                                        free(msg);
+                                        goto exited;
+                                } else if (msg->type == SEEK) {
+                                        flush_processed(s->head);
+                                        s->queue_len = 0;
+                                        s->head = s->tail = NULL;
+
+                                        struct seek_data *data = msg->data;
+                                        free(msg);
+                                        if(data->whence == IMPORT_SEEK_CUR) {
+                                                index += data->offset;
+                                        } else if (data->whence == IMPORT_SEEK_SET) {
+                                                index = data->offset;
+                                        } else if (data->whence == IMPORT_SEEK_END) {
+                                                index = s->count + data->offset;
+                                        }
+                                        printf("Current index: frame %d\n", index);
+                                        free(data);
+                                }
                         }
                 }
                 pthread_mutex_unlock(&s->lock);
+
+                if(index < 0) {
+                        index = 0;
+                }
+
+                if(index >= s->count) {
+                        fprintf(stderr, "Warning: Index exceeds available frame count!\n");
+                        index = s->count - 1;
+                }
+
                 snprintf(name, sizeof(name), "%s/%08d.%s", s->directory, index,
                                 get_codec_file_extension(s->frame->color_spec));
 
@@ -571,15 +935,7 @@ next:
                 index++;
         }
 
-        pthread_mutex_lock(&s->lock);
-        {
-                s->reader_finished = true;
-
-                if(s->boss_waiting)
-                        pthread_cond_signal(&s->boss_cv);
-        }
-        pthread_mutex_unlock(&s->lock);
-
+exited:
 
         return NULL;
 }
@@ -593,34 +949,45 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         struct processed_entry *current = NULL;
 
         // free old data
-        free(s->tile->data);
-        s->tile->data = NULL;
+        free(s->to_be_freeed);
+        s->to_be_freeed = NULL;
 
         pthread_mutex_lock(&s->lock);
         {
-                while(s->queue_len == 0 && !s->reader_finished) {
+                if(s->queue_len == 0) {
                         s->boss_waiting = true;
-                        pthread_cond_wait(&s->boss_cv, &s->lock);
+                        struct timespec timeout = { .tv_sec = (long) (1/s->frame->fps),
+                                .tv_nsec = (long) (1/s->frame->fps * 1000 * 1000 * 1000) % (1000 * 1000 * 1000)};
+                        pthread_cond_timedwait(&s->boss_cv, &s->lock, &timeout);
                         s->boss_waiting = false;
                 }
-
-                if(s->queue_len == 0 && s->reader_finished) {
+ 
+                if(s->queue_len == 0) {
                         pthread_mutex_unlock(&s->lock);
                         return NULL;
                 }
 
                 current = s->head;
-                s->head = s->head->next;
-                s->queue_len -= 1;
+                assert(current != NULL);
+                if(!s->paused) {
+                        s->head = s->head->next;
+                        s->queue_len -= 1;
 
-                if(s->reader_waiting)
-                        pthread_cond_signal(&s->reader_cv);
+                        if(s->worker_waiting)
+                                pthread_cond_signal(&s->worker_cv);
+                }
+
+                s->tile->data_len = current->data_len;
+                s->tile->data = current->data;
+
+                if(!s->paused) {
+                        s->to_be_freeed = current->data;
+                        free(current);
+                }
+
         }
         pthread_mutex_unlock(&s->lock);
 
-        s->tile->data_len = current->data_len;
-        s->tile->data = current->data;
-        free(current);
 
         // audio
         if(s->audio_state.has_audio) {
@@ -643,8 +1010,8 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                                 assert(ret == (int) requested_bytes);
                                 s->audio_frame.data_len = requested_bytes;
 
-                                if(s->reader_waiting)
-                                        pthread_cond_signal(&s->reader_cv);
+                                if(s->worker_waiting)
+                                        pthread_cond_signal(&s->worker_cv);
                         }
                         pthread_mutex_unlock(&s->audio_state.lock);
                 }
@@ -660,7 +1027,8 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
                 gettimeofday(&cur_time, NULL);
         }
-        tv_add_usec(&s->prev_time, 1000000.0 / s->frame->fps);
+        //tv_add_usec(&s->prev_time, 1000000.0 / s->frame->fps);
+        s->prev_time = cur_time;
 
         double seconds = tv_diff(cur_time, s->t0);
         if (seconds >= 5) {

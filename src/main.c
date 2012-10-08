@@ -892,7 +892,6 @@ static void *compress_thread(void *arg)
 
         vidcap_finish(uv_state->capture_device);
 
-
 join_thread:
         sender_finish(uv);
         pthread_join(sender_thread_id, NULL);
