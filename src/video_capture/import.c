@@ -179,6 +179,8 @@ static void flush_processed(struct processed_entry *list);
 
 static void message_queue_clear(struct message_queue *queue);
 
+volatile bool exit_control = false;
+
 static void message_queue_clear(struct message_queue *queue) {
         queue->head = queue->tail = NULL;
         queue->len = 0;
@@ -503,6 +505,10 @@ vidcap_import_finish(void *state)
 
                 pthread_join(s->audio_state.thread_id, NULL);
         }
+
+        exit_control = true;
+
+        pthread_join(s->control_thread_id, NULL);
 }
 
 static void flush_processed(struct processed_entry *list)
@@ -720,7 +726,7 @@ static void * control_thread(void *args)
         char buff[1024];
         char *buff_cur = buff;
 
-        while(1) {
+        while(!exit_control) {
                 if(fd_client == -1) {
                         fd_set set;
                         FD_ZERO(&set);
