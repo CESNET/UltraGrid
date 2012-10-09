@@ -81,6 +81,8 @@
 #define CONTROL_PORT 15004
 #define VIDCAP_IMPORT_ID 0x76FA7F6D
 
+#define PIPE "/tmp/ultragrid_import.fifo"
+
 struct processed_entry;
 
 struct processed_entry {
@@ -710,6 +712,7 @@ struct client {
         int fd;
         char buff[1024];
         int buff_len;
+        bool pipe;
 
         struct client *next;
 };
@@ -732,8 +735,20 @@ static void * control_thread(void *args)
         struct sockaddr_storage client_addr;
         socklen_t len;
 
-        struct client *clients = NULL;
+        unlink(PIPE);
+        errno = 0;
+        int fifo_status = mkfifo(PIPE, 0777);
 
+        struct client *clients = NULL;
+        if(!fifo_status) {
+                clients = malloc(sizeof(struct client));
+                clients->fd = open(PIPE, O_RDONLY | O_NONBLOCK);
+                clients->pipe = true;
+                clients->buff_len = 0;
+                clients->next = NULL;
+        } else {
+                perror("Video import: unable to create communication pipe");
+        }
 
         while(!exit_control) {
                 fd_set set;
@@ -758,6 +773,7 @@ static void * control_thread(void *args)
                                 new_client->fd = accept(fd, (struct sockaddr *) &client_addr, &len);
                                 new_client->next = clients;
                                 new_client->buff_len = 0;
+                                new_client->pipe = false;
                                 clients = new_client;
                         }
 
@@ -771,11 +787,13 @@ static void * control_thread(void *args)
                                                 fprintf(stderr, "Error reading socket!!!\n");
                                         }
                                         if(ret == 0) {
-                                                close(cur->fd);
-                                                *parent_ptr = cur->next;
-                                                free(cur);
-                                                cur = *parent_ptr; // now next
-                                                continue;
+                                                if(!cur->pipe) {
+                                                        close(cur->fd);
+                                                        *parent_ptr = cur->next;
+                                                        free(cur);
+                                                        cur = *parent_ptr; // now next
+                                                        continue;
+                                                }
                                         }
                                         cur->buff_len += ret;
                                 }
@@ -803,7 +821,16 @@ static void * control_thread(void *args)
                 }
         }
 
+        struct client *cur = clients;
+        while(cur) {
+                struct client *tmp = cur;
+                close(cur->fd);
+                cur = cur->next;
+                free(tmp);
+        }
+
         close(fd);
+        unlink(PIPE);
 
         return NULL;
 }
