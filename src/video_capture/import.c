@@ -599,7 +599,7 @@ static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, in
 static void send_message(struct message *msg, struct message_queue *queue)
 {
         if(queue->head) {
-                queue->head->next = msg;
+                queue->tail->next = msg;
                 queue->tail = msg;
         } else {
                 queue->head = queue->tail = msg;
