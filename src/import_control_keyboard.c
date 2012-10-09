@@ -4,16 +4,18 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+
 #ifdef HAVE_NCURSES
 
 #include <curses.h>
 
 #include <stdlib.h>
 #include <stdio.h>
+#include "debug.h"
 
 void usage(const char *progname);
-
 int main(int argc, char *argv[]);
+void sig_handler(int signal);
 
 void usage(const char *progname) {
         printf("Usage: %s <hostname> <port>\n", progname);
@@ -22,6 +24,7 @@ void usage(const char *progname) {
 int fd = -1;// = socket(AF_INET6, SOCK_STREAM, 0);
 
 void sig_handler(int signal) {
+        UNUSED(signal);
         close(fd);
         endwin();
         exit(EXIT_SUCCESS);
@@ -82,6 +85,7 @@ int main(int argc, char *argv[])
 
         initscr();
         keypad(stdscr, TRUE);
+        scrollok(stdscr, TRUE);
 
         while(1) {
                 char message[1024] = { '\0' };
