@@ -76,6 +76,7 @@
 #include <unistd.h>
 
 #define BUFFER_LEN_MAX 40
+#define MAX_CLIENTS 16
 
 #define CONTROL_PORT 15004
 #define VIDCAP_IMPORT_ID 0x76FA7F6D
@@ -178,6 +179,9 @@ static struct message* pop_message(struct message_queue *queue);
 static void flush_processed(struct processed_entry *list);
 
 static void message_queue_clear(struct message_queue *queue);
+static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
+static void process_msg(struct vidcap_import_state *state, char *message);
+
 
 volatile bool exit_control = false;
 
@@ -555,9 +559,6 @@ vidcap_import_done(void *state)
         free(s);
 }
 
-static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
-static void process_msg(struct vidcap_import_state *state, char *message);
-
 /*
  * Message len can be at most buffer_len + 1 (including '\0')
  */
@@ -703,6 +704,16 @@ static void process_msg(struct vidcap_import_state *s, char *message)
         }
 }
 
+struct client;
+
+struct client {
+        int fd;
+        char buff[1024];
+        int buff_len;
+
+        struct client *next;
+};
+
 static void * control_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
@@ -717,66 +728,78 @@ static void * control_thread(void *args)
         s_in.sin6_port = htons(CONTROL_PORT);
 
         bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-        listen(fd, 10);
+        listen(fd, MAX_CLIENTS);
         struct sockaddr_storage client_addr;
         socklen_t len;
 
-        int fd_client = -1;
+        struct client *clients = NULL;
 
-        char buff[1024];
-        char *buff_cur = buff;
 
         while(!exit_control) {
-                if(fd_client == -1) {
-                        fd_set set;
-                        FD_ZERO(&set);
-                        FD_SET(fd, &set);
-                        struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
-                        if(select(fd + 1, &set, NULL, NULL, &timeout) >= 1) {
-                                fd_client = accept(fd, (struct sockaddr *) &client_addr, &len);
+                fd_set set;
+                FD_ZERO(&set);
+                FD_SET(fd, &set);
+                int max_fd = fd + 1;
+
+                struct client *cur = clients;
+
+                while(cur) {
+                        FD_SET(cur->fd, &set);
+                        if(cur->fd + 1 > max_fd) {
+                                max_fd = cur->fd + 1;
                         }
-                } else {
-                        // check for new client
-                        fd_set set;
-                        FD_ZERO(&set);
-                        FD_SET(fd, &set);
-                        struct timeval timeout = { .tv_sec = 0, .tv_usec = 0 };
-                        if(select(fd + 1, &set, NULL, NULL, &timeout) >= 1) {
-                                int new_fd_client = accept(fd, (struct sockaddr *) &client_addr, &len);
-                                close(fd_client);
-                                fd_client = new_fd_client;
-                                buff_cur = buff;
+                        cur = cur->next;
+                }
+
+                struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
+                if(select(max_fd, &set, NULL, NULL, &timeout) >= 1) {
+                        if(FD_ISSET(fd, &set)) {
+                                struct client *new_client = malloc(sizeof(struct client));
+                                new_client->fd = accept(fd, (struct sockaddr *) &client_addr, &len);
+                                new_client->next = clients;
+                                new_client->buff_len = 0;
+                                clients = new_client;
+                        }
+
+                        struct client **parent_ptr = &clients;
+                        struct client *cur = clients;
+
+                        while(cur) {
+                                if(FD_ISSET(cur->fd, &set)) {
+                                        ssize_t ret = read(cur->fd, cur->buff + cur->buff_len, 1024 - cur->buff_len);
+                                        if(ret == -1) {
+                                                fprintf(stderr, "Error reading socket!!!\n");
+                                        }
+                                        if(ret == 0) {
+                                                close(cur->fd);
+                                                *parent_ptr = cur->next;
+                                                free(cur);
+                                                cur = *parent_ptr; // now next
+                                                continue;
+                                        }
+                                        cur->buff_len += ret;
+                                }
+                                parent_ptr = &cur->next;
+                                cur = cur->next;
                         }
                 }
 
-                if(fd_client != -1) {
-                        fd_set read_set;
-                        FD_ZERO(&read_set);
-                        FD_SET(fd_client, &read_set);
-
-                        struct timeval timeout = { .tv_sec = 1, .tv_usec = 0 };
-                        int ret = select(fd_client + 1, &read_set, NULL, NULL, &timeout);
-                        if(ret >= 1) {
-                                ssize_t ret = read(fd_client, buff_cur, 1024 - (buff_cur - buff));
-                                if(ret == -1) {
-                                        fprintf(stderr, "Error reading socket!!!\n");
+                cur = clients;
+                while(cur) {
+                        char msg[1024 + 1];
+                        int cur_buffer_len;
+                        if(parse_msg(cur->buff, cur->buff_len, msg, &cur_buffer_len)) {
+                                fprintf(stderr, "msg: %s\n", msg);
+                                cur->buff_len = cur_buffer_len;
+                                process_msg(s, msg);
+                        } else {
+                                if(cur->buff_len == 1024) {
+                                        fprintf(stderr, "Socket buffer full and no delimited message. Discarding.\n");
+                                        cur->buff_len = 0;
                                 }
-                                // disconnected
-                                if(ret == 0) {
-                                        close(fd_client);
-                                        fd_client = -1;
-                                        buff_cur = buff;
-                                }
-                                buff_cur += ret;
                         }
-                }
 
-                char msg[1024 + 1];
-                int cur_buffer_len;
-                if(parse_msg(buff, buff_cur - buff, msg, &cur_buffer_len)) {
-                        fprintf(stderr, "msg: %s\n", msg);
-                        buff_cur = buff + cur_buffer_len;
-                        process_msg(s, msg);
+                        cur = cur->next;
                 }
         }
 
