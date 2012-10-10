@@ -165,6 +165,7 @@ struct state_decoder {
 struct extra_decompress_data {
         char **ext_recv_buffer;
         int *buffer_len;
+        char **fec_buffers;
 };
 
 void *decompress_thread(void *args);
@@ -272,11 +273,17 @@ void *decompress_thread(void *args) {
                 decoder->frame =
                         display_get_frame(decoder->display);
 
+skip_frame:
+
+                for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
+                        free(decoder->extra_decompress_data->fec_buffers[i]);
+                }
+                free(decoder->extra_decompress_data->fec_buffers);
+
                 free(decoder->extra_decompress_data->ext_recv_buffer);
                 free(decoder->extra_decompress_data->buffer_len);
                 free(decoder->extra_decompress_data);
 
-skip_frame:
                 pthread_mutex_lock(&decoder->lock);
                 {
                         decoder->work_to_do = false;
@@ -668,8 +675,8 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                         decoder->boss_waiting = FALSE;
                 }
         }
-
         pthread_mutex_unlock(&decoder->lock);
+
         assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
         
@@ -1332,8 +1339,10 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 decoder->extra_decompress_data = malloc(sizeof(struct extra_decompress_data));
                 decoder->extra_decompress_data->buffer_len = malloc(sizeof(buffer_len));
                 decoder->extra_decompress_data->ext_recv_buffer = malloc(sizeof(ext_recv_buffer));
+                decoder->extra_decompress_data->fec_buffers = malloc(sizeof(fec_buffers));
                 memcpy(decoder->extra_decompress_data->buffer_len, buffer_len, sizeof(buffer_len));
                 memcpy(decoder->extra_decompress_data->ext_recv_buffer, ext_recv_buffer, sizeof(ext_recv_buffer));
+                memcpy(decoder->extra_decompress_data->fec_buffers, fec_buffers, sizeof(fec_buffers));
 
                 decoder->ext_recv_buffer_index_network = (decoder->ext_recv_buffer_index_network + 1) % 2;
 
@@ -1361,7 +1370,6 @@ cleanup:
 
         for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct linked_list *)); ++i) {
                 ll_destroy(pckt_list[i]);
-                free(fec_buffers[i]);
 
                 frame_size += buffer_len[i];
         }
