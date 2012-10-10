@@ -93,7 +93,8 @@ struct processed_entry {
 
 typedef enum {
         SEEK,
-        FINALIZE
+        FINALIZE,
+        PAUSE
 } message_t;
 
 struct message;
@@ -161,8 +162,6 @@ struct vidcap_import_state {
         struct processed_entry * volatile head, * volatile tail;
         volatile int queue_len;
 
-        volatile bool paused;
-
         pthread_t thread_id;
         pthread_t control_thread_id;
 
@@ -178,7 +177,7 @@ static void * control_thread(void *args);
 static bool init_audio(struct vidcap_import_state *state, char *audio_filename);
 static void send_message(struct message *msg, struct message_queue *queue);
 static struct message* pop_message(struct message_queue *queue);
-static void flush_processed(struct processed_entry *list);
+static int flush_processed(struct processed_entry *list);
 
 static void message_queue_clear(struct message_queue *queue);
 static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
@@ -324,8 +323,6 @@ vidcap_import_init(char *directory, unsigned int flags)
 
         s->boss_waiting = false;
         s->worker_waiting = false;
-
-        s->paused = false;
 
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
@@ -517,16 +514,20 @@ vidcap_import_finish(void *state)
         pthread_join(s->control_thread_id, NULL);
 }
 
-static void flush_processed(struct processed_entry *list)
+static int flush_processed(struct processed_entry *list)
 {
+        int frames_deleted = 0;
         struct processed_entry *current = list;
 
         while(current != NULL) {
                 free(current->data);
                 struct processed_entry *tmp = current;
-                current = current->next;
                 free(tmp);
+                frames_deleted++;
+                current = current->next;
         }
+
+        return frames_deleted;
 }
 
 void
@@ -629,9 +630,16 @@ static void process_msg(struct vidcap_import_state *s, char *message)
         if(strcasecmp(message, "pause") == 0) {
                 pthread_mutex_lock(&s->lock);
                 {
-                        s->paused = !s->paused;
-                        if(s->boss_waiting) {
-                                pthread_cond_signal(&s->boss_cv);
+                        struct message *msg = malloc(sizeof(struct message));
+                        msg->type = PAUSE;
+                        msg->data = NULL;
+                        msg->data_len = 0;
+                        msg->next = NULL;
+
+                        send_message(msg, &s->message_queue);
+
+                        if(s->worker_waiting) {
+                                pthread_cond_signal(&s->worker_cv);
                         }
                 }
                 pthread_mutex_unlock(&s->lock);
@@ -897,12 +905,14 @@ static void * reading_thread(void *args)
         int index = 0;
         char name[512];
 
+        bool paused = false;
+
         ///while(index < s->count && !s->finish_threads) {
         while(1) {
                 struct processed_entry *new_entry = NULL;
                 pthread_mutex_lock(&s->lock);
                 {
-                        while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count)
+                        while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count || paused)
                                        && s->message_queue.len == 0) {
                                 s->worker_waiting = true;
                                 pthread_cond_wait(&s->worker_cv, &s->lock);
@@ -915,6 +925,18 @@ static void * reading_thread(void *args)
                                         pthread_mutex_unlock(&s->lock);
                                         free(msg);
                                         goto exited;
+                                } else if(msg->type == PAUSE) {
+                                        paused = !paused;
+                                        printf("Toggle pause\n");
+
+                                        index -= flush_processed(s->head);
+                                        s->queue_len = 0;
+                                        s->head = s->tail = NULL;
+
+                                        free(msg);
+
+                                        pthread_mutex_unlock(&s->lock);
+                                        goto end_loop;
                                 } else if (msg->type == SEEK) {
                                         flush_processed(s->head);
                                         s->queue_len = 0;
@@ -931,6 +953,9 @@ static void * reading_thread(void *args)
                                         }
                                         printf("Current index: frame %d\n", index);
                                         free(data);
+                                } else {
+                                        fprintf(stderr, "Unknown message type: %d!\n", msg->type);
+                                        abort();
                                 }
                         }
                 }
@@ -989,6 +1014,8 @@ static void * reading_thread(void *args)
 
 next:
                 index++;
+end_loop:
+                ;
         }
 
 exited:
@@ -1025,22 +1052,18 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 
                 current = s->head;
                 assert(current != NULL);
-                if(!s->paused) {
-                        s->head = s->head->next;
-                        s->queue_len -= 1;
 
-                        if(s->worker_waiting)
-                                pthread_cond_signal(&s->worker_cv);
-                }
+                s->head = s->head->next;
+                s->queue_len -= 1;
+
+                if(s->worker_waiting)
+                        pthread_cond_signal(&s->worker_cv);
 
                 s->tile->data_len = current->data_len;
                 s->tile->data = current->data;
 
-                if(!s->paused) {
-                        s->to_be_freeed = current->data;
-                        free(current);
-                }
-
+                s->to_be_freeed = current->data;
+                free(current);
         }
         pthread_mutex_unlock(&s->lock);
 
