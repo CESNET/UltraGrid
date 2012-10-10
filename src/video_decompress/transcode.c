@@ -184,6 +184,7 @@ void * transcode_decompress_init(void)
                 s->dxt_out_buff[i] = NULL;
                 s->input[i] = NULL;
                 s->output[i] = NULL;
+                s->work_ready[i] = false;
         }
 
         for(unsigned int i = 0; i < cuda_devices_count; ++i) {
@@ -223,6 +224,14 @@ int transcode_decompress_reconfigure(void *state, struct video_desc desc,
         assert(pitch == (int) desc.width / s->ppb); // default for DXT1
         pthread_mutex_lock(&s->lock);
         {
+                for(int i = 0; i < (int) cuda_devices_count; ++i) {
+                        while(s->work_ready[i]) {
+                                s->boss_waiting = true;
+                                pthread_cond_wait(&s->boss_cv, &s->lock);
+                                s->boss_waiting = false;
+                        }
+                }
+
                 s->worker_done = 0;
                 s->desc = desc;
                 s->should_reconfigure = cuda_devices_count;
