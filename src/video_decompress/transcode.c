@@ -366,7 +366,7 @@ void transcode_decompress_done(void *state)
                 should_exit_threads = true;
                 for(unsigned int i = 0; i < cuda_devices_count; ++i) {
                         if(s->worker_waiting[i]) {
-                                pthread_cond_signal(&s->worker_cv[s->free]);
+                                pthread_cond_signal(&s->worker_cv[i]);
                         }
                 }
         }
