@@ -332,12 +332,24 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
         s->frame->interlacing = desc.interlacing;
         s->frame->color_spec = desc.color_spec;
 
+        // SAGE fix - SAGE threads apparently do not process signals correctly so we temporarily
+        // block all signals while creating SAGE
+        sigset_t mask, old_mask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGINT);
+        sigaddset(&mask, SIGTERM);
+        sigaddset(&mask, SIGHUP);
+        pthread_sigmask(SIG_BLOCK, &mask, &old_mask);
+
         if(s->sage_state) {
                 sage_shutdown(s->sage_state);
         }
 
         s->sage_state = initSage(s->confName, s->appID, s->nodeID,
                         s->tile->width, s->tile->height, desc.color_spec);
+
+        // calling thread should be able to process signals afterwards
+        pthread_sigmask(SIG_UNBLOCK, &old_mask, NULL);
 
         s->tile->data = (char *) sage_getBuffer(s->sage_state);
         s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) * s->tile->height;
