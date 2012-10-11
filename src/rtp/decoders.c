@@ -1328,6 +1328,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
         }
 
+        assert(ret == TRUE);
+
         pthread_mutex_lock(&decoder->lock);
         {
                 while (decoder->work_to_do) {
@@ -1370,6 +1372,10 @@ cleanup:
 
         for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct linked_list *)); ++i) {
                 ll_destroy(pckt_list[i]);
+
+                if(ret != TRUE) {
+                        free(fec_buffers[i]);
+                }
 
                 frame_size += buffer_len[i];
         }
