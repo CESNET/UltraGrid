@@ -76,6 +76,15 @@ glxinfo | grep OpenGL
 if [ -x /usr/bin/lspci ]; then
         /usr/bin/lspci -vvvnn
 fi
+
+if [ -f /proc/asound/cards ]; then
+        cat /proc/asound/cards
+fi
+
+if [ -x /usr/bin/aplay ]; then
+        /usr/bin/aplay -L
+fi
+
 dmesg
 
 for dir in /proc/dvsdriver_*/; do for file in $dir/*; do cat $file; done; done
