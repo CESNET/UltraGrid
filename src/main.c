@@ -592,6 +592,15 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+#ifdef SHARED_DECODER
+        struct vcodec_state *shared_decoder = new_decoder(uv);
+        if(shared_decoder == NULL) {
+                fprintf(stderr, "Unable to create decoder!\n");
+                exit_uv(1);
+                return NULL;
+        }
+#endif // SHARED_DECODER
+
 
         initialize_video_decompress();
 
@@ -634,7 +643,11 @@ static void *receiver_thread(void *arg)
                         }
 
                         if(cp->video_decoder_state == NULL) {
+#ifdef SHARED_DECODER
+                                cp->video_decoder_state = shared_decoder;
+#else
                                 cp->video_decoder_state = new_decoder(uv);
+#endif // SHARED_DECODER
                                 if(cp->video_decoder_state == NULL) {
                                         fprintf(stderr, "Fatal: unable to find decoder state for "
                                                         "participant %u.\n", cp->ssrc);
@@ -711,6 +724,9 @@ static void *receiver_thread(void *arg)
         }
         
         cp = pdb_iter_init(uv->participants);
+#ifdef SHARED_DECODER
+        destroy_decoder(shared_decoder);
+#else
         while (cp != NULL) {
                 if(cp->video_decoder_state != NULL) {
                         destroy_decoder(cp->video_decoder_state);
@@ -718,6 +734,7 @@ static void *receiver_thread(void *arg)
 
                 cp = pdb_iter_next(uv->participants);
         }
+#endif //  SHARED_DECODER
         pdb_iter_done(uv->participants);
 
         display_finish(uv_state->display_device);
