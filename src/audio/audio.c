@@ -390,6 +390,7 @@ static void *audio_receiver_thread(void *arg)
         assert(pbuf_data.decoder != NULL);
         pbuf_data.audio_state = s;
         pbuf_data.saved_channels = pbuf_data.saved_bps = pbuf_data.saved_sample_rate = 0;
+        pbuf_data.reconfigured = false;
                 
         printf("Audio receiving started.\n");
         while (!should_exit_audio) {
@@ -419,6 +420,12 @@ static void *audio_receiver_thread(void *arg)
                                 } else {
                                         pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
                                 }
+
+                                if(pbuf_data.reconfigured) {
+                                        rtp_flush_recv_buf(s->audio_network_device);
+                                        pbuf_data.reconfigured = false;
+                                }
+
                                 pbuf_remove(cp->playout_buffer, curr_time);
                                 cp = pdb_iter_next(s->audio_participants);
                         }
