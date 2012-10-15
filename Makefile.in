@@ -70,6 +70,7 @@ OBJS	      = @OBJS@ \
 		@SPEEX_OBJ@ \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_time.o \
+		src/compat/usleep.o \
 		src/crypto/crypt_aes.o \
 		src/crypto/crypt_aes_impl.o \
 		src/crypto/crypt_des.o \
