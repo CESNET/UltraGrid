@@ -44,9 +44,13 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
 #include "host.h"
-#include "config.h"
 #include "debug.h"
 #include "fastdxt.h"
 #include <pthread.h>
@@ -225,9 +229,9 @@ static int reconfigure_compress(struct video_compress *compress, int width,
          *
          *  see: http://www.mythtv.org/pipermail/mythtv-dev/2006-January/044309.html
          */
-        compress->output_data = (unsigned char *)memalign(16, width * compress->dxt_height * 4);
+        compress->output_data = (unsigned char *)aligned_malloc(width * compress->dxt_height * 4, 16);
         for(i = 0; i < 2; ++i) {
-                compress->tile[i]->data = (char *)memalign(16, width * compress->dxt_height * 4);
+                compress->tile[i]->data = (char *)aligned_malloc(width * compress->dxt_height * 4, 16);
         }
 #endif                          /* HAVE_MACOSX */
         memset(compress->output_data, 0, width * compress->dxt_height * 4);
@@ -361,7 +365,7 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
                 platform_sem_wait(&compress->thread_done[x]);
         }
 
-        out_tile->data_len = out_tile->width * compress->dxt_height / 2;
+        out_tile->data_len = tx->tiles[0].width * compress->dxt_height / 2;
         
         pthread_mutex_unlock(&(compress->lock));
 
@@ -450,6 +454,12 @@ void fastdxt_done(void *args)
         
         for (x = 0; x < compress->num_threads; ++x)
                 free(compress->buffer[x]);
+
+        aligned_free(compress->output_data);
+        for(x = 0; x < 2; ++x) {
+                aligned_free(compress->tile[x]->data);
+        }
+
         free(compress);
                 
         

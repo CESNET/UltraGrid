@@ -348,7 +348,11 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
 
         curr = playout_buf->frst;
         while (curr != NULL) {
-                if (!curr->decoded && tv_gt(curr_time, curr->playout_time)) {
+                if (!curr->decoded 
+#ifndef WIN32
+				&& tv_gt(curr_time, curr->playout_time)
+#endif
+		   ) {
                         if (frame_complete(curr)) {
                                 int ret = decode_func(curr->cdata, data);
                                 curr->decoded = 1;

@@ -201,7 +201,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
 
         if(rounded_data_len) {
                 char *data_to_write = malloc(rounded_data_len);
-                char *far = malloc(chunk_size);
+                char *far_end_tmp = malloc(chunk_size);
 
                 memcpy(data_to_write, s->near_end_residual, s->near_end_residual_size);
                 memcpy(data_to_write + s->near_end_residual_size, 
@@ -222,13 +222,13 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 spx_int16_t *out_ptr = (spx_int16_t *) s->frame.data;
 
                 int read_len_far;
-                read_len_far = ring_buffer_read(s->far_end, far, chunk_size);
+                read_len_far = ring_buffer_read(s->far_end, far_end_tmp, chunk_size);
                 while((read_len_far == chunk_size) && s->frame.data_len < rounded_data_len)  {
                         speex_echo_cancellation(s->echo_state, near_ptr,
-                                        (spx_int16_t *) far,
+                                        (spx_int16_t *) far_end_tmp,
                                         out_ptr);
 
-                        read_len_far = ring_buffer_read(s->far_end, far, chunk_size);
+                        read_len_far = ring_buffer_read(s->far_end, far_end_tmp, chunk_size);
                         near_ptr += chunk_size;
                         out_ptr += chunk_size;
                         s->frame.data_len += chunk_size;
@@ -239,7 +239,7 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 }
 
                 free(data_to_write);
-                free(far);
+                free(far_end_tmp);
 
                 s->frame.data_len = rounded_data_len;
 

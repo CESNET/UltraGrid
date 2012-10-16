@@ -105,6 +105,8 @@ struct state_audio {
         
         pthread_t audio_sender_thread_id,
                   audio_receiver_thread_id;
+	bool audio_sender_thread_started,
+		audio_receiver_thread_started;
 
         char *audio_channel_map;
         const char *audio_scale;
@@ -164,6 +166,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
+	UNUSED(unused);
         char *addr;
         
         audio_capture_init_devices();
@@ -202,6 +205,8 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
 
+	s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
+
         if(echo_cancellation) {
 #ifdef HAVE_SPEEX
                 s->echo_state = echo_cancellation_init();
@@ -236,9 +241,13 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         free(tmp);
 
         if (send_cfg != NULL) {
-                char *save_ptr = NULL;
-                char *device = strtok_r(send_cfg, ":", &save_ptr);
-                char *cfg = save_ptr;
+                char *cfg = NULL;
+                char *device = send_cfg;
+		if(strchr(device, ':')) {
+			char *delim = strchr(device, ':');
+			*delim = '\0';
+			cfg = delim + 1;
+		}
 
                 s->audio_capture_device = audio_capture_init(device, cfg);
                 
@@ -251,9 +260,13 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         }
         
         if (recv_cfg != NULL) {
-                char *save_ptr = NULL;
-                char *device = strtok_r(recv_cfg, ":", &save_ptr);
-                char *cfg = save_ptr;
+                char *cfg = NULL;
+                char *device = recv_cfg;
+		if(strchr(device, ':')) {
+			char *delim = strchr(device, ':');
+			*delim = '\0';
+			cfg = delim + 1;
+		}
 
                 s->audio_playback_device = audio_playback_init(device, cfg);
                 if(!s->audio_playback_device) {
@@ -270,7 +283,9 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
                         fprintf(stderr,
                                 "Error creating audio thread. Quitting\n");
                         goto error;
-                }
+                } else {
+			s->audio_sender_thread_started = true;
+		}
         }
 
         if (recv_cfg != NULL) {
@@ -279,7 +294,9 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
                         fprintf(stderr,
                                 "Error creating audio thread. Quitting\n");
                         goto error;
-                }
+                } else {
+			s->audio_receiver_thread_started = true;
+		}
         }
         
         s->sender = NET_NATIVE;
@@ -317,9 +334,9 @@ error:
 
 void audio_join(struct state_audio *s) {
         if(s) {
-                if(s->audio_receiver_thread_id)
+                if(s->audio_receiver_thread_started)
                         pthread_join(s->audio_receiver_thread_id, NULL);
-                if(s->audio_sender_thread_id)
+                if(s->audio_sender_thread_started)
                         pthread_join(s->audio_sender_thread_id, NULL);
         }
 }

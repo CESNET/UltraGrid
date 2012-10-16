@@ -36,6 +36,12 @@
  * $Date: 2007/11/08 09:48:59 $
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #ifndef _NET_UDP
 #define _NET_UDP
 
@@ -55,7 +61,11 @@ int         udp_recv(socket_udp *s, char *buffer, int buflen);
 int         udp_send(socket_udp *s, char *buffer, int buflen);
 
 int         udp_recvv(socket_udp *s, struct msghdr *m);
+#ifdef WIN32
+int         udp_sendv(socket_udp *s, LPWSABUF vector, int count);
+#else
 int         udp_sendv(socket_udp *s, struct iovec *vector, int count);
+#endif
 
 const char *udp_host_addr(socket_udp *s);
 int         udp_fd(socket_udp *s);

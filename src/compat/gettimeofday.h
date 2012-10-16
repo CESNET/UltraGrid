@@ -1,6 +1,10 @@
-#ifdef NEED_GETTIMEOFDAY
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
-int gettimeofday(struct timeval *tp, void *);
+int gettimeofday_replacement(struct timeval *tp, void *tz);
 
-#endif
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 

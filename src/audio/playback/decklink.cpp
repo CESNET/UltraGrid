@@ -67,17 +67,31 @@ extern "C" {
 #include "audio/audio.h"
 #include "audio/utils.h"
 
+#ifdef WIN32
+#include "DeckLinkAPI_h.h"
+#else
 #include "DeckLinkAPI.h"
+#endif
 #include "DeckLinkAPIVersion.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
 #endif
 
+#ifdef WIN32
+#include <objbase.h>
+#endif
+
 #ifdef HAVE_MACOSX
 #define STRING CFStringRef
+#elif defined WIN32
+#define STRING BSTR
 #else
 #define STRING const char *
+#endif
+
+#ifndef WIN32
+#define STDMETHODCALLTYPE
 #endif
 
 // defined int video_capture/decklink.cpp
@@ -120,17 +134,17 @@ public:
 
 
         // IUnknown needs only a dummy implementation
-        virtual HRESULT         QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
-        virtual ULONG           AddRef ()                                                                       {return 1;}
-        virtual ULONG           Release ()                                                                      {return 1;}
+        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+        virtual ULONG STDMETHODCALLTYPE            AddRef ()                                                                       {return 1;}
+        virtual ULONG STDMETHODCALLTYPE            Release ()                                                                      {return 1;}
 
-        virtual HRESULT         ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) {
+        virtual HRESULT STDMETHODCALLTYPE          ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) {
                         s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame,
                                         s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
                         s->frames++;
                         return S_OK;
         }
-        virtual HRESULT         ScheduledPlaybackHasStopped () { return S_OK; } 
+        virtual HRESULT STDMETHODCALLTYPE          ScheduledPlaybackHasStopped () { return S_OK; } 
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
 
@@ -138,9 +152,18 @@ static int blackmagic_api_version_check(STRING *current_version)
 {
         int ret = TRUE;
         *current_version = NULL;
+        IDeckLinkAPIInformation *APIInformation = NULL;
+	HRESULT result;
 
-        IDeckLinkAPIInformation *APIInformation = CreateDeckLinkAPIInformationInstance();
-        if(APIInformation == NULL) {
+#ifdef WIN32
+	result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
+		IID_IDeckLinkAPIInformation, (void **) &APIInformation);
+	
+#else
+        APIInformation = CreateDeckLinkAPIInformationInstance();
+        if(APIInformation == NULL)
+#endif
+	{
                 return FALSE;
         }
         int64_t value;
@@ -171,8 +194,14 @@ void decklink_playback_help(const char *driver_name)
         UNUSED(driver_name);
 
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+#ifdef WIN32
+	result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
+		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
+        if (FAILED(result))
+#else
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (deckLinkIterator == NULL)
+#endif
         {
 		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
@@ -191,6 +220,9 @@ void decklink_playback_help(const char *driver_name)
 #ifdef HAVE_MACOSX
                 deviceNameCString = (char *) malloc(128);
                 CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+#elif defined WIN32
+                deviceNameCString = (char *) malloc(128);
+		wcstombs((char *) deviceNameCString, deviceNameString, 128);
 #else
                 deviceNameCString = deviceNameString;
 #endif
@@ -227,9 +259,19 @@ void *decklink_playback_init(char *index_str)
         HRESULT                                         result;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
-        BMDAudioOutputAnalogAESSwitch audioConnection = 0;
+        BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         int cardIdx = 0;
         int dnum = 0;
+
+#ifdef WIN32
+	// Initialize COM on this thread
+	result = CoInitialize(NULL);
+	if(FAILED(result)) {
+		fprintf(stderr, "Initialization of COM failed - result = "
+				"08x.\n", result);
+		return NULL;
+	}
+#endif
 
         STRING current_version;
         if(!blackmagic_api_version_check(&current_version)) {
@@ -242,6 +284,9 @@ void *decklink_playback_init(char *index_str)
 #ifdef HAVE_MACOSX
                         currentVersionCString = (char *) malloc(128);
                         CFStringGetCString(current_version, (char *) currentVersionCString, 128, kCFStringEncodingMacRoman);
+#elif defined WIN32
+                        currentVersionCString = (char *) malloc(128);
+			wcstombs((char *) currentVersionCString, current_version, 128);
 #else
                         currentVersionCString = current_version;
 #endif
@@ -273,8 +318,14 @@ void *decklink_playback_init(char *index_str)
         }
 
         // Initialize the DeckLink API
+#ifdef WIN32
+	result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
+		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
+        if (FAILED(result))
+#else
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (!deckLinkIterator)
+#endif
         {
 		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
@@ -371,7 +422,11 @@ void decklink_put_frame(void *state, struct audio_frame *frame)
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
                         s->audio.ch_count);
+#ifdef WIN32
+        unsigned long int sampleFramesWritten;
+#else
         unsigned int sampleFramesWritten;
+#endif
 
         /* we got probably count that cannot be played directly (probably 1) */
         if(s->output_audio_channel_count != s->audio.ch_count) {

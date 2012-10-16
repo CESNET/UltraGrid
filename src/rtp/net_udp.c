@@ -49,9 +49,7 @@
 #include "debug.h"
 #include "memory.h"
 #include "compat/inet_pton.h"
-/*
 #include "compat/inet_ntop.h"
-*/
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 
@@ -141,7 +139,7 @@ static void socket_error(const char *msg, ...)
 #define WSERR(x) {#x,x}
         struct wse {
                 char errname[20];
-                int errno;
+                int errno_code;
         };
         struct wse ws_errs[] = {
                 WSERR(WSANOTINITIALISED), WSERR(WSAENETDOWN), WSERR(WSAEACCES),
@@ -158,7 +156,7 @@ static void socket_error(const char *msg, ...)
 
         int i, e = WSAGetLastError();
         i = 0;
-        while (ws_errs[i].errno && ws_errs[i].errno != e) {
+        while (ws_errs[i].errno_code && ws_errs[i].errno_code != e) {
                 i++;
         }
         va_start(ap, msg);
@@ -228,6 +226,8 @@ winsock_versions_setsockopt(SOCKET s, int level, int optname,
 #ifdef NEED_INET_ATON_STATIC
 static
 #endif
+int inet_aton(const char *name, struct in_addr *addr);
+
 int inet_aton(const char *name, struct in_addr *addr)
 {
         addr->s_addr = inet_addr(name);
@@ -288,16 +288,24 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 memcpy(&(s->addr4), h->h_addr_list[0], sizeof(s->addr4));
         }
         if (iface != NULL) {
+#ifdef HAVE_IF_NAMETOINDEX
                 if ((ifindex = if_nametoindex(iface)) == 0) {
                         debug_msg("Illegal interface specification\n");
                         free(s);
                         return NULL;
                 }
+#else
+		fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
+#endif
         } else {
                 ifindex = 0;
         }
         s->fd = socket(AF_INET, SOCK_DGRAM, 0);
+#ifdef WIN32
+        if (s->fd == INVALID_SOCKET) {
+#else
         if (s->fd < 0) {
+#endif
                 socket_error("Unable to initialize socket");
                 return NULL;
         }
@@ -333,7 +341,9 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 return NULL;
         }
         if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
+#ifndef WIN32
                 char loop = 1;
+#endif
                 struct ip_mreq imr;
 
                 imr.imr_multiaddr.s_addr = s->addr4.s_addr;
@@ -405,6 +415,24 @@ static inline int udp_send4(socket_udp * s, char *buffer, int buflen)
                       sizeof(s_in));
 }
 
+#ifdef WIN32
+static inline int udp_sendv4(socket_udp * s, LPWSABUF vector, int count)
+{
+        struct sockaddr_in s_in;
+
+        assert(s != NULL);
+        assert(s->mode == IPv4);
+
+        s_in.sin_family = AF_INET;
+        s_in.sin_addr.s_addr = s->addr4.s_addr;
+        s_in.sin_port = htons(s->tx_port);
+
+	DWORD bytesSent;
+	return WSASendTo(s->fd, vector, count, &bytesSent, 0,
+		(struct sockaddr *) &s_in,
+		sizeof(s_in), NULL, NULL);
+}
+#else
 static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count)
 {
         struct msghdr msg;
@@ -428,6 +456,7 @@ static inline int udp_sendv4(socket_udp * s, struct iovec *vector, int count)
 
         return sendmsg(s->fd, &msg, 0);
 }
+#endif // WIN32
 
 static const char *udp_host_addr4(void)
 {
@@ -566,11 +595,15 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         int err;
 
         if (iface != NULL) {
+#ifdef HAVE_IF_NAMETOINDEX
                 if ((ifindex = if_nametoindex(iface)) == 0) {
                         debug_msg("Illegal interface specification\n");
                         free(s);
                         return NULL;
                 }
+#else
+		fprintf(stderr, "Cannot set interface name under Win32.\n");
+#endif
         } else {
                 ifindex = 0;
         }
@@ -595,7 +628,11 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         freeaddrinfo(res0);
 
         s->fd = socket(AF_INET6, SOCK_DGRAM, 0);
+#ifdef WIN32
+        if (s->fd == INVALID_SOCKET) {
+#else
         if (s->fd < 0) {
+#endif
                 socket_error("socket");
                 return NULL;
         }
@@ -723,6 +760,18 @@ static int udp_send6(socket_udp * s, char *buffer, int buflen)
 #endif
 }
 
+#ifdef WIN32
+static int udp_sendv6(socket_udp * s, LPWSABUF vector, int count)
+{
+        assert(s != NULL);
+        assert(s->mode == IPv6);
+
+	DWORD bytesSent;
+	return WSASendTo(s->fd, vector, count, &bytesSent, 0,
+		(struct sockaddr *) &s->sock6,
+		sizeof(s->sock6), NULL, NULL);
+}
+#else
 static int udp_sendv6(socket_udp * s, struct iovec *vector, int count)
 {
 #ifdef HAVE_IPv6
@@ -746,6 +795,7 @@ static int udp_sendv6(socket_udp * s, struct iovec *vector, int count)
         return -1;
 #endif
 }
+#endif // WIN32
 
 static const char *udp_host_addr6(socket_udp * s)
 {
@@ -948,7 +998,11 @@ int udp_send(socket_udp * s, char *buffer, int buflen)
         return -1;
 }
 
+#ifdef WIN32
+int udp_sendv(socket_udp * s, LPWSABUF vector, int count)
+#else
 int udp_sendv(socket_udp * s, struct iovec *vector, int count)
+#endif // WIN32
 {
         switch (s->mode) {
         case IPv4:
@@ -1017,6 +1071,7 @@ int udp_recv(socket_udp * s, char *buffer, int buflen)
         return udp_do_recv(s, buffer, buflen, 0);
 }
 
+#ifndef WIN32
 int udp_recvv(socket_udp * s, struct msghdr *m)
 {
         if (recvmsg(s->fd, m, 0) == -1) {
@@ -1025,6 +1080,7 @@ int udp_recvv(socket_udp * s, struct msghdr *m)
         }
         return 0;
 }
+#endif // WIN32
 
 /**
  * udp_fd_set:
