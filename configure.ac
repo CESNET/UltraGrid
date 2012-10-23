@@ -701,9 +701,8 @@ DELTACAST_LIB=
 deltacast_req=yes
 deltacast=no
 
-case $host in
-    *-linux-*)
-
+if test $system = Linux -o $system = Windows
+then
         AC_ARG_ENABLE(deltacast,
               AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]),
             [deltacast_req=$enableval],
@@ -718,17 +717,30 @@ case $host in
 
         AC_LANG_PUSH(C++)
 
+	if test $system = Windows; then
+		HEADER_SUBDIR="Header"
+	else
+		HEADER_SUBDIR="Include"
+	fi
+
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS_SAVE=$CXXFLAGS
-                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
+                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/$HEADER_SUBDIR"
                 CPPFLAGS_SAVE=$CPPFLAGS
-                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
+                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/$HEADER_SUBDIR"
         fi
+
+	if test $system = Windows; then
+		EXTRA_HEADERS="#include <windows.h>"
+	else
+		EXTRA_HEADERS=
+	fi
 
         AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
                          [], [],
-                         [[#ifdef HAVE_VIDEOMASTERHD_CORE_H
+                         [[$EXTRA_HEADERS
+			#ifdef HAVE_VIDEOMASTERHD_CORE_H
                           # include <VideoMasterHD_Core.h>
                           #endif
                           #ifdef HAVE_VIDEOMASTERHD_SDI_H
@@ -736,37 +748,47 @@ case $host in
                           #endif
                           ]])
 
+        SAVED_LIBS=$LIBS
+        DELTACAST_LIB="-lvideomasterhd_audio -lvideomasterhd"
+        if test -n "$DELTACAST_PATH"; then
+		if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+		then
+			DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x64"
+		else
+			DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
+		fi
+	fi
+        LIBS="$LIBS $DELTACAST_LIB"
+		
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[$EXTRA_HEADERS
+			  # include <VideoMasterHD_Core.h>
+                          # include <VideoMasterHD_Sdi.h>
+                          # include <VideoMasterHD_Sdi_Audio.h>
+                           ]],
+                           [[
+			    VHD_OpenBoardHandle(0, (void **) 0, (void *) 0, 0);
+			    VHD_SlotExtractAudio(0, 0);
+                            VHD_LockSlotHandle(0, 0);
+                            ]])],FOUND_VHD_L=yes,FOUND_VHD_L=no)
+        #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
+        LIBS=$SAVED_LIBS
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS=$CXXFLAGS_SAVE
                 CPPFLAGS=$CPPFLAGS_SAVE
         fi
 
-        SAVED_LIBS=$LIBS
-        AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle)
-        LIBS="$LIBS -lvideomasterhd_audio -lvideomasterhd"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[# include <VideoMasterHD_Core.h>
-                          # include <VideoMasterHD_Sdi.h>
-                          # include <VideoMasterHD_Sdi_Audio.h>
-                           ]],
-                           [[VHD_SlotExtractAudio(0, 0);
-                            VHD_LockSlotHandle(0, 0);
-                            ]])],FOUND_VHD_AUDIO_L=yes,FOUND_VHD_AUDIO_L=no)
-        #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
-        LIBS=$SAVED_LIBS
-
         AC_LANG_POP(C++)
 
         if test $deltacast_req = yes -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
-                -a "$ac_cv_lib_videomasterhd_VHD_OpenBoardHandle" = yes -a "$FOUND_VHD_AUDIO_L"
+                -a "$FOUND_VHD_L" = yes
         then
                 if test -n "$DELTACAST_PATH"
                 then
-                        DELTACAST_INC="-I$DELTACAST_PATH/Include"
+                        DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
                 fi
                 DELTACAST_CAP_OBJ="src/video_capture/deltacast.o"
                 DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
-                DELTACAST_LIB="-lvideomasterhd -lvideomasterhd_audio"
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
                 AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
@@ -780,8 +802,7 @@ case $host in
                 DELTACAST_CAP_OBJ=
                 DELTACAST_DISP_OBJ=
         fi
-    ;;
-esac
+fi
 
 LIB_MODULES="$LIB_MODULES $DELTACAST_LIB"
 
