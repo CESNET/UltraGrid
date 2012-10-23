@@ -967,9 +967,13 @@ static void init_rng(const char *s)
                 int32_t i, n;
 #endif                          /* WIN32 */
 
-                while (*s) {
-                        seed += (uint32_t) * s++;
-                        seed = seed * 31 + 1;
+                if(s) {
+                        while (*s) {
+                                seed += (uint32_t) * s++;
+                                seed = seed * 31 + 1;
+                        }
+                } else {
+                        seed = clock();
                 }
                 seed = 1 + seed * 31 + (uint32_t) p;
                 srand48(seed);

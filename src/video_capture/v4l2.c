@@ -302,10 +302,11 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
                                         height = atoi(item);
                                         break;
                                 case 4:
-                                        numerator = atoi(item);
-                                        break;
-                                case 5:
-                                        denominator = atoi(item);
+                                        if(strchr(item, '/')) {
+                                                numerator = atoi(item);
+                                                denominator = atoi(strchr(item, '/') + 1);
+                                        }
+
                                         break;
 
                         }

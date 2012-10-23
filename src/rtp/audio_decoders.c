@@ -342,7 +342,12 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                 ret = FALSE;
                                 goto cleanup;
                         }
-                        else fprintf(stderr, "Audio reconfiguration succeeded.");
+                        else {
+                                fprintf(stderr, "Audio reconfiguration succeeded.");
+                        }
+
+                        s->reconfigured = true;
+
                         fprintf(stderr, " (%d channels, %d bps, %d Hz)\n", output_channels,
                                         bps, sample_rate);
                         if(!decoder->fixed_scale) {
