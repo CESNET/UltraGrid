@@ -591,7 +591,7 @@ case "$host_os" in
                 ;;
         *)
                 if test -z $DECKLINK_INC; then
-                        DECKLINK_INC=DeckLink/include
+                        DECKLINK_INC=DeckLink/Linux
                 fi
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
