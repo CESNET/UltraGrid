@@ -60,9 +60,14 @@
 #include <stdlib.h>   /* abs() */
 #include <string.h>
 
+// 0x0501 is Win XP, 0x0502 2003 Server, 0x0600 Win Vista and Win 7 is 0x0601
+#ifndef WINVER
+#define WINVER 0x0501
+#endif /* WINVER */
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #endif /* _WIN32_WINNT */
+
 #define WIN32_LEAN_AND_MEAN
 
 #include <winsock2.h>
@@ -107,7 +112,6 @@ typedef unsigned int	in_addr_t;
 #define lrand48 lbl_random
 
 typedef char	*caddr_t;
-typedef int	ssize_t;
 
 typedef struct iovec {
 	caddr_t	iov_base;
@@ -203,11 +207,6 @@ void ShowMessage(int level, char *msg);
 #define EAFNOSUPPORT	WSAEAFNOSUPPORT
 
 #define M_PI		3.14159265358979323846
-
-#ifndef TRUE
-#define TRUE 1
-#define FALSE 0
-#endif // TRUE
 
 #include <malloc.h>
 
