@@ -1143,7 +1143,7 @@ case "$host_os" in
 	*mingw*)
 	AC_MSG_CHECKING([OpenGL support])
 	SAVED_LIBS=$LIBS
-	LIBS="$LIBS -lglut32win libglew32.a libglew32.dll.a -lopengl32"
+	LIBS="$LIBS -lglut libglew32.a libglew32.dll.a -lopengl32"
 	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
 #define _STDCALL_SUPPORTED 1
 #include <GL/glew.h>
@@ -1157,7 +1157,7 @@ glBindTexture(GL_TEXTURE_2D, 0);
 	AC_MSG_RESULT([$HAVE_GL])
 
 	if test "$HAVE_GL" = yes; then
-		GL_LIB="$GL_LIB -lglut32win libglew32.a libglew32.dll.a -lopengl32"
+		GL_LIB="$GL_LIB -lglut libglew32.a libglew32.dll.a -lopengl32"
 		GL_OBJ="$GL_OBJ src/video_display/gl.o"
 		AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 		gl=yes	

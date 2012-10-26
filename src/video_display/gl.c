@@ -65,14 +65,14 @@
 #include <GL/glx.h>
 #include <GL/glut.h>
 #include "x11_common.h"
-#ifdef FREEGLUT
-#include <GL/freeglut_ext.h>
-#endif /* FREEGLUT */
-#else // wihdows
+#else // WIN32
 #include <GL/glew.h>
 #include <GL/glut.h>
 #endif /* HAVE_MACOSX */
 
+#ifdef FREEGLUT
+#include <GL/freeglut_ext.h>
+#endif /* FREEGLUT */
 
 #include <signal.h>
 #include <assert.h>
@@ -844,11 +844,11 @@ static void glut_key_callback(unsigned char key, int x, int y)
                         glut_resize_window(gl);
                         break;
                 case 'q':
-#ifdef WIN32
+#if defined FREEGLUT || defined HAVE_MACOSX
+                        exit_uv(0);
+#else
 			glutDestroyWindow(gl->window);
 			exit(1);
-#else
-                        exit_uv(0);
 #endif
                         break;
                 case 'd':
@@ -862,9 +862,7 @@ void display_gl_run(void *arg)
 {
         UNUSED(arg);
 
-#ifdef WIN32
-	glutMainLoop();
-#else
+#if defined HAVE_MACOSX || defined FREEGLUT
         while(!should_exit_main_loop) {
                 glut_idle_callback();
 #ifndef HAVE_MACOSX
@@ -873,6 +871,8 @@ void display_gl_run(void *arg)
                 glutCheckLoop();
 #endif
         }
+#else /* defined HAVE_MACOSX || defined FREEGLUT */
+	glutMainLoop();
 #endif
 }
 
