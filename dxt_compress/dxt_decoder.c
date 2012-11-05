@@ -116,6 +116,10 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
     decoder->legacy = legacy;
     //glutReshapeWindow(1, 1);
     
+    if(legacy) {
+            glEnable(GL_TEXTURE_2D);
+    }
+    
     // Create empty texture
     glGenTextures(1, &decoder->compressed_tex);
     glBindTexture(GL_TEXTURE_2D, decoder->compressed_tex);
@@ -124,13 +128,22 @@ dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format ou
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
-    if ( decoder->type == DXT_TYPE_DXT5_YCOCG )
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT, decoder->width, decoder->height, 0,
-                        ((decoder->width + 3) / 4 * 4) * ((decoder->height + 3) / 4 * 4), 0);
-    else
-        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGB_S3TC_DXT1_EXT, decoder->width, decoder->height, 0,
-                        ((decoder->width + 3) / 4 * 4) * ((decoder->height + 3) / 4 * 4) / 2, 0);
-    
+    GLenum internalformat;
+    size_t size;
+
+    if ( decoder->type == DXT_TYPE_DXT5_YCOCG ) {
+            internalformat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+            size = ((decoder->width + 3) / 4 * 4) * ((decoder->height + 3) / 4 * 4);
+    } else {
+            internalformat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+            size = ((decoder->width + 3) / 4 * 4) * ((decoder->height + 3) / 4 * 4) / 2;
+    }
+
+    GLvoid *tmp_data = malloc(size); // data pointer to glCompressedTexImage2D shouldn't be 0
+    glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, internalformat, decoder->width, decoder->height, 0,
+                    size, tmp_data);
+    free(tmp_data);
+
     // Create fbo    
     glGenFramebuffers(1, &decoder->fbo_rgba);
     glBindFramebuffer(GL_FRAMEBUFFER, decoder->fbo_rgba);
