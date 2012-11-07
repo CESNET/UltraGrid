@@ -84,7 +84,7 @@ void *open_library(const char *name)
                 if(!handle && stat(path, &buf) == 0) {
                         handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                         if(!handle)
-                                fprintf(stderr, "Library opening error: %s \n", dlerror());
+                                fprintf(stderr, "Library opening warning: %s \n", dlerror());
                 }
         }
         free(tmp);
@@ -94,11 +94,11 @@ void *open_library(const char *name)
         if(!handle && stat(path, &buf) == 0) {
                 handle = dlopen(path, RTLD_NOW|RTLD_GLOBAL);
                 if(!handle)
-                        fprintf(stderr, "Library opening error: %s \n", dlerror());
+                        fprintf(stderr, "Library opening warning: %s \n", dlerror());
         }
         
         if(!handle) {
-                fprintf(stderr, "Unable to find %s library.\n", kLibName);
+                fprintf(stderr, "Unable to load %s library.\n", kLibName);
         }
                 
         return handle;
