@@ -325,7 +325,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 for (double sec = 0.0; sec < BUFFER_MIN / 1000.0; sec += (double) frames / frame->sample_rate) {
                         int frames_to_write = frames;
                         if(sec + (double) frames/frame->sample_rate > BUFFER_MIN / 1000.0) {
-                                frames = (BUFFER_MIN / 1000.0 - sec) * frame->sample_rate;
+                                frames_to_write = (BUFFER_MIN / 1000.0 - sec) * frame->sample_rate;
                         }
                         int rc = snd_pcm_writei(s->handle, data, frames_to_write);
                         if(rc < 0) {
