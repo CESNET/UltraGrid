@@ -32,6 +32,10 @@
 
 #include <libgpujpeg/gpujpeg_common.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** JPEG decoder structure predeclaration */
 struct gpujpeg_decoder;
 
@@ -102,5 +106,9 @@ gpujpeg_reader_destroy(struct gpujpeg_reader* reader);
  */
 int
 gpujpeg_reader_read_image(struct gpujpeg_decoder* decoder, uint8_t* image, int image_size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_READER_H

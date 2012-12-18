@@ -33,6 +33,10 @@
 #include <stdint.h>
 #include <cuda_runtime.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Contants */
 #define GPUJPEG_BLOCK_SIZE                      8
 #define GPUJPEG_BLOCK_SQUARED_SIZE              64
@@ -266,5 +270,9 @@ gpujpeg_marker_name(enum gpujpeg_marker_code code)
         }
     }
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_TYPE_H

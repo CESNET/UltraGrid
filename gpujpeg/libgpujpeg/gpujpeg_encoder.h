@@ -34,6 +34,10 @@
 #include <libgpujpeg/gpujpeg_table.h>
 #include <libgpujpeg/gpujpeg_writer.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Encoder input type
  */
@@ -131,5 +135,9 @@ gpujpeg_encoder_encode(struct gpujpeg_encoder* encoder, struct gpujpeg_encoder_i
  */
 int
 gpujpeg_encoder_destroy(struct gpujpeg_encoder* encoder);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_ENCODER_H

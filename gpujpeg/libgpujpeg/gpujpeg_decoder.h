@@ -34,6 +34,10 @@
 #include <libgpujpeg/gpujpeg_table.h>
 #include <libgpujpeg/gpujpeg_reader.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Decoder output type
  */
@@ -174,5 +178,9 @@ gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int imag
  */
 int
 gpujpeg_decoder_destroy(struct gpujpeg_decoder* decoder);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_DECODER_H

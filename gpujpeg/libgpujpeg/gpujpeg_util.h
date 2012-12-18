@@ -37,6 +37,10 @@
 #include <strings.h>
 #include <assert.h>
 #include <cuda_runtime.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
     
 // CUDA check error
 #define gpujpeg_cuda_check_error(msg) \
@@ -68,5 +72,9 @@ struct { int x; int y; int z; } gridDim;
 #define GPUJPEG_EXIT_MISSING_OPENGL() \
     fprintf(stderr, "[GPUJPEG] [Error] Can't use OpenGL. The codec was compiled without OpenGL!\n"); \
     exit(-1); \
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_UTIL_H
