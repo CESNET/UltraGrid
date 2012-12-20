@@ -513,7 +513,7 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
         return state;
 }
 
-static void destroy_decoder(struct vcodec_state *video_decoder_state) {
+void destroy_decoder(struct vcodec_state *video_decoder_state) {
         if(!video_decoder_state) {
                 return;
         }
@@ -657,19 +657,9 @@ static void *receiver_thread(void *arg)
                 pdb_iter_done(uv->participants);
         }
         
-        cp = pdb_iter_init(uv->participants);
 #ifdef SHARED_DECODER
         destroy_decoder(shared_decoder);
-#else
-        while (cp != NULL) {
-                if(cp->video_decoder_state != NULL) {
-                        destroy_decoder(cp->video_decoder_state);
-                }
-
-                cp = pdb_iter_next(uv->participants);
-        }
 #endif //  SHARED_DECODER
-        pdb_iter_done(uv->participants);
 
         display_finish(uv_state->display_device);
 

@@ -81,7 +81,7 @@ int                  pdb_add(struct pdb *db, uint32_t ssrc);
 struct pdb_e        *pdb_get(struct pdb *db, uint32_t ssrc);
 
 /* Remove the entry indexed by "ssrc" from the database, returning a
- * pointer to it in "item". Returns non-zero on if the entry was present.
+ * pointer to it in "item". Returns zero if the entry was present.
  */
 int                  pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item);
 

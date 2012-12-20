@@ -2403,6 +2403,17 @@ AC_SUBST(LIBAVCODEC_DECOMPRESS_OBJ)
 LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
 
 # -------------------------------------------------------------------------------------------------
+# use shared decoder
+# -------------------------------------------------------------------------------------------------
+
+# the shared behaviour is faulty, but it saves resources when restarting sender (different SSRC).
+shared_decoder=no
+if test $shared_decoder = yes
+then
+        AC_DEFINE([SHARED_DECODER], [1], [use shared decoder for all participants])
+fi
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
 # -------------------------------------------------------------------------------------------------
 

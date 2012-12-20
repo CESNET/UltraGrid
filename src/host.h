@@ -79,6 +79,8 @@ struct display *initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags);
 struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags);
+struct vcodec_state;
+void destroy_decoder(struct vcodec_state *video_decoder_state);
 
 // if not NULL, data should be exported
 extern char *export_dir;
