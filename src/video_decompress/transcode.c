@@ -272,12 +272,13 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         assert(out_codec == DXT1 || out_codec == DXT5);
         assert(pitch == (int) desc.width / s->ppb); // default for DXT1
         
-        gpujpeg_init_device(cuda_devices[i], 0);
         free(s->input[i]);
         free(s->output[i]);
 
         if(s->jpeg_decoder[i] != NULL) {
                 gpujpeg_decoder_destroy(s->jpeg_decoder[i]);
+        } else {
+                gpujpeg_init_device(cuda_devices[i], 0);
         }
 
         if(s->dxt_out_buff[i] != NULL) {

@@ -57,6 +57,7 @@
 
 #include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
+#include <cuda_runtime.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/jpeg.h"
@@ -123,7 +124,7 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         int ret;
         
         assert(out_codec == RGB || out_codec == UYVY);
-        
+
         if(s->out_codec == out_codec &&
                         s->pitch == pitch &&
                         s->rshift == rshift &&
@@ -165,6 +166,8 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                 linesize = s->desc.width * 2;
         }
         
+        cudaSetDevice(cuda_devices[0]);
+
         if((s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
                         s->pitch == linesize) {
                 gpujpeg_decoder_output_set_default(&decoder_output);
