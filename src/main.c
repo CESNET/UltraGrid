@@ -456,7 +456,7 @@ static struct tx *initialize_transmit(unsigned requested_mtu, char *fec)
         return tx_init(requested_mtu, fec);
 }
 
-#ifndef WIN32
+#ifdef HAVE_IHDTV
 static void *ihdtv_receiver_thread(void *arg)
 {
         ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
@@ -492,7 +492,7 @@ static void *ihdtv_sender_thread(void *arg)
 
         return 0;
 }
-#endif // WIN32
+#endif // IHDTV
 
 static struct vcodec_state *new_decoder(struct state_uv *uv) {
         struct vcodec_state *state = malloc(sizeof(struct vcodec_state));
@@ -1071,10 +1071,15 @@ int main(int argc, char *argv[])
                         uv->requested_compression = optarg;
                         break;
                 case 'i':
+#ifdef HAVE_IHDTV
                         uv->tx_protocol = IHDTV;
                         printf("setting ihdtv protocol\n");
                         fprintf(stderr, "Warning: iHDTV support may be currently broken.\n"
                                         "Please contact %s if you need this.\n", PACKAGE_BUGREPORT);
+#else
+                        fprintf(stderr, "iHDTV support isn't compiled in this %s build\n",
+                                        PACKAGE_NAME);
+#endif
                         break;
                 case 'S':
                         uv->tx_protocol = SAGE;
@@ -1314,7 +1319,7 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */         
 
         if (uv->tx_protocol == IHDTV) {
-#ifndef WIN32
+#ifdef HAVE_IHDTV
                 ihdtv_connection tx_connection, rx_connection;
 
                 printf("Initializing ihdtv protocol\n");
@@ -1389,7 +1394,7 @@ int main(int argc, char *argv[])
 
                 while (!0) // was 'should_exit'
                         sleep(1);
-#endif // WIN32
+#endif // HAVE_IHDTV
         } else if(uv->tx_protocol == ULTRAGRID_RTP) {
                 if ((uv->network_devices =
                                         initialize_network(network_device, uv->recv_port_number,

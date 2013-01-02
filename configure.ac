@@ -2403,6 +2403,22 @@ AC_SUBST(LIBAVCODEC_DECOMPRESS_OBJ)
 LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
 
 # -------------------------------------------------------------------------------------------------
+# iHDTV
+# -------------------------------------------------------------------------------------------------
+AC_ARG_ENABLE(ihdtv,
+      AS_HELP_STRING([--enable-ihdtv], [enable iHDTV support (default is disabled)]),
+    [ihdtv_req=$enableval],
+    [ihdtv_req=no]
+    )
+ihdtv=no
+
+if test $ihdtv_req = yes
+then
+        AC_DEFINE([HAVE_IHDTV], [1], [Build with iHDTV support])
+        ihdtv=yes
+fi
+
+# -------------------------------------------------------------------------------------------------
 # use shared decoder
 # -------------------------------------------------------------------------------------------------
 
@@ -2481,6 +2497,7 @@ RESULT=\
   RT priority ................. $use_rt
   Standalone modules .......... $build_libraries
   License ..................... $license
+  iHDTV support ............... $ihdtv
 
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
