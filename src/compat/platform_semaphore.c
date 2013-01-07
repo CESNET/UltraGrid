@@ -46,7 +46,12 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #include "debug.h"
 
 #ifdef HAVE_MACOSX

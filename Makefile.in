@@ -4,10 +4,10 @@ CC            = @CC@
 CXX           = @CXX@
 QMAKE         = @QMAKE@
 LINKER        = @LINKER@
-CFLAGS        = -fPIC -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -msse2
+CFLAGS        = -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -msse2
 CPPFLAGS      = @CPPFLAGS@
-CXXFLAGS      = -fPIC -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated -msse2
-NVCCFLAGS     = @NVCCFLAGS@ -Xcompiler -fPIC
+CXXFLAGS      = -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated -msse2
+NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -lm -pthread
@@ -68,8 +68,13 @@ OBJS	      = @OBJS@ \
 		@COREAUDIO_OBJ@ \
 		@JACK_TRANS_OBJ@ \
 		@SPEEX_OBJ@ \
+		src/compat/drand48.o \
+		src/compat/gettimeofday.o \
+		src/compat/inet_ntop.o \
+		src/compat/inet_pton.o \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_time.o \
+		src/compat/usleep.o \
 		src/crypto/crypt_aes.o \
 		src/crypto/crypt_aes_impl.o \
 		src/crypto/crypt_des.o \
@@ -169,6 +174,9 @@ src/utils/packet_counter.o: src/utils/packet_counter.cpp src/utils/packet_counte
 
 src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
 	$(CXX) $(CXXFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPIDispatch.o $(DECKLINK_PATH)/DeckLinkAPIDispatch.cpp
+
+src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
+	$(CC) $(CFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
 
 src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
 	$(CXX) $(CXXFLAGS) -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx

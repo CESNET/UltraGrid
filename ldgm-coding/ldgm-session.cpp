@@ -137,8 +137,8 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
     *out_buf_size = buf_size;
 
     void *out_buf;
-    int error = posix_memalign(&out_buf, 16, buf_size);
-    if (error)
+    out_buf = aligned_malloc(buf_size, 16);
+    if (out_buf)
     {
 	printf ( "Unable to allocate memmory using posix_memalign\n" );
 	return NULL;
@@ -153,7 +153,7 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
     memcpy( ((char*)out_buf) + header_size, frame, frame_size);
 
     timespec start, end;
-    Timer_util t;
+    //Timer_util t;
 
     this->encode ( (char*)out_buf, ((char*)out_buf)+param_k*ps );
 
@@ -226,8 +226,8 @@ LDGM_session::encode_hdr_frame ( char *my_hdr, int my_hdr_size, char* frame, int
     *out_buf_size = buf_size;
 
     void *out_buf;
-    int error = posix_memalign(&out_buf, 16, buf_size);
-    if (error)
+    out_buf = aligned_malloc(buf_size, 16);
+    if (out_buf)
     {
 	printf ( "Unable to allocate memmory using posix_memalign\n" );
 	return NULL;
@@ -243,7 +243,7 @@ LDGM_session::encode_hdr_frame ( char *my_hdr, int my_hdr_size, char* frame, int
     memcpy( ((char*)out_buf) + header_size + my_hdr_size, frame, frame_size);
 
     timespec start, end;
-    Timer_util t;
+    //Timer_util t;
 
     this->encode ( (char*)out_buf, ((char*)out_buf)+param_k*ps );
 

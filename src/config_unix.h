@@ -187,5 +187,27 @@ typedef int     fd_t;
 #define max(a, b)	(((a) > (b))? (a): (b))
 #define min(a, b)	(((a) < (b))? (a): (b))
 
+#ifndef HAVE_ALIGNED_ALLOC
+static inline void *aligned_malloc(size_t size, size_t alignment);
+
+static inline void *aligned_malloc(size_t size, size_t alignment)
+{
+	void *ptr = NULL;
+	int ret;
+	ret = posix_memalign(&ptr, alignment, size);
+	if(ret) {
+		errno = ret;
+	}
+
+	if(ret == 0) {
+		return ptr;
+	} else {
+		return NULL;
+	}
+}
+
+#define aligned_free free
+#endif // HAVE_ALIGNED_ALLOC
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */

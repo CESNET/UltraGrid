@@ -49,6 +49,13 @@
  *
  *
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
 #define MODULE_NAME "[Decklink display] "
 
 #ifdef __cplusplus
@@ -57,9 +64,6 @@ extern "C" {
 
 #include "host.h"
 #include "debug.h"
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
 #include "video_codec.h"
 #include "tv.h"
 #include "video_display/decklink.h"
@@ -68,17 +72,31 @@ extern "C" {
 #include "audio/audio.h"
 #include "audio/utils.h"
 
+#ifdef WIN32
+#include "DeckLinkAPI_h.h"
+#else
 #include "DeckLinkAPI.h"
+#endif
 #include "DeckLinkAPIVersion.h"
 
 #ifdef __cplusplus
 } // END of extern "C"
 #endif
 
+#ifdef WIN32
+#include <objbase.h>
+#endif
+
 #ifdef HAVE_MACOSX
 #define STRING CFStringRef
+#elif WIN32
+#define STRING BSTR
 #else
 #define STRING const char *
+#endif
+
+#ifndef WIN32
+#define STDMETHODCALLTYPE
 #endif
 
 enum link {
@@ -103,12 +121,19 @@ public:
         PlaybackDelegate (struct state_decklink* owner, int index);
 
         // IUnknown needs only a dummy implementation
-        virtual HRESULT         QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
-        virtual ULONG           AddRef ()                                                                       {return 1;}
-        virtual ULONG           Release ()                                                                      {return 1;}
+        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+        virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
+        virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
 
-        virtual HRESULT         ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result);
-        virtual HRESULT         ScheduledPlaybackHasStopped ();
+        virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
+	{
+		completedFrame->Release();
+		return S_OK;
+	}
+
+        virtual HRESULT STDMETHODCALLTYPE        ScheduledPlaybackHasStopped (){
+        	return S_OK;
+	}
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
 
@@ -118,24 +143,24 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
         public:
                 DeckLinkTimecode() : timecode(0) {}
                 /* IDeckLinkTimecode */
-                virtual BMDTimecodeBCD GetBCD (void) { return timecode; }
-                virtual HRESULT GetComponents (/* out */ uint8_t *hours, /* out */ uint8_t *minutes, /* out */ uint8_t *seconds, /* out */ uint8_t *frames) { 
+                virtual BMDTimecodeBCD STDMETHODCALLTYPE GetBCD (void) { return timecode; }
+                virtual HRESULT STDMETHODCALLTYPE GetComponents (/* out */ uint8_t *hours, /* out */ uint8_t *minutes, /* out */ uint8_t *seconds, /* out */ uint8_t *frames) { 
                         *frames =   (timecode & 0xf)              + ((timecode & 0xf0) >> 4) * 10;
                         *seconds = ((timecode & 0xf00) >> 8)      + ((timecode & 0xf000) >> 12) * 10;
                         *minutes = ((timecode & 0xf0000) >> 16)   + ((timecode & 0xf00000) >> 20) * 10;
                         *hours =   ((timecode & 0xf000000) >> 24) + ((timecode & 0xf0000000) >> 28) * 10;
                         return S_OK;
                 }
-                virtual HRESULT GetString (/* out */ STRING *timecode) { return E_FAIL; }
-                virtual BMDTimecodeFlags GetFlags (void)        { return bmdTimecodeFlagDefault; }
-                virtual HRESULT GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
+                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ STRING *timecode) { return E_FAIL; }
+                virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
+                virtual HRESULT STDMETHODCALLTYPE GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
 
                 /* IUnknown */
-                virtual HRESULT         QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
-                virtual ULONG           AddRef ()                                                                       {return 1;}
-                virtual ULONG           Release ()                                                                      {return 1;}
+                virtual HRESULT STDMETHODCALLTYPE QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+                virtual ULONG STDMETHODCALLTYPE         AddRef ()                                                                       {return 1;}
+                virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
                 
-                void SetBCD(BMDTimecodeBCD timecode) { this->timecode = timecode; }
+                void STDMETHODCALLTYPE SetBCD(BMDTimecodeBCD timecode) { this->timecode = timecode; }
         };
 
 class DeckLinkFrame;
@@ -158,28 +183,28 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame
         public:
         	static DeckLinkFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat);                
                 /* IUnknown */
-                virtual HRESULT QueryInterface(REFIID, void**);
-                virtual ULONG AddRef();
-                virtual ULONG Release();
+                virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
+                virtual ULONG STDMETHODCALLTYPE AddRef();
+                virtual ULONG STDMETHODCALLTYPE Release();
                 
                 /* IDeckLinkVideoFrame */
-                long GetWidth (void);
-                long GetHeight (void);
-                long GetRowBytes (void);
-                BMDPixelFormat GetPixelFormat (void);
-                BMDFrameFlags GetFlags (void);
-                HRESULT GetBytes (/* out */ void **buffer);
+                long STDMETHODCALLTYPE GetWidth (void);
+                long STDMETHODCALLTYPE GetHeight (void);
+                long STDMETHODCALLTYPE GetRowBytes (void);
+                BMDPixelFormat STDMETHODCALLTYPE GetPixelFormat (void);
+                BMDFrameFlags STDMETHODCALLTYPE GetFlags (void);
+                HRESULT STDMETHODCALLTYPE GetBytes (/* out */ void **buffer);
                 
-                HRESULT GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode);
-                HRESULT GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary);
+                HRESULT STDMETHODCALLTYPE GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode);
+                HRESULT STDMETHODCALLTYPE GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary);
                 
 
                 /* IDeckLinkMutableVideoFrame */
-                HRESULT SetFlags(BMDFrameFlags);
-                HRESULT SetTimecode(BMDTimecodeFormat, IDeckLinkTimecode*);
-                HRESULT SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags);
-                HRESULT SetAncillaryData(IDeckLinkVideoFrameAncillary*);
-                HRESULT SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits);
+                HRESULT STDMETHODCALLTYPE SetFlags(BMDFrameFlags);
+                HRESULT STDMETHODCALLTYPE SetTimecode(BMDTimecodeFormat, IDeckLinkTimecode*);
+                HRESULT STDMETHODCALLTYPE SetTimecodeFromComponents(BMDTimecodeFormat, uint8_t, uint8_t, uint8_t, uint8_t, BMDTimecodeFlags);
+                HRESULT STDMETHODCALLTYPE SetAncillaryData(IDeckLinkVideoFrameAncillary*);
+                HRESULT STDMETHODCALLTYPE SetTimecodeUserBits(BMDTimecodeFormat, BMDTimecodeUserBits);
 };
 
 class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtensions
@@ -200,13 +225,13 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
                 static DeckLink3DFrame *Create(long width, long height, long rawBytes, BMDPixelFormat pixelFormat);
                 
                 /* IUnknown */
-                HRESULT QueryInterface(REFIID, void**);
-                ULONG AddRef();
-                ULONG Release();
+                HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**);
+                ULONG STDMETHODCALLTYPE AddRef();
+                ULONG STDMETHODCALLTYPE Release();
 
                 /* IDeckLinkVideoFrame3DExtensions */
-                BMDVideo3DPackingFormat Get3DPackingFormat();
-                HRESULT GetFrameForRightEye(IDeckLinkVideoFrame**);
+                BMDVideo3DPackingFormat STDMETHODCALLTYPE Get3DPackingFormat();
+                HRESULT STDMETHODCALLTYPE GetFrameForRightEye(IDeckLinkVideoFrame**);
 };
 
 #define DECKLINK_MAGIC DISPLAY_DECKLINK_ID
@@ -267,8 +292,14 @@ static void show_help(void)
         printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]][:fast]\n");
         printf("\t\tcoma-separated numbers of output devices\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
+#ifdef WIN32
+        result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
+		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
+        if (FAILED(result))
+#else
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (deckLinkIterator == NULL)
+#endif
         {
 		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
@@ -287,6 +318,9 @@ static void show_help(void)
 #ifdef HAVE_MACOSX
                 deviceNameCString = (char *) malloc(128);
                 CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+#elif WIN32
+                deviceNameCString = (char *) malloc(128);
+		wcstombs((char *) deviceNameCString, deviceNameString, 128);
 #else
                 deviceNameCString = deviceNameString;
 #endif
@@ -421,8 +455,11 @@ int display_decklink_putf(void *state, struct video_frame *frame)
 
         gettimeofday(&tv, NULL);
 
-
+#ifdef WIN32
+        long unsigned int i;
+#else
         uint32_t i;
+#endif
         s->state[0].deckLinkOutput->GetBufferedVideoFrameCount(&i);
         //if (i > 2) 
         if (0) 
@@ -430,7 +467,8 @@ int display_decklink_putf(void *state, struct video_frame *frame)
         else {
                 for (int j = 0; j < s->devices_cnt; ++j) {
                         if(s->emit_timecode) {
-                                s->state[j].deckLinkFrame->SetTimecode(bmdVideoOutputRP188, s->timecode);
+                                s->state[j].deckLinkFrame->SetTimecode(
+						bmdTimecodeRP188Any, s->timecode);
                         }
 
 #ifdef DECKLINK_LOW_LATENCY
@@ -489,6 +527,9 @@ static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_des
 #ifdef HAVE_MACOSX
                         modeNameCString = (char *) malloc(128);
                         CFStringGetCString(modeNameString, (char *) modeNameCString, 128, kCFStringEncodingMacRoman);
+#elif defined WIN32
+                        modeNameCString = (char *) malloc(128);
+			wcstombs((char *) modeNameCString, modeNameString, 128);
 #else
                         modeNameCString = modeNameString;
 #endif
@@ -656,9 +697,17 @@ static int blackmagic_api_version_check(STRING *current_version)
 {
         int ret = TRUE;
         *current_version = NULL;
+        IDeckLinkAPIInformation *APIInformation = NULL;
+	HRESULT result;
 
-        IDeckLinkAPIInformation *APIInformation = CreateDeckLinkAPIInformationInstance();
+#ifdef WIN32
+        result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
+		IID_IDeckLinkAPIInformation, (void **) &APIInformation);
+        if(FAILED(result)) {
+#else
+        APIInformation = CreateDeckLinkAPIInformationInstance();
         if(APIInformation == NULL) {
+#endif
                 return FALSE;
         }
         int64_t value;
@@ -689,8 +738,18 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         int                                             dnum = 0;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
-        BMDAudioOutputAnalogAESSwitch audioConnection = 0;
-        BMDVideo3DPackingFormat HDMI3DPacking = 0;
+        BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
+        BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
+
+
+#ifndef WIN32
+	// Initialize COM on this thread
+	if(FAILED(result)) {
+		fprintf(stderr, "Initialize of COM failed - result = "
+				"08x.\n", result);
+		return NULL;
+	}
+#endif // WIN32
 
         STRING current_version;
         if(!blackmagic_api_version_check(&current_version)) {
@@ -703,6 +762,9 @@ void *display_decklink_init(char *fmt, unsigned int flags)
 #ifdef HAVE_MACOSX
                         currentVersionCString = (char *) malloc(128);
                         CFStringGetCString(current_version, (char *) currentVersionCString, 128, kCFStringEncodingMacRoman);
+#elif defined WIN32
+                        currentVersionCString = (char *) malloc(128);
+			wcstombs((char *) currentVersionCString, current_version, 128);
 #else
                         currentVersionCString = current_version;
 #endif
@@ -789,8 +851,14 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         gettimeofday(&s->tv, NULL);
 
         // Initialize the DeckLink API
+#ifdef WIN32
+        result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
+		IID_IDeckLinkIterator, (void **) &deckLinkIterator);
+        if (FAILED(result))
+#else
         deckLinkIterator = CreateDeckLinkIteratorInstance();
         if (!deckLinkIterator)
+#endif
         {
 		fprintf(stderr, "\nA DeckLink iterator could not be created. The DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled with DeckLink drivers %s. You should have at least this version.\n\n",
@@ -832,7 +900,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                 s->play_audio = TRUE;
                 switch(flags & (DISPLAY_FLAG_AUDIO_EMBEDDED | DISPLAY_FLAG_AUDIO_AESEBU | DISPLAY_FLAG_AUDIO_ANALOG)) {
                         case DISPLAY_FLAG_AUDIO_EMBEDDED:
-                                audioConnection = 0;
+                                audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
                                 break;
                         case DISPLAY_FLAG_AUDIO_AESEBU:
                                 audioConnection = bmdAudioOutputSwitchAESEBU;
@@ -1078,17 +1146,6 @@ PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner, int index)
 {
 }
 
-HRESULT         PlaybackDelegate::ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) 
-{
-	completedFrame->Release();
-        return S_OK;
-}
-
-HRESULT         PlaybackDelegate::ScheduledPlaybackHasStopped ()
-{
-        return S_OK;
-}
-
 /*
  * AUDIO
  */
@@ -1106,7 +1163,11 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
         struct state_decklink *s = (struct state_decklink *)state;
         unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
                         s->audio.ch_count);
+#ifdef WIN32
+        unsigned long int sampleFramesWritten;
+#else
         unsigned int sampleFramesWritten;
+#endif
 
         /* we got probably count that cannot be played directly (probably 1) */
         if(s->output_audio_channel_count != s->audio.ch_count) {
@@ -1190,6 +1251,7 @@ int display_decklink_reconfigure_audio(void *state, int quant_samples, int chann
         return TRUE;
 }
 
+#ifndef WIN32
 bool operator==(const REFIID & first, const REFIID & second){
     return (first.byte0 == second.byte0) &&
         (first.byte1 == second.byte1) &&
@@ -1208,6 +1270,7 @@ bool operator==(const REFIID & first, const REFIID & second){
         (first.byte14 == second.byte14) &&
         (first.byte15 == second.byte15);
 }
+#endif
 
 HRESULT DeckLinkFrame::QueryInterface(REFIID id, void**frame)
 {

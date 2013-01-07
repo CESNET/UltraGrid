@@ -21,10 +21,13 @@
  *
  */
 
-#ifndef HAVE_INET_NTOP
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
+#ifndef HAVE_INET_NTOP
 #include "inet_ntop.h"
 
 #define	IN6ADDRSZ	16

@@ -670,8 +670,8 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
 
 void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register uint32_t * src = src2;
-	register uint32_t * dst = dst2;
+	register const uint32_t * src = (const uint32_t *) src2;
+	register uint32_t * dst = (uint32_t *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
@@ -687,8 +687,8 @@ void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
-	register uint32_t * src = src2;
-	register uint32_t * dst = dst2;
+	register const uint32_t * src = (const uint32_t *) src2;
+	register uint32_t * dst = (uint32_t *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
@@ -714,8 +714,8 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
 
 void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register uint32_t * src = src2;
-	register uint32_t * dst = dst2;
+	register const uint32_t * src = (const uint32_t *) src2;
+	register uint32_t * dst = (uint32_t *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;

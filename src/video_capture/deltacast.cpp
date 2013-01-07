@@ -67,8 +67,10 @@ extern "C" {
 #include <unistd.h>
 #include <string.h>
 #include <sys/stat.h>
+#ifndef WIN32
 #include <sys/poll.h>
 #include <sys/ioctl.h>
+#endif
 #include <sys/time.h>
 #include <semaphore.h>
 

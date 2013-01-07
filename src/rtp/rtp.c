@@ -73,6 +73,7 @@
 #include "compat/gettimeofday.h"
 #include "crypto/crypt_des.h"
 #include "crypto/crypt_aes.h"
+#include "compat/drand48.h"
 #include "tv.h"
 #include "crypto/md5.h"
 #include "ntp.h"
@@ -899,7 +900,7 @@ static char *get_cname(socket_udp * s)
         struct passwd *pwent;
 #else
         char *name;
-        int namelen;
+        DWORD namelen;
 #endif
 
         cname = (char *)malloc(MAXCNAMELEN + 1);
@@ -2531,7 +2532,11 @@ rtp_send_data_hdr(struct rtp *session,
         uint8_t *buffer = NULL;
         rtp_packet *packet = NULL;
         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+#ifdef WIN32
+        WSABUF send_vector[3];
+#else
         struct iovec send_vector[3];
+#endif
         int send_vector_len;
 
         check_database(session);
@@ -2581,8 +2586,13 @@ rtp_send_data_hdr(struct rtp *session,
                 buffer = (uint8_t *) malloc(20 + RTP_PACKET_HEADER_SIZE);
                 packet = (rtp_packet *) buffer;
         }
+#ifdef WIN32
+        send_vector[0].buf = buffer + RTP_PACKET_HEADER_SIZE;
+        send_vector[0].len = buffer_len;
+#else
         send_vector[0].iov_base = buffer + RTP_PACKET_HEADER_SIZE;
         send_vector[0].iov_len = buffer_len;
+#endif
         send_vector_len = 1;
 
         /* These are internal pointers into the buffer... */
@@ -2632,14 +2642,24 @@ rtp_send_data_hdr(struct rtp *session,
         }
         /* ...the payload header... */
         if (phdr != NULL) {
+#ifdef WIN32
+                send_vector[send_vector_len].buf = phdr;
+                send_vector[send_vector_len].len = phdr_len;
+#else
                 send_vector[send_vector_len].iov_base = phdr;
                 send_vector[send_vector_len].iov_len = phdr_len;
+#endif
                 send_vector_len++;
         }
         /* ...and the media data... */
         if (data_len > 0) {
+#ifdef WIN32
+                send_vector[send_vector_len].buf = data;
+                send_vector[send_vector_len].len = data_len;
+#else
                 send_vector[send_vector_len].iov_base = data;
                 send_vector[send_vector_len].iov_len = data_len;
+#endif
                 send_vector_len++;
         }
 #ifdef NDEF                     /* FIXME */

@@ -10,10 +10,16 @@
  * =====================================================================================
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
+#ifndef WIN32
 
 #ifndef  TIMER_INC
 #define  TIMER_INC
-
 
 #include <time.h>
 
@@ -76,3 +82,6 @@ class Timer_util
 }; /*  -----  end of class Timer_util  ----- */
 
 #endif   /* ----- #ifndef TIMER_INC  ----- */
+
+#endif // WIN32
+
