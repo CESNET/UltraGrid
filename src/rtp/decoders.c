@@ -1140,13 +1140,13 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         tile = vf_get_tile(output, x);
                                         out = tile->data;
                                 }
-                                int ret = decompress_frame(decoder->ext_decoder,
+                                int decompress_ok = decompress_frame(decoder->ext_decoder,
                                                 (unsigned char *) out,
                                                 (unsigned char *) ext_recv_buffer[pos],
                                                 buffer_len[pos],
                                                 buffer_num[pos]
                                                 );
-                                if(!ret) { // decompress failed
+                                if(!decompress_ok) { // decompress failed
                                         ret = FALSE;
                                         goto cleanup;
                                 }
