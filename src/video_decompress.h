@@ -65,7 +65,8 @@ typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc,
 /**
  * Decompresses data from buffer of src_len into dst
  */
-typedef  void (*decompress_decompress_t)(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+typedef int (*decompress_decompress_t)(void *state, unsigned char *dst,
+                unsigned char *buffer, unsigned int src_len, int frame_seq);
 
 /**
  * @param state decoder state
@@ -96,7 +97,13 @@ void initialize_video_decompress(void);
 
 struct state_decompress *decompress_init(unsigned int decoder_index);
 int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-void decompress_frame(struct state_decompress *, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+/**
+ * @param frame_seq sequential number of frame
+ * @retval TRUE if decompressed successfully
+ * @retval FALSE if decompressing failed
+ */
+int decompress_frame(struct state_decompress *, unsigned char *dst,
+                unsigned char *src, unsigned int src_len, int frame_seq);
 /**
  * For description see above - decompress_get_property_t
  */

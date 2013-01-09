@@ -152,8 +152,10 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
         }
 }
 
-void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
+int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+                unsigned int src_len, int frame_seq)
 {
+        UNUSED(frame_seq);
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
         int ret;
         struct gpujpeg_decoder_output decoder_output;
@@ -173,7 +175,7 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                 //int data_decompressed_size = decoder_output.data_size;
                     
                 ret = gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output);
-                if (ret != 0) return;
+                if (ret != 0) return FALSE;
         } else {
                 unsigned int i;
                 unsigned char *line_src, *line_dst;
@@ -184,7 +186,7 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                     
                 ret = gpujpeg_decoder_decode(s->decoder, (uint8_t*) buffer, src_len, &decoder_output);
 
-                if (ret != 0) return;
+                if (ret != 0) return FALSE;
                 
                 line_dst = dst;
                 line_src = decoder_output.data;
@@ -201,6 +203,8 @@ void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
                         
                 }
         }
+
+        return TRUE;
 }
 
 int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len)

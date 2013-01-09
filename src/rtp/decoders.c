@@ -1143,7 +1143,9 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 decompress_frame(decoder->ext_decoder,
                                                 (unsigned char *) out,
                                                 (unsigned char *) ext_recv_buffer[pos],
-                                                buffer_len[pos]);
+                                                buffer_len[pos],
+                                                buffer_num[pos]
+                                                );
                         }
                 }
         }

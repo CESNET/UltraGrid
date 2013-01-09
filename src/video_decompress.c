@@ -199,11 +199,12 @@ int decompress_reconfigure(struct state_decompress *s, struct video_desc desc, i
         return s->functions->reconfigure(s->state, desc, rshift, gshift, bshift, pitch, out_codec);
 }
 
-void decompress_frame(struct state_decompress *s, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
+int decompress_frame(struct state_decompress *s, unsigned char *dst,
+                unsigned char *buffer, unsigned int src_len, int frame_seq)
 {
         assert(s->magic == DECOMPRESS_MAGIC);
 
-        s->functions->decompress(s->state, dst, buffer, src_len);
+        return s->functions->decompress(s->state, dst, buffer, src_len, frame_seq);
 }
 
 int decompress_get_property(struct state_decompress *s, int property, void *val, size_t *len)

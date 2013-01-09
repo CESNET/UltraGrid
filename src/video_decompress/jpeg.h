@@ -52,7 +52,8 @@
 void * jpeg_decompress_init(void);
 int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                         int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-void jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+                unsigned int src_len, int buffer_seq);
 int jpeg_decompress_get_property(void *state, int property, void *val, size_t *len);
 void jpeg_decompress_done(void *state);
 

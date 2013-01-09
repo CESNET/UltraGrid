@@ -170,10 +170,12 @@ int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
         return s->compressed_len;
 }
 
-void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
+int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+                unsigned int src_len, int frame_seq)
 {
         struct state_decompress *s = (struct state_decompress *) state;
         UNUSED(src_len);
+        UNUSED(frame_seq);
         
         if(s->pitch == 0) {
                 dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
@@ -208,6 +210,8 @@ void dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 }
                 free(tmp);
         }
+
+        return TRUE;
 }
 
 int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len)
