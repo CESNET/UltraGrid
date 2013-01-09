@@ -177,7 +177,7 @@ int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         UNUSED(src_len);
         UNUSED(frame_seq);
         
-        if(s->pitch == 0) {
+        if(s->pitch == vc_get_linesize(s->desc.width, s->out_codec)) {
                 dxt_decoder_decompress(s->decoder, (unsigned char *) buffer,
                                 (unsigned char *) dst);
         } else {
