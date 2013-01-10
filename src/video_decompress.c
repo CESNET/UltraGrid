@@ -57,6 +57,7 @@
 #include "video_decompress.h"
 #include "video_decompress/dxt_glsl.h"
 #include "video_decompress/jpeg.h"
+#include "video_decompress/libavcodec.h"
 #include "video_decompress/null.h"
 #include "lib_common.h"
 
@@ -129,6 +130,7 @@ struct decode_from_to decoders_for_codec[] = {
         { DXT5, UYVY, RTDXT_MAGIC },
         { JPEG, RGB, JPEG_MAGIC },
         { JPEG, UYVY, JPEG_MAGIC },
+        { H264, UYVY, LIBAVCODEC_MAGIC },
         { (codec_t) -1, (codec_t) -1, NULL_MAGIC }
 };
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
@@ -143,6 +145,15 @@ decoder_table_t decoders[] = {
         { JPEG_MAGIC, "jpeg", MK_NAME(jpeg_decompress_init), MK_NAME(jpeg_decompress_reconfigure),
                 MK_NAME(jpeg_decompress), MK_NAME(jpeg_decompress_get_property),
                 MK_NAME(jpeg_decompress_done), NULL},
+#endif 
+#if defined HAVE_LIBAVCODEC || defined BUILD_LIBRARIES
+        { LIBAVCODEC_MAGIC, "libavcodec",
+                MK_NAME(libavcodec_decompress_init),
+                MK_NAME(libavcodec_decompress_reconfigure),
+                MK_NAME(libavcodec_decompress),
+                MK_NAME(libavcodec_decompress_get_property),
+                MK_NAME(libavcodec_decompress_done),
+                NULL},
 #endif 
         { NULL_MAGIC, NULL, MK_STATIC(null_decompress_init), MK_STATIC(null_decompress_reconfigure),
                 MK_STATIC(null_decompress), MK_NAME(null_decompress_get_property),

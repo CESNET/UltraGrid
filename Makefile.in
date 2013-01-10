@@ -447,6 +447,7 @@ alsa: @ALSA_PLAY_LIB_TARGET@ @ALSA_CAP_LIB_TARGET@
 portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
 jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
 scale: @SCALE_LIB_TARGET@
+libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 
 @SDL_LIB_TARGET@: @SDL_OBJ@
 	mkdir -p lib/ultragrid
@@ -511,6 +512,14 @@ scale: @SCALE_LIB_TARGET@
 @UYVY_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @UYVY_COMPRESS_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_uyvy.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @UYVY_COMPRESS_OBJ@ -o $@
+
+@LIBAVCODEC_COMPRESS_LIB_TARGET@: @LIBAVCODEC_COMPRESS_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_libavcodec.so.@video_compress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
+
+@LIBAVCODEC_DECOMPRESS_LIB_TARGET@: @LIBAVCODEC_DECOMPRESS_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_libavcodec.so.@video_decompress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
 
 @JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@ @JPEG_COMMON_OBJ@
 	mkdir -p lib/ultragrid

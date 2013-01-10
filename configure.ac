@@ -2028,7 +2028,59 @@ AC_SUBST(V4L2_OBJ)
 LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
 # -------------------------------------------------------------------------------------------------
+# Libav
+# -------------------------------------------------------------------------------------------------
+libavcodec=no
+AC_ARG_ENABLE(libavcodec,
+AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is auto)]),
+[libavcodec_req=$enableval],
+[libavcodec_req=yes]
+)
+
+#PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
+AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
+AC_CHECK_LIB(avcodec, avcodec_open2)
+if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
+        $ac_cv_header_libavutil_imgutils_h = yes -a \
+        $ac_cv_header_libavutil_opt_h = yes -a \
+        $ac_cv_lib_avcodec_avcodec_open2 = yes
+then
+        found_libavcodec=yes
+        LIBAVCODEC_LIBS="-lavcodec"
+else
+        found_libavcodec=no
+fi
+
+if test $libavcodec_req = yes -a $found_libavcodec = yes
+then
+        LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
+        AC_DEFINE([HAVE_LIBAVCODEC], [1], [Build with LIBAVCODEC support])
+        AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
+        AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET"
+        LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
+        LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
+        LIB_OBJS="$LIB_OBJS $LIBAVCODEC_COMPRESS_OBJ $LIBAVCODEC_DECOMPRESS_OBJ"
+        CFLAGS="$CFLAGS $LIBAVCODEC_CFLAGS"
+        libavcodec=yes
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $LIBAVCODEC_LIBS"
+        AC_CHECK_FUNCS(avcodec_encode_video2)
+        LIBS=$SAVED_LIBS
+else
+        LIBAVCODEC_LIBS=
+        LIBAVCODEC_OBJ=
+fi
+
+AC_SUBST(LIBAVCODEC_LIBS) # set by pkg-config
+AC_SUBST(LIBAVCODEC_COMPRESS_OBJ)
+AC_SUBST(LIBAVCODEC_DECOMPRESS_OBJ)
+
+LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
+
+# -------------------------------------------------------------------------------------------------
 # We need to add libraries then
+# -------------------------------------------------------------------------------------------------
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" = yes
@@ -2062,6 +2114,7 @@ Configuring JPEG
         /bin/sh -c "cd gpujpeg; ./configure --with-cuda=$CUDA_PATH"
 fi
 
+LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
@@ -2095,6 +2148,7 @@ RESULT=\
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg (static: $jpeg_static)
   UYVY dummy compression ...... $uyvy
+  Libavcodec .................. $libavcodec
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
