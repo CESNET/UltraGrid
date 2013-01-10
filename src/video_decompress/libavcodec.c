@@ -55,6 +55,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
 
 #include "debug.h"
 #include "video_decompress.h"
@@ -72,7 +73,8 @@ struct state_libavcodec_decompress {
         int              last_frame_seq;
 };
 
-static void to_yuv422(char *dst_buffer, AVFrame *in_frame);
+static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
+static void yuvj422p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -90,37 +92,53 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         switch(desc.color_spec) {
                 case H264:
                         codec_id = CODEC_ID_H264;
-                        /*  find the video encoder */
+                        break;
+                case JPEG:
+                        codec_id = CODEC_ID_MJPEG;
+                        fprintf(stderr, "[lavd] Warning: JPEG decoder "
+                                        "will use full-scale YUV.\n");
                         break;
                 default:
-                        fprintf(stderr, "[Libavcodec] Unsupported codec!!!\n");
+                        fprintf(stderr, "[lavd] Unsupported codec!!!\n");
                         return false;
         }
 
         s->codec = avcodec_find_decoder(codec_id);
         if(s->codec == NULL) {
-                fprintf(stderr, "[Libavcodec] Unable to find codec.\n");
+                fprintf(stderr, "[lavd] Unable to find codec.\n");
                 return false;
         }
 
         s->codec_ctx = avcodec_alloc_context3(s->codec);
         if(s->codec_ctx == NULL) {
-                fprintf(stderr, "[Libavcodec] Unable to allocate codec context.\n");
+                fprintf(stderr, "[lavd] Unable to allocate codec context.\n");
                 return false;
         }
 
         // zero should mean count equal to the number of virtual cores
-        s->codec_ctx->thread_count = 0;
-        s->codec_ctx->thread_type = FF_THREAD_SLICE;
+        if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+                s->codec_ctx->thread_count = 0;
+                s->codec_ctx->thread_type = FF_THREAD_SLICE;
+        } else {
+                fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
+                if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+                        s->codec_ctx->thread_count = 0;
+                        s->codec_ctx->thread_type = FF_THREAD_FRAME;
+                } else {
+                        fprintf(stderr, "[lavd] Warning: Codec doesn't support frame-based multithreading.\n");
+                }
+        }
+
+        s->codec_ctx->pix_fmt = PIX_FMT_YUV420P;
 
         if(avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
-                fprintf(stderr, "[Libavcodec] Unable to open decoder.\n");
+                fprintf(stderr, "[lavd] Unable to open decoder.\n");
                 return false;
         }
 
         s->frame = avcodec_alloc_frame();
         if(!s->frame) {
-                fprintf(stderr, "[Libavcodec] Unable allocate frame.\n");
+                fprintf(stderr, "[lavd] Unable allocate frame.\n");
                 return false;
         }
 
@@ -175,7 +193,8 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
         return s->max_compressed_len;
 }
 
-static void to_yuv422(char *dst_buffer, AVFrame *in_frame)
+
+static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
 {
         for(int y = 0; y < (int) in_frame->height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -199,7 +218,28 @@ static void to_yuv422(char *dst_buffer, AVFrame *in_frame)
         }
 }
 
-int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+static void yuvj422p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
+{
+        for(int y = 0; y < (int) in_frame->height; ++y) {
+                char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                char *dst = (char *) dst_buffer + in_frame->width * y * 2;
+                for(int x = 0; x < in_frame->width; ++x) {
+                        dst[x * 2 + 1] = src[x];
+                }
+        }
+
+        for(int y = 0; y < (int) in_frame->height; ++y) {
+                char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                char *dst = dst_buffer + in_frame->width * y * 2;
+                for(int x = 0; x < in_frame->width / 2; ++x) {
+                        dst[x * 4] = src_cb[x];
+                        dst[x * 4 + 2] = src_cr[x];
+                }
+        }
+}
+
+int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq)
 {
         struct state_libavcodec_decompress *s = (struct state_libavcodec_decompress *) state;
@@ -207,12 +247,12 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *buffer
         int res = FALSE;
 
         s->pkt.size = src_len;
-        s->pkt.data = buffer;
+        s->pkt.data = src;
         
         while (s->pkt.size > 0) {
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
                 if(len < 0) {
-                        fprintf(stderr, "[Libavcodec] Error while decoding frame.\n");
+                        fprintf(stderr, "[lavd] Error while decoding frame.\n");
                         return FALSE;
                 }
 
@@ -223,11 +263,32 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *buffer
                                         (s->frame->pict_type == AV_PICTURE_TYPE_P &&
                                          s->last_frame_seq == frame_seq - 1)
                                         ) {
-                                to_yuv422((char *) dst, s->frame);
+                                switch(s->frame->format) {
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                                        case AV_PIX_FMT_YUVJ422P:
+#else
+                                        case PIX_FMT_YUVJ422P:
+#endif
+                                                yuvj422p_to_yuv422((char *) dst, s->frame);
+                                                break;
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                                        case AV_PIX_FMT_YUV420P:
+#else
+                                        case PIX_FMT_YUV420P:
+#endif
+                                                yuv420p_to_yuv422((char *) dst, s->frame);
+                                                break;
+                                        default:
+                                                fprintf(stderr, "Unsupported pixel "
+                                                                "format: %s\n",
+                                                                av_get_pix_fmt_name(
+                                                                        s->frame->format));
+                                                res = FALSE;
+                                }
                                 s->last_frame_seq = frame_seq;
                                 res = TRUE;
                         } else {
-                                fprintf(stderr, "[Libavcodec] Missing appropriate I-frame "
+                                fprintf(stderr, "[lavd] Missing appropriate I-frame "
                                                 "(last valid %d, this %d).\n", s->last_frame_seq,
                                                 frame_seq);
                                 res = FALSE;

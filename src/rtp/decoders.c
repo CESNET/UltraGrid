@@ -70,6 +70,9 @@ static void restrict_returned_codecs(codec_t *display_codecs,
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
 static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame,
                 struct vcodec_state *pbuf_data);
+static int find_best_decompress(codec_t in_codec, codec_t out_codec,
+                int prio_min, int prio_max, uint32_t *magic);
+static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t magic);
 
 enum decoder_type_t {
         UNSET,
@@ -329,6 +332,73 @@ void decoder_destroy(struct state_decoder *decoder)
         free(decoder);
 }
 
+/**
+ * Attemps to initialize decompress of given magic
+ *
+ * @param decoder decoder state
+ * @param magic magic of the requested decompressor
+ * @return flat if initialization succeeded
+ */
+static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t magic) {
+        decoder->ext_decoder = decompress_init(magic);
+
+        if(!decoder->ext_decoder) {
+                debug_msg("Decompressor with magic %x was not found.\n");
+                return false;
+        }
+
+        int res = 0, ret;
+        size_t size = sizeof(res);
+        ret = decompress_get_property(decoder->ext_decoder,
+                        DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
+                        &res,
+                        &size);
+        if(ret && res) {
+                decoder->accepts_corrupted_frame = TRUE;
+        } else {
+                decoder->accepts_corrupted_frame = FALSE;
+        }
+
+        decoder->decoder_type = EXTERNAL_DECODER;
+        return true;
+}
+
+/**
+ * @param[in] in_codec input codec
+ * @param[in] out_codec output codec
+ * @param[in] prio_min minimal priority that can be probed
+ * @param[in] prio_max maximal priority that can be probed
+ * @param[out] magic if decompressor was found here is stored its magic
+ * @retval -1 if no found
+ * @retval priority best decoder's priority
+ */
+static int find_best_decompress(codec_t in_codec, codec_t out_codec,
+                int prio_min, int prio_max, uint32_t *magic) {
+        int trans;
+        int best_priority = prio_max + 1;
+        // first pass - find the one with best priority (least)
+        for(trans = 0; trans < decoders_for_codec_count;
+                        ++trans) {
+                if(in_codec == decoders_for_codec[trans].from &&
+                                out_codec == decoders_for_codec[trans].to) {
+                        int priority = decoders_for_codec[trans].priority;
+                        if(priority <= prio_max &&
+                                        priority >= prio_min &&
+                                        priority < best_priority) {
+                                if(decompress_is_available(
+                                                        decoders_for_codec[trans].decompress_index)) {
+                                        best_priority = priority;
+                                        *magic = decoders_for_codec[trans].decompress_index;
+                                }
+                        }
+                }
+        }
+
+        if(best_priority == prio_max + 1)
+                return -1;
+        return best_priority;
+}
+
 static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
                                 codec_t *in_codec, decoder_t *decode_line)
 {
@@ -373,14 +443,27 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
                         out_codec = decoder->native_codecs[native];
                         if(out_codec == DVS8 || out_codec == Vuy2)
                                 out_codec = UYVY;
-                        if(*in_codec == line_decoders[trans].from &&
-                                        out_codec == line_decoders[trans].to) {
-                                                
-                                *decode_line = line_decoders[trans].line_decoder;
-                                
-                                decoder->decoder_type = LINE_DECODER;
-                                goto after_linedecoder_lookup;
+
+                        int prio_max = 1000;
+                        int prio_min = 0;
+                        int prio_cur;
+                        uint32_t decompress_magic = 0u;
+
+                        while(1) {
+                                prio_cur = find_best_decompress(*in_codec, out_codec,
+                                                prio_min, prio_max, &decompress_magic);
+                                // if found, init decoder
+                                if(prio_cur != -1) {
+                                        if(try_initialize_decompress(decoder, decompress_magic)) {
+                                                goto after_decoder_lookup;
+                                                // failed, try to find another one
+                                                prio_min = prio_cur + 1;
+                                        } else {
+                                                break;
+                                        }
+                                }
                         }
+
                 }
         }
         

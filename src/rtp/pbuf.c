@@ -352,7 +352,7 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         curr = playout_buf->frst;
         while (curr != NULL) {
                 if (!curr->decoded 
-#ifndef WIN32
+#ifdef WIN32
 				&& tv_gt(curr_time, curr->playout_time)
 #endif
 		   ) {

@@ -122,15 +122,16 @@ static int decompress_fill_symbols(decoder_table_t *device)
 
 
 struct decode_from_to decoders_for_codec[] = {
-        { DXT1, RGBA, RTDXT_MAGIC },
-        { DXT1_YUV, RGBA, RTDXT_MAGIC },
-        { DXT5, RGBA, RTDXT_MAGIC },
-        { DXT1, UYVY, RTDXT_MAGIC },
-        { DXT1_YUV, UYVY, RTDXT_MAGIC },
-        { DXT5, UYVY, RTDXT_MAGIC },
-        { JPEG, RGB, JPEG_MAGIC },
-        { JPEG, UYVY, JPEG_MAGIC },
-        { H264, UYVY, LIBAVCODEC_MAGIC },
+        { DXT1, RGBA, RTDXT_MAGIC, 500},
+        { DXT1_YUV, RGBA, RTDXT_MAGIC, 500 },
+        { DXT5, RGBA, RTDXT_MAGIC, 500 },
+        { DXT1, UYVY, RTDXT_MAGIC, 500 },
+        { DXT1_YUV, UYVY, RTDXT_MAGIC, 500 },
+        { DXT5, UYVY, RTDXT_MAGIC, 500 },
+        { JPEG, RGB, JPEG_MAGIC, 500 },
+        { JPEG, UYVY, JPEG_MAGIC, 500 },
+        { H264, UYVY, LIBAVCODEC_MAGIC, 500 },
+        { JPEG, UYVY, LIBAVCODEC_MAGIC, 600 },
         { (codec_t) -1, (codec_t) -1, NULL_MAGIC }
 };
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
@@ -184,6 +185,18 @@ void initialize_video_decompress(void)
                 available_decoders[available_decoders_count] = &decoders[i];
                 available_decoders_count++;
         }
+}
+
+int decompress_is_available(unsigned int decoder_index)
+{
+        int i;
+
+        for(i = 0; i < available_decoders_count; ++i) {
+                if(available_decoders[i]->magic == decoder_index) {
+                        return TRUE;
+                }
+        }
+        return FALSE;
 }
 
 struct state_decompress *decompress_init(unsigned int decoder_index)
