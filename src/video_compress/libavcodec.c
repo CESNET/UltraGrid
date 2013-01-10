@@ -283,18 +283,22 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
         s->pkt[buffer_idx].size = 0;
 #endif
 
-        unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
-        unsigned char *line2 = (unsigned char *) s->decoded;
-        int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
-        int dst_linesize = tx->tiles[0].width * 2; /* UYVY */
-        for (int i = 0; i < (int) tx->tiles[0].height; ++i) {
-                s->decoder(line2, line1, dst_linesize,
-                                0, 8, 16);
-                line1 += src_linesize;
-                line2 += dst_linesize;
+        if((void *) s->decoder != (void *) memcpy) {
+                unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
+                unsigned char *line2 = (unsigned char *) s->decoded;
+                int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
+                int dst_linesize = tx->tiles[0].width * 2; /* UYVY */
+                for (int i = 0; i < (int) tx->tiles[0].height; ++i) {
+                        s->decoder(line2, line1, dst_linesize,
+                                        0, 8, 16);
+                        line1 += src_linesize;
+                        line2 += dst_linesize;
+                }
+                to_yuv420(s->in_frame, s->decoded);
+        } else {
+                to_yuv420(s->in_frame, (unsigned char *) tx->tiles[0].data);
         }
 
-        to_yuv420(s->in_frame, s->decoded);
 
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
         /* encode the image */
