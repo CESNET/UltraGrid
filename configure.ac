@@ -1066,7 +1066,7 @@ SAVED_LIBS=$LIBS
 if test $system = Windows; then
 	AC_MSG_CHECKING([GLEW presence (library and headers)])
 	SAVED_LIBS=$LIBS
-	LIBS="$LIBS libglew32.a libglew32.dll.a"
+	LIBS="$LIBS -lglew32"
 	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
 #define _STDCALL_SUPPORTED 1
 #include <GL/glew.h>
@@ -1143,7 +1143,7 @@ case "$host_os" in
 	*mingw*)
 	AC_MSG_CHECKING([OpenGL support])
 	SAVED_LIBS=$LIBS
-	LIBS="$LIBS -lglut libglew32.a libglew32.dll.a -lopengl32"
+	LIBS="$LIBS -lglut -lglew32 -lopengl32"
 	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
 #define _STDCALL_SUPPORTED 1
 #include <GL/glew.h>
@@ -2040,13 +2040,15 @@ AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is au
 #PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
 AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
 AC_CHECK_LIB(avcodec, avcodec_open2)
+AC_CHECK_LIB(avutil, av_free)
 if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
         $ac_cv_header_libavutil_imgutils_h = yes -a \
         $ac_cv_header_libavutil_opt_h = yes -a \
-        $ac_cv_lib_avcodec_avcodec_open2 = yes
+        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
+        $ac_cv_lib_avutil_av_free = yes
 then
         found_libavcodec=yes
-        LIBAVCODEC_LIBS="-lavcodec"
+        LIBAVCODEC_LIBS="-lavcodec -lavutil"
 else
         found_libavcodec=no
 fi
