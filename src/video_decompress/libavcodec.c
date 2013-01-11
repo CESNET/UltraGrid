@@ -69,12 +69,15 @@ struct state_libavcodec_decompress {
         int              pitch;
         int              rshift, gshift, bshift;
         int              max_compressed_len;
+        codec_t          in_codec;
+        codec_t          out_codec;
 
         int              last_frame_seq;
 };
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
-static void yuvj422p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
+static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
+static int change_pixfmt(AVFrame *frame, unsigned char *dst, codec_t out_codec);
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -184,6 +187,8 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
         s->rshift = rshift;
         s->gshift = gshift;
         s->bshift = bshift;
+        s->in_codec = desc.color_spec;
+        s->out_codec = out_codec;
 
         deconfigure(s);
         configure_with(s, desc);
@@ -218,7 +223,7 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
         }
 }
 
-static void yuvj422p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
+static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
 {
         for(int y = 0; y < (int) in_frame->height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
@@ -239,6 +244,51 @@ static void yuvj422p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
         }
 }
 
+/**
+ * Changes pixel format from frame to native (currently UYVY).
+ *
+ * @todo             figure out color space transformations - eg. JPEG returns full-scale YUV.
+ *                   And not in the ITU-T Rec. 701 (eventually Rec. 609) scale.
+ * @param  frame     video frame returned from libavcodec decompress
+ * @param  dst       destination buffer where data will be stored
+ * @param  out_codec requested output codec
+ * @retval TRUE      if the transformation was successful
+ * @retval FALSE     if transformation failed
+ * @see    yuvj422p_to_yuv422
+ * @see    yuv420p_to_yuv422
+ */
+static int change_pixfmt(AVFrame *frame, unsigned char *dst, codec_t out_codec) {
+        assert(out_codec == UYVY);
+
+        switch(frame->format) {
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                case AV_PIX_FMT_YUV422P:
+                case AV_PIX_FMT_YUVJ422P:
+#else
+                case PIX_FMT_YUV422P:
+                case PIX_FMT_YUVJ422P:
+#endif
+                        yuv422p_to_yuv422((char *) dst, frame);
+                        break;
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                case AV_PIX_FMT_YUV420P:
+                case AV_PIX_FMT_YUVJ420P:
+#else
+                case PIX_FMT_YUV420P:
+                case PIX_FMT_YUVJ420P:
+#endif
+                        yuv420p_to_yuv422((char *) dst, frame);
+                        break;
+                default:
+                        fprintf(stderr, "Unsupported pixel "
+                                        "format: %s\n",
+                                        av_get_pix_fmt_name(
+                                                frame->format));
+                        return FALSE;
+        }
+        return TRUE;
+}
+
 int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq)
 {
@@ -251,6 +301,17 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
         
         while (s->pkt.size > 0) {
                 len = avcodec_decode_video2(s->codec_ctx, s->frame, &got_frame, &s->pkt);
+
+                /*
+                 * Hack: libavcodec does not correctly support JPEG with more than one reset
+                 * segment. It returns error although it is actually able to decompress frame
+                 * correctly. So we assume that the decompression went good even with the 
+                 * reported error.
+                 */
+                if(len < 0 && s->in_codec == JPEG) {
+                        return change_pixfmt(s->frame, dst, s->out_codec);
+                }
+
                 if(len < 0) {
                         fprintf(stderr, "[lavd] Error while decoding frame.\n");
                         return FALSE;
@@ -263,30 +324,10 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                                         (s->frame->pict_type == AV_PICTURE_TYPE_P &&
                                          s->last_frame_seq == frame_seq - 1)
                                         ) {
-                                switch(s->frame->format) {
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                                        case AV_PIX_FMT_YUVJ422P:
-#else
-                                        case PIX_FMT_YUVJ422P:
-#endif
-                                                yuvj422p_to_yuv422((char *) dst, s->frame);
-                                                break;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                                        case AV_PIX_FMT_YUV420P:
-#else
-                                        case PIX_FMT_YUV420P:
-#endif
-                                                yuv420p_to_yuv422((char *) dst, s->frame);
-                                                break;
-                                        default:
-                                                fprintf(stderr, "Unsupported pixel "
-                                                                "format: %s\n",
-                                                                av_get_pix_fmt_name(
-                                                                        s->frame->format));
-                                                res = FALSE;
+                                res = change_pixfmt(s->frame, dst, s->out_codec);
+                                if(res == TRUE) {
+                                        s->last_frame_seq = frame_seq;
                                 }
-                                s->last_frame_seq = frame_seq;
-                                res = TRUE;
                         } else {
                                 fprintf(stderr, "[lavd] Missing appropriate I-frame "
                                                 "(last valid %d, this %d).\n", s->last_frame_seq,
