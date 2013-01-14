@@ -65,7 +65,8 @@ typedef enum {
         DPX10,
         JPEG,
         RAW,
-        H264
+        H264,
+        MJPG
 } codec_t;
 
 enum interlacing_t {

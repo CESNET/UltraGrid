@@ -79,7 +79,8 @@ const struct codec_info_t codec_info[] = {
         {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
         {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
         {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
-        {H264, "H264", to_fourcc('A','V','V','1'), 0, 1.0, FALSE, TRUE},
+        {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE},
+        {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE},
         {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE}
 };
 

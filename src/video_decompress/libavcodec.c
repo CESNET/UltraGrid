@@ -96,6 +96,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 case H264:
                         codec_id = CODEC_ID_H264;
                         break;
+                case MJPG:
                 case JPEG:
                         codec_id = CODEC_ID_MJPEG;
                         fprintf(stderr, "[lavd] Warning: JPEG decoder "
