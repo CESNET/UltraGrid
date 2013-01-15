@@ -185,6 +185,9 @@ fi
 # -------------------------------------------------------------------------------------------------
 # Licensing
 # -------------------------------------------------------------------------------------------------
+# default UltraGrid license
+license="BSD License"
+
 gpl=no
 AC_ARG_ENABLE(gpl,
               AS_HELP_STRING([--enable-gpl], [allow use of GPL code, ]
@@ -193,6 +196,7 @@ AC_ARG_ENABLE(gpl,
 if test $gpl = yes
 then
           AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
+          license=unredistributeable
 fi
 
 
@@ -2153,6 +2157,7 @@ RESULT=\
   IPv6 support ................ $ipv6
   RT priority ................. $use_rt
   Standalone modules .......... $build_libraries
+  License ..................... $license
 
   DeckLink .................... $decklink
   DELTACAST ................... $deltacast
