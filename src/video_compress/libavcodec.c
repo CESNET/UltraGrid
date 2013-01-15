@@ -63,7 +63,7 @@
 #include "video.h"
 #include "video_codec.h"
 
-#define DEFAULT_CODEC H264
+#define DEFAULT_CODEC MJPG
 
 struct libav_video_compress {
         struct video_frame *out[2];
@@ -90,10 +90,10 @@ static void usage(void);
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]"
-                        "[qscale=<qcoef>\n");
-        printf("\t\t<codec_name> may be one of \"MJPEG\" "
-                        "or \"H.264\" (default)\n");
+        printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]\n");
+        printf("\t\t<codec_name> may be "
+                        " one of \"H.264\" or "
+                        "\"MJPEG\" (default)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
 }
@@ -193,6 +193,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         compressed_desc = video_desc_from_frame(frame);
         switch(s->selected_codec_id) {
                 case H264:
+#ifdef HAVE_GPL
                         codec_id = CODEC_ID_H264;
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
                         pix_fmt = AV_PIX_FMT_YUV420P;
@@ -205,6 +206,13 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                                 4 * /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
                                 0.07;
                         break;
+#else
+                        fprintf(stderr, "H.264 not available in UltraGrid BSD build. "
+                                        "Reconfigure UltraGrid with --enable-gpl if "
+                                        "needed.\n");
+                        exit_uv(1);
+                        return false;
+#endif
                 case MJPG:
                         codec_id = CODEC_ID_MJPEG;
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2

@@ -108,12 +108,14 @@ extern char **uv_argv;
 
 static struct vidcap_screen_state *state;
 
+#ifdef HAVE_LINUX
 struct grabbed_data;
 
 struct grabbed_data {
         XImage *data;
         struct grabbed_data *next;
 };
+#endif
 
 struct vidcap_screen_state {
         struct video_frame       *frame; 

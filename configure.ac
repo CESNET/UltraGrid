@@ -183,7 +183,26 @@ then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# Licensing
+# -------------------------------------------------------------------------------------------------
+# default UltraGrid license
+license="BSD License"
+
+gpl=no
+AC_ARG_ENABLE(gpl,
+              AS_HELP_STRING([--enable-gpl], [allow use of GPL code, ]
+              [resulting binary will be unredistributable]),
+	[gpl=$enableval])
+if test $gpl = yes
+then
+          AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
+          license=unredistributeable
+fi
+
+
+# -------------------------------------------------------------------------------------------------
 # Additional macros
+# -------------------------------------------------------------------------------------------------
 
 AC_DEFUN([DEFINE_GL], [
           AC_DEFINE([HAVE_LIBGL], 1, [We use GL libraries])
@@ -558,9 +577,9 @@ case "$host_os" in
                         DECKLINK_INC=DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
-                LIBS="$LIBS -framework CoreFoundation DeckLink/include/DeckLinkAPIDispatch.cpp"
+                LIBS="$LIBS -framework CoreFoundation DeckLink/Mac/DeckLinkAPIDispatch.cpp"
                 AC_LANG_PUSH(C++)
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/include/DeckLinkAPI.h"
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/Mac/DeckLinkAPI.h"
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
@@ -1157,7 +1176,7 @@ glBindTexture(GL_TEXTURE_2D, 0);
 	AC_MSG_RESULT([$HAVE_GL])
 
 	if test "$HAVE_GL" = yes; then
-		GL_LIB="$GL_LIB -lglut libglew32.a libglew32.dll.a -lopengl32"
+		GL_LIB="$GL_LIB -lglut -lglew32 -lopengl32"
 		GL_OBJ="$GL_OBJ src/video_display/gl.o"
 		AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
 		gl=yes	
@@ -1309,15 +1328,25 @@ AC_SUBST(SCREEN_CAP_OBJ)
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
 fastdxt=no
-fastdxt_req=yes
+fastdxt_req=no
 FASTDXT_OBJ=
 
 AC_ARG_ENABLE(fastdxt,
-	[  --disable-fastdxt        disable FastDXT],
+	[  --enable-fastdxt        enable FastDXT],
 	[fastdxt_req=$enableval])
 
-FASTDXT_INC=FastDXT
-FASTDXT_PATH=FastDXT
+FASTDXT_PATH=
+AC_ARG_WITH(fastdxt,
+            AS_HELP_STRING([--with-fastdxt], [spedcify location of FastDXT]),
+            [FASTDXT_PATH=$withval
+            ])
+
+FASTDXT_INC=$FASTDXT_PATH
+
+if test $fastdxt_req = yes -a $gpl = no; then
+        AC_MSG_ERROR([FastDXT is GPL and --enable-gpl is not specified.])
+fi
+
 
 AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
 #AC_LANG_PUSH(C++)
@@ -2164,6 +2193,7 @@ RESULT=\
   IPv6 support ................ $ipv6
   RT priority ................. $use_rt
   Standalone modules .......... $build_libraries
+  License ..................... $license
 
   DeckLink .................... $decklink
   DELTACAST ................... $deltacast
