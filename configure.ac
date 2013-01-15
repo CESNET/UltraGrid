@@ -183,7 +183,22 @@ then
 fi
 
 # -------------------------------------------------------------------------------------------------
+# Licensing
+# -------------------------------------------------------------------------------------------------
+gpl=no
+AC_ARG_ENABLE(gpl,
+              AS_HELP_STRING([--enable-gpl], [allow use of GPL code, ]
+              [resulting binary will be unredistributable]),
+	[gpl=$enableval])
+if test $gpl = yes
+then
+          AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
+fi
+
+
+# -------------------------------------------------------------------------------------------------
 # Additional macros
+# -------------------------------------------------------------------------------------------------
 
 AC_DEFUN([DEFINE_GL], [
           AC_DEFINE([HAVE_LIBGL], 1, [We use GL libraries])
@@ -1309,15 +1324,25 @@ AC_SUBST(SCREEN_CAP_OBJ)
 # -------------------------------------------------------------------------------------------------
 # FastDXT stuff
 fastdxt=no
-fastdxt_req=yes
+fastdxt_req=no
 FASTDXT_OBJ=
 
 AC_ARG_ENABLE(fastdxt,
-	[  --disable-fastdxt        disable FastDXT],
+	[  --enable-fastdxt        enable FastDXT],
 	[fastdxt_req=$enableval])
 
-FASTDXT_INC=FastDXT
-FASTDXT_PATH=FastDXT
+FASTDXT_PATH=
+AC_ARG_WITH(fastdxt,
+            AS_HELP_STRING([--with-fastdxt], [spedcify location of FastDXT]),
+            [FASTDXT_PATH=$withval
+            ])
+
+FASTDXT_INC=$FASTDXT_PATH
+
+if test $fastdxt_req = yes -a $gpl = no; then
+        AC_MSG_ERROR([FastDXT is GPL and --enable-gpl is not specified.])
+fi
+
 
 AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
 #AC_LANG_PUSH(C++)
