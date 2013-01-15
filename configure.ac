@@ -558,9 +558,9 @@ case "$host_os" in
                         DECKLINK_INC=DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
-                LIBS="$LIBS -framework CoreFoundation DeckLink/include/DeckLinkAPIDispatch.cpp"
+                LIBS="$LIBS -framework CoreFoundation DeckLink/Mac/DeckLinkAPIDispatch.cpp"
                 AC_LANG_PUSH(C++)
-		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/include/DeckLinkAPI.h"
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include "DeckLink/Mac/DeckLinkAPI.h"
                                    ]],
 		[[IDeckLinkIterator *deckLinkIter = CreateDeckLinkIteratorInstance();]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
                 LIBS=$OLD_LIBS
