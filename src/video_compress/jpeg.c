@@ -264,6 +264,16 @@ void * jpeg_compress_init(char * opts)
                 printf("[JPEG] setting default encode parameters (quality: %d)\n", 
                                 s->encoder_param.quality
                 );
+
+                int ret;
+                printf("Initializing CUDA device %d...\n", cuda_devices[0]);
+                ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+
+                if(ret != 0) {
+                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n",
+                                        cuda_devices[0]);
+                        return NULL;
+                }
         }
                 
         s->encoder = NULL; /* not yet configured */

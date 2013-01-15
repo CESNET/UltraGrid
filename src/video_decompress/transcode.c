@@ -303,9 +303,11 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         return desc.width * desc.height;
 }
 
-void transcode_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
+int transcode_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+                unsigned int src_len, int frame_seq)
 {
         struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+        UNUSED(frame_seq);
 
         if(s->free == -1) {
                 s->free = 0;

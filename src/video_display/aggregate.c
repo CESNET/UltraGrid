@@ -144,11 +144,14 @@ void *display_aggregate_init(char *fmt, unsigned int flags)
         while((item = strtok_r(tmp, "#", &save_ptr))) {
                 char *device;
                 char *config = strdup(item);
-                char *save_ptr_dev = NULL;
-                char *device_cfg;
+                char *device_cfg = NULL;
                 unsigned int dev_flags = 0u;
-                device = strtok_r(config, ":", &save_ptr_dev);
-                device_cfg = save_ptr_dev;
+                device = config;
+		if(strchr(config, ':')) {
+			char *delim = strchr(config, ':');
+			*delim = '\0';
+			device_cfg = delim + 1;
+		}
                 if(i == 0) {
                         dev_flags = flags;
                 } else { // push audio only to first device

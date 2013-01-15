@@ -56,6 +56,7 @@
 
 #include <iostream>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -164,11 +165,25 @@ struct ldgm_state_encoder {
 
                 char filename[512];
                 char path[256];
+#ifdef WIN32
+		TCHAR tmpPath[MAX_PATH];
+		UINT ret = GetTempPath(MAX_PATH, tmpPath);
+		if(ret == 0 || ret > MAX_PATH) {
+			fprintf(stderr, "Unable to get temporary directory name.\n");
+			throw 1;
+		}
+                snprintf(path, 256, "%s\\ultragrid\\", tmpPath);
+#else
                 snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
+#endif
 
                 int res;
 
+#ifdef WIN32
+                res = mkdir(path);
+#else
                 res = mkdir(path, 0755);
+#endif
                 if(res != 0) {
                         if(errno != EEXIST) {
                                 perror("mkdir");
@@ -233,8 +248,23 @@ struct ldgm_state_decoder {
 
                 int res;
 
+#ifdef WIN32
+		TCHAR tmpPath[MAX_PATH];
+		UINT ret = GetTempPath(MAX_PATH, tmpPath);
+		if(ret == 0 || ret > MAX_PATH) {
+			fprintf(stderr, "Unable to get temporary directory name.\n");
+			throw 1;
+		}
+                snprintf(path, 256, "%s\\ultragrid\\", tmpPath);
+#else
                 snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
+#endif
+
+#ifdef WIN32
+                res = mkdir(path);
+#else
                 res = mkdir(path, 0755);
+#endif // WIN32
                 if(res != 0) {
                         if(errno != EEXIST) {
                                 perror("mkdir");

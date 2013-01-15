@@ -45,13 +45,19 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
+#ifndef WIN32
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "config.h"
-#include "config_unix.h"
 #include "utils/fs_lock.h"
 
 struct fs_lock {
@@ -90,4 +96,6 @@ void fs_lock_destroy(struct fs_lock *s)
         unlink(s->name);
         free(s);
 }
+
+#endif // WIN32
 

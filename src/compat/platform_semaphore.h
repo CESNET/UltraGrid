@@ -47,6 +47,8 @@
  */
 
 #include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
 
 #ifndef _PLATFORM_SEMAPHORE_H
 #define _PLATFORM_SEMAPHORE_H

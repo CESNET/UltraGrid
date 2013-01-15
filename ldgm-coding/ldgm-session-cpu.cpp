@@ -105,9 +105,9 @@ LDGM_session_cpu::encode ( char* data_ptr, char* parity_ptr )
     char *parity_packet;
     for ( int m = 0; m < param_m; ++m) {
 
-	int e = posix_memalign(&ppacket, 16, packet_size);
+	ppacket = aligned_malloc(packet_size, 16);
 	
-	if (e)
+	if (!ppacket)
 	{
 	    printf ( "Error while using posix_memalign\n" );
 	    return;
@@ -137,7 +137,7 @@ LDGM_session_cpu::encode ( char* data_ptr, char* parity_ptr )
 
 	//Add the new parity packet to overall parity
 	memcpy ( parity_ptr + m*packet_size, parity_packet, packet_size );
-	free(ppacket);
+	aligned_free(ppacket);
 
     }
     return ;
@@ -147,7 +147,7 @@ LDGM_session_cpu::encode ( char* data_ptr, char* parity_ptr )
 LDGM_session_cpu::free_out_buf ( char *buf)
 {
     if ( buf != NULL )
-	free(buf);
+	aligned_free(buf);
 }
     void
 LDGM_session_cpu::encode_naive ( char* data_ptr, char* parity_ptr )
@@ -159,8 +159,8 @@ LDGM_session_cpu::encode_naive ( char* data_ptr, char* parity_ptr )
     
     for ( int m = 0; m < param_m; ++m) {
 
-	int e = posix_memalign(&ppacket, 16, packet_size);
-	if (e)
+	ppacket = aligned_malloc(packet_size, 16);
+	if (!ppacket)
 	{
 	    printf ( "Error while using posix_memalign\n" );
 	    return;
@@ -190,7 +190,7 @@ LDGM_session_cpu::encode_naive ( char* data_ptr, char* parity_ptr )
 
 	//Add the new parity packet to overall parity
 	memcpy ( parity_ptr + m*packet_size, parity_packet, packet_size );
-	free(ppacket);
+	aligned_free(ppacket);
 
     }
     return ;
@@ -210,7 +210,7 @@ LDGM_session_cpu::decode_frame ( char* received, int buf_size, int* frame_size,
 //    printf ( "p_size %d\n", p_size );
     graph.set_data_size(p_size);
 
-    Timer_util timer;
+    //Timer_util timer;
 
     int i;
     int index = 0;

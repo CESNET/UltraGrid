@@ -146,11 +146,15 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
         while((item = strtok_r(tmp, "#", &save_ptr))) {
                 char *device;
                 char *config = strdup(item);
-                char *save_ptr_dev = NULL;
-                char *device_cfg;
+                char *device_cfg = NULL;
                 unsigned int dev_flags = 0u;
-                device = strtok_r(config, ":", &save_ptr_dev);
-                device_cfg = save_ptr_dev;
+                device = config;
+		if(strchr(config, ':')) {
+			char *delim = strchr(config, ':');
+			*delim = '\0';
+			device_cfg = delim + 1;
+		}
+
                 if(i == 0) {
                         dev_flags = flags;
                 } else { // do not grab from second and other devices
@@ -242,8 +246,9 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
                 *audio = NULL;
         }
         for(i = 1; i < s->devices_cnt; ++i) {
+                frame = NULL;
                 while(!frame) {
-                        frame = vidcap_grab(s->devices[0], &audio_frame);
+                        frame = vidcap_grab(s->devices[i], &audio_frame);
                 }
                 if(frame->color_spec != s->frame->color_spec ||
                                 frame->fps != s->frame->fps ||
@@ -254,7 +259,7 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
                         if(frame->interlacing != s->frame->interlacing)
                                 fprintf(stderr, "interlacing");
                         if(frame->fps != s->frame->fps)
-                                fprintf(stderr, "FPS");
+                                fprintf(stderr, "FPS (%.2f and %.2f)", frame->fps, s->frame->fps);
                         fprintf(stderr, "\n");
                         
                         return NULL;

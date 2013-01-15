@@ -69,12 +69,12 @@ CFLAGS=$(CXXFLAGS) `sdl-config --cflags` -I/opt/local/include
 # issues building viewdxt and playdxt on some systems
 #
 # default: main example 2dxt lib viewdxt playdxt
-default: main example 2dxt lib
+default: lib main example 2dxt
 
 main: dxt.o main.o util.o intrinsic.o
 example: example.o libdxt.o dxt.o util.o intrinsic.o
-lib: libdxt.o dxt.o intrinsic.o
-	ar rcu libdxt.a libdxt.o dxt.o intrinsic.o
+lib: libdxt.o dxt.o intrinsic.o util.o
+	ar rcu libdxt.a libdxt.o dxt.o intrinsic.o util.o
 	ranlib libdxt.a
 2dxt: dxt.o 2dxt.o libdxt.o util.o intrinsic.o
 

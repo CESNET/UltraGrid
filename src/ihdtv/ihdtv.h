@@ -46,17 +46,18 @@
  *
  */
 
-#ifndef _IHDTV_H_
-#define _IHDTV_H_
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifndef WIN32
+
+#ifndef _IHDTV_H_
+#define _IHDTV_H_
+
 #include <ctype.h>
-#include <sys/socket.h>
 
 #include "video_codec.h"
 
@@ -120,3 +121,6 @@ int
 ihdtv_send(ihdtv_connection *tx_connection, struct video_frame *tx_frame, unsigned long buffer_length);
 
 #endif
+
+#endif // WIN32
+

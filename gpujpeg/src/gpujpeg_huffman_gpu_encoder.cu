@@ -989,7 +989,7 @@ gpujpeg_huffman_gpu_encoder_init(const struct gpujpeg_encoder * encoder)
     
     // Copy natural order to constant device memory
     cudaMemcpyToSymbol(
-        (const char*)gpujpeg_huffman_gpu_encoder_order_natural,
+        gpujpeg_huffman_gpu_encoder_order_natural,
         gpujpeg_order_natural, 
         GPUJPEG_ORDER_NATURAL_SIZE * sizeof(int),
         0,

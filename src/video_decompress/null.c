@@ -79,7 +79,8 @@ int null_decompress_reconfigure(void *state, struct video_desc desc,
         return TRUE;
 }
 
-void null_decompress(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len)
+int null_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+                unsigned int src_len, int frame_seq)
 {
         struct state_decompress_null *s = (struct state_decompress_null *) state;
         assert(s->magic == NULL_MAGIC);
@@ -87,6 +88,9 @@ void null_decompress(void *state, unsigned char *dst, unsigned char *buffer, uns
         UNUSED(dst);
         UNUSED(buffer);
         UNUSED(src_len);
+        UNUSED(frame_seq);
+
+        return TRUE;
 }
 
 int null_decompress_get_property(void *state, int property, void *val, size_t *len)

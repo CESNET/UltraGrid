@@ -50,9 +50,13 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+#endif // HAVE_CONFIG_H
+
+#include "crypto/random.h"
 #include "debug.h"
 #include "perf.h"
 #include "audio/audio.h"
@@ -78,15 +82,19 @@ enum fec_scheme_t {
 
 #define FEC_MAX_MULT 10
 
-#if HAVE_MACOSX
+#ifdef HAVE_MACOSX
 #define GET_STARTTIME gettimeofday(&start, NULL)
 #define GET_STOPTIME gettimeofday(&stop, NULL)
 #define GET_DELTA delta = (stop.tv_usec - start.tv_usec) * 1000L
-#else                           /* HAVE_MACOSX */
+#elif defined HAVE_LINUX
 #define GET_STARTTIME clock_gettime(CLOCK_REALTIME, &start)
 #define GET_STOPTIME clock_gettime(CLOCK_REALTIME, &stop)
 #define GET_DELTA delta = stop.tv_nsec - start.tv_nsec
-#endif                          /* HAVE_MACOSX */
+#else // Windows
+#define GET_STARTTIME {QueryPerformanceFrequency(&freq); QueryPerformanceCounter(&start); }
+#define GET_STOPTIME { QueryPerformanceCounter(&stop); }
+#define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
+#endif
 
 
 static bool fec_is_ldgm(struct tx *tx);
@@ -162,37 +170,38 @@ struct tx *tx_init(unsigned mtu, char *fec)
                 tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
                 tx->fec_scheme = FEC_NONE;
                 if (fec) {
-                        char *save_ptr = NULL;
-                        char *item;
+			char *fec_cfg = NULL;
+			if(strchr(fec, ':')) {
+				char *delim = strchr(fec, ':');
+				*delim = '\0';
+				fec_cfg = delim + 1;
+			}
 
-                        item = strtok_r(fec, ":", &save_ptr);
-                        if(strcasecmp(item, "none") == 0) {
+                        if(strcasecmp(fec, "none") == 0) {
                                 tx->fec_scheme = FEC_NONE;
-                        } else if(strcasecmp(item, "mult") == 0) {
+                        } else if(strcasecmp(fec, "mult") == 0) {
                                 tx->fec_scheme = FEC_MULT;
-                                item = strtok_r(NULL, ":", &save_ptr);
-                                assert(item);
-                                tx->mult_count = (unsigned int) atoi(item);
+                                assert(fec_cfg);
+                                tx->mult_count = (unsigned int) atoi(fec_cfg);
                                 assert(tx->mult_count <= FEC_MAX_MULT);
-                        } else if(strcasecmp(item, "LDGM") == 0) {
+                        } else if(strcasecmp(fec, "LDGM") == 0) {
                                 tx->fec_scheme = FEC_LDGM;
-                                item = save_ptr;
-                                if(item && strlen(item) > 0 && strchr(item, '%') == NULL) {
-                                        tx->fec_state = ldgm_encoder_init_with_cfg(item);
+                                if(fec_cfg && strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL) {
+                                        tx->fec_state = ldgm_encoder_init_with_cfg(fec_cfg);
                                         if(tx->fec_state == NULL) {
                                                 fprintf(stderr, "Unable to initialize LDGM.\n");
                                                 free(tx);
                                                 return NULL;
                                         }
                                 } else { // delay creation until we have avarage frame size
-                                        if(item && strlen(item) > 0 && strchr(item, '%') != NULL) {
-                                                tx->max_loss = atof(item);
+                                        if(fec_cfg && strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') != NULL) {
+                                                tx->max_loss = atof(fec_cfg);
                                         } else {
                                                 tx->max_loss = 5.0;
                                         }
                                 }
                         } else {
-                                fprintf(stderr, "Unknown FEC: %s\n", item);
+                                fprintf(stderr, "Unknown FEC: %s\n", fec);
                                 free(tx);
                                 return NULL;
                         }
@@ -256,11 +265,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         int pt = PT_VIDEO;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
-#if HAVE_MACOSX
-        struct timeval start, stop;
-#else                           /* HAVE_MACOSX */
+#ifdef HAVE_LINUX
         struct timespec start, stop;
-#endif                          /* HAVE_MACOSX */
+#elif defined HAVE_MACOSX
+        struct timeval start, stop;
+#else // Windows
+	LARGE_INTEGER start, stop, freq;
+#endif
         long delta;
         uint32_t tmp;
         unsigned int fps, fpsd, fd, fi;
@@ -420,11 +431,13 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
         // see definition in rtp_callback.h
         audio_payload_hdr_t payload_hdr;
         uint32_t timestamp;
-#if HAVE_MACOSX
-        struct timeval start, stop;
-#else                           /* HAVE_MACOSX */
+#ifdef HAVE_LINUX
         struct timespec start, stop;
-#endif                          /* HAVE_MACOSX */
+#elif defined HAVE_MACOSX
+        struct timeval start, stop;
+#else // Windows
+	LARGE_INTEGER start, stop, freq;
+#endif
         long delta;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;

@@ -4,8 +4,11 @@ set -e
 # variables
 if [ `uname -s` = "Darwin" ]; then
         LIBTOOLIZE=glibtoolize
-else
+else if [ `uname -s` = "Linux" ]; then
         LIBTOOLIZE=libtoolize
+else # Windows
+        LIBTOOLIZE=true
+fi
 fi
 
 
@@ -20,9 +23,12 @@ autoheader
 $LIBTOOLIZE --copy
 autoconf
 
-cd $srcdir/gpujpeg
-DO_NOT_CONFIGURE="1" ./autogen.sh
-cd -
+# configure JPEG only on Linux/OSX
+if ! `uname -s | grep -q '^MINGW32'`; then
+        cd $srcdir/gpujpeg
+        DO_NOT_CONFIGURE="1" ./autogen.sh
+        cd -
+fi
 
 [ -n "$DO_NOT_CONFIGURE" ] || $srcdir/configure $@
 

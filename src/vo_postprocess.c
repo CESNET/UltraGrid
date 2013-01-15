@@ -316,5 +316,6 @@ void vo_postprocess_get_out_desc(struct vo_postprocess_state *s, struct video_de
 bool vo_postprocess_get_property(struct vo_postprocess_state *s, int property, void *val, size_t *len)
 {
         if(s) return s->handle->get_property(s, property, val, len);
+        else return false;
 }
 

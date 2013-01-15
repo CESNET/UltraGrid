@@ -65,7 +65,8 @@ typedef  int (*decompress_reconfigure_t)(void * state, struct video_desc desc,
 /**
  * Decompresses data from buffer of src_len into dst
  */
-typedef  void (*decompress_decompress_t)(void *state, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+typedef int (*decompress_decompress_t)(void *state, unsigned char *dst,
+                unsigned char *buffer, unsigned int src_len, int frame_seq);
 
 /**
  * @param state decoder state
@@ -87,16 +88,44 @@ struct decode_from_to {
         codec_t to;
 
         uint32_t decompress_index;
+        /* priority to select this decoder if there are multiple matches
+         * range [0..100], lower is better
+         */
+        int priority;
 };
 extern struct decode_from_to decoders_for_codec[];
 extern const int decoders_for_codec_count;
 
-
+/**
+ * must be called before initalization of decoders
+ */
 void initialize_video_decompress(void);
 
-struct state_decompress *decompress_init(unsigned int decoder_index);
+/**
+ * Checks wheather there is decompressor with given magic present and thus can
+ * be initialized with decompress_init
+ *
+ * @see decompress_init
+ * @retval TRUE if decoder is present and can be initialized
+ * @retval FALSE if decoder could not be initialized (not found)
+ */
+int decompress_is_available(unsigned int decoder_index);
+
+/**
+ * Initializes decompressor or the given magic
+ *
+ * @retval NULL if initialization failed
+ * @retval not-NULL state of new decompressor
+ */
+struct state_decompress *decompress_init(unsigned int magic);
 int decompress_reconfigure(struct state_decompress *, struct video_desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-void decompress_frame(struct state_decompress *, unsigned char *dst, unsigned char *buffer, unsigned int src_len);
+/**
+ * @param frame_seq sequential number of frame
+ * @retval TRUE if decompressed successfully
+ * @retval FALSE if decompressing failed
+ */
+int decompress_frame(struct state_decompress *, unsigned char *dst,
+                unsigned char *src, unsigned int src_len, int frame_seq);
 /**
  * For description see above - decompress_get_property_t
  */

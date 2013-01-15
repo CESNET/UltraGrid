@@ -100,6 +100,8 @@ struct pbuf_audio_data {
         int saved_channels;
         int saved_bps;
         int saved_sample_rate;
+
+        bool reconfigured;
 };
 
 /**

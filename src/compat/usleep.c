@@ -1,8 +1,8 @@
 /*
- * FILE:    net_udp.h
- * AUTHORS: Colin Perkins
+ * FILE:     usleep.c
+ * AUTHOR:   Martin Pulec
  * 
- * Copyright (c) 1998-2000 University College London
+ * Copyright (c) 1997-2001 University College London
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,69 +31,22 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- * 
+ *
  * $Revision: 1.1 $
  * $Date: 2007/11/08 09:48:59 $
+ *
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#endif // HAVE_CONFIG_H
 
-#ifndef _NET_UDP
-#define _NET_UDP
+#ifdef HAVE_WIN32
 
-typedef struct _socket_udp socket_udp; 
+int usleep(unsigned int usec)
+        Sleep(usec / 1000);
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-int         udp_addr_valid(const char *addr);
-socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6);
-socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6);
-void        udp_exit(socket_udp *s);
-
-int         udp_peek(socket_udp *s, char *buffer, int buflen);
-int         udp_recv(socket_udp *s, char *buffer, int buflen);
-int         udp_send(socket_udp *s, char *buffer, int buflen);
-
-int         udp_recvv(socket_udp *s, struct msghdr *m);
-#ifdef WIN32
-int         udp_sendv(socket_udp *s, LPWSABUF vector, int count);
-#else
-int         udp_sendv(socket_udp *s, struct iovec *vector, int count);
-#endif
-
-const char *udp_host_addr(socket_udp *s);
-int         udp_fd(socket_udp *s);
-
-int         udp_select(struct timeval *timeout);
-void	    udp_fd_zero(void);
-void        udp_fd_set(socket_udp *s);
-int         udp_fd_isset(socket_udp *s);
-
-int         udp_set_recv_buf(socket_udp *s, int size);
-int         udp_set_send_buf(socket_udp *s, int size);
-void        udp_flush_recv_buf(socket_udp *s);
-
-struct udp_fd_r {
-        fd_set rfd;
-        fd_t max_fd;
-};
-
-int         udp_select_r(struct timeval *timeout, struct udp_fd_r *);
-void	    udp_fd_zero_r(struct udp_fd_r *);
-void        udp_fd_set_r(socket_udp *s, struct udp_fd_r *);
-int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
-
-
-/*************************************************************************************************/
-#if defined(__cplusplus)
+        return 0;
 }
-#endif
 
 #endif
-

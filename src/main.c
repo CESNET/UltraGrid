@@ -51,15 +51,16 @@
  *
  */
 
-#include <string.h>
-#include <stdlib.h>
-#include <getopt.h>
-#include <pthread.h>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
+#include <string.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <pthread.h>
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
@@ -514,6 +515,7 @@ static struct tx *initialize_transmit(unsigned requested_mtu, char *fec)
         return tx_init(requested_mtu, fec);
 }
 
+#ifndef WIN32
 static void *ihdtv_receiver_thread(void *arg)
 {
         ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
@@ -549,6 +551,7 @@ static void *ihdtv_sender_thread(void *arg)
 
         return 0;
 }
+#endif // WIN32
 
 static struct vcodec_state *new_decoder(struct state_uv *uv) {
         struct vcodec_state *state = malloc(sizeof(struct vcodec_state));
@@ -626,7 +629,7 @@ static void *receiver_thread(void *arg)
                 timeout.tv_usec = 999999 / 59.94;
                 ret = rtp_recv_poll_r(uv->network_devices, &timeout, uv->ts);
 
-                /*
+		/*
                    if (ret == FALSE) {
                    printf("Failed to receive data\n");
                    }
@@ -974,7 +977,6 @@ int main(int argc, char *argv[])
         char *audio_send = NULL;
         char *jack_cfg = NULL;
         char *requested_fec = NULL;
-        char *save_ptr = NULL;
         char *audio_channel_map = NULL;
         char *audio_scale = "mixauto";
 
@@ -990,9 +992,12 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
         
-        pthread_t receiver_thread_id = 0,
-                  compress_thread_id = 0,
-                  ihdtv_sender_thread_id = 0;
+        pthread_t receiver_thread_id,
+                  compress_thread_id,
+                  ihdtv_sender_thread_id;
+	bool receiver_thread_started = false,
+		  compress_thread_started = false,
+		  ihdtv_sender_started = false;
         unsigned vidcap_flags = 0,
                  display_flags = 0;
 
@@ -1082,18 +1087,24 @@ int main(int argc, char *argv[])
                                 list_video_display_devices();
                                 return 0;
                         }
-                        uv->requested_display = strtok_r(optarg, ":", &save_ptr);
-                        if(save_ptr && strlen(save_ptr) > 0)
-                                display_cfg = save_ptr;
+                        uv->requested_display = optarg;
+			if(strchr(optarg, ':')) {
+				char *delim = strchr(optarg, ':');
+				*delim = '\0';
+				display_cfg = delim + 1;
+			}
                         break;
                 case 't':
                         if (!strcmp(optarg, "help")) {
                                 list_video_capture_devices();
                                 return 0;
                         }
-                        uv->requested_capture = strtok_r(optarg, ":", &save_ptr);
-                        if(save_ptr && strlen(save_ptr) > 0)
-                                capture_cfg = save_ptr;
+                        uv->requested_capture = optarg;
+			if(strchr(optarg, ':')) {
+				char *delim = strchr(optarg, ':');
+				*delim = '\0';
+				capture_cfg = delim + 1;
+			}
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
@@ -1265,6 +1276,21 @@ int main(int argc, char *argv[])
                 }
         }
 
+#ifdef WIN32
+	WSADATA wsaData;
+	int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	if(err != 0) {
+		fprintf(stderr, "WSAStartup failed with error %d.", err);
+		return EXIT_FAILURE;
+	}
+	if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+		fprintf(stderr, "Counld not found usable version of Winsock.\n");
+		WSACleanup();
+		return EXIT_FAILURE;
+	}
+#endif
+	
+
         char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
         uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2,
                         uv->send_port_number + 2, audio_send, audio_recv,
@@ -1317,6 +1343,7 @@ int main(int argc, char *argv[])
 #endif /* USE_RT */         
 
         if (uv->use_ihdtv_protocol) {
+#ifndef WIN32
                 ihdtv_connection tx_connection, rx_connection;
 
                 printf("Initializing ihdtv protocol\n");
@@ -1356,7 +1383,9 @@ int main(int argc, char *argv[])
                                 fprintf(stderr,
                                         "Error creating receiver thread. Quitting\n");
                                 return 1;
-                        }
+                        } else {
+				receiver_thread_started = true;
+			}
                 }
 
                 if (strcmp("none", uv->requested_capture) != 0) {
@@ -1382,11 +1411,14 @@ int main(int argc, char *argv[])
                                 fprintf(stderr,
                                         "Error creating sender thread. Quitting\n");
                                 return 1;
-                        }
+                        } else {
+				ihdtv_sender_started = true;
+			}
                 }
 
                 while (!0) // was 'should_exit'
                         sleep(1);
+#endif // WIN32
         } else {
                 if ((uv->network_devices =
                      initialize_network(network_device, uv->recv_port_number,
@@ -1448,7 +1480,9 @@ int main(int argc, char *argv[])
                                 perror("Unable to create display thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup_wait_display;
-                        }
+                        } else {
+				receiver_thread_started = true;
+			}
                 }
 
                 if (strcmp("none", uv->requested_capture) != 0) {
@@ -1459,7 +1493,9 @@ int main(int argc, char *argv[])
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup_wait_capture;
-                        }
+                        } else {
+				compress_thread_started = true;
+			}
                 }
         }
         
@@ -1476,14 +1512,14 @@ int main(int argc, char *argv[])
                 display_run(uv->display_device);
 
 cleanup_wait_display:
-        if (strcmp("none", uv->requested_display) != 0 && receiver_thread_id)
+        if (strcmp("none", uv->requested_display) != 0 && receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
 cleanup_wait_capture:
         if (strcmp("none", uv->requested_capture) != 0 &&
                         (uv->use_ihdtv_protocol ?
-                         ihdtv_sender_thread_id :
-                         compress_thread_id))
+                         ihdtv_sender_started :
+                         compress_thread_started))
                 pthread_join(uv->use_ihdtv_protocol ?
                                 ihdtv_sender_thread_id :
                                 compress_thread_id,
@@ -1538,6 +1574,10 @@ cleanup:
 
 #if defined DEBUG && defined HAVE_LINUX
         muntrace();
+#endif
+
+#ifdef WIN32
+	WSACleanup();
 #endif
 
         printf("Exit\n");

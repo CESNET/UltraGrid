@@ -57,6 +57,7 @@
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
 #include "video_compress/fastdxt.h"
+#include "video_compress/libavcodec.h"
 #include "video_compress/jpeg.h"
 #include "video_compress/none.h"
 #include "video_compress/uyvy.h"
@@ -125,6 +126,16 @@ struct compress_t compress_modules[] = {
                 MK_NAME(uyvy_compress_init),
                 MK_NAME(uyvy_compress),
                 MK_NAME(uyvy_compress_done),
+                NULL
+        },
+#endif
+#if defined HAVE_LIBAVCODEC || defined  BUILD_LIBRARIES
+        {
+                "libavcodec",
+                "libavcodec",
+                MK_NAME(libavcodec_compress_init),
+                MK_NAME(libavcodec_compress),
+                MK_NAME(libavcodec_compress_done),
                 NULL
         },
 #endif

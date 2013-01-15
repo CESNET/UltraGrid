@@ -1,5 +1,5 @@
 /*
- * FILE:    video_decompress/dxt_glsl.c
+ * FILE:    video_compress.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -45,15 +45,8 @@
  *
  */
 
-#include "video_codec.h"
+struct video_frame;
 
-#define RTDXT_MAGIC 0x2cc33ba3u
-
-void * dxt_glsl_decompress_init(void);
-int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
-                        int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq);
-int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len);
-void dxt_glsl_decompress_done(void *state);
-
+void                *libavcodec_compress_init(char * opts);
+struct video_frame  *libavcodec_compress(void *args, struct video_frame * tx, int buffer);
+void                 libavcodec_compress_done(void *args);

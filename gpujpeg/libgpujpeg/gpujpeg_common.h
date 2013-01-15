@@ -33,6 +33,10 @@
 #include <stdint.h>
 #include <libgpujpeg/gpujpeg_type.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** Marker used as segment info */
 #define GPUJPEG_MARKER_SEGMENT_INFO GPUJPEG_MARKER_APP13
 
@@ -697,5 +701,9 @@ gpujpeg_opengl_texture_unmap(struct gpujpeg_opengl_texture* texture);
 #define GPUJPEG_TIMER_DURATION() GPUJPEG_CUSTOM_TIMER_DURATION(def)
 #define GPUJPEG_TIMER_STOP_PRINT(text) GPUJPEG_CUSTOM_TIMER_STOP_PRINT(def, text)
 #define GPUJPEG_TIMER_DEINIT() GPUJPEG_CUSTOM_TIMER_DESTROY(def)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_COMMON_H

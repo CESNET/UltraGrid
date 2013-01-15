@@ -32,6 +32,10 @@
 
 #include <libgpujpeg/gpujpeg_type.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** JPEG encoder structure predeclaration */
 struct gpujpeg_encoder;
 
@@ -134,5 +138,9 @@ gpujpeg_writer_write_segment_info(struct gpujpeg_encoder* encoder);
  */
 void
 gpujpeg_writer_write_scan_header(struct gpujpeg_encoder* encoder, int scan_index);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // GPUJPEG_WRITER_H

@@ -236,6 +236,10 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
     encoder->format = format;
     encoder->legacy = legacy;
 
+    if(legacy) {
+            glEnable(GL_TEXTURE_2D);
+    }
+
     //glEnable(GL_TEXTURE_2D);
 #ifdef HAVE_GPUPERFAPI
     GPA_EnableAllCounters();

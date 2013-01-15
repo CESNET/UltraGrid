@@ -4,6 +4,8 @@ AC_INIT([UltraGrid], [1.1], [ultragrid-dev@cesnet.cz])
 AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
 AC_CONFIG_SRCDIR([src/main.c])
+AC_CONFIG_MACRO_DIR([m4])
+LT_INIT
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
 
@@ -101,10 +103,16 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	LDFLAGS="$LDFLAGS -m32 -mmacosx-version-min=10.5"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
+else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
+        system=Windows
+	AC_DEFINE([WIN32], [1], [This is an Windows OS])
+	LIBS="$LIBS -lsetupapi -lWs2_32 -lIphlpapi"
+        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
+fi
 fi
 
 AC_MSG_RESULT($system);
@@ -136,6 +144,13 @@ then
         AC_MSG_WARN([*** Currently only Mac OS X versions 10.6 to 10.7 are supported.])
         HM_VERSION_WARNING
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
+fi
+
+if test $system = MacOSX -o $system = Linux
+then
+        CFLAGS="$CFLAGS -fPIC"
+        CXXFLAGS="$CXXFLAGS -fPIC"
+        NVCCFLAGS="$NVCCFLAGS -Xcompiler -fPIC"
 fi
 
 AH_BOTTOM([
@@ -180,6 +195,23 @@ AC_DEFUN([DEFINE_GL], [
           fi
           AC_SUBST(GL_COMMON_OBJ)
           ])
+
+AC_MSG_CHECKING([if_nametoindex])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <windows.h>
+#include <iphlpapi.h>
+					]], [[
+if_nametoindex("eth");]]
+)], HAVE_IF_NAMETOINDEX=yes, HAVE_IF_NAMETOINDEX=no)
+	AC_MSG_RESULT([$HAVE_IF_NAMETOINDEX])
+
+AC_CHECK_FUNCS(strtok_r)
+
+AC_CHECK_FUNCS(drand48)
+if test $ac_cv_func_drand48 = no
+then
+	AC_DEFINE([NEED_DRAND48], 1, [We need custom implementation of drand48.])
+fi
 
 
 # -------------------------------------------------------------------------------------------------
@@ -238,6 +270,8 @@ AC_CHECK_LIB(rt, timer_create)
 
 AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
 AC_CHECK_LIB(ieee, main, [MATHLIBS="-lieee $MATHLIBS"])
+AC_CHECK_FUNCS(inet_ntop)
+AC_CHECK_FUNCS(inet_pton)
 AC_SUBST(MATHLIBS)
 
 # -------------------------------------------------------------------------------------------------
@@ -330,7 +364,7 @@ LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
 video_display_abi_version=3
 video_capture_abi_version=2
 video_compress_abi_version=1
-video_decompress_abi_version=2
+video_decompress_abi_version=3
 audio_capture_abi_version=3
 audio_playback_abi_version=3
 vo_pp_abi_version=3
@@ -520,7 +554,7 @@ DECKLINK_INC=
 
 case "$host_os" in
 	*darwin*)
-                if test -z $DECKLINK; then
+                if test -z $DECKLINK_INC; then
                         DECKLINK_INC=DeckLink/Mac
                 fi
                 OLD_LIBS=$LIBS
@@ -535,9 +569,30 @@ case "$host_os" in
                 fi
                 AC_LANG_POP(C++)
                 ;;
+	*mingw*)
+                if test -z $DECKLINK_INC; then
+                        DECKLINK_INC=DeckLink/Windows
+                fi
+                SAVED_LIBS=$LIBS
+                LIBS="$LIBS -lOle32"
+                AC_LANG_PUSH(C++)
+		AC_MSG_CHECKING([DeckLink usability])
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include "DeckLink/Windows/DeckLinkAPI_h.h"
+#include "DeckLink/Windows/DeckLinkAPIVersion.h"
+#include <objbase.h>
+                                   ]],
+		[[IDeckLinkIterator *deckLinkIter; CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL, IID_IDeckLinkIterator, (void **) deckLinkIter);]])],FOUND_DECKLINK=yes,FOUND_DECKLINK=no)
+                LIBS=$SAVED_LIBS
+                if test $FOUND_DECKLINK = yes; then
+                        DECKLINK_LIB="$DECKLINK_LIB -lOle32"
+                fi
+		AC_MSG_RESULT([$FOUND_DECKLINK])
+                AC_LANG_POP(C++)
+                ;;
         *)
-                if test -z $DECKLINK; then
-                        DECKLINK_INC=DeckLink/include
+                if test -z $DECKLINK_INC; then
+                        DECKLINK_INC=DeckLink/Linux
                 fi
 
                 AC_CHECK_FILE(${DECKLINK_INC}/DeckLinkAPI.h, FOUND_DECKLINK_H=yes, FOUND_DECKLINK_H=no)
@@ -560,7 +615,11 @@ then
     DECKLINK_CAP_OBJ="src/video_capture/decklink.o"
     DECKLINK_DISP_OBJ="src/video_display/decklink.o"
     DECKLINK_SOUND_PLAY_OBJ="src/audio/playback/decklink.o"
-    DECKLINK_COMMON="src/video_capture/DeckLinkAPIDispatch.o"
+    if test $system = "Windows"; then
+        DECKLINK_COMMON="src/video_capture/DeckLinkAPI_i.o"
+    else
+        DECKLINK_COMMON="src/video_capture/DeckLinkAPIDispatch.o"
+    fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
     LINKER=$CXX
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
@@ -643,9 +702,8 @@ DELTACAST_LIB=
 deltacast_req=yes
 deltacast=no
 
-case $host in
-    *-linux-*)
-
+if test $system = Linux -o $system = Windows
+then
         AC_ARG_ENABLE(deltacast,
               AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]),
             [deltacast_req=$enableval],
@@ -660,17 +718,30 @@ case $host in
 
         AC_LANG_PUSH(C++)
 
+	if test $system = Windows; then
+		HEADER_SUBDIR="Header"
+	else
+		HEADER_SUBDIR="Include"
+	fi
+
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS_SAVE=$CXXFLAGS
-                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/Include"
+                CXXFLAGS="$CXXFLAGS -I$DELTACAST_PATH/$HEADER_SUBDIR"
                 CPPFLAGS_SAVE=$CPPFLAGS
-                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/Include"
+                CPPFLAGS="$CPPFLAGS -I$DELTACAST_PATH/$HEADER_SUBDIR"
         fi
+
+	if test $system = Windows; then
+		EXTRA_HEADERS="#include <windows.h>"
+	else
+		EXTRA_HEADERS=
+	fi
 
         AC_CHECK_HEADERS([VideoMasterHD_Core.h VideoMasterHD_Sdi.h VideoMasterHD_Sdi_Audio.h],
                          [], [],
-                         [[#ifdef HAVE_VIDEOMASTERHD_CORE_H
+                         [[$EXTRA_HEADERS
+			#ifdef HAVE_VIDEOMASTERHD_CORE_H
                           # include <VideoMasterHD_Core.h>
                           #endif
                           #ifdef HAVE_VIDEOMASTERHD_SDI_H
@@ -678,37 +749,47 @@ case $host in
                           #endif
                           ]])
 
+        SAVED_LIBS=$LIBS
+        DELTACAST_LIB="-lvideomasterhd_audio -lvideomasterhd"
+        if test -n "$DELTACAST_PATH"; then
+		if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+		then
+			DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x64"
+		else
+			DELTACAST_LIB="$DELTACAST_LIB -L$DELTACAST_PATH/Library/x86"
+		fi
+	fi
+        LIBS="$LIBS $DELTACAST_LIB"
+		
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[$EXTRA_HEADERS
+			  # include <VideoMasterHD_Core.h>
+                          # include <VideoMasterHD_Sdi.h>
+                          # include <VideoMasterHD_Sdi_Audio.h>
+                           ]],
+                           [[
+			    VHD_OpenBoardHandle(0, (void **) 0, (void *) 0, 0);
+			    VHD_SlotExtractAudio(0, 0);
+                            VHD_LockSlotHandle(0, 0);
+                            ]])],FOUND_VHD_L=yes,FOUND_VHD_L=no)
+        #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
+        LIBS=$SAVED_LIBS
         if test -n "$DELTACAST_PATH"
         then
                 CXXFLAGS=$CXXFLAGS_SAVE
                 CPPFLAGS=$CPPFLAGS_SAVE
         fi
 
-        SAVED_LIBS=$LIBS
-        AC_CHECK_LIB(videomasterhd, VHD_OpenBoardHandle)
-        LIBS="$LIBS -lvideomasterhd_audio -lvideomasterhd"
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[# include <VideoMasterHD_Core.h>
-                          # include <VideoMasterHD_Sdi.h>
-                          # include <VideoMasterHD_Sdi_Audio.h>
-                           ]],
-                           [[VHD_SlotExtractAudio(0, 0);
-                            VHD_LockSlotHandle(0, 0);
-                            ]])],FOUND_VHD_AUDIO_L=yes,FOUND_VHD_AUDIO_L=no)
-        #AC_CHECK_LIB(videomasterhd_audio, VHD_GetNbSamples, [], [], [-lvideomasterhd])
-        LIBS=$SAVED_LIBS
-
         AC_LANG_POP(C++)
 
         if test $deltacast_req = yes -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
-                -a "$ac_cv_lib_videomasterhd_VHD_OpenBoardHandle" = yes -a "$FOUND_VHD_AUDIO_L"
+                -a "$FOUND_VHD_L" = yes
         then
                 if test -n "$DELTACAST_PATH"
                 then
-                        DELTACAST_INC="-I$DELTACAST_PATH/Include"
+                        DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
                 fi
                 DELTACAST_CAP_OBJ="src/video_capture/deltacast.o"
                 DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
-                DELTACAST_LIB="-lvideomasterhd -lvideomasterhd_audio"
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
                 AC_SUBST(DELTACAST_DISP_LIB_TARGET, "lib/ultragrid/display_deltacast.so.$video_display_abi_version")
@@ -722,8 +803,7 @@ case $host in
                 DELTACAST_CAP_OBJ=
                 DELTACAST_DISP_OBJ=
         fi
-    ;;
-esac
+fi
 
 LIB_MODULES="$LIB_MODULES $DELTACAST_LIB"
 
@@ -946,7 +1026,7 @@ then
                 then
                         TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
                 fi
-                AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
+                AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
@@ -983,7 +1063,24 @@ AC_ARG_ENABLE(gl,
 # this variable is shared multiple times in code, so make sure that change in this
 # lines does not inferre with something below
 SAVED_LIBS=$LIBS
-PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
+if test $system = Windows; then
+	AC_MSG_CHECKING([GLEW presence (library and headers)])
+	SAVED_LIBS=$LIBS
+	LIBS="$LIBS -lglew32"
+	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
+#define _STDCALL_SUPPORTED 1
+#include <GL/glew.h>
+], [
+glewInit();
+		])],
+		[FOUND_GLEW=yes],[FOUND_GLEW=no])
+	LIBS=$SAVED_LIBS
+	AC_MSG_RESULT([$FOUND_GLEW])
+        #AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
+else
+        AC_CHECK_HEADERS([GL/glew.h], AC_CHECK_LIB(GLEW, glewInit, FOUND_GLEW=yes, FOUND_GLEW=no), FOUND_GLEW=no)
+        #PKG_CHECK_MODULES([GLEW], [glew >= 1.5.2 ], [FOUND_GLEW=yes], [FOUND_GLEW=no])
+fi
 AC_SUBST(FOUND_GLEW)
 LIBS=$SAVED_LIBS
 
@@ -1041,6 +1138,29 @@ case "$host_os" in
 
 	else
 		echo "OpenGL headers not found or not usable."
+	fi
+	;;
+	*mingw*)
+	AC_MSG_CHECKING([OpenGL support])
+	SAVED_LIBS=$LIBS
+	LIBS="$LIBS -lglut -lglew32 -lopengl32"
+	AC_LINK_IFELSE([ AC_LANG_PROGRAM([
+#define _STDCALL_SUPPORTED 1
+#include <GL/glew.h>
+#include <GL/glut.h>
+], [glutMainLoop();
+glewInit();
+glBindTexture(GL_TEXTURE_2D, 0);
+		])],
+		[HAVE_GL=yes],[HAVE_GL=no])
+	LIBS=$SAVED_LIBS
+	AC_MSG_RESULT([$HAVE_GL])
+
+	if test "$HAVE_GL" = yes; then
+		GL_LIB="$GL_LIB -lglut libglew32.a libglew32.dll.a -lopengl32"
+		GL_OBJ="$GL_OBJ src/video_display/gl.o"
+		AC_DEFINE([HAVE_GL], [1], [Build with OpenGL output])
+		gl=yes	
 	fi
 	;;
 	*)
@@ -1135,23 +1255,35 @@ case "$host_os" in
 		fi
 
 	;;
+        mingw32)
+                screen_cap=no
+        ;;
 	*)
                 # Linux
                 SAVED_LIBS=$LIBS
                 AC_CHECK_HEADER(X11/Xlib.h)
                 AC_CHECK_HEADER(X11/Xutil.h)
                 AC_CHECK_LIB(X11, XGetImage)
-                PKG_CHECK_MODULES([XFIXES], [xfixes], 
-                                  [AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])],
-                                  [HAVE_XFIXES=no]
-                                  )
+                #PKG_CHECK_MODULES([XFIXES], [xfixes], 
+                #                  [AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])],
+                #                  [HAVE_XFIXES=no]
+                #                  )
+                AC_CHECK_LIB(Xfixes, XFixesGetCursorImage)
+                AC_CHECK_HEADER(X11/extensions/Xfixes.h)
                 LIBS=$SAVED_LIBS
 
 		if test $screen_cap_req = yes -a $ac_cv_lib_X11_XGetImage = yes -a \
                          $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes
 		then
                         screen_cap=yes
-                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11 $XFIXES_LIBS"
+                        SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lX11"
+                        if test $ac_cv_lib_Xfixes_XFixesGetCursorImage = yes -a \
+                                $ac_cv_header_X11_extensions_Xfixes_h = yes
+                        then
+                                AC_DEFINE([HAVE_XFIXES], [1], [Build with XFixes support])
+                                SCREEN_CAP_LIB="$SCREEN_CAP_LIB -lXfixes"
+                        fi
+
 		else
                         screen_cap=no
 		fi
@@ -1810,6 +1942,9 @@ case $host_os in
                         scale=no
 		fi
         ;;
+	*mingw32*)
+		scale=no
+        ;;
         *)
 		if test $scale_req = yes -a $FOUND_GLEW = yes \
                         -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
@@ -1866,19 +2001,35 @@ AC_SUBST(QMAKE)
 # V4L2
 # -------------------------------------------------------------------------------------------------
 v4l2=no
+found_v4l2=no
 AC_ARG_ENABLE(v4l2,
       AS_HELP_STRING([--disable-v4l2], [disable V4L2 support(default is auto)]),
     [v4l2_req=$enableval],
     [v4l2_req=yes]
     )
 
-PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
+if test $system = Linux; then
+        #PKG_CHECK_MODULES([V4L2], [libv4l2 libv4lconvert], [found_v4l2=yes], [found_v4l2=no])
+        SAVED_LIBS=$LIBS
+        AC_CHECK_LIB(v4l2, main)
+        AC_CHECK_HEADER(libv4l2.h)
+        AC_CHECK_LIB(v4lconvert, v4lconvert_create)
+        AC_CHECK_HEADER(libv4lconvert.h)
+        LIBS=$SAVED_LIBS
+
+        if test $v4l2_req = yes -a $ac_cv_lib_v4l2_main = yes -a $ac_cv_header_libv4l2_h = yes -a \
+                $ac_cv_lib_v4lconvert_v4lconvert_create = yes -a $ac_cv_header_libv4lconvert_h = yes
+        then
+                found_v4l2=yes
+        fi
+fi
 
 if test $v4l2_req = yes -a $found_v4l2 = yes
 then
         V4L2_OBJ="src/video_capture/v4l2.o"
         AC_DEFINE([HAVE_V4L2], [1], [Build with V4L2 support])
         AC_SUBST(V4L2_LIB_TARGET, "lib/ultragrid/vidcap_v4l2.so.$video_capture_abi_version")
+        V4L2_LIBS="$V4L2_LIBS -lv4l2 -lv4lconvert"
         LIB_TARGETS="$LIB_TARGETS $V4L2_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $V4L2_OBJ"
         CFLAGS="$CFLAGS $V4L2_CFLAGS"
@@ -1894,22 +2045,61 @@ AC_SUBST(V4L2_OBJ)
 LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
 # -------------------------------------------------------------------------------------------------
-# use shared decoder
+# Libav
 # -------------------------------------------------------------------------------------------------
+libavcodec=no
+AC_ARG_ENABLE(libavcodec,
+AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is auto)]),
+[libavcodec_req=$enableval],
+[libavcodec_req=yes]
+)
 
-# the shared behaviour is faulty, but it saves resources when restarting sender (different SSRC).
-# In case of shortage UltraGrid fails, because of that, shared is default
-shared_decoder=yes
-AC_ARG_ENABLE(shared-decoder,
-              AS_HELP_STRING([--enable-shared-decoder], [use distinct decoder state for each participant (default is disable)]),
-	[dvs_req=$enableval])
-if test $shared_decoder = yes
+#PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
+AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
+AC_CHECK_LIB(avcodec, avcodec_open2)
+AC_CHECK_LIB(avutil, av_free)
+if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
+        $ac_cv_header_libavutil_imgutils_h = yes -a \
+        $ac_cv_header_libavutil_opt_h = yes -a \
+        $ac_cv_lib_avcodec_avcodec_open2 = yes -a \
+        $ac_cv_lib_avutil_av_free = yes
 then
-        AC_DEFINE([SHARED_DECODER], [1], [use shared decoder for all participants])
+        found_libavcodec=yes
+        LIBAVCODEC_LIBS="-lavcodec -lavutil"
+else
+        found_libavcodec=no
 fi
+
+if test $libavcodec_req = yes -a $found_libavcodec = yes
+then
+        LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
+        AC_DEFINE([HAVE_LIBAVCODEC], [1], [Build with LIBAVCODEC support])
+        AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
+        AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET"
+        LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
+        LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
+        LIB_OBJS="$LIB_OBJS $LIBAVCODEC_COMPRESS_OBJ $LIBAVCODEC_DECOMPRESS_OBJ"
+        CFLAGS="$CFLAGS $LIBAVCODEC_CFLAGS"
+        libavcodec=yes
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $LIBAVCODEC_LIBS"
+        AC_CHECK_FUNCS(avcodec_encode_video2)
+        LIBS=$SAVED_LIBS
+else
+        LIBAVCODEC_LIBS=
+        LIBAVCODEC_OBJ=
+fi
+
+AC_SUBST(LIBAVCODEC_LIBS) # set by pkg-config
+AC_SUBST(LIBAVCODEC_COMPRESS_OBJ)
+AC_SUBST(LIBAVCODEC_DECOMPRESS_OBJ)
+
+LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
 
 # -------------------------------------------------------------------------------------------------
 # We need to add libraries then
+# -------------------------------------------------------------------------------------------------
 
 # this is only needed when passing to "clean" make target
 if test "$build_libraries" = yes
@@ -1962,6 +2152,7 @@ Configuring JPEG
         /bin/sh -c "cd gpujpeg; ./configure --with-cuda=$CUDA_PATH"
 fi
 
+LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h
@@ -1995,6 +2186,7 @@ RESULT=\
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg (static: $jpeg_static)
   UYVY dummy compression ...... $uyvy
+  Libavcodec .................. $libavcodec
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req

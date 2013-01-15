@@ -47,13 +47,13 @@
 
 #include "video_codec.h"
 
-#define RTDXT_MAGIC 0x2cc33ba3u
+#define LIBAVCODEC_MAGIC 0xff2f1b41u
 
-void * dxt_glsl_decompress_init(void);
-int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
+void  *libavcodec_decompress_init(void);
+int    libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
                         int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
-                unsigned int src_len, int frame_seq);
-int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len);
-void dxt_glsl_decompress_done(void *state);
+int    libavcodec_decompress(void *state, unsigned char *dst,
+                unsigned char *buffer, unsigned int src_len, int frame_seq);
+int    libavcodec_decompress_get_property(void *state, int property, void *val, size_t *len);
+void   libavcodec_decompress_done(void *state);
 

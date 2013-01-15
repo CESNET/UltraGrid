@@ -11,8 +11,6 @@
  * $Date: 2007/11/08 09:48:59 $
  */
 
-#include "config_unix.h"
-#include "config_win32.h"
 #include "bitstream.h"
 
 typedef struct s_bitstream {
