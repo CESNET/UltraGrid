@@ -58,7 +58,6 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
-#include "utils/fs_lock.h"
 
 #define MODULE_NAME "[Portaudio playback] "
 
@@ -68,7 +67,6 @@ struct state_portaudio_playback {
         int device;
         PaStream *stream;
         int max_output_channels;
-        struct fs_lock *portaudio_lock;
 };
 
 enum audio_device_kind {
@@ -190,7 +188,6 @@ void * portaudio_playback_init(char *cfg)
         Pa_Initialize();
         
         s = calloc(1, sizeof(struct state_portaudio_playback));
-        s->portaudio_lock = fs_lock_init("portaudio");
         assert(output_device >= -1);
         s->device = output_device;
         const	PaDeviceInfo *device_info;
@@ -244,7 +241,6 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
         s->frame.data = (char*)malloc(s->frame.max_size);
         assert(s->frame.data != NULL);
         
-        fs_lock_lock(s->portaudio_lock); /* safer with multiple threads */
 	printf("(Re)initializing portaudio playback.\n");
 
 	error = Pa_Initialize();
@@ -252,7 +248,6 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
 	{
 		printf("error initializing portaudio\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return FALSE;
 	}
 
@@ -310,10 +305,8 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
 	{
 		printf("Error opening audio stream\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return FALSE;
 	}
-        fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 
         return TRUE;
 }                        

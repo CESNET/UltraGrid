@@ -59,7 +59,6 @@
 #include "config_unix.h"
 #include "debug.h"
 #include "host.h"
-#include "utils/fs_lock.h"
 
 
 /* default variables for sender */
@@ -73,7 +72,6 @@
 struct state_portaudio_capture {
         struct audio_frame frame;
         PaStream *stream;
-        struct fs_lock *portaudio_lock;
 };
 
 enum audio_device_kind {
@@ -193,14 +191,11 @@ void * portaudio_capture_init(char *cfg)
 	 * so far we only work with portaudio
 	 * might get more complicated later..(jack?)
 	 */
-        s->portaudio_lock = fs_lock_init("portaudio");
-         
         if(cfg)
                 input_device = atoi(cfg);
         else
                 input_device = -1;
 
-        fs_lock_lock(s->portaudio_lock); /* safer with multiple threads */
 	printf("Initializing portaudio capture.\n");
 	
 	error = Pa_Initialize();
@@ -208,7 +203,6 @@ void * portaudio_capture_init(char *cfg)
 	{
 		printf("error initializing portaudio\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return NULL;
 	}
 
@@ -247,7 +241,6 @@ void * portaudio_capture_init(char *cfg)
                 fprintf(stderr, MODULE_NAME "Requested %d input channels, devide offers only %d.\n",
                                 audio_capture_channels,
                                 device_info->maxInputChannels);
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
                 free(s);
 		return NULL;
         }
@@ -265,12 +258,9 @@ void * portaudio_capture_init(char *cfg)
 	{
 		printf("Error opening audio stream\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return NULL;
 	}
 
-        fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
-        
 	s->frame.bps = BPS;
         s->frame.ch_count = inputParameters.channelCount;
         s->frame.sample_rate = SAMPLE_RATE;
@@ -313,9 +303,7 @@ void portaudio_capture_finish(void *state)
 void portaudio_capture_done(void *state)
 {
         struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
-        fs_lock_lock(s->portaudio_lock);
         portaudio_close(s->stream);
-        fs_lock_unlock(s->portaudio_lock);
         free(s->frame.data);
         free(s);
 }
