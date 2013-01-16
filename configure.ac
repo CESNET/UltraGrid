@@ -485,7 +485,7 @@ AC_DEFINE([HAVE_DV_CODEC], [1], [We have libdv])
 # -------------------------------------------------------------------------------------------------
 # Try to find the SDK for the DVS cards
 dvs=no
-dvs_req=yes
+dvs_req=auto
 AC_ARG_ENABLE(dvs,
               AS_HELP_STRING([--disable-dvs], [disable DVS (default is auto)]),
 	[dvs_req=$enableval])
@@ -527,7 +527,7 @@ fi
 AC_CHECK_LIB(dvsoem, sv_open, FOUND_DVS_L=yes, FOUND_DVS_L=no, -L${DVS_LIB})
 LIBS=$SAVED_LIBS
 
-if test $dvs_req = yes -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
+if test $dvs_req != no -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
 then
 	DVS_INC=-I${DVS_INC}
 	DVS_LIB=${DVS_LIB}/libdvsoem.a
@@ -545,9 +545,13 @@ then
         LIB_OBJS="$LIB_OBJS $DVS_CAP_OBJ $DVS_DISP_OBJ"
         dvs=yes
 else
-	DVS_INC=
-	DVS_LIB=
-	DVS_OBJ=
+        DVS_INC=
+        DVS_LIB=
+        DVS_OBJ=
+fi
+
+if test $dvs_req = yes -a $dvs = no; then
+        AC_MSG_ERROR([DVS not found.])
 fi
 
 LIB_MODULES="$LIB_MODULES $DVS_LIB"
@@ -565,7 +569,7 @@ DECKLINK_INC=
 DECKLINK_LIB=
 DECKLINK_PATH=
 decklink=no
-decklink_req=yes
+decklink_req=auto
 
 AC_ARG_ENABLE(decklink, AS_HELP_STRING([--disable-decklink], [disable DeckLink (default is auto)]),
 	[decklink_req=$enableval])
@@ -627,7 +631,7 @@ case "$host_os" in
                 ;;
 esac
 
-if test $decklink_req = yes -a $FOUND_DECKLINK = yes
+if test $decklink_req != no -a $FOUND_DECKLINK = yes
 then
     DECKLINK_PATH=${DECKLINK_INC}
     DECKLINK_INC=-I${DECKLINK_INC}
@@ -655,6 +659,10 @@ else
     DECKLINK_LIB=
 fi
 
+if test $decklink_req = yes -a $decklink = no; then
+        AC_MSG_ERROR([DeckLink not found.])
+fi
+
 LIB_MODULES+=" $DECKLINK_LIB"
 
 AC_SUBST(DECKLINK_PATH)
@@ -679,7 +687,7 @@ case $host in
         AC_ARG_ENABLE(linsys,
               AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
             [linsys_req=$enableval],
-            [linsys_req=yes]
+            [linsys_req=auto]
             )
 
         LINSYS_PATH=Linsys
@@ -689,7 +697,7 @@ case $host in
         AC_CHECK_FILE(${LINSYS_INC}/master.h, FOUND_LINSYS_MASTER_H=yes, FOUND_LINSYS_MASTER_H=no)
         AC_CHECK_FILE(${LINSYS_INC}/sdi.h, FOUND_LINSYS_SDI_H=yes, FOUND_LINSYS_SDI_H=no)
 
-        if test $linsys_req = yes -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
+        if test $linsys_req != no -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
         then
             LINSYS_INC="-I$LINSYS_INC -I$LINSYS_PATH/Examples"
             LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
@@ -706,6 +714,10 @@ case $host in
     ;;
 esac
 
+if test $linsys_req = yes -a $linsys = no; then
+        AC_MSG_ERROR([Linsys not found]);
+fi
+
 AC_SUBST(LINSYS_PATH)
 AC_SUBST(LINSYS_INC)
 AC_SUBST(LINSYS_OBJ)
@@ -718,7 +730,6 @@ DELTACAST_CAP_OBJ=
 DELTACAST_DISP_OBJ=
 DELTACAST_INC=
 DELTACAST_LIB=
-deltacast_req=yes
 deltacast=no
 
 if test $system = Linux -o $system = Windows
@@ -726,7 +737,7 @@ then
         AC_ARG_ENABLE(deltacast,
               AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]),
             [deltacast_req=$enableval],
-            [deltacast_req=yes]
+            [deltacast_req=auto]
             )
         DELTACAST_PATH=$DELTACAST_DIRECTORY
 
@@ -800,7 +811,7 @@ then
 
         AC_LANG_POP(C++)
 
-        if test $deltacast_req = yes -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
+        if test $deltacast_req != no -a "$ac_cv_header_VideoMasterHD_Core_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_h" = yes -a "$ac_cv_header_VideoMasterHD_Sdi_Audio_h" = yes \
                 -a "$FOUND_VHD_L" = yes
         then
                 if test -n "$DELTACAST_PATH"
@@ -824,6 +835,10 @@ then
         fi
 fi
 
+if test $deltacast_req = yes -a $deltacast = no; then
+        AC_MSG_ERROR([Deltacast not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $DELTACAST_LIB"
 
 AC_SUBST(DELTACAST_PATH)
@@ -832,10 +847,9 @@ AC_SUBST(DELTACAST_LIB)
 AC_SUBST(DELTACAST_CAP_OBJ)
 AC_SUBST(DELTACAST_DISP_OBJ)
 
-
-
 # -------------------------------------------------------------------------------------------------
 # QuickTime Stuff
+# -------------------------------------------------------------------------------------------------
 QUICKTIME_INC=
 QUICKTIME_LIB=
 QUICKTIME_OBJ=
@@ -844,7 +858,7 @@ quicktime=no
 AC_ARG_ENABLE(quicktime,
       AS_HELP_STRING([--disable-quicktime], [disable QuickTime support(default is auto)]),
     [quicktime_req=$enableval],
-    [quicktime_req=yes]
+    [quicktime_req=auto]
     )
 
 case $host_os in
@@ -852,7 +866,7 @@ case $host_os in
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
 
-		if test $quicktime_req = yes -a $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
+		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
 		then
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
@@ -863,6 +877,10 @@ case $host_os in
 		fi
     ;;
 esac
+
+if test $quicktime_req = yes -a $quicktime = no; then
+        AC_MSG_ERROR([QuickTime not found]);
+fi
 
 LIB_MODULES="$LIB_MODULES $QUICKTIME_LIB"
 
@@ -879,7 +897,7 @@ sdl=no
 AC_ARG_ENABLE(sdl,
               AS_HELP_STRING([--disable-sdl], [enable SDL(default is enable)]),
     [sdl_req=$enableval],
-    [sdl_req=yes]
+    [sdl_req=auto]
     )
 #
 # version comparison function that works for "." delimited version numbers (no alpha please)
@@ -951,7 +969,7 @@ case "$host_os" in
                          [AC_CHECK_LIB(SDL, SDL_Init, FOUND_SDL_L=yes, echo "SDL library not found or not usable.", -L/opt/local/lib)],
                          [echo "SDL.h not found."]
                         )
-            if test $sdl_req = yes -a "$FOUND_SDL_L" = yes
+            if test $sdl_req != no -a "$FOUND_SDL_L" = yes
             then
                 CFLAGS="$CFLAGS -D_GNU_SOURCE=1 -D_THREAD_SAFE -I/opt/local/include/SDL"
                 SDL_LIBS="-L/opt/local/lib -lSDLmain -lSDL -Wl,-framework,Cocoa"
@@ -979,7 +997,7 @@ case "$host_os" in
                          [AC_CHECK_LIB(SDL, SDL_Init, FOUND_SDL_L=yes, echo "SDL library not found or not usable.")],
                          [echo "SDL.h not found."]
                         )
-            if test $sdl_req = yes -a "$FOUND_SDL_L" = yes
+            if test $sdl_req != no -a "$FOUND_SDL_L" = yes
             then
                 SDL_LIBS="-lSDL"
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
@@ -996,6 +1014,10 @@ then
         AC_SUBST(SDL_LIB_TARGET, "lib/ultragrid/display_sdl.so.$video_display_abi_version")
         LIB_TARGETS="$LIB_TARGETS $SDL_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SDL_OBJ"
+fi
+
+if test $sdl_req = yes -a $sdl = no; then
+        AC_MSG_ERROR([SDL not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $SDL_LIBS"
@@ -1022,7 +1044,7 @@ LIB_TARGETS="$LIB_TARGETS $TESTCARD_LIB_TARGET"
 TESTCARD_COMMON="src/video_capture/testcard_common.o"
 LIB_OBJS="$LIB_OBJS $TESTCARD_OBJ $TESTCARD_COMMON"
 
-if test $testcard_extras_req = yes
+if test $testcard_extras_req != no
 then
         SAVED_LIBS=$LIBS
         AC_CHECK_LIB(SDL_mixer, Mix_PlayMusic)
@@ -1050,6 +1072,13 @@ then
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
         fi
+        testcard_extras=yes
+else
+        testcard_extras=no
+fi
+
+if test $testcard_extras_req = yes -a $testcard_extras = no; then
+        AC_MSG_ERROR([Testcard2 not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $TESTCARD_LIB"
@@ -1076,7 +1105,7 @@ gl=no
 AC_ARG_ENABLE(gl,
       AS_HELP_STRING([--disable-gl], [disable OpenGL (default is auto)]),
     [gl_req=$enableval],
-    [gl_req=yes]
+    [gl_req=auto]
     )
 
 # this variable is shared multiple times in code, so make sure that change in this
@@ -1118,7 +1147,7 @@ case "$host_os" in
 	then
                 AC_CHECK_FILE(/System/Library/Frameworks/OpenGL.framework/OpenGL, FOUND_GL_L=yes, echo "OpenGL framework not found.")
 
-		if test $gl_req = yes -a $FOUND_GL_L = yes
+		if test $gl_req != no -a $FOUND_GL_L = yes
 		then
 			case "$host_os" in
 			*darwin8*)
@@ -1196,7 +1225,7 @@ glBindTexture(GL_TEXTURE_2D, 0);
 	then
 		AC_CHECK_LIB(GL, glBindTexture, FOUND_GL_L=yes, FOUND_GL_L=no)
 
-		if test $gl_req = yes -a $FOUND_GL_L = yes
+		if test $gl_req != no -a $FOUND_GL_L = yes
 		then
 			GL_LIB="$GL_LIB -lGL"
 
@@ -1238,6 +1267,10 @@ then
         LIB_OBJS="$LIB_OBJS $GL_OBJ"
 fi
 
+if test $gl_req = yes -a $gl = no; then
+        AC_MSG_ERROR([OpenGL not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $GL_LIB"
 
 AC_SUBST(GL_INC)
@@ -1256,17 +1289,17 @@ screen_cap=no
 AC_ARG_ENABLE(screen,
       AS_HELP_STRING([--disable-screen], [disable screen capture (default is auto)]),
     [screen_cap_req=$enableval],
-    [screen_cap_req=yes]
+    [screen_cap_req=auto]
     )
 
 case "$host_os" in
 	*darwin*)
-		if test $screen_cap_req = yes -a $os_version_major -ge 10
+		if test $screen_cap_req != no -a $os_version_major -ge 10
 		then
                         screen_cap=yes
                         SCREEN_CAP_LIB="-framework CoreFoundation"
 		else
-                        if test $screen_cap_req = yes
+                        if test $screen_cap_req != no
                         then
                                 AC_MSG_WARN([*** Screen capture supported for Mac version 10.6 and higher.])
                         fi
@@ -1291,7 +1324,7 @@ case "$host_os" in
                 AC_CHECK_HEADER(X11/extensions/Xfixes.h)
                 LIBS=$SAVED_LIBS
 
-		if test $screen_cap_req = yes -a $ac_cv_lib_X11_XGetImage = yes -a \
+		if test $screen_cap_req != no -a $ac_cv_lib_X11_XGetImage = yes -a \
                          $ac_cv_header_X11_Xlib_h = yes -a $ac_cv_header_X11_Xutil_h = yes
 		then
                         screen_cap=yes
@@ -1318,6 +1351,10 @@ then
         LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
 fi
 
+if test $screen_cap_req = yes -a $screen_cap = no; then
+        AC_MSG_ERROR([Screen capture not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $SCREEN_CAP_LIB"
 
 AC_SUBST(SCREEN_CAP_INC)
@@ -1332,7 +1369,7 @@ fastdxt_req=no
 FASTDXT_OBJ=
 
 AC_ARG_ENABLE(fastdxt,
-	[  --enable-fastdxt        enable FastDXT],
+	[  --enable-fastdxt        enable FastDXT (default is off)],
 	[fastdxt_req=$enableval])
 
 FASTDXT_PATH=
@@ -1347,11 +1384,14 @@ if test $fastdxt_req = yes -a $gpl = no; then
         AC_MSG_ERROR([FastDXT is GPL and --enable-gpl is not specified.])
 fi
 
+FOUND_FASTDXT_H=no
 
-AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
-#AC_LANG_PUSH(C++)
-#AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
-#AC_LANG_POP(C++)
+if test ! -z $FASTDXT_PATH; then
+        AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
+        #AC_LANG_PUSH(C++)
+        #AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
+        #AC_LANG_POP(C++)
+fi
 
 if test $fastdxt_req = yes -a $FOUND_FASTDXT_H = yes
 then
@@ -1369,6 +1409,10 @@ else
 	FASTDXT_LIB=
 fi
 
+if test $fastdxt_req = yes -a $fastdxt = no; then
+        AC_MSG_ERROR([FastDXT not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $FASTDXT_LIB"
 
 AC_SUBST(FASTDXT_PATH)
@@ -1383,7 +1427,7 @@ rtdxt=no
 AC_ARG_ENABLE(rtdxt,
       AS_HELP_STRING([--disable-rtdxt], [disable Real-Time OpenGL DXT compression (default is auto)]),
 	[rtdxt_req=$enableval],
-        [rtdxt_req=yes])
+        [rtdxt_req=auto])
 
 SAVED_LIBS=$LIBS
 
@@ -1400,7 +1444,7 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 #AC_DEFINE([USE_PBO_DXT_ECODER], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
-if test $rtdxt_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+if test $rtdxt_req != no -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
         RTDXT_LIB=" -lGLEW -lGL -lX11"
@@ -1408,7 +1452,7 @@ then
 fi
 
 # Mac
-if test $rtdxt_req = yes -a  "$system" = MacOSX
+if test $rtdxt_req != no -a  "$system" = MacOSX
 then
 	RTDXT_LIB="-framework OpenGL -framework Cocoa"
         rtdxt=yes
@@ -1431,6 +1475,10 @@ then
         DEFINE_GL
 fi
 
+if test $rtdxt_req = yes -a $rtdxt = no; then
+        AC_MSG_ERROR([RTDXT not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $RTDXT_LIB"
 
 AC_SUBST(RTDXT_COMMON_OBJ)
@@ -1447,12 +1495,12 @@ uyvy=no
 AC_ARG_ENABLE(uyvy,
       AS_HELP_STRING([--disable-uyvy], [disable dummy RGB to UYVY compression (default is auto)]),
 	[uyvy_req=$enableval],
-        [uyvy_req=yes])
+        [uyvy_req=auto])
 
 SAVED_LIBS=$LIBS
 
 # Linux
-if test $uyvy_req = yes -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+if test $uyvy_req != no -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
         UYVY_LIB=" -lGLEW -lGL -lX11"
@@ -1474,6 +1522,10 @@ then
         LIB_TARGETS="$LIB_TARGETS $UYVY_COMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $UYVY_COMPRESS_OBJ"
         DEFINE_GL
+fi
+
+if test $uyvy_req = yes -a $uyvy = no; then
+        AC_MSG_ERROR([UYVY not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $UYVY_LIB"
@@ -1589,14 +1641,13 @@ JPEG_DECOMPRESS_OBJ=
 JPEG_INC=
 JPEG_LIB=
 
-jpeg_req=yes
 jpeg=no
 jpeg_static=no
 
 AC_ARG_ENABLE(jpeg,
       AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]),
 	[jpeg_req=$enableval],
-        [jpeg_req=yes])
+        [jpeg_req=auto])
 
 SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS=$CPPFLAGS
@@ -1630,7 +1681,7 @@ then
         fi
 fi
 
-if test "$jpeg_req" = yes -a $HAVE_CUDA = yes -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a \
+if test "$jpeg_req" != no -a $HAVE_CUDA = yes -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a \
         "$jpeg_os_version_ok" = yes
 then
         jpeg=yes
@@ -1665,6 +1716,10 @@ to your .bashrc file (in home directory). To take effect immediatelly, you will 
         exec bash\n***\n"
 fi
 
+if test $jpeg_req = yes -a $jpeg = no; then
+        AC_MSG_ERROR([JPEG not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $JPEG_LIB"
 
 AC_SUBST(JPEG_COMMON_OBJ)
@@ -1684,7 +1739,7 @@ sage=no
 AC_ARG_ENABLE(sage,
       AS_HELP_STRING([--disable-sage], [disable SAGE (default is auto)]),
 	[sage_req=$enableval],
-        [sage_req=yes])
+        [sage_req=auto])
 
 if test -n "$SAGE_DIRECTORY"
 then
@@ -1703,7 +1758,7 @@ AC_ARG_WITH(sage,
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
 
-if test $sage_req = yes -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
+if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
     SAGE_INC=-I${SAGE_INC}
     SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
@@ -1718,6 +1773,10 @@ else
     SAGE_INC=
     SAGE_LIB=
     SAGE_OBJ=
+fi
+
+if test $sage_req = yes -a $sage = no; then
+        AC_MSG_ERROR([SAGE not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $SAGE_LIB"
@@ -1736,9 +1795,9 @@ PORTAUDIO_PLAY_OBJ=
 portaudio=no
 
 AC_ARG_ENABLE(portaudio,
-      AS_HELP_STRING([--enable-portaudio], [disable Portaudio (default is auto)]),
+      AS_HELP_STRING([--disable-portaudio], [disable Portaudio (default is auto)]),
 	[portaudio_req=$enableval],
-        [portaudio_req=yes])
+        [portaudio_req=auto])
 
 
 SAVED_LIBS=$LIBS
@@ -1747,7 +1806,7 @@ AC_CHECK_HEADER(portaudio.h)
 AC_CHECK_LIB(portaudio, Pa_WriteStream) # this is relevant, it is an additional API, standard are callbacks
 LIBS=$SAVED_LIBS
 
-if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes -a $portaudio_req = yes
+if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes -a $portaudio_req != no
 then
         PORTAUDIO_LIB='-lportaudio'
         portaudio=yes
@@ -1768,6 +1827,10 @@ else
             PORTAUDIO_LIB=
             PORTAUDIO_CAP_OBJ=
             PORTAUDIO_PLAY_OBJ=
+fi
+
+if test $portaudio_req = yes -a $portaudio = no; then
+        AC_MSG_ERROR([PortAudio not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $PORTAUDIO_LIB"
@@ -1808,7 +1871,7 @@ AC_ARG_ENABLE(jack-transport,
 
 AC_CHECK_HEADER(jack/jack.h, FOUND_JACK_H=yes, FOUND_JACK_H=no)
 AC_CHECK_LIB(jack, jack_client_new, FOUND_JACK_L=yes, FOUND_JACK_L=no)
-if test $jack_trans_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+if test $jack_trans_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
     JACK_TRANS_OBJ="src/audio/jack.o"
     JACK_TRANS_LIB="-ljack"
@@ -1821,11 +1884,11 @@ AC_SUBST(JACK_TRANS_INC)
 
 # sound system
 AC_ARG_ENABLE(jack,
-      AS_HELP_STRING([--enable-jack], [enable JACK (default is disable)]),
+      AS_HELP_STRING([--disable-jack], [disable JACK (default is auto)]),
 	[jack_req=$enableval],
-        [jack_req=yes])
+        [jack_req=auto])
 
-if test $jack_req = yes -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
+if test $jack_req != no -a $FOUND_JACK_H = yes -a $FOUND_JACK_L = yes
 then
     JACK_CAP_OBJ="src/audio/capture/jack.o"
     JACK_PLAY_OBJ="src/audio/playback/jack.o"
@@ -1845,6 +1908,10 @@ then
                      order to enable resampling (if needed).])
 fi
 
+if test $jack_req = yes -a $jack = no; then
+        AC_MSG_ERROR([JACK not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $JACK_LIB"
 
 AC_SUBST(JACK_CAP_OBJ)
@@ -1859,12 +1926,12 @@ AC_SUBST(JACK_INC)
 AC_ARG_ENABLE(alsa,
       AS_HELP_STRING([--disable-alsa], [disable ALSA (default is auto)]),
 	[alsa_req=$enableval],
-        [alsa_req=yes])
+        [alsa_req=auto])
 AC_CHECK_HEADER(alsa/asoundlib.h)
 SAVED_LIBS=$LIBS
 AC_CHECK_LIB(asound, snd_pcm_open)
 LIBS=$SAVED_LIBS
-if test "$alsa_req" = yes -a "$ac_cv_header_alsa_asoundlib_h" = yes -a "$ac_cv_lib_asound_snd_pcm_open" = yes
+if test "$alsa_req" != no -a "$ac_cv_header_alsa_asoundlib_h" = yes -a "$ac_cv_lib_asound_snd_pcm_open" = yes
 then
         alsa=yes
         AC_DEFINE([HAVE_ALSA], [1], [Build with ALSA support])
@@ -1879,6 +1946,10 @@ else
         alsa=no
         ALSA_OBJ=
         ALSA_LIB=
+fi
+
+if test $alsa_req = yes -a $alsa = no; then
+        AC_MSG_ERROR([ALSA not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $ALSA_LIB"
@@ -1897,14 +1968,14 @@ coreaudio=no
 AC_ARG_ENABLE(coreaudio,
       AS_HELP_STRING([--disable-coreaudio], [disable CoreAudio support(default is auto)]),
     [coreaudio_req=$enableval],
-    [coreaudio_req=yes]
+    [coreaudio_req=auto]
     )
 
 case $host_os in
 	*darwin*)
 		AC_CHECK_HEADERS([AudioUnit/AudioUnit.h], [FOUND_AUDIOUNIT_H=yes], [echo "AudioUnit headers not found."])
 
-		if test $coreaudio_req = yes -a $FOUND_AUDIOUNIT_H = yes
+		if test $coreaudio_req != no -a $FOUND_AUDIOUNIT_H = yes
 		then
 			COREAUDIO_INC=
 			COREAUDIO_LIB="-framework CoreAudio -framework AudioUnit"
@@ -1922,6 +1993,10 @@ then
                      order to enable resampling (if needed).])
 fi
 
+if test $coreaudio_req = yes -a $coreaudio = no; then
+        AC_MSG_ERROR([Core Audio not found]);
+fi
+
 AC_SUBST(COREAUDIO_INC)
 AC_SUBST(COREAUDIO_LIB)
 AC_SUBST(COREAUDIO_OBJ)
@@ -1937,7 +2012,7 @@ scale=no
 AC_ARG_ENABLE(scale,
       AS_HELP_STRING([--disable-scale], [disable scale support(default is auto)]),
     [scale_req=$enableval],
-    [scale_req=yes]
+    [scale_req=auto]
     )
 
 SAVED_LIBS=$LIBS
@@ -1946,7 +2021,7 @@ LIBS=$SAVED_LIBS
 
 case $host_os in
 	*darwin*)
-		if test $scale_req = yes
+		if test $scale_req != auto
 		then
                         scale=yes
                         SCALE_LIB="$SCALE_LIB -framework OpenGL -framework Cocoa"
@@ -1958,7 +2033,7 @@ case $host_os in
 		scale=no
         ;;
         *)
-		if test $scale_req = yes -a $FOUND_GLEW = yes \
+		if test $scale_req != no -a $FOUND_GLEW = yes \
                         -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
                         $ac_cv_lib_GL_glBindTexture = yes
 		then
@@ -1980,6 +2055,10 @@ then
         DEFINE_GL
 fi
 
+if test $scale_req = yes -a $scale = no; then
+        AC_MSG_ERROR([Scale not found]);
+fi
+
 LIB_MODULES="$LIB_MODULES $SCALE_LIB"
 
 AC_SUBST(SCALE_INC)
@@ -1998,7 +2077,7 @@ AC_ARG_ENABLE(qt,
     [qt_req=no]
     )
 
-if test $qt_req = yes
+if test $qt_req != no
 then
         AC_CHECK_PROGS(QMAKE, [qmake qmake-qt4])
         GUI_TARGET=gui/QT/uv-qt
@@ -2017,7 +2096,7 @@ found_v4l2=no
 AC_ARG_ENABLE(v4l2,
       AS_HELP_STRING([--disable-v4l2], [disable V4L2 support(default is auto)]),
     [v4l2_req=$enableval],
-    [v4l2_req=yes]
+    [v4l2_req=auto]
     )
 
 if test $system = Linux; then
@@ -2029,14 +2108,14 @@ if test $system = Linux; then
         AC_CHECK_HEADER(libv4lconvert.h)
         LIBS=$SAVED_LIBS
 
-        if test $v4l2_req = yes -a $ac_cv_lib_v4l2_main = yes -a $ac_cv_header_libv4l2_h = yes -a \
+        if test $v4l2_req != no -a $ac_cv_lib_v4l2_main = yes -a $ac_cv_header_libv4l2_h = yes -a \
                 $ac_cv_lib_v4lconvert_v4lconvert_create = yes -a $ac_cv_header_libv4lconvert_h = yes
         then
                 found_v4l2=yes
         fi
 fi
 
-if test $v4l2_req = yes -a $found_v4l2 = yes
+if test $v4l2_req != no -a $found_v4l2 = yes
 then
         V4L2_OBJ="src/video_capture/v4l2.o"
         AC_DEFINE([HAVE_V4L2], [1], [Build with V4L2 support])
@@ -2051,6 +2130,10 @@ else
         V4L2_OBJ=
 fi
 
+if test $v4l2_req = yes -a $v4l2 = no; then
+        AC_MSG_ERROR([V4L2 not found]);
+fi
+
 AC_SUBST(V4L2_LIBS) # set by pkg-config
 AC_SUBST(V4L2_OBJ)
 
@@ -2063,7 +2146,7 @@ libavcodec=no
 AC_ARG_ENABLE(libavcodec,
 AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is auto)]),
 [libavcodec_req=$enableval],
-[libavcodec_req=yes]
+[libavcodec_req=auto]
 )
 
 #PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
@@ -2082,7 +2165,7 @@ else
         found_libavcodec=no
 fi
 
-if test $libavcodec_req = yes -a $found_libavcodec = yes
+if test $libavcodec_req != no -a $found_libavcodec = yes
 then
         LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
         AC_DEFINE([HAVE_LIBAVCODEC], [1], [Build with LIBAVCODEC support])
@@ -2101,6 +2184,10 @@ then
 else
         LIBAVCODEC_LIBS=
         LIBAVCODEC_OBJ=
+fi
+
+if test $libavcodec_req = yes -a $libavcodec = no; then
+        AC_MSG_ERROR([Libavcodec not found]);
 fi
 
 AC_SUBST(LIBAVCODEC_LIBS) # set by pkg-config
