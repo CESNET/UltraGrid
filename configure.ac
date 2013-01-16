@@ -681,15 +681,14 @@ LINSYS_OBJ=
 LINSYS_INC=
 linsys=no
 
+AC_ARG_ENABLE(linsys,
+              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
+              [linsys_req=$enableval],
+              [linsys_req=auto]
+              )
+
 case $host in
     *-linux-*)
-
-        AC_ARG_ENABLE(linsys,
-              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
-            [linsys_req=$enableval],
-            [linsys_req=auto]
-            )
-
         LINSYS_PATH=Linsys
 
         LINSYS_INC=${LINSYS_PATH}/include
