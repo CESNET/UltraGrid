@@ -1802,10 +1802,10 @@ AC_ARG_ENABLE(portaudio,
 SAVED_LIBS=$LIBS
 
 AC_CHECK_HEADER(portaudio.h)
-AC_CHECK_LIB(portaudio, Pa_WriteStream) # this is relevant, it is an additional API, standard are callbacks
+AC_CHECK_LIB(portaudio, Pa_GetDeviceCount) # present in v19
 LIBS=$SAVED_LIBS
 
-if test $ac_cv_lib_portaudio_Pa_WriteStream = yes -a $ac_cv_header_portaudio_h = yes -a $portaudio_req != no
+if test $ac_cv_lib_portaudio_Pa_GetDeviceCount = yes -a $ac_cv_header_portaudio_h = yes -a $portaudio_req != no
 then
         PORTAUDIO_LIB='-lportaudio'
         portaudio=yes

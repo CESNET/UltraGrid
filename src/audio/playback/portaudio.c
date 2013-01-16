@@ -58,8 +58,10 @@
 #include "config.h"
 #include "config_unix.h"
 #include "debug.h"
+#include "utils/ring_buffer.h"
 
 #define MODULE_NAME "[Portaudio playback] "
+#define BUFFER_LEN_SEC 2
 
 struct state_portaudio_playback {
         audio_frame frame;
@@ -67,13 +69,15 @@ struct state_portaudio_playback {
         int device;
         PaStream *stream;
         int max_output_channels;
+
+        struct ring_buffer *data;
+        char *tmp_buffer;
 };
 
 enum audio_device_kind {
         AUDIO_IN,
         AUDIO_OUT
 };
-
 
 /*
  * For Portaudio threads-related issues see
@@ -85,6 +89,12 @@ static void      print_device_info(PaDeviceIndex device);
 static int       portaudio_start_stream(PaStream *stream);
 static void      portaudio_close(PaStream *stream);  /* closes and frees all audio resources ( according to valgrind this is not true..  ) */
 static void      portaudio_print_available_devices(enum audio_device_kind);
+static int callback( const void *inputBuffer, void *outputBuffer,
+                unsigned long framesPerBuffer,
+                const PaStreamCallbackTimeInfo* timeInfo,
+                PaStreamCallbackFlags statusFlags,
+                void *userData );
+static void     cleanup(struct state_portaudio_playback * s);
 
  /*
   * Shared functions
@@ -190,6 +200,8 @@ void * portaudio_playback_init(char *cfg)
         s = calloc(1, sizeof(struct state_portaudio_playback));
         assert(output_device >= -1);
         s->device = output_device;
+        s->data = NULL;
+        s->tmp_buffer = NULL;
         const	PaDeviceInfo *device_info;
         if(output_device >= 0) {
                 device_info = Pa_GetDeviceInfo(output_device);
@@ -213,11 +225,17 @@ void * portaudio_playback_init(char *cfg)
 
 void portaudio_close_playback(void *state)
 {
-        struct state_portaudio_playback * s = 
-                (struct state_portaudio_playback *) state;
-                
+        cleanup(state);
+        free(state);
+}
+
+static void cleanup(struct state_portaudio_playback * s)
+{
         free(s->frame.data);
         portaudio_close(s->stream);
+
+        ring_buffer_destroy(s->data);
+        free(s->tmp_buffer);
 }
 
 int portaudio_reconfigure(void *state, int quant_samples, int channels,
@@ -229,8 +247,13 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
 	PaStreamParameters outputParameters;
         
         if(s->stream != NULL) {
-                portaudio_close_playback(s);
+                cleanup(s);
         }
+
+        int size = BUFFER_LEN_SEC * channels * (quant_samples/8) *
+                        sample_rate;
+        s->data = ring_buffer_init(size);
+        s->tmp_buffer = malloc(size);
         
         s->frame.bps = quant_samples / 8;
         s->frame.ch_count = channels;
@@ -294,11 +317,11 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
         outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultHighOutputLatency;
         outputParameters.hostApiSpecificStreamInfo = NULL;
 
-	error = Pa_OpenStream( &s->stream, NULL, &outputParameters, sample_rate, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
-									paNoFlag,
-									NULL,	// callback function; NULL, because we use blocking functions
-									NULL	// user data - none, because we use blocking functions
-								);
+        error = Pa_OpenStream( &s->stream, NULL, &outputParameters, sample_rate, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
+                        paNoFlag,
+                        callback,
+                        s
+                        );
         portaudio_start_stream(s->stream);
         
 	if(error != paNoError)
@@ -317,12 +340,33 @@ struct audio_frame* portaudio_get_frame(void *state)
 	return &((struct state_portaudio_playback *) state)->frame;
 }
 
+/* This routine will be called by the PortAudio engine when audio is needed.
+   It may called at interrupt level on some machines so don't do anything
+   that could mess up the system like calling malloc() or free().
+   */
+static int callback( const void *inputBuffer, void *outputBuffer,
+                unsigned long framesPerBuffer,
+                const PaStreamCallbackTimeInfo* timeInfo,
+                PaStreamCallbackFlags statusFlags,
+                void *userData )
+{
+        struct state_portaudio_playback * s = 
+                (struct state_portaudio_playback *) userData;
+        UNUSED(inputBuffer);
+        UNUSED(timeInfo);
+        UNUSED(statusFlags);
+
+        ring_buffer_read(s->data, outputBuffer, framesPerBuffer * s->frame.ch_count *
+                        s->frame.bps);
+
+        return paContinue;
+}
+
 void portaudio_put_frame(void *state, struct audio_frame *buffer)
 {
         struct state_portaudio_playback * s = 
                 (struct state_portaudio_playback *) state;
                 
-        PaError error;
         const int samples_count = buffer->data_len / (buffer->bps * buffer->ch_count);
 
         /* if we got more channel we can play - skip the additional channels */
@@ -336,14 +380,12 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
                                         buffer->bps);
                 }
         }
-        
-        error = Pa_WriteStream(s->stream, buffer->data, samples_count);
 
-	if(error != paNoError) {
-		printf("Pa write stream error: %s\n", Pa_GetErrorText(error));
-                while(error == paOutputUnderflowed) { /* put current frame more times to give us time */
-                        error = Pa_WriteStream(s->stream, buffer->data, samples_count);
-                }
-	}
+        int out_channels = s->frame.ch_count;
+        if (out_channels > s->max_output_channels) {
+                out_channels = s->max_output_channels;
+        }
+        
+        ring_buffer_write(s->data, buffer->data, samples_count * buffer->bps * out_channels);
 }
 
