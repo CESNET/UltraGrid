@@ -548,7 +548,9 @@ void udp_flush_recv_buf(socket_udp *s)
         FD_SET(s->fd, &select_fd);
 
         while(select(s->fd + 1, &select_fd, NULL, NULL, &timeout) > 0) {
-                read(s->fd, buf, len);
+                ssize_t bytes = read(s->fd, buf, len);
+                if(bytes <= 0)
+                        break;
         }
 
         free(buf);
