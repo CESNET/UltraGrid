@@ -1438,9 +1438,8 @@ cleanup:
                 while (cp != NULL) {
                         struct pdb_e *item = NULL;
                         pdb_remove(uv->participants, cp->ssrc, &item);
-                        free(item);
-
                         cp = pdb_iter_next(uv->participants);
+                        free(item);
                 }
                 pdb_iter_done(uv->participants);
                 pdb_destroy(&uv->participants);

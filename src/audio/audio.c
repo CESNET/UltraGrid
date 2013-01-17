@@ -362,9 +362,8 @@ void audio_done(struct state_audio *s)
                         while (cp != NULL) {
                                 struct pdb_e *item = NULL;
                                 pdb_remove(s->audio_participants, cp->ssrc, &item);
-                                free(item);
-
                                 cp = pdb_iter_next(s->audio_participants);
+                                free(item);
                         }
                         pdb_iter_done(s->audio_participants);
                         pdb_destroy(&s->audio_participants);
