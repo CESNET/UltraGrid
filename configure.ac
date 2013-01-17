@@ -731,20 +731,20 @@ DELTACAST_INC=
 DELTACAST_LIB=
 deltacast=no
 
-if test $system = Linux -o $system = Windows
-then
-        AC_ARG_ENABLE(deltacast,
+AC_ARG_ENABLE(deltacast,
               AS_HELP_STRING([--disable-deltacast], [disable DELTACAST suppport (default is auto)]),
-            [deltacast_req=$enableval],
-            [deltacast_req=auto]
-            )
-        DELTACAST_PATH=$DELTACAST_DIRECTORY
+              [deltacast_req=$enableval],
+              [deltacast_req=auto]
+              )
+DELTACAST_PATH=$DELTACAST_DIRECTORY
 
-        AC_ARG_WITH(deltacast,
+AC_ARG_WITH(deltacast,
             [  --with-deltacast=DIR         specify location of DELTACAST],
             [DELTACAST_PATH=$withval
-            ])
+             ])
 
+if test $system = Linux -o $system = Windows
+then
         AC_LANG_PUSH(C++)
 
 	if test $system = Windows; then
