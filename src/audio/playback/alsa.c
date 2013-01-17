@@ -265,6 +265,12 @@ void * audio_play_alsa_init(char *cfg)
 
         s = calloc(1, sizeof(struct state_alsa_playback));
         if(cfg && strlen(cfg) > 0) {
+                if(strcmp(cfg, "help") == 0) {
+                        printf("Available ALSA playback devices:\n");
+                        audio_play_alsa_help(NULL);
+                        free(s);
+                        return NULL;
+                }
                 name = cfg;
         } else {
                 name = "default";

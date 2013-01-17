@@ -228,6 +228,11 @@ error:
 
 void * audio_cap_ca_init(char *cfg)
 {
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available Core Audio capture devices:\n");
+                audio_cap_ca_help(NULL);
+                return NULL;
+        }
         struct state_ca_capture *s;
         OSErr ret = noErr;
 #if OS_VERSION_MAJOR <= 9

@@ -191,6 +191,12 @@ void portaudio_close(PaStream * stream)	// closes and frees all audio resources
  */
 void * portaudio_capture_init(char *cfg)
 {
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available PortAudio capture devices:\n");
+                portaudio_capture_help(NULL);
+                return NULL;
+        }
+
         struct state_portaudio_capture *s;
         int input_device;
 	PaError error;

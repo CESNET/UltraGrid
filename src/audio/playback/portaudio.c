@@ -191,10 +191,17 @@ void * portaudio_playback_init(char *cfg)
         struct state_portaudio_playback *s;
         int output_device;
         
-        if(cfg)
-                output_device = atoi(cfg);
-        else
+        if(cfg) {
+                if(strcmp(cfg, "help") == 0) {
+                        printf("Available PortAudio playback devices:\n");
+                        portaudio_playback_help(NULL);
+                        return NULL;
+                } else {
+                        output_device = atoi(cfg);
+                }
+        } else {
                 output_device = -1;
+        }
         Pa_Initialize();
         
         s = calloc(1, sizeof(struct state_portaudio_playback));

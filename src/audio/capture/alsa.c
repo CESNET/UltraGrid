@@ -80,6 +80,11 @@ void audio_cap_alsa_help(const char *driver_name)
 
 void * audio_cap_alsa_init(char *cfg)
 {
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available ALSA capture devices\n");
+                audio_cap_alsa_help(NULL);
+                return NULL;
+        }
         struct state_alsa_capture *s;
         int rc;
         snd_pcm_hw_params_t *params;
