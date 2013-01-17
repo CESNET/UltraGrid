@@ -637,7 +637,7 @@ gpujpeg_idct_gpu(struct gpujpeg_decoder* decoder)
         
         // Copy quantization table to constant memory
         cudaMemcpyToSymbol(
-            (const char*)gpujpeg_idct_gpu_quantization_table,
+            gpujpeg_idct_gpu_quantization_table,
             d_quantization_table, 
             64 * sizeof(uint16_t),
             0,
