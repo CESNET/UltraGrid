@@ -153,6 +153,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         }
 
 	s->encoder_param.verbose = 0;
+	s->encoder_param.segment_info = 1;
 
         if(s->rgb) {
                 s->encoder_param.interleaved = 0;
