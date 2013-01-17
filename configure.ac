@@ -1654,7 +1654,6 @@ CXXFLAGS="$CXXFLAGS $CUDA_INC"
 CPPFLAGS="$CPPFLAGS $CUDA_INC"
 SAVED_CFLAGS=$CFLAGS
 CFLAGS="$CFLAGS $CUDA_INC"
-AC_CHECK_HEADER(npp.h, FOUND_NPP_H=yes, FOUND_NPP_H=no)
 CFLAGS=$SAVED_CFLAGS
 #AC_CHECK_FILE(libgpujpeg/libgpujpeg.a)
 CXXFLAGS=$SAVED_CXXFLAGS
@@ -1680,7 +1679,7 @@ then
         fi
 fi
 
-if test "$jpeg_req" != no -a $HAVE_CUDA = yes -a "$FOUND_NPP_H" = yes -a "$jpeg_cuda_version_ok" = yes -a \
+if test "$jpeg_req" != no -a $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
         "$jpeg_os_version_ok" = yes
 then
         jpeg=yes
@@ -1689,7 +1688,7 @@ then
         AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
         LIBS=$SAVED_LIBS
 
-        JPEG_LIB=" -lnpp $CUDA_LIB"
+        JPEG_LIB=" $CUDA_LIB"
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
