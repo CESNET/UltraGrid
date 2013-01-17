@@ -264,7 +264,7 @@ void * portaudio_capture_init(char *cfg)
 		return NULL;
         }
         inputParameters.sampleFormat = paInt16;
-        inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultHighInputLatency ;
+        inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
 
