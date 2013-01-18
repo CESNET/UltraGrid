@@ -102,6 +102,9 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         fprintf(stderr, "[lavd] Warning: JPEG decoder "
                                         "will use full-scale YUV.\n");
                         break;
+                case VP8:
+                        codec_id = CODEC_ID_VP8;
+                        break;
                 default:
                         fprintf(stderr, "[lavd] Unsupported codec!!!\n");
                         return false;

@@ -92,7 +92,7 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]\n");
         printf("\t\t<codec_name> may be "
-                        " one of \"H.264\" or "
+                        " one of \"H.264\", \"VP8\" or "
                         "\"MJPEG\" (default)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
@@ -223,6 +223,16 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                         compressed_desc.color_spec = MJPG;
                         avg_bpp = 0.7;
                         break;
+                case VP8:
+                        codec_id = CODEC_ID_VP8;
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                        pix_fmt = AV_PIX_FMT_YUV420P;
+#else
+                        pix_fmt = PIX_FMT_YUV420P;
+#endif
+                        compressed_desc.color_spec = VP8;
+                        avg_bpp = 0.5;
+                        break;
                 default:
                         fprintf(stderr, "[lavc] Requested output codec isn't "
                                         "supported by libavcodec.\n");
@@ -295,6 +305,12 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 av_opt_set(s->codec_ctx->priv_data, "preset", "ultrafast", 0);
                 //av_opt_set(s->codec_ctx->priv_data, "tune", "fastdecode", 0);
                 av_opt_set(s->codec_ctx->priv_data, "tune", "zerolatency", 0);
+        } else if(codec_id == CODEC_ID_VP8) {
+                s->codec_ctx->thread_count = 8;
+                s->codec_ctx->profile = 3;
+                s->codec_ctx->slices = 4;
+                s->codec_ctx->rc_buffer_size = s->codec_ctx->bit_rate / frame->fps;
+                s->codec_ctx->rc_buffer_aggressivity = 0.5;
         } else {
                 // zero should mean count equal to the number of virtual cores
                 if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {

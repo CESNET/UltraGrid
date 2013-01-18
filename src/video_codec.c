@@ -81,6 +81,7 @@ const struct codec_info_t codec_info[] = {
         {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
         {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE},
         {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE},
+        {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE},
         {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE}
 };
 
