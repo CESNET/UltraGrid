@@ -118,6 +118,14 @@ struct video_frame * interlaced_3d_getf(void *state)
         return s->in;
 }
 
+/**
+ * Creates from 2 tiles (left and right eye) one in interlaced format.
+ *
+ * @param[in]  state     postprocessor state
+ * @param[in]  in        input frame. Must contain exactly 2 tiles
+ * @param[out] out       output frame to be written to. Should have only ony tile
+ * @param[in]  req_pitch requested pitch in buffer
+ */
 bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video_frame *out, int req_pitch)
 {
         UNUSED (state);
@@ -139,10 +147,10 @@ bool interlaced_3d_postprocess(void *state, struct video_frame *in, struct video
                         asm volatile ("movdqu (%0), %%xmm0\n"
                                       "pavgb (%1), %%xmm0\n"
                                       "movdqu %%xmm0, (%2)\n"
-                                      ::"r" ((unsigned long *)
+                                      ::"r" ((unsigned long *)(void *)
                                                             line1),
-                                      "r"((unsigned long *) line2),
-                                      "r"((unsigned long *) out_data));
+                                      "r"((unsigned long *)(void *) line2),
+                                      "r"((unsigned long *)(void *) out_data));
                         out_data += 16;
                         line1 += 16;
                         line2 += 16;

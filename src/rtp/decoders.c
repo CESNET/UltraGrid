@@ -904,7 +904,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 pckt = cdata->data;
 
                 pt = pckt->pt;
-                hdr = (uint32_t *) pckt->data;
+                hdr = (uint32_t *)(void *) pckt->data;
                 data_pos = ntohl(hdr[1]);
                 tmp = ntohl(hdr[0]);
 
@@ -967,7 +967,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
-                        if(check_for_mode_change(decoder, (uint32_t *) pckt->data, &frame, pbuf_data)) {
+                        if(check_for_mode_change(decoder, (uint32_t *)(void *)
+                                                pckt->data, &frame, pbuf_data)) {
                                 if(!frame) {
                                         ret = FALSE;
                                         goto cleanup;
@@ -1127,8 +1128,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                         goto cleanup;
                                 }
  
-                                check_for_mode_change(decoder, (uint32_t *) out_buffer, &frame,
-                                                pbuf_data);
+                                check_for_mode_change(decoder, (uint32_t *)(void *) out_buffer,
+                                                &frame, pbuf_data);
 
                                 if(!frame) {
                                         ret = FALSE;

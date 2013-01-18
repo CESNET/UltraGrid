@@ -624,8 +624,9 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                 return NULL;
         } else {
                 memcpy(&s->sock6, res0->ai_addr, res0->ai_addrlen);
-                memcpy(&s->addr6, &((struct sockaddr_in6 *) res0->ai_addr)->sin6_addr,
-                                sizeof(((struct sockaddr_in6 *) res0->ai_addr)->sin6_addr));
+                struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(void *) res0->ai_addr;
+                memcpy(&s->addr6, &addr6->sin6_addr,
+                                sizeof(addr6->sin6_addr));
         }
         freeaddrinfo(res0);
 
@@ -852,9 +853,11 @@ static const char *udp_host_addr6(socket_udp * s)
                         abort();
                 }
 
+                struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(void *)
+                        ai->ai_addr;
                 if (inet_ntop
                     (AF_INET6,
-                     &(((struct sockaddr_in6 *)(ai->ai_addr))->sin6_addr),
+                     &(addr6->sin6_addr),
                      hname, MAXHOSTNAMELEN) == NULL) {
                         debug_msg("inet_ntop: %s: \n", hname);
                         abort();

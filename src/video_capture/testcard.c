@@ -80,7 +80,7 @@ struct testcard_rect {
 };
 struct testcard_pixmap {
         int w, h;
-        char *data;
+        void *data;
 };
 
 struct testcard_state {

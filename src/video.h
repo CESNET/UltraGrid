@@ -124,6 +124,9 @@ struct tile {
         unsigned int         width;
         unsigned int         height;
         
+        /*
+         * data must be at least 4B aligned
+         */
         char                *data; /* this is not beginning of the frame buffer actually but beginning of displayed data,
                                      * it is the case display is centered in larger window, 
                                      * i.e., data = pixmap start + x_start + y_start*linesize

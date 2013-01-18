@@ -218,14 +218,14 @@ struct audio_frame * echo_cancel(struct echo_cancellation *s, struct audio_frame
                 s->frame.max_size = rounded_data_len;
                 s->frame.data_len = 0;
 
-                const spx_int16_t *near_ptr = (spx_int16_t *) data_to_write;
-                spx_int16_t *out_ptr = (spx_int16_t *) s->frame.data;
+                const spx_int16_t *near_ptr = (spx_int16_t *)(void *) data_to_write;
+                spx_int16_t *out_ptr = (spx_int16_t *)(void *) s->frame.data;
 
                 int read_len_far;
                 read_len_far = ring_buffer_read(s->far_end, far_end_tmp, chunk_size);
                 while((read_len_far == chunk_size) && s->frame.data_len < rounded_data_len)  {
                         speex_echo_cancellation(s->echo_state, near_ptr,
-                                        (spx_int16_t *) far_end_tmp,
+                                        (spx_int16_t *)(void *) far_end_tmp,
                                         out_ptr);
 
                         read_len_far = ring_buffer_read(s->far_end, far_end_tmp, chunk_size);

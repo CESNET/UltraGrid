@@ -234,7 +234,7 @@ static void *grab_thread(void *args)
                 new_item->data = XGetImage(s->dpy,s->root, 0,0, s->tile->width, s->tile->height, AllPlanes, ZPixmap);
 
 #ifdef HAVE_XFIXES
-                uint32_t *image_data = (uint32_t *) new_item->data->data;
+                uint32_t *image_data = (uint32_t *)(void *) new_item->data->data;
                 for(int x = 0; x < cursor->width; ++x) {
                         for(int y = 0; y < cursor->height; ++y) {
                                 if(cursor->x + x >= (int) s->tile->width ||

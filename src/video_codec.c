@@ -254,6 +254,11 @@ void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
         }
 }
 
+/**
+ * Aligned version of deinterlace filter
+ *
+ * @param src 16-byte aligned buffer
+ */
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
 {
         int i, j;
@@ -268,9 +273,9 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
         for (i = 0; i < src_linesize; i += 16) {
                 /* preload first two lines */
                 asm volatile ("movdqa (%0), %%xmm0\n"
-                              "movdqa (%1), %%xmm1\n"::"r" ((unsigned long *)
+                              "movdqa (%1), %%xmm1\n"::"r" ((unsigned long *)(void *)
                                                             bline1),
-                              "r"((unsigned long *)bline2));
+                              "r"((unsigned long *)(void *) bline2));
                 line1 = bline2;
                 line2 = bline2 + pitch;
                 line3 = bline3;
@@ -283,10 +288,9 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
                                       "pavgb %%xmm1, %%xmm0\n"
                                       "pavgb %%xmm2, %%xmm0\n"
                                       "movdqa %%xmm0, (%1)\n"::"r" ((unsigned
-                                                                     long *)
-                                                                    line1),
-                                      "r"((unsigned long *)line2),
-                                      "r"((unsigned long *)line3)
+                                                      long *) (void *) line1),
+                                      "r"((unsigned long *) (void *) line2),
+                                      "r"((unsigned long *) (void *) line3)
                             );
                         line1 += pitch2;
                         line2 += pitch2;
@@ -297,6 +301,11 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
                 bline3 += 16;
         }
 }
+/**
+ * Unaligned version of deinterlace filter
+ *
+ * @param src 16-byte aligned buffer
+ */
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
 {
         int i, j;
@@ -311,9 +320,8 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
         for (i = 0; i < src_linesize; i += 16) {
                 /* preload first two lines */
                 asm volatile ("movdqu (%0), %%xmm0\n"
-                              "movdqu (%1), %%xmm1\n"::"r" ((unsigned long *)
-                                                            bline1),
-                              "r"((unsigned long *)bline2));
+                              "movdqu (%1), %%xmm1\n"::"r" (bline1),
+                              "r" (bline2));
                 line1 = bline2;
                 line2 = bline2 + pitch;
                 line3 = bline3;
@@ -325,11 +333,9 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
                                       "movdqu %%xmm0, (%0)\n"
                                       "pavgb %%xmm1, %%xmm0\n"
                                       "pavgb %%xmm2, %%xmm0\n"
-                                      "movdqu %%xmm0, (%1)\n"::"r" ((unsigned
-                                                                     long *)
-                                                                    line1),
-                                      "r"((unsigned long *)line2),
-                                      "r"((unsigned long *)line3)
+                                      "movdqu %%xmm0, (%1)\n"::"r" (line1),
+                                      "r" (line2),
+                                      "r" (line3)
                             );
                         line1 += pitch2;
                         line2 += pitch2;
@@ -341,6 +347,14 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
         }
 }
 
+/**
+ * Converts v210 to UYVY
+ *
+ * @param[out] dst     4-byte aligned output buffer where UYVY will be stored
+ * @param[in]  src     4-byte aligned input buffer containing v210 (by definition of v210
+ *                     should be even aligned to 16B boundary)
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ */
 void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         struct {
@@ -352,7 +366,7 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
         register uint32_t *d;
         register uint32_t tmp;
 
-        d = (uint32_t *) dst;
+        d = (uint32_t *)(void *) dst;
         s = (const void *)src;
 
         while (dst_len >= 12) {
@@ -383,11 +397,18 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
         }
 }
 
+/**
+ * Converts from YUYV to UYVY.
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in YUYV
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ */
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         register uint32_t *d;
         register const uint32_t *s;
-        const uint32_t * const end = (uint32_t *) dst + dst_len / 4;
+        const uint32_t * const end = (uint32_t *)(void *) dst + dst_len / 4;
 
         uint32_t mask[4] = {
                 0xff00ff00ul,
@@ -395,8 +416,8 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
                 0xff00ff00ul,
                 0xff00ff00ul};
 
-        d = (uint32_t *) dst;
-        s = (const uint32_t *)src;
+        d = (uint32_t *)(void *) dst;
+        s = (const uint32_t *)(void *) src;
 
         assert(dst_len % 4 == 0);
 
@@ -429,6 +450,13 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
         }
 }
 
+/**
+ * Converts from R10k to RGBA
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in R10k
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ */
 void
 vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift,
                 int gshift, int bshift)
@@ -450,8 +478,8 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
         register uint32_t *d;
         register uint32_t tmp;
 
-        d = (uint32_t *) dst;
-        s = (const void *)src;
+        d = (uint32_t *)(void *) dst;
+        s = (const void *)(void *) src;
 
         while (len > 0) {
                 tmp =
@@ -486,12 +514,22 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
         }
 }
 
+/**
+ * Changes color channels' order in RGBA
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in RGBA
+ * @param[in]  dst     length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift  destination rshift
+ * @param[in]  rshift  destination gshift
+ * @param[in]  rshift  destination bshift
+ */
 void
 vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift,
                 int gshift, int bshift)
 {
-        register uint32_t *d = (uint32_t *) dst;
-        register const uint32_t *s = (const uint32_t *) src;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+        register const uint32_t *s = (const uint32_t *)(void *) src;
         register uint32_t tmp;
 
         if (rshift == 0 && gshift == 8 && bshift == 16) {
@@ -528,13 +566,20 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
         }
 }
 
+/**
+ * Converts from DVS10 to v210
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in DVS10
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ */
 void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         unsigned int *d;
         const unsigned int *s1;
         register unsigned int a,b;
-        d = (unsigned int *) dst;
-        s1 = (const unsigned int *) src;
+        d = (unsigned int *)(void *) dst;
+        s1 = (const unsigned int *)(void *) src;
 
         while(dst_len > 0) {
                 a = b = *s1++;
@@ -613,6 +658,13 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 
 #else
 
+/**
+ * Converts from DVS10 to UYVY
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in UYVY
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ */
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         int src_len = dst_len / 1.5; /* right units */
@@ -621,8 +673,8 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 
         register uint64_t a1, a2, a3, a4;
 
-        d = (uint64_t *) dst;
-        s = (const uint64_t *) src;
+        d = (uint64_t *)(void *) dst;
+        s = (const uint64_t *)(void *) src;
 
         while (src_len > 0) {
                 a1 = *(s++);
@@ -669,10 +721,17 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
         }
 }
 
+/**
+ * Converts from RGBA to RGB
+ *
+ * @param[out] dst     4B-aligned buffer that will contain result
+ * @param[in]  src     4B-aligned buffer containing pixels in RGB
+ * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ */
 void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register const uint32_t * src = (const uint32_t *) src2;
-	register uint32_t * dst = (uint32_t *) dst2;
+	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
@@ -686,10 +745,20 @@ void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
         }
 }
 
+/**
+ * Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
+ *
+ * @param[out] dst2     4B-aligned buffer that will contain result
+ * @param[in]  src2     4B-aligned buffer containing pixels in RGB
+ * @param[in]  dst_len  length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift   source rshift
+ * @param[in]  gshift   source gshift
+ * @param[in]  bshift   source bshift
+ */
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
-	register const uint32_t * src = (const uint32_t *) src2;
-	register uint32_t * dst = (uint32_t *) dst2;
+	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
@@ -713,10 +782,16 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
         }
 }
 
+/**
+ * Converts from AGBR to RGB
+ *
+ * @see vc_copylineRGBAtoRGBwithShift
+ * @see vc_copylineRGBAtoRGB
+ */
 void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register const uint32_t * src = (const uint32_t *) src2;
-	register uint32_t * dst = (uint32_t *) dst2;
+	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
 		register uint32_t in2 = *src++;
@@ -740,10 +815,20 @@ void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
         }
 }
 
+/**
+ * Converts RGB to RGBA
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     4B-aligned input buffer
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @param[in]  rshift  RGBA rshift
+ * @param[in]  gshift  RGBA gshift
+ * @param[in]  bshift  RGBA gshift
+ */
 void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
-        register uint32_t *d = (uint32_t *) dst;
+        register uint32_t *d = (uint32_t *)(void *) dst;
         
         while(dst_len > 0) {
                 r = *src++;
@@ -755,12 +840,22 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
         }
 }
 
+/**
+ * Converts DPX10 to RGBA
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     4B-aligned input buffer
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @param[in]  rshift  RGBA rshift
+ * @param[in]  gshift  RGBA gshift
+ * @param[in]  bshift  RGBA gshift
+ */
 void
 vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         
-        register const unsigned int *in = (const unsigned int *) src;
-        register unsigned int *out = (unsigned int *) dst;
+        register const unsigned int *in = (const unsigned int *)(void *) src;
+        register unsigned int *out = (unsigned int *)(void *) dst;
         register int r,g,b;
 
         while(dst_len > 0) {
@@ -775,12 +870,19 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
         }
 }
 
+/**
+ * Converts DPX10 to RGB
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     4B-aligned input buffer
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
 void
 vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         
-        register const unsigned int *in = (const unsigned int *) src;
-        register unsigned int *out = (unsigned int *) dst;
+        register const unsigned int *in = (const unsigned int *)(void *) src;
+        register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;
        
         while(dst_len > 0) {
