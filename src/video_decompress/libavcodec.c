@@ -125,12 +125,14 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 s->codec_ctx->thread_type = FF_THREAD_SLICE;
         } else {
                 fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
+#if 0
                 if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_count = 0;
                         s->codec_ctx->thread_type = FF_THREAD_FRAME;
                 } else {
                         fprintf(stderr, "[lavd] Warning: Codec doesn't support frame-based multithreading.\n");
                 }
+#endif
         }
 
         s->codec_ctx->pix_fmt = PIX_FMT_YUV420P;
