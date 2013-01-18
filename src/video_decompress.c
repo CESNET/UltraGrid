@@ -133,7 +133,7 @@ struct decode_from_to decoders_for_codec[] = {
         { H264, UYVY, LIBAVCODEC_MAGIC, 500 },
         { JPEG, UYVY, LIBAVCODEC_MAGIC, 600 },
         { MJPG, UYVY, LIBAVCODEC_MAGIC, 500 },
-        { (codec_t) -1, (codec_t) -1, NULL_MAGIC }
+        { (codec_t) -1, (codec_t) -1, NULL_MAGIC, 0 }
 };
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
 

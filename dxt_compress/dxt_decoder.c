@@ -337,7 +337,9 @@ dxt_decoder_buffer_allocate(struct dxt_decoder* decoder, unsigned char** image, 
 int
 dxt_decoder_decompress(struct dxt_decoder* decoder, unsigned char* image_compressed, DXT_IMAGE_TYPE* image)
 {    
+#ifdef USE_PBO_DXT_DECODER
         GLubyte *ptr;
+#endif
 
 #ifdef RTDXT_DEBUG
     TIMER_INIT();

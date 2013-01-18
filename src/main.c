@@ -914,7 +914,7 @@ int main(int argc, char *argv[])
         
         pthread_t receiver_thread_id,
                   compress_thread_id,
-                  ihdtv_sender_thread_id;
+                  ihdtv_sender_thread_id = 0;
 	bool receiver_thread_started = false,
 		  compress_thread_started = false,
 		  ihdtv_sender_started = false;
