@@ -149,6 +149,7 @@
                               @"RTDXT:DXT5", @"DXT5",
                               @"JPEG", @"JPEG",
                               @"FastDXT", @"FastDXT",
+                              @"libavcodec:codec=H.264", @"H.264",
                               nil];
     
     NSString *compression = [matching objectForKey: settings.compression];
