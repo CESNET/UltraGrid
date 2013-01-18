@@ -83,6 +83,8 @@ AdvancedWindow::AdvancedWindow(UltragridSettings *settings, QWidget *parent) :
         compress_DXT5->setChecked(true);
     } else if(compress.startsWith("JPEG")) {
         compress_JPEG->setChecked(true);
+    } else if(compress == QString("libavcodec:codec=H.264")) {
+        compress_H264->setChecked(true);
     }
 
     QString fec = settings->getValue("fec");
@@ -129,6 +131,8 @@ void AdvancedWindow::saveSettings()
         compress = QString("JPEG");
     } else if(compress_FastDXT->isChecked()) {
         compress = QString("FastDXT");
+    } else if(compress_H264->isChecked()) {
+        compress = QString("libavcodec:codec=H.264");
     }
 
     settings->setValue("compress", compress);
