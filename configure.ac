@@ -133,6 +133,14 @@ AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
 AC_SUBST(CXXFLAGS)
 
+if test $system = Windows
+then
+        TARGET="bin/uv.exe"
+else
+        TARGET="bin/uv"
+fi
+AC_SUBST(TARGET)
+
 AC_ARG_ENABLE(depends-version-check,
         AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]),
 	[version_check=$enableval],
