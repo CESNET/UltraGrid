@@ -64,7 +64,7 @@
 #include <architecture/i386/io.h>
 #include "utils/autorelease_pool.h"
 void NSApplicationLoad();
-#else                           /* HAVE_MACOSX */
+#elif defined HAVE_LINUX
 #include <sys/io.h>
 #include "x11_common.h"
 #endif                          /* HAVE_MACOSX */
@@ -564,7 +564,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         s = (struct state_sdl *)calloc(1, sizeof(struct state_sdl));
         s->magic = MAGIC_SDL;
 
-#ifndef HAVE_MACOSX
+#ifdef HAVE_LINUX
         x11_enter_thread();
 #endif
 
@@ -629,7 +629,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         SDL_SysWMinfo info;
         memset(&info, 0, sizeof(SDL_SysWMinfo));
         ret = SDL_GetWMInfo(&info);
-#ifndef HAVE_MACOSX
+#ifdef HAVE_LINUX
         if (ret == 1) {
                 x11_set_display(info.info.x11.display);
         } else if (ret == 0) {
