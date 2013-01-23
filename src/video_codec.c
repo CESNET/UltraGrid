@@ -418,7 +418,7 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
                 0xff00ff00ul};
 
         d = (uint32_t *)(void *) dst;
-        s = (const uint32_t *)(void *) src;
+        s = (const uint32_t *)(const void *) src;
 
         assert(dst_len % 4 == 0);
 
@@ -480,7 +480,7 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
         register uint32_t tmp;
 
         d = (uint32_t *)(void *) dst;
-        s = (const void *)(void *) src;
+        s = (const void *)(const void *) src;
 
         while (len > 0) {
                 tmp =
@@ -530,7 +530,7 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
                 int gshift, int bshift)
 {
         register uint32_t *d = (uint32_t *)(void *) dst;
-        register const uint32_t *s = (const uint32_t *)(void *) src;
+        register const uint32_t *s = (const uint32_t *)(const void *) src;
         register uint32_t tmp;
 
         if (rshift == 0 && gshift == 8 && bshift == 16) {
@@ -580,7 +580,7 @@ void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int ds
         const unsigned int *s1;
         register unsigned int a,b;
         d = (unsigned int *)(void *) dst;
-        s1 = (const unsigned int *)(void *) src;
+        s1 = (const unsigned int *)(const void *) src;
 
         while(dst_len > 0) {
                 a = b = *s1++;
@@ -675,7 +675,7 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
         register uint64_t a1, a2, a3, a4;
 
         d = (uint64_t *)(void *) dst;
-        s = (const uint64_t *)(void *) src;
+        s = (const uint64_t *)(const void *) src;
 
         while (src_len > 0) {
                 a1 = *(s++);
@@ -731,7 +731,7 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  */
 void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
@@ -758,7 +758,7 @@ void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
  */
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
-	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
@@ -791,7 +791,7 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
  */
 void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
@@ -855,7 +855,7 @@ void
 vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         
-        register const unsigned int *in = (const unsigned int *)(void *) src;
+        register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r,g,b;
 
@@ -882,7 +882,7 @@ void
 vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         
-        register const unsigned int *in = (const unsigned int *)(void *) src;
+        register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;
        
