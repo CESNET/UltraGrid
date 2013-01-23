@@ -461,6 +461,8 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
                                         } else {
                                                 break;
                                         }
+                                } else {
+                                        break;
                                 }
                         }
 
