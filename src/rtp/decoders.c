@@ -474,24 +474,11 @@ after_linedecoder_lookup:
                                 // if found, init decoder
                                 if(prio_cur != -1) {
                                         if(try_initialize_decompress(decoder, decompress_magic)) {
-                                                int res = 0, ret;
-                                                size_t size = sizeof(res);
-                                                ret = decompress_get_property(decoder->ext_decoder,
-                                                                DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
-                                                                &res,
-                                                                &size);
-                                                if(ret && res) {
-                                                        decoder->accepts_corrupted_frame = TRUE;
-                                                } else {
-                                                        decoder->accepts_corrupted_frame = FALSE;
-                                                }
-
-                                                decoder->decoder_type = EXTERNAL_DECODER;
                                                 goto after_decoder_lookup;
+                                        } else {
                                                 // failed, try to find another one
                                                 prio_min = prio_cur + 1;
-                                        } else {
-                                                break;
+                                                continue;
                                         }
                                 } else {
                                         break;
