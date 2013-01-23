@@ -66,6 +66,7 @@ struct state_libavcodec_decompress {
         AVFrame         *frame;
         AVPacket         pkt;
 
+        int              width, height;
         int              pitch;
         int              rshift, gshift, bshift;
         int              max_compressed_len;
@@ -75,9 +76,12 @@ struct state_libavcodec_decompress {
         int              last_frame_seq;
 };
 
-static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
-static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame);
-static int change_pixfmt(AVFrame *frame, unsigned char *dst, codec_t out_codec);
+static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height);
+static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height);
+static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
+                codec_t out_codec, int width, int height);
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -169,6 +173,7 @@ void * libavcodec_decompress_init(void)
          *         you wish to have smaller code */
         avcodec_register_all();
 
+        s->width = s->height = s->pitch = 0;
         s->codec_ctx = NULL;;
         s->frame = NULL;
         av_init_packet(&s->pkt);
@@ -195,6 +200,8 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
         s->bshift = bshift;
         s->in_codec = desc.color_spec;
         s->out_codec = out_codec;
+        s->width = desc.width;
+        s->height = desc.height;
 
         deconfigure(s);
         configure_with(s, desc);
@@ -205,22 +212,23 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
 }
 
 
-static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
+static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height)
 {
-        for(int y = 0; y < (int) in_frame->height; ++y) {
+        for(int y = 0; y < (int) height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = (char *) dst_buffer + in_frame->width * y * 2;
-                for(int x = 0; x < in_frame->width; ++x) {
+                char *dst = (char *) dst_buffer + width * y * 2;
+                for(int x = 0; x < width; ++x) {
                         dst[x * 2 + 1] = src[x];
                 }
         }
 
-        for(int y = 0; y < (int) in_frame->height / 2; ++y) {
+        for(int y = 0; y < (int) height / 2; ++y) {
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst1 = dst_buffer + in_frame->width * (y * 2) * 2;
-                char *dst2 = dst_buffer + (y * 2 + 1) * in_frame->width * 2;
-                for(int x = 0; x < in_frame->width / 2; ++x) {
+                char *dst1 = dst_buffer + width * (y * 2) * 2;
+                char *dst2 = dst_buffer + (y * 2 + 1) * width * 2;
+                for(int x = 0; x < width / 2; ++x) {
                         dst1[x * 4] = src_cb[x];
                         dst1[x * 4 + 2] = src_cr[x];
                         dst2[x * 4] = src_cb[x];
@@ -229,21 +237,22 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
         }
 }
 
-static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
+static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height)
 {
-        for(int y = 0; y < (int) in_frame->height; ++y) {
+        for(int y = 0; y < (int) height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = (char *) dst_buffer + in_frame->width * y * 2;
-                for(int x = 0; x < in_frame->width; ++x) {
+                char *dst = (char *) dst_buffer + width * y * 2;
+                for(int x = 0; x < width; ++x) {
                         dst[x * 2 + 1] = src[x];
                 }
         }
 
-        for(int y = 0; y < (int) in_frame->height; ++y) {
+        for(int y = 0; y < (int) height; ++y) {
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst = dst_buffer + in_frame->width * y * 2;
-                for(int x = 0; x < in_frame->width / 2; ++x) {
+                char *dst = dst_buffer + width * y * 2;
+                for(int x = 0; x < width / 2; ++x) {
                         dst[x * 4] = src_cb[x];
                         dst[x * 4 + 2] = src_cr[x];
                 }
@@ -257,16 +266,20 @@ static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame)
  *                   And not in the ITU-T Rec. 701 (eventually Rec. 609) scale.
  * @param  frame     video frame returned from libavcodec decompress
  * @param  dst       destination buffer where data will be stored
+ * @param  av_codec  libav pixel format
  * @param  out_codec requested output codec
+ * @param  width     frame width
+ * @param  height    frame height
  * @retval TRUE      if the transformation was successful
  * @retval FALSE     if transformation failed
  * @see    yuvj422p_to_yuv422
  * @see    yuv420p_to_yuv422
  */
-static int change_pixfmt(AVFrame *frame, unsigned char *dst, codec_t out_codec) {
+static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
+                codec_t out_codec, int width, int height) {
         assert(out_codec == UYVY);
 
-        switch(frame->format) {
+        switch(av_codec) {
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
                 case AV_PIX_FMT_YUV422P:
                 case AV_PIX_FMT_YUVJ422P:
@@ -274,7 +287,7 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, codec_t out_codec) 
                 case PIX_FMT_YUV422P:
                 case PIX_FMT_YUVJ422P:
 #endif
-                        yuv422p_to_yuv422((char *) dst, frame);
+                        yuv422p_to_yuv422((char *) dst, frame, width, height);
                         break;
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
                 case AV_PIX_FMT_YUV420P:
@@ -283,13 +296,13 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, codec_t out_codec) 
                 case PIX_FMT_YUV420P:
                 case PIX_FMT_YUVJ420P:
 #endif
-                        yuv420p_to_yuv422((char *) dst, frame);
+                        yuv420p_to_yuv422((char *) dst, frame, width, height);
                         break;
                 default:
                         fprintf(stderr, "Unsupported pixel "
-                                        "format: %s\n",
+                                        "format: %s (id %d)\n",
                                         av_get_pix_fmt_name(
-                                                frame->format));
+                                                av_codec), av_codec);
                         return FALSE;
         }
         return TRUE;
@@ -315,7 +328,8 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                  * reported error.
                  */
                 if(len < 0 && s->in_codec == JPEG) {
-                        return change_pixfmt(s->frame, dst, s->out_codec);
+                        return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
+                                        s->out_codec, s->width, s->height);
                 }
 
                 if(len < 0) {
@@ -330,7 +344,8 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                                         (s->frame->pict_type == AV_PICTURE_TYPE_P &&
                                          s->last_frame_seq == frame_seq - 1)
                                         ) {
-                                res = change_pixfmt(s->frame, dst, s->out_codec);
+                                res = change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
+                                                s->out_codec, s->width, s->height);
                                 if(res == TRUE) {
                                         s->last_frame_seq = frame_seq;
                                 }

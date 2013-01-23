@@ -85,7 +85,7 @@ struct libav_video_compress {
         bool                configured;
 };
 
-static void to_yuv420(AVFrame *out_frame, unsigned char *in_data);
+static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void usage(void);
 
 static void usage() {
@@ -340,9 +340,11 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 fprintf(stderr, "Could not allocate video frame\n");
                 return false;
         }
+#if 0
         s->in_frame->format = s->codec_ctx->pix_fmt;
         s->in_frame->width = s->codec_ctx->width;
         s->in_frame->height = s->codec_ctx->height;
+#endif
 
         /* the image can be allocated by any means and av_image_alloc() is
          * just the most convenient way if av_malloc() is to be used */
@@ -357,24 +359,24 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         return true;
 }
 
-static void to_yuv420(AVFrame *out_frame, unsigned char *in_data)
+static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
-        for(int y = 0; y < (int) out_frame->height; ++y) {
-                unsigned char *src = in_data + out_frame->width * y * 2;
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *src = in_data + width * y * 2;
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
-                for(int x = 0; x < out_frame->width; ++x) {
+                for(int x = 0; x < width; ++x) {
                         dst_y[x] = src[x * 2 + 1];
                 }
         }
 
-        for(int y = 0; y < (int) out_frame->height / 2; ++y) {
+        for(int y = 0; y < (int) height / 2; ++y) {
                 /*  every even row */
-                unsigned char *src1 = in_data + (y * 2) * (out_frame->width * 2);
+                unsigned char *src1 = in_data + (y * 2) * (width * 2);
                 /*  every odd row */
-                unsigned char *src2 = in_data + (y * 2 + 1) * (out_frame->width * 2);
+                unsigned char *src2 = in_data + (y * 2 + 1) * (width * 2);
                 unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y;
                 unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y;
-                for(int x = 0; x < out_frame->width / 2; ++x) {
+                for(int x = 0; x < width / 2; ++x) {
                         dst_cb[x] = (src1[x * 4] + src2[x * 4]) / 2;
                         dst_cr[x] = (src1[x * 4 + 2] + src1[x * 4 + 2]) / 2;
                 }
@@ -422,9 +424,10 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
                         line1 += src_linesize;
                         line2 += dst_linesize;
                 }
-                to_yuv420(s->in_frame, s->decoded);
+                to_yuv420(s->in_frame, s->decoded, tx->tiles[0].width, tx->tiles[0].height);
         } else {
-                to_yuv420(s->in_frame, (unsigned char *) tx->tiles[0].data);
+                to_yuv420(s->in_frame, (unsigned char *) tx->tiles[0].data,
+                                tx->tiles[0].width, tx->tiles[0].height);
         }
 
 
