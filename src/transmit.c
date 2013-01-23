@@ -104,12 +104,16 @@ static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
                 codec_t color_spec, double input_fps,
-                enum interlacing_t interlacing, unsigned int substream);
+                enum interlacing_t interlacing, unsigned int substream,
+                int fragment_offset);
 
 struct tx {
         uint32_t magic;
         unsigned mtu;
         double max_loss;
+
+        uint32_t last_ts;
+        int      last_frame_fragment_id;
 
         unsigned int buffer:22;
         unsigned long int sent_frames;
@@ -119,6 +123,8 @@ struct tx {
         enum fec_scheme_t fec_scheme;
         void *fec_state;
         int mult_count;
+
+        int last_fragment;
 };
 
 static bool fec_is_ldgm(struct tx *tx)
@@ -169,6 +175,7 @@ struct tx *tx_init(unsigned mtu, char *fec)
                 tx->buffer = lrand48() & 0x3fffff;
                 tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
                 tx->fec_scheme = FEC_NONE;
+                tx->last_frame_fragment_id = -1;
                 if (fec) {
 			char *fec_cfg = NULL;
 			if(strchr(fec, ':')) {
@@ -226,17 +233,34 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
         unsigned int i;
         uint32_t ts = 0;
 
+        assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
+        assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
+
         ts = get_local_mediatime();
+        if(frame->fragment &&
+                        tx->last_frame_fragment_id == frame->frame_fragment_id) {
+                ts = tx->last_ts;
+        } else {
+                tx->last_frame_fragment_id = frame->frame_fragment_id;
+                tx->last_ts = ts;
+        }
 
         for(i = 0; i < frame->tile_count; ++i)
         {
                 int last = FALSE;
+                int fragment_offset = 0;
                 
-                if (i == frame->tile_count - 1)
-                        last = TRUE;
+                if (i == frame->tile_count - 1) {
+                        if(!frame->fragment || frame->last_fragment)
+                                last = TRUE;
+                }
+                if(frame->fragment)
+                        fragment_offset = vf_get_tile(frame, i)->offset;
+
                 tx_send_base(tx, vf_get_tile(frame, i), rtp_session, ts, last,
                                 frame->color_spec, frame->fps, frame->interlacing,
-                                i);
+                                i, fragment_offset);
+                tx->buffer ++;
         }
 }
 
@@ -245,18 +269,37 @@ void
 tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
 {
         struct tile *tile;
+        int last = FALSE;
+        uint32_t ts = 0;
+        int fragment_offset = 0;
+
+        assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
+        assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
         
         tile = vf_get_tile(frame, pos);
-        uint32_t ts = 0;
         ts = get_local_mediatime();
-        tx_send_base(tx, tile, rtp_session, ts, TRUE, frame->color_spec, frame->fps, frame->interlacing, pos);
+        if(frame->fragment &&
+                        tx->last_frame_fragment_id == frame->frame_fragment_id) {
+                ts = tx->last_ts;
+        } else {
+                tx->last_frame_fragment_id = frame->frame_fragment_id;
+                tx->last_ts = ts;
+        }
+        if(!frame->fragment || frame->last_fragment)
+                last = TRUE;
+        if(frame->fragment)
+                fragment_offset = vf_get_tile(frame, pos)->offset;
+        tx_send_base(tx, tile, rtp_session, ts, last, frame->color_spec, frame->fps, frame->interlacing, pos,
+                        fragment_offset);
+        tx->buffer ++;
 }
 
 static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
                 codec_t color_spec, double input_fps,
-                enum interlacing_t interlacing, unsigned int substream)
+                enum interlacing_t interlacing, unsigned int substream,
+                int fragment_offset)
 {
         int m, data_len;
         // see definition in rtp_callback.h
@@ -282,9 +325,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         char *data_to_send;
         int data_to_send_len;
 
-        tx_update(tx, tile);
-
         assert(tx->magic == TRANSMIT_MAGIC);
+
+        tx_update(tx, tile);
 
         perf_record(UVP_SEND, ts);
 
@@ -357,9 +400,11 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         pos = mult_pos[mult_index];
                 }
 
-                video_hdr[1] = htonl(pos);
+                int offset = pos + fragment_offset;
+
+                video_hdr[1] = htonl(offset);
                 if(fec_is_ldgm(tx)) {
-                        ldgm_hdr[1] = htonl(pos);
+                        ldgm_hdr[1] = htonl(offset);
                 }
 
 
@@ -367,8 +412,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 data_len = tx->mtu - hdrs_len;
                 data_len = (data_len / 48) * 48;
                 if (pos + data_len >= (unsigned int) data_to_send_len) {
-                        if (send_m)
+                        if (send_m) {
                                 m = 1;
+                        }
                         data_len = data_to_send_len - pos;
                 }
                 pos += data_len;
@@ -407,8 +453,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 }
 
         } while (pos < (unsigned int) data_to_send_len);
-
-        tx->buffer ++;
 
         if(fec_is_ldgm(tx)) {
                ldgm_encoder_free_buffer(tx->fec_state, data_to_send);

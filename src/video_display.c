@@ -57,6 +57,7 @@
 #include "video_display.h"
 
 #include "video_display/aggregate.h"
+#include "video_display/bluefish444.h"
 #include "video_display/null.h"
 #include "video_display/sdl.h"
 #include "video_display/decklink.h"
@@ -125,6 +126,25 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_aggregate_reconfigure_audio),
          NULL
          },
+#if defined HAVE_BLUEFISH444 || defined BUILD_LIBRARIES
+        {
+         0,
+         "bluefish444",
+         MK_NAME(display_bluefish444_probe),
+         MK_NAME(display_bluefish444_init),
+         MK_NAME(display_bluefish444_run),
+         MK_NAME(display_bluefish444_done),
+         MK_NAME(display_bluefish444_finish),
+         MK_NAME(display_bluefish444_getf),
+         MK_NAME(display_bluefish444_putf),
+         MK_NAME(display_bluefish444_reconfigure),
+         MK_NAME(display_bluefish444_get_property),
+         MK_NAME(display_bluefish444_get_audio_frame),
+         MK_NAME(display_bluefish444_put_audio_frame),
+         MK_NAME(display_bluefish444_reconfigure_audio),
+         NULL
+         },
+#endif                          /* HAVE_SDL */
 #if defined HAVE_SDL || defined BUILD_LIBRARIES
         {
          0,

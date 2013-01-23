@@ -190,6 +190,15 @@ then
         AC_MSG_ERROR([Your compiler does not accept C99.])
 fi
 
+AC_CHECK_SIZEOF([int *])
+
+if test $ac_cv_sizeof_int_p -eq 8
+then
+        WORD_LEN=64
+else
+        WORD_LEN=32
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Licensing
 # -------------------------------------------------------------------------------------------------
@@ -417,6 +426,7 @@ AC_ARG_VAR([CUDA_DIRECTORY], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
+AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -728,6 +738,143 @@ fi
 AC_SUBST(LINSYS_PATH)
 AC_SUBST(LINSYS_INC)
 AC_SUBST(LINSYS_OBJ)
+
+# -------------------------------------------------------------------------------------------------
+# Bluefish444 stuff
+# -------------------------------------------------------------------------------------------------
+BLUEFISH444_PATH=
+BLUEFISH444_CAP_OBJ=
+BLUEFISH444_DISP_OBJ=
+BLUEFISH444_INC=
+BLUEFISH444_LIB=
+bluefish444_req=auto
+bluefish444=no
+blue_audio_req=auto
+blue_audio=no
+
+AC_ARG_ENABLE(bluefish444,
+              AS_HELP_STRING([--disable-bluefish444], [disable Bluefish444 suppport (default is auto)]),
+              [bluefish444_req=$enableval],
+              [bluefish444_req=auto]
+              )
+AC_ARG_ENABLE(blue-audio,
+              AS_HELP_STRING([--disable-blue-audio], [disable Bluefish444 audio suppport (default is auto)]),
+              [blue_audio_req=$enableval],
+              [blue_audio_req=auto]
+              )
+BLUEFISH444_PATH=$BLUE_LATEST_SDK
+
+AC_ARG_WITH(bluefish444,
+            [  --with-bluefish444=DIR         specify location of Bluefish444],
+            [BLUEFISH444_PATH=$withval
+             ])
+
+
+SAVED_LIBS=$LIBS
+SAVED_CXXFLAGS=$CXXFLAGS
+SAVED_CPPFLAGS_SAVE=$CPPFLAGS
+if test -n "$BLUEFISH444_PATH"; then
+        BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc"
+        if test $system = Linux; then
+                BLUEFISH444_INC="$BLUEFISH444_INC -I$BLUEFISH444_PATH/install/inc  -I$BLUEFISH444_PATH/EmbAudio"
+        else
+                BLUEFISH444_INC="$BLUEFISH444_INC -IBlueVelvetC/BlueVelvetC"
+        fi
+        
+        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC "
+        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+        if test $system = Linux; then
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/install/lib $BLUEFISH444_LIB"
+        else
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
+        fi
+	LIBS="$LIBS $BLUEFISH444_LIB"
+fi
+
+AC_LANG_PUSH(C++)
+
+if test $system = Windows
+then
+        AC_CHECK_HEADERS([BlueVelvetC_UltraGrid.h],
+                        [BLUE_H=yes], [BLUE_H=no],
+                        [[
+#include <objbase.h>
+                        ]]
+                        )
+        if test $WORD_LEN -eq 64; then
+                BLUE_AUDIO_LIB="BlueHancUtils64"
+                BLUEFISH444_LIB_NAME=BlueVelvetC64
+                BLUE_AUX=BlueVelvet64
+        else
+                BLUE_AUDIO_LIB="BlueHancUtils"
+                BLUEFISH444_LIB_NAME=BlueVelvetC_UltraGrid
+                BLUE_AUX=BlueVelvet3
+        fi
+        
+        AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes],
+                        [BLUE_L=no])
+        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUX -l$BLUEFISH444_LIB_NAME"
+else
+if test $system = Linux
+then
+        AC_CHECK_HEADERS([BlueVelvet.h], [BLUE_H=yes], [BLUE_H=no])
+        AC_CHECK_LIB(BlueVelvet, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
+        if test $WORD_LEN -eq 64; then
+                BLUE_AUDIO_LIB="BlueANCUtils64"
+        else
+                BLUE_AUDIO_LIB="BlueANCUtils"
+        fi
+        BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet"
+fi
+fi
+
+if test $system = Windows -o $system = Linux;then
+        AC_CHECK_LIB($BLUE_AUDIO_LIB, hanc_decoder_ex, [HAVE_BLUE_AUDIO_L=yes],
+                     [HAVE_BLUE_AUDIO_L=no])
+        if test $HAVE_BLUE_AUDIO_L = yes -a $blue_audio_req != no; then
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUDIO_LIB"
+                blue_audio=yes
+        fi
+fi
+
+
+
+if test $BLUE_H = yes -a $BLUE_L = yes
+then
+        BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
+        BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
+        AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
+        AC_SUBST(BLUEFISH444_CAP_LIB_TARGET, "lib/ultragrid/vidcap_bluefish444.so.$video_capture_abi_version")
+        AC_SUBST(BLUEFISH444_DISP_LIB_TARGET, "lib/ultragrid/display_bluefish444.so.$video_display_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $BLUEFISH444_CAP_LIB_TARGET $BLUEFISH444_DISP_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $BLUEFISH444_CAP_OBJ $BLUEFISH444_DISP_OBJ"
+        if test x$blue_audio = xyes; then
+                AC_DEFINE([HAVE_BLUE_AUDIO], [1], [Build with Bluefish444 audio support])
+        fi
+        bluefish444=yes
+else
+        BLUEFISH444_INC=
+        BLUEFISH444_LIB=
+        BLUEFISH444_CAP_OBJ=
+        BLUEFISH444_DISP_OBJ=
+fi
+AC_LANG_POP(C++)
+
+LIBS=$SAVED_LIBS
+CXXFLAGS=$SAVED_CXXFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS_SAVE
+
+if test $bluefish444_req = yes -a $bluefish444 = no; then
+        AC_MSG_ERROR([Bluefish444 not found]);
+fi
+
+LIB_MODULES="$LIB_MODULES $BLUEFISH444_LIB"
+
+AC_SUBST(BLUEFISH444_PATH)
+AC_SUBST(BLUEFISH444_INC)
+AC_SUBST(BLUEFISH444_LIB)
+AC_SUBST(BLUEFISH444_CAP_OBJ)
+AC_SUBST(BLUEFISH444_DISP_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
@@ -1564,8 +1711,6 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
-AC_CHECK_SIZEOF([int *])
-
 SAVED_LIBS=$LIBS
 LIBS="$LIBS -lcudart"
 if test -z "$CUDA_PATH"
@@ -1588,7 +1733,7 @@ then
         fi
         SAVED_CFLAGS=$CFLAGS
         CFLAGS="$CFLAGS -I$CUDA_PATH/include/"
-        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+        if test $WORD_LEN -eq 64 -a $system = Linux
         then
                 LIBS="$LIBS -L$CUDA_PATH/lib64"
         else
@@ -2277,6 +2422,7 @@ RESULT=\
   Standalone modules .......... $build_libraries
   License ..................... $license
 
+  Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
   DirectShow .................. $dshow
   DELTACAST ................... $deltacast

@@ -84,11 +84,9 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
         buf->fps = desc.fps;
         // tile_count already filled
         for(unsigned int i = 0u; i < desc.tile_count; ++i) {
+                memset(&buf->tiles[i], 0, sizeof(buf->tiles[i]));
                 buf->tiles[i].width = desc.width;
                 buf->tiles[i].height = desc.height;
-                buf->tiles[i].data = NULL;
-                buf->tiles[i].data_len = 0;
-                buf->tiles[i].linesize = 0;
         }
 
         return buf;
@@ -219,6 +217,24 @@ const char *get_interlacing_description(enum interlacing_t interlacing)
                         return "interlaced merged";
                 case SEGMENTED_FRAME:
                         return "progressive segmented";
+        }
+
+        return NULL;
+}
+
+const char *get_interlacing_suffix(enum interlacing_t interlacing)
+{
+        switch (interlacing) {
+                case PROGRESSIVE:
+                        return "p";
+                case UPPER_FIELD_FIRST:
+                        return "tff";
+                case LOWER_FIELD_FIRST:
+                        return "bff";
+                case INTERLACED_MERGED:
+                        return "i";
+                case SEGMENTED_FRAME:
+                        return "psf";
         }
 
         return NULL;

@@ -95,6 +95,10 @@ int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len) {
         return read_len;
 }
 
+void ring_buffer_flush(struct ring_buffer * buf) {
+        buf->start = buf->end = 0;
+}
+
 void ring_buffer_write(struct ring_buffer * ring, const char *in, int len) {
         int to_end;
 

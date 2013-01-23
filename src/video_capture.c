@@ -57,6 +57,7 @@
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
+#include "video_capture/bluefish444.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
 #include "video_capture/dvs.h"
@@ -116,6 +117,19 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
+#if defined HAVE_BLUEFISH444 || defined BUILD_LIBRARIES
+        {
+         /* The Bluefish444 capture card */
+         0,
+         "bluefish444",
+         MK_NAME(vidcap_bluefish444_probe),
+         MK_NAME(vidcap_bluefish444_init),
+         MK_NAME(vidcap_bluefish444_finish),
+         MK_NAME(vidcap_bluefish444_done),
+         MK_NAME(vidcap_bluefish444_grab),
+         NULL
+        },
+#endif /* HAVE_BLUEFISH444 */
 #if defined HAVE_DSHOW || defined BUILD_LIBRARIES
         {
          /* The DirectShow capture card */

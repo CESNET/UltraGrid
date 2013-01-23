@@ -124,6 +124,12 @@ struct video_frame
         struct tile         *tiles;
         
         unsigned int         tile_count;
+
+        // Fragment stuff
+        unsigned int         fragment:1;        // indicates that the tile is fragmented
+        unsigned int         last_fragment:1;   // this is last fragment
+        unsigned int         frame_fragment_id:14; // ID of the frame. Fragments of same frame must
+                                                // have same ID.
 };
 
 struct tile {
@@ -139,6 +145,9 @@ struct tile {
                                      */
         unsigned int         data_len; /* relative to data pos, not framebuffer size! */      
         unsigned int         linesize;
+
+        // Fragment stuff
+        unsigned int         offset;            // Offset of the fragment (bytes)
 };
 
 struct video_frame * vf_alloc(int count);
@@ -172,6 +181,7 @@ struct video_desc video_desc_from_frame(struct video_frame *frame);
 int get_video_mode_tiles_x(int video_mode);
 int get_video_mode_tiles_y(int video_mode);
 const char *get_interlacing_description(enum interlacing_t);
+const char *get_interlacing_suffix(enum interlacing_t);
 const char *get_video_mode_description(int video_mode);
 
 
