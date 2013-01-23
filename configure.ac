@@ -1652,7 +1652,7 @@ jpeg=no
 jpeg_static=no
 
 AC_ARG_ENABLE(jpeg,
-      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]),
+      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto if GPUJPEG library in system)]),
 	[jpeg_req=$enableval],
         [jpeg_req=auto])
 
@@ -1687,22 +1687,25 @@ then
         fi
 fi
 
-if test "$jpeg_req" != no -a $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
+SAVED_LIBS=$LIBS
+AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+LIBS=$SAVED_LIBS
+if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
+        jpeg_static=yes
+fi
+
+if test \( "$jpeg_req" = yes -o \( "$jpeg_req" = auto -a $jpeg_static = no \) \) -a \
+        $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
         "$jpeg_os_version_ok" = yes
 then
         jpeg=yes
 
-        SAVED_LIBS=$LIBS
-        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
-        LIBS=$SAVED_LIBS
-
         JPEG_LIB=" $CUDA_LIB"
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
-        if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
+        if test $jpeg_static = yes; then
                 JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ gpujpeg/.libs/libgpujpeg.a"
                 JPEG_INC="$JPEG_INC -Igpujpeg"
-                jpeg_static=yes
         else
                 JPEG_LIB="$JPEG_LIB -lgpujpeg"
         fi
