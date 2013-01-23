@@ -101,7 +101,7 @@ struct compress_t compress_modules[] = {
 #if defined HAVE_COMPRESS_UYVY || defined  BUILD_LIBRARIES
         {"UYVY", "uyvy", MK_NAME(uyvy_compress_init), MK_NAME(uyvy_compress), MK_NAME(uyvy_compress_done), NULL},
 #endif
-#if defined HAVE_LIBAVCODEC || defined  BUILD_LIBRARIES
+#if defined HAVE_LAVC || defined  BUILD_LIBRARIES
         {"libavcodec", "libavcodec", MK_NAME(libavcodec_compress_init), MK_NAME(libavcodec_compress), MK_NAME(libavcodec_compress_done), NULL},
 #endif
         {"none", NULL, MK_STATIC(none_compress_init), MK_STATIC(none_compress), MK_STATIC(none_compress_done), NULL},

@@ -2174,7 +2174,7 @@ fi
 if test $libavcodec_req != no -a $found_libavcodec = yes
 then
         LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
-        AC_DEFINE([HAVE_LIBAVCODEC], [1], [Build with LIBAVCODEC support])
+        AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
         AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET"
