@@ -427,7 +427,7 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
                         s->frame->color_spec = RGBA;
                         break;
                 case V4L2_PIX_FMT_MJPEG:
-                        s->frame->color_spec = JPEG;
+                        s->frame->color_spec = MJPG;
                         break;
                 default:
                         s->conversion_needed = true;
