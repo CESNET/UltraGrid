@@ -3776,6 +3776,6 @@ int rtp_set_send_buf(struct rtp *session, int bufsize)
  */
 void rtp_flush_recv_buf(struct rtp *session)
 {
-        return udp_flush_recv_buf(session->rtp_socket);
+        udp_flush_recv_buf(session->rtp_socket);
 }
 

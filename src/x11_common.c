@@ -65,7 +65,7 @@ static int ref_num = 0;
 
 static void _x11_set_display(void *disp);
 static void _x11_enter_thread(void);
-static void _x11_unused(void);
+void _x11_unused(void);
 static void * _x11_acquire_display(void);
 static void * _x11_get_display(void);
 static void _x11_release_display(void);
@@ -155,7 +155,7 @@ static void _x11_unlock(void)
 void (*x11_unlock)(void) = _x11_unlock;
 
 /* used only to force compilator to export symbols */
-static void _x11_unused()
+void _x11_unused()
 {
         x11_enter_thread();
         x11_set_display(0);

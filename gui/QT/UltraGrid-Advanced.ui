@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>542</width>
-    <height>385</height>
+    <width>666</width>
+    <height>406</height>
    </rect>
   </property>
   <property name="font">
@@ -249,6 +249,16 @@
          </widget>
         </item>
        </layout>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="compress_H264">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Libavcodec H.264 compression&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;H.264 provides best compression ratio among all other options. On the other hand, it requires decent CPU.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>H.264</string>
+        </property>
+       </widget>
       </item>
       <item>
        <spacer name="horizontalSpacer">

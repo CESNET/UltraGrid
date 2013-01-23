@@ -65,7 +65,7 @@ typedef struct audio_frame
 {
         int bps;                /* bytes per sample */
         int sample_rate;
-        char *data;
+        char *data;             /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         int ch_count;		/* count of channels */
         unsigned int max_size;  /* maximal size of data in buffer */

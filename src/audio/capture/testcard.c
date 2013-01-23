@@ -100,12 +100,19 @@ struct state_audio_capture_testcard {
 void audio_cap_testcard_help(const char *driver_name)
 {
         UNUSED(driver_name);
+        printf("\ttestcard : Testing sound signal (sine at 440 Hz)\n");
 }
 
 void * audio_cap_testcard_init(char *cfg)
 {
         struct state_audio_capture_testcard *s;
         int i;
+
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available testcard capture:\n");
+                audio_cap_testcard_help(NULL);
+                return NULL;
+        }
 
         s = (struct state_audio_capture_testcard *) malloc(sizeof(struct state_audio_capture_testcard));
         printf(MODULE_NAME "Generating %d sec tone (%d Hz) / %d sec silence ", BUFFER_SEC, FREQUENCY, BUFFER_SEC);

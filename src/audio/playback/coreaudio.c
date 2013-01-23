@@ -276,7 +276,14 @@ void * audio_play_ca_init(char *cfg)
 
         size=sizeof(device);
         if(cfg != NULL) {
-                device = atoi(cfg);
+                if(strcmp(cfg, "help") == 0) {
+                        printf("Available CoreAudio devices:\n");
+                        audio_play_ca_help(NULL);
+                        free(s);
+                        return NULL;
+                } else {
+                        device = atoi(cfg);
+                }
         } else {
                 ret = AudioHardwareGetProperty(kAudioHardwarePropertyDefaultOutputDevice, &size, &device);
                 if(ret) goto error;

@@ -59,7 +59,7 @@
 #include "config_unix.h"
 #include "debug.h"
 #include "host.h"
-#include "utils/fs_lock.h"
+#include "utils/ring_buffer.h"
 
 
 /* default variables for sender */
@@ -73,7 +73,10 @@
 struct state_portaudio_capture {
         struct audio_frame frame;
         PaStream *stream;
-        struct fs_lock *portaudio_lock;
+
+        pthread_mutex_t lock;
+        pthread_cond_t cv;
+        struct ring_buffer *buffer;
 };
 
 enum audio_device_kind {
@@ -90,6 +93,11 @@ static void        print_device_info(PaDeviceIndex device);
 static int         portaudio_start_stream(PaStream *stream);
 static void        portaudio_close(PaStream *stream); // closes and frees all audio resources ( according to valgrind this is not true..  )
 static void        portaudio_print_available_devices(enum audio_device_kind);
+static int         callback( const void *inputBuffer, void *outputBuffer,
+                unsigned long framesPerBuffer,
+                const PaStreamCallbackTimeInfo* timeInfo,
+                PaStreamCallbackFlags statusFlags,
+                void *userData );
 
  /*
   * Shared functions
@@ -183,6 +191,12 @@ void portaudio_close(PaStream * stream)	// closes and frees all audio resources
  */
 void * portaudio_capture_init(char *cfg)
 {
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available PortAudio capture devices:\n");
+                portaudio_capture_help(NULL);
+                return NULL;
+        }
+
         struct state_portaudio_capture *s;
         int input_device;
 	PaError error;
@@ -193,22 +207,21 @@ void * portaudio_capture_init(char *cfg)
 	 * so far we only work with portaudio
 	 * might get more complicated later..(jack?)
 	 */
-        s->portaudio_lock = fs_lock_init("portaudio");
-         
         if(cfg)
                 input_device = atoi(cfg);
         else
                 input_device = -1;
 
-        fs_lock_lock(s->portaudio_lock); /* safer with multiple threads */
 	printf("Initializing portaudio capture.\n");
+
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->cv, NULL);
 	
 	error = Pa_Initialize();
 	if(error != paNoError)
 	{
 		printf("error initializing portaudio\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return NULL;
 	}
 
@@ -247,36 +260,34 @@ void * portaudio_capture_init(char *cfg)
                 fprintf(stderr, MODULE_NAME "Requested %d input channels, devide offers only %d.\n",
                                 audio_capture_channels,
                                 device_info->maxInputChannels);
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
                 free(s);
 		return NULL;
         }
         inputParameters.sampleFormat = paInt16;
-        inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultHighInputLatency ;
+        inputParameters.suggestedLatency = Pa_GetDeviceInfo( inputParameters.device )->defaultLowInputLatency;
         inputParameters.hostApiSpecificStreamInfo = NULL;
 
 
-	error = Pa_OpenStream( &s->stream, &inputParameters, NULL, SAMPLE_RATE, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
-									paNoFlag,
-									NULL,	// callback function; NULL, because we use blocking functions
-									NULL	// user data - none, because we use blocking functions
-								);
+        error = Pa_OpenStream( &s->stream, &inputParameters, NULL, SAMPLE_RATE, paFramesPerBufferUnspecified, // frames per buffer // TODO decide on the amount
+                        paNoFlag,
+                        callback,	// callback function; NULL, because we use blocking functions
+                        s	// user data - none, because we use blocking functions
+                        );
 	if(error != paNoError)
 	{
 		printf("Error opening audio stream\n");
 		printf("\tPortAudio error: %s\n", Pa_GetErrorText( error ) );
-                fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
 		return NULL;
 	}
 
-        fs_lock_unlock(s->portaudio_lock); /* safer with multiple threads */
-        
 	s->frame.bps = BPS;
         s->frame.ch_count = inputParameters.channelCount;
         s->frame.sample_rate = SAMPLE_RATE;
         s->frame.max_size = SAMPLES_PER_FRAME * s->frame.bps * s->frame.ch_count;
         
         s->frame.data = (char*)malloc(s->frame.max_size);
+
+        s->buffer = ring_buffer_init(s->frame.max_size);
 
         memset(s->frame.data, 0, s->frame.max_size);
 
@@ -285,23 +296,44 @@ void * portaudio_capture_init(char *cfg)
 	return s;
 }
 
+static int callback( const void *inputBuffer, void *outputBuffer,
+                unsigned long framesPerBuffer,
+                const PaStreamCallbackTimeInfo* timeInfo,
+                PaStreamCallbackFlags statusFlags,
+                void *userData)
+{
+        struct state_portaudio_capture * s = 
+                (struct state_portaudio_capture *) userData;
+        UNUSED(outputBuffer);
+        UNUSED(timeInfo);
+        UNUSED(statusFlags);
+
+        pthread_mutex_lock(&s->lock);
+        ring_buffer_write(s->buffer, inputBuffer, framesPerBuffer * s->frame.ch_count *
+                        s->frame.bps);
+        pthread_cond_signal(&s->cv);
+        pthread_mutex_unlock(&s->lock);
+
+        return paContinue;
+
+}
+
 // read from input device
 struct audio_frame * portaudio_read(void *state)
 {
         struct state_portaudio_capture *s = 
                         (struct state_portaudio_capture *) state;
-	// here we distinguish between interleaved and noninterleved, but non interleaved version hasn't been tested yet
-	PaError error;
-	
-	error = Pa_ReadStream(s->stream, s->frame.data, SAMPLES_PER_FRAME);
-        s->frame.data_len = SAMPLES_PER_FRAME * s->frame.bps * s->frame.ch_count;
 
-	if((error != paNoError) && (error != paInputOverflowed))
-	{
-		printf("Pa read stream error:%s\n", Pa_GetErrorText(error));
-		return NULL;
-	}
-	
+        int ret = 0; 
+
+        pthread_mutex_lock(&s->lock);
+        while((ret = ring_buffer_read(s->buffer, s->frame.data, s->frame.max_size)) == 0) {
+                pthread_cond_wait(&s->cv, &s->lock);
+        }
+        pthread_mutex_unlock(&s->lock);
+
+        s->frame.data_len = ret;
+
 	return &s->frame;
 }
 
@@ -313,10 +345,11 @@ void portaudio_capture_finish(void *state)
 void portaudio_capture_done(void *state)
 {
         struct state_portaudio_capture *s = (struct state_portaudio_capture *) state;
-        fs_lock_lock(s->portaudio_lock);
         portaudio_close(s->stream);
-        fs_lock_unlock(s->portaudio_lock);
         free(s->frame.data);
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->cv);
+        ring_buffer_destroy(s->buffer);
         free(s);
 }
 

@@ -746,7 +746,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
 	// Initialize COM on this thread
 	if(FAILED(result)) {
 		fprintf(stderr, "Initialize of COM failed - result = "
-				"08x.\n", result);
+				"%08x.\n", result);
 		return NULL;
 	}
 #endif // WIN32

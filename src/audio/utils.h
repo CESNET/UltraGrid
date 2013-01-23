@@ -82,12 +82,26 @@ void demux_channel(char *out, char *in, int bps, int in_len, int in_stream_chann
 void mux_and_mix_channel(char *out, char *in, int bps, int in_len, int out_stream_channels, int chan_pos_stream, double scale);
 double get_avg_volume(char *data, int bps, int in_len, int stream_channels, int chan_pos_stream);
 
-/* 
- * Those 2 fuctions convert from/to normalized float and int32_t representations.
+/**
+ * This fuction converts from normalized float to int32_t representation
  * Input and output data may overlap.
+ * @param[out] out 4-byte aligned output buffer
+ * @param[in] in 4-byte aligned input buffer
  */
 void float2int(char *out, char *in, int len);
+/**
+ * This fuction converts from int32_t to normalized float
+ * Input and output data may overlap.
+ * @param[out] out 4-byte aligned output buffer
+ * @param[in] in 4-byte aligned input buffer
+ */
 void int2float(char *out, char *in, int len);
+/**
+ * This fuction converts from int16_t to normalized float
+ * Input and output data may overlap.
+ * @param[out] out 4-byte aligned output buffer
+ * @param[in] in 4-byte aligned input buffer
+ */
 void short_int2float(char *out, char *in, int in_len);
 
 void signed2unsigned(char *out, char *in, int in_len);

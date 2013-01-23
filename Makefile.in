@@ -14,7 +14,7 @@ LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @LINSYS_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@
 DECKLINK_PATH = @DECKLINK_PATH@
-TARGET        = bin/uv
+TARGET        = @TARGET@
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
@@ -396,13 +396,13 @@ clean:
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
-	[ ! -z "@FASTDXT_PATH@" ] && make -C @FASTDXT_PATH@/ clean
+	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ distclean
-	[ ! -z "@FASTDXT_PATH@" ] && make -C @FASTDXT_PATH@/ distclean
+	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ distclean
 
 etags:
 	etags src/*.[ch] src/*/*.[ch]
@@ -422,13 +422,27 @@ bundle: bundle-nolib
 	@if `which dylibbundler`; then \
 		dylibbundler -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
 		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
-		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libnpp.dylib ) ; then install_name_tool -change @rpath/libnpp.dylib @executable_path/../libs/libnpp.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
-		if ( otool -L $(BUNDLE)/Contents/libs/libnpp.dylib | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/libs/libnpp.dylib ; fi ; \
+		if ( otool -L $(BUNDLE)/Contents/libs/libgpujpeg.0.dylib | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/libs/libgpujpeg.0.dylib ; fi ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
 
 	#echo -n "UltraGrid" > $(BUNDLE)/Contents/PkgInfo
+
+osx-gui-dmg: bundle
+	cd 'gui/UltraGrid GUI'; \
+		xcodebuild -alltargets -arch x86_64 -sdk macosx10.7; \
+		cp ../../uv.app/Contents/MacOS/uv build/Release/UltraGrid\ GUI.app/Contents/MacOS/; \
+		mkdir build/Release/UltraGrid\ GUI.app/Contents/libs; \
+		cp ../../uv.app/Contents/libs/* build/Release/UltraGrid\ GUI.app/Contents/libs; \
+		MBYTES=`du -mc build/Release/UltraGrid\ GUI.app | tail -n1 | cut -f1`; \
+		MBYTES=$$(($$MBYTES+2)); \
+		[ ! -f UltraGrid.dmg ] || rm UltraGrid.dmg; \
+		hdiutil create -megabytes $$MBYTES -fs MS-DOS -volname ULTRAGRID UltraGrid.dmg; \
+		MOUNT_PT=`hdiutil mount UltraGrid.dmg | tail -n1 | cut -f3`; \
+		mv "build/Release/UltraGrid GUI.app" "$$MOUNT_PT"; \
+		hdiutil eject "$$MOUNT_PT"; \
+
 
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)

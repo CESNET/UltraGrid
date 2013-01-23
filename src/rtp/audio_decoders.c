@@ -312,7 +312,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         while (cdata != NULL) {
                 char *data;
                 // for definition see rtp_callbacks.h
-                uint32_t *hdr = (uint32_t *) cdata->data->data;
+                uint32_t *hdr = (uint32_t *)(void *) cdata->data->data;
                         
                 /* we receive last channel first (with m bit, last packet) */
                 /* thus can be set only with m-bit packet */

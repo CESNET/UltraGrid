@@ -81,8 +81,14 @@ void sdi_playback_help(const char *driver_name)
 
 void * sdi_playback_init(char *cfg)
 {
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available embedded devices:\n");
+                sdi_playback_help("embedded");
+                sdi_playback_help("AESEBU");
+                sdi_playback_help("analog");
+                return NULL;
+        }
         struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
-        UNUSED(cfg);
         s->get_callback = NULL;
         s->put_callback = NULL;
         s->reconfigure_callback = NULL;

@@ -67,8 +67,14 @@ struct state_sdi_capture {
 
 void * sdi_capture_init(char *cfg)
 {
+        if(cfg && strcmp(cfg, "help")) {
+                printf("Available embedded devices:\n");
+                sdi_capture_help("embedded");
+                sdi_capture_help("AESEBU");
+                sdi_capture_help("analog");
+                return NULL;
+        }
         struct state_sdi_capture *s;
-        UNUSED(cfg);
         
         s = (struct state_sdi_capture *) calloc(1, sizeof(struct state_sdi_capture));
         platform_sem_init(&s->audio_frame_ready, 0, 0);
