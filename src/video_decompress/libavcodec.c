@@ -280,13 +280,13 @@ static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
                         int r = 75700 * cr;
                         int g = -26864 * cb - 38050 * cr;
                         int b = 133176 * cb;
-                        *dst++ = max(r + y, 0) >> 16;
-                        *dst++ = max(g + y, 0) >> 16;
-                        *dst++ = max(b + y, 0) >> 16;
+                        *dst++ = min(max(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(b + y, 0), (1<<24) - 1) >> 16;
                         y = *src_y++ << 16;
-                        *dst++ = max(r + y, 0) >> 16;
-                        *dst++ = max(g + y, 0) >> 16;
-                        *dst++ = max(b + y, 0) >> 16;
+                        *dst++ = min(max(r + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(g + y, 0), (1<<24) - 1) >> 16;
+                        *dst++ = min(max(b + y, 0), (1<<24) - 1) >> 16;
                 }
         }
 }
