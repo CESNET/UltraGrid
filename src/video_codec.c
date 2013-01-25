@@ -76,6 +76,7 @@ const struct codec_info_t codec_info[] = {
         {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packed YCbCr inside DXT1 channels */
         {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
         {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE},
+        {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE},
         {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
         {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
         {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
@@ -104,6 +105,7 @@ const struct line_decode_from_to line_decoders[] = {
         { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
         { RGB, UYVY, (decoder_t) vc_copylineRGBtoUYVY},
+        { BGR, RGB, (decoder_t) vc_copylineBGRtoRGB},
         { (codec_t) 0, (codec_t) 0, NULL }
 };
 
@@ -877,6 +879,66 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
                         (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
                         (min(max(u, 0), (1<<24)-1) >> 16);
                 dst_len -= 4;
+        }
+}
+
+/**
+ * Converts BGR to UYVY.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     buffer in BGR
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register int r, g, b;
+        register int y1, y2, u ,v;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+
+        while(dst_len > 0) {
+                b = *src++;
+                g = *src++;
+                r = *src++;
+                y1 = 19595 * r + 38469 * g + 7471 * b;
+                u  = -9642 * r -18931 * g + 28573 * b;
+                v  = 40304 * r - 33750 * g - 6554 * b;
+                b = *src++;
+                g = *src++;
+                r = *src++;
+                y2 = 19595 * r + 38469 * g + 7471 * b;
+                u += -9642 * r -18931 * g + 28573 * b;
+                v += 40304 * r - 33750 * g - 6554 * b;
+                u = u / 2 + (1<<23);
+                v = v / 2 + (1<<23);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
+                        (min(max(u, 0), (1<<24)-1) >> 16);
+                dst_len -= 4;
+        }
+}
+
+/**
+ * Converts BGR to RGB.
+ *
+ * @param[out] dst     output buffer in RGB
+ * @param[in]  src     buffer in BGR
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register int r, g, b;
+
+        while(dst_len > 0) {
+                b = *src++;
+                g = *src++;
+                r = *src++;
+                *dst++ = r;
+                *dst++ = g;
+                *dst++ = b;
+                dst_len -= 3;
         }
 }
 

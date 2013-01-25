@@ -352,6 +352,9 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 case RGB:
                         s->decoder = (decoder_t) vc_copylineRGBtoUYVY;
                         break;
+                case BGR:
+                        s->decoder = (decoder_t) vc_copylineBGRtoUYVY;
+                        break;
                 default:
                         fprintf(stderr, "[Libavcodec] Unable to find "
                                         "appropriate pixel format.\n");

@@ -103,6 +103,8 @@ void vc_copylineABGRtoRGB(unsigned char *dst, const unsigned char *src, int len)
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);

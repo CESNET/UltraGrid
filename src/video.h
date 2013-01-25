@@ -67,7 +67,8 @@ typedef enum {
         RAW,
         H264,
         MJPG,
-        VP8
+        VP8,
+        BGR
 } codec_t;
 
 enum interlacing_t {
