@@ -103,6 +103,7 @@ const struct line_decode_from_to line_decoders[] = {
         { RGB, RGBA, vc_copylineRGBtoRGBA},
         { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
+        { RGB, UYVY, (decoder_t) vc_copylineRGBtoUYVY},
         { (codec_t) 0, (codec_t) 0, NULL }
 };
 
@@ -837,6 +838,44 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
                 b = *src++;
                 
                 *d++ = (r << rshift) | (g << gshift) | (b << bshift);
+                dst_len -= 4;
+        }
+}
+
+/**
+ * Converts RGB to UYVY.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     buffer
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register int r, g, b;
+        register int y1, y2, u ,v;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+
+        while(dst_len > 0) {
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                y1 = 19595 * r + 38469 * g + 7471 * b;
+                u  = -9642 * r -18931 * g + 28573 * b;
+                v  = 40304 * r - 33750 * g - 6554 * b;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                y2 = 19595 * r + 38469 * g + 7471 * b;
+                u += -9642 * r -18931 * g + 28573 * b;
+                v += 40304 * r - 33750 * g - 6554 * b;
+                u = u / 2 + (1<<23);
+                v = v / 2 + (1<<23);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
+                        (min(max(u, 0), (1<<24)-1) >> 16);
                 dst_len -= 4;
         }
 }
