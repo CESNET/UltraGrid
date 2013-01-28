@@ -146,7 +146,8 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 #endif
         }
 
-        s->codec_ctx->pix_fmt = PIX_FMT_YUV420P;
+        // set by decoder
+        s->codec_ctx->pix_fmt = PIX_FMT_NONE;
 
         if(avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
                 fprintf(stderr, "[lavd] Unable to open decoder.\n");
@@ -219,11 +220,12 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height)
 {
+        char *dst = dst_buffer + 1;
         for(int y = 0; y < (int) height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = (char *) dst_buffer + width * y * 2;
                 for(int x = 0; x < width; ++x) {
-                        dst[x * 2 + 1] = src[x];
+                        *dst = *src++;
+                        dst += 2;
                 }
         }
 
@@ -233,10 +235,14 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 char *dst1 = dst_buffer + width * (y * 2) * 2;
                 char *dst2 = dst_buffer + (y * 2 + 1) * width * 2;
                 for(int x = 0; x < width / 2; ++x) {
-                        dst1[x * 4] = src_cb[x];
-                        dst1[x * 4 + 2] = src_cr[x];
-                        dst2[x * 4] = src_cb[x];
-                        dst2[x * 4 + 2] = src_cr[x];
+                        *dst1 = *src_cb;
+                        dst1 += 2;
+                        *dst1 = *src_cr;
+                        dst1 += 2;
+                        *dst2 = *src_cb++;
+                        dst2 += 2;
+                        *dst2 = *src_cr++;
+                        dst2 += 2;
                 }
         }
 }
@@ -244,21 +250,24 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
 static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height)
 {
+        char *dst = (char *) dst_buffer + 1;
         for(int y = 0; y < (int) height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
-                char *dst = (char *) dst_buffer + width * y * 2;
                 for(int x = 0; x < width; ++x) {
-                        dst[x * 2 + 1] = src[x];
+                        *dst = *src++;
+                        dst += 2;
                 }
         }
 
+        dst = dst_buffer;
         for(int y = 0; y < (int) height; ++y) {
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst = dst_buffer + width * y * 2;
                 for(int x = 0; x < width / 2; ++x) {
-                        dst[x * 4] = src_cb[x];
-                        dst[x * 4 + 2] = src_cr[x];
+                        *dst = *src_cb++;
+                        dst += 2;
+                        *dst = *src_cr++;
+                        dst += 2;
                 }
         }
 }
