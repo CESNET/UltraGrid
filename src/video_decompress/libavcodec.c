@@ -431,7 +431,11 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 if(got_frame) {
                         /* pass frame only if this is I-frame or we have complete
                          * GOP (assuming we are not using B-frames */
-                        if(s->frame->pict_type == AV_PICTURE_TYPE_I ||
+                        if(
+#ifdef LAVD_ACCEPT_CORRUPTED
+                                        true
+#else
+                                        s->frame->pict_type == AV_PICTURE_TYPE_I ||
 #ifndef DISABLE_H264_INTRA_REFRESH
                                         /* there should be also check if we got 
                                          * all previous frames (up to the size
@@ -440,6 +444,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
 #endif
                                         (s->frame->pict_type == AV_PICTURE_TYPE_P &&
                                          s->last_frame_seq == frame_seq - 1)
+#endif // LAVD_ACCEPT_CORRUPTED
                                         ) {
                                 res = change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
                                                 s->out_codec, s->width, s->height);
@@ -475,7 +480,11 @@ int libavcodec_decompress_get_property(void *state, int property, void *val, siz
                         if(*len >= sizeof(int)) {
                                 *(int *) val = FALSE;
                                 *len = sizeof(int);
+#ifdef LAVD_ACCEPT_CORRUPTED
                                 ret = TRUE;
+#else
+                                ret = FALSE;
+#endif
                         }
                         break;
                 default:
