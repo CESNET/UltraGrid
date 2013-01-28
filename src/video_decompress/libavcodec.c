@@ -432,6 +432,12 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                         /* pass frame only if this is I-frame or we have complete
                          * GOP (assuming we are not using B-frames */
                         if(s->frame->pict_type == AV_PICTURE_TYPE_I ||
+#ifndef DISABLE_H264_INTRA_REFRESH
+                                        /* there should be also check if we got 
+                                         * all previous frames (up to the size
+                                         * of GOP) */
+                                        (s->in_codec == H264) ||
+#endif
                                         (s->frame->pict_type == AV_PICTURE_TYPE_P &&
                                          s->last_frame_seq == frame_seq - 1)
                                         ) {
