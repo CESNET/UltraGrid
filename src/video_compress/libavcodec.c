@@ -81,20 +81,27 @@ struct libav_video_compress {
 
         codec_t             selected_codec_id;
         int                 requested_bitrate;
+        // may be 422, 420 or 0 (no subsampling explicitly requested
+        int                 requested_subsampling;
+        // actual value used
+        int                 subsampling;
 
         bool                configured;
 };
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+static void to_yuv422(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void usage(void);
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
-        printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]\n");
+        printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]"
+                        "[:subsampling=<subsampling>]\n");
         printf("\t\t<codec_name> may be "
                         " one of \"H.264\", \"VP8\" or "
                         "\"MJPEG\" (default)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
+        printf("\t\t<subsampling> may be one of 422 or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
 }
 
@@ -111,6 +118,7 @@ void * libavcodec_compress_init(char * fmt)
         s->codec_ctx = NULL;
         s->in_frame = NULL;
         s->selected_codec_id = DEFAULT_CODEC;
+        s->subsampling = s->requested_subsampling = 0;
 
         s->requested_bitrate = -1;
 
@@ -153,6 +161,15 @@ void * libavcodec_compress_init(char * fmt)
                                                                 *end_ptr);
                                                 return NULL;
                                 }
+                        } else if(strncasecmp("sampling=", item, strlen("sampling=")) == 0) {
+                                char *subsample_str = item + strlen("sampling=");
+                                s->requested_subsampling = atoi(subsample_str);
+                                if(s->requested_subsampling != 422 &&
+                                                s->requested_subsampling != 420) {
+                                        fprintf(stderr, "[lavc] Supported sampling is only 422 or 420.\n");
+                                        free(s);
+                                        return NULL;
+                                }
                         } else {
                                 fprintf(stderr, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -190,16 +207,18 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         s->saved_desc = video_desc_from_frame(frame);
 
         struct video_desc compressed_desc;
+        enum {
+                YUV420P,
+                YUV422P,
+                YUVJ420P,
+                YUVJ422P
+        } tmp_pixfmt;
         compressed_desc = video_desc_from_frame(frame);
         switch(s->selected_codec_id) {
                 case H264:
 #ifdef HAVE_GPL
                         codec_id = CODEC_ID_H264;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUV420P;
-#else
-                        pix_fmt = PIX_FMT_YUV420P;
-#endif
+                        tmp_pixfmt = YUV420P;
                         compressed_desc.color_spec = H264;
                         // from H.264 Primer
                         avg_bpp =
@@ -215,21 +234,13 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
 #endif
                 case MJPG:
                         codec_id = CODEC_ID_MJPEG;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUVJ420P;
-#else
-                        pix_fmt = PIX_FMT_YUVJ420P;
-#endif
+                        tmp_pixfmt = YUVJ420P;
                         compressed_desc.color_spec = MJPG;
                         avg_bpp = 0.7;
                         break;
                 case VP8:
                         codec_id = CODEC_ID_VP8;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUV420P;
-#else
-                        pix_fmt = PIX_FMT_YUV420P;
-#endif
+                        tmp_pixfmt = YUV420P;
                         compressed_desc.color_spec = VP8;
                         avg_bpp = 0.5;
                         break;
@@ -238,6 +249,53 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                                         "supported by libavcodec.\n");
                         return false;
 
+        }
+
+        /* either user has explicitly requested subsampling
+         * or for interlaced format is better to have 422 */
+        if(s->requested_subsampling == 422 ||
+                        (frame->interlacing == INTERLACED_MERGED &&
+                         s->requested_subsampling != 420)) {
+                s->subsampling = 422;
+                if(tmp_pixfmt == YUV420P) {
+                        tmp_pixfmt = YUV422P;
+                }
+                if(tmp_pixfmt == YUVJ420P) {
+                        tmp_pixfmt = YUVJ422P;
+                }
+        } else {
+                s->subsampling = 420;
+        }
+
+        switch(tmp_pixfmt) {
+                case YUV420P:
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                        pix_fmt = AV_PIX_FMT_YUV420P;
+#else
+                        pix_fmt = PIX_FMT_YUV420P;
+#endif
+                        break;
+                case YUV422P:
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                        pix_fmt = AV_PIX_FMT_YUV422P;
+#else
+                        pix_fmt = PIX_FMT_YUV422P;
+#endif
+                        break;
+                case YUVJ420P:
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                        pix_fmt = AV_PIX_FMT_YUVJ420P;
+#else
+                        pix_fmt = PIX_FMT_YUVJ420P;
+#endif
+                        break;
+                case YUVJ422P:
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                        pix_fmt = AV_PIX_FMT_YUVJ422P;
+#else
+                        pix_fmt = PIX_FMT_YUVJ422P;
+#endif
+                        break;
         }
 
         for(int i = 0; i < 2; ++i) {
@@ -364,11 +422,12 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height)
 {
+        unsigned char *src = in_data + 1;
         for(int y = 0; y < (int) height; ++y) {
-                unsigned char *src = in_data + width * y * 2;
                 unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
                 for(int x = 0; x < width; ++x) {
-                        dst_y[x] = src[x * 2 + 1];
+                        *dst_y++ = *src;
+                        src += 2;
                 }
         }
 
@@ -380,8 +439,27 @@ static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int
                 unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y;
                 unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y;
                 for(int x = 0; x < width / 2; ++x) {
-                        dst_cb[x] = (src1[x * 4] + src2[x * 4]) / 2;
-                        dst_cr[x] = (src1[x * 4 + 2] + src1[x * 4 + 2]) / 2;
+                        *dst_cb++ = (*src1 + *src2) / 2;
+                        src1 += 2;
+                        src2 += 2;
+                        *dst_cr++ = (*src1 + *src2) / 2;
+                        src1 += 2;
+                        src2 += 2;
+                }
+        }
+}
+
+static void to_yuv422(AVFrame *out_frame, unsigned char *src, int width, int height)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *dst_y = out_frame->data[0] + out_frame->linesize[0] * y;
+                unsigned char *dst_cb = out_frame->data[1] + out_frame->linesize[1] * y;
+                unsigned char *dst_cr = out_frame->data[2] + out_frame->linesize[2] * y;
+                for(int x = 0; x < width; x += 2) {
+                        *dst_cb++ = *src++;
+                        *dst_y++ = *src++;
+                        *dst_cr++ = *src++;
+                        *dst_y++ = *src++;
                 }
         }
 }
@@ -416,6 +494,8 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
         s->pkt[buffer_idx].size = 0;
 #endif
 
+        unsigned char *decoded;
+
         if((void *) s->decoder != (void *) memcpy) {
                 unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
                 unsigned char *line2 = (unsigned char *) s->decoded;
@@ -427,10 +507,16 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
                         line1 += src_linesize;
                         line2 += dst_linesize;
                 }
-                to_yuv420(s->in_frame, s->decoded, tx->tiles[0].width, tx->tiles[0].height);
+                decoded = s->decoded;
         } else {
-                to_yuv420(s->in_frame, (unsigned char *) tx->tiles[0].data,
-                                tx->tiles[0].width, tx->tiles[0].height);
+                decoded = (unsigned char *) tx->tiles[0].data;
+        }
+
+        if(s->subsampling == 420) {
+                to_yuv420(s->in_frame, decoded, tx->tiles[0].width, tx->tiles[0].height);
+        } else {
+                assert(s->subsampling == 422);
+                to_yuv422(s->in_frame, decoded, tx->tiles[0].width, tx->tiles[0].height);
         }
 
 
