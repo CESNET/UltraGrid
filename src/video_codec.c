@@ -75,6 +75,7 @@ const struct codec_info_t codec_info[] = {
         {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE},
         {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packed YCbCr inside DXT1 channels */
         {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
+        {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE},
         {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE},
         {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE},
         {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
