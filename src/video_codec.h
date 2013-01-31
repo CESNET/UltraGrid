@@ -56,6 +56,10 @@
 
 #include "video.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef  void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 
 struct codec_info_t {
@@ -112,6 +116,10 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  * @return TRUE or FALSE
  */
 int codec_is_a_rgb(codec_t codec);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
