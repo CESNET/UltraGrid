@@ -56,6 +56,7 @@
 #include <assert.h>
 #include <libavcodec/avcodec.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/mem.h>
 #include <libavutil/opt.h>
 
 #include "debug.h"

@@ -54,6 +54,7 @@
 #include "video_decompress/libavcodec.h"
 
 #include <libavcodec/avcodec.h>
+#include <libavutil/mem.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 
