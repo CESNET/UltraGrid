@@ -64,26 +64,25 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE},
-        {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE},
-        {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE},
-        {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE},
-        {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE},
-        {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE},
-        {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
-        {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
-        {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE},
-        {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packed YCbCr inside DXT1 channels */
-        {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
-        {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE},
-        {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE},
-        {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE},
-        {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
-        {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
-        {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
-        {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE},
-        {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE},
-        {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE},
+        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE},
+        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE},
+        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE},
+        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE},
+        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE},
+        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
+        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE},
+        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE},
+        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE}, /* packed YCbCr inside DXT1 channels */
+        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE},/* DXT5 YCoCg */
+        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE},
+        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE},
+        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE},
+        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE}, /* raw SDI */
+        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE},
+        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE},
+        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE},
+        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE},
         {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE}
 };
 
