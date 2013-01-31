@@ -150,7 +150,14 @@ public:
 		}
 
 		// We need to make a copy, DirectShow will do something with the data
-		memcpy((void *) s->grabBuffer, (void *) buffer, len * sizeof(BYTE));
+                // Apparently DirectShow uses bottom-to-top line ordering so we want make
+                // it top-to-bottom
+                int linesize = vc_get_linesize(s->width, s->color_spec);
+                for(int i = 0; i < s->height; ++i) {
+                        memcpy((char *) s->grabBuffer + i * linesize,
+                                        (char *) buffer + (s->height - i - 1) * linesize,
+                                        linesize);
+                }
 		bool grabMightWait = false;
 		if (!s->haveNewReturnBuffer) {
 			grabMightWait = true;
