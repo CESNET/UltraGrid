@@ -44,10 +44,18 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint32_t get_local_mediatime(void);
 double   tv_diff(struct timeval curr_time, struct timeval prev_time);
 uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time);
 void     tv_add(struct timeval *ts, double offset_secs);
 void     tv_add_usec(struct timeval *ts, double offset);
 int      tv_gt(struct timeval a, struct timeval b);
+
+#ifdef __cplusplus
+}
+#endif
 

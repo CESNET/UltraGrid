@@ -43,6 +43,7 @@
  * $Revision: 1.1 $
  * $Date: 2007/11/08 09:48:59 $
  */
+#define _WIN32_WINNT 0x0600
 #ifdef WIN32
 #ifndef _CONFIG_WIN32_H
 #define _CONFIG_WIN32_H
@@ -62,16 +63,20 @@
 
 // 0x0501 is Win XP, 0x0502 2003 Server, 0x0600 Win Vista and Win 7 is 0x0601
 #ifndef WINVER
-#define WINVER 0x0501
+#define WINVER 0x0600
 #endif /* WINVER */
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
+#define _WIN32_WINNT 0x0600
 #endif /* _WIN32_WINNT */
 
 #define WIN32_LEAN_AND_MEAN
 
+#include <crtdefs.h>
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <naptypes.h>
+#include <ntddndis.h>
 #include <Iphlpapi.h> // if_nametoindex
 
 #include <mmreg.h>
@@ -81,6 +86,11 @@
 #include <process.h>
 #include <fcntl.h>
 #include <time.h>
+
+#include <amstream.h>
+
+EXTERN_C const CLSID CLSID_NullRenderer;
+EXTERN_C const CLSID CLSID_SampleGrabber;
 
 typedef int		ttl_t;
 typedef unsigned	fd_t;
@@ -147,6 +157,11 @@ typedef DWORD gid_t;
 extern "C" {
 #endif
 
+// MinGW-w64 defines some broken macro for strtok_r in pthread.h
+// which can be accidently included before this resulting in compilation
+// error
+#undef strtok_r
+
 #ifndef HAVE_STRTOK_R
 static inline char * strtok_r(char *str, const char *delim, char **save);
 
@@ -200,11 +215,21 @@ void ShowMessage(int level, char *msg);
 }
 #endif
 
+#ifndef ECONNREFUSED
 #define ECONNREFUSED	WSAECONNREFUSED
+#endif
+#ifndef ENETUNREACH
 #define ENETUNREACH	WSAENETUNREACH
+#endif
+#ifndef EHOSTUNREACH
 #define EHOSTUNREACH	WSAEHOSTUNREACH
+#endif
+#ifndef EWOULDBLOCK
 #define EWOULDBLOCK	WSAEWOULDBLOCK
+#endif
+#ifndef EAFNOSUPPORT
 #define EAFNOSUPPORT	WSAEAFNOSUPPORT
+#endif
 
 #define M_PI		3.14159265358979323846
 

@@ -55,6 +55,7 @@
 #include "debug.h"
 #include "video_codec.h"
 #include "video_capture.h"
+#include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
@@ -115,6 +116,19 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
+#if defined HAVE_DSHOW || defined BUILD_LIBRARIES
+        {
+         /* The DirectShow capture card */
+         0,
+         NULL,
+         MK_NAME(vidcap_dshow_probe),
+         MK_NAME(vidcap_dshow_init),
+         MK_NAME(vidcap_dshow_finish),
+         MK_NAME(vidcap_dshow_done),
+         MK_NAME(vidcap_dshow_grab),
+         NULL
+        },
+#endif /* HAVE_DSHOW */
 #if defined HAVE_SCREEN_CAP || defined BUILD_LIBRARIES
         {
          /* The screen capture card */

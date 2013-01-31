@@ -2148,6 +2148,27 @@ AC_SUBST(V4L2_OBJ)
 
 LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
+# -----------------------------------------------------------------------------
+# DirectShow
+# -----------------------------------------------------------------------------
+dshow_req=auto
+AC_ARG_ENABLE(dshow,
+      AS_HELP_STRING([--disable-dshow], [disable DirectShow support(default is auto)]),
+    [dshow_req=$enableval],
+    [dshow_req=auto]
+    )
+
+if test $system = Windows -a $dshow_req != no; then
+        AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
+        LIB_MODULES="$LIB_MODULES -lstrmiids -luuid -loleaut32 " #-lstrmbase -ldxguid -ldmoguids
+        LIB_OBJS="$LIB_OBJS src/video_capture/DirectShowGrabber.o"
+        dshow=yes
+fi
+
+if test $dshow_req = yes -a $dshow = no; then
+        AC_MSG_ERROR([DirectShow not found]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Libav
 # -------------------------------------------------------------------------------------------------
@@ -2256,6 +2277,7 @@ RESULT=\
   License ..................... $license
 
   DeckLink .................... $decklink
+  DirectShow .................. $dshow
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
   Linsys capture .............. $linsys
