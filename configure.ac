@@ -2151,6 +2151,7 @@ LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 # -----------------------------------------------------------------------------
 # DirectShow
 # -----------------------------------------------------------------------------
+dshow=no
 dshow_req=auto
 AC_ARG_ENABLE(dshow,
       AS_HELP_STRING([--disable-dshow], [disable DirectShow support(default is auto)]),
