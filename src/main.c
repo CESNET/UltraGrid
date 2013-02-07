@@ -187,14 +187,12 @@ static void list_video_capture_devices(void);
 static void sender_finish(struct state_uv *uv);
 static void display_buf_increase_warning(int size);
 
-#ifndef WIN32
 static void signal_handler(int signal)
 {
         debug_msg("Caught signal %d\n", signal);
         exit_uv(0);
         return;
 }
-#endif                          /* WIN32 */
 
 static void _exit_uv(int status);
 
@@ -1213,12 +1211,12 @@ int main(int argc, char *argv[])
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-#ifndef WIN32
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
+#ifndef WIN32
         signal(SIGHUP, signal_handler);
-        signal(SIGABRT, signal_handler);
 #endif
+        signal(SIGABRT, signal_handler);
 
 #ifdef USE_RT
 #ifdef HAVE_SCHED_SETSCHEDULER
