@@ -951,7 +951,13 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         break;
                                 }
 
-                                printf("The desired display mode is supported: %d\n",s->mode);  
+                                if(mode_found) {
+                                        printf("The desired display mode is supported: %d\n",s->mode);  
+                                } else {
+                                        fprintf(stderr "Desired mode index %d is out of bounds.\n",
+                                                        s->mode);
+                                        goto error;
+                                }
                 
                                 BMDPixelFormat pf;
 
