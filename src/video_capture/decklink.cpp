@@ -954,7 +954,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                 if(mode_found) {
                                         printf("The desired display mode is supported: %d\n",s->mode);  
                                 } else {
-                                        fprintf(stderr "Desired mode index %d is out of bounds.\n",
+                                        fprintf(stderr, "Desired mode index %d is out of bounds.\n",
                                                         s->mode);
                                         goto error;
                                 }
