@@ -679,6 +679,8 @@ static void *receiver_thread(void *arg)
                         }
 
                         if(cp->video_decoder_state->reconfigured) {
+                                pbuf_set_playout_delay(cp->playout_buffer,
+                                                1.0 / cp->video_decoder_state->frame_buffer->fps);
                                 cp->video_decoder_state->reconfigured = false;
                         }
 
