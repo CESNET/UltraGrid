@@ -679,11 +679,6 @@ static void *receiver_thread(void *arg)
                         }
 
                         if(cp->video_decoder_state->reconfigured) {
-                                struct rtp **session = uv->network_devices;
-                                while(*session) {
-                                        rtp_flush_recv_buf(*session);
-                                        ++session;
-                                }
                                 cp->video_decoder_state->reconfigured = false;
                         }
 
