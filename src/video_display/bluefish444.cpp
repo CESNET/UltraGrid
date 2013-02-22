@@ -110,7 +110,7 @@ struct av_buffer
 
 struct display_bluefish444_state {
         public:
-                                    display_bluefish444_state(unsigned int flags)
+                                    display_bluefish444_state(unsigned int flags, int deviceId = 1)
                                                                    throw(runtime_error);
                 virtual            ~display_bluefish444_state()    throw();
                 struct video_frame *getf()                         throw();
@@ -133,6 +133,7 @@ struct display_bluefish444_state {
                 struct timeval      m_tv;
                 struct video_frame *m_frame;
 
+                int                 m_deviceId;
                 CBLUEVELVET_H       m_pSDK[MAX_BLUE_OUT_CHANNELS];
                 int                 m_AttachedDevicesCount;
                 int                 m_CardType;
@@ -165,7 +166,8 @@ struct display_bluefish444_state {
                 bool                m_PlayAudio;
  };
 
-display_bluefish444_state::display_bluefish444_state(unsigned int flags) throw(runtime_error) :
+display_bluefish444_state::display_bluefish444_state(unsigned int flags,
+                int deviceId) throw(runtime_error) :
         m_magic(BLUEFISH444_MAGIC),
         m_frame(NULL),
         m_GoldenSize(0),
@@ -175,7 +177,8 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags) throw(r
         m_AudioRingBuffer(ring_buffer_init(48000*4*16*8)),
 #endif
         m_PlayAudio(false),
-        m_AttachedDevicesCount(0)
+        m_AttachedDevicesCount(0),
+        m_deviceId(deviceId)
 {
         int iDevices = 0;
         uint32_t val32;
@@ -202,8 +205,7 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags) throw(r
         bfcQueryCardProperty32(pSDK, INVALID_VIDEO_MODE_FLAG, val32);
         m_InvalidVideoModeFlag = val32;
                 
-        int deviceId = 1;
-        if(BLUE_FAIL(bfcAttach(pSDK, deviceId))) {
+        if(BLUE_FAIL(bfcAttach(pSDK, m_deviceId))) {
                 bfcDestroy(pSDK);
                 throw runtime_error("Unable to attach card");
         }
@@ -211,6 +213,7 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags) throw(r
         bfcQueryCardProperty32(pSDK, EPOCH_GET_PRODUCT_ID, val32);
 
         m_CardFirmware = val32;
+        m_deviceId = deviceId;
 
         bfcDetach(pSDK);
         bfcDestroy(pSDK);
@@ -540,8 +543,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 m_pSDK[i] = bfcFactory();
 
                 //Attach the SDK object to a specific card, in this case card 1
-                int deviceId = 1;
-                if(BLUE_FAIL(bfcAttach(m_pSDK[i], deviceId)))
+                if(BLUE_FAIL(bfcAttach(m_pSDK[i], m_deviceId)))
                 {
                         throw runtime_error("Error on device attach");
                 }
@@ -818,21 +820,43 @@ static void show_help(void);
 
 static void show_help(void)
 {
+        int iDevices;
+        CBLUEVELVET_H pSDK = bfcFactory();
+        bfcEnumerate(pSDK, iDevices);
+        bfcDestroy(pSDK);
+
         cout << "bluefish444 (output) options:" << endl
-                << "\tnone" << endl;
+                << "\tbluefish444[:device=<device_id>]" << endl
+                << "\t\tID of the Bluefish device (if more present)" << endl
+                << "\t\t" << iDevices << " Bluefish devices found in this system" << endl;
+        if(iDevices == 1) {
+                cout << " (default)" << endl;
+        } else if(iDevices > 1) {
+                cout << ", valid indices [1," << iDevices  << "]" << endl;
+                cout << "default is 1" << endl;
+        }
 }
 
 void *display_bluefish444_init(char *fmt, unsigned int flags)
 {
-        if(fmt && strcmp(fmt, "help") == 0) {
-                show_help();
-                return NULL;
+        int deviceId = 1;
+
+        if(fmt){
+                if(strcmp(fmt, "help") == 0) {
+                        show_help();
+                        return NULL;
+                } else if(strncasecmp(fmt, "device=", strlen("device=")) == 0) {
+                        deviceId = atoi(fmt + strlen("device="));
+                } else {
+                        cerr << "[Blue444 disp] Unknown parameter: " << fmt << endl;
+                        return NULL;
+                }
         }
 
         void *state;
 
         try {
-                state = new display_bluefish444_state(flags);
+                state = new display_bluefish444_state(flags, deviceId);
         } catch(runtime_error &e) {
                 cerr << "[Blue444 disp] " << e.what() << endl;
         }

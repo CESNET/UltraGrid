@@ -73,6 +73,8 @@
 
 #define BUFFERS 4
 
+#define MAX_BLUE_IN_CHANNELS 4
+
 using namespace std;
 
 struct vidcap_bluefish444_state;
@@ -89,9 +91,26 @@ static bool should_exit_worker = false;
 
 static void show_help()
 {
+        int iDevices;
+        CBLUEVELVET_H pSDK = bfcFactory();
+        bfcEnumerate(pSDK, iDevices);
+        bfcDestroy(pSDK);
+
         printf("Bluefish444 capture\n");
         printf("Usage\n");
-        printf("\t-t bluefish444[:framestore|:duplex][:depth={10|8}][:subfield]\n");
+        printf("\t-t bluefish444[:framestore|:duplex][:depth={10|8}]"
+                        "[:subfield][:4K][:device=<device_id>]\n");
+
+        printf("\t\t4K - use 4 inputs of a SuperNova card\n");
+
+        printf("\t\t<device_id> - ID of the Bluefish device (if more present)\n");
+        cout << "\t\t" << iDevices << " Bluefish devices found in this system" << endl;
+        if(iDevices == 1) {
+                cout << " (default)" << endl;
+        } else if(iDevices > 1) {
+                cout << ", valid indices [1," << iDevices  << "]" << endl;
+                cout << "default is 1" << endl;
+        }
 }
 
 struct av_frame_base {
@@ -107,9 +126,11 @@ struct av_frame : public av_frame_base {
                 audio_len(0)
         {
                 video = vf_alloc_desc(desc);
-                video->tiles[0].data_len = BytesPerFrame;
-                video->tiles[0].data = (char*)
-                                        page_aligned_alloc(GoldenSize);
+                for(int i = 0; i < desc.tile_count; ++i) {
+                        video->tiles[i].data_len = BytesPerFrame;
+                        video->tiles[i].data = (char*)
+                                page_aligned_alloc(GoldenSize);
+                }
                 if(AudioLen) {
                         audio_data = (char *) page_aligned_alloc(AudioLen);
                 } else {
@@ -119,7 +140,9 @@ struct av_frame : public av_frame_base {
 
         ~av_frame() {
                 page_aligned_free(audio_data);
-                page_aligned_free(video->tiles[0].data);
+                for(int i = 0; i < video->tile_count; ++i) {
+                        page_aligned_free(video->tiles[i].data);
+                }
                 vf_free(video);
         }
 
@@ -130,11 +153,15 @@ struct av_frame : public av_frame_base {
 };
 
 struct vidcap_bluefish444_state {
-        CBLUEVELVET_H             pSDK;
+        CBLUEVELVET_H             pSDK[MAX_BLUE_IN_CHANNELS];
         struct video_desc         video_desc;
 
         int                       frames;
         struct timeval            t0;
+
+        bool                      is4K;
+        int                       iDeviceId;
+        int                       attachedDevices;
 
         uint32_t                  LastFieldCount;
         uint32_t                  InvalidVideoModeFlag;
@@ -260,6 +287,8 @@ static int CompleteBlueAsyncReq(HANDLE hDevice, LPOVERLAPPED pOverlap)
 static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
 {
 #ifdef WIN32
+        assert(s->attachedDevices == 1);
+
         BOOL bWaitForField = TRUE;
 
         //We need to wait for a major interrupt (sub field interrupt == 0) before we schedule a frame to be captured
@@ -268,14 +297,14 @@ static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
         DWORD IrqReturn = 0;
         do
         {
-                bfcVideoSyncStructSet(s->pSDK, s->pIrqInfo, BLUE_VIDEO_INPUT_CHANNEL_A,
+                bfcVideoSyncStructSet(s->pSDK[0], s->pIrqInfo, BLUE_VIDEO_INPUT_CHANNEL_A,
                                 s->UpdateFormat,
                                 IGNORE_SYNC_WAIT_TIMEOUT_VALUE);
-                bfcWaitVideoSyncAsync(s->pSDK, &s->OverlapChA, s->pIrqInfo);
+                bfcWaitVideoSyncAsync(s->pSDK[0], &s->OverlapChA, s->pIrqInfo);
                 IrqReturn = WaitForSingleObject(s->OverlapChA.hEvent, 1000);
-                CompleteBlueAsyncReq(bfcGetHandle(s->pSDK), &s->OverlapChA);
+                CompleteBlueAsyncReq(bfcGetHandle(s->pSDK[0]), &s->OverlapChA);
 
-                bfcVideoSyncStructGet(s->pSDK, s->pIrqInfo, VideoMsc, SubFieldIrqs);
+                bfcVideoSyncStructGet(s->pSDK[0], s->pIrqInfo, VideoMsc, SubFieldIrqs);
                 if(s->video_desc.interlacing == PROGRESSIVE || (VideoMsc & 0x1))
                         bWaitForField = FALSE;
 
@@ -295,8 +324,11 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                 }
 
                 //start the capture sequence
-                bfcWaitVideoInputSync(s->pSDK, s->UpdateFormat, FieldCount);  //this call just synchronises us to the card
-                bfcRenderBufferCapture(s->pSDK, BlueBuffer_Image_HANC(s->ScheduleID));
+                // all input channels must be genlocked
+                bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, FieldCount);  //this call just synchronises us to the card
+                for(int i = 0; i < s->attachedDevices; ++i) {
+                        bfcRenderBufferCapture(s->pSDK[i], BlueBuffer_Image_HANC(s->ScheduleID));
+                }
                 s->CapturingID = s->ScheduleID;
                 s->ScheduleID = (++s->ScheduleID%BUFFERS);
                 s->LastFieldCount = FieldCount;
@@ -305,14 +337,18 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                         WaitForMajorInterrupt(s);
                 }
 
-                bfcWaitVideoInputSync(s->pSDK, s->UpdateFormat, FieldCount);  //the first buffer starts to be captured now; this is it's field count
-                bfcRenderBufferCapture(s->pSDK, BlueBuffer_Image_HANC(s->ScheduleID));
+                bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, FieldCount);  //the first buffer starts to be captured now; this is it's field count
+                for(int i = 0; i < s->attachedDevices; ++i) {
+                        bfcRenderBufferCapture(s->pSDK[i], BlueBuffer_Image_HANC(s->ScheduleID));
+                }
                 s->DoneID = s->CapturingID;
                 s->CapturingID = s->ScheduleID;
                 s->ScheduleID = (++s->ScheduleID%BUFFERS);
                 s->LastFieldCount = FieldCount;
         } else {
-                bfcWaitVideoInputSync(s->pSDK, s->UpdateFormat, FieldCount);
+                for(int i = 0; i < s->attachedDevices; ++i) {
+                        bfcWaitVideoInputSync(s->pSDK[i], s->UpdateFormat, FieldCount);
+                }
                 s->LastFieldCount = FieldCount;
         }
 }
@@ -436,17 +472,30 @@ static void *worker(void *arg)
 
                 // Synchronize
                 if(!s->SubField || s->SavedVideoMode == VID_FMT_INVALID) {
-                        //Check if we have a valid input signal
-                        bfcWaitVideoInputSync(s->pSDK, s->UpdateFormat, FieldCount); //synchronise with the card before querying VIDEO_INPUT_SIGNAL_VIDEO_MODE
+                        //Check if we have a valid input signal, all cards should be in sync
+                        bfcWaitVideoInputSync(s->pSDK[0], s->UpdateFormat, FieldCount); //synchronise with the card before querying VIDEO_INPUT_SIGNAL_VIDEO_MODE
 
-                        bfcQueryCardProperty32(s->pSDK, VIDEO_INPUT_SIGNAL_VIDEO_MODE, val32);
-                        if(val32 >= VID_FMT_INVALID)
-                        {
-                                cerr << "No valid input signal on channel A" << endl;
-                                signal_error(s, &frame_nosignal);
-                                continue;
+                        for(int i = 0; i < s->attachedDevices; ++i) {
+                                bfcQueryCardProperty32(s->pSDK[i], VIDEO_INPUT_SIGNAL_VIDEO_MODE, val32);
+                                if(val32 >= VID_FMT_INVALID)
+                                {
+                                        cerr << "No valid input signal on channel " <<
+                                               (char)('A' + i) << endl;
+                                        signal_error(s, &frame_nosignal);
+                                        continue;
+                                }
+                                if(i == 0) {
+                                        VideoMode = val32;
+                                } else {
+                                        if(val32 != VideoMode) {
+                                                cerr << "Different signal detected on channel " <<
+                                                        (char)('A' + i) << " than on " <<
+                                                       "channel A" << endl;
+                                                signal_error(s, &frame_nosignal);
+                                                continue;
+                                        }
+                                }
                         }
-                        VideoMode = val32;
 
                 } else {
 #ifdef WIN32
@@ -455,14 +504,14 @@ static void *worker(void *arg)
                         // we do not allow mode change when in subfield mode
                         VideoMode = s->SavedVideoMode;
 
-                        bfcVideoSyncStructSet(s->pSDK, s->pIrqInfo, BLUE_VIDEO_INPUT_CHANNEL_A,
+                        bfcVideoSyncStructSet(s->pSDK[0], s->pIrqInfo, BLUE_VIDEO_INPUT_CHANNEL_A,
                                         s->UpdateFormat,
                                         IGNORE_SYNC_WAIT_TIMEOUT_VALUE);
-                        bfcWaitVideoSyncAsync(s->pSDK, &s->OverlapChA, s->pIrqInfo);
+                        bfcWaitVideoSyncAsync(s->pSDK[0], &s->OverlapChA, s->pIrqInfo);
                         IrqReturn = WaitForSingleObject(s->OverlapChA.hEvent, 1000);
-                        CompleteBlueAsyncReq(bfcGetHandle(s->pSDK), &s->OverlapChA);
+                        CompleteBlueAsyncReq(bfcGetHandle(s->pSDK[0]), &s->OverlapChA);
 
-                        bfcVideoSyncStructGet(s->pSDK, s->pIrqInfo, VideoMsc, SubFieldIrqs);
+                        bfcVideoSyncStructGet(s->pSDK[0], s->pIrqInfo, VideoMsc, SubFieldIrqs);
                         //cerr <<FieldCount <<" " << SubFieldIrqs <<endl;
                         if(SubFieldIrqs == 0) {
                                 FieldCount = VideoMsc;
@@ -518,8 +567,12 @@ static void *worker(void *arg)
                                 }
                                 pthread_mutex_unlock(&s->lock);
 
-                                bfcSetCardProperty32(s->pSDK, VIDEO_INPUT_UPDATE_TYPE, s->UpdateFormat);
-                                bfcSetCardProperty32(s->pSDK, EPOCH_SUBFIELD_INPUT_INTERRUPTS, val32);
+                                for(int i = 0; i < s->attachedDevices; ++i) {
+                                        bfcSetCardProperty32(s->pSDK[i], VIDEO_INPUT_UPDATE_TYPE,
+                                                        s->UpdateFormat);
+                                        bfcSetCardProperty32(s->pSDK[i], EPOCH_SUBFIELD_INPUT_INTERRUPTS,
+                                                        val32);
+                                }
                                 if(val32) {
                                         ChunkSize /= val32;
                                         nChunks = val32;
@@ -540,7 +593,8 @@ static void *worker(void *arg)
 
                 if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
 #ifdef WIN32
-                        if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK, &s->OverlapChA, FrameInfo, 0, &FifoSize))) {
+                        if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
+                                                        0, &FifoSize))) {
                                 cerr << "Capture frame failed!" << endl;
                                 signal_error(s, &frame_nosignal);
                                 continue;
@@ -560,7 +614,7 @@ static void *worker(void *arg)
                         BufferId = FrameInfo.BufferId;
 #else
                         //Check if we have a valid input signal
-                        if(BLUE_FAIL(s->pSDK->video_capture_get_frame(BufferId, DroppedFrameCount,
+                        if(BLUE_FAIL(s->pSDK[0]->video_capture_get_frame(BufferId, DroppedFrameCount,
                                                         NoFilledFrame,
                                                         frame_timestamp,
                                                         frame_signal)) ||
@@ -601,10 +655,12 @@ static void *worker(void *arg)
                 }
 
                 //DMA the frame from the card to our buffer
-                bfcSystemBufferReadAsync(s->pSDK, (unsigned char *)
-                                current_frame->video->tiles[0].data,
-                                ChunkSize, NULL,
-                                BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_IMAGE), nOffset);
+                for(int i = 0; i < s->attachedDevices; ++i) {
+                        bfcSystemBufferReadAsync(s->pSDK[i], (unsigned char *)
+                                        current_frame->video->tiles[i].data,
+                                        ChunkSize, NULL,
+                                        BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_IMAGE), nOffset);
+                }
 
 #ifdef HAVE_BLUE_AUDIO
                 if(s->UpdateFormat == UPD_FMT_FRAME) {
@@ -613,9 +669,9 @@ static void *worker(void *arg)
 
                 if(s->grab_audio && hanc_buffer_id != -1) {
                         samples_read = 0;
-                        bfcSystemBufferReadAsync(s->pSDK, (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, NULL, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC));
+                        bfcSystemBufferReadAsync(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, NULL, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC));
                         s->objHancDecode.audio_pcm_data_ptr = current_frame->audio_data;
-                        bfcDecodeHancFrameEx(s->pSDK, bfcQueryCardType(s->pSDK), (unsigned int *) s->hanc_buffer,
+                        bfcDecodeHancFrameEx(s->pSDK[0], bfcQueryCardType(s->pSDK[0]), (unsigned int *) s->hanc_buffer,
                                         &s->objHancDecode);
                         current_frame->audio_len = s->objHancDecode.no_audio_samples *
                                 s->audio.bps;
@@ -626,7 +682,10 @@ static void *worker(void *arg)
                 if(s->VideoEngine == VIDEO_ENGINE_FRAMESTORE) {
                         if(!s->SubField || SubFieldIrqs == 0) {
                                 //tell the card to capture another frame at the next interrupt
-                                bfcRenderBufferCapture(s->pSDK, BlueBuffer_Image_HANC(s->ScheduleID));
+                                for(int i = 0; i < s->attachedDevices; ++i) {
+                                        bfcRenderBufferCapture(s->pSDK[i],
+                                                        BlueBuffer_Image_HANC(s->ScheduleID));
+                                }
 
                                 s->DoneID = s->CapturingID;
                                 s->CapturingID = s->ScheduleID;
@@ -661,7 +720,7 @@ static void *worker(void *arg)
         return NULL;
 }
 
-void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
+static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
         char *item,
              *save_ptr = NULL;
         if(!fmt) {
@@ -683,6 +742,10 @@ void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
                         }
                 } else if(strcasecmp(item, "subfield") == 0) {
                         s->SubField = true;
+                } else if(strncasecmp(item, "device=", strlen("device=")) == 0) {
+                        s->iDeviceId = atoi(item + strlen("device="));
+                } else if(strcasecmp(item, "4K") == 0) {
+                        s->is4K = true;
                 } else {
                         cerr << "[Blue cap] Unrecognized option: " << item << endl;
                 }
@@ -695,6 +758,22 @@ void *
 vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 {
 	struct vidcap_bluefish444_state *s;
+        ULONG InputChannels[4] = {
+                BLUE_VIDEO_INPUT_CHANNEL_A,
+                BLUE_VIDEO_INPUT_CHANNEL_B,
+                BLUE_VIDEO_INPUT_CHANNEL_C,
+                BLUE_VIDEO_INPUT_CHANNEL_D
+        };
+        ULONG Sources[4] = { EPOCH_SRC_SDI_INPUT_A,
+                EPOCH_SRC_SDI_INPUT_B,
+                EPOCH_SRC_SDI_INPUT_C,
+                EPOCH_SRC_SDI_INPUT_D
+        };
+        ULONG Destinations[4] = { EPOCH_DEST_INPUT_MEM_INTERFACE_CHA,
+                EPOCH_DEST_INPUT_MEM_INTERFACE_CHB,
+                EPOCH_DEST_INPUT_MEM_INTERFACE_CHC,
+                EPOCH_DEST_INPUT_MEM_INTERFACE_CHD
+        };
 
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 show_help();
@@ -714,6 +793,9 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         s->VideoEngine = VIDEO_ENGINE_FRAMESTORE;
         s->UpdateFormat = UPD_FMT_FRAME;
         s->SubField = false;
+        s->iDeviceId = 1;
+        s->is4K = false;
+
         parse_fmt(s, init_fmt);
 
 #ifdef WIN32
@@ -722,8 +804,6 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 #endif
 
         int iDevices = 0;
-        int iDeviceId = 1;
-
         s->SavedVideoMode = VID_FMT_INVALID;
 
         if(s->SubField) {
@@ -736,25 +816,63 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 #endif
         }
 
-        s->pSDK = bfcFactory();
+        if(s->is4K) {
+                s->VideoEngine = VIDEO_ENGINE_FRAMESTORE;
+                s->attachedDevices = 4;
+                s->video_desc.tile_count = 4;
+                if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
+                        cerr << "4K mode is not supported in duplex mode." << endl;
+                        goto error;
+                }
+                if(s->SubField) {
+                        cerr << "Subfields are not supported in 4K mode." << endl;
+                        goto error;
+                }
+        } else {
+                s->attachedDevices = 1;
+        }
 
-        bfcEnumerate(s->pSDK, iDevices);
+        for(int i = 0; i < s->attachedDevices; ++i) {
+                s->pSDK[i] = bfcFactory();
+        }
+
+        bfcEnumerate(s->pSDK[0], iDevices);
         if(iDevices < 1) {
                 cout << "No Bluefish device detected." << endl;
                 goto error;
         }
 
-        if(BLUE_FAIL(bfcAttach(s->pSDK, iDeviceId))) {
-                cerr << "Error on device attach (channel A)" << endl;
-                goto error;
+        for(int i = 0; i < s->attachedDevices; ++i) {
+                if(BLUE_FAIL(bfcAttach(s->pSDK[i], s->iDeviceId))) {
+                        cerr << "Error on device attach (channel " <<
+                                (char)('A' + i) << ")"  << endl;
+                        goto error;
+                }
         }
 
-        InitInputChannel(s->pSDK, BLUE_VIDEO_INPUT_CHANNEL_A, s->UpdateFormat, s->MemoryFormat, s->VideoEngine);
-        RouteChannel(s->pSDK, EPOCH_SRC_SDI_INPUT_A, EPOCH_DEST_INPUT_MEM_INTERFACE_CHA, BLUE_CONNECTOR_PROP_SINGLE_LINK);
+        if(s->is4K) {
+                uint32_t firmware;
+                int cardType = bfcQueryCardType(s->pSDK[0]);
+                bfcQueryCardProperty32(s->pSDK[0], EPOCH_GET_PRODUCT_ID, firmware);
+
+                if(cardType != CRD_BLUE_SUPER_NOVA) {
+                        cerr << "4K supported only for a SuperNova card!" << endl;
+                        goto error;
+                }
+                if(firmware != ORAC_4SDIINPUT_FIRMWARE_PRODUCTID) {
+                         cerr << "Wrong firmware; need 4 input channels (QuadIn)";
+                         goto error;
+                }
+        }
+
+        for(int i = 0; i < s->attachedDevices; ++i) {
+                InitInputChannel(s->pSDK[i], InputChannels[i], s->UpdateFormat, s->MemoryFormat, s->VideoEngine);
+                RouteChannel(s->pSDK[i], Sources[i], Destinations[i], BLUE_CONNECTOR_PROP_SINGLE_LINK);
+        }
 
         //Get VID_FMT_INVALID flag; this enum has changed over time and might be different depending on which driver this application runs on
         unsigned int val32;
-        bfcQueryCardProperty32(s->pSDK, INVALID_VIDEO_MODE_FLAG, val32);
+        bfcQueryCardProperty32(s->pSDK[0], INVALID_VIDEO_MODE_FLAG, val32);
         s->InvalidVideoModeFlag = val32;
 
         s->LastFieldCount = 0;
@@ -762,7 +880,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         s->frames = 0;
         gettimeofday(&s->t0, NULL);
 
-        s->video_desc.tile_count = 1;
+        s->video_desc.tile_count = s->attachedDevices;
         if(s->MemoryFormat == MEM_FMT_2VUY) {
                 s->video_desc.color_spec = UYVY;
         } else { // MEM_FMT_V210
@@ -770,14 +888,16 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         }
         
         // make sure that capture is stopped
-	bfcVideoCaptureStop(s->pSDK);
+        for(int i = 0; i < s->attachedDevices; ++i) {
+                bfcVideoCaptureStop(s->pSDK[i]);
+                if(BLUE_FAIL(bfcVideoCaptureStart(s->pSDK[i]))) {
+                        /* is this really needed? Sometimes this command keeps failing but
+                         * we can stil go on, so ignore this error */
+                        //cerr << "Error video capture start failed on channel A" << endl;
+                        //goto error;
+                }
+        }
 
-	if(BLUE_FAIL(bfcVideoCaptureStart(s->pSDK))) {
-                /* is this really needed? Sometimes this command keeps failing but
-                 * we can stil go on, so ignore this error */
-		//cerr << "Error video capture start failed on channel A" << endl;
-		//goto error;
-	}
         gettimeofday(&s->t0, NULL);
 
         s->grab_audio = false;
@@ -819,7 +939,9 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 	return s;
 
 error:
-        BailOut(s->pSDK);
+        for(int i = 0; i < s->attachedDevices; ++i) {
+                BailOut(s->pSDK[i]);
+        }
         free(s);
         return NULL;
 }
@@ -867,8 +989,10 @@ vidcap_bluefish444_done(void *state)
 
         page_aligned_free(s->hanc_buffer);
 
-	bfcVideoCaptureStop(s->pSDK);
-	BailOut(s->pSDK);
+        for(int i = 0; i < s->attachedDevices; ++i) {
+                bfcVideoCaptureStop(s->pSDK[i]);
+                BailOut(s->pSDK[i]);
+        }
 
         delete s;
 }
