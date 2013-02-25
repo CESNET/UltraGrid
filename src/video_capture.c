@@ -60,6 +60,7 @@
 #include "video_capture/bluefish444.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
+#include "video_capture/deltacast_dvi.h"
 #include "video_capture/dvs.h"
 #include "video_capture/linsys.h"
 #include "video_capture/null.h"
@@ -192,6 +193,16 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_deltacast_finish),
          MK_NAME(vidcap_deltacast_done),
          MK_NAME(vidcap_deltacast_grab),
+         NULL
+        },
+        {
+         0,
+         "deltacast-dvi",
+         MK_NAME(vidcap_deltacast_dvi_probe),
+         MK_NAME(vidcap_deltacast_dvi_init),
+         MK_NAME(vidcap_deltacast_dvi_finish),
+         MK_NAME(vidcap_deltacast_dvi_done),
+         MK_NAME(vidcap_deltacast_dvi_grab),
          NULL
         },
 #endif                          /* HAVE_DELTACAST */

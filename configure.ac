@@ -54,6 +54,8 @@ AC_SUBST(LIBS)
 AC_SUBST(OBJS)
 AC_SUBST(POST_COMPILE_MSG)
 
+AC_CHECK_SIZEOF([int *])
+
 AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
@@ -972,7 +974,7 @@ then
                 then
                         DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
                 fi
-                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o"
+                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
                 DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
