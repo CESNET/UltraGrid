@@ -45,6 +45,11 @@
 extern "C" {
 #endif /* __cplusplus */
 
+struct ldgm_desc {
+        unsigned int k, m, c;
+        unsigned int seed;
+};
+
 /* 
  * @param packet_size - approximate size of packet payload
  * @param frame_size - approximate size of whole protected frame
@@ -67,5 +72,11 @@ void ldgm_decoder_destroy(void *state);
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
+
+#ifdef __cplusplus
+#include <map>
+void ldgm_decoder_decode_map(void *state, const char *in, int in_len, char **out, int *len,
+                const std::map<int, int> &);
+#endif
 
 #endif /* __LDGM_H__ */

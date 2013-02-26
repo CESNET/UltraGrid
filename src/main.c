@@ -164,25 +164,15 @@ struct state_uv {
         struct video_frame * volatile tx_frame;
 };
 
-long packet_rate;
-volatile int wait_to_finish = FALSE;
-volatile int threads_joined = FALSE;
+static volatile int wait_to_finish = FALSE;
+static volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
 static bool should_exit_receiver = false;
 static bool should_exit_sender = false;
 
-unsigned int cuda_device = 0;
-unsigned int audio_capture_channels = 2;
-
-uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
-struct video_frame *frame_buffer = NULL;
-uint32_t hd_color_spc = 0;
-
-long frame_begin[2];
-
-int uv_argc;
-char **uv_argv;
 static struct state_uv *uv_state;
+static struct video_frame *frame_buffer = NULL;
+static long frame_begin[2];
 
 char *sage_network_device = NULL;
 
@@ -315,46 +305,6 @@ static void list_video_display_devices()
         display_free_devices();
 }
 
-struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags)
-{
-        struct display *d;
-        display_type_t *dt;
-        display_id_t id = 0;
-        int i;
-        
-        if(!strcmp(requested_display, "none"))
-                 id = display_get_null_device_id();
-
-        if (display_init_devices() != 0) {
-                printf("Unable to initialise devices\n");
-                abort();
-        } else {
-                debug_msg("Found %d display devices\n",
-                          display_get_device_count());
-        }
-        for (i = 0; i < display_get_device_count(); i++) {
-                dt = display_get_device_details(i);
-                if (strcmp(requested_display, dt->name) == 0) {
-                        id = dt->id;
-                        debug_msg("Found device\n");
-                        break;
-                } else {
-                        debug_msg("Device %s does not match %s\n", dt->name,
-                                  requested_display);
-                }
-        }
-        if(i == display_get_device_count()) {
-                fprintf(stderr, "WARNING: Selected '%s' display card "
-                        "was not found.\n", requested_display);
-                return NULL;
-        }
-        display_free_devices();
-
-        d = display_init(id, fmt, flags);
-        return d;
-}
-
 static void list_video_capture_devices()
 {
         int i;
@@ -367,34 +317,6 @@ static void list_video_capture_devices()
                 printf("\t%s\n", vt->name);
         }
         vidcap_free_devices();
-}
-
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags)
-{
-        struct vidcap_type *vt;
-        vidcap_id_t id = 0;
-        int i;
-        
-        if(!strcmp(requested_capture, "none"))
-                id = vidcap_get_null_device_id();
-
-        vidcap_init_devices();
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                if (strcmp(vt->name, requested_capture) == 0) {
-                        id = vt->id;
-                        break;
-                }
-        }
-        if(i == vidcap_get_device_count()) {
-                fprintf(stderr, "WARNING: Selected '%s' capture card "
-                        "was not found.\n", requested_capture);
-                return NULL;
-        }
-        vidcap_free_devices();
-
-        return vidcap_init(id, fmt, flags);
 }
 
 static void display_buf_increase_warning(int size)

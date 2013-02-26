@@ -96,6 +96,8 @@ static int des_decrypt(struct rtp *session, unsigned char *data,
                        unsigned int size, unsigned char *initVec);
 static int des_encrypt(struct rtp *session, unsigned char *data,
                        unsigned int size, unsigned char *initVec);
+static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
+               uint8_t *buffer, rtp_packet *packet, int buflen);
 
 #define MAX_DROPOUT    3000
 #define MAX_MISORDER   100
@@ -1393,15 +1395,29 @@ void rtp_set_recv_iov(struct rtp *session, struct msghdr *m)
         session->mhdr = m;
 }
 
-static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
+int rtp_recv_push_data(struct rtp *session,
+                char *data, int buflen, uint32_t curr_rtp_ts)
 {
-        /* This routine preprocesses an incoming RTP packet, deciding whether to process it. */
         rtp_packet *packet = NULL;
         uint8_t *buffer = NULL;
-        uint8_t *buffer_vlen = NULL;
-        int vlen = 12;          /* vlen = 12 | 16 | 20 */
+
+        if (!session->opt->reuse_bufs || (packet == NULL)) {
+                packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN);
+                buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+        }
+
+        memcpy(buffer, data, buflen);
+
+        rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+
+        return buflen;
+}
+
+static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
+{
         int buflen;
-        source *s;
+        rtp_packet *packet = NULL;
+        uint8_t *buffer = NULL;
 
         if (!session->opt->reuse_bufs || (packet == NULL)) {
                 packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN);
@@ -1411,6 +1427,18 @@ static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
         buflen =
             udp_recv(session->rtp_socket, (char *)buffer,
                      RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
+
+        rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+}
+
+static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
+               uint8_t *buffer, rtp_packet *packet, int buflen)
+{
+        /* This routine preprocesses an incoming RTP packet, deciding whether to process it. */
+        uint8_t *buffer_vlen = NULL;
+        int vlen = 12;          /* vlen = 12 | 16 | 20 */
+        source *s;
+
         if (buflen > 0) {
                 if (session->encryption_enabled) {
                         uint8_t initVec[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };

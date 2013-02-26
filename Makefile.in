@@ -41,6 +41,7 @@ HEADERS	      = @HEADERS@
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
 		src/debug.o \
+		src/host.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
@@ -111,6 +112,10 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 		@LIB_SUPPORT_OBJ@ \
 
+HD_RUM_TRANSCODE_OBJS = src/hd-rum-decompress.o \
+		src/hd-rum-recompress.o \
+		src/hd-rum-translator.o
+
 LIB_COMMON = \
 		src/audio/utils.o \
 		src/compat/platform_semaphore.o \
@@ -125,13 +130,17 @@ LIB_COMMON = \
 
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) modules ag-plugins bin/hd-rum-transcode configure-messages
 
 modules: @LIB_TARGETS@
 
 $(TARGET): $(OBJS) src/main.o $(HEADERS)
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+
+bin/hd-rum-transcode: $(OBJS) src/hd-rum-transcode.o $(HEADERS) $(HD_RUM_TRANSCODE_OBJS)
+	@if [ ! -d bin ]; then mkdir bin; fi
+	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSCODE_OBJS) $(LIBS) -o bin/hd-rum-transcode
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
@@ -388,6 +397,7 @@ clean:
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
+	-rm -rf $(HD_RUM_TRANSCODE_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean

@@ -73,6 +73,7 @@
 #include "ldgm-coding/matrix-gen/matrix-generator.h"
 #include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
 
+using namespace std;
 
 typedef enum {
         STD1500 = 1500,
@@ -288,6 +289,14 @@ struct ldgm_state_decoder {
                 char *decoded;
 
                 decoded = coding_session.decode_frame((char *) frame, size, out_size, ll_to_map(ll));
+
+                *out = decoded;
+        }
+
+        void decode(const char *frame, int size, char **out, int *out_size, const map<int, int> &packets) {
+                char *decoded;
+
+                decoded = coding_session.decode_frame((char *) frame, size, out_size, packets);
 
                 *out = decoded;
         }
@@ -531,6 +540,13 @@ void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, in
         s->decode(in, in_len, out, len, ll);
 }
 
+void ldgm_decoder_decode_map(void *state, const char *in, int in_len, char **out,
+                int *len, const map<int, int> &packets)
+{
+        struct ldgm_state_decoder *s = (struct ldgm_state_decoder *) state;
+
+        s->decode(in, in_len, out, len, packets);
+}
 
 void ldgm_decoder_destroy(void *state)
 {

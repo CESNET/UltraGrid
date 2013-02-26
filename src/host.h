@@ -47,6 +47,11 @@
 #ifndef __host_h
 #define __host_h
 
+extern int uv_argc;
+extern char **uv_argv;
+
+extern long packet_rate;
+
 /* TODO: remove these variables (should be safe) */
 extern unsigned int hd_size_x;
 extern unsigned int hd_size_y;

@@ -167,10 +167,12 @@ decoder_table_t decoders[] = {
 #define MAX_DECODERS (sizeof(decoders) / sizeof(decoder_table_t))
 
 decoder_table_t *available_decoders[MAX_DECODERS];
-int available_decoders_count = 0;
+int available_decoders_count = -1;
 
 void initialize_video_decompress(void)
 {
+        available_decoders_count = 0;
+
         unsigned int i;
         for (i = 0; i < MAX_DECODERS; ++i) {
 #ifdef BUILD_LIBRARIES
@@ -193,6 +195,7 @@ void initialize_video_decompress(void)
 int decompress_is_available(unsigned int decoder_index)
 {
         int i;
+        assert(available_decoders_count > -1);
 
         for(i = 0; i < available_decoders_count; ++i) {
                 if(available_decoders[i]->magic == decoder_index) {

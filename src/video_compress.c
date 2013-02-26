@@ -144,6 +144,8 @@ static int compress_fill_symbols(struct compress_t *compression)
 }
 #endif
 
+static pthread_once_t compression_list_initialized = PTHREAD_ONCE_INIT;
+
 static void init_compressions(void)
 {
         unsigned int i;
@@ -168,7 +170,7 @@ static void init_compressions(void)
 void show_compress_help()
 {
         int i;
-        init_compressions();
+        pthread_once(&compression_list_initialized, init_compressions);
         printf("Possible compression modules (see '-c <module>:help' for options):\n");
         for(i = 0; i < compress_modules_count; ++i) {
                 printf("\t%s\n", available_compress_modules[i]->name);
@@ -189,7 +191,7 @@ struct compress_state *compress_init(char *config_string)
                 return NULL;
         }
 
-        init_compressions();
+        pthread_once(&compression_list_initialized, init_compressions);
         
         s = (struct compress_state *) malloc(sizeof(struct compress_state));
         s->handle = NULL;
