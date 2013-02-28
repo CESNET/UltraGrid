@@ -131,21 +131,21 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 return false;
         }
 
+#if 0
         // zero should mean count equal to the number of virtual cores
         if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
                 s->codec_ctx->thread_count = 0;
                 s->codec_ctx->thread_type = FF_THREAD_SLICE;
         } else {
                 fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
-#if 0
                 if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_count = 0;
                         s->codec_ctx->thread_type = FF_THREAD_FRAME;
                 } else {
                         fprintf(stderr, "[lavd] Warning: Codec doesn't support frame-based multithreading.\n");
                 }
-#endif
         }
+#endif
 
         // set by decoder
         s->codec_ctx->pix_fmt = PIX_FMT_NONE;
