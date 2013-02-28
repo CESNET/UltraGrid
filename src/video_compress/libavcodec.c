@@ -371,6 +371,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 //av_opt_set(s->codec_ctx->priv_data, "tune", "fastdecode", 0);
                 av_opt_set(s->codec_ctx->priv_data, "tune", "zerolatency", 0);
 #ifndef DISABLE_H264_INTRA_REFRESH
+                s->codec_ctx->refs = 1;
                 av_opt_set(s->codec_ctx->priv_data, "intra-refresh", "1", 0);
 #endif
         } else if(codec_id == CODEC_ID_VP8) {
