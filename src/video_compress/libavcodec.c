@@ -86,13 +86,12 @@ struct libav_video_compress {
         int                 requested_subsampling;
         // actual value used
         int                 subsampling;
-
-        bool                configured;
 };
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void to_yuv422(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void usage(void);
+static void cleanup(struct libav_video_compress *s);
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
@@ -113,7 +112,6 @@ void * libavcodec_compress_init(char * fmt)
         
         s = (struct libav_video_compress *) malloc(sizeof(struct libav_video_compress));
         s->out[0] = s->out[1] = NULL;
-        s->configured = false;
 
         s->codec = NULL;
         s->codec_ctx = NULL;
@@ -122,6 +120,8 @@ void * libavcodec_compress_init(char * fmt)
         s->subsampling = s->requested_subsampling = 0;
 
         s->requested_bitrate = -1;
+
+        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
 
         if(fmt) {
                 while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
@@ -482,16 +482,12 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
         int got_output;
 #endif
 
-        if(!s->configured) {
+        if(!video_desc_eq(video_desc_from_frame(tx), s->saved_desc)) {
+                cleanup(s);
                 int ret = configure_with(s, tx);
                 if(!ret) {
                         return NULL;
                 }
-                s->configured = true;
-        } else {
-                // reconfiguration not yet implemented
-                assert(video_desc_eq(video_desc_from_frame(tx),
-                                        s->saved_desc));
         }
 
         s->in_frame->pts = frame_seq++;
@@ -565,27 +561,38 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
         return s->out[buffer_idx];
 }
 
+static void cleanup(struct libav_video_compress *s)
+{
+        for(int i = 0; i < 2; ++i) {
+#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+                vf_free(s->out[i]);
+                s->out[i] = 0;
+                av_free_packet(&s->pkt[i]);
+#else
+                vf_free_data(s->out[i]);
+                s->out[i] = 0;
+#endif // HAVE_AVCODEC_ENCODE_VIDEO2
+        }
+
+        if(s->codec_ctx) {
+                avcodec_close(s->codec_ctx);
+        }
+        if(s->in_frame) {
+                av_freep(s->in_frame->data);
+                av_free(s->in_frame);
+                s->in_frame = NULL;
+        }
+        av_free(s->codec_ctx);
+        s->codec_ctx = NULL;
+        free(s->decoded);
+        s->decoded = NULL;
+}
+
 void libavcodec_compress_done(void *arg)
 {
         struct libav_video_compress *s = (struct libav_video_compress *) arg;
 
-        for(int i = 0; i < 2; ++i) {
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                vf_free(s->out[i]);
-                av_free_packet(&s->pkt[i]);
-#else
-                vf_free_data(s->out[i]);
-#endif // HAVE_AVCODEC_ENCODE_VIDEO2
-        }
-
-        if(s->codec_ctx)
-                avcodec_close(s->codec_ctx);
-        if(s->in_frame) {
-                av_freep(s->in_frame->data);
-                av_free(s->in_frame);
-        }
-        av_free(s->codec_ctx);
-        free(s->decoded);
+        cleanup(s);
 
         free(s);
 }
