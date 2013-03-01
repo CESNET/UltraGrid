@@ -59,9 +59,12 @@
 #include <libavutil/pixdesc.h>
 
 #include "debug.h"
+#include "utils/resource_manager.h"
+#include "video_compress/libavcodec.h" // LAVCD_LOCK_NAME
 #include "video_decompress.h"
 
 struct state_libavcodec_decompress {
+        pthread_mutex_t *global_lavcd_lock;
         AVCodec         *codec;
         AVCodecContext  *codec_ctx;
         AVFrame         *frame;
@@ -90,8 +93,11 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
-        if(s->codec_ctx)
+        if(s->codec_ctx) {
+                pthread_mutex_lock(s->global_lavcd_lock);
                 avcodec_close(s->codec_ctx);
+                pthread_mutex_unlock(s->global_lavcd_lock);
+        }
         av_free(s->codec_ctx);
         av_free(s->frame);
         av_free_packet(&s->pkt);
@@ -150,10 +156,13 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         // set by decoder
         s->codec_ctx->pix_fmt = PIX_FMT_NONE;
 
+        pthread_mutex_lock(s->global_lavcd_lock);
         if(avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
                 fprintf(stderr, "[lavd] Unable to open decoder.\n");
+                pthread_mutex_unlock(s->global_lavcd_lock);
                 return false;
         }
+        pthread_mutex_unlock(s->global_lavcd_lock);
 
         s->frame = avcodec_alloc_frame();
         if(!s->frame) {
@@ -174,6 +183,8 @@ void * libavcodec_decompress_init(void)
         
         s = (struct state_libavcodec_decompress *)
                 malloc(sizeof(struct state_libavcodec_decompress));
+
+        s->global_lavcd_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
 
         /*   register all the codecs (you can also register only the codec
          *         you wish to have smaller code */
@@ -501,6 +512,8 @@ void libavcodec_decompress_done(void *state)
                 (struct state_libavcodec_decompress *) state;
 
         deconfigure(s);
+
+        rm_release_shared_lock(LAVCD_LOCK_NAME);
 
         free(s);
 }

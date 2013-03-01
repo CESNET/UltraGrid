@@ -61,12 +61,15 @@
 
 #include "debug.h"
 #include "host.h"
+#include "utils/resource_manager.h"
 #include "video.h"
 #include "video_codec.h"
 
 #define DEFAULT_CODEC MJPG
 
 struct libav_video_compress {
+        pthread_mutex_t    *lavcd_global_lock;
+
         struct video_frame *out[2];
         struct video_desc   saved_desc;
 
@@ -111,6 +114,8 @@ void * libavcodec_compress_init(char * fmt)
         char *item, *save_ptr = NULL;
         
         s = (struct libav_video_compress *) malloc(sizeof(struct libav_video_compress));
+        s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
+
         s->out[0] = s->out[1] = NULL;
 
         s->codec = NULL;
@@ -398,11 +403,14 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 }
         }
 
+        pthread_mutex_lock(s->lavcd_global_lock);
         /* open it */
         if (avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
                 fprintf(stderr, "Could not open codec\n");
+                pthread_mutex_unlock(s->lavcd_global_lock);
                 return false;
         }
+        pthread_mutex_unlock(s->lavcd_global_lock);
 
         s->in_frame = avcodec_alloc_frame();
         if (!s->in_frame) {
@@ -575,7 +583,9 @@ static void cleanup(struct libav_video_compress *s)
         }
 
         if(s->codec_ctx) {
+                pthread_mutex_lock(s->lavcd_global_lock);
                 avcodec_close(s->codec_ctx);
+                pthread_mutex_unlock(s->lavcd_global_lock);
         }
         if(s->in_frame) {
                 av_freep(s->in_frame->data);
@@ -594,6 +604,7 @@ void libavcodec_compress_done(void *arg)
 
         cleanup(s);
 
+        rm_release_shared_lock(LAVCD_LOCK_NAME);
         free(s);
 }
 

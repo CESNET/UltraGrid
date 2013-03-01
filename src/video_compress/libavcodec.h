@@ -47,6 +47,8 @@
 
 struct video_frame;
 
+#define LAVCD_LOCK_NAME "lavcd_lock"
+
 void                *libavcodec_compress_init(char * opts);
 struct video_frame  *libavcodec_compress(void *args, struct video_frame * tx, int buffer);
 void                 libavcodec_compress_done(void *args);
