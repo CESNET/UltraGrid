@@ -256,14 +256,12 @@ static void usage(void)
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
         printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
         printf("\n");
-        printf("\t-P <port> | <recv_port>:<send_port>\n");
-        printf("\t                         \tbase port number, also 3 subsequent\n");
+        printf("\t-P <port> | <vid_rx_port>:<vid_tx_port>[:<aud_rx_port>:<aud_tx_port>]\n");
+        printf("\t                         \t<port> is base port number, also 3 subsequent\n");
         printf("\t                         \tports can be used for RTCP and audio\n");
         printf("\t                         \tstreams. Default: %d.\n", PORT_BASE);
-        printf("\t                         \tIf one given, it will be used for both\n");
-        printf("\t                         \tsending and receiving, if two, first one\n");
-        printf("\t                         \twill be used for receiving, second one\n");
-        printf("\t                         \tfor sending.\n");
+        printf("\t                         \tYou can also specify all two or four ports\n");
+        printf("\t                         \tdirectly.\n");
         printf("\n");
         printf("\t-l <limit_bitrate> | unlimited\tlimit sending bitrate (aggregate)\n");
         printf("\t                         \tto limit_bitrate Mb/s\n");
@@ -279,6 +277,9 @@ static void usage(void)
         printf("\n");
         printf("\t--cuda-device [<index>|help]\tuse specified CUDA device\n");
         printf("\n");
+        printf("\n");
+        printf("\t-A <address>             \taudio destination address\n");
+        printf("\t                         \tIf not specified, will use same as for video\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -897,12 +898,15 @@ int main(int argc, char *argv[])
         char *requested_fec = NULL;
         char *audio_channel_map = NULL;
         char *audio_scale = "mixauto";
+        char *audio_host = NULL;
 
         bool echo_cancellation = false;
         bool use_ipv6 = false;
         char *mcast_if = NULL;
 
         int bitrate = 0;
+
+        int audio_rx_port, audio_tx_port;
         
         struct state_uv *uv;
         int ch;
@@ -950,6 +954,7 @@ int main(int argc, char *argv[])
                 {"echo-cancellation", no_argument, 0, ECHO_CANCELLATION},
                 {"cuda-device", required_argument, 0, CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, MCAST_IF},
+                {"audio-host", required_argument, 0, 'A'},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -974,6 +979,8 @@ int main(int argc, char *argv[])
         uv->recv_port_number =
                 uv->send_port_number =
                 PORT_BASE;
+        audio_rx_port =
+                audio_tx_port = PORT_BASE + 2;
 
         pthread_mutex_init(&uv->master_lock, NULL);
 
@@ -991,7 +998,7 @@ int main(int argc, char *argv[])
         init_lib_common();
 
         while ((ch =
-                getopt_long(argc, argv, "d:t:m:r:s:v6c:ihj:M:p:f:P:l:", getopt_options,
+                getopt_long(argc, argv, "d:t:m:r:s:v6c:ihj:M:p:f:P:l:A:", getopt_options,
                             &option_index)) != -1) {
                 switch (ch) {
                 case 'd':
@@ -1061,8 +1068,15 @@ int main(int argc, char *argv[])
                 case 'P':
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
+                                char *tok;
                                 uv->recv_port_number = atoi(strtok_r(optarg, ":", &save_ptr));
                                 uv->send_port_number = atoi(strtok_r(NULL, ":", &save_ptr));
+                                if((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                        audio_rx_port = atoi(tok);
+                                }
+                                if((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                        audio_tx_port = atoi(tok);
+                                }
                         } else {
                                 uv->recv_port_number =
                                         uv->send_port_number =
@@ -1114,6 +1128,9 @@ int main(int argc, char *argv[])
 #endif // HAVE_CUDA
                 case MCAST_IF:
                         mcast_if = optarg;
+                        break;
+                case 'A':
+                        audio_host = optarg;
                         break;
                 default:
                         usage();
@@ -1174,10 +1191,12 @@ int main(int argc, char *argv[])
 	}
 #endif
 	
-
+        if(!audio_host) {
+                audio_host = network_device;
+        }
         char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
-        uv->audio = audio_cfg_init (network_device, uv->recv_port_number + 2,
-                        uv->send_port_number + 2, audio_send, audio_recv,
+        uv->audio = audio_cfg_init (audio_host, audio_rx_port,
+                        audio_tx_port, audio_send, audio_recv,
                         jack_cfg, tmp_requested_fec, audio_channel_map,
                         audio_scale, echo_cancellation, use_ipv6, mcast_if);
         free(tmp_requested_fec);
