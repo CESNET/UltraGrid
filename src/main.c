@@ -184,6 +184,8 @@ int uv_argc;
 char **uv_argv;
 static struct state_uv *uv_state;
 
+char *sage_network_device = NULL;
+
 //
 // prototypes
 //
@@ -242,7 +244,7 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
-        printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE\n");
+        printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
 #ifdef HAVE_IPv6
         printf("\t-6                       \tUse IPv6\n");
@@ -913,7 +915,6 @@ int main(int argc, char *argv[])
         struct sched_param sp;
 #endif
         char *network_device = NULL;
-
         char *capture_cfg = NULL;
         char *display_cfg = NULL;
         char *audio_recv = NULL;
@@ -1210,6 +1211,9 @@ int main(int argc, char *argv[])
                         network_device = strdup("localhost");
                 } else {
                         network_device = (char *) argv[0];
+                }
+                if(uv->tx_protocol == SAGE) {
+                        sage_network_device = network_device;
                 }
         }
 

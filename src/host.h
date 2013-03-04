@@ -63,6 +63,8 @@ extern unsigned int audio_capture_channels;
 
 extern unsigned int cuda_device;
 
+extern char *sage_network_device;
+
 // for aggregate.c
 struct display *initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags);

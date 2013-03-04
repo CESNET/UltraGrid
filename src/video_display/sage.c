@@ -53,6 +53,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "debug.h"
+#include "host.h"
 #include "video_codec.h"
 #include "video_display.h"
 #include "video_display/sage.h"
@@ -96,6 +97,7 @@ struct state_sage {
         void *sage_state;
 
         const char             *confName;
+        const char             *fsIP;
 
         int                     frames;
         struct timeval          t, t0;
@@ -154,14 +156,16 @@ void *display_sage_init(char *fmt, unsigned int flags)
         s = (struct state_sage *)malloc(sizeof(struct state_sage));
         assert(s != NULL);
 
-        s->confName = "ultragrid.conf";
+        s->confName = NULL;
+        s->fsIP = sage_network_device; // NULL unless in SAGE TX mode
         s->requestedDisplayCodec = (codec_t) -1;
 
         if(fmt) {
                 if(strcmp(fmt, "help") == 0) {
                         printf("SAGE usage:\n");
-                        printf("\tuv -t sage:[config=<config_file>][:codec=<fcc>]\n");
+                        printf("\tuv -t sage[:config=<config_file>|:fs=<fsIP>][:codec=<fcc>]\n");
                         printf("\t                      <config_file> - SAGE app config file, default \"ultragrid.conf\"\n");
+                        printf("\t                      <fsIP> - FS manager IP address\n");
                         printf("\t                      <fcc> - FourCC of codec that will be used to transmit to SAGE\n");
                         printf("\t                              Supported options are UYVY, RGBA, RGB or DXT1\n");
                         return NULL;
@@ -193,6 +197,8 @@ void *display_sage_init(char *fmt, unsigned int flags)
                                                  fprintf(stderr, "Entered codec is not nativelly supported by SAGE.\n");
                                                  free(s); return NULL;
                                          }
+                                } else if(strncmp(item, "fs=", strlen("fs=")) == 0) {
+                                        s->fsIP = item + strlen("fs=");
                                 } else {
                                         fprintf(stderr, "[SAGE] unrecognized configuration: %s\n",
                                                         item);
@@ -203,8 +209,25 @@ void *display_sage_init(char *fmt, unsigned int flags)
                 }
         }
 
-        printf("[SAGE] Using config file %s.\n", s->confName);
-        
+        struct stat sb;
+        if(s->confName) {
+                if(stat(s->confName, &sb)) {
+                        perror("Unable to use SAGE config file");
+                        return NULL;
+                }
+        } else if(stat("ultragrid.conf", &sb) == 0) {
+                s->confName = "ultragrid.conf";
+        }
+        if(s->confName) {
+                printf("[SAGE] Using config file %s.\n", s->confName);
+        }
+
+        if(s->confName == NULL && s->fsIP == NULL) {
+                fprintf(stderr, "[SAGE] Unable to locate FS manager address. "
+                                "Set either in config file or from command line.\n");
+                return NULL;
+        }
+
         s->magic = MAGIC_SAGE;
 
         gettimeofday(&s->t0, NULL);
@@ -328,7 +351,7 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
                 sage_shutdown(s->sage_state);
         }
 
-        s->sage_state = initSage(s->confName, s->appID, s->nodeID,
+        s->sage_state = initSage(s->confName, s->fsIP, s->appID, s->nodeID,
                         s->tile->width, s->tile->height, desc.color_spec);
 
         s->tile->data = (char *) sage_getBuffer(s->sage_state);
