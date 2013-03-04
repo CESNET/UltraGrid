@@ -687,6 +687,9 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 tile->width = displayMode->GetWidth();
                 tile->height = displayMode->GetHeight();
                 s->frame->color_spec = s->c_info->codec;
+                if(s->frame->color_spec == Vuy2 || s->frame->color_spec == DVS8) {
+                        s->frame->color_spec = UYVY;
+                }
 
                 displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                 s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
