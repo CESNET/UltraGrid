@@ -210,7 +210,6 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         double avg_bpp; // average bite per pixel
         // implement multiple tiles support if needed
         assert(frame->tile_count == 1);
-        s->saved_desc = video_desc_from_frame(frame);
 
         struct video_desc compressed_desc;
         enum {
@@ -432,6 +431,8 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 fprintf(stderr, "Could not allocate raw picture buffer\n");
                 return false;
         }
+
+        s->saved_desc = video_desc_from_frame(frame);
 
         return true;
 }
