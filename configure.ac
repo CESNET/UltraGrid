@@ -776,11 +776,10 @@ SAVED_LIBS=$LIBS
 SAVED_CXXFLAGS=$CXXFLAGS
 SAVED_CPPFLAGS_SAVE=$CPPFLAGS
 if test -n "$BLUEFISH444_PATH"; then
-        BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc"
         if test $system = Linux; then
-                BLUEFISH444_INC="$BLUEFISH444_INC -I$BLUEFISH444_PATH/install/inc  -I$BLUEFISH444_PATH/EmbAudio"
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/install/inc -I$BLUEFISH444_PATH/EmbAudio"
         else
-                BLUEFISH444_INC="$BLUEFISH444_INC -IBlueVelvetC/BlueVelvetC"
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc -IBlueVelvetC/BlueVelvetC"
         fi
         
         CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC "
