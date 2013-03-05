@@ -1472,7 +1472,7 @@ cleanup_wait_display:
                 pthread_join(receiver_thread_id, NULL);
 
 cleanup_wait_capture:
-        if(uv->sage_tx_device) {
+        if(uv->tx_protocol == SAGE && uv->sage_tx_device) {
                 display_finish(uv->sage_tx_device);
         }
         if (strcmp("none", uv->requested_capture) != 0 &&
@@ -1488,13 +1488,13 @@ cleanup:
                 ;
         threads_joined = TRUE;
 
-        if(uv->sage_tx_device)
+        if(uv->tx_protocol == SAGE && uv->sage_tx_device)
                 display_done(uv->sage_tx_device);
         if(uv->audio)
                 audio_done(uv->audio);
         if(uv->tx)
                 tx_done(uv->tx);
-	if(uv->network_devices)
+	if(uv->tx_protocol == ULTRAGRID_RTP && uv->network_devices)
                 destroy_devices(uv->network_devices);
         if(uv->capture_device)
                 vidcap_done(uv->capture_device);
