@@ -153,6 +153,10 @@ static void tx_update(struct tx *tx, struct tile *tile)
                                         ldgm_encoder_destroy(fec_state_old);
                                 } else {
                                         tx->fec_state = fec_state_old;
+                                        if(!tx->fec_state) {
+                                                fprintf(stderr, "Unable to initialize FEC.\n");
+                                                exit_uv(1);
+					}
                                 }
                         }
                 }
