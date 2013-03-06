@@ -434,10 +434,10 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
 }
 #endif
 
-static void signal_error(struct vidcap_bluefish444_state *s, av_frame_nosignal *error) {
+static void signal_error(struct vidcap_bluefish444_state *s) {
         pthread_mutex_lock(&s->lock);
         if(!s->CompletedFrame) {
-                s->CompletedFrame = error;
+                s->CompletedFrame = new av_frame_nosignal;
                 pthread_cond_signal(&s->boss_cv);
         }
         pthread_mutex_unlock(&s->lock);
@@ -451,7 +451,6 @@ static void *worker(void *arg)
         uint32_t ChunkSize = 0;
         uint32_t nChunks = 1;
         ULONG FieldCount = 0;
-        av_frame_nosignal frame_nosignal;
 
         while(!should_exit_worker) {
                 unsigned int val32;
@@ -469,6 +468,8 @@ static void *worker(void *arg)
 #endif
 
                 unsigned int CurrentFieldCount = FieldCount;
+                struct av_frame *current_frame = NULL;
+                int nOffset = 0;
 
                 // Synchronize
                 if(!s->SubField || s->SavedVideoMode == VID_FMT_INVALID) {
@@ -481,8 +482,8 @@ static void *worker(void *arg)
                                 {
                                         cerr << "No valid input signal on channel " <<
                                                (char)('A' + i) << endl;
-                                        signal_error(s, &frame_nosignal);
-                                        continue;
+                                        signal_error(s);
+                                        goto next_iteration;
                                 }
                                 if(i == 0) {
                                         VideoMode = val32;
@@ -491,8 +492,8 @@ static void *worker(void *arg)
                                                 cerr << "Different signal detected on channel " <<
                                                         (char)('A' + i) << " than on " <<
                                                        "channel A" << endl;
-                                                signal_error(s, &frame_nosignal);
-                                                continue;
+                                                signal_error(s);
+                                                goto next_iteration;
                                         }
                                 }
                         }
@@ -585,8 +586,8 @@ static void *worker(void *arg)
 
                         } else {
                                 cerr << "[Blue422 cap] Fatal: unknown video mode: " << VideoMode << endl;
-                                signal_error(s, &frame_nosignal);
-                                continue;
+                                signal_error(s);
+                                goto next_iteration;
                         }
                         SyncForSignal(s);
                 }
@@ -596,20 +597,20 @@ static void *worker(void *arg)
                         if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
                                                         0, &FifoSize))) {
                                 cerr << "Capture frame failed!" << endl;
-                                signal_error(s, &frame_nosignal);
-                                continue;
+                                signal_error(s);
+                                goto next_iteration;
                         }
 
                         if(FrameInfo.nVideoSignalType >= s->InvalidVideoModeFlag) {
                                 cerr << "Invalid video mode!" << endl;
-                                signal_error(s, &frame_nosignal);
-                                continue;
+                                signal_error(s);
+                                goto next_iteration;
                         }
 
                         if(FrameInfo.BufferId == -1) {
                                 cerr << "No buffer!" << endl;
-                                signal_error(s, &frame_nosignal);
-                                continue;
+                                signal_error(s);
+                                goto next_iteration;
                         }
                         BufferId = FrameInfo.BufferId;
 #else
@@ -620,16 +621,14 @@ static void *worker(void *arg)
                                                         frame_signal)) ||
                                         BufferId == -1) {
                                 cerr << "Capture frame failed!" << endl;
-                                signal_error(s, &frame_nosignal);
-                                continue;
+                                signal_error(s);
+                                goto next_iteration;
                         }
 
 #endif
                 } else {
                         BufferId = s->DoneID;
                 }
-
-                struct av_frame *current_frame = NULL;
 
                 pthread_mutex_lock(&s->lock);
                 while(s->FreeFrameQueue.empty()) {
@@ -639,7 +638,6 @@ static void *worker(void *arg)
                 s->FreeFrameQueue.pop();
                 pthread_mutex_unlock(&s->lock);
 
-                int nOffset = 0;
                 if(s->SubField) {
                         if(SubFieldIrqs == 0) {
                                 nOffset = (nChunks - 1) * ChunkSize;
@@ -715,6 +713,9 @@ static void *worker(void *arg)
                 s->CompletedFrame = current_frame;
                 pthread_cond_signal(&s->boss_cv);
                 pthread_mutex_unlock(&s->lock);
+
+next_iteration:
+		;
         }
 
         return NULL;
@@ -1022,6 +1023,7 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
         }
 
         if(dynamic_cast<av_frame_nosignal *>(s->CompletedFrame)) {
+		delete s->CompletedFrame;
                 s->CompletedFrame = NULL;
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
