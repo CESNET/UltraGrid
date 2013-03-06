@@ -354,7 +354,7 @@ suggest-tests:
 	@echo ""
 
 configure-messages:
-	@echo -e "@POST_COMPILE_MSG@"
+	@echo "@POST_COMPILE_MSG@"
 
 
 tests: test/run_tests
