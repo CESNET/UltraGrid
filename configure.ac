@@ -520,24 +520,33 @@ case "$host" in
 	i*86-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86"
 	;;
+	*mingw32*)
+		DVS_SDK_SUBDIR="win32"
+        ;;
 esac
 
 if test -n "$DVS_DIRECTORY"
 then
-        DVS_INC=$DVS_DIRECTORY/development/header
+        DVS_HDR_PATH=$DVS_DIRECTORY/development/header
         DVS_LIB=$DVS_DIRECTORY/${DVS_SDK_SUBDIR}/lib
 else
-        DVS_INC=sdk4.0.1.17/development/header
+        DVS_HDR_PATH=sdk4.0.1.17/development/header
 	DVS_LIB=sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib
 fi
 
 AC_ARG_WITH(dvs,
 	[  --with-dvs=DIR    specify location of DVS SDK],
-	[DVS_INC=$withval/development/header
+	[DVS_HDR_PATH=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
         )
 
-AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS="$CFLAGS -I${DVS_HDR_PATH}"
+CPPFLAGS="$CPPFLAGS -I${DVS_HDR_PATH}"
+AC_CHECK_HEADER(dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
+CFLAGS=$SAVED_CFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS
 
 SAVED_LIBS=$LIBS
 if test $system = MacOSX
@@ -549,12 +558,15 @@ LIBS=$SAVED_LIBS
 
 if test $dvs_req != no -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
 then
-	DVS_INC=-I${DVS_INC}
-	DVS_LIB=${DVS_LIB}/libdvsoem.a
+	DVS_INC=-I${DVS_HDR_PATH}
+	DVS_LIB="-L${DVS_LIB} -ldvsoem"
+        if test $system = Linux; then
+                DVS_LIB="$DVS_LIB -ldl"
+        fi
 	DVS_CAP_OBJ="src/video_capture/dvs.o"
 	DVS_DISP_OBJ="src/video_display/dvs.o"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
-        DVS_LIB="$DVS_LIB -ldl"
+        DVS_LIB="$DVS_LIB"
 	if test $system = MacOSX
 	then
 		DVS_LIB="$DVS_LIB -framework IOKit"
