@@ -301,6 +301,7 @@ void show_help(struct vidcap_dshow_state *s) {
 	int n = 1;
 	// Enumerate all capture devices
 	while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
+                n++;
 		// Attach structure for reading basic device properties
 		IPropertyBag *properties;
 		res = s->moniker->BindToStorage(0, 0, IID_PPV_ARGS(&properties));
@@ -320,7 +321,7 @@ void show_help(struct vidcap_dshow_state *s) {
 			// Ignore the device
 			continue;
 		}
-		printf("Device %d: %ls\n", n++, var.bstrVal);
+		printf("Device %d: %ls\n", n, var.bstrVal);
 
 		// clean up structures
 		VariantClear(&var);
@@ -444,7 +445,9 @@ static bool process_args(struct vidcap_dshow_state *s, char *init_fmt) {
 					if (strcmp(token, "YUYV") == 0) s->color_spec = YUYV;
 					else if (strcmp(token, "RGB") == 0) s->color_spec = RGB;
 					else {
-						fprintf(stderr, "[dshow] Unsupported video format: %s.\n", token);
+						fprintf(stderr, "[dshow] Unsupported video format: %s. "
+                                                                "Please contact us via %s if you need support for this codec.\n",
+                                                                token, PACKAGE_BUGREPORT);
 						return false;
 					}
 				}
@@ -679,7 +682,9 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 		for (int i = 1; i <= s->deviceNumber; i++) {
 			// Take one device. We could take more at once, but it would require allocation of more moniker objects
 			res = s->videoInputEnumerator->Next(1, &s->moniker, NULL);
-			s->moniker->Release();
+                        if(i != s->deviceNumber) {
+                                s->moniker->Release();
+                        }
 			if (res != S_OK) break;
 		}
 		if (res != S_OK) {
@@ -817,8 +822,8 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 			goto error;
 		}
 
-		if (mediaType->subtype == MEDIASUBTYPE_RGB24) s->color_spec = RGB;
-		else if (mediaType->subtype == MEDIASUBTYPE_YUY2) s->color_spec = YUYV;
+		if (sampleGrabberMT.subtype == MEDIASUBTYPE_RGB24) s->color_spec = RGB;
+		else if (sampleGrabberMT.subtype == MEDIASUBTYPE_YUY2) s->color_spec = YUYV;
 		else {
 			fprintf(stderr, "[dshow] Unknown color specifiation of the chosen format, cannot grab.\n");
 			goto error;
@@ -860,22 +865,24 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 		goto error;
 	}
 
-	s->streamConfig->GetFormat(&mediaType);
-	if (res != S_OK) {
-		fprintf(stderr, "[dshow] vidcap_dshow_init: Cannot get current capture format.\n");
-		goto error;
-	}
-	switch (s->color_spec) {
-		case RGB : mediaType->subtype = MEDIASUBTYPE_RGB24;
-			   break;
-		case YUYV : mediaType->subtype = MEDIASUBTYPE_YUY2;
-			    break;
-	}
-	VIDEOINFOHEADER *infoHeader;
-	infoHeader = reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat);
-	infoHeader->rcSource.bottom = s->height;
-	infoHeader->rcSource.right = s->width;
-	infoHeader->AvgTimePerFrame = (REFERENCE_TIME) (1e7 / s->fps);
+	if (s->modeNumber < 0) { // mode number was not set by user directly
+                s->streamConfig->GetFormat(&mediaType);
+                if (res != S_OK) {
+                        fprintf(stderr, "[dshow] vidcap_dshow_init: Cannot get current capture format.\n");
+                        goto error;
+                }
+                switch (s->color_spec) {
+                        case RGB : mediaType->subtype = MEDIASUBTYPE_RGB24;
+                                   break;
+                        case YUYV : mediaType->subtype = MEDIASUBTYPE_YUY2;
+                                    break;
+                }
+                VIDEOINFOHEADER *infoHeader;
+                infoHeader = reinterpret_cast<VIDEOINFOHEADER*>(mediaType->pbFormat);
+                infoHeader->rcSource.bottom = s->height;
+                infoHeader->rcSource.right = s->width;
+                infoHeader->AvgTimePerFrame = (REFERENCE_TIME) (1e7 / s->fps);
+        }
 	res = s->streamConfig->SetFormat(mediaType);
 	if (res != S_OK) {
 		fprintf(stderr, "[dshow] vidcap_dshow_init: Cannot set capture format.\n");
@@ -1138,22 +1145,33 @@ static void DeleteMediaType(AM_MEDIA_TYPE *pmt) {
         CoTaskMemFree((PVOID)pmt);
 }
 
+static GUID GUID_R210 = {0x30313272, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
+static GUID GUID_v210 = {0x30313276, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
+static GUID GUID_V210 = {0x30313256, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
+static GUID GUID_HDYC = {0x43594448, 0x0000, 0x10, {0x80,0x0,0x0,0xAA,0x0,0x38,0x9B,0x71}};
+
 static const struct {
         const GUID *pSubtype;
         WORD BitCount;
         const CHAR *pName;
         const WCHAR *wszName;
-} BitCountMap[] =  { &MEDIASUBTYPE_RGB1,        1,   "RGB Monochrome",     L"RGB Monochrome",   
-        &MEDIASUBTYPE_RGB4,        4,   "RGB VGA",            L"RGB VGA",          
-        &MEDIASUBTYPE_RGB8,        8,   "RGB 8",              L"RGB 8",            
-        &MEDIASUBTYPE_RGB565,      16,  "RGB 565 (16 bit)",   L"RGB 565 (16 bit)", 
+} BitCountMap[] =  { &MEDIASUBTYPE_RGB1,        1,   "RGB Monochrome",     L"RGB Monochrome",
+        &MEDIASUBTYPE_RGB4,        4,   "RGB VGA",            L"RGB VGA",
+        &MEDIASUBTYPE_RGB8,        8,   "RGB 8",              L"RGB 8",
+        &MEDIASUBTYPE_RGB565,      16,  "RGB 565 (16 bit)",   L"RGB 565 (16 bit)",
         &MEDIASUBTYPE_RGB555,      16,  "RGB 555 (16 bit)",   L"RGB 555 (16 bit)", 
-        &MEDIASUBTYPE_RGB24,       24,  "RGB 24",             L"RGB 24",           
+        &MEDIASUBTYPE_RGB24,       24,  "RGB 24",             L"RGB 24",
         &MEDIASUBTYPE_RGB32,       32,  "RGB 32",             L"RGB 32",
         &MEDIASUBTYPE_ARGB32,    32,  "ARGB 32",             L"ARGB 32",
-        &MEDIASUBTYPE_Overlay,     0,   "Overlay",            L"Overlay",          
-        &MEDIASUBTYPE_I420,       12,   "I420",               L"I420",          
-        &GUID_NULL,                0,   "UNKNOWN",            L"UNKNOWN"           
+        &MEDIASUBTYPE_Overlay,     0,   "Overlay",            L"Overlay",
+        &MEDIASUBTYPE_I420,       12,   "I420",               L"I420",
+        &MEDIASUBTYPE_YUY2,       12,   "YUY2",               L"YUY2",
+        &GUID_R210,               12,   "r210",               L"r210",
+        &GUID_v210,               12,   "v210",               L"v210",
+        &GUID_V210,               12,   "V210",               L"V210",
+        &MEDIASUBTYPE_UYVY,       12,   "UYVY",               L"UYVY",
+        &GUID_HDYC,               12,   "HDYC",               L"HDYC",
+        &GUID_NULL,                0,   "UNKNOWN",            L"UNKNOWN"
 };
 
 static int LocateSubtype(const GUID *pSubtype)
@@ -1161,6 +1179,15 @@ static int LocateSubtype(const GUID *pSubtype)
         assert(pSubtype);
         const GUID *pMediaSubtype;
         INT iPosition = 0;
+
+/* this code is only to optain type data if UNKNOWN
+        fprintf(stderr, "%s ", &pSubtype->Data1);
+        fprintf(stderr, "%X ", pSubtype->Data1);
+        fprintf(stderr, "%hX ", pSubtype->Data2);
+        fprintf(stderr, "%hX ", pSubtype->Data3);
+        for (int i = 0;i < 8; ++i)
+                fprintf(stderr, "%.2hhX", pSubtype->Data4[i]);
+*/
 
         // Scan the mapping list seeing if the source GUID matches any known
         // bitmap subtypes, the list is terminated by a GUID_NULL entry
