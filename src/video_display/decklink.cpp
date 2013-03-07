@@ -742,8 +742,9 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
 
 
-#ifndef WIN32
+#ifdef WIN32
 	// Initialize COM on this thread
+        result = CoInitialize(NULL);
 	if(FAILED(result)) {
 		fprintf(stderr, "Initialize of COM failed - result = "
 				"%08x.\n", result);
