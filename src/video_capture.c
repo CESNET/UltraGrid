@@ -55,9 +55,12 @@
 #include "debug.h"
 #include "video_codec.h"
 #include "video_capture.h"
+#include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
+#include "video_capture/bluefish444.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
+#include "video_capture/deltacast_dvi.h"
 #include "video_capture/dvs.h"
 #include "video_capture/import.h"
 #include "video_capture/linsys.h"
@@ -126,6 +129,32 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_import_grab),
          NULL
         },
+#if defined HAVE_BLUEFISH444 || defined BUILD_LIBRARIES
+        {
+         /* The Bluefish444 capture card */
+         0,
+         "bluefish444",
+         MK_NAME(vidcap_bluefish444_probe),
+         MK_NAME(vidcap_bluefish444_init),
+         MK_NAME(vidcap_bluefish444_finish),
+         MK_NAME(vidcap_bluefish444_done),
+         MK_NAME(vidcap_bluefish444_grab),
+         NULL
+        },
+#endif /* HAVE_BLUEFISH444 */
+#if defined HAVE_DSHOW || defined BUILD_LIBRARIES
+        {
+         /* The DirectShow capture card */
+         0,
+         NULL,
+         MK_NAME(vidcap_dshow_probe),
+         MK_NAME(vidcap_dshow_init),
+         MK_NAME(vidcap_dshow_finish),
+         MK_NAME(vidcap_dshow_done),
+         MK_NAME(vidcap_dshow_grab),
+         NULL
+        },
+#endif /* HAVE_DSHOW */
 #if defined HAVE_SCREEN_CAP || defined BUILD_LIBRARIES
         {
          /* The screen capture card */
@@ -175,6 +204,16 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_deltacast_finish),
          MK_NAME(vidcap_deltacast_done),
          MK_NAME(vidcap_deltacast_grab),
+         NULL
+        },
+        {
+         0,
+         "deltacast-dvi",
+         MK_NAME(vidcap_deltacast_dvi_probe),
+         MK_NAME(vidcap_deltacast_dvi_init),
+         MK_NAME(vidcap_deltacast_dvi_finish),
+         MK_NAME(vidcap_deltacast_dvi_done),
+         MK_NAME(vidcap_deltacast_dvi_grab),
          NULL
         },
 #endif                          /* HAVE_DELTACAST */

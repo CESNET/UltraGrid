@@ -64,24 +64,25 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
 
 const struct codec_info_t codec_info[] = {
-        {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, "rgba"},
-        {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, "yuv"},
-        {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, "yuv"},
-        {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, "yuv"},
-        {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, "yuv"},
-        {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, "r10k"},
-        {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "v210"},
-        {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "dvs10"},
-        {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, "dxt1"},
-        {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
-        {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, "yog"},/* DXT5 YCoCg */
-        {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, "rgb"},
-        {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, "dpx"},
-        {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, "jpg"},
-        {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE, "raw"}, /* raw SDI */
-        {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE, "h264"},
-        {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE, "jpg"},
-        {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE, "vp8"},
+        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, "rgba"},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, "yuv"},
+        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, "yuv"},
+        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, "yuv"},
+        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, "yuv"},
+        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, "r10k"},
+        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "v210"},
+        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "dvs10"},
+        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, "dxt1"},
+        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, "yog"},/* DXT5 YCoCg */
+        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, "rgb"},
+        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, "dpx"},
+        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, "jpg"},
+        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE, "raw"}, /* raw SDI */
+        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE, "h264"},
+        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE, "jpg"},
+        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE, "vp8"},
+        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE, "bgr},
         {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE, NULL}
 };
 
@@ -103,6 +104,8 @@ const struct line_decode_from_to line_decoders[] = {
         { RGB, RGBA, vc_copylineRGBtoRGBA},
         { DPX10, RGBA, vc_copylineDPX10toRGBA},
         { DPX10, RGB, (decoder_t) vc_copylineDPX10toRGB},
+        { RGB, UYVY, (decoder_t) vc_copylineRGBtoUYVY},
+        { BGR, RGB, (decoder_t) vc_copylineBGRtoRGB},
         { (codec_t) 0, (codec_t) 0, NULL }
 };
 
@@ -444,7 +447,7 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
                 0xff00ff00ul};
 
         d = (uint32_t *)(void *) dst;
-        s = (const uint32_t *)(void *) src;
+        s = (const uint32_t *)(const void *) src;
 
         assert(dst_len % 4 == 0);
 
@@ -506,7 +509,7 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
         register uint32_t tmp;
 
         d = (uint32_t *)(void *) dst;
-        s = (const void *)(void *) src;
+        s = (const void *)(const void *) src;
 
         while (len > 0) {
                 tmp =
@@ -556,7 +559,7 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
                 int gshift, int bshift)
 {
         register uint32_t *d = (uint32_t *)(void *) dst;
-        register const uint32_t *s = (const uint32_t *)(void *) src;
+        register const uint32_t *s = (const uint32_t *)(const void *) src;
         register uint32_t tmp;
 
         if (rshift == 0 && gshift == 8 && bshift == 16) {
@@ -606,7 +609,7 @@ void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int ds
         const unsigned int *s1;
         register unsigned int a,b;
         d = (unsigned int *)(void *) dst;
-        s1 = (const unsigned int *)(void *) src;
+        s1 = (const unsigned int *)(const void *) src;
 
         while(dst_len > 0) {
                 a = b = *s1++;
@@ -701,7 +704,7 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
         register uint64_t a1, a2, a3, a4;
 
         d = (uint64_t *)(void *) dst;
-        s = (const uint64_t *)(void *) src;
+        s = (const uint64_t *)(const void *) src;
 
         while (src_len > 0) {
                 a1 = *(s++);
@@ -757,7 +760,7 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  */
 void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
@@ -784,7 +787,7 @@ void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
  */
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
-	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
@@ -817,7 +820,7 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
  */
 void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
-	register const uint32_t * src = (const uint32_t *)(void *) src2;
+	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
 		register uint32_t in1 = *src++;
@@ -868,6 +871,104 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
+ * Converts RGB to UYVY.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     buffer
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register int r, g, b;
+        register int y1, y2, u ,v;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+
+        while(dst_len > 0) {
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                y1 = 19595 * r + 38469 * g + 7471 * b;
+                u  = -9642 * r -18931 * g + 28573 * b;
+                v  = 40304 * r - 33750 * g - 6554 * b;
+                r = *src++;
+                g = *src++;
+                b = *src++;
+                y2 = 19595 * r + 38469 * g + 7471 * b;
+                u += -9642 * r -18931 * g + 28573 * b;
+                v += 40304 * r - 33750 * g - 6554 * b;
+                u = u / 2 + (1<<23);
+                v = v / 2 + (1<<23);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
+                        (min(max(u, 0), (1<<24)-1) >> 16);
+                dst_len -= 4;
+        }
+}
+
+/**
+ * Converts BGR to UYVY.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     buffer in BGR
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register int r, g, b;
+        register int y1, y2, u ,v;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+
+        while(dst_len > 0) {
+                b = *src++;
+                g = *src++;
+                r = *src++;
+                y1 = 19595 * r + 38469 * g + 7471 * b;
+                u  = -9642 * r -18931 * g + 28573 * b;
+                v  = 40304 * r - 33750 * g - 6554 * b;
+                b = *src++;
+                g = *src++;
+                r = *src++;
+                y2 = 19595 * r + 38469 * g + 7471 * b;
+                u += -9642 * r -18931 * g + 28573 * b;
+                v += 40304 * r - 33750 * g - 6554 * b;
+                u = u / 2 + (1<<23);
+                v = v / 2 + (1<<23);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
+                        (min(max(u, 0), (1<<24)-1) >> 16);
+                dst_len -= 4;
+        }
+}
+
+/**
+ * Converts BGR to RGB.
+ *
+ * @param[out] dst     output buffer in RGB
+ * @param[in]  src     buffer in BGR
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        register int r, g, b;
+
+        while(dst_len > 0) {
+                b = *src++;
+                g = *src++;
+                r = *src++;
+                *dst++ = r;
+                *dst++ = g;
+                *dst++ = b;
+                dst_len -= 3;
+        }
+}
+
+/**
  * Converts DPX10 to RGBA
  *
  * @param[out] dst     4B-aligned output buffer
@@ -881,7 +982,7 @@ void
 vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         
-        register const unsigned int *in = (const unsigned int *)(void *) src;
+        register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r,g,b;
 
@@ -908,7 +1009,7 @@ void
 vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
         
-        register const unsigned int *in = (const unsigned int *)(void *) src;
+        register const unsigned int *in = (const unsigned int *)(const void *) src;
         register unsigned int *out = (unsigned int *)(void *) dst;
         register int r1,g1,b1,r2,g2,b2;
        

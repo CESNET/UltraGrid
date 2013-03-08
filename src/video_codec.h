@@ -56,6 +56,10 @@
 
 #include "video.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef  void (*decoder_t)(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 
 struct codec_info_t {
@@ -109,6 +113,9 @@ void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int len)
 void vc_copylineABGRtoRGB(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
+void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int len);
+void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int len);
 void vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
 void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift);
@@ -116,6 +123,10 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  * @return TRUE or FALSE
  */
 int codec_is_a_rgb(codec_t codec);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

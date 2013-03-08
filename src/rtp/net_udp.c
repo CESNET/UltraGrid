@@ -531,6 +531,9 @@ int udp_set_send_buf(socket_udp *s, int size)
         return TRUE;
 }
 
+/*
+ * TODO: This should be definitely removed. We need to solve audio burst avoidance first.
+ */
 void udp_flush_recv_buf(socket_udp *s)
 {
         const int len = 1024 * 1024;

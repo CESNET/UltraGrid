@@ -129,7 +129,7 @@ struct compress_t compress_modules[] = {
                 NULL
         },
 #endif
-#if defined HAVE_LIBAVCODEC || defined  BUILD_LIBRARIES
+#if defined HAVE_LAVC || defined  BUILD_LIBRARIES
         {
                 "libavcodec",
                 "libavcodec",

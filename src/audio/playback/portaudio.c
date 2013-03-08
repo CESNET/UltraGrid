@@ -45,6 +45,12 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -55,8 +61,6 @@
 
 #include "audio/audio.h"
 #include "audio/playback/portaudio.h"
-#include "config.h"
-#include "config_unix.h"
 #include "debug.h"
 #include "utils/ring_buffer.h"
 

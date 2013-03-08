@@ -687,6 +687,9 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 tile->width = displayMode->GetWidth();
                 tile->height = displayMode->GetHeight();
                 s->frame->color_spec = s->c_info->codec;
+                if(s->frame->color_spec == Vuy2 || s->frame->color_spec == DVS8) {
+                        s->frame->color_spec = UYVY;
+                }
 
                 displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                 s->frame->fps = (double)frameRateScale / (double)frameRateDuration;
@@ -951,7 +954,13 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         break;
                                 }
 
-                                printf("The desired display mode is supported: %d\n",s->mode);  
+                                if(mode_found) {
+                                        printf("The desired display mode is supported: %d\n",s->mode);  
+                                } else {
+                                        fprintf(stderr, "Desired mode index %d is out of bounds.\n",
+                                                        s->mode);
+                                        goto error;
+                                }
                 
                                 BMDPixelFormat pf;
 

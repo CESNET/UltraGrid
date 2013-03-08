@@ -53,16 +53,40 @@ extern "C" {
 #include "host.h"
 }
 
-void *initSage(const char *confName, int appID, int nodeID, int width,
+/*
+ * Either confName or fsIP should be NULL
+ */
+void *initSage(const char *confName, const char *fsIP, int appID, int nodeID, int width,
                 int height, codec_t codec)
 {
         sail *sageInf; // sage sail object
 
         sageInf = new sail;
         sailConfig sailCfg;
-        sailCfg.init((char *) confName);
+
+        // default values
+        if(fsIP) {
+                strncpy(sailCfg.fsIP, fsIP, SAGE_IP_LEN);
+        }
+        sailCfg.fsPort = 20002;
+        strncpy(sailCfg.masterIP, "127.0.0.1", SAGE_IP_LEN);
+        sailCfg.nwID = 1;
+        sailCfg.msgPort = 23010;
+        sailCfg.syncPort = 13010;
+        sailCfg.blockSize = 64;
+        sailCfg.winX = sailCfg.winY = 0;
+        sailCfg.winWidth = width;
+        sailCfg.winHeight = height;
+        sailCfg.streamType = SAGE_BLOCK_NO_SYNC;
+        sailCfg.protocol = SAGE_UDP;
+        sailCfg.asyncUpdate = false;
+
+        if(confName) {
+                sailCfg.init((char *) confName);
+        }
         sailCfg.setAppName("ultragrid");
         sailCfg.rank = nodeID;
+        sailCfg.appID = appID;
         sailCfg.resX = width;
         sailCfg.resY = height;
         

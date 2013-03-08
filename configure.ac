@@ -54,6 +54,8 @@ AC_SUBST(LIBS)
 AC_SUBST(OBJS)
 AC_SUBST(POST_COMPILE_MSG)
 
+AC_CHECK_SIZEOF([int *])
+
 AC_C_BIGENDIAN(
         AC_DEFINE([WORDS_BIGENDIAN], 1, [This is big endian system]),
         AC_DEFINE([WORDS_SMALLENDIAN], 1, [This is little endian system])
@@ -188,6 +190,15 @@ static inline int posix_memalign(void **memptr, size_t alignment, size_t size)
 if test "$ac_cv_prog_cc_c99" = no
 then
         AC_MSG_ERROR([Your compiler does not accept C99.])
+fi
+
+AC_CHECK_SIZEOF([int *])
+
+if test $ac_cv_sizeof_int_p -eq 8
+then
+        WORD_LEN=64
+else
+        WORD_LEN=32
 fi
 
 # -------------------------------------------------------------------------------------------------
@@ -417,6 +428,7 @@ AC_ARG_VAR([CUDA_DIRECTORY], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
+AC_ARG_VAR([BLUE_LATEST_SDK], [Placement of Bluefish444 SDK.])
 
 # -------------------------------------------------------------------------------------------------
 # X Window System
@@ -508,24 +520,33 @@ case "$host" in
 	i*86-*-linux-*)
 		DVS_SDK_SUBDIR="linux-x86"
 	;;
+	*mingw32*)
+		DVS_SDK_SUBDIR="win32"
+        ;;
 esac
 
 if test -n "$DVS_DIRECTORY"
 then
-        DVS_INC=$DVS_DIRECTORY/development/header
+        DVS_HDR_PATH=$DVS_DIRECTORY/development/header
         DVS_LIB=$DVS_DIRECTORY/${DVS_SDK_SUBDIR}/lib
 else
-        DVS_INC=sdk4.0.1.17/development/header
+        DVS_HDR_PATH=sdk4.0.1.17/development/header
 	DVS_LIB=sdk4.0.1.17/${DVS_SDK_SUBDIR}/lib
 fi
 
 AC_ARG_WITH(dvs,
 	[  --with-dvs=DIR    specify location of DVS SDK],
-	[DVS_INC=$withval/development/header
+	[DVS_HDR_PATH=$withval/development/header
 	 DVS_LIB=$withval/${DVS_SDK_SUBDIR}/lib],
         )
 
-AC_CHECK_HEADER(${DVS_INC}/dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
+SAVED_CFLAGS=$CFLAGS
+SAVED_CPPFLAGS=$CPPFLAGS
+CFLAGS="$CFLAGS -I${DVS_HDR_PATH}"
+CPPFLAGS="$CPPFLAGS -I${DVS_HDR_PATH}"
+AC_CHECK_HEADER(dvs_clib.h, FOUND_DVS_H=yes, FOUND_DVS_H=no)
+CFLAGS=$SAVED_CFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS
 
 SAVED_LIBS=$LIBS
 if test $system = MacOSX
@@ -537,12 +558,15 @@ LIBS=$SAVED_LIBS
 
 if test $dvs_req != no -a $FOUND_DVS_H = yes -a $FOUND_DVS_L = yes
 then
-	DVS_INC=-I${DVS_INC}
-	DVS_LIB=${DVS_LIB}/libdvsoem.a
+	DVS_INC=-I${DVS_HDR_PATH}
+	DVS_LIB="-L${DVS_LIB} -ldvsoem"
+        if test $system = Linux; then
+                DVS_LIB="$DVS_LIB -ldl"
+        fi
 	DVS_CAP_OBJ="src/video_capture/dvs.o"
 	DVS_DISP_OBJ="src/video_display/dvs.o"
         AC_DEFINE([HAVE_DVS], [1], [Build with DVS support])
-        DVS_LIB="$DVS_LIB -ldl"
+        DVS_LIB="$DVS_LIB"
 	if test $system = MacOSX
 	then
 		DVS_LIB="$DVS_LIB -framework IOKit"
@@ -730,6 +754,142 @@ AC_SUBST(LINSYS_INC)
 AC_SUBST(LINSYS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# Bluefish444 stuff
+# -------------------------------------------------------------------------------------------------
+BLUEFISH444_PATH=
+BLUEFISH444_CAP_OBJ=
+BLUEFISH444_DISP_OBJ=
+BLUEFISH444_INC=
+BLUEFISH444_LIB=
+bluefish444_req=auto
+bluefish444=no
+blue_audio_req=auto
+blue_audio=no
+
+AC_ARG_ENABLE(bluefish444,
+              AS_HELP_STRING([--disable-bluefish444], [disable Bluefish444 suppport (default is auto)]),
+              [bluefish444_req=$enableval],
+              [bluefish444_req=auto]
+              )
+AC_ARG_ENABLE(blue-audio,
+              AS_HELP_STRING([--disable-blue-audio], [disable Bluefish444 audio suppport (default is auto)]),
+              [blue_audio_req=$enableval],
+              [blue_audio_req=auto]
+              )
+BLUEFISH444_PATH=$BLUE_LATEST_SDK
+
+AC_ARG_WITH(bluefish444,
+            [  --with-bluefish444=DIR         specify location of Bluefish444],
+            [BLUEFISH444_PATH=$withval
+             ])
+
+
+SAVED_LIBS=$LIBS
+SAVED_CXXFLAGS=$CXXFLAGS
+SAVED_CPPFLAGS_SAVE=$CPPFLAGS
+if test -n "$BLUEFISH444_PATH"; then
+        if test $system = Linux; then
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/install/inc -I$BLUEFISH444_PATH/EmbAudio"
+        else
+                BLUEFISH444_INC="-I$BLUEFISH444_PATH/Inc -IBlueVelvetC/BlueVelvetC"
+        fi
+        
+        CXXFLAGS="$CXXFLAGS $BLUEFISH444_INC "
+        CPPFLAGS="$CPPFLAGS $BLUEFISH444_INC"
+        if test $system = Linux; then
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/install/lib $BLUEFISH444_LIB"
+        else
+                BLUEFISH444_LIB="-L$BLUEFISH444_PATH/Lib -LBlueVelvetC/Release $BLUEFISH444_LIB"
+        fi
+	LIBS="$LIBS $BLUEFISH444_LIB"
+fi
+
+AC_LANG_PUSH(C++)
+
+if test $system = Windows
+then
+        AC_CHECK_HEADERS([BlueVelvetC_UltraGrid.h],
+                        [BLUE_H=yes], [BLUE_H=no],
+                        [[
+#include <objbase.h>
+                        ]]
+                        )
+        if test $WORD_LEN -eq 64; then
+                BLUE_AUDIO_LIB="BlueHancUtils64"
+                BLUEFISH444_LIB_NAME=BlueVelvetC64
+                BLUE_AUX=BlueVelvet64
+        else
+                BLUE_AUDIO_LIB="BlueHancUtils"
+                BLUEFISH444_LIB_NAME=BlueVelvetC_UltraGrid
+                BLUE_AUX=BlueVelvet3
+        fi
+        
+        AC_CHECK_LIB($BLUEFISH444_LIB_NAME, bfcFactory, [BLUE_L=yes],
+                        [BLUE_L=no])
+        BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUX -l$BLUEFISH444_LIB_NAME"
+else
+if test $system = Linux
+then
+        AC_CHECK_HEADERS([BlueVelvet.h], [BLUE_H=yes], [BLUE_H=no])
+        AC_CHECK_LIB(BlueVelvet, BlueVelvetFactory, [BLUE_L=yes], [BLUE_L=no])
+        if test $WORD_LEN -eq 64; then
+                BLUE_AUDIO_LIB="BlueANCUtils64"
+        else
+                BLUE_AUDIO_LIB="BlueANCUtils"
+        fi
+        BLUEFISH444_LIB="$BLUEFISH444_LIB -lBlueVelvet"
+fi
+fi
+
+if test $system = Windows -o $system = Linux;then
+        AC_CHECK_LIB($BLUE_AUDIO_LIB, hanc_decoder_ex, [HAVE_BLUE_AUDIO_L=yes],
+                     [HAVE_BLUE_AUDIO_L=no])
+        if test $HAVE_BLUE_AUDIO_L = yes -a $blue_audio_req != no; then
+                BLUEFISH444_LIB="$BLUEFISH444_LIB -l$BLUE_AUDIO_LIB"
+                blue_audio=yes
+        fi
+fi
+
+
+
+if test $BLUE_H = yes -a $BLUE_L = yes
+then
+        BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
+        BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
+        AC_DEFINE([HAVE_BLUEFISH444], [1], [Build with Bluefish444 support])
+        AC_SUBST(BLUEFISH444_CAP_LIB_TARGET, "lib/ultragrid/vidcap_bluefish444.so.$video_capture_abi_version")
+        AC_SUBST(BLUEFISH444_DISP_LIB_TARGET, "lib/ultragrid/display_bluefish444.so.$video_display_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $BLUEFISH444_CAP_LIB_TARGET $BLUEFISH444_DISP_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $BLUEFISH444_CAP_OBJ $BLUEFISH444_DISP_OBJ"
+        if test x$blue_audio = xyes; then
+                AC_DEFINE([HAVE_BLUE_AUDIO], [1], [Build with Bluefish444 audio support])
+        fi
+        bluefish444=yes
+else
+        BLUEFISH444_INC=
+        BLUEFISH444_LIB=
+        BLUEFISH444_CAP_OBJ=
+        BLUEFISH444_DISP_OBJ=
+fi
+AC_LANG_POP(C++)
+
+LIBS=$SAVED_LIBS
+CXXFLAGS=$SAVED_CXXFLAGS
+CPPFLAGS=$SAVED_CPPFLAGS_SAVE
+
+if test $bluefish444_req = yes -a $bluefish444 = no; then
+        AC_MSG_ERROR([Bluefish444 not found]);
+fi
+
+LIB_MODULES="$LIB_MODULES $BLUEFISH444_LIB"
+
+AC_SUBST(BLUEFISH444_PATH)
+AC_SUBST(BLUEFISH444_INC)
+AC_SUBST(BLUEFISH444_LIB)
+AC_SUBST(BLUEFISH444_CAP_OBJ)
+AC_SUBST(BLUEFISH444_DISP_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 # DELTACAST stuff
 
 DELTACAST_PATH=
@@ -825,7 +985,7 @@ then
                 then
                         DELTACAST_INC="-I$DELTACAST_PATH/$HEADER_SUBDIR"
                 fi
-                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o"
+                DELTACAST_CAP_OBJ="src/video_capture/deltacast.o src/video_capture/deltacast_dvi.o"
                 DELTACAST_DISP_OBJ="src/video_display/deltacast.o"
                 AC_DEFINE([HAVE_DELTACAST], [1], [Build with DELTACAST support])
                 AC_SUBST(DELTACAST_CAP_LIB_TARGET, "lib/ultragrid/vidcap_deltacast.so.$video_capture_abi_version")
@@ -1564,8 +1724,6 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
-AC_CHECK_SIZEOF([int *])
-
 SAVED_LIBS=$LIBS
 LIBS="$LIBS -lcudart"
 if test -z "$CUDA_PATH"
@@ -1588,7 +1746,7 @@ then
         fi
         SAVED_CFLAGS=$CFLAGS
         CFLAGS="$CFLAGS -I$CUDA_PATH/include/"
-        if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
+        if test $WORD_LEN -eq 64 -a $system = Linux
         then
                 LIBS="$LIBS -L$CUDA_PATH/lib64"
         else
@@ -1652,7 +1810,7 @@ jpeg=no
 jpeg_static=no
 
 AC_ARG_ENABLE(jpeg,
-      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (default is auto)]),
+      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto if GPUJPEG library in system)]),
 	[jpeg_req=$enableval],
         [jpeg_req=auto])
 
@@ -1687,22 +1845,25 @@ then
         fi
 fi
 
-if test "$jpeg_req" != no -a $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
+SAVED_LIBS=$LIBS
+AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+LIBS=$SAVED_LIBS
+if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
+        jpeg_static=yes
+fi
+
+if test \( "$jpeg_req" = yes -o \( "$jpeg_req" = auto -a $jpeg_static = no \) \) -a \
+        $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
         "$jpeg_os_version_ok" = yes
 then
         jpeg=yes
 
-        SAVED_LIBS=$LIBS
-        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
-        LIBS=$SAVED_LIBS
-
         JPEG_LIB=" $CUDA_LIB"
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
-        if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
+        if test $jpeg_static = yes; then
                 JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ gpujpeg/.libs/libgpujpeg.a"
                 JPEG_INC="$JPEG_INC -Igpujpeg"
-                jpeg_static=yes
         else
                 JPEG_LIB="$JPEG_LIB -lgpujpeg"
         fi
@@ -2162,6 +2323,28 @@ AC_SUBST(V4L2_OBJ)
 
 LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
+# -----------------------------------------------------------------------------
+# DirectShow
+# -----------------------------------------------------------------------------
+dshow=no
+dshow_req=auto
+AC_ARG_ENABLE(dshow,
+      AS_HELP_STRING([--disable-dshow], [disable DirectShow support(default is auto)]),
+    [dshow_req=$enableval],
+    [dshow_req=auto]
+    )
+
+if test $system = Windows -a $dshow_req != no; then
+        AC_DEFINE([HAVE_DSHOW], [1], [Build with DirectShow support])
+        LIB_MODULES="$LIB_MODULES -lstrmiids -luuid -loleaut32 " #-lstrmbase -ldxguid -ldmoguids
+        LIB_OBJS="$LIB_OBJS src/video_capture/DirectShowGrabber.o"
+        dshow=yes
+fi
+
+if test $dshow_req = yes -a $dshow = no; then
+        AC_MSG_ERROR([DirectShow not found]);
+fi
+
 # -------------------------------------------------------------------------------------------------
 # Libav
 # -------------------------------------------------------------------------------------------------
@@ -2191,7 +2374,7 @@ fi
 if test $libavcodec_req != no -a $found_libavcodec = yes
 then
         LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
-        AC_DEFINE([HAVE_LIBAVCODEC], [1], [Build with LIBAVCODEC support])
+        AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
         AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET"
@@ -2288,7 +2471,9 @@ RESULT=\
   Standalone modules .......... $build_libraries
   License ..................... $license
 
+  Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
+  DirectShow .................. $dshow
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
   Linsys capture .............. $linsys

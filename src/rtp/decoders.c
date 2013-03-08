@@ -59,8 +59,6 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
-#include <pthread.h>
-
 struct state_decoder;
 
 static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
@@ -630,7 +628,26 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
         int trans;
         for(trans = 0; line_decoders[trans].line_decoder != NULL;
                                 ++trans) {
-                
+                for(native = 0; native < decoder->native_count; ++native)
+                {
+                        out_codec = decoder->native_codecs[native];
+                        if(out_codec == DVS8 || out_codec == Vuy2)
+                                out_codec = UYVY;
+                        if(*in_codec == line_decoders[trans].from &&
+                                        out_codec == line_decoders[trans].to) {
+                                                
+                                *decode_line = line_decoders[trans].line_decoder;
+                                
+                                decoder->decoder_type = LINE_DECODER;
+                                goto after_linedecoder_lookup;
+                        }
+                }
+        }
+        
+after_linedecoder_lookup:
+
+        /* we didn't find line decoder. So try now regular (aka DXT) decoder */
+        if(*decode_line == NULL) {
                 for(native = 0; native < decoder->native_count; ++native)
                 {
                         out_codec = decoder->native_codecs[native];
@@ -649,53 +666,13 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
                                 if(prio_cur != -1) {
                                         if(try_initialize_decompress(decoder, decompress_magic)) {
                                                 goto after_decoder_lookup;
+                                        } else {
                                                 // failed, try to find another one
                                                 prio_min = prio_cur + 1;
-                                        } else {
-                                                break;
-                                        }
-                                }
-                        }
-                }
-        }
-        
-after_linedecoder_lookup:
-
-        /* we didn't find line decoder. So try now regular (aka DXT) decoder */
-        if(*decode_line == NULL) {
-                for(native = 0; native < decoder->native_count; ++native)
-                {
-                        int trans;
-                        out_codec = decoder->native_codecs[native];
-                        if(out_codec == DVS8 || out_codec == Vuy2)
-                                out_codec = UYVY;
-                                
-                        for(trans = 0; trans < decoders_for_codec_count;
-                                        ++trans) {
-                                if(*in_codec == decoders_for_codec[trans].from &&
-                                                out_codec == decoders_for_codec[trans].to) {
-                                        decoder->ext_decoder = decompress_init(decoders_for_codec[trans].decompress_index);
-
-                                        if(!decoder->ext_decoder) {
-                                                debug_msg("Decompressor with magic %x was not found.\n");
                                                 continue;
                                         }
-
-                                        int res = 0, ret;
-                                        size_t size = sizeof(res);
-                                        ret = decompress_get_property(decoder->ext_decoder,
-                                                        DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
-                                                        &res,
-                                                        &size);
-                                        if(ret && res) {
-                                                decoder->accepts_corrupted_frame = TRUE;
-                                        } else {
-                                                decoder->accepts_corrupted_frame = FALSE;
-                                        }
-
-                                        decoder->decoder_type = EXTERNAL_DECODER;
-
-                                        goto after_decoder_lookup;
+                                } else {
+                                        break;
                                 }
                         }
                 }
@@ -1209,9 +1186,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                        memcpy(ext_recv_buffer,
-                                        decoder->ext_recv_buffer[decoder->ext_recv_buffer_index_network],
-                                        decoder->max_substreams * sizeof(char *));
+                        memcpy(ext_recv_buffer, decoder->ext_recv_buffer, decoder->max_substreams * sizeof(char *));
                 }
                 
                 if (pt == PT_VIDEO) {
@@ -1308,7 +1283,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 }
                         } else if(decoder->decoder_type == EXTERNAL_DECODER) {
                                 //int pos = (substream >> 3) & 0x7 + (substream & 0x7) * frame->grid_width;
-                                memcpy(ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
+                                memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
                                         len);
                         }
                 } else { /* PT_VIDEO_LDGM */

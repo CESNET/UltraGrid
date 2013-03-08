@@ -65,6 +65,8 @@ extern unsigned int audio_capture_channels;
 extern unsigned int cuda_devices[];
 extern unsigned int cuda_devices_count;
 
+extern char *sage_network_device;
+
 // for aggregate.c
 struct vidcap;
 struct display;

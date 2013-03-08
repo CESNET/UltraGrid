@@ -138,9 +138,9 @@ LDGM_session::encode_frame ( char* frame, int frame_size, int* out_buf_size )
 
     void *out_buf;
     out_buf = aligned_malloc(buf_size, 16);
-    if (out_buf)
+    if (!out_buf)
     {
-	printf ( "Unable to allocate memmory using posix_memalign\n" );
+	printf ( "Unable to allocate aligned memory\n" );
 	return NULL;
     }
     memset(out_buf, 0, buf_size);
@@ -227,9 +227,9 @@ LDGM_session::encode_hdr_frame ( char *my_hdr, int my_hdr_size, char* frame, int
 
     void *out_buf;
     out_buf = aligned_malloc(buf_size, 16);
-    if (out_buf)
+    if (!out_buf)
     {
-	printf ( "Unable to allocate memmory using posix_memalign\n" );
+	printf ( "Unable to allocate aligned memory\n" );
 	return NULL;
     }
     memset(out_buf, 0, buf_size);

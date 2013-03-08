@@ -54,6 +54,14 @@
 
 #define __RING_BUFFER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @warining ring_buffer is generally not thread safe. The exception is when
+ * one thread reads and the other writes to the ring buffer (producer-consumer).
+ */
 struct ring_buffer;
 typedef struct ring_buffer ring_buffer_t;
 
@@ -68,7 +76,17 @@ void ring_buffer_destroy(struct ring_buffer * ring);
 int ring_buffer_read(struct ring_buffer * ring, char *out, int max_len);
 void ring_buffer_write(struct ring_buffer * ring, const char *in, int len);
 int ring_get_size(struct ring_buffer * ring);
-
+/**
+ * Flushes all data from ring buffer
+ */
+void ring_buffer_flush(struct ring_buffer *ring);
+/**
+ * Returns actual buffer usage
+ */
 int ring_get_current_size(struct ring_buffer * ring);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __RING_BUFFER_H */

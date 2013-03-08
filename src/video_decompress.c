@@ -137,7 +137,7 @@ struct decode_from_to decoders_for_codec[] = {
         { JPEG, DXT1, TRANSCODE_MAGIC, 900 },
         { JPEG, DXT5, TRANSCODE_MAGIC, 900 },
         { VP8, UYVY, LIBAVCODEC_MAGIC, 500 },
-        { (codec_t) -1, (codec_t) -1, NULL_MAGIC }
+        { (codec_t) -1, (codec_t) -1, NULL_MAGIC, 0 }
 };
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
 
@@ -152,7 +152,7 @@ decoder_table_t decoders[] = {
                 MK_NAME(jpeg_decompress), MK_NAME(jpeg_decompress_get_property),
                 MK_NAME(jpeg_decompress_done), NULL},
 #endif 
-#if defined HAVE_LIBAVCODEC || defined BUILD_LIBRARIES
+#if defined HAVE_LAVC || defined BUILD_LIBRARIES
         { LIBAVCODEC_MAGIC, "libavcodec",
                 MK_NAME(libavcodec_decompress_init),
                 MK_NAME(libavcodec_decompress_reconfigure),
