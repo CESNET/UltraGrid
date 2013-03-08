@@ -82,7 +82,7 @@ const struct codec_info_t codec_info[] = {
         [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE, "h264"},
         [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE, "jpg"},
         [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE, "vp8"},
-        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE, "bgr},
+        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE, "bgr"},
         {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE, NULL}
 };
 

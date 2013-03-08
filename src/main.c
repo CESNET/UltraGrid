@@ -1008,6 +1008,7 @@ int main(int argc, char *argv[])
 
         int bitrate = 0;
         
+        char *audio_host = NULL;
         int audio_rx_port, audio_tx_port;
 
         struct state_uv *uv;

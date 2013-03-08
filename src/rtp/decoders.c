@@ -1186,7 +1186,9 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
 
                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                        memcpy(ext_recv_buffer, decoder->ext_recv_buffer, decoder->max_substreams * sizeof(char *));
+                        memcpy(ext_recv_buffer,
+                                        decoder->ext_recv_buffer[decoder->ext_recv_buffer_index_network],
+                                        decoder->max_substreams * sizeof(char *));
                 }
                 
                 if (pt == PT_VIDEO) {
@@ -1283,7 +1285,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 }
                         } else if(decoder->decoder_type == EXTERNAL_DECODER) {
                                 //int pos = (substream >> 3) & 0x7 + (substream & 0x7) * frame->grid_width;
-                                memcpy(decoder->ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
+                                memcpy(ext_recv_buffer[substream] + data_pos, (unsigned char*)(pckt->data + sizeof(video_payload_hdr_t)),
                                         len);
                         }
                 } else { /* PT_VIDEO_LDGM */
