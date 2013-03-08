@@ -197,7 +197,7 @@ struct tx *tx_init(unsigned mtu, char *fec)
                                 assert(tx->mult_count <= FEC_MAX_MULT);
                         } else if(strcasecmp(fec, "LDGM") == 0) {
                                 tx->fec_scheme = FEC_LDGM;
-                                if(fec_cfg && strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL) {
+                                if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
                                         tx->fec_state = ldgm_encoder_init_with_cfg(fec_cfg);
                                         if(tx->fec_state == NULL) {
                                                 fprintf(stderr, "Unable to initialize LDGM.\n");
@@ -205,11 +205,7 @@ struct tx *tx_init(unsigned mtu, char *fec)
                                                 return NULL;
                                         }
                                 } else { // delay creation until we have avarage frame size
-                                        if(fec_cfg && strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') != NULL) {
-                                                tx->max_loss = atof(fec_cfg);
-                                        } else {
-                                                tx->max_loss = 5.0;
-                                        }
+                                        tx->max_loss = atof(fec_cfg);
                                 }
                         } else {
                                 fprintf(stderr, "Unknown FEC: %s\n", fec);
