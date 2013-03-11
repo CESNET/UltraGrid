@@ -793,7 +793,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 	}
 
         s->MemoryFormat = MEM_FMT_2VUY;
-        s->VideoEngine = VIDEO_ENGINE_FRAMESTORE;
+        s->VideoEngine = VIDEO_ENGINE_DUPLEX;
         s->UpdateFormat = UPD_FMT_FRAME;
         s->SubField = false;
         s->iDeviceId = 1;
