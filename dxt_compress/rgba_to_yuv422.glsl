@@ -1,17 +1,17 @@
-#if GL_legacy
+#if legacy
 #define TEXCOORD gl_TexCoord[0]
 #else
 #define TEXCOORD TEX0
 #define texture2D texture
 #endif
 
-#if GL_legacy
+#if legacy
 #define colorOut gl_FragColor
 #else
 out vec4 colorOut;
 #endif
 
-#if ! GL_legacy
+#if ! legacy
 in vec4 TEX0;
 #endif
 

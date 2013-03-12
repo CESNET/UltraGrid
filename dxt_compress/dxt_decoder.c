@@ -102,6 +102,12 @@ struct dxt_decoder*
 dxt_decoder_create(enum dxt_type type, int width, int height, enum dxt_format out_format, int legacy)
 {
     struct dxt_decoder* decoder = (struct dxt_decoder*)malloc(sizeof(struct dxt_decoder));
+
+#ifndef HAVE_MACOSX
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    assert(err == GLEW_OK);
+#endif
     
     assert(out_format == DXT_FORMAT_RGBA || out_format == DXT_FORMAT_YUV422);
     assert(out_format == DXT_FORMAT_RGBA ||
