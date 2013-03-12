@@ -1246,6 +1246,18 @@ int main(int argc, char *argv[])
 
         uv->participants = pdb_init();
 
+        // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
+        // to initalize shared resource (X display) first
+        if ((uv->display_device =
+             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
+                printf("Unable to open display device: %s\n",
+                       uv->requested_display);
+                exit_uv(EXIT_FAIL_DISPLAY);
+                goto cleanup_wait_audio;
+        }
+
+        printf("Display initialized-%s\n", uv->requested_display);
+
         if ((uv->capture_device =
                         initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
                 printf("Unable to open capture device: %s\n",
@@ -1254,16 +1266,6 @@ int main(int argc, char *argv[])
                 goto cleanup_wait_audio;
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
-
-        if ((uv->display_device =
-             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
-                printf("Unable to open display device: %s\n",
-                       uv->requested_display);
-                exit_uv(EXIT_FAIL_DISPLAY);
-                goto cleanup_wait_capture;
-        }
-
-        printf("Display initialized-%s\n", uv->requested_display);
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
