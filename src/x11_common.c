@@ -45,124 +45,131 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
-#include "debug.h"
-#include "x11_common.h"
-#include <pthread.h>
+#include "config_win32.h"
+#endif
 
+#include "x11_common.h"
+
+#include <pthread.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-static pthread_once_t XInitThreadsHasRun = PTHREAD_ONCE_INIT;
-static volatile int threads_init = FALSE;
-static Display *display = NULL;
-static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-static int display_opened_here = TRUE; /* indicates wheather we opened the display
+#include "debug.h"
+#include "utils/resource_manager.h"
+
+#define resource_symbol "X11-state"
+
+struct x11_state {
+        pthread_once_t XInitThreadsHasRun;
+        volatile int threads_init;
+        Display *display;
+        pthread_mutex_t lock;
+        int display_opened_here; /* indicates wheather we opened the display
                                           in such a case, we count references and if 0,
                                           we close it */
-static int ref_num = 0;
+        int ref_num;
+        bool initialized;
+};
 
-static void _x11_set_display(void *disp);
-static void _x11_enter_thread(void);
-void _x11_unused(void);
-static void * _x11_acquire_display(void);
-static void * _x11_get_display(void);
-static void _x11_release_display(void);
-static void _x11_lock(void);
-static void _x11_unlock(void);
+struct x11_state *get_state(void);
 
-static void _x11_enter_thread(void)
-{
-        pthread_mutex_lock(&lock);
-        pthread_once(&XInitThreadsHasRun, (void ((*)(void)))XInitThreads);
-        threads_init = TRUE;
-        pthread_mutex_unlock(&lock);
+struct x11_state *get_state() {
+        struct x11_state *state;
+        rm_lock();
+        state = (struct x11_state *) rm_get_shm(resource_symbol, sizeof(struct x11_state));
+        if(!state->initialized) {
+                state->XInitThreadsHasRun = PTHREAD_ONCE_INIT;
+                state->threads_init = FALSE;
+                state->display = NULL;
+                pthread_mutex_init(&state->lock, NULL);
+                state->display_opened_here = TRUE;
+                state->ref_num = 0;
+                state->initialized = true;
+        }
+        rm_unlock();
+
+        return state;
 }
-void (*x11_enter_thread)(void) = _x11_enter_thread;
 
-static void _x11_set_display(void *disp)
+void x11_enter_thread(void)
 {
+        struct x11_state *s = get_state();
+        pthread_mutex_lock(&s->lock);
+        pthread_once(&s->XInitThreadsHasRun, (void ((*)(void)))XInitThreads);
+        s->threads_init = TRUE;
+        pthread_mutex_unlock(&s->lock);
+}
+
+void x11_set_display(void *disp)
+{
+        struct x11_state *s = get_state();
         Display *d = disp;
         if (d == NULL)
                 return;
-        pthread_mutex_lock(&lock);
-        if(display != NULL) {
+        pthread_mutex_lock(&s->lock);
+        if(s->display != NULL) {
                 fprintf(stderr, __FILE__ ": Fatal error: Display already set.\n");
                 abort();
         }
-        if(threads_init == FALSE) {
+        if(s->threads_init == FALSE) {
                 fprintf(stderr, __FILE__ ": WARNING: Doesn't entered threads. Please report a bug.\n");
         }
-        display = d;
-        display_opened_here = FALSE;
-        pthread_mutex_unlock(&lock);
+        s->display = d;
+        s->display_opened_here = FALSE;
+        pthread_mutex_unlock(&s->lock);
 }
 
-static void * _x11_acquire_display(void)
+void * x11_acquire_display(void)
 {
-        if(!display) {
-                display = XOpenDisplay(0);
-                display_opened_here = TRUE;
+        struct x11_state *s = get_state();
+        if(!s->display) {
+                s->display = XOpenDisplay(0);
+                s->display_opened_here = TRUE;
         }
         
-        if ( !display )
+        if ( !s->display )
         {
                 fprintf(stderr, "Failed to open X display\n" );
                 return NULL;
         }
         
-        ref_num++;
-        return display;
+        s->ref_num++;
+        return s->display;
 }
-void * (*x11_acquire_display)(void) = _x11_acquire_display;
 
-static void * _x11_get_display(void)
+void * x11_get_display(void)
 {
-        return display;
+        struct x11_state *s = get_state();
+        return s->display;
 }
-void * (*x11_get_display)(void) = _x11_get_display;
 
-static void _x11_release_display() {
-        ref_num--;
+void x11_release_display() {
+        struct x11_state *s = get_state();
+        s->ref_num--;
         
-        if(ref_num < 0) {
+        if(s->ref_num < 0) {
                 fprintf(stderr, __FILE__ ": WARNING: Unpaired glx_free call.");
         }
         
-        if(display_opened_here && ref_num == 0) {
+        if(s->display_opened_here && s->ref_num == 0) {
                 fprintf(stderr, "Display closed (last client disconnected)\n");
-                XCloseDisplay( display );
-                display = NULL;
+                XCloseDisplay( s->display );
+                s->display = NULL;
         }
 }
-void (*x11_release_display)(void) = _x11_release_display;
 
-void (*x11_set_display)(void *) = _x11_set_display;
-
-static void _x11_lock(void)
+void x11_lock(void)
 {
-        pthread_mutex_lock(&lock);
+        struct x11_state *s = get_state();
+        pthread_mutex_lock(&s->lock);
 }
 
-void (*x11_lock)(void) = _x11_lock;
-
-static void _x11_unlock(void)
+void x11_unlock(void)
 {
-        pthread_mutex_unlock(&lock);
-}
-
-void (*x11_unlock)(void) = _x11_unlock;
-
-/* used only to force compilator to export symbols */
-void _x11_unused()
-{
-        x11_enter_thread();
-        x11_set_display(0);
-        x11_lock();
-        x11_unlock();
-        x11_acquire_display();
-        x11_release_display();
-        x11_get_display();
+        struct x11_state *s = get_state();
+        pthread_mutex_unlock(&s->lock);
 }
 

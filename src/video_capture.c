@@ -135,7 +135,7 @@ struct vidcap_device_api vidcap_device_table[] = {
         {
          /* The DirectShow capture card */
          0,
-         NULL,
+         "dshow",
          MK_NAME(vidcap_dshow_probe),
          MK_NAME(vidcap_dshow_init),
          MK_NAME(vidcap_dshow_finish),

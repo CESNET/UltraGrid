@@ -45,15 +45,22 @@
  *
  */
 
-extern void (*x11_enter_thread)(void);
+void x11_enter_thread(void);
 /**
  * @arg disp (Display *)
  */
-extern void (*x11_set_display)(void *);
-extern void (*x11_lock)();
-extern void (*x11_unlock)();
+void x11_set_display(void *);
+void x11_lock(void);
+void x11_unlock(void);
 
-extern void * (*x11_acquire_display)(void);
-extern void * (*x11_get_display)(void);
-extern void (*x11_release_display)(void);
+/**
+ * @arg disp (Display *)
+ */
+void * x11_acquire_display(void);
+/**
+ * Get display without increasing reference number
+ * @arg disp (Display *)
+ */
+void * x11_get_display(void);
+void x11_release_display(void);
 
