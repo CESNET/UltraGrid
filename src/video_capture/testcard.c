@@ -287,6 +287,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         unsigned int rect_size = COL_NUM;
         codec_t codec = RGBA;
         int aligned_x;
+        char *save_ptr = NULL;
 
         if (fmt == NULL || strcmp(fmt, "help") == 0) {
                 printf("testcard options:\n");
@@ -307,21 +308,21 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         
         char *tmp;
 
-        tmp = strtok(fmt, ":");
+        tmp = strtok_r(fmt, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
                 return NULL;
         }
         vf_get_tile(s->frame, 0)->width = atoi(tmp);
-        tmp = strtok(NULL, ":");
+        tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
                 free(s);
                 return NULL;
         }
         vf_get_tile(s->frame, 0)->height = atoi(tmp);
-        tmp = strtok(NULL, ":");
+        tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
@@ -330,7 +331,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         s->frame->fps = atof(tmp);
 
-        tmp = strtok(NULL, ":");
+        tmp = strtok_r(NULL, ":", &save_ptr);
         if (!tmp) {
                 free(s);
                 fprintf(stderr, "Wrong format for testcard '%s'\n", fmt);
@@ -368,7 +369,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         s->frame->interlacing = PROGRESSIVE;
         s->size = aligned_x * vf_get_tile(s->frame, 0)->height * bpp;
 
-        filename = strtok(NULL, ":");
+        filename = strtok_r(NULL, ":", &save_ptr);
         if (filename && strcmp(filename, "p") != 0
                         && strncmp(filename, "s=", 2ul) != 0
                         && strcmp(filename, "i") != 0
@@ -399,7 +400,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 }
 
                 fclose(in);
-                tmp = strtok(NULL, ":");
+                tmp = strtok_r(NULL, ":", &save_ptr);
 
                 memcpy(s->data + s->size, s->data, s->size);
                 vf_get_tile(s->frame, 0)->data = s->data;
@@ -492,7 +493,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 } else if (strcmp(tmp, "still") == 0) {
                         s->still_image = TRUE;
                 }
-                tmp = strtok(NULL, ":");
+                tmp = strtok_r(NULL, ":", &save_ptr);
         }
 
 
