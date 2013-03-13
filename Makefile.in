@@ -487,6 +487,10 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
 
+@SWMIX_LIB_TARGET@: @GL_COMMON_OBJ@ @SWMIX_OBJ@ src/host.o
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_swmix.so.@video_capture_abi_version@ $^ @SWMIX_LIB@ -o $@
+
 @TESTCARD2_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD2_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard2.so.@video_capture_abi_version@ $^ @TESTCARD2_LIB@ -o $@

@@ -75,6 +75,7 @@ void gl_context_make_current(struct gl_context *context)
 {
 #ifdef HAVE_MACOSX
         // TODO
+        abort();
 #else
         if(context) {
                 glx_make_current(context->context);

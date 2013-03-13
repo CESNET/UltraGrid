@@ -56,6 +56,10 @@
 #ifndef _VIDEO_CAPTURE_H_
 #define _VIDEO_CAPTURE_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1)
 #define VIDCAP_FLAG_AUDIO_AESEBU (1<<2)
 #define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)
@@ -105,6 +109,9 @@ void			 vidcap_done(struct vidcap *state);
 void			 vidcap_finish(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif // _VIDEO_CAPTURE_H_
 
