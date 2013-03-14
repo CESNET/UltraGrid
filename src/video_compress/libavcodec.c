@@ -137,7 +137,7 @@ void * libavcodec_compress_init(char * fmt)
                                 char *codec = item + strlen("codec=");
                                 int i;
                                 for (i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(codec, codec_info[i].name) == 0) {
+                                        if (strcasecmp(codec, codec_info[i].name) == 0) {
                                                 s->selected_codec_id = codec_info[i].codec;
                                                 break;
                                         }
