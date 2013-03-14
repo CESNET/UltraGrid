@@ -536,7 +536,8 @@ static void *receiver_thread(void *arg)
                 }
 
                 timeout.tv_sec = 0;
-                timeout.tv_usec = 999999 / 59.94;
+                //timeout.tv_usec = 999999 / 59.94;
+                timeout.tv_usec = 10000;
                 ret = rtp_recv_poll_r(uv->network_devices, &timeout, uv->ts);
 
 		/*
