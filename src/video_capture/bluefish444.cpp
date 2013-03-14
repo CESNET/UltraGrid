@@ -594,6 +594,14 @@ static void *worker(void *arg)
                         SyncForSignal(s);
                 }
 
+                pthread_mutex_lock(&s->lock);
+                while(s->FreeFrameQueue.empty()) {
+                        pthread_cond_wait(&s->FreeFrameQueueNotEmptyCV, &s->lock);
+                }
+                current_frame = s->FreeFrameQueue.front();
+                s->FreeFrameQueue.pop();
+                pthread_mutex_unlock(&s->lock);
+
                 if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
 #ifdef WIN32
                         if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
@@ -631,14 +639,6 @@ static void *worker(void *arg)
                 } else {
                         BufferId = s->DoneID;
                 }
-
-                pthread_mutex_lock(&s->lock);
-                while(s->FreeFrameQueue.empty()) {
-                        pthread_cond_wait(&s->FreeFrameQueueNotEmptyCV, &s->lock);
-                }
-                current_frame = s->FreeFrameQueue.front();
-                s->FreeFrameQueue.pop();
-                pthread_mutex_unlock(&s->lock);
 
                 if(s->SubField) {
                         if(SubFieldIrqs == 0) {
