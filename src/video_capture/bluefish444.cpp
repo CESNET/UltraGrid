@@ -1021,6 +1021,7 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
         if(s->NetworkFrame) {
                 if(s->NetworkFrame->valid) {
                         s->FreeFrameQueue.push(s->NetworkFrame);
+                        pthread_cond_signal(&s->FreeFrameQueueNotEmptyCV);
                 } else {
                         delete s->NetworkFrame;
                 }
