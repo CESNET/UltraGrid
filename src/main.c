@@ -599,7 +599,7 @@ static void *receiver_thread(void *arg)
 
                         if(cp->video_decoder_state->decoded % 100 == 99) {
                                 int new_size = cp->video_decoder_state->max_frame_size * 110ull / 100;
-                                if(new_size >= last_buf_size) {
+                                if(new_size > last_buf_size) {
                                         struct rtp **device = uv->network_devices;
                                         while(*device) {
                                                 int ret = rtp_set_recv_buf(*device, new_size);
@@ -609,8 +609,8 @@ static void *receiver_thread(void *arg)
                                                 debug_msg("Recv buffer adjusted to %d\n", new_size);
                                                 device++;
                                         }
-                                        last_buf_size = new_size;
                                 }
+                                last_buf_size = new_size;
                         }
 
                         if(cp->video_decoder_state->reconfigured) {
