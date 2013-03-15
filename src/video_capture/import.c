@@ -66,10 +66,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#include <glob.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -171,18 +168,25 @@ struct vidcap_import_state {
         char *to_be_freeed;
 };
 
+#ifdef WIN32
+#define WIN32_UNUSED __attribute__((unused))
+#else
+#define WIN32_UNUSED
+#endif
+
 static void * audio_reading_thread(void *args);
 static void * reading_thread(void *args);
+#ifndef WIN32
 static void * control_thread(void *args);
+#endif
 static bool init_audio(struct vidcap_import_state *state, char *audio_filename);
 static void send_message(struct message *msg, struct message_queue *queue);
 static struct message* pop_message(struct message_queue *queue);
 static int flush_processed(struct processed_entry *list);
 
 static void message_queue_clear(struct message_queue *queue);
-static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
-static void process_msg(struct vidcap_import_state *state, char *message);
-
+static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len) WIN32_UNUSED;
+static void process_msg(struct vidcap_import_state *state, char *message) WIN32_UNUSED;
 
 volatile bool exit_control = false;
 
@@ -447,10 +451,12 @@ vidcap_import_init(char *directory, unsigned int flags)
                 goto free_frame;
         }
 
+#ifndef WIN32
         if(pthread_create(&s->control_thread_id, NULL, control_thread, (void *) s) != 0) {
                 fprintf(stderr, "Unable to create control thread.\n");
                 goto free_frame;
         }
+#endif
 
         gettimeofday(&s->prev_time, NULL);
 
@@ -509,9 +515,11 @@ vidcap_import_finish(void *state)
                 pthread_join(s->audio_state.thread_id, NULL);
         }
 
+#ifndef WIN32
         exit_control = true;
 
         pthread_join(s->control_thread_id, NULL);
+#endif
 }
 
 static int flush_processed(struct processed_entry *list)
@@ -676,7 +684,7 @@ static void process_msg(struct vidcap_import_state *s, char *message)
                         }
                 }
 
-                struct message *audio_msg;
+                struct message *audio_msg = NULL;
 
                 if(s->audio_state.has_audio) {
                         audio_msg = malloc(sizeof(struct message));
@@ -725,6 +733,7 @@ struct client {
         struct client *next;
 };
 
+#ifndef WIN32
 static void * control_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
@@ -842,6 +851,7 @@ static void * control_thread(void *args)
 
         return NULL;
 }
+#endif // WIN32
         
 static void * audio_reading_thread(void *args)
 {
