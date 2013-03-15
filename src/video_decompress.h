@@ -49,6 +49,10 @@
 #define __video_decompress_h
 #include "video_codec.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct state_decompress;
 
 #define DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME  1          /* int */
@@ -131,5 +135,9 @@ int decompress_frame(struct state_decompress *, unsigned char *dst,
  */
 int decompress_get_property(struct state_decompress *state, int property, void *val, size_t *len);
 void decompress_done(struct state_decompress *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __video_decompress_h */

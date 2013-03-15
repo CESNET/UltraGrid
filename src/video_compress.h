@@ -88,4 +88,8 @@ int is_compress_none(struct compress_state *);
 struct video_frame *compress_frame(struct compress_state *, struct video_frame*, int buffer_index);
 void compress_done(struct compress_state *);
 
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* __video_compress_h */

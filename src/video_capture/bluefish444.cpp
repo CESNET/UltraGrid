@@ -189,13 +189,14 @@ struct vidcap_bluefish444_state {
         ULONG                     ScheduleID, CapturingID, DoneID;
         bool                      interlaced;
 
-        struct av_frame_base     *CompletedFrame; // ready to send
+        struct av_frame_base     *CapturedFrame; // ready to send
         struct av_frame          *NetworkFrame; // frame that is being sent
         queue<struct av_frame*>   FreeFrameQueue;
 
         pthread_mutex_t           lock;
-        pthread_cond_t            boss_cv;
-        pthread_cond_t            worker_cv;
+        pthread_cond_t            CapturedFrameReadyCV;
+        pthread_cond_t            CapturedFrameDoneCV;
+        pthread_cond_t            FreeFrameQueueNotEmptyCV;
 
         pthread_t                 worker_id;
 };
@@ -436,9 +437,9 @@ static bool setup_audio(struct vidcap_bluefish444_state *s, unsigned int flags)
 
 static void signal_error(struct vidcap_bluefish444_state *s) {
         pthread_mutex_lock(&s->lock);
-        if(!s->CompletedFrame) {
-                s->CompletedFrame = new av_frame_nosignal;
-                pthread_cond_signal(&s->boss_cv);
+        if(!s->CapturedFrame) {
+                s->CapturedFrame = new av_frame_nosignal;
+                pthread_cond_signal(&s->CapturedFrameReadyCV);
         }
         pthread_mutex_unlock(&s->lock);
 }
@@ -533,8 +534,9 @@ static void *worker(void *arg)
                                 if(s->NetworkFrame) {
                                         s->NetworkFrame->valid = false;
                                 }
-                                delete s->CompletedFrame;
-                                s->CompletedFrame = NULL;
+                                while(s->CapturedFrame) {
+                                        pthread_cond_wait(&s->CapturedFrameDoneCV, &s->lock);
+                                }
                                 while(!s->FreeFrameQueue.empty()) {
                                         struct av_frame *frame = s->FreeFrameQueue.front();
                                         s->FreeFrameQueue.pop();
@@ -592,6 +594,14 @@ static void *worker(void *arg)
                         SyncForSignal(s);
                 }
 
+                pthread_mutex_lock(&s->lock);
+                while(s->FreeFrameQueue.empty()) {
+                        pthread_cond_wait(&s->FreeFrameQueueNotEmptyCV, &s->lock);
+                }
+                current_frame = s->FreeFrameQueue.front();
+                s->FreeFrameQueue.pop();
+                pthread_mutex_unlock(&s->lock);
+
                 if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
 #ifdef WIN32
                         if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
@@ -629,14 +639,6 @@ static void *worker(void *arg)
                 } else {
                         BufferId = s->DoneID;
                 }
-
-                pthread_mutex_lock(&s->lock);
-                while(s->FreeFrameQueue.empty()) {
-                        pthread_cond_wait(&s->worker_cv, &s->lock);
-                }
-                current_frame = s->FreeFrameQueue.front();
-                s->FreeFrameQueue.pop();
-                pthread_mutex_unlock(&s->lock);
 
                 if(s->SubField) {
                         if(SubFieldIrqs == 0) {
@@ -707,11 +709,11 @@ static void *worker(void *arg)
                 }
 
                 pthread_mutex_lock(&s->lock);
-                while(s->CompletedFrame) {
-                        pthread_cond_wait(&s->worker_cv, &s->lock);
+                while(s->CapturedFrame) {
+                        pthread_cond_wait(&s->CapturedFrameDoneCV, &s->lock);
                 }
-                s->CompletedFrame = current_frame;
-                pthread_cond_signal(&s->boss_cv);
+                s->CapturedFrame = current_frame;
+                pthread_cond_signal(&s->CapturedFrameReadyCV);
                 pthread_mutex_unlock(&s->lock);
 
 next_iteration:
@@ -791,7 +793,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 	}
 
         s->MemoryFormat = MEM_FMT_2VUY;
-        s->VideoEngine = VIDEO_ENGINE_FRAMESTORE;
+        s->VideoEngine = VIDEO_ENGINE_DUPLEX;
         s->UpdateFormat = UPD_FMT_FRAME;
         s->SubField = false;
         s->iDeviceId = 1;
@@ -927,10 +929,11 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
 #endif
 
         pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->boss_cv, NULL);
-        pthread_cond_init(&s->worker_cv, NULL);
+        pthread_cond_init(&s->CapturedFrameReadyCV, NULL);
+        pthread_cond_init(&s->CapturedFrameDoneCV, NULL);
+        pthread_cond_init(&s->FreeFrameQueueNotEmptyCV, NULL);
         s->NetworkFrame = NULL;
-        s->CompletedFrame = NULL;
+        s->CapturedFrame = NULL;
 
         if(pthread_create(&s->worker_id, NULL, worker, (void *) s) != 0) {
                 cerr << "[Blue cap] Error initializing thread." << endl;
@@ -964,14 +967,16 @@ vidcap_bluefish444_done(void *state)
         if(s->NetworkFrame) {
                 if(s->NetworkFrame->valid) {
                         s->FreeFrameQueue.push(s->NetworkFrame);
+                        pthread_cond_signal(&s->FreeFrameQueueNotEmptyCV);
                 } else {
                         delete s->NetworkFrame;
                 }
                 s->NetworkFrame = NULL;
         }
-        if(s->CompletedFrame) {
-                delete s->CompletedFrame;
-                s->CompletedFrame = NULL;
+        if(s->CapturedFrame) {
+                delete s->CapturedFrame;
+                s->CapturedFrame = NULL;
+                pthread_cond_signal(&s->CapturedFrameDoneCV);
         }
         should_exit_worker = true;
         pthread_mutex_unlock(&s->lock);
@@ -981,7 +986,7 @@ vidcap_bluefish444_done(void *state)
         CloseHandle(s->OverlapChA.hEvent);
 #endif
 
-        delete s->CompletedFrame;
+        delete s->CapturedFrame;
         delete s->NetworkFrame;
         while(!s->FreeFrameQueue.empty()) {
                 delete s->FreeFrameQueue.front();
@@ -994,6 +999,10 @@ vidcap_bluefish444_done(void *state)
                 bfcVideoCaptureStop(s->pSDK[i]);
                 BailOut(s->pSDK[i]);
         }
+
+        pthread_cond_destroy(&s->CapturedFrameReadyCV);
+        pthread_cond_destroy(&s->CapturedFrameDoneCV);
+        pthread_cond_destroy(&s->FreeFrameQueueNotEmptyCV);
 
         delete s;
 }
@@ -1012,23 +1021,25 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
         if(s->NetworkFrame) {
                 if(s->NetworkFrame->valid) {
                         s->FreeFrameQueue.push(s->NetworkFrame);
+                        pthread_cond_signal(&s->FreeFrameQueueNotEmptyCV);
                 } else {
                         delete s->NetworkFrame;
                 }
                 s->NetworkFrame = NULL;
         }
 
-        while(!s->CompletedFrame) {
-                pthread_cond_wait(&s->boss_cv, &s->lock);
+        while(!s->CapturedFrame) {
+                pthread_cond_wait(&s->CapturedFrameReadyCV, &s->lock);
         }
 
-        if(dynamic_cast<av_frame_nosignal *>(s->CompletedFrame)) {
-		delete s->CompletedFrame;
-                s->CompletedFrame = NULL;
+        if(dynamic_cast<av_frame_nosignal *>(s->CapturedFrame)) {
+		delete s->CapturedFrame;
+                s->CapturedFrame = NULL;
+                pthread_cond_signal(&s->CapturedFrameDoneCV);
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
         } else {
-                frame = dynamic_cast<av_frame *>(s->CompletedFrame);
+                frame = dynamic_cast<av_frame *>(s->CapturedFrame);
         }
 
         if(frame->audio_len) {
@@ -1040,7 +1051,8 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
         res = frame->video;
 
         s->NetworkFrame = frame;
-        s->CompletedFrame = NULL;
+        s->CapturedFrame = NULL;
+        pthread_cond_signal(&s->CapturedFrameDoneCV);
 
         // Merge two fields together if needed (subfield, interlaced)
         if(res->fragment) {
@@ -1057,10 +1069,7 @@ vidcap_bluefish444_grab(void *state, struct audio_frame **audio)
                 }
         }
 
-        pthread_cond_signal(&s->worker_cv);
-
         pthread_mutex_unlock(&s->lock);
-
 
         return res;
 }

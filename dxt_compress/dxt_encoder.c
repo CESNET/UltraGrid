@@ -228,6 +228,12 @@ dxt_encoder_create(enum dxt_type type, int width, int height, enum dxt_format fo
 {
     struct dxt_encoder* encoder = (struct dxt_encoder*)malloc(sizeof(struct dxt_encoder));
 
+#ifndef HAVE_MACOSX
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    assert(err == GLEW_OK);
+#endif
+
     if ( encoder == NULL )
         return NULL;
     encoder->type = type;

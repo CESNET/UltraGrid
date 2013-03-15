@@ -207,7 +207,6 @@ int main(int argc, char **argv)
     if (buffer_size(sock_in, SO_RCVBUF, bufsize))
         exit(2);
 
-    addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
     if (bind(sock_in, (struct sockaddr *) &addr,

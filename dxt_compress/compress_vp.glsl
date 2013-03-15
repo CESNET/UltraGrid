@@ -1,10 +1,10 @@
-#if ! GL_legacy
+#if ! legacy
 out vec4 TEX0;
 in vec4 position;
 #endif
 
 void main() {
-#if GL_legacy
+#if legacy
     gl_Position = gl_Vertex;
     gl_TexCoord[0] = gl_MultiTexCoord0;
 #else

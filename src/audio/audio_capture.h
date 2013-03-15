@@ -71,5 +71,5 @@ unsigned int                audio_capture_get_vidcap_flags(struct state_audio_ca
  * SDI (embedded sound).
  */
 void                       *audio_capture_get_state_pointer(struct state_audio_capture *s);
-/* vim: set expandtab: sw=8 */
+/* vim: set expandtab: sw=4 */
 

@@ -53,119 +53,119 @@ dxt_glsl.h:compress_vp.glsl \
 	# Write vp_compress
 	echo "static const char vp_compress[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write vp_compress_legacy
 	echo "static const char vp_compress_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1
 	echo "static const char fp_compress_dxt1[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat  compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1 yuv
 	echo "static const char fp_compress_dxt1_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat  compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_yuv_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg
 	echo "static const char fp_compress_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg yuv
 	echo "static const char fp_compress_dxt5ycocg_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy
 	echo "static const char fp_compress_dxt5ycocg_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy yuv
 	echo "static const char fp_compress_dxt5ycocg_yuv_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1
 	echo "static const char fp_display[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1 legacy
 	echo "static const char fp_display_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt5ycocg
 	echo "static const char fp_display_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt5ycocg (legacy)
 	echo "static const char fp_display_dxt5ycocg_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# yuv 422 to yuv 444 shader
 	echo "static const char fp_yuv422_to_yuv_444[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# yuv 422 to yuv 444 shader (legacy)
 	echo "static const char fp_yuv422_to_yuv_444_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# display YUV dxt1
 	echo "static const char fp_display_dxt1_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# display YUV dxt1 (legacy)
 	echo "static const char fp_display_dxt1_yuv_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 shader
 	echo "static const char fp_display_rgba_to_yuv422[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 shader legacy
 	echo "static const char fp_display_rgba_to_yuv422_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 vertex

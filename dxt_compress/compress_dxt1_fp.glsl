@@ -1,4 +1,4 @@
-#if GL_legacy
+#if legacy
 #extension GL_EXT_gpu_shader4 : enable
 #define UINT unsigned int
 #else
@@ -164,12 +164,12 @@ uniform sampler2D image;
 uniform int imageFormat;
 uniform vec2 imageSize;
 uniform float textureWidth;
-#if GL_legacy
+#if legacy
 varying
 #endif
         out uvec4 colorInt;
 
-#if ! GL_legacy
+#if ! legacy
 in vec4 TEX0;
 #endif
 
@@ -184,7 +184,7 @@ void main()
     */
 #if FORMAT_YUV
     ExtractColorBlockYUV(block, image,
-#if GL_legacy
+#if legacy
             gl_TexCoord[0]
 #else
             TEX0
@@ -193,7 +193,7 @@ void main()
             imageSize);
 #else /* ! FORMAT_YUV */
     ExtractColorBlockRGB(block, image,
-#if GL_legacy
+#if legacy
             gl_TexCoord[0]
 #else
             TEX0

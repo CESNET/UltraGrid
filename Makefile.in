@@ -41,6 +41,7 @@ HEADERS	      = @HEADERS@
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
 		src/debug.o \
+		src/host.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
@@ -107,13 +108,16 @@ OBJS	      = @OBJS@ \
 		src/vo_postprocess/interlace.o \
 		src/vo_postprocess/double-framerate.o \
 		src/vo_postprocess/split.o \
-		@X_OBJ@ \
 		ldgm-coding/ldgm-session-cpu.o \
 		ldgm-coding/ldgm-session.o \
 		ldgm-coding/tanner.o \
 		ldgm-coding/matrix-gen/matrix-generator.o \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 		@LIB_SUPPORT_OBJ@ \
+
+HD_RUM_TRANSCODE_OBJS = src/hd-rum-decompress.o \
+		src/hd-rum-recompress.o \
+		src/hd-rum-translator.o
 
 LIB_COMMON = \
 		src/audio/utils.o \
@@ -209,119 +213,119 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	# Write vp_compress
 	echo "static const char vp_compress[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write vp_compress_legacy
 	echo "static const char vp_compress_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat dxt_compress/compress_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1
 	echo "static const char fp_compress_dxt1[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1 yuv
 	echo "static const char fp_compress_dxt1_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt1_legacy
 	echo "static const char fp_compress_dxt1_yuv_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat  dxt_compress/compress_dxt1_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg
 	echo "static const char fp_compress_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg yuv
 	echo "static const char fp_compress_dxt5ycocg_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy
 	echo "static const char fp_compress_dxt5ycocg_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 0\\\n\"\n" >> $@
 	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_compress_dxt5ycocg_legacy yuv
 	echo "static const char fp_compress_dxt5ycocg_yuv_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	printf "\"#define FORMAT_YUV 1\\\n\"\n" >> $@
 	cat dxt_compress/compress_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1
 	echo "static const char fp_display[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt1 legacy
 	echo "static const char fp_display_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat dxt_compress/display_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt5ycocg
 	echo "static const char fp_display_dxt5ycocg[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# Write fp_display_dxt5ycocg (legacy)
 	echo "static const char fp_display_dxt5ycocg_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat dxt_compress/display_dxt5ycocg_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# yuv 422 to yuv 444 shader
 	echo "static const char fp_yuv422_to_yuv_444[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# yuv 422 to yuv 444 shader (legacy)
 	echo "static const char fp_yuv422_to_yuv_444_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat dxt_compress/yuv422_to_yuv444.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# display YUV dxt1
 	echo "static const char fp_display_dxt1_yuv[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# display YUV dxt1 (legacy)
 	echo "static const char fp_display_dxt1_yuv_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat dxt_compress/display_dxt1_yuv_fp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 shader
 	echo "static const char fp_display_rgba_to_yuv422[] = " >> $@
 	printf "\"#version 140\\\n\"\n" >> $@
-	printf "\"#define GL_legacy 0\\\n\"\n" >> $@
+	printf "\"#define legacy 0\\\n\"\n" >> $@
 	cat dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 shader legacy
 	echo "static const char fp_display_rgba_to_yuv422_legacy[] = " >> $@
-	printf "\"#define GL_legacy 1\\\n\"\n" >> $@
+	printf "\"#define legacy 1\\\n\"\n" >> $@
 	cat dxt_compress/rgba_to_yuv422.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	echo ";" >> $@
 	# rgba to yuv 422 vertex
@@ -395,6 +399,7 @@ clean:
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
+	-rm -rf $(HD_RUM_TRANSCODE_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
@@ -473,11 +478,11 @@ jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
 scale: @SCALE_LIB_TARGET@
 libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 
-@SDL_LIB_TARGET@: @SDL_OBJ@
+@SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sdl.so.@video_display_abi_version@ $^ @SDL_LIBS@ -o $@
 
-@GL_LIB_TARGET@: @GL_OBJ@
+@GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
 
@@ -537,13 +542,13 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_fastdxt.so.@video_compress_abi_version@ $^ @FASTDXT_LIB@ -o $@
 
-@RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
+@RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
-@UYVY_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @UYVY_COMPRESS_OBJ@
+@UYVY_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_uyvy.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @UYVY_COMPRESS_OBJ@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_uyvy.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @X_OBJ@ @UYVY_COMPRESS_OBJ@ -o $@
 
 @LIBAVCODEC_COMPRESS_LIB_TARGET@: @LIBAVCODEC_COMPRESS_OBJ@
 	mkdir -p lib/ultragrid
@@ -557,9 +562,9 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
 
-@RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
+@RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
 
 @JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@
 	mkdir -p lib/ultragrid
@@ -593,7 +598,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,aplay_jack.so.@audio_playback_abi_version@ $^ @DECKLINK_LIB@ -o $@
 
-@SCALE_LIB_TARGET@: @SCALE_OBJ@ @GL_COMMON_OBJ@
+@SCALE_LIB_TARGET@: @SCALE_OBJ@ @GL_COMMON_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vo_pp_scale.so.@vo_pp_abi_version@ $^ @SCALE_LIB@ -o $@
 

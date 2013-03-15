@@ -168,9 +168,8 @@ struct state_uv {
         struct video_export *video_exporter;
 };
 
-long packet_rate;
-volatile int wait_to_finish = FALSE;
-volatile int threads_joined = FALSE;
+static volatile int wait_to_finish = FALSE;
+static volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
 static bool should_exit_receiver = false;
 static bool should_exit_sender = false;
@@ -188,6 +187,8 @@ long frame_begin[2];
 int uv_argc;
 char **uv_argv;
 static struct state_uv *uv_state;
+static struct video_frame *frame_buffer = NULL;
+static long frame_begin[2];
 
 char *sage_network_device = NULL;
 char *export_dir = NULL;
@@ -326,46 +327,6 @@ static void list_video_display_devices()
         display_free_devices();
 }
 
-struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags)
-{
-        struct display *d;
-        display_type_t *dt;
-        display_id_t id = 0;
-        int i;
-        
-        if(!strcmp(requested_display, "none"))
-                 id = display_get_null_device_id();
-
-        if (display_init_devices() != 0) {
-                printf("Unable to initialise devices\n");
-                abort();
-        } else {
-                debug_msg("Found %d display devices\n",
-                          display_get_device_count());
-        }
-        for (i = 0; i < display_get_device_count(); i++) {
-                dt = display_get_device_details(i);
-                if (strcmp(requested_display, dt->name) == 0) {
-                        id = dt->id;
-                        debug_msg("Found device\n");
-                        break;
-                } else {
-                        debug_msg("Device %s does not match %s\n", dt->name,
-                                  requested_display);
-                }
-        }
-        if(i == display_get_device_count()) {
-                fprintf(stderr, "WARNING: Selected '%s' display card "
-                        "was not found.\n", requested_display);
-                return NULL;
-        }
-        display_free_devices();
-
-        d = display_init(id, fmt, flags);
-        return d;
-}
-
 static void list_video_capture_devices()
 {
         int i;
@@ -378,34 +339,6 @@ static void list_video_capture_devices()
                 printf("\t%s\n", vt->name);
         }
         vidcap_free_devices();
-}
-
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags)
-{
-        struct vidcap_type *vt;
-        vidcap_id_t id = 0;
-        int i;
-        
-        if(!strcmp(requested_capture, "none"))
-                id = vidcap_get_null_device_id();
-
-        vidcap_init_devices();
-        for (i = 0; i < vidcap_get_device_count(); i++) {
-                vt = vidcap_get_device_details(i);
-                if (strcmp(vt->name, requested_capture) == 0) {
-                        id = vt->id;
-                        break;
-                }
-        }
-        if(i == vidcap_get_device_count()) {
-                fprintf(stderr, "WARNING: Selected '%s' capture card "
-                        "was not found.\n", requested_capture);
-                return NULL;
-        }
-        vidcap_free_devices();
-
-        return vidcap_init(id, fmt, flags);
 }
 
 static void display_buf_increase_warning(int size)
@@ -632,7 +565,8 @@ static void *receiver_thread(void *arg)
                 }
 
                 timeout.tv_sec = 0;
-                timeout.tv_usec = 999999 / 59.94;
+                //timeout.tv_usec = 999999 / 59.94;
+                timeout.tv_usec = 10000;
                 ret = rtp_recv_poll_r(uv->network_devices, &timeout, uv->ts);
 
 		/*
@@ -703,7 +637,7 @@ static void *receiver_thread(void *arg)
 
                         if(cp->video_decoder_state->decoded % 100 == 99) {
                                 int new_size = cp->video_decoder_state->max_frame_size * 110ull / 100;
-                                if(new_size >= last_buf_size) {
+                                if(new_size > last_buf_size) {
                                         struct rtp **device = uv->network_devices;
                                         while(*device) {
                                                 int ret = rtp_set_recv_buf(*device, new_size);
@@ -713,8 +647,8 @@ static void *receiver_thread(void *arg)
                                                 debug_msg("Recv buffer adjusted to %d\n", new_size);
                                                 device++;
                                         }
-                                        last_buf_size = new_size;
                                 }
+                                last_buf_size = new_size;
                         }
 
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
@@ -1350,6 +1284,18 @@ int main(int argc, char *argv[])
 
         uv->participants = pdb_init();
 
+        // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
+        // to initalize shared resource (X display) first
+        if ((uv->display_device =
+             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
+                printf("Unable to open display device: %s\n",
+                       uv->requested_display);
+                exit_uv(EXIT_FAIL_DISPLAY);
+                goto cleanup_wait_audio;
+        }
+
+        printf("Display initialized-%s\n", uv->requested_display);
+
         if ((uv->capture_device =
                         initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
                 printf("Unable to open capture device: %s\n",
@@ -1358,16 +1304,6 @@ int main(int argc, char *argv[])
                 goto cleanup_wait_audio;
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
-
-        if ((uv->display_device =
-             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
-                printf("Unable to open display device: %s\n",
-                       uv->requested_display);
-                exit_uv(EXIT_FAIL_DISPLAY);
-                goto cleanup_wait_capture;
-        }
-
-        printf("Display initialized-%s\n", uv->requested_display);
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);

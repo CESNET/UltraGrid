@@ -2412,7 +2412,7 @@ then
         LIB_SUPPORT_OBJ="src/lib_common.o"
 else
         LIBS="$LIBS $LIB_MODULES"
-        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ"
+        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ"
         HEADERS="$HEADERS $LIB_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=

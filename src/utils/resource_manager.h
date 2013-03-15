@@ -57,16 +57,26 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/*
+ * Don't bother with the fact that the prototypes are actually function pointers.
+ * It is so as it is callable also from libraries. Just call it as an ordinary
+ * function.
+ */
 
 /**
  * @param name is used to uniquely (!) identify lock. So when requested from 2 locations
  * lock with same name, the same lock handle will be returned
  */
-pthread_mutex_t *rm_acquire_shared_lock(const char *name);
-void rm_release_shared_lock(const char *name);
+extern pthread_mutex_t *(*rm_acquire_shared_lock)(const char *name);
+extern void (*rm_release_shared_lock)(const char *name);
+
+extern void (*rm_lock)();
+extern void (*rm_unlock)();
+extern void *(*rm_get_shm)(const char *name, int size);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* RESOURCE_MANAGER_H_ */
+
