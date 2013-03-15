@@ -1263,7 +1263,7 @@ AC_SUBST(TESTCARD2_LIB)
 
 # -------------------------------------------------------------------------------------------------
 # OpenGL stuff
-
+# -------------------------------------------------------------------------------------------------
 GL_INC=
 GL_OBJ=
 GL_LIB=
@@ -1444,10 +1444,75 @@ AC_SUBST(GL_INC)
 AC_SUBST(GL_LIB)
 AC_SUBST(GL_OBJ)
 
+# -------------------------------------------------------------------------------------------------
+# These tests are shared for OpenGL processing
+# -------------------------------------------------------------------------------------------------
+SAVED_LIBS=$LIBS
+
+AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
+AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
+AC_CHECK_LIB(GL, glBindTexture)
+AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
+AC_CHECK_LIB(X11, XCreateWindow)
+
+LIBS=$SAVED_LIBS
+
+OPENGL=no
+
+# Linux
+if test "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
+        -a "$FOUND_GL_H" = yes -a $ac_cv_lib_GL_glBindTexture = yes -a "$system" = Linux
+then
+        OPENGL=yes
+        OPENGL_LIB="-lGLEW -lGL -lX11"
+fi
+
+# Mac
+if test "$system" = MacOSX
+then
+        OPENGL=yes
+        OPENGL_LIB="-framework OpenGL -framework Cocoa"
+fi
+
+# -------------------------------------------------------------------------------------------------
+# SW Mix Stuff
+# -------------------------------------------------------------------------------------------------
+SWMIX_INC=
+SWMIX_LIB=
+SWMIX_OBJ=
+swmix=no
+
+AC_ARG_ENABLE(swmix,
+      AS_HELP_STRING([--disable-swmix], [disable SW mix (default is auto)]),
+    [swmix_req=$enableval],
+    [swmix_req=auto]
+    )
+
+if test $swmix_req != no -a $OPENGL = yes
+then
+        swmix=yes
+        SWMIX_LIB="$OPENGL_LIB"
+        SWMIX_OBJ="$SWMIX_OBJ src/video_capture/swmix.o"
+        AC_SUBST(SWMIX_LIB_TARGET, "lib/ultragrid/vidcap_swmix.so.$video_capture_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $SWMIX_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $SWMIX_OBJ"
+        AC_DEFINE([HAVE_SWMIX], [1], [Build SW mix capture])
+        DEFINE_GL
+fi
+
+if test $swmix_req = yes -a $swmix = no; then
+        AC_MSG_ERROR([SW mix was not found (OpenGL libraries missing)]);
+fi
+
+LIB_MODULES="$LIB_MODULES $SWMIX_LIB"
+
+AC_SUBST(SWMIX_INC)
+AC_SUBST(SWMIX_LIB)
+AC_SUBST(SWMIX_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Screen capture stuff
-
+# -------------------------------------------------------------------------------------------------
 SCREEN_CAP_INC=
 SCREEN_CAP_OBJ=
 SCREEN_CAP_LIB=
@@ -1589,6 +1654,7 @@ AC_SUBST(FASTDXT_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
+# -------------------------------------------------------------------------------------------------
 rtdxt=no
 
 AC_ARG_ENABLE(rtdxt,
@@ -1596,14 +1662,6 @@ AC_ARG_ENABLE(rtdxt,
 	[rtdxt_req=$enableval],
         [rtdxt_req=auto])
 
-SAVED_LIBS=$LIBS
-
-AC_CHECK_HEADER(GL/glx.h, FOUND_GLX_H=yes)
-AC_CHECK_HEADER(GL/gl.h, FOUND_GL_H=yes)
-AC_CHECK_LIB(GL, glXCreateNewContext, FOUND_GLX_L=yes)
-AC_CHECK_LIB(X11, XCreateWindow)
-
-LIBS=$SAVED_LIBS
 
 AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer objects])
 # We probably want this only if there is need to maximalize bandwidth
@@ -1611,23 +1669,10 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 #AC_DEFINE([USE_PBO_DXT_ECODER], [1], [We want to use OpenGL pixel buffer objects])
 
 # Linux
-if test $rtdxt_req != no -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
-        -a "$FOUND_GL_H" = yes -a "$system" = Linux
+if test $rtdxt_req != no -a $OPENGL = yes
 then
-        RTDXT_LIB=" -lGLEW -lGL -lX11"
         rtdxt=yes
-fi
-
-# Mac
-if test $rtdxt_req != no -a  "$system" = MacOSX
-then
-	RTDXT_LIB="-framework OpenGL -framework Cocoa"
-        rtdxt=yes
-fi
-
-# common
-if test $rtdxt = yes
-then
+        RTDXT_LIB="$OPENGL_LIB"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_util.o"
         RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
@@ -2188,6 +2233,7 @@ AC_SUBST(COREAUDIO_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Scale Stuff
+# -------------------------------------------------------------------------------------------------
 SCALE_INC=
 SCALE_LIB=
 SCALE_OBJ=
@@ -2199,38 +2245,10 @@ AC_ARG_ENABLE(scale,
     [scale_req=auto]
     )
 
-SAVED_LIBS=$LIBS
-AC_CHECK_LIB(GL, glBindTexture)
-LIBS=$SAVED_LIBS
-
-case $host_os in
-	*darwin*)
-		if test $scale_req != auto
-		then
-                        scale=yes
-                        SCALE_LIB="$SCALE_LIB -framework OpenGL -framework Cocoa"
-		else
-                        scale=no
-		fi
-        ;;
-	*mingw32*)
-		scale=no
-        ;;
-        *)
-		if test $scale_req != no -a $FOUND_GLEW = yes \
-                        -a $ac_cv_header_GL_glx_h = yes -a $ac_cv_header_X11_Xlib_h = yes -a \
-                        $ac_cv_lib_GL_glBindTexture = yes
-		then
-                        scale=yes
-                        SCALE_LIB="$SCALE_LIB -lGL -lGLEW"
-		else
-                        scale=no
-		fi
-    ;;
-esac
-
-if test $scale = yes
+if test $scale_req != no -a $OPENGL = yes
 then
+        scale=yes
+        SCALE_LIB="$SCALE_LIB $OPENGL_LIB"
         SCALE_OBJ="$SCALE_OBJ src/vo_postprocess/scale.o"
         AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
         LIB_TARGETS="$LIB_TARGETS $SCALE_LIB_TARGET"
@@ -2509,8 +2527,9 @@ RESULT=\
   Quicktime ................... $quicktime
   SAGE ........................ $sage
   SDL ......................... $sdl
-  screen capture .............. $screen_cap
+  Screen Capture .............. $screen_cap
   V4L2 ........................ $v4l2
+  SW Video Mix ................ $swmix
 
   Portaudio ................... $portaudio
   ALSA ........................ $alsa

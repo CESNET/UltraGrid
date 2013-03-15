@@ -67,6 +67,7 @@
 #include "video_capture/null.h"
 #include "video_capture/quicktime.h"
 #include "video_capture/screen.h"
+#include "video_capture/swmix.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
 #include "video_capture/v4l2.h"

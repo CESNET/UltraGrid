@@ -175,6 +175,7 @@ void vf_free(struct video_frame *buf);
  */
 void vf_free_data(struct video_frame *buf);
 struct tile * vf_get_tile(struct video_frame *buf, int pos);
+struct video_frame * vf_get_copy(struct video_frame *frame);
 int video_desc_eq(struct video_desc, struct video_desc);
 int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params);
 struct video_desc video_desc_from_frame(struct video_frame *frame);
