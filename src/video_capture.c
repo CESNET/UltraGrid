@@ -66,6 +66,7 @@
 #include "video_capture/null.h"
 #include "video_capture/quicktime.h"
 #include "video_capture/screen.h"
+#include "video_capture/swmix.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
 #include "video_capture/v4l2.h"
@@ -118,6 +119,19 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
+#if defined HAVE_SWMIX || defined BUILD_LIBRARIES
+        {
+         /* The SW mix capture card */
+         0,
+         "swmix",
+         MK_NAME(vidcap_swmix_probe),
+         MK_NAME(vidcap_swmix_init),
+         MK_NAME(vidcap_swmix_finish),
+         MK_NAME(vidcap_swmix_done),
+         MK_NAME(vidcap_swmix_grab),
+         NULL
+        },
+#endif
 #if defined HAVE_BLUEFISH444 || defined BUILD_LIBRARIES
         {
          /* The Bluefish444 capture card */
