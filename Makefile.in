@@ -142,7 +142,7 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
 bin/import_control_keyboard: src/import_control_keyboard.o
-	$(LINKER) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
