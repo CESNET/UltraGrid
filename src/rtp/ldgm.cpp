@@ -180,11 +180,7 @@ struct ldgm_state_encoder {
 
                 int res;
 
-#ifdef WIN32
-                res = mkdir(path);
-#else
-                res = mkdir(path, 0755);
-#endif
+                res = platform_mkdir(path);
                 if(res != 0) {
                         if(errno != EEXIST) {
                                 perror("mkdir");
@@ -261,11 +257,7 @@ struct ldgm_state_decoder {
                 snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
 #endif
 
-#ifdef WIN32
-                res = mkdir(path);
-#else
-                res = mkdir(path, 0755);
-#endif // WIN32
+                res = platform_mkdir(path);
                 if(res != 0) {
                         if(errno != EEXIST) {
                                 perror("mkdir");

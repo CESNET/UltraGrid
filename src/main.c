@@ -854,7 +854,7 @@ static bool enable_export(char *dir)
                 for (int i = 1; i <= 9999; i++) {
                         char name[16];
                         snprintf(name, 16, "export.%04d", i);
-                        int ret = mkdir(name, 0777);
+                        int ret = platform_mkdir(name);
                         if(ret == -1) {
                                 if(errno == EEXIST) {
                                         continue;
@@ -869,7 +869,7 @@ static bool enable_export(char *dir)
                         }
                 }
         } else {
-                int ret = mkdir(dir, 0777);
+                int ret = platform_mkdir(dir);
                 if(ret == -1) {
                                 if(errno == EEXIST) {
                                         fprintf(stderr, "[Export] Warning: directory %s exists!\n", dir);

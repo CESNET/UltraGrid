@@ -254,5 +254,8 @@ void ShowMessage(int level, char *msg);
 #include "compat/gettimeofday.h"
 #define gettimeofday gettimeofday_replacement
 
+#include <direct.h>
+#define platform_mkdir _mkdir
+
 #endif 
 #endif

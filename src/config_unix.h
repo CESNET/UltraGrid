@@ -209,5 +209,7 @@ static inline void *aligned_malloc(size_t size, size_t alignment)
 #define aligned_free free
 #endif // HAVE_ALIGNED_ALLOC
 
+#define platform_mkdir(a) mkdir(a, 0777)
+
 #endif /* _CONFIG_UNIX_H */
 #endif /* NDEF WIN32 */
