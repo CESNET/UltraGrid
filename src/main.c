@@ -174,21 +174,11 @@ static int exit_status = EXIT_SUCCESS;
 static bool should_exit_receiver = false;
 static bool should_exit_sender = false;
 
-unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
-unsigned int cuda_devices_count = 1;
-unsigned int audio_capture_channels = 2;
-
-uint32_t RTT = 0;               /* this is computed by handle_rr in rtp_callback */
-struct video_frame *frame_buffer = NULL;
-uint32_t hd_color_spc = 0;
-
-long frame_begin[2];
-
-int uv_argc;
-char **uv_argv;
 static struct state_uv *uv_state;
+#ifdef HAVE_IHDTV
 static struct video_frame *frame_buffer = NULL;
 static long frame_begin[2];
+#endif
 
 char *sage_network_device = NULL;
 char *export_dir = NULL;
@@ -1157,7 +1147,7 @@ int main(int argc, char *argv[])
                                 char *item, *save_ptr = NULL;
                                 unsigned int i = 0;
                                 while((item = strtok_r(optarg, ",", &save_ptr))) {
-                                        if(i >= sizeof(cuda_devices) / sizeof(unsigned int)) {
+                                        if(i >= MAX_CUDA_DEVICES) {
                                                 fprintf(stderr, "Maximal number of CUDA device exceeded.\n");
                                                 return EXIT_FAILURE;
                                         }

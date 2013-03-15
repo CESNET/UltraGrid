@@ -17,6 +17,9 @@ long packet_rate;
 unsigned int cuda_device = 0;
 unsigned int audio_capture_channels = 2;
 
+unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
+unsigned int cuda_devices_count = 1;
+
 uint32_t RTT = 0;               /*  this is computed by handle_rr in rtp_callback */
 uint32_t hd_color_spc = 0;
 
