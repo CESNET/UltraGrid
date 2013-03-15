@@ -566,8 +566,6 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
 
         if(state) {
                 state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device);
-                state->reconfigured = false;
-                state->frame_buffer = NULL; // no frame until reconfiguration
 
                 if(!state->decoder) {
                         fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option).\n");
@@ -717,10 +715,6 @@ static void *receiver_thread(void *arg)
                                         }
                                         last_buf_size = new_size;
                                 }
-                        }
-
-                        if(cp->video_decoder_state->reconfigured) {
-                                cp->video_decoder_state->reconfigured = false;
                         }
 
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
