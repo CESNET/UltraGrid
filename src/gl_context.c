@@ -73,15 +73,14 @@ void destroy_gl_context(struct gl_context *context) {
 
 void gl_context_make_current(struct gl_context *context)
 {
-#ifdef HAVE_MACOSX
-        // TODO
-        abort();
-#else
+	void *context_state = NULL;
         if(context) {
-                glx_make_current(context->context);
-        } else {
-                glx_make_current(NULL);
-        }
+		context_state = context->context;
+	}
+#ifdef HAVE_LINUX
+	glx_make_current(context_state);
+#else
+	mac_gl_make_current(context_state);
 #endif
 }
 

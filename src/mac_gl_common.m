@@ -89,6 +89,8 @@ int get_mac_kernel_version_major()
 @interface UltraGridOpenGLView : NSOpenGLView
 {
         NSWindow *window;
+	@public
+        NSOpenGLContext *context;
 }
 
 -(void) initialize: (struct state_mac_gl *) s;
@@ -172,11 +174,20 @@ void mac_gl_free(void * state)
         free(s);
 }
 
+void mac_gl_make_current(void * state)
+{
+        struct state_mac_gl *s = (struct state_mac_gl *) state;
+
+	if(state) {
+		[s->view->context makeCurrentContext];
+	} else {
+		[NSOpenGLContext clearCurrentContext];
+	}
+}
+
 @implementation UltraGridOpenGLView
 -(void) initialize: (struct state_mac_gl *) s
 {
-        NSOpenGLContext *context;
-
         window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 100, 100)
                                              styleMask:NSBorderlessWindowMask
                                                backing:NSBackingStoreBuffered

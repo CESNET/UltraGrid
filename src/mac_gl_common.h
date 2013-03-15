@@ -52,3 +52,5 @@ typedef int mac_opengl_version_t;
 int get_mac_kernel_version_major();
 void *mac_gl_init(mac_opengl_version_t);
 void mac_gl_free(void *);
+void mac_gl_set_current(void *);
+
