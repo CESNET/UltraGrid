@@ -130,6 +130,19 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_import_grab),
          NULL
         },
+#if defined HAVE_SWMIX || defined BUILD_LIBRARIES
+        {
+         /* The SW mix capture card */
+         0,
+         "swmix",
+         MK_NAME(vidcap_swmix_probe),
+         MK_NAME(vidcap_swmix_init),
+         MK_NAME(vidcap_swmix_finish),
+         MK_NAME(vidcap_swmix_done),
+         MK_NAME(vidcap_swmix_grab),
+         NULL
+        },
+#endif
 #if defined HAVE_BLUEFISH444 || defined BUILD_LIBRARIES
         {
          /* The Bluefish444 capture card */
