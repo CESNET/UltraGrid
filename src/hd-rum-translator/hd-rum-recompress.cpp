@@ -4,7 +4,7 @@
 #include "config_win32.h"
 #endif
 
-#include "hd-rum-recompress.h"
+#include "hd-rum-translator/hd-rum-recompress.h"
 
 extern "C" {
 #include "debug.h"

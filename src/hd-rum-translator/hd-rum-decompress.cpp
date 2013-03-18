@@ -4,8 +4,8 @@
 #include "config_win32.h"
 #endif
 
-#include "hd-rum-decompress.h"
-#include "hd-rum-recompress.h"
+#include "hd-rum-translator/hd-rum-decompress.h"
+#include "hd-rum-translator/hd-rum-recompress.h"
 #include "rtp/ldgm.h"
 
 #include <map>
