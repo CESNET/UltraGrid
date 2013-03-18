@@ -103,7 +103,7 @@ void *initSage(const char *confName, const char *fsIP, int appID, int nodeID, in
                         break;
 #ifdef SAGE_NATIVE_DXT5YCOCG
                 case DXT5:
-                        sailCfg.pixFmt = PIXFMT_DXT6;
+                        sailCfg.pixFmt = PIXFMT_DXT5YCOCG
                         break;
 #endif // SAGE_NATIVE_DXT5YCOCG
                 case RGBA:
