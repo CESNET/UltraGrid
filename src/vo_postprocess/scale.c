@@ -54,28 +54,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#ifdef HAVE_LINUX
-#include <GL/glew.h>
-#else
-#include <OpenGL/GL.h>
-#endif /* HAVE_LINUX */
-
 #include "debug.h"
 #include "gl_context.h"
 #include "video_codec.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 #include "vo_postprocess/scale.h"
-
-#if defined HAVE_MACOSX && OS_VERSION_MAJOR < 11
-#define glGenFramebuffers glGenFramebuffersEXT
-#define glBindFramebuffer glBindFramebufferEXT
-#define GL_FRAMEBUFFER GL_FRAMEBUFFER_EXT
-#define glFramebufferTexture2D glFramebufferTexture2DEXT
-#define glDeleteFramebuffers glDeleteFramebuffersEXT
-#define GL_FRAMEBUFFER_COMPLETE GL_FRAMEBUFFER_COMPLETE_EXT
-#define glCheckFramebufferStatus glCheckFramebufferStatusEXT
-#endif
 
 struct state_scale {
         struct video_frame *in;

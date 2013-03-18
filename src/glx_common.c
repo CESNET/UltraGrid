@@ -180,6 +180,8 @@ void *glx_init(glx_opengl_version_t version)
 {
         Display *display;
         struct state_glx *context;
+
+        x11_enter_thread();
         
         context = (struct state_glx *) malloc(sizeof(struct state_glx));
         context->magic = GLX_MAGIC;

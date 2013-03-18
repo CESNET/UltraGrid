@@ -7,7 +7,7 @@
 #include "config_unix.h"
 #endif // HAVE_CONFIG_H
 
-#ifdef HAVE_LINUX
+#if defined HAVE_LINUX || defined WIN32
 #include <GL/glew.h>
 #else
 #include <OpenGL/GL.h>

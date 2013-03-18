@@ -228,8 +228,11 @@ AC_DEFUN([DEFINE_GL], [
 
           if test "$system" = MacOSX; then
                   GL_COMMON_OBJ="src/mac_gl_common.o src/gl_context.o"
-          else
+          else if test "$system" = Linux; then
                   GL_COMMON_OBJ="src/glx_common.o src/gl_context.o"
+          else
+                  GL_COMMON_OBJ="src/win32_gl_common.o src/gl_context.o"
+          fi
           fi
           AC_SUBST(GL_COMMON_OBJ)
           ])
@@ -1472,6 +1475,13 @@ if test "$system" = MacOSX
 then
         OPENGL=yes
         OPENGL_LIB="-framework OpenGL -framework Cocoa"
+fi
+
+# Win32
+if test "$system" = Windows -a "$FOUND_GLEW" = yes
+then
+        OPENGL=yes
+        OPENGL_LIB="-lopengl32 -lglew32 -lgdi32"
 fi
 
 # -------------------------------------------------------------------------------------------------
