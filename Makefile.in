@@ -423,9 +423,9 @@ bundle-nolib: all
 
 bundle: bundle-nolib
 	@if `which dylibbundler`; then \
-		dylibbundler -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
-		if ( otool -L $(BUNDLE)/Contents/MacOS/uv | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/MacOS/uv ; fi ; \
-		if ( otool -L $(BUNDLE)/Contents/libs/libgpujpeg.0.dylib | grep -q @rpath/libcudart.dylib ) ; then install_name_tool -change @rpath/libcudart.dylib @executable_path/../libs/libcudart.dylib $(BUNDLE)/Contents/libs/libgpujpeg.0.dylib ; fi ; \
+		dylibbundler -of -p @executable_path/../libs/ -od -b -x $(BUNDLE)/Contents/MacOS/uv -d $(BUNDLE)/Contents/libs/; \
+		for n in $(BUNDLE)/Contents/MacOS/uv $(BUNDLE)/Contents/libs/*; do echo $$n; while $$( otool -L $$n | grep -q @rpath) ; \
+			do NAME=$$( otool -L $$n | grep @rpath| tail -n 1|cut -f 1 -d\ ); install_name_tool -change $$NAME $${NAME/@rpath/@executable_path\/..\/libs} $$n ; done; done ; \
 	else \
 		echo "WARNING: Cannot find dylibbundler. We cannot put libraries into a bundle so it probably won't be portable."; \
 	fi
