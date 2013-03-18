@@ -1,5 +1,5 @@
 /*
- * FILE:    video_decompress/transcode.c
+ * FILE:    video_decompress/jpeg_to_dxt.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -13,19 +13,19 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by CESNET z.s.p.o.
- * 
+ *
  * 4. Neither the name of the CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
@@ -52,9 +52,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#ifdef HAVE_TRANSCODE
-
-#include "video_decompress/transcode.h"
+#include "video_decompress/jpeg_to_dxt.h"
 #include "cuda_dxt/cuda_dxt.h"
 
 #include <pthread.h>
@@ -71,7 +69,7 @@
 
 volatile bool should_exit_threads = false;
 
-struct state_decompress_transcode {
+struct state_decompress_jpeg_to_dxt {
         struct gpujpeg_decoder  *jpeg_decoder[MAX_CUDA_DEVICES];
         char                    *dxt_out_buff[MAX_CUDA_DEVICES];
 
@@ -94,7 +92,7 @@ struct state_decompress_transcode {
         volatile bool            boss_waiting;
 
         struct video_desc        desc;
- 
+
         // which card is free to process next image
         int                      free;
 
@@ -102,14 +100,14 @@ struct state_decompress_transcode {
         codec_t                  out_codec;
 };
 
-int transcode_decompress_reconfigure_real(void *state, struct video_desc desc, 
+int jpeg_to_dxt_decompress_reconfigure_real(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec, int i);
 
 static void *worker_thread(void *arg);
 
 static void *worker_thread(void *arg)
 {
-        struct state_decompress_transcode *s = arg;
+        struct state_decompress_jpeg_to_dxt *s = arg;
         int myID = s->threads_running++;
 
         pthread_mutex_unlock(&s->lock);
@@ -129,7 +127,7 @@ static void *worker_thread(void *arg)
                 pthread_mutex_unlock(&s->lock);
 
                 if(s->should_reconfigure) {
-                        transcode_decompress_reconfigure_real(s, s->desc, 0, 8, 16, s->desc.width / s->ppb, s->out_codec, myID);
+                        jpeg_to_dxt_decompress_reconfigure_real(s, s->desc, 0, 8, 16, s->desc.width / s->ppb, s->out_codec, myID);
                         pthread_mutex_lock(&s->lock);
                         s->should_reconfigure -= 1;
                         pthread_mutex_unlock(&s->lock);
@@ -146,7 +144,7 @@ static void *worker_thread(void *arg)
                                 cuda_rgb_to_dxt6(decoder_output.data, s->dxt_out_buff[myID], s->desc.width, -s->desc.height, 0);
                         }
                         if(cudaSuccess != cudaMemcpy((char*) s->output[myID], s->dxt_out_buff[myID], s->desc.width * s->desc.height / s->ppb, cudaMemcpyDeviceToHost)) {
-                                fprintf(stderr, "[transcode] unable to copy from device.");
+                                fprintf(stderr, "[jpeg_to_dxt] unable to copy from device.");
                         }
                 }
 
@@ -163,11 +161,11 @@ static void *worker_thread(void *arg)
 }
 
 
-void * transcode_decompress_init(void)
+void * jpeg_to_dxt_decompress_init(void)
 {
-        struct state_decompress_transcode *s;
+        struct state_decompress_jpeg_to_dxt *s;
 
-        s = (struct state_decompress_transcode *) malloc(sizeof(struct state_decompress_transcode));
+        s = (struct state_decompress_jpeg_to_dxt *) malloc(sizeof(struct state_decompress_jpeg_to_dxt));
 
         s->threads_running = 0;
         s->worker_done = 0;
@@ -204,10 +202,10 @@ void * transcode_decompress_init(void)
  * @return 0 to indicate error
  *         otherwise maximal buffer size which ins needed for image of given codec, width, and height
  */
-int transcode_decompress_reconfigure(void *state, struct video_desc desc, 
-                int rshift, int gshift, int bshift, int pitch, codec_t out_codec) 
+int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
+                int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
 
         UNUSED(rshift);
         UNUSED(gshift);
@@ -261,17 +259,17 @@ int transcode_decompress_reconfigure(void *state, struct video_desc desc,
 /**
  * @return maximal buffer size needed to image with such a properties
  */
-int transcode_decompress_reconfigure_real(void *state, struct video_desc desc, 
+int jpeg_to_dxt_decompress_reconfigure_real(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec, int i)
 {
         UNUSED(rshift);
         UNUSED(gshift);
         UNUSED(bshift);
-        struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
 
         assert(out_codec == DXT1 || out_codec == DXT5);
         assert(pitch == (int) desc.width / s->ppb); // default for DXT1
-        
+
         free(s->input[i]);
         free(s->output[i]);
 
@@ -284,7 +282,7 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
         if(s->dxt_out_buff[i] != NULL) {
                 cudaFree(s->dxt_out_buff[i]);
         }
-        
+
         if(cudaSuccess != cudaMallocHost((void **) &s->dxt_out_buff[i], desc.width * desc.height / s->ppb)) {
                 fprintf(stderr, "Could not allocate CUDA output buffer.\n");
                 return 0;
@@ -296,17 +294,17 @@ int transcode_decompress_reconfigure_real(void *state, struct video_desc desc,
                 fprintf(stderr, "Creating JPEG decoder failed.\n");
                 return 0;
         }
-        
+
         s->input[i] = malloc(desc.width * desc.height);
         s->output[i] = malloc(desc.width / s->ppb * desc.height);
 
         return desc.width * desc.height;
 }
 
-int transcode_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+int jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
-        struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
         UNUSED(frame_seq);
 
         if(s->free == -1) {
@@ -344,9 +342,11 @@ int transcode_decompress(void *state, unsigned char *dst, unsigned char *buffer,
 
                 memcpy(dst, s->output[s->free], s->desc.width * s->desc.height / s->ppb);
         }
+
+        return TRUE;
 }
 
-int transcode_decompress_get_property(void *state, int property, void *val, size_t *len)
+int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
         UNUSED(state);
         UNUSED(property);
@@ -356,9 +356,9 @@ int transcode_decompress_get_property(void *state, int property, void *val, size
         return FALSE;
 }
 
-void transcode_decompress_done(void *state)
+void jpeg_to_dxt_decompress_done(void *state)
 {
-        struct state_decompress_transcode *s = (struct state_decompress_transcode *) state;
+        struct state_decompress_jpeg_to_dxt *s = (struct state_decompress_jpeg_to_dxt *) state;
 
         if(!state) {
                 return;
@@ -390,6 +390,4 @@ void transcode_decompress_done(void *state)
 
         free(s);
 }
-
-#endif // defined HAVE_TRANSCODE
 

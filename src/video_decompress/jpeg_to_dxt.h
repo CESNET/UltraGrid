@@ -47,13 +47,13 @@
 
 #include "video_codec.h"
 
-#define TRANSCODE_MAGIC 0x20BF0088
+#define JPEG_TO_DXT_MAGIC 0x20BF0088
 
-void * transcode_decompress_init(void);
-int transcode_decompress_reconfigure(void *state, struct video_desc desc,
+void * jpeg_to_dxt_decompress_init(void);
+int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
                         int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
-int transcode_decompress(void *state, unsigned char *dst, unsigned char *buffer,
+int jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq);
-int transcode_decompress_get_property(void *state, int property, void *val, size_t *len);
-void transcode_decompress_done(void *state);
+int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len);
+void jpeg_to_dxt_decompress_done(void *state);
 

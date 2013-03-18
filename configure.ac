@@ -1951,10 +1951,13 @@ AC_SUBST(JPEG_INC)
 AC_SUBST(JPEG_LIB)
 
 # -------------------------------------------------------------------------------------------------
-# TRANSCODE
-if test $jpeg = yes -a "$build_libraries" = no; then
-        LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.cu.o"
-        AC_DEFINE([HAVE_TRANSCODE], [1], [Build with JPEG to DXT1 transcode support])
+# JPEG to DXT plugin
+# -------------------------------------------------------------------------------------------------
+if test $jpeg = yes -a \
+        "$build_libraries" = no # only supported in a "bundle" build
+then
+        LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
 fi
 
 # -------------------------------------------------------------------------------------------------

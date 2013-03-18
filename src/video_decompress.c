@@ -59,7 +59,7 @@
 #include "video_decompress/jpeg.h"
 #include "video_decompress/libavcodec.h"
 #include "video_decompress/null.h"
-#include "video_decompress/transcode.h"
+#include "video_decompress/jpeg_to_dxt.h"
 #include "lib_common.h"
 
 #define DECOMPRESS_MAGIC 0xdff34f21u
@@ -134,8 +134,8 @@ struct decode_from_to decoders_for_codec[] = {
         { H264, UYVY, LIBAVCODEC_MAGIC, 500 },
         { JPEG, UYVY, LIBAVCODEC_MAGIC, 600 },
         { MJPG, UYVY, LIBAVCODEC_MAGIC, 500 },
-        { JPEG, DXT1, TRANSCODE_MAGIC, 900 },
-        { JPEG, DXT5, TRANSCODE_MAGIC, 900 },
+        { JPEG, DXT1, JPEG_TO_DXT_MAGIC, 900 },
+        { JPEG, DXT5, JPEG_TO_DXT_MAGIC, 900 },
         { VP8, UYVY, LIBAVCODEC_MAGIC, 500 },
         { (codec_t) -1, (codec_t) -1, NULL_MAGIC, 0 }
 };

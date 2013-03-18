@@ -98,7 +98,6 @@ OBJS	      = @OBJS@ \
 		src/video_compress/none.o \
 		src/video_decompress.o \
 		src/video_decompress/null.o \
-		src/video_decompress/transcode.o \
 		src/video_display.o \
 		src/video_display/aggregate.o \
 		src/video_display/null.o \
