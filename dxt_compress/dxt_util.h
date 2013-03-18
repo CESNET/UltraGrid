@@ -29,17 +29,22 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
 #endif
+
 #include "dxt_common.h"
 
 #ifdef HAVE_MACOSX
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
-#else /* HAVE_MACOSX */
+#elif defined WIN32
+#include <GL/glew.h>
+#else
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
-#endif /* HAVE_MACOSX */
+#endif
 
 #include <string.h>
 
@@ -47,7 +52,7 @@
 #ifdef HAVE_MACOSX
 #include <GLUT/glut.h>
 extern void glutCheckLoop(void);
-#else /* HAVE_MACOSX */
+#else
 #include <GL/glut.h>
 extern void glutMainLoopEvent(void);
 #endif /* HAVE_MACOSX */

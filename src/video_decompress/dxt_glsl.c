@@ -45,8 +45,11 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
+#endif
 #include "debug.h"
 #include "host.h"
 #include "video_decompress.h"
@@ -58,10 +61,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/dxt_glsl.h"
-#ifndef HAVE_MACOSX
-#include "x11_common.h"
-#include "glx_common.h"
-#endif
 
 #include "gl_context.h"
 
@@ -76,7 +75,6 @@ struct state_decompress {
         unsigned int configured:1;
         
         struct gl_context context;
-        unsigned int legacy:1;
 };
 
 static void configure_with(struct state_decompress *decompressor, struct video_desc desc)
@@ -104,7 +102,9 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
         decompressor->desc = desc;
 
         decompressor->decoder = dxt_decoder_create(type, desc.width,
-                        desc.height, decompressor->out_codec == RGBA ? DXT_FORMAT_RGBA : DXT_FORMAT_YUV422, decompressor->legacy);
+                        desc.height, decompressor->out_codec == RGBA ?
+                        DXT_FORMAT_RGBA : DXT_FORMAT_YUV422,
+                        decompressor->context.legacy);
 
         assert(decompressor->decoder != NULL);
         
@@ -118,9 +118,7 @@ void * dxt_glsl_decompress_init(void)
         
         s = (struct state_decompress *) malloc(sizeof(struct state_decompress));
         s->configured = FALSE;
-#ifndef HAVE_MACOSX
-        x11_enter_thread();
-#endif
+
         return s;
 }
 

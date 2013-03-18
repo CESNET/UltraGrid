@@ -185,7 +185,14 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                 data_len = dxt_get_size(s->out[0]->tiles[0].width, s->out[0]->tiles[0].height, DXT_TYPE_DXT5_YCOCG);
         }
 
-        
+        for(int i = 0; i < (int) frame->tile_count; ++i) {
+                if(s->encoder[i] == NULL) {
+                        fprintf(stderr, "[RTDXT] Unable to create decoder.\n");
+                        exit_uv(128);
+                        return FALSE;
+                }
+        }
+
         linesize = s->out[0]->tiles[0].width;
         switch(format) { 
                 case DXT_FORMAT_RGBA:
@@ -214,12 +221,6 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                 }
         }
         
-        if(!s->encoder) {
-                fprintf(stderr, "[RTDXT] Failed to create encoder.\n");
-                exit_uv(128);
-                return FALSE;
-        }
-        
         s->decoded = malloc(4 * s->out[0]->tiles[0].width * s->out[0]->tiles[0].height);
         
         s->configured = TRUE;
@@ -239,7 +240,7 @@ void * dxt_glsl_compress_init(char * opts)
         s->decoded = NULL;
 
         if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
-                fprintf(stderr, "[RTDXT] Error initializing GLX context");
+                fprintf(stderr, "[RTDXT] Error initializing GL context");
                 return NULL;
         }
 
@@ -327,7 +328,8 @@ void dxt_glsl_compress_done(void *arg)
         
         if(s->out[0]) {
                 for(int i = 0; i < (int) s->out[0]->tile_count; ++i) {
-                        dxt_encoder_destroy(s->encoder[i]);
+                        if(s->encoder[i])
+                                dxt_encoder_destroy(s->encoder[i]);
                 }
         }
 
