@@ -458,7 +458,9 @@ int main(int argc, char **argv)
                && !should_exit) {
 
             if (qtail->size <= 0) {
+#ifdef HAVE_LINUX
                 pthread_yield();
+#endif
             }
             else {
                 qtail = qtail->next;
