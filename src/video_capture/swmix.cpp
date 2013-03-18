@@ -572,7 +572,7 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
         int token_nr = 0;
         tmp = parse_string = strdup(init_fmt);
-        if(strchr(parse_str, '#')) *strchr(parse_str, '#') = '\0';
+        if(strchr(parse_string, '#')) *strchr(parse_string, '#') = '\0';
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 bool found = false;
                 switch (token_nr) {

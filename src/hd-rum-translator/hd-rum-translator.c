@@ -22,8 +22,8 @@
 #include <pthread.h>
 #include <fcntl.h>
 
-#include "hd-rum-recompress.h"
-#include "hd-rum-decompress.h"
+#include "hd-rum-translator/hd-rum-recompress.h"
+#include "hd-rum-translator/hd-rum-decompress.h"
 
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3

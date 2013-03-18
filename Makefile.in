@@ -115,9 +115,9 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 		@LIB_SUPPORT_OBJ@ \
 
-HD_RUM_TRANSCODE_OBJS = src/hd-rum-decompress.o \
-		src/hd-rum-recompress.o \
-		src/hd-rum-translator.o
+HD_RUM_TRANSLATOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
+		src/hd-rum-translator/hd-rum-recompress.o \
+		src/hd-rum-translator/hd-rum-translator.o
 
 LIB_COMMON = \
 		src/audio/utils.o \
