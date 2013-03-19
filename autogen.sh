@@ -1,6 +1,8 @@
 #! /bin/sh
 set -e
 
+[ -d m4 ] || mkdir m4
+
 # variables
 if [ `uname -s` = "Darwin" ]; then
         LIBTOOLIZE=glibtoolize
