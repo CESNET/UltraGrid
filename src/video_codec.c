@@ -62,6 +62,8 @@
 static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
+static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size);
 
 const struct codec_info_t codec_info[] = {
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE},
@@ -845,29 +847,28 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * Converts RGB to UYVY.
- * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @param rshift rshift in bytes
+ * @param gshift gshift in bytes
+ * @param bshift bshift in bytes
  */
-void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
-{
+static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) {
         register int r, g, b;
         register int y1, y2, u ,v;
         register uint32_t *d = (uint32_t *)(void *) dst;
 
         while(dst_len > 0) {
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                r = *(src + rshift);
+                g = *(src + gshift);
+                b = *(src + bshift);
+                src += pix_size;
                 y1 = 19595 * r + 38469 * g + 7471 * b;
                 u  = -9642 * r -18931 * g + 28573 * b;
                 v  = 40304 * r - 33750 * g - 6554 * b;
-                r = *src++;
-                g = *src++;
-                b = *src++;
+                r = *(src + rshift);
+                g = *(src + gshift);
+                b = *(src + bshift);
+                src += pix_size;
                 y2 = 19595 * r + 38469 * g + 7471 * b;
                 u += -9642 * r -18931 * g + 28573 * b;
                 v += 40304 * r - 33750 * g - 6554 * b;
@@ -883,6 +884,19 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
+ * Converts RGB to UYVY.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     buffer
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 3);
+}
+
+/**
  * Converts BGR to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
  *
@@ -892,32 +906,20 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  */
 void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        register int r, g, b;
-        register int y1, y2, u ,v;
-        register uint32_t *d = (uint32_t *)(void *) dst;
+        vc_copylineToUYVY(dst, src, dst_len, 2, 1, 0, 3);
+}
 
-        while(dst_len > 0) {
-                b = *src++;
-                g = *src++;
-                r = *src++;
-                y1 = 19595 * r + 38469 * g + 7471 * b;
-                u  = -9642 * r -18931 * g + 28573 * b;
-                v  = 40304 * r - 33750 * g - 6554 * b;
-                b = *src++;
-                g = *src++;
-                r = *src++;
-                y2 = 19595 * r + 38469 * g + 7471 * b;
-                u += -9642 * r -18931 * g + 28573 * b;
-                v += 40304 * r - 33750 * g - 6554 * b;
-                u = u / 2 + (1<<23);
-                v = v / 2 + (1<<23);
-
-                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
-                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
-                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
-                        (min(max(u, 0), (1<<24)-1) >> 16);
-                dst_len -= 4;
-        }
+/**
+ * Converts RGBA to UYVY.
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ *
+ * @param[out] dst     4B-aligned output buffer
+ * @param[in]  src     buffer in RGBA
+ * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ */
+void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
+{
+        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 4);
 }
 
 /**
