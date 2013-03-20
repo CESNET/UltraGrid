@@ -167,12 +167,12 @@ void * libavcodec_compress_init(char * fmt)
                                                                 *end_ptr);
                                                 return NULL;
                                 }
-                        } else if(strncasecmp("sampling=", item, strlen("sampling=")) == 0) {
-                                char *subsample_str = item + strlen("sampling=");
+                        } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
+                                char *subsample_str = item + strlen("subsampling=");
                                 s->requested_subsampling = atoi(subsample_str);
                                 if(s->requested_subsampling != 422 &&
                                                 s->requested_subsampling != 420) {
-                                        fprintf(stderr, "[lavc] Supported sampling is only 422 or 420.\n");
+                                        fprintf(stderr, "[lavc] Supported subsampling is only 422 or 420.\n");
                                         free(s);
                                         return NULL;
                                 }
