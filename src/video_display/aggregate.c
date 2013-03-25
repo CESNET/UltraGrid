@@ -171,7 +171,7 @@ void *display_aggregate_init(char *fmt, unsigned int flags)
         free(parse_string);
 
         s->frame = vf_alloc(s->devices_cnt);
-        s->threads = calloc(1, sizeof(pthread_t));
+        s->threads = calloc(s->devices_cnt, sizeof(pthread_t));
 
         return (void *)s;
 
@@ -203,6 +203,7 @@ void display_aggregate_done(void *state)
         }
                                         
         vf_free(s->frame);
+        free(s);
 }
 
 void display_aggregate_finish(void *state)
@@ -265,12 +266,12 @@ int display_aggregate_reconfigure(void *state, struct video_desc desc)
         s->frame->interlacing = desc.interlacing;
         s->frame->color_spec = desc.color_spec;
 
+	desc.tile_count = 1;
         for(i = 0; i < s->devices_cnt; ++i) {
                 ret = display_reconfigure(s->devices[i], desc);
                 if(!ret)
                         break;
         }
-
 
         return ret;
 }
@@ -319,7 +320,6 @@ int display_aggregate_get_property(void *state, int property, void *val, size_t 
                                         codec_t examined = codecs[0][codec_idx];
                                         for (i = 1; i < s->devices_cnt; ++i) {
                                                 unsigned int sub_codec;
-                                                found = FALSE;
                                                 for(sub_codec = 0; sub_codec < lens[i] / sizeof(codec_t); ++sub_codec) {
                                                         if(examined == codecs[i][sub_codec]) {
                                                                 ++found;
