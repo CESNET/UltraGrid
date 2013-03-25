@@ -15,10 +15,6 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <fcntl.h>
 
@@ -450,7 +446,12 @@ int main(int argc, char **argv)
 
     /* main loop */
     while (!should_exit) {
+#if ! defined WIN32
         fcntl(sock_in, F_SETFL, O_NONBLOCK);
+#else
+        u_long iMode=1;
+        ioctlsocket(sock_in, FIONBIO, &iMode);
+#endif
 
         while (qtail->next != qhead
                && ((qtail->size = read(sock_in, qtail->buf, SIZE)) > 0
@@ -458,7 +459,9 @@ int main(int argc, char **argv)
                && !should_exit) {
 
             if (qtail->size <= 0) {
+#ifdef HAVE_LINUX
                 pthread_yield();
+#endif
             }
             else {
                 qtail = qtail->next;

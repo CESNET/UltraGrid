@@ -13,19 +13,19 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by CESNET z.s.p.o.
- * 
+ *
  * 4. Neither the name of the CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
@@ -76,11 +76,11 @@ extern "C" {
 #include "video_capture/decklink.h"
 
 #ifdef WIN32
-#include "DeckLinkAPI_h.h" /* From DeckLink SDK */ 
+#include "DeckLinkAPI_h.h" /* From DeckLink SDK */
 #else
-#include "DeckLinkAPI.h" /* From DeckLink SDK */ 
+#include "DeckLinkAPI.h" /* From DeckLink SDK */
 #endif
-#include "DeckLinkAPIVersion.h" /* From DeckLink SDK */ 
+#include "DeckLinkAPIVersion.h" /* From DeckLink SDK */
 
 #define FRAME_TIMEOUT 60000000 // 30000000 // in nanoseconds
 
@@ -135,12 +135,11 @@ struct vidcap_decklink_state {
         struct audio_frame      audio;
         const struct codec_info_t *c_info;
         BMDVideoInputFlags flags;
-        
 
 	pthread_mutex_t	 	lock;
 	pthread_cond_t	 	boss_cv;
 	int		 	boss_waiting;
-        
+
         int                     frames;
         unsigned int            grab_audio:1; /* wheather we process audio or not */
         unsigned int            stereo:1; /* for eg. DeckLink HD Extreme, Quad doesn't set this !!! */
@@ -160,15 +159,14 @@ class VideoDelegate : public IDeckLinkInputCallback
 private:
 	int32_t mRefCount;
 	double  lastTime;
-    
+
 public:
-	int	newFrameReady;
+        int	newFrameReady;
         IDeckLinkVideoFrame *rightEyeFrame;
 	void*	pixelFrame;
 	void*	pixelFrameRight;
         void*   audioFrame;
         int     audioFrameSamples;
-	int	first_time;
 	struct  vidcap_decklink_state *s;
         int     i;
         IDeckLinkTimecode      *timecode;
@@ -176,12 +174,11 @@ public:
 	void set_device_state(struct vidcap_decklink_state *state, int index);
 	
 	VideoDelegate () {
-		newFrameReady = 0;
-		first_time = 1;
+                newFrameReady = 0;
                 rightEyeFrame = NULL;
 		s = NULL;
 	};
-        
+
         ~VideoDelegate () {
 		if(rightEyeFrame)
                         rightEyeFrame->Release();
@@ -190,7 +187,7 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) { return E_NOINTERFACE; }
 	virtual ULONG STDMETHODCALLTYPE AddRef(void)
 	{
-		return mRefCount++; 
+		return mRefCount++;
 	};
 	virtual ULONG STDMETHODCALLTYPE  Release(void)
 	{
@@ -201,7 +198,7 @@ public:
 		{
 			delete this;
 			return 0;
-		}        
+		}
         	return newRefValue;
 	};
 	virtual HRESULT STDMETHODCALLTYPE VideoInputFormatChanged(BMDVideoInputFormatChangedEvents, IDeckLinkDisplayMode* mode, BMDDetectedVideoInputFormatFlags flags)
@@ -235,7 +232,7 @@ public:
                 result = set_display_mode_properties(s, vf_get_tile(s->frame, this->i), mode, /* out */ &pf);
                 if(result == S_OK) {
                         result = deckLinkInput->EnableVideoInput(mode->GetDisplayMode(), pf, s->flags);
-                        if(s->grab_audio == FALSE || 
+                        if(s->grab_audio == FALSE ||
                                         this->i != 0) { //TODO: figure out output from multiple streams
                                 deckLinkInput->DisableAudioInput();
                         } else {
@@ -251,7 +248,7 @@ public:
 
                 return result;
 	}
-	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);    
+	virtual HRESULT STDMETHODCALLTYPE VideoInputFrameArrived(IDeckLinkVideoInputFrame*, IDeckLinkAudioInputPacket*);
 };
 
 
@@ -278,73 +275,69 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
                         noSignal = true;
 		}
 		else{
+                        newFrameReady = 1; // The new frame is ready to grab
 			// printf("Frame received (#%lu) - Valid Frame (Size: %li bytes)\n", framecount, arrivedFrame->GetRowBytes() * arrivedFrame->GetHeight());
 			
 		}
 	}
 
-	arrivedFrame->GetBytes(&pixelFrame);
-        
-        if(audioPacket) {
-                audioPacket->GetBytes(&audioFrame);
-                if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
-                        demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * 2 /* channels */ * 2,
-                                        2, /* channels (originally( */
+        if(newFrameReady) {
+                arrivedFrame->GetBytes(&pixelFrame);
+
+                if(audioPacket) {
+                        audioPacket->GetBytes(&audioFrame);
+                        if(audio_capture_channels == 1) { // ther are actually 2 channels grabbed
+                                demux_channel(s->audio.data, (char *) audioFrame, 2, audioPacket->GetSampleFrameCount() * 2 /* channels */ * 2,
+                                                2, /* channels (originally( */
                                         0 /* we want first channel */
                                                 );
-                        s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * 2;
+                                s->audio.data_len = audioPacket->GetSampleFrameCount() * 1 * 2;
+                        } else {
+                                s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * 2;
+                                memcpy(s->audio.data, audioFrame, s->audio.data_len);
+                        }
                 } else {
-                        s->audio.data_len = audioPacket->GetSampleFrameCount() * audio_capture_channels * 2;
-                        memcpy(s->audio.data, audioFrame, s->audio.data_len);
+                        audioFrame = NULL;
                 }
-        } else {
-                audioFrame = NULL;
-        }
-        
-        if(rightEyeFrame)
-                rightEyeFrame->Release();
-        pixelFrameRight = NULL;
-        rightEyeFrame = NULL;
-        
-        if(s->stereo) {
-                IDeckLinkVideoFrame3DExtensions *rightEye;
-                HRESULT result;
-                result = arrivedFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&rightEye);
-                
-                if (result == S_OK) { 
-                        result = rightEye->GetFrameForRightEye(&rightEyeFrame);
-                                         
-                        if(result == S_OK) {
-                                if (rightEyeFrame->GetFlags() & bmdFrameHasNoInputSource)
-                                {
-                                        fprintf(stderr, "Right Eye Frame received (#%d) - No input signal detected\n", s->frames);
+
+                if(rightEyeFrame)
+                        rightEyeFrame->Release();
+                pixelFrameRight = NULL;
+                rightEyeFrame = NULL;
+
+                if(s->stereo) {
+                        IDeckLinkVideoFrame3DExtensions *rightEye;
+                        HRESULT result;
+                        result = arrivedFrame->QueryInterface(IID_IDeckLinkVideoFrame3DExtensions, (void **)&rightEye);
+
+                        if (result == S_OK) {
+                                result = rightEye->GetFrameForRightEye(&rightEyeFrame);
+
+                                if(result == S_OK) {
+                                        if (rightEyeFrame->GetFlags() & bmdFrameHasNoInputSource)
+                                        {
+                                                fprintf(stderr, "Right Eye Frame received (#%d) - No input signal detected\n", s->frames);
+                                        }
+                                        rightEyeFrame->GetBytes(&pixelFrameRight);
                                 }
-                                rightEyeFrame->GetBytes(&pixelFrameRight);
+                        }
+                        rightEye->Release();
+                        if(!pixelFrameRight) {
+                                fprintf(stderr, "[DeckLink] Sending right eye error.\n");
                         }
                 }
-                rightEye->Release();
-                if(!pixelFrameRight) {
-                        fprintf(stderr, "[DeckLink] Sending right eye error.\n");
+
+                timecode = NULL;
+                if(s->use_timecode && !noSignal) {
+                        HRESULT result;
+                        result = arrivedFrame->GetTimecode(bmdTimecodeRP188Any, &timecode);
+                        if(result != S_OK) {
+                                fprintf(stderr, "Failed to acquire timecode from stream. Disabling sync.\n");
+                                s->use_timecode = FALSE;
+                        }
                 }
         }
 
-        timecode = NULL;
-        if(s->use_timecode && !noSignal) {
-                HRESULT result;
-                result = arrivedFrame->GetTimecode(bmdTimecodeRP188Any, &timecode);
-                if(result != S_OK) {
-                        fprintf(stderr, "Failed to acquire timecode from stream. Disabling sync.\n");
-                        s->use_timecode = FALSE;
-                }
-        }
-                
-
-	if(first_time){
-		first_time = 0;
-	}
-
-	newFrameReady = 1; // The new frame is ready to grab
-	
 	if (s->boss_waiting) {
 		pthread_cond_signal(&(s->boss_cv));
 	}
@@ -352,7 +345,6 @@ VideoDelegate::VideoInputFrameArrived (IDeckLinkVideoInputFrame *arrivedFrame, I
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
 	pthread_mutex_unlock(&(s->lock));
 
-        
 	debug_msg("VideoInputFrameArrived - END\n"); /* TOREMOVE */
 
 	return S_OK;
@@ -509,7 +501,7 @@ decklink_help()
                 printf("\tR10k\n");
         }
 	printf("\n");
-        
+
         printf("3D\n");
         printf("\tUse this to capture 3D from supported card (eg. DeckLink HD 3D Extreme).\n");
         printf("\tDo not use it for eg. Quad or Duo. Availability of the mode is indicated\n");
@@ -708,7 +700,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 }
 
                 debug_msg("%-20s \t %d x %d \t %g FPS \t %d AVAREGE TIME BETWEEN FRAMES\n", displayModeString,
-                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */  
+                                tile->width, tile->height, s->frame->fps, s->next_frame_time); /* TOREMOVE */
 #ifdef HAVE_MACOSX
                 displayModeCString = (char *) malloc(128);
                 CFStringGetCString(displayModeString, (char *) displayModeCString, 128, kCFStringEncodingMacRoman);
@@ -768,7 +760,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 #endif
 
 
-        STRING current_version; 
+        STRING current_version;
         if(!blackmagic_api_version_check(&current_version)) {
 		fprintf(stderr, "\nThe DeckLink drivers may not be installed or are outdated.\n");
 		fprintf(stderr, "This UltraGrid version was compiled against DeckLink drivers %s. You should have at least this version.\n\n",
@@ -846,7 +838,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 	bool device_found[MAX_DEVICES];
         for(int i = 0; i < s->devices_cnt; ++i)
                 device_found[i] = false;
-                
+
         if(s->stereo) {
                 s->frame = vf_alloc(2);
                 if (s->devices_cnt > 1) {
@@ -858,7 +850,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         } else {
                 s->frame = vf_alloc(s->devices_cnt);
         }
-    
+
         /* TODO: make sure that all devices are have compatible properties */
         for (int i = 0; i < s->devices_cnt; ++i)
         {
@@ -899,7 +891,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 
                         STRING deviceNameString = NULL;
                         const char* deviceNameCString = NULL;
-                        
+
                         // Print the model name of the DeckLink card
                         result = deckLink->GetModelName(&deviceNameString);
                         if (result == S_OK)
@@ -950,18 +942,18 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                         }
 
                                         mode_found = true;
-                                        mnum++; 
+                                        mnum++;
                                         break;
                                 }
 
                                 if(mode_found) {
-                                        printf("The desired display mode is supported: %d\n",s->mode);  
+                                        printf("The desired display mode is supported: %d\n",s->mode);
                                 } else {
                                         fprintf(stderr, "Desired mode index %d is out of bounds.\n",
                                                         s->mode);
                                         goto error;
                                 }
-                
+
                                 BMDPixelFormat pf;
 
                                 if(set_display_mode_properties(s, tile, displayMode, &pf) == S_OK) {
@@ -1022,7 +1014,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                                                 }
                                         }
 
-                                        if(s->grab_audio == FALSE || 
+                                        if(s->grab_audio == FALSE ||
                                                         i != 0) { //TODO: figure out output from multiple streams
                                                 deckLinkInput->DisableAudioInput();
                                         } else {
@@ -1096,12 +1088,11 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 }
 		deckLinkIterator->Release();
         }
-        
 
         // init mutex
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
-        
+
         s->boss_waiting = FALSE;        	
 
 	// check if any mode was found
@@ -1200,12 +1191,21 @@ vidcap_decklink_done(void *state)
         free(s);
 }
 
-/*  lock needs to be hold during all function call */
+/**
+ * This function basically counts frames from all devices, optionally
+ * with respect to timecode (if synchronized).
+ *
+ * Lock needs to be hold during the whole function call.
+ *
+ * @param s Blackmagic state
+ * @return number of captured tiles
+ */
 int nr_frames(struct vidcap_decklink_state *s) {
         BMDTimecodeBCD max_timecode = 0u;
         int tiles_total = 0;
         int i;
 
+        /* If we use timecode, take maximal timecode value... */
         if(s->use_timecode) {
                 for (i = 0; i < s->devices_cnt; ++i) {
                         if(s->state[i].delegate->newFrameReady) {
@@ -1223,15 +1223,20 @@ int nr_frames(struct vidcap_decklink_state *s) {
                 }
         }
 
+        /* count all tiles */
         for (i = 0; i < s->devices_cnt; ++i) {
                 if(s->state[i].delegate->newFrameReady) {
+                        /* if inputs are synchronized, use only up-to-date frames (with same TC)
+                         * as the most recent */
                         if(s->use_timecode) {
                                 if(s->state[i].delegate->timecode && s->state[i].delegate->timecode->GetBCD () != max_timecode) {
                                         s->state[i].delegate->newFrameReady = FALSE;
                                 } else {
                                         tiles_total++;
                                 }
-                        } else {
+                        }
+                        /* otherwise, simply add up the count */
+                        else {
                                 tiles_total++;
                         }
                 }
@@ -1248,6 +1253,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 	struct video_frame		*vf;
         int                             tiles_total = 0;
         int                             i;
+        bool				frame_ready = true;
 
 	HRESULT	result;
 	
@@ -1282,17 +1288,27 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
 		debug_msg("vidcap_decklink_grab - current time: %02d:%03d\n",tp.tv_sec, tp.tv_usec/1000); /* TOREMOVE */
 
-                while(rc == 0  /*  not timeout AND */
-                                && tiles_total != s->devices_cnt) { /* not all tiles */
+                while(rc == 0  /*  not pthread_cond_timewait timeout AND */
+                                && tiles_total != s->devices_cnt /* not all tiles */
+                                && !timeout) {
                         s->boss_waiting = TRUE;
                         rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                         s->boss_waiting = FALSE;
                         // recompute tiles count
                         tiles_total = nr_frames(s);
+
+                        // this is for the case of multiple tiles (eg. when one tile is persistently
+                        // missing, eg. 01301301. Therefore, pthread_cond_timewait doesn't timeout but
+                        // actual timeout time has reached.
+                        struct timeval t;
+                        gettimeofday(&t, NULL);
+                        if(tv_diff_usec(t, tp) > 2 * s->next_frame_time)
+                                timeout = 1;
+
                 }
                 debug_msg("vidcap_decklink_grab - AFTER pthread_cond_timedwait - %d tiles\n", tiles_total); /* TOREMOVE */
 
-                if (rc != 0) { //(rc == ETIMEDOUT) {
+                if (rc != 0 || timeout) { //(rc == ETIMEDOUT) {
                         printf("Waiting for new frame timed out!\n");
                         debug_msg("Waiting for new frame timed out!\n");
 
@@ -1312,25 +1328,24 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         }
                         */
 
-                        //if((!s->state[i].delegate->first_time) || (should_exit)){
-                        if(should_exit){
-                                //s->state[i].delegate->newFrameReady = 1;
-                                timeout = 1;
-                                break;
-                        }else{
-                                // wait half of timeout
-                                usleep(s->next_frame_time);
-                        }
-                        tiles_total = 0;
-                } 
+                        pthread_mutex_unlock(&s->lock);
+                        return NULL;
+                }
 	}
 
-        /*cleanup newframe flag */
-        for (i = 0; i < s->devices_cnt; ++i)
+        /* cleanup newframe flag */
+        for (i = 0; i < s->devices_cnt; ++i) {
+                if(s->state[i].delegate->newFrameReady == 0) {
+                        frame_ready = false;
+                }
                 s->state[i].delegate->newFrameReady = 0;
+	}
 
 // UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UNLOCK - UN //
 	pthread_mutex_unlock(&s->lock);
+
+	if(!frame_ready)
+		return NULL;
 
         /* count returned tiles */
         int count = 0;
@@ -1367,7 +1382,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
         }
         if (count == s->devices_cnt) {
                 s->frames++;
-                
+
                 if(s->state[0].delegate->audioFrame != NULL) {
                         *audio = &s->audio;
                 } else {
@@ -1385,7 +1400,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
                 return s->frame;
         }
-        
+
 	return NULL;
 }
 
