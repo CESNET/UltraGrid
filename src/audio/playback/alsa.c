@@ -284,6 +284,11 @@ void * audio_play_alsa_init(char *cfg)
                                     snd_strerror(rc));
                     goto error;
         }
+
+        rc = snd_pcm_nonblock(s->handle, 1);
+        if(rc < 0) {
+                fprintf(stderr, "ALSA Warning: Unable to set nonblock mode.\n");
+        }
         
         return s;
 
@@ -328,10 +333,10 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 fprintf(stderr, "underrun occurred\n");
                 snd_pcm_prepare(s->handle);
                 /* fill the stream with some sasmples */
-                for (double sec = 0.0; sec < BUFFER_MIN / 1000.0; sec += (double) frames / frame->sample_rate) {
+                for (double sec = 0.0; sec < BUFFER_MAX / 1000.0; sec += (double) frames / frame->sample_rate) {
                         int frames_to_write = frames;
-                        if(sec + (double) frames/frame->sample_rate > BUFFER_MIN / 1000.0) {
-                                frames_to_write = (BUFFER_MIN / 1000.0 - sec) * frame->sample_rate;
+                        if(sec + (double) frames/frame->sample_rate > BUFFER_MAX / 1000.0) {
+                                frames_to_write = (BUFFER_MAX / 1000.0 - sec) * frame->sample_rate;
                         }
                         int rc = snd_pcm_writei(s->handle, data, frames_to_write);
                         if(rc < 0) {
@@ -344,7 +349,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 fprintf(stderr, "error from writei: %s\n",
                         snd_strerror(rc));
         }  else if (rc != (int)frames) {
-                fprintf(stderr, "short write, write %d frames\n", rc);
+                fprintf(stderr, "short write, written %d frames (overrun)\n", rc);
         }
 }
 
