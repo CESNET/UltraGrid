@@ -179,7 +179,6 @@ struct state_gl {
         /* Thread related information follows... */
         pthread_t	thread_id;
 	volatile int    new_frame;
-	volatile int    processed;
 
         /* For debugging... */
         uint32_t	magic;
@@ -196,6 +195,9 @@ struct state_gl {
         volatile unsigned    needs_reconfigure:1;
         pthread_mutex_t lock;
         pthread_cond_t  reconf_cv;
+
+	bool            processed;
+        pthread_cond_t  processed_cv;
 
         double          aspect;
         double          video_aspect;
@@ -306,7 +308,9 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         s->deinterlace = FALSE;
         s->video_aspect = 0.0;
         s->image_display = 0;
-        s->processed  = FALSE;
+
+        pthread_cond_init(&s->processed_cv, NULL);
+        s->processed  = false;
         s->double_buf = TRUE;
 
         s->sync_on_vblank = true;
@@ -592,8 +596,9 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
 
         while(s->needs_reconfigure)
                 pthread_cond_wait(&s->reconf_cv, &s->lock);
-        pthread_mutex_unlock(&s->lock);
         s->processed = TRUE;
+        pthread_cond_signal(&s->processed_cv);
+        pthread_mutex_unlock(&s->lock);
 
         return TRUE;
 }
@@ -826,7 +831,11 @@ static void glut_idle_callback(void)
 
         gl_draw(s->aspect);
         glutPostRedisplay();
+
+        pthread_mutex_lock(&s->lock);
+        pthread_cond_signal(&s->processed_cv);
         s->processed = TRUE;
+        pthread_mutex_unlock(&s->lock);
 }
 
 static void glut_key_callback(unsigned char key, int x, int y)
@@ -1078,6 +1087,7 @@ void display_gl_done(void *state)
         //pthread_join(s->thread_id, NULL);
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->reconf_cv);
+        pthread_cond_destroy(&s->processed_cv);
         if(s->window != -1) {
                 glutDestroyWindow(s->window);
         }
@@ -1094,6 +1104,10 @@ void display_gl_finish(void *state)
         assert(s->magic == MAGIC_GL);
 
         should_exit_main_loop = true;
+        pthread_mutex_lock(&s->lock);
+        s->processed = true;
+        pthread_cond_signal(&s->processed_cv);
+        pthread_mutex_unlock(&s->lock);
 }
 
 struct video_frame * display_gl_getf(void *state)
@@ -1118,17 +1132,17 @@ int display_gl_putf(void *state, struct video_frame *frame)
         assert(s->magic == MAGIC_GL);
         UNUSED(frame);
 
+        pthread_mutex_lock(&s->lock);
         if(s->double_buf) {
                 while(!s->processed) 
-                        ;
-                s->processed = FALSE;
+                        pthread_cond_wait(&s->processed_cv, &s->lock);
+                s->processed = false;
 
                 /* ...and give it more to do... */
                 s->image_display = (s->image_display + 1) % 2;
         }
 
         /* ...and signal the worker */
-        pthread_mutex_lock(&s->lock);
         s->new_frame = 1;
         pthread_mutex_unlock(&s->lock);
         return 0;
