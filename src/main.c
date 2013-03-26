@@ -567,7 +567,8 @@ static void *receiver_thread(void *arg)
                 UNUSED(ret);
 
                 /* Decode and render for each participant in the conference... */
-                cp = pdb_iter_init(uv->participants);
+                pdb_iter_t it;
+                cp = pdb_iter_init(uv->participants, &it);
                 while (cp != NULL) {
                         if (tfrc_feedback_is_due(cp->tfrc_state, uv->curr_time)) {
                                 debug_msg("tfrc rate %f\n",
@@ -642,9 +643,9 @@ static void *receiver_thread(void *arg)
                         }
 
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
-                        cp = pdb_iter_next(uv->participants);
+                        cp = pdb_iter_next(&it);
                 }
-                pdb_iter_done(uv->participants);
+                pdb_iter_done(&it);
         }
         
 #ifdef SHARED_DECODER
@@ -1524,14 +1525,15 @@ cleanup:
         if(uv->display_device)
                 display_done(uv->display_device);
         if (uv->participants != NULL) {
-                struct pdb_e *cp = pdb_iter_init(uv->participants);
+                pdb_iter_t it;
+                struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
                 while (cp != NULL) {
                         struct pdb_e *item = NULL;
                         pdb_remove(uv->participants, cp->ssrc, &item);
-                        cp = pdb_iter_next(uv->participants);
+                        cp = pdb_iter_next(&it);
                         free(item);
                 }
-                pdb_iter_done(uv->participants);
+                pdb_iter_done(&it);
                 pdb_destroy(&uv->participants);
         }
 

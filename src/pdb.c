@@ -83,7 +83,6 @@ typedef struct s_pdb_node {
 
 struct pdb {
         pdb_node_t *root;
-        pdb_node_t *iter;
         uint32_t magic;
         int count;
 };
@@ -248,7 +247,6 @@ struct pdb *pdb_init(void)
                 db->magic = PDB_MAGIC;
                 db->count = 0;
                 db->root = NULL;
-                db->iter = NULL;
         }
         return db;
 }
@@ -364,27 +362,27 @@ int pdb_remove(struct pdb *db, uint32_t ssrc, struct pdb_e **item)
  * Iterator functions 
  */
 
-struct pdb_e *pdb_iter_init(struct pdb *db)
+struct pdb_e *pdb_iter_init(struct pdb *db, pdb_iter_t *it)
 {
         if (db->root == NULL) {
                 return NULL;    /* The database is empty */
         }
-        db->iter = pdb_min(db->root);
-        return db->iter->data;
+        *it = (pdb_node_t *) pdb_min(db->root);
+        return ((pdb_node_t *) *it)->data;
 }
 
-struct pdb_e *pdb_iter_next(struct pdb *db)
+struct pdb_e *pdb_iter_next(pdb_iter_t *it)
 {
-        assert(db->iter != NULL);
-        db->iter = pdb_successor(db->iter);
-        if (db->iter == NULL) {
+        assert(*it != NULL);
+        *it = (pdb_node_t *)pdb_successor((pdb_node_t *)*it);
+        if (*it == NULL) {
                 return NULL;
         }
-        return db->iter->data;
+        return ((pdb_node_t *) *it)->data;
 }
 
-void pdb_iter_done(struct pdb *db)
+void pdb_iter_done(pdb_iter_t *it)
 {
-        db->iter = NULL;
+        *it = NULL;
 }
 
