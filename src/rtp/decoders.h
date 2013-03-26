@@ -58,5 +58,6 @@ int decode_frame(struct coded_data *compressed_frame, void *decode_data);
 struct state_decoder *decoder_init(char *requested_mode, char *postprocess, struct display *display);
 void decoder_destroy(struct state_decoder *decoder);
 
-void decoder_register_video_display(struct state_decoder *decoder, struct display *display);
+bool decoder_register_video_display(struct state_decoder *decoder, struct display *display);
+void decoder_remove_display(struct state_decoder *decoder);
 

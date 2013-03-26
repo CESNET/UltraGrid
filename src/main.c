@@ -195,6 +195,7 @@ static void list_video_capture_devices(void);
 static void sender_finish(struct state_uv *uv);
 static void display_buf_increase_warning(int size);
 static bool enable_export(char *dir);
+static void remove_display_from_decoders(struct state_uv *uv);
 
 static void signal_handler(int signal)
 {
@@ -491,7 +492,7 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
                 state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device);
 
                 if(!state->decoder) {
-                        fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option).\n");
+                        fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option?).\n");
                         free(state);
                         exit_uv(1);
                         return NULL;
@@ -511,6 +512,23 @@ void destroy_decoder(struct vcodec_state *video_decoder_state) {
         decoder_destroy(video_decoder_state->decoder);
 
         free(video_decoder_state);
+}
+
+/**
+ * Removes display from decoders and effectively kills them. They cannot be used
+ * until new display assigned.
+ */
+static void remove_display_from_decoders(struct state_uv *uv) {
+        if (uv->participants != NULL) {
+                pdb_iter_t it;
+                struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
+                while (cp != NULL) {
+                        if(cp->video_decoder_state)
+                                decoder_remove_display(cp->video_decoder_state->decoder);
+                        cp = pdb_iter_next(&it);
+                }
+                pdb_iter_done(&it);
+        }
 }
 
 static void *receiver_thread(void *arg)
@@ -650,6 +668,10 @@ static void *receiver_thread(void *arg)
         
 #ifdef SHARED_DECODER
         destroy_decoder(shared_decoder);
+#else
+        /* Because decoders work asynchronously we need to make sure
+         * that display won't be called */
+        remove_display_from_decoders(uv);
 #endif //  SHARED_DECODER
 
         display_finish(uv_state->display_device);
