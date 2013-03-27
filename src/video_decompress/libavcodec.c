@@ -81,15 +81,15 @@ struct state_libavcodec_decompress {
 };
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height);
+                int width, int height, int pitch);
 static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height);
+                int width, int height, int pitch);
 static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height);
+                int width, int height, int pitch);
 static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height);
+                int width, int height, int pitch);
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
-                codec_t out_codec, int width, int height);
+                codec_t out_codec, int width, int height, int pitch);
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -206,9 +206,7 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
         struct state_libavcodec_decompress *s =
                 (struct state_libavcodec_decompress *) state;
         
-        // assume that we have the same pitch as line size, for now
-        assert(pitch == vc_get_linesize(desc.width, out_codec));
-        // TODO: add also RGB output codecs if possible
+        s->pitch = pitch;
         assert(out_codec == UYVY || out_codec == RGB);
 
         s->pitch = pitch;
@@ -230,11 +228,11 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
 
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height)
+                int width, int height, int pitch)
 {
-        char *dst = dst_buffer + 1;
         for(int y = 0; y < (int) height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                char *dst = dst_buffer + 1 + pitch * y;
                 for(int x = 0; x < width; ++x) {
                         *dst = *src++;
                         dst += 2;
@@ -244,8 +242,8 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
         for(int y = 0; y < (int) height / 2; ++y) {
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                char *dst1 = dst_buffer + width * (y * 2) * 2;
-                char *dst2 = dst_buffer + (y * 2 + 1) * width * 2;
+                char *dst1 = dst_buffer + (y * 2) * pitch;
+                char *dst2 = dst_buffer + (y * 2 + 1) * pitch;
                 for(int x = 0; x < width / 2; ++x) {
                         *dst1 = *src_cb;
                         dst1 += 2;
@@ -260,21 +258,21 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
 }
 
 static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
-                int width, int height)
+                int width, int height, int pitch)
 {
-        char *dst = (char *) dst_buffer + 1;
         for(int y = 0; y < (int) height; ++y) {
                 char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                char *dst = dst_buffer + 1 + pitch * y;
                 for(int x = 0; x < width; ++x) {
                         *dst = *src++;
                         dst += 2;
                 }
         }
 
-        dst = dst_buffer;
         for(int y = 0; y < (int) height; ++y) {
                 char *src_cb = (char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 char *src_cr = (char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                char *dst = dst_buffer + pitch * y;
                 for(int x = 0; x < width / 2; ++x) {
                         *dst = *src_cb++;
                         dst += 2;
@@ -289,13 +287,13 @@ static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
 static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height)
+                int width, int height, int pitch)
 {
         for(int y = 0; y < (int) height; ++y) {
                 unsigned char *src_y = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y;
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                unsigned char *dst = (unsigned char *) dst_buffer + width * y * 3;
+                unsigned char *dst = (unsigned char *) dst_buffer + pitch * y;
                 for(int x = 0; x < width / 2; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
@@ -319,15 +317,15 @@ static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
  */
 static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
-                int width, int height)
+                int width, int height, int pitch)
 {
         for(int y = 0; y < (int) height / 2; ++y) {
                 unsigned char *src_y1 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * y * 2;
                 unsigned char *src_y2 = (unsigned char *) in_frame->data[0] + in_frame->linesize[0] * (y * 2 + 1);
                 unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
                 unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
-                unsigned char *dst1 = (unsigned char *) dst_buffer + width * (y * 2) * 3;
-                unsigned char *dst2 = (unsigned char *) dst_buffer + width * (y * 2 + 1) * 3;
+                unsigned char *dst1 = (unsigned char *) dst_buffer + pitch * (y * 2);
+                unsigned char *dst2 = (unsigned char *) dst_buffer + pitch * (y * 2 + 1);
                 for(int x = 0; x < width / 2; ++x) {
                         int cb = *src_cb++ - 128;
                         int cr = *src_cr++ - 128;
@@ -371,7 +369,7 @@ static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
  * @see    yuv420p_to_yuv422
  */
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
-                codec_t out_codec, int width, int height) {
+                codec_t out_codec, int width, int height, int pitch) {
         assert(out_codec == UYVY || out_codec == RGB);
 
         switch(av_codec) {
@@ -383,9 +381,9 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 case PIX_FMT_YUVJ422P:
 #endif
                         if(out_codec == UYVY) {
-                                yuv422p_to_yuv422((char *) dst, frame, width, height);
+                                yuv422p_to_yuv422((char *) dst, frame, width, height, pitch);
                         } else {
-                                yuv422p_to_rgb24((char *) dst, frame, width, height);
+                                yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
                         }
                         break;
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
@@ -396,9 +394,9 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 case PIX_FMT_YUVJ420P:
 #endif
                         if(out_codec == UYVY) {
-                                yuv420p_to_yuv422((char *) dst, frame, width, height);
+                                yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
                         } else {
-                                yuv420p_to_rgb24((char *) dst, frame, width, height);
+                                yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
                         }
                         break;
                 default:
@@ -432,7 +430,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                  */
                 if(len < 0 && s->in_codec == JPEG) {
                         return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
-                                        s->out_codec, s->width, s->height);
+                                        s->out_codec, s->width, s->height, s->pitch);
                 }
 
                 if(len < 0) {
@@ -459,7 +457,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
 #endif // LAVD_ACCEPT_CORRUPTED
                                         ) {
                                 res = change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
-                                                s->out_codec, s->width, s->height);
+                                                s->out_codec, s->width, s->height, s->pitch);
                                 if(res == TRUE) {
                                         s->last_frame_seq = frame_seq;
                                 }
