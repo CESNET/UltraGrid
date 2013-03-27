@@ -75,6 +75,7 @@ static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t m
 static void wait_for_framebuffer_swap(struct state_decoder *decoder);
 static void *ldgm_thread(void *args);
 static void *decompress_thread(void *args);
+static void cleanup(struct state_decoder *decoder);
 
 enum decoder_type_t {
         UNSET,
@@ -130,7 +131,7 @@ struct state_decoder {
         struct {
                 struct line_decoder *line_decoder;
                 struct {
-                        struct state_decompress *decompress_state;
+                        struct state_decompress **decompress_state;
                         unsigned int accepts_corrupted_frame:1;
                         pthread_cond_t buffer_swapped_cv;
                         pthread_cond_t decompress_boss_cv;
@@ -445,7 +446,7 @@ static void *decompress_thread(void *args) {
                                                 tile = vf_get_tile(output, x);
                                                 out = tile->data;
                                         }
-                                        decompress_frame(decoder->decompress_state,
+                                        decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
                                                         (unsigned char *) data->decompress_buffer[pos],
                                                         data->buffer_len[pos],
@@ -721,6 +722,22 @@ void decoder_remove_display(struct state_decoder *decoder)
         }
 }
 
+static void cleanup(struct state_decoder *decoder)
+{
+        decoder->decoder_type = UNSET;
+        if(decoder->decompress_state) {
+                for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
+                        decompress_done(decoder->decompress_state[i]);
+                }
+                free(decoder->decompress_state);
+                decoder->decompress_state = NULL;
+        }
+        if(decoder->line_decoder) {
+                free(decoder->line_decoder);
+                decoder->line_decoder = NULL;
+        }
+}
+
 void decoder_destroy(struct state_decoder *decoder)
 {
         if(!decoder)
@@ -735,17 +752,13 @@ void decoder_destroy(struct state_decoder *decoder)
         pthread_cond_destroy(&decoder->ldgm_boss_cv);
         pthread_cond_destroy(&decoder->ldgm_worker_cv);
 
-        if(decoder->decompress_state) {
-                decompress_done(decoder->decompress_state);
-                decoder->decompress_state = NULL;
-        }
+        cleanup(decoder);
+
         if(decoder->pp_frame) {
                 vo_postprocess_done(decoder->postprocess);
                 decoder->pp_frame = NULL;
         }
-        if(decoder->line_decoder) {
-                free(decoder->line_decoder);
-        }
+
         free(decoder->native_codecs);
         free(decoder->disp_supported_il);
 
@@ -762,16 +775,25 @@ void decoder_destroy(struct state_decoder *decoder)
  * @return flat if initialization succeeded
  */
 static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t magic) {
-        decoder->decompress_state = decompress_init(magic);
+        decoder->decompress_state = (struct state_decompress **)
+                calloc(decoder->max_substreams, sizeof(struct state_decompress *));
+        for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
+                decoder->decompress_state[i] = decompress_init(magic);
 
-        if(!decoder->decompress_state) {
-                debug_msg("Decompressor with magic %x was not found.\n");
-                return false;
+                if(!decoder->decompress_state[i]) {
+                        debug_msg("Decompressor with magic %x was not found.\n");
+                        for(unsigned int j = 0; j < decoder->max_substreams; ++j) {
+                                decompress_done(decoder->decompress_state[i]);
+                        }
+                        free(decoder->decompress_state);
+                        return false;
+                }
         }
+
 
         int res = 0, ret;
         size_t size = sizeof(res);
-        ret = decompress_get_property(decoder->decompress_state,
+        ret = decompress_get_property(decoder->decompress_state[0],
                         DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
                         &res,
                         &size);
@@ -965,13 +987,7 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
         
-        free(decoder->line_decoder);
-        decoder->line_decoder = NULL;
-        decoder->decoder_type = UNSET;
-        if(decoder->decompress_state) {
-                decompress_done(decoder->decompress_state);
-                decoder->decompress_state = NULL;
-        }
+        cleanup(decoder);
 
         desc.tile_count = get_video_mode_tiles_x(decoder->video_mode)
                         * get_video_mode_tiles_y(decoder->video_mode);
@@ -1183,10 +1199,13 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         } else if (decoder->decoder_type == EXTERNAL_DECODER) {
                 int buf_size;
                 
-                buf_size = decompress_reconfigure(decoder->decompress_state, desc, 
-                                decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch , out_codec);
-                if(!buf_size) {
-                        return NULL;
+                for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
+                        buf_size = decompress_reconfigure(decoder->decompress_state[i], desc,
+                                        decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch,
+                                        out_codec);
+                        if(!buf_size) {
+                                return NULL;
+                        }
                 }
                 if(render_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
                         decoder->merged_fb = FALSE;
