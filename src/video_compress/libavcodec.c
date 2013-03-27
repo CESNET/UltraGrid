@@ -70,7 +70,7 @@
 struct libav_video_compress {
         pthread_mutex_t    *lavcd_global_lock;
 
-        struct video_frame *out[2];
+        struct tile        *out[2];
         struct video_desc   saved_desc;
 
         AVFrame            *in_frame;
@@ -89,6 +89,8 @@ struct libav_video_compress {
         int                 requested_subsampling;
         // actual value used
         int                 subsampling;
+
+        codec_t             out_codec;
 };
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -202,14 +204,12 @@ void * libavcodec_compress_init(char * fmt)
         return s;
 }
 
-static bool configure_with(struct libav_video_compress *s, struct video_frame *frame)
+static bool configure_with(struct libav_video_compress *s, struct video_desc desc)
 {
         int ret;
         int codec_id;
         int pix_fmt; 
         double avg_bpp; // average bite per pixel
-        // implement multiple tiles support if needed
-        assert(frame->tile_count == 1);
 
         struct video_desc compressed_desc;
         enum {
@@ -218,7 +218,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 YUVJ420P,
                 YUVJ422P
         } tmp_pixfmt;
-        compressed_desc = video_desc_from_frame(frame);
+        compressed_desc = desc;
         switch(s->selected_codec_id) {
                 case H264:
 #ifdef HAVE_GPL
@@ -259,7 +259,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         /* either user has explicitly requested subsampling
          * or for interlaced format is better to have 422 */
         if(s->requested_subsampling == 422 ||
-                        (frame->interlacing == INTERLACED_MERGED &&
+                        (desc.interlacing == INTERLACED_MERGED &&
                          s->requested_subsampling != 420)) {
                 s->subsampling = 422;
                 if(tmp_pixfmt == YUV420P) {
@@ -304,9 +304,9 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         }
 
         for(int i = 0; i < 2; ++i) {
-                s->out[i] = vf_alloc_desc(compressed_desc);
+                s->out[i] = tile_alloc_desc(compressed_desc);
 #ifndef HAVE_AVCODEC_ENCODE_VIDEO2
-                s->out[i]->tiles[0].data = malloc(compressed_desc.width *
+                s->out[i]->data = malloc(compressed_desc.width *
                         compressed_desc.height * 4);
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
         }
@@ -330,19 +330,19 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
         if(s->requested_bitrate > 0) {
                 s->codec_ctx->bit_rate = s->requested_bitrate;
         } else {
-                s->codec_ctx->bit_rate = frame->tiles[0].width * frame->tiles[0].height *
-                        avg_bpp * frame->fps;
+                s->codec_ctx->bit_rate = desc.width * desc.height *
+                        avg_bpp * desc.fps;
         }
         s->codec_ctx->bit_rate_tolerance = s->codec_ctx->bit_rate / 4;
 
         /* resolution must be a multiple of two */
-        s->codec_ctx->width = frame->tiles[0].width;
-        s->codec_ctx->height = frame->tiles[0].height;
+        s->codec_ctx->width = desc.width;
+        s->codec_ctx->height = desc.height;
         /* frames per second */
-        s->codec_ctx->time_base= (AVRational){1,(int) frame->fps};
+        s->codec_ctx->time_base= (AVRational){1,(int) desc.fps};
         s->codec_ctx->gop_size = 20; /* emit one intra frame every ten frames */
         s->codec_ctx->max_b_frames = 0;
-        switch(frame->color_spec) {
+        switch(desc.color_spec) {
                 case Vuy2:
                 case DVS8:
                 case UYVY:
@@ -371,7 +371,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
 
         s->codec_ctx->pix_fmt = pix_fmt;
 
-        s->decoded = malloc(frame->tiles[0].width * frame->tiles[0].height * 4);
+        s->decoded = malloc(desc.width * desc.height * 4);
 
         if(codec_id == CODEC_ID_H264) {
                 av_opt_set(s->codec_ctx->priv_data, "preset", "ultrafast", 0);
@@ -385,7 +385,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 s->codec_ctx->thread_count = 8;
                 s->codec_ctx->profile = 3;
                 s->codec_ctx->slices = 4;
-                s->codec_ctx->rc_buffer_size = s->codec_ctx->bit_rate / frame->fps;
+                s->codec_ctx->rc_buffer_size = s->codec_ctx->bit_rate / desc.fps;
                 s->codec_ctx->rc_buffer_aggressivity = 0.5;
         } else {
                 // zero should mean count equal to the number of virtual cores
@@ -435,7 +435,8 @@ static bool configure_with(struct libav_video_compress *s, struct video_frame *f
                 return false;
         }
 
-        s->saved_desc = video_desc_from_frame(frame);
+        s->saved_desc = desc;
+        s->out_codec = compressed_desc.color_spec;
 
         return true;
 }
@@ -484,7 +485,8 @@ static void to_yuv422(AVFrame *out_frame, unsigned char *src, int width, int hei
         }
 }
 
-struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int buffer_idx)
+struct tile * libavcodec_compress_tile(void *arg, struct tile *tx, struct video_desc *desc,
+                int buffer_idx)
 {
         struct libav_video_compress *s = (struct libav_video_compress *) arg;
         assert (buffer_idx == 0 || buffer_idx == 1);
@@ -494,9 +496,9 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
         int got_output;
 #endif
 
-        if(!video_desc_eq(video_desc_from_frame(tx), s->saved_desc)) {
+        if(!video_desc_eq(*desc, s->saved_desc)) {
                 cleanup(s);
-                int ret = configure_with(s, tx);
+                int ret = configure_with(s, *desc);
                 if(!ret) {
                         return NULL;
                 }
@@ -513,11 +515,11 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
         unsigned char *decoded;
 
         if((void *) s->decoder != (void *) memcpy) {
-                unsigned char *line1 = (unsigned char *) tx->tiles[0].data;
+                unsigned char *line1 = (unsigned char *) tx->data;
                 unsigned char *line2 = (unsigned char *) s->decoded;
-                int src_linesize = vc_get_linesize(tx->tiles[0].width, tx->color_spec);
-                int dst_linesize = tx->tiles[0].width * 2; /* UYVY */
-                for (int i = 0; i < (int) tx->tiles[0].height; ++i) {
+                int src_linesize = vc_get_linesize(tx->width, desc->color_spec);
+                int dst_linesize = tx->width * 2; /* UYVY */
+                for (int i = 0; i < (int) tx->height; ++i) {
                         s->decoder(line2, line1, dst_linesize,
                                         0, 8, 16);
                         line1 += src_linesize;
@@ -525,14 +527,14 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
                 }
                 decoded = s->decoded;
         } else {
-                decoded = (unsigned char *) tx->tiles[0].data;
+                decoded = (unsigned char *) tx->data;
         }
 
         if(s->subsampling == 420) {
-                to_yuv420(s->in_frame, decoded, tx->tiles[0].width, tx->tiles[0].height);
+                to_yuv420(s->in_frame, decoded, tx->width, tx->height);
         } else {
                 assert(s->subsampling == 422);
-                to_yuv422(s->in_frame, decoded, tx->tiles[0].width, tx->tiles[0].height);
+                to_yuv422(s->in_frame, decoded, tx->width, tx->height);
         }
 
 
@@ -547,15 +549,15 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
 
         if (got_output) {
                 //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
-                s->out[buffer_idx]->tiles[0].data = (char *) s->pkt[buffer_idx].data;
-                s->out[buffer_idx]->tiles[0].data_len = s->pkt[buffer_idx].size;
+                s->out[buffer_idx]->data = (char *) s->pkt[buffer_idx].data;
+                s->out[buffer_idx]->data_len = s->pkt[buffer_idx].size;
         } else {
                 return NULL;
         }
 #else
         /* encode the image */
-        ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) s->out[buffer_idx]->tiles[0].data,
-                        s->out[buffer_idx]->tiles[0].width * s->out[buffer_idx]->tiles[0].height * 4,
+        ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) s->out[buffer_idx]->data,
+                        s->out[buffer_idx]->width * s->out[buffer_idx]->height * 4,
                         s->in_frame);
         if (ret < 0) {
                 fprintf(stderr, "Error encoding frame\n");
@@ -564,11 +566,13 @@ struct video_frame * libavcodec_compress(void *arg, struct video_frame * tx, int
 
         if (ret) {
                 //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
-                s->out[buffer_idx]->tiles[0].data_len = ret;
+                s->out[buffer_idx]->data_len = ret;
         } else {
                 return NULL;
         }
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
+
+        desc->color_spec = s->out_codec;
 
         return s->out[buffer_idx];
 }
@@ -581,7 +585,7 @@ static void cleanup(struct libav_video_compress *s)
                 s->out[i] = 0;
                 av_free_packet(&s->pkt[i]);
 #else
-                vf_free_data(s->out[i]);
+                tile_free_data(s->out[i]);
                 s->out[i] = 0;
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
         }

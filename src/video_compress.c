@@ -145,8 +145,8 @@ struct compress_t compress_modules[] = {
                 "libavcodec",
                 "libavcodec",
                 MK_NAME(libavcodec_compress_init),
-                MK_NAME(libavcodec_compress),
                 MK_NAME(NULL),
+                MK_NAME(libavcodec_compress_tile),
                 MK_NAME(libavcodec_compress_done),
                 NULL
         },

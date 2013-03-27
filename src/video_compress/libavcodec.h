@@ -45,10 +45,13 @@
  *
  */
 
-struct video_frame;
+struct tile;
+struct video_desc;
 
 #define LAVCD_LOCK_NAME "lavcd_lock"
 
 void                *libavcodec_compress_init(char * opts);
-struct video_frame  *libavcodec_compress(void *args, struct video_frame * tx, int buffer);
+struct tile         *libavcodec_compress_tile(void *args, struct tile *tx, struct video_desc *desc,
+                int buffer);
 void                 libavcodec_compress_done(void *args);
+
