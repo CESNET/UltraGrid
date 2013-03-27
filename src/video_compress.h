@@ -69,10 +69,24 @@ typedef  void *(*compress_init_t)(char *cfg);
  * Compresses video frame
  * 
  * @param state compressor state
- * @param uncompressed frame
+ * @param frame uncompressed frame
  * @return compressed frame
  */
-typedef  struct video_frame * (*compress_compress_t)(void *state, struct video_frame *frame, int buffer_index);
+typedef  struct video_frame * (*compress_frame_t)(void *state, struct video_frame *frame,
+                int buffer_index);
+
+/**
+ * Compresses tile of a video frame
+ * 
+ * @param state compressor state
+ * @param[in]     tile          uncompressed tile
+ * @param[in,out] desc          input and then output video desc
+ * @param[in]     buffer_index
+ * @return compressed frame
+ */
+typedef  struct tile * (*compress_tile_t)(void *state, struct tile *tile,
+                struct video_desc *desc, int buffer_index);
+
 
 /**
  * Cleanup function

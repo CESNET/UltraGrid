@@ -404,7 +404,7 @@ LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
 
 video_display_abi_version=3
 video_capture_abi_version=2
-video_compress_abi_version=1
+video_compress_abi_version=2
 video_decompress_abi_version=3
 audio_capture_abi_version=3
 audio_playback_abi_version=3

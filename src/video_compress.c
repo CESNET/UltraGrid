@@ -70,8 +70,10 @@ struct compress_t {
 
         compress_init_t     init;
         const char        * init_str;
-        compress_compress_t compress;
-        const char         *compress_str;
+        compress_frame_t    compress_frame;
+        const char         *compress_frame_str;
+        compress_tile_t     compress_tile;
+        const char         *compress_tile_str;
         compress_done_t     done;
         const char         *done_str;
 
@@ -79,14 +81,19 @@ struct compress_t {
 };
 
 struct compress_state {
-        struct compress_t *handle;
-        void *state;
+        struct compress_t  *handle;
+        void              **state;
+        unsigned int        state_count;
+        char               *compress_options;
+
+        struct video_frame *out_frame[2];
 
         unsigned int uncompressed:1;
 };
 
 static void init_compressions(void);
-
+static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
+                int buffer_index);
 
 struct compress_t compress_modules[] = {
 #if defined HAVE_FASTDXT || defined BUILD_LIBRARIES
@@ -95,6 +102,7 @@ struct compress_t compress_modules[] = {
                 "fastdxt",
                 MK_NAME(fastdxt_init),
                 MK_NAME(fastdxt_compress),
+                MK_NAME(NULL),
                 MK_NAME(fastdxt_done),
                 NULL
         },
@@ -105,6 +113,7 @@ struct compress_t compress_modules[] = {
                 "rtdxt",
                 MK_NAME(dxt_glsl_compress_init),
                 MK_NAME(dxt_glsl_compress),
+                MK_NAME(NULL),
                 MK_NAME(dxt_glsl_compress_done),
                 NULL
         },
@@ -115,6 +124,7 @@ struct compress_t compress_modules[] = {
                 "jpeg",
                 MK_NAME(jpeg_compress_init),
                 MK_NAME(jpeg_compress),
+                MK_NAME(NULL),
                 MK_NAME(jpeg_compress_done),
                 NULL
         },
@@ -125,6 +135,7 @@ struct compress_t compress_modules[] = {
                 "uyvy",
                 MK_NAME(uyvy_compress_init),
                 MK_NAME(uyvy_compress),
+                MK_NAME(NULL),
                 MK_NAME(uyvy_compress_done),
                 NULL
         },
@@ -135,6 +146,7 @@ struct compress_t compress_modules[] = {
                 "libavcodec",
                 MK_NAME(libavcodec_compress_init),
                 MK_NAME(libavcodec_compress),
+                MK_NAME(NULL),
                 MK_NAME(libavcodec_compress_done),
                 NULL
         },
@@ -144,6 +156,7 @@ struct compress_t compress_modules[] = {
                 NULL,
                 MK_STATIC(none_compress_init),
                 MK_STATIC(none_compress),
+                MK_STATIC(NULL),
                 MK_STATIC(none_compress_done),
                 NULL
         },
@@ -172,13 +185,16 @@ static int compress_fill_symbols(struct compress_t *compression)
 
         compression->init = (void *(*) (char *))
                 dlsym(handle, compression->init_str);
-        compression->compress = (struct video_frame * (*)(void *, struct video_frame *))
-                dlsym(handle, compression->compress_str);
+        compression->compress_frame = (struct video_frame * (*)(void *, struct video_frame *, int))
+                dlsym(handle, compression->compress_frame_str);
+        compression->compress_tile = (struct tile * (*)(void *, struct tile*, struct video_desc *, int))
+                dlsym(handle, compression->compress_tile_str);
         compression->done = (void (*)(void *))
                 dlsym(handle, compression->done_str);
 
-        
-        if(!compression->init || !compression->compress || !compression->done) {
+
+        if(!compression->init || (compression->compress_frame == 0 && compression->compress_tile == 0)
+                        || !compression->done) {
                 fprintf(stderr, "Library %s opening error: %s \n", compression->library_name, dlerror());
                 return FALSE;
         }
@@ -235,8 +251,8 @@ struct compress_state *compress_init(char *config_string)
 
         pthread_once(&compression_list_initialized, init_compressions);
         
-        s = (struct compress_state *) malloc(sizeof(struct compress_state));
-        s->handle = NULL;
+        s = (struct compress_state *) calloc(1, sizeof(struct compress_state));
+        s->state_count = 1;
         if(strcmp(config_string, "none") == 0) {
                 s->uncompressed = TRUE;
         } else {
@@ -257,12 +273,22 @@ struct compress_state *compress_init(char *config_string)
                 free(s);
                 return NULL;
         }
+        s->compress_options = compress_options;
         if(s->handle->init) {
-                s->state = s->handle->init(compress_options);
-                if(!s->state) {
+                s->state = calloc(1, sizeof(void *));
+                if(compress_options) {
+                        compress_options = strdup(compress_options);
+                }
+                s->state[0] = s->handle->init(compress_options);
+                free(compress_options);
+                if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
+                        free(s->state);
                         free(s);
                         return NULL;
+                }
+                for(int i = 0; i < 2; ++i) {
+                        s->out_frame[i] = vf_alloc(1);
                 }
         } else {
                 return NULL;
@@ -280,15 +306,67 @@ const char *get_compress_name(struct compress_state *s)
 
 struct video_frame *compress_frame(struct compress_state *s, struct video_frame *frame, int buffer_index)
 {
-        if(s)
-                return s->handle->compress(s->state, frame, buffer_index);
-        else
+        if(!s)
                 return NULL;
+
+        if(s->handle->compress_frame) {
+                return s->handle->compress_frame(s->state[0], frame, buffer_index);
+        } else if(s->handle->compress_tile) {
+                return compress_frame_tiles(s, frame, buffer_index);
+        } else {
+                return NULL;
+        }
+}
+
+static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
+                int buffer_index)
+{
+        if(frame->tile_count != s->state_count) {
+                s->state = realloc(s->state, frame->tile_count * sizeof(void *));
+                for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
+                        s->state[i] = s->handle->init(s->compress_options);
+                        if(!s->state[i]) {
+                                fprintf(stderr, "Compression initialization failed\n");
+                                return NULL;
+                        }
+                }
+                for(int i = 0; i < 2; ++i) {
+                        vf_free(s->out_frame[i]);
+                        s->out_frame[i] = vf_alloc(frame->tile_count);
+                }
+                s->state_count = frame->tile_count;
+        }
+
+        for(unsigned int i = 0; i < frame->tile_count; ++i) {
+                struct video_desc desc = video_desc_from_frame(frame);
+                desc.tile_count = 1;
+                struct tile *tile = s->handle->compress_tile(s->state[i], &frame->tiles[i], &desc,
+                                buffer_index);
+
+                if(i == 0) { // update metadata from first tile
+                        desc.tile_count = frame->tile_count;
+                        vf_write_desc(s->out_frame[buffer_index], desc);
+                }
+
+                if(tile) {
+                        memcpy(&s->out_frame[buffer_index]->tiles[i], tile, sizeof(struct tile));
+                } else {
+                        return NULL;
+                }
+        }
+
+        return s->out_frame[buffer_index];
 }
 
 void compress_done(struct compress_state *s)
 {
-        if(s) s->handle->done(s->state);
+        if(!s)
+                return;
+        for(unsigned int i = 0; i < s->state_count; ++i) {
+                s->handle->done(s->state[i]);
+        }
+        free(s->state);
+        free(s);
 }
 
 int is_compress_none(struct compress_state *s)
