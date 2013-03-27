@@ -63,6 +63,8 @@
 #include "video_compress/uyvy.h"
 #include "lib_common.h"
 
+#include "utils/worker.h"
+
 /* *_str are symbol names inside library */
 struct compress_t {
         const char        * name;
@@ -318,6 +320,24 @@ struct video_frame *compress_frame(struct compress_state *s, struct video_frame 
         }
 }
 
+struct compress_data {
+        void *state;
+        struct tile *tile;
+        struct video_desc desc;
+        int buffer_index;
+
+        compress_tile_t callback;
+        void *ret;
+};
+
+void *compress_tile(void *arg) {
+        struct compress_data *s = (struct compress_data *) arg;
+
+        s->ret = s->callback(s->state, s->tile, &s->desc, s->buffer_index);
+
+        return s;
+}
+
 static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
                 int buffer_index)
 {
@@ -337,19 +357,30 @@ static struct video_frame *compress_frame_tiles(struct compress_state *s, struct
                 s->state_count = frame->tile_count;
         }
 
+        task_result_handle_t task_handle[frame->tile_count];
+
         for(unsigned int i = 0; i < frame->tile_count; ++i) {
-                struct video_desc desc = video_desc_from_frame(frame);
-                desc.tile_count = 1;
-                struct tile *tile = s->handle->compress_tile(s->state[i], &frame->tiles[i], &desc,
-                                buffer_index);
+                struct compress_data *data = malloc(sizeof(struct compress_data));
+                data->state = s->state[i];
+                data->tile = &frame->tiles[i];
+                data->desc = video_desc_from_frame(frame);
+                data->desc.tile_count = 1;
+                data->buffer_index = buffer_index;;
+                data->callback = s->handle->compress_tile;
+
+                task_handle[i] = task_run_async(compress_tile, data);
+        }
+
+        for(unsigned int i = 0; i < frame->tile_count; ++i) {
+                struct compress_data *data = wait_task(task_handle[i]);
 
                 if(i == 0) { // update metadata from first tile
-                        desc.tile_count = frame->tile_count;
-                        vf_write_desc(s->out_frame[buffer_index], desc);
+                        data->desc.tile_count = frame->tile_count;
+                        vf_write_desc(s->out_frame[buffer_index], data->desc);
                 }
 
-                if(tile) {
-                        memcpy(&s->out_frame[buffer_index]->tiles[i], tile, sizeof(struct tile));
+                if(data->ret) {
+                        memcpy(&s->out_frame[buffer_index]->tiles[i], data->ret, sizeof(struct tile));
                 } else {
                         return NULL;
                 }
