@@ -174,6 +174,14 @@ void vf_free(struct video_frame *buf);
  * Same as vf_free plus removing (free) data fields
  */
 void vf_free_data(struct video_frame *buf);
+
+struct tile *tile_alloc();
+struct tile *tile_alloc_desc(struct video_desc);
+void tile_free(struct tile*);
+void tile_free_data(struct tile*);
+
+void vf_write_desc(struct video_frame *frame, struct video_desc desc);
+
 struct tile * vf_get_tile(struct video_frame *buf, int pos);
 struct video_frame * vf_get_copy(struct video_frame *frame);
 int video_desc_eq(struct video_desc, struct video_desc);
