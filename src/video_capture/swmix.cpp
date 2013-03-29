@@ -68,14 +68,37 @@ using namespace std;
 static void show_help(void);
 static void *master_worker(void *arg);
 static void *slave_worker(void *arg);
+static char *get_config_name(void);
+static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
+                FILE **config_file);
+static bool get_slave_param_from_file(FILE* config, char *slave_name, int *x, int *y,
+                                        int *width, int *height);
+
+static char *get_config_name()
+{
+        static char buf[PATH_MAX];
+        if(!getenv("HOME")) {
+                return NULL;
+        }
+
+        strncpy(buf, getenv("HOME"), sizeof(buf));
+        strncat(buf, "/.ug-swmix.rc", sizeof(buf));
+        return buf;
+}
 
 static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>]#<dev1_config>#<dev2_config>[#....]\n");
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>]#<dev1_config>#"
+                        "<dev2_config>[#....]\n");
+        printf("\tor\n");
+        printf("\t-t swmix:file#<dev1_name>@<dev1_config>#"
+                        "<dev2_name>@<dev2_config>[#....]\n");
         printf("\t\twhere <devn_config> is a complete configuration string of device "
                         "involved in an SW mix device\n");
+        printf("\t\t<devn_name> is an input name (to be matched against config file %s)\n",
+                        get_config_name());
         printf("\t\t<width> widht of resulting video\n");
         printf("\t\t<height> height of resulting video\n");
         printf("\t\t<fps> FPS of resulting video\n");
@@ -88,6 +111,7 @@ struct state_slave {
         bool                should_exit;
         struct vidcap      *device;
         pthread_mutex_t     lock;
+        char               *name;
 
         struct video_frame *captured_frame;
         struct video_frame *done_frame;
@@ -118,6 +142,9 @@ struct vidcap_swmix_state {
 
         pthread_t           master_thread_id;
         bool                should_exit;
+
+        struct slave_data  *slaves_data;
+        bool                use_config_file;
 };
 
 
@@ -145,7 +172,7 @@ struct slave_data {
         double              fb_aspect;
 };
 
-static struct slave_data *init_slave_data(vidcap_swmix_state *s) {
+static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
         struct slave_data *slaves_data = (struct slave_data *)
                 calloc(s->devices_cnt, sizeof(struct slave_data));
 
@@ -163,12 +190,32 @@ static struct slave_data *init_slave_data(vidcap_swmix_state *s) {
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-                slaves_data[i].width = 1.0 / (int) m;
-                slaves_data[i].height = 1.0 / n;
-                slaves_data[i].x = (i % (int) m) * slaves_data[i].width;
-                slaves_data[i].y = (i / (int) m) * slaves_data[i].height;
                 slaves_data[i].fb_aspect = (double) s->frame->tiles[0].width /
                         s->frame->tiles[0].height;
+
+                if(!s->use_config_file) {
+                        slaves_data[i].width = 1.0 / (int) m;
+                        slaves_data[i].height = 1.0 / n;
+                        slaves_data[i].x = (i % (int) m) * slaves_data[i].width;
+                        slaves_data[i].y = (i / (int) m) * slaves_data[i].height;
+                } else {
+                        int x, y, width, height;
+                        if(!get_slave_param_from_file(config, s->slaves[i].name,
+                                        &x, &y, &width, &height)) {
+                                fprintf(stderr, "Cannot find config for device "
+                                                "\"%s\"\n", s->slaves[i].name);
+                                free(slaves_data);
+                                return NULL;
+                        }
+                        slaves_data[i].width = (double) width /
+                                s->frame->tiles[0].width;
+                        slaves_data[i].height = (double) height /
+                                s->frame->tiles[0].height;
+                        slaves_data[i].x = (double) x /
+                                s->frame->tiles[0].width;
+                        slaves_data[i].y = (double) y /
+                                s->frame->tiles[0].height;
+                }
         }
 
         return slaves_data;
@@ -350,10 +397,6 @@ static void *master_worker(void *arg)
                         (GLfloat) s->frame->tiles[0].width);
         glUseProgram(0);
 
-        const GLcharARB *VProgram, *FProgram;
-
-        struct slave_data *slaves_data = init_slave_data(s);
-
         while(1) {
                 pthread_mutex_lock(&s->lock);
                 if(s->should_exit) {
@@ -377,14 +420,14 @@ static void *master_worker(void *arg)
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         pthread_mutex_lock(&s->slaves[i].lock);
                         vf_free_data(s->slaves[i].done_frame);
-                        s->slaves[i].done_frame = slaves_data[i].current_frame;
-                        slaves_data[i].current_frame = NULL;
+                        s->slaves[i].done_frame = s->slaves_data[i].current_frame;
+                        s->slaves_data[i].current_frame = NULL;
                         if(s->slaves[i].captured_frame) {
-                                slaves_data[i].current_frame =
+                                s->slaves_data[i].current_frame =
                                         s->slaves[i].captured_frame;
                                 s->slaves[i].captured_frame = NULL;
                         } else if(s->slaves[i].done_frame) {
-                                slaves_data[i].current_frame =
+                                s->slaves_data[i].current_frame =
                                         s->slaves[i].done_frame;
                                 s->slaves[i].done_frame = NULL;
                         }
@@ -393,11 +436,11 @@ static void *master_worker(void *arg)
 
                 // check for mode change
                 for(int i = 0; i < s->devices_cnt; ++i) {
-                        if(slaves_data[i].current_frame) {
-                                struct video_desc desc = video_desc_from_frame(slaves_data[i].current_frame);
-                                if(!video_desc_eq(desc, slaves_data[i].saved_desc)) {
-                                        reconfigure_slave_rendering(&slaves_data[i], desc);
-                                        slaves_data[i].saved_desc = desc;
+                        if(s->slaves_data[i].current_frame) {
+                                struct video_desc desc = video_desc_from_frame(s->slaves_data[i].current_frame);
+                                if(!video_desc_eq(desc, s->slaves_data[i].saved_desc)) {
+                                        reconfigure_slave_rendering(&s->slaves_data[i], desc);
+                                        s->slaves_data[i].saved_desc = desc;
                                 }
                         }
                 }
@@ -412,11 +455,11 @@ static void *master_worker(void *arg)
                 glViewport(0, 0, s->frame->tiles[0].width, s->frame->tiles[0].height);
 
                 for(int i = 0; i < s->devices_cnt; ++i) {
-                        if(slaves_data[i].current_frame) {
-                                glBindTexture(GL_TEXTURE_2D, slaves_data[i].texture);
-                                int width = slaves_data[i].current_frame->tiles[0].width;
+                        if(s->slaves_data[i].current_frame) {
+                                glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture);
+                                int width = s->slaves_data[i].current_frame->tiles[0].width;
                                 GLenum format;
-                                switch(slaves_data[i].current_frame->color_spec) {
+                                switch(s->slaves_data[i].current_frame->color_spec) {
                                         case UYVY:
                                                 width /= 2;
                                                 format = GL_RGBA;
@@ -430,27 +473,27 @@ static void *master_worker(void *arg)
                                 }
                                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                                 width,
-                                                slaves_data[i].current_frame->tiles[0].height,
+                                                s->slaves_data[i].current_frame->tiles[0].height,
                                                 format, GL_UNSIGNED_BYTE,
-                                                slaves_data[i].current_frame->tiles[0].data);
+                                                s->slaves_data[i].current_frame->tiles[0].data);
 
-                                if(slaves_data[i].current_frame->color_spec == UYVY) {
+                                if(s->slaves_data[i].current_frame->color_spec == UYVY) {
                                         glUseProgram(from_uyvy);
                                         GLuint image_id = glGetUniformLocation(from_uyvy, "image");
                                         glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
                                         glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
-                                                        (GLfloat) slaves_data[i].current_frame->tiles[0].width);
+                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
                                 }
 
                                 glBegin(GL_QUADS);
-                                glTexCoord2f(0.0, 0.0); glVertex2f(slaves_data[i].posX[0],
-                                                slaves_data[i].posY[0]);
-                                glTexCoord2f(1.0, 0.0); glVertex2f(slaves_data[i].posX[1],
-                                                slaves_data[i].posY[1]);
-                                glTexCoord2f(1.0, 1.0); glVertex2f(slaves_data[i].posX[2],
-                                                slaves_data[i].posY[2]);
-                                glTexCoord2f(0.0, 1.0); glVertex2f(slaves_data[i].posX[3],
-                                                slaves_data[i].posY[3]);
+                                glTexCoord2f(0.0, 0.0); glVertex2f(s->slaves_data[i].posX[0],
+                                                s->slaves_data[i].posY[0]);
+                                glTexCoord2f(1.0, 0.0); glVertex2f(s->slaves_data[i].posX[1],
+                                                s->slaves_data[i].posY[1]);
+                                glTexCoord2f(1.0, 1.0); glVertex2f(s->slaves_data[i].posX[2],
+                                                s->slaves_data[i].posY[2]);
+                                glTexCoord2f(0.0, 1.0); glVertex2f(s->slaves_data[i].posX[3],
+                                                s->slaves_data[i].posY[3]);
                                 glEnd();
                                 glUseProgram(0);
                         }
@@ -505,8 +548,6 @@ static void *master_worker(void *arg)
 
         }
 
-        destroy_slave_data(slaves_data, s->devices_cnt);
-
         glDeleteProgram(from_uyvy);
         glDeleteProgram(to_uyvy);
         glDisable(GL_TEXTURE_2D);
@@ -538,15 +579,186 @@ static void *slave_worker(void *arg)
         return NULL;
 }
 
-void *
-vidcap_swmix_init(char *init_fmt, unsigned int flags)
+bool read_params_from_config_file(struct video_desc *desc, FILE *config_file) {
+        char line[1024];
+        char codec[5];
+        int width, height;
+        double fps;
+        bool found  = false;
+
+        if(!fgets(line, sizeof(line), config_file))
+                return false;
+        int items_read = sscanf(line, "%d:%d:%lf:%4s", &width, &height, &fps, codec);
+        if(items_read != 3 && items_read != 4) {
+                fprintf(stderr, "Not enough arguments in config file. Was read: \n"
+                               " %s\nExpecting <width>:<height>:<fps>[:<codec>]\n", line);
+        }
+        desc->width = width;
+        desc->height = height;
+        desc->fps = fps;
+
+        if(items_read == 4) {
+                for (int i = 0; codec_info[i].name != NULL; i++) {
+                        if (strcmp(codec, codec_info[i].name) == 0) {
+                                desc->color_spec = codec_info[i].codec;
+                                found = true;
+                        }
+                }
+                if(!found) {
+                        fprintf(stderr, "Unrecognized color spec string: %s\n", codec);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+static bool get_slave_param_from_file(FILE* config_file, char *slave_name, int *x, int *y,
+                                        int *width, int *height)
 {
-	struct vidcap_swmix_state *s;
+        char *ret;
+        char line[1024];
+        fseek(config_file, 0, SEEK_SET); // rewind
+        ret = fgets(line, sizeof(line), config_file);  // skip first line
+        if(!ret) return false;
+        while (fgets(line, sizeof(line), config_file)) {
+                char name[128];
+                int x_, y_, width_, height_;
+                if(sscanf(line, "%128s %d %d %d %d", name, &x_, &y_, &width_, &height_) != 5)
+                        continue;
+                if(strcasecmp(name, slave_name) == 0) {
+                        *x = x_;
+                        *y = y_;
+                        *width = width_;
+                        *height = height_;
+                        return true;
+                }
+        }
+        return false;
+}
+
+static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
+                FILE **config_file)
+{
         char *save_ptr = NULL;
         char *item;
         char *parse_string;
         char *tmp;
-        int i;
+        int token_nr = 0;
+        *config_file = NULL;
+        tmp = parse_string = strdup(fmt);
+        if(strchr(parse_string, '#')) *strchr(parse_string, '#') = '\0';
+        while((item = strtok_r(tmp, ":", &save_ptr))) {
+                bool found = false;
+                switch (token_nr) {
+                        case 0:
+                                desc->width = atoi(item);
+                                break;
+                        case 1:
+                                desc->height = atoi(item);
+                                break;
+                        case 2:
+                                desc->fps = atof(item);
+                                break;
+                        case 3:
+                                for (int i = 0; codec_info[i].name != NULL; i++) {
+                                        if (strcmp(item, codec_info[i].name) == 0) {
+                                                desc->color_spec = codec_info[i].codec;
+                                                found = true;
+                                        }
+                                }
+                                if(!found) {
+                                        fprintf(stderr, "Unrecognized color spec string: %s\n", item);
+                                        return false;
+                                }
+                                break;
+                }
+                tmp = NULL;
+                token_nr += 1;
+        }
+        free(parse_string);
+
+        if(desc->width == 0 && desc->height == 0 && desc->fps == 0.0) {
+                s->use_config_file = true;
+
+                *config_file = fopen(get_config_name(), "r");
+                if(!*config_file) {
+                        fprintf(stderr, "Params not set and config file %s not found.\n",
+                                        get_config_name());
+                        return false;
+                }
+                if(!read_params_from_config_file(desc, *config_file)) {
+                        return false;
+                }
+        } else {
+                if(desc->width * desc->height * desc->fps == 0.0) {
+                        show_help();
+                        return false;
+                }
+        }
+
+        if(desc->color_spec != RGBA && desc->color_spec != RGB && desc->color_spec != UYVY) {
+                fprintf(stderr, "Unsupported output codec.\n");
+                return false;
+        }
+
+        s->devices_cnt = -1;
+        tmp = parse_string = strdup(fmt);
+        while(strtok_r(tmp, "#", &save_ptr)) {
+                s->devices_cnt++;
+                tmp = NULL;
+        }
+        free(parse_string);
+
+        s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
+        int i = 0;
+        parse_string = strdup(fmt);
+        strtok_r(parse_string, "#", &save_ptr); // drop first part
+        while((item = strtok_r(NULL, "#", &save_ptr))) {
+                char *copy = strdup(item);
+                char *device;
+                char *config = copy;
+                char *device_cfg = NULL;
+                char *name = NULL;
+
+                // we have device name to be matched against config file
+                if(strchr(config, '@')) {
+			char *delim = strchr(config, '@');
+			*delim = '\0';
+                        name = config;
+			config = delim + 1;
+                }
+                device = config;
+		if(strchr(config, ':')) {
+			char *delim = strchr(config, ':');
+			*delim = '\0';
+			device_cfg = delim + 1;
+		}
+
+                s->slaves[i].device = initialize_video_capture(device,
+                                               device_cfg, 0);
+                if(name) {
+                        s->slaves[i].name = strdup(name);
+                } else {
+                        s->slaves[i].name = NULL;
+                }
+
+                free(copy);
+                if(!s->slaves[i].device) {
+                        fprintf(stderr, "[swmix] Unable to initialize device %d.\n", i);
+                        return false;
+                }
+                ++i;
+        }
+        free(parse_string);
+
+        return true;
+}
+
+void *
+vidcap_swmix_init(char *init_fmt, unsigned int flags)
+{
+	struct vidcap_swmix_state *s;
         struct video_desc desc;
         GLenum format;
 
@@ -570,82 +782,12 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
         desc.tile_count = 1;
         desc.color_spec = RGBA;
 
-        int token_nr = 0;
-        tmp = parse_string = strdup(init_fmt);
-        if(strchr(parse_string, '#')) *strchr(parse_string, '#') = '\0';
-        while((item = strtok_r(tmp, ":", &save_ptr))) {
-                bool found = false;
-                switch (token_nr) {
-                        case 0:
-                                desc.width = atoi(item);
-                                break;
-                        case 1:
-                                desc.height = atoi(item);
-                                break;
-                        case 2:
-                                desc.fps = atof(item);
-                                break;
-                        case 3:
-                                for (int i = 0; codec_info[i].name != NULL; i++) {
-                                        if (strcmp(item, codec_info[i].name) == 0) {
-                                                desc.color_spec = codec_info[i].codec;
-                                                found = true;
-                                        }
-                                }
-                                if(!found) {
-                                        fprintf(stderr, "Unrecognized color spec string: %s\n", item);
-                                        return NULL;
-                                }
-                                break;
-                }
-                tmp = NULL;
-                token_nr += 1;
-        }
-        free(parse_string);
+        FILE *config_file = NULL;
 
-        if(desc.width * desc.height * desc.fps == 0.0) {
-                show_help();
-                return NULL;
+        if(!parse(s, &desc, init_fmt, &config_file)) {
+                goto error;
         }
 
-        if(desc.color_spec != RGBA && desc.color_spec != RGB && desc.color_spec != UYVY) {
-                fprintf(stderr, "Unsupported output codec.\n");
-                return NULL;
-        }
-
-        s->devices_cnt = -1;
-        tmp = parse_string = strdup(init_fmt);
-        while(strtok_r(tmp, "#", &save_ptr)) {
-                s->devices_cnt++;
-                tmp = NULL;
-        }
-        free(parse_string);
-
-        s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
-        i = 0;
-        parse_string = strdup(init_fmt);
-        strtok_r(parse_string, "#", &save_ptr); // drop first part
-        while((item = strtok_r(NULL, "#", &save_ptr))) {
-                char *device;
-                char *config = strdup(item);
-                char *device_cfg = NULL;
-                device = config;
-		if(strchr(config, ':')) {
-			char *delim = strchr(config, ':');
-			*delim = '\0';
-			device_cfg = delim + 1;
-		}
-
-                s->slaves[i].device = initialize_video_capture(device,
-                                               device_cfg, 0);
-                free(config);
-                if(!s->slaves[i].device) {
-                        fprintf(stderr, "[swmix] Unable to initialize device %d.\n", i);
-                        goto error;
-                }
-                ++i;
-        }
-        free(parse_string);
         s->frame = vf_alloc_desc(desc);
 
         s->should_exit = false;
@@ -659,10 +801,18 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
         if(!init_gl_context(&s->gl_context, GL_CONTEXT_LEGACY)) {
                 fprintf(stderr, "[swmix] Unable to initialize OpenGL context.\n");
-                return NULL;
+                goto error;
         }
 
         gl_context_make_current(&s->gl_context);
+
+        s->slaves_data = init_slave_data(s, config_file);
+        if(!s->slaves_data) {
+                return NULL;
+        }
+
+        if(config_file)
+                fclose(config_file);
 
         format = GL_RGBA;
         if(desc.color_spec == RGB) {
@@ -720,7 +870,7 @@ error:
                 }
                 free(s->slaves);
         }
-        free(s);
+        delete s;
         return NULL;
 }
 
@@ -769,7 +919,8 @@ vidcap_swmix_done(void *state)
                 s->free_buffer_queue.pop();
         }
 
-        for (int i = 0; i < s->devices_cnt; ++i) {
+       for (int i = 0; i < s->devices_cnt; ++i) {
+                vidcap_finish(s->slaves[i].device);
                 vidcap_done(s->slaves[i].device);
                 pthread_mutex_destroy(&s->slaves[i].lock);
                 vf_free_data(s->slaves[i].captured_frame);
@@ -780,6 +931,8 @@ vidcap_swmix_done(void *state)
         vf_free(s->frame);
 
         gl_context_make_current(&s->gl_context);
+
+        destroy_slave_data(s->slaves_data, s->devices_cnt);
 
         glDeleteTextures(1, &s->tex_output);
         glDeleteTextures(1, &s->tex_output_uyvy);
