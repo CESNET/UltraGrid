@@ -1044,20 +1044,22 @@ void display_decklink_done(void *state)
 
         for (int i = 0; i < s->devices_cnt; ++i)
         {
-                result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
-                if (result != S_OK) {
-                        fprintf(stderr, MODULE_NAME "Cannot stop playback: %08x\n", (int) result);
-                }
-
-                if(s->play_audio && i == 0) {
-                        result = s->state[i].deckLinkOutput->DisableAudioOutput();
+                if(s->initialized) {
+                        result = s->state[i].deckLinkOutput->StopScheduledPlayback (0, NULL, 0);
                         if (result != S_OK) {
-                                fprintf(stderr, MODULE_NAME "Could disable audio output: %08x\n", (int) result);
+                                fprintf(stderr, MODULE_NAME "Cannot stop playback: %08x\n", (int) result);
                         }
-                }
-                result = s->state[i].deckLinkOutput->DisableVideoOutput();
-                if (result != S_OK) {
-                        fprintf(stderr, MODULE_NAME "Could disable video output: %08x\n", (int) result);
+
+                        if(s->play_audio && i == 0) {
+                                result = s->state[i].deckLinkOutput->DisableAudioOutput();
+                                if (result != S_OK) {
+                                        fprintf(stderr, MODULE_NAME "Could disable audio output: %08x\n", (int) result);
+                                }
+                        }
+                        result = s->state[i].deckLinkOutput->DisableVideoOutput();
+                        if (result != S_OK) {
+                                fprintf(stderr, MODULE_NAME "Could disable video output: %08x\n", (int) result);
+                        }
                 }
 
                 if(s->state[i].deckLinkConfiguration != NULL) {
