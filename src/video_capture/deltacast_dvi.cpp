@@ -106,8 +106,8 @@ static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
         int               i;
-        printf("-t deltacast[:board=<index>][:codec=<color_spec>][:edid=<edid>]"
-                        "[:channel=<channel>]\n");
+        printf("-t deltacast[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
+                        "[:edid=<edid>|preset=<format>]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
@@ -148,6 +148,8 @@ static void usage(void)
                         VHD_CloseBoardHandle(BoardHandle);
                 }
         }
+
+        printf("\t<channel> may be channel index (for cards which have multiple inputs)\n");
         
         printf("\t<edid> may be one of following\n");
         printf("\t\t0 - load DVI-D EEDID\n");
@@ -160,7 +162,8 @@ static void usage(void)
         printf("\t\tRGBA\n");
         printf("\t\tRGB\n");
 
-        printf("\t<channel> may be channel index (for cards which have multiple inputs)\n");
+        printf("\t<preset> may be format description (DVI-A), E-EDID will be ignored\n");
+        printf("\t\tvideo format is in the format <width>x<height>@<fps>\n");
 
 }
 
@@ -248,6 +251,11 @@ vidcap_deltacast_dvi_probe(void)
 	return vt;
 }
 
+static bool set_format_eedid(HANDLE BoardHandle, HANDLE StreamHandle,
+                ULONG &Width, ULONG &Height, ULONG &RefreshRate) {
+
+}
+
 void *
 vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
 {
@@ -265,6 +273,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
         codec_t           codec = UYVY;
         int               channel = 0;
         ULONG             ChannelId;
+        bool              have_preset = false;
 
         int               i;
 
@@ -318,6 +327,19 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                                         }
                         } else if(strncasecmp(tok, "channel=", strlen("channel=")) == 0) {
                                 channel = atoi(tok + strlen("channel="));
+                        } else if(strncasecmp(tok, "preset=", strlen("preset=")) == 0) {
+                                have_preset = true;
+                                char *ptr = tok + strlen("preset=");
+                                char *save_ptr, *item;
+                                if(item = strtok_r(ptr, "x@", &save_ptr)) {
+                                        Width = atoi(item);
+                                }
+                                if(item = strtok_r(NULL, "x@", &save_ptr)) {
+                                        Height = atoi(item);
+                                }
+                                if(item = strtok_r(NULL, "x@", &save_ptr)) {
+                                        RefreshRate = atof(item);
+                                }
                         } else {
                                 fprintf(stderr, "[DELTA] Error: Unrecongnized "
                                                 "trailing parameter %s\n", tok);
@@ -384,60 +406,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                 goto no_stream;
         }
 
-        /* Read EEDID and check its validity */
-        Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
-        if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
-        {
-                /* Propose edid preset to user and load */
-                fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
-                fprintf(stderr, "Please set it as a command-line option.\n");
-                goto no_stream;
-        }
-        switch(edid)
-        {
-                case 0 : VHD_PresetEEDID(VHD_EEDID_DVID,pEEDIDBuffer,256);
-                         VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
-                         break;
-                case 1 : VHD_PresetEEDID(VHD_EEDID_DVIA,pEEDIDBuffer,256);
-                         VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
-                         break;
-                case 2 : VHD_PresetEEDID(VHD_EEDID_HDMI,pEEDIDBuffer,256);
-                         VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
-                         break;
-                default : break;
-        }
-
-        /* Wait for channel locked */
-        printf("\nWaiting for incoming signal...\n");
-        do 
-        {
-                Result = VHD_GetStreamProperty(s->StreamHandle, VHD_DVI_SP_MODE, (ULONG *) &DviMode);
-        } while (Result != VHDERR_NOERROR && !should_exit);
-
-        if(Result != VHDERR_NOERROR)
-                goto no_format;
-
-        printf("\nIncoming Dvi mode detected: ");
-        switch(DviMode)
-        {
-                case VHD_DVI_MODE_DVI_D                   : printf("DVI-D\n");break;
-                case VHD_DVI_MODE_DVI_A                   : printf("DVI-A\n");break;
-                case VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO  : printf("Analog component video\n");break;
-                case VHD_DVI_MODE_HDMI                    : printf("HDMI\n");break;
-                default                                   : break;
-        }
-
-        /* Disable EDID auto load */
-        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_DISABLE_EDID_AUTO_LOAD,TRUE);
-        if(Result != VHDERR_NOERROR)
-                goto no_format;
-
-        /* Set the DVI mode of this channel to the detected one */
-        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_MODE, DviMode);
-        if(Result != VHDERR_NOERROR)
-                goto no_format;
-
-        /* Configure RGBA reception (no color-space conversion) */
+        /* Configure color space reception (RGBA for no color-space conversion) */
         switch(codec) {
                 case RGB:
                         Packing = VHD_BUFPACK_VIDEO_RGB_32;
@@ -461,21 +430,80 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                 goto no_format;
         }
 
+        if(have_preset) {
+                DviMode = VHD_DVI_MODE_DVI_A;
+        } else {
+                /* Read EEDID and check its validity */
+                Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
+                if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
+                {
+                        /* Propose edid preset to user and load */
+                        fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
+                        fprintf(stderr, "Please set it as a command-line option.\n");
+                        goto no_stream;
+                }
+                switch(edid)
+                {
+                        case 0 : VHD_PresetEEDID(VHD_EEDID_DVID,pEEDIDBuffer,256);
+                                 VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
+                                 break;
+                        case 1 : VHD_PresetEEDID(VHD_EEDID_DVIA,pEEDIDBuffer,256);
+                                 VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
+                                 break;
+                        case 2 : VHD_PresetEEDID(VHD_EEDID_HDMI,pEEDIDBuffer,256);
+                                 VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
+                                 break;
+                        default : break;
+                }
+
+                /* Wait for channel locked */
+                printf("\nWaiting for incoming signal...\n");
+                do
+                {
+                        Result = VHD_GetStreamProperty(s->StreamHandle, VHD_DVI_SP_MODE, (ULONG *) &DviMode);
+                } while (Result != VHDERR_NOERROR && !should_exit);
+
+                if(Result != VHDERR_NOERROR)
+                        goto no_format;
+        }
+
+        printf("\nIncoming Dvi mode detected: ");
+        switch(DviMode)
+        {
+                case VHD_DVI_MODE_DVI_D                   : printf("DVI-D\n");break;
+                case VHD_DVI_MODE_DVI_A                   : printf("DVI-A\n");break;
+                case VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO  : printf("Analog component video\n");break;
+                case VHD_DVI_MODE_HDMI                    : printf("HDMI\n");break;
+                default                                   : break;
+        }
+
+        /* Disable EDID auto load */
+        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_DISABLE_EDID_AUTO_LOAD,TRUE);
+        if(Result != VHDERR_NOERROR)
+                goto no_format;
+
+        /* Set the DVI mode of this channel to the detected one */
+        Result = VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_MODE, DviMode);
+        if(Result != VHDERR_NOERROR)
+                goto no_format;
+
         if(DviMode == VHD_DVI_MODE_DVI_A)
         {
-                VHD_DVI_A_STANDARD DviAStd;
-                /* Auto-detection is now available for DVI-A. 
-                   VHD_DVI_SP_ACTIVE_HEIGHT, VHD_DVI_SP_INTERLACED, VHD_DVI_SP_REFRESH_RATE, 
-                   VHD_DVI_SP_PIXEL_CLOCK, VHD_DVI_SP_TOTAL_WIDTH, VHD_DVI_SP_TOTAL_HEIGHT, 
-                   VHD_DVI_SP_H_SYNC, VHD_DVI_SP_H_FRONT_PORCH, VHD_DVI_SP_V_SYNC and 
-                   VHD_DVI_SP_V_FRONT_PORCH properties are required for DVI-A but 
-                   the VHD_PresetDviAStreamProperties is a helper function to set all these 
-                   properties according to a resolution, a refresh rate and a graphic timing 
-                   standard. Manual setting or overriding of these properties is allowed 
-                   Resolution, refresh rate and graphic timing standard can be auto-detect
-                   with VHD_DetectDviAFormat function */
-                Result = VHD_DetectDviAFormat(s->StreamHandle,&DviAStd,&Width,&Height,&RefreshRate,
-                                &Interlaced_B);
+                VHD_DVI_A_STANDARD DviAStd = VHD_DVIA_STD_DMT;
+                if(!have_preset) {
+                        /* Auto-detection is now available for DVI-A.
+                           VHD_DVI_SP_ACTIVE_HEIGHT, VHD_DVI_SP_INTERLACED, VHD_DVI_SP_REFRESH_RATE,
+                           VHD_DVI_SP_PIXEL_CLOCK, VHD_DVI_SP_TOTAL_WIDTH, VHD_DVI_SP_TOTAL_HEIGHT,
+                           VHD_DVI_SP_H_SYNC, VHD_DVI_SP_H_FRONT_PORCH, VHD_DVI_SP_V_SYNC and
+                           VHD_DVI_SP_V_FRONT_PORCH properties are required for DVI-A but
+                           the VHD_PresetDviAStreamProperties is a helper function to set all these
+                           properties according to a resolution, a refresh rate and a graphic timing
+                           standard. Manual setting or overriding of these properties is allowed
+                           Resolution, refresh rate and graphic timing standard can be auto-detect
+                           with VHD_DetectDviAFormat function */
+                        Result = VHD_DetectDviAFormat(s->StreamHandle,&DviAStd,&Width,&Height,&RefreshRate,
+                                        &Interlaced_B);
+                }
                 if(Result == VHDERR_NOERROR)
                 {
                         printf("\nDVI-A format detected: %ux%u @%uHz (%s)\n",Width,Height,RefreshRate
