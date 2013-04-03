@@ -143,8 +143,8 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
-        /* Set period size to 128 frames. */
-        s->frames = 128;
+        /* Set period size to 1024 frames. */
+        s->frames = 1024;
         snd_pcm_hw_params_set_period_size_near(s->handle,
                 params, &s->frames, &dir);
 
