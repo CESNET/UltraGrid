@@ -156,6 +156,16 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                 }
         }
 
+        /* we want to resample if device doesn't support default sample rate */
+        val = 1;
+        rc = snd_pcm_hw_params_set_rate_resample(s->handle,
+                        params, val);
+        if(rc < 0) {
+                fprintf(stderr, "[ALSA play.] Warnings: Unable to set resampling: %s\n",
+                        snd_strerror(rc));
+        }
+
+
         /* 44100 bits/second sampling rate (CD quality) */
         val = sample_rate;
         dir = 0;

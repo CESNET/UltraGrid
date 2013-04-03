@@ -143,11 +143,6 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
-        /* Set period size to 1024 frames. */
-        s->frames = 1024;
-        snd_pcm_hw_params_set_period_size_near(s->handle,
-                params, &s->frames, &dir);
-
         /* Two channels (stereo) */
         rc = snd_pcm_hw_params_set_channels(s->handle, params, s->frame.ch_count);
         if (rc < 0) {
@@ -161,16 +156,41 @@ void * audio_cap_alsa_init(char *cfg)
                 }
         }
 
-        /* sampling rate (CD quality) */
+        /* we want to resample if device doesn't support default sample rate */
+        val = 1;
+        rc = snd_pcm_hw_params_set_rate_resample(s->handle,
+                        params, val);
+        if(rc < 0) {
+                fprintf(stderr, "[ALSA cap.] Warnings: Unable to set resampling: %s\n",
+                        snd_strerror(rc));
+        }
+
+        /* set sampling rate */
         val = s->frame.sample_rate;
         dir = 0;
         rc = snd_pcm_hw_params_set_rate_near(s->handle, params,
                 &val, &dir);
         if (rc < 0) {
-                fprintf(stderr, "unable to sampling rate: %s\n",
-                        snd_strerror(rc));
+                fprintf(stderr, "[ALSA cap.] unable to set sampling rate (%s %d): %s\n",
+                        dir == 0 ? "=" : (dir == -1 ? "<" : ">"),
+                        val, snd_strerror(rc));
                 goto error;
         }
+
+        /* Set period size to 128 frames or more. */
+        /* This must follow the setting of sample rate for Chat 150 - increases
+         * value to 1024. But if this setting precedes, setting sample rate of 48000
+         * fails (1024 period) of does not work properly (128).
+         * */
+        s->frames = 128;
+        dir = 0;
+        rc = snd_pcm_hw_params_set_period_size_near(s->handle,
+                params, &s->frames, &dir);
+        if (rc < 0) {
+                fprintf(stderr, "[ALSA cap.] unable to set frame period (%ld): %s\n",
+                                s->frames, snd_strerror(rc));
+        }
+
 
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
@@ -184,6 +204,11 @@ void * audio_cap_alsa_init(char *cfg)
         snd_pcm_hw_params_get_period_size(params, &s->frames, &dir);
         s->frame.max_size = s->frames  * s->frame.ch_count * s->frame.bps;
         s->frame.data = (char *) malloc(s->frame.max_size);
+
+        printf("ALSA capture configuration: %d channel%s, %d Bps, %d Hz, "
+                       "%ld samples per frame.\n", s->frame.ch_count,
+                       s->frame.ch_count == 1 ? "" : "s", s->frame.bps,
+                       s->frame.sample_rate, s->frames);
 
         return s;
 
