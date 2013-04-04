@@ -1000,6 +1000,7 @@ int main(int argc, char *argv[])
 
         uv->audio = NULL;
         uv->ts = 0;
+        uv->capture_device = NULL;
         uv->display_device = NULL;
         uv->requested_display = "none";
         uv->requested_capture = "none";
