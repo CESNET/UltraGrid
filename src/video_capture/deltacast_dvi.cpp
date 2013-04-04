@@ -160,7 +160,7 @@ static void usage(void)
         printf("\t<color_spec> may be one of following\n");
         printf("\t\tUYVY (default)\n");
         printf("\t\tRGBA\n");
-        printf("\t\tRGB\n");
+        printf("\t\tBGR\n");
 
         printf("\t<preset> may be format description (DVI-A), E-EDID will be ignored\n");
         printf("\t\tvideo format is in the format <width>x<height>@<fps>\n");
@@ -408,8 +408,8 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
 
         /* Configure color space reception (RGBA for no color-space conversion) */
         switch(codec) {
-                case RGB:
-                        Packing = VHD_BUFPACK_VIDEO_RGB_32;
+                case BGR:
+                        Packing = VHD_BUFPACK_VIDEO_RGB_24;
                         break;
                 case RGBA:
                         Packing = VHD_BUFPACK_VIDEO_RGBA_32;
