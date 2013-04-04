@@ -42,6 +42,7 @@
 
 #define UNUSED(x)	(x=x)
 #define debug_msg	_dprintf("[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), _dprintf
+#define error_msg	_errprintf("[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), _errprintf
 
 void _errprintf(const char *format, ...);
 void _dprintf(const char *format, ...);

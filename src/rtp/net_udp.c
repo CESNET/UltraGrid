@@ -829,7 +829,7 @@ static const char *udp_host_addr6(socket_udp * s)
              getsockname(newsock, (struct sockaddr *)&local, &len)) < 0) {
                 local.sin6_addr = in6addr_any;
                 local.sin6_port = 0;
-                debug_msg("getsockname failed\n");
+                error_msg("getsockname failed\n");
         }
 
         close(newsock);
@@ -837,8 +837,8 @@ static const char *udp_host_addr6(socket_udp * s)
         if (IN6_IS_ADDR_UNSPECIFIED(&local.sin6_addr)
             || IN6_IS_ADDR_MULTICAST(&local.sin6_addr)) {
                 if (gethostname(hname, MAXHOSTNAMELEN) != 0) {
-                        debug_msg("gethostname failed\n");
-                        abort();
+                        error_msg("gethostname failed\n");
+                        return NULL;
                 }
 
                 hints.ai_protocol = 0;
@@ -851,9 +851,9 @@ static const char *udp_host_addr6(socket_udp * s)
                 hints.ai_next = NULL;
 
                 if ((gai_err = getaddrinfo(hname, NULL, &hints, &ai))) {
-                        debug_msg("getaddrinfo: %s: %s\n", hname,
+                        error_msg("getaddrinfo: %s: %s\n", hname,
                                   gai_strerror(gai_err));
-                        abort();
+                        return NULL;
                 }
 
                 struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(void *)
@@ -862,16 +862,16 @@ static const char *udp_host_addr6(socket_udp * s)
                     (AF_INET6,
                      &(addr6->sin6_addr),
                      hname, MAXHOSTNAMELEN) == NULL) {
-                        debug_msg("inet_ntop: %s: \n", hname);
-                        abort();
+                        error_msg("inet_ntop: %s: \n", hname);
+                        return NULL;
                 }
                 freeaddrinfo(ai);
                 return (const char *)hname;
         }
         if (inet_ntop(AF_INET6, &local.sin6_addr, hname, MAXHOSTNAMELEN) ==
             NULL) {
-                debug_msg("inet_ntop: %s: \n", hname);
-                abort();
+                error_msg("inet_ntop: %s: \n", hname);
+                return NULL;
         }
         return (const char *)hname;
 #else                           /* HAVE_IPv6 */
