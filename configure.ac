@@ -2386,7 +2386,7 @@ AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is au
 [libavcodec_req=auto]
 )
 
-#PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
+if test $system = Windows; then
 AC_CHECK_HEADERS([libavcodec/avcodec.h libavutil/imgutils.h libavutil/opt.h])
 AC_CHECK_LIB(avcodec, avcodec_open2)
 AC_CHECK_LIB(avutil, av_free)
@@ -2400,6 +2400,9 @@ then
         LIBAVCODEC_LIBS="-lavcodec -lavutil"
 else
         found_libavcodec=no
+fi
+else # Linux, OS X
+PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
 fi
 
 if test $libavcodec_req != no -a $found_libavcodec = yes

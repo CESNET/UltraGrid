@@ -63,6 +63,17 @@
 #include "video_compress/libavcodec.h" // LAVCD_LOCK_NAME
 #include "video_decompress.h"
 
+#ifndef HAVE_AVCODEC_ENCODE_VIDEO2
+#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
+#define AV_PIX_FMT_YUV422P PIX_FMT_YUV422P
+#define AV_PIX_FMT_YUVJ420P PIX_FMT_YUVJ420P
+#define AV_PIX_FMT_YUVJ422P PIX_FMT_YUVJ422P
+#define AV_PIX_FMT_NONE PIX_FMT_NONE
+#define AV_CODEC_ID_H264 CODEC_ID_H264
+#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
+#define AV_CODEC_ID_VP8 CODEC_ID_VP8
+#endif
+
 struct state_libavcodec_decompress {
         pthread_mutex_t *global_lavcd_lock;
         AVCodec         *codec;
@@ -109,16 +120,16 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         int codec_id;
         switch(desc.color_spec) {
                 case H264:
-                        codec_id = CODEC_ID_H264;
+                        codec_id = AV_CODEC_ID_H264;
                         break;
                 case MJPG:
                 case JPEG:
-                        codec_id = CODEC_ID_MJPEG;
+                        codec_id = AV_CODEC_ID_MJPEG;
                         fprintf(stderr, "[lavd] Warning: JPEG decoder "
                                         "will use full-scale YUV.\n");
                         break;
                 case VP8:
-                        codec_id = CODEC_ID_VP8;
+                        codec_id = AV_CODEC_ID_VP8;
                         break;
                 default:
                         fprintf(stderr, "[lavd] Unsupported codec!!!\n");
@@ -154,7 +165,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 #endif
 
         // set by decoder
-        s->codec_ctx->pix_fmt = PIX_FMT_NONE;
+        s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
 
         pthread_mutex_lock(s->global_lavcd_lock);
         if(avcodec_open2(s->codec_ctx, s->codec, NULL) < 0) {
@@ -373,26 +384,16 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
         assert(out_codec == UYVY || out_codec == RGB);
 
         switch(av_codec) {
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
                 case AV_PIX_FMT_YUV422P:
                 case AV_PIX_FMT_YUVJ422P:
-#else
-                case PIX_FMT_YUV422P:
-                case PIX_FMT_YUVJ422P:
-#endif
                         if(out_codec == UYVY) {
                                 yuv422p_to_yuv422((char *) dst, frame, width, height, pitch);
                         } else {
                                 yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
                         }
                         break;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
                 case AV_PIX_FMT_YUV420P:
                 case AV_PIX_FMT_YUVJ420P:
-#else
-                case PIX_FMT_YUV420P:
-                case PIX_FMT_YUVJ420P:
-#endif
                         if(out_codec == UYVY) {
                                 yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
                         } else {

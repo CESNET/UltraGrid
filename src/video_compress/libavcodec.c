@@ -67,6 +67,16 @@
 
 #define DEFAULT_CODEC MJPG
 
+#ifndef HAVE_AVCODEC_ENCODE_VIDEO2
+#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
+#define AV_PIX_FMT_YUV422P PIX_FMT_YUV422P
+#define AV_PIX_FMT_YUVJ420P PIX_FMT_YUVJ420P
+#define AV_PIX_FMT_YUVJ422P PIX_FMT_YUVJ422P
+#define AV_CODEC_ID_H264 CODEC_ID_H264
+#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
+#define AV_CODEC_ID_VP8 CODEC_ID_VP8
+#endif
+
 struct libav_video_compress {
         pthread_mutex_t    *lavcd_global_lock;
 
@@ -91,6 +101,7 @@ struct libav_video_compress {
         int                 subsampling;
 
         codec_t             out_codec;
+        char               *preset;
 };
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -101,12 +112,13 @@ static void cleanup(struct libav_video_compress *s);
 static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]"
-                        "[:subsampling=<subsampling>]\n");
+                        "[:subsampling=<subsampling>][:preset=<preset>]\n");
         printf("\t\t<codec_name> may be "
                         " one of \"H.264\", \"VP8\" or "
                         "\"MJPEG\" (default)\n");
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t<subsampling> may be one of 422 or 420, default 420 for progresive, 422 for interlaced\n");
+        printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
 }
 
@@ -125,6 +137,7 @@ void * libavcodec_compress_init(char * fmt)
         s->in_frame = NULL;
         s->selected_codec_id = DEFAULT_CODEC;
         s->subsampling = s->requested_subsampling = 0;
+        s->preset = NULL;
 
         s->requested_bitrate = -1;
 
@@ -178,6 +191,9 @@ void * libavcodec_compress_init(char * fmt)
                                         free(s);
                                         return NULL;
                                 }
+                        } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
+                                char *preset = item + strlen("preset=");
+                                s->preset = strdup(preset);
                         } else {
                                 fprintf(stderr, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -212,18 +228,12 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
         double avg_bpp; // average bite per pixel
 
         struct video_desc compressed_desc;
-        enum {
-                YUV420P,
-                YUV422P,
-                YUVJ420P,
-                YUVJ422P
-        } tmp_pixfmt;
         compressed_desc = desc;
         switch(s->selected_codec_id) {
                 case H264:
 #ifdef HAVE_GPL
-                        codec_id = CODEC_ID_H264;
-                        tmp_pixfmt = YUV420P;
+                        codec_id = AV_CODEC_ID_H264;
+                        pix_fmt = AV_PIX_FMT_YUV420P;
                         compressed_desc.color_spec = H264;
                         // from H.264 Primer
                         avg_bpp =
@@ -238,14 +248,14 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                         return false;
 #endif
                 case MJPG:
-                        codec_id = CODEC_ID_MJPEG;
-                        tmp_pixfmt = YUVJ420P;
+                        codec_id = AV_CODEC_ID_MJPEG;
+                        pix_fmt = AV_PIX_FMT_YUVJ420P;
                         compressed_desc.color_spec = MJPG;
                         avg_bpp = 0.7;
                         break;
                 case VP8:
-                        codec_id = CODEC_ID_VP8;
-                        tmp_pixfmt = YUV420P;
+                        codec_id = AV_CODEC_ID_VP8;
+                        pix_fmt = AV_PIX_FMT_YUV420P;
                         compressed_desc.color_spec = VP8;
                         avg_bpp = 0.5;
                         break;
@@ -262,45 +272,14 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                         (desc.interlacing == INTERLACED_MERGED &&
                          s->requested_subsampling != 420)) {
                 s->subsampling = 422;
-                if(tmp_pixfmt == YUV420P) {
-                        tmp_pixfmt = YUV422P;
+                if(pix_fmt == AV_PIX_FMT_YUV420P) {
+                        pix_fmt = AV_PIX_FMT_YUV422P;
                 }
-                if(tmp_pixfmt == YUVJ420P) {
-                        tmp_pixfmt = YUVJ422P;
+                if(pix_fmt == AV_PIX_FMT_YUVJ420P) {
+                        pix_fmt = AV_PIX_FMT_YUVJ422P;
                 }
         } else {
                 s->subsampling = 420;
-        }
-
-        switch(tmp_pixfmt) {
-                case YUV420P:
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUV420P;
-#else
-                        pix_fmt = PIX_FMT_YUV420P;
-#endif
-                        break;
-                case YUV422P:
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUV422P;
-#else
-                        pix_fmt = PIX_FMT_YUV422P;
-#endif
-                        break;
-                case YUVJ420P:
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUVJ420P;
-#else
-                        pix_fmt = PIX_FMT_YUVJ420P;
-#endif
-                        break;
-                case YUVJ422P:
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                        pix_fmt = AV_PIX_FMT_YUVJ422P;
-#else
-                        pix_fmt = PIX_FMT_YUVJ422P;
-#endif
-                        break;
         }
 
         for(int i = 0; i < 2; ++i) {
@@ -373,15 +352,51 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
 
         s->decoded = malloc(desc.width * desc.height * 4);
 
-        if(codec_id == CODEC_ID_H264) {
-                av_opt_set(s->codec_ctx->priv_data, "preset", "ultrafast", 0);
+        if(s->preset) {
+                if(av_opt_set(s->codec_ctx->priv_data, "preset", s->preset, 0) != 0) {
+                        fprintf(stderr, "[Lavc] Error: Unable to set preset.\n");
+                        return false;
+                }
+        }
+
+        if(codec_id == AV_CODEC_ID_H264) {
+#ifdef HAVE_GPL
+                if(!s->preset) {
+                        // ultrafast - --aq-mode 0
+                        // This option causes posterization. Enabling it requires some 20% additional
+                        // percent of CPU.
+                        char params[] = "no-8x8dct=1:aq-mode=1:b-adapt=0:bframes=0:no-cabac=1:"
+                                "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
+                                "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:";
+                        int ret;
+                        // newer LibAV
+                        ret = av_opt_set(s->codec_ctx->priv_data, "x264-params", params, 0);
+                        if(ret != 0) {
+                                // newer FFMPEG
+                                ret = av_opt_set(s->codec_ctx->priv_data, "x264opts", params, 0);
+                        }
+                        if(ret != 0) {
+                                // older version of both
+                                // or superfast?? requires + some 70 % CPU but does not cause posterization
+                                ret = av_opt_set(s->codec_ctx->priv_data, "preset", "ultrafast", 0);
+                                fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected."
+                                                "Try supplying 'preset=superfast' argument to "
+                                                "avoid posterization!\n");
+                        }
+                        if(ret != 0) {
+                                fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
+                        }
+                }
+
                 //av_opt_set(s->codec_ctx->priv_data, "tune", "fastdecode", 0);
                 av_opt_set(s->codec_ctx->priv_data, "tune", "zerolatency", 0);
+
 #ifndef DISABLE_H264_INTRA_REFRESH
                 s->codec_ctx->refs = 1;
                 av_opt_set(s->codec_ctx->priv_data, "intra-refresh", "1", 0);
-#endif
-        } else if(codec_id == CODEC_ID_VP8) {
+#endif // defined DISABLE_H264_INTRA_REFRESH
+#endif // defined HAVE_GPL
+        } else if(codec_id == AV_CODEC_ID_VP8) {
                 s->codec_ctx->thread_count = 8;
                 s->codec_ctx->profile = 3;
                 s->codec_ctx->slices = 4;
@@ -581,7 +596,7 @@ static void cleanup(struct libav_video_compress *s)
 {
         for(int i = 0; i < 2; ++i) {
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                vf_free(s->out[i]);
+                tile_free(s->out[i]);
                 s->out[i] = 0;
                 av_free_packet(&s->pkt[i]);
 #else
@@ -613,6 +628,7 @@ void libavcodec_compress_done(void *arg)
         cleanup(s);
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
+        free(s->preset);
         free(s);
 }
 
