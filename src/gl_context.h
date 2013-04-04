@@ -82,6 +82,8 @@ static void gl_check_error()
                 abort();
 }
 
+GLuint glsl_compile_link(const char *vprogram, const char *fprogram);
+
 
 #ifdef __cplusplus
 }

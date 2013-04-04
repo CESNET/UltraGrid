@@ -72,6 +72,49 @@ bool init_gl_context(struct gl_context *context, int which) {
         }
 }
 
+GLuint glsl_compile_link(const char *vprogram, const char *fprogram)
+{
+        char log[32768];
+        GLuint vhandle, fhandle;
+        GLuint phandle;
+
+        phandle = glCreateProgram();
+        vhandle = glCreateShader(GL_VERTEX_SHADER);
+        fhandle = glCreateShader(GL_FRAGMENT_SHADER);
+
+        /* compile */
+        /* fragmemt */
+        glShaderSource(fhandle, 1, &fprogram, NULL);
+        glCompileShader(fhandle);
+        /* Print compile log */
+        glGetShaderInfoLog(fhandle,32768,NULL,log);
+        printf("Compile Log: %s\n", log);
+        /* vertex */
+        glShaderSource(vhandle, 1, &vprogram, NULL);
+        glCompileShader(vhandle);
+        /* Print compile log */
+        glGetShaderInfoLog(vhandle,32768,NULL,log);
+        printf("Compile Log: %s\n", log);
+
+        /* attach and link */
+        glAttachShader(phandle, vhandle);
+        glAttachShader(phandle, fhandle);
+        glLinkProgram(phandle);
+
+        printf("Program compilation/link status: ");
+        gl_check_error();
+
+        glGetProgramInfoLog(phandle, 32768, NULL, (GLchar*)log);
+        if ( strlen(log) > 0 )
+                printf("Link Log: %s\n", log);
+
+        // mark shaders for deletion when program is deleted
+        glDeleteShader(vhandle);
+        glDeleteShader(fhandle);
+
+        return phandle;
+}
+
 
 void destroy_gl_context(struct gl_context *context) {
 #ifdef HAVE_MACOSX

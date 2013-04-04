@@ -64,6 +64,86 @@
 
 using namespace std;
 
+typedef enum {
+        BICUBIC,
+        BILINEAR
+} interpolation_t;
+
+/*
+ * Bicubic interpolation taken from:
+ * http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
+ */
+#define STRINGIFY(A) #A
+static const char * bicubic = STRINGIFY(
+uniform sampler2D textureSampler;
+uniform float fWidth;
+uniform float fHeight;
+float CatMullRom( float x )
+{
+    const float B = 0.0;
+    const float C = 0.5;
+    float f = x;
+    if( f < 0.0 )
+    {
+        f = -f;
+    }
+    if( f < 1.0 )
+    {
+        return ( ( 12.0 - 9.0 * B - 6.0 * C ) * ( f * f * f ) +
+            ( -18.0 + 12.0 * B + 6.0 *C ) * ( f * f ) +
+            ( 6.0 - 2.0 * B ) ) / 6.0;
+    }
+    else if( f >= 1.0 && f < 2.0 )
+    {
+        return ( ( -B - 6.0 * C ) * ( f * f * f )
+            + ( 6.0 * B + 30.0 * C ) * ( f *f ) +
+            ( - ( 12.0 * B ) - 48.0 * C  ) * f +
+            8.0 * B + 24.0 * C)/ 6.0;
+    }
+    else
+    {
+        return 0.0;
+    }
+}
+float Triangular( float f )
+{
+        f = f / 2.0;
+        if( f < 0.0 )
+        {
+                return ( f + 1.0 );
+        }
+        else
+        {
+                return ( 1.0 - f );
+        }
+        return 0.0;
+}
+void main()
+{
+    float texelSizeX = 1.0 / fWidth;
+    float texelSizeY = 1.0 / fHeight;
+    vec4 nSum = vec4( 0.0, 0.0, 0.0, 0.0 );
+    vec4 nDenom = vec4( 0.0, 0.0, 0.0, 0.0 );
+    float a = fract( gl_TexCoord[0].x * fWidth );
+    float b = fract( gl_TexCoord[0].y * fHeight );
+    for( int m = -1; m <=2; m++ )
+    {
+        for( int n =-1; n<= 2; n++)
+        {
+                        vec4 vecData = texture2D(textureSampler,
+                               gl_TexCoord[0].xy + vec2(texelSizeX * float( m ),
+                                        texelSizeY * float( n )));
+                        float f  = CatMullRom( float( m ) - a );
+                        vec4 vecCooef1 = vec4( f,f,f,f );
+                        float f1 = CatMullRom ( -( float( n ) - b ) );
+                        vec4 vecCoeef2 = vec4( f1, f1, f1, f1 );
+            nSum = nSum + ( vecData * vecCoeef2 * vecCooef1  );
+            nDenom = nDenom + (( vecCoeef2 * vecCooef1 ));
+        }
+    }
+    gl_FragColor = nSum / nDenom;
+});
+
 /* prototypes of functions defined in this module */
 static void show_help(void);
 static void *master_worker(void *arg);
@@ -90,7 +170,7 @@ static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>]#<dev1_config>#"
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>]]#<dev1_config>#"
                         "<dev2_config>[#....]\n");
         printf("\tor\n");
         printf("\t-t swmix:file#<dev1_name>@<dev1_config>#"
@@ -104,6 +184,7 @@ static void show_help()
         printf("\t\t<fps> FPS of resulting video\n");
         printf("\t\t<codec> codec of resulting video, may be one of RGBA, "
                         "RGB or UYVY (optional, default RGBA)\n");
+        printf("\t\t<i_type> can be one of 'bilinear' or 'bicubic' (default)\n");
 }
 
 struct state_slave {
@@ -145,6 +226,9 @@ struct vidcap_swmix_state {
 
         struct slave_data  *slaves_data;
         bool                use_config_file;
+
+        GLuint              bicubic_program;
+        interpolation_t     interpolation;
 };
 
 
@@ -167,7 +251,8 @@ struct slave_data {
         struct video_desc   saved_desc;
         float               posX[4];
         float               posY[4];
-        GLuint              texture;
+        GLuint              texture[2]; // original, RGB(A)
+        GLuint              fbo; // RGB(A)
         double              x, y, width, height; // in 1x1 unit space
         double              fb_aspect;
 };
@@ -183,12 +268,16 @@ static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
         int n = (s->devices_cnt + m - 1) / ((int) m);
 
         for(int i = 0; i < s->devices_cnt; ++i) {
-                glGenTextures(1, &(slaves_data[i].texture));
-                glBindTexture(GL_TEXTURE_2D, slaves_data[i].texture);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glGenTextures(2, slaves_data[i].texture);
+                for(int j = 0; j < 2; ++j) {
+                        glBindTexture(GL_TEXTURE_2D, slaves_data[i].texture[j]);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                }
+
+                glGenFramebuffers(1, &slaves_data[i].fbo);
 
                 slaves_data[i].fb_aspect = (double) s->frame->tiles[0].width /
                         s->frame->tiles[0].height;
@@ -223,14 +312,15 @@ static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
 
 static void destroy_slave_data(struct slave_data *data, int count) {
         for(int i = 0; i < count; ++i) {
-                glDeleteTextures(1, &data[i].texture);
+                glDeleteTextures(2, data[i].texture);
+                glDeleteFramebuffers(1, &data[i].fbo);
         }
         free(data);
 }
 
 static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc desc)
 {
-        glBindTexture(GL_TEXTURE_2D, s->texture);
+        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
         switch (desc.color_spec) {
                 case RGBA:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
@@ -248,6 +338,13 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
                         fprintf(stderr, "SW mix: Unsupported color spec.\n");
                         exit_uv(1);
         }
+
+        if(desc.color_spec == UYVY) {
+                glBindTexture(GL_TEXTURE_2D, s->texture[1]);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
+                                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        }
+        glBindTexture(GL_TEXTURE_2D, 0);
 
         double video_aspect = (double) desc.width / desc.height;
         double fb_aspect = (double) s->fb_aspect * s->width / s->height;
@@ -334,48 +431,6 @@ void main() {
         gl_Position = ftransform();
 });
 
-static GLuint get_shader(const char *vprogram, const char *fprogram) {
-        char log[32768];
-        GLuint vhandle, fhandle;
-        GLuint phandle;
-
-        phandle = glCreateProgram();
-        vhandle = glCreateShader(GL_VERTEX_SHADER);
-        fhandle = glCreateShader(GL_FRAGMENT_SHADER);
-
-        /* compile */
-        /* fragmemt */
-        glShaderSource(fhandle, 1, &fprogram, NULL);
-        glCompileShader(fhandle);
-        /* Print compile log */
-        glGetShaderInfoLog(fhandle,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
-        /* vertex */
-        glShaderSource(vhandle, 1, &vprogram, NULL);
-        glCompileShader(vhandle);
-        /* Print compile log */
-        glGetShaderInfoLog(vhandle,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
-
-        /* attach and link */
-        glAttachShader(phandle, vhandle);
-        glAttachShader(phandle, fhandle);
-        glLinkProgram(phandle);
-
-        printf("Program compilation/link status: ");
-        gl_check_error();
-
-        glGetProgramInfoLog(phandle, 32768, NULL, (GLchar*)log);
-        if ( strlen(log) > 0 )
-                printf("Link Log: %s\n", log);
-
-        // mark shaders for deletion when program is deleted
-        glDeleteShader(vhandle);
-        glDeleteShader(fhandle);
-
-        return phandle;
-}
-
 static void *master_worker(void *arg)
 {
         struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) arg;
@@ -386,8 +441,8 @@ static void *master_worker(void *arg)
 
         gl_context_make_current(&s->gl_context);
         glEnable(GL_TEXTURE_2D);
-        from_uyvy = get_shader(vprogram, fprogram_from_uyvy);
-        to_uyvy = get_shader(vprogram, fprogram_to_uyvy);
+        from_uyvy = glsl_compile_link(vprogram, fprogram_from_uyvy);
+        to_uyvy = glsl_compile_link(vprogram, fprogram_to_uyvy);
         assert(from_uyvy != 0);
         assert(to_uyvy != 0);
 
@@ -445,18 +500,10 @@ static void *master_worker(void *arg)
                         }
                 }
 
-                // draw
-                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
-                                GL_TEXTURE_2D, s->tex_output, 0);
-                glClearColor(0, 0, 0, 1);
-                glClear(GL_COLOR_BUFFER_BIT);
-
-                glViewport(0, 0, s->frame->tiles[0].width, s->frame->tiles[0].height);
-
+                // load data
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture);
+                                glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[0]);
                                 int width = s->slaves_data[i].current_frame->tiles[0].width;
                                 GLenum format;
                                 switch(s->slaves_data[i].current_frame->color_spec) {
@@ -479,10 +526,53 @@ static void *master_worker(void *arg)
 
                                 if(s->slaves_data[i].current_frame->color_spec == UYVY) {
                                         glUseProgram(from_uyvy);
-                                        GLuint image_id = glGetUniformLocation(from_uyvy, "image");
                                         glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
                                         glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
                                                         (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
+
+                                        glBindFramebuffer(GL_FRAMEBUFFER, s->slaves_data[i].fbo);
+                                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
+                                                        GL_TEXTURE_2D, s->slaves_data[i].texture[1], 0);
+
+                                        glViewport(0, 0, s->slaves_data[i].current_frame->tiles[0].width,
+                                                        s->slaves_data[i].current_frame->tiles[0].height);
+                                        glBegin(GL_QUADS);
+                                        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                                        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                                        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                                        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                                        glEnd();
+                                        glUseProgram(0);
+                                }
+                        }
+                }
+
+                // draw
+                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
+                                GL_TEXTURE_2D, s->tex_output, 0);
+                glClearColor(0, 0, 0, 1);
+                glClear(GL_COLOR_BUFFER_BIT);
+
+                glViewport(0, 0, s->frame->tiles[0].width, s->frame->tiles[0].height);
+
+                if(s->interpolation == BICUBIC) {
+                        glUseProgram(s->bicubic_program);
+                        glUniform1i(glGetUniformLocation(s->bicubic_program, "image"), 0);
+                }
+
+                for(int i = 0; i < s->devices_cnt; ++i) {
+                        if(s->slaves_data[i].current_frame) {
+                                if(s->interpolation == BICUBIC) {
+                                        glUniform1f(glGetUniformLocation(s->bicubic_program, "fWidth"),
+                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
+                                        glUniform1f(glGetUniformLocation(s->bicubic_program, "fHeight"),
+                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].height);
+                                }
+                                if(s->slaves_data[i].current_frame->color_spec == UYVY) {
+                                        glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[1]);
+                                } else {
+                                        glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[0]);
                                 }
 
                                 glBegin(GL_QUADS);
@@ -495,9 +585,9 @@ static void *master_worker(void *arg)
                                 glTexCoord2f(0.0, 1.0); glVertex2f(s->slaves_data[i].posX[3],
                                                 s->slaves_data[i].posY[3]);
                                 glEnd();
-                                glUseProgram(0);
                         }
                 }
+                glUseProgram(0);
 
                 // read back
                 glBindTexture(GL_TEXTURE_2D, s->tex_output);
@@ -579,40 +669,6 @@ static void *slave_worker(void *arg)
         return NULL;
 }
 
-bool read_params_from_config_file(struct video_desc *desc, FILE *config_file) {
-        char line[1024];
-        char codec[5];
-        int width, height;
-        double fps;
-        bool found  = false;
-
-        if(!fgets(line, sizeof(line), config_file))
-                return false;
-        int items_read = sscanf(line, "%d:%d:%lf:%4s", &width, &height, &fps, codec);
-        if(items_read != 3 && items_read != 4) {
-                fprintf(stderr, "Not enough arguments in config file. Was read: \n"
-                               " %s\nExpecting <width>:<height>:<fps>[:<codec>]\n", line);
-        }
-        desc->width = width;
-        desc->height = height;
-        desc->fps = fps;
-
-        if(items_read == 4) {
-                for (int i = 0; codec_info[i].name != NULL; i++) {
-                        if (strcmp(codec, codec_info[i].name) == 0) {
-                                desc->color_spec = codec_info[i].codec;
-                                found = true;
-                        }
-                }
-                if(!found) {
-                        fprintf(stderr, "Unrecognized color spec string: %s\n", codec);
-                        return false;
-                }
-        }
-
-        return true;
-}
-
 static bool get_slave_param_from_file(FILE* config_file, char *slave_name, int *x, int *y,
                                         int *width, int *height)
 {
@@ -637,48 +693,85 @@ static bool get_slave_param_from_file(FILE* config_file, char *slave_name, int *
         return false;
 }
 
-static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
-                FILE **config_file)
+#define PARSE_OK 0
+#define PARSE_ERROR 1
+#define PARSE_FILE 2
+static int parse_config_string(const char *fmt, unsigned int *width,
+                unsigned int *height, double *fps,
+        codec_t *color_spec, interpolation_t *interpolation)
 {
         char *save_ptr = NULL;
         char *item;
         char *parse_string;
         char *tmp;
         int token_nr = 0;
-        *config_file = NULL;
+
         tmp = parse_string = strdup(fmt);
         if(strchr(parse_string, '#')) *strchr(parse_string, '#') = '\0';
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 bool found = false;
                 switch (token_nr) {
                         case 0:
-                                desc->width = atoi(item);
+                                if(strcasecmp(item, "file") == 0)
+                                        return PARSE_FILE;
+                                *width = atoi(item);
                                 break;
                         case 1:
-                                desc->height = atoi(item);
+                                *height = atoi(item);
                                 break;
                         case 2:
-                                desc->fps = atof(item);
+                                *fps = atof(item);
                                 break;
                         case 3:
                                 for (int i = 0; codec_info[i].name != NULL; i++) {
                                         if (strcmp(item, codec_info[i].name) == 0) {
-                                                desc->color_spec = codec_info[i].codec;
+                                                *color_spec = codec_info[i].codec;
                                                 found = true;
                                         }
                                 }
                                 if(!found) {
                                         fprintf(stderr, "Unrecognized color spec string: %s\n", item);
-                                        return false;
+                                        return PARSE_ERROR;
                                 }
                                 break;
+                        default:
+                                if(strncasecmp(item, "interpolation=", strlen("interpolation=")) == 0) {
+                                        if(strcasecmp(item + strlen("interpolation="), "bilinear") == 0) {
+                                                *interpolation = BILINEAR;
+                                        } else {
+                                                *interpolation = BICUBIC;
+                                        }
+                                }
                 }
                 tmp = NULL;
                 token_nr += 1;
         }
         free(parse_string);
 
-        if(desc->width == 0 && desc->height == 0 && desc->fps == 0.0) {
+        if(token_nr < 4)
+                return PARSE_ERROR;
+
+        return PARSE_OK;
+}
+
+static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
+                FILE **config_file, interpolation_t *interpolation)
+{
+        char *save_ptr = NULL;
+        char *item;
+        char *parse_string;
+        char *tmp;
+        *config_file = NULL;
+        int ret;
+
+        ret = parse_config_string(fmt, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
+                        interpolation);
+        if(ret == PARSE_ERROR) {
+                show_help();
+                return false;
+        }
+
+        if(ret == PARSE_FILE) {
                 s->use_config_file = true;
 
                 *config_file = fopen(get_config_name(), "r");
@@ -687,15 +780,25 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                                         get_config_name());
                         return false;
                 }
-                if(!read_params_from_config_file(desc, *config_file)) {
+                char line[1024];
+                if(!fgets(line, sizeof(line), *config_file)) {
+                        fprintf(stderr, "Input file is empty!\n");
                         return false;
                 }
-        } else {
-                if(desc->width * desc->height * desc->fps == 0.0) {
+                while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
+                ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
+                                interpolation);
+                if(ret != PARSE_OK) {
+                        fprintf(stderr, "Malformed input file! First line should contain config "
+                                        "string same as for cmdline use (between first ':' and '#' "
+                                        "exclusive):\n");
                         show_help();
                         return false;
                 }
+        } else {
+                s->use_config_file = false;
         }
+
 
         if(desc->color_spec != RGBA && desc->color_spec != RGB && desc->color_spec != UYVY) {
                 fprintf(stderr, "Unsupported output codec.\n");
@@ -771,6 +874,7 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 	}
 
         s->frames = 0;
+        s->slaves = NULL;
         gettimeofday(&s->t0, NULL);
 
         if(!init_fmt || strcmp(init_fmt, "help") == 0) {
@@ -782,9 +886,10 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
         desc.tile_count = 1;
         desc.color_spec = RGBA;
 
+        s->interpolation = BICUBIC;
         FILE *config_file = NULL;
 
-        if(!parse(s, &desc, init_fmt, &config_file)) {
+        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation)) {
                 goto error;
         }
 
@@ -805,6 +910,8 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
         }
 
         gl_context_make_current(&s->gl_context);
+
+        s->bicubic_program = glsl_compile_link(vprogram, bicubic);
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
