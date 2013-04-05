@@ -327,8 +327,12 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
                                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
                         break;
                 case RGB:
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
-                                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height,
+                                        0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+                        break;
+                case BGR:
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height,
+                                        0, GL_BGR, GL_UNSIGNED_BYTE, NULL);
                         break;
                 case UYVY:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width / 2, desc.height,
@@ -513,6 +517,9 @@ static void *master_worker(void *arg)
                                                 break;
                                         case RGB:
                                                 format = GL_RGB;
+                                                break;
+                                        case BGR:
+                                                format = GL_BGR;
                                                 break;
                                         case RGBA:
                                                 format = GL_RGBA;
