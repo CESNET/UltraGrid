@@ -88,14 +88,14 @@
  * we do not need to have possible stalls, so IO is performend in a separate thread
  */
 static void *audio_export_thread(void *arg);
-static bool configure(struct audio_export *s, struct audio_fmt fmt);
+static bool configure(struct audio_export *s, struct audio_desc fmt);
 static void finalize(struct audio_export *s);
 
 struct audio_export {
         char *filename;
         FILE *output;
 
-        struct audio_fmt saved_format;
+        struct audio_desc saved_format;
         uint32_t total;
 
         ring_buffer_t *ring;
@@ -151,7 +151,7 @@ static void *audio_export_thread(void *arg)
         return NULL;
 }
 
-static bool configure(struct audio_export *s, struct audio_fmt fmt) {
+static bool configure(struct audio_export *s, struct audio_desc fmt) {
         size_t res;
         s->saved_format = fmt;
 
@@ -300,7 +300,7 @@ struct audio_export * audio_export_init(char *filename)
 
         s->total = 0;
 
-        s->saved_format = (struct audio_fmt) { 0, 0, 0, 0 };
+        s->saved_format = (struct audio_desc) { 0, 0, 0, 0 };
 
         return s;
 }
@@ -339,15 +339,15 @@ void audio_export(struct audio_export *s, struct audio_frame *frame)
 
         if(s->saved_format.ch_count == 0) {
                 bool res;
-                res = configure(s, audio_fmt_from_frame(frame));
+                res = configure(s, audio_desc_from_frame(frame));
                 if(!res) {
                         fprintf(stderr, "[Audio export] Configuration failed.\n");
                         return;
                 }
                 pthread_create(&s->thread_id, NULL, audio_export_thread, s);
         } else {
-                if(!audio_fmt_eq(s->saved_format,
-                                        audio_fmt_from_frame(frame))) {
+                if(!audio_desc_eq(s->saved_format,
+                                        audio_desc_from_frame(frame))) {
                         return;
                 }
         }

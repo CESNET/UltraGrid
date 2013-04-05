@@ -83,6 +83,7 @@
 #include "lib_common.h"
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
+#include "audio/codec.h"
 
 #if defined DEBUG && defined HAVE_LINUX
 #include <mcheck.h>
@@ -112,6 +113,7 @@
 #define OPT_MCAST_IF (('M' << 8) | 'I')
 #define OPT_EXPORT (('E' << 8) | 'X')
 #define OPT_IMPORT (('I' << 8) | 'M')
+#define OPT_AUDIO_CODEC (('A' << 8) | 'C')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -228,7 +230,7 @@ static void usage(void)
         printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
                         "[-m <mtu>] [-c] [-i] [-6]\n");
         printf("          [-m <video_mode>] [-p <postprocess>] "
-                        "[-f [A:|V:]<fec_options>] [-P <port>]\n");
+                        "[-f <fec_options>] [-p <port>]\n");
         printf("          [--mcast-if <iface>]\n");
         printf("          [--export[=<d>]|--import <d>]\n");
         printf("          address(es)\n\n");
@@ -933,6 +935,8 @@ int main(int argc, char *argv[])
 
         struct state_uv *uv;
         int ch;
+
+        audio_codec_t audio_codec = AC_PCM;
         
         pthread_t receiver_thread_id,
                   tx_thread_id;
@@ -979,6 +983,7 @@ int main(int argc, char *argv[])
                 {"export", optional_argument, 0, OPT_EXPORT},
                 {"import", required_argument, 0, OPT_IMPORT},
                 {"audio-host", required_argument, 0, 'A'},
+                {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1206,6 +1211,14 @@ int main(int argc, char *argv[])
                         audio_send = strdup("embedded");
                         capture_cfg = optarg;
                         break;
+                case OPT_AUDIO_CODEC:
+                        audio_codec = get_audio_codec_to_name(optarg);
+                        if(audio_codec == AC_NONE) {
+                                fprintf(stderr, "Unknown audio codec entered: \"%s\"\n",
+                                                optarg);
+                                return EXIT_FAIL_USAGE;
+                        }
+                        break;
                 default:
                         usage();
                         return EXIT_FAIL_USAGE;
@@ -1231,8 +1244,9 @@ int main(int argc, char *argv[])
         printf("Capture playback : %s\n", audio_recv);
         printf("MTU              : %d B\n", uv->requested_mtu);
         printf("Video compression: %s\n", uv->requested_compression);
+        printf("Audio codec   : %s\n", get_name_to_audio_codec(audio_codec));
 
-        printf("Network protocol : ");
+        printf("Network protocol: ");
         switch(uv->tx_protocol) {
                 case ULTRAGRID_RTP:
                         printf("UltraGrid RTP\n"); break;
@@ -1298,7 +1312,8 @@ int main(int argc, char *argv[])
         uv->audio = audio_cfg_init (audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, audio_channel_map,
-                        audio_scale, echo_cancellation, use_ipv6, mcast_if);
+                        audio_scale, echo_cancellation, use_ipv6, mcast_if,
+                        audio_codec);
         free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;

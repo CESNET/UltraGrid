@@ -57,7 +57,12 @@
 
 #define PORT_AUDIO              5006
 
-#define AUDIO_TAG_PCM           0x0001
+#define MAX_AUDIO_CHANNELS      8
+
+typedef enum {
+        AC_NONE,
+        AC_PCM
+} audio_codec_t;
 
 struct state_audio;
 
@@ -65,30 +70,43 @@ struct audio_desc {
         int bps;                /* bytes per sample */
         int sample_rate;
         int ch_count;		/* count of channels */
+        audio_codec_t codec;
 };
 
+/**
+ * @deprecated use audio_frame2 instead
+ */
 typedef struct audio_frame
 {
         int bps;                /* bytes per sample */
         int sample_rate;
-        char *data;             /* data should be at least 4B aligned */
+        char *data; /* data should be at least 4B aligned */
         int data_len;           /* size of useful data in buffer */
         int ch_count;		/* count of channels */
         unsigned int max_size;  /* maximal size of data in buffer */
 }
 audio_frame;
 
-struct audio_fmt {
-        int bps;
+typedef struct
+{
+        int bps;                /* bytes per sample */
         int sample_rate;
-        int ch_count;
-        uint32_t audio_tag;
-};
+        char *data[MAX_AUDIO_CHANNELS]; /* data should be at least 4B aligned */
+        int data_len[MAX_AUDIO_CHANNELS];           /* size of useful data in buffer */
+        int ch_count;		/* count of channels */
+        unsigned int max_size;  /* maximal size of data in buffer */
+        audio_codec_t codec;
+} audio_frame2;
+
+audio_frame2 *audio_frame2_init(void);
+void audio_frame2_allocate(audio_frame2 *, int nr_channels, int max_size);
+void audio_frame2_free(audio_frame2 *);
+void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
 
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, char *mcast_iface);
+                bool echo_cancellation, bool use_ipv6, char *mcast_iface, audio_codec_t audio_codec);
 void audio_finish(struct state_audio *s);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);
@@ -130,8 +148,8 @@ void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_cou
  *
  * @return      result of the comparision
  */
-bool audio_fmt_eq(struct audio_fmt a, struct audio_fmt b);
+bool audio_desc_eq(struct audio_desc a, struct audio_desc b);
 
-struct audio_fmt audio_fmt_from_frame(struct audio_frame *frame);
+struct audio_desc audio_desc_from_frame(struct audio_frame *frame);
 
 #endif

@@ -58,6 +58,7 @@
 
 #include "audio/audio.h" 
 
+#include "audio/codec.h"
 #include "audio/echo.h" 
 #include "audio/export.h" 
 #include "audio/audio_capture.h" 
@@ -65,6 +66,7 @@
 #include "audio/capture/sdi.h"
 #include "audio/playback/sdi.h"
 #include "audio/jack.h" 
+#include "audio/utils.h"
 #include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "host.h"
@@ -99,6 +101,8 @@ enum audio_transport_device {
 struct state_audio {
         struct state_audio_capture *audio_capture_device;
         struct state_audio_playback *audio_playback_device;
+
+        struct audio_codec_state *audio_coder;
         
         struct rtp *audio_network_device;
         struct pdb *audio_participants;
@@ -171,7 +175,7 @@ static void audio_scale_usage(void)
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, char *mcast_if)
+                bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -215,6 +219,8 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
         s->audio_scale = audio_scale;
 
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
+
+        s->audio_coder = audio_codec_init(audio_codec);
 
         if(export_dir) {
                 char name[512];
@@ -345,6 +351,7 @@ error:
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
+        audio_codec_done(s->audio_coder);
         free(s);
         exit_uv(1);
         return NULL;
@@ -425,7 +432,6 @@ static void *audio_receiver_thread(void *arg)
         pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale);
         assert(pbuf_data.decoder != NULL);
         pbuf_data.audio_state = s;
-        pbuf_data.saved_channels = pbuf_data.saved_bps = pbuf_data.saved_sample_rate = 0;
         pbuf_data.reconfigured = false;
                 
         printf("Audio receiving started.\n");
@@ -485,6 +491,7 @@ static void *audio_sender_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
         struct audio_frame *buffer = NULL;
+        audio_frame2 *buffer_new = audio_frame2_init();
         
         printf("Audio sending started.\n");
         while (!should_exit_audio) {
@@ -498,14 +505,19 @@ static void *audio_sender_thread(void *arg)
                                         continue;
 #endif
                         }
-                        if(s->sender == NET_NATIVE)
-                                audio_tx_send(s->tx_session, s->audio_network_device, buffer);
+                        if(s->sender == NET_NATIVE) {
+                                audio_frame_to_audio_frame2(buffer_new, buffer);
+                                audio_frame2 *compressed = audio_codec_compress(s->audio_coder, buffer_new);
+                                audio_tx_send(s->tx_session, s->audio_network_device, compressed);
+                        }
 #ifdef HAVE_JACK_TRANS
                         else
                                 jack_send(s->jack_connection, buffer);
 #endif
                 }
         }
+
+        audio_frame2_free(buffer_new);
 
         return NULL;
 }
@@ -575,17 +587,65 @@ int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
                         channels, sample_rate);
 }
 
-bool audio_fmt_eq(struct audio_fmt a, struct audio_fmt b)
+bool audio_desc_eq(struct audio_desc a, struct audio_desc b)
 {
         return a.bps == b.bps &&
                 a.sample_rate == b.sample_rate &&
                 a.ch_count == b.ch_count &&
-                a.audio_tag == b.audio_tag;
+                a.codec == a.codec;
 }
 
-struct audio_fmt audio_fmt_from_frame(struct audio_frame *frame)
+struct audio_desc audio_desc_from_frame(struct audio_frame *frame)
 {
-        return (struct audio_fmt) { frame->bps, frame->sample_rate,
-                frame->ch_count, AUDIO_TAG_PCM };
+        return (struct audio_desc) { frame->bps, frame->sample_rate,
+                frame->ch_count, AC_PCM };
+}
+
+audio_frame2 *audio_frame2_init()
+{
+        audio_frame2 *ret = (audio_frame2 *) calloc(1, sizeof(audio_frame2));
+        return ret;
+}
+
+void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
+{
+        assert(nr_channels <= MAX_AUDIO_CHANNELS);
+
+        frame->max_size = max_size;
+        frame->ch_count = nr_channels;
+
+        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
+                free(frame->data[i]);
+                frame->data[i] = NULL;
+                frame->data_len[i] = 0;
+        }
+
+        for(int i = 0; i < nr_channels; ++i) {
+                frame->data[i] = malloc(max_size);
+        }
+}
+
+void audio_frame_to_audio_frame2(audio_frame2 *frame, struct audio_frame *old)
+{
+        if(old->ch_count > frame->ch_count || old->data_len / old->ch_count > (int) frame->max_size) {
+                audio_frame2_allocate(frame, old->ch_count, old->data_len / old->ch_count);
+        }
+        frame->codec = AC_PCM;
+        frame->bps = old->bps;
+        frame->sample_rate = old->sample_rate;
+        for(int i = 0; i < old->ch_count; ++i) {
+                demux_channel(frame->data[i], old->data, old->bps, old->data_len, old->ch_count, i);
+                frame->data_len[i] = old->data_len / old->ch_count;
+        }
+}
+
+void audio_frame2_free(audio_frame2 *frame)
+{
+        if(!frame)
+                return;
+        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
+                free(frame->data[i]);
+        }
+        free(frame);
 }
 

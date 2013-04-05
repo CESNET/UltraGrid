@@ -64,6 +64,8 @@ OBJS	      = @OBJS@ \
 		src/audio/capture/none.o \
 		src/audio/capture/sdi.o \
 		src/audio/capture/testcard.o \
+		src/audio/codec.o \
+		src/audio/codec/dummy_pcm.o \
 		src/audio/export.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
@@ -120,6 +122,7 @@ HD_RUM_TRANSLATOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 LIB_COMMON = \
+		src/audio/codec.o \
 		src/audio/utils.o \
 		src/compat/platform_semaphore.o \
 		src/crypto/random.o \

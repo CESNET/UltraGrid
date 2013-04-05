@@ -60,6 +60,7 @@
 #include "debug.h"
 #include "perf.h"
 #include "audio/audio.h"
+#include "audio/codec.h"
 #include "audio/utils.h"
 #include "rtp/ldgm.h"
 #include "rtp/rtp.h"
@@ -463,13 +464,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
  * This multiplication scheme relies upon the fact, that our RTP/pbuf implementation is
  * not sensitive to packet duplication. Otherwise, we can get into serious problems.
  */
-void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
+void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
 {
         const int pt = PT_AUDIO; /* PT set for audio in our packet format */
         unsigned int pos = 0u,
                      m = 0u;
         int channel;
-        char *chan_data = (char *) malloc(buffer->data_len);
+        char *chan_data;
         int data_len;
         char *data;
         // see definition in rtp_callback.h
@@ -498,7 +499,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 
         for(channel = 0; channel < buffer->ch_count; ++channel)
         {
-                demux_channel(chan_data, buffer->data, buffer->bps, buffer->data_len, buffer->ch_count, channel);
+                chan_data = buffer->data[channel];
                 pos = 0u;
 
                 if(tx->fec_scheme == FEC_MULT) {
@@ -514,7 +515,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                 tmp |= tx->buffer; /* bits 10-31 */
                 payload_hdr[0] = htonl(tmp);
 
-                payload_hdr[2] = htonl(buffer->data_len / buffer->ch_count);
+                payload_hdr[2] = htonl(buffer->data_len[channel]);
 
                 /* fourth word */
                 tmp = (buffer->bps * 8) << 26;
@@ -522,7 +523,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                 payload_hdr[3] = htonl(tmp);
 
                 /* fifth word */
-                payload_hdr[4] = htonl(1); /* PCM */
+                payload_hdr[4] = ntohl(get_audio_tag(buffer->codec)); /* PCM */
 
                 do {
                         if(tx->fec_scheme == FEC_MULT) {
@@ -531,8 +532,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
 
                         data = chan_data + pos;
                         data_len = tx->mtu - 40 - sizeof(audio_payload_hdr_t);
-                        if(pos + data_len >= (unsigned int) buffer->data_len / buffer->ch_count) {
-                                data_len = buffer->data_len / buffer->ch_count - pos;
+                        if(pos + data_len >= (unsigned int) buffer->data_len[channel]) {
+                                data_len = buffer->data_len[channel] - pos;
                                 if(channel == buffer->ch_count - 1)
                                         m = 1;
                         }
@@ -569,9 +570,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
                         }
 
                       
-                } while (pos < (unsigned int) buffer->data_len / buffer->ch_count);
+                } while (pos < (unsigned int) buffer->data_len[channel]);
         }
 
         tx->buffer ++;
-        free(chan_data);
 }
