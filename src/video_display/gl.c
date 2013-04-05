@@ -209,6 +209,7 @@ struct state_gl {
         struct timeval  tv;
 
         bool            sync_on_vblank;
+        bool            paused;
 };
 
 static struct state_gl *gl;
@@ -230,6 +231,7 @@ static void glut_key_callback(unsigned char key, int x, int y);
 static void glut_close_callback(void);
 static void glut_resize_window(struct state_gl *s);
 static void display_gl_enable_sync_on_vblank(void);
+static void screenshot(struct state_gl *s);
 
 #ifdef HAVE_MACOSX
 void NSApplicationLoad(void);
@@ -304,6 +306,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         pthread_mutex_init(&s->lock, NULL);
         pthread_cond_init(&s->reconf_cv, NULL);
 
+        s->paused = false;
         s->fs = FALSE;
         s->deinterlace = FALSE;
         s->video_aspect = 0.0;
@@ -640,6 +643,45 @@ static void display_gl_enable_sync_on_vblank() {
 #endif
 }
 
+static void screenshot(struct state_gl *s)
+{
+        unsigned char *data = NULL, *tmp = NULL;
+        int len = s->tile->width * s->tile->height * 3;
+        if (s->frame->color_spec == RGB) {
+                data = (unsigned char *) s->buffers[s->image_display];
+        } else {
+                data = tmp = (unsigned char *) malloc(len);
+                if (s->frame->color_spec == UYVY) {
+                        vc_copylineUYVYtoRGB(data, (const unsigned char *)
+                                        s->buffers[s->image_display], len);
+                } else if (s->frame->color_spec == RGBA) {
+                        vc_copylineRGBAtoRGB(data, (const unsigned char *)
+                                        s->buffers[s->image_display], len);
+                }
+        }
+
+        if(!data) {
+                return;
+        }
+
+        char name[128];
+        time_t t;
+        struct tm time_tmp;
+
+        t = time(NULL);
+        localtime_r(&t, &time_tmp);
+
+        strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
+                                               &time_tmp);
+        FILE *out = fopen(name, "w");
+        if(out) {
+                fprintf(out, "P6\n%d %d\n255\n", s->tile->width, s->tile->height);
+                fwrite(data, 1, len, out);
+                fclose(out);
+        }
+        free(tmp);
+}
+
 /**
  * This function must be called only from GL thread 
  * (display_thread_gl) !!!
@@ -775,6 +817,9 @@ static void glut_idle_callback(void)
 
         gl_check_error();
 
+        if(s->paused)
+                goto processed;
+
         switch(s->frame->color_spec) {
                 case DXT1:
                         glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
@@ -832,6 +877,7 @@ static void glut_idle_callback(void)
         gl_draw(s->aspect);
         glutPostRedisplay();
 
+processed:
         pthread_mutex_lock(&s->lock);
         pthread_cond_signal(&s->processed_cv);
         s->processed = TRUE;
@@ -863,6 +909,12 @@ static void glut_key_callback(unsigned char key, int x, int y)
                 case 'd':
                         gl->deinterlace = gl->deinterlace ? FALSE : TRUE;
                         printf("Deinterlacing: %s\n", gl->deinterlace ? "ON" : "OFF");
+                        break;
+                case ' ':
+                        gl->paused = !gl->paused;
+                        break;
+                case 's':
+                        screenshot(gl);
                         break;
         }
 }

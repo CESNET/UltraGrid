@@ -910,6 +910,29 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
 }
 
 /**
+ * Converts UYVY to RGB
+ * Uses Rec. 709 with standard SDI ceiling and floor
+ * @todo make it faster if needed
+ */
+void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
+        while(dst_len > 0) {
+                register int y1, y2, u ,v;
+                u = *src++;
+                y1 = *src++;
+                v = *src++;
+                y2 = *src++;
+                *dst++ = min(max(1.164*(y1 - 16) + 1.793*(v - 128), 0), 255);
+                *dst++ = min(max(1.164*(y1 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
+                *dst++ = min(max(1.164*(y1 - 16) + 2.115*(u - 128), 0), 255);
+                *dst++ = min(max(1.164*(y2 - 16) + 1.793*(v - 128), 0), 255);
+                *dst++ = min(max(1.164*(y2 - 16) - 0.534*(v - 128) - 0.213*(u - 128), 0), 255);
+                *dst++ = min(max(1.164*(y2 - 16) + 2.115*(u - 128), 0), 255);
+
+                dst_len -= 6;
+        }
+}
+
+/**
  * Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
  *
