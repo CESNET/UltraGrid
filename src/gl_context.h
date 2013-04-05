@@ -51,7 +51,7 @@ static void gl_check_error()
         switch(msg){
                 case GL_NO_ERROR:
                         flag = 0;
-                        printf("No error\n");
+                        //printf("No error\n");
                         break;
                 case GL_INVALID_ENUM:
                         fprintf(stderr, "GL_INVALID_ENUM\n");

@@ -74,6 +74,8 @@
 #include <GL/freeglut_ext.h>
 #endif /* FREEGLUT */
 
+#include "gl_context.h"
+
 #include <signal.h>
 #include <assert.h>
 #include <pthread.h>
@@ -111,14 +113,8 @@ void main()
         gl_FragColor.b = yuv.r + 2.1124 * yuv.g;
 });
 
-static char * yuv422_to_rgb_vp = STRINGIFY(
-void main() {
-        gl_TexCoord[0] = gl_MultiTexCoord0;
-        gl_Position = ftransform();
-});
-
 /* DXT YUV (FastDXT) related */
-static char * frag = STRINGIFY(
+static char *fp_display_dxt1 = STRINGIFY(
         uniform sampler2D yuvtex;
 
         void main(void) {
@@ -165,11 +161,7 @@ extern int uv_argc;
 extern char **uv_argv;
 
 struct state_gl {
-        GLhandleARB     VSHandle,FSHandle,PHandle;
-	/* TODO: make same shaders process YUVs for DXT as for
-	 * uncompressed data */
-	GLhandleARB     VSHandle_dxt,FSHandle_dxt,PHandle_dxt;
-        GLhandleARB     FSHandle_dxt5, PHandle_dxt5;
+        GLuint          PHandle_uyvy, PHandle_dxt, PHandle_dxt5;
 
         // Framebuffer
         GLuint fbo_id;
@@ -218,13 +210,8 @@ static struct state_gl *gl;
 static void gl_draw(double ratio);
 static void gl_show_help(void);
 
-static void gl_check_error(void);
 static void gl_resize(int width, int height);
-static void glsl_arb_init(void *arg);
-static void dxt_arb_init(void *arg);
 static void gl_bind_texture(void *args);
-static void dxt_bind_texture(void *arg);
-static void dxt5_arb_init(struct state_gl *s);
 static void gl_reconfigure_screen(struct state_gl *s);
 static void glut_idle_callback(void);
 static void glut_key_callback(unsigned char key, int x, int y);
@@ -248,45 +235,6 @@ static void gl_show_help(void) {
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
-}
-
-static void gl_check_error()
-{
-	GLenum msg;
-	int flag=0;
-	msg=glGetError();
-	while(msg!=GL_NO_ERROR) {
-		flag=1;
-		switch(msg){
-			case GL_INVALID_ENUM:
-				fprintf(stderr, "GL_INVALID_ENUM\n");
-				break;
-			case GL_INVALID_VALUE:
-				fprintf(stderr, "GL_INVALID_VALUE\n");
-				break;
-			case GL_INVALID_OPERATION:
-				fprintf(stderr, "GL_INVALID_OPERATION\n");
-				break;
-			case GL_STACK_OVERFLOW:
-				fprintf(stderr, "GL_STACK_OVERFLOW\n");
-				break;
-			case GL_STACK_UNDERFLOW:
-				fprintf(stderr, "GL_STACK_UNDERFLOW\n");
-				break;
-			case GL_OUT_OF_MEMORY:
-				fprintf(stderr, "GL_OUT_OF_MEMORY\n");
-				break;
-                        case 1286:
-                                fprintf(stderr, "INVALID_FRAMEBUFFER_OPERATION_EXT\n");
-                                break;
-			default:
-				fprintf(stderr, "wft mate? Unknown GL ERROR: %d\n", msg);
-				break;
-		}
-		msg=glGetError();
-	}
-	if(flag)
-		abort();
 }
 
 void * display_gl_init(char *fmt, unsigned int flags) {
@@ -434,9 +382,14 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        glsl_arb_init(s);
-        dxt_arb_init(s);
-        dxt5_arb_init(s);
+        s->PHandle_uyvy = glsl_compile_link(vert, yuv422_to_rgb_fp);
+        // Create fbo
+        glGenFramebuffersEXT(1, &s->fbo_id);
+        s->PHandle_dxt = glsl_compile_link(vert, fp_display_dxt1);
+        glUseProgram(s->PHandle_dxt);
+        glUniform1i(glGetUniformLocation(s->PHandle_dxt,"yuvtex"),0);
+        glUseProgram(0);
+        s->PHandle_dxt5 = glsl_compile_link(vert, fp_display_dxt5ycocg);
         /*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
           perror("Unable to create display thread\n");
           return NULL;
@@ -447,127 +400,6 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 error:
         free(s);
         return NULL;
-}
-
-/*
- * TODO: join the two shaders/functions (?)
- * Consider that the latter stores alpha (has to) while this shader doesn't,
- * which is perhaps a little bit better.
- */
-static void glsl_arb_init(void *arg)
-{
-        struct state_gl	*s = (struct state_gl *) arg;
-        char 		*log;
-        const GLcharARB	*VProgram, *FProgram;
-
-        FProgram = (const GLcharARB*) yuv422_to_rgb_fp;
-        VProgram = (const GLcharARB*) yuv422_to_rgb_vp;
-        /* Set up program objects. */
-        s->PHandle=glCreateProgramObjectARB();
-        s->VSHandle=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
-        s->FSHandle=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-
-        /* Compile Shader */
-        glShaderSourceARB(s->FSHandle,1, &FProgram,NULL);
-        glCompileShaderARB(s->FSHandle);
-
-        /* Print compile log */
-        log=calloc(32768,sizeof(char));
-        glGetInfoLogARB(s->FSHandle,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
-
-        glShaderSourceARB(s->VSHandle,1, &VProgram,NULL);
-        glCompileShaderARB(s->VSHandle);
-        memset(log, 0, 32768);
-        glGetInfoLogARB(s->VSHandle,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
-
-        /* Attach and link our program */
-        glAttachObjectARB(s->PHandle,s->FSHandle);
-        glAttachObjectARB(s->PHandle,s->VSHandle);
-        glLinkProgramARB(s->PHandle);
-
-        /* Print link log. */
-        memset(log, 0, 32768);
-        glGetInfoLogARB(s->PHandle,32768,NULL,log);
-        printf("Link Log: %s\n", log);
-        free(log);
-
-        // Create fbo    
-        glGenFramebuffersEXT(1, &s->fbo_id);
-}
-
-static void dxt_arb_init(void *arg)
-{
-        struct state_gl        *s = (struct state_gl *) arg;
-        char *log;
-        const GLcharARB *FProgram, *VProgram;
-
-        FProgram = (const GLcharARB *) frag;
-        VProgram = (const GLcharARB *) vert;
-        /* Set up program objects. */
-        s->PHandle_dxt=glCreateProgramObjectARB();
-        s->FSHandle_dxt=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-        s->VSHandle_dxt=glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
-
-        /* Compile Shader */
-        glShaderSourceARB(s->FSHandle_dxt,1,&FProgram,NULL);
-        glCompileShaderARB(s->FSHandle_dxt);
-        glShaderSourceARB(s->VSHandle_dxt,1,&VProgram,NULL);
-        glCompileShaderARB(s->VSHandle_dxt);
-
-        /* Print compile log */
-        log=calloc(32768,sizeof(char));
-        glGetInfoLogARB(s->FSHandle_dxt,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
-        free(log);
-        log=calloc(32768,sizeof(char));
-        glGetInfoLogARB(s->VSHandle_dxt,32768,NULL,log);
-        printf("Compile Log: %s\n", log);
-        free(log);
-
-        /* Attach and link our program */
-        glAttachObjectARB(s->PHandle_dxt,s->FSHandle_dxt);
-        glAttachObjectARB(s->PHandle_dxt,s->VSHandle_dxt);
-        glLinkProgramARB(s->PHandle_dxt);
-
-        /* Print link log. */
-        log=calloc(32768,sizeof(char));
-        glGetInfoLogARB(s->PHandle_dxt,32768,NULL,log);
-        printf("Link Log: %s\n", log);
-        free(log);
-}
-
-static void dxt5_arb_init(struct state_gl *s)
-{
-        char *log;
-        const GLcharARB *FProgram;
-
-        FProgram = (const GLcharARB *) fp_display_dxt5ycocg;
-
-        /* Set up program objects. */
-        s->PHandle_dxt5=glCreateProgramObjectARB();
-        s->FSHandle_dxt5=glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
-
-        /* Compile Shader */
-        glShaderSourceARB(s->FSHandle_dxt5, 1, &FProgram, NULL);
-        glCompileShaderARB(s->FSHandle_dxt5);
-
-        /* Print compile log */
-        log=calloc(32768, sizeof(char));
-        glGetInfoLogARB(s->FSHandle_dxt5, 32768, NULL, log);
-        printf("Compile Log: %s\n", log);
-        free(log);
-
-        /* Attach and link our program */
-        glAttachObjectARB(s->PHandle_dxt5, s->FSHandle_dxt5);
-        glLinkProgramARB(s->PHandle_dxt5);
-
-        /* Print link log. */
-        log=calloc(32768, sizeof(char));
-        glGetInfoLogARB(s->PHandle_dxt5, 32768, NULL, log);
-        printf("Link Log: %s\n", log);
-        free(log);
 }
 
 /*
@@ -717,7 +549,7 @@ void gl_reconfigure_screen(struct state_gl *s)
         glutShowWindow();
         glut_resize_window(s);
 
-        glUseProgramObjectARB(0);
+        glUseProgram(0);
 
         gl_check_error();
 
@@ -734,7 +566,7 @@ void gl_reconfigure_screen(struct state_gl *s)
                                 s->buffers[0]);
                 if(s->frame->color_spec == DXT1_YUV) {
                         glBindTexture(GL_TEXTURE_2D,s->texture_display);
-                        glUseProgramObjectARB(s->PHandle_dxt);
+                        glUseProgram(s->PHandle_dxt);
                 }
         } else if (s->frame->color_spec == UYVY) {
                 glActiveTexture(GL_TEXTURE0 + 2);
@@ -743,11 +575,11 @@ void gl_reconfigure_screen(struct state_gl *s)
                                 s->tile->width / 2, s->tile->height, 0,
                                 GL_RGBA, GL_UNSIGNED_BYTE,
                                 NULL);
-                glUseProgramObjectARB(s->PHandle);
-                glUniform1i(glGetUniformLocationARB(s->PHandle, "image"), 2);
-                glUniform1f(glGetUniformLocationARB(s->PHandle, "imageWidth"),
+                glUseProgram(s->PHandle_uyvy);
+                glUniform1i(glGetUniformLocationARB(s->PHandle_uyvy, "image"), 2);
+                glUniform1f(glGetUniformLocationARB(s->PHandle_uyvy, "imageWidth"),
                                 (GLfloat) s->tile->width);
-                glUseProgramObjectARB(0);
+                glUseProgram(0);
                 glActiveTexture(GL_TEXTURE0 + 0);
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
@@ -767,7 +599,7 @@ void gl_reconfigure_screen(struct state_gl *s)
                                 GL_RGB, GL_UNSIGNED_BYTE,
                                 NULL);
         } else if (s->frame->color_spec == DXT5) {
-                glUseProgramObjectARB(s->PHandle_dxt5);
+                glUseProgram(s->PHandle_dxt5);
 
                 glBindTexture(GL_TEXTURE_2D,s->texture_display);
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0,
@@ -829,7 +661,11 @@ static void glut_idle_callback(void)
                                         s->buffers[s->image_display]);
                         break;
                 case DXT1_YUV:
-                        dxt_bind_texture(s);
+                        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                                        s->tile->width, s->tile->height,
+                                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+                                        (s->tile->width * s->tile->height/16)*8,
+                                        s->buffers[s->image_display]);
                         break;
                 case UYVY:
                         gl_bind_texture(s);
@@ -992,7 +828,7 @@ static void gl_bind_texture(void *arg)
         glViewport( 0, 0, s->tile->width, s->tile->height);
 
         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, s->tile->width / 2, s->tile->height,  GL_RGBA, GL_UNSIGNED_BYTE, s->buffers[s->image_display]);
-        glUseProgramObjectARB(s->PHandle);
+        glUseProgram(s->PHandle_uyvy);
 
         glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
         gl_check_error();
@@ -1011,27 +847,10 @@ static void gl_bind_texture(void *arg)
         glMatrixMode( GL_MODELVIEW );
         glPopMatrix();
 
-        glUseProgramObjectARB(0);
+        glUseProgram(0);
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
         glActiveTexture(GL_TEXTURE0 + 0);
         glBindTexture(GL_TEXTURE_2D, s->texture_display);
-}    
-
-static void dxt_bind_texture(void *arg)
-{
-        struct state_gl        *s = (struct state_gl *) arg;
-        static int i=0;
-
-        //TODO: does OpenGL use different stuff here?
-        glActiveTexture(GL_TEXTURE0);
-        i=glGetUniformLocationARB(s->PHandle,"yuvtex");
-        glUniform1iARB(i,0); 
-        glBindTexture(GL_TEXTURE_2D,gl->texture_display);
-        glCompressedTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                        s->tile->width, s->tile->height,
-                        GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-                        (s->tile->width * s->tile->height/16)*8,
-                        s->buffers[s->image_display]);
 }    
 
 static void gl_draw(double ratio)
@@ -1143,6 +962,9 @@ void display_gl_done(void *state)
         if(s->window != -1) {
                 glutDestroyWindow(s->window);
         }
+        glDeleteProgram(s->PHandle_uyvy);
+        glDeleteProgram(s->PHandle_dxt);
+        glDeleteProgram(s->PHandle_dxt5);
         free(s->buffers[0]);
         free(s->buffers[1]);
         vf_free(s->frame);

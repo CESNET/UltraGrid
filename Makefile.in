@@ -482,7 +482,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sdl.so.@video_display_abi_version@ $^ @SDL_LIBS@ -o $@
 
-@GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@
+@GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@ @GL_COMMON_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
 
