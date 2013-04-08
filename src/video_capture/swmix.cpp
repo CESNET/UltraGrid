@@ -212,9 +212,10 @@ static void show_help()
 struct state_slave {
         pthread_t           thread_id;
         bool                should_exit;
-        struct vidcap      *device;
         pthread_mutex_t     lock;
         char               *name;
+        char               *device_vendor;
+        char               *device_cfg;
 
         struct video_frame *captured_frame;
         struct video_frame *done_frame;
@@ -680,11 +681,19 @@ static void *slave_worker(void *arg)
 {
         struct state_slave *s = (struct state_slave *) arg;
 
+        struct vidcap *device =
+                initialize_video_capture(s->device_vendor, s->device_cfg, 0);
+        if(!device) {
+                fprintf(stderr, "[swmix] Unable to initialize device %s (%s:%s).\n",
+                                s->name, s->device_vendor, s->device_cfg);
+                return NULL;
+        }
+
         while(!s->should_exit) {
                 struct video_frame *frame;
                 struct audio_frame *unused_af;
 
-                frame = vidcap_grab(s->device, &unused_af);
+                frame = vidcap_grab(device, &unused_af);
                 if(frame) {
                         struct video_frame *frame_copy = vf_get_copy(frame);
                         pthread_mutex_lock(&s->lock);
@@ -695,6 +704,9 @@ static void *slave_worker(void *arg)
                         pthread_mutex_unlock(&s->lock);
                 }
         }
+
+        vidcap_finish(device);
+        vidcap_done(device);
 
         return NULL;
 }
@@ -880,15 +892,16 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 char *name = NULL;
 
                 if(s->use_config_file == true) {
-                        name = config;
                         // we have device name and configuration
                         if(strchr(config, '@')) {
                                 char *delim = strchr(config, '@');
                                 *delim = '\0';
                                 config = delim + 1;
+                                name = config;
                         } else { // we have only device name and configuration in config file
                                 copy = (char *) realloc(copy, strlen(copy) + 128 + 2);
                                 config = copy + strlen(copy) + 1;
+                                name = copy;
                                 if(!get_device_config_from_file(*config_file, name,
                                                         config)) {
                                         fprintf(stderr, "Unable to get configuration for slave '%s' "
@@ -904,8 +917,12 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 			device_cfg = delim + 1;
 		}
 
-                s->slaves[i].device = initialize_video_capture(device,
-                                               device_cfg, 0);
+                s->slaves[i].device_vendor = strdup(device);
+                if(device_cfg) {
+                        s->slaves[i].device_cfg = strdup(device_cfg);
+                } else {
+                        s->slaves[i].device_cfg = NULL;
+                }
                 if(name) {
                         s->slaves[i].name = strdup(name);
                 } else {
@@ -913,10 +930,6 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 }
 
                 free(copy);
-                if(!s->slaves[i].device) {
-                        fprintf(stderr, "[swmix] Unable to initialize device %d.\n", i);
-                        return false;
-                }
                 ++i;
         }
         free(parse_string);
@@ -1046,12 +1059,6 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
 error:
         if(s->slaves) {
-                int i;
-                for (i = 0u; i < s->devices_cnt; ++i) {
-                        if(s->slaves[i].device) {
-                                 vidcap_done(s->slaves[i].device);
-                        }
-                }
                 free(s->slaves);
         }
         delete s;
@@ -1103,12 +1110,13 @@ vidcap_swmix_done(void *state)
                 s->free_buffer_queue.pop();
         }
 
-       for (int i = 0; i < s->devices_cnt; ++i) {
-                vidcap_finish(s->slaves[i].device);
-                vidcap_done(s->slaves[i].device);
+        for (int i = 0; i < s->devices_cnt; ++i) {
                 pthread_mutex_destroy(&s->slaves[i].lock);
                 vf_free_data(s->slaves[i].captured_frame);
                 vf_free_data(s->slaves[i].done_frame);
+                free(s->slaves[i].device_cfg);
+                free(s->slaves[i].device_vendor);
+                free(s->slaves[i].name);
         }
         free(s->slaves);
 
