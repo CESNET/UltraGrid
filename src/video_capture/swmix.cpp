@@ -153,6 +153,8 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 FILE **config_file);
 static bool get_slave_param_from_file(FILE* config, char *slave_name, int *x, int *y,
                                         int *width, int *height);
+static bool get_device_config_from_file(FILE* config_file, char *slave_name,
+                char *device_name_config);
 
 static char *get_config_name()
 {
@@ -173,10 +175,11 @@ static void show_help()
         printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>]]#<dev1_config>#"
                         "<dev2_config>[#....]\n");
         printf("\tor\n");
-        printf("\t-t swmix:file#<dev1_name>@<dev1_config>#"
-                        "<dev2_name>@<dev2_config>[#....]\n");
-        printf("\t\twhere <devn_config> is a complete configuration string of device "
-                        "involved in an SW mix device\n");
+        printf("\t-t swmix:file#<dev1_name>[@<dev1_config>]#"
+                        "<dev2_name>[@<dev2_config>][#....]\n");
+        printf("\t\twhere <devn_config> is a complete configuration string of device\n"
+                        "\t\t\tinvolved in an SW mix device, if not set, must be filled in\n"
+                        "\t\t\tthe config file (last item)\n");
         printf("\t\t<devn_name> is an input name (to be matched against config file %s)\n",
                         get_config_name());
         printf("\t\t<width> widht of resulting video\n");
@@ -700,6 +703,28 @@ static bool get_slave_param_from_file(FILE* config_file, char *slave_name, int *
         return false;
 }
 
+static bool get_device_config_from_file(FILE* config_file, char *slave_name,
+                char *device_name_config)
+{
+        char *ret;
+        char line[1024];
+        fseek(config_file, 0, SEEK_SET); // rewind
+        ret = fgets(line, sizeof(line), config_file);  // skip first line
+        if(!ret) return false;
+        while (fgets(line, sizeof(line), config_file)) {
+                char name[128];
+                char dev_config[128];
+                int x_, y_, width_, height_;
+                if(sscanf(line, "%128s %d %d %d %d %128s", name, &x_, &y_, &width_, &height_, dev_config) != 6)
+                        continue;
+                if(strcasecmp(name, slave_name) == 0) {
+                        strcpy(device_name_config, dev_config);
+                        return true;
+                }
+        }
+        return false;
+}
+
 #define PARSE_OK 0
 #define PARSE_ERROR 1
 #define PARSE_FILE 2
@@ -831,12 +856,23 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 char *device_cfg = NULL;
                 char *name = NULL;
 
-                // we have device name to be matched against config file
-                if(strchr(config, '@')) {
-			char *delim = strchr(config, '@');
-			*delim = '\0';
+                if(s->use_config_file == true) {
                         name = config;
-			config = delim + 1;
+                        // we have device name and configuration
+                        if(strchr(config, '@')) {
+                                char *delim = strchr(config, '@');
+                                *delim = '\0';
+                                config = delim + 1;
+                        } else { // we have only device name and configuration in config file
+                                copy = (char *) realloc(copy, strlen(copy) + 128 + 2);
+                                config = copy + strlen(copy) + 1;
+                                if(!get_device_config_from_file(*config_file, name,
+                                                        config)) {
+                                        fprintf(stderr, "Unable to get configuration for slave '%s' "
+                                                        "from config file.\n", name);
+                                        return false;
+                                }
+                        }
                 }
                 device = config;
 		if(strchr(config, ':')) {
