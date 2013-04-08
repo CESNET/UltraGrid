@@ -158,9 +158,9 @@ static void usage(void)
         printf("\t\t3 - avoid EEDID loading\n");
 
         printf("\t<color_spec> may be one of following\n");
-        printf("\t\tUYVY (default)\n");
-        printf("\t\tRGBA\n");
-        printf("\t\tBGR\n");
+        printf("\t\tUYVY");
+        printf("\t\tRGBA");
+        printf("\t\tBGR (default)");
 
         printf("\t<preset> may be format description (DVI-A), E-EDID will be ignored\n");
         printf("\t\tvideo format is in the format <width>x<height>@<fps>\n");
@@ -270,7 +270,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
         int               edid = -1;
         BYTE              pEEDIDBuffer[256];
         ULONG             pEEDIDBufferSize=256;
-        codec_t           codec = UYVY;
+        codec_t           codec = BGR;
         int               channel = 0;
         ULONG             ChannelId;
         bool              have_preset = false;
@@ -623,6 +623,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
         Result = VHD_StartStream(s->StreamHandle);
         
         if(Result != VHDERR_NOERROR) {
+                fprintf(stderr, "Cannot start stream!\n");
                 goto no_start;
         }
 
