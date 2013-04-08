@@ -62,6 +62,7 @@
 #include "debug.h"
 #include "host.h"
 #include "utils/resource_manager.h"
+#include "utils/worker.h"
 #include "video.h"
 #include "video_codec.h"
 
@@ -84,6 +85,9 @@ struct libav_video_compress {
         struct video_desc   saved_desc;
 
         AVFrame            *in_frame;
+        // for every core - parts of the above
+        AVFrame           **in_frame_part;
+        int                 cpu_count;
         AVCodec            *codec;
         AVCodecContext     *codec_ctx;
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
@@ -201,6 +205,16 @@ void * libavcodec_compress_init(char * fmt)
                         }
                         fmt = NULL;
                 }
+        }
+
+        s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN) / 4; // take conservatively only one fourth of cores
+        if(s->cpu_count < 1) {
+                fprintf(stderr, "Warning: Cannot get number of CPU cores!\n");
+                s->cpu_count = 1;
+        }
+        s->in_frame_part = (AVFrame **) calloc(s->cpu_count, sizeof(AVFrame *));
+        for(int i = 0; i < s->cpu_count; i++) {
+                s->in_frame_part[i] = avcodec_alloc_frame();
         }
 
         s->decoded = NULL;
@@ -449,6 +463,22 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                 fprintf(stderr, "Could not allocate raw picture buffer\n");
                 return false;
         }
+        for(int i = 0; i < s->cpu_count; ++i) {
+                int chunk_size = s->codec_ctx->height / s->cpu_count;
+                chunk_size = chunk_size / 2 * 2;
+                s->in_frame_part[i]->data[0] = s->in_frame->data[0] + s->in_frame->linesize[0] * i *
+                        chunk_size;
+                if(s->subsampling == 420) {
+                        chunk_size /= 2;
+                }
+                s->in_frame_part[i]->data[1] = s->in_frame->data[1] + s->in_frame->linesize[1] * i *
+                        chunk_size;
+                s->in_frame_part[i]->data[2] = s->in_frame->data[2] + s->in_frame->linesize[2] * i *
+                        chunk_size;
+                s->in_frame_part[i]->linesize[0] = s->in_frame->linesize[0];
+                s->in_frame_part[i]->linesize[1] = s->in_frame->linesize[1];
+                s->in_frame_part[i]->linesize[2] = s->in_frame->linesize[2];
+        }
 
         s->saved_desc = desc;
         s->out_codec = compressed_desc.color_spec;
@@ -500,6 +530,22 @@ static void to_yuv422(AVFrame *out_frame, unsigned char *src, int width, int hei
         }
 }
 
+struct my_task_data {
+        void (*callback)(AVFrame *out_frame, unsigned char *in_data, int width, int height);
+        AVFrame *out_frame;
+        unsigned char *in_data;
+        int width;
+        int height;
+};
+
+void *my_task(void *arg);
+
+void *my_task(void *arg) {
+        struct my_task_data *data = (struct my_task_data *) arg;
+        data->callback(data->out_frame, data->in_data, data->width, data->height);
+        return NULL;
+}
+
 struct tile * libavcodec_compress_tile(void *arg, struct tile *tx, struct video_desc *desc,
                 int buffer_idx)
 {
@@ -545,13 +591,28 @@ struct tile * libavcodec_compress_tile(void *arg, struct tile *tx, struct video_
                 decoded = (unsigned char *) tx->data;
         }
 
-        if(s->subsampling == 420) {
-                to_yuv420(s->in_frame, decoded, tx->width, tx->height);
-        } else {
-                assert(s->subsampling == 422);
-                to_yuv422(s->in_frame, decoded, tx->width, tx->height);
+        task_result_handle_t handle[s->cpu_count];
+        struct my_task_data data[s->cpu_count];
+        for(int i = 0; i < s->cpu_count; ++i) {
+                assert(s->subsampling == 422 || s->subsampling == 420);
+                data[i].callback = s->subsampling == 420 ? to_yuv420 : to_yuv422;
+                data[i].out_frame = s->in_frame_part[i];
+                data[i].height = tx->height / s->cpu_count;
+                data[i].height = data[i].height / 2 * 2;
+                if(i == s->cpu_count - 1) {
+                        data[i].height = tx->height - data[i].height * (s->cpu_count - 1);
+                }
+                data[i].width = tx->width;
+                data[i].in_data = decoded + i * data[i].height *
+                        vc_get_linesize(tx->width, desc->color_spec);
+
+                // run !
+                handle[i] = task_run_async(my_task, (void *) &data[i]);
         }
 
+        for(int i = 0; i < s->cpu_count; ++i) {
+                wait_task(handle[i]);
+        }
 
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
         /* encode the image */
@@ -629,6 +690,10 @@ void libavcodec_compress_done(void *arg)
 
         rm_release_shared_lock(LAVCD_LOCK_NAME);
         free(s->preset);
+        for(int i = 0; i < s->cpu_count; i++) {
+                av_free(s->in_frame_part[i]);
+        }
+        free(s->in_frame_part);
         free(s);
 }
 

@@ -259,5 +259,13 @@ void ShowMessage(int level, char *msg);
 #include <direct.h>
 #define platform_mkdir _mkdir
 
+// sysconf(_SC_NPROCESSORS_ONLN) substitution
+#ifndef _SC_NPROCESSORS_ONLN
+SYSTEM_INFO info;
+GetSystemInfo(&info);
+#define sysconf(a) info.dwNumberOfProcessors
+#define _SC_NPROCESSORS_ONLN
+#endif
+
 #endif 
 #endif
