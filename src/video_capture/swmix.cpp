@@ -74,7 +74,7 @@ typedef enum {
  * http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
  */
 #define STRINGIFY(A) #A
-static const char * bicubic = STRINGIFY(
+static const char * bicubic_template = STRINGIFY(
 uniform sampler2D textureSampler;
 uniform float fWidth;
 uniform float fHeight;
@@ -105,6 +105,24 @@ float CatMullRom( float x )
         return 0.0;
     }
 }
+float BSpline( float x )
+{
+        float f = x;
+        if( f < 0.0 )
+        {
+                f = -f;
+        }
+
+        if( f >= 0.0 && f <= 1.0 )
+        {
+                return ( 2.0 / 3.0 ) + ( 0.5 ) * ( f* f * f ) - (f*f);
+        }
+        else if( f > 1.0 && f <= 2.0 )
+        {
+                return 1.0 / 6.0 * pow( ( 2.0 - f  ), 3.0 );
+        }
+        return 1.0;
+}
 float Triangular( float f )
 {
         f = f / 2.0;
@@ -133,9 +151,9 @@ void main()
                         vec4 vecData = texture2D(textureSampler,
                                gl_TexCoord[0].xy + vec2(texelSizeX * float( m ),
                                         texelSizeY * float( n )));
-                        float f  = CatMullRom( float( m ) - a );
+                        float f  = INTERP_ALGORITHM_PLACEHOLDER( float( m ) - a );
                         vec4 vecCooef1 = vec4( f,f,f,f );
-                        float f1 = CatMullRom ( -( float( n ) - b ) );
+                        float f1 = INTERP_ALGORITHM_PLACEHOLDER( -( float( n ) - b ) );
                         vec4 vecCoeef2 = vec4( f1, f1, f1, f1 );
             nSum = nSum + ( vecData * vecCoeef2 * vecCooef1  );
             nDenom = nDenom + (( vecCoeef2 * vecCooef1 ));
@@ -172,7 +190,7 @@ static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>]]#<dev1_config>#"
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]]#<dev1_config>#"
                         "<dev2_config>[#....]\n");
         printf("\tor\n");
         printf("\t-t swmix:file#<dev1_name>[@<dev1_config>]#"
@@ -188,6 +206,7 @@ static void show_help()
         printf("\t\t<codec> codec of resulting video, may be one of RGBA, "
                         "RGB or UYVY (optional, default RGBA)\n");
         printf("\t\t<i_type> can be one of 'bilinear' or 'bicubic' (default)\n");
+        printf("\t\t\t<algo> bicubic interpolation algorithm: CatMullRom, BSpline (default) or Triangular\n");
 }
 
 struct state_slave {
@@ -230,6 +249,7 @@ struct vidcap_swmix_state {
         struct slave_data  *slaves_data;
         bool                use_config_file;
 
+        char               *bicubic_algo;
         GLuint              bicubic_program;
         interpolation_t     interpolation;
 };
@@ -730,7 +750,7 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 #define PARSE_FILE 2
 static int parse_config_string(const char *fmt, unsigned int *width,
                 unsigned int *height, double *fps,
-        codec_t *color_spec, interpolation_t *interpolation)
+        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo)
 {
         char *save_ptr = NULL;
         char *item;
@@ -772,6 +792,9 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                                 *interpolation = BILINEAR;
                                         } else {
                                                 *interpolation = BICUBIC;
+                                                if(strchr(item, ',')) {
+                                                        *bicubic_algo = strdup(strchr(item, ',') + 1);
+                                                }
                                         }
                                 }
                 }
@@ -780,7 +803,7 @@ static int parse_config_string(const char *fmt, unsigned int *width,
         }
         free(parse_string);
 
-        if(token_nr < 4)
+        if(token_nr < 3)
                 return PARSE_ERROR;
 
         return PARSE_OK;
@@ -797,7 +820,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
         int ret;
 
         ret = parse_config_string(fmt, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                        interpolation);
+                        interpolation, &s->bicubic_algo);
         if(ret == PARSE_ERROR) {
                 show_help();
                 return false;
@@ -819,7 +842,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 }
                 while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
                 ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                                interpolation);
+                                interpolation, &s->bicubic_algo);
                 if(ret != PARSE_OK) {
                         fprintf(stderr, "Malformed input file! First line should contain config "
                                         "string same as for cmdline use (between first ':' and '#' "
@@ -918,6 +941,7 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
         s->frames = 0;
         s->slaves = NULL;
+        s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
 
         if(!init_fmt || strcmp(init_fmt, "help") == 0) {
@@ -954,7 +978,17 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
         gl_context_make_current(&s->gl_context);
 
-        s->bicubic_program = glsl_compile_link(vprogram, bicubic);
+        {
+                char *bicubic = strdup(bicubic_template);
+                char *algo_pos;
+                while((algo_pos = strstr(bicubic, "INTERP_ALGORITHM_PLACEHOLDER"))) {
+                        memset(algo_pos, ' ', strlen("INTERP_ALGORITHM_PLACEHOLDER"));
+                        memcpy(algo_pos, s->bicubic_algo, strlen(s->bicubic_algo));
+                }
+                printf("Using bicubic algorithm: %s\n", s->bicubic_algo);
+                s->bicubic_program = glsl_compile_link(vprogram, bicubic);
+                free(bicubic);
+        }
 
         s->slaves_data = init_slave_data(s, config_file);
         if(!s->slaves_data) {
@@ -1096,6 +1130,8 @@ vidcap_swmix_done(void *state)
         pthread_cond_destroy(&s->frame_ready_cv);
         pthread_cond_destroy(&s->frame_sent_cv);
         pthread_cond_destroy(&s->free_buffer_queue_not_empty_cv);
+
+        free(s->bicubic_algo);
 
         delete s;
 }
