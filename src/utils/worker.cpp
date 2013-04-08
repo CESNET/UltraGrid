@@ -207,9 +207,9 @@ task_result_handle_t worker_pool::run_async(task_t task, void *data)
         }
         set<worker*>::iterator it = m_empty_workers.begin();
         assert(it != m_empty_workers.end());
-        m_empty_workers.erase(it);
-        m_occupied_workers.insert(*it);
         w = *it;
+        m_empty_workers.erase(it);
+        m_occupied_workers.insert(w);
         pthread_mutex_unlock(&m_lock);
 
         w->push(task_data(task, data));
