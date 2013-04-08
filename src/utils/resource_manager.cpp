@@ -141,7 +141,7 @@ class shm : public resource {
 
 class lock_holder {
         public:
-                lock_holder(pthread_mutex_t lock) :
+                lock_holder(pthread_mutex_t &lock) :
                         m_lock(lock)
                 {
                         pthread_mutex_lock(&m_lock);
