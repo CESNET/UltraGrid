@@ -13,6 +13,8 @@
 #include "video_capture.h"
 #include "video_display.h"
 
+#include "utils/resource_manager.h"
+
 long packet_rate;
 unsigned int cuda_device = 0;
 unsigned int audio_capture_channels = 2;
@@ -36,6 +38,9 @@ struct vidcap *initialize_video_capture(const char *requested_capture,
         if(!strcmp(requested_capture, "none"))
                 id = vidcap_get_null_device_id();
 
+        pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
+        pthread_mutex_lock(vidcap_lock);
+
         vidcap_init_devices();
         for (i = 0; i < vidcap_get_device_count(); i++) {
                 vt = vidcap_get_device_details(i);
@@ -50,6 +55,9 @@ struct vidcap *initialize_video_capture(const char *requested_capture,
                 return NULL;
         }
         vidcap_free_devices();
+
+        pthread_mutex_unlock(vidcap_lock);
+        rm_release_shared_lock("VIDCAP_LOCK");
 
         return vidcap_init(id, fmt, flags);
 }
