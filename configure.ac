@@ -2397,15 +2397,18 @@ if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
         $ac_cv_lib_avutil_av_free = yes
 then
         found_libavcodec=yes
-        LIBAVCODEC_LIBS="-lavcodec -lavutil"
+        found_libavutil=yes
+        LIBAVCODEC_LIBS="-lavcodec"
+        LIBAVUTIL_LIBS="-lavutil"
 else
         found_libavcodec=no
 fi
 else # Linux, OS X
 PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
+PKG_CHECK_MODULES([LIBAVUTIL], [libavutil], [found_libavutil=yes], [found_libavutil=no])
 fi
 
-if test $libavcodec_req != no -a $found_libavcodec = yes
+if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
 then
         LIBAVCODEC_OBJ="src/video_compress/libavcodec.o"
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
@@ -2418,6 +2421,7 @@ then
         CFLAGS="$CFLAGS $LIBAVCODEC_CFLAGS"
         libavcodec=yes
         SAVED_LIBS=$LIBS
+        LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # append libavutil
         LIBS="$LIBS $LIBAVCODEC_LIBS"
         AC_CHECK_FUNCS(avcodec_encode_video2)
         LIBS=$SAVED_LIBS
