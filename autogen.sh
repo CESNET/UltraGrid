@@ -32,7 +32,7 @@ if ! `uname -s | grep -q '^MINGW32'`; then
         cd -
 fi
 
-[ -n "$DO_NOT_CONFIGURE" ] || $srcdir/configure $@
+[ -n "$DO_NOT_CONFIGURE" ] || $srcdir/configure --enable-gpl $@
 
 cd $ORIGDIR
 
