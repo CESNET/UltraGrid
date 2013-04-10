@@ -2404,8 +2404,8 @@ else
         found_libavcodec=no
 fi
 else # Linux, OS X
-PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec], [found_libavcodec=yes], [found_libavcodec=no])
-PKG_CHECK_MODULES([LIBAVUTIL], [libavutil], [found_libavutil=yes], [found_libavutil=no])
+PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
+PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
 fi
 
 if test $libavcodec_req != no -a $found_libavcodec = yes -a $found_libavutil = yes
