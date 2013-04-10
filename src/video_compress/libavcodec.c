@@ -207,6 +207,8 @@ void * libavcodec_compress_init(char * fmt)
                 }
         }
 
+        printf("[Lavc] Using codec: %s\n", codec_info[s->selected_codec_id].name);
+
         s->cpu_count = sysconf(_SC_NPROCESSORS_ONLN) / 4; // take conservatively only one fourth of cores
         if(s->cpu_count < 1) {
                 fprintf(stderr, "Warning: Cannot get number of CPU cores!\n");
@@ -422,13 +424,13 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                         s->codec_ctx->thread_count = 0;
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
                 } else {
-                        fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
+                        fprintf(stderr, "[Lavc] Warning: Codec doesn't support slice-based multithreading.\n");
 #if 0
                         if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                                 s->codec_ctx->thread_count = 0;
                                 s->codec_ctx->thread_type = FF_THREAD_FRAME;
                         } else {
-                                fprintf(stderr, "[lavd] Warning: Codec doesn't support frame-based multithreading.\n");
+                                fprintf(stderr, "[Lavc] Warning: Codec doesn't support frame-based multithreading.\n");
                         }
 #endif
                 }
