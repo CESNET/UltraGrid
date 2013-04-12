@@ -231,7 +231,7 @@ static void usage(void)
         printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
                         "[-m <mtu>] [-c] [-i] [-6]\n");
         printf("          [-m <video_mode>] [-p <postprocess>] "
-                        "[-f <fec_options>] [-p <port>]\n");
+                        "[-f [A:|V:]<fec_options>] [-P <port>]\n");
         printf("          [--mcast-if <iface>]\n");
         printf("          [--export[=<d>]|--import <d>]\n");
         printf("          address(es)\n\n");
@@ -264,7 +264,8 @@ static void usage(void)
         printf("\n");
         printf("\t-p <postprocess>         \tpostprocess module\n");
         printf("\n");
-        printf("\t-f <settings>            \tFEC settings - use \"mult:<nr>\",\n");
+        printf("\t-f [A:|V:]<settings>     \tFEC settings (audio or video) - use \"none\"\n"
+               "\t                         \t\"mult:<nr>\",\n");
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
         printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
         printf("\n");
@@ -921,10 +922,11 @@ int main(int argc, char *argv[])
         char *network_device = NULL;
         char *capture_cfg = NULL;
         char *display_cfg = NULL;
-        char *audio_recv = NULL;
-        char *audio_send = NULL;
+        const char *audio_recv = "none";
+        const char *audio_send = "none";
         char *jack_cfg = NULL;
-        char *requested_fec = NULL;
+        char *requested_video_fec = strdup("none");
+        char *requested_audio_fec = strdup(DEFAULT_AUDIO_FEC);
         char *audio_channel_map = NULL;
         char *audio_scale = "mixauto";
 
@@ -1109,7 +1111,23 @@ int main(int argc, char *argv[])
                         jack_cfg = optarg;
                         break;
                 case 'f':
-                        requested_fec = optarg;
+                        if(strlen(optarg) > 2 && optarg[1] == ':' &&
+                                        (toupper(optarg[0]) == 'A' || toupper(optarg[0]) == 'V')) {
+                                if(toupper(optarg[0]) == 'A') {
+                                        free(requested_audio_fec);
+                                        requested_audio_fec = strdup(optarg + 2);
+                                } else {
+                                        free(requested_audio_fec);
+                                        requested_audio_fec = strdup(optarg + 2);
+                                }
+                        } else {
+                                // there should be setting for both audio and video
+                                // but we conservativelly expect that the user wants
+                                // only vieo and let audio default until explicitly
+                                // stated otehrwise
+                                free(requested_video_fec);
+                                requested_video_fec = strdup(optarg);
+                        }
                         break;
 		case 'h':
 			usage();
@@ -1210,17 +1228,24 @@ int main(int argc, char *argv[])
         argc -= optind;
         argv += optind;
 
+        if (uv->requested_mtu == 0)     // mtu wasn't specified on the command line
+        {
+                uv->requested_mtu = 1500;       // the default value for RTP
+        }
+
         printf("%s", PACKAGE_STRING);
 #ifdef GIT_VERSION
         printf(" (rev %s)", GIT_VERSION);
 #endif
         printf("\n");
-        printf("Display device: %s\n", uv->requested_display);
-        printf("Capture device: %s\n", uv->requested_capture);
-        printf("MTU           : %d\n", uv->requested_mtu);
-        printf("Compression   : %s\n", uv->requested_compression);
+        printf("Display device   : %s\n", uv->requested_display);
+        printf("Capture device   : %s\n", uv->requested_capture);
+        printf("Audio capture    : %s\n", audio_send);
+        printf("Capture playback : %s\n", audio_recv);
+        printf("MTU              : %d B\n", uv->requested_mtu);
+        printf("Video compression: %s\n", uv->requested_compression);
 
-        printf("Network protocol: ");
+        printf("Network protocol : ");
         switch(uv->tx_protocol) {
                 case ULTRAGRID_RTP:
                         printf("UltraGrid RTP\n"); break;
@@ -1229,6 +1254,10 @@ int main(int argc, char *argv[])
                 case SAGE:
                         printf("SAGE\n"); break;
         }
+
+        printf("Audio FEC        : %s\n", requested_audio_fec);
+        printf("Video FEC        : %s\n", requested_video_fec);
+        printf("\n");
 
         if(should_export) {
                 if(!enable_export(export_opts)) {
@@ -1279,12 +1308,11 @@ int main(int argc, char *argv[])
         if(!audio_host) {
                 audio_host = network_device;
         }
-        char *tmp_requested_fec = strdup(DEFAULT_AUDIO_FEC);
         uv->audio = audio_cfg_init (audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
-                        jack_cfg, tmp_requested_fec, audio_channel_map,
+                        jack_cfg, requested_audio_fec, audio_channel_map,
                         audio_scale, echo_cancellation, use_ipv6, mcast_if);
-        free(tmp_requested_fec);
+        free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;
 
@@ -1425,11 +1453,6 @@ int main(int argc, char *argv[])
                                 ++uv->connections_count;
                 }
 
-                if (uv->requested_mtu == 0)     // mtu wasn't specified on the command line
-                {
-                        uv->requested_mtu = 1500;       // the default value for RTP
-                }
-
                 if(bitrate == 0) { // else packet_rate defaults to 13600 or so
                         bitrate = 6618;
                 }
@@ -1440,11 +1463,12 @@ int main(int argc, char *argv[])
                         packet_rate = 0;
                 }
 
-                if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_fec)) == NULL) {
+                if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_video_fec)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup_wait_display;
                 }
+                free(requested_video_fec);
         } else { // SAGE
                 uv->sage_tx_device = initialize_video_display("sage",
                                 sage_opts, 0);

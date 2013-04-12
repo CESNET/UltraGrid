@@ -85,7 +85,8 @@ struct audio_fmt {
         uint32_t audio_tag;
 };
 
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg,
+struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
+                const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, char *mcast_iface);
 void audio_finish(struct state_audio *s);

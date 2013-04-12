@@ -168,7 +168,8 @@ static void audio_scale_usage(void)
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, char *send_cfg, char *recv_cfg,
+struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
+                const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, char *mcast_if)
 {
@@ -235,7 +236,6 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
                 s->echo_state = NULL;
         }
         
-        printf("Using audio FEC: %s\n", fec_cfg);
         s->tx_session = tx_init(1500, fec_cfg);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
@@ -258,7 +258,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
 
         if (send_cfg != NULL) {
                 char *cfg = NULL;
-                char *device = send_cfg;
+                char *device = strdup(send_cfg);
 		if(strchr(device, ':')) {
 			char *delim = strchr(device, ':');
 			*delim = '\0';
@@ -266,6 +266,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
 		}
 
                 s->audio_capture_device = audio_capture_init(device, cfg);
+                free(device);
                 
                 if(!s->audio_capture_device) {
                         fprintf(stderr, "Error initializing audio capture.\n");
@@ -277,7 +278,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
         
         if (recv_cfg != NULL) {
                 char *cfg = NULL;
-                char *device = recv_cfg;
+                char *device = strdup(recv_cfg);
 		if(strchr(device, ':')) {
 			char *delim = strchr(device, ':');
 			*delim = '\0';
@@ -285,6 +286,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port, c
 		}
 
                 s->audio_playback_device = audio_playback_init(device, cfg);
+                free(device);
                 if(!s->audio_playback_device) {
                         fprintf(stderr, "Error initializing audio playback.\n");
                         goto error;
