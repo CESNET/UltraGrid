@@ -55,6 +55,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct compress_state;
 
 /**

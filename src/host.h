@@ -88,6 +88,7 @@ void destroy_decoder(struct vcodec_state *video_decoder_state);
 
 // if not NULL, data should be exported
 extern char *export_dir;
+extern char *sage_network_device;
 
 #ifdef __cplusplus
 }

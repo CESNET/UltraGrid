@@ -180,9 +180,6 @@ static struct video_frame *frame_buffer = NULL;
 static long frame_begin[2];
 #endif
 
-char *sage_network_device = NULL;
-char *export_dir = NULL;
-
 //
 // prototypes
 //
@@ -503,16 +500,6 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
         }
 
         return state;
-}
-
-void destroy_decoder(struct vcodec_state *video_decoder_state) {
-        if(!video_decoder_state) {
-                return;
-        }
-
-        decoder_destroy(video_decoder_state->decoder);
-
-        free(video_decoder_state);
 }
 
 /**

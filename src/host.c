@@ -14,6 +14,9 @@
 #include "video_display.h"
 
 #include "utils/resource_manager.h"
+#include "rtp/decoders.h"
+#include "rtp/rtp.h"
+#include "rtp/pbuf.h"
 
 long packet_rate;
 unsigned int cuda_device = 0;
@@ -27,6 +30,10 @@ uint32_t hd_color_spc = 0;
 
 int uv_argc;
 char **uv_argv;
+
+char *export_dir = NULL;
+char *sage_network_device = NULL;
+
 
 struct vidcap *initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags)
@@ -102,4 +109,13 @@ struct display *initialize_video_display(const char *requested_display,
         return d;
 }
 
+void destroy_decoder(struct vcodec_state *video_decoder_state) {
+        if(!video_decoder_state) {
+                return;
+        }
+
+        decoder_destroy(video_decoder_state->decoder);
+
+        free(video_decoder_state);
+}
 

@@ -133,7 +133,7 @@ LIB_COMMON = \
 
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard bin/hd-rum-transcode modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
@@ -143,6 +143,10 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 
 bin/import_control_keyboard: src/import_control_keyboard.o
 	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
+
+bin/hd-rum-transcode: $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
+	@if [ ! -d bin ]; then mkdir bin; fi
+	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSLATOR_OBJS) $(LIBS) -o bin/hd-rum-transcode
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
