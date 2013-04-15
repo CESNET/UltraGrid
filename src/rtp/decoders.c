@@ -284,7 +284,6 @@ static void *ldgm_thread(void *args) {
                                                 fprintf(stderr, "[decoder] LDGM: unable to reconstruct data.\n");
                                                 goto cleanup;
                                         }
-
                                         check_for_mode_change(decoder, (uint32_t *)(void *) out_buffer,
                                                         &frame);
 
@@ -1327,6 +1326,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
                 } else if (pt == PT_VIDEO_LDGM) {
                         len = pckt->data_len - sizeof(ldgm_video_payload_hdr_t);
+                        data = (char *) hdr + sizeof(ldgm_video_payload_hdr_t);
 
                         tmp = ntohl(hdr[3]);
                         k = tmp >> 19;
@@ -1383,7 +1383,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         }
                 }
 
-                if(!frame) {
+                if(pt == PT_VIDEO && !frame) {
                         ret = FALSE;
                         goto cleanup;
                 }
