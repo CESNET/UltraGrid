@@ -487,6 +487,11 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame * buffer)
         int mult_index = 0;
         int mult_first_sent = 0;
         
+        if(fec_is_ldgm(tx)) {
+                fprintf(stderr, "LDGM is not currently supported for audio! "
+                                "Exitting...\n");
+                exit_uv(129);
+        }
 
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);

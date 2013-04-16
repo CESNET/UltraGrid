@@ -266,7 +266,7 @@ static void usage(void)
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
         printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
         printf("\n");
-        printf("\t-P <port> | <vid_rx_port>:<vid_tx_port>[:<aud_rx_port>:<aud_tx_port>]\n");
+        printf("\t-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]\n");
         printf("\t                         \t<port> is base port number, also 3 subsequent\n");
         printf("\t                         \tports can be used for RTCP and audio\n");
         printf("\t                         \tstreams. Default: %d.\n", PORT_BASE);
