@@ -1,5 +1,3 @@
-#define _GNU_SOURCE 1 // pthread_yield
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -26,6 +24,8 @@
 
 long packet_rate = 13600;
 
+static pthread_t main_thread_id;
+
 /*
  * Prototypes
  */
@@ -48,6 +48,8 @@ static void _exit_uv(int status);
 static void _exit_uv(int status) {
     UNUSED(status);
     should_exit = true;
+    if(!pthread_equal(pthread_self(), main_thread_id))
+            pthread_kill(main_thread_id, SIGTERM);
 }
 void (*exit_uv)(int status) = _exit_uv;
 
@@ -332,12 +334,19 @@ int main(int argc, char **argv)
         return EXIT_FAIL_USAGE;
     }
 
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    main_thread_id = pthread_self();
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
 #ifndef WIN32
-    signal(SIGHUP, signal_handler);
+    sigaction(SIGHUP, &sa, NULL);
 #endif
-    signal(SIGABRT, signal_handler);
+    sigaction(SIGABRT, &sa, NULL);
 
     parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count);
 
@@ -446,31 +455,16 @@ int main(int argc, char **argv)
 
     /* main loop */
     while (!should_exit) {
-#if ! defined WIN32
-        fcntl(sock_in, F_SETFL, O_NONBLOCK);
-#else
-        u_long iMode=1;
-        ioctlsocket(sock_in, FIONBIO, &iMode);
-#endif
-
         while (qtail->next != qhead
-               && ((qtail->size = read(sock_in, qtail->buf, SIZE)) > 0
-                   || (err = errno) == EAGAIN)
+               && (qtail->size = read(sock_in, qtail->buf, SIZE)) > 0
                && !should_exit) {
 
-            if (qtail->size <= 0) {
-#ifdef HAVE_LINUX
-                pthread_yield();
-#endif
-            }
-            else {
-                qtail = qtail->next;
+            qtail = qtail->next;
 
-                pthread_mutex_lock(&qempty_mtx);
-                qempty = 0;
-                pthread_cond_signal(&qempty_cond);
-                pthread_mutex_unlock(&qempty_mtx);
-            }
+            pthread_mutex_lock(&qempty_mtx);
+            qempty = 0;
+            pthread_cond_signal(&qempty_cond);
+            pthread_mutex_unlock(&qempty_mtx);
         }
 
         if (qtail->size <= 0)
