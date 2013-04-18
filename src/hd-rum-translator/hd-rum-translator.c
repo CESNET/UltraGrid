@@ -315,6 +315,7 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     }
 }
 
+#ifndef WIN32
 int main(int argc, char **argv)
 {
     unsigned short port;
@@ -501,5 +502,13 @@ int main(int argc, char **argv)
 
     return 0;
 }
+#else // WIN32
+#include <stdio.h>
+int main()
+{
+    fprintf(stderr, "Reflector is currently not supported under MSW\n");
+    return 1;
+}
+#endif
 
 /* vim: set sw=4 expandtab : */
