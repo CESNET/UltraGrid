@@ -148,21 +148,28 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                 return false;
         }
 
-#if 0
+
         // zero should mean count equal to the number of virtual cores
         if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
-                s->codec_ctx->thread_count = 0;
-                s->codec_ctx->thread_type = FF_THREAD_SLICE;
+                if(desc.color_spec == H264 && avcodec_version() >> 16 == 53 &&
+                                ((avcodec_version() >> 8) & 0xff) == 35) {
+                        fprintf(stderr, "Libavcodec 53.35 has some issues with multithreaded H.264 "
+                                        "decoding. Disabling it. Please upgrade your libavcodec.\n");
+                } else {
+                        s->codec_ctx->thread_count = 0;
+                        s->codec_ctx->thread_type = FF_THREAD_SLICE;
+                }
         } else {
                 fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
+#if 0
                 if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
                         s->codec_ctx->thread_count = 0;
                         s->codec_ctx->thread_type = FF_THREAD_FRAME;
                 } else {
                         fprintf(stderr, "[lavd] Warning: Codec doesn't support frame-based multithreading.\n");
                 }
-        }
 #endif
+        }
 
         // set by decoder
         s->codec_ctx->pix_fmt = AV_PIX_FMT_NONE;
