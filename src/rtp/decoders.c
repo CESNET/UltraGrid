@@ -532,7 +532,8 @@ static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int v
                         * get_video_mode_tiles_y(decoder->video_mode);
 }
 
-struct state_decoder *decoder_init(char *requested_mode, char *postprocess, struct display *display)
+struct state_decoder *decoder_init(const char *requested_mode, const char *postprocess,
+                struct display *display)
 {
         struct state_decoder *s;
         
@@ -581,7 +582,9 @@ struct state_decoder *decoder_init(char *requested_mode, char *postprocess, stru
         decoder_set_video_mode(s, video_mode);
 
         if(postprocess) {
-                s->postprocess = vo_postprocess_init(postprocess);
+                char *tmp_pp_config = strdup(postprocess);
+                s->postprocess = vo_postprocess_init(tmp_pp_config);
+                free(tmp_pp_config);
                 if(strcmp(postprocess, "help") == 0) {
                         exit_uv(0);
                         return NULL;
