@@ -437,7 +437,7 @@ int main(int argc, char **argv)
             }
 
             void *recompress = recompress_init(hosts[i].addr, hosts[i].compression,
-                    port + (i + 2) * 2, port, mtu, hosts[i].fec);
+                    0, port, mtu, hosts[i].fec);
             if(recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);

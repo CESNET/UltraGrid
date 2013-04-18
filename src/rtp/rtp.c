@@ -1081,7 +1081,7 @@ struct rtp *rtp_init_if(const char *addr, char *iface,
         session->ttl = min(ttl, 127);
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6);
         session->rtcp_socket =
-            udp_init_if(addr, iface, (uint16_t) (rx_port + 1),
+            udp_init_if(addr, iface, (uint16_t) (rx_port + (rx_port ? 1 : 0)),
                         (uint16_t) (tx_port + 1), ttl, use_ipv6);
 
         init_opt(session);
