@@ -208,7 +208,8 @@ task_result_handle_t worker_pool::run_async(task_t task, void *data)
         set<worker*>::iterator it = m_empty_workers.begin();
         assert(it != m_empty_workers.end());
         w = *it;
-        m_empty_workers.erase(it);
+        /// @todo: really weird - it seems like that 'it' instead of 'w' caused some problems
+        m_empty_workers.erase(w);
         m_occupied_workers.insert(w);
         pthread_mutex_unlock(&m_lock);
 
@@ -227,7 +228,7 @@ class worker_pool instance;
 
 task_result_handle_t task_run_async(task_t task, void *data)
 {
-        instance.run_async(task, data);
+        return instance.run_async(task, data);
 }
 
 void *wait_task(task_result_handle_t handle)

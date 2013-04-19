@@ -96,6 +96,7 @@ struct compress_state {
 static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
                 int buffer_index);
+static void *compress_tile(void *arg);
 
 struct compress_t compress_modules[] = {
 #if defined HAVE_FASTDXT || defined BUILD_LIBRARIES
@@ -330,7 +331,7 @@ struct compress_data {
         void *ret;
 };
 
-void *compress_tile(void *arg) {
+static void *compress_tile(void *arg) {
         struct compress_data *s = (struct compress_data *) arg;
 
         s->ret = s->callback(s->state, s->tile, &s->desc, s->buffer_index);

@@ -19,8 +19,6 @@ extern "C" {
 #include "video_compress.h"
 #include "video_decompress.h"
 
-using namespace std;
-
 extern int mtu; // defined in hd-rum-transcode.c
 
 struct state_recompress {
