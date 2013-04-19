@@ -51,13 +51,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "libavcodec_common.h"
 #include "video_compress/libavcodec.h"
 
 #include <assert.h>
-#include <libavcodec/avcodec.h>
-#include <libavutil/imgutils.h>
-#include <libavutil/mem.h>
-#include <libavutil/opt.h>
 
 #include "debug.h"
 #include "host.h"
@@ -68,15 +65,39 @@
 
 #define DEFAULT_CODEC MJPG
 
-#ifndef HAVE_AVCODEC_ENCODE_VIDEO2
-#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
-#define AV_PIX_FMT_YUV422P PIX_FMT_YUV422P
-#define AV_PIX_FMT_YUVJ420P PIX_FMT_YUVJ420P
-#define AV_PIX_FMT_YUVJ422P PIX_FMT_YUVJ422P
-#define AV_CODEC_ID_H264 CODEC_ID_H264
-#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
-#define AV_CODEC_ID_VP8 CODEC_ID_VP8
-#endif
+struct setparam_param {
+        AVCodec *codec;
+        bool have_preset;
+        double fps;
+};
+
+typedef struct {
+        enum AVCodecID av_codec;
+        double avg_bpp;
+        void (*set_param)(AVCodecContext *, struct setparam_param *);
+} codec_params_t;
+
+
+static void setparam_default(AVCodecContext *, struct setparam_param *);
+static void setparam_h264(AVCodecContext *, struct setparam_param *);
+static void setparam_vp8(AVCodecContext *, struct setparam_param *);
+
+static codec_params_t codec_params[] = {
+        [H264] = { AV_CODEC_ID_H264,
+                0.07 * 4 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */,
+                setparam_h264
+        },
+        [MJPG] = {
+                AV_CODEC_ID_MJPEG,
+                0.7,
+                setparam_default
+        },
+        [VP8] = {
+                AV_CODEC_ID_VP8,
+                0.6,
+                setparam_vp8
+        }
+};
 
 struct libav_video_compress {
         pthread_mutex_t    *lavcd_global_lock;
@@ -117,9 +138,17 @@ static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]"
                         "[:subsampling=<subsampling>][:preset=<preset>]\n");
-        printf("\t\t<codec_name> may be "
-                        " one of \"H.264\", \"VP8\" or "
-                        "\"MJPEG\" (default)\n");
+        printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
+        for(unsigned int i = 0; i < sizeof(codec_params) / sizeof(codec_params_t); ++i) {
+                if(codec_params[i].av_codec != 0) {
+                        const char *availability = "not available";
+                        if(avcodec_find_encoder(codec_params[i].av_codec)) {
+                                availability = "available";
+                        }
+                        printf("\t\t\t%s - %s\n", get_codec_name(i), availability);
+                }
+
+        }
         printf("\t\t<bits_per_sec> specifies requested bitrate\n");
         printf("\t\t<subsampling> may be one of 422 or 420, default 420 for progresive, 422 for interlaced\n");
         printf("\t\t<preset> codec preset options, eg. ultrafast, superfast, medium etc. for H.264\n");
@@ -133,6 +162,10 @@ void * libavcodec_compress_init(char * fmt)
         
         s = (struct libav_video_compress *) malloc(sizeof(struct libav_video_compress));
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
+
+        /*  register all the codecs (you can also register only the codec
+         *         you wish to have smaller code */
+        avcodec_register_all();
 
         s->out[0] = s->out[1] = NULL;
 
@@ -229,71 +262,75 @@ void * libavcodec_compress_init(char * fmt)
         }
 #endif
 
-        /*  register all the codecs (you can also register only the codec
-         *         you wish to have smaller code */
-        avcodec_register_all();
-
         return s;
 }
 
 static bool configure_with(struct libav_video_compress *s, struct video_desc desc)
 {
         int ret;
-        int codec_id;
-        int pix_fmt; 
-        double avg_bpp; // average bite per pixel
+        int codec_id = 0;
+        int pix_fmt;
+        double avg_bpp = 0; // average bite per pixel
 
         struct video_desc compressed_desc;
         compressed_desc = desc;
-        switch(s->selected_codec_id) {
-                case H264:
-#ifdef HAVE_GPL
-                        codec_id = AV_CODEC_ID_H264;
-                        pix_fmt = AV_PIX_FMT_YUV420P;
-                        compressed_desc.color_spec = H264;
-                        // from H.264 Primer
-                        avg_bpp =
-                                4 * /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
-                                0.07;
-                        break;
-#else
-                        fprintf(stderr, "H.264 not available in UltraGrid BSD build. "
-                                        "Reconfigure UltraGrid with --enable-gpl if "
-                                        "needed.\n");
-                        exit_uv(1);
-                        return false;
-#endif
-                case MJPG:
-                        codec_id = AV_CODEC_ID_MJPEG;
-                        pix_fmt = AV_PIX_FMT_YUVJ420P;
-                        compressed_desc.color_spec = MJPG;
-                        avg_bpp = 0.7;
-                        break;
-                case VP8:
-                        codec_id = AV_CODEC_ID_VP8;
-                        pix_fmt = AV_PIX_FMT_YUV420P;
-                        compressed_desc.color_spec = VP8;
-                        avg_bpp = 0.5;
-                        break;
-                default:
-                        fprintf(stderr, "[lavc] Requested output codec isn't "
-                                        "supported by libavcodec.\n");
-                        return false;
+
+        if(s->selected_codec_id < sizeof(codec_params) / sizeof(codec_params_t)) {
+                codec_id = codec_params[s->selected_codec_id].av_codec;
+                avg_bpp = codec_params[s->selected_codec_id].avg_bpp;
 
         }
+
+        if(codec_id == 0) {
+                fprintf(stderr, "[lavc] Requested output codec isn't "
+                                "supported by libavcodec.\n");
+                return false;
+        }
+
+        compressed_desc.color_spec = s->selected_codec_id;
+
+#ifndef HAVE_GPL
+        if(s->selected_codec_id == H264) {
+                fprintf(stderr, "H.264 not available in UltraGrid BSD build. "
+                                "Reconfigure UltraGrid with --enable-gpl if "
+                                "needed.\n");
+                exit_uv(1);
+                return false;
+        }
+#endif
+
+        /* find the video encoder */
+        s->codec = avcodec_find_encoder(codec_id);
+        if (!s->codec) {
+                fprintf(stderr, "Libavcodec doesn't contain specified codec.\n"
+                                "Hint: Check if you have libavcodec-extra package installed.\n");
+                return false;
+        }
+
+        enum AVPixelFormat requested_pix_fmts[100];
+        int total_pix_fmts = 0;
 
         /* either user has explicitly requested subsampling
          * or for interlaced format is better to have 422 */
         if(s->requested_subsampling == 422 ||
                         (desc.interlacing == INTERLACED_MERGED &&
                          s->requested_subsampling != 420)) {
+                memcpy(requested_pix_fmts + total_pix_fmts,
+                                fmts422, sizeof(fmts422));
+                total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+        }
+        memcpy(requested_pix_fmts + total_pix_fmts, fmts420, sizeof(fmts420));
+        total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+        requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
+
+        pix_fmt = get_best_pix_fmt(requested_pix_fmts, s->codec->pix_fmts);
+        if(pix_fmt == AV_PIX_FMT_NONE) {
+                fprintf(stderr, "[Lavc] Unable to find suitable pixel format.\n");
+                return false;
+        }
+
+        if(is422(pix_fmt)) {
                 s->subsampling = 422;
-                if(pix_fmt == AV_PIX_FMT_YUV420P) {
-                        pix_fmt = AV_PIX_FMT_YUV422P;
-                }
-                if(pix_fmt == AV_PIX_FMT_YUVJ420P) {
-                        pix_fmt = AV_PIX_FMT_YUVJ422P;
-                }
         } else {
                 s->subsampling = 420;
         }
@@ -304,14 +341,6 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                 s->out[i]->data = malloc(compressed_desc.width *
                         compressed_desc.height * 4);
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
-        }
-
-        /* find the video encoder */
-        s->codec = avcodec_find_encoder(codec_id);
-        if (!s->codec) {
-                fprintf(stderr, "Libavcodec doesn't contain specified codec.\n"
-                                "Hint: Check if you have libavcodec-extra package installed.\n");
-                return false;
         }
 
         // avcodec_alloc_context3 allocates context and sets default value
@@ -375,66 +404,12 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                 }
         }
 
-        if(codec_id == AV_CODEC_ID_H264) {
-#ifdef HAVE_GPL
-                if(!s->preset) {
-                        // ultrafast - --aq-mode 0
-                        // This option causes posterization. Enabling it requires some 20% additional
-                        // percent of CPU.
-                        char params[] = "no-8x8dct=1:aq-mode=1:b-adapt=0:bframes=0:no-cabac=1:"
-                                "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
-                                "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:";
-                        int ret;
-                        // newer LibAV
-                        ret = av_opt_set(s->codec_ctx->priv_data, "x264-params", params, 0);
-                        if(ret != 0) {
-                                // newer FFMPEG
-                                ret = av_opt_set(s->codec_ctx->priv_data, "x264opts", params, 0);
-                        }
-                        if(ret != 0) {
-                                // older version of both
-                                // or superfast?? requires + some 70 % CPU but does not cause posterization
-                                ret = av_opt_set(s->codec_ctx->priv_data, "preset", "ultrafast", 0);
-                                fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected."
-                                                "Try supplying 'preset=superfast' argument to "
-                                                "avoid posterization!\n");
-                        }
-                        if(ret != 0) {
-                                fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
-                        }
-                }
+        struct setparam_param param;
+        param.have_preset = s->preset != 0;
+        param.fps = desc.fps;
+        param.codec = s->codec;
 
-                //av_opt_set(s->codec_ctx->priv_data, "tune", "fastdecode", 0);
-                av_opt_set(s->codec_ctx->priv_data, "tune", "zerolatency", 0);
-
-#ifndef DISABLE_H264_INTRA_REFRESH
-                s->codec_ctx->refs = 1;
-                av_opt_set(s->codec_ctx->priv_data, "intra-refresh", "1", 0);
-#endif // defined DISABLE_H264_INTRA_REFRESH
-#endif // defined HAVE_GPL
-        } else if(codec_id == AV_CODEC_ID_VP8) {
-                s->codec_ctx->thread_count = 8;
-                s->codec_ctx->profile = 3;
-                s->codec_ctx->slices = 4;
-                s->codec_ctx->rc_buffer_size = s->codec_ctx->bit_rate / desc.fps;
-                s->codec_ctx->rc_buffer_aggressivity = 0.5;
-        } else {
-                // zero should mean count equal to the number of virtual cores
-                if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
-                        s->codec_ctx->thread_count = 0;
-                        s->codec_ctx->thread_type = FF_THREAD_SLICE;
-                } else {
-                        fprintf(stderr, "[Lavc] Warning: Codec doesn't support slice-based multithreading.\n");
-#if 0
-                        if(s->codec->capabilities & CODEC_CAP_FRAME_THREADS) {
-                                s->codec_ctx->thread_count = 0;
-                                s->codec_ctx->thread_type = FF_THREAD_FRAME;
-                        } else {
-                                fprintf(stderr, "[Lavc] Warning: Codec doesn't support frame-based multithreading.\n");
-                        }
-#endif
-                }
-        }
+        codec_params[s->selected_codec_id].set_param(s->codec_ctx, &param);
 
         pthread_mutex_lock(s->lavcd_global_lock);
         /* open it */
@@ -697,5 +672,72 @@ void libavcodec_compress_done(void *arg)
         }
         free(s->in_frame_part);
         free(s);
+}
+
+static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        UNUSED(param);
+        // zero should mean count equal to the number of virtual cores
+        if(param->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
+                codec_ctx->thread_count = 0;
+                codec_ctx->thread_type = FF_THREAD_SLICE;
+        } else {
+                fprintf(stderr, "[Lavc] Warning: Codec doesn't support slice-based multithreading.\n");
+#if 0
+                if(codec->capabilities & CODEC_CAP_FRAME_THREADS) {
+                        codec_ctx->thread_count = 0;
+                        codec_ctx->thread_type = FF_THREAD_FRAME;
+                } else {
+                        fprintf(stderr, "[Lavc] Warning: Codec doesn't support frame-based multithreading.\n");
+                }
+#endif
+        }
+}
+
+static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        if(!param->have_preset) {
+                // ultrafast - --aq-mode 0
+                // This option causes posterization. Enabling it requires some 20% additional
+                // percent of CPU.
+                char params[] = "no-8x8dct=1:aq-mode=1:b-adapt=0:bframes=0:no-cabac=1:"
+                        "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
+                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:";
+                int ret;
+                // newer LibAV
+                ret = av_opt_set(codec_ctx->priv_data, "x264-params", params, 0);
+                if(ret != 0) {
+                        // newer FFMPEG
+                        ret = av_opt_set(codec_ctx->priv_data, "x264opts", params, 0);
+                }
+                if(ret != 0) {
+                        // older version of both
+                        // or superfast?? requires + some 70 % CPU but does not cause posterization
+                        ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
+                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected."
+                                        "Try supplying 'preset=superfast' argument to "
+                                        "avoid posterization!\n");
+                }
+                if(ret != 0) {
+                        fprintf(stderr, "[Lavc] Warning: Unable to set preset.\n");
+                }
+        }
+
+        //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
+        av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
+
+#ifndef DISABLE_H264_INTRA_REFRESH
+        codec_ctx->refs = 1;
+        av_opt_set(codec_ctx->priv_data, "intra-refresh", "1", 0);
+#endif // defined DISABLE_H264_INTRA_REFRESH
+}
+
+static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param)
+{
+        codec_ctx->thread_count = 8;
+        codec_ctx->profile = 0;
+        codec_ctx->slices = 4;
+        codec_ctx->rc_buffer_size = codec_ctx->bit_rate / param->fps;
+        codec_ctx->rc_buffer_aggressivity = 0.5;
 }
 

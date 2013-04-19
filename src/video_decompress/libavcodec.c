@@ -53,26 +53,10 @@
 
 #include "video_decompress/libavcodec.h"
 
-#include <libavcodec/avcodec.h>
-#include <libavutil/mem.h>
-#include <libavutil/opt.h>
-#include <libavutil/pixdesc.h>
-
 #include "debug.h"
+#include "libavcodec_common.h"
 #include "utils/resource_manager.h"
-#include "video_compress/libavcodec.h" // LAVCD_LOCK_NAME
 #include "video_decompress.h"
-
-#ifndef HAVE_AVCODEC_ENCODE_VIDEO2
-#define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
-#define AV_PIX_FMT_YUV422P PIX_FMT_YUV422P
-#define AV_PIX_FMT_YUVJ420P PIX_FMT_YUVJ420P
-#define AV_PIX_FMT_YUVJ422P PIX_FMT_YUVJ422P
-#define AV_PIX_FMT_NONE PIX_FMT_NONE
-#define AV_CODEC_ID_H264 CODEC_ID_H264
-#define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
-#define AV_CODEC_ID_VP8 CODEC_ID_VP8
-#endif
 
 struct state_libavcodec_decompress {
         pthread_mutex_t *global_lavcd_lock;
@@ -156,7 +140,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
                         fprintf(stderr, "Libavcodec 53.35 has some issues with multithreaded H.264 "
                                         "decoding. Disabling it. Please upgrade your libavcodec.\n");
                 } else {
-                        s->codec_ctx->thread_count = 0;
+                        s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
                 }
         } else {
@@ -390,30 +374,26 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch) {
         assert(out_codec == UYVY || out_codec == RGB);
 
-        switch(av_codec) {
-                case AV_PIX_FMT_YUV422P:
-                case AV_PIX_FMT_YUVJ422P:
-                        if(out_codec == UYVY) {
-                                yuv422p_to_yuv422((char *) dst, frame, width, height, pitch);
-                        } else {
-                                yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
-                        }
-                        break;
-                case AV_PIX_FMT_YUV420P:
-                case AV_PIX_FMT_YUVJ420P:
-                        if(out_codec == UYVY) {
-                                yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
-                        } else {
-                                yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
-                        }
-                        break;
-                default:
-                        fprintf(stderr, "Unsupported pixel "
-                                        "format: %s (id %d)\n",
-                                        av_get_pix_fmt_name(
-                                                av_codec), av_codec);
-                        return FALSE;
+        if(is422(av_codec)) {
+                if(out_codec == UYVY) {
+                        yuv422p_to_yuv422((char *) dst, frame, width, height, pitch);
+                } else {
+                        yuv422p_to_rgb24((char *) dst, frame, width, height, pitch);
+                }
+        } else if(is420(av_codec)) {
+                if(out_codec == UYVY) {
+                        yuv420p_to_yuv422((char *) dst, frame, width, height, pitch);
+                } else {
+                        yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
+                }
+        } else {
+                fprintf(stderr, "Unsupported pixel "
+                                "format: %s (id %d)\n",
+                                av_get_pix_fmt_name(
+                                        av_codec), av_codec);
+                return FALSE;
         }
+
         return TRUE;
 }
 
