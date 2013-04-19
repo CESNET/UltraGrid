@@ -1519,6 +1519,10 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
         pthread_mutex_lock(&decoder->lock);
         {
+                if(decoder->ldgm_data) {
+                        fprintf(stderr, "Your computer is too SLOW to play this !!!\n");
+                }
+
                 while (decoder->ldgm_data) {
                         pthread_cond_wait(&decoder->ldgm_boss_cv, &decoder->lock);
                 }
