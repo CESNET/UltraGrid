@@ -70,6 +70,13 @@
 
 #include <string.h>
 
+display_type_t *(*display_get_device_details_extrn)(int index) = display_get_device_details;
+void (*display_free_devices_extrn)(void) = display_free_devices;
+display_id_t (*display_get_null_device_id_extrn)(void) = display_get_null_device_id;
+struct display *(*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags) = display_init;
+int (*display_get_device_count_extrn)(void) = display_get_device_count;
+int (*display_init_devices_extrn)(void)  = display_init_devices;
+
 /*
  * Interface to probing the valid display types. 
  *
@@ -330,7 +337,7 @@ static int display_fill_symbols(display_table_t *device)
                 dlsym(handle, device->func_finish_str);
         device->func_getf = (struct video_frame *(*) (void *))
                 dlsym(handle, device->func_getf_str);
-        device->func_putf = (int (*) (void *, char *))
+        device->func_putf = (int (*) (void *, struct video_frame *))
                 dlsym(handle, device->func_putf_str);
         device->func_reconfigure = (int (*)(void *, struct video_desc))
                 dlsym(handle, device->func_reconfigure_str);

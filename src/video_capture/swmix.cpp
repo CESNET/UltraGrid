@@ -69,6 +69,10 @@ typedef enum {
         BILINEAR
 } interpolation_t;
 
+extern void (*vidcap_finish_extrn)(struct vidcap*);
+extern void (*vidcap_done_extrn)(struct vidcap*);
+extern struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio);
+
 /*
  * Bicubic interpolation taken from:
  * http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
@@ -176,13 +180,14 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 
 static char *get_config_name()
 {
+        const char *rc_suffix = "/.ug-swmix.rc";
         static char buf[PATH_MAX];
         if(!getenv("HOME")) {
                 return NULL;
         }
 
-        strncpy(buf, getenv("HOME"), sizeof(buf));
-        strncat(buf, "/.ug-swmix.rc", sizeof(buf));
+        strncpy(buf, getenv("HOME"), sizeof(buf) - 1);
+        strncat(buf, rc_suffix, sizeof(buf) - 1);
         return buf;
 }
 
@@ -548,6 +553,9 @@ static void *master_worker(void *arg)
                                         case RGBA:
                                                 format = GL_RGBA;
                                                 break;
+                                        default:
+                                                error_msg("Unexpected color space!");
+                                                abort();
                                 }
                                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
                                                 width,
@@ -693,7 +701,7 @@ static void *slave_worker(void *arg)
                 struct video_frame *frame;
                 struct audio_frame *unused_af;
 
-                frame = vidcap_grab(device, &unused_af);
+                frame = vidcap_grab_extrn(device, &unused_af);
                 if(frame) {
                         struct video_frame *frame_copy = vf_get_copy(frame);
                         pthread_mutex_lock(&s->lock);
@@ -705,8 +713,8 @@ static void *slave_worker(void *arg)
                 }
         }
 
-        vidcap_finish(device);
-        vidcap_done(device);
+        vidcap_finish_extrn(device);
+        vidcap_done_extrn(device);
 
         return NULL;
 }

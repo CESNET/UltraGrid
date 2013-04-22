@@ -159,7 +159,7 @@ void vf_write_desc(struct video_frame *buf, struct video_desc desc)
         buf->color_spec = desc.color_spec;
         buf->fps = desc.fps;
         buf->interlacing = desc.interlacing;
-        for(int i = 0; i < buf->tile_count; ++i) {
+        for(unsigned int i = 0; i < buf->tile_count; ++i) {
                 buf->tiles[0].width = desc.width;
                 buf->tiles[0].height = desc.height;
         }

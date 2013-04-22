@@ -254,11 +254,6 @@ vidcap_deltacast_dvi_probe(void)
 	return vt;
 }
 
-static bool set_format_eedid(HANDLE BoardHandle, HANDLE StreamHandle,
-                ULONG &Width, ULONG &Height, ULONG &RefreshRate) {
-
-}
-
 static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool have_preset,
         VHD_DVI_MODE DviMode,
         ULONG Width, ULONG Height, ULONG RefreshRate)
@@ -519,13 +514,13 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                                 have_preset = true;
                                 char *ptr = tok + strlen("preset=");
                                 char *save_ptr, *item;
-                                if(item = strtok_r(ptr, "x@", &save_ptr)) {
+                                if((item = strtok_r(ptr, "x@", &save_ptr))) {
                                         Width = atoi(item);
                                 }
-                                if(item = strtok_r(NULL, "x@", &save_ptr)) {
+                                if((item = strtok_r(NULL, "x@", &save_ptr))) {
                                         Height = atoi(item);
                                 }
-                                if(item = strtok_r(NULL, "x@", &save_ptr)) {
+                                if((item = strtok_r(NULL, "x@", &save_ptr))) {
                                         RefreshRate = atof(item);
                                 }
                         } else {

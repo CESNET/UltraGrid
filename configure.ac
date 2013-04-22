@@ -1169,7 +1169,7 @@ case "$host_os" in
                         )
             if test $sdl_req != no -a "$FOUND_SDL_L" = yes
             then
-                SDL_LIBS="-lSDL"
+                SDL_LIBS="-lSDL $X_LIBS"
                 SDL_OBJ="$SDL_OBJ src/video_display/sdl.o"
                 AC_DEFINE([HAVE_SDL], [1],  [Build with SDL support])
                 SDL_VERSION=1.2.10
@@ -1221,7 +1221,7 @@ then
         LIBS=$SAVED_LIBS
         if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
         then
-                TESTCARD_LIB="-lSDL -lSDL_mixer"
+                TESTCARD_LIB="-lSDL -lSDL_mixer $X11_LIB"
         fi
 
         TESTCARD2_OBJ=
@@ -1501,7 +1501,7 @@ AC_ARG_ENABLE(swmix,
 if test $swmix_req != no -a $OPENGL = yes
 then
         swmix=yes
-        SWMIX_LIB="$OPENGL_LIB"
+        SWMIX_LIB="$OPENGL_LIB $X11_LIB"
         SWMIX_OBJ="$SWMIX_OBJ src/video_capture/swmix.o"
         AC_SUBST(SWMIX_LIB_TARGET, "lib/ultragrid/vidcap_swmix.so.$video_capture_abi_version")
         LIB_TARGETS="$LIB_TARGETS $SWMIX_LIB_TARGET"
@@ -1682,7 +1682,7 @@ AC_DEFINE([USE_PBO_DXT_ENCODER], [1], [We want to use OpenGL pixel buffer object
 if test $rtdxt_req != no -a $OPENGL = yes
 then
         rtdxt=yes
-        RTDXT_LIB="$OPENGL_LIB"
+        RTDXT_LIB="$OPENGL_LIB $X_LIBS"
         AC_DEFINE([HAVE_DXT_GLSL], [1], [Build with DXT_GLSL support])
         RTDXT_COMMON_OBJ="$RTDXT_COMMON_OBJ dxt_compress/dxt_util.o"
         RTDXT_COMMON_HEADERS="$RTDXT_COMMON_HEADERS dxt_compress/dxt_glsl.h"
@@ -1725,7 +1725,7 @@ SAVED_LIBS=$LIBS
 if test $uyvy_req != no -a "$ac_cv_lib_X11_XCreateWindow" = yes -a $FOUND_GLEW = yes -a "$FOUND_GLX_L" = yes -a "$FOUND_GLX_H" = yes \
         -a "$FOUND_GL_H" = yes -a "$system" = Linux
 then
-        UYVY_LIB=" -lGLEW -lGL -lX11"
+        UYVY_LIB=" -lGLEW -lGL -lX11 $X_LIBS"
         uyvy=yes
 fi
 
@@ -2261,7 +2261,7 @@ AC_ARG_ENABLE(scale,
 if test $scale_req != no -a $OPENGL = yes
 then
         scale=yes
-        SCALE_LIB="$SCALE_LIB $OPENGL_LIB"
+        SCALE_LIB="$SCALE_LIB $OPENGL_LIB $X11_LIB"
         SCALE_OBJ="$SCALE_OBJ src/vo_postprocess/scale.o"
         AC_SUBST(SCALE_LIB_TARGET, "lib/ultragrid/vo_pp_scale.so.$vo_pp_abi_version")
         LIB_TARGETS="$LIB_TARGETS $SCALE_LIB_TARGET"

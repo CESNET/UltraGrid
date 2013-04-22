@@ -10,7 +10,7 @@ CXXFLAGS      = -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -
 NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
-		@X_PRE_LIBS@ @X_LIBS@ @X_EXTRA_LIBS@ -lm -pthread
+		-lm -pthread
 INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @LINSYS_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
 		@BLUEFISH444_INC@ @NCURSES_CFLAGS@
@@ -128,6 +128,7 @@ LIB_COMMON = \
 		src/tv.o \
 		src/utils/fs_lock.o \
 		src/utils/ring_buffer.o \
+		src/utils/worker.o \
 		src/video.o \
 		src/video_codec.o \
 
@@ -494,7 +495,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
 
-@SWMIX_LIB_TARGET@: @GL_COMMON_OBJ@ @SWMIX_OBJ@ src/host.o
+@SWMIX_LIB_TARGET@: @GL_COMMON_OBJ@ @SWMIX_OBJ@ @X_OBJ@ src/host.o
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_swmix.so.@video_capture_abi_version@ $^ @SWMIX_LIB@ -o $@
 
@@ -538,7 +539,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_dvs.so.@video_display_abi_version@ $^ @DVS_LIB@ -o $@
 
-@SCREEN_CAP_LIB_TARGET@: @SCREEN_CAP_OBJ@
+@SCREEN_CAP_LIB_TARGET@: @SCREEN_CAP_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_screen.so.@video_capture_abi_version@ $^ @SCREEN_CAP_LIB@ -o $@
 

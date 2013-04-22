@@ -59,6 +59,8 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+void (*decoder_destroy_extrn)(struct state_decoder *decoder) = decoder_destroy;
+
 struct state_decoder;
 
 static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,

@@ -44,8 +44,16 @@
 #define debug_msg	_dprintf("[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), _dprintf
 #define error_msg	_errprintf("[pid/%d +%d %s] ", getpid(), __LINE__, __FILE__), _errprintf
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void _errprintf(const char *format, ...);
 void _dprintf(const char *format, ...);
 void debug_dump(void*lp, int len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

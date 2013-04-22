@@ -224,7 +224,7 @@ void *worker_pool::wait_task(task_result_handle_t handle)
         return w->pop();
 }
 
-class worker_pool instance;
+static class worker_pool instance;
 
 task_result_handle_t task_run_async(task_t task, void *data)
 {

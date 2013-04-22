@@ -150,6 +150,8 @@ struct tile {
         unsigned int         offset;            // Offset of the fragment (bytes)
 };
 
+struct tile * tile_alloc(void);
+
 struct video_frame * vf_alloc(int count);
 /**
  * Allocates video frame accordig given desc
