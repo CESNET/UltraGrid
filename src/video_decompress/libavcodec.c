@@ -73,6 +73,10 @@ struct state_libavcodec_decompress {
         codec_t          out_codec;
 
         int              last_frame_seq;
+
+        struct video_desc saved_desc;
+        unsigned int     warning_displayed;
+        bool             uses_single_threaded_decoder;
 };
 
 static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
@@ -85,6 +89,9 @@ static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
 static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 codec_t out_codec, int width, int height, int pitch);
+static void error_callback(void *, int, const char *, va_list);
+
+static bool broken_h264_mt_decoding = false;
 
 static void deconfigure(struct state_libavcodec_decompress *s)
 {
@@ -135,13 +142,12 @@ static bool configure_with(struct state_libavcodec_decompress *s,
 
         // zero should mean count equal to the number of virtual cores
         if(s->codec->capabilities & CODEC_CAP_SLICE_THREADS) {
-                if(desc.color_spec == H264 && avcodec_version() >> 16 == 53 &&
-                                ((avcodec_version() >> 8) & 0xff) == 35) {
-                        fprintf(stderr, "Libavcodec 53.35 has some issues with multithreaded H.264 "
-                                        "decoding. Disabling it. Please upgrade your libavcodec.\n");
-                } else {
+                if(!broken_h264_mt_decoding) {
                         s->codec_ctx->thread_count = 0; // == X264_THREADS_AUTO, perhaps same for other codecs
                         s->codec_ctx->thread_type = FF_THREAD_SLICE;
+                        s->uses_single_threaded_decoder = false;
+                } else {
+                        s->uses_single_threaded_decoder = true;
                 }
         } else {
                 fprintf(stderr, "[lavd] Warning: Codec doesn't support slice-based multithreading.\n");
@@ -175,6 +181,7 @@ static bool configure_with(struct state_libavcodec_decompress *s,
         av_init_packet(&s->pkt);
 
         s->last_frame_seq = -1;
+        s->saved_desc = desc;
 
         return true;
 }
@@ -184,7 +191,7 @@ void * libavcodec_decompress_init(void)
         struct state_libavcodec_decompress *s;
         
         s = (struct state_libavcodec_decompress *)
-                malloc(sizeof(struct state_libavcodec_decompress));
+                calloc(1, sizeof(struct state_libavcodec_decompress));
 
         s->global_lavcd_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
 
@@ -198,6 +205,8 @@ void * libavcodec_decompress_init(void)
         av_init_packet(&s->pkt);
         s->pkt.data = NULL;
         s->pkt.size = 0;
+
+        av_log_set_callback(error_callback);
 
         return s;
 }
@@ -397,6 +406,13 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
         return TRUE;
 }
 
+static void error_callback(void *ptr, int level, const char *fmt, va_list vl) {
+        if(strcmp("unset current_picture_ptr on %d. slice\n", fmt) == 0)
+                broken_h264_mt_decoding = true;
+        av_log_default_callback(ptr, level, fmt, vl);
+}
+
+
 int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                 unsigned int src_len, int frame_seq)
 {
@@ -461,6 +477,16 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                         s->pkt.size -= len;
                         s->pkt.data += len;
                 }
+        }
+
+        if(broken_h264_mt_decoding) {
+                if(!s->uses_single_threaded_decoder) {
+                        libavcodec_decompress_reconfigure(s, s->saved_desc,
+                                        s->rshift, s->gshift, s->bshift, s->pitch, s->out_codec);
+                }
+                if(s->warning_displayed++ % 100 == 0)
+                        av_log(NULL, AV_LOG_WARNING, "Broken multi-threaded decoder detected, "
+                                        "switching to a single-threaded one! Consider upgrading your Libavcodec.\n");
         }
 
         return res;

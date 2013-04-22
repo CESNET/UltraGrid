@@ -22,6 +22,8 @@
 #define AV_CODEC_ID_H264 CODEC_ID_H264
 #define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
 #define AV_CODEC_ID_VP8 CODEC_ID_VP8
+#define AVPixelFormat PixelFormat
+#define AVCodecID CodecID
 #endif
 
 #define LAVCD_LOCK_NAME "lavcd_lock"
