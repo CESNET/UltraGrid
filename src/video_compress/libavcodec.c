@@ -96,7 +96,7 @@ static codec_params_t codec_params[] = {
                 AV_CODEC_ID_VP8,
                 0.6,
                 setparam_vp8
-        }
+        },
 };
 
 struct libav_video_compress {
@@ -310,6 +310,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
         enum AVPixelFormat requested_pix_fmts[100];
         int total_pix_fmts = 0;
 
+        bool f422_ok = false;
         /* either user has explicitly requested subsampling
          * or for interlaced format is better to have 422 */
         if(s->requested_subsampling == 422 ||
@@ -318,9 +319,18 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
                 memcpy(requested_pix_fmts + total_pix_fmts,
                                 fmts422, sizeof(fmts422));
                 total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                f422_ok = true;
         }
         memcpy(requested_pix_fmts + total_pix_fmts, fmts420, sizeof(fmts420));
         total_pix_fmts += sizeof(fmts420) / sizeof(enum AVPixelFormat);
+        // we still use 422 as a fallback
+        if(!f422_ok) {
+                memcpy(requested_pix_fmts + total_pix_fmts,
+                                fmts422, sizeof(fmts422));
+                total_pix_fmts += sizeof(fmts422) / sizeof(enum AVPixelFormat);
+                f422_ok = true;
+        }
+
         requested_pix_fmts[total_pix_fmts++] = AV_PIX_FMT_NONE;
 
         pix_fmt = get_best_pix_fmt(requested_pix_fmts, s->codec->pix_fmts);
