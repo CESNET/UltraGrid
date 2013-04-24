@@ -309,7 +309,7 @@ void *fastdxt_init(char *num_threads_str)
         return compress;
 }
 
-struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int buffer_idx)
+struct tile * fastdxt_compress_tile(void *args, struct tile *tx, struct video_desc *desc, int buffer_idx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
         struct video_compress *compress = (struct video_compress *)args;
@@ -318,23 +318,22 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
         struct video_frame *out = compress->out[buffer_idx];
         struct tile *out_tile = &out->tiles[0];
 
-        assert(tx->tile_count == 1);
-        assert(vf_get_tile(tx, 0)->width % 4 == 0);
+        assert(tx->width % 4 == 0);
         
         pthread_mutex_lock(&(compress->lock));
 
-        if(vf_get_tile(tx, 0)->width != out_tile->width ||
-                        vf_get_tile(tx, 0)->height != out_tile->height ||
-                        tx->interlacing != compress->interlacing_source ||
-                        tx->color_spec != compress->tx_color_spec)
+        if(tx->width != out_tile->width ||
+                        tx->height != out_tile->height ||
+                        desc->interlacing != compress->interlacing_source ||
+                        desc->color_spec != compress->tx_color_spec)
         {
                 int ret;
-                ret = reconfigure_compress(compress, vf_get_tile(tx, 0)->width, vf_get_tile(tx, 0)->height, tx->color_spec, tx->interlacing, tx->fps);
+                ret = reconfigure_compress(compress, tx->width, tx->height, desc->color_spec, desc->interlacing, desc->fps);
                 if(!ret)
                         return NULL;
         }
 
-        line1 = (unsigned char *) tx->tiles[0].data;
+        line1 = tx->data;
         line2 = compress->output_data;
 
         for (x = 0; x < out_tile->height; ++x) {
@@ -345,12 +344,12 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
                 line2 += out_tile->linesize;
         }
 
-        if(tx->interlacing != INTERLACED_MERGED && tx->interlacing != PROGRESSIVE) {
+        if(desc->interlacing != INTERLACED_MERGED && desc->interlacing != PROGRESSIVE) {
                 fprintf(stderr, "Unsupported interlacing format.\n");
                 exit_uv(1);
         }
 
-        if(tx->interlacing == INTERLACED_MERGED) {
+        if(desc->interlacing == INTERLACED_MERGED) {
                 vc_deinterlace(compress->output_data, out_tile->linesize,
                                 out_tile->height);
         }
@@ -365,11 +364,12 @@ struct video_frame * fastdxt_compress(void *args, struct video_frame *tx, int bu
                 platform_sem_wait(&compress->thread_done[x]);
         }
 
-        out_tile->data_len = tx->tiles[0].width * compress->dxt_height / 2;
+        out_tile->data_len = tx->width * compress->dxt_height / 2;
         
         pthread_mutex_unlock(&(compress->lock));
 
-        return out;
+        desc->color_spec = out->color_spec;
+        return &out->tiles[0];
 }
 
 static void *compress_thread(void *args)

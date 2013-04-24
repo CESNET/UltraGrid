@@ -104,8 +104,8 @@ struct compress_t compress_modules[] = {
                 "FastDXT",
                 "fastdxt",
                 MK_NAME(fastdxt_init),
-                MK_NAME(fastdxt_compress),
                 MK_NAME(NULL),
+                MK_NAME(fastdxt_compress_tile),
                 MK_NAME(fastdxt_done),
                 NULL
         },
