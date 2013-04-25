@@ -207,7 +207,7 @@ static void show_help()
                         get_config_name());
         printf("\t\t<width> widht of resulting video\n");
         printf("\t\t<height> height of resulting video\n");
-        printf("\t\t<fps> FPS of resulting video\n");
+        printf("\t\t<fps> FPS of resulting video, may be eg. 25 or 50i\n");
         printf("\t\t<codec> codec of resulting video, may be one of RGBA, "
                         "RGB or UYVY (optional, default RGBA)\n");
         printf("\t\t<i_type> can be one of 'bilinear' or 'bicubic' (default)\n");
@@ -485,6 +485,11 @@ static void *master_worker(void *arg)
                         (GLfloat) s->frame->tiles[0].width);
         glUseProgram(0);
 
+        int field = 0;
+        char *tmp_buffer = (char *) malloc(s->frame->tiles[0].data_len);
+
+        char *current_buffer = NULL;
+
         while(1) {
                 pthread_mutex_lock(&s->lock);
                 if(s->should_exit) {
@@ -493,16 +498,16 @@ static void *master_worker(void *arg)
                 }
                 pthread_mutex_unlock(&s->lock);
 
-                char *current_buffer = NULL;
-
-                pthread_mutex_lock(&s->lock);
-                while(s->free_buffer_queue.empty()) {
-                        pthread_cond_wait(&s->free_buffer_queue_not_empty_cv,
-                                        &s->lock);
+                if(field == 0) {
+                        pthread_mutex_lock(&s->lock);
+                        while(s->free_buffer_queue.empty()) {
+                                pthread_cond_wait(&s->free_buffer_queue_not_empty_cv,
+                                                &s->lock);
+                        }
+                        current_buffer = s->free_buffer_queue.front();
+                        s->free_buffer_queue.pop();
+                        pthread_mutex_unlock(&s->lock);
                 }
-                current_buffer = s->free_buffer_queue.front();
-                s->free_buffer_queue.pop();
-                pthread_mutex_unlock(&s->lock);
 
                 // "capture" frames
                 for(int i = 0; i < s->devices_cnt; ++i) {
@@ -651,31 +656,55 @@ static void *master_worker(void *arg)
                         format = GL_RGB;
                 }
 
+                char *read_buf;
+                double wait_sec;
+                if(s->frame->interlacing == PROGRESSIVE) {
+                        read_buf = current_buffer;
+                } else {
+                        read_buf = tmp_buffer;
+                }
                 glReadPixels(0, 0, width,
                                 s->frame->tiles[0].height,
                                 format, GL_UNSIGNED_BYTE,
-                                current_buffer);
+                                read_buf);
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
                 glBindTexture(GL_TEXTURE_2D, 0);
 
-                // wait until next frame time is due
-                double sec;
-                struct timeval t;
-                do {
-                        gettimeofday(&t, NULL);
-                        sec = tv_diff(t, t0);
-                } while(sec < 1.0 / s->frame->fps);
-                t0 = t;
-
-                pthread_mutex_lock(&s->lock);
-                while(s->completed_buffer != NULL) {
-                        pthread_cond_wait(&s->frame_sent_cv, &s->lock);
+                if(s->frame->interlacing == INTERLACED_MERGED) {
+                        wait_sec = 1.0 / s->frame->fps / 2;
+                        int linesize =
+                                vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
+                        for(int i = field; i < s->frame->tiles[0].height; i += 2) {
+                                memcpy(current_buffer + i * linesize, tmp_buffer + i * linesize,
+                                                linesize);
+                        }
+                        field = (field + 1) % 2;
                 }
-                s->completed_buffer = current_buffer;
-                pthread_cond_signal(&s->frame_ready_cv);
-                pthread_mutex_unlock(&s->lock);
+
+                if(field == 0) {
+                        // wait until next frame time is due
+                        double sec;
+                        struct timeval t;
+                        do {
+                                gettimeofday(&t, NULL);
+                                sec = tv_diff(t, t0);
+                        } while(sec < 1.0 / s->frame->fps);
+                        t0 = t;
+
+                        pthread_mutex_lock(&s->lock);
+                        while(s->completed_buffer != NULL) {
+                                pthread_cond_wait(&s->frame_sent_cv, &s->lock);
+                        }
+                        s->completed_buffer = current_buffer;
+                        current_buffer = NULL;
+                        pthread_cond_signal(&s->frame_ready_cv);
+                        pthread_mutex_unlock(&s->lock);
+                        field = 0;
+                }
 
         }
+
+        free(tmp_buffer);
 
         glDeleteProgram(from_uyvy);
         glDeleteProgram(to_uyvy);
@@ -770,13 +799,15 @@ static bool get_device_config_from_file(FILE* config_file, char *slave_name,
 #define PARSE_FILE 2
 static int parse_config_string(const char *fmt, unsigned int *width,
                 unsigned int *height, double *fps,
-        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo)
+        codec_t *color_spec, interpolation_t *interpolation, char **bicubic_algo, interlacing_t *interl)
 {
         char *save_ptr = NULL;
         char *item;
         char *parse_string;
         char *tmp;
         int token_nr = 0;
+
+        *interl = PROGRESSIVE;
 
         tmp = parse_string = strdup(fmt);
         if(strchr(parse_string, '#')) *strchr(parse_string, '#') = '\0';
@@ -792,7 +823,14 @@ static int parse_config_string(const char *fmt, unsigned int *width,
                                 *height = atoi(item);
                                 break;
                         case 2:
-                                *fps = atof(item);
+                                {
+                                        char *endptr;
+                                        *fps = strtod(item, &endptr);
+                                        if(tolower(*endptr) == 'i') {
+                                                *fps /= 2;
+                                                *interl = INTERLACED_MERGED;
+                                        }
+                                }
                                 break;
                         case 3:
                                 for (int i = 0; codec_info[i].name != NULL; i++) {
@@ -840,7 +878,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
         int ret;
 
         ret = parse_config_string(fmt, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                        interpolation, &s->bicubic_algo);
+                        interpolation, &s->bicubic_algo, &desc->interlacing);
         if(ret == PARSE_ERROR) {
                 show_help();
                 return false;
@@ -862,7 +900,7 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 }
                 while(isspace(line[strlen(line) - 1])) line[strlen(line) - 1] = '\0'; // trim trailing spaces
                 ret = parse_config_string(line, &desc->width, &desc->height, &desc->fps, &desc->color_spec,
-                                interpolation, &s->bicubic_algo);
+                                interpolation, &s->bicubic_algo, &desc->interlacing);
                 if(ret != PARSE_OK) {
                         fprintf(stderr, "Malformed input file! First line should contain config "
                                         "string same as for cmdline use (between first ':' and '#' "
