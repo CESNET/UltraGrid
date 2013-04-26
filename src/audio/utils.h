@@ -51,6 +51,27 @@
 #ifndef _AUDIO_UTILS_H_
 #define _AUDIO_UTILS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+audio_frame2 *audio_frame2_init(void);
+void audio_frame2_allocate(audio_frame2 *, int nr_channels, int max_size);
+void audio_frame2_free(audio_frame2 *);
+void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
+
+bool audio_desc_eq(struct audio_desc, struct audio_desc);
+struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *);
+struct audio_desc audio_desc_from_audio_channel(audio_channel *);
+
+void audio_channel_demux(audio_frame2 *, int, audio_channel*);
+void audio_channel_mux(audio_frame2 *, int, audio_channel*);
+
+audio_codec_t get_audio_codec_to_name(const char *name);
+const char *get_name_to_audio_codec(audio_codec_t codec);
+uint32_t get_audio_tag(audio_codec_t codec);
+audio_codec_t get_audio_codec_to_tag(uint32_t audio_tag);
+
 /**
  * Changes bps for everey sample.
  * 
@@ -106,5 +127,10 @@ void short_int2float(char *out, char *in, int in_len);
 
 void signed2unsigned(char *out, char *in, int in_len);
 
+struct audio_desc audio_desc_from_frame(struct audio_frame *frame);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

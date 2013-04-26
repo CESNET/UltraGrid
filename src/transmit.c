@@ -523,7 +523,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 payload_hdr[3] = htonl(tmp);
 
                 /* fifth word */
-                payload_hdr[4] = ntohl(get_audio_tag(buffer->codec)); /* PCM */
+                payload_hdr[4] = htonl(get_audio_tag(buffer->codec));
 
                 do {
                         if(tx->fec_scheme == FEC_MULT) {

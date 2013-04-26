@@ -61,7 +61,14 @@
 
 typedef enum {
         AC_NONE,
-        AC_PCM
+        AC_PCM,
+        AC_ALAW,
+        AC_MULAW,
+        AC_ADPCM_IMA_WAV,
+        AC_SPEEX,
+        AC_OPUS,
+        AC_G722,
+        AC_G726,
 } audio_codec_t;
 
 struct state_audio;
@@ -98,15 +105,20 @@ typedef struct
         audio_codec_t codec;
 } audio_frame2;
 
-audio_frame2 *audio_frame2_init(void);
-void audio_frame2_allocate(audio_frame2 *, int nr_channels, int max_size);
-void audio_frame2_free(audio_frame2 *);
-void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
+typedef struct
+{
+        int bps;                /* bytes per sample */
+        int sample_rate;
+        char *data; /* data should be at least 4B aligned */
+        int data_len;           /* size of useful data in buffer */
+        audio_codec_t codec;
+} audio_channel;
 
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, char *mcast_iface, audio_codec_t audio_codec);
+                bool echo_cancellation, bool use_ipv6, char *mcast_iface, audio_codec_t audio_codec,
+                int resample_to);
 void audio_finish(struct state_audio *s);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);
@@ -139,17 +151,5 @@ void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /
  * Makes n copies of first channel (interleaved).
  */
 void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
-
-/**
- * Compares audio format a and b and returns if equal or not
- *
- * @param a     first audio format
- * @param b     second audio format
- *
- * @return      result of the comparision
- */
-bool audio_desc_eq(struct audio_desc a, struct audio_desc b);
-
-struct audio_desc audio_desc_from_frame(struct audio_frame *frame);
 
 #endif

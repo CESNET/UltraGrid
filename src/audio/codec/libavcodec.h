@@ -1,5 +1,5 @@
 /*
- * FILE:    audio/codec/dummy_pcm.c
+ * FILE:    audio/codec/libavcodec.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -46,68 +46,22 @@
  *
  */
 
+#ifndef AUDIO_CODEC_LIBAVCODEC_H_
+#define AUDIO_CODEC_LIBAVCODEC_H_
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
-#include "config_unix.h"
 #include "config_win32.h"
-#endif /* HAVE_CONFIG_H */
+#include "config_unix.h"
+#endif // HAVE_CONFIG_H
 
-#include "audio/audio.h"
-#include "audio/codec.h"
-#include "audio/codec/dummy_pcm.h"
+struct audio_codec;
+extern struct audio_codec libavcodec_audio_codec;
 
-#include "debug.h"
+#ifdef HAVE_LAVC_AUDIO
+#define LIBAVCODEC_AUDIO_CODEC_HANDLE &libavcodec_audio_codec
+#else
+#define LIBAVCODEC_AUDIO_CODEC_HANDLE NULL
+#endif
 
-#define MAGIC 0x552bca11
-
-static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init);
-static audio_channel *dummy_pcm_compress(void *, audio_channel *);
-static audio_channel *dummy_pcm_decompress(void *, audio_channel *);
-static void dummy_pcm_done(void *);
-
-struct dummy_pcm_codec_state {
-        uint32_t magic;
-};
-
-static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init)
-{
-        UNUSED(direction);
-        UNUSED(try_init);
-        assert(audio_codec == AC_PCM);
-        struct dummy_pcm_codec_state *s = malloc(sizeof(struct dummy_pcm_codec_state));
-        s->magic = MAGIC;
-        return s;
-}
-
-static audio_channel *dummy_pcm_compress(void *state, audio_channel * channel)
-{
-        struct dummy_pcm_codec_state *s = (struct dummy_pcm_codec_state *) state;
-        assert(s->magic == MAGIC);
-
-        return channel;
-}
-
-static audio_channel *dummy_pcm_decompress(void *state, audio_channel * channel)
-{
-        struct dummy_pcm_codec_state *s = (struct dummy_pcm_codec_state *) state;
-        assert(s->magic == MAGIC);
-
-        return channel;
-}
-
-static void dummy_pcm_done(void *state)
-{
-        struct dummy_pcm_codec_state *s = (struct dummy_pcm_codec_state *) state;
-        assert(s->magic == MAGIC);
-        free(s);
-}
-
-struct audio_codec dummy_pcm_audio_codec = {
-        .supported_codecs = (audio_codec_t[]){ AC_PCM, AC_NONE },
-        .supported_bytes_per_second = NULL,
-        .init = dummy_pcm_init,
-        .compress = dummy_pcm_compress,
-        .decompress = dummy_pcm_decompress,
-        .done = dummy_pcm_done
-};
-
+#endif // AUDIO_CODEC_LIBAVCODEC_H_

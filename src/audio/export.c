@@ -63,6 +63,7 @@
 #include <unistd.h>
 
 #include "audio/audio.h"
+#include "audio/utils.h"
 #include "debug.h"
 #include "export.h"
 #include "utils/ring_buffer.h"

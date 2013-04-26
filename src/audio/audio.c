@@ -52,6 +52,7 @@
 #include "config_win32.h"
 #endif
 
+#include <speex/speex_resampler.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -123,6 +124,7 @@ struct state_audio {
         const char *audio_scale;
         echo_cancellation_t *echo_state;
         struct audio_export *exporter;
+        int  resample_to;
 };
 
 /** 
@@ -175,7 +177,8 @@ static void audio_scale_usage(void)
 struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec)
+                bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec,
+                int resample_to)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -219,8 +222,12 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
         s->audio_scale = audio_scale;
 
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
+        s->resample_to = resample_to;
 
-        s->audio_coder = audio_codec_init(audio_codec);
+        s->audio_coder = audio_codec_init(audio_codec, AUDIO_CODER);
+        if(!s->audio_coder) {
+                return NULL;
+        }
 
         if(export_dir) {
                 char name[512];
@@ -487,11 +494,90 @@ static void *audio_receiver_thread(void *arg)
         return NULL;
 }
 
+struct state_resample {
+        struct audio_frame resampled;
+        char *resample_buffer;
+        SpeexResamplerState *resampler;
+        int resample_from, resample_ch_count;
+        int resample_to;
+        const int *codec_supported_bytes_per_second;
+};
+
+static void resample(struct state_resample *s, struct audio_frame *buffer);
+static bool set_contains(const int *vals, int needle);
+
+static bool set_contains(const int *vals, int needle)
+{
+        if(!vals)
+                return true;
+        while(*vals != 0) {
+                if(*vals == needle) {
+                        return true;
+                }
+                ++vals;
+        }
+        return false;
+}
+
+static void resample(struct state_resample *s, struct audio_frame *buffer)
+{
+        memcpy(&s->resampled, buffer, sizeof(struct audio_frame));
+
+        if(s->resample_from == s->resample_to && s->codec_supported_bytes_per_second == NULL) {
+                s->resampled.data = malloc(buffer->data_len);
+                memcpy(s->resampled.data, buffer->data, buffer->data_len);
+        } else {
+                /**
+                 * @todo 2 is suitable only for Libavcodec
+                 */
+                assert(set_contains(s->codec_supported_bytes_per_second, 2));
+                uint32_t write_frames = 2 * (buffer->data_len / buffer->ch_count / buffer->bps);
+                s->resampled.data = malloc(write_frames * 2 * buffer->ch_count);
+                if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {
+                        s->resample_from = buffer->sample_rate;
+                        s->resample_ch_count = buffer->ch_count;
+                        if(s->resampler) {
+                                speex_resampler_destroy(s->resampler);
+                        }
+                        int err;
+                        s->resampler = speex_resampler_init(buffer->ch_count, s->resample_from,
+                                        s->resample_to, 10, &err);
+                        if(err) {
+                                abort();
+                        }
+                }
+                char *in_buf;
+                int data_len;
+                if(buffer->bps != 2) {
+                        change_bps(s->resample_buffer, 2, buffer->data, buffer->bps, buffer->data_len);
+                        in_buf = s->resample_buffer;
+                        data_len = buffer->data_len / buffer->bps * 2;
+                } else {
+                        in_buf = buffer->data;
+                        data_len = buffer->data_len;
+                }
+
+                uint32_t in_frames = data_len /  buffer->ch_count / 2;
+                speex_resampler_process_interleaved_int(s->resampler, (spx_int16_t *)(void *) in_buf, &in_frames,
+                                (spx_int16_t *)(void *) s->resampled.data, &write_frames);
+                s->resampled.data_len = write_frames * 2 /* bps */ * buffer->ch_count;
+                s->resampled.sample_rate = s->resample_to;
+                s->resampled.bps = 2;
+        }
+}
+
 static void *audio_sender_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
         struct audio_frame *buffer = NULL;
         audio_frame2 *buffer_new = audio_frame2_init();
+        struct state_resample resample_state;
+
+        memset(&resample_state, 0, sizeof(resample_state));
+        resample_state.resample_to = s->resample_to;
+        resample_state.resample_buffer = malloc(1024 * 1024);
+        resample_state.codec_supported_bytes_per_second =
+                audio_codec_get_supported_bps(s->audio_coder);
         
         printf("Audio sending started.\n");
         while (!should_exit_audio) {
@@ -506,9 +592,19 @@ static void *audio_sender_thread(void *arg)
 #endif
                         }
                         if(s->sender == NET_NATIVE) {
-                                audio_frame_to_audio_frame2(buffer_new, buffer);
-                                audio_frame2 *compressed = audio_codec_compress(s->audio_coder, buffer_new);
-                                audio_tx_send(s->tx_session, s->audio_network_device, compressed);
+                                // RESAMPLE
+                                resample(&resample_state, buffer);
+                                // COMPRESS
+                                audio_frame_to_audio_frame2(buffer_new, &resample_state.resampled);
+                                free(resample_state.resampled.data);
+                                if(buffer_new) {
+                                        audio_frame2 *uncompressed = buffer_new;
+                                        audio_frame2 *compressed = NULL;
+                                        while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
+                                                audio_tx_send(s->tx_session, s->audio_network_device, compressed);
+                                                uncompressed = NULL;
+                                        }
+                                }
                         }
 #ifdef HAVE_JACK_TRANS
                         else
@@ -518,6 +614,10 @@ static void *audio_sender_thread(void *arg)
         }
 
         audio_frame2_free(buffer_new);
+        if(resample_state.resampler) {
+                speex_resampler_destroy(resample_state.resampler);
+        }
+        free(resample_state.resample_buffer);
 
         return NULL;
 }
@@ -587,65 +687,10 @@ int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
                         channels, sample_rate);
 }
 
-bool audio_desc_eq(struct audio_desc a, struct audio_desc b)
-{
-        return a.bps == b.bps &&
-                a.sample_rate == b.sample_rate &&
-                a.ch_count == b.ch_count &&
-                a.codec == a.codec;
-}
-
 struct audio_desc audio_desc_from_frame(struct audio_frame *frame)
 {
         return (struct audio_desc) { frame->bps, frame->sample_rate,
                 frame->ch_count, AC_PCM };
 }
 
-audio_frame2 *audio_frame2_init()
-{
-        audio_frame2 *ret = (audio_frame2 *) calloc(1, sizeof(audio_frame2));
-        return ret;
-}
-
-void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
-{
-        assert(nr_channels <= MAX_AUDIO_CHANNELS);
-
-        frame->max_size = max_size;
-        frame->ch_count = nr_channels;
-
-        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
-                free(frame->data[i]);
-                frame->data[i] = NULL;
-                frame->data_len[i] = 0;
-        }
-
-        for(int i = 0; i < nr_channels; ++i) {
-                frame->data[i] = malloc(max_size);
-        }
-}
-
-void audio_frame_to_audio_frame2(audio_frame2 *frame, struct audio_frame *old)
-{
-        if(old->ch_count > frame->ch_count || old->data_len / old->ch_count > (int) frame->max_size) {
-                audio_frame2_allocate(frame, old->ch_count, old->data_len / old->ch_count);
-        }
-        frame->codec = AC_PCM;
-        frame->bps = old->bps;
-        frame->sample_rate = old->sample_rate;
-        for(int i = 0; i < old->ch_count; ++i) {
-                demux_channel(frame->data[i], old->data, old->bps, old->data_len, old->ch_count, i);
-                frame->data_len[i] = old->data_len / old->ch_count;
-        }
-}
-
-void audio_frame2_free(audio_frame2 *frame)
-{
-        if(!frame)
-                return;
-        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
-                free(frame->data[i]);
-        }
-        free(frame);
-}
 

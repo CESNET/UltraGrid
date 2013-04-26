@@ -55,6 +55,7 @@
 #endif // HAVE_CONFIG_H
 
 
+#include "audio/codec.h"
 #include "audio/utils.h" 
 #include <assert.h>
 #include <limits.h>
@@ -68,6 +69,77 @@
 
 static inline int32_t format_from_in_bps(const char *in, int bps);
 static inline void format_to_out_bps(char *out, int bps, int32_t out_value);
+
+audio_frame2 *audio_frame2_init()
+{
+        audio_frame2 *ret = (audio_frame2 *) calloc(1, sizeof(audio_frame2));
+        return ret;
+}
+
+void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
+{
+        assert(nr_channels <= MAX_AUDIO_CHANNELS);
+
+        frame->max_size = max_size;
+        frame->ch_count = nr_channels;
+
+        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
+                free(frame->data[i]);
+                frame->data[i] = NULL;
+                frame->data_len[i] = 0;
+        }
+
+        for(int i = 0; i < nr_channels; ++i) {
+                frame->data[i] = malloc(max_size);
+        }
+}
+
+void audio_frame_to_audio_frame2(audio_frame2 *frame, struct audio_frame *old)
+{
+        if(old->ch_count > frame->ch_count || old->data_len / old->ch_count > (int) frame->max_size) {
+                audio_frame2_allocate(frame, old->ch_count, old->data_len / old->ch_count);
+        }
+        frame->codec = AC_PCM;
+        frame->bps = old->bps;
+        frame->sample_rate = old->sample_rate;
+        for(int i = 0; i < old->ch_count; ++i) {
+                demux_channel(frame->data[i], old->data, old->bps, old->data_len, old->ch_count, i);
+                frame->data_len[i] = old->data_len / old->ch_count;
+        }
+}
+
+void audio_frame2_free(audio_frame2 *frame)
+{
+        if(!frame)
+                return;
+        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
+                free(frame->data[i]);
+        }
+        free(frame);
+}
+
+bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
+        return a1.bps == a2.bps &&
+                a1.sample_rate == a2.sample_rate &&
+                a1.ch_count == a2.ch_count &&
+                a1.codec == a2.codec;
+}
+
+struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *frame) {
+        return (struct audio_desc) { .bps = frame->bps,
+                .sample_rate = frame->sample_rate,
+                .ch_count = frame->ch_count,
+                .codec = frame->codec
+        };
+}
+
+struct audio_desc audio_desc_from_audio_channel(audio_channel *channel) {
+        return (struct audio_desc) { .bps = channel->bps,
+                .sample_rate = channel->sample_rate,
+                .ch_count = 1,
+                .codec = channel->codec
+        };
+}
 
 static inline int32_t format_from_in_bps(const char * in, int bps) {
         int32_t in_value = 0;
@@ -290,5 +362,52 @@ void signed2unsigned(char *out, char *in, int in_len)
                 uint8_t out_value = (int) 128 + in_value;
                 *outch++ = out_value;
         }
+}
+
+void audio_channel_demux(audio_frame2 *frame, int index, audio_channel *channel)
+{
+        channel->data = frame->data[index];
+        channel->data_len = frame->data_len[index];
+        channel->codec = frame->codec;
+        channel->bps = frame->bps;
+        channel->sample_rate = frame->sample_rate;
+}
+
+void audio_channel_mux(audio_frame2 *frame, int index, audio_channel *channel)
+{
+        frame->data[index] = channel->data;
+        frame->data_len[index] = channel->data_len;
+        frame->codec = channel->codec;
+        frame->bps = channel->bps;
+        frame->sample_rate = channel->sample_rate;
+}
+
+audio_codec_t get_audio_codec_to_name(const char *codec) {
+        for(int i = 0; i < audio_codec_info_len; ++i) {
+                if(strcasecmp(audio_codec_info[i].name, codec) == 0) {
+                        return i;
+                }
+        }
+        return AC_NONE;
+}
+
+const char *get_name_to_audio_codec(audio_codec_t codec)
+{
+        return audio_codec_info[codec].name;
+}
+
+uint32_t get_audio_tag(audio_codec_t codec)
+{
+        return audio_codec_info[codec].tag;
+}
+
+audio_codec_t get_audio_codec_to_tag(uint32_t tag)
+{
+        for(int i = 0; i < audio_codec_info_len; ++i) {
+                if(audio_codec_info[i].tag == tag) {
+                        return i;
+                }
+        }
+        return AC_NONE;
 }
 

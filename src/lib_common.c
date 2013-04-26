@@ -55,6 +55,8 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include <glob.h>
+
 #include "debug.h"
 
 #include "lib_common.h"
@@ -62,6 +64,30 @@
 extern char **uv_argv;
 
 static void *lib_common_handle = NULL;
+
+void open_all(const char *pattern) {
+        char path[512];
+        glob_t glob_buf;
+
+        char *tmp = strdup(uv_argv[0]);
+        /* binary not from $PATH */
+        if(strchr(uv_argv[0], '/') != NULL) {
+                char *dir = dirname(tmp);
+                snprintf(path, sizeof(path), "%s/../lib/ultragrid/%s", dir, pattern);
+        } else {
+                snprintf(path, sizeof(path), TOSTRING(LIB_DIR) "/ultragrid/%s", pattern);
+        }
+        free(tmp);
+
+        glob(path, 0, NULL, &glob_buf);
+
+        for(unsigned int i = 0; i < glob_buf.gl_pathc; ++i) {
+                if(!dlopen(glob_buf.gl_pathv[i], RTLD_NOW|RTLD_GLOBAL))
+                        fprintf(stderr, "Library opening warning: %s \n", dlerror());
+        }
+
+        globfree(&glob_buf);
+}
 
 void *open_library(const char *name)
 {

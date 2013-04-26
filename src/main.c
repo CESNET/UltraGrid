@@ -84,6 +84,7 @@
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
+#include "audio/utils.h"
 
 #if defined DEBUG && defined HAVE_LINUX
 #include <mcheck.h>
@@ -293,6 +294,7 @@ static void usage(void)
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
+        printf("\t--audio_codec <codec>[:<sample_rate>]|help\taudio codec\n");
         printf("\t--import <directory>     \timport previous session from directory\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
@@ -944,6 +946,7 @@ int main(int argc, char *argv[])
 		  tx_thread_started = false;
         unsigned vidcap_flags = 0,
                  display_flags = 0;
+        int compressed_audio_sample_rate = 48000;
 
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
@@ -1156,8 +1159,6 @@ int main(int argc, char *argv[])
                 case '6':
                         use_ipv6 = true;
                         break;
-                case '?':
-                        break;
                 case OPT_AUDIO_CHANNEL_MAP:
                         audio_channel_map = optarg;
                         break;
@@ -1212,6 +1213,14 @@ int main(int argc, char *argv[])
                         capture_cfg = optarg;
                         break;
                 case OPT_AUDIO_CODEC:
+                        if(strcmp(optarg, "help") == 0) {
+                                list_audio_codecs();
+                                return EXIT_SUCCESS;
+                        }
+                        if(strchr(optarg, ':')) {
+                                compressed_audio_sample_rate = atoi(strchr(optarg, ':')+1);
+                                *strchr(optarg, ':') = '\0';
+                        }
                         audio_codec = get_audio_codec_to_name(optarg);
                         if(audio_codec == AC_NONE) {
                                 fprintf(stderr, "Unknown audio codec entered: \"%s\"\n",
@@ -1219,6 +1228,7 @@ int main(int argc, char *argv[])
                                 return EXIT_FAIL_USAGE;
                         }
                         break;
+                case '?':
                 default:
                         usage();
                         return EXIT_FAIL_USAGE;
@@ -1241,12 +1251,12 @@ int main(int argc, char *argv[])
         printf("Display device   : %s\n", uv->requested_display);
         printf("Capture device   : %s\n", uv->requested_capture);
         printf("Audio capture    : %s\n", audio_send);
-        printf("Capture playback : %s\n", audio_recv);
+        printf("Audio playback   : %s\n", audio_recv);
         printf("MTU              : %d B\n", uv->requested_mtu);
         printf("Video compression: %s\n", uv->requested_compression);
-        printf("Audio codec   : %s\n", get_name_to_audio_codec(audio_codec));
+        printf("Audio codec      : %s\n", get_name_to_audio_codec(audio_codec));
 
-        printf("Network protocol: ");
+        printf("Network protocol : ");
         switch(uv->tx_protocol) {
                 case ULTRAGRID_RTP:
                         printf("UltraGrid RTP\n"); break;
@@ -1313,7 +1323,7 @@ int main(int argc, char *argv[])
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, audio_channel_map,
                         audio_scale, echo_cancellation, use_ipv6, mcast_if,
-                        audio_codec);
+                        audio_codec, compressed_audio_sample_rate);
         free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;

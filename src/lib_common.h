@@ -68,14 +68,19 @@
 
 /* defined in video_display.c */
 void *open_library(const char *name);
+void open_all(const char *pattern);
 void init_lib_common(void);
 void lib_common_done(void);
+
+#define NULL_IF_BUILD_LIBRARIES(x) NULL
 
 #else /* BUILD_LIBRARIES */
 
 #define MK_NAME(A) A, NULL
 #define init_lib_common() { }
 #define lib_common_done() { }
+
+#define NULL_IF_BUILD_LIBRARIES(x) x
 
 #endif /* BUILD_LIBRARIES */
 

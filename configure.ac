@@ -408,6 +408,7 @@ video_compress_abi_version=2
 video_decompress_abi_version=3
 audio_capture_abi_version=3
 audio_playback_abi_version=3
+audio_codec_abi_version=1
 vo_pp_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])
 AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
@@ -415,6 +416,7 @@ AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [S
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
 AC_DEFINE_UNQUOTED([AUDIO_CAPTURE_ABI_VERSION], $audio_capture_abi_version, [Specifies ABI version for audio capture])
 AC_DEFINE_UNQUOTED([AUDIO_PLAYBACK_ABI_VERSION], $audio_playback_abi_version, [Specifies ABI version for audio playback])
+AC_DEFINE_UNQUOTED([AUDIO_CODEC_ABI_VERSION], $audio_codec_abi_version, [Specifies ABI version for audio codec])
 AC_DEFINE_UNQUOTED([VO_PP_ABI_VERSION], $vo_pp_abi_version, [Specifies ABI version for video postprocess])
 AC_SUBST(video_display_abi_version)
 AC_SUBST(video_capture_abi_version)
@@ -422,6 +424,7 @@ AC_SUBST(video_compress_abi_version)
 AC_SUBST(video_decompress_abi_version)
 AC_SUBST(audio_capture_abi_version)
 AC_SUBST(audio_playback_abi_version)
+AC_SUBST(audio_codec_abi_version)
 AC_SUBST(vo_pp_abi_version)
 
 # ------------------------------------------------------------------------------------------------
@@ -2380,6 +2383,7 @@ fi
 # Libav
 # -------------------------------------------------------------------------------------------------
 libavcodec=no
+libavcodec_audio=no
 AC_ARG_ENABLE(libavcodec,
 AS_HELP_STRING([--disable-libavcodec], [disable libavcodec support(default is auto)]),
 [libavcodec_req=$enableval],
@@ -2398,6 +2402,7 @@ if test $ac_cv_header_libavcodec_avcodec_h = yes -a \
 then
         found_libavcodec=yes
         found_libavutil=yes
+        libavcodec_ge_55=yes # TODO
         LIBAVCODEC_LIBS="-lavcodec"
         LIBAVUTIL_LIBS="-lavutil"
 else
@@ -2405,6 +2410,7 @@ else
 fi
 else # Linux, OS X
 PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
+PKG_CHECK_MODULES([LIBAVCODEC_GE_55], [libavcodec >= 55.0.0 ], [libavcodec_ge_55=yes], [libavcodec_ge_55=no])
 PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
 fi
 
@@ -2414,10 +2420,16 @@ then
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
         AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
-        LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET"
+        if test $libavcodec_ge_55 = yes; then
+                AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/acodec_libavcodec.so.$audio_codec_abi_version")
+                AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
+                libavcodec_audio=yes
+                LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
+        fi
+        LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET $LIBAVCODEC_AUDIO_CODEC_LIB_TARGET"
         LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
         LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
-        LIB_OBJS="$LIB_OBJS $LIBAVCODEC_COMPRESS_OBJ $LIBAVCODEC_DECOMPRESS_OBJ"
+        LIB_OBJS="$LIB_OBJS $LIBAVCODEC_COMPRESS_OBJ $LIBAVCODEC_DECOMPRESS_OBJ $LIBAVCODEC_AUDIO_CODEC_OBJ"
         CFLAGS="$CFLAGS $LIBAVCODEC_CFLAGS"
         libavcodec=yes
         SAVED_LIBS=$LIBS
@@ -2437,6 +2449,7 @@ fi
 AC_SUBST(LIBAVCODEC_LIBS) # set by pkg-config
 AC_SUBST(LIBAVCODEC_COMPRESS_OBJ)
 AC_SUBST(LIBAVCODEC_DECOMPRESS_OBJ)
+AC_SUBST(LIBAVCODEC_AUDIO_CODEC_OBJ)
 
 LIB_MODULES="$LIB_MODULES $LIBAVCODEC_LIBS"
 
@@ -2561,7 +2574,7 @@ RESULT=\
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg (static: $jpeg_static)
   UYVY dummy compression ...... $uyvy
-  Libavcodec .................. $libavcodec
+  Libavcodec .................. $libavcodec (audio: $libavcodec_audio)
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req

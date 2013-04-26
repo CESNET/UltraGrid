@@ -69,6 +69,7 @@ OBJS	      = @OBJS@ \
 		src/audio/export.o \
 		src/audio/playback/none.o \
 		src/audio/playback/sdi.o \
+		src/audio/resampler.o \
 		src/audio/utils.o \
 		@COREAUDIO_OBJ@ \
 		@JACK_TRANS_OBJ@ \
@@ -122,7 +123,6 @@ HD_RUM_TRANSLATOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 LIB_COMMON = \
-		src/audio/codec.o \
 		src/audio/utils.o \
 		src/compat/platform_semaphore.o \
 		src/crypto/random.o \
@@ -484,7 +484,7 @@ alsa: @ALSA_PLAY_LIB_TARGET@ @ALSA_CAP_LIB_TARGET@
 portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
 jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
 scale: @SCALE_LIB_TARGET@
-libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
+libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
@@ -569,6 +569,10 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@
 @LIBAVCODEC_DECOMPRESS_LIB_TARGET@: @LIBAVCODEC_DECOMPRESS_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_libavcodec.so.@video_decompress_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
+
+@LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@: @LIBAVCODEC_AUDIO_CODEC_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,acodec_libavcodec.so.@audio_codec_abi_version@ $^ @LIBAVCODEC_LIBS@ -o $@
 
 @JPEG_COMPRESS_LIB_TARGET@: @JPEG_COMPRESS_OBJ@ @JPEG_COMMON_OBJ@
 	mkdir -p lib/ultragrid
