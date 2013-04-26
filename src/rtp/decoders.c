@@ -386,6 +386,9 @@ cleanup:
                 free(data->buffer_len);
                 free(data->buffer_num);
                 free(data->recv_buffers);
+                for(int i = 0; i < data->substream_count; ++i) {
+                        ll_destroy(data->pckt_list[i]);
+                }
                 free(data->pckt_list);
                 free(data);
         }
