@@ -812,6 +812,9 @@ fi
 
 AC_LANG_PUSH(C++)
 
+BLUE_L=no
+BLUE_H=no
+
 if test $system = Windows
 then
         AC_CHECK_HEADERS([BlueVelvetC_UltraGrid.h],
