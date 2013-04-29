@@ -290,12 +290,13 @@ static void usage(void)
         printf("\n");
         printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
         printf("\n");
+        printf("\t--import <directory>     \timport previous session from directory\n");
+        printf("\n");
         printf("\t--export[=<directory>]   \texport captured (and compressed) data\n");
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
         printf("\t--audio_codec <codec>[:<sample_rate>]|help\taudio codec\n");
-        printf("\t--import <directory>     \timport previous session from directory\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -933,7 +934,7 @@ int main(int argc, char *argv[])
         int bitrate = 0;
         
         char *audio_host = NULL;
-        int audio_rx_port, audio_tx_port;
+        int audio_rx_port = -1, audio_tx_port = -1;
 
         struct state_uv *uv;
         int ch;
@@ -1013,8 +1014,6 @@ int main(int argc, char *argv[])
         uv->recv_port_number =
                 uv->send_port_number =
                 PORT_BASE;
-        audio_rx_port =
-                audio_tx_port = PORT_BASE + 2;
         uv->sage_tx_device = NULL;
 
         pthread_mutex_init(&uv->master_lock, NULL);
@@ -1138,6 +1137,8 @@ int main(int argc, char *argv[])
                                 }
                                 if((tok = strtok_r(NULL, ":", &save_ptr))) {
                                         audio_tx_port = atoi(tok);
+                                } else {
+                                        usage();
                                 }
                         } else {
                                 uv->recv_port_number =
@@ -1269,6 +1270,11 @@ int main(int argc, char *argv[])
         printf("Audio FEC        : %s\n", requested_audio_fec);
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
+
+        if(audio_rx_port == -1) {
+                audio_tx_port = uv->send_port_number + 2;
+                audio_rx_port = uv->recv_port_number + 2;
+        }
 
         if(should_export) {
                 if(!enable_export(export_opts)) {
