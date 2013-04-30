@@ -121,7 +121,6 @@ void worker::run() {
                 struct task_data data;
                 pthread_mutex_lock(&m_lock);
                 while(m_data.empty()) {
-                        m_state_observer.notify(this);
                         pthread_cond_wait(&m_task_ready_cv, &m_lock);
                 }
                 data = m_data.front();
@@ -138,6 +137,7 @@ void worker::run() {
                 pthread_mutex_lock(&m_lock);
                 m_result.push(res);
                 pthread_cond_signal(&m_task_completed_cv);
+                m_state_observer.notify(this);
                 pthread_mutex_unlock(&m_lock);
         }
 }
