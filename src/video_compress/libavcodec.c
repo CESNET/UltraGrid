@@ -591,7 +591,7 @@ struct tile * libavcodec_compress_tile(void *arg, struct tile *tx, struct video_
                 }
                 data[i].width = tx->width;
                 data[i].in_data = decoded + i * data[i].height *
-                        vc_get_linesize(tx->width, desc->color_spec);
+                        vc_get_linesize(tx->width, UYVY);
 
                 // run !
                 handle[i] = task_run_async(my_task, (void *) &data[i]);
