@@ -418,7 +418,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
 
 
                 if(offset + length <= decoder->received_frame->max_size) {
-                        memcpy(decoder->received_frame->data[channel], data, length);
+                        memcpy(decoder->received_frame->data[channel] + offset, data, length);
                 } else { /* discarding data - buffer to small */
                         if(++prints % 100 == 0)
                                 fprintf(stdout, "Warning: "
