@@ -826,7 +826,7 @@ static void * audio_reading_thread(void *args)
                 {
                         while((ring_get_current_size(s->audio_state.data) > ring_get_size(s->audio_state.data) * 2 / 3 ||
                                                 s->audio_state.samples_read >= s->audio_state.total_samples)
-                                        && s->message_queue.len == 0) {
+                                        && s->audio_state.message_queue.len == 0) {
                                 s->audio_state.worker_waiting = true;
                                 pthread_cond_wait(&s->audio_state.worker_cv, &s->audio_state.lock);
                                 s->audio_state.worker_waiting = false;
