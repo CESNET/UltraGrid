@@ -57,11 +57,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define FRAME_NETWORK 0
+#define FRAME_CAPTURE 1
+
+#define POISONED_PILL -1
 
 struct state_sdi_capture {
-        struct audio_frame * audio_buffer;
-        sem_t audio_frame_ready;
-
+        struct audio_frame audio_frame[2];
+        pthread_mutex_t lock;
+        pthread_cond_t  audio_frame_ready_cv;
 };
 
 
@@ -77,7 +81,8 @@ void * sdi_capture_init(char *cfg)
         struct state_sdi_capture *s;
         
         s = (struct state_sdi_capture *) calloc(1, sizeof(struct state_sdi_capture));
-        platform_sem_init(&s->audio_frame_ready, 0, 0);
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->audio_frame_ready_cv, NULL);
         
         return s;
 }
@@ -87,8 +92,26 @@ struct audio_frame * sdi_read(void *state)
         struct state_sdi_capture *s;
         
         s = (struct state_sdi_capture *) state;
-        platform_sem_wait(&s->audio_frame_ready);
-        return s->audio_buffer;
+        pthread_mutex_lock(&s->lock);
+        while(s->audio_frame[FRAME_CAPTURE].data_len == 0) {
+                pthread_cond_wait(&s->audio_frame_ready_cv, &s->lock);
+        }
+
+        if(s->audio_frame[FRAME_CAPTURE].data_len == POISONED_PILL) {
+                pthread_mutex_unlock(&s->lock);
+                return NULL;
+        }
+
+        // FRAME_NETWORK has been "consumed"
+        s->audio_frame[FRAME_NETWORK].data_len = 0;
+        // swap
+        struct audio_frame tmp;
+        memcpy(&tmp, &s->audio_frame[FRAME_CAPTURE], sizeof(struct audio_frame));
+        memcpy(&s->audio_frame[FRAME_CAPTURE], &s->audio_frame[FRAME_NETWORK], sizeof(struct audio_frame));
+        memcpy(&s->audio_frame[FRAME_NETWORK], &tmp, sizeof(struct audio_frame));
+        pthread_mutex_unlock(&s->lock);
+
+        return &s->audio_frame[FRAME_NETWORK];
 }
 
 void sdi_capture_finish(void *state)
@@ -96,12 +119,22 @@ void sdi_capture_finish(void *state)
         struct state_sdi_capture *s;
         
         s = (struct state_sdi_capture *) state;
-        platform_sem_post(&s->audio_frame_ready);
+        pthread_mutex_lock(&s->lock);
+        s->audio_frame[FRAME_CAPTURE].data_len = POISONED_PILL;
+        pthread_cond_signal(&s->audio_frame_ready_cv);
+        pthread_mutex_unlock(&s->lock);
 }
 
 void sdi_capture_done(void *state)
 {
-        UNUSED(state);
+        struct state_sdi_capture *s;
+
+        s = (struct state_sdi_capture *) state;
+        for(int i = 0; i < 2; ++i) {
+                free(s->audio_frame[i].data);
+        }
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->audio_frame_ready_cv);
 }
 
 void sdi_capture_help(const char *driver_name)
@@ -120,9 +153,40 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
         struct state_sdi_capture *s;
         
         s = (struct state_sdi_capture *) state;
-        s->audio_buffer = frame;
-        platform_sem_post(&s->audio_frame_ready);
 
+        /**
+         * @todo figure out what if we get too many audio samples buffered -
+         * perhaps drop it and report error
+         */
+        pthread_mutex_lock(&s->lock);
+        if(s->audio_frame[FRAME_CAPTURE].data_len == POISONED_PILL) {
+                pthread_mutex_unlock(&s->lock);
+                return;
+        }
+
+        if(
+                        s->audio_frame[FRAME_CAPTURE].bps != frame->bps ||
+                        s->audio_frame[FRAME_CAPTURE].ch_count != frame->ch_count ||
+                        s->audio_frame[FRAME_CAPTURE].sample_rate != frame->sample_rate
+          ) {
+                s->audio_frame[FRAME_CAPTURE].bps = frame->bps;
+                s->audio_frame[FRAME_CAPTURE].ch_count = frame->ch_count;
+                s->audio_frame[FRAME_CAPTURE].sample_rate = frame->sample_rate;
+                s->audio_frame[FRAME_CAPTURE].data_len = 0;
+        }
+
+        int needed_size = frame->data_len + s->audio_frame[FRAME_CAPTURE].data_len;
+        if(needed_size > (int) s->audio_frame[FRAME_CAPTURE].max_size) {
+                free(s->audio_frame[FRAME_CAPTURE].data);
+                s->audio_frame[FRAME_CAPTURE].max_size = needed_size;
+                s->audio_frame[FRAME_CAPTURE].data = malloc(needed_size);
+        }
+        memcpy(s->audio_frame[FRAME_CAPTURE].data + s->audio_frame[FRAME_CAPTURE].data_len,
+                        frame->data, frame->data_len);
+        s->audio_frame[FRAME_CAPTURE].data_len += frame->data_len;
+
+        pthread_cond_signal(&s->audio_frame_ready_cv);
+        pthread_mutex_unlock(&s->lock);
 }
 
 /* vim: set expandtab: sw=8 */
