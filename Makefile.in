@@ -71,6 +71,7 @@ OBJS	      = @OBJS@ \
 		src/audio/playback/sdi.o \
 		src/audio/resampler.o \
 		src/audio/utils.o \
+		src/audio/wav_reader.o \
 		@COREAUDIO_OBJ@ \
 		@JACK_TRANS_OBJ@ \
 		@SPEEX_OBJ@ \

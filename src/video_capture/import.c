@@ -58,6 +58,7 @@
 #include "tv.h"
 
 #include "audio/audio.h"
+#include "audio/wav_reader.h"
 #include "utils/ring_buffer.h"
 #include "video_export.h"
 #include "video_capture/import.h"
@@ -218,72 +219,33 @@ static bool init_audio(struct vidcap_import_state *s, char *audio_filename)
                 perror("Cannot open audio file");
                 return false;
         }
-        char buffer[16];
 
         // common commands - will run in any way
         if(!audio_file) {
                 goto error_opening;
         }
 
-        READ_N(buffer, 4);
-        if(strncmp(buffer, "RIFF", 4) != 0) {
-                goto error_format;
+        struct wav_metadata metadata;
+
+        int ret = read_wav_header(audio_file, &metadata);
+        switch(ret) {
+                case WAV_HDR_PARSE_READ_ERROR:
+                        fprintf(stderr, "Error reading WAV header!\n");
+                        goto error_format;
+                case WAV_HDR_PARSE_WRONG_FORMAT:
+                        fprintf(stderr, "Unsupported WAV format!\n");
+                        goto error_format;
+                case WAV_HDR_PARSE_NOT_PCM:
+                        fprintf(stderr, "Only supported audio format is PCM.\n");
+                        goto error_format;
+                case WAV_HDR_PARSE_OK:
+                        break;
         }
 
-        uint32_t chunk_size;
-        READ_N(&chunk_size, 4);
-
-        READ_N(buffer, 4);
-        if(strncmp(buffer, "WAVE", 4) != 0) {
-                goto error_format;
-        }
-
-        // format chunk
-        READ_N(buffer, 4);
-        if(strncmp(buffer, "fmt ", 4) != 0) {
-                goto error_format;
-        }
-
-        uint32_t fmt_chunk_size;
-        READ_N(&fmt_chunk_size, 4);
-        if(fmt_chunk_size != 16) {
-                goto error_format;
-        }
-
-        uint16_t format;
-        READ_N(&format, 2);
-        if(format != 0x0001) {
-                fprintf(stderr, "Only supported audio format is PCM.\n");
-                goto error_format;
-        }
-
-        uint16_t ch_count;
-        READ_N(&ch_count, 2);
-        s->audio_frame.ch_count = ch_count;
-
-        uint32_t sample_rate;
-        READ_N(&sample_rate, sizeof(sample_rate));
-        s->audio_frame.sample_rate = sample_rate;
-
-        uint32_t avg_bytes_per_sec;
-        READ_N(&avg_bytes_per_sec, sizeof(avg_bytes_per_sec));
-
-        uint16_t block_align_offset;
-        READ_N(&block_align_offset, sizeof(block_align_offset));
-
-        uint16_t bits_per_sample;
-        READ_N(&bits_per_sample, sizeof(bits_per_sample));
-        s->audio_frame.bps = bits_per_sample / 8;
-
-        // data chunk
-        READ_N(buffer, 4);
-        if(strncmp(buffer, "data", 4) != 0) {
-                goto error_format;
-        }
-
-        uint32_t data_chunk_size;
-        READ_N(&data_chunk_size, 4);
-        s->audio_state.total_samples = data_chunk_size / s->audio_frame.bps / s->audio_frame.ch_count;
+        s->audio_frame.ch_count = metadata.ch_count;
+        s->audio_frame.sample_rate = metadata.sample_rate;
+        s->audio_frame.bps = metadata.bits_per_sample / 8;
+        s->audio_state.total_samples = metadata.data_size / s->audio_frame.bps / s->audio_frame.ch_count;
         s->audio_state.samples_read = 0;
 
         s->audio_state.data = ring_buffer_init(s->audio_frame.bps * s->audio_frame.sample_rate *
