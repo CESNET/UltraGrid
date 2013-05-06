@@ -126,6 +126,10 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                         s->decoder = (decoder_t) vc_copylineRGBAtoRGB;
                         s->rgb = TRUE;
                         break;
+                case BGR:
+                        s->decoder = (decoder_t) vc_copylineBGRtoRGB;
+                        s->rgb = TRUE;
+                        break;
                 /* TODO: enable (we need R10k -> RGB)
                  * case R10k:
                         s->decoder = (decoder_t) vc_copyliner10k;
