@@ -74,6 +74,8 @@ struct compress_jpeg_state {
         codec_t color_spec;
 
         struct video_desc saved_desc;
+
+        int restart_interval;
 };
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
@@ -162,7 +164,8 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
 
         if(s->rgb) {
                 s->encoder_param.interleaved = 0;
-                s->encoder_param.restart_interval = 8;
+                s->encoder_param.restart_interval = s->restart_interval == -1 ? 8
+                        : s->restart_interval;
                 /* LUMA */
                 s->encoder_param.sampling_factor[0].horizontal = 1;
                 s->encoder_param.sampling_factor[0].vertical = 1;
@@ -173,7 +176,8 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
                 s->encoder_param.sampling_factor[2].vertical = 1;
         } else {
                 s->encoder_param.interleaved = 1;
-                s->encoder_param.restart_interval = 2;
+                s->encoder_param.restart_interval = s->restart_interval == -1 ? 2
+                        : s->restart_interval;
                 /* LUMA */
                 s->encoder_param.sampling_factor[0].horizontal = 2;
                 s->encoder_param.sampling_factor[0].vertical = 1;
@@ -234,13 +238,15 @@ void * jpeg_compress_init(char * opts)
                 
         if(opts && strcmp(opts, "help") == 0) {
                 printf("JPEG comperssion usage:\n");
-                printf("\t-c JPEG[:<quality>]\n");
+                printf("\t-c JPEG[:<quality>[:<restart_interval>]]\n");
                 return NULL;
         } else if(opts && strcmp(opts, "list_devices") == 0) {
                 printf("CUDA devices:\n");
                 gpujpeg_print_devices_info();
                 return NULL;
         }
+
+        s->restart_interval = -1;
 
         if(opts) {
                 char *tok, *save_ptr = NULL;
@@ -254,6 +260,10 @@ void * jpeg_compress_init(char * opts)
                 if(ret != 0) {
                         fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
                         return NULL;
+                }
+                tok = strtok_r(NULL, ":", &save_ptr);
+                if(tok) {
+                        s->restart_interval = atoi(tok);
                 }
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {
