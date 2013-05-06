@@ -230,7 +230,9 @@ int libavcodec_decompress_reconfigure(void *state, struct video_desc desc,
         s->height = desc.height;
 
         deconfigure(s);
-        configure_with(s, desc);
+        if(!configure_with(s, desc)) {
+                return 0;
+        }
 
         s->max_compressed_len = 4 * desc.width * desc.height;
 
