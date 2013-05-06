@@ -435,8 +435,13 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                  * reported error.
                  */
                 if(len < 0 && s->in_codec == JPEG) {
+                        // this hack doesn;t seem to work in recent Libav versions
+#if 0
                         return change_pixfmt(s->frame, dst, s->codec_ctx->pix_fmt,
                                         s->out_codec, s->width, s->height, s->pitch);
+#else
+                        fprintf(stderr, "[lavd] Perhaps JPEG restart interval >0 set? (Not supported by lavd, try '-c JPEG:Q:0' on sender).\n");
+#endif
                 }
 
                 if(len < 0) {
