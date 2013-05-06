@@ -88,6 +88,7 @@ struct vcodec_state {
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly
         unsigned int decoded;
+        double set_fps;
 };
 
 struct pbuf_audio_data {

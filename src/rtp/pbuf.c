@@ -78,6 +78,7 @@ struct pbuf_node {
         uint32_t rtp_timestamp; /* RTP timestamp for the frame           */
         struct timeval arrival_time;    /* Arrival time of first packet in frame */
         struct timeval playout_time;    /* Playout time for the frame            */
+        struct timeval deletion_time;   /* Time after which will be frame deleted (no matter if decoded or not) */
         struct coded_data *cdata;       /*                                       */
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
@@ -208,7 +209,9 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay
                 tmp->mbit = pkt->m;
                 gettimeofday(&(tmp->arrival_time), NULL);
                 gettimeofday(&(tmp->playout_time), NULL);
+                tmp->deletion_time = tmp->playout_time;
                 tv_add(&(tmp->playout_time), playout_delay);
+                tv_add(&(tmp->deletion_time), playout_delay * 2);
 
                 tmp->cdata = malloc(sizeof(struct coded_data));
                 if (tmp->cdata != NULL) {
@@ -295,7 +298,7 @@ void pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time)
         curr = playout_buf->frst;
         while (curr != NULL) {
                 temp = curr->nxt;
-                if (tv_gt(curr_time, curr->playout_time)) {
+                if (tv_gt(curr_time, curr->deletion_time)) {
                         if (curr == playout_buf->frst) {
                                 playout_buf->frst = curr->nxt;
                         }

@@ -166,6 +166,9 @@ struct state_decoder {
         unsigned long int   displayed;
         unsigned long int   dropped;
         unsigned long int   corrupted;
+
+        double              set_fps; // "message" passed to our master
+        bool                slow;
 };
 
 // message definitions
@@ -1267,6 +1270,7 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
                                 *frame);
                 decoder->frame = *frame;
                 ret = TRUE;
+                decoder->set_fps = fps;
         }
         return ret;
 }
@@ -1313,6 +1317,12 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         
         int k = 0, m = 0, c = 0, seed = 0; // LDGM
         int buffer_number, buffer_length;
+
+        // first, dispatch "messages"
+        if(decoder->set_fps) {
+                pbuf_data->set_fps = decoder->set_fps;
+                decoder->set_fps = 0.0;
+        }
 
         int pt;
 
@@ -1524,8 +1534,11 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
         pthread_mutex_lock(&decoder->lock);
         {
-                if(decoder->ldgm_data) {
+                if(decoder->ldgm_data && !decoder->slow) {
                         fprintf(stderr, "Your computer is too SLOW to play this !!!\n");
+                        decoder->slow = true;
+                } else {
+                        decoder->slow = false;
                 }
 
                 while (decoder->ldgm_data) {

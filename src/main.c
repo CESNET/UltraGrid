@@ -489,7 +489,7 @@ static void *ihdtv_sender_thread(void *arg)
 #endif // IHDTV
 
 static struct vcodec_state *new_decoder(struct state_uv *uv) {
-        struct vcodec_state *state = malloc(sizeof(struct vcodec_state));
+        struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
                 state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device);
@@ -652,6 +652,13 @@ static void *receiver_thread(void *arg)
                                 }
                                 last_buf_size = new_size;
                         }
+
+                        if(cp->video_decoder_state->set_fps) {
+                                pbuf_set_playout_delay(cp->playout_buffer,
+                                                1.0 / cp->video_decoder_state->set_fps);
+                                cp->video_decoder_state->set_fps = 0.0;
+                        }
+
 
                         pbuf_remove(cp->playout_buffer, uv->curr_time);
                         cp = pdb_iter_next(&it);
