@@ -83,6 +83,8 @@ static void yuv420p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
 static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
+static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch);
 static void yuv422p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
                 int width, int height, int pitch);
 static void yuv420p_to_rgb24(char *dst_buffer, AVFrame *in_frame,
@@ -295,6 +297,33 @@ static void yuv422p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
         }
 }
 
+static void yuv444p_to_yuv422(char *dst_buffer, AVFrame *in_frame,
+                int width, int height, int pitch)
+{
+        for(int y = 0; y < (int) height; ++y) {
+                char *src = (char *) in_frame->data[0] + in_frame->linesize[0] * y;
+                char *dst = dst_buffer + 1 + pitch * y;
+                for(int x = 0; x < width; ++x) {
+                        *dst = *src++;
+                        dst += 2;
+                }
+        }
+
+        for(int y = 0; y < (int) height; ++y) {
+                unsigned char *src_cb = (unsigned char *) in_frame->data[1] + in_frame->linesize[1] * y;
+                unsigned char *src_cr = (unsigned char *) in_frame->data[2] + in_frame->linesize[2] * y;
+                char *dst = dst_buffer + pitch * y;
+                for(int x = 0; x < width / 2; ++x) {
+                        *dst = (*src_cb + *(src_cb + 1)) / 2;
+                        src_cb += 2;
+                        dst += 2;
+                        *dst = (*src_cr + *(src_cr + 1)) / 2;
+                        src_cr += 2;
+                        dst += 2;
+                }
+        }
+}
+
 /**
  * Changes pixel format from planar YUV 422 to packed RGB.
  * Color space is assumed ITU-T Rec. 609. YUV is expected to be full scale (aka in JPEG).
@@ -397,6 +426,8 @@ static int change_pixfmt(AVFrame *frame, unsigned char *dst, int av_codec,
                 } else {
                         yuv420p_to_rgb24((char *) dst, frame, width, height, pitch);
                 }
+        } else if(is444(av_codec) && out_codec == UYVY) {
+                yuv444p_to_yuv422((char *) dst, frame, width, height, pitch);
         } else {
                 fprintf(stderr, "Unsupported pixel "
                                 "format: %s (id %d)\n",

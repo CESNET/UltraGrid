@@ -28,12 +28,14 @@
 
 #define LAVCD_LOCK_NAME "lavcd_lock"
 
+static enum AVPixelFormat fmts444[] = { AV_PIX_FMT_YUV444P, AV_PIX_FMT_YUVJ444P };
 static enum AVPixelFormat fmts422[] = { AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUVJ422P };
 static enum AVPixelFormat fmts420[] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUVJ420P };
 /**
  * @param req_pix_fmts AV_PIX_FMT_NONE-emded priority list of requested pix_fmts
  * @param pix_fmts     AV_PIX_FMT_NONE-emded priority list of codec provided pix fmts
  * */
+static bool is444(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static bool is422(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static bool is420(enum AVPixelFormat pix_fmt) __attribute__((unused));
 static enum AVPixelFormat get_best_pix_fmt(const enum AVPixelFormat *req_pix_fmts,
@@ -57,6 +59,14 @@ static enum AVPixelFormat get_best_pix_fmt(const enum AVPixelFormat *req_pix_fmt
         }
 
         return AV_PIX_FMT_NONE;
+}
+
+static bool is444(enum AVPixelFormat pix_fmt) {
+        for(unsigned int i = 0; i < sizeof(fmts444) / sizeof(enum AVPixelFormat); ++i) {
+                if(fmts444[i] == pix_fmt)
+                        return true;
+        }
+        return false;
 }
 
 static bool is422(enum AVPixelFormat pix_fmt) {
