@@ -77,7 +77,10 @@ audio_codec_info_t audio_codec_info[] = {
 
 int audio_codec_info_len = sizeof(audio_codec_info)/sizeof(audio_codec_info_t);
 
+#ifdef BUILD_LIBRARIES
 static pthread_once_t libraries_initialized = PTHREAD_ONCE_INIT;
+static void load_libraries(void);
+#endif
 
 static struct audio_codec *audio_codecs[MAX_AUDIO_CODECS] = {
         &dummy_pcm_audio_codec,
@@ -125,6 +128,7 @@ void list_audio_codecs(void) {
         }
 }
 
+#ifdef BUILD_LIBRARIES
 static void load_libraries(void)
 {
         char name[128];
@@ -132,6 +136,7 @@ static void load_libraries(void)
 
         open_all(name);
 }
+#endif
 
 
 struct audio_codec_state *audio_codec_init(audio_codec_t audio_codec,
@@ -179,6 +184,7 @@ static struct audio_codec_state *audio_codec_init_real(audio_codec_t audio_codec
         s->direction = direction;
 
         s->out = audio_frame2_init();
+        s->out->ch_count = 1;
 
         return s;
 }
