@@ -148,7 +148,6 @@ void * audio_cap_alsa_init(char *cfg)
         if (rc < 0) {
                 if(s->frame.ch_count == 1) { // some devices cannot do mono
                         snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
-                        s->tmp_data = malloc(s->frames  * s->min_device_channels * s->frame.bps);
                 } else {
                         fprintf(stderr, "unable to set channel count: %s\n",
                                         snd_strerror(rc));
@@ -204,6 +203,8 @@ void * audio_cap_alsa_init(char *cfg)
         snd_pcm_hw_params_get_period_size(params, &s->frames, &dir);
         s->frame.max_size = s->frames  * s->frame.ch_count * s->frame.bps;
         s->frame.data = (char *) malloc(s->frame.max_size);
+
+        s->tmp_data = malloc(s->frames  * s->min_device_channels * s->frame.bps);
 
         printf("ALSA capture configuration: %d channel%s, %d Bps, %d Hz, "
                        "%ld samples per frame.\n", s->frame.ch_count,
