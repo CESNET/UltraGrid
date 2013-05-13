@@ -443,12 +443,6 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
         return TRUE;
 }
 
-struct audio_frame * display_sage_get_audio_frame(void *state)
-{
-        UNUSED(state);
-        return NULL;
-}
-
 void display_sage_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);

@@ -1131,19 +1131,13 @@ static int find_mode(ComponentInstance *ci, int width, int height,
         }
 }
 
-struct audio_frame *display_quicktime_get_audio_frame(void *state)
-{
-        struct state_quicktime *s = (struct state_quicktime *)state;
-
-        if(s->play_audio)
-                return &s->audio;
-        else
-                return NULL;
-}
-
 void display_quicktime_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_quicktime * s = (struct state_quicktime *) state;
+
+        if(!s->play_audio)
+                return;
+
         int to_end = frame->data_len;
 
         if(frame->data_len > s->max_audio_data_len - s->audio_end)

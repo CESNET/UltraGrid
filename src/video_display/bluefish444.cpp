@@ -124,7 +124,6 @@ struct display_bluefish444_state {
                 /// AUDIO
                 void                reconfigure_audio(int quant_samples, int channels,
                                 int sample_rate)                   throw(runtime_error, logic_error);
-                struct audio_frame *get_audio_frame()              throw();
                 void                put_audio_frame(struct audio_frame *) throw();
 #endif
         private:
@@ -158,7 +157,7 @@ struct display_bluefish444_state {
                 // this is temporary storage between getf/putf calls
                 av_buffer          *m_pTmpFrame;
 #ifdef HAVE_BLUE_AUDIO
-                struct audio_frame  m_AudioFrame;
+                struct audio_desc   m_AudioDesc;
                 hanc_stream_info_struct m_HancInfo;
                 pthread_spinlock_t  m_AudioSpinLock;
                 struct ring_buffer *m_AudioRingBuffer;
@@ -219,9 +218,7 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
         bfcDestroy(pSDK);
 
 #ifdef HAVE_BLUE_AUDIO
-        memset(&m_AudioFrame, 0, sizeof(m_AudioFrame));
-        m_AudioFrame.max_size = 48000*3*16*5;
-        m_AudioFrame.data = (char *) malloc(m_AudioFrame.max_size);
+        memset(&m_AudioDesc, 0, sizeof(m_AudioDesc));
         memset(&m_HancInfo, 0, sizeof(m_HancInfo));
         for(int i = 0; i < 4; ++i) {
                 m_HancInfo.AudioDBNArray[i] = -1;
@@ -255,7 +252,6 @@ display_bluefish444_state::~display_bluefish444_state() throw()
 #ifdef HAVE_BLUE_AUDIO
         ring_buffer_destroy(m_AudioRingBuffer);
         page_aligned_free(m_HancInfo.hanc_data_ptr);
-        free(m_AudioFrame.data);
         pthread_spin_destroy(&m_AudioSpinLock);
 #endif
 }
@@ -359,7 +355,7 @@ void *display_bluefish444_state::playback_loop() throw()
 
                         uint32_t NrSamples = 0;
                         pthread_spin_lock(&m_AudioSpinLock);
-                        uint32_t NumberAudioChannels = m_AudioFrame.ch_count;
+                        uint32_t NumberAudioChannels = m_AudioDesc.ch_count;
                         char audio_data[2002*4*16];
                         unsigned int nSampleType;
                         ULONG EmbAudioProp = 0;
@@ -367,7 +363,7 @@ void *display_bluefish444_state::playback_loop() throw()
                         if(NumberAudioChannels > 0) {
                                 NrSamples = GetNumberOfAudioSamplesPerFrame(m_CurrentVideoMode,
                                                 FrameCount);
-                                switch(m_AudioFrame.bps) {
+                                switch(m_AudioDesc.bps) {
                                         case 2:
                                                 nSampleType = AUDIO_CHANNEL_16BIT; // AUDIO_CHANNEL_LITTLEENDIAN
                                                 break;
@@ -386,14 +382,14 @@ void *display_bluefish444_state::playback_loop() throw()
                                         EmbAudioProp |= (blue_emb_audio_group4_enable);
 
                                 int bytes = ring_buffer_read(m_AudioRingBuffer, audio_data, NrSamples *
-                                                m_AudioFrame.bps *m_AudioFrame.ch_count);
-                                NrSamples = bytes / m_AudioFrame.bps / m_AudioFrame.ch_count;
+                                                m_AudioDesc.bps *m_AudioDesc.ch_count);
+                                NrSamples = bytes / m_AudioDesc.bps / m_AudioDesc.ch_count;
                         }
                         pthread_spin_unlock(&m_AudioSpinLock);
 
                         if(NrSamples > 0) {
                                 bfcEncodeHancFrameEx(m_pSDK[0], m_CardType, &m_HancInfo, audio_data,
-                                                m_AudioFrame.ch_count, NrSamples,
+                                                m_AudioDesc.ch_count, NrSamples,
                                                 nSampleType, EmbAudioProp | EmbAudioFlag);
 
                                 //wait for both DMA transfers to be finished
@@ -795,20 +791,17 @@ void display_bluefish444_state::reconfigure_audio(int quant_samples, int channel
         }
 
         pthread_spin_lock(&m_AudioSpinLock);
-        m_AudioFrame.bps = quant_samples / 8;
-        m_AudioFrame.ch_count = channels;
-        m_AudioFrame.sample_rate = sample_rate;
+        m_AudioDesc.bps = quant_samples / 8;
+        m_AudioDesc.ch_count = channels;
+        m_AudioDesc.sample_rate = sample_rate;
         ring_buffer_flush(m_AudioRingBuffer);
         pthread_spin_unlock(&m_AudioSpinLock);
 }
 
-struct audio_frame *display_bluefish444_state::get_audio_frame() throw()
-{
-        return &m_AudioFrame;
-}
-
 void display_bluefish444_state::put_audio_frame(struct audio_frame *frame) throw()
 {
+        if(!m_PlayAudio)
+                return;
         ring_buffer_write(m_AudioRingBuffer, frame->data, frame->data_len);
 }
 #endif // defined HAVE_BLUE_AUDIO
@@ -1012,25 +1005,6 @@ int display_bluefish444_reconfigure_audio(void *state, int quant_samples, int ch
         return ret;
 #else
         return FALSE;
-#endif
-}
-
-struct audio_frame * display_bluefish444_get_audio_frame(void *state)
-{
-#ifdef HAVE_BLUE_AUDIO
-        display_bluefish444_state *s =
-                (display_bluefish444_state *) state;
-        struct audio_frame *ret = NULL;
-
-        try {
-                ret = s->get_audio_frame();
-        } catch(runtime_error &e) {
-                cerr << "[Blue444 disp] " << e.what() << endl;
-        }
-
-        return ret;
-#else
-        return NULL;
 #endif
 }
 

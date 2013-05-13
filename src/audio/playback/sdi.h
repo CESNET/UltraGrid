@@ -50,15 +50,11 @@ struct audio_frame;
 
 void                     sdi_playback_help(const char *driver_name);
 void                    *sdi_playback_init(char *cfg);
-struct audio_frame      *sdi_get_frame(void *state);
 void                     sdi_put_frame(void *state, struct audio_frame *frame);
 void                     sdi_playback_done(void *state);
 int                      sdi_reconfigure(void *state, int quant_samples, int channels,
                 int sample_rate);
 
-
-void sdi_register_get_callback(void *s, struct audio_frame * (*callback)(void *),
-                void *udata);
 void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
                 void *udata);
 void sdi_register_reconfigure_callback(void *s, int (*callback)(void *, int, int,

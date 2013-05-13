@@ -58,11 +58,9 @@
 #include <string.h>
 
 struct state_sdi_playback {
-        struct audio_frame * (*get_callback)(void *);
         void (*put_callback)(void *, struct audio_frame *);
         int (*reconfigure_callback)(void *state, int quant_samples, int channels,
                 int sample_rate);
-        void *get_udata;
         void *put_udata;
         void *reconfigure_udata;
 };
@@ -89,19 +87,9 @@ void * sdi_playback_init(char *cfg)
                 return NULL;
         }
         struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
-        s->get_callback = NULL;
         s->put_callback = NULL;
         s->reconfigure_callback = NULL;
         return s;
-}
-
-void sdi_register_get_callback(void *state, struct audio_frame * (*callback)(void *),
-                void *udata)
-{
-        struct state_sdi_playback *s = (struct state_sdi_playback *) state;
-        
-        s->get_callback = callback;
-        s->get_udata = udata;
 }
 
 void sdi_register_put_callback(void *state, void (*callback)(void *, struct audio_frame *),
@@ -130,18 +118,6 @@ void sdi_put_frame(void *state, struct audio_frame *frame)
 
         if(s->put_callback)
                 s->put_callback(s->put_udata, frame);
-}
-
-struct audio_frame * sdi_get_frame(void *state)
-{
-        struct state_sdi_playback *s;
-        s = (struct state_sdi_playback *) state;
-        
-        if(s->get_callback) {
-                return s->get_callback(s->get_udata);
-        } else {
-                return NULL;
-        }
 }
 
 int sdi_reconfigure(void *state, int quant_samples, int channels,

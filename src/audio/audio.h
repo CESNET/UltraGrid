@@ -128,8 +128,6 @@ struct audio_frame * sdi_get_frame(void *state);
 void sdi_put_frame(void *state, struct audio_frame *frame);
 void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
                 void *udata);
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
-                void *udata);
 void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(void *, int, int, int),
                 void *udata);
 

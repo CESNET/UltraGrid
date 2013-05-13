@@ -434,12 +434,13 @@ static void *audio_receiver_thread(void *arg)
         uint32_t ts;
         struct pdb_e *cp;
         struct pbuf_audio_data pbuf_data;
+        struct audio_desc device_desc;
 
-        pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
+        memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
+        memset(&device_desc, 0, sizeof(struct audio_desc));
+
         pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale);
         assert(pbuf_data.decoder != NULL);
-        pbuf_data.audio_state = s;
-        pbuf_data.reconfigured = false;
                 
         printf("Audio receiving started.\n");
         while (!should_exit_audio) {
@@ -456,25 +457,38 @@ static void *audio_receiver_thread(void *arg)
                         cp = pdb_iter_init(s->audio_participants, &it);
                 
                         while (cp != NULL) {
-                                if(pbuf_data.buffer != NULL) {
                                         if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
+                                                bool failed = false;
                                                 if(s->echo_state) {
 #ifdef HAVE_SPEEX
-                                                        echo_play(s->echo_state, pbuf_data.buffer);
+                                                        echo_play(s->echo_state, &pbuf_data.buffer);
 #endif
                                                 }
 
-                                                audio_playback_put_frame(s->audio_playback_device, pbuf_data.buffer);
-                                                pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
-                                        }
-                                } else {
-                                        pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
-                                }
+                                                struct audio_desc curr_desc;
+                                                curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
 
-                                if(pbuf_data.reconfigured) {
-                                        rtp_flush_recv_buf(s->audio_network_device);
-                                        pbuf_data.reconfigured = false;
-                                }
+                                                if(!audio_desc_eq(device_desc, curr_desc)) {
+                                                        if(audio_reconfigure(s, curr_desc.bps * 8,
+                                                                                curr_desc.ch_count,
+                                                                                curr_desc.sample_rate) != TRUE) {
+                                                                fprintf(stderr, "Audio reconfiguration failed!");
+                                                                failed = true;
+                                                        }
+                                                        else {
+                                                                fprintf(stderr, "Audio reconfiguration succeeded.");
+                                                                device_desc = curr_desc;
+                                                                rtp_flush_recv_buf(s->audio_network_device);
+                                                        }
+                                                        fprintf(stderr, " (%d channels, %d bps, %d Hz)\n",
+                                                                        curr_desc.ch_count,
+                                                                        curr_desc.bps, curr_desc.sample_rate);
+
+                                                }
+
+                                                if(!failed)
+                                                        audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
+                                        }
 
                                 pbuf_remove(cp->playout_buffer, curr_time);
                                 cp = pdb_iter_next(&it);
@@ -483,12 +497,12 @@ static void *audio_receiver_thread(void *arg)
                 } else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
                         jack_receive(s->jack_connection, &pbuf_data);
-                        audio_playback_put_frame(s->audio_playback_device, pbuf_data.buffer);
-                        pbuf_data.buffer = audio_playback_get_frame(s->audio_playback_device);
+                        audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
 #endif
                 }
         }
 
+        free(pbuf_data.buffer.data);
         audio_decoder_destroy(pbuf_data.decoder);
 
         return NULL;
@@ -631,17 +645,6 @@ void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         sdi_capture_new_incoming_frame(sdi_capture, frame);
 }
 
-void audio_register_get_callback(struct state_audio *s, struct audio_frame * (*callback)(void *),
-                void *udata)
-{
-        struct state_sdi_playback *sdi_playback;
-        if(!audio_playback_get_display_flags(s->audio_playback_device))
-                return;
-        
-        sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
-        sdi_register_get_callback(sdi_playback, callback, udata);
-}
-
 void audio_register_put_callback(struct state_audio *s, void (*callback)(void *, struct audio_frame *),
                 void *udata)
 {
@@ -673,11 +676,6 @@ unsigned int audio_get_vidcap_flags(struct state_audio *s)
 unsigned int audio_get_display_flags(struct state_audio *s)
 {
         return audio_playback_get_display_flags(s->audio_playback_device);
-}
-
-struct audio_frame * audio_get_frame(struct state_audio *s)
-{
-        return audio_playback_get_frame(s->audio_playback_device);
 }
 
 int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,

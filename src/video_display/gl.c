@@ -1022,12 +1022,6 @@ int display_gl_putf(void *state, struct video_frame *frame)
         return 0;
 }
 
-struct audio_frame * display_gl_get_audio_frame(void *state)
-{
-        UNUSED(state);
-        return NULL;
-}
-
 void display_gl_put_audio_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(state);

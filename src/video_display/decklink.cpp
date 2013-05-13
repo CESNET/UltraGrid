@@ -256,7 +256,6 @@ struct state_decklink {
 
         DeckLinkTimecode    *timecode;
 
-        struct audio_frame  audio;
         struct video_frame *frame;
 
         unsigned long int   frames;
@@ -913,7 +912,6 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                                 fprintf(stderr, "[Decklink display] [Fatal] Unsupporetd audio connection.\n");
                                 abort();
                 }
-                s->audio.data = NULL;
         } else {
                 s->play_audio = FALSE;
         }
@@ -1152,20 +1150,20 @@ PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner, int index)
 /*
  * AUDIO
  */
-struct audio_frame * display_decklink_get_audio_frame(void *state)
-{
-        struct state_decklink *s = (struct state_decklink *)state;
-        
-        if(!s->play_audio)
-                return NULL;
-        return &s->audio;
-}
-
 void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
-                        s->audio.ch_count);
+        unsigned int sampleFrameCount = frame->data_len / (frame->bps *
+                        frame->ch_count);
+
+        struct audio_frame tmp_frame,
+                           *play_frame;
+
+        if(!s->play_audio)
+                return;
+
+        memset(&tmp_frame, 0, sizeof(tmp_frame));
+
 #ifdef WIN32
         unsigned long int sampleFramesWritten;
 #else
@@ -1173,26 +1171,27 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
 #endif
 
         /* we got probably count that cannot be played directly (probably 1) */
-        if(s->output_audio_channel_count != s->audio.ch_count) {
-                assert(s->audio.ch_count == 1); /* only reasonable value so far */
-                if (sampleFrameCount * s->output_audio_channel_count 
-                                * frame->bps > frame->max_size) {
-                        fprintf(stderr, "[decklink] audio buffer overflow!\n");
-                        sampleFrameCount = frame->max_size / 
-                                        (s->output_audio_channel_count * frame->bps);
-                        frame->data_len = sampleFrameCount *
-                                        (frame->ch_count * frame->bps);
-                }
+        if(s->output_audio_channel_count != frame->ch_count) {
+                assert(frame->ch_count == 1); /* only reasonable value so far */
+
+                memcpy(&tmp_frame, frame, sizeof(tmp_frame));
+                tmp_frame.max_size = sampleFrameCount * s->output_audio_channel_count
+                                * frame->bps;
+                tmp_frame.data = (char *) malloc(tmp_frame.max_size);
                 
-                audio_frame_multiply_channel(frame,
+                audio_frame_multiply_channel(&tmp_frame,
                                 s->output_audio_channel_count);
+                play_frame = &tmp_frame;
+        } else {
+                play_frame = frame;
         }
         
-	s->state[0].deckLinkOutput->ScheduleAudioSamples (s->audio.data, sampleFrameCount, 0, 		
+	s->state[0].deckLinkOutput->ScheduleAudioSamples (play_frame->data, sampleFrameCount, 0,
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
                 fprintf(stderr, "[decklink] audio buffer underflow!\n");
 
+        free(tmp_frame.data);
 }
 
 int display_decklink_reconfigure_audio(void *state, int quant_samples, int channels,
@@ -1200,24 +1199,19 @@ int display_decklink_reconfigure_audio(void *state, int quant_samples, int chann
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
-        if(s->audio.data != NULL)
-                free(s->audio.data);
-                
-        s->audio.bps = quant_samples / 8;
-        s->audio.sample_rate = sample_rate;
-        s->output_audio_channel_count = s->audio.ch_count = channels;
+        s->output_audio_channel_count = channels;
         
-        if (s->audio.ch_count != 1 &&
-                        s->audio.ch_count != 2 && s->audio.ch_count != 8 &&
-                        s->audio.ch_count != 16) {
+        if (channels != 1 &&
+                        channels != 2 && channels != 8 &&
+                        channels != 16) {
                 fprintf(stderr, "[decklink] requested channel count isn't supported: "
-                        "%d\n", s->audio.ch_count);
+                        "%d\n", channels);
                 s->play_audio = FALSE;
                 return FALSE;
         }
         
         /* toggle one channel to supported two */
-        if(s->audio.ch_count == 1) {
+        if(channels == 1) {
                  s->output_audio_channel_count = 2;
         }
         
@@ -1246,11 +1240,6 @@ int display_decklink_reconfigure_audio(void *state, int quant_samples, int chann
                         bmdAudioOutputStreamContinuous);
         s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
         
-        s->audio.max_size = 5 * (quant_samples / 8) 
-                        * s->audio.ch_count
-                        * sample_rate;                
-        s->audio.data = (char *) malloc (s->audio.max_size);
-
         return TRUE;
 }
 

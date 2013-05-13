@@ -68,7 +68,6 @@ int                  display_dvs_reconfigure(void *state,
                                 struct video_desc desc);
 int                  display_dvs_get_property(void *state, int property, void *val, size_t *len);
 
-struct audio_frame * display_dvs_get_audio_frame(void *state);
 void                 display_dvs_put_audio_frame(void *state, struct audio_frame *frame);
 int                  display_dvs_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);

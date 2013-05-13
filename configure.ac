@@ -402,12 +402,12 @@ AC_SUBST(common_lib_abi_version)
 AC_SUBST(COMMON_LIB_TARGET, "lib/ultragrid/ug_lib_common.so.$common_lib_abi_version")
 LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
 
-video_display_abi_version=3
+video_display_abi_version=4
 video_capture_abi_version=2
 video_compress_abi_version=2
 video_decompress_abi_version=3
 audio_capture_abi_version=3
-audio_playback_abi_version=3
+audio_playback_abi_version=4
 audio_codec_abi_version=1
 vo_pp_abi_version=3
 AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Specifies ABI version for video displays])

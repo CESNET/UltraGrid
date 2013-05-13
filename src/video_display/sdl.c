@@ -874,18 +874,12 @@ error:
         return FALSE;
 }
 
-
-struct audio_frame * display_sdl_get_audio_frame(void *state) {
-        struct state_sdl *s = (struct state_sdl *)state;
-        if(s->play_audio)
-                return &s->audio_frame;
-        else
-                return NULL;
-}
-
 void display_sdl_put_audio_frame(void *state, struct audio_frame *frame) {
         struct state_sdl *s = (struct state_sdl *)state;
         char *tmp;
+
+        if(!s->play_audio)
+                return;
 
         if(frame->bps == 4 || frame->bps == 3) {
                 tmp = (char *) malloc(frame->data_len / frame->bps * 2);

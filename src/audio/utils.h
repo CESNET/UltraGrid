@@ -61,6 +61,7 @@ void audio_frame2_free(audio_frame2 *);
 void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
 
 bool audio_desc_eq(struct audio_desc, struct audio_desc);
+struct audio_desc audio_desc_from_audio_frame(struct audio_frame *);
 struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *);
 struct audio_desc audio_desc_from_audio_channel(audio_channel *);
 

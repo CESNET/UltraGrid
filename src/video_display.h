@@ -163,10 +163,6 @@ int                      display_get_property(struct display *d, int property, v
 /* 
  * Audio related functions (embedded audio)
  */
-/**
- * Gets empty audio frame from driver
- */
-struct audio_frame      *display_get_audio_frame(struct display *d);
 /*
  * TODO: currently unused - should be implemented at least for SDL (toggling fullscreen for RGB videos)
  */

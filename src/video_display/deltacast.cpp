@@ -122,7 +122,7 @@ struct state_deltacast {
         unsigned int audio_configured:1;
         VHD_AUDIOINFO     AudioInfo;
         SHORT            *pSample;
-        struct audio_frame  audio_frame;
+        struct audio_desc  audio_desc;
         struct ring_buffer  *audio_channels[16];
         char            *audio_tmp;
  };
@@ -180,7 +180,7 @@ int display_deltacast_putf(void *state, struct video_frame *frame)
         pthread_mutex_lock(&s->lock);
         if(s->play_audio && s->audio_configured) {
                 /* Retrieve the number of needed samples */
-                for(i = 0; i < s->audio_frame.ch_count; ++i) {
+                for(i = 0; i < s->audio_desc.ch_count; ++i) {
                         s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].DataSize = 0;
                 }
                 Result = VHD_SlotEmbedAudio(s->SlotHandle,&s->AudioInfo);
@@ -188,7 +188,7 @@ int display_deltacast_putf(void *state, struct video_frame *frame)
                 {
                         fprintf(stderr, "[DELTACAST] ERROR : Cannot embed audio on TX0 stream. Result = 0x%08X\n",Result);
                 } else {
-                        for(i = 0; i < s->audio_frame.ch_count; ++i) {
+                        for(i = 0; i < s->audio_desc.ch_count; ++i) {
                                 int ret;
                                 ret = ring_buffer_read(s->audio_channels[i], (char *) s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].pData, s->AudioInfo.pAudioGroups[i / 4].pAudioChannels[i % 4].DataSize);
                                 if(!ret) {
@@ -485,19 +485,16 @@ int display_deltacast_reconfigure_audio(void *state, int quant_samples, int chan
                 ring_buffer_destroy(s->audio_channels[i]);
                 s->audio_channels[i] = NULL;
         }
-        free(s->audio_frame.data);
         free(s->audio_tmp);
 
-        s->audio_frame.bps = quant_samples / 8;
-        s->audio_frame.ch_count = channels;
-        s->audio_frame.sample_rate = sample_rate;
+        s->audio_desc.bps = quant_samples / 8;
+        s->audio_desc.ch_count = channels;
+        s->audio_desc.sample_rate = sample_rate;
 
-        s->audio_frame.max_size = s->audio_frame.bps * s->audio_frame.ch_count * s->audio_frame.sample_rate;
-        s->audio_frame.data = (char *) malloc(s->audio_frame.max_size);
         for(i = 0; i < channels; ++i) {
-                s->audio_channels[i] = ring_buffer_init(s->audio_frame.bps * s->audio_frame.sample_rate);
+                s->audio_channels[i] = ring_buffer_init(s->audio_desc.bps * s->audio_desc.sample_rate);
         }
-        s->audio_tmp = (char *) malloc(s->audio_frame.bps * s->audio_frame.sample_rate);
+        s->audio_tmp = (char *) malloc(s->audio_desc.bps * s->audio_desc.sample_rate);
 
         /* Configure audio info */
         memset(&s->AudioInfo, 0, sizeof(VHD_AUDIOINFO));
@@ -519,7 +516,7 @@ int display_deltacast_reconfigure_audio(void *state, int quant_samples, int chan
                                 fprintf(stderr, "[DELTACAST] Unsupported PCM audio: %d bits.\n", quant_samples);
                                 return FALSE;
                 }
-                pAudioChn->pData = new BYTE[s->audio_frame.bps * s->audio_frame.sample_rate];
+                pAudioChn->pData = new BYTE[s->audio_desc.bps * s->audio_desc.sample_rate];
         }
 
         s->audio_configured = TRUE;
@@ -528,22 +525,17 @@ int display_deltacast_reconfigure_audio(void *state, int quant_samples, int chan
         return TRUE;
 }
 
-struct audio_frame * display_deltacast_get_audio_frame(void *state)
-{
-        struct state_deltacast *s = (struct state_deltacast *)state;
-
-        return &s->audio_frame;
-}
-
 void display_deltacast_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
         int i;
         int channel_len = frame->data_len / frame->ch_count;
 
-        for(i = 0; i < s->audio_frame.ch_count; ++i) {
+        pthread_mutex_lock(&s->lock);
+        for(i = 0; i < frame->ch_count; ++i) {
                  demux_channel(s->audio_tmp, frame->data, frame->bps, frame->data_len, frame->ch_count, i);
                  ring_buffer_write(s->audio_channels[i], s->audio_tmp, channel_len);
         }
+        pthread_mutex_unlock(&s->lock);
 }
 

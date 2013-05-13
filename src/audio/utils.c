@@ -125,6 +125,14 @@ bool audio_desc_eq(struct audio_desc a1, struct audio_desc a2) {
                 a1.codec == a2.codec;
 }
 
+struct audio_desc audio_desc_from_audio_frame(struct audio_frame *frame) {
+        return (struct audio_desc) { .bps = frame->bps,
+                .sample_rate = frame->sample_rate,
+                .ch_count = frame->ch_count,
+                .codec = AC_PCM
+        };
+}
+
 struct audio_desc audio_desc_from_audio_frame2(audio_frame2 *frame) {
         return (struct audio_desc) { .bps = frame->bps,
                 .sample_rate = frame->sample_rate,

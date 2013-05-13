@@ -56,7 +56,6 @@ struct state_audio_playback    *audio_playback_init_null_device(void);
 int                             audio_playback_reconfigure(struct state_audio_playback *state,
                 int quant_samples, int channels,
                 int sample_rate);
-struct audio_frame             *audio_playback_get_frame(struct state_audio_playback *state);
 void                            audio_playback_put_frame(struct state_audio_playback *state, struct audio_frame *frame);
 void                            audio_playback_finish(struct state_audio_playback *state);
 void                            audio_playback_done(struct state_audio_playback *state);

@@ -844,46 +844,46 @@ int display_dvs_get_property(void *state, int property, void *val, size_t *len)
 /*
  * AUDIO
  */
-struct audio_frame * display_dvs_get_audio_frame(void *state)
-{
-        struct state_hdsp *s = (struct state_hdsp *)state;
-        
-        if(!s->play_audio)
-                return NULL;
-        return &s->audio;
-}
-
 void display_dvs_put_audio_frame(void *state, struct audio_frame *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
         
         char *tmp;
+        struct audio_frame tmp_frame,
+             *play_frame;
+
+        if(!s->play_audio)
+                return;
+
+
+        memset(&tmp_frame, 0, sizeof(struct audio_frame));
 
         /* we got probably count that cannot be rendered directly (aka 1) */
         if(s->output_audio_channel_count != s->audio.ch_count) {
                 assert(s->audio.ch_count == 1); /* only reasonable value so far */
-                if (frame->data_len > (int) frame->max_size * s->output_audio_channel_count
-                                / frame->ch_count) {
-                        fprintf(stderr, "[dvs] audio buffer overflow!\n");
-                        
-                        frame->data_len = frame->max_size * s->output_audio_channel_count
-                                / frame->ch_count;
-                }
                 
-                audio_frame_multiply_channel(frame,
+                memcpy(&tmp_frame, frame, sizeof(tmp_frame));
+                tmp_frame.max_size = frame->data_len * s->output_audio_channel_count;
+                tmp_frame.data = (char *) malloc(tmp_frame.max_size);
+                memcpy(tmp_frame.data, frame->data, frame->data_len);
+                audio_frame_multiply_channel(&tmp_frame,
                                 s->output_audio_channel_count);
+                play_frame = &tmp_frame;
+        } else {
+                play_frame = frame;
         }
         
         
-        const int dst_len = frame->data_len * s->output_audio_channel_count / frame->ch_count
-                        * sizeof(int32_t) / frame->bps;
-        const int src_len = dst_len * frame->bps / sizeof(int32_t);
+        const int dst_len = play_frame->data_len * s->output_audio_channel_count / play_frame->ch_count
+                        * sizeof(int32_t) / play_frame->bps;
+        const int src_len = dst_len * play_frame->bps / sizeof(int32_t);
         
         tmp = malloc(dst_len);
-        change_bps(tmp, sizeof(int32_t), frame->data, frame->bps, src_len);
+        change_bps(tmp, sizeof(int32_t), play_frame->data, play_frame->bps, src_len);
         
         
         ring_buffer_write(s->audio_ring_buffer, tmp, dst_len);
+        free(tmp_frame.data);
         free(tmp);
 }
 
