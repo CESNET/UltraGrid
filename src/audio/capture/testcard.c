@@ -56,6 +56,8 @@
 #include "config.h"
 #include "config_unix.h"
 #endif
+
+#include "audio/wav_reader.h"
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -72,10 +74,11 @@
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 (int) audio_capture_channels * BUFFER_SEC)
 
-#define CHUNK 128 * 3 // has to be divisor of AUDIO_SAMLE_RATE
+#define CHUNK 1920 // 1 video frame time @25 fps
+                   // has to be divisor of AUDIO_SAMLE_RATE
 
 #define FREQUENCY 440
-#define VOLUME 0.7
+#define DEFAULT_VOLUME 0.7
 
 enum which_sample {
         TONE,
@@ -107,46 +110,94 @@ void * audio_cap_testcard_init(char *cfg)
 {
         struct state_audio_capture_testcard *s;
         int i;
+        char *wav_file = NULL;
+        char *item, *save_ptr;
+
+        double volume = DEFAULT_VOLUME;
 
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available testcard capture:\n");
                 audio_cap_testcard_help(NULL);
+                printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>]\n");
+                printf("\t\t\t<vol> is a float between 0 and 1\n");
+                printf("\t\t\t<wav> is a wav file to be played\n");
                 return NULL;
         }
 
-        s = (struct state_audio_capture_testcard *) malloc(sizeof(struct state_audio_capture_testcard));
-        printf(MODULE_NAME "Generating %d sec tone (%d Hz) / %d sec silence ", BUFFER_SEC, FREQUENCY, BUFFER_SEC);
-        printf("(channels: %u; bps: %d; sample rate: %d; frames per packet: %d).\n", audio_capture_channels,
-                        AUDIO_BPS, AUDIO_SAMPLE_RATE, CHUNK);
-        s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
-        assert(s != 0);
-        UNUSED(cfg);
-
-        s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-        
-        s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-        if(AUDIO_BPS == 2) {
-                short int * data = (short int *) s->audio_tone;
-                for( i=0; i < AUDIO_BUFFER_SIZE/sizeof(short); i+=audio_capture_channels )
-                {
-                        for (int channel = 0; channel < (int) audio_capture_channels; ++channel)
-                                data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * SHRT_MAX * VOLUME;
-                }
-        } else if(AUDIO_BPS == 4) {
-                int * data = (int *) s->audio_tone;
-                for( i=0; i < AUDIO_BUFFER_SIZE/sizeof(int); i+=audio_capture_channels )
-                {
-                        for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
-                                data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * INT_MAX * VOLUME;
+        if(cfg) {
+                while((item = strtok_r(cfg, ":", &save_ptr))) {
+                        if(strncasecmp(item, "vol=", strlen("vol=")) == 0) {
+                                volume = atof(item + strlen("vol="));
+                        } else if(strncasecmp(item, "file=", strlen("file=")) == 0) {
+                                wav_file = item + strlen("file=");
                         }
-                }
-        } else abort(); // unsupported
 
-        
-        s->audio.bps = AUDIO_BPS;
-        s->audio.ch_count = audio_capture_channels;
-        s->audio.sample_rate = AUDIO_SAMPLE_RATE;
-        s->audio.data_len = CHUNK * AUDIO_BPS * audio_capture_channels;
+                        cfg = NULL;
+                }
+        }
+
+        s = (struct state_audio_capture_testcard *) malloc(sizeof(struct state_audio_capture_testcard));
+        assert(s != 0);
+        s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
+
+        if(!wav_file) {
+                printf(MODULE_NAME "Generating %d sec tone (%d Hz) / %d sec silence ", BUFFER_SEC, FREQUENCY, BUFFER_SEC);
+                printf("(channels: %u; bps: %d; sample rate: %d; frames per packet: %d).\n", audio_capture_channels,
+                                AUDIO_BPS, AUDIO_SAMPLE_RATE, CHUNK);
+
+                s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+
+                s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+                if(AUDIO_BPS == 2) {
+                        short int * data = (short int *) s->audio_tone;
+                        for( i=0; i < (int) (AUDIO_BUFFER_SIZE/sizeof(short)); i+=audio_capture_channels )
+                        {
+                                for (int channel = 0; channel < (int) audio_capture_channels; ++channel)
+                                        data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * SHRT_MAX * volume;
+                        }
+                } else if(AUDIO_BPS == 4) {
+                        int * data = (int *) s->audio_tone;
+                        for( i=0; i < AUDIO_BUFFER_SIZE/sizeof(int); i+=audio_capture_channels )
+                        {
+                                for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
+                                        data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * INT_MAX * volume;
+                                }
+                        }
+                } else abort(); // unsupported
+
+                s->audio.bps = AUDIO_BPS;
+                s->audio.ch_count = audio_capture_channels;
+                s->audio.sample_rate = AUDIO_SAMPLE_RATE;
+                s->audio.max_size = AUDIO_BUFFER_SIZE;
+        } else {
+                FILE *wav = fopen(wav_file, "r");
+                if(!wav) {
+                        fprintf(stderr, "Unable to open WAV.\n");
+                        return NULL;
+                }
+                struct wav_metadata metadata;
+                int ret = read_wav_header(wav, &metadata);
+                if(ret != WAV_HDR_PARSE_OK) {
+                        print_wav_error(ret);
+                        return NULL;
+                }
+                s->audio.bps = metadata.bits_per_sample / 8;
+                s->audio.ch_count = metadata.ch_count;
+                s->audio.sample_rate = metadata.sample_rate;
+                s->audio.max_size = metadata.data_size;
+
+                s->audio_silence = calloc(1, s->audio.max_size);
+                s->audio_tone = calloc(1, s->audio.max_size);
+                int bytes = fread(s->audio_silence, 1, s->audio.max_size, wav);
+                if(bytes != (int) s->audio.max_size) {
+                        s->audio.max_size = bytes;
+                        fprintf(stderr, "Warning: premature end of WAV file!\n");
+                }
+                memcpy(s->audio_tone, s->audio_silence, s->audio.max_size);
+                fclose(wav);
+        }
+
+        s->audio.data_len = CHUNK * s->audio.bps * s->audio.ch_count;
 
         s->current_sample = SILENCE;
         s->samples_played = 0;
@@ -183,7 +234,7 @@ struct audio_frame *audio_cap_testcard_read(void *state)
         }
 
         s->samples_played += CHUNK;
-        if(s->samples_played >= AUDIO_SAMPLE_RATE) {
+        if((unsigned) s->samples_played >= s->audio.max_size / s->audio.bps / s->audio.ch_count) {
                 s->samples_played = 0;
                 if(s->current_sample == TONE) {
                         s->current_sample = SILENCE;

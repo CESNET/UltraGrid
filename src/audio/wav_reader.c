@@ -77,3 +77,21 @@ int read_wav_header(FILE *wav_file, struct wav_metadata *metadata)
         return WAV_HDR_PARSE_OK;
 }
 
+void print_wav_error(int errcode)
+{
+        switch(errcode) {
+                case WAV_HDR_PARSE_OK:
+                        printf("Wav header OK.\n");
+                        break;
+                case WAV_HDR_PARSE_READ_ERROR:
+                        fprintf(stderr, "Premature end of WAV file.\n");
+                        break;
+                case WAV_HDR_PARSE_WRONG_FORMAT:
+                        fprintf(stderr, "Wav header in wrong format.\n");
+                        break;
+                case WAV_HDR_PARSE_NOT_PCM:
+                        fprintf(stderr, "Wav not in PCM.\n");
+                        break;
+        }
+}
+

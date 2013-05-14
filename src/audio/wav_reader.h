@@ -26,3 +26,5 @@ struct wav_metadata {
  */
 int read_wav_header(FILE *wav_file, struct wav_metadata *metadata);
 
+void print_wav_error(int errcode);
+
