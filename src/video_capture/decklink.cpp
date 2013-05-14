@@ -624,7 +624,7 @@ settings_init(void *state, char *fmt)
                 s->autodetect_mode = TRUE;
                 s->devices_cnt = 1;
                 s->state[s->devices_cnt].index = 0;
-                printf("DeckLink] Auto-choosen device 0.\n");
+                printf("[DeckLink] Auto-choosen device 0.\n");
         }
 
 	return 1;	
@@ -874,7 +874,6 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
                 }
                 while (deckLinkIterator->Next(&deckLink) == S_OK)
                 {
-                        printf("%d\n", dnum);
                         if (s->state[i].index != dnum) {
                                 dnum++;
 
