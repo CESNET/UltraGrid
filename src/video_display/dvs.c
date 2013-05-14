@@ -496,7 +496,6 @@ display_dvs_getf(void *state)
 int display_dvs_putf(void *state, struct video_frame *frame)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
-        struct timeval t;
 
         UNUSED(frame);
 
@@ -680,7 +679,7 @@ void *display_dvs_init(char *fmt, unsigned int flags)
                                                 s->frame->color_spec = codec_info[i].codec;
                                         }
                                 }
-                                if (s->frame->color_spec == 0xffffffff) {
+                                if (s->frame->color_spec == (codec_t) 0xffffffff) {
                                         fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                         free(s);
                                         return 0;
