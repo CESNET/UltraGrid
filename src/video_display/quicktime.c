@@ -593,7 +593,7 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                 if (strcmp(fmt, "help") == 0) {
                         show_help(0);
                         free(s);
-                        return NULL;
+                        return &display_init_noerr;
                 }
                 if (strcmp(fmt, "fullhelp") == 0) {
                         show_help(1);

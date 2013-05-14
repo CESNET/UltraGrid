@@ -80,10 +80,12 @@ void (*vidcap_finish_extrn)(struct vidcap *) = vidcap_finish;
 void (*vidcap_done_extrn)(struct vidcap *) = vidcap_done;
 vidcap_id_t (*vidcap_get_null_device_id_extrn)(void) = vidcap_get_null_device_id;
 struct vidcap_type *(*vidcap_get_device_details_extrn)(int index) = vidcap_get_device_details;
-struct vidcap *(*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags) = vidcap_init;
+int (*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **) = vidcap_init;
 struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio) = vidcap_grab;
 int (*vidcap_get_device_count_extrn)(void) = vidcap_get_device_count;
 int (*vidcap_init_devices_extrn)(void) = vidcap_init_devices;
+
+int vidcap_init_noerr;
 
 struct vidcap {
         void *state;
@@ -414,7 +416,7 @@ vidcap_id_t vidcap_get_null_device_id(void)
 
 /* API for video capture **************************************************************************/
 
-struct vidcap *vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags)
+int vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **state)
 {
         unsigned int i;
 
@@ -430,13 +432,18 @@ struct vidcap *vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags)
                                     ("Unable to start video capture device 0x%08lx\n",
                                      id);
                                 free(d);
-                                return NULL;
+                                return -1;
                         }
-                        return d;
+                        if(d->state == &vidcap_init_noerr) {
+                                free(d);
+                                return 1;
+                        }
+                        *state = d;
+                        return 0;
                 }
         }
         debug_msg("Unknown video capture device: 0x%08x\n", id);
-        return NULL;
+        return -1;
 }
 
 void vidcap_done(struct vidcap *state)

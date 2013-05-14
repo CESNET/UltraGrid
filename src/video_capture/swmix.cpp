@@ -745,9 +745,10 @@ static void *slave_worker(void *arg)
 {
         struct state_slave *s = (struct state_slave *) arg;
 
-        struct vidcap *device =
-                initialize_video_capture(s->device_vendor, s->device_cfg, s->vidcap_flags);
-        if(!device) {
+        struct vidcap *device;
+        int ret =
+                initialize_video_capture(s->device_vendor, s->device_cfg, s->vidcap_flags, &device);
+        if(ret != 0) {
                 fprintf(stderr, "[swmix] Unable to initialize device %s (%s:%s).\n",
                                 s->name, s->device_vendor, s->device_cfg);
                 return NULL;
@@ -1060,7 +1061,7 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
         if(!init_fmt || strcmp(init_fmt, "help") == 0) {
                 show_help();
-                return NULL;
+                return &vidcap_init_noerr;
         }
 
         memset(&desc, 0, sizeof(desc));

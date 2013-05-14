@@ -128,7 +128,7 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
 
         if(!init_fmt || strcmp(init_fmt, "help") == 0) {
                 show_help();
-                return NULL;
+                return &vidcap_init_noerr;
         }
 
 
@@ -161,10 +161,10 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
                         dev_flags = flags & ~(VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG);
                 }
 
-                s->devices[i] = initialize_video_capture(device,
-                                               device_cfg, dev_flags);
+                int ret = initialize_video_capture(device,
+                                               device_cfg, dev_flags, &s->devices[i]);
                 free(config);
-                if(!s->devices[i]) {
+                if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n", i, device, device_cfg);
                         goto error;
                 }

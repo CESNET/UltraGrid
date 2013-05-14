@@ -297,7 +297,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                 printf("\ti|sf - send as interlaced or segmented frame (if none of those is set, progressive is assumed)\n");
                 printf("\tstill - send still image\n");
                 show_codec_help("testcard");
-                return NULL;
+                return &vidcap_init_noerr;
         }
 
         s = calloc(1, sizeof(struct testcard_state));

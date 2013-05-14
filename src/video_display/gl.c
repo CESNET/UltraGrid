@@ -271,7 +271,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 		if (strcmp(fmt, "help") == 0) {
 			gl_show_help();
 			free(s);
-			return NULL;
+			return &display_init_noerr;
 		}
 
 		char *tmp = strdup(fmt);

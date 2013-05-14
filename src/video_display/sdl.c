@@ -572,7 +572,7 @@ void *display_sdl_init(char *fmt, unsigned int flags)
                 if (strcmp(fmt, "help") == 0) {
                         show_help();
                         free(s);
-                        return NULL;
+                        return &display_init_noerr;
                 }
                 
                 char *tmp = strdup(fmt);

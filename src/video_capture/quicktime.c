@@ -527,7 +527,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         }
                         SGDisposeDeviceList(s->grabber, deviceList);
                 }
-                return 0;
+                return &vidcap_init_noerr;
         }
 
         if (SGSetChannelUsage

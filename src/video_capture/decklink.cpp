@@ -534,7 +534,7 @@ settings_init(void *state, char *fmt)
 		char *save_ptr_top = NULL;
                 if(strcmp(fmt, "help") == 0) {
                         decklink_help();
-                        return 0;
+                        return -1;
                 }
 
                 char *tmp;
@@ -806,9 +806,14 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         s->flags = 0;
 
 	// SET UP device and mode
-	if(settings_init(s, fmt) == 0) {
+        int ret = settings_init(s, fmt);
+	if(ret == 0) {
 		free(s);
 		return NULL;
+	}
+	if(ret == -1) {
+		free(s);
+		return &vidcap_init_noerr;
 	}
 
         if(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {

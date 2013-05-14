@@ -101,14 +101,20 @@ display_id_t 	 display_get_null_device_id(void);
  */
 struct display;
 
+extern int display_init_noerr;
+
 /**
  * Initializes video display
  *
  * @param fmt    command-line entered format string
  * @param flags  bit sum of DISPLAY_FLAG_* params defined above
- * @return       opaque struct which will be passed in subsequent calls
+ * @param[out]   display state if available, may be NULL if driver only shows help
+ *               defined only if sucessful
+ * @retval    0  if sucessful
+ * @retval   -1  if failed
+ * @retval    1  if successfully shown help
  */
-struct display	        *display_init(display_id_t id, char *fmt, unsigned int flags);
+int display_init(display_id_t id, char *fmt, unsigned int flags, struct display **state);
 
 /**
  * This call is entered in main thread and the display may stay in this call until end of the program.

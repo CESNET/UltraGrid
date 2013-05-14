@@ -664,7 +664,7 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 	if (init_fmt && strcmp(init_fmt, "help") == 0) {
 		show_help(s); 
 		cleanup(s);
-		return NULL;
+		return &vidcap_init_noerr;
 	}
 
 	if (!common_init(s)) {

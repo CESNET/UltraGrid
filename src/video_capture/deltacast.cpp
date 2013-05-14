@@ -199,7 +199,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
-                goto error;
+                return &vidcap_init_noerr;
         }
         
         if(init_fmt)

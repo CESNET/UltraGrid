@@ -79,10 +79,12 @@ extern char *sage_network_device;
 // for aggregate.c
 struct vidcap;
 struct display;
-struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags);
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags);
+int initialize_video_display(const char *requested_display,
+                                                char *fmt, unsigned int flags,
+                                                struct display **);
+int initialize_video_capture(const char *requested_capture,
+                                               char *fmt, unsigned int flags,
+                                               struct vidcap **);
 struct vcodec_state;
 void destroy_decoder(struct vcodec_state *video_decoder_state);
 

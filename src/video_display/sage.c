@@ -168,7 +168,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
                         printf("\t                      <fsIP> - FS manager IP address\n");
                         printf("\t                      <fcc> - FourCC of codec that will be used to transmit to SAGE\n");
                         printf("\t                              Supported options are UYVY, RGBA, RGB or DXT1\n");
-                        return NULL;
+                        return &display_init_noerr;
                 } else {
                         char *save_ptr = NULL;
                         char *item;

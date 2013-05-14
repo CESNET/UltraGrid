@@ -658,8 +658,7 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
 			show_help();
-
-                        return NULL;
+                        return &display_init_noerr;
                 }
                 if(strncmp(fmt, "PCI", 3) == 0) {
                         name = fmt;

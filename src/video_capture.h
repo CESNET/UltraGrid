@@ -104,10 +104,17 @@ vidcap_id_t 		 vidcap_get_null_device_id(void);
 
 struct vidcap;
 
-struct vidcap		*vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags);
+/**
+ * Semantics is similar to the semantic of display_init
+ *
+ * @see display_init
+ */
+int                      vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);
 void			 vidcap_finish(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
+
+extern int vidcap_init_noerr;
 
 #ifdef __cplusplus
 }

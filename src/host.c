@@ -41,15 +41,16 @@ extern void (*display_free_devices_extrn)(void);
 extern vidcap_id_t (*vidcap_get_null_device_id_extrn)();
 extern display_id_t (*display_get_null_device_id_extrn)();
 extern void (*decoder_destroy_extrn)(struct state_decoder *decoder);
-extern struct vidcap *(*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags);
-extern struct display *(*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags);
+extern int (*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **);
+extern int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **);
 extern int (*vidcap_get_device_count_extrn)(void);
 extern int (*display_get_device_count_extrn)(void);
 extern int (*vidcap_init_devices_extrn)(void);
 extern int (*display_init_devices_extrn)(void);
 
-struct vidcap *initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags)
+int initialize_video_capture(const char *requested_capture,
+                                               char *fmt, unsigned int flags,
+                                               struct vidcap **state)
 {
         struct vidcap_type *vt;
         vidcap_id_t id = 0;
@@ -72,18 +73,19 @@ struct vidcap *initialize_video_capture(const char *requested_capture,
         if(i == vidcap_get_device_count_extrn()) {
                 fprintf(stderr, "WARNING: Selected '%s' capture card "
                         "was not found.\n", requested_capture);
-                return NULL;
+                return -1;
         }
         vidcap_free_devices_extrn();
 
         pthread_mutex_unlock(vidcap_lock);
         rm_release_shared_lock("VIDCAP_LOCK");
 
-        return vidcap_init_extrn(id, fmt, flags);
+        return vidcap_init_extrn(id, fmt, flags, state);
 }
 
-struct display *initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags)
+int initialize_video_display(const char *requested_display,
+                                                char *fmt, unsigned int flags,
+                                                struct display **out)
 {
         struct display *d;
         display_type_t *dt;
@@ -114,12 +116,13 @@ struct display *initialize_video_display(const char *requested_display,
         if(i == display_get_device_count_extrn()) {
                 fprintf(stderr, "WARNING: Selected '%s' display card "
                         "was not found.\n", requested_display);
-                return NULL;
+                return -1;
         }
         display_free_devices_extrn();
 
-        d = display_init_extrn(id, fmt, flags);
-        return d;
+        int ret = display_init_extrn(id, fmt, flags, &d);
+        *out = d;
+        return ret;
 }
 
 void destroy_decoder(struct vcodec_state *video_decoder_state) {

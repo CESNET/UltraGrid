@@ -796,7 +796,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
 
         } else if (strcmp(fmt, "help") == 0) {
                 show_help();
-                return NULL;
+                return &display_init_noerr;
         } else  {
                 char *tmp = strdup(fmt);
                 char *ptr;

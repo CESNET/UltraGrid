@@ -73,7 +73,7 @@
 display_type_t *(*display_get_device_details_extrn)(int index) = display_get_device_details;
 void (*display_free_devices_extrn)(void) = display_free_devices;
 display_id_t (*display_get_null_device_id_extrn)(void) = display_get_null_device_id;
-struct display *(*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags) = display_init;
+int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **) = display_init;
 int (*display_get_device_count_extrn)(void) = display_get_device_count;
 int (*display_init_devices_extrn)(void)  = display_init_devices;
 
@@ -424,7 +424,9 @@ struct display {
         void *state;
 };
 
-struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
+int display_init_noerr;
+
+int display_init(display_id_t id, char *fmt, unsigned int flags, struct display **state)
 {
         unsigned int i;
 
@@ -439,13 +441,17 @@ struct display *display_init(display_id_t id, char *fmt, unsigned int flags)
                                 debug_msg("Unable to start display 0x%08lx\n",
                                           id);
                                 free(d);
-                                return NULL;
+                                return -1;
+                        } else if (d->state == &display_init_noerr) {
+                                free(d);
+                                return 1;
                         }
-                        return d;
+                        *state = d;
+                        return 0;
                 }
         }
         debug_msg("Unknown display id: 0x%08x\n", id);
-        return NULL;
+        return -1;
 }
 
 void display_finish(struct display *d)

@@ -955,6 +955,7 @@ int main(int argc, char *argv[])
         unsigned vidcap_flags = 0,
                  display_flags = 0;
         int compressed_audio_sample_rate = 48000;
+        int ret;
 
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
@@ -1348,21 +1349,30 @@ int main(int argc, char *argv[])
 
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
         // to initalize shared resource (X display) first
-        if ((uv->display_device =
-             initialize_video_display(uv->requested_display, display_cfg, display_flags)) == NULL) {
+        ret =
+             initialize_video_display(uv->requested_display, display_cfg, display_flags, &uv->display_device);
+        if (ret < 0) {
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
                 exit_uv(EXIT_FAIL_DISPLAY);
                 goto cleanup_wait_audio;
         }
+        if(ret > 0) {
+                exit_uv(EXIT_SUCCESS);
+                goto cleanup_wait_audio;
+        }
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-        if ((uv->capture_device =
-                        initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags)) == NULL) {
+        ret = initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags, &uv->capture_device);
+        if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
                 exit_uv(EXIT_FAIL_CAPTURE);
+                goto cleanup_wait_audio;
+        }
+        if(ret > 0) {
+                exit_uv(EXIT_SUCCESS);
                 goto cleanup_wait_audio;
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
@@ -1495,9 +1505,9 @@ int main(int argc, char *argv[])
                 }
                 free(requested_video_fec);
         } else { // SAGE
-                uv->sage_tx_device = initialize_video_display("sage",
-                                sage_opts, 0);
-                if(uv->sage_tx_device == NULL) {
+                ret = initialize_video_display("sage",
+                                sage_opts, 0, &uv->sage_tx_device);
+                if(ret != 0) {
                         fprintf(stderr, "Unable to initialize SAGE TX.\n");
                         exit_uv(EXIT_FAIL_NETWORK);
                         goto cleanup_wait_display;

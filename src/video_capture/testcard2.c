@@ -152,7 +152,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
                 printf("testcard2 options:\n");
                 printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
                 show_codec_help("testcard");
-                return NULL;
+                return &vidcap_init_noerr;
         }
 
         s = calloc(1, sizeof(struct testcard_state2));

@@ -378,7 +378,7 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
 
         if(!init_fmt || strcmp(init_fmt, "help") == 0) {
                 print_output_modes();
-                return NULL;
+                return &vidcap_init_noerr;
         }
         
         if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
