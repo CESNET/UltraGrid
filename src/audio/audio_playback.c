@@ -301,7 +301,6 @@ struct state_audio_playback * audio_playback_init(char *device, char *cfg)
         s->state = available_audio_playback[s->index]->audio_init(cfg);
                 
         if(!s->state) {
-                fprintf(stderr, "Error initializing audio playback.\n");
                 goto error;
         }
 
