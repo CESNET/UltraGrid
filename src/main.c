@@ -784,12 +784,16 @@ static void *compress_thread(void *arg)
         int i = 0;
 
         struct compress_state *compression; 
-        compression = compress_init(uv->requested_compression);
+        int ret = compress_init(uv->requested_compression, &compression);
         
         pthread_mutex_unlock(&uv->master_lock);
         /* NOTE: unlock before propagating possible error */
-        if(compression == NULL) {
+        if(ret < 0) {
                 fprintf(stderr, "Error initializing compression.\n");
+                exit_uv(0);
+                goto compress_done;
+        }
+        if(ret > 0) {
                 exit_uv(0);
                 goto compress_done;
         }
@@ -1184,9 +1188,15 @@ int main(int argc, char *argv[])
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression; 
-                                compression = compress_init("JPEG:list_devices");
-                                compress_done(compression);
-                                return EXIT_SUCCESS;
+                                int ret = compress_init("JPEG:list_devices", &compression);
+                                if(ret >= 0) {
+                                        if(ret == 0) {
+                                                compress_done(compression);
+                                        }
+                                        return EXIT_SUCCESS;
+                                } else {
+                                        return EXIT_FAILURE;
+                                }
                         } else {
                                 char *item, *save_ptr = NULL;
                                 unsigned int i = 0;
@@ -1528,9 +1538,16 @@ int main(int argc, char *argv[])
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
                 if(strstr(uv->requested_compression,"help") != NULL) {
-                        struct compress_state *compression = compress_init(uv->requested_compression);
-                        compress_done(compression);
-                        exit_uv(EXIT_SUCCESS);
+                        struct compress_state *compression;
+                        int ret = compress_init(uv->requested_compression, &compression);
+
+                        if(ret >= 0) {
+                                if(ret == 0)
+                                        compress_done(compression);
+                                exit_uv(EXIT_SUCCESS);
+                        } else {
+                                exit_uv(EXIT_FAILURE);
+                        }
                         goto cleanup_wait_display;
                 }
 

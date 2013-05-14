@@ -93,6 +93,8 @@ struct compress_state {
         unsigned int uncompressed:1;
 };
 
+int compress_init_noerr;
+
 static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
                 int buffer_index);
@@ -238,18 +240,18 @@ void show_compress_help()
         }
 }
 
-struct compress_state *compress_init(char *config_string)
+int compress_init(char *config_string, struct compress_state **state)
 {
         struct compress_state *s;
         char *compress_options = NULL;
         
         if(!config_string) 
-                return NULL;
+                return -1;
         
         if(strcmp(config_string, "help") == 0)
         {
                 show_compress_help();
-                return NULL;
+                return 1;
         }
 
         pthread_once(&compression_list_initialized, init_compressions);
@@ -274,7 +276,7 @@ struct compress_state *compress_init(char *config_string)
         if(!s->handle) {
                 fprintf(stderr, "Unknown compression: %s\n", config_string);
                 free(s);
-                return NULL;
+                return -1;
         }
         s->compress_options = compress_options;
         if(s->handle->init) {
@@ -288,15 +290,21 @@ struct compress_state *compress_init(char *config_string)
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
                         free(s->state);
                         free(s);
-                        return NULL;
+                        return -1;
+                }
+                if(s->state[0] == &compress_init_noerr) {
+                        free(s->state);
+                        free(s);
+                        return 1;
                 }
                 for(int i = 0; i < 2; ++i) {
                         s->out_frame[i] = vf_alloc(1);
                 }
         } else {
-                return NULL;
+                return -1;
         }
-        return s;
+        *state = s;
+        return 0;
 }
 
 const char *get_compress_name(struct compress_state *s)
@@ -398,7 +406,8 @@ void compress_done(struct compress_state *s)
                 s->handle->done(s->state[i]);
         }
         free(s->state);
-        free(s);
+        if(s != &compress_init_noerr)
+                free(s);
 }
 
 int is_compress_none(struct compress_state *s)

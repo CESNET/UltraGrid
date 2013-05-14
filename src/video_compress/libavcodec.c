@@ -62,6 +62,7 @@
 #include "utils/worker.h"
 #include "video.h"
 #include "video_codec.h"
+#include "video_compress.h"
 
 #define DEFAULT_CODEC MJPG
 
@@ -184,7 +185,7 @@ void * libavcodec_compress_init(char * fmt)
                 while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
                         if(strncasecmp("help", item, strlen("help")) == 0) {
                                 usage();
-                                return NULL;
+                                return &compress_init_noerr;
                         } else if(strncasecmp("codec=", item, strlen("codec=")) == 0) {
                                 char *codec = item + strlen("codec=");
                                 int i;

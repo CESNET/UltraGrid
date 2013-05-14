@@ -52,8 +52,8 @@ static void *worker(void *arg)
         struct timeval t0, t;
         int frames = 0;
 
-        s->compress = compress_init(s->required_compress);
-        if(!s->compress) {
+        int ret = compress_init(s->required_compress, &s->compress);
+        if(ret != 0) {
                 fprintf(stderr, "Unable to initialize video compress: %s\n",
                                 s->required_compress);
                 pthread_mutex_unlock(&s->lock);

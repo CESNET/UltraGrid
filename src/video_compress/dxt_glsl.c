@@ -250,7 +250,7 @@ void * dxt_glsl_compress_init(char * opts)
                 printf("\t\tcompress with DXT1\n");
                 printf("\t-c RTDXT:DXT5\n");
                 printf("\t\tcompress with DXT5 YCoCg\n");
-                return NULL;
+                return &compress_init_noerr;
         }
         
         if(opts) {

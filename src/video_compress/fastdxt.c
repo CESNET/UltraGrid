@@ -256,7 +256,7 @@ void *fastdxt_init(char *num_threads_str)
                 printf("FastDXT usage:\n");
                 printf("\t-FastDXT[:<num_threads>]\n");
                 printf("\t\t<num_threads> - count of compress threads (default %d)\n", NUM_THREADS_DEFAULT);
-                return NULL;
+                return &compress_init_noerr;
         }
 
         compress = calloc(1, sizeof(struct video_compress));

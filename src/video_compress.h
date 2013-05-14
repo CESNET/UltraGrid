@@ -61,6 +61,9 @@ extern "C" {
 
 struct compress_state;
 
+// this is placeholder state, refer to inidividual compressions for example
+extern int compress_init_noerr;
+
 /**
  * Initializes compression
  * 
@@ -98,7 +101,7 @@ typedef  struct tile * (*compress_tile_t)(void *state, struct tile *tile,
 typedef  void (*compress_done_t)(void *);
 
 void show_compress_help(void);
-struct compress_state *compress_init(char *config_string);
+int compress_init(char *config_string, struct compress_state **);
 const char *get_compress_name(struct compress_state *);
 
 int is_compress_none(struct compress_state *);
