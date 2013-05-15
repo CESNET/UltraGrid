@@ -490,8 +490,8 @@ static void *master_worker(void *arg)
         assert(to_uyvy != 0);
 
         glUseProgram(to_uyvy);
-        glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
-        glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
+        glUniform1i(glGetUniformLocation(to_uyvy, "image"), 0);
+        glUniform1f(glGetUniformLocation(to_uyvy, "imageWidth"),
                         (GLfloat) s->frame->tiles[0].width);
         glUseProgram(0);
 
