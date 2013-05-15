@@ -279,7 +279,7 @@ void * audio_play_alsa_init(char *cfg)
                         printf("Available ALSA playback devices:\n");
                         audio_play_alsa_help(NULL);
                         free(s);
-                        return NULL;
+                        return &audio_init_state_ok;
                 }
                 name = cfg;
         } else {

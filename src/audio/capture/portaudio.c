@@ -198,7 +198,7 @@ void * portaudio_capture_init(char *cfg)
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available PortAudio capture devices:\n");
                 portaudio_capture_help(NULL);
-                return NULL;
+                return &audio_init_state_ok;
         }
 
         struct state_portaudio_capture *s;

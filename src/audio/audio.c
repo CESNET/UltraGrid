@@ -89,6 +89,8 @@
 
 static volatile bool should_exit_audio = false;
 
+int audio_init_state_ok;
+
 struct audio_device_t {
         int index;
         void *state;
@@ -279,11 +281,14 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
 			cfg = delim + 1;
 		}
 
-                s->audio_capture_device = audio_capture_init(device, cfg);
+                int ret = audio_capture_init(device, cfg, &s->audio_capture_device);
                 free(device);
                 
-                if(!s->audio_capture_device) {
+                if(ret < 0) {
                         fprintf(stderr, "Error initializing audio capture.\n");
+                        goto error;
+                }
+                if(ret > 0) {
                         goto error;
                 }
         } else {
@@ -299,10 +304,13 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
 			cfg = delim + 1;
 		}
 
-                s->audio_playback_device = audio_playback_init(device, cfg);
+                int ret = audio_playback_init(device, cfg, &s->audio_playback_device);
                 free(device);
-                if(!s->audio_playback_device) {
+                if(ret < 0) {
                         fprintf(stderr, "Error initializing audio playback.\n");
+                        goto error;
+                }
+                if(ret > 0) {
                         goto error;
                 }
         } else {

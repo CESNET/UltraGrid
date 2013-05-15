@@ -57,7 +57,11 @@ struct audio_frame;
 void                        audio_capture_init_devices(void);
 void                        audio_capture_print_help(void);
 
-struct state_audio_capture *audio_capture_init(char *driver, char *cfg);
+/**
+ * @see display_init
+ */
+int                         audio_capture_init(char *driver, char *cfg,
+                struct state_audio_capture **);
 struct state_audio_capture *audio_capture_init_null_device(void);
 struct audio_frame         *audio_capture_read(struct state_audio_capture * state);
 void                        audio_capture_finish(struct state_audio_capture * state);

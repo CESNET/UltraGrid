@@ -199,7 +199,7 @@ void * portaudio_playback_init(char *cfg)
                 if(strcmp(cfg, "help") == 0) {
                         printf("Available PortAudio playback devices:\n");
                         portaudio_playback_help(NULL);
-                        return NULL;
+                        return &audio_init_state_ok;
                 } else {
                         output_device = atoi(cfg);
                 }

@@ -59,6 +59,8 @@
 
 #define MAX_AUDIO_CHANNELS      8
 
+extern int audio_init_state_ok;
+
 typedef enum {
         AC_NONE,
         AC_PCM,

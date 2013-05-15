@@ -279,7 +279,7 @@ void audio_playback_help()
         }
 }
 
-struct state_audio_playback * audio_playback_init(char *device, char *cfg)
+int audio_playback_init(char *device, char *cfg, struct state_audio_playback **state)
 {
         struct state_audio_playback *s;
         int i;
@@ -304,16 +304,26 @@ struct state_audio_playback * audio_playback_init(char *device, char *cfg)
                 goto error;
         }
 
-        return s;
+        if(s->state == &audio_init_state_ok) {
+                free(s);
+                return 1;
+        }
+
+        *state = s;
+        return 0;
 
 error:
         free(s);
-        return NULL;
+        return -1;
 }
 
 struct state_audio_playback *audio_playback_init_null_device(void)
 {
-        return audio_playback_init("none", NULL);
+        struct state_audio_playback *device;
+        int ret = audio_playback_init("none", NULL, &device);
+        assert(ret == 0);
+
+        return device;
 }
 
 void audio_playback_finish(struct state_audio_playback *s)

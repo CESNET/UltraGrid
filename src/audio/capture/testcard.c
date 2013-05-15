@@ -121,7 +121,7 @@ void * audio_cap_testcard_init(char *cfg)
                 printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>]\n");
                 printf("\t\t\t<vol> is a float between 0 and 1\n");
                 printf("\t\t\t<wav> is a wav file to be played\n");
-                return NULL;
+                return &audio_init_state_ok;
         }
 
         if(cfg) {

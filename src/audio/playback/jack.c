@@ -185,7 +185,7 @@ void * audio_play_jack_init(char *cfg)
 
         if(!cfg || strcmp(cfg, "help") == 0) {
                 audio_play_jack_help("jack");
-                return NULL;
+                return &audio_init_state_ok;
         }
 
         s = calloc(1, sizeof(struct state_jack_playback));

@@ -280,7 +280,7 @@ void * audio_play_ca_init(char *cfg)
                         printf("Available CoreAudio devices:\n");
                         audio_play_ca_help(NULL);
                         free(s);
-                        return NULL;
+                        return &audio_init_state_ok;
                 } else {
                         device = atoi(cfg);
                 }

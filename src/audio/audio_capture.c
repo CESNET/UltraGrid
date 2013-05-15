@@ -60,9 +60,9 @@
 #include "debug.h"
 #include "host.h"
 
-
 #include "audio/audio_capture.h" 
 
+#include "audio/audio.h"
 #include "audio/capture/alsa.h" 
 #include "audio/capture/coreaudio.h" 
 #include "audio/capture/jack.h" 
@@ -271,7 +271,7 @@ void audio_capture_init_devices()
         }
 }
 
-struct state_audio_capture *audio_capture_init(char *driver, char *cfg)
+int audio_capture_init(char *driver, char *cfg, struct state_audio_capture **state)
 {
         struct state_audio_capture *s;
         int i;
@@ -299,16 +299,25 @@ struct state_audio_capture *audio_capture_init(char *driver, char *cfg)
                 goto error;
         }
 
-        return s;
+        if(s->state == &audio_init_state_ok) {
+                free(s);
+                return 1;
+        }
+
+        *state = s;
+        return 0;
 
 error:
         free(s);
-        return NULL;
+        return -1;
 }
 
 struct state_audio_capture *audio_capture_init_null_device()
 {
-        return audio_capture_init("none", NULL);
+        struct state_audio_capture *device;
+        int ret = audio_capture_init("none", NULL, &device);
+        assert(ret == 0);
+        return device;
 }
 
 void audio_capture_print_help()

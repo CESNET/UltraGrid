@@ -84,7 +84,7 @@ void * sdi_playback_init(char *cfg)
                 sdi_playback_help("embedded");
                 sdi_playback_help("AESEBU");
                 sdi_playback_help("analog");
-                return NULL;
+                return &audio_init_state_ok;
         }
         struct state_sdi_playback *s = malloc(sizeof(struct state_sdi_playback));
         s->put_callback = NULL;

@@ -83,7 +83,7 @@ void * audio_cap_alsa_init(char *cfg)
         if(cfg && strcmp(cfg, "help") == 0) {
                 printf("Available ALSA capture devices\n");
                 audio_cap_alsa_help(NULL);
-                return NULL;
+                return &audio_init_state_ok;
         }
         struct state_alsa_capture *s;
         int rc;

@@ -76,7 +76,7 @@ void * sdi_capture_init(char *cfg)
                 sdi_capture_help("embedded");
                 sdi_capture_help("AESEBU");
                 sdi_capture_help("analog");
-                return NULL;
+                return &audio_init_state_ok;
         }
         struct state_sdi_capture *s;
         

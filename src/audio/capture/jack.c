@@ -161,7 +161,7 @@ void * audio_cap_jack_init(char *cfg)
 
         if(!cfg || strcmp(cfg, "help") == 0) {
                 audio_cap_jack_help("jack");
-                return NULL;
+                return &audio_init_state_ok;
         }
 
 
