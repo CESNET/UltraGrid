@@ -283,7 +283,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                                         s->frame->color_spec = codec_info[i].codec;
                                 }
                         }
-                        if (s->frame->color_spec == 0xffffffff) {
+                        if (s->frame->color_spec == (codec_t) 0xffffffff) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
                                 free(tmp);
                                 return 0;
