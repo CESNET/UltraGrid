@@ -89,6 +89,7 @@ OBJS	      = @OBJS@ \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
 		src/utils/fs_lock.o \
+		src/utils/list.o \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \

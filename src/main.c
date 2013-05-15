@@ -492,6 +492,7 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
         struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
+                state->messages = simple_linked_list_init();
                 state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device);
 
                 if(!state->decoder) {
@@ -653,10 +654,19 @@ static void *receiver_thread(void *arg)
                                 last_buf_size = new_size;
                         }
 
-                        if(cp->video_decoder_state->set_fps) {
+                        while(simple_linked_list_size(cp->video_decoder_state->messages) > 0) {
+                                struct vcodec_message *msg =
+                                        simple_linked_list_pop(cp->video_decoder_state->messages);
+
+                                assert(msg->type == FPS_CHANGED);
+                                struct fps_changed_message *data = msg->data;
+
                                 pbuf_set_playout_delay(cp->playout_buffer,
-                                                1.0 / cp->video_decoder_state->set_fps);
-                                cp->video_decoder_state->set_fps = 0.0;
+                                                1.0 / data->val,
+                                                1.0 / data->val * (data->interframe_codec ? 2 : 1)
+                                                );
+                                free(data);
+                                free(msg);
                         }
 
 

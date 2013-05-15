@@ -70,6 +70,7 @@ struct codec_info_t {
         double bpp;
         unsigned rgb:1;
         unsigned opaque:1;
+        unsigned interframe:1;
         const char *file_extension;
 };
 
@@ -87,6 +88,7 @@ double           get_bpp(codec_t codec);
 uint32_t         get_fourcc(codec_t codec);
 const char      *get_codec_name(codec_t codec);
 int              is_codec_opaque(codec_t codec);
+int              is_codec_interframe(codec_t codec);
 codec_t          get_codec_from_fcc(uint32_t fourcc);
 const char      *get_codec_file_extension(codec_t codec);
 

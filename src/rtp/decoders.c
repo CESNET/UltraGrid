@@ -168,6 +168,7 @@ struct state_decoder {
         unsigned long int   corrupted;
 
         double              set_fps; // "message" passed to our master
+        codec_t             codec;
         bool                slow;
 };
 
@@ -1271,6 +1272,7 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
                 decoder->frame = *frame;
                 ret = TRUE;
                 decoder->set_fps = fps;
+                decoder->codec = color_spec;
         }
         return ret;
 }
@@ -1320,8 +1322,14 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
         // first, dispatch "messages"
         if(decoder->set_fps) {
-                pbuf_data->set_fps = decoder->set_fps;
-                decoder->set_fps = 0.0;
+                struct vcodec_message *msg = malloc(sizeof(struct vcodec_message));
+                struct fps_changed_message *data = malloc(sizeof(struct fps_changed_message));
+                msg->type = FPS_CHANGED;
+                msg->data = data;
+                data->val = decoder->set_fps;
+                data->interframe_codec = is_codec_interframe(decoder->codec);
+                simple_linked_list_append(pbuf_data->messages, msg);
+                decoder->set_fps = 0;
         }
 
         int pt;

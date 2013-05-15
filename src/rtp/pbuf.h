@@ -68,6 +68,7 @@
 #include "video_display.h"
 
 #include "audio/audio.h"
+#include "utils/list.h"
 
 /* The coded representation of a single frame */
 struct coded_data {
@@ -82,13 +83,23 @@ struct pbuf;
 struct state_decoder;
 struct state_audio_decoder;
 
+struct vcodec_message {
+        enum { FPS_CHANGED } type;
+        void *data;
+};
+
+struct fps_changed_message {
+        double val;
+        unsigned interframe_codec:1;
+};
+
 struct vcodec_state {
         struct display *display;
         struct state_decoder *decoder;
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly
         unsigned int decoded;
-        double set_fps;
+        struct simple_linked_list *messages;
 };
 
 struct pbuf_audio_data {
@@ -113,6 +124,7 @@ int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data);
                              //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
-void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay);
+void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay,
+                double deletion_delay);
 
 

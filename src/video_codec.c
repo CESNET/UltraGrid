@@ -66,26 +66,26 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
                 int rshift, int gshift, int bshift, int pix_size);
 
 const struct codec_info_t codec_info[] = {
-        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, "rgba"},
-        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, "yuv"},
-        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, "yuv"},
-        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, "yuv"},
-        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, "yuv"},
-        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, "r10k"},
-        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "v210"},
-        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, "dvs10"},
-        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, "dxt1"},
-        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
-        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, "yog"},/* DXT5 YCoCg */
-        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, "rgb"},
-        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, "dpx"},
-        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, "jpg"},
-        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE, "raw"}, /* raw SDI */
-        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE, "h264"},
-        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE, "jpg"},
-        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE, "vp8"},
-        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE, "bgr"},
-        {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE, NULL}
+        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, FALSE, "rgba"},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
+        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
+        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
+        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
+        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, FALSE, "r10k"},
+        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "v210"},
+        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "dvs10"},
+        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, FALSE, "dxt1"},
+        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
+        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, FALSE, "rgb"},
+        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, FALSE, "dpx"},
+        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, FALSE, "jpg"},
+        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
+        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE, TRUE, "h264"},
+        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE, FALSE, "jpg"},
+        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE, TRUE, "vp8"},
+        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE, FALSE, "bgr"},
+        {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE, FALSE, NULL}
 };
 
 /* take care that UYVY is alias for both 2vuy and dvs8, do not use
@@ -242,6 +242,18 @@ int is_codec_opaque(codec_t codec)
         while (codec_info[i].name != NULL) {
                 if (codec == codec_info[i].codec)
                         return codec_info[i].opaque;
+                i++;
+        }
+        return 0;
+}
+
+int is_codec_interframe(codec_t codec)
+{
+        int i = 0;
+
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].interframe;
                 i++;
         }
         return 0;

@@ -130,6 +130,7 @@ void destroy_decoder(struct vcodec_state *video_decoder_state) {
                 return;
         }
 
+        simple_linked_list_destroy(video_decoder_state->messages);
         decoder_destroy_extrn(video_decoder_state->decoder);
 
         free(video_decoder_state);
