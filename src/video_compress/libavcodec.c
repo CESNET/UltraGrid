@@ -70,6 +70,7 @@ struct setparam_param {
         AVCodec *codec;
         bool have_preset;
         double fps;
+        bool interlaced;
 };
 
 typedef struct {
@@ -342,8 +343,11 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
 
         if(is422(pix_fmt)) {
                 s->subsampling = 422;
-        } else {
+        } else if(is420(pix_fmt)) {
                 s->subsampling = 420;
+        } else {
+                fprintf(stderr, "[Lavc] Unknown subsampling.\n");
+                abort();
         }
 
         for(int i = 0; i < 2; ++i) {
@@ -419,6 +423,7 @@ static bool configure_with(struct libav_video_compress *s, struct video_desc des
         param.have_preset = s->preset != 0;
         param.fps = desc.fps;
         param.codec = s->codec;
+        param.interlaced = desc.interlacing == INTERLACED_MERGED;
 
         codec_params[s->selected_codec_id].set_param(s->codec_ctx, &param);
 
@@ -707,13 +712,26 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
 
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
+        char params[512] = "";
+
         if(!param->have_preset) {
                 // ultrafast - --aq-mode 0
                 // This option causes posterization. Enabling it requires some 20% additional
                 // percent of CPU.
-                char params[] = "no-8x8dct=1:aq-mode=1:b-adapt=0:bframes=0:no-cabac=1:"
+                strncat(params, "no-8x8dct=1:aq-mode=1:b-adapt=0:bframes=0:no-cabac=1:"
                         "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
-                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:";
+                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0",
+                        sizeof(params) - strlen(params) - 1);
+        }
+
+        if(param->interlaced) {
+                if(strlen(params) > 0) {
+                        strncat(params, ":", sizeof(params) - strlen(params) - 1);
+                }
+                strncat(params, "tff=1", sizeof(params) - strlen(params) - 1);
+        }
+
+        if(strlen(params) > 0) {
                 int ret;
                 // newer LibAV
                 ret = av_opt_set(codec_ctx->priv_data, "x264-params", params, 0);
@@ -735,7 +753,7 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
         }
 
         //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
-        av_opt_set(codec_ctx->priv_data, "tune", "zerolatency", 0);
+        av_opt_set(codec_ctx->priv_data, "tune", "fastdecode,zerolatency", 0);
 
 #ifndef DISABLE_H264_INTRA_REFRESH
         codec_ctx->refs = 1;
