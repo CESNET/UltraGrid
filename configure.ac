@@ -402,7 +402,7 @@ AC_SUBST(common_lib_abi_version)
 AC_SUBST(COMMON_LIB_TARGET, "lib/ultragrid/ug_lib_common.so.$common_lib_abi_version")
 LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
 
-video_display_abi_version=4
+video_display_abi_version=5
 video_capture_abi_version=2
 video_compress_abi_version=2
 video_decompress_abi_version=3

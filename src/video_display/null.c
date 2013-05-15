@@ -93,11 +93,12 @@ struct video_frame *display_null_getf(void *state)
         return NULL;
 }
 
-int display_null_putf(void *state, struct video_frame *frame)
+int display_null_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_null *s = (struct state_null *)state;
         assert(s->magic == MAGIC_NULL);
         UNUSED(frame);
+        UNUSED(nonblock);
         return 0;
 }
 

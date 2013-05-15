@@ -58,7 +58,8 @@ void 			 display_sage_run(void *state);
 void 			 display_sage_done(void *state);
 void 			 display_sage_finish(void *state);
 struct video_frame	*display_sage_getf(void *state);
-int  			 display_sage_putf(void *state, struct video_frame *frame);
+int  			 display_sage_putf(void *state, struct video_frame *frame,
+                int nonblock);
 int                      display_sage_reconfigure(void *state, struct video_desc desc);
 int                      display_sage_get_property(void *state, int property, void *val, size_t *len);
 

@@ -872,18 +872,19 @@ display_bluefish444_getf(void *state)
         return frame;
 }
 
-int display_bluefish444_putf(void *state, struct video_frame *frame)
+int display_bluefish444_putf(void *state, struct video_frame *frame, int nonblock)
 {
+        UNUSED(nonblock);
         display_bluefish444_state *s =
                 (display_bluefish444_state *) state;
         int ret;
 
         try {
                 s->putf(frame);
-                ret = TRUE;
+                ret = 0;
         } catch(runtime_error &e) {
                 cerr << "[Blue444 disp] " << e.what() << endl;
-                ret = FALSE;
+                ret = -1;
         }
 
         return ret;

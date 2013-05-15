@@ -709,13 +709,14 @@ struct video_frame *display_sdl_getf(void *state)
         return s->frame;
 }
 
-int display_sdl_putf(void *state, struct video_frame *frame)
+int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
 {
         int tmp;
         struct state_sdl *s = (struct state_sdl *)state;
 
         assert(s->magic == MAGIC_SDL);
         UNUSED(frame);
+        UNUSED(nonblock);
 
         SDL_mutexP(s->buffer_writable_lock);
         s->buffer_writable = 0;

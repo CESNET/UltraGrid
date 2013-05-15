@@ -238,7 +238,7 @@ struct video_frame *display_aggregate_getf(void *state)
         return s->frame;
 }
 
-int display_aggregate_putf(void *state, struct video_frame *frame)
+int display_aggregate_putf(void *state, struct video_frame *frame, int nonblock)
 {
         unsigned int i;
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
@@ -246,7 +246,9 @@ int display_aggregate_putf(void *state, struct video_frame *frame)
         assert(s->magic == MAGIC_AGGREGATE);
         UNUSED(frame);
         for(i = 0; i < s->devices_cnt; ++i) {
-                display_put_frame(s->devices[i], frame);
+                int ret = display_put_frame(s->devices[i], frame, nonblock);
+                if(ret != 0)
+                        return ret;
         }
 
         return 0;

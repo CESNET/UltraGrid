@@ -493,7 +493,7 @@ display_dvs_getf(void *state)
         return s->frame;
 }
 
-int display_dvs_putf(void *state, struct video_frame *frame)
+int display_dvs_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
@@ -502,6 +502,11 @@ int display_dvs_putf(void *state, struct video_frame *frame)
         assert(s->magic == HDSP_MAGIC);
 
         pthread_mutex_lock(&s->lock);
+        if(s->work_to_do && nonblock == PUTF_NONBLOCK) {
+                pthread_mutex_unlock(&s->lock);
+                return EWOULDBLOCK;
+        }
+
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
                 s->boss_waiting = TRUE;
@@ -520,7 +525,7 @@ int display_dvs_putf(void *state, struct video_frame *frame)
         }
         pthread_mutex_unlock(&s->lock);
 
-        return TRUE;
+        return 0;
 }
 
 int display_dvs_reconfigure(void *state,

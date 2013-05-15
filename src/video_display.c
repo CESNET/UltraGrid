@@ -97,7 +97,7 @@ typedef struct {
         const char               *func_finish_str;
         struct video_frame     *(*func_getf) (void *state);
         const char               *func_getf_str;
-        int                     (*func_putf) (void *state, struct video_frame *frame);
+        int                     (*func_putf) (void *state, struct video_frame *frame, int nonblock);
         const char               *func_putf_str;
         int                     (*func_reconfigure)(void *state, struct video_desc desc);
         const char               *func_reconfigure_str;
@@ -325,7 +325,7 @@ static int display_fill_symbols(display_table_t *device)
                 dlsym(handle, device->func_finish_str);
         device->func_getf = (struct video_frame *(*) (void *))
                 dlsym(handle, device->func_getf_str);
-        device->func_putf = (int (*) (void *, struct video_frame *))
+        device->func_putf = (int (*) (void *, struct video_frame *, int))
                 dlsym(handle, device->func_putf_str);
         device->func_reconfigure = (int (*)(void *, struct video_desc))
                 dlsym(handle, device->func_reconfigure_str);
@@ -480,11 +480,11 @@ struct video_frame *display_get_frame(struct display *d)
         return display_device_table[d->index].func_getf(d->state);
 }
 
-void display_put_frame(struct display *d, struct video_frame *frame)
+int display_put_frame(struct display *d, struct video_frame *frame, int nonblock)
 {
         perf_record(UVP_PUTFRAME, frame);
         assert(d->magic == DISPLAY_MAGIC);
-        display_device_table[d->index].func_putf(d->state, frame);
+        return display_device_table[d->index].func_putf(d->state, frame, nonblock);
 }
 
 int display_reconfigure(struct display *d, struct video_desc desc)

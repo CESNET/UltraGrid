@@ -999,7 +999,7 @@ struct video_frame * display_gl_getf(void *state)
         return s->frame;
 }
 
-int display_gl_putf(void *state, struct video_frame *frame)
+int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_gl *s = (struct state_gl *) state;
 
@@ -1008,6 +1008,10 @@ int display_gl_putf(void *state, struct video_frame *frame)
 
         pthread_mutex_lock(&s->lock);
         if(s->double_buf) {
+                if(!s->processed && nonblock == PUTF_NONBLOCK) {
+                        pthread_mutex_unlock(&s->lock);
+                        return EWOULDBLOCK;
+                }
                 while(!s->processed) 
                         pthread_cond_wait(&s->processed_cv, &s->lock);
                 s->processed = false;

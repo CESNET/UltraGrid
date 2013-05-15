@@ -478,7 +478,7 @@ static void *decompress_thread(void *args) {
                         }
 
                         for (i = 1; i < decoder->pp_output_frames_count; ++i) {
-                                display_put_frame(decoder->display, decoder->frame);
+                                display_put_frame(decoder->display, decoder->frame, PUTF_BLOCKING);
                                 decoder->frame = display_get_frame(decoder->display);
                                 pp_ret = vo_postprocess(decoder->postprocess,
                                                 NULL,
@@ -502,10 +502,17 @@ static void *decompress_thread(void *args) {
                         }
                 }
 
-                display_put_frame(decoder->display,
-                                decoder->frame);
-                decoder->frame =
-                        display_get_frame(decoder->display);
+                int putf_flags = 0;
+                if(is_codec_interframe(decoder->codec)) {
+                        putf_flags = PUTF_NONBLOCK;
+                }
+
+                int ret = display_put_frame(decoder->display,
+                                decoder->frame, putf_flags);
+                if(ret == 0) {
+                        decoder->frame =
+                                display_get_frame(decoder->display);
+                }
 
 skip_frame:
 

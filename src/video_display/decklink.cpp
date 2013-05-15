@@ -442,13 +442,14 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
         tc->SetBCD(bcd);
 }
 
-int display_decklink_putf(void *state, struct video_frame *frame)
+int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
 {
         int tmp;
         struct state_decklink *s = (struct state_decklink *)state;
         struct timeval tv;
 
         UNUSED(frame);
+        UNUSED(nonblock);
 
         assert(s->magic == DECKLINK_MAGIC);
 
@@ -501,7 +502,7 @@ int display_decklink_putf(void *state, struct video_frame *frame)
                 s->frames_last = s->frames;
         }
 
-        return TRUE;
+        return 0;
 }
 
 static BMDDisplayMode get_mode(IDeckLinkOutput *deckLinkOutput, struct video_desc desc, BMDTimeValue *frameRateDuration,

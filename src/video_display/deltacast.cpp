@@ -165,7 +165,7 @@ display_deltacast_getf(void *state)
         return s->frame;
 }
 
-int display_deltacast_putf(void *state, struct video_frame *frame)
+int display_deltacast_putf(void *state, struct video_frame *frame, int nonblock)
 {
         int tmp;
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -174,6 +174,7 @@ int display_deltacast_putf(void *state, struct video_frame *frame)
         ULONG Result;
 
         UNUSED(frame);
+        UNUSED(nonblock);
 
         assert(s->magic == DELTACAST_MAGIC);
         
@@ -220,7 +221,7 @@ int display_deltacast_putf(void *state, struct video_frame *frame)
         }
         s->frames++;
 
-        return TRUE;
+        return 0;
 }
 
 int

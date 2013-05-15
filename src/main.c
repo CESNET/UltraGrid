@@ -762,7 +762,7 @@ static void *sender_thread(void *arg) {
                                 display_get_frame(uv->sage_tx_device);
                         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                                         tx_frame->tiles[0].data_len);
-                        display_put_frame(uv->sage_tx_device, frame);
+                        display_put_frame(uv->sage_tx_device, frame, 0);
                 }
 
                 pthread_mutex_lock(&uv->sender_lock);

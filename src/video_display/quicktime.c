@@ -397,11 +397,12 @@ display_quicktime_getf(void *state)
         return &s->frame[0];
 }
 
-int display_quicktime_putf(void *state, struct video_frame *frame)
+int display_quicktime_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
 
         UNUSED(frame);
+        UNUSED(nonblock);
         assert(s->magic == MAGIC_QT_DISPLAY);
 
         s->index_network = (s->index_network + 1) % 2;

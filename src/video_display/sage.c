@@ -315,13 +315,14 @@ struct video_frame *display_sage_getf(void *state)
         return s->frame;
 }
 
-int display_sage_putf(void *state, struct video_frame *frame)
+int display_sage_putf(void *state, struct video_frame *frame, int nonblock)
 {
         int tmp;
         struct state_sage *s = (struct state_sage *)state;
 
         assert(s->magic == MAGIC_SAGE);
         UNUSED(frame);
+        UNUSED(nonblock);
 
         /* ...and signal the worker */
         pthread_mutex_lock(&s->buffer_writable_lock);

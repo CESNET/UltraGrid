@@ -55,7 +55,8 @@ void                 display_decklink_run(void *state);
 void                 display_decklink_finish(void *state);
 void                 display_decklink_done(void *state);
 struct video_frame  *display_decklink_getf(void *state);
-int                  display_decklink_putf(void *state, struct video_frame *frame);
+int                  display_decklink_putf(void *state, struct video_frame *frame,
+                int nonblock);
 int                  display_decklink_reconfigure(void *state,
                                 struct video_desc desc);
 int                  display_decklink_get_property(void *state, int property, void *val, size_t *len);

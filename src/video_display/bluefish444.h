@@ -56,7 +56,8 @@ void                 display_bluefish444_run(void *state);
 void                 display_bluefish444_finish(void *state);
 void                 display_bluefish444_done(void *state);
 struct video_frame  *display_bluefish444_getf(void *state);
-int                  display_bluefish444_putf(void *state, struct video_frame *frame);
+int                  display_bluefish444_putf(void *state, struct video_frame *frame,
+                int nonblock);
 int                  display_bluefish444_reconfigure(void *state,
                                 struct video_desc desc);
 int                  display_bluefish444_get_property(void *state, int property, void *val, size_t *len);
