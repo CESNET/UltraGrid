@@ -366,6 +366,11 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         if(device_sample_rate == sample_rate) // no resampling
                                 device_bps = bps;
 
+                        printf("New incoming audio format detected: %d Hz, %d channels, %d bits per sample, codec %s\n",
+                                        sample_rate, input_channels, bps * 8,
+                                        get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
+
+
                         s->buffer.bps = device_bps;
                         s->buffer.ch_count = output_channels;
                         s->buffer.sample_rate = device_sample_rate;

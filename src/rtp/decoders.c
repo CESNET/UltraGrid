@@ -386,6 +386,8 @@ cleanup:
                         for(int i = 0; i < data->substream_count; ++i) {
                                 free(data->recv_buffers[i]);
                         }
+                        decoder->corrupted++;
+                        decoder->dropped++;
                 }
                 free(data->buffer_len);
                 free(data->buffer_num);
@@ -512,6 +514,8 @@ static void *decompress_thread(void *args) {
                 if(ret == 0) {
                         decoder->frame =
                                 display_get_frame(decoder->display);
+                } else {
+                        decoder->dropped++;
                 }
 
 skip_frame:
@@ -1267,6 +1271,10 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
                                 //decoder->received_vid_desc.video_type == video_type &&
                                 decoder->received_vid_desc.fps == fps
              )) {
+                printf("New incoming video format detected: %dx%d @%.2f%s, codec %s\n",
+                                width, height, fps,
+                                get_interlacing_suffix(interlacing),
+                                get_codec_name(color_spec));
                 decoder->received_vid_desc = (struct video_desc) {
                         .width = width, 
                         .height = height,
