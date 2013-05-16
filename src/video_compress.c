@@ -406,8 +406,7 @@ void compress_done(struct compress_state *s)
                 s->handle->done(s->state[i]);
         }
         free(s->state);
-        if(s != &compress_init_noerr)
-                free(s);
+        free(s);
 }
 
 int is_compress_none(struct compress_state *s)
