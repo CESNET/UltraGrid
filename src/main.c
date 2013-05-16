@@ -663,7 +663,7 @@ static void *receiver_thread(void *arg)
 
                                 pbuf_set_playout_delay(cp->playout_buffer,
                                                 1.0 / data->val,
-                                                1.0 / data->val * (data->interframe_codec ? 2 : 1)
+                                                1.0 / data->val * (data->interframe_codec ? 2.2 : 1.2)
                                                 );
                                 free(data);
                                 free(msg);
