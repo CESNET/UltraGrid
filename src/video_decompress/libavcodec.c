@@ -522,7 +522,7 @@ int libavcodec_decompress(void *state, unsigned char *dst, unsigned char *src,
                         libavcodec_decompress_reconfigure(s, s->saved_desc,
                                         s->rshift, s->gshift, s->bshift, s->pitch, s->out_codec);
                 }
-                if(s->warning_displayed++ % 100 == 0)
+                if(s->warning_displayed++ % 1000 == 0)
                         av_log(NULL, AV_LOG_WARNING, "Broken multi-threaded decoder detected, "
                                         "switching to a single-threaded one! Consider upgrading your Libavcodec.\n");
         }
