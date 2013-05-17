@@ -64,6 +64,8 @@
 
 #include <alsa/asoundlib.h>
 
+#define MOD_NAME "[ALSA cap.] "
+
 struct state_alsa_capture {
         snd_pcm_t *handle;
         struct audio_frame frame;
@@ -107,7 +109,7 @@ void * audio_cap_alsa_init(char *cfg)
         rc = snd_pcm_open(&s->handle, name,
                 SND_PCM_STREAM_CAPTURE, 0);
         if (rc < 0) {
-                fprintf(stderr, "unable to open pcm device: %s\n",
+                fprintf(stderr, MOD_NAME "unable to open pcm device: %s\n",
                         snd_strerror(rc));
                 goto error;
         }
@@ -118,7 +120,7 @@ void * audio_cap_alsa_init(char *cfg)
         /* Fill it in with default values. */
         rc = snd_pcm_hw_params_any(s->handle, params);
         if (rc < 0) {
-                fprintf(stderr, "unable to set default parameters: %s\n",
+                fprintf(stderr, MOD_NAME "unable to set default parameters: %s\n",
                         snd_strerror(rc));
                 goto error;
         }
@@ -129,7 +131,7 @@ void * audio_cap_alsa_init(char *cfg)
         rc = snd_pcm_hw_params_set_access(s->handle, params,
                 SND_PCM_ACCESS_RW_INTERLEAVED);
         if (rc < 0) {
-                fprintf(stderr, "unable to set interleaved mode: %s\n",
+                fprintf(stderr, MOD_NAME "unable to set interleaved mode: %s\n",
                         snd_strerror(rc));
                 goto error;
         }
@@ -138,7 +140,7 @@ void * audio_cap_alsa_init(char *cfg)
         rc = snd_pcm_hw_params_set_format(s->handle, params,
                 SND_PCM_FORMAT_S16_LE);
         if (rc < 0) {
-                fprintf(stderr, "unable to set capture format: %s\n",
+                fprintf(stderr, MOD_NAME "unable to set capture format: %s\n",
                         snd_strerror(rc));
                 goto error;
         }
@@ -149,7 +151,7 @@ void * audio_cap_alsa_init(char *cfg)
                 if(s->frame.ch_count == 1) { // some devices cannot do mono
                         snd_pcm_hw_params_set_channels_first(s->handle, params, &s->min_device_channels);
                 } else {
-                        fprintf(stderr, "unable to set channel count: %s\n",
+                        fprintf(stderr, MOD_NAME "unable to set channel count: %s\n",
                                         snd_strerror(rc));
                         goto error;
                 }
@@ -160,7 +162,7 @@ void * audio_cap_alsa_init(char *cfg)
         rc = snd_pcm_hw_params_set_rate_resample(s->handle,
                         params, val);
         if(rc < 0) {
-                fprintf(stderr, "[ALSA cap.] Warnings: Unable to set resampling: %s\n",
+                fprintf(stderr, MOD_NAME "Warning: Unable to set resampling: %s\n",
                         snd_strerror(rc));
         }
 
@@ -194,7 +196,7 @@ void * audio_cap_alsa_init(char *cfg)
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
         if (rc < 0) {
-                fprintf(stderr, "unable to set hw parameters: %s\n",
+                fprintf(stderr, MOD_NAME "unable to set hw parameters: %s\n",
                         snd_strerror(rc));
                 goto error;
         }
@@ -231,12 +233,12 @@ struct audio_frame *audio_cap_alsa_read(void *state)
         rc = snd_pcm_readi(s->handle, read_ptr, s->frames);
         if (rc == -EPIPE) {
                 /* EPIPE means overrun */
-                fprintf(stderr, "overrun occurred\n");
+                fprintf(stderr, MOD_NAME "overrun occurred\n");
                 snd_pcm_prepare(s->handle);
         } else if (rc < 0) {
-                fprintf(stderr, "error from read: %s\n", snd_strerror(rc));
+                fprintf(stderr, MOD_NAME "error from read: %s\n", snd_strerror(rc));
         } else if (rc != (int)s->frames) {
-                fprintf(stderr, "short read, read %d frames\n", rc);
+                fprintf(stderr, MOD_NAME "short read, read %d frames\n", rc);
         }
 
         if(rc > 0) {
