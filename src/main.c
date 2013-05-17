@@ -61,6 +61,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <pthread.h>
+#include "capture_filter.h"
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
@@ -115,6 +116,7 @@
 #define OPT_EXPORT (('E' << 8) | 'X')
 #define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_AUDIO_CODEC (('A' << 8) | 'C')
+#define OPT_CAPTURE_FILTER (('O' << 8) | 'F')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -138,6 +140,7 @@ struct state_uv {
         unsigned int connections_count;
         
         struct vidcap *capture_device;
+        struct capture_filter *capture_filter;
         struct timeval start_time, curr_time;
         struct pdb *participants;
         
@@ -296,7 +299,9 @@ static void usage(void)
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
-        printf("\t--audio_codec <codec>[:<sample_rate>]|help\taudio codec\n");
+        printf("\t--audio-codec <codec>[:<sample_rate>]|help\taudio codec\n");
+        printf("\n");
+        printf("\t--capture-filter <filter>\tCapture filter(s)\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -819,6 +824,10 @@ static void *compress_thread(void *arg)
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 tx_frame = vidcap_grab(uv->capture_device, &audio);
+                if(tx_frame) {
+                        tx_frame = capture_filter(uv->capture_filter, tx_frame);
+
+                }
                 if (tx_frame != NULL) {
                         if(audio) {
                                 audio_sdi_send(uv->audio, audio);
@@ -960,6 +969,8 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
 
+        char *requested_capture_filter = NULL;
+
         audio_codec_t audio_codec = AC_PCM;
         
         pthread_t receiver_thread_id,
@@ -1010,6 +1021,7 @@ int main(int argc, char *argv[])
                 {"import", required_argument, 0, OPT_IMPORT},
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
+                {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1257,6 +1269,9 @@ int main(int argc, char *argv[])
                                 return EXIT_FAIL_USAGE;
                         }
                         break;
+                case OPT_CAPTURE_FILTER:
+                        requested_capture_filter = optarg;
+                        break;
                 case '?':
                 default:
                         usage();
@@ -1349,6 +1364,11 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 #endif
+
+        ret = capture_filter_init(requested_capture_filter, &uv->capture_filter);
+        if(ret != 0) {
+                goto cleanup;
+        }
 	
         if(!audio_host) {
                 audio_host = network_device;

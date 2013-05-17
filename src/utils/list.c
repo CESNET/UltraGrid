@@ -72,3 +72,16 @@ int simple_linked_list_size(struct simple_linked_list *l)
         return l->size;
 }
 
+void *simple_linked_list_it_init(struct simple_linked_list *l)
+{
+        return l->head;
+}
+
+void *simple_linked_list_it_next(void **it)
+{
+        struct node *n = *it;
+        assert(n);
+        *it = n->next;
+        return n->val;
+}
+

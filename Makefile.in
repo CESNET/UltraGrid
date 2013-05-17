@@ -75,6 +75,9 @@ OBJS	      = @OBJS@ \
 		@COREAUDIO_OBJ@ \
 		@JACK_TRANS_OBJ@ \
 		@SPEEX_OBJ@ \
+		src/capture_filter.o \
+		src/capture_filter/blank.o \
+		src/capture_filter/every.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
 		src/compat/inet_ntop.o \
