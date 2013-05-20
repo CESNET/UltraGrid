@@ -42,6 +42,7 @@ OBJS	      = @OBJS@ \
 	        src/bitstream.o \
 		src/debug.o \
 		src/host.o \
+		src/messaging.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \

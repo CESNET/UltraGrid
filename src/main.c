@@ -64,6 +64,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "host.h"
+#include "messaging.h"
 #include "perf.h"
 #include "rtp/decoders.h"
 #include "rtp/rtp.h"
@@ -189,6 +190,7 @@ struct sender_data;
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
 static void sender_finish(struct sender_data *data);
+static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
 static void display_buf_increase_warning(int size);
 static bool enable_export(char *dir);
 static void remove_display_from_decoders(struct state_uv *uv);
@@ -689,6 +691,7 @@ static void *receiver_thread(void *arg)
 
 enum sender_msg_type {
         FRAME,
+        CHANGE_RECEIVER,
         QUIT
 };
 
@@ -726,7 +729,59 @@ static void sender_finish(struct sender_data *data) {
         pthread_cond_signal(&data->msg_ready_cv);
 
         pthread_mutex_unlock(&data->lock);
+}
 
+struct sender_change_receiver_data {
+        const char *new_receiver;
+        bool exit_status;
+};
+
+static bool sender_change_receiver(struct sender_data *data, const char *new_receiver)
+{
+        struct sender_change_receiver_data msg_data;
+        pthread_mutex_lock(&data->lock);
+
+        while(data->msg) {
+                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
+        }
+
+        data->msg = malloc(sizeof(struct sender_msg));
+        data->msg->type = CHANGE_RECEIVER;
+        data->msg->deleter = (void (*) (struct sender_msg *)) free;
+        msg_data.new_receiver = new_receiver;
+        data->msg->data = (void *) &msg_data;
+
+        pthread_cond_signal(&data->msg_ready_cv);
+
+        // wait until it is processed
+        while(data->msg) {
+                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
+        }
+
+        pthread_mutex_unlock(&data->lock);
+
+        return msg_data.exit_status;
+}
+
+struct response *sender_change_receiver_callback(struct received_message *msg, void *udata);
+
+struct response *sender_change_receiver_callback(struct received_message *msg, void *udata)
+{
+        struct sender_data *s = (struct sender_data *) udata;
+        const char *receiver = (const char *) msg->data;
+
+        struct response *response = malloc(sizeof(struct response));
+        response->deleter = (void (*) (struct response *)) free;
+
+        if(sender_change_receiver(s, receiver)) {
+                response->status = 200;
+        } else {
+                response->status = 400;
+        }
+
+        msg->deleter(msg);
+
+        return response;
 }
 
 static void sender_data_init(struct sender_data *data);
@@ -760,6 +815,10 @@ static void *sender_thread(void *arg) {
                 splitted_frames = vf_alloc(tile_y_count);
         }
 
+        subscribe_messages(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS,
+                        sender_change_receiver_callback,
+                        data);
+
         pthread_mutex_unlock(&data->lock);
 
         while(1) {
@@ -770,15 +829,29 @@ static void *sender_thread(void *arg) {
                         pthread_cond_wait(&data->msg_ready_cv, &data->lock);
                 }
                 struct sender_msg *msg = data->msg;
-                if (msg->type == QUIT) {
-                        data->msg = NULL;
-                        msg->deleter(msg);
-                        pthread_cond_signal(&data->msg_processed_cv);
-                        pthread_mutex_unlock(&data->lock);
-                        goto exit;
-                } else {
-                        assert(msg->type == FRAME);
-                        tx_frame = msg->data;
+                switch (msg->type) {
+
+                        case QUIT:
+                                data->msg = NULL;
+                                msg->deleter(msg);
+                                pthread_cond_signal(&data->msg_processed_cv);
+                                pthread_mutex_unlock(&data->lock);
+                                goto exit;
+                        case CHANGE_RECEIVER:
+                                {
+                                        struct sender_change_receiver_data *msg_data = msg->data;
+                                        assert(data->tx_protocol == ULTRAGRID_RTP);
+                                        assert(data->connections_count == 1);
+                                        msg_data->exit_status =
+                                                rtp_change_dest(data->network_devices[0],
+                                                                msg_data->new_receiver);
+                                        msg->deleter(msg);
+                                }
+                        case FRAME:
+                                tx_frame = msg->data;
+                                break;
+                        default:
+                                abort();
                 }
 
                 pthread_mutex_unlock(&data->lock);
