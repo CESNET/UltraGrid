@@ -3807,3 +3807,8 @@ void rtp_flush_recv_buf(struct rtp *session)
         udp_flush_recv_buf(session->rtp_socket);
 }
 
+int rtp_change_dest(struct rtp *session, const char *addr)
+{
+        return udp_change_dest(session->rtp_socket, addr);
+}
+

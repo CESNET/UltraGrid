@@ -283,4 +283,9 @@ int              rtp_set_recv_buf(struct rtp *session, int bufsize);
 int              rtp_set_send_buf(struct rtp *session, int bufsize);
 
 void             rtp_flush_recv_buf(struct rtp *session);
+/**
+ * @retval TRUE if changed successfully
+ * @retval FALSE if not
+ */
+int              rtp_change_dest(struct rtp *session, const char *addr);
 #endif /* __RTP_H__ */
