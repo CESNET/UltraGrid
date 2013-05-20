@@ -70,6 +70,7 @@
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
+#include "sender.h"
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -125,12 +126,6 @@
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
 #endif
 
-enum tx_protocol {
-        ULTRAGRID_RTP,
-        IHDTV,
-        SAGE
-};
-
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -185,12 +180,8 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base,
                 int send_port_base, struct pdb *participants, bool use_ipv6,
                 char *mcast_if);
 
-struct sender_data;
-
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
-static void sender_finish(struct sender_data *data);
-static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
 static void display_buf_increase_warning(int size);
 static bool enable_export(char *dir);
 static void remove_display_from_decoders(struct state_uv *uv);
@@ -687,217 +678,6 @@ static void *receiver_thread(void *arg)
         display_finish(uv_state->display_device);
 
         return 0;
-}
-
-enum sender_msg_type {
-        FRAME,
-        CHANGE_RECEIVER,
-        QUIT
-};
-
-struct sender_msg {
-        enum sender_msg_type type;
-        void *data;
-        void (*deleter)(struct sender_msg *);
-};
-
-struct sender_data {
-        pthread_mutex_t lock;
-        pthread_cond_t msg_ready_cv;
-        pthread_cond_t msg_processed_cv;
-        struct sender_msg *msg;
-        int connections_count;
-        enum tx_protocol tx_protocol;
-        union {
-                struct rtp **network_devices; // ULTRAGRID_RTP
-                struct display *sage_tx_device; // == SAGE
-        };
-        struct tx *tx;
-};
-
-static void sender_finish(struct sender_data *data) {
-        pthread_mutex_lock(&data->lock);
-
-        while(data->msg) {
-                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
-        }
-
-        data->msg = malloc(sizeof(struct sender_msg));
-        data->msg->type = QUIT;
-        data->msg->deleter = (void (*) (struct sender_msg *)) free;
-
-        pthread_cond_signal(&data->msg_ready_cv);
-
-        pthread_mutex_unlock(&data->lock);
-}
-
-struct sender_change_receiver_data {
-        const char *new_receiver;
-        bool exit_status;
-};
-
-static bool sender_change_receiver(struct sender_data *data, const char *new_receiver)
-{
-        struct sender_change_receiver_data msg_data;
-        pthread_mutex_lock(&data->lock);
-
-        while(data->msg) {
-                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
-        }
-
-        data->msg = malloc(sizeof(struct sender_msg));
-        data->msg->type = CHANGE_RECEIVER;
-        data->msg->deleter = (void (*) (struct sender_msg *)) free;
-        msg_data.new_receiver = new_receiver;
-        data->msg->data = (void *) &msg_data;
-
-        pthread_cond_signal(&data->msg_ready_cv);
-
-        // wait until it is processed
-        while(data->msg) {
-                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
-        }
-
-        pthread_mutex_unlock(&data->lock);
-
-        return msg_data.exit_status;
-}
-
-struct response *sender_change_receiver_callback(struct received_message *msg, void *udata);
-
-struct response *sender_change_receiver_callback(struct received_message *msg, void *udata)
-{
-        struct sender_data *s = (struct sender_data *) udata;
-        const char *receiver = (const char *) msg->data;
-
-        struct response *response = malloc(sizeof(struct response));
-        response->deleter = (void (*) (struct response *)) free;
-
-        if(sender_change_receiver(s, receiver)) {
-                response->status = 200;
-        } else {
-                response->status = 400;
-        }
-
-        msg->deleter(msg);
-
-        return response;
-}
-
-static void sender_data_init(struct sender_data *data);
-static void sender_data_done(struct sender_data *data);
-
-static void sender_data_init(struct sender_data *data) {
-        pthread_mutex_init(&data->lock, NULL);
-        pthread_cond_init(&data->msg_ready_cv, NULL);
-        pthread_cond_init(&data->msg_processed_cv, NULL);
-        data->msg = NULL;
-}
-
-static void sender_data_done(struct sender_data *data) {
-        pthread_mutex_destroy(&data->lock);
-        pthread_cond_destroy(&data->msg_ready_cv);
-        pthread_cond_destroy(&data->msg_processed_cv);
-}
-
-static void *sender_thread(void *arg) {
-        struct sender_data *data = (struct sender_data *)arg;
-        struct video_frame *splitted_frames = NULL;
-        int tile_y_count;
-        struct video_desc saved_vid_desc;
-
-        tile_y_count = data->connections_count;
-        memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
-
-        /* we have more than one connection */
-        if(tile_y_count > 1) {
-                /* it is simply stripping frame */
-                splitted_frames = vf_alloc(tile_y_count);
-        }
-
-        subscribe_messages(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS,
-                        sender_change_receiver_callback,
-                        data);
-
-        pthread_mutex_unlock(&data->lock);
-
-        while(1) {
-                pthread_mutex_lock(&data->lock);
-                struct video_frame *tx_frame;
-
-                while(!data->msg) {
-                        pthread_cond_wait(&data->msg_ready_cv, &data->lock);
-                }
-                struct sender_msg *msg = data->msg;
-                switch (msg->type) {
-
-                        case QUIT:
-                                data->msg = NULL;
-                                msg->deleter(msg);
-                                pthread_cond_signal(&data->msg_processed_cv);
-                                pthread_mutex_unlock(&data->lock);
-                                goto exit;
-                        case CHANGE_RECEIVER:
-                                {
-                                        struct sender_change_receiver_data *msg_data = msg->data;
-                                        assert(data->tx_protocol == ULTRAGRID_RTP);
-                                        assert(data->connections_count == 1);
-                                        msg_data->exit_status =
-                                                rtp_change_dest(data->network_devices[0],
-                                                                msg_data->new_receiver);
-                                        msg->deleter(msg);
-                                }
-                        case FRAME:
-                                tx_frame = msg->data;
-                                break;
-                        default:
-                                abort();
-                }
-
-                pthread_mutex_unlock(&data->lock);
-
-                if(data->tx_protocol == ULTRAGRID_RTP) {
-                        if(data->connections_count == 1) { /* normal case - only one connection */
-                                tx_send(data->tx, tx_frame,
-                                                data->network_devices[0]);
-                        } else { /* split */
-                                int i;
-
-                                //assert(frame_count == 1);
-                                vf_split_horizontal(splitted_frames, tx_frame,
-                                                tile_y_count);
-                                for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send_tile(data->tx, splitted_frames, i,
-                                                        data->network_devices[i]);
-                                }
-                        }
-                } else { // SAGE
-                        if(!video_desc_eq(saved_vid_desc,
-                                                video_desc_from_frame(tx_frame))) {
-                                display_reconfigure(data->sage_tx_device,
-                                                video_desc_from_frame(tx_frame));
-                                saved_vid_desc = video_desc_from_frame(tx_frame);
-                        }
-                        struct video_frame *frame =
-                                display_get_frame(data->sage_tx_device);
-                        memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
-                                        tx_frame->tiles[0].data_len);
-                        display_put_frame(data->sage_tx_device, frame, 0);
-                }
-
-                pthread_mutex_lock(&data->lock);
-
-                data->msg = NULL;
-                msg->deleter(msg);
-
-                pthread_cond_signal(&data->msg_processed_cv);
-                pthread_mutex_unlock(&data->lock);
-        }
-
-exit:
-        vf_free(splitted_frames);
-
-        return NULL;
 }
 
 static void *compress_thread(void *arg)

@@ -46,6 +46,7 @@ OBJS	      = @OBJS@ \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
+		src/sender.o \
 		src/tile.o \
 		src/tv.o \
 		src/transmit.o \
