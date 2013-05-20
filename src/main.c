@@ -162,15 +162,6 @@ struct state_uv {
         /* used mainly to serialize initialization */
         pthread_mutex_t master_lock;
 
-        volatile unsigned int has_item_to_send:1;
-        volatile unsigned int sender_waiting:1;
-        volatile unsigned int compress_thread_waiting:1;
-        volatile unsigned int should_exit_sender:1;
-        pthread_mutex_t sender_lock;
-        pthread_cond_t compress_thread_cv;
-        pthread_cond_t sender_cv;
-
-        struct video_frame * volatile tx_frame;
         struct video_export *video_exporter;
 };
 
@@ -193,9 +184,11 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base,
                 int send_port_base, struct pdb *participants, bool use_ipv6,
                 char *mcast_if);
 
+struct sender_data;
+
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
-static void sender_finish(struct state_uv *uv);
+static void sender_finish(struct sender_data *data);
 static void display_buf_increase_warning(int size);
 static bool enable_export(char *dir);
 static void remove_display_from_decoders(struct state_uv *uv);
@@ -694,27 +687,71 @@ static void *receiver_thread(void *arg)
         return 0;
 }
 
-static void sender_finish(struct state_uv *uv) {
-        pthread_mutex_lock(&uv->sender_lock);
+enum sender_msg_type {
+        FRAME,
+        QUIT
+};
 
-        uv->should_exit_sender = TRUE;
+struct sender_msg {
+        enum sender_msg_type type;
+        void *data;
+        void (*deleter)(struct sender_msg *);
+};
 
-        if(uv->sender_waiting) {
-                uv->has_item_to_send = TRUE;
-                pthread_cond_signal(&uv->sender_cv);
+struct sender_data {
+        pthread_mutex_t lock;
+        pthread_cond_t msg_ready_cv;
+        pthread_cond_t msg_processed_cv;
+        struct sender_msg *msg;
+        int connections_count;
+        enum tx_protocol tx_protocol;
+        union {
+                struct rtp **network_devices; // ULTRAGRID_RTP
+                struct display *sage_tx_device; // == SAGE
+        };
+        struct tx *tx;
+};
+
+static void sender_finish(struct sender_data *data) {
+        pthread_mutex_lock(&data->lock);
+
+        while(data->msg) {
+                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
         }
 
-        pthread_mutex_unlock(&uv->sender_lock);
+        data->msg = malloc(sizeof(struct sender_msg));
+        data->msg->type = QUIT;
+        data->msg->deleter = (void (*) (struct sender_msg *)) free;
+
+        pthread_cond_signal(&data->msg_ready_cv);
+
+        pthread_mutex_unlock(&data->lock);
 
 }
 
+static void sender_data_init(struct sender_data *data);
+static void sender_data_done(struct sender_data *data);
+
+static void sender_data_init(struct sender_data *data) {
+        pthread_mutex_init(&data->lock, NULL);
+        pthread_cond_init(&data->msg_ready_cv, NULL);
+        pthread_cond_init(&data->msg_processed_cv, NULL);
+        data->msg = NULL;
+}
+
+static void sender_data_done(struct sender_data *data) {
+        pthread_mutex_destroy(&data->lock);
+        pthread_cond_destroy(&data->msg_ready_cv);
+        pthread_cond_destroy(&data->msg_processed_cv);
+}
+
 static void *sender_thread(void *arg) {
-        struct state_uv *uv = (struct state_uv *)arg;
+        struct sender_data *data = (struct sender_data *)arg;
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         struct video_desc saved_vid_desc;
 
-        tile_y_count = uv->connections_count;
+        tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
 
         /* we have more than one connection */
@@ -723,28 +760,33 @@ static void *sender_thread(void *arg) {
                 splitted_frames = vf_alloc(tile_y_count);
         }
 
-        while(!uv->should_exit_sender) {
-                pthread_mutex_lock(&uv->sender_lock);
+        pthread_mutex_unlock(&data->lock);
 
-                while(!uv->has_item_to_send && !uv->should_exit_sender) {
-                        uv->sender_waiting = TRUE;
-                        pthread_cond_wait(&uv->sender_cv, &uv->sender_lock);
-                        uv->sender_waiting = FALSE;
+        while(1) {
+                pthread_mutex_lock(&data->lock);
+                struct video_frame *tx_frame;
+
+                while(!data->msg) {
+                        pthread_cond_wait(&data->msg_ready_cv, &data->lock);
                 }
-                struct video_frame *tx_frame = uv->tx_frame;
-
-                if(uv->should_exit_sender) {
-                        uv->has_item_to_send = FALSE;
-                        pthread_mutex_unlock(&uv->sender_lock);
+                struct sender_msg *msg = data->msg;
+                if (msg->type == QUIT) {
+                        data->msg = NULL;
+                        msg->deleter(msg);
+                        pthread_cond_signal(&data->msg_processed_cv);
+                        pthread_mutex_unlock(&data->lock);
                         goto exit;
+                } else {
+                        assert(msg->type == FRAME);
+                        tx_frame = msg->data;
                 }
 
-                pthread_mutex_unlock(&uv->sender_lock);
+                pthread_mutex_unlock(&data->lock);
 
-                if(uv->tx_protocol == ULTRAGRID_RTP) {
-                        if(uv->connections_count == 1) { /* normal case - only one connection */
-                                tx_send(uv->tx, tx_frame,
-                                                uv->network_devices[0]);
+                if(data->tx_protocol == ULTRAGRID_RTP) {
+                        if(data->connections_count == 1) { /* normal case - only one connection */
+                                tx_send(data->tx, tx_frame,
+                                                data->network_devices[0]);
                         } else { /* split */
                                 int i;
 
@@ -752,38 +794,35 @@ static void *sender_thread(void *arg) {
                                 vf_split_horizontal(splitted_frames, tx_frame,
                                                 tile_y_count);
                                 for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send_tile(uv->tx, splitted_frames, i,
-                                                        uv->network_devices[i]);
+                                        tx_send_tile(data->tx, splitted_frames, i,
+                                                        data->network_devices[i]);
                                 }
                         }
                 } else { // SAGE
                         if(!video_desc_eq(saved_vid_desc,
                                                 video_desc_from_frame(tx_frame))) {
-                                display_reconfigure(uv->sage_tx_device,
+                                display_reconfigure(data->sage_tx_device,
                                                 video_desc_from_frame(tx_frame));
                                 saved_vid_desc = video_desc_from_frame(tx_frame);
                         }
                         struct video_frame *frame =
-                                display_get_frame(uv->sage_tx_device);
+                                display_get_frame(data->sage_tx_device);
                         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                                         tx_frame->tiles[0].data_len);
-                        display_put_frame(uv->sage_tx_device, frame, 0);
+                        display_put_frame(data->sage_tx_device, frame, 0);
                 }
 
-                pthread_mutex_lock(&uv->sender_lock);
+                pthread_mutex_lock(&data->lock);
 
-                uv->has_item_to_send = FALSE;
+                data->msg = NULL;
+                msg->deleter(msg);
 
-                if(uv->compress_thread_waiting) {
-                        pthread_cond_signal(&uv->compress_thread_cv);
-                }
-                pthread_mutex_unlock(&uv->sender_lock);
+                pthread_cond_signal(&data->msg_processed_cv);
+                pthread_mutex_unlock(&data->lock);
         }
 
 exit:
         vf_free(splitted_frames);
-
-
 
         return NULL;
 }
@@ -791,6 +830,7 @@ exit:
 static void *compress_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
+        struct sender_data sender_data;
 
         struct video_frame *tx_frame;
         struct audio_frame *audio;
@@ -800,6 +840,31 @@ static void *compress_thread(void *arg)
 
         struct compress_state *compression; 
         int ret = compress_init(uv->requested_compression, &compression);
+
+        sender_data_init(&sender_data);
+        sender_data.connections_count = uv->connections_count;
+        sender_data.tx_protocol = uv->tx_protocol;
+        if(uv->tx_protocol == ULTRAGRID_RTP) {
+                sender_data.network_devices = uv->network_devices;
+        } else {
+                sender_data.sage_tx_device = uv->sage_tx_device;
+        }
+        sender_data.tx = uv->tx;
+
+        pthread_mutex_lock(&sender_data.lock);
+
+        if (pthread_create
+            (&sender_thread_id, NULL, sender_thread,
+             (void *) &sender_data) != 0) {
+                perror("Unable to create sender thread!\n");
+                exit_uv(EXIT_FAILURE);
+                pthread_mutex_unlock(&uv->master_lock);
+                goto join_thread;
+        }
+
+        // wait for sender_thread to init
+        pthread_mutex_lock(&sender_data.lock);
+        pthread_mutex_unlock(&sender_data.lock);
         
         pthread_mutex_unlock(&uv->master_lock);
         /* NOTE: unlock before propagating possible error */
@@ -811,14 +876,6 @@ static void *compress_thread(void *arg)
         if(ret > 0) {
                 exit_uv(0);
                 goto compress_done;
-        }
-
-        if (pthread_create
-            (&sender_thread_id, NULL, sender_thread,
-             (void *)uv) != 0) {
-                perror("Unable to create sender thread!\n");
-                exit_uv(EXIT_FAILURE);
-                goto join_thread;
         }
 
         while (!should_exit_sender) {
@@ -841,52 +898,38 @@ static void *compress_thread(void *arg)
 
                         video_export(uv->video_exporter, tx_frame);
 
+                        pthread_mutex_lock(&sender_data.lock);
+                        while(sender_data.msg) {
+                                pthread_cond_wait(&sender_data.msg_processed_cv, &sender_data.lock);
+                        }
+
+                        struct sender_msg *msg = malloc(sizeof(struct sender_msg));
+                        msg->type = FRAME;
+                        msg->deleter = (void (*) (struct sender_msg *)) free;
+                        msg->data = tx_frame;
+
+                        sender_data.msg = msg;
+                        pthread_cond_signal(&sender_data.msg_ready_cv);
 
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
+                        /* for compressed, we do not need to wait */
                         if(is_compress_none(compression)) {
-                                pthread_mutex_lock(&uv->sender_lock);
-
-                                uv->tx_frame = tx_frame;
-
-                                uv->has_item_to_send = TRUE;
-                                if(uv->sender_waiting) {
-                                        pthread_cond_signal(&uv->sender_cv);
+                                // we wait until frame is completed
+                                while(sender_data.msg) {
+                                        pthread_cond_wait(&sender_data.msg_processed_cv, &sender_data.lock);
                                 }
-
-                                while(uv->has_item_to_send) {
-                                        uv->compress_thread_waiting = TRUE;
-                                        pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
-                                        uv->compress_thread_waiting = FALSE;
-                                }
-                                pthread_mutex_unlock(&uv->sender_lock);
-                        }  else
-                        /* we post for sending (after previous frame is done) and schedule a new one
-                         * frames may overlap then */
-                        {
-                                pthread_mutex_lock(&uv->sender_lock);
-                                while(uv->has_item_to_send) {
-                                        uv->compress_thread_waiting = TRUE;
-                                        pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
-                                        uv->compress_thread_waiting = FALSE;
-                                }
-
-                                uv->tx_frame = tx_frame;
-
-                                uv->has_item_to_send = TRUE;
-                                if(uv->sender_waiting) {
-                                        pthread_cond_signal(&uv->sender_cv);
-                                }
-                                pthread_mutex_unlock(&uv->sender_lock);
                         }
+                        pthread_mutex_unlock(&sender_data.lock);
                 }
         }
 
         vidcap_finish(uv_state->capture_device);
 
 join_thread:
-        sender_finish(uv);
+        sender_finish(&sender_data);
         pthread_join(sender_thread_id, NULL);
+        sender_data_done(&sender_data);
 
 compress_done:
         compress_done(compression);
@@ -1051,14 +1094,6 @@ int main(int argc, char *argv[])
         uv->sage_tx_device = NULL;
 
         pthread_mutex_init(&uv->master_lock, NULL);
-
-        uv->has_item_to_send = FALSE;
-        uv->sender_waiting = FALSE;
-        uv->compress_thread_waiting = FALSE;
-        uv->should_exit_sender = FALSE;
-        pthread_mutex_init(&uv->sender_lock, NULL);
-        pthread_cond_init(&uv->compress_thread_cv, NULL);
-        pthread_cond_init(&uv->sender_cv, NULL);
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -1666,10 +1701,6 @@ cleanup:
         }
 
         video_export_destroy(uv->video_exporter);
-
-        pthread_mutex_destroy(&uv->sender_lock);
-        pthread_cond_destroy(&uv->compress_thread_cv);
-        pthread_cond_destroy(&uv->sender_cv);
 
         pthread_mutex_unlock(&uv->master_lock); 
 
