@@ -62,6 +62,7 @@
 #include <getopt.h>
 #include <pthread.h>
 #include "capture_filter.h"
+#include "control.h"
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
@@ -688,13 +689,11 @@ static void *compress_thread(void *arg)
         struct video_frame *tx_frame;
         struct audio_frame *audio;
         //struct video_frame *splitted_frames = NULL;
-        pthread_t sender_thread_id;
         int i = 0;
 
         struct compress_state *compression; 
         int ret = compress_init(uv->requested_compression, &compression);
 
-        sender_data_init(&sender_data);
         sender_data.connections_count = uv->connections_count;
         sender_data.tx_protocol = uv->tx_protocol;
         if(uv->tx_protocol == ULTRAGRID_RTP) {
@@ -704,30 +703,23 @@ static void *compress_thread(void *arg)
         }
         sender_data.tx = uv->tx;
 
-        pthread_mutex_lock(&sender_data.lock);
-
-        if (pthread_create
-            (&sender_thread_id, NULL, sender_thread,
-             (void *) &sender_data) != 0) {
-                perror("Unable to create sender thread!\n");
-                exit_uv(EXIT_FAILURE);
+        if(!sender_init(&sender_data)) {
+                fprintf(stderr, "Error initializing sender.\n");
+                exit_uv(1);
                 pthread_mutex_unlock(&uv->master_lock);
-                goto join_thread;
-        }
-
-        // wait for sender_thread to init
-        pthread_mutex_lock(&sender_data.lock);
-        pthread_mutex_unlock(&sender_data.lock);
-        
-        pthread_mutex_unlock(&uv->master_lock);
-        /* NOTE: unlock before propagating possible error */
-        if(ret < 0) {
-                fprintf(stderr, "Error initializing compression.\n");
-                exit_uv(0);
                 goto compress_done;
         }
-        if(ret > 0) {
-                exit_uv(0);
+
+        pthread_mutex_unlock(&uv->master_lock);
+        /* NOTE: unlock before propagating possible error */
+        if(ret != 0) {
+                if(ret < 0) {
+                        fprintf(stderr, "Error initializing compression.\n");
+                        exit_uv(1);
+                }
+                if(ret > 0) {
+                        exit_uv(0);
+                }
                 goto compress_done;
         }
 
@@ -751,38 +743,21 @@ static void *compress_thread(void *arg)
 
                         video_export(uv->video_exporter, tx_frame);
 
-                        pthread_mutex_lock(&sender_data.lock);
-                        while(sender_data.msg) {
-                                pthread_cond_wait(&sender_data.msg_processed_cv, &sender_data.lock);
-                        }
-
-                        struct sender_msg *msg = malloc(sizeof(struct sender_msg));
-                        msg->type = FRAME;
-                        msg->deleter = (void (*) (struct sender_msg *)) free;
-                        msg->data = tx_frame;
-
-                        sender_data.msg = msg;
-                        pthread_cond_signal(&sender_data.msg_ready_cv);
-
+                        bool nonblock = true;
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
                         /* for compressed, we do not need to wait */
                         if(is_compress_none(compression)) {
-                                // we wait until frame is completed
-                                while(sender_data.msg) {
-                                        pthread_cond_wait(&sender_data.msg_processed_cv, &sender_data.lock);
-                                }
+                                nonblock = false;
                         }
-                        pthread_mutex_unlock(&sender_data.lock);
+
+                        sender_post_new_frame(&sender_data, tx_frame, nonblock);
                 }
         }
 
         vidcap_finish(uv_state->capture_device);
 
-join_thread:
-        sender_finish(&sender_data);
-        pthread_join(sender_thread_id, NULL);
-        sender_data_done(&sender_data);
+        sender_done(&sender_data);
 
 compress_done:
         compress_done(compression);
@@ -856,6 +831,7 @@ int main(int argc, char *argv[])
         char *export_opts = NULL;
 
         char *sage_opts = NULL;
+        struct control_state *control = NULL;
 
         int bitrate = 0;
         
@@ -1498,6 +1474,10 @@ int main(int argc, char *argv[])
         
         pthread_mutex_lock(&uv->master_lock); 
 
+        if(control_init(CONTROL_DEFAULT_PORT, &control) != 0) {
+                fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
+        }
+
         if(audio_get_display_flags(uv->audio)) {
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
                 audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int, 
@@ -1571,6 +1551,8 @@ cleanup:
 #ifdef WIN32
 	WSACleanup();
 #endif
+
+        control_done(control);
 
         printf("Exit\n");
 

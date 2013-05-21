@@ -52,6 +52,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "resource_manager.h"
+#include "utils/lock_guard.h"
 
 #include <map>
 #include <stdexcept>
@@ -139,23 +140,6 @@ class shm : public resource {
                 void *m_data;
 };
 
-class lock_holder {
-        public:
-                lock_holder(pthread_mutex_t &lock) :
-                        m_lock(lock)
-                {
-                        pthread_mutex_lock(&m_lock);
-                }
-
-                ~lock_holder()
-                {
-                        pthread_mutex_unlock(&m_lock);
-                }
-        private:
-                pthread_mutex_t &m_lock;
-
-};
-
 class resource_manager_t {
         public:
                 typedef map<string, pair<resource *, int> > obj_map_t;
@@ -180,7 +164,7 @@ class resource_manager_t {
 
                 resource *acquire(string name, type_t type, options_t const & options) {
                         resource *ret;
-                        lock_holder lock(m_access_lock);
+                        lock_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);
@@ -197,7 +181,7 @@ class resource_manager_t {
                 }
 
                 void release(string name, type_t type) {
-                        lock_holder lock(m_access_lock);
+                        lock_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);

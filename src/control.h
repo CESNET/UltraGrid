@@ -1,8 +1,6 @@
 /*
- * FILE:    main.c
- * AUTHORS: Colin Perkins    <csp@csperkins.org>
- *          Ladan Gharai     <ladan@isi.edu>
- *          Martin Benes     <martinbenesh@gmail.com>
+ * FILE:    control.h
+ * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
  *          Milos Liska      <xliska@fi.muni.cz>
@@ -11,31 +9,27 @@
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
- * Copyright (c) 2001-2004 University of Southern California
- * Copyright (c) 2003-2004 University of Glasgow
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ *
+ *      This product includes software developed by CESNET z.s.p.o.
+ *
+ * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -51,41 +45,10 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+struct control_state;
 
-struct tx;
-struct rtp;
-struct display;
-struct received_message;
-struct response;
-struct sender_msg;
-struct video_frame;
-struct sender_priv_data;
+#define CONTROL_DEFAULT_PORT -1
 
-enum tx_protocol {
-        ULTRAGRID_RTP,
-        IHDTV,
-        SAGE
-};
-
-struct sender_data {
-        int connections_count;
-        enum tx_protocol tx_protocol;
-        union {
-                struct rtp **network_devices; // ULTRAGRID_RTP
-                struct display *sage_tx_device; // == SAGE
-        };
-        struct tx *tx;
-        struct sender_priv_data *priv;
-};
-
-struct response *sender_change_receiver_callback(struct received_message *msg, void *udata);
-
-bool sender_init(struct sender_data *data);
-void sender_done(struct sender_data *data);
-void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock);
+int control_init(int port, struct control_state **state);
+void control_done(struct control_state *s);
 

@@ -65,46 +65,106 @@
 #include "video_display.h"
 
 static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
+static struct sender_msg *new_frame_msg(struct video_frame *frame);
+static void *sender_thread(void *arg);
+static void sender_finish(struct sender_data *data);
 
-void sender_finish(struct sender_data *data) {
-        pthread_mutex_lock(&data->lock);
+struct sender_priv_data {
+        pthread_mutex_t lock;
+        pthread_cond_t msg_ready_cv;
+        pthread_cond_t msg_processed_cv;
+        struct sender_msg *msg;
 
-        while(data->msg) {
-                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
+        pthread_t thread_id;
+};
+
+struct sender_change_receiver_data {
+        const char *new_receiver;
+        int exit_status;
+};
+
+enum sender_msg_type {
+        FRAME,
+        CHANGE_RECEIVER,
+        QUIT
+};
+
+struct sender_msg {
+        enum sender_msg_type type;
+        void *data;
+        void (*deleter)(struct sender_msg *);
+};
+
+static struct sender_msg *new_frame_msg(struct video_frame *frame)
+{
+        struct sender_msg *msg = malloc(sizeof(struct sender_msg));
+        msg->type = FRAME;
+        msg->deleter = (void (*) (struct sender_msg *)) free;
+        msg->data = frame;
+
+        return msg;
+}
+
+void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock) {
+        pthread_mutex_lock(&data->priv->lock);
+        while(data->priv->msg) {
+                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
         }
 
-        data->msg = malloc(sizeof(struct sender_msg));
-        data->msg->type = QUIT;
-        data->msg->deleter = (void (*) (struct sender_msg *)) free;
+        data->priv->msg = new_frame_msg(frame);
+        pthread_cond_signal(&data->priv->msg_ready_cv);
 
-        pthread_cond_signal(&data->msg_ready_cv);
+        if(!nonblock) {
+                // we wait until frame is completed
+                while(data->priv->msg) {
+                        pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
+                }
+        }
+        pthread_mutex_unlock(&data->priv->lock);
+}
 
-        pthread_mutex_unlock(&data->lock);
+static void sender_finish(struct sender_data *data) {
+        pthread_mutex_lock(&data->priv->lock);
+
+        while(data->priv->msg) {
+                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
+        }
+
+        data->priv->msg = malloc(sizeof(struct sender_msg));
+        data->priv->msg->type = QUIT;
+        data->priv->msg->deleter = (void (*) (struct sender_msg *)) free;
+
+        pthread_cond_signal(&data->priv->msg_ready_cv);
+
+        pthread_mutex_unlock(&data->priv->lock);
 }
 
 static bool sender_change_receiver(struct sender_data *data, const char *new_receiver)
 {
         struct sender_change_receiver_data msg_data;
-        pthread_mutex_lock(&data->lock);
+        pthread_mutex_lock(&data->priv->lock);
 
-        while(data->msg) {
-                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
+        while(data->priv->msg) {
+                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
         }
 
-        data->msg = malloc(sizeof(struct sender_msg));
-        data->msg->type = CHANGE_RECEIVER;
-        data->msg->deleter = (void (*) (struct sender_msg *)) free;
-        msg_data.new_receiver = new_receiver;
-        data->msg->data = (void *) &msg_data;
+        struct sender_msg *msg = malloc(sizeof(struct sender_msg));
+        msg->type = CHANGE_RECEIVER;
+        msg->deleter = (void (*) (struct sender_msg *)) free;
+        msg_data.new_receiver = strdup(new_receiver);
+        msg_data.exit_status = -1;
+        msg->data = (void *) &msg_data;
 
-        pthread_cond_signal(&data->msg_ready_cv);
+        data->priv->msg = msg;
+
+        pthread_cond_signal(&data->priv->msg_ready_cv);
 
         // wait until it is processed
-        while(data->msg) {
-                pthread_cond_wait(&data->msg_processed_cv, &data->lock);
+        while(msg_data.exit_status == -1) {
+                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
         }
 
-        pthread_mutex_unlock(&data->lock);
+        pthread_mutex_unlock(&data->priv->lock);
 
         return msg_data.exit_status;
 }
@@ -114,13 +174,12 @@ struct response *sender_change_receiver_callback(struct received_message *msg, v
         struct sender_data *s = (struct sender_data *) udata;
         const char *receiver = (const char *) msg->data;
 
-        struct response *response = malloc(sizeof(struct response));
-        response->deleter = (void (*) (struct response *)) free;
+        struct response *response;
 
         if(sender_change_receiver(s, receiver)) {
-                response->status = 200;
+                response = new_response(RESPONSE_OK);
         } else {
-                response->status = 400;
+                response = new_response(RESPONSE_NOT_FOUND);
         }
 
         msg->deleter(msg);
@@ -128,20 +187,41 @@ struct response *sender_change_receiver_callback(struct received_message *msg, v
         return response;
 }
 
-void sender_data_init(struct sender_data *data) {
-        pthread_mutex_init(&data->lock, NULL);
-        pthread_cond_init(&data->msg_ready_cv, NULL);
-        pthread_cond_init(&data->msg_processed_cv, NULL);
-        data->msg = NULL;
+bool sender_init(struct sender_data *data) {
+        data->priv = malloc(sizeof(struct sender_priv_data));
+        pthread_mutex_init(&data->priv->lock, NULL);
+        pthread_cond_init(&data->priv->msg_ready_cv, NULL);
+        pthread_cond_init(&data->priv->msg_processed_cv, NULL);
+        data->priv->msg = NULL;
+
+        // we lock and thred unlocks after initialized
+        pthread_mutex_lock(&data->priv->lock);
+
+        if (pthread_create
+                        (&data->priv->thread_id, NULL, sender_thread,
+                         (void *) data) != 0) {
+                perror("Unable to create sender thread!\n");
+                return false;
+        }
+
+        // this construct forces waiting for thread inititialization
+        pthread_mutex_lock(&data->priv->lock);
+        pthread_mutex_unlock(&data->priv->lock);
+
+        return true;
 }
 
-void sender_data_done(struct sender_data *data) {
-        pthread_mutex_destroy(&data->lock);
-        pthread_cond_destroy(&data->msg_ready_cv);
-        pthread_cond_destroy(&data->msg_processed_cv);
+void sender_done(struct sender_data *data) {
+        sender_finish(data);
+        pthread_join(data->priv->thread_id, NULL);
+
+        pthread_mutex_destroy(&data->priv->lock);
+        pthread_cond_destroy(&data->priv->msg_ready_cv);
+        pthread_cond_destroy(&data->priv->msg_processed_cv);
+        free(data->priv);
 }
 
-void *sender_thread(void *arg) {
+static void *sender_thread(void *arg) {
         struct sender_data *data = (struct sender_data *)arg;
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
@@ -160,23 +240,23 @@ void *sender_thread(void *arg) {
                         sender_change_receiver_callback,
                         data);
 
-        pthread_mutex_unlock(&data->lock);
+        pthread_mutex_unlock(&data->priv->lock);
 
         while(1) {
-                pthread_mutex_lock(&data->lock);
-                struct video_frame *tx_frame;
+                pthread_mutex_lock(&data->priv->lock);
+                struct video_frame *tx_frame = NULL;
 
-                while(!data->msg) {
-                        pthread_cond_wait(&data->msg_ready_cv, &data->lock);
+                while(!data->priv->msg) {
+                        pthread_cond_wait(&data->priv->msg_ready_cv, &data->priv->lock);
                 }
-                struct sender_msg *msg = data->msg;
+                struct sender_msg *msg = data->priv->msg;
                 switch (msg->type) {
 
                         case QUIT:
-                                data->msg = NULL;
+                                data->priv->msg = NULL;
                                 msg->deleter(msg);
-                                pthread_cond_signal(&data->msg_processed_cv);
-                                pthread_mutex_unlock(&data->lock);
+                                pthread_cond_broadcast(&data->priv->msg_processed_cv);
+                                pthread_mutex_unlock(&data->priv->lock);
                                 goto exit;
                         case CHANGE_RECEIVER:
                                 {
@@ -188,6 +268,7 @@ void *sender_thread(void *arg) {
                                                                 msg_data->new_receiver);
                                         msg->deleter(msg);
                                 }
+                                break;
                         case FRAME:
                                 tx_frame = msg->data;
                                 break;
@@ -195,7 +276,14 @@ void *sender_thread(void *arg) {
                                 abort();
                 }
 
-                pthread_mutex_unlock(&data->lock);
+                if(!tx_frame) {
+                        data->priv->msg = NULL;
+                        pthread_cond_broadcast(&data->priv->msg_processed_cv);
+                        pthread_mutex_unlock(&data->priv->lock);
+                        continue;
+                }
+
+                pthread_mutex_unlock(&data->priv->lock);
 
                 if(data->tx_protocol == ULTRAGRID_RTP) {
                         if(data->connections_count == 1) { /* normal case - only one connection */
@@ -226,13 +314,13 @@ void *sender_thread(void *arg) {
                         display_put_frame(data->sage_tx_device, frame, 0);
                 }
 
-                pthread_mutex_lock(&data->lock);
+                pthread_mutex_lock(&data->priv->lock);
 
-                data->msg = NULL;
+                data->priv->msg = NULL;
                 msg->deleter(msg);
 
-                pthread_cond_signal(&data->msg_processed_cv);
-                pthread_mutex_unlock(&data->lock);
+                pthread_cond_broadcast(&data->priv->msg_processed_cv);
+                pthread_mutex_unlock(&data->priv->lock);
         }
 
 exit:

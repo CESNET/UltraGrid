@@ -28,10 +28,19 @@ struct response {
         void (*deleter)(struct response*);
 };
 
+#define RESPONSE_OK           200
+#define RESPONSE_BAD_REQUEST  400
+#define RESPONSE_NOT_FOUND    404
+#define RESPONSE_INT_SERV_ERR 500
+
+struct response *new_response(int status);
+
 typedef struct response *(*msg_callback_t)(struct received_message *msg, void *udata);
 
 struct messaging *messaging_instance(void);
 void subscribe_messages(struct messaging *, enum msg_class cls, msg_callback_t callback, void *udata);
+struct response *send_message(struct messaging *, enum msg_class cls, void *data);
+const char *response_status_to_text(int status);
 
 #ifdef __cplusplus
 }
