@@ -86,6 +86,7 @@ OBJS	      = @OBJS@ \
 		src/compat/inet_ntop.o \
 		src/compat/inet_pton.o \
 		src/compat/platform_semaphore.o \
+		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
 		src/compat/usleep.o \
 		src/crypto/crypt_aes.o \

@@ -253,7 +253,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 s->echo_state = NULL;
         }
         
-        s->tx_session = tx_init(1500, fec_cfg);
+        s->tx_session = tx_init(1500, TX_MEDIA_AUDIO, fec_cfg);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;

@@ -29,11 +29,10 @@ class message_manager {
                         struct responder *r = new responder;
                         r->callback = callback;
                         r->udata = udata;
-                        if(responders.find(cls) != responders.end()) {
-                                cerr << "There was already an receiver registered. " <<
-                                       "Unregistering it and registering this as a new one." << endl;
+                        if(responders.find(cls) == responders.end()) {
+                                responders[cls] = list<responder *>();
                         }
-                        responders[cls] = r;
+                        responders[cls].push_back(r);
                 }
 
                 struct response *send(enum msg_class cls, void *data) {
@@ -43,20 +42,27 @@ class message_manager {
                                         "the given class!" << endl;
                                 return new_response(RESPONSE_INT_SERV_ERR);
                         } else {
-                                struct received_message *msg = (struct received_message *)
-                                        malloc(sizeof(struct received_message));
-                                msg->message_type = cls;
-                                msg->data = data;
-                                msg->deleter = (void (*)(struct received_message *)) free;
-                                struct response *response = responders[cls]->callback(msg,
-                                                responders[cls]->udata);
-                                return response;
+                                for(list<responder *>::iterator it = responders[cls].begin();
+                                                it != responders[cls].end(); ++it) {
+                                        struct received_message *msg = (struct received_message *)
+                                                malloc(sizeof(struct received_message));
+                                        msg->message_type = cls;
+                                        msg->data = data;
+                                        msg->deleter = (void (*)(struct received_message *)) free;
+                                        struct response *response = (*it)->callback(msg,
+                                                        (*it)->udata);
+                                        if(response)
+                                                return response;
+                                }
+                                cerr << "Warning: cannot send message, no receiver is responding "
+                                        "the given class!" << endl;
+                                return new_response(RESPONSE_INT_SERV_ERR);
                         }
                 }
 
         private:
                 pthread_mutex_t lock;
-                map<enum msg_class, responder *> responders;
+                map<enum msg_class, list<responder *> > responders;
 };
 
 class message_manager instance;

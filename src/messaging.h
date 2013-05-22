@@ -7,6 +7,8 @@
 #include "config_win32.h"
 #endif
 
+#include <transmit.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,7 +16,8 @@ extern "C" {
 struct messaging;
 
 enum msg_class {
-        MSG_CHANGE_RECEIVER_ADDRESS
+        MSG_CHANGE_RECEIVER_ADDRESS,
+        MSG_CHANGE_FEC
 };
 
 struct received_message {
@@ -32,6 +35,11 @@ struct response {
 #define RESPONSE_BAD_REQUEST  400
 #define RESPONSE_NOT_FOUND    404
 #define RESPONSE_INT_SERV_ERR 500
+
+struct msg_change_fec_data {
+        enum tx_media_type media_type;
+        const char *fec;
+};
 
 struct response *new_response(int status);
 

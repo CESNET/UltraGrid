@@ -136,7 +136,7 @@ int control_init(int port, struct control_state **state)
 static int process_msg(int client_fd, char *message)
 {
         int ret = 0;
-        struct response *resp;
+        struct response *resp = NULL;
 
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
@@ -145,6 +145,23 @@ static int process_msg(int client_fd, char *message)
 
                 resp =
                         send_message(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS, receiver);
+        } else if(prefix_matches("fec ")) {
+                struct msg_change_fec_data data;
+                char *fec = suffix("fec ");
+
+                if(strncasecmp(fec, "audio ", 6) == 0) {
+                        data.media_type = TX_MEDIA_AUDIO;
+                        data.fec = fec + 6;
+                } else if(strncasecmp(fec, "video ", 6) == 0) {
+                        data.media_type = TX_MEDIA_VIDEO;
+                        data.fec = fec + 6;
+                } else {
+                        resp = new_response(RESPONSE_NOT_FOUND);
+                }
+
+                if(!resp) {
+                        resp = send_message(messaging_instance(), MSG_CHANGE_FEC, &data);
+                }
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK);

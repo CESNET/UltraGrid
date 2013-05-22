@@ -439,7 +439,7 @@ static struct tx *initialize_transmit(unsigned requested_mtu, char *fec)
 {
         /* Currently this is trivial. It'll get more complex once we */
         /* have multiple codecs and/or error correction.             */
-        return tx_init(requested_mtu, fec);
+        return tx_init(requested_mtu, TX_MEDIA_VIDEO, fec);
 }
 
 #ifdef HAVE_IHDTV
