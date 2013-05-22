@@ -1417,11 +1417,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
-                        struct video_frame *new_frame_buffer;
-                        if(check_for_mode_change(decoder, (uint32_t *)(void *)
-                                                pckt->data, &new_frame_buffer)) {
-                                frame = new_frame_buffer;
-                        }
+                        check_for_mode_change(decoder, (uint32_t *)(void *)
+                                                pckt->data, &frame);
                 }
 
                 if(pt == PT_VIDEO && !frame) {
