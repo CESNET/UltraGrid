@@ -67,10 +67,10 @@ typedef pthread_spinlock_t platform_spin_t;
 extern "C" {
 #endif // __cplusplus
 
-void platform_spin_init(platform_spin_t *);
-void platform_spin_lock(platform_spin_t *);
-void platform_spin_unlock(platform_spin_t *);
-void platform_spin_destroy(platform_spin_t *);
+int platform_spin_init(platform_spin_t *);
+int platform_spin_lock(platform_spin_t *);
+int platform_spin_unlock(platform_spin_t *);
+int platform_spin_destroy(platform_spin_t *);
 
 #ifdef __cplusplus
 }

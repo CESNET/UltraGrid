@@ -126,8 +126,8 @@ int control_init(int port, struct control_state **state)
         return 0;
 }
 
-#define prefix_matches(x) strncasecmp(message, x, strlen(x)) == 0
-#define suffix(x) message + strlen(x)
+#define prefix_matches(x,y) strncasecmp(x, y, strlen(y)) == 0
+#define suffix(x,y) x + strlen(y)
 
 /**
   * @retval -1 exit thread
@@ -140,14 +140,14 @@ static int process_msg(int client_fd, char *message)
 
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
-        } else if(prefix_matches("receiver ")) {
-                char *receiver = suffix("receiver ");
+        } else if(prefix_matches(message, "receiver ")) {
+                char *receiver = suffix(message, "receiver ");
 
                 resp =
                         send_message(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS, receiver);
-        } else if(prefix_matches("fec ")) {
+        } else if(prefix_matches(message, "fec ")) {
                 struct msg_change_fec_data data;
-                char *fec = suffix("fec ");
+                char *fec = suffix(message, "fec ");
 
                 if(strncasecmp(fec, "audio ", 6) == 0) {
                         data.media_type = TX_MEDIA_AUDIO;
@@ -161,6 +161,27 @@ static int process_msg(int client_fd, char *message)
 
                 if(!resp) {
                         resp = send_message(messaging_instance(), MSG_CHANGE_FEC, &data);
+                }
+        } else if(prefix_matches(message, "compress ")) {
+                struct msg_change_compress_data data;
+                char *compress = suffix(message, "compress ");
+
+                if(prefix_matches(compress, "param ")) {
+                        compress = suffix(compress, " param");
+                        data.what = CHANGE_PARAMS;
+                } else {
+                        data.what = CHANGE_COMPRESS;
+                }
+                data.module = compress;
+                if(strchr(compress, ':')) {
+                        data.params = strchr(compress, ':') + 1;
+                        *strchr(compress, ':') = '\0';
+                } else {
+                        data.params = NULL;
+                }
+
+                if(!resp) {
+                        resp = send_message(messaging_instance(), MSG_CHANGE_COMPRESS, &data);
                 }
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;

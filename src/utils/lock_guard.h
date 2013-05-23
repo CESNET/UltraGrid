@@ -7,21 +7,34 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-class lock_guard {
+#include "compat/platform_spin.h"
+#include <pthread.h>
+
+template <typename T, int (*lock_func)(T *), int (*unlock_func)(T *)>
+class generic_lock_guard {
         public:
-                lock_guard(pthread_mutex_t &lock) :
+                generic_lock_guard(T &lock) :
                         m_lock(lock)
                 {
-                        pthread_mutex_lock(&m_lock);
+                        lock_func(&m_lock);
                 }
 
-                ~lock_guard()
+                ~generic_lock_guard()
                 {
-                        pthread_mutex_unlock(&m_lock);
+                        unlock_func(&m_lock);
                 }
         private:
-                pthread_mutex_t &m_lock;
+                T &m_lock;
 };
+
+typedef class generic_lock_guard<pthread_mutex_t, pthread_mutex_lock, pthread_mutex_unlock>
+        lock_guard;
+typedef class generic_lock_guard<pthread_rwlock_t, pthread_rwlock_wrlock, pthread_rwlock_unlock>
+        rwlock_guard_write;
+typedef class generic_lock_guard<pthread_rwlock_t, pthread_rwlock_rdlock, pthread_rwlock_unlock>
+        rwlock_guard_read;
+typedef class generic_lock_guard<platform_spin_t, platform_spin_lock, platform_spin_unlock>
+        spinlock_guard;
 
 #endif // LOCK_GUARD_H_
 

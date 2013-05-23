@@ -17,7 +17,8 @@ struct messaging;
 
 enum msg_class {
         MSG_CHANGE_RECEIVER_ADDRESS,
-        MSG_CHANGE_FEC
+        MSG_CHANGE_FEC,
+        MSG_CHANGE_COMPRESS
 };
 
 struct received_message {
@@ -41,12 +42,32 @@ struct msg_change_fec_data {
         const char *fec;
 };
 
+struct msg_change_compress_data {
+        enum {
+                CHANGE_COMPRESS,
+                CHANGE_PARAMS
+        } what;
+        const char *module;
+        const char *params;
+};
+
 struct response *new_response(int status);
 
 typedef struct response *(*msg_callback_t)(struct received_message *msg, void *udata);
 
 struct messaging *messaging_instance(void);
-void subscribe_messages(struct messaging *, enum msg_class cls, msg_callback_t callback, void *udata);
+/**
+ * Registers callback for subscripition of events.
+ *
+ * @warning
+ * The calls of messaging objects from within the callbacks should be restricted to the particular
+ * thread. Calls from different threads will be blocked until the end of the lifetime of of the callback
+ * and thus must not be waited for from the callback (deadlock)!
+ *
+ * @returns handle to the subscribtion (to be passed to unsubscribe function)
+ */
+void *subscribe_messages(struct messaging *, enum msg_class cls, msg_callback_t callback, void *udata);
+void unsubscribe_messages(struct messaging *, void *handle);
 struct response *send_message(struct messaging *, enum msg_class cls, void *data);
 const char *response_status_to_text(int status);
 

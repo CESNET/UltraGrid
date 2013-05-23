@@ -52,8 +52,11 @@
 #endif // HAVE_CONFIG_H
 
 #include "resource_manager.h"
+
+#include "compat/platform_spin.h"
 #include "utils/lock_guard.h"
 
+#include <algorithm>
 #include <map>
 #include <stdexcept>
 #include <string>
@@ -62,6 +65,7 @@
 
 #define TYPE_LOCK 0
 #define TYPE_SHM 1
+#define TYPE_SINGLETON 2
 typedef int type_t;
 
 using namespace std;
@@ -72,6 +76,8 @@ static void rm_release_shared_lock_real(const char *name);
 static void rm_lock_real();
 static void rm_unlock_real();
 static void *rm_get_shm_real(const char *name, int size);
+static void *rm_singleton_real(const char *name, singleton_initializer_t, void *,
+                singleton_deleter_t);
  
 // functon pointers' assignments
 pthread_mutex_t *(*rm_acquire_shared_lock)(const char *name) =
@@ -81,6 +87,8 @@ void (*rm_release_shared_lock)(const char *name) =
 void (*rm_lock)() = rm_lock_real;
 void (*rm_unlock)() = rm_unlock_real;
 void *(*rm_get_shm)(const char *name, int size) = rm_get_shm_real;
+void *(*rm_singleton)(const char *name, singleton_initializer_t, void *, singleton_deleter_t)
+        = rm_singleton_real;
 
 class options_t {
         public:
@@ -96,6 +104,18 @@ class shm_opts : public options_t {
         private:
                 int m_size;
                 friend class shm;
+};
+
+class singleton_opts : public options_t {
+        public:
+                singleton_opts(singleton_initializer_t init,
+                                void *data, singleton_deleter_t done) :
+                        m_init(init), m_init_data(data), m_done(done) {}
+        private:
+                singleton_initializer_t m_init;
+                singleton_deleter_t m_done;
+                void *m_init_data;
+                friend class singleton;
 };
 
 class resource {
@@ -140,17 +160,43 @@ class shm : public resource {
                 void *m_data;
 };
 
+class singleton : public resource {
+        public:
+                singleton(singleton_opts const &opts) : m_opts(opts) {
+                        m_data = opts.m_init(opts.m_init_data);
+                }
+
+                ~singleton() {
+                        m_opts.m_done(m_data);
+                }
+
+                void *get() {
+                        return m_data;
+                }
+
+        private:
+                singleton_opts m_opts;
+                void *m_data;
+};
+
+static void func_delete(pair<string, pair<resource *, int> > arg);
+static void func_delete(pair<string, pair<resource *, int> > arg) {
+        delete arg.second.first;
+}
+
 class resource_manager_t {
         public:
                 typedef map<string, pair<resource *, int> > obj_map_t;
                 
                 resource_manager_t() {
-                        pthread_mutex_init(&m_access_lock, NULL);
+                        platform_spin_init(&m_access_lock);
                         pthread_mutex_init(&m_excl_lock, NULL);
                 }
 
                 ~resource_manager_t() {
-                        pthread_mutex_destroy(&m_access_lock);
+                        for_each(m_objs.begin(),
+                                        m_objs.end(), func_delete);
+                        platform_spin_destroy(&m_access_lock);
                         pthread_mutex_destroy(&m_excl_lock);
                 }
 
@@ -164,7 +210,7 @@ class resource_manager_t {
 
                 resource *acquire(string name, type_t type, options_t const & options) {
                         resource *ret;
-                        lock_guard lock(m_access_lock);
+                        spinlock_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);
@@ -181,7 +227,7 @@ class resource_manager_t {
                 }
 
                 void release(string name, type_t type) {
-                        lock_guard lock(m_access_lock);
+                        spinlock_guard lock(m_access_lock);
                         string item_name = name + "#" + resource::get_suffix(type);
 
                         obj_map_t::iterator it = m_objs.find(item_name);
@@ -198,7 +244,7 @@ class resource_manager_t {
                 }
 
         private:
-                pthread_mutex_t m_access_lock;
+                platform_spin_t m_access_lock;
                 pthread_mutex_t m_excl_lock;
                 obj_map_t m_objs;
 
@@ -212,6 +258,8 @@ resource *resource::create(type_t type, options_t const & options)
                 return new lock;
         } else if(type == TYPE_SHM) {
                 return new shm(dynamic_cast<const shm_opts &>(options));
+        } else if(type == TYPE_SINGLETON) {
+                return new singleton(dynamic_cast<const singleton_opts &>(options));
         } else {
                 throw logic_error("Wrong typeid");
         }
@@ -223,6 +271,8 @@ string resource::get_suffix(type_t type)
                 return string("mutex");
         } else if(type == TYPE_SHM) {
                 return string("SHM");
+        } else if(type == TYPE_SINGLETON) {
+                return string("singleton");
         } else {
                 throw logic_error("Wrong typeid");
         }
@@ -244,20 +294,32 @@ static void rm_release_shared_lock_real(const char *name)
         resource_manager.release(string(name), TYPE_LOCK);
 }
 
-void rm_lock_real()
+static void rm_lock_real()
 {
         resource_manager.lock();
 }
 
-void rm_unlock_real()
+static void rm_unlock_real()
 {
         resource_manager.unlock();
 }
 
-void *rm_get_shm_real(const char *name, int size)
+static void *rm_get_shm_real(const char *name, int size)
 {
         shm *s = dynamic_cast<shm *>(resource_manager.acquire(
                                 string(name), TYPE_SHM, shm_opts(size)));
+        if(s) {
+                return s->get();
+        } else {
+                return NULL;
+        }
+}
+
+static void *rm_singleton_real(const char *name, singleton_initializer_t initializer, void *data,
+                singleton_deleter_t done)
+{
+        singleton *s = dynamic_cast<singleton *>(resource_manager.acquire(
+                                string(name), TYPE_SINGLETON, singleton_opts(initializer, data, done)));
         if(s) {
                 return s->get();
         } else {

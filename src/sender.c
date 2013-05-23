@@ -226,9 +226,11 @@ static void *sender_thread(void *arg) {
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         struct video_desc saved_vid_desc;
+        void *messaging_subscribtion = NULL;
 
         tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
+
 
         /* we have more than one connection */
         if(tile_y_count > 1) {
@@ -236,7 +238,8 @@ static void *sender_thread(void *arg) {
                 splitted_frames = vf_alloc(tile_y_count);
         }
 
-        subscribe_messages(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS,
+        messaging_subscribtion =
+                subscribe_messages(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS,
                         sender_change_receiver_callback,
                         data);
 
@@ -325,6 +328,7 @@ static void *sender_thread(void *arg) {
 
 exit:
         vf_free(splitted_frames);
+        unsubscribe_messages(messaging_instance(), messaging_subscribtion);
 
         return NULL;
 }

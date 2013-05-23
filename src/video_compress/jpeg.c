@@ -51,13 +51,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "compat/platform_spin.h"
 #include "debug.h"
 #include "host.h"
 #include "video_compress.h"
 #include "video_compress/jpeg.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "libgpujpeg/gpujpeg_common.h"
-#include "compat/platform_semaphore.h"
+#include "messaging.h"
 #include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -76,10 +77,14 @@ struct compress_jpeg_state {
         struct video_desc saved_desc;
 
         int restart_interval;
+        void *messaging_subscription;
+        platform_spin_t spin;
 };
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
 static void cleanup_state(struct compress_jpeg_state *s);
+static struct response *compress_change_callback(struct received_message *msg, void *udata);
+static void parse_fmt(struct compress_jpeg_state *s, char *fmt);
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
 {
@@ -228,6 +233,49 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         return TRUE;
 }
 
+static struct response *compress_change_callback(struct received_message *msg, void *udata)
+{
+        struct compress_jpeg_state *s = (struct compress_jpeg_state *) udata;
+
+        static struct response *ret;
+
+        struct msg_change_compress_data *data = msg->data;
+
+        if(data->what != CHANGE_PARAMS || strcasecmp(data->module, "jpeg") != 0) {
+                // this message doesn't belong to us
+                return NULL;
+        }
+
+        char *params = strdup(data->params);
+        platform_spin_lock(&s->spin);
+        parse_fmt(s, params);
+        ret = new_response(RESPONSE_OK);
+        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
+        platform_spin_unlock(&s->spin);
+
+        free(params);
+
+        return ret;
+}
+
+static void parse_fmt(struct compress_jpeg_state *s, char *fmt)
+{
+        if(fmt) {
+                char *tok, *save_ptr = NULL;
+                gpujpeg_set_default_parameters(&s->encoder_param);
+                tok = strtok_r(fmt, ":", &save_ptr);
+                s->encoder_param.quality = atoi(tok);
+                tok = strtok_r(NULL, ":", &save_ptr);
+                if(tok) {
+                        s->restart_interval = atoi(tok);
+                }
+                tok = strtok_r(NULL, ":", &save_ptr);
+                if(tok) {
+                        fprintf(stderr, "[JPEG] WARNING: Trailing configuration parameters.\n");
+                }
+        }
+}
+
 void * jpeg_compress_init(char * opts)
 {
         struct compress_jpeg_state *s;
@@ -252,46 +300,31 @@ void * jpeg_compress_init(char * opts)
 
         s->restart_interval = -1;
 
-        if(opts) {
-                char *tok, *save_ptr = NULL;
-                gpujpeg_set_default_parameters(&s->encoder_param);
-                tok = strtok_r(opts, ":", &save_ptr);
-                s->encoder_param.quality = atoi(tok);
-                int ret;
-                printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-                ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+        gpujpeg_set_default_parameters(&s->encoder_param);
 
-                if(ret != 0) {
-                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
-                        return NULL;
-                }
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        s->restart_interval = atoi(tok);
-                }
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        fprintf(stderr, "[JPEG] WARNING: Trailing configuration parameters.\n");
-                }
-                        
+        if(opts) {
+                parse_fmt(s, opts);
         } else {
-                gpujpeg_set_default_parameters(&s->encoder_param);
                 printf("[JPEG] setting default encode parameters (quality: %d)\n", 
                                 s->encoder_param.quality
                 );
-
-                int ret;
-                printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-                ret = gpujpeg_init_device(cuda_devices[0], TRUE);
-
-                if(ret != 0) {
-                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n",
-                                        cuda_devices[0]);
-                        return NULL;
-                }
         }
+
+        int ret;
+        printf("Initializing CUDA device %d...\n", cuda_devices[0]);
+        ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+
+        if(ret != 0) {
+                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
+                return NULL;
+        }
+
                 
         s->encoder = NULL; /* not yet configured */
+
+        platform_spin_init(&s->spin);
+        s->messaging_subscription = subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS,
+                        compress_change_callback, (void *) s);
 
         return s;
 }
@@ -376,6 +409,9 @@ void jpeg_compress_done(void *arg)
         struct compress_jpeg_state *s = (struct compress_jpeg_state *) arg;
 
         cleanup_state(s);
+
+        unsubscribe_messages(messaging_instance(), s->messaging_subscription);
+        platform_spin_destroy(&s->spin);
         
         free(s);
 }

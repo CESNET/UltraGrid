@@ -51,44 +51,48 @@
 #include "debug.h"
 
 #ifdef HAVE_MACOSX
-void platform_spin_init(platform_spin_t *spin)
+int platform_spin_init(platform_spin_t *spin)
 {
         *spin = OS_SPINLOCK_INIT;
+        return 0;
 }
 
-void platform_spin_lock(platform_spin_t *spin)
+int platform_spin_lock(platform_spin_t *spin)
 {
         OSSpinLockLock(spin);
+        return 0;
 }
 
-void platform_spin_unlock(platform_spin_t *spin)
+int platform_spin_unlock(platform_spin_t *spin)
 {
         OSSpinLockUnlock(spin);
+        return 0;
 }
 
-void platform_spin_destroy(platform_spin_t *spin)
+int platform_spin_destroy(platform_spin_t *spin)
 {
         UNUSED(spin);
+        return 0;
 }
 #else
-void platform_spin_init(platform_spin_t *spin)
+int platform_spin_init(platform_spin_t *spin)
 {
-        pthread_spin_init(spin, 0);
+        return pthread_spin_init(spin, 0);
 }
 
-void platform_spin_lock(platform_spin_t *spin)
+int platform_spin_lock(platform_spin_t *spin)
 {
-        pthread_spin_lock(spin);
+        return pthread_spin_lock(spin);
 }
 
-void platform_spin_unlock(platform_spin_t *spin)
+int platform_spin_unlock(platform_spin_t *spin)
 {
-        pthread_spin_unlock(spin);
+        return pthread_spin_unlock(spin);
 }
 
-void platform_spin_destroy(platform_spin_t *spin)
+int platform_spin_destroy(platform_spin_t *spin)
 {
-        pthread_spin_destroy(spin);
+        return pthread_spin_destroy(spin);
 }
 #endif
 

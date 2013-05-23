@@ -133,6 +133,7 @@ struct tx {
 
         int last_fragment;
 
+        void *messaging_subscription;
         platform_spin_t spin;
 };
 
@@ -196,7 +197,8 @@ struct tx *tx_init(unsigned mtu, enum tx_media_type media_type, char *fec)
                                 return NULL;
                         }
                 }
-                subscribe_messages(messaging_instance(), MSG_CHANGE_FEC, fec_change_callback, tx);
+                tx->messaging_subscription =
+                        subscribe_messages(messaging_instance(), MSG_CHANGE_FEC, fec_change_callback, tx);
                 platform_spin_init(&tx->spin);
         }
         return tx;
@@ -277,6 +279,7 @@ void tx_done(struct tx *tx)
 {
         assert(tx->magic == TRANSMIT_MAGIC);
         ldgm_encoder_destroy(tx->fec_state);
+        unsubscribe_messages(messaging_instance(), tx->messaging_subscription);
         pthread_spin_destroy(&tx->spin);
         free(tx);
 }

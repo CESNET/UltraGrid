@@ -53,6 +53,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "messaging.h"
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
@@ -62,7 +63,7 @@
 #include "video_compress/none.h"
 #include "video_compress/uyvy.h"
 #include "lib_common.h"
-
+#include "compat/platform_spin.h"
 #include "utils/worker.h"
 
 /* *_str are symbol names inside library */
@@ -82,7 +83,7 @@ struct compress_t {
         void *handle;
 };
 
-struct compress_state {
+struct compress_state_real {
         struct compress_t  *handle;
         void              **state;
         unsigned int        state_count;
@@ -93,12 +94,22 @@ struct compress_state {
         unsigned int uncompressed:1;
 };
 
+struct compress_state {
+        struct compress_state_real *ptr;
+        platform_spin_t spin;
+};
+
+typedef struct compress_state compress_state_proxy;
+
 int compress_init_noerr;
 
 static void init_compressions(void);
-static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
+static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index);
 static void *compress_tile(void *arg);
+static struct response *compress_change_callback(struct received_message *msg, void *udata);
+static int compress_init_real(char *config_string, struct compress_state_real **state);
+static void compress_done_real(struct compress_state_real *s);
 
 struct compress_t compress_modules[] = {
 #if defined HAVE_FASTDXT || defined BUILD_LIBRARIES
@@ -240,9 +251,63 @@ void show_compress_help()
         }
 }
 
-int compress_init(char *config_string, struct compress_state **state)
+static struct response *compress_change_callback(struct received_message *msg, void *udata)
 {
-        struct compress_state *s;
+        struct msg_change_compress_data *data = msg->data;
+        compress_state_proxy *proxy = udata;
+
+        if(data->what == CHANGE_PARAMS) {
+                return NULL;
+        }
+
+#if 0
+        // this change relates to current compress, resend request to it
+        if(strcasecmp(s->handle->name, data->module) == 0) {
+                data->what = CHANGE_PARAMS;
+                return send_message(messaging_instance(), MSG_CHANGE_COMPRESS, msg->data);
+        }
+#endif
+
+        struct compress_state_real *new_state;
+        char config[1024];
+        strncpy(config, data->module, sizeof(config));
+        if(data->params) {
+                strncat(config, ":", sizeof(config) - strlen(config) - 1);
+                strncat(config, data->params, sizeof(config) - strlen(config) - 1);
+        }
+        int ret = compress_init_real(config, &new_state);
+        if(ret == 0) {
+                struct compress_state_real *old = proxy->ptr;
+                platform_spin_lock(&proxy->spin);
+                proxy->ptr = new_state;
+                platform_spin_unlock(&proxy->spin);
+                compress_done_real(old);
+
+                return new_response(RESPONSE_OK);
+        }
+
+        return new_response(RESPONSE_INT_SERV_ERR);
+}
+
+int compress_init(char *config_string, compress_state_proxy **state) {
+        struct compress_state_real *s;
+        int ret = compress_init_real(config_string, &s);
+        if(ret == 0) {
+                compress_state_proxy *proxy;
+                proxy = malloc(sizeof(compress_state_proxy));
+                proxy->ptr = s;
+                *state = proxy;
+
+                platform_spin_init(&proxy->spin);
+                subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS, compress_change_callback,
+                                proxy);
+        }
+        return ret;
+}
+
+static int compress_init_real(char *config_string, struct compress_state_real **state)
+{
+        struct compress_state_real *s;
         char *compress_options = NULL;
         
         if(!config_string) 
@@ -256,7 +321,7 @@ int compress_init(char *config_string, struct compress_state **state)
 
         pthread_once(&compression_list_initialized, init_compressions);
         
-        s = (struct compress_state *) calloc(1, sizeof(struct compress_state));
+        s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
         s->state_count = 1;
         if(strcmp(config_string, "none") == 0) {
                 s->uncompressed = TRUE;
@@ -303,30 +368,40 @@ int compress_init(char *config_string, struct compress_state **state)
         } else {
                 return -1;
         }
+
         *state = s;
         return 0;
 }
 
-const char *get_compress_name(struct compress_state *s)
+const char *get_compress_name(compress_state_proxy *proxy)
 {
-        if(s)
-                return s->handle->name;
+        if(proxy)
+                return proxy->ptr->handle->name;
         else
                 return NULL;
 }
 
-struct video_frame *compress_frame(struct compress_state *s, struct video_frame *frame, int buffer_index)
+struct video_frame *compress_frame(compress_state_proxy *proxy, struct video_frame *frame, int buffer_index)
 {
-        if(!s)
+        struct video_frame *ret;
+        if(!proxy)
                 return NULL;
 
+        platform_spin_lock(&proxy->spin);
+
+        struct compress_state_real *s = proxy->ptr;
+
         if(s->handle->compress_frame) {
-                return s->handle->compress_frame(s->state[0], frame, buffer_index);
+                ret = s->handle->compress_frame(s->state[0], frame, buffer_index);
         } else if(s->handle->compress_tile) {
-                return compress_frame_tiles(s, frame, buffer_index);
+                ret = compress_frame_tiles(s, frame, buffer_index);
         } else {
-                return NULL;
+                ret = NULL;
         }
+
+        platform_spin_unlock(&proxy->spin);
+
+        return ret;
 }
 
 struct compress_data {
@@ -347,7 +422,7 @@ static void *compress_tile(void *arg) {
         return s;
 }
 
-static struct video_frame *compress_frame_tiles(struct compress_state *s, struct video_frame *frame,
+static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index)
 {
         if(frame->tile_count != s->state_count) {
@@ -399,10 +474,23 @@ static struct video_frame *compress_frame_tiles(struct compress_state *s, struct
         return s->out_frame[buffer_index];
 }
 
-void compress_done(struct compress_state *s)
+void compress_done(compress_state_proxy *proxy)
+{
+        if(!proxy)
+                return;
+
+        struct compress_state_real *s = proxy->ptr;
+        compress_done_real(s);
+
+        platform_spin_destroy(&proxy->spin);
+        free(proxy);
+}
+
+static void compress_done_real(struct compress_state_real *s)
 {
         if(!s)
                 return;
+
         for(unsigned int i = 0; i < s->state_count; ++i) {
                 s->handle->done(s->state[i]);
         }
@@ -410,9 +498,10 @@ void compress_done(struct compress_state *s)
         free(s);
 }
 
-int is_compress_none(struct compress_state *s)
+int is_compress_none(compress_state_proxy *proxy)
 {
-        assert(s != NULL);
+        assert(proxy != NULL);
+        struct compress_state_real *s = proxy->ptr;
 
         return s->uncompressed;
 }
