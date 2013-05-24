@@ -528,6 +528,7 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+        struct stats *stat_loss = NULL;
 #ifdef SHARED_DECODER
         struct vcodec_state *shared_decoder = new_decoder(uv);
         if(shared_decoder == NULL) {
@@ -537,12 +538,13 @@ static void *receiver_thread(void *arg)
         }
 #endif // SHARED_DECODER
 
-
         initialize_video_decompress();
 
         pthread_mutex_unlock(&uv->master_lock);
 
         fr = 1;
+
+        stat_loss = stats_new_statistics("loss");
 
         while (!should_exit_receiver) {
                 /* Housekeeping and RTCP... */
@@ -613,6 +615,10 @@ static void *receiver_thread(void *arg)
 #endif
                                 }
                                 last_tile_received = uv->curr_time;
+                                uint32_t sender_ssrc = cp->ssrc;
+                                stats_update_int(stat_loss,
+                                                rtp_compute_fract_lost(uv->network_devices[0],
+                                                        sender_ssrc));
                         }
 
                         /* dual-link TIMEOUT - we won't wait for next tiles */
@@ -677,6 +683,8 @@ static void *receiver_thread(void *arg)
 #endif //  SHARED_DECODER
 
         display_finish(uv_state->display_device);
+
+        stats_destroy(stat_loss);
 
         return 0;
 }

@@ -249,7 +249,7 @@ static struct response *compress_change_callback(struct received_message *msg, v
         char *params = strdup(data->params);
         platform_spin_lock(&s->spin);
         parse_fmt(s, params);
-        ret = new_response(RESPONSE_OK);
+        ret = new_response(RESPONSE_OK, NULL);
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
         platform_spin_unlock(&s->spin);
 

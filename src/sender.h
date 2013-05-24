@@ -83,8 +83,6 @@ struct sender_data {
         struct sender_priv_data *priv;
 };
 
-struct response *sender_change_receiver_callback(struct received_message *msg, void *udata);
-
 bool sender_init(struct sender_data *data);
 void sender_done(struct sender_data *data);
 void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock);

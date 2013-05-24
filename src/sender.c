@@ -60,10 +60,12 @@
 #include "messaging.h"
 #include "rtp/rtp.h"
 #include "sender.h"
+#include "stats.h"
 #include "transmit.h"
 #include "video.h"
 #include "video_display.h"
 
+struct response *sender_messaging_callback(struct received_message *msg, void *udata);
 static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
 static struct sender_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
@@ -169,17 +171,21 @@ static bool sender_change_receiver(struct sender_data *data, const char *new_rec
         return msg_data.exit_status;
 }
 
-struct response *sender_change_receiver_callback(struct received_message *msg, void *udata)
+struct response *sender_messaging_callback(struct received_message *msg, void *udata)
 {
         struct sender_data *s = (struct sender_data *) udata;
-        const char *receiver = (const char *) msg->data;
 
         struct response *response;
 
-        if(sender_change_receiver(s, receiver)) {
-                response = new_response(RESPONSE_OK);
+        if(msg->message_type == MSG_CHANGE_RECEIVER_ADDRESS) {
+                const char *receiver = (const char *) msg->data;
+                if(sender_change_receiver(s, receiver)) {
+                        response = new_response(RESPONSE_OK, NULL);
+                } else {
+                        response = new_response(RESPONSE_NOT_FOUND, NULL);
+                }
         } else {
-                response = new_response(RESPONSE_NOT_FOUND);
+                response = NULL;
         }
 
         msg->deleter(msg);
@@ -227,10 +233,10 @@ static void *sender_thread(void *arg) {
         int tile_y_count;
         struct video_desc saved_vid_desc;
         void *messaging_subscribtion = NULL;
+        struct stats *stat_data_sent = stats_new_statistics("data");
 
         tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
-
 
         /* we have more than one connection */
         if(tile_y_count > 1) {
@@ -240,8 +246,7 @@ static void *sender_thread(void *arg) {
 
         messaging_subscribtion =
                 subscribe_messages(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS,
-                        sender_change_receiver_callback,
-                        data);
+                                sender_messaging_callback, data);
 
         pthread_mutex_unlock(&data->priv->lock);
 
@@ -317,6 +322,9 @@ static void *sender_thread(void *arg) {
                         display_put_frame(data->sage_tx_device, frame, 0);
                 }
 
+                stats_update_int(stat_data_sent,
+                                rtp_get_bcount(data->network_devices[0]));
+
                 pthread_mutex_lock(&data->priv->lock);
 
                 data->priv->msg = NULL;
@@ -329,6 +337,7 @@ static void *sender_thread(void *arg) {
 exit:
         vf_free(splitted_frames);
         unsubscribe_messages(messaging_instance(), messaging_subscribtion);
+        stats_destroy(stat_data_sent);
 
         return NULL;
 }

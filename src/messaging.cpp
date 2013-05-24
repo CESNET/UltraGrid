@@ -12,6 +12,7 @@
 
 static void *init_instance(void *data);
 static void delete_instance(void *instance);
+static void response_deleter(struct response *response);
 
 using namespace std;
 
@@ -65,7 +66,7 @@ class message_manager {
                         if(responders.find(cls) == responders.end()) {
                                 cerr << "Warning: cannot send message, no receiver registered to "
                                         "the given class!" << endl;
-                                return new_response(RESPONSE_INT_SERV_ERR);
+                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
                         } else {
                                 bool was_dirty = false;
 again:
@@ -98,7 +99,7 @@ again:
                                 }
                                 cerr << "Warning: cannot send message, no receiver is responding "
                                         "the given class!" << endl;
-                                return new_response(RESPONSE_INT_SERV_ERR);
+                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
                         }
                 }
 
@@ -144,11 +145,24 @@ struct response *send_message(struct messaging *state, enum msg_class cls, void 
         return s->send(cls, data);
 }
 
-struct response *new_response(int status)
+static void response_deleter(struct response *response)
+{
+        free(response->text);
+        free(response);
+}
+
+/**
+ * Creates new response
+ *
+ * @param status status
+ * @param text   optional text contained in message, will be freeed after send
+ */
+struct response *new_response(int status, char *text)
 {
         struct response *resp = (struct response *) malloc(sizeof(struct response));
         resp->status = status;
-        resp->deleter = (void (*)(struct response *)) free;
+        resp->text = text;
+        resp->deleter = response_deleter;
         return resp;
 }
 

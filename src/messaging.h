@@ -16,9 +16,11 @@ extern "C" {
 struct messaging;
 
 enum msg_class {
+        MSG_NONE,
         MSG_CHANGE_RECEIVER_ADDRESS,
         MSG_CHANGE_FEC,
-        MSG_CHANGE_COMPRESS
+        MSG_CHANGE_COMPRESS,
+        MSG_STATS
 };
 
 struct received_message {
@@ -30,6 +32,7 @@ struct received_message {
 struct response {
         int status;
         void (*deleter)(struct response*);
+        char *text;
 };
 
 #define RESPONSE_OK           200
@@ -51,7 +54,12 @@ struct msg_change_compress_data {
         const char *params;
 };
 
-struct response *new_response(int status);
+struct msg_stats {
+        const char *what;
+        int value;
+};
+
+struct response *new_response(int status, char *optional_message);
 
 typedef struct response *(*msg_callback_t)(struct received_message *msg, void *udata);
 

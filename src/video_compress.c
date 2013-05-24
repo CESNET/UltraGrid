@@ -283,10 +283,10 @@ static struct response *compress_change_callback(struct received_message *msg, v
                 platform_spin_unlock(&proxy->spin);
                 compress_done_real(old);
 
-                return new_response(RESPONSE_OK);
+                return new_response(RESPONSE_OK, NULL);
         }
 
-        return new_response(RESPONSE_INT_SERV_ERR);
+        return new_response(RESPONSE_INT_SERV_ERR, NULL);
 }
 
 int compress_init(char *config_string, compress_state_proxy **state) {

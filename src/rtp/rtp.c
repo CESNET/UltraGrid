@@ -284,7 +284,7 @@ struct rtp {
         int sdes_count_ter;
         uint16_t rtp_seq;
         uint32_t rtp_pcount;
-        uint32_t rtp_bcount;
+        uint64_t rtp_bcount;
         int tfrc_on;            /* indicates TFRC congestion control */
         /* tfrc sender variables */
         uint32_t cmp_rtt;       /* rtt as computed by the sender */
@@ -3810,5 +3810,52 @@ void rtp_flush_recv_buf(struct rtp *session)
 int rtp_change_dest(struct rtp *session, const char *addr)
 {
         return udp_change_dest(session->rtp_socket, addr);
+}
+
+uint64_t rtp_get_bcount(struct rtp *session)
+{
+        return session->rtp_bcount;
+}
+
+int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
+{
+        int h;
+        source *s;
+
+        for (h = 0; h < RTP_DB_SIZE; h++) {
+                for (s = session->db[h]; s != NULL; s = s->next) {
+                        check_source(s);
+                        if (s->ssrc == ssrc) {
+                                /* Much of this is taken from A.3 of draft-ietf-avt-rtp-new-01.txt */
+                                int extended_max = s->cycles + s->max_seq;
+                                int expected = extended_max - s->base_seq + 1;
+                                int lost = expected - s->received;
+                                int expected_interval =
+                                    expected - s->expected_prior;
+                                int received_interval =
+                                    s->received - s->received_prior;
+                                int lost_interval =
+                                    expected_interval - received_interval;
+                                int fraction;
+                                uint32_t lsr;
+                                uint32_t dlsr;
+
+                                //printf("lost_interval %d\n", lost_interval);
+                                s->expected_prior = expected;
+                                s->received_prior = s->received;
+                                if (expected_interval == 0
+                                    || lost_interval <= 0) {
+                                        fraction = 0;
+                                } else {
+                                        fraction =
+                                            (lost_interval << 8) /
+                                            expected_interval;
+                                }
+
+                                return fraction;
+                        }
+                }
+        }
+        return 0;
 }
 

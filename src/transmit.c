@@ -219,10 +219,10 @@ static struct response *fec_change_callback(struct received_message *msg, void *
         tx->fec_state = NULL;
         if(set_fec(tx, data->fec)) {
                 ldgm_encoder_destroy(old_fec_state);
-                response = new_response(RESPONSE_OK);
+                response = new_response(RESPONSE_OK, NULL);
         } else {
                 tx->fec_state = old_fec_state;
-                response = new_response(RESPONSE_BAD_REQUEST);
+                response = new_response(RESPONSE_BAD_REQUEST, NULL);
         }
         platform_spin_unlock(&tx->spin);
 

@@ -156,7 +156,7 @@ static int process_msg(int client_fd, char *message)
                         data.media_type = TX_MEDIA_VIDEO;
                         data.fec = fec + 6;
                 } else {
-                        resp = new_response(RESPONSE_NOT_FOUND);
+                        resp = new_response(RESPONSE_NOT_FOUND, NULL);
                 }
 
                 if(!resp) {
@@ -183,11 +183,18 @@ static int process_msg(int client_fd, char *message)
                 if(!resp) {
                         resp = send_message(messaging_instance(), MSG_CHANGE_COMPRESS, &data);
                 }
+        } else if(prefix_matches(message, "stats ")) {
+                struct msg_stats data;
+                char *stats = suffix(message, "stats ");
+
+                data.what = stats;
+
+                resp = send_message(messaging_instance(), MSG_STATS, &data);
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
-                resp = new_response(RESPONSE_OK);
+                resp = new_response(RESPONSE_OK, NULL);
         } else {
-                resp = new_response(RESPONSE_BAD_REQUEST);
+                resp = new_response(RESPONSE_BAD_REQUEST, NULL);
         }
 
         send_response(client_fd, resp);
@@ -199,8 +206,14 @@ static void send_response(int fd, struct response *resp)
 {
         char buffer[1024];
 
-        snprintf(buffer, sizeof(buffer), "%d %s\r\n", resp->status,
+        snprintf(buffer, sizeof(buffer) - 2, "%d %s", resp->status,
                         response_status_to_text(resp->status));
+
+        if(resp->text) {
+                strncat(buffer, " ", sizeof(buffer) - strlen(buffer) - 1 - 2);
+                strncat(buffer, resp->text, sizeof(buffer) - strlen(buffer) - 1 - 2);
+        }
+        strcat(buffer, "\r\n");
 
         write_all(fd, buffer, strlen(buffer));
 
