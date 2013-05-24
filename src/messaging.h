@@ -40,12 +40,23 @@ struct response {
 #define RESPONSE_NOT_FOUND    404
 #define RESPONSE_INT_SERV_ERR 500
 
+struct msg_common {
+        int output_port_index; // contains output port index (reflector), irrelevant for UG
+};
+
+struct msg_change_receiver_address {
+        struct msg_common *common;
+        char *receiver;
+};
+
 struct msg_change_fec_data {
+        struct msg_common *common;
         enum tx_media_type media_type;
         const char *fec;
 };
 
 struct msg_change_compress_data {
+        struct msg_common *common;
         enum {
                 CHANGE_COMPRESS,
                 CHANGE_PARAMS
@@ -55,6 +66,7 @@ struct msg_change_compress_data {
 };
 
 struct msg_stats {
+        struct msg_common *common;
         const char *what;
         int value;
 };

@@ -138,17 +138,32 @@ static int process_msg(int client_fd, char *message)
         int ret = 0;
         struct response *resp = NULL;
 
+        struct msg_common common;
+        common.output_port_index = -1;
+
+        if(strcasecmp(message, "port ") == 0) {
+                message += 5;
+                common.output_port_index = atoi(message);
+                while(isdigit(*message))
+                        message++;
+                while(isspace(*message))
+                        message++;
+        }
+
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
         } else if(prefix_matches(message, "receiver ")) {
-                char *receiver = suffix(message, "receiver ");
+                struct msg_change_receiver_address msg;
+                msg.receiver = suffix(message, "receiver ");
+                msg.common = &common;
 
                 resp =
-                        send_message(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS, receiver);
+                        send_message(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS, &msg);
         } else if(prefix_matches(message, "fec ")) {
                 struct msg_change_fec_data data;
                 char *fec = suffix(message, "fec ");
 
+                data.common = &common;
                 if(strncasecmp(fec, "audio ", 6) == 0) {
                         data.media_type = TX_MEDIA_AUDIO;
                         data.fec = fec + 6;
@@ -166,6 +181,7 @@ static int process_msg(int client_fd, char *message)
                 struct msg_change_compress_data data;
                 char *compress = suffix(message, "compress ");
 
+                data.common = &common;
                 if(prefix_matches(compress, "param ")) {
                         compress = suffix(compress, " param");
                         data.what = CHANGE_PARAMS;
@@ -187,6 +203,7 @@ static int process_msg(int client_fd, char *message)
                 struct msg_stats data;
                 char *stats = suffix(message, "stats ");
 
+                data.common = &common;
                 data.what = stats;
 
                 resp = send_message(messaging_instance(), MSG_STATS, &data);

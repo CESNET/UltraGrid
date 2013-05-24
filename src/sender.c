@@ -178,8 +178,8 @@ struct response *sender_messaging_callback(struct received_message *msg, void *u
         struct response *response;
 
         if(msg->message_type == MSG_CHANGE_RECEIVER_ADDRESS) {
-                const char *receiver = (const char *) msg->data;
-                if(sender_change_receiver(s, receiver)) {
+                struct msg_change_receiver_address *data = (const char *) msg->data;
+                if(sender_change_receiver(s, data->receiver)) {
                         response = new_response(RESPONSE_OK, NULL);
                 } else {
                         response = new_response(RESPONSE_NOT_FOUND, NULL);
