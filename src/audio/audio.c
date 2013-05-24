@@ -191,15 +191,16 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
         audio_capture_init_devices();
         audio_playback_init_devices();
 
-        if (send_cfg != NULL &&
-                        !strcmp("help", send_cfg)) {
+        assert(send_cfg != NULL);
+        assert(recv_cfg != NULL);
+
+        if (!strcmp("help", send_cfg)) {
                 audio_capture_print_help();
                 exit_uv(0);
                 return NULL;
         }
         
-        if (recv_cfg != NULL &&
-                        !strcmp("help", recv_cfg)) {
+        if (!strcmp("help", recv_cfg)) {
                 audio_playback_help();
                 exit_uv(0);
                 return NULL;
@@ -272,7 +273,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
         }
         free(tmp);
 
-        if (send_cfg != NULL) {
+        if (strcmp(send_cfg, "none") != 0) {
                 char *cfg = NULL;
                 char *device = strdup(send_cfg);
 		if(strchr(device, ':')) {
@@ -295,7 +296,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 s->audio_capture_device = audio_capture_init_null_device();
         }
         
-        if (recv_cfg != NULL) {
+        if (strcmp(recv_cfg, "none") != 0) {
                 char *cfg = NULL;
                 char *device = strdup(recv_cfg);
 		if(strchr(device, ':')) {
@@ -317,18 +318,19 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 s->audio_playback_device = audio_playback_init_null_device();
         }
 
-        if (send_cfg != NULL) {
+        if (strcmp(send_cfg, "none") != 0) {
                 if (pthread_create
                     (&s->audio_sender_thread_id, NULL, audio_sender_thread, (void *)s) != 0) {
                         fprintf(stderr,
                                 "Error creating audio thread. Quitting\n");
                         goto error;
                 } else {
+                        abort();
 			s->audio_sender_thread_started = true;
 		}
         }
 
-        if (recv_cfg != NULL) {
+        if (strcmp(recv_cfg, "none") != 0) {
                 if (pthread_create
                     (&s->audio_receiver_thread_id, NULL, audio_receiver_thread, (void *)s) != 0) {
                         fprintf(stderr,
