@@ -761,6 +761,7 @@ void display_gl_run(void *arg)
 
 #if defined HAVE_MACOSX || defined FREEGLUT
         while(!should_exit_main_loop) {
+                usleep(1000);
                 glut_idle_callback();
 #ifndef HAVE_MACOSX
                 glutMainLoopEvent();

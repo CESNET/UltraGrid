@@ -325,7 +325,6 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                                 "Error creating audio thread. Quitting\n");
                         goto error;
                 } else {
-                        abort();
 			s->audio_sender_thread_started = true;
 		}
         }
