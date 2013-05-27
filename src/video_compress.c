@@ -368,8 +368,9 @@ static struct video_frame *compress_frame_tiles(struct compress_state *s, struct
 
         task_result_handle_t task_handle[frame->tile_count];
 
+        struct compress_data data_tile[frame->tile_count];
         for(unsigned int i = 0; i < frame->tile_count; ++i) {
-                struct compress_data *data = malloc(sizeof(struct compress_data));
+                struct compress_data *data = &data_tile[i];
                 data->state = s->state[i];
                 data->tile = &frame->tiles[i];
                 data->desc = video_desc_from_frame(frame);
