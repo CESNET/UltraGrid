@@ -60,6 +60,7 @@
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
+#include "module.h"
 #include "utils/resource_manager.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -86,6 +87,7 @@ static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8(AVCodecContext *, struct setparam_param *);
 static struct response *compress_change_callback(struct received_message *msg, void *udata);
+static void libavcodec_compress_done(struct module *mod);
 
 static codec_params_t codec_params[] = {
         [H264] = { AV_CODEC_ID_H264,
@@ -135,6 +137,8 @@ struct libav_video_compress {
 
         platform_spin_t     spin;
         void               *message_subscription;
+
+        struct module       module_data;
 };
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -229,7 +233,7 @@ static int parse_fmt(struct libav_video_compress *s, char *fmt) {
         return 0;
 }
 
-void * libavcodec_compress_init(char * fmt)
+struct module * libavcodec_compress_init(struct module *parent, char * fmt)
 {
         struct libav_video_compress *s;
 
@@ -290,7 +294,12 @@ void * libavcodec_compress_init(char * fmt)
                 subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS, compress_change_callback,
                         s);
 
-        return s;
+        module_init_default(&s->module_data, parent);
+        s->module_data.cls = MODULE_CLASS_COMPRESS_DATA;
+        s->module_data.priv_data = s;
+        s->module_data.deleter = libavcodec_compress_done;
+
+        return &s->module_data;
 }
 
 static bool configure_with(struct libav_video_compress *s, struct video_desc desc)
@@ -565,10 +574,10 @@ void *my_task(void *arg) {
         return NULL;
 }
 
-struct tile * libavcodec_compress_tile(void *arg, struct tile *tx, struct video_desc *desc,
+struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
                 int buffer_idx)
 {
-        struct libav_video_compress *s = (struct libav_video_compress *) arg;
+        struct libav_video_compress *s = (struct libav_video_compress *) mod->priv_data;
         assert (buffer_idx == 0 || buffer_idx == 1);
         static int frame_seq = 0;
         int ret;
@@ -710,9 +719,9 @@ static void cleanup(struct libav_video_compress *s)
         s->decoded = NULL;
 }
 
-void libavcodec_compress_done(void *arg)
+static void libavcodec_compress_done(struct module *mod)
 {
-        struct libav_video_compress *s = (struct libav_video_compress *) arg;
+        struct libav_video_compress *s = (struct libav_video_compress *) mod->priv_data;
 
         cleanup(s);
 

@@ -61,6 +61,7 @@
 #include "dxt_compress/dxt_encoder.h"
 #include "dxt_compress/dxt_util.h"
 #include "host.h"
+#include "module.h"
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
@@ -76,9 +77,12 @@ struct video_compress {
         codec_t color_spec;
         
         struct gl_context gl_context;
+
+        struct module module_data;
 };
 
 static int configure_with(struct video_compress *s, struct video_frame *frame);
+static void dxt_glsl_compress_done(struct module *mod);
 
 static int configure_with(struct video_compress *s, struct video_frame *frame)
 {
@@ -227,7 +231,7 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         return TRUE;
 }
 
-void * dxt_glsl_compress_init(char * opts)
+struct module *dxt_glsl_compress_init(struct module *parent, char * opts)
 {
         struct video_compress *s;
         int i;
@@ -270,12 +274,16 @@ void * dxt_glsl_compress_init(char * opts)
 
         gl_context_make_current(NULL);
 
-        return s;
+        module_init_default(&s->module_data, parent);
+        s->module_data.priv_data = s;
+        s->module_data.deleter = dxt_glsl_compress_done;
+
+        return &s->module_data;
 }
 
-struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int buffer_idx)
+struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * tx, int buffer_idx)
 {
-        struct video_compress *s = (struct video_compress *) arg;
+        struct video_compress *s = (struct video_compress *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
 
@@ -321,9 +329,9 @@ struct video_frame * dxt_glsl_compress(void *arg, struct video_frame * tx, int b
         return s->out[buffer_idx];
 }
 
-void dxt_glsl_compress_done(void *arg)
+static void dxt_glsl_compress_done(struct module *mod)
 {
-        struct video_compress *s = (struct video_compress *) arg;
+        struct video_compress *s = (struct video_compress *) mod->priv_data;
         int i, x;
         
         if(s->out[0]) {

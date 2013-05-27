@@ -14,6 +14,8 @@ extern "C" {
 #include "tv.h"
 }
 
+#include "module.h"
+
 #include "video.h"
 #include "video_codec.h"
 #include "video_compress.h"
@@ -25,7 +27,7 @@ struct state_recompress {
         int rx_port, tx_port;
         const char *host;
         struct rtp *network_device;
-        struct compress_state *compress;
+        struct module *compress;
         char *required_compress;
 
         struct timeval start_time;
@@ -38,6 +40,8 @@ struct state_recompress {
         pthread_cond_t  have_frame_cv;
         pthread_cond_t  frame_consumed_cv;
         pthread_t       thread_id;
+
+        struct module   root_mod;
 };
 
 /*
@@ -52,7 +56,7 @@ static void *worker(void *arg)
         struct timeval t0, t;
         int frames = 0;
 
-        int ret = compress_init(s->required_compress, &s->compress);
+        int ret = compress_init(&s->root_mod, s->required_compress, &s->compress);
         if(ret != 0) {
                 fprintf(stderr, "Unable to initialize video compress: %s\n",
                                 s->required_compress);
@@ -80,7 +84,8 @@ static void *worker(void *arg)
 
 
                 struct video_frame *tx_frame =
-                        compress_frame(s->compress, s->frame, 0);
+                        compress_frame((struct compress_state *) s->compress->priv_data,
+                                        s->frame, 0);
 
                 if(tx_frame) {
                         tx_send(s->tx, tx_frame, s->network_device);
@@ -108,7 +113,7 @@ static void *worker(void *arg)
         }
 
         if(s->compress) {
-                compress_done(s->compress);
+                module_done(s->compress);
                 s->compress = NULL;
         }
 
@@ -151,6 +156,10 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s = (struct state_recompress *) calloc(1, sizeof(struct state_recompress));
 
+        module_init_default(&s->root_mod, NULL);
+        s->root_mod.cls = MODULE_CLASS_ROOT;
+        s->root_mod.priv_data = s;
+
         s->network_device = initialize_network(host, rx_port, tx_port, s);
         s->host = host;
         s->rx_port = rx_port;
@@ -163,7 +172,7 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s->required_compress = strdup(compress);
         s->frame = NULL;
-        s->tx = tx_init(mtu, fec);
+        s->tx = tx_init(mtu, TX_MEDIA_VIDEO, fec);
 
         gettimeofday(&s->start_time, NULL);
 

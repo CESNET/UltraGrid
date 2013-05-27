@@ -66,12 +66,14 @@
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"
+#include "module.h"
 #include "perf.h"
 #include "rtp/decoders.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "sender.h"
+#include "stats.h"
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -186,6 +188,7 @@ static void list_video_capture_devices(void);
 static void display_buf_increase_warning(int size);
 static bool enable_export(char *dir);
 static void remove_display_from_decoders(struct state_uv *uv);
+static void init_root_module(struct module *mod, struct state_uv *uv);
 
 static void signal_handler(int signal)
 {
@@ -691,7 +694,8 @@ static void *receiver_thread(void *arg)
 
 static void *compress_thread(void *arg)
 {
-        struct state_uv *uv = (struct state_uv *)arg;
+        struct module *uv_mod = (struct module *)arg;
+        struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
         struct sender_data sender_data;
 
         struct video_frame *tx_frame;
@@ -699,8 +703,8 @@ static void *compress_thread(void *arg)
         //struct video_frame *splitted_frames = NULL;
         int i = 0;
 
-        struct compress_state *compression; 
-        int ret = compress_init(uv->requested_compression, &compression);
+        struct module *compression;
+        int ret = compress_init(uv_mod, uv->requested_compression, &compression);
 
         sender_data.connections_count = uv->connections_count;
         sender_data.tx_protocol = uv->tx_protocol;
@@ -743,7 +747,7 @@ static void *compress_thread(void *arg)
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //TODO: Unghetto this
-                        tx_frame = compress_frame(compression, tx_frame, i);
+                        tx_frame = compress_frame(compression->priv_data, tx_frame, i);
                         if(!tx_frame)
                                 continue;
 
@@ -755,7 +759,7 @@ static void *compress_thread(void *arg)
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
                         /* for compressed, we do not need to wait */
-                        if(is_compress_none(compression)) {
+                        if(is_compress_none(compression->priv_data)) {
                                 nonblock = false;
                         }
 
@@ -768,7 +772,7 @@ static void *compress_thread(void *arg)
         sender_done(&sender_data);
 
 compress_done:
-        compress_done(compression);
+        module_done(compression);
 
         return NULL;
 }
@@ -815,6 +819,15 @@ static bool enable_export(char *dir)
         }
 }
 
+static void init_root_module(struct module *mod, struct state_uv *uv)
+{
+        module_init_default(mod, NULL);
+        mod->cls = MODULE_CLASS_ROOT;
+        mod->parent = NULL;
+        mod->deleter = NULL;
+        mod->priv_data = uv;
+}
+
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
@@ -846,6 +859,7 @@ int main(int argc, char *argv[])
         char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
 
+        struct module root_mod;
         struct state_uv *uv;
         int ch;
 
@@ -929,6 +943,8 @@ int main(int argc, char *argv[])
                 uv->send_port_number =
                 PORT_BASE;
         uv->sage_tx_device = NULL;
+
+        init_root_module(&root_mod, uv);
 
         pthread_mutex_init(&uv->master_lock, NULL);
 
@@ -1081,11 +1097,11 @@ int main(int argc, char *argv[])
                 case OPT_CUDA_DEVICE:
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
-                                struct compress_state *compression; 
-                                int ret = compress_init("JPEG:list_devices", &compression);
+                                struct module *compression;
+                                int ret = compress_init(&root_mod, "JPEG:list_devices", &compression);
                                 if(ret >= 0) {
                                         if(ret == 0) {
-                                                compress_done(compression);
+                                                module_done(compression);
                                         }
                                         return EXIT_SUCCESS;
                                 } else {
@@ -1440,12 +1456,12 @@ int main(int argc, char *argv[])
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
                 if(strstr(uv->requested_compression,"help") != NULL) {
-                        struct compress_state *compression;
-                        int ret = compress_init(uv->requested_compression, &compression);
+                        struct module *compression;
+                        int ret = compress_init(&root_mod, uv->requested_compression, &compression);
 
                         if(ret >= 0) {
                                 if(ret == 0)
-                                        compress_done(compression);
+                                        module_done(compression);
                                 exit_uv(EXIT_SUCCESS);
                         } else {
                                 exit_uv(EXIT_FAILURE);
@@ -1470,7 +1486,7 @@ int main(int argc, char *argv[])
                         pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&tx_thread_id, NULL, compress_thread,
-                             (void *)uv) != 0) {
+                             (void *) &root_mod) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup_wait_capture;

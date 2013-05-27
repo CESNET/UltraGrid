@@ -45,8 +45,9 @@
  *
  */
 
+struct module;
 struct video_frame;
 
-void                *uyvy_compress_init(char * opts);
-struct video_frame  *uyvy_compress(void *args, struct video_frame * tx, int buffer);
-void                 uyvy_compress_done(void *args);
+struct module       *uyvy_compress_init(struct module *parent, char * opts);
+struct video_frame  *uyvy_compress(struct module *mod, struct video_frame * tx, int buffer);
+

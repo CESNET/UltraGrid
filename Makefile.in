@@ -95,6 +95,7 @@ OBJS	      = @OBJS@ \
 		src/crypto/md5.o \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
+		src/module.o \
 		src/stats.o \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
@@ -137,6 +138,7 @@ LIB_COMMON = \
 		src/compat/platform_semaphore.o \
 		src/crypto/random.o \
 		src/debug.o \
+		src/module.o \
 		src/tile.o \
 		src/tv.o \
 		src/utils/fs_lock.o \
