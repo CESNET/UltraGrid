@@ -66,8 +66,9 @@
 static void none_compress_done(struct module *mod);
 
 struct none_video_compress {
-        uint32_t magic;
         struct module module_data;
+
+        uint32_t magic;
 };
 
 struct module * none_compress_init(struct module *parent, char * opts)
@@ -78,10 +79,11 @@ struct module * none_compress_init(struct module *parent, char * opts)
         
         s = (struct none_video_compress *) malloc(sizeof(struct none_video_compress));
         s->magic = MAGIC;
-        module_init_default(&s->module_data, parent);
-        s->module_data.cls = MODULE_CLASS_COMPRESS_DATA;
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
         s->module_data.priv_data = s;
         s->module_data.deleter = none_compress_done;
+        module_register(&s->module_data, parent);
 
         return &s->module_data;
 }

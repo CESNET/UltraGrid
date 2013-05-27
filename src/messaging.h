@@ -14,20 +14,7 @@ extern "C" {
 #endif
 
 struct messaging;
-
-enum msg_class {
-        MSG_NONE,
-        MSG_CHANGE_RECEIVER_ADDRESS,
-        MSG_CHANGE_FEC,
-        MSG_CHANGE_COMPRESS,
-        MSG_STATS
-};
-
-struct received_message {
-        enum msg_class message_type;
-        void *data;
-        void (*deleter)(struct received_message*);
-};
+struct module;
 
 struct response {
         int status;
@@ -39,57 +26,38 @@ struct response {
 #define RESPONSE_BAD_REQUEST  400
 #define RESPONSE_NOT_FOUND    404
 #define RESPONSE_INT_SERV_ERR 500
-
-struct msg_common {
-        int output_port_index; // contains output port index (reflector), irrelevant for UG
-};
+#define RESPONSE_NOT_IMPL     501
 
 struct msg_change_receiver_address {
-        struct msg_common *common;
         char *receiver;
 };
 
 struct msg_change_fec_data {
-        struct msg_common *common;
         enum tx_media_type media_type;
         const char *fec;
 };
 
 struct msg_change_compress_data {
-        struct msg_common *common;
         enum {
                 CHANGE_COMPRESS,
                 CHANGE_PARAMS
         } what;
-        const char *module;
-        const char *params;
+        const char *config_string;
 };
 
 struct msg_stats {
-        struct msg_common *common;
         const char *what;
         int value;
 };
 
 struct response *new_response(int status, char *optional_message);
 
-typedef struct response *(*msg_callback_t)(struct received_message *msg, void *udata);
+typedef struct response *(*msg_callback_t)(void *msg, struct module *mod);
 
-struct messaging *messaging_instance(void);
-/**
- * Registers callback for subscripition of events.
- *
- * @warning
- * The calls of messaging objects from within the callbacks should be restricted to the particular
- * thread. Calls from different threads will be blocked until the end of the lifetime of of the callback
- * and thus must not be waited for from the callback (deadlock)!
- *
- * @returns handle to the subscribtion (to be passed to unsubscribe function)
- */
-void *subscribe_messages(struct messaging *, enum msg_class cls, msg_callback_t callback, void *udata);
-void unsubscribe_messages(struct messaging *, void *handle);
-struct response *send_message(struct messaging *, enum msg_class cls, void *data);
+struct response *send_message(struct module *, const char *path, void *data);
+struct response *send_message_to_receiver(struct module *, void *data);
 const char *response_status_to_text(int status);
+
 
 #ifdef __cplusplus
 }

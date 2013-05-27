@@ -54,6 +54,7 @@
 
 #include "debug.h"
 #include "messaging.h"
+#include "module.h"
 
 #define DEFAULT_CONTROL_PORT 5054
 #define MAX_CLIENTS 16
@@ -71,14 +72,14 @@ struct control_state {
         pthread_t thread_id;
         int local_fd[2];
         int network_port;
-
+        struct module *root_module;
 };
 
 #define CONTROL_EXIT -1
 #define CONTROL_CLOSE_HANDLE -2
 
 static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
-static int process_msg(int client_fd, char *message);
+static int process_msg(struct control_state *s, int client_fd, char *message);
 static ssize_t write_all(int fd, const void *buf, size_t count);
 static void * control_thread(void *args);
 static void send_response(int fd, struct response *resp);
@@ -100,9 +101,11 @@ static ssize_t write_all(int fd, const void *buf, size_t count)
         return count;
 }
 
-int control_init(int port, struct control_state **state)
+int control_init(int port, struct control_state **state, struct module *root_module)
 {
         struct control_state *s = (struct control_state *) malloc(sizeof(struct control_state));
+
+        s->root_module = root_module;
 
         if(port == -1) {
                 s->network_port = DEFAULT_CONTROL_PORT;
@@ -133,37 +136,25 @@ int control_init(int port, struct control_state **state)
   * @retval -1 exit thread
   * @retval -2 close handle
   */
-static int process_msg(int client_fd, char *message)
+static int process_msg(struct control_state *s, int client_fd, char *message)
 {
         int ret = 0;
         struct response *resp = NULL;
-
-        struct msg_common common;
-        common.output_port_index = -1;
-
-        if(strcasecmp(message, "port ") == 0) {
-                message += 5;
-                common.output_port_index = atoi(message);
-                while(isdigit(*message))
-                        message++;
-                while(isspace(*message))
-                        message++;
-        }
+        char path[1024];
 
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
         } else if(prefix_matches(message, "receiver ")) {
                 struct msg_change_receiver_address msg;
                 msg.receiver = suffix(message, "receiver ");
-                msg.common = &common;
 
+                make_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_SENDER, MODULE_CLASS_NONE });
                 resp =
-                        send_message(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS, &msg);
+                        send_message(s->root_module, path, &msg);
         } else if(prefix_matches(message, "fec ")) {
                 struct msg_change_fec_data data;
                 char *fec = suffix(message, "fec ");
 
-                data.common = &common;
                 if(strncasecmp(fec, "audio ", 6) == 0) {
                         data.media_type = TX_MEDIA_AUDIO;
                         data.fec = fec + 6;
@@ -175,45 +166,51 @@ static int process_msg(int client_fd, char *message)
                 }
 
                 if(!resp) {
-                        resp = send_message(messaging_instance(), MSG_CHANGE_FEC, &data);
+                        if(data.media_type == TX_MEDIA_VIDEO) {
+                                make_message_path(path, sizeof(path),
+                                                (enum module_class[]){ MODULE_CLASS_TX, MODULE_CLASS_NONE });
+                        } else {
+                                make_message_path(path, sizeof(path),
+                                                (enum module_class[]){ MODULE_CLASS_AUDIO, MODULE_CLASS_TX,
+                                                MODULE_CLASS_NONE });
+                        }
+                        resp = send_message(s->root_module, path, &data);
                 }
         } else if(prefix_matches(message, "compress ")) {
                 struct msg_change_compress_data data;
                 char *compress = suffix(message, "compress ");
 
-                data.common = &common;
                 if(prefix_matches(compress, "param ")) {
                         compress = suffix(compress, " param");
                         data.what = CHANGE_PARAMS;
                 } else {
                         data.what = CHANGE_COMPRESS;
                 }
-                data.module = compress;
-                if(strchr(compress, ':')) {
-                        data.params = strchr(compress, ':') + 1;
-                        *strchr(compress, ':') = '\0';
-                } else {
-                        data.params = NULL;
-                }
+                data.config_string = compress;
 
                 if(!resp) {
-                        resp = send_message(messaging_instance(), MSG_CHANGE_COMPRESS, &data);
+                        make_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE });
+                        resp = send_message(s->root_module, path, &data);
                 }
         } else if(prefix_matches(message, "stats ")) {
                 struct msg_stats data;
                 char *stats = suffix(message, "stats ");
 
-                data.common = &common;
                 data.what = stats;
 
-                resp = send_message(messaging_instance(), MSG_STATS, &data);
+                // resp = send_message(s->root_module, "blblbla", &data);
+                resp = new_response(RESPONSE_NOT_FOUND, strdup("statistics currently not working"));
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
         } else {
-                resp = new_response(RESPONSE_BAD_REQUEST, NULL);
+                resp = new_response(RESPONSE_BAD_REQUEST, strdup("unrecognized control sequence"));
         }
 
+        if(!resp) {
+                fprintf(stderr, "No response received!\n");
+                resp = new_response(RESPONSE_INT_SERV_ERR, NULL);
+        }
         send_response(client_fd, resp);
 
         return ret;
@@ -365,7 +362,7 @@ static void * control_thread(void *args)
                         while(parse_msg(cur->buff, cur->buff_len, msg, &cur_buffer_len)) {
                                 cur->buff_len = cur_buffer_len;
 
-                                int ret = process_msg(cur->fd, msg);
+                                int ret = process_msg(s, cur->fd, msg);
                                 if(ret == CONTROL_EXIT) {
                                         should_exit = true;
                                 } else if(ret == CONTROL_CLOSE_HANDLE) {

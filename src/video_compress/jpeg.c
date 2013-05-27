@@ -65,6 +65,8 @@
 #include <stdlib.h>
 
 struct compress_jpeg_state {
+        struct module module_data;
+
         struct gpujpeg_encoder *encoder;
         struct gpujpeg_parameters encoder_param;
         
@@ -80,13 +82,11 @@ struct compress_jpeg_state {
         int restart_interval;
         void *messaging_subscription;
         platform_spin_t spin;
-
-        struct module module_data;
 };
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
 static void cleanup_state(struct compress_jpeg_state *s);
-static struct response *compress_change_callback(struct received_message *msg, void *udata);
+static struct response *compress_change_callback(void *msg, struct module *mod);
 static void parse_fmt(struct compress_jpeg_state *s, char *fmt);
 static void jpeg_compress_done(struct module *mod);
 
@@ -237,20 +237,15 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         return TRUE;
 }
 
-static struct response *compress_change_callback(struct received_message *msg, void *udata)
+static struct response *compress_change_callback(void *msg, struct module *mod)
 {
-        struct compress_jpeg_state *s = (struct compress_jpeg_state *) udata;
+        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
 
         static struct response *ret;
 
-        struct msg_change_compress_data *data = msg->data;
+        struct msg_change_compress_data *data = msg;
 
-        if(data->what != CHANGE_PARAMS || strcasecmp(data->module, "jpeg") != 0) {
-                // this message doesn't belong to us
-                return NULL;
-        }
-
-        char *params = strdup(data->params);
+        char *params = strdup(data->config_string);
         platform_spin_lock(&s->spin);
         parse_fmt(s, params);
         ret = new_response(RESPONSE_OK, NULL);
@@ -327,13 +322,13 @@ struct module * jpeg_compress_init(struct module *parent, char * opts)
         s->encoder = NULL; /* not yet configured */
 
         platform_spin_init(&s->spin);
-        s->messaging_subscription = subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS,
-                        compress_change_callback, (void *) s);
 
-        module_init_default(&s->module_data, parent);
-        s->module_data.cls = MODULE_CLASS_COMPRESS_DATA;
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
         s->module_data.priv_data = s;
         s->module_data.deleter = jpeg_compress_done;
+        s->module_data.msg_callback = compress_change_callback;
+        module_register(&s->module_data, parent);
 
         return &s->module_data;
 }
@@ -419,7 +414,6 @@ static void jpeg_compress_done(struct module *mod)
 
         cleanup_state(s);
 
-        unsubscribe_messages(messaging_instance(), s->messaging_subscription);
         platform_spin_destroy(&s->spin);
         
         free(s);

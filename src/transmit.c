@@ -63,6 +63,7 @@
 #include "audio/codec.h"
 #include "audio/utils.h"
 #include "messaging.h"
+#include "module.h"
 #include "rtp/ldgm.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -110,10 +111,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 enum interlacing_t interlacing, unsigned int substream,
                 int fragment_offset);
 
-static struct response *fec_change_callback(struct received_message *msg, void *udata);
+
+static struct response *fec_change_callback(void *msg, struct module *mod);
 static bool set_fec(struct tx *tx, const char *fec);
 
 struct tx {
+        struct module mod;
+
         uint32_t magic;
         enum tx_media_type media_type;
         unsigned mtu;
@@ -175,12 +179,17 @@ static void tx_update(struct tx *tx, struct tile *tile)
         }
 }
 
-struct tx *tx_init(unsigned mtu, enum tx_media_type media_type, char *fec)
+struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type, char *fec)
 {
         struct tx *tx;
 
         tx = (struct tx *)malloc(sizeof(struct tx));
         if (tx != NULL) {
+                module_init_default(&tx->mod);
+                tx->mod.cls = MODULE_CLASS_TX;
+                tx->mod.msg_callback = fec_change_callback;
+                tx->mod.priv_data = tx;
+
                 tx->magic = TRANSMIT_MAGIC;
                 tx->media_type = media_type;
                 tx->mult_count = 0;
@@ -197,18 +206,18 @@ struct tx *tx_init(unsigned mtu, enum tx_media_type media_type, char *fec)
                                 return NULL;
                         }
                 }
-                tx->messaging_subscription =
-                        subscribe_messages(messaging_instance(), MSG_CHANGE_FEC, fec_change_callback, tx);
                 platform_spin_init(&tx->spin);
+
+                module_register(&tx->mod, parent);
         }
         return tx;
 }
 
-static struct response *fec_change_callback(struct received_message *msg, void *udata)
+static struct response *fec_change_callback(void *msg, struct module *mod)
 {
-        struct tx *tx = (struct tx *) udata;
+        struct tx *tx = (struct tx *) mod->priv_data;
 
-        struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg->data;
+        struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg;
         struct response *response;
 
         if(tx->media_type != data->media_type)
@@ -225,8 +234,6 @@ static struct response *fec_change_callback(struct received_message *msg, void *
                 response = new_response(RESPONSE_BAD_REQUEST, NULL);
         }
         platform_spin_unlock(&tx->spin);
-
-        msg->deleter(msg);
 
         return response;
 }
@@ -279,7 +286,6 @@ void tx_done(struct tx *tx)
 {
         assert(tx->magic == TRANSMIT_MAGIC);
         ldgm_encoder_destroy(tx->fec_state);
-        unsubscribe_messages(messaging_instance(), tx->messaging_subscription);
         pthread_spin_destroy(&tx->spin);
         free(tx);
 }

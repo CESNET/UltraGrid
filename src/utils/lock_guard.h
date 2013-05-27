@@ -10,6 +10,9 @@
 #include "compat/platform_spin.h"
 #include <pthread.h>
 
+struct lock_guard_retain_ownership_t {
+};
+
 template <typename T, int (*lock_func)(T *), int (*unlock_func)(T *)>
 class generic_lock_guard {
         public:
@@ -17,6 +20,11 @@ class generic_lock_guard {
                         m_lock(lock)
                 {
                         lock_func(&m_lock);
+                }
+
+                generic_lock_guard(T &lock, lock_guard_retain_ownership_t) :
+                        m_lock(lock)
+                {
                 }
 
                 ~generic_lock_guard()

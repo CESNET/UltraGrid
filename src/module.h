@@ -53,34 +53,48 @@
 #include "config_unix.h"
 #endif
 
+#include "messaging.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define MODULE_MAGIC 0xf1125b44
 
 enum module_class {
         MODULE_CLASS_NONE = 0,
         MODULE_CLASS_ROOT,
         MODULE_CLASS_COMPRESS,
-        MODULE_CLASS_COMPRESS_DATA,
+        MODULE_CLASS_DATA,
+        MODULE_CLASS_SENDER,
+        MODULE_CLASS_TX,
+        MODULE_CLASS_AUDIO,
 };
 
 struct module;
+struct simple_linked_list;
 
 typedef void (*module_deleter_t)(struct module *);
 
 struct module {
+        uint32_t magic;
         pthread_mutex_t lock;
         enum module_class cls;
         struct module *parent;
-        struct module *first_child;
+        struct simple_linked_list *childs;
         module_deleter_t deleter;
+        msg_callback_t msg_callback;
 
         void *priv_data;
-        struct module *next;
 };
 
-void module_init_default(struct module *module_data, struct module *parent);
+void module_init_default(struct module *module_data);
+void module_register(struct module *module_data, struct module *parent);
 void module_done(struct module *module_data);
+const char *module_class_name(enum module_class cls);
+void make_message_path(char *buf, int buflen, enum module_class modules[]);
+
+#define CAST_MODULE(x) ((struct module *) x)
 
 #ifdef __cplusplus
 }

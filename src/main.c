@@ -438,11 +438,11 @@ static void destroy_devices(struct rtp ** network_devices)
 	free(network_devices);
 }
 
-static struct tx *initialize_transmit(unsigned requested_mtu, char *fec)
+static struct tx *initialize_transmit(struct module *parent, unsigned requested_mtu, char *fec)
 {
         /* Currently this is trivial. It'll get more complex once we */
         /* have multiple codecs and/or error correction.             */
-        return tx_init(requested_mtu, TX_MEDIA_VIDEO, fec);
+        return tx_init(parent, requested_mtu, TX_MEDIA_VIDEO, fec);
 }
 
 #ifdef HAVE_IHDTV
@@ -703,9 +703,10 @@ static void *compress_thread(void *arg)
         //struct video_frame *splitted_frames = NULL;
         int i = 0;
 
-        struct module *compression;
+        struct compress_state *compression;
         int ret = compress_init(uv_mod, uv->requested_compression, &compression);
 
+        sender_data.parent = uv_mod; /// @todo should be compress thread module
         sender_data.connections_count = uv->connections_count;
         sender_data.tx_protocol = uv->tx_protocol;
         if(uv->tx_protocol == ULTRAGRID_RTP) {
@@ -747,7 +748,7 @@ static void *compress_thread(void *arg)
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //TODO: Unghetto this
-                        tx_frame = compress_frame(compression->priv_data, tx_frame, i);
+                        tx_frame = compress_frame(compression, tx_frame, i);
                         if(!tx_frame)
                                 continue;
 
@@ -759,7 +760,7 @@ static void *compress_thread(void *arg)
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
                         /* for compressed, we do not need to wait */
-                        if(is_compress_none(compression->priv_data)) {
+                        if(is_compress_none(compression)) {
                                 nonblock = false;
                         }
 
@@ -772,7 +773,7 @@ static void *compress_thread(void *arg)
         sender_done(&sender_data);
 
 compress_done:
-        module_done(compression);
+        module_done(CAST_MODULE(compression));
 
         return NULL;
 }
@@ -821,7 +822,7 @@ static bool enable_export(char *dir)
 
 static void init_root_module(struct module *mod, struct state_uv *uv)
 {
-        module_init_default(mod, NULL);
+        module_init_default(mod);
         mod->cls = MODULE_CLASS_ROOT;
         mod->parent = NULL;
         mod->deleter = NULL;
@@ -1097,11 +1098,11 @@ int main(int argc, char *argv[])
                 case OPT_CUDA_DEVICE:
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
-                                struct module *compression;
+                                struct compress_state *compression;
                                 int ret = compress_init(&root_mod, "JPEG:list_devices", &compression);
                                 if(ret >= 0) {
                                         if(ret == 0) {
-                                                module_done(compression);
+                                                module_done(CAST_MODULE(compression));
                                         }
                                         return EXIT_SUCCESS;
                                 } else {
@@ -1261,7 +1262,7 @@ int main(int argc, char *argv[])
         if(!audio_host) {
                 audio_host = network_device;
         }
-        uv->audio = audio_cfg_init (audio_host, audio_rx_port,
+        uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, audio_channel_map,
                         audio_scale, echo_cancellation, use_ipv6, mcast_if,
@@ -1426,7 +1427,8 @@ int main(int argc, char *argv[])
                         packet_rate = 0;
                 }
 
-                if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_video_fec)) == NULL) {
+                if ((uv->tx = initialize_transmit(&root_mod,
+                                                uv->requested_mtu, requested_video_fec)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup_wait_display;
@@ -1456,12 +1458,12 @@ int main(int argc, char *argv[])
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
                 if(strstr(uv->requested_compression,"help") != NULL) {
-                        struct module *compression;
+                        struct compress_state *compression;
                         int ret = compress_init(&root_mod, uv->requested_compression, &compression);
 
                         if(ret >= 0) {
                                 if(ret == 0)
-                                        module_done(compression);
+                                        module_done(CAST_MODULE(compression));
                                 exit_uv(EXIT_SUCCESS);
                         } else {
                                 exit_uv(EXIT_FAILURE);
@@ -1498,7 +1500,7 @@ int main(int argc, char *argv[])
         
         pthread_mutex_lock(&uv->master_lock); 
 
-        if(control_init(CONTROL_DEFAULT_PORT, &control) != 0) {
+        if(control_init(CONTROL_DEFAULT_PORT, &control, &root_mod) != 0) {
                 fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
         }
 

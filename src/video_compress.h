@@ -102,7 +102,7 @@ typedef  struct tile * (*compress_tile_t)(struct module *state, struct tile *til
 typedef  void (*compress_done_t)(void *);
 
 void show_compress_help(void);
-int compress_init(struct module *parent, char *config_string, struct module **);
+int compress_init(struct module *parent, char *config_string, struct compress_state **);
 const char *get_compress_name(struct compress_state *);
 
 int is_compress_none(struct compress_state *);

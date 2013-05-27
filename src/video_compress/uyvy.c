@@ -119,6 +119,8 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
 
 
 struct uyvy_video_compress {
+        struct module module_data;
+
         struct video_frame *out[2];
         unsigned int configured:1;
         struct video_desc saved_desc;
@@ -132,8 +134,6 @@ struct uyvy_video_compress {
         GLuint texture;
 
         int gl_format;
-
-        struct module module_data;
 };
 
 int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx);
@@ -205,10 +205,11 @@ struct module * uyvy_compress_init(struct module *parent, char * fmt)
 
         gl_context_make_current(NULL);
 
-        module_init_default(&s->module_data, parent);
-        s->module_data.cls = MODULE_CLASS_COMPRESS_DATA;
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
         s->module_data.priv_data = s;
         s->module_data.deleter = uyvy_compress_done;
+        module_register(&s->module_data, parent);
 
         return &s->module_data;
 }

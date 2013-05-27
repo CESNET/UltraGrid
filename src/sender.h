@@ -60,6 +60,7 @@
 struct tx;
 struct rtp;
 struct display;
+struct module;
 struct received_message;
 struct response;
 struct sender_msg;
@@ -73,6 +74,7 @@ enum tx_protocol {
 };
 
 struct sender_data {
+        struct module *parent;
         int connections_count;
         enum tx_protocol tx_protocol;
         union {

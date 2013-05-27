@@ -67,6 +67,8 @@
 #include "video_compress/dxt_glsl.h"
 
 struct video_compress {
+        struct module module_data;
+
         struct dxt_encoder **encoder;
 
         struct video_frame *out[2];
@@ -77,8 +79,6 @@ struct video_compress {
         codec_t color_spec;
         
         struct gl_context gl_context;
-
-        struct module module_data;
 };
 
 static int configure_with(struct video_compress *s, struct video_frame *frame);
@@ -274,9 +274,11 @@ struct module *dxt_glsl_compress_init(struct module *parent, char * opts)
 
         gl_context_make_current(NULL);
 
-        module_init_default(&s->module_data, parent);
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
         s->module_data.priv_data = s;
         s->module_data.deleter = dxt_glsl_compress_done;
+        module_register(&s->module_data, parent);
 
         return &s->module_data;
 }

@@ -107,7 +107,7 @@ static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index, struct module *parent);
 static void *compress_tile(void *arg);
-static struct response *compress_change_callback(struct received_message *msg, void *udata);
+static struct response *compress_change_callback(void *msg, struct module *receiver);
 static int compress_init_real(struct module *parent, char *config_string,
                 struct compress_state_real **state);
 static void compress_done_real(struct compress_state_real *s);
@@ -244,13 +244,28 @@ void show_compress_help()
         }
 }
 
-static struct response *compress_change_callback(struct received_message *msg, void *udata)
+static struct response *compress_change_callback(void *msg, struct module *receiver)
 {
-        struct msg_change_compress_data *data = msg->data;
-        compress_state_proxy *proxy = udata;
+        struct msg_change_compress_data *data = msg;
+        compress_state_proxy *proxy = receiver->priv_data;
 
         if(data->what == CHANGE_PARAMS) {
-                return NULL;
+                platform_spin_lock(&proxy->spin);
+                struct response *resp = NULL;
+                for(unsigned int i = 0; i < proxy->ptr->state_count; ++i) {
+                        if(resp) {
+                                resp->deleter(resp);
+                        }
+                        char buf[1024];
+                        struct msg_change_compress_data tmp_data;
+                        tmp_data.what = data->what;
+                        strncpy(buf, data->config_string, sizeof(buf) - 1);
+                        tmp_data.config_string = buf;
+                        resp = send_message_to_receiver(proxy->ptr->state[i], &tmp_data);
+                }
+                platform_spin_unlock(&proxy->spin);
+
+                return resp;
         }
 
 #if 0
@@ -263,11 +278,8 @@ static struct response *compress_change_callback(struct received_message *msg, v
 
         struct compress_state_real *new_state;
         char config[1024];
-        strncpy(config, data->module, sizeof(config));
-        if(data->params) {
-                strncat(config, ":", sizeof(config) - strlen(config) - 1);
-                strncat(config, data->params, sizeof(config) - strlen(config) - 1);
-        }
+        strncpy(config, data->config_string, sizeof(config));
+
         int ret = compress_init_real(&proxy->mod, config, &new_state);
         if(ret == 0) {
                 struct compress_state_real *old = proxy->ptr;
@@ -282,28 +294,32 @@ static struct response *compress_change_callback(struct received_message *msg, v
         return new_response(RESPONSE_INT_SERV_ERR, NULL);
 }
 
-int compress_init(struct module *parent, char *config_string, struct module **mod) {
+int compress_init(struct module *parent, char *config_string, struct compress_state **state) {
         struct compress_state_real *s;
 
         compress_state_proxy *proxy;
         proxy = malloc(sizeof(compress_state_proxy));
 
-        module_init_default(&proxy->mod, parent);
+        module_init_default(&proxy->mod);
         proxy->mod.cls = MODULE_CLASS_COMPRESS;
         proxy->mod.priv_data = proxy;
         proxy->mod.deleter = compress_done;
+        proxy->mod.msg_callback = compress_change_callback;
 
         int ret = compress_init_real(&proxy->mod, config_string, &s);
         if(ret == 0) {
                 proxy->ptr = s;
-                *mod = &proxy->mod;
 
                 platform_spin_init(&proxy->spin);
-                subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS, compress_change_callback,
-                                proxy);
+                *state = proxy;
+                //subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS, compress_change_callback,
+                //                proxy);
         } else {
                 free(proxy);
         }
+
+        module_register(&proxy->mod, parent);
+
         return ret;
 }
 

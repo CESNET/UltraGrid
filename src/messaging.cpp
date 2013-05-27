@@ -6,143 +6,61 @@
 #include <string>
 
 #include "debug.h"
-
+#include "module.h"
+#include "utils/list.h"
 #include "utils/lock_guard.h"
-#include "utils/resource_manager.h"
 
-static void *init_instance(void *data);
-static void delete_instance(void *instance);
-static void response_deleter(struct response *response);
-
-using namespace std;
-
-struct responder {
-        msg_callback_t callback;
-        void *udata;
-        enum msg_class cls;
-};
-
-class message_manager {
-        public:
-                message_manager() : m_traversing(0), m_dirty(false)
-                {
-                        pthread_mutexattr_t attr;
-                        assert(pthread_mutexattr_init(&attr) == 0);
-                        assert(pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) == 0);
-                        assert(pthread_mutex_init(&m_lock, &attr) == 0);
-                        pthread_mutexattr_destroy(&attr);
-                }
-
-                virtual ~message_manager() {
-                        pthread_mutex_destroy(&m_lock);
-                }
-
-                struct responder *register_responder(enum msg_class cls, msg_callback_t callback, void *udata) {
-                        lock_guard guard(m_lock);
-                        struct responder *r = new responder;
-                        r->callback = callback;
-                        r->udata = udata;
-                        r->cls = cls;
-                        if(responders.find(cls) == responders.end()) {
-                                responders[cls] = list<responder *>();
-                        }
-                        responders[cls].push_back(r);
-                        if(m_traversing)
-                                m_dirty = true;
-
-                        return r;
-                }
-
-                void unregister_responder(struct responder *r) {
-                        lock_guard guard(m_lock);
-                        responders[r->cls].remove(r);
-                        delete r;
-                        if(m_traversing)
-                                m_dirty = true;
-                }
-
-                struct response *send(enum msg_class cls, void *data) {
-                        lock_guard guard(m_lock);
-                        if(responders.find(cls) == responders.end()) {
-                                cerr << "Warning: cannot send message, no receiver registered to "
-                                        "the given class!" << endl;
-                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                        } else {
-                                bool was_dirty = false;
-again:
-                                for(list<responder *>::iterator it = responders[cls].begin();
-                                                it != responders[cls].end(); ++it) {
-                                        struct received_message *msg = (struct received_message *)
-                                                malloc(sizeof(struct received_message));
-                                        msg->message_type = cls;
-                                        msg->data = data;
-                                        msg->deleter = (void (*)(struct received_message *)) free;
-
-                                        // incrementing only here since this is the only
-                                        // non-open call
-                                        m_traversing += 1;
-                                        struct response *response = (*it)->callback(msg,
-                                                        (*it)->udata);
-                                        m_traversing -= 1;
-
-                                        if(response)
-                                                return response;
-                                        if(m_dirty) {
-                                                // we need to reset the traversal
-                                                m_dirty = false;
-                                                was_dirty = true;
-                                                goto again;
-                                        }
-                                }
-                                if(m_traversing && was_dirty) {
-                                        m_dirty = true;
-                                }
-                                cerr << "Warning: cannot send message, no receiver is responding "
-                                        "the given class!" << endl;
-                                return new_response(RESPONSE_INT_SERV_ERR, NULL);
-                        }
-                }
-
-        private:
-                int m_traversing;
-                bool m_dirty;
-                pthread_mutex_t m_lock;
-                map<enum msg_class, list<responder *> > responders;
-};
-
-static void *init_instance(void *data) {
-        UNUSED(data);
-        return new message_manager;
-}
-
-static void delete_instance(void *instance) {
-        delete (message_manager *) instance;
-}
-
-struct messaging *messaging_instance(void) {
-        return (struct messaging *) rm_singleton("MESSAGING", init_instance, NULL,
-                                delete_instance);
-}
-
-void *subscribe_messages(struct messaging *state, enum msg_class cls, msg_callback_t callback, void *udata)
+static struct module *find_child(struct module *node, const char *node_name)
 {
-        class message_manager *s = (class message_manager *) state;
-        return s->register_responder(cls, callback, udata);
-}
-
-void unsubscribe_messages(struct messaging *state, void *handle)
-{
-        if(!handle) {
-                return;
+        for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
+                struct module *child = (struct module *) simple_linked_list_it_next(&it);
+                if(strcasecmp(module_class_name(child->cls), node_name) == 0) {
+                        return child;
+                }
         }
-        class message_manager *s = (class message_manager *) state;
-        s->unregister_responder(static_cast<struct responder *>(handle));
+        return NULL;
 }
 
-struct response *send_message(struct messaging *state, enum msg_class cls, void *data)
+struct response *send_message(struct module *root, const char *const_path, void *data)
 {
-        class message_manager *s = (class message_manager *) state;
-        return s->send(cls, data);
+        struct module *receiver = root;
+        char *path, *tmp;
+        char *item, *save_ptr;
+
+        tmp = path = strdup(const_path);
+        while ((item = strtok_r(path, ".", &save_ptr))) {
+                struct module *old_receiver = receiver;
+                pthread_mutex_lock(&old_receiver->lock);
+                receiver = find_child(receiver, item);
+                pthread_mutex_lock(&receiver->lock);
+                pthread_mutex_unlock(&old_receiver->lock);
+
+                path = NULL;
+
+        }
+        free(tmp);
+
+        if(receiver == NULL) {
+                return new_response(RESPONSE_NOT_FOUND, NULL);
+        }
+
+        lock_guard guard(receiver->lock, lock_guard_retain_ownership_t());
+
+        if(receiver->msg_callback == NULL) {
+                return new_response(RESPONSE_NOT_IMPL, NULL);
+        }
+
+        return receiver->msg_callback(data, receiver);
+}
+
+struct response *send_message_to_receiver(struct module *receiver, void *data)
+{
+        if(receiver->msg_callback) {
+                lock_guard guard(receiver->lock);
+                return receiver->msg_callback(data, receiver);
+        } else {
+                return new_response(RESPONSE_NOT_IMPL, NULL);
+        }
 }
 
 static void response_deleter(struct response *response)
@@ -176,6 +94,7 @@ const char *response_status_to_text(int status)
                 { 400, "Bad Request" },
                 { 404, "Not Found" },
                 { 500, "Internal Server Error" },
+                { 501, "Not Implemented" },
                 { 0, NULL },
         };
 

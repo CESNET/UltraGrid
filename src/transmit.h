@@ -54,6 +54,7 @@
 
 #include "audio/audio.h"
 
+struct module;
 struct rtp;
 struct tx;
 struct video_frame;
@@ -63,7 +64,7 @@ enum tx_media_type {
         TX_MEDIA_VIDEO
 };
 
-struct tx *tx_init(unsigned mtu, enum tx_media_type media_type, char *fec);
+struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type, char *fec);
 void		 tx_done(struct tx *tx_session);
 void		 tx_send_tile(struct tx *tx_session, struct video_frame *frame, int pos, struct rtp *rtp_session);
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);

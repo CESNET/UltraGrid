@@ -27,7 +27,7 @@ struct state_recompress {
         int rx_port, tx_port;
         const char *host;
         struct rtp *network_device;
-        struct module *compress;
+        struct compress_state *compress;
         char *required_compress;
 
         struct timeval start_time;
@@ -84,7 +84,7 @@ static void *worker(void *arg)
 
 
                 struct video_frame *tx_frame =
-                        compress_frame((struct compress_state *) s->compress->priv_data,
+                        compress_frame((struct compress_state *) s->compress,
                                         s->frame, 0);
 
                 if(tx_frame) {
@@ -113,7 +113,7 @@ static void *worker(void *arg)
         }
 
         if(s->compress) {
-                module_done(s->compress);
+                module_done(CAST_MODULE(s->compress));
                 s->compress = NULL;
         }
 
@@ -156,7 +156,7 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s = (struct state_recompress *) calloc(1, sizeof(struct state_recompress));
 
-        module_init_default(&s->root_mod, NULL);
+        module_init_default(&s->root_mod);
         s->root_mod.cls = MODULE_CLASS_ROOT;
         s->root_mod.priv_data = s;
 
@@ -172,7 +172,7 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s->required_compress = strdup(compress);
         s->frame = NULL;
-        s->tx = tx_init(mtu, TX_MEDIA_VIDEO, fec);
+        s->tx = tx_init(&s->root_mod, mtu, TX_MEDIA_VIDEO, fec);
 
         gettimeofday(&s->start_time, NULL);
 

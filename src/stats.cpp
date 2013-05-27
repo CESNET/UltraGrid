@@ -6,6 +6,7 @@
 #include "compat/platform_spin.h"
 #include "debug.h"
 #include "messaging.h"
+#include "module.h"
 #include "utils/lock_guard.h"
 #include "utils/resource_manager.h"
 
@@ -20,21 +21,17 @@ struct stats {
                 stats(string name) {
                         m_name = name;
                         m_val = 0;
-
-                        m_messaging_subscribtion = subscribe_messages(messaging_instance(), MSG_STATS,
-                                        messaging_callback, this);
                 }
 
                 ~stats() {
-                        unsubscribe_messages(messaging_instance(), m_messaging_subscribtion);
                 }
 
                 void update_int(int64_t val) {
                         m_val = val;
                 }
 
-                struct response *process_message(struct received_message *msg) {
-                        struct msg_stats *stats = (struct msg_stats *) msg->data;
+                struct response *process_message(void *msg) {
+                        struct msg_stats *stats = (struct msg_stats *) msg;
 
                         if(string(stats->what).compare(m_name) == 0) {
                                 char buf[128];
@@ -51,9 +48,9 @@ struct stats {
                 void *m_messaging_subscribtion;
 };
 
-static struct response *messaging_callback(struct received_message *msg, void *udata)
+static struct response *messaging_callback(void *msg, struct module *mod)
 {
-        stats *s = (stats *) udata;
+        stats *s = (stats *) mod->priv_data;
         return s->process_message(msg);
 }
 

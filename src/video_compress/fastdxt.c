@@ -93,6 +93,8 @@ static volatile int fastdxt_should_exit = FALSE;
  */
 
 struct video_compress {
+        struct module module_data;
+
         int num_threads;
         unsigned char *buffer[MAX_THREADS];
         unsigned char *output_data;
@@ -114,8 +116,6 @@ struct video_compress {
         struct tile *tile[2];
 
         volatile int buffer_idx;
-
-        struct module module_data;
 };
 
 static void *compress_thread(void *args);
@@ -310,10 +310,11 @@ struct module *fastdxt_init(struct module *parent, char *num_threads_str)
                 ;
         fprintf(stderr, "All compression threads are online.\n");
         
-        module_init_default(&compress->module_data, parent);
-        compress->module_data.cls = MODULE_CLASS_COMPRESS_DATA;
+        module_init_default(&compress->module_data);
+        compress->module_data.cls = MODULE_CLASS_DATA;
         compress->module_data.priv_data = compress;
         compress->module_data.deleter = fastdxt_done;
+        module_register(&compress->module_data, parent);
 
         return &compress->module_data;
 }

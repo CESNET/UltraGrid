@@ -58,6 +58,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "messaging.h"
+#include "module.h"
 #include "rtp/rtp.h"
 #include "sender.h"
 #include "stats.h"
@@ -65,13 +66,15 @@
 #include "video.h"
 #include "video_display.h"
 
-struct response *sender_messaging_callback(struct received_message *msg, void *udata);
+struct response *sender_messaging_callback(void *msg, struct module *mod);
 static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
 static struct sender_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
 static void sender_finish(struct sender_data *data);
 
 struct sender_priv_data {
+        struct module mod;
+
         pthread_mutex_t lock;
         pthread_cond_t msg_ready_cv;
         pthread_cond_t msg_processed_cv;
@@ -171,24 +174,18 @@ static bool sender_change_receiver(struct sender_data *data, const char *new_rec
         return msg_data.exit_status;
 }
 
-struct response *sender_messaging_callback(struct received_message *msg, void *udata)
+struct response *sender_messaging_callback(void *msg, struct module *mod)
 {
-        struct sender_data *s = (struct sender_data *) udata;
+        struct sender_data *s = (struct sender_data *) mod->priv_data;
 
         struct response *response;
 
-        if(msg->message_type == MSG_CHANGE_RECEIVER_ADDRESS) {
-                struct msg_change_receiver_address *data = (const char *) msg->data;
-                if(sender_change_receiver(s, data->receiver)) {
-                        response = new_response(RESPONSE_OK, NULL);
-                } else {
-                        response = new_response(RESPONSE_NOT_FOUND, NULL);
-                }
+        struct msg_change_receiver_address *data = (struct msg_change_receiver_address *) msg;
+        if(sender_change_receiver(s, data->receiver)) {
+                response = new_response(RESPONSE_OK, NULL);
         } else {
-                response = NULL;
+                response = new_response(RESPONSE_NOT_FOUND, NULL);
         }
-
-        msg->deleter(msg);
 
         return response;
 }
@@ -232,7 +229,6 @@ static void *sender_thread(void *arg) {
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         struct video_desc saved_vid_desc;
-        void *messaging_subscribtion = NULL;
         struct stats *stat_data_sent = stats_new_statistics("data");
 
         tile_y_count = data->connections_count;
@@ -244,9 +240,11 @@ static void *sender_thread(void *arg) {
                 splitted_frames = vf_alloc(tile_y_count);
         }
 
-        messaging_subscribtion =
-                subscribe_messages(messaging_instance(), MSG_CHANGE_RECEIVER_ADDRESS,
-                                sender_messaging_callback, data);
+        module_init_default(&data->priv->mod);
+        data->priv->mod.cls = MODULE_CLASS_SENDER;
+        data->priv->mod.priv_data = data;
+        data->priv->mod.msg_callback = sender_messaging_callback;
+        module_register(&data->priv->mod, data->parent);
 
         pthread_mutex_unlock(&data->priv->lock);
 
@@ -336,7 +334,7 @@ static void *sender_thread(void *arg) {
 
 exit:
         vf_free(splitted_frames);
-        unsubscribe_messages(messaging_instance(), messaging_subscribtion);
+        module_done(&data->priv->mod);
         stats_destroy(stat_data_sent);
 
         return NULL;

@@ -85,3 +85,27 @@ void *simple_linked_list_it_next(void **it)
         return n->val;
 }
 
+int simple_linked_list_remove(struct simple_linked_list *l, void *item)
+{
+        struct node **child_ptr = &l->head;
+        bool found = false;
+
+        while(*child_ptr) {
+                if((*child_ptr)->val == item) {
+                        struct node *tmp = *child_ptr;
+                        *child_ptr = (*child_ptr)->next;
+                        free(tmp);
+                        found = true;
+                        break;
+                }
+                child_ptr = &(*child_ptr)->next;
+        }
+
+        if(found) {
+                l->size -= 1;
+                return TRUE;
+        } else {
+                return FALSE;
+        }
+}
+
