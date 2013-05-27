@@ -275,7 +275,7 @@ void display_sage_finish(void *state)
         should_exit = true;
 
         // there was already issued should_exit...
-        display_sage_putf(s, NULL);
+        display_sage_putf(s, NULL, PUTF_BLOCKING);
         // .. so thread should exit after this call
 }
 
