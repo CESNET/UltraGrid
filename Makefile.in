@@ -135,6 +135,7 @@ LIB_COMMON = \
 		src/tile.o \
 		src/tv.o \
 		src/utils/fs_lock.o \
+		src/utils/list.o \
 		src/utils/ring_buffer.o \
 		src/utils/worker.o \
 		src/video.o \
