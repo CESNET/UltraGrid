@@ -275,7 +275,7 @@ static void *ldgm_thread(void *args) {
 
                 if (data->pt == PT_VIDEO_LDGM) {
                         int x,y;
-                        for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode); ++x) {
+                        for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode) ; ++x) {
                                 for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
                                         int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
                                         char *out_buffer = NULL;
@@ -329,9 +329,9 @@ static void *ldgm_thread(void *args) {
 
                                                 int data_pos = 0;
                                                 char *src = out_buffer;
-                                                char *dst = tile->data;
+                                                char *dst = tile->data + line_decoder->base_offset;
                                                 while(data_pos < (int) out_len) {
-                                                        line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, vc_get_linesize(tile->width ,frame->color_spec),
+                                                        line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, line_decoder->src_linesize,
                                                                         line_decoder->rshift, line_decoder->gshift,
                                                                         line_decoder->bshift);
                                                         src += line_decoder->src_linesize;
