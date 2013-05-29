@@ -25,15 +25,42 @@
 long packet_rate = 13600;
 
 static pthread_t main_thread_id;
+struct forward;
+struct item;
+
+struct replica {
+    uint32_t magic;
+    const char *host;
+    unsigned short port;
+
+    int sock;
+    void *recompress;
+};
+
+
+struct hd_rum_translator_state {
+    struct item *queue;
+    struct item *qhead;
+    struct item *qtail;
+    int qempty;
+    int qfull;
+    pthread_mutex_t qempty_mtx;
+    pthread_mutex_t qfull_mtx;
+    pthread_cond_t qempty_cond;
+    pthread_cond_t qfull_cond;
+
+    struct replica *replicas;
+    void *decompress;
+    int host_count;
+};
 
 /*
  * Prototypes
  */
 static int output_socket(unsigned short port, const char *host, int bufsize);
-static void *replica_init(const char *host, unsigned short port, int bufsize);
-static ssize_t replica_write(void *state, void *buf, size_t count);
-static void replica_done(void *state);
-static void qinit(int qsize);
+static ssize_t replica_write(struct replica *s, void *buf, size_t count);
+static void replica_done(struct replica *s);
+static struct item *qinit(int qsize);
 static int buffer_size(int sock, int optname, int size);
 static void *writer(void *arg);
 static void signal_handler(int signal);
@@ -62,49 +89,19 @@ static void signal_handler(int signal)
 
 #define SIZE    10000
 
-typedef ssize_t (*write_t)(void *state, void *buf, size_t count);
-typedef void (*done_t)(void *state);
-
 #define REPLICA_MAGIC 0xd2ff3323
 
-struct replica {
-    uint32_t magic;
-    const char *host;
-    unsigned short port;
-    int sock;
-};
-
-static void *replica_init(const char *host, unsigned short port, int bufsize) {
-        struct replica *replica = (struct replica *)
-            calloc(1, sizeof(struct replica));
-
-        replica->magic = REPLICA_MAGIC;
-        replica->host = host;
-        replica->port = port;
-        replica->sock = output_socket(port, host,
-                                         bufsize);
-
-        return (void *) replica;
-}
-
-static ssize_t replica_write(void *state, void *buf, size_t count) {
-        struct replica *s = (struct replica *) state;
+static ssize_t replica_write(struct replica *s, void *buf, size_t count)
+{
         return write(s->sock, buf, count);
 }
 
-static void replica_done(void *state) {
-        struct replica *s = (struct replica *) state;
+static void replica_done(struct replica *s)
+{
         assert(s->magic == REPLICA_MAGIC);
 
         close(s->sock);
-        free(s);
 }
-
-struct forward {
-        void *state;
-        write_t write;
-        done_t done;
-};
 
 struct item {
     struct item *next;
@@ -112,21 +109,9 @@ struct item {
     char buf[SIZE];
 };
 
-static struct item *queue;
-static struct item *qhead;
-static struct item *qtail;
-static int qempty = 1;
-static int qfull = 0;
-static pthread_mutex_t qempty_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t qfull_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t qempty_cond = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t qfull_cond = PTHREAD_COND_INITIALIZER;
-
-struct forward *forwards;
-int in_port_count;
-
-static void qinit(int qsize)
+static struct item *qinit(int qsize)
 {
+    struct item *queue;
     int i;
 
     printf("initializing packet queue for %d items\n", qsize);
@@ -141,7 +126,7 @@ static void qinit(int qsize)
         queue[i].next = queue + i + 1;
     queue[qsize - 1].next = queue;
 
-    qhead = qtail = queue;
+    return queue;
 }
 
 
@@ -212,30 +197,39 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
 static void *writer(void *arg)
 {
     int i;
-    UNUSED(arg);
+    struct hd_rum_translator_state *s =
+        (struct hd_rum_translator_state *) arg;
 
     while (1) {
-        while (qhead != qtail) {
-            if(qhead->size == 0) { // poisoned pill
+        while (s->qhead != s->qtail) {
+            if(s->qhead->size == 0) { // poisoned pill
                 return NULL;
             }
-            for (i = 0; i < in_port_count; i++) {
-                forwards[i].write(forwards[i].state, qhead->buf, qhead->size);
+            for (i = 0; i < s->host_count; i++) {
+                if(s->replicas[i].sock != -1) {
+                    replica_write(&s->replicas[i],
+                            s->qhead->buf, s->qhead->size);
+                }
             }
 
-            qhead = qhead->next;
+            if(s->decompress) {
+                hd_rum_decompress_write(s->decompress,
+                        s->qhead->buf, s->qhead->size);
+            }
 
-            pthread_mutex_lock(&qfull_mtx);
-            qfull = 0;
-            pthread_cond_signal(&qfull_cond);
-            pthread_mutex_unlock(&qfull_mtx);
+            s->qhead = s->qhead->next;
+
+            pthread_mutex_lock(&s->qfull_mtx);
+            s->qfull = 0;
+            pthread_cond_signal(&s->qfull_cond);
+            pthread_mutex_unlock(&s->qfull_mtx);
         }
 
-        pthread_mutex_lock(&qempty_mtx);
-        if (qempty)
-            pthread_cond_wait(&qempty_cond, &qempty_mtx);
-        qempty = 1;
-        pthread_mutex_unlock(&qempty_mtx);
+        pthread_mutex_lock(&s->qempty_mtx);
+        if (s->qempty)
+            pthread_cond_wait(&s->qempty_cond, &s->qempty_mtx);
+        s->qempty = 1;
+        pthread_mutex_unlock(&s->qempty_mtx);
     }
 
     return NULL;
@@ -315,9 +309,30 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     }
 }
 
+static void hd_rum_translator_state_init(struct hd_rum_translator_state *s)
+{
+    s->qempty = 1;
+    s->qfull = 0;
+    pthread_mutex_init(&s->qempty_mtx, NULL);
+    pthread_mutex_init(&s->qfull_mtx, NULL);
+    pthread_cond_init(&s->qempty_cond, NULL);
+    pthread_cond_init(&s->qfull_cond, NULL);
+    s->decompress = NULL;
+}
+
+static void hd_rum_translator_state_destroy(struct hd_rum_translator_state *s)
+{
+    pthread_mutex_destroy(&s->qempty_mtx);
+    pthread_mutex_destroy(&s->qfull_mtx);
+    pthread_cond_destroy(&s->qempty_cond);
+    pthread_cond_destroy(&s->qfull_cond);
+}
+
 #ifndef WIN32
 int main(int argc, char **argv)
 {
+    struct hd_rum_translator_state state;
+
     unsigned short port;
     int qsize;
     int bufsize;
@@ -334,6 +349,8 @@ int main(int argc, char **argv)
         usage(argv[0]);
         return EXIT_FAIL_USAGE;
     }
+
+    hd_rum_translator_state_init(&state);
 
     main_thread_id = pthread_self();
 
@@ -376,7 +393,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    qinit(qsize);
+    state.qhead = state.qtail = state.queue = qinit(qsize);
 
     /* input socket */
     if ((sock_in = socket(PF_INET, SOCK_DGRAM, 0)) == -1) {
@@ -399,36 +416,29 @@ int main(int argc, char **argv)
     printf("listening on *:%d\n", port);
 
     /* output socket(s) */
-    forwards = (struct forward *) calloc(host_count, sizeof(struct replica));
-    if (forwards == NULL) {
+    state.replicas = (struct replica *) calloc(host_count, sizeof(struct replica));
+    if (state.replicas == NULL) {
         fprintf(stderr, "not enough memory for replica array");
         return 2;
     }
 
-    void *decompress = NULL;
-
-    in_port_count = 0;
+    state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
+        state.replicas[i].magic = REPLICA_MAGIC;
+        state.replicas[i].host = hosts[i].addr;
+        state.replicas[i].port = port;
+        state.replicas[i].sock = -1;
+
         if(hosts[i].compression == NULL) {
-            forwards[in_port_count].state =
-                replica_init(hosts[i].addr, port, bufsize);
-            if(!forwards[in_port_count].state) {
-                return EXIT_INIT_PORT;
-            }
-            forwards[in_port_count].write = replica_write;
-            forwards[in_port_count].done = replica_done;
-            in_port_count += 1;
+            state.replicas[i].sock = output_socket(port, hosts[i].addr,
+                                         bufsize);
         } else {
             // we need only one shared receiver decompressor for all recompressing streams
-            if(decompress == NULL) {
-                decompress = hd_rum_decompress_init(port + 2);
-                forwards[in_port_count].state = decompress;
-                if(!forwards[in_port_count].state) {
+            if(state.decompress == NULL) {
+                state.decompress = hd_rum_decompress_init(port + 2);
+                if(!state.decompress) {
                     return EXIT_INIT_PORT;
                 }
-                forwards[in_port_count].write = hd_rum_decompress_write;
-                forwards[in_port_count].done = hd_rum_decompress_done;
-                ++in_port_count;
             }
 
             int mtu = 1500;
@@ -436,67 +446,75 @@ int main(int argc, char **argv)
                 mtu = hosts[i].mtu;
             }
 
-            void *recompress = recompress_init(hosts[i].addr, hosts[i].compression,
+            state.replicas[i].recompress = recompress_init(hosts[i].addr, hosts[i].compression,
                     0, port, mtu, hosts[i].fec);
-            if(recompress == 0) {
+            if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
                 return EXIT_INIT_PORT;
             }
             // we don't care about this clients, we only tell decompressor to
             // take care about them
-            hd_rum_decompress_add_port(decompress, recompress);
+            hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress);
         }
     }
 
-    if (pthread_create(&thread, NULL, writer, NULL)) {
+    if (pthread_create(&thread, NULL, writer, (void *) &state)) {
         fprintf(stderr, "cannot create writer thread\n");
         return 2;
     }
 
     /* main loop */
     while (!should_exit) {
-        while (qtail->next != qhead
-               && (qtail->size = read(sock_in, qtail->buf, SIZE)) > 0
+        while (state.qtail->next != state.qhead
+               && (state.qtail->size = read(sock_in, state.qtail->buf, SIZE)) > 0
                && !should_exit) {
 
-            qtail = qtail->next;
+            state.qtail = state.qtail->next;
 
-            pthread_mutex_lock(&qempty_mtx);
-            qempty = 0;
-            pthread_cond_signal(&qempty_cond);
-            pthread_mutex_unlock(&qempty_mtx);
+            pthread_mutex_lock(&state.qempty_mtx);
+            state.qempty = 0;
+            pthread_cond_signal(&state.qempty_cond);
+            pthread_mutex_unlock(&state.qempty_mtx);
         }
 
-        if (qtail->size <= 0)
+        if (state.qtail->size <= 0)
             break;
 
-        pthread_mutex_lock(&qfull_mtx);
-        if (qfull)
-            pthread_cond_wait(&qfull_cond, &qfull_mtx);
-        qfull = 1;
-        pthread_mutex_unlock(&qfull_mtx);
+        pthread_mutex_lock(&state.qfull_mtx);
+        if (state.qfull)
+            pthread_cond_wait(&state.qfull_cond, &state.qfull_mtx);
+        state.qfull = 1;
+        pthread_mutex_unlock(&state.qfull_mtx);
     }
 
-    if (qtail->size < 0 && !should_exit) {
+    if (state.qtail->size < 0 && !should_exit) {
         printf("read: %s\n", strerror(err));
         return 2;
     }
 
     // pass poisoned pill to the worker
-    qtail->size = 0;
-    qtail = qtail->next;
+    state.qtail->size = 0;
+    state.qtail = state.qtail->next;
 
-    pthread_mutex_lock(&qempty_mtx);
-    qempty = 0;
-    pthread_cond_signal(&qempty_cond);
-    pthread_mutex_unlock(&qempty_mtx);
+    pthread_mutex_lock(&state.qempty_mtx);
+    state.qempty = 0;
+    pthread_cond_signal(&state.qempty_cond);
+    pthread_mutex_unlock(&state.qempty_mtx);
 
     pthread_join(thread, NULL);
 
-    for (i = 0; i < in_port_count; i++) {
-        forwards[i].done(forwards[i].state);
+    for (i = 0; i < state.host_count; i++) {
+        if(state.replicas[i].sock != -1) {
+            replica_done(&state.replicas[i]);
+        }
     }
+
+    if(state.decompress) {
+        hd_rum_decompress_done(state.decompress);
+    }
+
+    hd_rum_translator_state_destroy(&state);
 
     printf("Exit\n");
 
