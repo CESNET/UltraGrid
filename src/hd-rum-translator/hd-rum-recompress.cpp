@@ -278,7 +278,7 @@ void recompress_done(void *state)
 
         pthread_join(s->thread_id, NULL);
 
-        tx_done(s->tx);
+        module_done(CAST_MODULE(s->tx));
         rtp_done(s->network_device);
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->have_frame_cv);

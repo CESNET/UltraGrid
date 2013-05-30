@@ -1539,7 +1539,7 @@ cleanup:
         if(uv->audio)
                 audio_done(uv->audio);
         if(uv->tx)
-                tx_done(uv->tx);
+                module_done(CAST_MODULE(uv->tx));
 	if(uv->tx_protocol == ULTRAGRID_RTP && uv->network_devices)
                 destroy_devices(uv->network_devices);
         if(uv->capture_device)

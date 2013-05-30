@@ -103,6 +103,7 @@ enum fec_scheme_t {
 
 static bool fec_is_ldgm(struct tx *tx);
 static void tx_update(struct tx *tx, struct tile *tile);
+static void tx_done(struct module *tx);
 
 static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
@@ -189,6 +190,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 tx->mod.cls = MODULE_CLASS_TX;
                 tx->mod.msg_callback = fec_change_callback;
                 tx->mod.priv_data = tx;
+                tx->mod.deleter = tx_done;
 
                 tx->magic = TRANSMIT_MAGIC;
                 tx->media_type = media_type;
@@ -282,8 +284,9 @@ static bool set_fec(struct tx *tx, const char *fec_const)
         return ret;
 }
 
-void tx_done(struct tx *tx)
+static void tx_done(struct module *mod)
 {
+        struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
         ldgm_encoder_destroy(tx->fec_state);
         pthread_spin_destroy(&tx->spin);

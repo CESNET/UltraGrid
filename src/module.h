@@ -83,6 +83,7 @@ struct module {
         struct module *parent;
         struct simple_linked_list *childs;
         module_deleter_t deleter;
+
         msg_callback_t msg_callback;
 
         void *priv_data;

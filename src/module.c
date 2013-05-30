@@ -65,6 +65,7 @@ void module_init_default(struct module *module_data)
         pthread_mutexattr_destroy(&attr);
 
         module_data->childs = simple_linked_list_init();
+
         module_data->magic = MODULE_MAGIC;
 }
 
@@ -92,10 +93,21 @@ void module_done(struct module *module_data)
                 pthread_mutex_unlock(&module_data->parent->lock);
         }
 
-        pthread_mutex_destroy(&module_data->lock);
+        // we assume that deleter may dealloc space where are structure stored
+        pthread_mutex_lock(&module_data->lock);
+        struct module tmp;
+        memcpy(&tmp, module_data, sizeof(struct module));
+        pthread_mutex_unlock(&module_data->lock);
 
         if(module_data->deleter)
                 module_data->deleter(module_data);
+
+        pthread_mutex_destroy(&tmp.lock);
+
+        if(simple_linked_list_size(tmp.childs) > 0) {
+                fprintf(stderr, "Warning: Child database not empty!\n");
+        }
+        simple_linked_list_destroy(tmp.childs);
 }
 
 const char *module_class_name_pairs[] = {

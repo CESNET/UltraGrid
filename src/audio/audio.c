@@ -372,7 +372,7 @@ struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv
 
 error:
         if(s->tx_session)
-                tx_done(s->tx_session);
+                module_done(CAST_MODULE(s->tx_session));
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
@@ -404,7 +404,7 @@ void audio_done(struct state_audio *s)
         if(s) {
                 audio_playback_done(s->audio_playback_device);
                 audio_capture_done(s->audio_capture_device);
-                tx_done(s->tx_session);
+                module_done(CAST_MODULE(s->tx_session));
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
                 if(s->audio_participants) {
