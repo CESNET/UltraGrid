@@ -41,7 +41,7 @@ struct state_recompress {
         pthread_cond_t  frame_consumed_cv;
         pthread_t       thread_id;
 
-        struct module   root_mod;
+        struct module   *parent;
 };
 
 /*
@@ -56,7 +56,7 @@ static void *worker(void *arg)
         struct timeval t0, t;
         int frames = 0;
 
-        int ret = compress_init(&s->root_mod, s->required_compress, &s->compress);
+        int ret = compress_init(s->parent, s->required_compress, &s->compress);
         if(ret != 0) {
                 fprintf(stderr, "Unable to initialize video compress: %s\n",
                                 s->required_compress);
@@ -147,7 +147,8 @@ static struct rtp *initialize_network(const char *host, int rx_port, int tx_port
         return network_device;
 }
 
-void *recompress_init(const char *host, const char *compress, unsigned short rx_port,
+void *recompress_init(struct module *parent,
+                const char *host, const char *compress, unsigned short rx_port,
                 unsigned short tx_port, int mtu, char *fec)
 {
         struct state_recompress *s;
@@ -156,9 +157,7 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s = (struct state_recompress *) calloc(1, sizeof(struct state_recompress));
 
-        module_init_default(&s->root_mod);
-        s->root_mod.cls = MODULE_CLASS_ROOT;
-        s->root_mod.priv_data = s;
+        s->parent = parent;
 
         s->network_device = initialize_network(host, rx_port, tx_port, s);
         s->host = host;
@@ -172,7 +171,7 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s->required_compress = strdup(compress);
         s->frame = NULL;
-        s->tx = tx_init(&s->root_mod, mtu, TX_MEDIA_VIDEO, fec);
+        s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec);
 
         gettimeofday(&s->start_time, NULL);
 

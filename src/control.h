@@ -50,6 +50,9 @@ struct module;
 
 #define CONTROL_DEFAULT_PORT -1
 
+/**
+ * @retval 0 if success
+ */
 int control_init(int port, struct control_state **state, struct module *root_module);
 void control_done(struct control_state *s);
 

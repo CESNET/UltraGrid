@@ -140,63 +140,79 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
 {
         int ret = 0;
         struct response *resp = NULL;
-        char path[1024];
+        char path[1024] = { '\0' };
+        char buf[1024];
+
+        if(prefix_matches(message, "port ")) {
+                message = suffix(message, "port ");
+                snprintf(path, 1024, "%s[%d]", module_class_name(MODULE_CLASS_PORT), atoi(message));
+                while(isdigit(*message))
+                        message++;
+                while(isspace(*message))
+                        message++;
+        }
 
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
         } else if(prefix_matches(message, "receiver ")) {
-                struct msg_change_receiver_address msg;
-                msg.receiver = suffix(message, "receiver ");
+                struct msg_change_receiver_address *msg =
+                        (struct msg_change_receiver_address *)
+                        new_message(sizeof(struct msg_change_receiver_address));
+                strncpy(msg->receiver, suffix(message, "receiver "), sizeof(msg->receiver) - 1);
 
-                make_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_SENDER, MODULE_CLASS_NONE });
+                append_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_SENDER, MODULE_CLASS_NONE });
                 resp =
-                        send_message(s->root_module, path, &msg);
+                        send_message(s->root_module, path, (struct message *) msg);
         } else if(prefix_matches(message, "fec ")) {
-                struct msg_change_fec_data data;
+                struct msg_change_fec_data *msg = (struct msg_change_fec_data *)
+                        new_message(sizeof(struct msg_change_fec_data));
                 char *fec = suffix(message, "fec ");
 
                 if(strncasecmp(fec, "audio ", 6) == 0) {
-                        data.media_type = TX_MEDIA_AUDIO;
-                        data.fec = fec + 6;
+                        msg->media_type = TX_MEDIA_AUDIO;
+                        strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
                 } else if(strncasecmp(fec, "video ", 6) == 0) {
-                        data.media_type = TX_MEDIA_VIDEO;
-                        data.fec = fec + 6;
+                        msg->media_type = TX_MEDIA_VIDEO;
+                        strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
                 } else {
                         resp = new_response(RESPONSE_NOT_FOUND, NULL);
                 }
 
                 if(!resp) {
-                        if(data.media_type == TX_MEDIA_VIDEO) {
-                                make_message_path(path, sizeof(path),
+                        if(msg->media_type == TX_MEDIA_VIDEO) {
+                                append_message_path(path, sizeof(path),
                                                 (enum module_class[]){ MODULE_CLASS_TX, MODULE_CLASS_NONE });
                         } else {
-                                make_message_path(path, sizeof(path),
+                                append_message_path(path, sizeof(path),
                                                 (enum module_class[]){ MODULE_CLASS_AUDIO, MODULE_CLASS_TX,
                                                 MODULE_CLASS_NONE });
                         }
-                        resp = send_message(s->root_module, path, &data);
+                        resp = send_message(s->root_module, path, (struct message *) msg);
                 }
         } else if(prefix_matches(message, "compress ")) {
-                struct msg_change_compress_data data;
+                struct msg_change_compress_data *msg =
+                        (struct msg_change_compress_data *)
+                        new_message(sizeof(struct msg_change_compress_data));
                 char *compress = suffix(message, "compress ");
 
                 if(prefix_matches(compress, "param ")) {
                         compress = suffix(compress, " param");
-                        data.what = CHANGE_PARAMS;
+                        msg->what = CHANGE_PARAMS;
                 } else {
-                        data.what = CHANGE_COMPRESS;
+                        msg->what = CHANGE_COMPRESS;
                 }
-                data.config_string = compress;
+                strncpy(msg->config_string, compress, sizeof(msg->config_string) - 1);
 
                 if(!resp) {
-                        make_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE });
-                        resp = send_message(s->root_module, path, &data);
+                        append_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE });
+                        resp = send_message(s->root_module, path, (struct message *) msg);
                 }
         } else if(prefix_matches(message, "stats ")) {
-                struct msg_stats data;
+                struct msg_stats *msg = (struct msg_stats *)
+                        new_message(sizeof(struct msg_stats));
                 char *stats = suffix(message, "stats ");
 
-                data.what = stats;
+                strncpy(msg->what, stats, sizeof(msg->what) - 1);
 
                 // resp = send_message(s->root_module, "blblbla", &data);
                 resp = new_response(RESPONSE_NOT_FOUND, strdup("statistics currently not working"));
@@ -204,12 +220,14 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
         } else {
-                resp = new_response(RESPONSE_BAD_REQUEST, strdup("unrecognized control sequence"));
+                snprintf(buf, sizeof(buf), "(unrecognized control sequence: %s)", message);
+                resp = new_response(RESPONSE_BAD_REQUEST, strdup(buf));
         }
 
         if(!resp) {
                 fprintf(stderr, "No response received!\n");
-                resp = new_response(RESPONSE_INT_SERV_ERR, NULL);
+                snprintf(buf, sizeof(buf), "(unknown path: %s)", path);
+                resp = new_response(RESPONSE_INT_SERV_ERR, strdup(buf));
         }
         send_response(client_fd, resp);
 

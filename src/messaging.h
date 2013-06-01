@@ -23,39 +23,56 @@ struct response {
 };
 
 #define RESPONSE_OK           200
+#define RESPONSE_ACCEPTED     202
 #define RESPONSE_BAD_REQUEST  400
 #define RESPONSE_NOT_FOUND    404
 #define RESPONSE_INT_SERV_ERR 500
 #define RESPONSE_NOT_IMPL     501
 
+struct message;
+
+struct message {
+        /**
+         * Individual message types may have defined custom data deleters.
+         * Please note that the deleter must not delete the struct itself.
+         */
+        void (*data_deleter)(struct message *);
+};
+
 struct msg_change_receiver_address {
-        char *receiver;
+        struct message m;
+        char receiver[128];
 };
 
 struct msg_change_fec_data {
+        struct message m;
         enum tx_media_type media_type;
-        const char *fec;
+        char fec[128];
 };
 
 struct msg_change_compress_data {
+        struct message m;
         enum {
                 CHANGE_COMPRESS,
                 CHANGE_PARAMS
         } what;
-        const char *config_string;
+        char config_string[128];
 };
 
 struct msg_stats {
-        const char *what;
+        struct message m;
+        char what[128];
         int value;
 };
 
 struct response *new_response(int status, char *optional_message);
 
-typedef struct response *(*msg_callback_t)(void *msg, struct module *mod);
+typedef struct response *(*msg_callback_t)(struct module *mod, struct message *msg);
 
-struct response *send_message(struct module *, const char *path, void *data);
-struct response *send_message_to_receiver(struct module *, void *data);
+struct response *send_message(struct module *, const char *path, struct message *msg);
+struct response *send_message_to_receiver(struct module *, struct message *msg);
+struct message *new_message(size_t length);
+void free_message(struct message *m);
 const char *response_status_to_text(int status);
 
 

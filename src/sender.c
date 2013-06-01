@@ -66,7 +66,7 @@
 #include "video.h"
 #include "video_display.h"
 
-struct response *sender_messaging_callback(void *msg, struct module *mod);
+struct response *sender_messaging_callback(struct module *mod, struct message *msg);
 static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
 static struct sender_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
@@ -174,7 +174,8 @@ static bool sender_change_receiver(struct sender_data *data, const char *new_rec
         return msg_data.exit_status;
 }
 
-struct response *sender_messaging_callback(void *msg, struct module *mod)
+
+struct response *sender_messaging_callback(struct module *mod, struct message *msg)
 {
         struct sender_data *s = (struct sender_data *) mod->priv_data;
 
@@ -187,6 +188,7 @@ struct response *sender_messaging_callback(void *msg, struct module *mod)
                 response = new_response(RESPONSE_NOT_FOUND, NULL);
         }
 
+        free_message(msg);
         return response;
 }
 

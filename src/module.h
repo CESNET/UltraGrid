@@ -64,6 +64,7 @@ extern "C" {
 enum module_class {
         MODULE_CLASS_NONE = 0,
         MODULE_CLASS_ROOT,
+        MODULE_CLASS_PORT,
         MODULE_CLASS_COMPRESS,
         MODULE_CLASS_DATA,
         MODULE_CLASS_SENDER,
@@ -84,7 +85,12 @@ struct module {
         struct simple_linked_list *childs;
         module_deleter_t deleter;
 
+        /**
+         * Module may implement a push method that will respond synchronously to events.
+         * If not, message will be enqueued to message queue.
+         */
         msg_callback_t msg_callback;
+        struct simple_linked_list *msg_queue;
 
         void *priv_data;
 };
@@ -93,7 +99,7 @@ void module_init_default(struct module *module_data);
 void module_register(struct module *module_data, struct module *parent);
 void module_done(struct module *module_data);
 const char *module_class_name(enum module_class cls);
-void make_message_path(char *buf, int buflen, enum module_class modules[]);
+void append_message_path(char *buf, int buflen, enum module_class modules[]);
 
 #define CAST_MODULE(x) ((struct module *) x)
 

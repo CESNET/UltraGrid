@@ -107,7 +107,7 @@ static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index, struct module *parent);
 static void *compress_tile(void *arg);
-static struct response *compress_change_callback(void *msg, struct module *receiver);
+static struct response *compress_change_callback(struct module *receiver, struct message *msg);
 static int compress_init_real(struct module *parent, char *config_string,
                 struct compress_state_real **state);
 static void compress_done_real(struct compress_state_real *s);
@@ -244,9 +244,10 @@ void show_compress_help()
         }
 }
 
-static struct response *compress_change_callback(void *msg, struct module *receiver)
+static struct response *compress_change_callback(struct module *receiver, struct message *msg)
 {
-        struct msg_change_compress_data *data = msg;
+        struct msg_change_compress_data *data =
+                (struct msg_change_compress_data *) msg;
         compress_state_proxy *proxy = receiver->priv_data;
 
         if(data->what == CHANGE_PARAMS) {
@@ -256,14 +257,18 @@ static struct response *compress_change_callback(void *msg, struct module *recei
                         if(resp) {
                                 resp->deleter(resp);
                         }
-                        char buf[1024];
-                        struct msg_change_compress_data tmp_data;
-                        tmp_data.what = data->what;
-                        strncpy(buf, data->config_string, sizeof(buf) - 1);
-                        tmp_data.config_string = buf;
-                        resp = send_message_to_receiver(proxy->ptr->state[i], &tmp_data);
+                        struct msg_change_compress_data *tmp_data =
+                                (struct msg_change_compress_data *)
+                                new_message(sizeof(struct msg_change_compress_data));
+                        tmp_data->what = data->what;
+                        strncpy(tmp_data->config_string, data->config_string,
+                                        sizeof(tmp_data->config_string) - 1);
+                        resp = send_message_to_receiver(proxy->ptr->state[i],
+                                        (struct message *) tmp_data);
                 }
                 platform_spin_unlock(&proxy->spin);
+
+                free_message(msg);
 
                 return resp;
         }

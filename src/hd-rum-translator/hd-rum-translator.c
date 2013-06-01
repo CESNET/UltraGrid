@@ -16,8 +16,10 @@
 #include <pthread.h>
 #include <fcntl.h>
 
+#include "control.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
+#include "module.h"
 
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3
@@ -29,16 +31,21 @@ struct forward;
 struct item;
 
 struct replica {
+    struct module mod;
     uint32_t magic;
     const char *host;
     unsigned short port;
 
+    enum {
+        USE_SOCK,
+        RECOMPRESS
+    } type;
     int sock;
     void *recompress;
 };
 
-
 struct hd_rum_translator_state {
+    struct module mod;
     struct item *queue;
     struct item *qhead;
     struct item *qtail;
@@ -99,6 +106,7 @@ static ssize_t replica_write(struct replica *s, void *buf, size_t count)
 static void replica_done(struct replica *s)
 {
         assert(s->magic == REPLICA_MAGIC);
+        module_done(&s->mod);
 
         close(s->sock);
 }
@@ -243,7 +251,6 @@ static void usage(const char *progname) {
                 "\t\t-m <mtu> - MTU size. Will be used only with compression.\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
               );
-
 }
 
 struct host_opts {
@@ -311,6 +318,9 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
 
 static void hd_rum_translator_state_init(struct hd_rum_translator_state *s)
 {
+    module_init_default(&s->mod);
+    s->mod.cls = MODULE_CLASS_ROOT;
+
     s->qempty = 1;
     s->qfull = 0;
     pthread_mutex_init(&s->qempty_mtx, NULL);
@@ -326,6 +336,8 @@ static void hd_rum_translator_state_destroy(struct hd_rum_translator_state *s)
     pthread_mutex_destroy(&s->qfull_mtx);
     pthread_cond_destroy(&s->qempty_cond);
     pthread_cond_destroy(&s->qfull_cond);
+
+    module_done(&s->mod);
 }
 
 #ifndef WIN32
@@ -344,6 +356,7 @@ int main(int argc, char **argv)
     int i;
     struct host_opts *hosts;
     int host_count;
+    struct control_state *control_state = NULL;
 
     if (argc < 4) {
         usage(argv[0]);
@@ -422,31 +435,40 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    // we need only one shared receiver decompressor for all recompressing streams
+    state.decompress = hd_rum_decompress_init(port + 2);
+    if(!state.decompress) {
+        return EXIT_INIT_PORT;
+    }
+
     state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
         state.replicas[i].magic = REPLICA_MAGIC;
         state.replicas[i].host = hosts[i].addr;
         state.replicas[i].port = port;
-        state.replicas[i].sock = -1;
+        state.replicas[i].sock = output_socket(port, hosts[i].addr,
+                bufsize);
+        module_init_default(&state.replicas[i].mod);
+        state.replicas[i].mod.cls = MODULE_CLASS_PORT;
 
         if(hosts[i].compression == NULL) {
-            state.replicas[i].sock = output_socket(port, hosts[i].addr,
-                                         bufsize);
+            state.replicas[i].type = USE_SOCK;
+            int mtu = 1500;
+            char compress[] = "none";
+            char *fec = NULL;
+            state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
+                    hosts[i].addr, compress,
+                    0, port, mtu, fec);
+            hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
         } else {
-            // we need only one shared receiver decompressor for all recompressing streams
-            if(state.decompress == NULL) {
-                state.decompress = hd_rum_decompress_init(port + 2);
-                if(!state.decompress) {
-                    return EXIT_INIT_PORT;
-                }
-            }
-
+            state.replicas[i].type = RECOMPRESS;
             int mtu = 1500;
             if(hosts[i].mtu) {
                 mtu = hosts[i].mtu;
             }
 
-            state.replicas[i].recompress = recompress_init(hosts[i].addr, hosts[i].compression,
+            state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
+                    hosts[i].addr, hosts[i].compression,
                     0, port, mtu, hosts[i].fec);
             if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
@@ -457,6 +479,12 @@ int main(int argc, char **argv)
             // take care about them
             hd_rum_decompress_add_port(state.decompress, state.replicas[i].recompress);
         }
+
+        module_register(&state.replicas[i].mod, &state.mod);
+    }
+
+    if(control_init(CONTROL_DEFAULT_PORT, &control_state, &state.mod) != 0) {
+        fprintf(stderr, "Warning: Unable to create remote control.\n");
     }
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {
@@ -502,16 +530,18 @@ int main(int argc, char **argv)
     pthread_cond_signal(&state.qempty_cond);
     pthread_mutex_unlock(&state.qempty_mtx);
 
+    control_done(control_state);
+
     pthread_join(thread, NULL);
+
+    if(state.decompress) {
+        hd_rum_decompress_done(state.decompress);
+    }
 
     for (i = 0; i < state.host_count; i++) {
         if(state.replicas[i].sock != -1) {
             replica_done(&state.replicas[i]);
         }
-    }
-
-    if(state.decompress) {
-        hd_rum_decompress_done(state.decompress);
     }
 
     hd_rum_translator_state_destroy(&state);

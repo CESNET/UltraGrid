@@ -86,7 +86,7 @@ typedef struct {
 static void setparam_default(AVCodecContext *, struct setparam_param *);
 static void setparam_h264(AVCodecContext *, struct setparam_param *);
 static void setparam_vp8(AVCodecContext *, struct setparam_param *);
-static struct response *compress_change_callback(void *msg, struct module *mod);
+static struct response *compress_change_callback(struct module *mod, struct message *msg);
 static void libavcodec_compress_done(struct module *mod);
 
 static codec_params_t codec_params[] = {
@@ -813,16 +813,16 @@ static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param
         codec_ctx->rc_buffer_aggressivity = 0.5;
 }
 
-static struct response *compress_change_callback(void *msg, struct module *mod)
+static struct response *compress_change_callback(struct module *mod, struct message *msg)
 {
         struct libav_video_compress *s = (struct libav_video_compress *) mod->priv_data;
         static struct response *ret;
 
-        struct msg_change_compress_data *data = msg;
+        struct msg_change_compress_data *data =
+                (struct msg_change_compress_data *) msg;
 
-        char *params = strdup(data->config_string);
         platform_spin_lock(&s->spin);
-        if(parse_fmt(s, params) == 0) {
+        if(parse_fmt(s, data->config_string) == 0) {
                 ret = new_response(RESPONSE_OK, NULL);
         } else {
                 ret = new_response(RESPONSE_BAD_REQUEST, strdup("(Module libavcodec)"));
@@ -830,7 +830,7 @@ static struct response *compress_change_callback(void *msg, struct module *mod)
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
         platform_spin_unlock(&s->spin);
 
-        free(params);
+        free_message(msg);
 
         return ret;
 }

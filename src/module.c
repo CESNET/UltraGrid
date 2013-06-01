@@ -65,6 +65,7 @@ void module_init_default(struct module *module_data)
         pthread_mutexattr_destroy(&attr);
 
         module_data->childs = simple_linked_list_init();
+        module_data->msg_queue = simple_linked_list_init();
 
         module_data->magic = MODULE_MAGIC;
 }
@@ -108,10 +109,16 @@ void module_done(struct module *module_data)
                 fprintf(stderr, "Warning: Child database not empty!\n");
         }
         simple_linked_list_destroy(tmp.childs);
+
+        if(simple_linked_list_size(tmp.msg_queue) > 0) {
+                fprintf(stderr, "Warning: Message queue not empty!\n");
+        }
+        simple_linked_list_destroy(tmp.msg_queue);
 }
 
 const char *module_class_name_pairs[] = {
         [MODULE_CLASS_ROOT] = "root",
+        [MODULE_CLASS_PORT] = "port",
         [MODULE_CLASS_COMPRESS] = "compress",
         [MODULE_CLASS_DATA] = "compress",
         [MODULE_CLASS_SENDER] = "sender",
@@ -127,10 +134,9 @@ const char *module_class_name(enum module_class cls)
                 return module_class_name_pairs[cls];
 }
 
-void make_message_path(char *buf, int buflen, enum module_class modules[])
+void append_message_path(char *buf, int buflen, enum module_class modules[])
 {
         enum module_class *mod = modules;
-        *buf = '\0';
 
         while(*mod != MODULE_CLASS_NONE) {
                 if(strlen(buf) > 0) {

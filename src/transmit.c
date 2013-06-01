@@ -113,7 +113,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 int fragment_offset);
 
 
-static struct response *fec_change_callback(void *msg, struct module *mod);
+static struct response *fec_change_callback(struct module *mod, struct message *msg);
 static bool set_fec(struct tx *tx, const char *fec);
 
 struct tx {
@@ -215,7 +215,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
         return tx;
 }
 
-static struct response *fec_change_callback(void *msg, struct module *mod)
+static struct response *fec_change_callback(struct module *mod, struct message *msg)
 {
         struct tx *tx = (struct tx *) mod->priv_data;
 
@@ -236,6 +236,8 @@ static struct response *fec_change_callback(void *msg, struct module *mod)
                 response = new_response(RESPONSE_BAD_REQUEST, NULL);
         }
         platform_spin_unlock(&tx->spin);
+
+        free_message(msg);
 
         return response;
 }

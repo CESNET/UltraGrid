@@ -86,7 +86,7 @@ struct compress_jpeg_state {
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
 static void cleanup_state(struct compress_jpeg_state *s);
-static struct response *compress_change_callback(void *msg, struct module *mod);
+static struct response *compress_change_callback(struct module *mod, struct message *msg);
 static void parse_fmt(struct compress_jpeg_state *s, char *fmt);
 static void jpeg_compress_done(struct module *mod);
 
@@ -237,22 +237,22 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         return TRUE;
 }
 
-static struct response *compress_change_callback(void *msg, struct module *mod)
+static struct response *compress_change_callback(struct module *mod, struct message *msg)
 {
         struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
 
         static struct response *ret;
 
-        struct msg_change_compress_data *data = msg;
+        struct msg_change_compress_data *data =
+                (struct msg_change_compress_data *) msg;
 
-        char *params = strdup(data->config_string);
         platform_spin_lock(&s->spin);
-        parse_fmt(s, params);
+        parse_fmt(s, data->config_string);
         ret = new_response(RESPONSE_OK, NULL);
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
         platform_spin_unlock(&s->spin);
 
-        free(params);
+        free_message(msg);
 
         return ret;
 }
