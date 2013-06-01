@@ -413,12 +413,14 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 return 0;
         }
 
-        /* do not check for grab audio in case that we will only display usage */
-        if (SGNewChannel(s->grabber, SoundMediaType, &s->audio_channel) !=
-                noErr) {
-                fprintf(stderr, "Warning: Creating audio channel failed. "
-                                "Disabling sound output.\n");
-                s->grab_audio = FALSE;
+        if(s->grab_audio) {
+                /* do not check for grab audio in case that we will only display usage */
+                if (SGNewChannel(s->grabber, SoundMediaType, &s->audio_channel) !=
+                                noErr) {
+                        fprintf(stderr, "Warning: Creating audio channel failed. "
+                                        "Disabling sound output.\n");
+                        s->grab_audio = FALSE;
+                }
         }
 
         /* Print available devices */
@@ -527,7 +529,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         }
                         SGDisposeDeviceList(s->grabber, deviceList);
                 }
-                return &vidcap_init_noerr;
+                return 2;
         }
 
         if (SGSetChannelUsage
@@ -887,10 +889,15 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                         s->grab_audio = FALSE;
                 }
 
+                int ret = qt_open_grabber(s, fmt);
 
-                if (qt_open_grabber(s, fmt) == 0) {
+                if (ret != 1) {
                         free(s);
-                        return NULL;
+                        if(ret == 2) {
+                                return &vidcap_init_noerr;
+                        } else {
+                                return NULL;
+                        }
                 }
 
                 gettimeofday(&s->t0, NULL);
