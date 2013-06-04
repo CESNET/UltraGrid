@@ -353,7 +353,9 @@ static struct video_frame *compress_frame_tiles(struct compress_state *s, struct
         if(frame->tile_count != s->state_count) {
                 s->state = realloc(s->state, frame->tile_count * sizeof(void *));
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
-                        s->state[i] = s->handle->init(s->compress_options);
+                        char compress_options[1024];
+                        strncpy(compress_options, s->compress_options, sizeof(compress_options));
+                        s->state[i] = s->handle->init(compress_options);
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
                                 return NULL;
