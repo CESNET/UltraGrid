@@ -70,6 +70,15 @@
 
 #define MAGIC_QT_GRABBER        VIDCAP_QUICKTIME_ID
 
+static struct {
+        uint32_t qt_fourcc;
+        codec_t ug_codec;
+} codec_mapping[] = {
+        {'j' << 24 | 'p' << 16 | 'e' << 8 | 'g', MJPG},
+        {'a' << 24 | 'v' << 16 | 'c' << 8 | '1', H264},
+        {0, 0xffffffff}
+};
+
 struct qt_grabber_state {
         uint32_t magic;
         SeqGrabComponent grabber;
@@ -88,8 +97,10 @@ struct qt_grabber_state {
         struct audio_frame audio;
         char *abuffer[2], *vbuffer[2];
         int abuffer_len;
+        int vbuffer_max_len[2];
+        int vbuffer_len;
+        int video_width, video_height;
         int grab_buf_idx;
-        const struct codec_info_t *c_info;
         unsigned gui:1;
         int frames;
         struct timeval t0;
@@ -111,6 +122,8 @@ void * vidcap_quicktime_thread(void *state);
 void InitCursor(void);
 void GetPort(GrafPtr *port);
 void SetPort(GrafPtr port);
+static void usage(struct qt_grabber_state *s);
+static codec_t get_color_spec(uint32_t pixfmt);
 
 /*
  * Sequence grabber data procedure
@@ -158,8 +171,25 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
         }
 
         if(c == s->video_channel) {
-                memcpy(s->vbuffer[s->grab_buf_idx], p, len);
-                s->sg_idle_enough = 1;
+		Rect rect;
+		SGGetBufferInfo(s->video_channel, chRefCon, NULL, &rect, s->gworld, NULL);
+		s->video_width = rect.right;
+		s->video_height = rect.bottom;
+                switch(writeType) {
+                        case seqGrabWriteReserve:
+                                break;
+                        case seqGrabWriteFill:
+                        case seqGrabWriteAppend:
+                                if(s->vbuffer_max_len[s->grab_buf_idx] < len) {
+                                        s->vbuffer_max_len[s->grab_buf_idx] = len;
+                                        free(s->vbuffer[s->grab_buf_idx]);
+                                        s->vbuffer[s->grab_buf_idx] = malloc(len);
+                                }
+                                memcpy(s->vbuffer[s->grab_buf_idx] + s->vbuffer_len, p, len);
+                                s->vbuffer_len += len;
+                                s->sg_idle_enough = 1;
+                                break;
+                }
 
                 s->frames++;
                 gettimeofday(&t, NULL);
@@ -350,6 +380,145 @@ delCardIndicesMode(char *str)
         return str;
 }
 
+static void usage(struct qt_grabber_state *s)
+{
+        SGDeviceInputList inputList;
+        SGDeviceList deviceList;
+        int i, j;
+
+        printf("\nUsage:\t-t quicktime:<device>:<mode>:<pixel_type>"
+#ifdef QT_ENABLE_AUDIO
+                        "[:<audio_device>:<audio_mode>]"
+#endif // QT_ENABLE_AUDIO
+                        "\n\n");
+        if (SGGetChannelDeviceList
+                        (s->video_channel, sgDeviceListIncludeInputs,
+                         &deviceList) == noErr) {
+                fprintf(stdout, "\nAvailable capture devices:\n");
+                for (i = 0; i < (*deviceList)->count; i++) {
+                        SGDeviceName *deviceEntry =
+                                &(*deviceList)->entry[i];
+                        fprintf(stdout, " Device %d: ", i);
+                        nprintf((char *) deviceEntry->name);
+                        if (deviceEntry->flags &
+                                        sgDeviceNameFlagDeviceUnavailable) {
+                                fprintf(stdout,
+                                                "  - ### NOT AVAILABLE ###");
+                        }
+                        if (i == (*deviceList)->selectedIndex) {
+                                fprintf(stdout, " - ### ACTIVE ###");
+                        }
+                        fprintf(stdout, "\n");
+                        short activeInputIndex = 0;
+                        inputList = deviceEntry->inputs;
+                        if (inputList && (*inputList)->count >= 1) {
+                                SGGetChannelDeviceAndInputNames
+                                        (s->video_channel, NULL, NULL,
+                                         &activeInputIndex);
+                                for (j = 0; j < (*inputList)->count;
+                                                j++) {
+                                        fprintf(stdout, "\t");
+                                        fprintf(stdout, "- %d. ", j);
+                                        nprintf((char *) &(*inputList)->entry
+                                                        [j].name);
+                                        if ((i ==
+                                                                (*deviceList)->selectedIndex)
+                                                        && (j == activeInputIndex))
+                                                fprintf(stdout,
+                                                                " - ### ACTIVE ###");
+                                        fprintf(stdout, "\n");
+                                }
+                        }
+                }
+                SGDisposeDeviceList(s->grabber, deviceList);
+                CodecNameSpecListPtr list;
+                GetCodecNameList(&list, 1);
+                printf("\nCompression types (only those marked with a '*' are supported by UG):\n");
+                for (i = 0; i < list->count; i++) {
+                        int fcc = list->list[i].cType;
+                        printf("\t");
+                        if(get_color_spec(list->list[i].cType) != 0xffffffff) {
+                                putchar('*');
+                        } else {
+                                putchar(' ');
+                        }
+                        printf("%d) ", i);
+                        nprintf((char *) list->list[i].typeName);
+                        printf(" - FCC (%c%c%c%c)",
+                                        fcc >> 24,
+                                        (fcc >> 16) & 0xff,
+                                        (fcc >> 8) & 0xff, (fcc) & 0xff);
+                        printf(" - codec id %x",
+                                        (unsigned int)(list->list[i].codec));
+                        printf(" - cType %x",
+                                        (unsigned int)list->list[i].cType);
+                        printf("\n");
+                }
+        }
+#ifdef QT_ENABLE_AUDIO
+        if (SGGetChannelDeviceList
+                        (s->audio_channel, sgDeviceListIncludeInputs,
+                         &deviceList) == noErr) {
+                fprintf(stdout, "\nAvailable audio devices:\n");
+                for (i = 0; i < (*deviceList)->count; i++) {
+                        SGDeviceName *deviceEntry =
+                                &(*deviceList)->entry[i];
+                        fprintf(stdout, " Device %d: ", i);
+                        nprintf((char *) deviceEntry->name);
+                        if (deviceEntry->flags &
+                                        sgDeviceNameFlagDeviceUnavailable) {
+                                fprintf(stdout,
+                                                "  - ### NOT AVAILABLE ###");
+                        }
+                        if (i == (*deviceList)->selectedIndex) {
+                                fprintf(stdout, " - ### ACTIVE ###");
+                        }
+                        fprintf(stdout, "\n");
+                        short activeInputIndex = 0;
+                        inputList = deviceEntry->inputs;
+                        if (inputList && (*inputList)->count >= 1) {
+                                SGGetChannelDeviceAndInputNames
+                                        (s->video_channel, NULL, NULL,
+                                         &activeInputIndex);
+                                for (j = 0; j < (*inputList)->count;
+                                                j++) {
+                                        fprintf(stdout, "\t");
+                                        fprintf(stdout, "- %d. ", j);
+                                        nprintf((char*)&(*inputList)->entry
+                                                        [j].name);
+                                        if ((i ==
+                                                                (*deviceList)->selectedIndex)
+                                                        && (j == activeInputIndex))
+                                                fprintf(stdout,
+                                                                " - ### ACTIVE ###");
+                                        fprintf(stdout, "\n");
+                                }
+                        }
+                }
+                SGDisposeDeviceList(s->grabber, deviceList);
+        }
+#endif // QT_ENABLE_AUDIO
+}
+
+static codec_t get_color_spec(uint32_t pixfmt) {
+        int i;
+        // firstly, try to find explicit mapping to UG color_spec...
+        for (i = 0; codec_mapping[i].ug_codec != 0xffffffff; i++) {
+                if(pixfmt == codec_mapping[i].qt_fourcc) {
+                        return codec_mapping[i].ug_codec;
+                        break;
+                }
+        }
+
+        // ...if it fails, try to match agains FourCC directly
+        for (i = 0; codec_info[i].name != NULL; i++) {
+                if ((unsigned)pixfmt == codec_info[i].fcc) {
+                        return codec_info[i].codec;
+                }
+        }
+        return 0xffffffff;
+}
+
 /* Initialize the QuickTime grabber */
 static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 {
@@ -413,122 +582,22 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 return 0;
         }
 
-        if(s->grab_audio) {
-                /* do not check for grab audio in case that we will only display usage */
-                if (SGNewChannel(s->grabber, SoundMediaType, &s->audio_channel) !=
-                                noErr) {
-                        fprintf(stderr, "Warning: Creating audio channel failed. "
-                                        "Disabling sound output.\n");
-                        s->grab_audio = FALSE;
-                }
+#ifdef QT_ENABLE_AUDIO
+        /* do not check for grab audio in case that we will only display usage */
+        if (SGNewChannel(s->grabber, SoundMediaType, &s->audio_channel) !=
+                        noErr) {
+                fprintf(stderr, "Warning: Creating audio channel failed. "
+                                "Disabling sound output.\n");
+                s->grab_audio = FALSE;
         }
+#endif // QT_ENABLE_AUDIO
 
         /* Print available devices */
         int i;
-        int j;
         SGDeviceInputList inputList;
         SGDeviceList deviceList;
         if (strcmp(fmt, "help") == 0) {
-                printf("\nUsage:\t-t quicktime:<device>:<mode>:<pixel_type>[:<audio_device>:<audio_mode>]\n\n");
-                if (SGGetChannelDeviceList
-                    (s->video_channel, sgDeviceListIncludeInputs,
-                     &deviceList) == noErr) {
-                        fprintf(stdout, "\nAvailable capture devices:\n");
-                        for (i = 0; i < (*deviceList)->count; i++) {
-                                SGDeviceName *deviceEntry =
-                                    &(*deviceList)->entry[i];
-                                fprintf(stdout, " Device %d: ", i);
-                                nprintf((char *) deviceEntry->name);
-                                if (deviceEntry->flags &
-                                    sgDeviceNameFlagDeviceUnavailable) {
-                                        fprintf(stdout,
-                                                "  - ### NOT AVAILABLE ###");
-                                }
-                                if (i == (*deviceList)->selectedIndex) {
-                                        fprintf(stdout, " - ### ACTIVE ###");
-                                }
-                                fprintf(stdout, "\n");
-                                short activeInputIndex = 0;
-                                inputList = deviceEntry->inputs;
-                                if (inputList && (*inputList)->count >= 1) {
-                                        SGGetChannelDeviceAndInputNames
-                                            (s->video_channel, NULL, NULL,
-                                             &activeInputIndex);
-                                        for (j = 0; j < (*inputList)->count;
-                                             j++) {
-                                                fprintf(stdout, "\t");
-                                                fprintf(stdout, "- %d. ", j);
-                                                nprintf((char *) &(*inputList)->entry
-                                                             [j].name);
-                                                if ((i ==
-                                                     (*deviceList)->selectedIndex)
-                                                    && (j == activeInputIndex))
-                                                        fprintf(stdout,
-                                                                " - ### ACTIVE ###");
-                                                fprintf(stdout, "\n");
-                                        }
-                                }
-                        }
-                        SGDisposeDeviceList(s->grabber, deviceList);
-                        CodecNameSpecListPtr list;
-                        GetCodecNameList(&list, 1);
-                        printf("\nCompression types:\n");
-                        for (i = 0; i < list->count; i++) {
-                                int fcc = list->list[i].cType;
-                                printf("\t%d) ", i);
-                                nprintf((char *) list->list[i].typeName);
-                                printf(" - FCC (%c%c%c%c)",
-                                       fcc >> 24,
-                                       (fcc >> 16) & 0xff,
-                                       (fcc >> 8) & 0xff, (fcc) & 0xff);
-                                printf(" - codec id %x",
-                                       (unsigned int)(list->list[i].codec));
-                                printf(" - cType %x",
-                                       (unsigned int)list->list[i].cType);
-                                printf("\n");
-                        }
-                }
-                if (SGGetChannelDeviceList
-                    (s->audio_channel, sgDeviceListIncludeInputs,
-                     &deviceList) == noErr) {
-                        fprintf(stdout, "\nAvailable audio devices:\n");
-                        for (i = 0; i < (*deviceList)->count; i++) {
-                                SGDeviceName *deviceEntry =
-                                    &(*deviceList)->entry[i];
-                                fprintf(stdout, " Device %d: ", i);
-                                nprintf((char *) deviceEntry->name);
-                                if (deviceEntry->flags &
-                                    sgDeviceNameFlagDeviceUnavailable) {
-                                        fprintf(stdout,
-                                                "  - ### NOT AVAILABLE ###");
-                                }
-                                if (i == (*deviceList)->selectedIndex) {
-                                        fprintf(stdout, " - ### ACTIVE ###");
-                                }
-                                fprintf(stdout, "\n");
-                                short activeInputIndex = 0;
-                                inputList = deviceEntry->inputs;
-                                if (inputList && (*inputList)->count >= 1) {
-                                        SGGetChannelDeviceAndInputNames
-                                            (s->video_channel, NULL, NULL,
-                                             &activeInputIndex);
-                                        for (j = 0; j < (*inputList)->count;
-                                             j++) {
-                                                fprintf(stdout, "\t");
-                                                fprintf(stdout, "- %d. ", j);
-                                                nprintf((char*)&(*inputList)->entry
-                                                             [j].name);
-                                                if ((i ==
-                                                     (*deviceList)->selectedIndex)
-                                                    && (j == activeInputIndex))
-                                                        fprintf(stdout,
-                                                                " - ### ACTIVE ###");
-                                                fprintf(stdout, "\n");
-                                        }
-                                }
-                        }
-                        SGDisposeDeviceList(s->grabber, deviceList);
-                }
+                usage(s);
                 return 2;
         }
 
@@ -563,6 +632,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         
         SGStartPreview(s->grabber);
 
+        int qt_codec_index = -1;
         /* Select the device */
         if (strcmp(fmt, "gui") == 0) {  //Use gui to select input
                 MinimalSGSettingsDialog(s->grabber, s->video_channel, gMonitor);
@@ -593,7 +663,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         fprintf(stderr, "Wrong config %s\n", fmt);
                         return 0;
                 }
-                s->frame->color_spec = atoi(tmp);
+                qt_codec_index = atoi(tmp);
 
                 s->audio_major = -1;
                 s->audio_minor = -1;
@@ -631,10 +701,12 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         Rect gActiveVideoRect;
         SGGetSrcVideoBounds(s->video_channel, &gActiveVideoRect);
 
-        s->tile->width = s->bounds.right =
-            gActiveVideoRect.right - gActiveVideoRect.left;
-        s->tile->height = s->bounds.bottom =
-            gActiveVideoRect.bottom - gActiveVideoRect.top;
+        s->video_width =
+		s->tile->width = s->bounds.right =
+		gActiveVideoRect.right - gActiveVideoRect.left;
+        s->video_height =
+		s->tile->height = s->bounds.bottom =
+		gActiveVideoRect.bottom - gActiveVideoRect.top;
 
         char *deviceName;
         char *inputName;
@@ -692,7 +764,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 fprintf(stdout, " \n\twith input ");
                 nprintf(inputName);
                 fprintf(stdout, " was not found in mode table.\n"
-                                "\tPlease report it to xhejtman@ics.muni.cz\n\n");
+                                "\tPlease report it to " PACKAGE_BUGREPORT "\n\n");
         }
 
         printf("Quicktime: Video size: %dx%d\n", s->bounds.right,
@@ -705,13 +777,13 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
 
         /* Set selected fmt->codec and get pixel format of that codec */
         int pixfmt = -1;
-        if (s->frame->color_spec != 0xffffffff) {
+        if (qt_codec_index != -1) {
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
-                pixfmt = list->list[s->frame->color_spec].cType;
+                pixfmt = list->list[qt_codec_index].cType;
                 printf("Quicktime: SetCompression: %s\n",
                        (int)SGSetVideoCompressor(s->video_channel, 0,
-                                                 list->list[s->frame->color_spec].codec, 0,
+                                                 list->list[qt_codec_index].codec, 0,
                                                  0, 0)==0?"OK":"Failed!");
         } else {
                 CompressorComponent  codec;
@@ -731,12 +803,12 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 goto error;
         }
 
-        for (i = 0; codec_info[i].name != NULL; i++) {
-                if ((unsigned)pixfmt == codec_info[i].fcc) {
-                        s->c_info = &codec_info[i];
-                        s->frame->color_spec = s->c_info->codec;
-                        break;
-                }
+        s->frame->color_spec = get_color_spec(pixfmt);
+
+        if (s->frame->color_spec == 0xffffffff) {
+                fprintf(stderr, "[QuickTime] Cannot find UltraGrid codec matching: %c%c%c%c!\n",
+				pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff, (pixfmt) & 0xff);
+                goto error;
         }
 
         printf("Quicktime: Selected pixel format: %c%c%c%c\n",
@@ -744,8 +816,10 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                (pixfmt) & 0xff);
 
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
-        s->vbuffer[0] = malloc(s->tile->data_len);
-        s->vbuffer[1] = malloc(s->tile->data_len);
+        for(int i = 0; i < 2; ++i) {
+                s->vbuffer_max_len[i] = s->tile->data_len;
+                s->vbuffer[i] = malloc(s->vbuffer_max_len[i]);
+        }
 
         s->grab_buf_idx = 0;
 
@@ -842,8 +916,9 @@ AFTER_AUDIO:
         SGGetChannelTimeScale(s->video_channel, &scale);
         s->frame->fps = scale / 100.0;
 
-error:
         return 1;
+error:
+        return 0;
 }
 
 /*******************************************************************************
@@ -883,10 +958,15 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->sg_idle_enough = 0;
                 s->frame->color_spec = 0xffffffff;
 
+                s->grab_audio = FALSE;
                 if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+#ifdef QT_ENABLE_AUDIO
                         s->grab_audio = TRUE;
-                } else {
-                        s->grab_audio = FALSE;
+#else
+                        fprintf(stderr, "QuickTime audio support is unmaintained and deprecated.\n"
+                                        "Please use \"coreaudio\" audio driver instead.\n");
+                        return NULL;
+#endif
                 }
 
                 int ret = qt_open_grabber(s, fmt);
@@ -958,6 +1038,7 @@ void * vidcap_quicktime_thread(void *state)
         while(!should_exit) {
                 memset(s->abuffer[s->grab_buf_idx], 0, s->abuffer_len);
                 s->abuffer_len = 0;
+                s->vbuffer_len = 0;
                 /* Run the QuickTime sequence grabber idle function, which provides */
                 /* processor time to out data proc running as a callback.           */
 
@@ -976,6 +1057,11 @@ void * vidcap_quicktime_thread(void *state)
                         s->worker_waiting = FALSE;
                 }
                 s->audio.data_len = s->abuffer_len;
+		s->tile->data_len = s->vbuffer_len;
+                if(s->video_width)
+                        s->tile->width = s->video_width;
+                if(s->video_height)
+                        s->tile->height = s->video_height;
                 s->tile->data = s->vbuffer[s->grab_buf_idx];
                 s->audio.data = s->abuffer[s->grab_buf_idx];
 
