@@ -420,6 +420,7 @@ void audio_done(struct state_audio *s)
                         pdb_destroy(&s->audio_participants);
                 }
                 audio_export_destroy(s->exporter);
+                module_done(&s->mod);
                 free(s);
         }
 }

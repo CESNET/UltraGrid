@@ -45,8 +45,13 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 struct control_state;
 struct module;
+struct stats;
 
 #define CONTROL_DEFAULT_PORT -1
 
@@ -55,4 +60,10 @@ struct module;
  */
 int control_init(int port, struct control_state **state, struct module *root_module);
 void control_done(struct control_state *s);
+void control_add_stats(struct control_state *state, struct stats *stats);
+void control_remove_stats(struct control_state *state, struct stats *stats);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 

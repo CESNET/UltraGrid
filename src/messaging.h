@@ -50,12 +50,14 @@ struct msg_change_fec_data {
         char fec[128];
 };
 
+enum compress_change_type {
+        CHANGE_COMPRESS,
+        CHANGE_PARAMS
+};
+
 struct msg_change_compress_data {
         struct message m;
-        enum {
-                CHANGE_COMPRESS,
-                CHANGE_PARAMS
-        } what;
+        enum compress_change_type what;
         char config_string[128];
 };
 

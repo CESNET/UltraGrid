@@ -162,6 +162,8 @@ struct state_uv {
         pthread_mutex_t master_lock;
 
         struct video_export *video_exporter;
+
+        struct module *root_module;
 };
 
 static volatile int wait_to_finish = FALSE;
@@ -547,7 +549,11 @@ static void *receiver_thread(void *arg)
 
         fr = 1;
 
-        stat_loss = stats_new_statistics("loss");
+        struct module *control_mod = get_module(get_root_module(uv->root_module), "control");
+        stat_loss = stats_new_statistics(
+                        (struct control_state *) control_mod,
+                        "loss");
+        unlock_module(control_mod);
 
         while (!should_exit_receiver) {
                 /* Housekeeping and RTCP... */
@@ -946,6 +952,7 @@ int main(int argc, char *argv[])
         uv->sage_tx_device = NULL;
 
         init_root_module(&root_mod, uv);
+        uv->root_module = &root_mod;
 
         pthread_mutex_init(&uv->master_lock, NULL);
 
@@ -1206,6 +1213,10 @@ int main(int argc, char *argv[])
         if(audio_rx_port == -1) {
                 audio_tx_port = uv->send_port_number + 2;
                 audio_rx_port = uv->recv_port_number + 2;
+        }
+
+        if(control_init(CONTROL_DEFAULT_PORT, &control, &root_mod) != 0) {
+                fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
         }
 
         if(should_export) {
@@ -1500,10 +1511,6 @@ int main(int argc, char *argv[])
         
         pthread_mutex_lock(&uv->master_lock); 
 
-        if(control_init(CONTROL_DEFAULT_PORT, &control, &root_mod) != 0) {
-                fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
-        }
-
         if(audio_get_display_flags(uv->audio)) {
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
                 audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int, 
@@ -1579,6 +1586,8 @@ cleanup:
 #endif
 
         control_done(control);
+
+        module_done(&root_mod);
 
         printf("Exit\n");
 

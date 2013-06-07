@@ -124,6 +124,7 @@ const char *module_class_name_pairs[] = {
         [MODULE_CLASS_SENDER] = "sender",
         [MODULE_CLASS_TX] = "transmit",
         [MODULE_CLASS_AUDIO] = "audio",
+        [MODULE_CLASS_CONTROL] = "control",
 };
 
 const char *module_class_name(enum module_class cls)
@@ -148,5 +149,72 @@ void append_message_path(char *buf, int buflen, enum module_class modules[])
                 strncat(buf, node_name, buflen - strlen(buf) - 1);
                 mod += 1;
         }
+}
+
+struct module *get_root_module(struct module *node)
+{
+        while(node->parent) {
+                node = node->parent;
+        }
+        assert(node->cls == MODULE_CLASS_ROOT);
+
+        return node;
+}
+
+static struct module *find_child(struct module *node, const char *node_name, int index)
+{
+        for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
+                struct module *child = (struct module *) simple_linked_list_it_next(&it);
+                if(strcasecmp(module_class_name(child->cls), node_name) == 0) {
+                        if(index-- == 0) {
+                                return child;
+                        }
+                }
+        }
+        return NULL;
+}
+
+static void get_receiver_index(char *node_str, int *index) {
+        *index = 0;
+        if(strchr(node_str, '[')) {
+                *index = atoi(strchr(node_str, '[') + 1);
+                *strchr(node_str, '[') = '\0';
+        }
+}
+
+struct module *get_module(struct module *root, const char *const_path)
+{
+        struct module *receiver = root;
+        char *path, *tmp;
+        char *item, *save_ptr;
+
+        assert(root != NULL);
+
+        pthread_mutex_lock(&receiver->lock);
+
+        tmp = path = strdup(const_path);
+        while ((item = strtok_r(path, ".", &save_ptr))) {
+                struct module *old_receiver = receiver;
+                int index;
+                get_receiver_index(item, &index);
+                receiver = find_child(receiver, item, index);
+                if(!receiver) {
+                        pthread_mutex_unlock(&old_receiver->lock);
+                        break;
+                }
+                pthread_mutex_lock(&receiver->lock);
+                pthread_mutex_unlock(&old_receiver->lock);
+
+                path = NULL;
+
+        }
+        free(tmp);
+
+        return receiver;
+}
+
+void unlock_module(struct module *module)
+{
+        pthread_mutex_unlock(&module->lock);
 }
 
