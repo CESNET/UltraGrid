@@ -74,10 +74,31 @@ static struct {
         uint32_t qt_fourcc;
         codec_t ug_codec;
 } codec_mapping[] = {
+        {'2' << 24 | 'v' << 16 | 'u' << 8 | 'y', Vuy2}, // would map to UYVY otherwise
+                                                        // but codec with yuv2 FourCC
+                                                        // is different (handled specially
+                                                        // in this module)
         {'j' << 24 | 'p' << 16 | 'e' << 8 | 'g', MJPG},
         {'a' << 24 | 'v' << 16 | 'c' << 8 | '1', H264},
         {0, 0xffffffff}
 };
+
+struct avbuffer {
+	int width, height;
+        char *video_data;
+        int video_len;
+        char *audio_data;
+        int audio_len;
+};
+
+static void free_avbuffer(struct avbuffer *buf)
+{
+        if(!buf)
+                return;
+        free(buf->video_data);
+        free(buf->audio_data);
+        free(buf);
+}
 
 struct qt_grabber_state {
         uint32_t magic;
@@ -95,12 +116,9 @@ struct qt_grabber_state {
         struct video_frame *frame;
         struct tile *tile;
         struct audio_frame audio;
-        char *abuffer[2], *vbuffer[2];
-        int abuffer_len;
-        int vbuffer_max_len[2];
-        int vbuffer_len;
-        int video_width, video_height;
-        int grab_buf_idx;
+        struct avbuffer *buffer_captured;
+        struct avbuffer *buffer_ready_to_send;
+        struct avbuffer *buffer_network;
         unsigned gui:1;
         int frames;
         struct timeval t0;
@@ -110,13 +128,9 @@ struct qt_grabber_state {
         pthread_t thread_id;
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
-        pthread_cond_t worker_cv;
-        volatile int boss_waiting;
-        volatile int worker_waiting;
-        volatile int work_to_do;
-};
 
-static volatile bool should_exit = false;
+	volatile bool should_exit;
+};
 
 void * vidcap_quicktime_thread(void *state);
 void InitCursor(void);
@@ -170,23 +184,23 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
                 return -1;
         }
 
+        if(!s->buffer_captured) {
+                s->buffer_captured = (struct avbuffer *) calloc(1, sizeof(struct avbuffer));
+        }
+
         if(c == s->video_channel) {
 		Rect rect;
 		SGGetBufferInfo(s->video_channel, chRefCon, NULL, &rect, s->gworld, NULL);
-		s->video_width = rect.right;
-		s->video_height = rect.bottom;
+                s->buffer_captured->width = rect.right;
+                s->buffer_captured->height = rect.bottom;
                 switch(writeType) {
                         case seqGrabWriteReserve:
                                 break;
                         case seqGrabWriteFill:
                         case seqGrabWriteAppend:
-                                if(s->vbuffer_max_len[s->grab_buf_idx] < len) {
-                                        s->vbuffer_max_len[s->grab_buf_idx] = len;
-                                        free(s->vbuffer[s->grab_buf_idx]);
-                                        s->vbuffer[s->grab_buf_idx] = malloc(len);
-                                }
-                                memcpy(s->vbuffer[s->grab_buf_idx] + s->vbuffer_len, p, len);
-                                s->vbuffer_len += len;
+                                s->buffer_captured->video_data = malloc(len);
+                                memcpy(s->buffer_captured->video_data, p, len);
+                                s->buffer_captured->video_len = len;
                                 s->sg_idle_enough = 1;
                                 break;
                 }
@@ -206,8 +220,10 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
                         case seqGrabWriteReserve:
                                 break;
                         case seqGrabWriteFill:
-                                memcpy(s->abuffer[s->grab_buf_idx] + s->abuffer_len, p, len);
-                                s->abuffer_len += len;
+                                s->buffer_captured->audio_data = realloc(s->buffer_captured->audio_data,
+                                                s->buffer_captured->audio_len + len);
+                                memcpy(s->buffer_captured->audio_data + s->buffer_captured->audio_len, p, len);
+                                s->buffer_captured->audio_len += len;
                                 break;
                         case seqGrabWriteAppend:
                                 break;
@@ -502,7 +518,7 @@ static void usage(struct qt_grabber_state *s)
 
 static codec_t get_color_spec(uint32_t pixfmt) {
         int i;
-        // firstly, try to find explicit mapping to UG color_spec...
+        // first, try to find explicit mapping to UG color_spec...
         for (i = 0; codec_mapping[i].ug_codec != 0xffffffff; i++) {
                 if(pixfmt == codec_mapping[i].qt_fourcc) {
                         return codec_mapping[i].ug_codec;
@@ -512,7 +528,10 @@ static codec_t get_color_spec(uint32_t pixfmt) {
 
         // ...if it fails, try to match agains FourCC directly
         for (i = 0; codec_info[i].name != NULL; i++) {
-                if ((unsigned)pixfmt == codec_info[i].fcc) {
+                if ((unsigned)pixfmt == codec_info[i].fcc ||
+                                // try also the other endianity (QT codecs aren't
+                                // entirely consistent in this regard)
+                                ntohl(pixfmt) == codec_info[i].fcc) {
                         return codec_info[i].codec;
                 }
         }
@@ -701,12 +720,10 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         Rect gActiveVideoRect;
         SGGetSrcVideoBounds(s->video_channel, &gActiveVideoRect);
 
-        s->video_width =
-		s->tile->width = s->bounds.right =
-		gActiveVideoRect.right - gActiveVideoRect.left;
-        s->video_height =
-		s->tile->height = s->bounds.bottom =
-		gActiveVideoRect.bottom - gActiveVideoRect.top;
+        s->tile->width = s->bounds.right =
+                gActiveVideoRect.right - gActiveVideoRect.left;
+        s->tile->height = s->bounds.bottom =
+                gActiveVideoRect.bottom - gActiveVideoRect.top;
 
         char *deviceName;
         char *inputName;
@@ -816,12 +833,6 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                (pixfmt) & 0xff);
 
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
-        for(int i = 0; i < 2; ++i) {
-                s->vbuffer_max_len[i] = s->tile->data_len;
-                s->vbuffer[i] = malloc(s->vbuffer_max_len[i]);
-        }
-
-        s->grab_buf_idx = 0;
 
         SGDisposeDeviceList(s->grabber, deviceList);
         if(s->grab_audio) {
@@ -882,10 +893,6 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                 tmp = SGGetSoundInputRate(s->audio_channel);
                 /* next line solves common Fixed overflow (wtf QT?) */
                 s->audio.sample_rate = Fix2X(UnsignedFixedMulDiv(tmp, X2Fix(1), X2Fix(2)))* 2.0;
-                s->abuffer[0] = (char *) malloc(s->audio.sample_rate * s->audio.bps *
-                                s->audio.ch_count);
-                s->abuffer[1] = (char *) malloc(s->audio.sample_rate * s->audio.bps *
-                                s->audio.ch_count);
                 
                 SGSetSoundRecordChunkSize(s->audio_channel, -65536/120); /* Negative argument meens
                                                                             that the value is Fixed
@@ -984,13 +991,10 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 
                 pthread_mutex_init(&s->lock, NULL);
                 pthread_cond_init(&s->boss_cv, NULL);
-                pthread_cond_init(&s->worker_cv, NULL);
-                s->boss_waiting = FALSE;
-                s->worker_waiting = FALSE;
-                s->work_to_do = TRUE;
-                s->grab_buf_idx = 0;
-                s->tile->data = s->vbuffer[0];
-                s->audio.data = s->abuffer[0];
+
+		s->buffer_captured = s->buffer_ready_to_send =
+			s->buffer_network = 0;
+
                 pthread_create(&s->thread_id, NULL, vidcap_quicktime_thread, s);
         }
 
@@ -1004,14 +1008,11 @@ void vidcap_quicktime_finish(void *state)
 
         assert(s != NULL);
 
-        should_exit = true;
-
         pthread_mutex_lock(&s->lock);
-        if(s->work_to_do) {
-                s->work_to_do = FALSE;
-                pthread_cond_signal(&s->boss_cv);
-        }
+        s->should_exit = true;
         pthread_mutex_unlock(&s->lock);
+
+        pthread_join(s->thread_id, NULL);
 }
 
 /* Finalize the grabbing system */
@@ -1026,6 +1027,10 @@ void vidcap_quicktime_done(void *state)
                 SGStop(s->grabber);
                 CloseComponent(s->grabber);
                 ExitMovies();
+
+                pthread_mutex_destroy(&s->lock);
+                pthread_cond_destroy(&s->boss_cv);
+
                 vf_free(s->frame);
                 free(s);
         }
@@ -1035,43 +1040,35 @@ void * vidcap_quicktime_thread(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
-        while(!should_exit) {
-                memset(s->abuffer[s->grab_buf_idx], 0, s->abuffer_len);
-                s->abuffer_len = 0;
-                s->vbuffer_len = 0;
+        while(!s->should_exit) {
                 /* Run the QuickTime sequence grabber idle function, which provides */
                 /* processor time to out data proc running as a callback.           */
 
                 /* The while loop done in this way is also sort of nice bussy waiting */
                 /* and synchronizes capturing and sending.                            */
                 s->sg_idle_enough = 0;
-                while (!s->sg_idle_enough) {
+                while (!s->sg_idle_enough && !s->should_exit) {
                         if (SGIdle(s->grabber) != noErr) {
                                 debug_msg("Error in SGIDle\n");
                         }
                 }
-                pthread_mutex_lock(&s->lock);
-                while(!s->work_to_do) {
-                        s->worker_waiting = TRUE;
-                        pthread_cond_wait((&s->worker_cv), &s->lock);
-                        s->worker_waiting = FALSE;
+		if(s->should_exit) {
+			break;
+		}
+		pthread_mutex_lock(&s->lock);
+                if(s->buffer_ready_to_send) {
+                        free_avbuffer(s->buffer_ready_to_send);
                 }
-                s->audio.data_len = s->abuffer_len;
-		s->tile->data_len = s->vbuffer_len;
-                if(s->video_width)
-                        s->tile->width = s->video_width;
-                if(s->video_height)
-                        s->tile->height = s->video_height;
-                s->tile->data = s->vbuffer[s->grab_buf_idx];
-                s->audio.data = s->abuffer[s->grab_buf_idx];
+                s->buffer_ready_to_send = s->buffer_captured;
+                s->buffer_captured = NULL;
 
-                s->grab_buf_idx = (s->grab_buf_idx + 1 ) % 2;
-                s->work_to_do = FALSE;
-
-                if(s->boss_waiting)
-                        pthread_cond_signal(&s->boss_cv);
+                pthread_cond_signal(&s->boss_cv);
                 pthread_mutex_unlock(&s->lock);
         }
+        pthread_mutex_lock(&s->lock);
+        pthread_cond_signal(&s->boss_cv);
+        pthread_mutex_unlock(&s->lock);
+
         return NULL;
 }
 
@@ -1083,12 +1080,35 @@ struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audi
         assert(s != NULL);
         assert(s->magic == MAGIC_QT_GRABBER);
 
+        free_avbuffer(s->buffer_network);
+        s->buffer_network = NULL;
+
         pthread_mutex_lock(&s->lock);
-        while(s->work_to_do) {
-                s->boss_waiting = TRUE;
-                pthread_cond_wait(&s->boss_cv, &s->lock);
-                s->boss_waiting = FALSE;
+	int ret = 0;
+        while(!s->buffer_ready_to_send && ret == 0) {
+		struct timeval tv;
+		struct timespec ts;
+		gettimeofday(&tv, NULL);
+		ts.tv_sec = tv.tv_sec + 1;
+		ts.tv_nsec = tv.tv_usec * 1000;
+                ret = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
         }
+	if(ret == ETIMEDOUT) {
+		pthread_mutex_unlock(&s->lock);
+		return NULL;
+	}
+        s->buffer_network = s->buffer_ready_to_send;
+        s->buffer_ready_to_send = 0;
+        pthread_mutex_unlock(&s->lock);
+
+        s->audio.data_len = s->buffer_network->audio_len;
+        s->tile->data_len = s->buffer_network->video_len;
+        if(s->buffer_network->width)
+                s->tile->width = s->buffer_network->width;
+        if(s->buffer_network->height)
+                s->tile->height = s->buffer_network->height;
+        s->tile->data = s->buffer_network->video_data;
+        s->audio.data = s->buffer_network->audio_data;
 
         if(s->grab_audio && s->audio.data_len > 0) {
                 *audio = &s->audio;
@@ -1096,12 +1116,21 @@ struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audi
                 *audio = NULL;
         }
 
-        s->work_to_do = TRUE;
+        // Mac 10.7 seems to change semantics for codec identified with 'yuv2' FourCC,
+        // which is mapped to our UYVY. This simply makes it correct.
+        if(s->frame->color_spec == UYVY) {
+                for(int i = 0; i < s->frame->tiles->data_len; i += 4) {
+                        int a = s->frame->tiles[0].data[i];
+                        int b = s->frame->tiles[0].data[i + 1];
+                        int c = s->frame->tiles[0].data[i + 2];
+                        int d = s->frame->tiles[0].data[i + 3];
+                        s->frame->tiles[0].data[i] = b + 128;
+                        s->frame->tiles[0].data[i + 1] = a;
+                        s->frame->tiles[0].data[i + 2] = d + 128;
+                        s->frame->tiles[0].data[i + 3] = c;
+                }
+        }
         
-        if(s->worker_waiting)
-                pthread_cond_signal(&s->worker_cv);
-        pthread_mutex_unlock(&s->lock);
-
         return s->frame;
 }
 
