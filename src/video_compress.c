@@ -86,7 +86,7 @@ struct compress_state {
         struct compress_t  *handle;
         void              **state;
         unsigned int        state_count;
-        char               *compress_options;
+        char                compress_options[1024];
 
         struct video_frame *out_frame[2];
 
@@ -269,8 +269,10 @@ int compress_init(char *config_string, struct compress_state **state)
                                 strlen(available_compress_modules[i]->name)) == 0) {
                         s->handle = available_compress_modules[i];
                         if(config_string[strlen(available_compress_modules[i]->name)] == ':') 
-                                        compress_options = config_string +
-                                                strlen(available_compress_modules[i]->name) + 1;
+                                compress_options = config_string +
+                                        strlen(available_compress_modules[i]->name) + 1;
+                        else
+                                compress_options = "";
                 }
         }
         if(!s->handle) {
@@ -278,14 +280,14 @@ int compress_init(char *config_string, struct compress_state **state)
                 free(s);
                 return -1;
         }
-        s->compress_options = compress_options;
+        strncpy(s->compress_options, compress_options, sizeof(s->compress_options) - 1);
+        s->compress_options[sizeof(s->compress_options) - 1] = '\0';
         if(s->handle->init) {
                 s->state = calloc(1, sizeof(void *));
-                if(compress_options) {
-                        compress_options = strdup(compress_options);
-                }
+                char compress_options[1024];
+                strncpy(compress_options, s->compress_options, sizeof(compress_options) - 1);
+                compress_options[sizeof(compress_options) - 1] = '\0';
                 s->state[0] = s->handle->init(compress_options);
-                free(compress_options);
                 if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
                         free(s->state);
@@ -355,6 +357,7 @@ static struct video_frame *compress_frame_tiles(struct compress_state *s, struct
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
                         char compress_options[1024];
                         strncpy(compress_options, s->compress_options, sizeof(compress_options));
+                        compress_options[sizeof(compress_options) - 1] = '\0';
                         s->state[i] = s->handle->init(compress_options);
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
