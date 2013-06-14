@@ -59,7 +59,6 @@
 #include "video_compress/jpeg.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "libgpujpeg/gpujpeg_common.h"
-#include "messaging.h"
 #include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -80,7 +79,6 @@ struct compress_jpeg_state {
         struct video_desc saved_desc;
 
         int restart_interval;
-        void *messaging_subscription;
         platform_spin_t spin;
 };
 

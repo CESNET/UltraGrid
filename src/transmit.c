@@ -62,7 +62,8 @@
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
-#include "messaging.h"
+#include "crypto/openssl_aes_encrypt.h"
+#include "crypto/crc.h"
 #include "module.h"
 #include "rtp/ldgm.h"
 #include "rtp/rtp.h"
@@ -72,7 +73,6 @@
 #include "host.h"
 #include "video_codec.h"
 #include "compat/platform_spin.h"
-#include "compat/platform_time.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 
@@ -138,8 +138,9 @@ struct tx {
 
         int last_fragment;
 
-        void *messaging_subscription;
         platform_spin_t spin;
+
+        struct openssl_aes_encrypt *encryption;
 };
 
 static bool fec_is_ldgm(struct tx *tx)
@@ -180,11 +181,12 @@ static void tx_update(struct tx *tx, struct tile *tile)
         }
 }
 
-struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type, char *fec)
+struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
+                char *fec, const char *encryption)
 {
         struct tx *tx;
 
-        tx = (struct tx *)malloc(sizeof(struct tx));
+        tx = (struct tx *) calloc(1, sizeof(struct tx));
         if (tx != NULL) {
                 module_init_default(&tx->mod);
                 tx->mod.cls = MODULE_CLASS_TX;
@@ -208,6 +210,20 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                                 return NULL;
                         }
                 }
+                if(encryption) {
+#ifdef HAVE_CRYPTO
+                        if(openssl_aes_encrypt_init(&tx->encryption,
+                                                encryption, MODE_CTR) != 0) {
+                                fprintf(stderr, "Unable to initialize encryption\n");
+                                return NULL;
+                        }
+#else
+                        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                                        "without OpenSSL support!\n");
+                        return NULL;
+#endif // HAVE_CRYPTO
+                }
+
                 platform_spin_init(&tx->spin);
 
                 module_register(&tx->mod, parent);
@@ -381,8 +397,11 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 {
         int m, data_len;
         // see definition in rtp_callback.h
-        video_payload_hdr_t video_hdr;
-        ldgm_video_payload_hdr_t ldgm_hdr;
+
+        uint32_t hdr_data[100];
+        uint32_t *video_hdr = hdr_data;
+        uint32_t *ldgm_hdr = hdr_data + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
+        uint32_t *encryption_hdr;
         int pt = PT_VIDEO;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
@@ -423,6 +442,39 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
+        char *hdr;
+        int hdr_len;
+
+        if(tx->encryption) {
+                if(fec_is_ldgm(tx)) {
+                        encryption_hdr = hdr_data;
+                        video_hdr = hdr_data + sizeof(aes_video_payload_hdr_t)/sizeof(uint32_t);
+                        ldgm_hdr = hdr_data +
+                                (sizeof(aes_video_payload_hdr_t) + sizeof(ldgm_video_payload_hdr_t))
+                                / sizeof(uint32_t);
+                } else {
+                        encryption_hdr = hdr_data;
+                        video_hdr = hdr_data + sizeof(aes_video_payload_hdr_t)/sizeof(uint32_t);
+                        hdrs_len += sizeof(aes_video_payload_hdr_t);
+                }
+                hdrs_len += 4; // CRC
+
+                tmp = substream << 22;
+                tmp |= 0x3fffff & tx->buffer;
+                encryption_hdr[0] = htonl(tmp);
+                encryption_hdr[2] = htonl(data_to_send_len);
+
+                pt = PT_ENCRYPT;
+                hdr = (char *) encryption_hdr;
+                hdr_len = sizeof(aes_video_payload_hdr_t);
+
+                if(!fec_is_ldgm(tx)) {
+                        hdr_len += sizeof(video_payload_hdr_t);
+                } else {
+                        abort();
+                }
+        }
+
         video_hdr[3] = htonl(tile->width << 16 | tile->height);
         video_hdr[4] = get_fourcc(color_spec);
         video_hdr[2] = htonl(data_to_send_len);
@@ -446,12 +498,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         tmp |= fi << 13;
         video_hdr[5] = htonl(tmp);
 
-        char *hdr;
-        int hdr_len;
-
         if(fec_is_ldgm(tx)) {
                 hdrs_len = 40 + (sizeof(ldgm_video_payload_hdr_t));
-                ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_hdr),
+                ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_payload_hdr_t),
                                 tile->data, tile->data_len, &data_to_send, &data_to_send_len);
                 tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
@@ -466,11 +515,20 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 pt = PT_VIDEO_LDGM;
 
-                hdr = (char *) &ldgm_hdr;
-                hdr_len = sizeof(ldgm_hdr);
+                hdr = (char *) ldgm_hdr;
+                hdr_len = sizeof(ldgm_video_payload_hdr_t);
+        } else if(!tx->encryption) {
+                hdr = (char *) video_hdr;
+                hdr_len = sizeof(video_payload_hdr_t);
+        }
+
+        uint32_t *hdr_offset;
+        if(fec_is_ldgm(tx)) {
+                hdr_offset = ldgm_hdr + 1;
+        } else if(tx->encryption) {
+                hdr_offset = encryption_hdr + 1;
         } else {
-                hdr = (char *) &video_hdr;
-                hdr_len = sizeof(video_hdr);
+                hdr_offset = video_hdr + 1;
         }
 
         do {
@@ -480,11 +538,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 int offset = pos + fragment_offset;
 
-                video_hdr[1] = htonl(offset);
-                if(fec_is_ldgm(tx)) {
-                        ldgm_hdr[1] = htonl(offset);
-                }
-
+                *hdr_offset = htonl(offset);
 
                 data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;
@@ -498,6 +552,31 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 pos += data_len;
                 GET_STARTTIME;
                 if(data_len) { /* check needed for FEC_MULT */
+                        char encrypted_data[data_len + 16
+                                + 4 /* CRC */];
+                        uint32_t crc = 0xffffffff;
+
+                        struct timeval t0, t;
+                        gettimeofday(&t0, NULL);
+                        if(tx->encryption) {
+                                for(int i = 0; i < data_len; i+=16) {
+                                        int block_length = 16;
+                                        if(data_len - i < 16) block_length = data_len - i;
+                                        crc = crc32buf_with_oldcrc(data + i, block_length, crc);
+#ifdef HAVE_CRYPTO
+                                        openssl_aes_encrypt_block(tx->encryption,
+                                                        (unsigned char *) data + i,
+                                                        (unsigned char *) encrypted_data + i,
+                                                        i == 0 ? (char *) &encryption_hdr[3] : NULL,
+                                                        block_length);
+#endif // HAVE_CRYPTO
+                                }
+                                data = encrypted_data;
+                                memcpy(encrypted_data + data_len, &crc, sizeof(crc));
+                                data_len += sizeof(crc);
+                        }
+                        gettimeofday(&t, NULL);
+
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
                                   hdr, hdr_len,
                                   data, data_len, 0, 0, 0);

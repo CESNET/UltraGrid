@@ -181,7 +181,8 @@ static void audio_scale_usage(void)
  */
 struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
-                char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
+                char *jack_cfg, char *fec_cfg, const char *encryption,
+                char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec,
                 int resample_to)
 {
@@ -260,7 +261,7 @@ struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv
                 s->echo_state = NULL;
         }
         
-        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg);
+        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;

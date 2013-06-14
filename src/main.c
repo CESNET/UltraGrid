@@ -122,6 +122,7 @@
 #define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_AUDIO_CODEC (('A' << 8) | 'C')
 #define OPT_CAPTURE_FILTER (('O' << 8) | 'F')
+#define OPT_ENCRYPTION (('E' << 8) | 'N')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -163,7 +164,11 @@ struct state_uv {
 
         struct video_export *video_exporter;
 
+        struct sender_data sender_data;
+
         struct module *root_module;
+
+        const char *requested_encryption;
 };
 
 static volatile int wait_to_finish = FALSE;
@@ -294,6 +299,8 @@ static void usage(void)
         printf("\t--audio-codec <codec>[:<sample_rate>]|help\taudio codec\n");
         printf("\n");
         printf("\t--capture-filter <filter>\tCapture filter(s)\n");
+        printf("\n");
+        printf("\t--encryption <passphrase>\tKey material for encryption\n");
         printf("\n");
         printf("\taddress(es)              \tdestination address\n");
         printf("\n");
@@ -440,13 +447,6 @@ static void destroy_devices(struct rtp ** network_devices)
 	free(network_devices);
 }
 
-static struct tx *initialize_transmit(struct module *parent, unsigned requested_mtu, char *fec)
-{
-        /* Currently this is trivial. It'll get more complex once we */
-        /* have multiple codecs and/or error correction.             */
-        return tx_init(parent, requested_mtu, TX_MEDIA_VIDEO, fec);
-}
-
 #ifdef HAVE_IHDTV
 static void *ihdtv_receiver_thread(void *arg)
 {
@@ -490,7 +490,8 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
 
         if(state) {
                 state->messages = simple_linked_list_init();
-                state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device);
+                state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device,
+                                uv->requested_encryption);
 
                 if(!state->decoder) {
                         fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option?).\n");
@@ -702,7 +703,6 @@ static void *compress_thread(void *arg)
 {
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
-        struct sender_data sender_data;
 
         struct video_frame *tx_frame;
         struct audio_frame *audio;
@@ -712,17 +712,17 @@ static void *compress_thread(void *arg)
         struct compress_state *compression;
         int ret = compress_init(uv_mod, uv->requested_compression, &compression);
 
-        sender_data.parent = uv_mod; /// @todo should be compress thread module
-        sender_data.connections_count = uv->connections_count;
-        sender_data.tx_protocol = uv->tx_protocol;
+        uv->sender_data.parent = uv_mod; /// @todo should be compress thread module
+        uv->sender_data.connections_count = uv->connections_count;
+        uv->sender_data.tx_protocol = uv->tx_protocol;
         if(uv->tx_protocol == ULTRAGRID_RTP) {
-                sender_data.network_devices = uv->network_devices;
+                uv->sender_data.network_devices = uv->network_devices;
         } else {
-                sender_data.sage_tx_device = uv->sage_tx_device;
+                uv->sender_data.sage_tx_device = uv->sage_tx_device;
         }
-        sender_data.tx = uv->tx;
+        uv->sender_data.tx = uv->tx;
 
-        if(!sender_init(&sender_data)) {
+        if(!sender_init(&uv->sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
                 exit_uv(1);
                 pthread_mutex_unlock(&uv->master_lock);
@@ -770,13 +770,13 @@ static void *compress_thread(void *arg)
                                 nonblock = false;
                         }
 
-                        sender_post_new_frame(&sender_data, tx_frame, nonblock);
+                        sender_post_new_frame(&uv->sender_data, tx_frame, nonblock);
                 }
         }
 
         vidcap_finish(uv_state->capture_device);
 
-        sender_done(&sender_data);
+        sender_done(&uv->sender_data);
 
 compress_done:
         module_done(CAST_MODULE(compression));
@@ -923,12 +923,13 @@ int main(int argc, char *argv[])
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
+                {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
 
         //      uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
-        uv = (struct state_uv *)malloc(sizeof(struct state_uv));
+        uv = (struct state_uv *) calloc(1, sizeof(struct state_uv));
         uv_state = uv;
 
         uv->audio = NULL;
@@ -1168,6 +1169,9 @@ int main(int argc, char *argv[])
                 case OPT_CAPTURE_FILTER:
                         requested_capture_filter = optarg;
                         break;
+                case OPT_ENCRYPTION:
+                        uv->requested_encryption = optarg;
+                        break;
                 case '?':
                 default:
                         usage();
@@ -1275,7 +1279,8 @@ int main(int argc, char *argv[])
         }
         uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
-                        jack_cfg, requested_audio_fec, audio_channel_map,
+                        jack_cfg, requested_audio_fec, uv->requested_encryption,
+                        audio_channel_map,
                         audio_scale, echo_cancellation, use_ipv6, mcast_if,
                         audio_codec, compressed_audio_sample_rate);
         free(requested_audio_fec);
@@ -1438,8 +1443,10 @@ int main(int argc, char *argv[])
                         packet_rate = 0;
                 }
 
-                if ((uv->tx = initialize_transmit(&root_mod,
-                                                uv->requested_mtu, requested_video_fec)) == NULL) {
+                if ((uv->tx = tx_init(&root_mod,
+                                                uv->requested_mtu, TX_MEDIA_VIDEO,
+                                                requested_video_fec,
+                                                uv->requested_encryption)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup_wait_display;
@@ -1462,7 +1469,8 @@ int main(int argc, char *argv[])
                 /* following block only shows help (otherwise initialized in receiver thread */
                 if((uv->postprocess && strstr(uv->postprocess, "help") != NULL) || 
                                 (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
-                        struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess, NULL);
+                        struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess, NULL,
+                                        uv->requested_encryption);
                         decoder_destroy(dec);
                         exit_uv(EXIT_SUCCESS);
                         goto cleanup_wait_display;

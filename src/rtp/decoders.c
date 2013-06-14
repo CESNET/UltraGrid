@@ -44,6 +44,8 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
+#include "crypto/crc.h"
+#include "crypto/openssl_aes_decrypt.h"
 #include "debug.h"
 #include "host.h"
 #include "perf.h"
@@ -170,6 +172,8 @@ struct state_decoder {
         double              set_fps; // "message" passed to our master
         codec_t             codec;
         bool                slow;
+
+        struct openssl_aes_decrypt      *decrypt;
 };
 
 // message definitions
@@ -553,7 +557,7 @@ static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int v
 }
 
 struct state_decoder *decoder_init(const char *requested_mode, const char *postprocess,
-                struct display *display)
+                struct display *display, const char *encryption)
 {
         struct state_decoder *s;
         
@@ -576,6 +580,20 @@ struct state_decoder *decoder_init(const char *requested_mode, const char *postp
         s->decompress_thread_has_processed_input = true;
         
         int video_mode = VIDEO_NORMAL;
+
+        if(encryption) {
+#ifdef HAVE_CRYPTO
+                if(openssl_aes_decrypt_init(&s->decrypt,
+                                                encryption, MODE_CTR) != 0) {
+                        fprintf(stderr, "Unable to create decompress!\n");
+                        return NULL;
+                }
+#else
+                fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                                "without OpenSSL support!\n");
+                return NULL;
+#endif // HAVE_CRYPTO
+        }
 
         if(requested_mode) {
                 /* these are data comming from newtork ! */
@@ -1348,12 +1366,13 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         }
 
         int pt;
+        int contained_pt; // if packed is encrypted it encapsulates other pt
 
         while (cdata != NULL) {
                 uint32_t *hdr;
                 pckt = cdata->data;
 
-                pt = pckt->pt;
+                contained_pt = pt = pckt->pt;
                 hdr = (uint32_t *)(void *) pckt->data;
                 data_pos = ntohl(hdr[1]);
                 tmp = ntohl(hdr[0]);
@@ -1374,6 +1393,12 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         m = 0x1fff & (tmp >> 6);
                         c = 0x3f & tmp;
                         seed = ntohl(hdr[4]);
+                } else if (pt == PT_ENCRYPT) {
+                        len = pckt->data_len - sizeof(video_payload_hdr_t)
+                                - sizeof(aes_video_payload_hdr_t);
+                        data = (char *) hdr + sizeof(video_payload_hdr_t)
+                                + sizeof(aes_video_payload_hdr_t);
+                        contained_pt = PT_VIDEO;
                 } else {
                         fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);
                         exit_uv(1);
@@ -1410,23 +1435,62 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
 
                 buffer_num[substream] = buffer_number;
                 buffer_len[substream] = buffer_length;
-
-                ll_insert(pckt_list[substream], data_pos, len);
                 
+                uint32_t *video_header;
+
+                if (pt == PT_ENCRYPT) {
+                        video_header = (uint32_t *)((void *)
+                                                pckt->data + sizeof(aes_video_payload_hdr_t));
+                }
+
                 if (pt == PT_VIDEO) {
+                        video_header = (uint32_t *)(void *)
+                                                pckt->data;
+                }
+
+                if(contained_pt == PT_VIDEO) {
                         /* Critical section 
                          * each thread *MUST* wait here if this condition is true
                          */
-                        check_for_mode_change(decoder, (uint32_t *)(void *)
-                                                pckt->data, &frame);
+                        check_for_mode_change(decoder, video_header, &frame);
                 }
 
-                if(pt == PT_VIDEO && !frame) {
+                if(contained_pt == PT_VIDEO && !frame) {
                         ret = FALSE;
                         goto cleanup;
                 }
 
-                if (pt == PT_VIDEO && decoder->decoder_type == LINE_DECODER) {
+                unsigned char plaintext[len + 16];
+                if(pt == PT_ENCRYPT) {
+                        uint32_t crc = 0xffffffff;
+                        int data_len = len - 4;
+                        for(int i = 0; i < data_len; i += 16) {
+                                int block_length = 16;
+                                if(data_len - i < 16) block_length = data_len - i;
+                                char *nonce_and_counter = NULL;
+                                if(i == 0) {
+                                        nonce_and_counter = (char *) &hdr[3];
+                                }
+#ifdef HAVE_CRYPTO
+                                openssl_aes_decrypt_block(decoder->decrypt,
+                                                (unsigned char *) data + i,
+                                                plaintext + i, nonce_and_counter, block_length);
+#endif // HAVE_CRYPTO
+                                crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
+                        }
+                        uint32_t expected_crc;
+                        memcpy(&expected_crc, data + data_len, sizeof(expected_crc));
+                        if(crc != expected_crc) {
+                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                goto next_packet;
+                        }
+                        data = (char *) plaintext;
+                        len = data_len;
+                }
+
+                ll_insert(pckt_list[substream], data_pos, len);
+
+                if (contained_pt == PT_VIDEO && decoder->decoder_type == LINE_DECODER) {
                         wait_for_framebuffer_swap(decoder);
 
                         if(!decoder->postprocess) {
@@ -1524,6 +1588,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                 len);
                 }
 
+next_packet:
                 cdata = cdata->nxt;
         }
 
@@ -1545,7 +1610,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         ldgm_data->c = c;
         ldgm_data->seed = seed;
         ldgm_data->substream_count = decoder->max_substreams;
-        ldgm_data->pt = pt;
+        ldgm_data->pt = contained_pt;
         ldgm_data->poisoned = false;
         memcpy(ldgm_data->buffer_len, buffer_len, sizeof(buffer_len));
         memcpy(ldgm_data->buffer_num, buffer_num, sizeof(buffer_num));

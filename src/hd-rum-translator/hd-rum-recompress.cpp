@@ -171,7 +171,8 @@ void *recompress_init(struct module *parent,
 
         s->required_compress = strdup(compress);
         s->frame = NULL;
-        s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec);
+        const char *requested_encryption = NULL;
+        s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec, requested_encryption);
 
         gettimeofday(&s->start_time, NULL);
 
