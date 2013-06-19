@@ -1348,6 +1348,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         }
 
         int pt;
+        bool buffer_swapped = false;
 
         while (cdata != NULL) {
                 uint32_t *hdr;
@@ -1430,7 +1431,10 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 }
 
                 if (pt == PT_VIDEO && decoder->decoder_type == LINE_DECODER) {
-                        wait_for_framebuffer_swap(decoder);
+                        if(!buffer_swapped) {
+                                wait_for_framebuffer_swap(decoder);
+                                buffer_swapped = true;
+                        }
 
                         if(!decoder->postprocess) {
                                 if (!decoder->merged_fb) {
