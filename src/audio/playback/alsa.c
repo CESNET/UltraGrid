@@ -319,6 +319,7 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
         int rc;
         char *data = frame->data;
+        char *tmp_data = NULL;
         int frames = frame->data_len / (frame->bps * frame->ch_count);
 
 #ifdef DEBUG
@@ -332,9 +333,9 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         }
 
         if((int) s->min_device_channels > frame->ch_count && frame->ch_count == 1) {
-                if(s->frame.data_len * s->min_device_channels < frame->max_size) {
-                        audio_frame_multiply_channel(frame, s->min_device_channels);
-                }
+                tmp_data = (char *) malloc(frame->data_len * s->min_device_channels);
+                copy_channel(tmp_data, frame->data, frame->bps, frame->data_len, s->min_device_channels);
+                data = tmp_data;
         }
     
         rc = snd_pcm_writei(s->handle, data, frames);
@@ -361,6 +362,8 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
         }  else if (rc != (int)frames) {
                 fprintf(stderr, "short write, written %d frames (overrun)\n", rc);
         }
+
+        free(tmp_data);
 }
 
 void audio_play_alsa_done(void *state)
