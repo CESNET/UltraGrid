@@ -388,10 +388,31 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         platform_spin_unlock(&tx->spin);
 }
 
+static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps)
+{
+        unsigned int fpsd, fd, fps, fi;
+        uint32_t tmp;
+
+        tmp = interlacing << 29;
+        fps = round(input_fps);
+        fpsd = 1;
+        if(fabs(input_fps - round(input_fps) / 1.001) < 0.005)
+                fd = 1;
+        else
+                fd = 0;
+        fi = 0;
+
+        tmp |= fps << 19;
+        tmp |= fpsd << 15;
+        tmp |= fd << 14;
+        tmp |= fi << 13;
+        return htonl(tmp);
+}
+
 static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
-                codec_t color_spec, double input_fps,
+                codec_t color_spec, double fps,
                 enum interlacing_t interlacing, unsigned int substream,
                 int fragment_offset)
 {
@@ -399,8 +420,9 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         // see definition in rtp_callback.h
 
         uint32_t hdr_data[100];
-        uint32_t *video_hdr = hdr_data;
-        uint32_t *ldgm_hdr = hdr_data + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
+        uint32_t *ldgm_payload_hdr = hdr_data;
+        uint32_t *video_hdr = ldgm_payload_hdr + 1;
+        uint32_t *ldgm_hdr = video_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
         uint32_t *encryption_hdr;
         int pt = PT_VIDEO;            /* A value specified in our packet format */
         char *data;
@@ -414,7 +436,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 #endif
         long delta;
         uint32_t tmp;
-        unsigned int fps, fpsd, fd, fi;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
@@ -442,36 +463,23 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
-        char *hdr;
-        int hdr_len;
+        char *rtp_hdr;
+        int rtp_hdr_len;
 
         if(tx->encryption) {
-                if(fec_is_ldgm(tx)) {
+                if(!fec_is_ldgm(tx)) {
                         encryption_hdr = hdr_data;
-                        video_hdr = hdr_data + sizeof(aes_video_payload_hdr_t)/sizeof(uint32_t);
-                        ldgm_hdr = hdr_data +
-                                (sizeof(aes_video_payload_hdr_t) + sizeof(ldgm_video_payload_hdr_t))
-                                / sizeof(uint32_t);
-                } else {
-                        encryption_hdr = hdr_data;
+                        tmp = substream << 22;
+                        tmp |= 0x3fffff & tx->buffer;
+                        encryption_hdr[0] = htonl(tmp);
+                        encryption_hdr[2] = htonl(data_to_send_len);
                         video_hdr = hdr_data + sizeof(aes_video_payload_hdr_t)/sizeof(uint32_t);
                         hdrs_len += sizeof(aes_video_payload_hdr_t);
-                }
-                hdrs_len += 4; // CRC
-
-                tmp = substream << 22;
-                tmp |= 0x3fffff & tx->buffer;
-                encryption_hdr[0] = htonl(tmp);
-                encryption_hdr[2] = htonl(data_to_send_len);
-
-                pt = PT_ENCRYPT;
-                hdr = (char *) encryption_hdr;
-                hdr_len = sizeof(aes_video_payload_hdr_t);
-
-                if(!fec_is_ldgm(tx)) {
-                        hdr_len += sizeof(video_payload_hdr_t);
-                } else {
-                        abort();
+                        hdrs_len += 4; // CRC
+                        rtp_hdr = (char *) encryption_hdr;
+                        rtp_hdr_len = sizeof(aes_video_payload_hdr_t);
+                        rtp_hdr_len += sizeof(video_payload_hdr_t);
+                        pt = PT_ENCRYPT;
                 }
         }
 
@@ -483,25 +491,43 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         video_hdr[0] = htonl(tmp);
 
         /* word 6 */
-        tmp = interlacing << 29;
-        fps = round(input_fps);
-        fpsd = 1;
-        if(fabs(input_fps - round(input_fps) / 1.001) < 0.005)
-                fd = 1;
-        else
-                fd = 0;
-        fi = 0;
-
-        tmp |= fps << 19;
-        tmp |= fpsd << 15;
-        tmp |= fd << 14;
-        tmp |= fi << 13;
-        video_hdr[5] = htonl(tmp);
+        video_hdr[5] = format_interl_fps_hdr_row(interlacing, fps);
 
         if(fec_is_ldgm(tx)) {
                 hdrs_len = 40 + (sizeof(ldgm_video_payload_hdr_t));
-                ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_payload_hdr_t),
-                                tile->data, tile->data_len, &data_to_send, &data_to_send_len);
+                char *tmp_data = NULL;
+                char *ldgm_input_data;
+                int ldgm_input_len;
+                if(tx->encryption) {
+                        ldgm_input_len = tile->data_len + sizeof(aes_video_payload_hdr_t) +
+                                        sizeof(uint32_t);
+                        ldgm_input_data = tmp_data = malloc(ldgm_input_len);
+                        char *ciphertext = tmp_data +  sizeof(aes_video_payload_hdr_t);
+                        encryption_hdr = (uint32_t *)(void *) tmp_data;
+                        uint32_t crc = 0xffffffff;
+                        for(int i = 0; i < (int) tile->data_len; i+=16) {
+                                int block_length = 16;
+                                if(tile->data_len - i < 16) block_length = tile->data_len - i;
+                                crc = crc32buf_with_oldcrc(tile->data + i, block_length, crc);
+#ifdef HAVE_CRYPTO
+                                openssl_aes_encrypt_block(tx->encryption,
+                                                (unsigned char *) tile->data + i,
+                                                (unsigned char *) ciphertext + i,
+                                                i == 0 ? (char *) &encryption_hdr[3] : NULL,
+                                                block_length);
+#endif // HAVE_CRYPTO
+                        }
+                        memcpy(tmp_data + tile->data_len + sizeof(aes_video_payload_hdr_t), &crc, sizeof(uint32_t));
+                        ldgm_payload_hdr[0] = ntohl(PT_ENCRYPT);
+                } else {
+                        ldgm_input_data = tile->data;
+                        ldgm_input_len = tile->data_len;
+                        ldgm_payload_hdr[0] = ntohl(PT_VIDEO);
+                }
+                ldgm_encoder_encode(tx->fec_state, (char *) ldgm_payload_hdr,
+                                sizeof(ldgm_payload_hdr_t) + sizeof(video_payload_hdr_t),
+                                ldgm_input_data, ldgm_input_len, &data_to_send, &data_to_send_len);
+                free(tmp_data);
                 tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
@@ -515,11 +541,11 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 pt = PT_VIDEO_LDGM;
 
-                hdr = (char *) ldgm_hdr;
-                hdr_len = sizeof(ldgm_video_payload_hdr_t);
+                rtp_hdr = (char *) ldgm_hdr;
+                rtp_hdr_len = sizeof(ldgm_video_payload_hdr_t);
         } else if(!tx->encryption) {
-                hdr = (char *) video_hdr;
-                hdr_len = sizeof(video_payload_hdr_t);
+                rtp_hdr = (char *) video_hdr;
+                rtp_hdr_len = sizeof(video_payload_hdr_t);
         }
 
         uint32_t *hdr_offset;
@@ -558,7 +584,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                         struct timeval t0, t;
                         gettimeofday(&t0, NULL);
-                        if(tx->encryption) {
+                        if(tx->encryption && tx->fec_scheme != FEC_LDGM) {
                                 for(int i = 0; i < data_len; i+=16) {
                                         int block_length = 16;
                                         if(data_len - i < 16) block_length = data_len - i;
@@ -578,13 +604,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         gettimeofday(&t, NULL);
 
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                  hdr, hdr_len,
+                                  rtp_hdr, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
                         if(m && tx->fec_scheme != FEC_NONE) {
                                 int i;
                                 for(i = 0; i < 5; ++i) {
                                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                                  hdr, hdr_len,
+                                                  rtp_hdr, rtp_hdr_len,
                                                   data, data_len, 0, 0, 0);
                                 }
                         }

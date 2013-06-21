@@ -255,6 +255,7 @@ static void *ldgm_thread(void *args) {
                 decompress_data->buffer_num = calloc(data->substream_count, sizeof(int));
                 memcpy(decompress_data->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
                 memcpy(decompress_data->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
+
                 if (data->pt == PT_VIDEO_LDGM) {
                         if(!fec_state.state || fec_state.k != data->k ||
                                         fec_state.m != data->m ||
@@ -282,19 +283,20 @@ static void *ldgm_thread(void *args) {
                         for (x = 0; x < get_video_mode_tiles_x(decoder->video_mode) ; ++x) {
                                 for (y = 0; y < get_video_mode_tiles_y(decoder->video_mode); ++y) {
                                         int pos = x + get_video_mode_tiles_x(decoder->video_mode) * y;
-                                        char *out_buffer = NULL;
-                                        int out_len = 0;
+                                        char *ldgm_out_buffer = NULL;
+                                        int ldgm_out_len = 0;
 
                                         ldgm_decoder_decode(fec_state.state, data->recv_buffers[pos],
                                                         data->buffer_len[pos],
-                                                        &out_buffer, &out_len, data->pckt_list[pos]);
+                                                        &ldgm_out_buffer, &ldgm_out_len, data->pckt_list[pos]);
 
-                                        if(out_len == 0) {
+                                        if(ldgm_out_len == 0) {
                                                 ret = FALSE;
                                                 fprintf(stderr, "[decoder] LDGM: unable to reconstruct data.\n");
                                                 goto cleanup;
                                         }
-                                        check_for_mode_change(decoder, (uint32_t *)(void *) out_buffer,
+                                        check_for_mode_change(decoder, (uint32_t *)(void *) (ldgm_out_buffer +
+                                                        sizeof(uint32_t)),
                                                         &frame);
 
                                         if(!frame) {
@@ -302,12 +304,56 @@ static void *ldgm_thread(void *args) {
                                                 goto cleanup;
                                         }
 
-                                        out_buffer += sizeof(video_payload_hdr_t);
-                                        out_len -= sizeof(video_payload_hdr_t);
+                                        uint32_t pt;
+                                        memcpy(&pt, ldgm_out_buffer, sizeof(pt));
+                                        pt = htonl(pt);
+                                        assert(pt == PT_VIDEO || pt == PT_ENCRYPT);
+
+                                        ldgm_out_buffer += sizeof(video_payload_hdr_t) + sizeof(uint32_t);
+                                        ldgm_out_len -= sizeof(video_payload_hdr_t) + sizeof(uint32_t);
+
+                                        if(pt == PT_ENCRYPT) {
+                                                uint32_t crc = 0xffffffff;
+                                                int data_len = ldgm_out_len -
+                                                        sizeof(aes_video_payload_hdr_t) - sizeof(uint32_t);
+                                                char *plaintext = malloc(data_len);
+                                                for(int i = 0; i < data_len; i += 16) {
+                                                        int block_length = 16;
+                                                        if(data_len - i < 16) block_length = data_len - i;
+                                                        char *nonce_and_counter = NULL;
+                                                        if(i == 0) {
+                                                                nonce_and_counter = (char *)
+                                                                        ldgm_out_buffer + 3 * 4;
+                                                                ldgm_out_buffer +=
+                                                                        sizeof(aes_video_payload_hdr_t);
+                                                        }
+#ifdef HAVE_CRYPTO
+                                                        openssl_aes_decrypt_block(decoder->decrypt,
+                                                                        (unsigned char *) ldgm_out_buffer + i,
+                                                                        (unsigned char *) plaintext + i,
+                                                                        nonce_and_counter, block_length);
+#endif // HAVE_CRYPTO
+                                                        crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
+                                                }
+                                                uint32_t expected_crc;
+                                                memcpy(&expected_crc, ldgm_out_buffer + data_len, sizeof(expected_crc));
+                                                if(crc != expected_crc) {
+                                                        fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                                        free(plaintext);
+                                                        ret = FALSE; goto cleanup;
+                                                }
+
+                                                free(data->recv_buffers[pos]);
+                                                decompress_data->fec_buffers[pos] = data->recv_buffers[pos] =
+                                                        plaintext;
+
+                                                ldgm_out_len = data_len;
+                                                ldgm_out_buffer = plaintext;
+                                        }
 
                                         if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                                decompress_data->buffer_len[pos] = out_len;
-                                                decompress_data->decompress_buffer[pos] = out_buffer;
+                                                decompress_data->buffer_len[pos] = ldgm_out_len;
+                                                decompress_data->decompress_buffer[pos] = ldgm_out_buffer;
                                         } else { // linedecoder
                                                 wait_for_framebuffer_swap(decoder);
 
@@ -332,9 +378,9 @@ static void *ldgm_thread(void *args) {
                                                         &decoder->line_decoder[pos];
 
                                                 int data_pos = 0;
-                                                char *src = out_buffer;
+                                                char *src = ldgm_out_buffer;
                                                 char *dst = tile->data + line_decoder->base_offset;
-                                                while(data_pos < (int) out_len) {
+                                                while(data_pos < (int) ldgm_out_len) {
                                                         line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, line_decoder->src_linesize,
                                                                         line_decoder->rshift, line_decoder->gshift,
                                                                         line_decoder->bshift);

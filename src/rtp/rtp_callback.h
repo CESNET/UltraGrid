@@ -49,7 +49,7 @@
 #define PT_VIDEO        20
 #define PT_AUDIO        21
 #define PT_VIDEO_LDGM   22
-#define PT_ENCRYPT      23
+#define PT_ENCRYPT      24
 
 /*
  * Video payload
@@ -102,6 +102,8 @@ typedef uint32_t video_payload_hdr_t[6];
  */
 typedef uint32_t audio_payload_hdr_t[5];
 
+typedef uint32_t ldgm_payload_hdr_t;
+
 /*
  * LDGM video payload
  *
@@ -147,3 +149,4 @@ int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
 void process_packet_for_display(char *);
 void call_display_frame(void);
+
