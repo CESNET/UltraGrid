@@ -845,7 +845,7 @@ static void * audio_reading_thread(void *args)
                         }
 
                         max_read = ring_get_size(s->audio_state.data) -
-                                        ring_get_current_size(s->audio_state.data);
+                                        ring_get_current_size(s->audio_state.data) - 1;
 
                 }
                 pthread_mutex_unlock(&s->audio_state.lock);
@@ -1058,11 +1058,11 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                                 }
 
                                 int ret = ring_buffer_read(s->audio_state.data, s->audio_frame.data, requested_bytes);
+
                                 assert(ret == (int) requested_bytes);
                                 s->audio_frame.data_len = requested_bytes;
 
-                                if(s->worker_waiting)
-                                        pthread_cond_signal(&s->worker_cv);
+                                pthread_cond_signal(&s->audio_state.worker_cv);
                         }
                         pthread_mutex_unlock(&s->audio_state.lock);
                 }
