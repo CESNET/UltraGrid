@@ -207,6 +207,19 @@ static void signal_handler(int signal)
         return;
 }
 
+static void crash_signal_handler(int signal)
+{
+        fprintf(stderr, "\n%s has crashed", PACKAGE_NAME);
+#ifndef WIN32
+        fprintf(stderr, " (%s)", strsignal(signal));
+#endif
+        fprintf(stderr, ".\n\nPlease send a bug report to address %s.\n"
+                        , PACKAGE_BUGREPORT);
+        fprintf(stderr, "You may find some tips how to report bugs in file REPORTING-BUGS "
+                        "distributed with %s.\n", PACKAGE_NAME);
+        _Exit(128 + signal);
+}
+
 static void _exit_uv(int status);
 
 static void _exit_uv(int status) {
@@ -1422,7 +1435,8 @@ int main(int argc, char *argv[])
 #ifndef WIN32
         signal(SIGHUP, signal_handler);
 #endif
-        signal(SIGABRT, signal_handler);
+        signal(SIGABRT, crash_signal_handler);
+        signal(SIGSEGV, crash_signal_handler);
 
 #ifdef USE_RT
 #ifdef HAVE_SCHED_SETSCHEDULER
