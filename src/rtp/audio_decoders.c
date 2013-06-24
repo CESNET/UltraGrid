@@ -227,7 +227,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
                         } else {
                                 src = -1;
                         }
-                        if(!isdigit(strchr(item, ':') + 1)) {
+                        if(!isdigit(strchr(item, ':')[1])) {
                                 fprintf(stderr, "Audio destination channel not entered!\n");
                                 return NULL;
                         }
