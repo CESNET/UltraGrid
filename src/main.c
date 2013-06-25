@@ -122,6 +122,7 @@
 #define OPT_IMPORT (('I' << 8) | 'M')
 #define OPT_AUDIO_CODEC (('A' << 8) | 'C')
 #define OPT_CAPTURE_FILTER (('O' << 8) | 'F')
+#define OPT_CONTROL_PORT (('C' << 8) | 'P')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -859,6 +860,7 @@ int main(int argc, char *argv[])
         char *export_opts = NULL;
 
         char *sage_opts = NULL;
+        int control_port = CONTROL_DEFAULT_PORT;
         struct control_state *control = NULL;
 
         int bitrate = 0;
@@ -923,6 +925,7 @@ int main(int argc, char *argv[])
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
+                {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1168,6 +1171,9 @@ int main(int argc, char *argv[])
                 case OPT_CAPTURE_FILTER:
                         requested_capture_filter = optarg;
                         break;
+                case OPT_CONTROL_PORT:
+                        control_port = atoi(optarg);
+                        break;
                 case '?':
                 default:
                         usage();
@@ -1215,7 +1221,7 @@ int main(int argc, char *argv[])
                 audio_rx_port = uv->recv_port_number + 2;
         }
 
-        if(control_init(CONTROL_DEFAULT_PORT, &control, &root_mod) != 0) {
+        if(control_init(control_port, &control, &root_mod) != 0) {
                 fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
         }
 

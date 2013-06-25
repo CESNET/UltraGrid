@@ -74,6 +74,11 @@ struct client {
         struct client *next;
 };
 
+enum connection_type {
+        SERVER,
+        CLIENT
+};
+
 struct control_state {
         struct module mod;
         pthread_t thread_id;
@@ -83,6 +88,8 @@ struct control_state {
 
         set<struct stats *> stats;
         pthread_mutex_t stats_lock;
+
+        enum connection_type connection_type;
 };
 
 #define CONTROL_EXIT -1
@@ -129,8 +136,10 @@ int control_init(int port, struct control_state **state, struct module *root_mod
 
         if(port == -1) {
                 s->network_port = DEFAULT_CONTROL_PORT;
+                s->connection_type = SERVER;
         } else {
                 s->network_port = port;
+                s->connection_type = CLIENT;
         }
 
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, s->local_fd) < 0) {
@@ -303,33 +312,74 @@ static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, in
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
-        int fd;
+        int server_fd;
+        struct client *clients = NULL;
 
-        fd = socket(AF_INET6, SOCK_STREAM, 0);
-        int val = 1;
-        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+        server_fd = socket(AF_INET6, SOCK_STREAM, 0);
+        if(s->connection_type == SERVER) {
+                int val = 1;
+                setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
-        /* setting address to in6addr_any allows connections to be established
-         * from both IPv4 and IPv6 hosts. This behavior can be modified
-         * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
-        struct sockaddr_in6 s_in;
-        s_in.sin6_family = AF_INET6;
-        s_in.sin6_addr = in6addr_any;
-        s_in.sin6_port = htons(s->network_port);
+                /* setting address to in6addr_any allows connections to be established
+                 * from both IPv4 and IPv6 hosts. This behavior can be modified
+                 * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
+                struct sockaddr_in6 s_in;
+                s_in.sin6_family = AF_INET6;
+                s_in.sin6_addr = in6addr_any;
+                s_in.sin6_port = htons(s->network_port);
 
-        bind(fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-        listen(fd, MAX_CLIENTS);
+                bind(server_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                listen(server_fd, MAX_CLIENTS);
+        } else {
+                int connected_fd = socket(AF_INET, SOCK_STREAM, 0);
+                struct addrinfo hints, *res, *res0;
+                int err;
+
+                memset(&hints, 0, sizeof(hints));
+                hints.ai_family = AF_INET;
+                hints.ai_socktype = SOCK_STREAM;
+                char port_str[10];
+                snprintf(port_str, 10, "%d", s->network_port);
+                err = getaddrinfo("127.0.0.1", port_str, &hints, &res0);
+
+                if(err) {
+                        return NULL;
+                        fprintf(stderr, "Unable to get address: %s\n", gai_strerror(err));
+                }
+                bool connected = false;
+
+                for (res = res0; res; res = res->ai_next) {
+                    if(connect(connected_fd, res->ai_addr, res->ai_addrlen) == -1) {
+                        continue;
+                    }
+                    connected = true;
+                    break; /* okay we got one */
+                }
+
+                freeaddrinfo(res0);
+
+                if(!connected) {
+                        fprintf(stderr, "Unable to connect to localhost:%d\n", s->network_port);
+                        return NULL;
+                } else {
+                        struct client *new_client = (struct client *)
+                                malloc(sizeof(struct client));
+                        new_client->fd = connected_fd;
+                        new_client->prev = NULL;
+                        new_client->next = clients;
+                        new_client->buff_len = 0;
+                        clients = new_client;
+                }
+        }
         struct sockaddr_storage client_addr;
         socklen_t len;
 
         errno = 0;
 
-        struct client *clients = NULL;
-
         struct client *new_client = (struct client *) malloc(sizeof(struct client));
         new_client->fd = s->local_fd[1];
         new_client->prev = NULL;
-        new_client->next = NULL;
+        new_client->next = clients;
         new_client->buff_len = 0;
         clients = new_client;
 
@@ -340,10 +390,14 @@ static void * control_thread(void *args)
         gettimeofday(&last_report_sent, NULL);
 
         while(!should_exit) {
+                int max_fd = 0;
+
                 fd_set fds;
                 FD_ZERO(&fds);
-                FD_SET(fd, &fds);
-                int max_fd = fd + 1;
+                if(s->connection_type == SERVER) {
+                        FD_SET(server_fd, &fds);
+                        max_fd = server_fd + 1;
+                }
 
                 struct client *cur = clients;
 
@@ -365,10 +419,10 @@ static void * control_thread(void *args)
                 }
 
                 if(select(max_fd, &fds, NULL, NULL, timeout_ptr) >= 1) {
-                        if(FD_ISSET(fd, &fds)) {
+                        if(s->connection_type == SERVER && FD_ISSET(server_fd, &fds)) {
                                 struct client *new_client = (struct client *)
                                         malloc(sizeof(struct client));
-                                new_client->fd = accept(fd, (struct sockaddr *) &client_addr, &len);
+                                new_client->fd = accept(server_fd, (struct sockaddr *) &client_addr, &len);
                                 new_client->prev = NULL;
                                 new_client->next = clients;
                                 new_client->buff_len = 0;
@@ -470,7 +524,7 @@ static void * control_thread(void *args)
                 free(tmp);
         }
 
-        close(fd);
+        close(server_fd);
 
         return NULL;
 }
