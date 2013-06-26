@@ -102,9 +102,9 @@ loss_t losses[] = {
                 PCT10,
 };
 
-#define JPEG60_SIZE (217 * 1000)
+#define JPEG60_SIZE (144 * 1000)
 #define JPEG80_SIZE (177 * 1000)
-#define JPEG90_SIZE (144 * 1000)
+#define JPEG90_SIZE (217 * 1000)
 
 #define UNCOMPRESSED_SIZE (1920 * 1080 * 2)
 
