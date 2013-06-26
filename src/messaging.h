@@ -77,6 +77,7 @@ struct message *new_message(size_t length);
 void free_message(struct message *m);
 const char *response_status_to_text(int status);
 
+struct message *check_message(struct module *);
 
 #ifdef __cplusplus
 }

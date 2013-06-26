@@ -206,7 +206,7 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
                         msg->media_type = TX_MEDIA_VIDEO;
                         strncpy(msg->fec, fec + 6, sizeof(msg->fec) - 1);
                 } else {
-                        resp = new_response(RESPONSE_NOT_FOUND, NULL);
+                        resp = new_response(RESPONSE_NOT_FOUND, strdup("unknown media type"));
                 }
 
                 if(!resp) {

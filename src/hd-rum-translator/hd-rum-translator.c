@@ -20,6 +20,8 @@
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "module.h"
+#include "stats.h"
+#include "tv.h"
 
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3
@@ -509,11 +511,19 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    struct stats *stat_received = stats_new_statistics(
+            control_state,
+            "received");
+    uint64_t received_data = 0;
+    struct timeval t0, t;
+    gettimeofday(&t0, NULL);
+
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead
                && (state.qtail->size = read(sock_in, state.qtail->buf, SIZE)) > 0
                && !should_exit) {
+            received_data += state.qtail->size;
 
             state.qtail = state.qtail->next;
 
@@ -521,6 +531,12 @@ int main(int argc, char **argv)
             state.qempty = 0;
             pthread_cond_signal(&state.qempty_cond);
             pthread_mutex_unlock(&state.qempty_mtx);
+
+            gettimeofday(&t, NULL);
+            if(tv_diff(t, t0) > 1.0) {
+                stats_update_int(stat_received, received_data);
+                t0 = t;
+            }
         }
 
         if (state.qtail->size <= 0)
@@ -547,6 +563,7 @@ int main(int argc, char **argv)
     pthread_cond_signal(&state.qempty_cond);
     pthread_mutex_unlock(&state.qempty_mtx);
 
+    stats_destroy(stat_received);
     control_done(control_state);
 
     pthread_join(thread, NULL);
