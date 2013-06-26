@@ -24,6 +24,7 @@ NVCC	      = @NVCC@
 DOCS 	      = COPYRIGHT README REPORTING-BUGS
 
 GUI_TARGET    = @GUI_TARGET@
+REFLECTOR_TARGET = bin/hd-rum-transcode
 
 PREFIX = @prefix@
 prefix = $(PREFIX)
@@ -150,7 +151,7 @@ LIB_COMMON = \
 
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard bin/hd-rum-transcode modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
@@ -161,9 +162,9 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 bin/import_control_keyboard: src/import_control_keyboard.o
 	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
-bin/hd-rum-transcode: $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
+$(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSLATOR_OBJS) $(LIBS) -o bin/hd-rum-transcode
+	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSLATOR_OBJS) $(LIBS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
@@ -420,7 +421,7 @@ clean:
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
-	-rm -rf $(HD_RUM_TRANSCODE_OBJS)
+	-rm -rf $(REFLECTOR_TARGET) $(HD_RUM_TRANSCODE_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
@@ -638,6 +639,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
+	$(INSTALL) -m 755 $(REFLECTOR_TARGET) $(DESTDIR)/$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then $(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)/$(bindir); fi
 	if [ -n "@LIB_TARGETS@" ]; then\
 		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/ultragrid;\
@@ -650,6 +652,7 @@ install: all
 
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv
+	$(RM) $(DESTDIR)/$(bindir)/hd-rum-transcode
 	if [ -n "@LIB_TARGETS@" ]; then for n in @LIB_TARGETS@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
