@@ -224,6 +224,9 @@ static void _exit_uv(int status) {
                 }
                 if(uv_state->audio)
                         audio_finish(uv_state->audio);
+                if(uv_state->tx_protocol == SAGE && uv_state->sage_tx_device) {
+                        display_finish(uv_state->sage_tx_device);
+                }
         }
         wait_to_finish = FALSE;
 }
@@ -1532,9 +1535,6 @@ cleanup_wait_display:
                 pthread_join(receiver_thread_id, NULL);
 
 cleanup_wait_capture:
-        if(uv->tx_protocol == SAGE && uv->sage_tx_device) {
-                display_finish(uv->sage_tx_device);
-        }
         if (strcmp("none", uv->requested_capture) != 0 &&
                          tx_thread_started)
                 pthread_join(tx_thread_id, NULL);

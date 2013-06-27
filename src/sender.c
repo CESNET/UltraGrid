@@ -308,6 +308,8 @@ static void *sender_thread(void *arg) {
                                                         data->network_devices[i]);
                                 }
                         }
+                        stats_update_int(stat_data_sent,
+                                        rtp_get_bcount(data->network_devices[0]));
                 } else { // SAGE
                         if(!video_desc_eq(saved_vid_desc,
                                                 video_desc_from_frame(tx_frame))) {
@@ -317,13 +319,14 @@ static void *sender_thread(void *arg) {
                         }
                         struct video_frame *frame =
                                 display_get_frame(data->sage_tx_device);
-                        memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
-                                        tx_frame->tiles[0].data_len);
-                        display_put_frame(data->sage_tx_device, frame, 0);
+                        if(frame) {
+                                memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
+                                                tx_frame->tiles[0].data_len);
+                                display_put_frame(data->sage_tx_device, frame, 0);
+                        } else {
+                                fprintf(stderr, "Warning: SAGE - no frame received!\n");
+                        }
                 }
-
-                stats_update_int(stat_data_sent,
-                                rtp_get_bcount(data->network_devices[0]));
 
                 pthread_mutex_lock(&data->priv->lock);
 
