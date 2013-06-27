@@ -122,6 +122,7 @@ void openssl_aes_encrypt_block(struct openssl_aes_encrypt *s, unsigned char *pla
                                         s->ecount, &s->num);
                         break;
                 case MODE_ECB:
+                        assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(plaintext, ciphertext,
                                         &s->key, AES_ENCRYPT);
                         break;
