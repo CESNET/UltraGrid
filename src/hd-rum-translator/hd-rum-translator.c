@@ -183,7 +183,7 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
         exit(2);
     }
 
-    inet_ntop(AF_INET, &((struct sockaddr_in *) res->ai_addr)->sin_addr,
+    inet_ntop(AF_INET, &((struct sockaddr_in *)(void *) res->ai_addr)->sin_addr,
               saddr, sizeof(saddr));
     printf("connecting to %s (%s) port %d\n",
            res->ai_canonname, saddr, port);
@@ -504,6 +504,9 @@ int main(int argc, char **argv)
 
     if(control_init(control_port, &control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
+        if(control_port != CONTROL_DEFAULT_PORT) {
+            return EXIT_FAILURE;
+        }
     }
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {

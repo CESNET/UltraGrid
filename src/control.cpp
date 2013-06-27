@@ -90,6 +90,8 @@ struct control_state {
         pthread_mutex_t stats_lock;
 
         enum connection_type connection_type;
+
+        int socket_fd;
 };
 
 #define CONTROL_EXIT -1
@@ -140,6 +142,55 @@ int control_init(int port, struct control_state **state, struct module *root_mod
         } else {
                 s->network_port = port;
                 s->connection_type = CLIENT;
+        }
+
+        if(s->connection_type == SERVER) {
+                s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
+                int val = 1;
+                setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+
+                /* setting address to in6addr_any allows connections to be established
+                 * from both IPv4 and IPv6 hosts. This behavior can be modified
+                 * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
+                struct sockaddr_in6 s_in;
+                s_in.sin6_family = AF_INET6;
+                s_in.sin6_addr = in6addr_any;
+                s_in.sin6_port = htons(s->network_port);
+
+                bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                listen(s->socket_fd, MAX_CLIENTS);
+        } else {
+                s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+                struct addrinfo hints, *res, *res0;
+                int err;
+
+                memset(&hints, 0, sizeof(hints));
+                hints.ai_family = AF_INET;
+                hints.ai_socktype = SOCK_STREAM;
+                char port_str[10];
+                snprintf(port_str, 10, "%d", s->network_port);
+                err = getaddrinfo("127.0.0.1", port_str, &hints, &res0);
+
+                if(err) {
+                        return -1;
+                        fprintf(stderr, "Unable to get address: %s\n", gai_strerror(err));
+                }
+                bool connected = false;
+
+                for (res = res0; res; res = res->ai_next) {
+                    if(connect(s->socket_fd, res->ai_addr, res->ai_addrlen) == -1) {
+                        continue;
+                    }
+                    connected = true;
+                    break; /* okay we got one */
+                }
+
+                freeaddrinfo(res0);
+
+                if(!connected) {
+                        fprintf(stderr, "Unable to connect to localhost:%d\n", s->network_port);
+                        return -1;
+                }
         }
 
         if (socketpair(AF_UNIX, SOCK_STREAM, 0, s->local_fd) < 0) {
@@ -312,64 +363,16 @@ static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, in
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
-        int server_fd;
         struct client *clients = NULL;
 
-        server_fd = socket(AF_INET6, SOCK_STREAM, 0);
-        if(s->connection_type == SERVER) {
-                int val = 1;
-                setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-
-                /* setting address to in6addr_any allows connections to be established
-                 * from both IPv4 and IPv6 hosts. This behavior can be modified
-                 * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
-                struct sockaddr_in6 s_in;
-                s_in.sin6_family = AF_INET6;
-                s_in.sin6_addr = in6addr_any;
-                s_in.sin6_port = htons(s->network_port);
-
-                bind(server_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
-                listen(server_fd, MAX_CLIENTS);
-        } else {
-                int connected_fd = socket(AF_INET, SOCK_STREAM, 0);
-                struct addrinfo hints, *res, *res0;
-                int err;
-
-                memset(&hints, 0, sizeof(hints));
-                hints.ai_family = AF_INET;
-                hints.ai_socktype = SOCK_STREAM;
-                char port_str[10];
-                snprintf(port_str, 10, "%d", s->network_port);
-                err = getaddrinfo("127.0.0.1", port_str, &hints, &res0);
-
-                if(err) {
-                        return NULL;
-                        fprintf(stderr, "Unable to get address: %s\n", gai_strerror(err));
-                }
-                bool connected = false;
-
-                for (res = res0; res; res = res->ai_next) {
-                    if(connect(connected_fd, res->ai_addr, res->ai_addrlen) == -1) {
-                        continue;
-                    }
-                    connected = true;
-                    break; /* okay we got one */
-                }
-
-                freeaddrinfo(res0);
-
-                if(!connected) {
-                        fprintf(stderr, "Unable to connect to localhost:%d\n", s->network_port);
-                        return NULL;
-                } else {
-                        struct client *new_client = (struct client *)
-                                malloc(sizeof(struct client));
-                        new_client->fd = connected_fd;
-                        new_client->prev = NULL;
-                        new_client->next = clients;
-                        new_client->buff_len = 0;
-                        clients = new_client;
-                }
+        if(s->connection_type == CLIENT) {
+                struct client *new_client = (struct client *)
+                        malloc(sizeof(struct client));
+                new_client->fd = s->socket_fd;
+                new_client->prev = NULL;
+                new_client->next = clients;
+                new_client->buff_len = 0;
+                clients = new_client;
         }
         struct sockaddr_storage client_addr;
         socklen_t len;
@@ -395,8 +398,8 @@ static void * control_thread(void *args)
                 fd_set fds;
                 FD_ZERO(&fds);
                 if(s->connection_type == SERVER) {
-                        FD_SET(server_fd, &fds);
-                        max_fd = server_fd + 1;
+                        FD_SET(s->socket_fd, &fds);
+                        max_fd = s->socket_fd + 1;
                 }
 
                 struct client *cur = clients;
@@ -419,10 +422,10 @@ static void * control_thread(void *args)
                 }
 
                 if(select(max_fd, &fds, NULL, NULL, timeout_ptr) >= 1) {
-                        if(s->connection_type == SERVER && FD_ISSET(server_fd, &fds)) {
+                        if(s->connection_type == SERVER && FD_ISSET(s->socket_fd, &fds)) {
                                 struct client *new_client = (struct client *)
                                         malloc(sizeof(struct client));
-                                new_client->fd = accept(server_fd, (struct sockaddr *) &client_addr, &len);
+                                new_client->fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
                                 new_client->prev = NULL;
                                 new_client->next = clients;
                                 new_client->buff_len = 0;
@@ -524,7 +527,7 @@ static void * control_thread(void *args)
                 free(tmp);
         }
 
-        close(server_fd);
+        close(s->local_fd[1]);
 
         return NULL;
 }
@@ -542,6 +545,11 @@ void control_done(struct control_state *s)
         pthread_join(s->thread_id, NULL);
 
         close(s->local_fd[0]);
+        if(s->connection_type == SERVER) {
+                // for client, the socket has already been closed
+                // by the time of control_thread exit
+                close(s->socket_fd);
+        }
 
         pthread_mutex_destroy(&s->stats_lock);
 

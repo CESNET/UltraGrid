@@ -534,7 +534,6 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
-        struct stats *stat_loss = NULL;
 #ifdef SHARED_DECODER
         struct vcodec_state *shared_decoder = new_decoder(uv);
         if(shared_decoder == NULL) {
@@ -551,10 +550,14 @@ static void *receiver_thread(void *arg)
         fr = 1;
 
         struct module *control_mod = get_module(get_root_module(uv->root_module), "control");
-        stat_loss = stats_new_statistics(
+        unlock_module(control_mod);
+        struct stats *stat_loss = stats_new_statistics(
                         (struct control_state *) control_mod,
                         "loss");
-        unlock_module(control_mod);
+        struct stats *stat_received = stats_new_statistics(
+                        (struct control_state *) control_mod,
+                        "received");
+        uint64_t total_received = 0ull;
 
         while (!should_exit_receiver) {
                 /* Housekeeping and RTCP... */
@@ -580,7 +583,8 @@ static void *receiver_thread(void *arg)
                    printf("Failed to receive data\n");
                    }
                  */
-                UNUSED(ret);
+                total_received += ret;
+                stats_update_int(stat_received, total_received);
 
                 /* Decode and render for each participant in the conference... */
                 pdb_iter_t it;
@@ -695,6 +699,7 @@ static void *receiver_thread(void *arg)
         display_finish(uv_state->display_device);
 
         stats_destroy(stat_loss);
+        stats_destroy(stat_received);
 
         return 0;
 }
@@ -1222,7 +1227,11 @@ int main(int argc, char *argv[])
         }
 
         if(control_init(control_port, &control, &root_mod) != 0) {
-                fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
+                fprintf(stderr, "%s Unable to initialize remote control!\n",
+                                control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
+                if(control_port != CONTROL_DEFAULT_PORT) {
+                        return EXIT_FAILURE;
+                }
         }
 
         if(should_export) {

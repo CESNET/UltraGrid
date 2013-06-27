@@ -327,7 +327,7 @@ static void *sender_thread(void *arg) {
                 }
 
                 stats_update_int(stat_data_sent,
-                                rtp_get_bcount(data->network_devices[0]));
+                                rtp_get_bytes_sent(data->network_devices[0]));
 
                 pthread_mutex_lock(&data->priv->lock);
 
