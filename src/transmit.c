@@ -62,6 +62,8 @@
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
+#include "messaging.h"
+#include "module.h"
 #include "rtp/ldgm.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
@@ -69,6 +71,7 @@
 #include "transmit.h"
 #include "host.h"
 #include "video_codec.h"
+#include "compat/platform_spin.h"
 #include "compat/platform_time.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
@@ -100,6 +103,7 @@ enum fec_scheme_t {
 
 static bool fec_is_ldgm(struct tx *tx);
 static void tx_update(struct tx *tx, struct tile *tile);
+static void tx_done(struct module *tx);
 
 static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
@@ -108,8 +112,15 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 enum interlacing_t interlacing, unsigned int substream,
                 int fragment_offset);
 
+
+static struct response *fec_change_callback(struct module *mod, struct message *msg);
+static bool set_fec(struct tx *tx, const char *fec);
+
 struct tx {
+        struct module mod;
+
         uint32_t magic;
+        enum tx_media_type media_type;
         unsigned mtu;
         double max_loss;
 
@@ -126,6 +137,9 @@ struct tx {
         int mult_count;
 
         int last_fragment;
+
+        void *messaging_subscription;
+        platform_spin_t spin;
 };
 
 static bool fec_is_ldgm(struct tx *tx)
@@ -166,13 +180,20 @@ static void tx_update(struct tx *tx, struct tile *tile)
         }
 }
 
-struct tx *tx_init(unsigned mtu, char *fec)
+struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type, char *fec)
 {
         struct tx *tx;
 
         tx = (struct tx *)malloc(sizeof(struct tx));
         if (tx != NULL) {
+                module_init_default(&tx->mod);
+                tx->mod.cls = MODULE_CLASS_TX;
+                tx->mod.msg_callback = fec_change_callback;
+                tx->mod.priv_data = tx;
+                tx->mod.deleter = tx_done;
+
                 tx->magic = TRANSMIT_MAGIC;
+                tx->media_type = media_type;
                 tx->mult_count = 0;
                 tx->max_loss = 0.0;
                 tx->fec_state = NULL;
@@ -182,46 +203,95 @@ struct tx *tx_init(unsigned mtu, char *fec)
                 tx->fec_scheme = FEC_NONE;
                 tx->last_frame_fragment_id = -1;
                 if (fec) {
-			char *fec_cfg = NULL;
-			if(strchr(fec, ':')) {
-				char *delim = strchr(fec, ':');
-				*delim = '\0';
-				fec_cfg = delim + 1;
-			}
-
-                        if(strcasecmp(fec, "none") == 0) {
-                                tx->fec_scheme = FEC_NONE;
-                        } else if(strcasecmp(fec, "mult") == 0) {
-                                tx->fec_scheme = FEC_MULT;
-                                assert(fec_cfg);
-                                tx->mult_count = (unsigned int) atoi(fec_cfg);
-                                assert(tx->mult_count <= FEC_MAX_MULT);
-                        } else if(strcasecmp(fec, "LDGM") == 0) {
-                                tx->fec_scheme = FEC_LDGM;
-                                if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
-                                        tx->fec_state = ldgm_encoder_init_with_cfg(fec_cfg);
-                                        if(tx->fec_state == NULL) {
-                                                fprintf(stderr, "Unable to initialize LDGM.\n");
-                                                free(tx);
-                                                return NULL;
-                                        }
-                                } else { // delay creation until we have avarage frame size
-                                        tx->max_loss = atof(fec_cfg);
-                                }
-                        } else {
-                                fprintf(stderr, "Unknown FEC: %s\n", fec);
+                        if(!set_fec(tx, fec)) {
                                 free(tx);
                                 return NULL;
                         }
                 }
+                platform_spin_init(&tx->spin);
+
+                module_register(&tx->mod, parent);
         }
         return tx;
 }
 
-void tx_done(struct tx *tx)
+static struct response *fec_change_callback(struct module *mod, struct message *msg)
 {
+        struct tx *tx = (struct tx *) mod->priv_data;
+
+        struct msg_change_fec_data *data = (struct msg_change_fec_data *) msg;
+        struct response *response;
+
+        if(tx->media_type != data->media_type)
+                return NULL;
+
+        platform_spin_lock(&tx->spin);
+        void *old_fec_state = tx->fec_state;
+        tx->fec_state = NULL;
+        if(set_fec(tx, data->fec)) {
+                ldgm_encoder_destroy(old_fec_state);
+                response = new_response(RESPONSE_OK, NULL);
+        } else {
+                tx->fec_state = old_fec_state;
+                response = new_response(RESPONSE_BAD_REQUEST, NULL);
+        }
+        platform_spin_unlock(&tx->spin);
+
+        free_message(msg);
+
+        return response;
+}
+
+static bool set_fec(struct tx *tx, const char *fec_const)
+{
+        char *fec = strdup(fec_const);
+        bool ret = true;
+
+        char *fec_cfg = NULL;
+        if(strchr(fec, ':')) {
+                char *delim = strchr(fec, ':');
+                *delim = '\0';
+                fec_cfg = delim + 1;
+        }
+
+        if(strcasecmp(fec, "none") == 0) {
+                tx->fec_scheme = FEC_NONE;
+        } else if(strcasecmp(fec, "mult") == 0) {
+                tx->fec_scheme = FEC_MULT;
+                assert(fec_cfg);
+                tx->mult_count = (unsigned int) atoi(fec_cfg);
+                assert(tx->mult_count <= FEC_MAX_MULT);
+        } else if(strcasecmp(fec, "LDGM") == 0) {
+                if(tx->media_type == TX_MEDIA_AUDIO) {
+                        fprintf(stderr, "LDGM is not currently supported for audio!\n");
+                        ret = false;
+                } else {
+                        if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
+                                tx->fec_state = ldgm_encoder_init_with_cfg(fec_cfg);
+                                if(tx->fec_state == NULL) {
+                                        fprintf(stderr, "Unable to initialize LDGM.\n");
+                                        ret = false;
+                                }
+                        } else { // delay creation until we have avarage frame size
+                                tx->max_loss = atof(fec_cfg);
+                        }
+                        tx->fec_scheme = FEC_LDGM;
+                }
+        } else {
+                fprintf(stderr, "Unknown FEC: %s\n", fec);
+                ret = false;
+        }
+
+        free(fec);
+        return ret;
+}
+
+static void tx_done(struct module *mod)
+{
+        struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
         ldgm_encoder_destroy(tx->fec_state);
+        pthread_spin_destroy(&tx->spin);
         free(tx);
 }
 
@@ -236,6 +306,8 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
 
         assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
         assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
+
+        platform_spin_lock(&tx->spin);
 
         ts = get_local_mediatime();
         if(frame->fragment &&
@@ -263,6 +335,7 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                                 i, fragment_offset);
                 tx->buffer ++;
         }
+        platform_spin_unlock(&tx->spin);
 }
 
 
@@ -277,6 +350,8 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
         assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
         
+        platform_spin_lock(&tx->spin);
+
         tile = vf_get_tile(frame, pos);
         ts = get_local_mediatime();
         if(frame->fragment &&
@@ -293,6 +368,8 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         tx_send_base(tx, tile, rtp_session, ts, last, frame->color_spec, frame->fps, frame->interlacing, pos,
                         fragment_offset);
         tx->buffer ++;
+
+        platform_spin_unlock(&tx->spin);
 }
 
 static void
@@ -487,12 +564,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
-        
-        if(fec_is_ldgm(tx)) {
-                fprintf(stderr, "LDGM is not currently supported for audio! "
-                                "Exitting...\n");
-                exit_uv(129);
-        }
+
+        platform_spin_lock(&tx->spin);
 
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
@@ -574,4 +647,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
         }
 
         tx->buffer ++;
+
+        platform_spin_unlock(&tx->spin);
 }

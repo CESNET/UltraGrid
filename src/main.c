@@ -62,13 +62,18 @@
 #include <getopt.h>
 #include <pthread.h>
 #include "capture_filter.h"
+#include "control.h"
 #include "debug.h"
 #include "host.h"
+#include "messaging.h"
+#include "module.h"
 #include "perf.h"
 #include "rtp/decoders.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
+#include "sender.h"
+#include "stats.h"
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -124,12 +129,6 @@
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
 #endif
 
-enum tx_protocol {
-        ULTRAGRID_RTP,
-        IHDTV,
-        SAGE
-};
-
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -162,15 +161,6 @@ struct state_uv {
         /* used mainly to serialize initialization */
         pthread_mutex_t master_lock;
 
-        volatile unsigned int has_item_to_send:1;
-        volatile unsigned int sender_waiting:1;
-        volatile unsigned int compress_thread_waiting:1;
-        volatile unsigned int should_exit_sender:1;
-        pthread_mutex_t sender_lock;
-        pthread_cond_t compress_thread_cv;
-        pthread_cond_t sender_cv;
-
-        struct video_frame * volatile tx_frame;
         struct video_export *video_exporter;
 };
 
@@ -195,10 +185,10 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base,
 
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
-static void sender_finish(struct state_uv *uv);
 static void display_buf_increase_warning(int size);
 static bool enable_export(char *dir);
 static void remove_display_from_decoders(struct state_uv *uv);
+static void init_root_module(struct module *mod, struct state_uv *uv);
 
 static void signal_handler(int signal)
 {
@@ -461,11 +451,11 @@ static void destroy_devices(struct rtp ** network_devices)
 	free(network_devices);
 }
 
-static struct tx *initialize_transmit(unsigned requested_mtu, char *fec)
+static struct tx *initialize_transmit(struct module *parent, unsigned requested_mtu, char *fec)
 {
         /* Currently this is trivial. It'll get more complex once we */
         /* have multiple codecs and/or error correction.             */
-        return tx_init(requested_mtu, fec);
+        return tx_init(parent, requested_mtu, TX_MEDIA_VIDEO, fec);
 }
 
 #ifdef HAVE_IHDTV
@@ -554,6 +544,7 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
+        struct stats *stat_loss = NULL;
 #ifdef SHARED_DECODER
         struct vcodec_state *shared_decoder = new_decoder(uv);
         if(shared_decoder == NULL) {
@@ -563,12 +554,13 @@ static void *receiver_thread(void *arg)
         }
 #endif // SHARED_DECODER
 
-
         initialize_video_decompress();
 
         pthread_mutex_unlock(&uv->master_lock);
 
         fr = 1;
+
+        stat_loss = stats_new_statistics("loss");
 
         while (!should_exit_receiver) {
                 /* Housekeeping and RTCP... */
@@ -639,6 +631,10 @@ static void *receiver_thread(void *arg)
 #endif
                                 }
                                 last_tile_received = uv->curr_time;
+                                uint32_t sender_ssrc = cp->ssrc;
+                                stats_update_int(stat_loss,
+                                                rtp_compute_fract_lost(uv->network_devices[0],
+                                                        sender_ssrc));
                         }
 
                         /* dual-link TIMEOUT - we won't wait for next tiles */
@@ -704,134 +700,53 @@ static void *receiver_thread(void *arg)
 
         display_finish(uv_state->display_device);
 
+        stats_destroy(stat_loss);
+
         return 0;
-}
-
-static void sender_finish(struct state_uv *uv) {
-        pthread_mutex_lock(&uv->sender_lock);
-
-        uv->should_exit_sender = TRUE;
-
-        if(uv->sender_waiting) {
-                uv->has_item_to_send = TRUE;
-                pthread_cond_signal(&uv->sender_cv);
-        }
-
-        pthread_mutex_unlock(&uv->sender_lock);
-
-}
-
-static void *sender_thread(void *arg) {
-        struct state_uv *uv = (struct state_uv *)arg;
-        struct video_frame *splitted_frames = NULL;
-        int tile_y_count;
-        struct video_desc saved_vid_desc;
-
-        tile_y_count = uv->connections_count;
-        memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
-
-        /* we have more than one connection */
-        if(tile_y_count > 1) {
-                /* it is simply stripping frame */
-                splitted_frames = vf_alloc(tile_y_count);
-        }
-
-        while(!uv->should_exit_sender) {
-                pthread_mutex_lock(&uv->sender_lock);
-
-                while(!uv->has_item_to_send && !uv->should_exit_sender) {
-                        uv->sender_waiting = TRUE;
-                        pthread_cond_wait(&uv->sender_cv, &uv->sender_lock);
-                        uv->sender_waiting = FALSE;
-                }
-                struct video_frame *tx_frame = uv->tx_frame;
-
-                if(uv->should_exit_sender) {
-                        uv->has_item_to_send = FALSE;
-                        pthread_mutex_unlock(&uv->sender_lock);
-                        goto exit;
-                }
-
-                pthread_mutex_unlock(&uv->sender_lock);
-
-                if(uv->tx_protocol == ULTRAGRID_RTP) {
-                        if(uv->connections_count == 1) { /* normal case - only one connection */
-                                tx_send(uv->tx, tx_frame,
-                                                uv->network_devices[0]);
-                        } else { /* split */
-                                int i;
-
-                                //assert(frame_count == 1);
-                                vf_split_horizontal(splitted_frames, tx_frame,
-                                                tile_y_count);
-                                for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send_tile(uv->tx, splitted_frames, i,
-                                                        uv->network_devices[i]);
-                                }
-                        }
-                } else { // SAGE
-                        if(!video_desc_eq(saved_vid_desc,
-                                                video_desc_from_frame(tx_frame))) {
-                                display_reconfigure(uv->sage_tx_device,
-                                                video_desc_from_frame(tx_frame));
-                                saved_vid_desc = video_desc_from_frame(tx_frame);
-                        }
-                        struct video_frame *frame =
-                                display_get_frame(uv->sage_tx_device);
-                        memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
-                                        tx_frame->tiles[0].data_len);
-                        display_put_frame(uv->sage_tx_device, frame, 0);
-                }
-
-                pthread_mutex_lock(&uv->sender_lock);
-
-                uv->has_item_to_send = FALSE;
-
-                if(uv->compress_thread_waiting) {
-                        pthread_cond_signal(&uv->compress_thread_cv);
-                }
-                pthread_mutex_unlock(&uv->sender_lock);
-        }
-
-exit:
-        vf_free(splitted_frames);
-
-
-
-        return NULL;
 }
 
 static void *compress_thread(void *arg)
 {
-        struct state_uv *uv = (struct state_uv *)arg;
+        struct module *uv_mod = (struct module *)arg;
+        struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
+        struct sender_data sender_data;
 
         struct video_frame *tx_frame;
         struct audio_frame *audio;
         //struct video_frame *splitted_frames = NULL;
-        pthread_t sender_thread_id;
         int i = 0;
 
-        struct compress_state *compression; 
-        int ret = compress_init(uv->requested_compression, &compression);
-        
-        pthread_mutex_unlock(&uv->master_lock);
-        /* NOTE: unlock before propagating possible error */
-        if(ret < 0) {
-                fprintf(stderr, "Error initializing compression.\n");
-                exit_uv(0);
-                goto compress_done;
+        struct compress_state *compression;
+        int ret = compress_init(uv_mod, uv->requested_compression, &compression);
+
+        sender_data.parent = uv_mod; /// @todo should be compress thread module
+        sender_data.connections_count = uv->connections_count;
+        sender_data.tx_protocol = uv->tx_protocol;
+        if(uv->tx_protocol == ULTRAGRID_RTP) {
+                sender_data.network_devices = uv->network_devices;
+        } else {
+                sender_data.sage_tx_device = uv->sage_tx_device;
         }
-        if(ret > 0) {
-                exit_uv(0);
+        sender_data.tx = uv->tx;
+
+        if(!sender_init(&sender_data)) {
+                fprintf(stderr, "Error initializing sender.\n");
+                exit_uv(1);
+                pthread_mutex_unlock(&uv->master_lock);
                 goto compress_done;
         }
 
-        if (pthread_create
-            (&sender_thread_id, NULL, sender_thread,
-             (void *)uv) != 0) {
-                perror("Unable to create sender thread!\n");
-                exit_uv(EXIT_FAILURE);
-                goto join_thread;
+        pthread_mutex_unlock(&uv->master_lock);
+        /* NOTE: unlock before propagating possible error */
+        if(ret != 0) {
+                if(ret < 0) {
+                        fprintf(stderr, "Error initializing compression.\n");
+                        exit_uv(1);
+                }
+                if(ret > 0) {
+                        exit_uv(0);
+                }
+                goto compress_done;
         }
 
         while (!should_exit_sender) {
@@ -854,55 +769,24 @@ static void *compress_thread(void *arg)
 
                         video_export(uv->video_exporter, tx_frame);
 
-
+                        bool nonblock = true;
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
+                        /* for compressed, we do not need to wait */
                         if(is_compress_none(compression)) {
-                                pthread_mutex_lock(&uv->sender_lock);
-
-                                uv->tx_frame = tx_frame;
-
-                                uv->has_item_to_send = TRUE;
-                                if(uv->sender_waiting) {
-                                        pthread_cond_signal(&uv->sender_cv);
-                                }
-
-                                while(uv->has_item_to_send) {
-                                        uv->compress_thread_waiting = TRUE;
-                                        pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
-                                        uv->compress_thread_waiting = FALSE;
-                                }
-                                pthread_mutex_unlock(&uv->sender_lock);
-                        }  else
-                        /* we post for sending (after previous frame is done) and schedule a new one
-                         * frames may overlap then */
-                        {
-                                pthread_mutex_lock(&uv->sender_lock);
-                                while(uv->has_item_to_send) {
-                                        uv->compress_thread_waiting = TRUE;
-                                        pthread_cond_wait(&uv->compress_thread_cv, &uv->sender_lock);
-                                        uv->compress_thread_waiting = FALSE;
-                                }
-
-                                uv->tx_frame = tx_frame;
-
-                                uv->has_item_to_send = TRUE;
-                                if(uv->sender_waiting) {
-                                        pthread_cond_signal(&uv->sender_cv);
-                                }
-                                pthread_mutex_unlock(&uv->sender_lock);
+                                nonblock = false;
                         }
+
+                        sender_post_new_frame(&sender_data, tx_frame, nonblock);
                 }
         }
 
-join_thread:
-        sender_finish(uv);
-        pthread_join(sender_thread_id, NULL);
+        vidcap_finish(uv_state->capture_device);
+
+        sender_done(&sender_data);
 
 compress_done:
-        compress_done(compression);
-
-        vidcap_finish(uv_state->capture_device);
+        module_done(CAST_MODULE(compression));
 
         return NULL;
 }
@@ -949,6 +833,15 @@ static bool enable_export(char *dir)
         }
 }
 
+static void init_root_module(struct module *mod, struct state_uv *uv)
+{
+        module_init_default(mod);
+        mod->cls = MODULE_CLASS_ROOT;
+        mod->parent = NULL;
+        mod->deleter = NULL;
+        mod->priv_data = uv;
+}
+
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
@@ -973,12 +866,14 @@ int main(int argc, char *argv[])
         char *export_opts = NULL;
 
         char *sage_opts = NULL;
+        struct control_state *control = NULL;
 
         int bitrate = 0;
         
         char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
 
+        struct module root_mod;
         struct state_uv *uv;
         int ch;
 
@@ -1063,15 +958,9 @@ int main(int argc, char *argv[])
                 PORT_BASE;
         uv->sage_tx_device = NULL;
 
-        pthread_mutex_init(&uv->master_lock, NULL);
+        init_root_module(&root_mod, uv);
 
-        uv->has_item_to_send = FALSE;
-        uv->sender_waiting = FALSE;
-        uv->compress_thread_waiting = FALSE;
-        uv->should_exit_sender = FALSE;
-        pthread_mutex_init(&uv->sender_lock, NULL);
-        pthread_cond_init(&uv->compress_thread_cv, NULL);
-        pthread_cond_init(&uv->sender_cv, NULL);
+        pthread_mutex_init(&uv->master_lock, NULL);
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -1223,10 +1112,10 @@ int main(int argc, char *argv[])
 #ifdef HAVE_CUDA
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression; 
-                                int ret = compress_init("JPEG:list_devices", &compression);
+                                int ret = compress_init(&root_mod, "JPEG:list_devices", &compression);
                                 if(ret >= 0) {
                                         if(ret == 0) {
-                                                compress_done(compression);
+                                                module_done(CAST_MODULE(compression));
                                         }
                                         return EXIT_SUCCESS;
                                 } else {
@@ -1386,7 +1275,7 @@ int main(int argc, char *argv[])
         if(!audio_host) {
                 audio_host = network_device;
         }
-        uv->audio = audio_cfg_init (audio_host, audio_rx_port,
+        uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, audio_channel_map,
                         audio_scale, echo_cancellation, use_ipv6, mcast_if,
@@ -1552,7 +1441,8 @@ int main(int argc, char *argv[])
                         packet_rate = 0;
                 }
 
-                if ((uv->tx = initialize_transmit(uv->requested_mtu, requested_video_fec)) == NULL) {
+                if ((uv->tx = initialize_transmit(&root_mod,
+                                                uv->requested_mtu, requested_video_fec)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup_wait_display;
@@ -1583,11 +1473,11 @@ int main(int argc, char *argv[])
                 /* following block only shows help (otherwise initialized in sender thread */
                 if(strstr(uv->requested_compression,"help") != NULL) {
                         struct compress_state *compression;
-                        int ret = compress_init(uv->requested_compression, &compression);
+                        int ret = compress_init(&root_mod, uv->requested_compression, &compression);
 
                         if(ret >= 0) {
                                 if(ret == 0)
-                                        compress_done(compression);
+                                        module_done(CAST_MODULE(compression));
                                 exit_uv(EXIT_SUCCESS);
                         } else {
                                 exit_uv(EXIT_FAILURE);
@@ -1612,7 +1502,7 @@ int main(int argc, char *argv[])
                         pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&tx_thread_id, NULL, compress_thread,
-                             (void *)uv) != 0) {
+                             (void *) &root_mod) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
                                 goto cleanup_wait_capture;
@@ -1623,6 +1513,10 @@ int main(int argc, char *argv[])
         }
         
         pthread_mutex_lock(&uv->master_lock); 
+
+        if(control_init(CONTROL_DEFAULT_PORT, &control, &root_mod) != 0) {
+                fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
+        }
 
         if(audio_get_display_flags(uv->audio)) {
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
@@ -1659,7 +1553,7 @@ cleanup:
         if(uv->audio)
                 audio_done(uv->audio);
         if(uv->tx)
-                tx_done(uv->tx);
+                module_done(CAST_MODULE(uv->tx));
 	if(uv->tx_protocol == ULTRAGRID_RTP && uv->network_devices)
                 destroy_devices(uv->network_devices);
         if(uv->capture_device)
@@ -1681,10 +1575,6 @@ cleanup:
 
         video_export_destroy(uv->video_exporter);
 
-        pthread_mutex_destroy(&uv->sender_lock);
-        pthread_cond_destroy(&uv->compress_thread_cv);
-        pthread_cond_destroy(&uv->sender_cv);
-
         pthread_mutex_unlock(&uv->master_lock); 
 
         pthread_mutex_destroy(&uv->master_lock);
@@ -1701,6 +1591,8 @@ cleanup:
 #ifdef WIN32
 	WSACleanup();
 #endif
+
+        control_done(control);
 
         printf("Exit\n");
 

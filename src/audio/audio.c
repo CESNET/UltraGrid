@@ -71,6 +71,7 @@
 #include "compat/platform_semaphore.h"
 #include "debug.h"
 #include "host.h"
+#include "module.h"
 #include "perf.h"
 #include "rtp/audio_decoders.h"
 #include "rtp/rtp.h"
@@ -102,6 +103,7 @@ enum audio_transport_device {
 };
 
 struct state_audio {
+        struct module mod;
         struct state_audio_capture *audio_capture_device;
         struct state_audio_playback *audio_playback_device;
 
@@ -177,7 +179,7 @@ static void audio_scale_usage(void)
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
+struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec,
@@ -221,6 +223,11 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
         }
         
         s = calloc(1, sizeof(struct state_audio));
+
+        module_init_default(&s->mod);
+        s->mod.priv_data = s;
+        s->mod.cls = MODULE_CLASS_AUDIO;
+
         s->audio_participants = NULL;
         s->audio_channel_map = audio_channel_map;
         s->audio_scale = audio_scale;
@@ -253,7 +260,7 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
                 s->echo_state = NULL;
         }
         
-        s->tx_session = tx_init(1500, fec_cfg);
+        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;
@@ -359,12 +366,13 @@ struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
         }
 #endif
 
+        module_register(&s->mod, parent);
 
         return s;
 
 error:
         if(s->tx_session)
-                tx_done(s->tx_session);
+                module_done(CAST_MODULE(s->tx_session));
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
@@ -396,7 +404,7 @@ void audio_done(struct state_audio *s)
         if(s) {
                 audio_playback_done(s->audio_playback_device);
                 audio_capture_done(s->audio_capture_device);
-                tx_done(s->tx_session);
+                module_done(CAST_MODULE(s->tx_session));
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
                 if(s->audio_participants) {

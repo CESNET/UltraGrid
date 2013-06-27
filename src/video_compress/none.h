@@ -51,8 +51,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+struct module;
 struct video_frame;
 
-void               *none_compress_init(char * opts);
-struct video_frame *none_compress(void *args, struct video_frame * tx, int buffer_index);
-void                none_compress_done(void *args);
+struct module      *none_compress_init(struct module *parent, char * opts);
+struct video_frame *none_compress(struct module *mod, struct video_frame * tx, int buffer_index);
+

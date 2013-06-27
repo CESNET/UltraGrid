@@ -225,7 +225,6 @@ void *display_sage_init(char *fmt, unsigned int flags)
         if(s->confName) {
                 printf("[SAGE] Using config file %s.\n", s->confName);
         }
-
         if(s->confName == NULL && s->fsIP == NULL) {
                 fprintf(stderr, "[SAGE] Unable to locate FS manager address. "
                                 "Set either in config file or from command line.\n");

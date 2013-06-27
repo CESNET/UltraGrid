@@ -52,6 +52,7 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 #include "host.h"
+#include "module.h"
 #include "video_compress/uyvy.h"
 #include "compat/platform_semaphore.h"
 #include "video_codec.h"
@@ -118,6 +119,8 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
 
 
 struct uyvy_video_compress {
+        struct module module_data;
+
         struct video_frame *out[2];
         unsigned int configured:1;
         struct video_desc saved_desc;
@@ -134,8 +137,9 @@ struct uyvy_video_compress {
 };
 
 int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx);
+static void uyvy_compress_done(struct module *mod);
 
-void * uyvy_compress_init(char * fmt)
+struct module * uyvy_compress_init(struct module *parent, char * fmt)
 {
         UNUSED(fmt);
         struct uyvy_video_compress *s;
@@ -201,7 +205,13 @@ void * uyvy_compress_init(char * fmt)
 
         gl_context_make_current(NULL);
 
-        return s;
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
+        s->module_data.priv_data = s;
+        s->module_data.deleter = uyvy_compress_done;
+        module_register(&s->module_data, parent);
+
+        return &s->module_data;
 }
 
 int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx)
@@ -273,9 +283,9 @@ int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx)
         return true;
 }
 
-struct video_frame * uyvy_compress(void *arg, struct video_frame * tx, int buffer)
+struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx, int buffer)
 {
-        struct uyvy_video_compress *s = (struct uyvy_video_compress *) arg;
+        struct uyvy_video_compress *s = (struct uyvy_video_compress *) mod->priv_data;
         assert (buffer == 0 || buffer == 1);
 
         gl_context_make_current(&s->context);
@@ -329,9 +339,9 @@ struct video_frame * uyvy_compress(void *arg, struct video_frame * tx, int buffe
         return s->out[buffer];
 }
 
-void uyvy_compress_done(void *arg)
+static void uyvy_compress_done(struct module *mod)
 {
-        struct uyvy_video_compress *s = (struct uyvy_video_compress *) arg;
+        struct uyvy_video_compress *s = (struct uyvy_video_compress *) mod->priv_data;
 
         for (int i = 0; i < 2; ++i) {
                 vf_free_data(s->out[i]);
@@ -340,5 +350,7 @@ void uyvy_compress_done(void *arg)
         glDeleteTextures(1, &s->texture_rgba);
         glDeleteTextures(1, &s->texture);
         destroy_gl_context(&s->context);
+
+        free(s);
 }
 

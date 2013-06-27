@@ -89,6 +89,8 @@ void	    udp_fd_zero_r(struct udp_fd_r *);
 void        udp_fd_set_r(socket_udp *s, struct udp_fd_r *);
 int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
 
+int         udp_change_dest(socket_udp *s, const char *addr);
+
 
 /*************************************************************************************************/
 #if defined(__cplusplus)

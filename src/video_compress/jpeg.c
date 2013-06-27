@@ -51,18 +51,22 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "compat/platform_spin.h"
 #include "debug.h"
 #include "host.h"
 #include "video_compress.h"
+#include "module.h"
 #include "video_compress/jpeg.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "libgpujpeg/gpujpeg_common.h"
-#include "compat/platform_semaphore.h"
+#include "messaging.h"
 #include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
 
 struct compress_jpeg_state {
+        struct module module_data;
+
         struct gpujpeg_encoder *encoder;
         struct gpujpeg_parameters encoder_param;
         
@@ -76,10 +80,15 @@ struct compress_jpeg_state {
         struct video_desc saved_desc;
 
         int restart_interval;
+        void *messaging_subscription;
+        platform_spin_t spin;
 };
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
 static void cleanup_state(struct compress_jpeg_state *s);
+static struct response *compress_change_callback(struct module *mod, struct message *msg);
+static void parse_fmt(struct compress_jpeg_state *s, char *fmt);
+static void jpeg_compress_done(struct module *mod);
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
 {
@@ -228,7 +237,45 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         return TRUE;
 }
 
-void * jpeg_compress_init(char * opts)
+static struct response *compress_change_callback(struct module *mod, struct message *msg)
+{
+        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
+
+        static struct response *ret;
+
+        struct msg_change_compress_data *data =
+                (struct msg_change_compress_data *) msg;
+
+        platform_spin_lock(&s->spin);
+        parse_fmt(s, data->config_string);
+        ret = new_response(RESPONSE_OK, NULL);
+        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
+        platform_spin_unlock(&s->spin);
+
+        free_message(msg);
+
+        return ret;
+}
+
+static void parse_fmt(struct compress_jpeg_state *s, char *fmt)
+{
+        if(fmt) {
+                char *tok, *save_ptr = NULL;
+                gpujpeg_set_default_parameters(&s->encoder_param);
+                tok = strtok_r(fmt, ":", &save_ptr);
+                s->encoder_param.quality = atoi(tok);
+                tok = strtok_r(NULL, ":", &save_ptr);
+                if(tok) {
+                        s->restart_interval = atoi(tok);
+                }
+                tok = strtok_r(NULL, ":", &save_ptr);
+                if(tok) {
+                        fprintf(stderr, "[JPEG] WARNING: Trailing configuration parameters.\n");
+                }
+        }
+}
+
+struct module * jpeg_compress_init(struct module *parent, char * opts)
 {
         struct compress_jpeg_state *s;
         int frame_idx;
@@ -252,53 +299,43 @@ void * jpeg_compress_init(char * opts)
 
         s->restart_interval = -1;
 
-        if(opts) {
-                char *tok, *save_ptr = NULL;
-                gpujpeg_set_default_parameters(&s->encoder_param);
-                tok = strtok_r(opts, ":", &save_ptr);
-                s->encoder_param.quality = atoi(tok);
-                int ret;
-                printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-                ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+        gpujpeg_set_default_parameters(&s->encoder_param);
 
-                if(ret != 0) {
-                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
-                        return NULL;
-                }
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        s->restart_interval = atoi(tok);
-                }
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        fprintf(stderr, "[JPEG] WARNING: Trailing configuration parameters.\n");
-                }
-                        
+        if(opts) {
+                parse_fmt(s, opts);
         } else {
-                gpujpeg_set_default_parameters(&s->encoder_param);
                 printf("[JPEG] setting default encode parameters (quality: %d)\n", 
                                 s->encoder_param.quality
                 );
-
-                int ret;
-                printf("Initializing CUDA device %d...\n", cuda_devices[0]);
-                ret = gpujpeg_init_device(cuda_devices[0], TRUE);
-
-                if(ret != 0) {
-                        fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n",
-                                        cuda_devices[0]);
-                        return NULL;
-                }
         }
+
+        int ret;
+        printf("Initializing CUDA device %d...\n", cuda_devices[0]);
+        ret = gpujpeg_init_device(cuda_devices[0], TRUE);
+
+        if(ret != 0) {
+                fprintf(stderr, "[JPEG] initializing CUDA device %d failed.\n", cuda_devices[0]);
+                return NULL;
+        }
+
                 
         s->encoder = NULL; /* not yet configured */
 
-        return s;
+        platform_spin_init(&s->spin);
+
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
+        s->module_data.priv_data = s;
+        s->module_data.deleter = jpeg_compress_done;
+        s->module_data.msg_callback = compress_change_callback;
+        module_register(&s->module_data, parent);
+
+        return &s->module_data;
 }
 
-struct video_frame * jpeg_compress(void *arg, struct video_frame * tx, int buffer_idx)
+struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx, int buffer_idx)
 {
-        struct compress_jpeg_state *s = (struct compress_jpeg_state *) arg;
+        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
         struct video_frame *out;
@@ -371,11 +408,13 @@ struct video_frame * jpeg_compress(void *arg, struct video_frame * tx, int buffe
         return out;
 }
 
-void jpeg_compress_done(void *arg)
+static void jpeg_compress_done(struct module *mod)
 {
-        struct compress_jpeg_state *s = (struct compress_jpeg_state *) arg;
+        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
 
         cleanup_state(s);
+
+        platform_spin_destroy(&s->spin);
         
         free(s);
 }

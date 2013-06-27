@@ -40,11 +40,14 @@ HEADERS	      = @HEADERS@
 
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
+		src/control.o \
 		src/debug.o \
 		src/host.o \
+		src/messaging.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
+		src/sender.o \
 		src/tile.o \
 		src/tv.o \
 		src/transmit.o \
@@ -83,6 +86,7 @@ OBJS	      = @OBJS@ \
 		src/compat/inet_ntop.o \
 		src/compat/inet_pton.o \
 		src/compat/platform_semaphore.o \
+		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
 		src/compat/usleep.o \
 		src/crypto/crypt_aes.o \
@@ -91,6 +95,8 @@ OBJS	      = @OBJS@ \
 		src/crypto/md5.o \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
+		src/module.o \
+		src/stats.o \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
 		src/utils/packet_counter.o \
@@ -132,6 +138,7 @@ LIB_COMMON = \
 		src/compat/platform_semaphore.o \
 		src/crypto/random.o \
 		src/debug.o \
+		src/module.o \
 		src/tile.o \
 		src/tv.o \
 		src/utils/fs_lock.o \

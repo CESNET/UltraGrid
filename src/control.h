@@ -1,5 +1,5 @@
 /*
- * FILE:    video_compress.h
+ * FILE:    control.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -13,19 +13,19 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by CESNET z.s.p.o.
- * 
+ *
  * 4. Neither the name of the CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
@@ -45,11 +45,14 @@
  *
  */
 
+struct control_state;
 struct module;
-struct tile;
-struct video_desc;
 
-struct module       *libavcodec_compress_init(struct module *parent, char * opts);
-struct tile         *libavcodec_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
-                int buffer);
+#define CONTROL_DEFAULT_PORT -1
+
+/**
+ * @retval 0 if success
+ */
+int control_init(int port, struct control_state **state, struct module *root_module);
+void control_done(struct control_state *s);
 

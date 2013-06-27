@@ -73,6 +73,10 @@ extern void (*rm_release_shared_lock)(const char *name);
 extern void (*rm_lock)();
 extern void (*rm_unlock)();
 extern void *(*rm_get_shm)(const char *name, int size);
+typedef void *(*singleton_initializer_t)(void *);
+typedef void (*singleton_deleter_t)(void *);
+extern void *(*rm_singleton)(const char *name, singleton_initializer_t initializer, void *initializer_data,
+                singleton_deleter_t deleter);
 
 #ifdef __cplusplus
 }

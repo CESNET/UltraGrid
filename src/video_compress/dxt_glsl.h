@@ -52,8 +52,8 @@
 #endif // HAVE_CONFIG_H
 
 struct video_frame;
+struct module;
 
-void               *dxt_glsl_compress_init(char * opts);
-struct video_frame *dxt_glsl_compress(void *args, struct video_frame * tx, int buffer_index);
-void                dxt_glsl_compress_done(void *args);
+struct module      *dxt_glsl_compress_init(struct module *parent, char * opts);
+struct video_frame *dxt_glsl_compress(struct module *mod, struct video_frame * tx, int buffer_index);
 

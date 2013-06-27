@@ -73,6 +73,9 @@ struct state_decompress {
         void **output_ports;
         int output_port_count;
 
+        void **output_inact_ports;
+        int output_inact_port_count;
+
         struct rtp *network_device;
 
         struct timeval start_time;
@@ -109,6 +112,17 @@ void hd_rum_decompress_add_port(void *state, void *recompress_port)
         s->output_ports = (void **) realloc(s->output_ports,
                         s->output_port_count * sizeof(void *));
         s->output_ports[s->output_port_count - 1] =
+                recompress_port;
+}
+
+void hd_rum_decompress_add_inactive_port(void *state, void *recompress_port)
+{
+        struct state_decompress *s = (struct state_decompress *) state;
+
+        s->output_inact_port_count += 1;
+        s->output_inact_ports = (void **) realloc(s->output_inact_ports,
+                        s->output_inact_port_count * sizeof(void *));
+        s->output_inact_ports[s->output_inact_port_count - 1] =
                 recompress_port;
 }
 
@@ -669,6 +683,11 @@ void hd_rum_decompress_done(void *state) {
                 recompress_done(s->output_ports[i]);
         }
         free(s->output_ports);
+
+        for(int i = 0; i < s->output_inact_port_count; ++i) {
+                recompress_done(s->output_inact_ports[i]);
+        }
+        free(s->output_inact_ports);
 
         delete s->network_frame;
 

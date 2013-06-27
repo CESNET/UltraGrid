@@ -51,8 +51,9 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+struct module;
 struct video_frame;
 
-void               *jpeg_compress_init(char * opts);
-struct video_frame *jpeg_compress(void *args, struct video_frame * tx, int buffer_index);
-void                jpeg_compress_done(void *args);
+struct module      *jpeg_compress_init(struct module *parent, char * opts);
+struct video_frame *jpeg_compress(struct module *mod, struct video_frame * tx, int buffer_index);
+

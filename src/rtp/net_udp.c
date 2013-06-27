@@ -57,6 +57,8 @@
 #include "addrinfo.h"
 #endif
 
+static int resolve_address(socket_udp *s, const char *addr);
+
 #define IPv4	4
 #define IPv6	6
 
@@ -278,14 +280,11 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         s->rx_port = rx_port;
         s->tx_port = tx_port;
         s->ttl = ttl;
-        if (inet_pton(AF_INET, addr, &s->addr4) != 1) {
-                struct hostent *h = gethostbyname(addr);
-                if (h == NULL) {
-                        socket_error("Can't resolve IP address for %s", addr);
-                        free(s);
-                        return NULL;
-                }
-                memcpy(&(s->addr4), h->h_addr_list[0], sizeof(s->addr4));
+
+        if (!resolve_address(s, addr)) {
+                socket_error("Can't resolve IP address for %s", addr);
+                free(s);
+                return NULL;
         }
         if (iface != NULL) {
 #ifdef HAVE_IF_NAMETOINDEX
@@ -595,9 +594,7 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
         s->rx_port = rx_port;
         s->tx_port = tx_port;
         s->ttl = ttl;
-        struct addrinfo hints, *res0;
         unsigned int ifindex;
-        int err;
 
         if (iface != NULL) {
 #ifdef HAVE_IF_NAMETOINDEX
@@ -613,25 +610,11 @@ static socket_udp *udp_init6(const char *addr, const char *iface,
                 ifindex = 0;
         }
 
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_INET6;
-        hints.ai_socktype = SOCK_DGRAM;
-
-        char tx_port_str[7];
-        sprintf(tx_port_str, "%u", tx_port);
-        if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
-                /* We should probably try to do a DNS lookup on the name */
-                /* here, but I'm trying to get the basics going first... */
-                debug_msg("IPv6 address conversion failed: %s\n", gai_strerror(err));
+        if (!resolve_address(s, addr)) {
+                socket_error("Can't resolve IPv6 address for %s", addr);
                 free(s);
                 return NULL;
-        } else {
-                memcpy(&s->sock6, res0->ai_addr, res0->ai_addrlen);
-                struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(void *) res0->ai_addr;
-                memcpy(&s->addr6, &addr6->sin6_addr,
-                                sizeof(addr6->sin6_addr));
         }
-        freeaddrinfo(res0);
 
         s->fd = socket(AF_INET6, SOCK_DGRAM, 0);
 #ifdef WIN32
@@ -1186,3 +1169,57 @@ int udp_fd(socket_udp * s)
         }
         return 0;
 }
+
+static int resolve_address(socket_udp *s, const char *addr)
+{
+        struct addrinfo hints, *res0;
+        int err;
+
+        memset(&hints, 0, sizeof(hints));
+        switch (s->mode) {
+        case IPv4:
+                hints.ai_family = AF_INET;
+                break;
+        case IPv6:
+                hints.ai_family = AF_INET6;
+                break;
+        default:
+                abort();
+        }
+        hints.ai_socktype = SOCK_DGRAM;
+
+        char tx_port_str[7];
+        sprintf(tx_port_str, "%u", s->tx_port);
+        if ((err = getaddrinfo(addr, tx_port_str, &hints, &res0)) != 0) {
+                /* We should probably try to do a DNS lookup on the name */
+                /* here, but I'm trying to get the basics going first... */
+                debug_msg("Address conversion failed: %s\n", gai_strerror(err));
+                return FALSE;
+        } else {
+                if(s->mode == IPv4) {
+                        struct sockaddr_in *addr4 = (struct sockaddr_in *)(void *) res0->ai_addr;
+                        memcpy(&s->addr4, &addr4->sin_addr,
+                                        sizeof(addr4->sin_addr));
+                } else {
+                        memcpy(&s->sock6, res0->ai_addr, res0->ai_addrlen);
+                        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(void *) res0->ai_addr;
+                        memcpy(&s->addr6, &addr6->sin6_addr,
+                                        sizeof(addr6->sin6_addr));
+                }
+        }
+        freeaddrinfo(res0);
+
+        return TRUE;
+}
+
+int udp_change_dest(socket_udp *s, const char *addr)
+{
+        if(resolve_address(s, addr)) {
+                free(s->addr);
+                s->addr = strdup(addr);
+                return TRUE;
+        } else {
+                return FALSE;
+        }
+}
+

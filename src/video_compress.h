@@ -60,9 +60,10 @@ extern "C" {
 #endif
 
 struct compress_state;
+struct module;
 
 // this is placeholder state, refer to inidividual compressions for example
-extern int compress_init_noerr;
+extern struct module compress_init_noerr;
 
 /**
  * Initializes compression
@@ -70,7 +71,7 @@ extern int compress_init_noerr;
  * @param cfg command-line argument
  * @return intern state
  */
-typedef  void *(*compress_init_t)(char *cfg);
+typedef struct module *(*compress_init_t)(struct module *parent, char *cfg);
 
 /**
  * Compresses video frame
@@ -79,7 +80,7 @@ typedef  void *(*compress_init_t)(char *cfg);
  * @param frame uncompressed frame
  * @return compressed frame
  */
-typedef  struct video_frame * (*compress_frame_t)(void *state, struct video_frame *frame,
+typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct video_frame *frame,
                 int buffer_index);
 
 /**
@@ -91,7 +92,7 @@ typedef  struct video_frame * (*compress_frame_t)(void *state, struct video_fram
  * @param[in]     buffer_index
  * @return compressed frame
  */
-typedef  struct tile * (*compress_tile_t)(void *state, struct tile *tile,
+typedef  struct tile * (*compress_tile_t)(struct module *state, struct tile *tile,
                 struct video_desc *desc, int buffer_index);
 
 
@@ -101,13 +102,12 @@ typedef  struct tile * (*compress_tile_t)(void *state, struct tile *tile,
 typedef  void (*compress_done_t)(void *);
 
 void show_compress_help(void);
-int compress_init(char *config_string, struct compress_state **);
+int compress_init(struct module *parent, char *config_string, struct compress_state **);
 const char *get_compress_name(struct compress_state *);
 
 int is_compress_none(struct compress_state *);
 
 struct video_frame *compress_frame(struct compress_state *, struct video_frame*, int buffer_index);
-void compress_done(struct compress_state *);
 
 #ifdef __cplusplus
 }

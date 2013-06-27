@@ -66,6 +66,7 @@
 #endif                          /* HAVE_MACOSX */
 #include <string.h>
 #include <unistd.h>
+#include "module.h"
 #include "video_compress.h"
 #include "libdxt.h"
 
@@ -92,6 +93,8 @@ static volatile int fastdxt_should_exit = FALSE;
  */
 
 struct video_compress {
+        struct module module_data;
+
         int num_threads;
         unsigned char *buffer[MAX_THREADS];
         unsigned char *output_data;
@@ -118,6 +121,7 @@ struct video_compress {
 static void *compress_thread(void *args);
 static int reconfigure_compress(struct video_compress *compress, int width,
                 int height, codec_t codec, enum interlacing_t, double fps);
+static void fastdxt_done(struct module *mod);
 
 static int reconfigure_compress(struct video_compress *compress, int width,
                 int height, codec_t codec, enum interlacing_t interlacing, double fps)
@@ -242,7 +246,7 @@ static int reconfigure_compress(struct video_compress *compress, int width,
         return TRUE;
 }
 
-void *fastdxt_init(char *num_threads_str)
+struct module *fastdxt_init(struct module *parent, char *num_threads_str)
 {
         /* This function does the following:
          * 1. Allocate memory for buffers 
@@ -306,13 +310,19 @@ void *fastdxt_init(char *num_threads_str)
                 ;
         fprintf(stderr, "All compression threads are online.\n");
         
-        return compress;
+        module_init_default(&compress->module_data);
+        compress->module_data.cls = MODULE_CLASS_DATA;
+        compress->module_data.priv_data = compress;
+        compress->module_data.deleter = fastdxt_done;
+        module_register(&compress->module_data, parent);
+
+        return &compress->module_data;
 }
 
-struct tile * fastdxt_compress_tile(void *args, struct tile *tx, struct video_desc *desc, int buffer_idx)
+struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc, int buffer_idx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
-        struct video_compress *compress = (struct video_compress *)args;
+        struct video_compress *compress = (struct video_compress *) mod->priv_data;
         unsigned int x;
         unsigned char *line1, *line2;
         struct video_frame *out = compress->out[buffer_idx];
@@ -432,9 +442,9 @@ static void *compress_thread(void *args)
         return NULL;
 }
 
-void fastdxt_done(void *args)
+static void fastdxt_done(struct module *mod)
 {
-        struct video_compress *compress = (struct video_compress *)args;
+        struct video_compress *compress = (struct video_compress *) mod->priv_data;
         int x;
         
         pthread_mutex_lock(&(compress->lock)); /* wait for fastdxt_compress if running */
@@ -461,6 +471,5 @@ void fastdxt_done(void *args)
         }
 
         free(compress);
-                
-        
 }
+
