@@ -239,6 +239,12 @@ static bool decrypt_block(struct openssl_aes_decrypt *decrypt, char *nonce_and_c
         return true;
 }
 
+#define ENCRYPTED_ERR "Receiving encrypted video data but " \
+        "no decryption key entered!\n"
+#define NOT_ENCRYPTED_ERR "Receiving unencrypted video data " \
+        "while expecting encrypted.\n"
+#define SKIP_LDGM_FRAME ret = FALSE; goto cleanup;
+
 static void *ldgm_thread(void *args) {
         uint32_t tmp_ui32;
         struct state_decoder *decoder = args;
@@ -333,8 +339,7 @@ static void *ldgm_thread(void *args) {
                                                 &frame);
 
                                 if(!frame) {
-                                        ret = FALSE;
-                                        goto cleanup;
+                                        SKIP_LDGM_FRAME
                                 }
 
                                 uint32_t ldgm_pt;
@@ -346,6 +351,10 @@ static void *ldgm_thread(void *args) {
                                 ldgm_out_len -= sizeof(video_payload_hdr_t) + sizeof(uint32_t);
 
                                 if(ldgm_pt == PT_ENCRYPT_VIDEO) {
+                                        if(!decoder->decrypt) {
+                                                fprintf(stderr, ENCRYPTED_ERR);
+                                                SKIP_LDGM_FRAME
+                                        }
                                         int crypto_hdr_len = sizeof(crypto_payload_hdr_t);
                                         tmp_ui32 = ntohl(((uint32_t *)(void *) ldgm_out_buffer)[3]);
                                         int crypto_ext_hdr_len = tmp_ui32 & 0xffffu;
@@ -378,6 +387,11 @@ static void *ldgm_thread(void *args) {
 
                                         ldgm_out_len = data_len;
                                         ldgm_out_buffer = plaintext;
+                                } else {
+                                        if(decoder->decrypt) {
+                                                fprintf(stderr, NOT_ENCRYPTED_ERR);
+                                                SKIP_LDGM_FRAME
+                                        }
                                 }
 
                                 if(decoder->decoder_type == EXTERNAL_DECODER) {
@@ -1386,6 +1400,8 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
         return ret;
 }
 
+#define SKIP_PACKET ret = FALSE; goto cleanup;
+
 int decode_frame(struct coded_data *cdata, void *decode_data)
 {
         struct vcodec_state *pbuf_data = (struct vcodec_state *) decode_data;
@@ -1463,6 +1479,10 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                 if(pt == PT_VIDEO) {
                         len = pckt->data_len - sizeof(video_payload_hdr_t);
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
+                        if(decoder->decrypt) {
+                                fprintf(stderr, NOT_ENCRYPTED_ERR);
+                                SKIP_PACKET
+                        }
                 } else if (pt == PT_VIDEO_LDGM) {
                         len = pckt->data_len - sizeof(ldgm_video_payload_hdr_t);
                         data = (char *) hdr + sizeof(ldgm_video_payload_hdr_t);
@@ -1478,6 +1498,10 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         data = (char *) hdr + sizeof(video_payload_hdr_t)
                                 + crypto_hdr_len;
                         contained_pt = PT_VIDEO;
+                        if(!decoder->decrypt) {
+                                fprintf(stderr, ENCRYPTED_ERR);
+                                SKIP_PACKET
+                        }
                 } else {
                         fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);
                         exit_uv(1);

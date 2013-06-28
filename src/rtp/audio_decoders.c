@@ -397,8 +397,18 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         audio_hdr = (uint32_t *)((void *) cdata->data->data +
                                         crypto_hdr_len);
                         encryption_hdr = main_hdr;
+                        if(!decoder->decrypt) {
+                                fprintf(stderr, "Receiving encrypted audio data but "
+                                                "no decryption key entered!\n");
+                                ret = false; goto cleanup;
+                        }
                 } else if(pt == PT_AUDIO) {
                         audio_hdr = main_hdr;
+                        if(decoder->decrypt) {
+                                fprintf(stderr, "Receiving unencrypted audio data "
+                                                "while expecting encrypted.\n");
+                                ret = false; goto cleanup;
+                        }
                 } else {
                         fprintf(stderr, "Unknown audio packet type: %d\n", pt);
                         abort();
