@@ -109,6 +109,8 @@ int openssl_aes_decrypt_init(struct openssl_aes_decrypt **state,
 
 void openssl_aes_decrypt_destroy(struct openssl_aes_decrypt *s)
 {
+        if(!s)
+                return;
         free(s);
 }
 

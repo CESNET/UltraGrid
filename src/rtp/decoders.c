@@ -857,6 +857,8 @@ void decoder_destroy(struct state_decoder *decoder)
         if(!decoder)
                 return;
 
+        openssl_aes_decrypt_destroy(decoder->decrypt);
+
         decoder_remove_display(decoder);
 
         pthread_mutex_destroy(&decoder->lock);

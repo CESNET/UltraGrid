@@ -71,6 +71,8 @@
 #include "audio/codec.h"
 #include "audio/resampler.h"
 #include "audio/utils.h"
+#include "crypto/crc.h"
+#include "crypto/openssl_aes_decrypt.h"
 
 #include "utils/packet_counter.h"
 
@@ -115,6 +117,8 @@ struct state_audio_decoder {
         uint32_t saved_audio_tag;
 
         int samples_decoded;
+
+        struct openssl_aes_decrypt *decrypt;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -168,7 +172,7 @@ static void compute_scale(struct scale_data *scale_data, float vol_avg, int samp
         }
 }
 
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
+void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption)
 {
         struct state_audio_decoder *s;
         bool scale_auto = false;
@@ -187,6 +191,19 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
 
         s->resampler = resampler_init(48000);
 
+        if(encryption) {
+#ifdef HAVE_CRYPTO
+                if(openssl_aes_decrypt_init(&s->decrypt,
+                                                encryption, MODE_CTR) != 0) {
+                        fprintf(stderr, "Unable to create decompress!\n");
+                        return NULL;
+                }
+#else
+                fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                                "without OpenSSL support!\n");
+                return NULL;
+#endif // HAVE_CRYPTO
+        }
 
         if(audio_channel_map) {
                 char *save_ptr = NULL;
@@ -311,7 +328,42 @@ void audio_decoder_destroy(void *state)
         audio_codec_done(s->audio_decompress);
         resampler_done(s->resampler);
 
+        openssl_aes_decrypt_destroy(s->decrypt);
+
         free(s);
+}
+
+static bool decrypt_block(struct openssl_aes_decrypt *decrypt, char *nonce_and_ctr,
+                const char *ciphertext, char *plaintext,
+                int data_len)
+{
+        uint32_t expected_crc;
+        uint32_t crc = 0xffffffff;
+        for(int i = 0; i < data_len; i += 16) {
+                int block_length = 16;
+                if(data_len - i < 16) block_length = data_len - i;
+                char *nonce_and_counter = NULL;
+                if(i == 0) {
+                        nonce_and_counter = nonce_and_ctr;
+                }
+#ifdef HAVE_CRYPTO
+                openssl_aes_decrypt_block(decrypt,
+                                (unsigned char *) ciphertext + i,
+                                (unsigned char *) plaintext + i,
+                                nonce_and_counter, block_length);
+#endif // HAVE_CRYPTO
+                crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
+        }
+#ifdef HAVE_CRYPTO
+        openssl_aes_decrypt_block(decrypt,
+                        (unsigned char *) ciphertext + data_len,
+                        (unsigned char *) &expected_crc,
+                        0, sizeof(uint32_t));
+#endif // HAVE_CRYPTO
+        if(crc != expected_crc) {
+                return false;
+        }
+        return true;
 }
 
 int decode_audio_frame(struct coded_data *cdata, void *data)
@@ -325,6 +377,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         static int prints = 0;
         int ret = TRUE;
 
+        const int crypto_hdr_len = sizeof(crypto_payload_hdr_t) +
+                                         sizeof(crypto_aes128_payload_hdr_t);
+
         if(!cdata) {
                 ret = FALSE;
                 goto cleanup;
@@ -333,12 +388,26 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         while (cdata != NULL) {
                 char *data;
                 // for definition see rtp_callbacks.h
-                uint32_t *hdr = (uint32_t *)(void *) cdata->data->data;
-                        
+                uint32_t *audio_hdr;
+                uint32_t *main_hdr = (uint32_t *)(void *) cdata->data->data;
+                uint32_t *encryption_hdr;
+                const int pt = cdata->data->pt;
+
+                if(pt == PT_ENCRYPT_AUDIO) {
+                        audio_hdr = (uint32_t *)((void *) cdata->data->data +
+                                        crypto_hdr_len);
+                        encryption_hdr = main_hdr;
+                } else if(pt == PT_AUDIO) {
+                        audio_hdr = main_hdr;
+                } else {
+                        fprintf(stderr, "Unknown audio packet type: %d\n", pt);
+                        abort();
+                }
+
                 /* we receive last channel first (with m bit, last packet) */
                 /* thus can be set only with m-bit packet */
                 if(cdata->data->m) {
-                        input_channels = ((ntohl(hdr[0]) >> 22) & 0x3ff) + 1;
+                        input_channels = ((ntohl(main_hdr[0]) >> 22) & 0x3ff) + 1;
                 }
 
                 // we have:
@@ -346,16 +415,19 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 // 2) not last, but the last one was processed at first
                 assert(input_channels > 0);
 
-                channel = (ntohl(hdr[0]) >> 22) & 0x3ff;
-                int bufnum = ntohl(hdr[0]) & 0x3fffff;
-                sample_rate = ntohl(hdr[3]) & 0x3fffff;
-                bps = (ntohl(hdr[3]) >> 26) / 8;
-                uint32_t audio_tag = ntohl(hdr[4]);
+                channel = (ntohl(main_hdr[0]) >> 22) & 0x3ff;
+                int bufnum = ntohl(main_hdr[0]) & 0x3fffff;
+                sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
+                bps = (ntohl(audio_hdr[3]) >> 26) / 8;
+                uint32_t audio_tag = ntohl(audio_hdr[4]);
                 
-                output_channels = decoder->channel_remapping ? decoder->channel_map.max_output + 1: input_channels;
+                output_channels = decoder->channel_remapping ?
+                        decoder->channel_map.max_output + 1: input_channels;
 
-                /**
-                 * TODO: obtain supported rates from device
+                /*
+                 * Reconfiguration
+                 *
+                 * @todo obtain supported rates from device
                  */
                 int device_sample_rate = 48000;
                 int device_bps = 2;
@@ -405,12 +477,31 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         }
                 }
                 
-                data = cdata->data->data + sizeof(audio_payload_hdr_t);
-                
-                unsigned int length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
+                unsigned int length;
+                int length_excl_crypto_hdrs = cdata->data->data_len - crypto_hdr_len
+                        - sizeof(audio_payload_hdr_t) - sizeof(crc32_t);
+                char plaintext[length_excl_crypto_hdrs + 16 + sizeof(crc32_t)];
+                if(pt == PT_AUDIO) {
+                        length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
+                } else {
+                        assert(pt == PT_ENCRYPT_AUDIO);
+                        char *nonce_and_counter =
+                                cdata->data->data + 4 * CRYPTO_HDR_EXT_OFFSET;
+                        char *ciphertext = cdata->data->data + crypto_hdr_len + sizeof(audio_payload_hdr_t);
 
-                unsigned int offset = ntohl(hdr[1]);
-                unsigned int buffer_len = ntohl(hdr[2]);
+                        length = length_excl_crypto_hdrs;
+                        if(!decrypt_block(decoder->decrypt, nonce_and_counter,
+                                        ciphertext, plaintext,
+                                        length)) {
+                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                ret = false;
+                                goto cleanup;
+                        }
+                        data = plaintext;
+                }
+
+                unsigned int offset = ntohl(main_hdr[1]);
+                unsigned int buffer_len = ntohl(main_hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
 
 

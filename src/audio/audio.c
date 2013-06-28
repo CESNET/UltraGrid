@@ -129,6 +129,8 @@ struct state_audio {
         echo_cancellation_t *echo_state;
         struct audio_export *exporter;
         int  resample_to;
+
+        char *requested_encryption;
 };
 
 /** 
@@ -259,6 +261,10 @@ struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv
 #endif /* HAVE_SPEEX */
         } else {
                 s->echo_state = NULL;
+        }
+
+        if(encryption) {
+                s->requested_encryption = strdup(encryption);
         }
         
         s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption);
@@ -422,6 +428,7 @@ void audio_done(struct state_audio *s)
                 }
                 audio_export_destroy(s->exporter);
                 module_done(&s->mod);
+                free(s->requested_encryption);
                 free(s);
         }
 }
@@ -459,7 +466,7 @@ static void *audio_receiver_thread(void *arg)
         memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
         memset(&device_desc, 0, sizeof(struct audio_desc));
 
-        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale);
+        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
         assert(pbuf_data.decoder != NULL);
                 
         printf("Audio receiving started.\n");
