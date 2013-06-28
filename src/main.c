@@ -240,7 +240,7 @@ static void usage(void)
         printf("          [-s <audio_caputre>] [-l <limit_bitrate>] "
                         "[-m <mtu>] [-c] [-i] [-6]\n");
         printf("          [-m <video_mode>] [-p <postprocess>] "
-                        "[-f <fec_options>] [-p <port>]\n");
+                        "[-f <fec_options>] [-P <port>]\n");
         printf("          [--mcast-if <iface>]\n");
         printf("          [--export[=<d>]|--import <d>]\n");
         printf("          address(es)\n\n");
@@ -1073,11 +1073,12 @@ int main(int argc, char *argv[])
                                 uv->send_port_number = atoi(strtok_r(NULL, ":", &save_ptr));
                                 if((tok = strtok_r(NULL, ":", &save_ptr))) {
                                         audio_rx_port = atoi(tok);
-                                }
-                                if((tok = strtok_r(NULL, ":", &save_ptr))) {
-                                        audio_tx_port = atoi(tok);
-                                } else {
-                                        usage();
+                                        if((tok = strtok_r(NULL, ":", &save_ptr))) {
+                                                audio_tx_port = atoi(tok);
+                                        } else {
+                                                usage();
+                                                return EXIT_FAIL_USAGE;
+                                        }
                                 }
                         } else {
                                 uv->recv_port_number =
