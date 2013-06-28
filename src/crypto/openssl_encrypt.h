@@ -49,29 +49,65 @@
  *
  */
 
-#ifndef OPENSSL_AES_ENCRYPT_H_
-#define OPENSSL_AES_ENCRYPT_H_
+#ifndef OPENSSL_ENCRYPT_H_
+#define OPENSSL_ENCRYPT_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-struct openssl_aes_encrypt;
+struct openssl_encrypt;
 
-enum openssl_aes_mode {
-        MODE_ECB,
-        MODE_CTR
+enum openssl_mode {
+        MODE_AES128_CTR, // no autenticity, only integrity (CRC)
+        MODE_AES128_ECB // do not use
 };
 
-int openssl_aes_encrypt_init(struct openssl_aes_encrypt **state,
-                const char *passphrase, enum openssl_aes_mode mode);
-void openssl_aes_encrypt_block(struct openssl_aes_encrypt *s,
-                unsigned char *plaintext, unsigned char *ciphertext,
-                char *nonce_plus_counter, int len);
-void openssl_aes_encrypt_destroy(struct openssl_aes_encrypt *state);
+#define MAX_CRYPTO_EXTRA_DATA 24 // == maximal overhead of available encryptions
+#define MAX_CRYPTO_PAD 0 // CTR does not need padding
+#define MAX_CRYPTO_EXCEED (MAX_CRYPTO_EXTRA_DATA + MAX_CRYPTO_PAD)
+
+/**
+ * Initializes encryption
+ * @param[out] state      created state
+ * @param[in]  passphrase key material (NULL-terminated)
+ * @param[in]  mode
+ * @retval      0         success
+ * @retval     <0         failure
+ * @retval     >0         state not created
+ */
+int openssl_encrypt_init(struct openssl_encrypt **state,
+                const char *passphrase, enum openssl_mode mode);
+/**
+ * Destroys state
+ */
+void openssl_encrypt_destroy(struct openssl_encrypt *state);
+/**
+ * Encrypts a block of data
+ *
+ * @param[in] encryption    state
+ * @param[in] plaintext     plain text
+ * @param[in] plaintext_len length of plain text
+ * @param[in] aad           Additional Authenticated Data
+ *                          this won't be encrypted but passed in plaintext along ciphertext.
+ *                          These data are autheticated only if working in some AE mode
+ * @param[in] aad_len       length of AAD text
+ * @param[out] ciphertext   resulting ciphertext, can be up to (plaintext_len + MAX_CRYPTO_EXCEED) length
+ * @returns   size of writen ciphertext
+ */
+int openssl_encrypt(struct openssl_encrypt *encryption,
+                char *plaintext, int plaintext_len, char *aad, int aad_len, char *ciphertext);
+/**
+ * Returns maximal number of bytest that the ciphertext length may exceed plaintext for selected
+ * encryption.
+ *
+ * @param[in] encryption    state
+ * @returns max overhead (must be <= MAX_CRYPTO_EXCEED)
+ */
+int openssl_get_overhead(struct openssl_encrypt *encryption);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // OPENSSL_AES_ENCRYPT_H_
+#endif // OPENSSL_ENCRYPT_H_
 

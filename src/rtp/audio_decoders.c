@@ -72,7 +72,7 @@
 #include "audio/resampler.h"
 #include "audio/utils.h"
 #include "crypto/crc.h"
-#include "crypto/openssl_aes_decrypt.h"
+#include "crypto/openssl_decrypt.h"
 
 #include "utils/packet_counter.h"
 
@@ -118,7 +118,7 @@ struct state_audio_decoder {
 
         int samples_decoded;
 
-        struct openssl_aes_decrypt *decrypt;
+        struct openssl_decrypt *decrypt;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -193,8 +193,8 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
 
         if(encryption) {
 #ifdef HAVE_CRYPTO
-                if(openssl_aes_decrypt_init(&s->decrypt,
-                                                encryption, MODE_CTR) != 0) {
+                if(openssl_decrypt_init(&s->decrypt,
+                                                encryption, MODE_AES128_CTR) != 0) {
                         fprintf(stderr, "Unable to create decompress!\n");
                         return NULL;
                 }
@@ -328,42 +328,9 @@ void audio_decoder_destroy(void *state)
         audio_codec_done(s->audio_decompress);
         resampler_done(s->resampler);
 
-        openssl_aes_decrypt_destroy(s->decrypt);
+        openssl_decrypt_destroy(s->decrypt);
 
         free(s);
-}
-
-static bool decrypt_block(struct openssl_aes_decrypt *decrypt, char *nonce_and_ctr,
-                const char *ciphertext, char *plaintext,
-                int data_len)
-{
-        uint32_t expected_crc;
-        uint32_t crc = 0xffffffff;
-        for(int i = 0; i < data_len; i += 16) {
-                int block_length = 16;
-                if(data_len - i < 16) block_length = data_len - i;
-                char *nonce_and_counter = NULL;
-                if(i == 0) {
-                        nonce_and_counter = nonce_and_ctr;
-                }
-#ifdef HAVE_CRYPTO
-                openssl_aes_decrypt_block(decrypt,
-                                (unsigned char *) ciphertext + i,
-                                (unsigned char *) plaintext + i,
-                                nonce_and_counter, block_length);
-#endif // HAVE_CRYPTO
-                crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
-        }
-#ifdef HAVE_CRYPTO
-        openssl_aes_decrypt_block(decrypt,
-                        (unsigned char *) ciphertext + data_len,
-                        (unsigned char *) &expected_crc,
-                        0, sizeof(uint32_t));
-#endif // HAVE_CRYPTO
-        if(crc != expected_crc) {
-                return false;
-        }
-        return true;
 }
 
 int decode_audio_frame(struct coded_data *cdata, void *data)
@@ -377,9 +344,6 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         static int prints = 0;
         int ret = TRUE;
 
-        const int crypto_hdr_len = sizeof(crypto_payload_hdr_t) +
-                                         sizeof(crypto_aes128_payload_hdr_t);
-
         if(!cdata) {
                 ret = FALSE;
                 goto cleanup;
@@ -388,22 +352,19 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         while (cdata != NULL) {
                 char *data;
                 // for definition see rtp_callbacks.h
-                uint32_t *audio_hdr;
-                uint32_t *main_hdr = (uint32_t *)(void *) cdata->data->data;
+                uint32_t *audio_hdr = (uint32_t *)(void *) cdata->data->data;
                 uint32_t *encryption_hdr;
                 const int pt = cdata->data->pt;
 
                 if(pt == PT_ENCRYPT_AUDIO) {
-                        audio_hdr = (uint32_t *)((void *) cdata->data->data +
-                                        crypto_hdr_len);
-                        encryption_hdr = main_hdr;
+                        encryption_hdr = (uint32_t *)((void *) cdata->data->data +
+                                        sizeof(audio_payload_hdr_t));
                         if(!decoder->decrypt) {
                                 fprintf(stderr, "Receiving encrypted audio data but "
                                                 "no decryption key entered!\n");
                                 ret = false; goto cleanup;
                         }
                 } else if(pt == PT_AUDIO) {
-                        audio_hdr = main_hdr;
                         if(decoder->decrypt) {
                                 fprintf(stderr, "Receiving unencrypted audio data "
                                                 "while expecting encrypted.\n");
@@ -414,10 +375,34 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         abort();
                 }
 
+                unsigned int length;
+                char plaintext[cdata->data->data_len]; // plaintext will be actually shorter
+                if(pt == PT_AUDIO) {
+                        length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
+                        data = cdata->data->data + sizeof(audio_payload_hdr_t);
+                } else {
+                        assert(pt == PT_ENCRYPT_AUDIO);
+                        char *ciphertext = cdata->data->data + sizeof(crypto_payload_hdr_t) +
+                                sizeof(audio_payload_hdr_t);
+                        int ciphertext_len = cdata->data->data_len - sizeof(audio_payload_hdr_t) -
+                                sizeof(crypto_payload_hdr_t);
+
+                        if((length = openssl_decrypt(decoder->decrypt,
+                                        ciphertext, ciphertext_len,
+                                        (char *) audio_hdr, sizeof(audio_payload_hdr_t),
+                                        plaintext
+                                        )) == 0) {
+                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                ret = false;
+                                goto cleanup;
+                        }
+                        data = plaintext;
+                }
+
                 /* we receive last channel first (with m bit, last packet) */
                 /* thus can be set only with m-bit packet */
                 if(cdata->data->m) {
-                        input_channels = ((ntohl(main_hdr[0]) >> 22) & 0x3ff) + 1;
+                        input_channels = ((ntohl(audio_hdr[0]) >> 22) & 0x3ff) + 1;
                 }
 
                 // we have:
@@ -425,8 +410,8 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 // 2) not last, but the last one was processed at first
                 assert(input_channels > 0);
 
-                channel = (ntohl(main_hdr[0]) >> 22) & 0x3ff;
-                int bufnum = ntohl(main_hdr[0]) & 0x3fffff;
+                channel = (ntohl(audio_hdr[0]) >> 22) & 0x3ff;
+                int bufnum = ntohl(audio_hdr[0]) & 0x3fffff;
                 sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
                 bps = (ntohl(audio_hdr[3]) >> 26) / 8;
                 uint32_t audio_tag = ntohl(audio_hdr[4]);
@@ -486,32 +471,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                 return FALSE;
                         }
                 }
-                
-                unsigned int length;
-                int length_excl_crypto_hdrs = cdata->data->data_len - crypto_hdr_len
-                        - sizeof(audio_payload_hdr_t) - sizeof(crc32_t);
-                char plaintext[length_excl_crypto_hdrs + 16 + sizeof(crc32_t)];
-                if(pt == PT_AUDIO) {
-                        length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
-                } else {
-                        assert(pt == PT_ENCRYPT_AUDIO);
-                        char *nonce_and_counter =
-                                cdata->data->data + 4 * CRYPTO_HDR_EXT_OFFSET;
-                        char *ciphertext = cdata->data->data + crypto_hdr_len + sizeof(audio_payload_hdr_t);
 
-                        length = length_excl_crypto_hdrs;
-                        if(!decrypt_block(decoder->decrypt, nonce_and_counter,
-                                        ciphertext, plaintext,
-                                        length)) {
-                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
-                                ret = false;
-                                goto cleanup;
-                        }
-                        data = plaintext;
-                }
-
-                unsigned int offset = ntohl(main_hdr[1]);
-                unsigned int buffer_len = ntohl(main_hdr[2]);
+                unsigned int offset = ntohl(audio_hdr[1]);
+                unsigned int buffer_len = ntohl(audio_hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
 
 

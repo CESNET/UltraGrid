@@ -58,28 +58,29 @@
 
 #ifdef HAVE_CRYPTO
 
+#include "crypto/crc.h"
 #include "crypto/md5.h"
-#include "crypto/openssl_aes_encrypt.h"
+#include "crypto/openssl_encrypt.h"
 
 #include <string.h>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 
-struct openssl_aes_encrypt {
+struct openssl_encrypt {
         AES_KEY key;
 
-        enum openssl_aes_mode mode;
+        enum openssl_mode mode;
 
         unsigned char ivec[16];
         unsigned int num;
         unsigned char ecount[16];
 };
 
-int openssl_aes_encrypt_init(struct openssl_aes_encrypt **state, const char *passphrase,
-                enum openssl_aes_mode mode)
+int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
+                enum openssl_mode mode)
 {
-        struct openssl_aes_encrypt *s = (struct openssl_aes_encrypt *)
-                calloc(1, sizeof(struct openssl_aes_encrypt));
+        struct openssl_encrypt *s = (struct openssl_encrypt *)
+                calloc(1, sizeof(struct openssl_encrypt));
 
         MD5_CTX context;
         unsigned char hash[16];
@@ -95,12 +96,13 @@ int openssl_aes_encrypt_init(struct openssl_aes_encrypt **state, const char *pas
 
         AES_set_encrypt_key(hash, 128, &s->key);
         s->mode = mode;
+        assert(s->mode == MODE_AES128_CTR); // only functional by now
 
         *state = s;
         return 0;
 }
 
-void openssl_aes_encrypt_block(struct openssl_aes_encrypt *s, unsigned char *plaintext,
+static void openssl_encrypt_block(struct openssl_encrypt *s, unsigned char *plaintext,
                 unsigned char *ciphertext, char *nonce_plus_counter, int len)
 {
         if(nonce_plus_counter) {
@@ -117,23 +119,67 @@ void openssl_aes_encrypt_block(struct openssl_aes_encrypt *s, unsigned char *pla
         }
 
         switch(s->mode) {
-                case MODE_CTR:
+                case MODE_AES128_CTR:
                         AES_ctr128_encrypt(plaintext, ciphertext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
                         break;
-                case MODE_ECB:
+                case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(plaintext, ciphertext,
                                         &s->key, AES_ENCRYPT);
                         break;
-                default:
-                        abort();
         }
 }
 
-void openssl_aes_encrypt_destroy(struct openssl_aes_encrypt *s)
+void openssl_encrypt_destroy(struct openssl_encrypt *s)
 {
         free(s);
+}
+
+int openssl_encrypt(struct openssl_encrypt *encryption,
+                char *plaintext, int data_len, char *aad, int aad_len, char *ciphertext) {
+        uint32_t crc = 0xffffffff;
+        memcpy(ciphertext, &data_len, sizeof(uint32_t));
+        ciphertext += sizeof(uint32_t);
+        char *nonce_and_counter = ciphertext;
+        ciphertext += 16;
+
+        if(aad_len > 0) {
+                crc = crc32buf_with_oldcrc(aad, aad_len, crc);
+        }
+
+        for(int i = 0; i < data_len; i+=16) {
+                int block_length = 16;
+                if(data_len - i < 16) block_length = data_len - i;
+                crc = crc32buf_with_oldcrc(plaintext + i, block_length, crc);
+#ifdef HAVE_CRYPTO
+                openssl_encrypt_block(encryption,
+                                (unsigned char *) plaintext + i,
+                                (unsigned char *) ciphertext + i,
+                                nonce_and_counter,
+                                block_length);
+                nonce_and_counter = NULL;
+#endif // HAVE_CRYPTO
+        }
+#ifdef HAVE_CRYPTO
+        openssl_encrypt_block(encryption,
+                        (unsigned char *) &crc,
+                        (unsigned char *) ciphertext + data_len,
+                        NULL,
+                        sizeof(uint32_t));
+#endif // HAVE_CRYPTO
+        return data_len + sizeof(crc) + 16 + sizeof(uint32_t);
+}
+
+int openssl_get_overhead(struct openssl_encrypt *s)
+{
+        switch(s->mode) {
+                case MODE_AES128_CTR:
+                        return sizeof(uint32_t) /* data_len */ +
+                                16 /* nonce + counter */ + sizeof(uint32_t) /* crc */;
+                default:
+                        abort();
+        }
 }
 
 #endif //  HAVE_CRYPTO

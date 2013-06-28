@@ -58,29 +58,31 @@
 
 #ifdef HAVE_CRYPTO
 
+#include "crypto/crc.h"
 #include "crypto/md5.h"
-#include "crypto/openssl_aes_decrypt.h"
+#include "crypto/openssl_decrypt.h"
+#include "debug.h"
 
 #include <string.h>
 #include <openssl/aes.h>
 
-struct openssl_aes_decrypt {
+struct openssl_decrypt {
         AES_KEY key;
 
-        enum openssl_aes_mode mode;
+        enum openssl_mode mode;
 
         unsigned char ivec[AES_BLOCK_SIZE];
         unsigned char ecount[AES_BLOCK_SIZE];
         unsigned int num;
 };
 
-int openssl_aes_decrypt_init(struct openssl_aes_decrypt **state,
+int openssl_decrypt_init(struct openssl_decrypt **state,
                                 const char *passphrase,
-                                enum openssl_aes_mode mode)
+                                enum openssl_mode mode)
 {
-        struct openssl_aes_decrypt *s =
-                (struct openssl_aes_decrypt *)
-                calloc(1, sizeof(struct openssl_aes_decrypt));
+        struct openssl_decrypt *s =
+                (struct openssl_decrypt *)
+                calloc(1, sizeof(struct openssl_decrypt));
 
         MD5_CTX context;
         unsigned char hash[16];
@@ -91,10 +93,10 @@ int openssl_aes_decrypt_init(struct openssl_aes_decrypt **state,
         MD5Final(hash, &context);
 
         switch(mode) {
-                case MODE_ECB:
+                case MODE_AES128_ECB:
                         AES_set_decrypt_key(hash, 128, &s->key);
                         break;
-                case MODE_CTR:
+                case MODE_AES128_CTR:
                         AES_set_encrypt_key(hash, 128, &s->key);
                         break;
                 default:
@@ -107,15 +109,15 @@ int openssl_aes_decrypt_init(struct openssl_aes_decrypt **state,
         return 0;
 }
 
-void openssl_aes_decrypt_destroy(struct openssl_aes_decrypt *s)
+void openssl_decrypt_destroy(struct openssl_decrypt *s)
 {
         if(!s)
                 return;
         free(s);
 }
 
-void openssl_aes_decrypt_block(struct openssl_aes_decrypt *s,
-                unsigned char *ciphertext, unsigned char *plaintext, char *nonce_and_counter,
+static void openssl_decrypt_block(struct openssl_decrypt *s,
+                unsigned char *ciphertext, unsigned char *plaintext, const char *nonce_and_counter,
                 int len)
 {
         if(nonce_and_counter) {
@@ -124,18 +126,59 @@ void openssl_aes_decrypt_block(struct openssl_aes_decrypt *s,
         }
 
         switch(s->mode) {
-                case MODE_ECB:
+                case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
                         AES_ecb_encrypt(ciphertext, plaintext,
                                         &s->key, AES_DECRYPT);
                         break;
-                case MODE_CTR:
+                case MODE_AES128_CTR:
                         AES_ctr128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
                         break;
                 default:
                         abort();
         }
+}
+
+int openssl_decrypt(struct openssl_decrypt *decrypt,
+                const char *ciphertext, int ciphertext_len,
+                const char *aad, int aad_len,
+                char *plaintext)
+{
+        UNUSED(ciphertext_len);
+        uint32_t data_len;
+        memcpy(&data_len, ciphertext, sizeof(uint32_t));
+        ciphertext += sizeof(uint32_t);
+
+        const char *nonce_and_counter = ciphertext;
+        ciphertext += 16;
+        uint32_t expected_crc;
+        uint32_t crc = 0xffffffff;
+        if(aad > 0) {
+                crc = crc32buf_with_oldcrc((char *) aad, aad_len, crc);
+        }
+        for(unsigned int i = 0; i < data_len; i += 16) {
+                int block_length = 16;
+                if(data_len - i < 16) block_length = data_len - i;
+#ifdef HAVE_CRYPTO
+                openssl_decrypt_block(decrypt,
+                                (unsigned char *) ciphertext + i,
+                                (unsigned char *) plaintext + i,
+                                nonce_and_counter, block_length);
+#endif // HAVE_CRYPTO
+                nonce_and_counter = NULL;
+                crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
+        }
+#ifdef HAVE_CRYPTO
+        openssl_decrypt_block(decrypt,
+                        (unsigned char *) ciphertext + data_len,
+                        (unsigned char *) &expected_crc,
+                        0, sizeof(uint32_t));
+#endif // HAVE_CRYPTO
+        if(crc != expected_crc) {
+                return 0;
+        }
+        return data_len;
 }
 
 #endif // HAVE_CRYPTO

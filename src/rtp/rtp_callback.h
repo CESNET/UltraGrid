@@ -132,29 +132,11 @@ typedef uint32_t ldgm_video_payload_hdr_t[5];
  * Crypto video payload
  *
  * 1st word
- * bits 0 - 9 substream
- * bits 10 - 31 buffer
- *
- * 2nd word
- * bits 0 - 31 offset
- *
- * 3rd word
- * bits 0 - 31 length
- *
- * 4th word
- * bits 0 - 16 crypto type
- * bits 17 - 31 additional crypto header len
+ * bits 0 - 8 crypto type
+ * bits 9 - 31 currently unused
  */
-typedef uint32_t crypto_payload_hdr_t[4];
-typedef uint32_t crc32_t;
-
 #define CRYPTO_TYPE_AES128_CTR 1u
-
-#define CRYPTO_HDR_EXT_OFFSET (sizeof(crypto_payload_hdr_t)/sizeof(uint32_t))
-/*
- * 1-4th word nonce and counter
- */
-typedef uint32_t crypto_aes128_payload_hdr_t[4];
+typedef uint32_t crypto_payload_hdr_t[1];
 
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);

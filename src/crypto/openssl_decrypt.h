@@ -1,5 +1,5 @@
 /*
- * FILE:   aes_encrypt.h
+ * FILE:   openssl_encrypt.h
  * AUTHOR: Colin Perkins <csp@isi.edu>
  *         Martin Benes     <martinbenesh@gmail.com>
  *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
@@ -49,20 +49,45 @@
  *
  */
 
-#ifndef OPENSSL_AES_DECRYPT_H_
-#define OPENSSL_AES_DECRYPT_H_
+#ifndef OPENSSL_DECRYPT_H_
+#define OPENSSL_DECRYPT_H_
 
-#include "crypto/openssl_aes_encrypt.h"
+#include "crypto/openssl_encrypt.h"
 
-struct openssl_aes_decrypt;
+struct openssl_decrypt;
 
-int openssl_aes_decrypt_init(struct openssl_aes_decrypt **state,
-                const char *passphrase, enum openssl_aes_mode mode);
-void openssl_aes_decrypt_block(struct openssl_aes_decrypt *state,
-                unsigned char *ciphertext, unsigned char *plaintext,
-                char *nonce_and_counter,
-                int len);
-void openssl_aes_decrypt_destroy(struct openssl_aes_decrypt *state);
+/**
+ * Creates decryption state
+ *
+ * @param[out] state     state pointer
+ * @param[in] passphrase key material (NULL-terminated)
+ * @param[in] mode       mode
+ * @retval    0          ok
+ * @retval   <0          failure
+ * @retval   >0          state was not created
+ */
+int openssl_decrypt_init(struct openssl_decrypt **state,
+                const char *passphrase, enum openssl_mode mode);
+/**
+ * Destroys decryption state
+ */
+void openssl_decrypt_destroy(struct openssl_decrypt *state);
+/**
+ * Decrypts block of data
+ *
+ * @param[in] decrypt decrypt state
+ * @param[in] ciphertext encrypted text
+ * @param[in] ciphertext_len lenght of encrypted text
+ * @param[in] aad Aditional Authenticated Data (see openssl_encrypt documentation)
+ * @param[in] aad_len length of aad block
+ * @param[out] plaintext otput plaintext
+ * @retval 0 if checksum doesn't match
+ * @retval >0 length of output plaintext
+ */
+int openssl_decrypt(struct openssl_decrypt *decrypt,
+                const char *ciphertext, int ciphertext_len,
+                const char *aad, int aad_len,
+                char *plaintext);
 
-#endif //  OPENSSL_AES_DECRYPT_H_
+#endif //  OPENSSL_DECRYPT_H_
 
