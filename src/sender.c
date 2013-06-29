@@ -1,5 +1,5 @@
 /*
- * FILE:    main.c
+ * FILE:    sender.c
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -67,7 +67,6 @@
 #include "video_display.h"
 
 struct response *sender_messaging_callback(struct module *mod, struct message *msg);
-static bool sender_change_receiver(struct sender_data *data, const char *new_receiver);
 static struct sender_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
 static void sender_finish(struct sender_data *data);
@@ -83,7 +82,7 @@ struct sender_priv_data {
         pthread_t thread_id;
 };
 
-struct sender_change_receiver_data {
+struct sender_msg_data {
         const char *new_receiver;
         int exit_status;
 };
@@ -91,7 +90,9 @@ struct sender_change_receiver_data {
 enum sender_msg_type {
         FRAME,
         CHANGE_RECEIVER,
-        QUIT
+        QUIT,
+        PLAY,
+        PAUSE
 };
 
 struct sender_msg {
@@ -144,9 +145,10 @@ static void sender_finish(struct sender_data *data) {
         pthread_mutex_unlock(&data->priv->lock);
 }
 
-static bool sender_change_receiver(struct sender_data *data, const char *new_receiver)
+static bool sender_process_message(struct sender_data *data, enum sender_msg_type internal_type,
+                const char *new_receiver)
 {
-        struct sender_change_receiver_data msg_data;
+        struct sender_msg_data msg_data;
         pthread_mutex_lock(&data->priv->lock);
 
         while(data->priv->msg) {
@@ -154,7 +156,7 @@ static bool sender_change_receiver(struct sender_data *data, const char *new_rec
         }
 
         struct sender_msg *msg = malloc(sizeof(struct sender_msg));
-        msg->type = CHANGE_RECEIVER;
+        msg->type = internal_type;
         msg->deleter = (void (*) (struct sender_msg *)) free;
         msg_data.new_receiver = strdup(new_receiver);
         msg_data.exit_status = -1;
@@ -181,8 +183,20 @@ struct response *sender_messaging_callback(struct module *mod, struct message *m
 
         struct response *response;
 
-        struct msg_change_receiver_address *data = (struct msg_change_receiver_address *) msg;
-        if(sender_change_receiver(s, data->receiver)) {
+        struct msg_sender *data = (struct msg_sender *) msg;
+        enum sender_msg_type internal_type;
+        switch(data->type) {
+                case SENDER_MSG_PLAY:
+                        internal_type = PLAY;
+                        break;
+                case SENDER_MSG_PAUSE:
+                        internal_type = PAUSE;
+                        break;
+                case SENDER_MSG_CHANGE_RECEIVER:
+                        internal_type = CHANGE_RECEIVER;
+                        break;
+        }
+        if(sender_process_message(s, internal_type, data->receiver)) {
                 response = new_response(RESPONSE_OK, NULL);
         } else {
                 response = new_response(RESPONSE_NOT_FOUND, NULL);
@@ -231,6 +245,7 @@ static void *sender_thread(void *arg) {
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         struct video_desc saved_vid_desc;
+        bool paused = false;
 
         tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
@@ -262,6 +277,7 @@ static void *sender_thread(void *arg) {
                         pthread_cond_wait(&data->priv->msg_ready_cv, &data->priv->lock);
                 }
                 struct sender_msg *msg = data->priv->msg;
+                struct sender_msg_data *msg_data = msg->data;
                 switch (msg->type) {
 
                         case QUIT:
@@ -271,18 +287,25 @@ static void *sender_thread(void *arg) {
                                 pthread_mutex_unlock(&data->priv->lock);
                                 goto exit;
                         case CHANGE_RECEIVER:
-                                {
-                                        struct sender_change_receiver_data *msg_data = msg->data;
-                                        assert(data->tx_protocol == ULTRAGRID_RTP);
-                                        assert(data->connections_count == 1);
-                                        msg_data->exit_status =
-                                                rtp_change_dest(data->network_devices[0],
-                                                                msg_data->new_receiver);
-                                        msg->deleter(msg);
-                                }
+                                assert(data->tx_protocol == ULTRAGRID_RTP);
+                                assert(data->connections_count == 1);
+                                msg_data->exit_status =
+                                        rtp_change_dest(data->network_devices[0],
+                                                        msg_data->new_receiver);
+                                msg->deleter(msg);
                                 break;
                         case FRAME:
                                 tx_frame = msg->data;
+                                break;
+                        case PAUSE:
+                                msg_data->exit_status = TRUE;
+                                msg->deleter(msg);
+                                paused = true;
+                                break;
+                        case PLAY:
+                                msg_data->exit_status = TRUE;
+                                msg->deleter(msg);
+                                paused = false;
                                 break;
                         default:
                                 abort();
@@ -296,6 +319,10 @@ static void *sender_thread(void *arg) {
                 }
 
                 pthread_mutex_unlock(&data->priv->lock);
+
+                if(paused) {
+                        goto after_send;
+                }
 
                 if(data->tx_protocol == ULTRAGRID_RTP) {
                         if(data->connections_count == 1) { /* normal case - only one connection */
@@ -325,6 +352,7 @@ static void *sender_thread(void *arg) {
                                         tx_frame->tiles[0].data_len);
                         display_put_frame(data->sage_tx_device, frame, 0);
                 }
+after_send:
 
                 stats_update_int(stat_data_sent,
                                 rtp_get_bytes_sent(data->network_devices[0]));

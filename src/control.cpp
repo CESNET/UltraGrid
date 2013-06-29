@@ -236,11 +236,21 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
 
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
-        } else if(prefix_matches(message, "receiver ")) {
-                struct msg_change_receiver_address *msg =
-                        (struct msg_change_receiver_address *)
-                        new_message(sizeof(struct msg_change_receiver_address));
-                strncpy(msg->receiver, suffix(message, "receiver "), sizeof(msg->receiver) - 1);
+        } else if(prefix_matches(message, "receiver ") || prefix_matches(message, "play") ||
+                        prefix_matches(message, "pause")) {
+                struct msg_sender *msg =
+                        (struct msg_sender *)
+                        new_message(sizeof(struct msg_sender));
+                if(prefix_matches(message, "receiver ")) {
+                        strncpy(msg->receiver, suffix(message, "receiver "), sizeof(msg->receiver) - 1);
+                        msg->type = SENDER_MSG_CHANGE_RECEIVER;
+                } else if(prefix_matches(message, "play")) {
+                        msg->type = SENDER_MSG_PLAY;
+                } else if(prefix_matches(message, "pause")) {
+                        msg->type = SENDER_MSG_PAUSE;
+                } else {
+                        abort();
+                }
 
                 append_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_SENDER, MODULE_CLASS_NONE });
                 resp =
