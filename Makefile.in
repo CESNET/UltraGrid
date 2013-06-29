@@ -130,7 +130,7 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 		@LIB_SUPPORT_OBJ@ \
 
-HD_RUM_TRANSLATOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
+REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
@@ -162,9 +162,9 @@ $(TARGET): $(OBJS) src/main.o $(HEADERS)
 bin/import_control_keyboard: src/import_control_keyboard.o
 	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
-$(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
+$(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(REFLECTOR_OBJS)
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSLATOR_OBJS) $(LIBS) -o $@
+	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
@@ -421,7 +421,7 @@ clean:
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
-	-rm -rf $(REFLECTOR_TARGET) $(HD_RUM_TRANSCODE_OBJS)
+	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
 	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
