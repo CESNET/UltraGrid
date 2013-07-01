@@ -66,8 +66,7 @@
 #include "video.h"
 #include "video_display.h"
 
-struct response *sender_messaging_callback(struct module *mod, struct message *msg);
-static struct sender_msg *new_frame_msg(struct video_frame *frame);
+static struct sender_internal_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
 static void sender_finish(struct sender_data *data);
 
@@ -77,35 +76,28 @@ struct sender_priv_data {
         pthread_mutex_t lock;
         pthread_cond_t msg_ready_cv;
         pthread_cond_t msg_processed_cv;
-        struct sender_msg *msg;
+        struct sender_internal_msg *msg;
 
         pthread_t thread_id;
-};
-
-struct sender_msg_data {
-        const char *new_receiver;
-        int exit_status;
+        bool paused;
 };
 
 enum sender_msg_type {
         FRAME,
-        CHANGE_RECEIVER,
-        QUIT,
-        PLAY,
-        PAUSE
+        QUIT
 };
 
-struct sender_msg {
+struct sender_internal_msg {
         enum sender_msg_type type;
         void *data;
-        void (*deleter)(struct sender_msg *);
+        void (*deleter)(struct sender_internal_msg *);
 };
 
-static struct sender_msg *new_frame_msg(struct video_frame *frame)
+static struct sender_internal_msg *new_frame_msg(struct video_frame *frame)
 {
-        struct sender_msg *msg = malloc(sizeof(struct sender_msg));
+        struct sender_internal_msg *msg = malloc(sizeof(struct sender_internal_msg));
         msg->type = FRAME;
-        msg->deleter = (void (*) (struct sender_msg *)) free;
+        msg->deleter = (void (*) (struct sender_internal_msg *)) free;
         msg->data = frame;
 
         return msg;
@@ -136,78 +128,40 @@ static void sender_finish(struct sender_data *data) {
                 pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
         }
 
-        data->priv->msg = malloc(sizeof(struct sender_msg));
+        data->priv->msg = malloc(sizeof(struct sender_internal_msg));
         data->priv->msg->type = QUIT;
-        data->priv->msg->deleter = (void (*) (struct sender_msg *)) free;
+        data->priv->msg->deleter = (void (*) (struct sender_internal_msg *)) free;
 
         pthread_cond_signal(&data->priv->msg_ready_cv);
 
         pthread_mutex_unlock(&data->priv->lock);
 }
 
-static bool sender_process_message(struct sender_data *data, enum sender_msg_type internal_type,
-                const char *new_receiver)
+static void sender_process_external_message(struct sender_data *data, struct msg_sender *msg)
 {
-        struct sender_msg_data msg_data;
-        pthread_mutex_lock(&data->priv->lock);
-
-        while(data->priv->msg) {
-                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
-        }
-
-        struct sender_msg *msg = malloc(sizeof(struct sender_msg));
-        msg->type = internal_type;
-        msg->deleter = (void (*) (struct sender_msg *)) free;
-        msg_data.new_receiver = strdup(new_receiver);
-        msg_data.exit_status = -1;
-        msg->data = (void *) &msg_data;
-
-        data->priv->msg = msg;
-
-        pthread_cond_signal(&data->priv->msg_ready_cv);
-
-        // wait until it is processed
-        while(msg_data.exit_status == -1) {
-                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
-        }
-
-        pthread_mutex_unlock(&data->priv->lock);
-
-        return msg_data.exit_status;
-}
-
-
-struct response *sender_messaging_callback(struct module *mod, struct message *msg)
-{
-        struct sender_data *s = (struct sender_data *) mod->priv_data;
-
-        struct response *response;
-
-        struct msg_sender *data = (struct msg_sender *) msg;
-        enum sender_msg_type internal_type;
-        switch(data->type) {
-                case SENDER_MSG_PLAY:
-                        internal_type = PLAY;
+        int ret;
+        switch(msg->type) {
+                case SENDER_MSG_CHANGE_RECEIVER:
+                        assert(data->tx_protocol == ULTRAGRID_RTP);
+                        assert(data->connections_count == 1);
+                        ret = rtp_change_dest(data->network_devices[0],
+                                        msg->receiver);
+                        if(ret == FALSE) {
+                                fprintf(stderr, "Changing receiver to: %s failed!\n",
+                                                msg->receiver);
+                        }
                         break;
                 case SENDER_MSG_PAUSE:
-                        internal_type = PAUSE;
+                        data->priv->paused = true;
                         break;
-                case SENDER_MSG_CHANGE_RECEIVER:
-                        internal_type = CHANGE_RECEIVER;
+                case SENDER_MSG_PLAY:
+                        data->priv->paused = false;
                         break;
         }
-        if(sender_process_message(s, internal_type, data->receiver)) {
-                response = new_response(RESPONSE_OK, NULL);
-        } else {
-                response = new_response(RESPONSE_NOT_FOUND, NULL);
-        }
-
-        free_message(msg);
-        return response;
 }
 
 bool sender_init(struct sender_data *data) {
-        data->priv = malloc(sizeof(struct sender_priv_data));
+        data->priv = calloc(1, sizeof(struct sender_priv_data));
         pthread_mutex_init(&data->priv->lock, NULL);
         pthread_cond_init(&data->priv->msg_ready_cv, NULL);
         pthread_cond_init(&data->priv->msg_processed_cv, NULL);
@@ -245,7 +199,6 @@ static void *sender_thread(void *arg) {
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         struct video_desc saved_vid_desc;
-        bool paused = false;
 
         tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
@@ -259,7 +212,6 @@ static void *sender_thread(void *arg) {
         module_init_default(&data->priv->mod);
         data->priv->mod.cls = MODULE_CLASS_SENDER;
         data->priv->mod.priv_data = data;
-        data->priv->mod.msg_callback = sender_messaging_callback;
         module_register(&data->priv->mod, data->parent);
 
         pthread_mutex_unlock(&data->priv->lock);
@@ -270,57 +222,37 @@ static void *sender_thread(void *arg) {
         unlock_module(control_mod);
 
         while(1) {
+                // process external messages
+                struct message *msg_external;
+                while((msg_external = check_message(&data->priv->mod))) {
+                        sender_process_external_message(data, (struct msg_sender *) msg_external);
+                        free_message(msg_external);
+                }
+
                 pthread_mutex_lock(&data->priv->lock);
                 struct video_frame *tx_frame = NULL;
 
                 while(!data->priv->msg) {
                         pthread_cond_wait(&data->priv->msg_ready_cv, &data->priv->lock);
                 }
-                struct sender_msg *msg = data->priv->msg;
-                struct sender_msg_data *msg_data = msg->data;
+                struct sender_internal_msg *msg = data->priv->msg;
                 switch (msg->type) {
-
                         case QUIT:
                                 data->priv->msg = NULL;
                                 msg->deleter(msg);
                                 pthread_cond_broadcast(&data->priv->msg_processed_cv);
                                 pthread_mutex_unlock(&data->priv->lock);
                                 goto exit;
-                        case CHANGE_RECEIVER:
-                                assert(data->tx_protocol == ULTRAGRID_RTP);
-                                assert(data->connections_count == 1);
-                                msg_data->exit_status =
-                                        rtp_change_dest(data->network_devices[0],
-                                                        msg_data->new_receiver);
-                                msg->deleter(msg);
-                                break;
                         case FRAME:
                                 tx_frame = msg->data;
-                                break;
-                        case PAUSE:
-                                msg_data->exit_status = TRUE;
-                                msg->deleter(msg);
-                                paused = true;
-                                break;
-                        case PLAY:
-                                msg_data->exit_status = TRUE;
-                                msg->deleter(msg);
-                                paused = false;
                                 break;
                         default:
                                 abort();
                 }
 
-                if(!tx_frame) {
-                        data->priv->msg = NULL;
-                        pthread_cond_broadcast(&data->priv->msg_processed_cv);
-                        pthread_mutex_unlock(&data->priv->lock);
-                        continue;
-                }
-
                 pthread_mutex_unlock(&data->priv->lock);
 
-                if(paused) {
+                if(data->priv->paused) {
                         goto after_send;
                 }
 
