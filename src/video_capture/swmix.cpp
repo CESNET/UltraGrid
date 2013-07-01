@@ -699,7 +699,7 @@ static void *master_worker(void *arg)
                         wait_sec = 1.0 / s->frame->fps / 2;
                         int linesize =
                                 vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
-                        for(int i = field; i < s->frame->tiles[0].height; i += 2) {
+                        for(unsigned int i = field; i < s->frame->tiles[0].height; i += 2) {
                                 memcpy(current_buffer + i * linesize, tmp_buffer + i * linesize,
                                                 linesize);
                         }
@@ -768,7 +768,7 @@ static void *slave_worker(void *arg)
                         s->captured_frame = frame_copy;
                         if(s->capture_audio && audio) {
                                 int len = audio->data_len;
-                                if(len + s->audio_frame.data_len > s->audio_frame.max_size) {
+                                if(len + s->audio_frame.data_len > (int) s->audio_frame.max_size) {
                                         len = s->audio_frame.max_size - s->audio_frame.data_len;
                                         fprintf(stderr, "[SW Mix] Audio buffer overflow!\n");
                                 }

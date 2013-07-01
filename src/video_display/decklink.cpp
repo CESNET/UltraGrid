@@ -121,11 +121,11 @@ public:
         PlaybackDelegate (struct state_decklink* owner, int index);
 
         // IUnknown needs only a dummy implementation
-        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
         virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
 
-        virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
+        virtual HRESULT STDMETHODCALLTYPE        ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult)
 	{
 		completedFrame->Release();
 		return S_OK;
@@ -151,12 +151,12 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
                         *hours =   ((timecode & 0xf000000) >> 24) + ((timecode & 0xf0000000) >> 28) * 10;
                         return S_OK;
                 }
-                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ STRING *timecode) { return E_FAIL; }
+                virtual HRESULT STDMETHODCALLTYPE GetString (/* out */ STRING *timecode) { UNUSED(timecode); return E_FAIL; }
                 virtual BMDTimecodeFlags STDMETHODCALLTYPE GetFlags (void)        { return bmdTimecodeFlagDefault; }
                 virtual HRESULT STDMETHODCALLTYPE GetTimecodeUserBits (/* out */ BMDTimecodeUserBits *userBits) { if (!userBits) return E_POINTER; else return S_OK; }
 
                 /* IUnknown */
-                virtual HRESULT STDMETHODCALLTYPE QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+                virtual HRESULT STDMETHODCALLTYPE QueryInterface (REFIID , LPVOID *)        {return E_NOINTERFACE;}
                 virtual ULONG STDMETHODCALLTYPE         AddRef ()                                                                       {return 1;}
                 virtual ULONG STDMETHODCALLTYPE          Release ()                                                                      {return 1;}
                 
@@ -633,7 +633,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                 s->state[0].deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, (double) s->frameRateDuration);
 #endif /* ! defined DECKLINK_LOW_LATENCY */
         } else {
-                if(desc.tile_count > s->devices_cnt) {
+                if((int) desc.tile_count > s->devices_cnt) {
                         fprintf(stderr, "[decklink] Expected at most %d streams. Got %d.\n", s->devices_cnt,
                                         desc.tile_count);
                         goto error;
@@ -1265,7 +1265,7 @@ bool operator==(const REFIID & first, const REFIID & second){
 }
 #endif
 
-HRESULT DeckLinkFrame::QueryInterface(REFIID id, void**frame)
+HRESULT DeckLinkFrame::QueryInterface(REFIID, void**)
 {
         return E_NOINTERFACE;
 }
@@ -1331,24 +1331,24 @@ HRESULT DeckLinkFrame::GetBytes (/* out */ void **buffer)
         return S_OK;
 }
 
-HRESULT DeckLinkFrame::GetTimecode (/* in */ BMDTimecodeFormat format, /* out */ IDeckLinkTimecode **timecode)
+HRESULT DeckLinkFrame::GetTimecode (/* in */ BMDTimecodeFormat, /* out */ IDeckLinkTimecode **timecode)
 {
         *timecode = dynamic_cast<IDeckLinkTimecode *>(this->timecode);
         return S_OK;
 }
 
-HRESULT DeckLinkFrame::GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **ancillary)
+HRESULT DeckLinkFrame::GetAncillaryData (/* out */ IDeckLinkVideoFrameAncillary **)
 {
 	return S_FALSE;
 }
 
 /* IDeckLinkMutableVideoFrame */
-HRESULT DeckLinkFrame::SetFlags (/* in */ BMDFrameFlags newFlags)
+HRESULT DeckLinkFrame::SetFlags (/* in */ BMDFrameFlags)
 {
         return E_FAIL;
 }
 
-HRESULT DeckLinkFrame::SetTimecode (/* in */ BMDTimecodeFormat format, /* in */ IDeckLinkTimecode *timecode)
+HRESULT DeckLinkFrame::SetTimecode (/* in */ BMDTimecodeFormat, /* in */ IDeckLinkTimecode *timecode)
 {
         if(this->timecode)
                 this->timecode->Release();
@@ -1356,17 +1356,17 @@ HRESULT DeckLinkFrame::SetTimecode (/* in */ BMDTimecodeFormat format, /* in */ 
         return S_OK;
 }
 
-HRESULT DeckLinkFrame::SetTimecodeFromComponents (/* in */ BMDTimecodeFormat format, /* in */ uint8_t hours, /* in */ uint8_t minutes, /* in */ uint8_t seconds, /* in */ uint8_t frames, /* in */ BMDTimecodeFlags flags)
+HRESULT DeckLinkFrame::SetTimecodeFromComponents (/* in */ BMDTimecodeFormat, /* in */ uint8_t, /* in */ uint8_t, /* in */ uint8_t, /* in */ uint8_t, /* in */ BMDTimecodeFlags)
 {
         return E_FAIL;
 }
 
-HRESULT DeckLinkFrame::SetAncillaryData (/* in */ IDeckLinkVideoFrameAncillary *ancillary)
+HRESULT DeckLinkFrame::SetAncillaryData (/* in */ IDeckLinkVideoFrameAncillary *)
 {
         return E_FAIL;
 }
 
-HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat format, /* in */ BMDTimecodeUserBits userBits)
+HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */ BMDTimecodeUserBits)
 {
         return E_FAIL;
 }

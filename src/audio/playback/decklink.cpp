@@ -134,15 +134,15 @@ public:
 
 
         // IUnknown needs only a dummy implementation
-        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID, LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE            AddRef ()                                                                       {return 1;}
         virtual ULONG STDMETHODCALLTYPE            Release ()                                                                      {return 1;}
 
-        virtual HRESULT STDMETHODCALLTYPE          ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) {
-                        s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame,
-                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
-                        s->frames++;
-                        return S_OK;
+        virtual HRESULT STDMETHODCALLTYPE          ScheduledFrameCompleted (IDeckLinkVideoFrame *, BMDOutputFrameCompletionResult) {
+                s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame,
+                                s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                s->frames++;
+                return S_OK;
         }
         virtual HRESULT STDMETHODCALLTYPE          ScheduledPlaybackHasStopped () { return S_OK; } 
         //virtual HRESULT         RenderAudioSamples (bool preroll);

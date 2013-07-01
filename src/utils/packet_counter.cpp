@@ -54,6 +54,8 @@
 #include <map>
 #include <vector>
 
+#include "debug.h"
+
 using namespace std;
 
 struct packet_counter {
@@ -76,6 +78,7 @@ struct packet_counter {
         }
 
         bool has_packet(int substream_id, int bufnum, int offset, int len) {
+                UNUSED(len);
                 assert(substream_id < num_substreams); 
 
                 return substream_data[substream_id][bufnum][offset] != 0;

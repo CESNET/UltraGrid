@@ -244,23 +244,23 @@ static int bfcQueryCardType(CBLUEVELVET_H pSDK)
 };
 
 #ifdef HAVE_BLUE_AUDIO
-static int bfcDecodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, unsigned int* pHancBuffer, struct hanc_decode_struct* pHancDecodeInfo)
+static int bfcDecodeHancFrameEx(CBLUEVELVET_H, unsigned int nCardType, unsigned int* pHancBuffer, struct hanc_decode_struct* pHancDecodeInfo)
 {
         return hanc_decoder_ex(nCardType, pHancBuffer, pHancDecodeInfo);
 }
 
-static int bfcEncodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, struct hanc_stream_info_struct* pHancEncodeInfo, void *pAudioBuffer, unsigned int nAudioChannels, unsigned int nAudioSamples, unsigned int nSampleType, unsigned int nAudioFlags)
+static int bfcEncodeHancFrameEx(CBLUEVELVET_H, unsigned int nCardType, struct hanc_stream_info_struct* pHancEncodeInfo, void *pAudioBuffer, unsigned int nAudioChannels, unsigned int nAudioSamples, unsigned int nSampleType, unsigned int nAudioFlags)
 {
         return encode_hanc_frame_ex(nCardType, pHancEncodeInfo, pAudioBuffer, nAudioChannels, nAudioSamples, nSampleType, nAudioFlags);
 }
 #endif // HAVE_BLUE_AUDIO
 
-static int bfcSystemBufferReadAsync(CBLUEVELVET_H pHandle, unsigned char* pPixels, unsigned long ulSize, OVERLAPPED* pOverlap, unsigned long ulBufferID, unsigned long ulOffset)
+static int bfcSystemBufferReadAsync(CBLUEVELVET_H pHandle, unsigned char* pPixels, unsigned long ulSize, OVERLAPPED*, unsigned long ulBufferID, unsigned long ulOffset)
 {
         return pHandle->dma_read((char *) pPixels, ulSize, ulBufferID, ulOffset);
 }
 
-static int bfcSystemBufferWriteAsync(CBLUEVELVET_H pHandle, unsigned char *pPixels, unsigned long ulSize, OVERLAPPED *pOverlap, unsigned long ulBufferID, unsigned long ulOffset)
+static int bfcSystemBufferWriteAsync(CBLUEVELVET_H pHandle, unsigned char *pPixels, unsigned long ulSize, OVERLAPPED *, unsigned long ulBufferID, unsigned long ulOffset)
 {
         return pHandle->dma_write((char *) pPixels, ulSize, ulBufferID, ulOffset);
 }

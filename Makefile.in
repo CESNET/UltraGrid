@@ -6,7 +6,7 @@ QMAKE         = @QMAKE@
 LINKER        = @LINKER@
 CFLAGS        = -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -msse2
 CPPFLAGS      = @CPPFLAGS@
-CXXFLAGS      = -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated -msse2
+CXXFLAGS      = -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wextra -Wpointer-arith -msse2
 NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \

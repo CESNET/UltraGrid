@@ -548,8 +548,8 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         VideoMode = m_InvalidVideoModeFlag;
 
         for(int i = 0; i < bluefish_frame_modes_count; ++i) {
-                if(bluefish_frame_modes[i].width == tile_width &&
-                                bluefish_frame_modes[i].height == tile_height &&
+                if((int) bluefish_frame_modes[i].width == tile_width &&
+                                (int) bluefish_frame_modes[i].height == tile_height &&
                                 fabs(bluefish_frame_modes[i].fps - desc.fps) < 0.01 &&
                                 bluefish_frame_modes[i].interlacing == desc.interlacing)
                 {
@@ -672,7 +672,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         }
 
         m_frame = vf_alloc_desc(desc);
-        for(int i = 0; i < desc.tile_count; ++i) {
+        for(unsigned int i = 0; i < desc.tile_count; ++i) {
                 m_frame->tiles[i].data_len = BytesPerFrame;
         }
 
@@ -941,6 +941,7 @@ display_type_t *display_bluefish444_probe(void)
 
 int display_bluefish444_get_property(void *state, int property, void *val, size_t *len)
 {
+        UNUSED(state);
         codec_t codecs[] = { UYVY };
         interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
         

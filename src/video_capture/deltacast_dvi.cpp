@@ -442,6 +442,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
 void *
 vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
 {
+        UNUSED(flags); // DVI doesn't support audio
 	struct vidcap_deltacast_dvi_state *s;
         ULONG Width = 0, Height = 0, RefreshRate = 0;
         ULONG             Result = VHDERR_NOERROR,DllVersion,NbBoards,BoardType;
@@ -475,7 +476,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                 usage();
                 return &vidcap_init_noerr;
         }
-        
+
         if(init_fmt)
         {
                 char *save_ptr = NULL;

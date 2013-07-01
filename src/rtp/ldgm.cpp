@@ -400,7 +400,7 @@ void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_e
                 packet_type = JUMBO9000;
         }
 
-        for(int i = 1; i < sizeof(losses) / sizeof(loss_t); ++i) {
+        for(unsigned int i = 1; i < sizeof(losses) / sizeof(loss_t); ++i) {
                 if(max_expected_loss >= losses[i - 1] && max_expected_loss <= losses[i]) {
                         loss = losses[i];
                         break;
@@ -415,7 +415,7 @@ void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_e
 
         printf("LDGM: Choosing maximal loss %2.2f percent.\n", loss);
 
-        for(int i = 0; i < sizeof(suggested_configurations) / sizeof(configuration_t); ++i) {
+        for(unsigned int i = 0; i < sizeof(suggested_configurations) / sizeof(configuration_t); ++i) {
                 if(suggested_configurations[i].packet_type == packet_type &&
                                 suggested_configurations[i].loss == loss) {
                         if(abs(suggested_configurations[i].frame_size - frame_size) < abs(nearest - frame_size)) {

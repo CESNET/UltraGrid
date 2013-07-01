@@ -339,7 +339,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 
         for (i = 0; i < deltacast_frame_modes_count; ++i)
         {
-                if(s->VideoStandard == deltacast_frame_modes[i].mode) {
+                if(s->VideoStandard == (ULONG) deltacast_frame_modes[i].mode) {
                         s->frame->fps = deltacast_frame_modes[i].fps;
                         s->frame->interlacing = deltacast_frame_modes[i].interlacing;
                         s->tile->width = deltacast_frame_modes[i].width;

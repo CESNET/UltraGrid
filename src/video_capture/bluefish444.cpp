@@ -126,7 +126,7 @@ struct av_frame : public av_frame_base {
                 audio_len(0)
         {
                 video = vf_alloc_desc(desc);
-                for(int i = 0; i < desc.tile_count; ++i) {
+                for(unsigned int i = 0; i < desc.tile_count; ++i) {
                         video->tiles[i].data_len = BytesPerFrame;
                         video->tiles[i].data = (char*)
                                 page_aligned_alloc(GoldenSize);
@@ -140,7 +140,7 @@ struct av_frame : public av_frame_base {
 
         ~av_frame() {
                 page_aligned_free(audio_data);
-                for(int i = 0; i < video->tile_count; ++i) {
+                for(unsigned int i = 0; i < video->tile_count; ++i) {
                         page_aligned_free(video->tiles[i].data);
                 }
                 vf_free(video);
@@ -310,6 +310,8 @@ static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
                         bWaitForField = FALSE;
 
         }while(!((SubFieldIrqs == 0) && !bWaitForField));       //we need to schedule the field capture when SubFieldIrqs is 0
+#else
+        UNUSED(s);
 #endif
 }
 

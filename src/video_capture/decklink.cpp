@@ -184,7 +184,7 @@ public:
                         rightEyeFrame->Release();
 	};
 
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) { return E_NOINTERFACE; }
+	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) { return E_NOINTERFACE; }
 	virtual ULONG STDMETHODCALLTYPE AddRef(void)
 	{
 		return mRefCount++;
