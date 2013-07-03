@@ -68,7 +68,9 @@
 #include <signal.h>
 #include <pthread.h>
 
-#include "video_display/sage_wrapper.h"
+#include <sail.h>
+#include <misc.h>
+
 #include <host.h>
 #include <tv.h>
 
@@ -94,7 +96,7 @@ struct state_sage {
         uint32_t magic;
         int appID, nodeID;
         
-        void *sage_state;
+        sail *sage_state;
 
         const char             *confName;
         const char             *fsIP;
@@ -123,8 +125,18 @@ void display_sage_run(void *arg)
                 if (should_exit)
                         break;
 
-                sage_swapBuffer(s->sage_state);
-                s->tile->data = (char *) sage_getBuffer(s->sage_state);
+                s->sage_state->swapBuffer(SAGE_NON_BLOCKING);
+                sageMessage msg;
+                if (s->sage_state->checkMsg(msg, false) > 0) {
+                        switch (msg.getCode()) {
+                        case APP_QUIT:
+                                sage::printLog("Ultragrid: QUIT message");
+                                exit_uv(1);
+                                break;
+                        }
+                }
+
+                s->tile->data = (char *) s->sage_state->getBuffer();
 
                 pthread_mutex_lock(&s->buffer_writable_lock);
                 s->buffer_writable = 1;
@@ -178,7 +190,6 @@ void *display_sage_init(char *fmt, unsigned int flags)
                                 if(strncmp(item, "config=", strlen("config=")) == 0) {
                                         s->confName = item + strlen("config=");
                                 } else if(strncmp(item, "codec=", strlen("codec=")) == 0) {
-                                         strlen("codec=");
                                          uint32_t fourcc;
                                          if(strlen(item + strlen("codec=")) != sizeof(fourcc)) {
                                                  fprintf(stderr, "Malformed FourCC code (wrong length).\n");
@@ -292,8 +303,9 @@ void display_sage_done(void *state)
         pthread_cond_destroy(&s->buffer_writable_cond);
         pthread_mutex_destroy(&s->buffer_writable_lock);
         vf_free(s->frame);
-        sage_shutdown(s->sage_state);
-        //sage_delete(s->sage_state);
+        s->sage_state->shutdown();
+        //delete s->sage_state;
+        free(s);
 }
 
 struct video_frame *display_sage_getf(void *state)
@@ -341,6 +353,89 @@ int display_sage_putf(void *state, struct video_frame *frame, int nonblock)
         return 0;
 }
 
+/*
+ * Either confName or fsIP should be NULL
+ */
+static sail *initSage(const char *confName, const char *fsIP, int appID, int nodeID, int width,
+                int height, codec_t codec)
+{
+        sail *sageInf; // sage sail object
+
+        sageInf = new sail;
+        sailConfig sailCfg;
+
+        // default values
+        if(fsIP) {
+                strncpy(sailCfg.fsIP, fsIP, SAGE_IP_LEN);
+        }
+        sailCfg.fsPort = 20002;
+        strncpy(sailCfg.masterIP, "127.0.0.1", SAGE_IP_LEN);
+        sailCfg.nwID = 1;
+        sailCfg.msgPort = 23010;
+        sailCfg.syncPort = 13010;
+        sailCfg.blockSize = 64;
+        sailCfg.winX = sailCfg.winY = 0;
+        sailCfg.winWidth = width;
+        sailCfg.winHeight = height;
+        sailCfg.streamType = SAGE_BLOCK_NO_SYNC;
+        sailCfg.protocol = SAGE_UDP;
+        sailCfg.asyncUpdate = false;
+
+        if(confName) {
+                sailCfg.init((char *) confName);
+        }
+        char appName[] = "ultragrid";
+        sailCfg.setAppName(appName);
+        sailCfg.rank = nodeID;
+        sailCfg.appID = appID;
+        sailCfg.resX = width;
+        sailCfg.resY = height;
+
+        sageRect renderImageMap;
+        renderImageMap.left = 0.0;
+        renderImageMap.right = 1.0;
+        renderImageMap.bottom = 0.0;
+        renderImageMap.top = 1.0;
+
+        sailCfg.imageMap = renderImageMap;
+        switch (codec) {
+                case DXT1:
+                        sailCfg.pixFmt = PIXFMT_DXT;
+                        break;
+#ifdef SAGE_NATIVE_DXT5YCOCG
+                case DXT5:
+                        sailCfg.pixFmt = PIXFMT_DXT5YCOCG
+                        break;
+#endif // SAGE_NATIVE_DXT5YCOCG
+                case RGBA:
+                        sailCfg.pixFmt = PIXFMT_8888;
+                        break;
+                case UYVY:
+                        sailCfg.pixFmt = PIXFMT_YUV;
+                        break;
+                case RGB:
+                        sailCfg.pixFmt = PIXFMT_888;
+                        break;
+                default:
+                        abort();
+        }
+
+        if(codec == DXT1) {
+                sailCfg.rowOrd = BOTTOM_TO_TOP;
+#ifdef SAGE_NATIVE_DXT5YCOCG
+        } else if(codec == DXT5) {
+                sailCfg.rowOrd = BOTTOM_TO_TOP;
+#endif // SAGE_NATIVE_DXT5YCOCG
+        } else {
+                sailCfg.rowOrd = TOP_TO_BOTTOM;
+        }
+        sailCfg.master = true;
+
+        sageInf->init(sailCfg);
+
+        return sageInf;
+}
+
 int display_sage_reconfigure(void *state, struct video_desc desc)
 {
         struct state_sage *s = (struct state_sage *)state;
@@ -369,7 +464,8 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
         pthread_sigmask(SIG_BLOCK, &mask, &old_mask);
 
         if(s->sage_state) {
-                sage_shutdown(s->sage_state);
+                s->sage_state->shutdown();
+                //delete s->sage_state; // this used to cause crashes
         }
 
         s->sage_state = initSage(s->confName, s->fsIP, s->appID, s->nodeID,
@@ -378,7 +474,7 @@ int display_sage_reconfigure(void *state, struct video_desc desc)
         // calling thread should be able to process signals afterwards
         pthread_sigmask(SIG_UNBLOCK, &old_mask, NULL);
 
-        s->tile->data = (char *) sage_getBuffer(s->sage_state);
+        s->tile->data = (char *) s->sage_state->getBuffer();
         s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) * s->tile->height;
 
         return TRUE;
@@ -388,7 +484,7 @@ display_type_t *display_sage_probe(void)
 {
         display_type_t *dt;
 
-        dt = malloc(sizeof(display_type_t));
+        dt = (display_type_t *) malloc(sizeof(display_type_t));
         if (dt != NULL) {
                 dt->id = DISPLAY_SAGE_ID;
                 dt->name = "sage";

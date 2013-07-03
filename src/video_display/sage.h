@@ -48,6 +48,10 @@
 
 #include <video_codec.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DISPLAY_SAGE_ID	0xba370a2f
 
 struct audio_frame;
@@ -68,4 +72,8 @@ int			 display_sage_handle_events(void);
 void                     display_sage_put_audio_frame(void *state, struct audio_frame *frame);
 int                      display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+#ifdef __cplusplus
+}
+#endif
 

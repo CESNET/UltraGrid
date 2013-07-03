@@ -2010,10 +2010,11 @@ if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
     SAGE_INC=-I${SAGE_INC}
     SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
-    SAGE_OBJ="src/video_display/sage.o src/video_display/sage_wrapper.o"
+    SAGE_OBJ="src/video_display/sage.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
     LINKER=$CXX
     AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
+    CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
     LIB_TARGETS="$LIB_TARGETS $SAGE_LIB_TARGET"
     LIB_OBJS="$LIB_OBJS $SAGE_OBJ"
     sage=yes
