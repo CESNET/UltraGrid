@@ -62,7 +62,7 @@
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
-#include "messaging.h"
+#include "crypto/openssl_encrypt.h"
 #include "module.h"
 #include "rtp/ldgm.h"
 #include "rtp/rtp.h"
@@ -72,7 +72,6 @@
 #include "host.h"
 #include "video_codec.h"
 #include "compat/platform_spin.h"
-#include "compat/platform_time.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
 
@@ -138,8 +137,9 @@ struct tx {
 
         int last_fragment;
 
-        void *messaging_subscription;
         platform_spin_t spin;
+
+        struct openssl_encrypt *encryption;
 };
 
 static bool fec_is_ldgm(struct tx *tx)
@@ -180,11 +180,12 @@ static void tx_update(struct tx *tx, struct tile *tile)
         }
 }
 
-struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type, char *fec)
+struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
+                char *fec, const char *encryption)
 {
         struct tx *tx;
 
-        tx = (struct tx *)malloc(sizeof(struct tx));
+        tx = (struct tx *) calloc(1, sizeof(struct tx));
         if (tx != NULL) {
                 module_init_default(&tx->mod);
                 tx->mod.cls = MODULE_CLASS_TX;
@@ -208,6 +209,20 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                                 return NULL;
                         }
                 }
+                if(encryption) {
+#ifdef HAVE_CRYPTO
+                        if(openssl_encrypt_init(&tx->encryption,
+                                                encryption, MODE_AES128_CTR) != 0) {
+                                fprintf(stderr, "Unable to initialize encryption\n");
+                                return NULL;
+                        }
+#else
+                        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                                        "without OpenSSL support!\n");
+                        return NULL;
+#endif // HAVE_CRYPTO
+                }
+
                 platform_spin_init(&tx->spin);
 
                 module_register(&tx->mod, parent);
@@ -372,17 +387,42 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
         platform_spin_unlock(&tx->spin);
 }
 
+static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps)
+{
+        unsigned int fpsd, fd, fps, fi;
+        uint32_t tmp;
+
+        tmp = interlacing << 29;
+        fps = round(input_fps);
+        fpsd = 1;
+        if(fabs(input_fps - round(input_fps) / 1.001) < 0.005)
+                fd = 1;
+        else
+                fd = 0;
+        fi = 0;
+
+        tmp |= fps << 19;
+        tmp |= fpsd << 15;
+        tmp |= fd << 14;
+        tmp |= fi << 13;
+        return htonl(tmp);
+}
+
 static void
 tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
-                codec_t color_spec, double input_fps,
+                codec_t color_spec, double fps,
                 enum interlacing_t interlacing, unsigned int substream,
                 int fragment_offset)
 {
         int m, data_len;
         // see definition in rtp_callback.h
-        video_payload_hdr_t video_hdr;
-        ldgm_video_payload_hdr_t ldgm_hdr;
+
+        uint32_t hdr_data[100];
+        uint32_t *ldgm_payload_hdr = hdr_data;
+        uint32_t *video_hdr = ldgm_payload_hdr + 1;
+        uint32_t *ldgm_hdr = video_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
+        uint32_t *encryption_hdr;
         int pt = PT_VIDEO;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
@@ -395,11 +435,10 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 #endif
         long delta;
         uint32_t tmp;
-        unsigned int fps, fpsd, fd, fi;
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
-        int hdrs_len = 40 + (sizeof(video_payload_hdr_t));
+        int hdrs_len = 40 + (sizeof(video_payload_hdr_t)); // for computing max payload size
         char *data_to_send;
         int data_to_send_len;
 
@@ -423,6 +462,24 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         m = 0;
         pos = 0;
 
+        char *rtp_hdr;
+        int rtp_hdr_len;
+
+        if(tx->encryption && !fec_is_ldgm(tx)) {
+                /*
+                 * Important
+                 * Crypto and video header must be in specified order placed one right after
+                 * the another since both will be sent as a RTP header.
+                 */
+                encryption_hdr = video_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
+
+                encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
+                hdrs_len += sizeof(crypto_payload_hdr_t) + openssl_get_overhead(tx->encryption);
+                rtp_hdr = (char *) video_hdr;
+                rtp_hdr_len = sizeof(crypto_payload_hdr_t) + sizeof(video_payload_hdr_t);
+                pt = PT_ENCRYPT_VIDEO;
+        }
+
         video_hdr[3] = htonl(tile->width << 16 | tile->height);
         video_hdr[4] = get_fourcc(color_spec);
         video_hdr[2] = htonl(data_to_send_len);
@@ -431,28 +488,39 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         video_hdr[0] = htonl(tmp);
 
         /* word 6 */
-        tmp = interlacing << 29;
-        fps = round(input_fps);
-        fpsd = 1;
-        if(fabs(input_fps - round(input_fps) / 1.001) < 0.005)
-                fd = 1;
-        else
-                fd = 0;
-        fi = 0;
-
-        tmp |= fps << 19;
-        tmp |= fpsd << 15;
-        tmp |= fd << 14;
-        tmp |= fi << 13;
-        video_hdr[5] = htonl(tmp);
-
-        char *hdr;
-        int hdr_len;
+        video_hdr[5] = format_interl_fps_hdr_row(interlacing, fps);
 
         if(fec_is_ldgm(tx)) {
                 hdrs_len = 40 + (sizeof(ldgm_video_payload_hdr_t));
-                ldgm_encoder_encode(tx->fec_state, (char *) &video_hdr, sizeof(video_hdr),
-                                tile->data, tile->data_len, &data_to_send, &data_to_send_len);
+                char *tmp_data = NULL;
+                char *ldgm_input_data;
+                int ldgm_input_len;
+                int ldgm_payload_hdr_len = sizeof(ldgm_payload_hdr_t) + sizeof(video_payload_hdr_t);
+                if(tx->encryption) {
+                        ldgm_input_len = tile->data_len + sizeof(crypto_payload_hdr_t) +
+                                MAX_CRYPTO_EXCEED;
+                        ldgm_input_data = tmp_data = malloc(ldgm_input_len);
+                        char *ciphertext = tmp_data + sizeof(crypto_payload_hdr_t);
+                        encryption_hdr = (uint32_t *)(void *) tmp_data;
+                        encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
+                        ldgm_payload_hdr[0] = ntohl(PT_ENCRYPT_VIDEO);
+#ifdef HAVE_CRYPTO
+                        int ret = openssl_encrypt(tx->encryption,
+                                        tile->data, tile->data_len,
+                                        (char *) ldgm_payload_hdr, ldgm_payload_hdr_len,
+                                        ciphertext);
+#endif
+                        ldgm_input_len = sizeof(crypto_payload_hdr_t) + ret;
+
+                } else {
+                        ldgm_input_data = tile->data;
+                        ldgm_input_len = tile->data_len;
+                        ldgm_payload_hdr[0] = ntohl(PT_VIDEO);
+                }
+                ldgm_encoder_encode(tx->fec_state, (char *) ldgm_payload_hdr,
+                                ldgm_payload_hdr_len,
+                                ldgm_input_data, ldgm_input_len, &data_to_send, &data_to_send_len);
+                free(tmp_data);
                 tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
@@ -466,11 +534,19 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 pt = PT_VIDEO_LDGM;
 
-                hdr = (char *) &ldgm_hdr;
-                hdr_len = sizeof(ldgm_hdr);
+                rtp_hdr = (char *) ldgm_hdr;
+                rtp_hdr_len = sizeof(ldgm_video_payload_hdr_t);
+        } else if(!tx->encryption) {
+                rtp_hdr = (char *) video_hdr;
+                rtp_hdr_len = sizeof(video_payload_hdr_t);
+        }
+
+        uint32_t *hdr_offset; // data offset pointer - contains field that needs to be updated
+                              // every cycle
+        if(fec_is_ldgm(tx)) {
+                hdr_offset = ldgm_hdr + 1;
         } else {
-                hdr = (char *) &video_hdr;
-                hdr_len = sizeof(video_hdr);
+                hdr_offset = video_hdr + 1;
         }
 
         do {
@@ -480,11 +556,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 int offset = pos + fragment_offset;
 
-                video_hdr[1] = htonl(offset);
-                if(fec_is_ldgm(tx)) {
-                        ldgm_hdr[1] = htonl(offset);
-                }
-
+                *hdr_offset = htonl(offset);
 
                 data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;
@@ -498,14 +570,24 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 pos += data_len;
                 GET_STARTTIME;
                 if(data_len) { /* check needed for FEC_MULT */
+                        char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
+
+                        if(tx->encryption && tx->fec_scheme != FEC_LDGM) {
+                                data_len = openssl_encrypt(tx->encryption,
+                                                data, data_len,
+                                                (char *) video_hdr, sizeof(video_payload_hdr_t),
+                                                encrypted_data);
+                                data = encrypted_data;
+                        }
+
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                  hdr, hdr_len,
+                                  rtp_hdr, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
                         if(m && tx->fec_scheme != FEC_NONE) {
                                 int i;
                                 for(i = 0; i < 5; ++i) {
                                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                                  hdr, hdr_len,
+                                                  rtp_hdr, rtp_hdr_len,
                                                   data, data_len, 0, 0, 0);
                                 }
                         }
@@ -543,7 +625,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
  */
 void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
 {
-        const int pt = PT_AUDIO; /* PT set for audio in our packet format */
+        int pt; /* PT set for audio in our packet format */
         unsigned int pos = 0u,
                      m = 0u;
         int channel;
@@ -551,7 +633,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
         int data_len;
         char *data;
         // see definition in rtp_callback.h
-        audio_payload_hdr_t payload_hdr;
+        uint32_t hdr_data[100];
+        uint32_t *audio_hdr = hdr_data;
+        uint32_t *crypto_hdr = audio_hdr + sizeof(audio_payload_hdr_t) / sizeof(uint32_t);
         uint32_t timestamp;
 #ifdef HAVE_LINUX
         struct timespec start, stop;
@@ -564,11 +648,20 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
         int mult_pos[FEC_MAX_MULT];
         int mult_index = 0;
         int mult_first_sent = 0;
+        int rtp_hdr_len;
 
         platform_spin_lock(&tx->spin);
 
         timestamp = get_local_mediatime();
         perf_record(UVP_SEND, timestamp);
+
+        if(tx->encryption) {
+                rtp_hdr_len = sizeof(crypto_payload_hdr_t) + sizeof(audio_payload_hdr_t);
+                pt = PT_ENCRYPT_AUDIO;
+        } else {
+                rtp_hdr_len = sizeof(audio_payload_hdr_t);
+                pt = PT_AUDIO; /* PT set for audio in our packet format */
+        }
 
         for(channel = 0; channel < buffer->ch_count; ++channel)
         {
@@ -586,17 +679,17 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 uint32_t tmp;
                 tmp = channel << 22; /* bits 0-9 */
                 tmp |= tx->buffer; /* bits 10-31 */
-                payload_hdr[0] = htonl(tmp);
+                audio_hdr[0] = htonl(tmp);
 
-                payload_hdr[2] = htonl(buffer->data_len[channel]);
+                audio_hdr[2] = htonl(buffer->data_len[channel]);
 
                 /* fourth word */
                 tmp = (buffer->bps * 8) << 26;
                 tmp |= buffer->sample_rate;
-                payload_hdr[3] = htonl(tmp);
+                audio_hdr[3] = htonl(tmp);
 
                 /* fifth word */
-                payload_hdr[4] = htonl(get_audio_tag(buffer->codec));
+                audio_hdr[4] = htonl(get_audio_tag(buffer->codec));
 
                 do {
                         if(tx->fec_scheme == FEC_MULT) {
@@ -610,15 +703,25 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 if(channel == buffer->ch_count - 1)
                                         m = 1;
                         }
-                        payload_hdr[1] = htonl(pos);
+                        audio_hdr[1] = htonl(pos);
                         pos += data_len;
                         
                         GET_STARTTIME;
                         
                         if(data_len) { /* check needed for FEC_MULT */
+                                char encrypted_data[data_len + MAX_CRYPTO_EXCEED];
+                                if(tx->encryption) {
+                                        crypto_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
+                                        data_len = openssl_encrypt(tx->encryption,
+                                                        data, data_len,
+                                                        (char *) audio_hdr, sizeof(audio_payload_hdr_t),
+                                                        encrypted_data);
+                                        data = encrypted_data;
+                                }
+
                                 rtp_send_data_hdr(rtp_session, timestamp, pt, m, 0,        /* contributing sources */
                                       0,        /* contributing sources length */
-                                      (char *) &payload_hdr, sizeof(payload_hdr),
+                                      (char *) audio_hdr, rtp_hdr_len,
                                       data, data_len,
                                       0, 0, 0);
                         }
@@ -650,3 +753,4 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 
         platform_spin_unlock(&tx->spin);
 }
+

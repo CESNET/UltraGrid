@@ -71,6 +71,8 @@
 #include "audio/codec.h"
 #include "audio/resampler.h"
 #include "audio/utils.h"
+#include "crypto/crc.h"
+#include "crypto/openssl_decrypt.h"
 
 #include "utils/packet_counter.h"
 
@@ -115,6 +117,8 @@ struct state_audio_decoder {
         uint32_t saved_audio_tag;
 
         int samples_decoded;
+
+        struct openssl_decrypt *decrypt;
 };
 
 static int validate_mapping(struct channel_map *map);
@@ -168,7 +172,7 @@ static void compute_scale(struct scale_data *scale_data, float vol_avg, int samp
         }
 }
 
-void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
+void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const char *encryption)
 {
         struct state_audio_decoder *s;
         bool scale_auto = false;
@@ -187,6 +191,19 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale)
 
         s->resampler = resampler_init(48000);
 
+        if(encryption) {
+#ifdef HAVE_CRYPTO
+                if(openssl_decrypt_init(&s->decrypt,
+                                                encryption, MODE_AES128_CTR) != 0) {
+                        fprintf(stderr, "Unable to create decompress!\n");
+                        return NULL;
+                }
+#else
+                fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                                "without OpenSSL support!\n");
+                return NULL;
+#endif // HAVE_CRYPTO
+        }
 
         if(audio_channel_map) {
                 char *save_ptr = NULL;
@@ -311,6 +328,8 @@ void audio_decoder_destroy(void *state)
         audio_codec_done(s->audio_decompress);
         resampler_done(s->resampler);
 
+        openssl_decrypt_destroy(s->decrypt);
+
         free(s);
 }
 
@@ -333,12 +352,57 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         while (cdata != NULL) {
                 char *data;
                 // for definition see rtp_callbacks.h
-                uint32_t *hdr = (uint32_t *)(void *) cdata->data->data;
-                        
+                uint32_t *audio_hdr = (uint32_t *)(void *) cdata->data->data;
+                uint32_t *encryption_hdr;
+                const int pt = cdata->data->pt;
+
+                if(pt == PT_ENCRYPT_AUDIO) {
+                        encryption_hdr = (uint32_t *)((void *) cdata->data->data +
+                                        sizeof(audio_payload_hdr_t));
+                        if(!decoder->decrypt) {
+                                fprintf(stderr, "Receiving encrypted audio data but "
+                                                "no decryption key entered!\n");
+                                ret = false; goto cleanup;
+                        }
+                } else if(pt == PT_AUDIO) {
+                        if(decoder->decrypt) {
+                                fprintf(stderr, "Receiving unencrypted audio data "
+                                                "while expecting encrypted.\n");
+                                ret = false; goto cleanup;
+                        }
+                } else {
+                        fprintf(stderr, "Unknown audio packet type: %d\n", pt);
+                        abort();
+                }
+
+                unsigned int length;
+                char plaintext[cdata->data->data_len]; // plaintext will be actually shorter
+                if(pt == PT_AUDIO) {
+                        length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
+                        data = cdata->data->data + sizeof(audio_payload_hdr_t);
+                } else {
+                        assert(pt == PT_ENCRYPT_AUDIO);
+                        char *ciphertext = cdata->data->data + sizeof(crypto_payload_hdr_t) +
+                                sizeof(audio_payload_hdr_t);
+                        int ciphertext_len = cdata->data->data_len - sizeof(audio_payload_hdr_t) -
+                                sizeof(crypto_payload_hdr_t);
+
+                        if((length = openssl_decrypt(decoder->decrypt,
+                                        ciphertext, ciphertext_len,
+                                        (char *) audio_hdr, sizeof(audio_payload_hdr_t),
+                                        plaintext
+                                        )) == 0) {
+                                fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
+                                ret = false;
+                                goto cleanup;
+                        }
+                        data = plaintext;
+                }
+
                 /* we receive last channel first (with m bit, last packet) */
                 /* thus can be set only with m-bit packet */
                 if(cdata->data->m) {
-                        input_channels = ((ntohl(hdr[0]) >> 22) & 0x3ff) + 1;
+                        input_channels = ((ntohl(audio_hdr[0]) >> 22) & 0x3ff) + 1;
                 }
 
                 // we have:
@@ -346,16 +410,19 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 // 2) not last, but the last one was processed at first
                 assert(input_channels > 0);
 
-                channel = (ntohl(hdr[0]) >> 22) & 0x3ff;
-                int bufnum = ntohl(hdr[0]) & 0x3fffff;
-                sample_rate = ntohl(hdr[3]) & 0x3fffff;
-                bps = (ntohl(hdr[3]) >> 26) / 8;
-                uint32_t audio_tag = ntohl(hdr[4]);
+                channel = (ntohl(audio_hdr[0]) >> 22) & 0x3ff;
+                int bufnum = ntohl(audio_hdr[0]) & 0x3fffff;
+                sample_rate = ntohl(audio_hdr[3]) & 0x3fffff;
+                bps = (ntohl(audio_hdr[3]) >> 26) / 8;
+                uint32_t audio_tag = ntohl(audio_hdr[4]);
                 
-                output_channels = decoder->channel_remapping ? decoder->channel_map.max_output + 1: input_channels;
+                output_channels = decoder->channel_remapping ?
+                        decoder->channel_map.max_output + 1: input_channels;
 
-                /**
-                 * TODO: obtain supported rates from device
+                /*
+                 * Reconfiguration
+                 *
+                 * @todo obtain supported rates from device
                  */
                 int device_sample_rate = 48000;
                 int device_bps = 2;
@@ -404,13 +471,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                 return FALSE;
                         }
                 }
-                
-                data = cdata->data->data + sizeof(audio_payload_hdr_t);
-                
-                unsigned int length = cdata->data->data_len - sizeof(audio_payload_hdr_t);
 
-                unsigned int offset = ntohl(hdr[1]);
-                unsigned int buffer_len = ntohl(hdr[2]);
+                unsigned int offset = ntohl(audio_hdr[1]);
+                unsigned int buffer_len = ntohl(audio_hdr[2]);
                 //fprintf(stderr, "%d-%d-%d ", length, bufnum, channel);
 
 

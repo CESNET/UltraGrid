@@ -129,6 +129,8 @@ struct state_audio {
         echo_cancellation_t *echo_state;
         struct audio_export *exporter;
         int  resample_to;
+
+        char *requested_encryption;
 };
 
 /** 
@@ -181,7 +183,8 @@ static void audio_scale_usage(void)
  */
 struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
-                char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
+                char *jack_cfg, char *fec_cfg, const char *encryption,
+                char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec,
                 int resample_to)
 {
@@ -259,8 +262,12 @@ struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv
         } else {
                 s->echo_state = NULL;
         }
+
+        if(encryption) {
+                s->requested_encryption = strdup(encryption);
+        }
         
-        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg);
+        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;
@@ -420,6 +427,8 @@ void audio_done(struct state_audio *s)
                         pdb_destroy(&s->audio_participants);
                 }
                 audio_export_destroy(s->exporter);
+                module_done(&s->mod);
+                free(s->requested_encryption);
                 free(s);
         }
 }
@@ -457,7 +466,7 @@ static void *audio_receiver_thread(void *arg)
         memset(&pbuf_data.buffer, 0, sizeof(struct audio_frame));
         memset(&device_desc, 0, sizeof(struct audio_desc));
 
-        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale);
+        pbuf_data.decoder = audio_decoder_init(s->audio_channel_map, s->audio_scale, s->requested_encryption);
         assert(pbuf_data.decoder != NULL);
                 
         printf("Audio receiving started.\n");

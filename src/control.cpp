@@ -52,12 +52,18 @@
 
 #include "control.h"
 
+#include <set>
+
 #include "debug.h"
 #include "messaging.h"
 #include "module.h"
+#include "stats.h"
+#include "tv.h"
 
 #define DEFAULT_CONTROL_PORT 5054
 #define MAX_CLIENTS 16
+
+using namespace std;
 
 struct client {
         int fd;
@@ -69,10 +75,14 @@ struct client {
 };
 
 struct control_state {
+        struct module mod;
         pthread_t thread_id;
         int local_fd[2];
         int network_port;
         struct module *root_module;
+
+        set<struct stats *> stats;
+        pthread_mutex_t stats_lock;
 };
 
 #define CONTROL_EXIT -1
@@ -84,6 +94,10 @@ static ssize_t write_all(int fd, const void *buf, size_t count);
 static void * control_thread(void *args);
 static void send_response(int fd, struct response *resp);
 
+/**
+ * This function writes all data (in contrast to write() which
+ * can write only part of passed buffer)
+  */
 static ssize_t write_all(int fd, const void *buf, size_t count)
 {
     unsigned char *p = (unsigned char *) buf;
@@ -103,9 +117,15 @@ static ssize_t write_all(int fd, const void *buf, size_t count)
 
 int control_init(int port, struct control_state **state, struct module *root_module)
 {
-        struct control_state *s = (struct control_state *) malloc(sizeof(struct control_state));
+        control_state *s = new control_state;
 
         s->root_module = root_module;
+
+        pthread_mutex_init(&s->stats_lock, NULL);
+
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_CONTROL;
+        s->mod.priv_data = s;
 
         if(port == -1) {
                 s->network_port = DEFAULT_CONTROL_PORT;
@@ -124,6 +144,8 @@ int control_init(int port, struct control_state **state, struct module *root_mod
                 free(s);
                 return -1;
         }
+
+        module_register(&s->mod, root_module);
 
         *state = s;
         return 0;
@@ -207,15 +229,6 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
                         append_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE });
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
-        } else if(prefix_matches(message, "stats ")) {
-                struct msg_stats *msg = (struct msg_stats *)
-                        new_message(sizeof(struct msg_stats));
-                char *stats = suffix(message, "stats ");
-
-                strncpy(msg->what, stats, sizeof(msg->what) - 1);
-
-                // resp = send_message(s->root_module, "blblbla", &data);
-                resp = new_response(RESPONSE_NOT_FOUND, strdup("statistics currently not working"));
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
@@ -284,6 +297,9 @@ static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, in
         return ret;
 }
 
+
+#define is_internal_port(x) (x == s->local_fd[1])
+
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
@@ -310,7 +326,7 @@ static void * control_thread(void *args)
 
         struct client *clients = NULL;
 
-        struct client *new_client = malloc(sizeof(struct client));
+        struct client *new_client = (struct client *) malloc(sizeof(struct client));
         new_client->fd = s->local_fd[1];
         new_client->prev = NULL;
         new_client->next = NULL;
@@ -319,25 +335,39 @@ static void * control_thread(void *args)
 
         bool should_exit = false;
 
+        struct timeval last_report_sent;
+        const int report_interval_sec = 5;
+        gettimeofday(&last_report_sent, NULL);
+
         while(!should_exit) {
-                fd_set set;
-                FD_ZERO(&set);
-                FD_SET(fd, &set);
+                fd_set fds;
+                FD_ZERO(&fds);
+                FD_SET(fd, &fds);
                 int max_fd = fd + 1;
 
                 struct client *cur = clients;
 
                 while(cur) {
-                        FD_SET(cur->fd, &set);
+                        FD_SET(cur->fd, &fds);
                         if(cur->fd + 1 > max_fd) {
                                 max_fd = cur->fd + 1;
                         }
                         cur = cur->next;
                 }
 
-                if(select(max_fd, &set, NULL, NULL, NULL) >= 1) {
-                        if(FD_ISSET(fd, &set)) {
-                                struct client *new_client = malloc(sizeof(struct client));
+                struct timeval timeout;
+                timeout.tv_sec = report_interval_sec;
+                timeout.tv_usec = 0;
+
+                struct timeval *timeout_ptr = NULL;
+                if(clients->next != NULL) { // some remote client
+                        timeout_ptr = &timeout;
+                }
+
+                if(select(max_fd, &fds, NULL, NULL, timeout_ptr) >= 1) {
+                        if(FD_ISSET(fd, &fds)) {
+                                struct client *new_client = (struct client *)
+                                        malloc(sizeof(struct client));
                                 new_client->fd = accept(fd, (struct sockaddr *) &client_addr, &len);
                                 new_client->prev = NULL;
                                 new_client->next = clients;
@@ -348,7 +378,7 @@ static void * control_thread(void *args)
                         struct client *cur = clients;
 
                         while(cur) {
-                                if(FD_ISSET(cur->fd, &set)) {
+                                if(FD_ISSET(cur->fd, &fds)) {
                                         ssize_t ret = read(cur->fd, cur->buff + cur->buff_len,
                                                         sizeof(cur->buff) - cur->buff_len);
                                         if(ret == -1) {
@@ -381,7 +411,7 @@ static void * control_thread(void *args)
                                 cur->buff_len = cur_buffer_len;
 
                                 int ret = process_msg(s, cur->fd, msg);
-                                if(ret == CONTROL_EXIT) {
+                                if(ret == CONTROL_EXIT && is_internal_port(cur->fd)) {
                                         should_exit = true;
                                 } else if(ret == CONTROL_CLOSE_HANDLE) {
                                         shutdown(cur->fd, SHUT_RDWR);
@@ -393,6 +423,42 @@ static void * control_thread(void *args)
                         }
 
                         cur = cur->next;
+                }
+
+                struct timeval curr_time;
+                gettimeofday(&curr_time, NULL);
+                if(tv_diff(curr_time, last_report_sent) > report_interval_sec) {
+                        char buffer[1025];
+                        bool empty = true;
+                        memset(buffer, '\0', sizeof(buffer));
+                        strncpy(buffer + strlen(buffer), "stats",  sizeof(buffer) -
+                                        strlen(buffer) - 1);
+                        pthread_mutex_lock(&s->stats_lock);
+                        for(set<struct stats *>::iterator it = s->stats.begin();
+                                        it != s->stats.end(); ++it) {
+                                empty = false;
+                                strncpy(buffer + strlen(buffer), " ",  sizeof(buffer) -
+                                                strlen(buffer) - 1);
+                                stats_format(*it, buffer + strlen(buffer),
+                                                sizeof(buffer) - strlen(buffer));
+                        }
+
+                        pthread_mutex_unlock(&s->stats_lock);
+                        strncpy(buffer + strlen(buffer), "\r\n",  sizeof(buffer) -
+                                        strlen(buffer) - 1);
+
+                        if(strlen(buffer) < 1024 && !empty) {
+                                cur = clients;
+                                while(cur) {
+                                        if(is_internal_port(cur->fd)) { // skip local FD
+                                                cur = cur->next;
+                                                continue;
+                                        }
+                                        write_all(cur->fd, buffer, strlen(buffer));
+                                        cur = cur->next;
+                                }
+                        }
+                        last_report_sent = curr_time;
                 }
         }
 
@@ -415,10 +481,30 @@ void control_done(struct control_state *s)
                 return;
         }
 
+        module_done(&s->mod);
+
         write_all(s->local_fd[0], "quit\r\n", 6);
 
         pthread_join(s->thread_id, NULL);
 
         close(s->local_fd[0]);
+
+        pthread_mutex_destroy(&s->stats_lock);
+
+        delete s;
+}
+
+void control_add_stats(struct control_state *s, struct stats *stats)
+{
+        pthread_mutex_lock(&s->stats_lock);
+        s->stats.insert(stats);
+        pthread_mutex_unlock(&s->stats_lock);
+}
+
+void control_remove_stats(struct control_state *s, struct stats *stats)
+{
+        pthread_mutex_lock(&s->stats_lock);
+        s->stats.erase(stats);
+        pthread_mutex_unlock(&s->stats_lock);
 }
 

@@ -2527,6 +2527,33 @@ fi
 AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
 
 # -------------------------------------------------------------------------------------------------
+# OpenSSL-libcrypto
+# -------------------------------------------------------------------------------------------------
+crypto=no
+crypto_req=auto
+AC_ARG_ENABLE(openssl,
+      AS_HELP_STRING([--disable-openssl], [disable OpenSSL support(default is auto)]),
+    [crypto_req=$enableval],
+    [crypto_req=auto]
+    )
+
+PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
+
+if test $crypto_req != no -a $crypto = yes; then
+        AC_DEFINE([HAVE_CRYPTO], [1], [Build with OpenSSL support])
+        CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
+        CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
+        CPPFLAGS="$CPPFLAGS $CRYPTO_CFLAGS"
+        LIBS="$LIBS $CRYPTO_LIBS"
+else
+        crypto=no
+fi
+
+if test $crypto_req = yes -a $crypto = no; then
+        AC_MSG_ERROR([OpenSSL not found]);
+fi
+
+# -------------------------------------------------------------------------------------------------
 # Run subsequent configure scripts
 # -------------------------------------------------------------------------------------------------
 if test $jpeg = yes -a $jpeg_static = yes
@@ -2552,6 +2579,7 @@ RESULT=\
   Standalone modules .......... $build_libraries
   License ..................... $license
   iHDTV support ............... $ihdtv
+  OpenSSL-libcrypto ........... $crypto
 
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink

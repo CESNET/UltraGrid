@@ -89,10 +89,13 @@ OBJS	      = @OBJS@ \
 		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
 		src/compat/usleep.o \
+		src/crypto/crc_32.o \
 		src/crypto/crypt_aes.o \
 		src/crypto/crypt_aes_impl.o \
 		src/crypto/crypt_des.o \
 		src/crypto/md5.o \
+		src/crypto/openssl_encrypt.o \
+		src/crypto/openssl_decrypt.o \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
 		src/module.o \

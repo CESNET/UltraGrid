@@ -56,7 +56,7 @@ struct tile;
 int decode_frame(struct coded_data *compressed_frame, void *decode_data);
 
 struct state_decoder *decoder_init(const char *requested_mode, const char *postprocess,
-                struct display *display);
+                struct display *display, const char *encryption);
 void decoder_destroy(struct state_decoder *decoder);
 
 bool decoder_register_video_display(struct state_decoder *decoder, struct display *display);

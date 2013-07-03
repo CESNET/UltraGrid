@@ -46,9 +46,11 @@
  * Packet formats:
  * http://www.sitola.cz/files/4K-packet-format.pdf
  */
-#define PT_VIDEO 20
-#define PT_AUDIO 21
-#define PT_VIDEO_LDGM 22
+#define PT_VIDEO        20
+#define PT_AUDIO        21
+#define PT_VIDEO_LDGM   22
+#define PT_ENCRYPT_VIDEO 24
+#define PT_ENCRYPT_AUDIO 25
 
 /*
  * Video payload
@@ -101,6 +103,8 @@ typedef uint32_t video_payload_hdr_t[6];
  */
 typedef uint32_t audio_payload_hdr_t[5];
 
+typedef uint32_t ldgm_payload_hdr_t;
+
 /*
  * LDGM video payload
  *
@@ -124,8 +128,19 @@ typedef uint32_t audio_payload_hdr_t[5];
  */
 typedef uint32_t ldgm_video_payload_hdr_t[5];
 
+/*
+ * Crypto video payload
+ *
+ * 1st word
+ * bits 0 - 8 crypto type
+ * bits 9 - 31 currently unused
+ */
+#define CRYPTO_TYPE_AES128_CTR 1u
+typedef uint32_t crypto_payload_hdr_t[1];
+
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
 void process_packet_for_display(char *);
 void call_display_frame(void);
+

@@ -1,5 +1,5 @@
 /*
- * FILE:   transmit.h
+ * FILE:   aes_encrypt.h
  * AUTHOR: Colin Perkins <csp@isi.edu>
  *         Martin Benes     <martinbenesh@gmail.com>
  *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
@@ -15,25 +15,25 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by the University of Southern
  *      California Information Sciences Institute. This product also includes
  *      software developed by CESNET z.s.p.o.
- * 
+ *
  * 4. Neither the name of the University, Institute, CESNET nor the names of
  *    its contributors may be used to endorse or promote products derived from
  *    this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -49,26 +49,65 @@
  *
  */
 
-#ifndef TRANSMIT_H_
-#define TRANSMIT_H_
+#ifndef OPENSSL_ENCRYPT_H_
+#define OPENSSL_ENCRYPT_H_
 
-#include "audio/audio.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+struct openssl_encrypt;
 
-struct module;
-struct rtp;
-struct tx;
-struct video_frame;
-
-enum tx_media_type {
-        TX_MEDIA_AUDIO,
-        TX_MEDIA_VIDEO
+enum openssl_mode {
+        MODE_AES128_CTR, // no autenticity, only integrity (CRC)
+        MODE_AES128_ECB // do not use
 };
 
-struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption);
-void		 tx_send_tile(struct tx *tx_session, struct video_frame *frame, int pos, struct rtp *rtp_session);
-void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
-void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, audio_frame2 *buffer);
+#define MAX_CRYPTO_EXTRA_DATA 24 // == maximal overhead of available encryptions
+#define MAX_CRYPTO_PAD 0 // CTR does not need padding
+#define MAX_CRYPTO_EXCEED (MAX_CRYPTO_EXTRA_DATA + MAX_CRYPTO_PAD)
 
-#endif // TRANSMIT_H_
+/**
+ * Initializes encryption
+ * @param[out] state      created state
+ * @param[in]  passphrase key material (NULL-terminated)
+ * @param[in]  mode
+ * @retval      0         success
+ * @retval     <0         failure
+ * @retval     >0         state not created
+ */
+int openssl_encrypt_init(struct openssl_encrypt **state,
+                const char *passphrase, enum openssl_mode mode);
+/**
+ * Destroys state
+ */
+void openssl_encrypt_destroy(struct openssl_encrypt *state);
+/**
+ * Encrypts a block of data
+ *
+ * @param[in] encryption    state
+ * @param[in] plaintext     plain text
+ * @param[in] plaintext_len length of plain text
+ * @param[in] aad           Additional Authenticated Data
+ *                          this won't be encrypted but passed in plaintext along ciphertext.
+ *                          These data are autheticated only if working in some AE mode
+ * @param[in] aad_len       length of AAD text
+ * @param[out] ciphertext   resulting ciphertext, can be up to (plaintext_len + MAX_CRYPTO_EXCEED) length
+ * @returns   size of writen ciphertext
+ */
+int openssl_encrypt(struct openssl_encrypt *encryption,
+                char *plaintext, int plaintext_len, char *aad, int aad_len, char *ciphertext);
+/**
+ * Returns maximal number of bytest that the ciphertext length may exceed plaintext for selected
+ * encryption.
+ *
+ * @param[in] encryption    state
+ * @returns max overhead (must be <= MAX_CRYPTO_EXCEED)
+ */
+int openssl_get_overhead(struct openssl_encrypt *encryption);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // OPENSSL_ENCRYPT_H_
 

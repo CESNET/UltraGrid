@@ -231,7 +231,6 @@ static void *sender_thread(void *arg) {
         struct video_frame *splitted_frames = NULL;
         int tile_y_count;
         struct video_desc saved_vid_desc;
-        struct stats *stat_data_sent = stats_new_statistics("data");
 
         tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
@@ -249,6 +248,11 @@ static void *sender_thread(void *arg) {
         module_register(&data->priv->mod, data->parent);
 
         pthread_mutex_unlock(&data->priv->lock);
+
+        struct module *control_mod = get_module(get_root_module(&data->priv->mod), "control");
+        struct stats *stat_data_sent = stats_new_statistics((struct control_state *)
+                        control_mod, "data");
+        unlock_module(control_mod);
 
         while(1) {
                 pthread_mutex_lock(&data->priv->lock);
