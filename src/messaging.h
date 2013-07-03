@@ -39,8 +39,15 @@ struct message {
         void (*data_deleter)(struct message *);
 };
 
-struct msg_change_receiver_address {
+enum msg_sender_type {
+        SENDER_MSG_CHANGE_RECEIVER,
+        SENDER_MSG_PLAY,
+        SENDER_MSG_PAUSE
+};
+
+struct msg_sender {
         struct message m;
+        enum msg_sender_type type;
         char receiver[128];
 };
 
@@ -77,6 +84,7 @@ struct message *new_message(size_t length);
 void free_message(struct message *m);
 const char *response_status_to_text(int status);
 
+struct message *check_message(struct module *);
 
 #ifdef __cplusplus
 }

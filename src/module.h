@@ -127,6 +127,8 @@ void unlock_module(struct module *module);
  */
 struct module *get_root_module(struct module *node);
 
+void dump_tree(struct module *root, int indent);
+
 #define CAST_MODULE(x) ((struct module *) x)
 
 #ifdef __cplusplus

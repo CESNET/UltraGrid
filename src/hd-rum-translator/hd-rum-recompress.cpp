@@ -55,6 +55,7 @@ static void *worker(void *arg)
         struct state_recompress *s = (struct state_recompress *) arg;
         struct timeval t0, t;
         int frames = 0;
+        struct module sender_mod;
 
         int ret = compress_init(s->parent, s->required_compress, &s->compress);
         if(ret != 0) {
@@ -63,6 +64,10 @@ static void *worker(void *arg)
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
         }
+
+        module_init_default(&sender_mod);
+        sender_mod.cls = MODULE_CLASS_SENDER;
+        module_register(&sender_mod, s->parent);
 
         pthread_mutex_unlock(&s->lock);
 
@@ -82,6 +87,13 @@ static void *worker(void *arg)
                 }
                 pthread_mutex_unlock(&s->lock);
 
+                struct message *msg;
+                while((msg = check_message(&sender_mod))) {
+                        struct msg_sender *data = (struct msg_sender *) msg;
+                        rtp_change_dest(s->network_device,
+                                        data->receiver);
+                        free_message(msg);
+                }
 
                 struct video_frame *tx_frame =
                         compress_frame((struct compress_state *) s->compress,
@@ -116,6 +128,8 @@ static void *worker(void *arg)
                 module_done(CAST_MODULE(s->compress));
                 s->compress = NULL;
         }
+
+        module_done(&sender_mod);
 
         return NULL;
 }

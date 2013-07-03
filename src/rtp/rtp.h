@@ -288,6 +288,6 @@ void             rtp_flush_recv_buf(struct rtp *session);
  * @retval FALSE if not
  */
 int              rtp_change_dest(struct rtp *session, const char *addr);
-uint64_t         rtp_get_bcount(struct rtp *session);
+uint64_t         rtp_get_bytes_sent(struct rtp *session);
 int              rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc);
 #endif /* __RTP_H__ */

@@ -20,6 +20,8 @@
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "module.h"
+#include "stats.h"
+#include "tv.h"
 
 #define EXIT_FAIL_USAGE 1
 #define EXIT_INIT_PORT 3
@@ -181,7 +183,7 @@ static int output_socket(unsigned short port, const char *host, int bufsize)
         exit(2);
     }
 
-    inet_ntop(AF_INET, &((struct sockaddr_in *) res->ai_addr)->sin_addr,
+    inet_ntop(AF_INET, &((struct sockaddr_in *)(void *) res->ai_addr)->sin_addr,
               saddr, sizeof(saddr));
     printf("connecting to %s (%s) port %d\n",
            res->ai_canonname, saddr, port);
@@ -244,9 +246,11 @@ static void *writer(void *arg)
 }
 
 static void usage(const char *progname) {
-        printf("%s buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
+        printf("%s [global_opts] buffer_size port [host1_options] host1 [[host2_options] host2] ...\n",
                 progname);
-        printf("\twhere hostX_options may be:\n"
+        printf("\twhere global_opts may be:\n"
+                "\t\t--control-port <port_number> - control port to connect to\n");
+        printf("\tand hostX_options may be:\n"
                 "\t\t-c <compression> - compression\n"
                 "\t\t-m <mtu> - MTU size. Will be used only with compression.\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
@@ -261,13 +265,22 @@ struct host_opts {
 };
 
 static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
-        struct host_opts **host_opts, int *host_opts_count)
+        struct host_opts **host_opts, int *host_opts_count, int *control_port)
 {
-    *bufsize = argv[1];
-    *port = atoi(argv[2]);
+    int start_index = 1;
 
-    argv += 2;
-    argc -= 2;
+    while(argv[start_index][0] == '-') {
+        if(strcmp(argv[start_index], "--control-port") == 0) {
+            *control_port = atoi(argv[++start_index]);
+        }
+        start_index++;
+    }
+
+    *bufsize = argv[start_index];
+    *port = atoi(argv[start_index + 1]);
+
+    argv += start_index + 1;
+    argc -= start_index + 1;
 
     *host_opts_count = 0;
 
@@ -356,6 +369,7 @@ int main(int argc, char **argv)
     int i;
     struct host_opts *hosts;
     int host_count;
+    int control_port = CONTROL_DEFAULT_PORT;
     struct control_state *control_state = NULL;
 
     if (argc < 4) {
@@ -379,7 +393,12 @@ int main(int argc, char **argv)
 #endif
     sigaction(SIGABRT, &sa, NULL);
 
-    parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count);
+    parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
+
+    if (host_count == 0) {
+        usage(argv[0]);
+        return EXIT_FAIL_USAGE;
+    }
 
     if ((bufsize = atoi(bufsize_str)) <= 0) {
         fprintf(stderr, "invalid buffer size: %d\n", bufsize);
@@ -483,8 +502,11 @@ int main(int argc, char **argv)
         module_register(&state.replicas[i].mod, &state.mod);
     }
 
-    if(control_init(CONTROL_DEFAULT_PORT, &control_state, &state.mod) != 0) {
+    if(control_init(control_port, &control_state, &state.mod) != 0) {
         fprintf(stderr, "Warning: Unable to create remote control.\n");
+        if(control_port != CONTROL_DEFAULT_PORT) {
+            return EXIT_FAILURE;
+        }
     }
 
     if (pthread_create(&thread, NULL, writer, (void *) &state)) {
@@ -492,11 +514,19 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    struct stats *stat_received = stats_new_statistics(
+            control_state,
+            "received");
+    uint64_t received_data = 0;
+    struct timeval t0, t;
+    gettimeofday(&t0, NULL);
+
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead
                && (state.qtail->size = read(sock_in, state.qtail->buf, SIZE)) > 0
                && !should_exit) {
+            received_data += state.qtail->size;
 
             state.qtail = state.qtail->next;
 
@@ -504,6 +534,12 @@ int main(int argc, char **argv)
             state.qempty = 0;
             pthread_cond_signal(&state.qempty_cond);
             pthread_mutex_unlock(&state.qempty_mtx);
+
+            gettimeofday(&t, NULL);
+            if(tv_diff(t, t0) > 1.0) {
+                stats_update_int(stat_received, received_data);
+                t0 = t;
+            }
         }
 
         if (state.qtail->size <= 0)
@@ -530,6 +566,7 @@ int main(int argc, char **argv)
     pthread_cond_signal(&state.qempty_cond);
     pthread_mutex_unlock(&state.qempty_mtx);
 
+    stats_destroy(stat_received);
     control_done(control_state);
 
     pthread_join(thread, NULL);

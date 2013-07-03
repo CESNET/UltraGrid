@@ -123,6 +123,7 @@
 #define OPT_AUDIO_CODEC (('A' << 8) | 'C')
 #define OPT_CAPTURE_FILTER (('O' << 8) | 'F')
 #define OPT_ENCRYPTION (('E' << 8) | 'N')
+#define OPT_CONTROL_PORT (('C' << 8) | 'P')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -163,8 +164,6 @@ struct state_uv {
         pthread_mutex_t master_lock;
 
         struct video_export *video_exporter;
-
-        struct sender_data sender_data;
 
         struct module *root_module;
 
@@ -550,7 +549,6 @@ static void *receiver_thread(void *arg)
         unsigned int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
-        struct stats *stat_loss = NULL;
 #ifdef SHARED_DECODER
         struct vcodec_state *shared_decoder = new_decoder(uv);
         if(shared_decoder == NULL) {
@@ -567,10 +565,14 @@ static void *receiver_thread(void *arg)
         fr = 1;
 
         struct module *control_mod = get_module(get_root_module(uv->root_module), "control");
-        stat_loss = stats_new_statistics(
+        unlock_module(control_mod);
+        struct stats *stat_loss = stats_new_statistics(
                         (struct control_state *) control_mod,
                         "loss");
-        unlock_module(control_mod);
+        struct stats *stat_received = stats_new_statistics(
+                        (struct control_state *) control_mod,
+                        "received");
+        uint64_t total_received = 0ull;
 
         while (!should_exit_receiver) {
                 /* Housekeeping and RTCP... */
@@ -596,7 +598,8 @@ static void *receiver_thread(void *arg)
                    printf("Failed to receive data\n");
                    }
                  */
-                UNUSED(ret);
+                total_received += ret;
+                stats_update_int(stat_received, total_received);
 
                 /* Decode and render for each participant in the conference... */
                 pdb_iter_t it;
@@ -711,6 +714,7 @@ static void *receiver_thread(void *arg)
         display_finish(uv_state->display_device);
 
         stats_destroy(stat_loss);
+        stats_destroy(stat_received);
 
         return 0;
 }
@@ -719,6 +723,8 @@ static void *compress_thread(void *arg)
 {
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
+        struct sender_data sender_data;
+        memset(&sender_data, 0, sizeof(sender_data));
 
         struct video_frame *tx_frame;
         struct audio_frame *audio;
@@ -728,17 +734,17 @@ static void *compress_thread(void *arg)
         struct compress_state *compression;
         int ret = compress_init(uv_mod, uv->requested_compression, &compression);
 
-        uv->sender_data.parent = uv_mod; /// @todo should be compress thread module
-        uv->sender_data.connections_count = uv->connections_count;
-        uv->sender_data.tx_protocol = uv->tx_protocol;
+        sender_data.parent = uv_mod; /// @todo should be compress thread module
+        sender_data.connections_count = uv->connections_count;
+        sender_data.tx_protocol = uv->tx_protocol;
         if(uv->tx_protocol == ULTRAGRID_RTP) {
-                uv->sender_data.network_devices = uv->network_devices;
+                sender_data.network_devices = uv->network_devices;
         } else {
-                uv->sender_data.sage_tx_device = uv->sage_tx_device;
+                sender_data.sage_tx_device = uv->sage_tx_device;
         }
-        uv->sender_data.tx = uv->tx;
+        sender_data.tx = uv->tx;
 
-        if(!sender_init(&uv->sender_data)) {
+        if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
                 exit_uv(1);
                 pthread_mutex_unlock(&uv->master_lock);
@@ -786,13 +792,13 @@ static void *compress_thread(void *arg)
                                 nonblock = false;
                         }
 
-                        sender_post_new_frame(&uv->sender_data, tx_frame, nonblock);
+                        sender_post_new_frame(&sender_data, tx_frame, nonblock);
                 }
         }
 
         vidcap_finish(uv_state->capture_device);
 
-        sender_done(&uv->sender_data);
+        sender_done(&sender_data);
 
 compress_done:
         module_done(CAST_MODULE(compression));
@@ -875,6 +881,7 @@ int main(int argc, char *argv[])
         char *export_opts = NULL;
 
         char *sage_opts = NULL;
+        int control_port = CONTROL_DEFAULT_PORT;
         struct control_state *control = NULL;
 
         int bitrate = 0;
@@ -939,6 +946,7 @@ int main(int argc, char *argv[])
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
+                {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {0, 0, 0, 0}
         };
@@ -1189,6 +1197,9 @@ int main(int argc, char *argv[])
                 case OPT_ENCRYPTION:
                         uv->requested_encryption = optarg;
                         break;
+                case OPT_CONTROL_PORT:
+                        control_port = atoi(optarg);
+                        break;
                 case '?':
                 default:
                         usage();
@@ -1236,8 +1247,12 @@ int main(int argc, char *argv[])
                 audio_rx_port = uv->recv_port_number + 2;
         }
 
-        if(control_init(CONTROL_DEFAULT_PORT, &control, &root_mod) != 0) {
-                fprintf(stderr, "Warning: Unable to initialize remote control!\n:");
+        if(control_init(control_port, &control, &root_mod) != 0) {
+                fprintf(stderr, "%s Unable to initialize remote control!\n",
+                                control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
+                if(control_port != CONTROL_DEFAULT_PORT) {
+                        return EXIT_FAILURE;
+                }
         }
 
         if(should_export) {

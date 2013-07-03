@@ -284,7 +284,8 @@ struct rtp {
         int sdes_count_ter;
         uint16_t rtp_seq;
         uint32_t rtp_pcount;
-        uint64_t rtp_bcount;
+        uint32_t rtp_bcount;
+        uint64_t rtp_bytes_sent;
         int tfrc_on;            /* indicates TFRC congestion control */
         /* tfrc sender variables */
         uint32_t cmp_rtt;       /* rtt as computed by the sender */
@@ -1116,6 +1117,7 @@ struct rtp *rtp_init_if(const char *addr, char *iface,
         session->mhdr = NULL;
         session->tfrc_on = tfrc_on;
         session->rtp_bcount = 0;
+        session->rtp_bytes_sent = 0;
         gettimeofday(&(session->last_update), NULL);
         gettimeofday(&(session->last_rtcp_send_time), NULL);
         gettimeofday(&(session->next_rtcp_send_time), NULL);
@@ -1413,7 +1415,7 @@ int rtp_recv_push_data(struct rtp *session,
         return buflen;
 }
 
-static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
+static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 {
         int buflen;
         rtp_packet *packet = NULL;
@@ -1429,6 +1431,8 @@ static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                      RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
 
         rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+
+        return buflen;
 }
 
 static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
@@ -2230,6 +2234,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
  * @param sessions null-terminated list of rtp sessions.
  * @param timeout timeout
  * @param cur_rtp_ts list null-terminated of timestamps for each session
+ * @returns received bytes
  */
 int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
@@ -2244,9 +2249,10 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
                 udp_fd_set_r((*current)->rtcp_socket, &fd);
         }
         if (udp_select_r(timeout, &fd) > 0) {
+                int received_bytes = 0;
                 for(current = sessions; *current != NULL; ++current) {
                         if (udp_fd_isset_r((*current)->rtp_socket, &fd)) {
-                                rtp_recv_data(*current, curr_rtp_ts);
+                                received_bytes = rtp_recv_data(*current, curr_rtp_ts);
                         }
                         if (udp_fd_isset_r((*current)->rtcp_socket, &fd)) {
                                 uint8_t buffer[RTP_MAX_PACKET_LEN];
@@ -2259,10 +2265,10 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
                         }
                         check_database(*current);
                 }
-                return TRUE;
+                return received_bytes;
         }
         //check_database(session);
-        return FALSE;
+        return 0;
 }
 
 /**
@@ -2720,6 +2726,7 @@ rtp_send_data_hdr(struct rtp *session,
         session->we_sent = TRUE;
         session->rtp_pcount += 1;
         session->rtp_bcount += buffer_len;
+        session->rtp_bytes_sent += buffer_len + data_len;
         gettimeofday(&session->last_rtp_send_time, NULL);
 
         check_database(session);
@@ -3812,9 +3819,9 @@ int rtp_change_dest(struct rtp *session, const char *addr)
         return udp_change_dest(session->rtp_socket, addr);
 }
 
-uint64_t rtp_get_bcount(struct rtp *session)
+uint64_t rtp_get_bytes_sent(struct rtp *session)
 {
-        return session->rtp_bcount;
+        return session->rtp_bytes_sent;
 }
 
 int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)

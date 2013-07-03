@@ -120,7 +120,7 @@ const char *module_class_name_pairs[] = {
         [MODULE_CLASS_ROOT] = "root",
         [MODULE_CLASS_PORT] = "port",
         [MODULE_CLASS_COMPRESS] = "compress",
-        [MODULE_CLASS_DATA] = "compress",
+        [MODULE_CLASS_DATA] = "data",
         [MODULE_CLASS_SENDER] = "sender",
         [MODULE_CLASS_TX] = "transmit",
         [MODULE_CLASS_AUDIO] = "audio",
@@ -211,6 +211,17 @@ struct module *get_module(struct module *root, const char *const_path)
         free(tmp);
 
         return receiver;
+}
+
+void dump_tree(struct module *node, int indent) {
+        for(int i = 0; i < indent; ++i) putchar(' ');
+
+        printf("%s\n", module_class_name(node->cls));
+
+        for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {
+                struct module *child = simple_linked_list_it_next(&it);
+                dump_tree(child, indent + 2);
+        }
 }
 
 void unlock_module(struct module *module)
