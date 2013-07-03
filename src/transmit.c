@@ -210,17 +210,11 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         }
                 }
                 if(encryption) {
-#ifdef HAVE_CRYPTO
                         if(openssl_encrypt_init(&tx->encryption,
                                                 encryption, MODE_AES128_CTR) != 0) {
                                 fprintf(stderr, "Unable to initialize encryption\n");
                                 return NULL;
                         }
-#else
-                        fprintf(stderr, "This " PACKAGE_NAME " version was build "
-                                        "without OpenSSL support!\n");
-                        return NULL;
-#endif // HAVE_CRYPTO
                 }
 
                 platform_spin_init(&tx->spin);
@@ -504,12 +498,10 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         encryption_hdr = (uint32_t *)(void *) tmp_data;
                         encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
                         ldgm_payload_hdr[0] = ntohl(PT_ENCRYPT_VIDEO);
-#ifdef HAVE_CRYPTO
                         int ret = openssl_encrypt(tx->encryption,
                                         tile->data, tile->data_len,
                                         (char *) ldgm_payload_hdr, ldgm_payload_hdr_len,
                                         ciphertext);
-#endif
                         ldgm_input_len = sizeof(crypto_payload_hdr_t) + ret;
 
                 } else {

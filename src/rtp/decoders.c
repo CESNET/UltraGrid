@@ -637,17 +637,11 @@ struct state_decoder *decoder_init(const char *requested_mode, const char *postp
         int video_mode = VIDEO_NORMAL;
 
         if(encryption) {
-#ifdef HAVE_CRYPTO
                 if(openssl_decrypt_init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
                         fprintf(stderr, "Unable to create decompress!\n");
                         return NULL;
                 }
-#else
-                fprintf(stderr, "This " PACKAGE_NAME " version was build "
-                                "without OpenSSL support!\n");
-                return NULL;
-#endif // HAVE_CRYPTO
         }
 
         if(requested_mode) {

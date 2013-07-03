@@ -56,7 +56,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#ifdef HAVE_CRYPTO
 
 #include "crypto/crc.h"
 #include "crypto/md5.h"
@@ -64,10 +63,16 @@
 #include "debug.h"
 
 #include <string.h>
+#ifdef HAVE_CRYPTO
 #include <openssl/aes.h>
+#else
+#define AES_BLOCK_SIZE 16
+#endif
 
 struct openssl_decrypt {
+#ifdef HAVE_CRYPTO
         AES_KEY key;
+#endif // HAVE_CRYPTO
 
         enum openssl_mode mode;
 
@@ -80,6 +85,12 @@ int openssl_decrypt_init(struct openssl_decrypt **state,
                                 const char *passphrase,
                                 enum openssl_mode mode)
 {
+#ifndef HAVE_CRYPTO
+        fprintf(stderr, "This " PACKAGE_NAME " version was build "
+                        "without OpenSSL support!\n");
+        return -1;
+#endif // HAVE_CRYPTO
+
         struct openssl_decrypt *s =
                 (struct openssl_decrypt *)
                 calloc(1, sizeof(struct openssl_decrypt));
@@ -94,10 +105,14 @@ int openssl_decrypt_init(struct openssl_decrypt **state,
 
         switch(mode) {
                 case MODE_AES128_ECB:
+#ifdef HAVE_CRYPTO
                         AES_set_decrypt_key(hash, 128, &s->key);
+#endif
                         break;
                 case MODE_AES128_CTR:
+#ifdef HAVE_CRYPTO
                         AES_set_encrypt_key(hash, 128, &s->key);
+#endif
                         break;
                 default:
                         abort();
@@ -120,6 +135,10 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
                 unsigned char *ciphertext, unsigned char *plaintext, const char *nonce_and_counter,
                 int len)
 {
+#ifndef HAVE_CRYPTO
+        UNUSED(ciphertext);
+        UNUSED(plaintext);
+#endif
         if(nonce_and_counter) {
                 memcpy(s->ivec, nonce_and_counter, AES_BLOCK_SIZE);
                 s->num = 0;
@@ -128,12 +147,16 @@ static void openssl_decrypt_block(struct openssl_decrypt *s,
         switch(s->mode) {
                 case MODE_AES128_ECB:
                         assert(len == AES_BLOCK_SIZE);
+#ifdef HAVE_CRYPTO
                         AES_ecb_encrypt(ciphertext, plaintext,
                                         &s->key, AES_DECRYPT);
+#endif // HAVE_CRYPTO
                         break;
                 case MODE_AES128_CTR:
+#ifdef HAVE_CRYPTO
                         AES_ctr128_encrypt(ciphertext, plaintext, len, &s->key, s->ivec,
                                         s->ecount, &s->num);
+#endif
                         break;
                 default:
                         abort();
@@ -160,26 +183,20 @@ int openssl_decrypt(struct openssl_decrypt *decrypt,
         for(unsigned int i = 0; i < data_len; i += 16) {
                 int block_length = 16;
                 if(data_len - i < 16) block_length = data_len - i;
-#ifdef HAVE_CRYPTO
                 openssl_decrypt_block(decrypt,
                                 (unsigned char *) ciphertext + i,
                                 (unsigned char *) plaintext + i,
                                 nonce_and_counter, block_length);
-#endif // HAVE_CRYPTO
                 nonce_and_counter = NULL;
                 crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
         }
-#ifdef HAVE_CRYPTO
         openssl_decrypt_block(decrypt,
                         (unsigned char *) ciphertext + data_len,
                         (unsigned char *) &expected_crc,
                         0, sizeof(uint32_t));
-#endif // HAVE_CRYPTO
         if(crc != expected_crc) {
                 return 0;
         }
         return data_len;
 }
-
-#endif // HAVE_CRYPTO
 
