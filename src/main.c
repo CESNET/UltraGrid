@@ -230,9 +230,6 @@ static void _exit_uv(int status) {
                 }
                 if(uv_state->audio)
                         audio_finish(uv_state->audio);
-                if(uv_state->tx_protocol == SAGE && uv_state->sage_tx_device) {
-                        display_finish(uv_state->sage_tx_device);
-                }
         }
         wait_to_finish = FALSE;
 }
@@ -472,7 +469,7 @@ static void *ihdtv_receiver_thread(void *arg)
                 if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
-                display_put_frame(display_device, frame_buffer);
+                display_put_frame(display_device, frame_buffer, PUTF_BLOCKING);
                 frame_buffer = display_get_frame(display_device);
         }
         return 0;
@@ -711,7 +708,7 @@ static void *receiver_thread(void *arg)
         remove_display_from_decoders(uv);
 #endif //  SHARED_DECODER
 
-        display_finish(uv_state->display_device);
+        display_put_frame(uv->display_device, NULL, PUTF_BLOCKING);
 
         stats_destroy(stat_loss);
         stats_destroy(stat_received);
@@ -1631,3 +1628,4 @@ cleanup:
 
         return exit_status;
 }
+

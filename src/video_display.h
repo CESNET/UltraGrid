@@ -120,7 +120,7 @@ int display_init(display_id_t id, char *fmt, unsigned int flags, struct display 
  * This call is entered in main thread and the display may stay in this call until end of the program.
  * This is mainly for GUI displays (GL/SDL), which usually need to be run from main thread of the
  * program.
- * The function must finish after calling display_finish.
+ * The function must finish after receiving poisoned pill (frame == NULL) with put_frame function
  */
 void                     display_run(struct display *d);
 
@@ -128,12 +128,6 @@ void                     display_run(struct display *d);
  * This function performs final cleanup after display.
  */
 void 	                 display_done(struct display *d);
-
-/**
- * This function should tell the driver to finish (eg. unlocking semaphores, locks, signalling cv etc.)
- * When this function is called, should_exit variable is set to TRUE
- */
-void 		         display_finish(struct display *d);
 
 /**
  * Returns video frame which will be written to.

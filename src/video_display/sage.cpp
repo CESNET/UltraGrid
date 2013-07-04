@@ -103,9 +103,9 @@ struct state_sage {
 
         int                     frames;
         struct timeval          t, t0;
-};
 
-static volatile bool should_exit = false;
+        volatile bool           should_exit;
+};
 
 /** Prototyping */
 int display_sage_handle_events(void)
@@ -118,11 +118,11 @@ void display_sage_run(void *arg)
         struct state_sage *s = (struct state_sage *)arg;
         s->magic = MAGIC_SAGE;
 
-        while (!should_exit) {
+        while (!s->should_exit) {
                 //display_sage_handle_events();
 
                 sem_wait(&s->semaphore);
-                if (should_exit)
+                if (s->should_exit)
                         break;
 
                 s->sage_state->swapBuffer(SAGE_NON_BLOCKING);
@@ -165,7 +165,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
         UNUSED(flags);
         struct state_sage *s;
 
-        s = (struct state_sage *)malloc(sizeof(struct state_sage));
+        s = (struct state_sage *) calloc(1, sizeof(struct state_sage));
         assert(s != NULL);
 
         s->confName = NULL;
@@ -280,19 +280,6 @@ void *display_sage_init(char *fmt, unsigned int flags)
         return (void *)s;
 }
 
-void display_sage_finish(void *state)
-{
-        struct state_sage *s = (struct state_sage *)state;
-
-        assert(s->magic == MAGIC_SAGE);
-
-        should_exit = true;
-
-        // there was already issued should_exit...
-        display_sage_putf(s, NULL, PUTF_BLOCKING);
-        // .. so thread should exit after this call
-}
-
 void display_sage_done(void *state)
 {
         struct state_sage *s = (struct state_sage *)state;
@@ -315,10 +302,6 @@ struct video_frame *display_sage_getf(void *state)
         assert(s->magic == MAGIC_SAGE);
 
         pthread_mutex_lock(&s->buffer_writable_lock);
-        if(should_exit) {
-                pthread_mutex_unlock(&s->buffer_writable_lock);
-                return NULL;
-        }
         while (!s->buffer_writable) {
                 s->grab_waiting = TRUE;
                 pthread_cond_wait(&s->buffer_writable_cond,
@@ -338,6 +321,10 @@ int display_sage_putf(void *state, struct video_frame *frame, int nonblock)
         assert(s->magic == MAGIC_SAGE);
         UNUSED(frame);
         UNUSED(nonblock);
+
+        if(!frame) {
+                s->should_exit = true;
+        }
 
         /* ...and signal the worker */
         pthread_mutex_lock(&s->buffer_writable_lock);

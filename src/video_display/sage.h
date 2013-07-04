@@ -60,7 +60,6 @@ display_type_t		*display_sage_probe(void);
 void 			*display_sage_init(char *fmt, unsigned int flags);
 void 			 display_sage_run(void *state);
 void 			 display_sage_done(void *state);
-void 			 display_sage_finish(void *state);
 struct video_frame	*display_sage_getf(void *state);
 int  			 display_sage_putf(void *state, struct video_frame *frame,
                 int nonblock);

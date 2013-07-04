@@ -282,7 +282,7 @@ static void *sender_thread(void *arg) {
                                 display_get_frame(data->sage_tx_device);
                         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                                         tx_frame->tiles[0].data_len);
-                        display_put_frame(data->sage_tx_device, frame, 0);
+                        display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
                 }
 after_send:
 
@@ -299,6 +299,9 @@ after_send:
         }
 
 exit:
+        if(data->tx_protocol == SAGE) {
+                display_put_frame(data->sage_tx_device, NULL, PUTF_NONBLOCK);
+        }
         vf_free(splitted_frames);
         module_done(&data->priv->mod);
         stats_destroy(stat_data_sent);

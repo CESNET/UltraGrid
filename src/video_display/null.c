@@ -74,11 +74,6 @@ void display_null_run(void *arg)
         UNUSED(arg);
 }
 
-void display_null_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void display_null_done(void *state)
 {
         struct state_null *s = (struct state_null *)state;

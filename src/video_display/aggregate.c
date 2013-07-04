@@ -71,6 +71,7 @@ struct display_aggregate_state {
         pthread_t              *threads;
         unsigned int            devices_cnt;
         struct video_frame     *frame;
+        struct video_frame     **dev_frames;
         struct tile            *tile;
 
         /* For debugging... */
@@ -169,6 +170,7 @@ void *display_aggregate_init(char *fmt, unsigned int flags)
         free(parse_string);
 
         s->frame = vf_alloc(s->devices_cnt);
+        s->dev_frames = calloc(s->devices_cnt, sizeof(struct video_frame *));
         s->threads = calloc(s->devices_cnt, sizeof(pthread_t));
 
         return (void *)s;
@@ -201,22 +203,8 @@ void display_aggregate_done(void *state)
         }
                                         
         vf_free(s->frame);
+        free(s->dev_frames);
         free(s);
-}
-
-void display_aggregate_finish(void *state)
-{
-        struct display_aggregate_state *s = (struct display_aggregate_state *) state;
-
-        assert(s != NULL);
-        assert(s->magic == MAGIC_AGGREGATE);
-
-        if (s != NULL) {
-                unsigned int i;
-                for (i = 0; i < s->devices_cnt; ++i) {
-                         display_finish(s->devices[i]);
-                 }
-        }
 }
 
 struct video_frame *display_aggregate_getf(void *state)
@@ -231,6 +219,7 @@ struct video_frame *display_aggregate_getf(void *state)
 
         for(i = 0; i < s->devices_cnt; ++i) {
                 frame = display_get_frame(s->devices[i]);
+                s->dev_frames[i] = frame;
                 vf_get_tile(s->frame, i)->data = frame->tiles[0].data;
                 vf_get_tile(s->frame, i)->data_len = frame->tiles[0].data_len;
         }
@@ -244,9 +233,11 @@ int display_aggregate_putf(void *state, struct video_frame *frame, int nonblock)
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
 
         assert(s->magic == MAGIC_AGGREGATE);
-        UNUSED(frame);
         for(i = 0; i < s->devices_cnt; ++i) {
-                int ret = display_put_frame(s->devices[i], frame, nonblock);
+                struct video_frame *dev_frame = NULL;
+                if(frame)
+                        dev_frame = s->dev_frames[i];
+                int ret = display_put_frame(s->devices[i], dev_frame, nonblock);
                 if(ret != 0)
                         return ret;
         }

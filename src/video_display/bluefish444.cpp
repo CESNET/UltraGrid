@@ -913,11 +913,6 @@ void display_bluefish444_run(void *state)
         UNUSED(state);
 }
 
-void display_bluefish444_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void display_bluefish444_done(void *state)
 {
         display_bluefish444_state *s =

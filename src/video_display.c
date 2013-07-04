@@ -93,8 +93,6 @@ typedef struct {
         const char               *func_run_str;
         void                    (*func_done) (void *state);
         const char               *func_done_str;
-        void                    (*func_finish) (void *state);
-        const char               *func_finish_str;
         struct video_frame     *(*func_getf) (void *state);
         const char               *func_getf_str;
         int                     (*func_putf) (void *state, struct video_frame *frame, int nonblock);
@@ -121,7 +119,6 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_aggregate_init),
          MK_STATIC(display_aggregate_run),
          MK_STATIC(display_aggregate_done),
-         MK_STATIC(display_aggregate_finish),
          MK_STATIC(display_aggregate_getf),
          MK_STATIC(display_aggregate_putf),
          MK_STATIC(display_aggregate_reconfigure),
@@ -138,7 +135,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_bluefish444_init),
          MK_NAME(display_bluefish444_run),
          MK_NAME(display_bluefish444_done),
-         MK_NAME(display_bluefish444_finish),
          MK_NAME(display_bluefish444_getf),
          MK_NAME(display_bluefish444_putf),
          MK_NAME(display_bluefish444_reconfigure),
@@ -156,7 +152,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_sdl_init),
          MK_NAME(display_sdl_run),
          MK_NAME(display_sdl_done),
-         MK_NAME(display_sdl_finish),
          MK_NAME(display_sdl_getf),
          MK_NAME(display_sdl_putf),
          MK_NAME(display_sdl_reconfigure),
@@ -174,7 +169,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_gl_init),
          MK_NAME(display_gl_run),
          MK_NAME(display_gl_done),
-         MK_NAME(display_gl_finish),
          MK_NAME(display_gl_getf),
          MK_NAME(display_gl_putf),
          MK_NAME(display_gl_reconfigure),
@@ -192,7 +186,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_sage_init),
          MK_NAME(display_sage_run),
          MK_NAME(display_sage_done),
-         MK_NAME(display_sage_finish),
          MK_NAME(display_sage_getf),
          MK_NAME(display_sage_putf),
          MK_NAME(display_sage_reconfigure),
@@ -210,7 +203,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_decklink_init),
          MK_NAME(display_decklink_run),
          MK_NAME(display_decklink_done),
-         MK_NAME(display_decklink_finish),
          MK_NAME(display_decklink_getf),
          MK_NAME(display_decklink_putf),
          MK_NAME(display_decklink_reconfigure),
@@ -228,7 +220,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_deltacast_init),
          MK_NAME(display_deltacast_run),
          MK_NAME(display_deltacast_done),
-         MK_NAME(display_deltacast_finish),
          MK_NAME(display_deltacast_getf),
          MK_NAME(display_deltacast_putf),
          MK_NAME(display_deltacast_reconfigure),
@@ -246,7 +237,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_dvs_init),
          MK_NAME(display_dvs_run),
          MK_NAME(display_dvs_done),
-         MK_NAME(display_dvs_finish),
          MK_NAME(display_dvs_getf),
          MK_NAME(display_dvs_putf),
          MK_NAME(display_dvs_reconfigure),
@@ -264,7 +254,6 @@ static display_table_t display_device_table[] = {
          MK_NAME(display_quicktime_init),
          MK_NAME(display_quicktime_run),
          MK_NAME(display_quicktime_done),
-         MK_NAME(display_quicktime_finish),
          MK_NAME(display_quicktime_getf),
          MK_NAME(display_quicktime_putf),
          MK_NAME(display_quicktime_reconfigure),
@@ -281,7 +270,6 @@ static display_table_t display_device_table[] = {
          MK_STATIC(display_null_init),
          MK_STATIC(display_null_run),
          MK_STATIC(display_null_done),
-         MK_STATIC(display_null_finish),
          MK_STATIC(display_null_getf),
          MK_STATIC(display_null_putf),
          MK_STATIC(display_null_reconfigure),
@@ -321,8 +309,6 @@ static int display_fill_symbols(display_table_t *device)
                 dlsym(handle, device->func_run_str);
         device->func_done = (void (*) (void *))
                 dlsym(handle, device->func_done_str);
-        device->func_finish = (void (*) (void *))
-                dlsym(handle, device->func_finish_str);
         device->func_getf = (struct video_frame *(*) (void *))
                 dlsym(handle, device->func_getf_str);
         device->func_putf = (int (*) (void *, struct video_frame *, int))
@@ -339,7 +325,7 @@ static int display_fill_symbols(display_table_t *device)
                 dlsym(handle, device->func_reconfigure_audio_str);
 
         if(!device->func_probe || !device->func_init || !device->func_run ||
-                        !device->func_done || !device->func_finish ||
+                        !device->func_done ||
                         !device->func_getf || !device->func_getf ||
                         !device->func_putf || !device->func_reconfigure ||
                         !device->func_get_property ||
@@ -452,12 +438,6 @@ int display_init(display_id_t id, char *fmt, unsigned int flags, struct display 
         }
         debug_msg("Unknown display id: 0x%08x\n", id);
         return -1;
-}
-
-void display_finish(struct display *d)
-{
-        assert(d->magic == DISPLAY_MAGIC);
-        display_device_table[d->index].func_finish(d->state);
 }
 
 void display_done(struct display *d)

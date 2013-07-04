@@ -93,8 +93,6 @@
 
 #define STRINGIFY(A) #A
 
-static volatile bool should_exit_main_loop = false;
-
 // source code for a shader unit (xsedmik)
 static char * yuv422_to_rgb_fp = STRINGIFY(
 uniform sampler2D image;
@@ -202,6 +200,8 @@ struct state_gl {
 
         bool            sync_on_vblank;
         bool            paused;
+
+        bool should_exit_main_loop;
 };
 
 static struct state_gl *gl;
@@ -757,10 +757,11 @@ static void glut_key_callback(unsigned char key, int x, int y)
 
 void display_gl_run(void *arg)
 {
-        UNUSED(arg);
+        struct state_gl *s = 
+                (struct state_gl *) arg;
 
 #if defined HAVE_MACOSX || defined FREEGLUT
-        while(!should_exit_main_loop) {
+        while(!s->should_exit_main_loop) {
                 usleep(1000);
                 glut_idle_callback();
 #ifndef HAVE_MACOSX
@@ -972,19 +973,6 @@ void display_gl_done(void *state)
         free(s);
 }
 
-void display_gl_finish(void *state)
-{
-        struct state_gl *s = (struct state_gl *) state;
-
-        assert(s->magic == MAGIC_GL);
-
-        should_exit_main_loop = true;
-        pthread_mutex_lock(&s->lock);
-        s->processed = true;
-        pthread_cond_signal(&s->processed_cv);
-        pthread_mutex_unlock(&s->lock);
-}
-
 struct video_frame * display_gl_getf(void *state)
 {
         struct state_gl *s = (struct state_gl *) state;
@@ -1005,7 +993,11 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         struct state_gl *s = (struct state_gl *) state;
 
         assert(s->magic == MAGIC_GL);
-        UNUSED(frame);
+
+        if(!frame) {
+                s->should_exit_main_loop = true;
+                return 0;
+        }
 
         pthread_mutex_lock(&s->lock);
         if(s->double_buf) {

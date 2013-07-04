@@ -202,8 +202,6 @@ const quicktime_mode_t quicktime_modes[] = {
         {NULL, NULL, 0, 0, 0, 0},
 };
 
-static volatile bool should_exit = false;
-
 /* for audio see TN2091 (among others) */
 struct state_quicktime {
         ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
@@ -241,6 +239,8 @@ struct state_quicktime {
         unsigned mode_set_manually:1;
 
         uint32_t magic;
+
+        volatile bool should_exit;
 };
 
 /* Prototyping */
@@ -344,7 +344,7 @@ void display_quicktime_run(void *arg)
 
         gettimeofday(&t0, NULL);
 
-        while (!should_exit) {
+        while (!s->should_exit) {
                 int i;
                 platform_sem_wait((void *) &s->semaphore);
                 int current_index = (s->index_network + 1) % 2;
@@ -401,7 +401,9 @@ int display_quicktime_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
 
-        UNUSED(frame);
+        if(!frame) {
+                s->should_exit = true;
+        }
         UNUSED(nonblock);
         assert(s->magic == MAGIC_QT_DISPLAY);
 
@@ -826,12 +828,6 @@ void display_quicktime_audio_init(struct state_quicktime *s)
 audio_error:
         fprintf(stderr, "There is no audio support (%x).\n", ret);
         s->play_audio = FALSE;
-}
-
-void display_quicktime_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
 }
 
 void display_quicktime_done(void *state)

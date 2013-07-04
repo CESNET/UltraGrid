@@ -392,11 +392,6 @@ void display_deltacast_run(void *state)
         UNUSED(state);
 }
 
-void display_deltacast_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
