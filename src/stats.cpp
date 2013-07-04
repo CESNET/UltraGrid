@@ -3,7 +3,7 @@
 #include <map>
 #include <string>
 
-#include "control.h"
+#include "control_socket.h"
 #include "compat/platform_spin.h"
 #include "debug.h"
 #include "messaging.h"

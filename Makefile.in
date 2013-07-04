@@ -41,7 +41,7 @@ HEADERS	      = @HEADERS@
 
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
-		src/control.o \
+		src/control_socket.o \
 		src/debug.o \
 		src/host.o \
 		src/messaging.o \

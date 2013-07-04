@@ -62,7 +62,7 @@
 #include <getopt.h>
 #include <pthread.h>
 #include "capture_filter.h"
-#include "control.h"
+#include "control_socket.h"
 #include "debug.h"
 #include "host.h"
 #include "messaging.h"

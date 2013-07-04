@@ -16,7 +16,7 @@
 #include <pthread.h>
 #include <fcntl.h>
 
-#include "control.h"
+#include "control_socket.h"
 #include "hd-rum-translator/hd-rum-recompress.h"
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "module.h"

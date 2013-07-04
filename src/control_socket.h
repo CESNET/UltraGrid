@@ -1,5 +1,5 @@
 /*
- * FILE:    control.h
+ * FILE:    control_socket.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>

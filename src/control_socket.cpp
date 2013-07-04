@@ -1,5 +1,5 @@
 /*
- * FILE:    control.c
+ * FILE:    control_socket.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -50,7 +50,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "control.h"
+#include "control_socket.h"
 
 #include <set>
 
