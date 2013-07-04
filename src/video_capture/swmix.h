@@ -57,7 +57,6 @@ struct video_frame;
 
 struct vidcap_type      *vidcap_swmix_probe(void);
 void                    *vidcap_swmix_init(char *fmt, unsigned int flags);
-void                     vidcap_swmix_finish(void *state);
 void                     vidcap_swmix_done(void *state);
 struct video_frame      *vidcap_swmix_grab(void *state, struct audio_frame **audio);
 

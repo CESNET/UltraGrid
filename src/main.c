@@ -793,8 +793,6 @@ static void *compress_thread(void *arg)
                 }
         }
 
-        vidcap_finish(uv_state->capture_device);
-
         sender_done(&sender_data);
 
 compress_done:

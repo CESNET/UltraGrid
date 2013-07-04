@@ -547,11 +547,6 @@ error_fd:
         return NULL;
 }
 
-void vidcap_v4l2_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void vidcap_v4l2_done(void *state)
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;

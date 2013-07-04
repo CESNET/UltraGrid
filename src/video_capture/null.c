@@ -66,11 +66,6 @@ void *vidcap_null_init(char *fmt, unsigned int flags)
         return &capture_state;
 }
 
-void vidcap_null_finish(void *state)
-{
-        assert(state == &capture_state);
-}
-
 void vidcap_null_done(void *state)
 {
         assert(state == &capture_state);

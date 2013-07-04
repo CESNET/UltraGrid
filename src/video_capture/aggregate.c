@@ -191,21 +191,6 @@ error:
 }
 
 void
-vidcap_aggregate_finish(void *state)
-{
-	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
-
-	assert(s != NULL);
-
-	if (s != NULL) {
-                int i;
-		for (i = 0; i < s->devices_cnt; ++i) {
-                         vidcap_finish(s->devices[i]);
-		}
-	}
-}
-
-void
 vidcap_aggregate_done(void *state)
 {
 	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;

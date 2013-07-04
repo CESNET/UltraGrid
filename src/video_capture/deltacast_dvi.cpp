@@ -83,8 +83,6 @@ extern "C" {
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Dvi.h>
 
-static volatile bool should_exit = false;
-
 struct vidcap_deltacast_dvi_state {
         struct video_frame *frame;
         struct tile        *tile;
@@ -272,8 +270,8 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 {
                         Result = VHD_GetStreamProperty(s->StreamHandle, VHD_DVI_SP_MODE, (ULONG *) &DviMode);
                         gettimeofday(&t, NULL);
-                        if(tv_diff(t, t0) > 5.0) break;
-                } while (Result != VHDERR_NOERROR && !should_exit);
+                        if(tv_diff(t, t0) > 1.0) break;
+                } while (Result != VHDERR_NOERROR);
 
                 if(Result != VHDERR_NOERROR)
                         return false;
@@ -666,13 +664,6 @@ bad_channel:
 error:
         free(s);
         return NULL;
-}
-
-void
-vidcap_deltacast_dvi_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
 }
 
 void

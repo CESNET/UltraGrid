@@ -76,7 +76,6 @@
 #define VIDCAP_MAGIC	0x76ae98f0
 
 void (*vidcap_free_devices_extrn)() = vidcap_free_devices;
-void (*vidcap_finish_extrn)(struct vidcap *) = vidcap_finish;
 void (*vidcap_done_extrn)(struct vidcap *) = vidcap_done;
 vidcap_id_t (*vidcap_get_null_device_id_extrn)(void) = vidcap_get_null_device_id;
 struct vidcap_type *(*vidcap_get_device_details_extrn)(int index) = vidcap_get_device_details;
@@ -102,8 +101,6 @@ struct vidcap_device_api {
         const char              *func_probe_str;
         void                  *(*func_init) (char *fmt, unsigned int flags);
         const char              *func_init_str;
-        void                   (*func_finish) (void *state);
-        const char              *func_finish_str;
         void                   (*func_done) (void *state);
         const char              *func_done_str;
         struct video_frame    *(*func_grab) (void *state, struct audio_frame **audio);
@@ -119,7 +116,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL,
          MK_STATIC(vidcap_aggregate_probe),
          MK_STATIC(vidcap_aggregate_init),
-         MK_STATIC(vidcap_aggregate_finish),
          MK_STATIC(vidcap_aggregate_done),
          MK_STATIC(vidcap_aggregate_grab),
          NULL
@@ -129,7 +125,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL,
          MK_STATIC(vidcap_import_probe),
          MK_STATIC(vidcap_import_init),
-         MK_STATIC(vidcap_import_finish),
          MK_STATIC(vidcap_import_done),
          MK_STATIC(vidcap_import_grab),
          NULL
@@ -141,7 +136,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "swmix",
          MK_NAME(vidcap_swmix_probe),
          MK_NAME(vidcap_swmix_init),
-         MK_NAME(vidcap_swmix_finish),
          MK_NAME(vidcap_swmix_done),
          MK_NAME(vidcap_swmix_grab),
          NULL
@@ -154,7 +148,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "bluefish444",
          MK_NAME(vidcap_bluefish444_probe),
          MK_NAME(vidcap_bluefish444_init),
-         MK_NAME(vidcap_bluefish444_finish),
          MK_NAME(vidcap_bluefish444_done),
          MK_NAME(vidcap_bluefish444_grab),
          NULL
@@ -167,7 +160,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "dshow",
          MK_NAME(vidcap_dshow_probe),
          MK_NAME(vidcap_dshow_init),
-         MK_NAME(vidcap_dshow_finish),
          MK_NAME(vidcap_dshow_done),
          MK_NAME(vidcap_dshow_grab),
          NULL
@@ -180,7 +172,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "screen",
          MK_NAME(vidcap_screen_probe),
          MK_NAME(vidcap_screen_init),
-         MK_NAME(vidcap_screen_finish),
          MK_NAME(vidcap_screen_done),
          MK_NAME(vidcap_screen_grab),
          NULL
@@ -193,7 +184,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "dvs",
          MK_NAME(vidcap_dvs_probe),
          MK_NAME(vidcap_dvs_init),
-         MK_NAME(vidcap_dvs_finish),
          MK_NAME(vidcap_dvs_done),
          MK_NAME(vidcap_dvs_grab),
          NULL
@@ -206,7 +196,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "decklink",
          MK_NAME(vidcap_decklink_probe),
          MK_NAME(vidcap_decklink_init),
-         MK_NAME(vidcap_decklink_finish),
          MK_NAME(vidcap_decklink_done),
          MK_NAME(vidcap_decklink_grab),
          NULL
@@ -219,7 +208,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "deltacast",
          MK_NAME(vidcap_deltacast_probe),
          MK_NAME(vidcap_deltacast_init),
-         MK_NAME(vidcap_deltacast_finish),
          MK_NAME(vidcap_deltacast_done),
          MK_NAME(vidcap_deltacast_grab),
          NULL
@@ -229,7 +217,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "deltacast",
          MK_NAME(vidcap_deltacast_dvi_probe),
          MK_NAME(vidcap_deltacast_dvi_init),
-         MK_NAME(vidcap_deltacast_dvi_finish),
          MK_NAME(vidcap_deltacast_dvi_done),
          MK_NAME(vidcap_deltacast_dvi_grab),
          NULL
@@ -242,7 +229,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "linsys",
          MK_NAME(vidcap_linsys_probe),
          MK_NAME(vidcap_linsys_init),
-         MK_NAME(vidcap_linsys_finish),
          MK_NAME(vidcap_linsys_done),
          MK_NAME(vidcap_linsys_grab),
          NULL
@@ -255,7 +241,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "quicktime",
          MK_NAME(vidcap_quicktime_probe),
          MK_NAME(vidcap_quicktime_init),
-         MK_NAME(vidcap_quicktime_finish),
          MK_NAME(vidcap_quicktime_done),
          MK_NAME(vidcap_quicktime_grab),
          NULL
@@ -267,7 +252,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "testcard",
          MK_NAME(vidcap_testcard_probe),
          MK_NAME(vidcap_testcard_init),
-         MK_NAME(vidcap_testcard_finish),
          MK_NAME(vidcap_testcard_done),
          MK_NAME(vidcap_testcard_grab),
          NULL
@@ -279,7 +263,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "testcard2",
          MK_NAME(vidcap_testcard2_probe),
          MK_NAME(vidcap_testcard2_init),
-         MK_NAME(vidcap_testcard2_finish),
          MK_NAME(vidcap_testcard2_done),
          MK_NAME(vidcap_testcard2_grab),
          NULL
@@ -292,7 +275,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          "v4l2",
          MK_NAME(vidcap_v4l2_probe),
          MK_NAME(vidcap_v4l2_init),
-         MK_NAME(vidcap_v4l2_finish),
          MK_NAME(vidcap_v4l2_done),
          MK_NAME(vidcap_v4l2_grab),
          NULL
@@ -303,7 +285,6 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL,
          MK_STATIC(vidcap_null_probe),
          MK_STATIC(vidcap_null_init),
-         MK_STATIC(vidcap_null_finish),
          MK_STATIC(vidcap_null_done),
          MK_STATIC(vidcap_null_grab),
          NULL
@@ -336,13 +317,11 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
                 dlsym(handle, device->func_probe_str);
         device->func_init = (void *(*) (char *, unsigned int))
                 dlsym(handle, device->func_init_str);
-        device->func_finish = (void (*) (void *))
-                dlsym(handle, device->func_finish_str);
         device->func_done = (void (*) (void *))
                 dlsym(handle, device->func_done_str);
         device->func_grab = (struct video_frame *(*) (void *, struct audio_frame **))
                 dlsym(handle, device->func_grab_str);
-        if(!device->func_probe || !device->func_init || !device->func_finish || 
+        if(!device->func_probe || !device->func_init ||
                         !device->func_done || !device->func_grab) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
                 return FALSE;
@@ -451,12 +430,6 @@ void vidcap_done(struct vidcap *state)
         assert(state->magic == VIDCAP_MAGIC);
         vidcap_device_table[state->index].func_done(state->state);
         free(state);
-}
-
-void vidcap_finish(struct vidcap *state)
-{
-        assert(state->magic == VIDCAP_MAGIC);
-        vidcap_device_table[state->index].func_finish(state->state);
 }
 
 struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio)

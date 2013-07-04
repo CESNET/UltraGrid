@@ -81,8 +81,6 @@
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
 
-static volatile bool should_exit = false;
-
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
 unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
@@ -111,6 +109,8 @@ struct testcard_state2 {
         sem_t semaphore;
         
         pthread_t thread_id;
+
+        volatile bool should_exit;
 };
 
 extern const int rect_colors[];
@@ -321,15 +321,12 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         return s;
 }
 
-void vidcap_testcard2_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
-}
-
 void vidcap_testcard2_done(void *state)
 {
         struct testcard_state2 *s = state;
+
+        s->should_exit = true;
+        pthread_join(s->thread_id, NULL);
 
         free(s->data);
         
@@ -381,7 +378,7 @@ void * vidcap_testcard2_thread(void *arg)
 
 #endif
         
-        while(!should_exit)
+        while(!s->should_exit)
         {
                 SDL_Rect r;
                 copy = SDL_ConvertSurface(s->surface, s->surface->format, SDL_SWSURFACE);

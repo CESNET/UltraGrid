@@ -952,14 +952,7 @@ error:
         return NULL;
 }
 
-void
-vidcap_bluefish444_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void
-vidcap_bluefish444_done(void *state)
+void vidcap_bluefish444_done(void *state)
 {
 	struct vidcap_bluefish444_state *s = (struct vidcap_bluefish444_state *) state;
 

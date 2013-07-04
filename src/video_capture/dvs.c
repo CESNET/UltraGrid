@@ -78,8 +78,6 @@ struct vidcap_dvs_state {
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
         pthread_cond_t worker_cv;
-        int boss_waiting;
-        int worker_waiting;
         int work_to_do;
         char *bufs[2];
         char *audio_bufs[2];
@@ -94,9 +92,9 @@ struct vidcap_dvs_state {
 
         int frames;
         struct       timeval t, t0;
-};
 
-static volatile bool should_exit = false;
+        bool should_exit;
+};
 
 static void show_help(void);
 
@@ -110,7 +108,15 @@ static void *vidcap_dvs_grab_thread(void *arg)
         if(!s->grab_audio)
                 fifo_flags |= SV_FIFO_FLAG_VIDEOONLY;
 
-        while (!should_exit) {
+        while (1) {
+                // we need this additional check in case we do not get any data
+                pthread_mutex_lock(&(s->lock));
+                if(s->should_exit) {
+                        pthread_mutex_unlock(&(s->lock));
+                        break;
+                }
+                pthread_mutex_unlock(&(s->lock));
+
                 s->dma_buffer = NULL;
                 res = sv_fifo_vsyncwait(s->sv, s->fifo);
 
@@ -140,9 +146,12 @@ static void *vidcap_dvs_grab_thread(void *arg)
                 pthread_mutex_lock(&(s->lock));
 
                 while (s->work_to_do == FALSE) {
-                        s->worker_waiting = TRUE;
                         pthread_cond_wait(&(s->worker_cv), &(s->lock));
-                        s->worker_waiting = FALSE;
+                }
+
+                if(s->should_exit) {
+                        pthread_mutex_unlock(&(s->lock));
+                        break;
                 }
 
                 s->tmp_buffer = s->dma_buffer->video[0].addr;
@@ -156,10 +165,8 @@ static void *vidcap_dvs_grab_thread(void *arg)
                 } 
 
                 s->work_to_do = FALSE;
+                pthread_cond_signal(&(s->boss_cv));
 
-                if (s->boss_waiting) {
-                        pthread_cond_signal(&(s->boss_cv));
-                }
                 pthread_mutex_unlock(&(s->lock));
         }
         return NULL;
@@ -484,8 +491,6 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
         s->rtp_buffer = NULL;
         s->dma_buffer = NULL;
         s->tmp_buffer = NULL;
-        s->boss_waiting = FALSE;
-        s->worker_waiting = FALSE;
         s->work_to_do = FALSE;
         s->bufs[0] = malloc(s->tile->data_len);
         s->bufs[1] = malloc(s->tile->data_len);
@@ -510,59 +515,55 @@ error:
         return NULL;
 }
 
-void vidcap_dvs_finish(void *state)
-{
-        struct vidcap_dvs_state *s =
-            (struct vidcap_dvs_state *)state;
-
-        should_exit = true;
-
-        pthread_mutex_lock(&(s->lock));
-        if(s->boss_waiting) {
-                s->work_to_do = FALSE;
-                pthread_cond_signal(&(s->boss_cv));
-                while (!s->work_to_do) {
-                        s->worker_waiting = TRUE;
-                        pthread_cond_wait(&(s->worker_cv), &(s->lock));
-                        s->worker_waiting = FALSE;
-                }
-        }
-
-        s->work_to_do = TRUE;
-        pthread_cond_signal(&(s->worker_cv));
-
-        pthread_mutex_unlock(&(s->lock));
-}
-
 void vidcap_dvs_done(void *state)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
-        
-         pthread_join(s->thread_id, NULL);
 
-         if(s->grab_audio && s->audio.ch_count == 1) {
-                 free(s->audio.data);
-         }
+        pthread_mutex_lock(&s->lock);
+        s->work_to_do = TRUE;
+        s->should_exit = true;
+        pthread_cond_signal(&s->worker_cv);
+        pthread_mutex_unlock(&s->lock);
 
-         sv_fifo_free(s->sv, s->fifo);
-         sv_close(s->sv);
-         vf_free(s->frame);
-         free(s);
+        pthread_join(s->thread_id, NULL);
+
+        if(s->grab_audio && s->audio.ch_count == 1) {
+                free(s->audio.data);
+        }
+
+        sv_fifo_free(s->sv, s->fifo);
+        sv_close(s->sv);
+        vf_free(s->frame);
+        free(s);
 }
 
 struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
+        int rc;
+        struct timespec ts;
+        struct timeval  tp;
+
+        gettimeofday(&tp, NULL);
+        ts.tv_sec = tp.tv_sec;
+        ts.tv_nsec = tp.tv_usec * 1000;
+        ts.tv_nsec += 1000 * 1000 * 1000 / s->frame->fps;
+        // make it correct
+        ts.tv_sec += ts.tv_nsec / 1000000000;
+        ts.tv_nsec = ts.tv_nsec % 1000000000;
 
         pthread_mutex_lock(&(s->lock));
 
         /* Wait for the worker to finish... */
         while (s->work_to_do) {
-                s->boss_waiting = TRUE;
-                pthread_cond_wait(&(s->boss_cv), &(s->lock));
-                s->boss_waiting = FALSE;
+                rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
+        }
+
+        if (rc == ETIMEDOUT) {
+                pthread_mutex_unlock(&(s->lock));
+                return NULL;
         }
 
         /* ...and give it more to do... */
@@ -570,9 +571,7 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
         s->work_to_do = TRUE;
 
         /* ...and signal the worker... */
-        if (s->worker_waiting) {
-                pthread_cond_signal(&(s->worker_cv));
-        }
+        pthread_cond_signal(&(s->worker_cv));
 
         pthread_mutex_unlock(&(s->lock));
 
@@ -613,5 +612,5 @@ struct vidcap_type *vidcap_dvs_probe(void)
         return vt;
 }
 
-
 #endif                          /* HAVE_DVS */
+

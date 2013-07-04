@@ -98,8 +98,6 @@ static const char sys_fmt[] = "/sys/class/sdivideo/sdivideo%cx%i/%s";
 static const char devfile_fmt[] = "/dev/sdivideorx%1u";
 static const char audio_dev[] = "/dev/sdiaudiorx0";
 
-static volatile bool should_exit = false;
-
 struct frame_mode {
         char  * const    name;
         unsigned int     width;
@@ -211,6 +209,8 @@ struct vidcap_linsys_state {
         unsigned int        audio_channels_preset; // by driver
         unsigned int        audio_bytes_read;
         unsigned int        grab_audio:1; /* wheather we process audio or not */
+
+        volatile bool       should_exit;
 };
 
 static int          frames = 0;
@@ -370,7 +370,7 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
 
 	printf("vidcap_linsys_init\n");
 
-        s = (struct vidcap_linsys_state *) malloc(sizeof(struct vidcap_linsys_state));
+        s = (struct vidcap_linsys_state *) calloc(1, sizeof(struct vidcap_linsys_state));
 	if(s == NULL) {
 		printf("Unable to allocate linsys state\n");
 		return NULL;
@@ -690,32 +690,21 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
 }
 
 void
-vidcap_linsys_finish(void *state)
-{
-	struct vidcap_linsys_state *s = (struct vidcap_linsys_state *) state;
-	assert(s != NULL);
-
-        should_exit = true;
-
-	pthread_join(s->grabber, NULL);
-}
-
-void
 vidcap_linsys_done(void *state)
 {
 	struct vidcap_linsys_state *s = (struct vidcap_linsys_state *) state;
 
 	assert(s != NULL);
 
-	if (s != NULL) {
-                int i;
-		for (i = 0; i < s->devices_cnt; ++i) {
-			if(s->frame->tiles[i].data != NULL)
-				free(s->frame->tiles[i].data);
-			if(s->fd[i] != 0)
-				close(s->fd[i]);
-		}
-	}
+        s->should_exit = true;
+        pthread_join(s->grabber, NULL);
+
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                if(s->frame->tiles[i].data != NULL)
+                        free(s->frame->tiles[i].data);
+                if(s->fd[i] != 0)
+                        close(s->fd[i]);
+        }
         
         vf_free(s->frame);
 	sem_destroy(&s->boss_waiting);
@@ -730,14 +719,14 @@ static void * vidcap_grab_thread(void *args)
         timeout.tv_sec = 0;
         timeout.tv_nsec = 500 * 1000;
 
-        while(!should_exit) {
+        while(!s->should_exit) {
 		unsigned int val;
                 int cur_dev;
 		int return_vec = 0u;
 
                 if(sem_timedwait(&s->boss_waiting, &timeout) == ETIMEDOUT)
 			continue;
-                if (should_exit) 
+                if (s->should_exit)
 			break;
 
                 //for(cur_dev = 0; cur_dev < s->devices_cnt; ++cur_dev)

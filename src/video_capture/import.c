@@ -433,8 +433,7 @@ free_state:
         return NULL;
 }
 
-void
-vidcap_import_finish(void *state)
+static void vidcap_import_finish(void *state)
 {
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 
@@ -500,11 +499,12 @@ static int flush_processed(struct processed_entry *list)
         return frames_deleted;
 }
 
-void
-vidcap_import_done(void *state)
+void vidcap_import_done(void *state)
 {
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 	assert(s != NULL);
+
+        vidcap_import_finish(state);
 
         flush_processed(s->head);
 

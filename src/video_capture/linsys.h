@@ -48,6 +48,5 @@
 
 struct vidcap_type      *vidcap_linsys_probe(void);
 void                    *vidcap_linsys_init(char *fmt, unsigned int flags);
-void                     vidcap_linsys_finish(void *state);
 void                     vidcap_linsys_done(void *state);
 struct video_frame      *vidcap_linsys_grab(void *state, struct audio_frame **audio);

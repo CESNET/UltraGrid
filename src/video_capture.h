@@ -111,7 +111,6 @@ struct vidcap;
  */
 int                      vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);
-void			 vidcap_finish(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 
 extern int vidcap_init_noerr;

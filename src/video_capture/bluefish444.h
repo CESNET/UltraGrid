@@ -58,7 +58,6 @@ extern "C" {
 
 struct vidcap_type      *vidcap_bluefish444_probe(void);
 void                    *vidcap_bluefish444_init(char *fmt, unsigned int flags);
-void                     vidcap_bluefish444_finish(void *state);
 void                     vidcap_bluefish444_done(void *state);
 struct video_frame      *vidcap_bluefish444_grab(void *state, struct audio_frame **audio);
 

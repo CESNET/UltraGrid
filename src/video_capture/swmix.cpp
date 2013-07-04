@@ -71,7 +71,6 @@ typedef enum {
         BILINEAR
 } interpolation_t;
 
-extern void (*vidcap_finish_extrn)(struct vidcap*);
 extern void (*vidcap_done_extrn)(struct vidcap*);
 extern struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio);
 
@@ -783,7 +782,6 @@ static void *slave_worker(void *arg)
                 }
         }
 
-        vidcap_finish_extrn(device);
         vidcap_done_extrn(device);
 
         return NULL;
@@ -1165,13 +1163,6 @@ error:
         }
         delete s;
         return NULL;
-}
-
-void
-vidcap_swmix_finish(void *state)
-{
-	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
-
 }
 
 void

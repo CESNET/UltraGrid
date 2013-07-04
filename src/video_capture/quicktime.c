@@ -1002,7 +1002,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 }
 
 /* Finalize the grabbing system */
-void vidcap_quicktime_finish(void *state)
+void vidcap_quicktime_done(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -1011,16 +1011,7 @@ void vidcap_quicktime_finish(void *state)
         pthread_mutex_lock(&s->lock);
         s->should_exit = true;
         pthread_mutex_unlock(&s->lock);
-
         pthread_join(s->thread_id, NULL);
-}
-
-/* Finalize the grabbing system */
-void vidcap_quicktime_done(void *state)
-{
-        struct qt_grabber_state *s = (struct qt_grabber_state *)state;
-
-        assert(s != NULL);
 
         if (s != NULL) {
                 assert(s->magic == MAGIC_QT_GRABBER);

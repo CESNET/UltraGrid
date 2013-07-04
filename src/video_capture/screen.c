@@ -352,7 +352,7 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
         return s;
 }
 
-void vidcap_screen_finish(void *state)
+static void vidcap_screen_finish(void *state)
 {
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
@@ -382,6 +382,9 @@ void vidcap_screen_done(void *state)
         struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
 
         assert(s != NULL);
+
+        vidcap_screen_finish(state);
+
 #ifdef HAVE_LINUX
         pthread_mutex_lock(&s->lock);
         {

@@ -52,7 +52,6 @@ extern "C" {
 
 struct vidcap_type	*vidcap_deltacast_dvi_probe(void);
 void			*vidcap_deltacast_dvi_init(char *fmt, unsigned int flags);
-void			 vidcap_deltacast_dvi_finish(void *state);
 void			 vidcap_deltacast_dvi_done(void *state);
 struct video_frame	*vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio);
 

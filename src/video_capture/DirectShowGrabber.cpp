@@ -1011,10 +1011,6 @@ error:
 	return NULL;
 }
 
-void vidcap_dshow_finish(void *state) {
-	UNUSED(state);
-}
-
 void vidcap_dshow_done(void *state) {
 	struct vidcap_dshow_state *s = (struct vidcap_dshow_state *) state;
 

@@ -48,6 +48,5 @@
 
 struct vidcap_type      *vidcap_screen_probe(void);
 void                    *vidcap_screen_init(char *fmt, unsigned int flags);
-void                     vidcap_screen_finish(void *state);
 void                     vidcap_screen_done(void *state);
 struct video_frame      *vidcap_screen_grab(void *state, struct audio_frame **audio);

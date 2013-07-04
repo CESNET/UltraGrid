@@ -103,18 +103,6 @@ extern "C" {
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
 //static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
 
-static volatile bool should_exit = false;
-
-struct timeval t, t0;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
 class VideoDelegate;
 
 struct device_state {
@@ -147,6 +135,8 @@ struct vidcap_decklink_state {
         unsigned int            autodetect_mode:1;
 
         BMDVideoConnection      connection;
+
+        struct timeval          t0;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -797,7 +787,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 		return NULL;
 	}
 
-        gettimeofday(&t0, NULL);
+        gettimeofday(&s->t0, NULL);
 
         s->stereo = FALSE;
         s->use_timecode = FALSE;
@@ -1139,13 +1129,6 @@ error:
 }
 
 void
-vidcap_decklink_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
-}
-
-void
 vidcap_decklink_done(void *state)
 {
 	debug_msg("vidcap_decklink_done\n"); /* TOREMOVE */
@@ -1393,12 +1376,13 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         *audio = NULL;
                 }
 
+                struct timeval t;
                 gettimeofday(&t, NULL);
-                double seconds = tv_diff(t, t0);	
+                double seconds = tv_diff(t, s->t0);
                 if (seconds >= 5) {
                         float fps  = s->frames / seconds;
                         fprintf(stderr, "[Decklink capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-                        t0 = t;
+                        s->t0 = t;
                         s->frames = 0;
                 }
 
