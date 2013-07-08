@@ -1959,11 +1959,23 @@ AC_SUBST(JPEG_LIB)
 # -------------------------------------------------------------------------------------------------
 # JPEG to DXT plugin
 # -------------------------------------------------------------------------------------------------
-if test $jpeg = yes -a \
+jpeg_to_dxt=no
+AC_ARG_ENABLE(jpeg_to_dxt,
+              AS_HELP_STRING([--enable-jpeg-to-dxt], [enable JPEG to DXT transcoder (default is disable)]),
+              [jpeg_to_dxt_req=$enableval],
+              [jpeg_to_dxt_req=no])
+
+if test $jpeg = yes -a $jpeg_to_dxt_req = yes -a \
         "$build_libraries" = no # only supported in a "bundle" build
 then
         LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
         AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
+        jpeg_to_dxt=yes
+fi
+
+if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes
+then
+        AC_MSG_ERROR([JPEG to DXT transcoder not found])
 fi
 
 # -------------------------------------------------------------------------------------------------
