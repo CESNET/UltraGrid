@@ -63,10 +63,17 @@
 #define DEFAULT_CONTROL_PORT 5054
 #define MAX_CLIENTS 16
 
+#ifdef WIN32
+typedef const char *sso_val_type;
+#else
+typedef void *sso_val_type;
+#endif                          /* WIN32 */
+
+
 using namespace std;
 
 struct client {
-        int fd;
+        fd_t fd;
         char buff[1024];
         int buff_len;
 
@@ -82,7 +89,9 @@ enum connection_type {
 struct control_state {
         struct module mod;
         pthread_t thread_id;
-        int local_fd[2];
+        /// @var internal_fd is used for internal communication
+        fd_t internal_fd[2];
+        int local_port;
         int network_port;
         struct module *root_module;
 
@@ -91,29 +100,25 @@ struct control_state {
 
         enum connection_type connection_type;
 
-        int socket_fd;
+        fd_t socket_fd;
 };
 
 #define CONTROL_EXIT -1
 #define CONTROL_CLOSE_HANDLE -2
 
 static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
-static int process_msg(struct control_state *s, int client_fd, char *message);
-static ssize_t write_all(int fd, const void *buf, size_t count);
+static int process_msg(struct control_state *s, fd_t client_fd, char *message);
+static ssize_t write_all(fd_t fd, const void *buf, size_t count);
 static void * control_thread(void *args);
-static void send_response(int fd, struct response *resp);
+static void send_response(fd_t fd, struct response *resp);
 
-/**
- * This function writes all data (in contrast to write() which
- * can write only part of passed buffer)
-  */
-static ssize_t write_all(int fd, const void *buf, size_t count)
+static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 {
-    unsigned char *p = (unsigned char *) buf;
+    char *p = (char *) buf;
     size_t rest = count;
     ssize_t w = 0;
 
-    while (rest > 0 && (w = write(fd, p, rest)) >= 0) {
+    while (rest > 0 && (w = send(fd, p, rest, 0)) >= 0) {
         p += w;
         rest -= w;
     }
@@ -123,6 +128,32 @@ static ssize_t write_all(int fd, const void *buf, size_t count)
     else
         return count;
 }
+
+/**
+ * Creates listening socket for internal communication.
+ * This can be closed after accepted.
+ *
+ * @param[out] port port to be connected to
+ * @returns listening socket descriptor
+ */
+static fd_t create_internal_port(int *port)
+{
+        fd_t sock;
+        sock = socket(AF_INET6, SOCK_STREAM, 0);
+        struct sockaddr_in6 s_in;
+        memset(&s_in, 0, sizeof(s_in));
+        s_in.sin6_family = AF_INET6;
+        s_in.sin6_addr = in6addr_any;
+        s_in.sin6_port = htons(0);
+        assert(bind(sock, (const struct sockaddr *) &s_in,
+                        sizeof(s_in)) == 0);
+        assert(listen(sock, 10) == 0);
+        socklen_t len = sizeof(s_in);
+        assert(getsockname(sock, (struct sockaddr *) &s_in, &len) == 0);
+        *port = ntohs(s_in.sin6_port);
+        return sock;
+}
+
 
 int control_init(int port, struct control_state **state, struct module *root_module)
 {
@@ -147,7 +178,8 @@ int control_init(int port, struct control_state **state, struct module *root_mod
         if(s->connection_type == SERVER) {
                 s->socket_fd = socket(AF_INET6, SOCK_STREAM, 0);
                 int val = 1;
-                setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+                setsockopt(s->socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                                (sso_val_type) &val, sizeof(val));
 
                 /* setting address to in6addr_any allows connections to be established
                  * from both IPv4 and IPv6 hosts. This behavior can be modified
@@ -193,17 +225,17 @@ int control_init(int port, struct control_state **state, struct module *root_mod
                 }
         }
 
-        if (socketpair(AF_UNIX, SOCK_STREAM, 0, s->local_fd) < 0) {
-                perror("opening stream socket pair");
-                free(s);
-                return -1;
-        }
+        fd_t sock;
+        sock = create_internal_port(&s->local_port);
 
         if(pthread_create(&s->thread_id, NULL, control_thread, s) != 0) {
                 fprintf(stderr, "Unable to create thread.\n");
                 free(s);
                 return -1;
         }
+
+        s->internal_fd[0] = accept(sock, NULL, NULL);
+        close(sock);
 
         module_register(&s->mod, root_module);
 
@@ -218,7 +250,7 @@ int control_init(int port, struct control_state **state, struct module *root_mod
   * @retval -1 exit thread
   * @retval -2 close handle
   */
-static int process_msg(struct control_state *s, int client_fd, char *message)
+static int process_msg(struct control_state *s, fd_t client_fd, char *message)
 {
         int ret = 0;
         struct response *resp = NULL;
@@ -252,7 +284,8 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
                         abort();
                 }
 
-                append_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_SENDER, MODULE_CLASS_NONE });
+                enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+                append_message_path(path, sizeof(path), path_sender);
                 resp =
                         send_message(s->root_module, path, (struct message *) msg);
         } else if(prefix_matches(message, "fec ")) {
@@ -272,12 +305,13 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
 
                 if(!resp) {
                         if(msg->media_type == TX_MEDIA_VIDEO) {
+                                enum module_class path_tx[] = { MODULE_CLASS_TX, MODULE_CLASS_NONE };
                                 append_message_path(path, sizeof(path),
-                                                (enum module_class[]){ MODULE_CLASS_TX, MODULE_CLASS_NONE });
+                                                path_tx);
                         } else {
+                                enum module_class path_audio_tx[] = { MODULE_CLASS_TX, MODULE_CLASS_AUDIO, MODULE_CLASS_NONE };
                                 append_message_path(path, sizeof(path),
-                                                (enum module_class[]){ MODULE_CLASS_AUDIO, MODULE_CLASS_TX,
-                                                MODULE_CLASS_NONE });
+                                                path_audio_tx);
                         }
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
@@ -296,7 +330,8 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
                 strncpy(msg->config_string, compress, sizeof(msg->config_string) - 1);
 
                 if(!resp) {
-                        append_message_path(path, sizeof(path), (enum module_class[]){ MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE });
+                        enum module_class path_compress[] = { MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE };
+                        append_message_path(path, sizeof(path), path_compress);
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
         } else if(strcasecmp(message, "bye") == 0) {
@@ -317,7 +352,7 @@ static int process_msg(struct control_state *s, int client_fd, char *message)
         return ret;
 }
 
-static void send_response(int fd, struct response *resp)
+static void send_response(fd_t fd, struct response *resp)
 {
         char buffer[1024];
 
@@ -368,12 +403,33 @@ static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, in
 }
 
 
-#define is_internal_port(x) (x == s->local_fd[1])
+#define is_internal_port(x) (x == s->internal_fd[1])
+
+/**
+ * connects to internal communication channel
+ */
+static fd_t connect_to_internal_channel(int local_port)
+{
+        struct sockaddr_in6 s_in;
+        memset(&s_in, 0, sizeof(s_in));
+        s_in.sin6_family = AF_INET6;
+        s_in.sin6_addr = in6addr_loopback;
+        s_in.sin6_port = htons(local_port);
+        fd_t fd = socket(AF_INET6, SOCK_STREAM, 0);
+        int ret;
+        ret = connect(fd, (struct sockaddr *) &s_in,
+                                sizeof(s_in));
+        assert(ret == 0);
+
+        return fd;
+}
 
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
         struct client *clients = NULL;
+
+        s->internal_fd[1] = connect_to_internal_channel(s->local_port);
 
         if(s->connection_type == CLIENT) {
                 struct client *new_client = (struct client *)
@@ -390,7 +446,7 @@ static void * control_thread(void *args)
         errno = 0;
 
         struct client *new_client = (struct client *) malloc(sizeof(struct client));
-        new_client->fd = s->local_fd[1];
+        new_client->fd = s->internal_fd[1];
         new_client->prev = NULL;
         new_client->next = clients;
         new_client->buff_len = 0;
@@ -403,7 +459,7 @@ static void * control_thread(void *args)
         gettimeofday(&last_report_sent, NULL);
 
         while(!should_exit) {
-                int max_fd = 0;
+                fd_t max_fd = 0;
 
                 fd_set fds;
                 FD_ZERO(&fds);
@@ -446,8 +502,8 @@ static void * control_thread(void *args)
 
                         while(cur) {
                                 if(FD_ISSET(cur->fd, &fds)) {
-                                        ssize_t ret = read(cur->fd, cur->buff + cur->buff_len,
-                                                        sizeof(cur->buff) - cur->buff_len);
+                                        ssize_t ret = recv(cur->fd, cur->buff + cur->buff_len,
+                                                        sizeof(cur->buff) - cur->buff_len, 0);
                                         if(ret == -1) {
                                                 fprintf(stderr, "Error reading socket!!!\n");
                                         }
@@ -537,7 +593,7 @@ static void * control_thread(void *args)
                 free(tmp);
         }
 
-        close(s->local_fd[1]);
+        close(s->internal_fd[1]);
 
         return NULL;
 }
@@ -550,11 +606,11 @@ void control_done(struct control_state *s)
 
         module_done(&s->mod);
 
-        write_all(s->local_fd[0], "quit\r\n", 6);
+        write_all(s->internal_fd[0], "quit\r\n", 6);
 
         pthread_join(s->thread_id, NULL);
 
-        close(s->local_fd[0]);
+        close(s->internal_fd[0]);
         if(s->connection_type == SERVER) {
                 // for client, the socket has already been closed
                 // by the time of control_thread exit

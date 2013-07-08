@@ -1242,14 +1242,6 @@ int main(int argc, char *argv[])
                 audio_rx_port = uv->recv_port_number + 2;
         }
 
-        if(control_init(control_port, &control, &root_mod) != 0) {
-                fprintf(stderr, "%s Unable to initialize remote control!\n",
-                                control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
-                if(control_port != CONTROL_DEFAULT_PORT) {
-                        return EXIT_FAILURE;
-                }
-        }
-
         if(should_export) {
                 if(!enable_export(export_opts)) {
                         fprintf(stderr, "Export initialization failed.\n");
@@ -1295,6 +1287,14 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 #endif
+
+        if(control_init(control_port, &control, &root_mod) != 0) {
+                fprintf(stderr, "%s Unable to initialize remote control!\n",
+                                control_port != CONTROL_DEFAULT_PORT ? "Warning:" : "Error:");
+                if(control_port != CONTROL_DEFAULT_PORT) {
+                        return EXIT_FAILURE;
+                }
+        }
 
         ret = capture_filter_init(requested_capture_filter, &uv->capture_filter);
         if(ret != 0) {
@@ -1610,6 +1610,10 @@ cleanup:
         
         lib_common_done();
 
+        control_done(control);
+
+        module_done(&root_mod);
+
 #if defined DEBUG && defined HAVE_LINUX
         muntrace();
 #endif
@@ -1617,10 +1621,6 @@ cleanup:
 #ifdef WIN32
 	WSACleanup();
 #endif
-
-        control_done(control);
-
-        module_done(&root_mod);
 
         printf("Exit\n");
 
