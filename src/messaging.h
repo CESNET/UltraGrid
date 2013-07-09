@@ -51,6 +51,11 @@ struct msg_sender {
         char receiver[128];
 };
 
+struct msg_receiver {
+        struct message m;
+        uint16_t new_rx_port;
+};
+
 struct msg_change_fec_data {
         struct message m;
         enum tx_media_type media_type;

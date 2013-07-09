@@ -32,7 +32,7 @@ int uv_argc;
 char **uv_argv;
 
 char *export_dir = NULL;
-char *sage_network_device = NULL;
+const char *sage_receiver = NULL;
 
 extern void (*vidcap_free_devices_extrn)();
 extern display_type_t *(*display_get_device_details_extrn)(int i);

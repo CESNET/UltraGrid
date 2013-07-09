@@ -144,7 +144,7 @@ static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
 static struct rtp *initialize_audio_network(char *addr, int recv_port,
                 int send_port, struct pdb *participants, bool use_ipv6,
-                char *mcast_if);
+                const char *mcast_if);
 
 static void audio_channel_map_usage(void);
 static void audio_scale_usage(void);
@@ -181,11 +181,11 @@ static void audio_scale_usage(void)
 /**
  * take care that addrs can also be comma-separated list of addresses !
  */
-struct state_audio * audio_cfg_init(struct module *parent, char *addrs, int recv_port, int send_port,
+struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, char *mcast_if, audio_codec_t audio_codec,
+                bool echo_cancellation, bool use_ipv6, const char *mcast_if, audio_codec_t audio_codec,
                 int resample_to)
 {
         struct state_audio *s = NULL;
@@ -435,7 +435,7 @@ void audio_done(struct state_audio *s)
 
 static struct rtp *initialize_audio_network(char *addr, int recv_port,
                 int send_port, struct pdb *participants, bool use_ipv6,
-                char *mcast_if)       // GiX
+                const char *mcast_if)       // GiX
 {
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc

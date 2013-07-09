@@ -131,6 +131,9 @@
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
 #endif
 
+#define MODE_SENDER   1
+#define MODE_RECEIVER 2
+
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -139,10 +142,12 @@ struct state_uv {
                 struct display *sage_tx_device; // == SAGE
         };
         unsigned int connections_count;
+
+        int mode; // sender or receiver
         
         struct vidcap *capture_device;
         struct capture_filter *capture_filter;
-        struct timeval start_time, curr_time;
+        struct timeval start_time;
         struct pdb *participants;
         
         char *decoder_mode;
@@ -154,6 +159,9 @@ struct state_uv {
         char *requested_compression;
         const char *requested_display;
         const char *requested_capture;
+        const char *requested_receiver;
+        bool ipv6;
+        const char *requested_mcast_if;
         unsigned requested_mtu;
         
         enum tx_protocol tx_protocol;
@@ -185,10 +193,6 @@ static long frame_begin[2];
 //
 // prototypes
 //
-static struct rtp **initialize_network(char *addrs, int recv_port_base,
-                int send_port_base, struct pdb *participants, bool use_ipv6,
-                char *mcast_if);
-
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
 static void display_buf_increase_warning(int size);
@@ -373,9 +377,9 @@ static void display_buf_increase_warning(int size)
 
 }
 
-static struct rtp **initialize_network(char *addrs, int recv_port_base,
+static struct rtp **initialize_network(const char *addrs, int recv_port_base,
                 int send_port_base, struct pdb *participants, bool use_ipv6,
-                char *mcast_if)
+                const char *mcast_if)
 {
 	struct rtp **devices = NULL;
         double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
@@ -402,7 +406,7 @@ static struct rtp **initialize_network(char *addrs, int recv_port_base,
 	devices = (struct rtp **) 
 		malloc((required_connections + 1) * sizeof(struct rtp *));
 
-	for(index = 0, addr = strtok_r(addrs, ",", &saveptr); 
+	for(index = 0, addr = strtok_r(tmp, ",", &saveptr);
 		index < required_connections;
 		++index, addr = strtok_r(NULL, ",", &saveptr), recv_port += 2, send_port += 2)
 	{
@@ -535,12 +539,31 @@ static void remove_display_from_decoders(struct state_uv *uv) {
         }
 }
 
+static void receiver_process_messages(struct state_uv *uv, struct module *receiver_mod)
+{
+        struct msg_receiver *msg;
+        while ((msg = (struct msg_receiver *) check_message(receiver_mod))) {
+                assert(uv->mode == MODE_RECEIVER); // receiver only
+                destroy_devices(uv->network_devices);
+                uv->recv_port_number = msg->new_rx_port;
+                uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
+                                uv->send_port_number, uv->participants, uv->ipv6,
+                                uv->requested_mcast_if);
+                if (!uv->network_devices) {
+                        fprintf(stderr, "Changing RX port failed!\n");
+                        abort();
+                }
+                free_message((struct message *) msg);
+        }
+}
+
 static void *receiver_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
+        struct module mod;
 
         struct pdb_e *cp;
-        struct timeval timeout;
+        struct timeval curr_time;
         int fr;
         int ret;
         unsigned int tiles_post = 0;
@@ -557,6 +580,10 @@ static void *receiver_thread(void *arg)
 
         initialize_video_decompress();
 
+        module_init_default(&mod);
+        mod.cls = MODULE_CLASS_RECEIVER;
+        module_register(&mod, uv->root_module);
+
         pthread_mutex_unlock(&uv->master_lock);
 
         fr = 1;
@@ -572,16 +599,18 @@ static void *receiver_thread(void *arg)
         uint64_t total_received = 0ull;
 
         while (!should_exit_receiver) {
+                struct timeval timeout;
                 /* Housekeeping and RTCP... */
-                gettimeofday(&uv->curr_time, NULL);
-                uv->ts = tv_diff(uv->curr_time, uv->start_time) * 90000;
-                rtp_update(uv->network_devices[0], uv->curr_time);
-                rtp_send_ctrl(uv->network_devices[0], uv->ts, 0, uv->curr_time);
+                gettimeofday(&curr_time, NULL);
+                uv->ts = tv_diff(curr_time, uv->start_time) * 90000;
+                rtp_update(uv->network_devices[0], curr_time);
+                rtp_send_ctrl(uv->network_devices[0], uv->ts, 0, curr_time);
 
                 /* Receive packets from the network... The timeout is adjusted */
                 /* to match the video capture rate, so the transmitter works.  */
                 if (fr) {
-                        gettimeofday(&uv->curr_time, NULL);
+                        gettimeofday(&curr_time, NULL);
+                        receiver_process_messages(uv, &mod);
                         fr = 0;
                 }
 
@@ -590,11 +619,12 @@ static void *receiver_thread(void *arg)
                 timeout.tv_usec = 10000;
                 ret = rtp_recv_poll_r(uv->network_devices, &timeout, uv->ts);
 
-		/*
-                   if (ret == FALSE) {
-                   printf("Failed to receive data\n");
-                   }
-                 */
+                // timeout
+                if (ret == FALSE) {
+                        // processing is needed here in case we are not receiving any data
+                        receiver_process_messages(uv, &mod);
+                        //printf("Failed to receive data\n");
+                }
                 total_received += ret;
                 stats_update_int(stat_received, total_received);
 
@@ -602,10 +632,10 @@ static void *receiver_thread(void *arg)
                 pdb_iter_t it;
                 cp = pdb_iter_init(uv->participants, &it);
                 while (cp != NULL) {
-                        if (tfrc_feedback_is_due(cp->tfrc_state, uv->curr_time)) {
+                        if (tfrc_feedback_is_due(cp->tfrc_state, curr_time)) {
                                 debug_msg("tfrc rate %f\n",
                                           tfrc_feedback_txrate(cp->tfrc_state,
-                                                               uv->curr_time));
+                                                               curr_time));
                         }
 
                         if(cp->video_decoder_state == NULL) {
@@ -625,13 +655,13 @@ static void *receiver_thread(void *arg)
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, uv->curr_time, decode_frame, cp->video_decoder_state)) {
+                            (cp->playout_buffer, curr_time, decode_frame, cp->video_decoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count) 
                                 {
                                         tiles_post = 0;
-                                        gettimeofday(&uv->curr_time, NULL);
+                                        gettimeofday(&curr_time, NULL);
                                         fr = 1;
 #if 0
                                         display_put_frame(uv->display_device,
@@ -640,7 +670,7 @@ static void *receiver_thread(void *arg)
                                             display_get_frame(uv->display_device);
 #endif
                                 }
-                                last_tile_received = uv->curr_time;
+                                last_tile_received = curr_time;
                                 uint32_t sender_ssrc = cp->ssrc;
                                 stats_update_int(stat_loss,
                                                 rtp_compute_fract_lost(uv->network_devices[0],
@@ -648,10 +678,10 @@ static void *receiver_thread(void *arg)
                         }
 
                         /* dual-link TIMEOUT - we won't wait for next tiles */
-                        if(tiles_post > 1 && tv_diff(uv->curr_time, last_tile_received) > 
+                        if(tiles_post > 1 && tv_diff(curr_time, last_tile_received) >
                                         999999 / 59.94 / uv->connections_count) {
                                 tiles_post = 0;
-                                gettimeofday(&uv->curr_time, NULL);
+                                gettimeofday(&curr_time, NULL);
                                 fr = 1;
 #if 0
                                 display_put_frame(uv->display_device,
@@ -659,7 +689,7 @@ static void *receiver_thread(void *arg)
                                 cp->video_decoder_state->frame_buffer =
                                         display_get_frame(uv->display_device);
 #endif
-                                last_tile_received = uv->curr_time;
+                                last_tile_received = curr_time;
                         }
 
                         if(cp->video_decoder_state->decoded % 100 == 99) {
@@ -694,11 +724,13 @@ static void *receiver_thread(void *arg)
                         }
 
 
-                        pbuf_remove(cp->playout_buffer, uv->curr_time);
+                        pbuf_remove(cp->playout_buffer, curr_time);
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);
         }
+
+        module_done(&mod);
         
 #ifdef SHARED_DECODER
         destroy_decoder(shared_decoder);
@@ -708,6 +740,7 @@ static void *receiver_thread(void *arg)
         remove_display_from_decoders(uv);
 #endif //  SHARED_DECODER
 
+        // pass posioned pill to display
         display_put_frame(uv->display_device, NULL, PUTF_BLOCKING);
 
         stats_destroy(stat_loss);
@@ -857,7 +890,6 @@ int main(int argc, char *argv[])
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
-        char *network_device = NULL;
         char *capture_cfg = NULL;
         char *display_cfg = NULL;
         const char *audio_recv = "none";
@@ -869,8 +901,6 @@ int main(int argc, char *argv[])
         char *audio_scale = "mixauto";
 
         bool echo_cancellation = false;
-        bool use_ipv6 = false;
-        char *mcast_if = NULL;
 
         bool should_export = false;
         char *export_opts = NULL;
@@ -881,7 +911,7 @@ int main(int argc, char *argv[])
 
         int bitrate = 0;
         
-        char *audio_host = NULL;
+        const char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
 
         struct module root_mod;
@@ -1109,7 +1139,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case '6':
-                        use_ipv6 = true;
+                        uv->ipv6 = true;
                         break;
                 case OPT_AUDIO_CHANNEL_MAP:
                         audio_channel_map = optarg;
@@ -1156,7 +1186,7 @@ int main(int argc, char *argv[])
                         return EXIT_FAIL_USAGE;
 #endif // HAVE_CUDA
                 case OPT_MCAST_IF:
-                        mcast_if = optarg;
+                        uv->requested_mcast_if = optarg;
                         break;
                 case 'A':
                         audio_host = optarg;
@@ -1265,12 +1295,12 @@ int main(int argc, char *argv[])
                 }
         } else {
                 if (argc == 0) {
-                        network_device = strdup("localhost");
+                        uv->requested_receiver = "localhost";
                 } else {
-                        network_device = (char *) argv[0];
+                        uv->requested_receiver = argv[0];
                 }
                 if(uv->tx_protocol == SAGE) {
-                        sage_network_device = network_device;
+                        sage_receiver = uv->requested_receiver;
                 }
         }
 
@@ -1302,13 +1332,13 @@ int main(int argc, char *argv[])
         }
 	
         if(!audio_host) {
-                audio_host = network_device;
+                audio_host = uv->requested_receiver;
         }
         uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, uv->requested_encryption,
                         audio_channel_map,
-                        audio_scale, echo_cancellation, use_ipv6, mcast_if,
+                        audio_scale, echo_cancellation, uv->ipv6, uv->requested_mcast_if,
                         audio_codec, compressed_audio_sample_rate);
         free(requested_audio_fec);
         if(!uv->audio)
@@ -1447,8 +1477,9 @@ int main(int argc, char *argv[])
 #endif // HAVE_IHDTV
         } else if(uv->tx_protocol == ULTRAGRID_RTP) {
                 if ((uv->network_devices =
-                                        initialize_network(network_device, uv->recv_port_number,
-                                                uv->send_port_number, uv->participants, use_ipv6, mcast_if))
+                                        initialize_network(uv->requested_receiver, uv->recv_port_number,
+                                                uv->send_port_number, uv->participants, uv->ipv6,
+                                                uv->requested_mcast_if))
                                 == NULL) {
                         printf("Unable to open network\n");
                         exit_uv(EXIT_FAIL_NETWORK);
@@ -1519,6 +1550,13 @@ int main(int argc, char *argv[])
                 }
 
                 if (strcmp("none", uv->requested_display) != 0) {
+                        uv->mode |= MODE_RECEIVER;
+                }
+                if (strcmp("none", uv->requested_capture) != 0) {
+                        uv->mode |= MODE_SENDER;
+                }
+
+                if(uv->mode & MODE_RECEIVER) {
                         pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&receiver_thread_id, NULL, receiver_thread,
@@ -1531,7 +1569,7 @@ int main(int argc, char *argv[])
 			}
                 }
 
-                if (strcmp("none", uv->requested_capture) != 0) {
+                if(uv->mode & MODE_SENDER) {
                         pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&tx_thread_id, NULL, compress_thread,

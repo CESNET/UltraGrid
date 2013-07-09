@@ -1047,7 +1047,7 @@ struct rtp *rtp_init(const char *addr,
  * Returns: An opaque session identifier to be used in future calls to
  * the RTP library functions, or NULL on failure.
  */
-struct rtp *rtp_init_if(const char *addr, char *iface,
+struct rtp *rtp_init_if(const char *addr, const char *iface,
                         uint16_t rx_port, uint16_t tx_port,
                         int ttl, double rtcp_bw,
                         int tfrc_on, rtp_callback callback, uint8_t * userdata,
@@ -3814,6 +3814,14 @@ void rtp_flush_recv_buf(struct rtp *session)
         udp_flush_recv_buf(session->rtp_socket);
 }
 
+/**
+ * rtp_change_dest:
+ * Changes RTP destination address.
+ * There must be only one sending thread.
+ * @session: The RTP Session.
+ * @addr: New Receiver Address.
+ * Returns TRUE if ok, FALSE if not
+ */
 int rtp_change_dest(struct rtp *session, const char *addr)
 {
         return udp_change_dest(session->rtp_socket, addr);

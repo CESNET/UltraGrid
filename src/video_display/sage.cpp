@@ -169,7 +169,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
         assert(s != NULL);
 
         s->confName = NULL;
-        s->fsIP = sage_network_device; // NULL unless in SAGE TX mode
+        s->fsIP = sage_receiver; // NULL unless in SAGE TX mode
         s->requestedDisplayCodec = (codec_t) -1;
 
         if(fmt) {
@@ -224,7 +224,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
                 }
         }
 
-        if(sage_network_device == NULL) {
+        if(sage_receiver == NULL) {
                 // read config file only if we are in dispaly mode (not sender mode)
                 struct stat sb;
                 if(s->confName) {

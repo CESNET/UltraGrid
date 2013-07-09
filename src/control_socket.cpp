@@ -288,6 +288,16 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                 append_message_path(path, sizeof(path), path_sender);
                 resp =
                         send_message(s->root_module, path, (struct message *) msg);
+        } else if (prefix_matches(message, "receiver-port ")) {
+                struct msg_receiver *msg =
+                        (struct msg_receiver *)
+                        new_message(sizeof(struct msg_receiver));
+                msg->new_rx_port = atoi(suffix(message, "receiver-port "));
+
+                enum module_class path_receiver[] = { MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };
+                append_message_path(path, sizeof(path), path_receiver);
+                resp =
+                        send_message(s->root_module, path, (struct message *) msg);
         } else if(prefix_matches(message, "fec ")) {
                 struct msg_change_fec_data *msg = (struct msg_change_fec_data *)
                         new_message(sizeof(struct msg_change_fec_data));
@@ -424,6 +434,20 @@ static fd_t connect_to_internal_channel(int local_port)
         return fd;
 }
 
+static struct client *add_client(struct client *clients, int fd) {
+        struct client *new_client = (struct client *)
+                malloc(sizeof(struct client));
+        new_client->fd = fd;
+        new_client->prev = NULL;
+        new_client->next = clients;
+        if (new_client->next) {
+                new_client->next->prev = new_client;
+        }
+        new_client->buff_len = 0;
+
+        return new_client;
+}
+
 static void * control_thread(void *args)
 {
         struct control_state *s = (struct control_state *) args;
@@ -432,25 +456,14 @@ static void * control_thread(void *args)
         s->internal_fd[1] = connect_to_internal_channel(s->local_port);
 
         if(s->connection_type == CLIENT) {
-                struct client *new_client = (struct client *)
-                        malloc(sizeof(struct client));
-                new_client->fd = s->socket_fd;
-                new_client->prev = NULL;
-                new_client->next = clients;
-                new_client->buff_len = 0;
-                clients = new_client;
+                clients = add_client(clients, s->socket_fd);
         }
         struct sockaddr_storage client_addr;
         socklen_t len;
 
         errno = 0;
 
-        struct client *new_client = (struct client *) malloc(sizeof(struct client));
-        new_client->fd = s->internal_fd[1];
-        new_client->prev = NULL;
-        new_client->next = clients;
-        new_client->buff_len = 0;
-        clients = new_client;
+        clients = add_client(clients, s->internal_fd[1]);
 
         bool should_exit = false;
 
@@ -489,13 +502,8 @@ static void * control_thread(void *args)
 
                 if(select(max_fd, &fds, NULL, NULL, timeout_ptr) >= 1) {
                         if(s->connection_type == SERVER && FD_ISSET(s->socket_fd, &fds)) {
-                                struct client *new_client = (struct client *)
-                                        malloc(sizeof(struct client));
-                                new_client->fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
-                                new_client->prev = NULL;
-                                new_client->next = clients;
-                                new_client->buff_len = 0;
-                                clients = new_client;
+                                int fd = accept(s->socket_fd, (struct sockaddr *) &client_addr, &len);
+                                clients = add_client(clients, fd);
                         }
 
                         struct client *cur = clients;

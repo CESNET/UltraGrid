@@ -219,7 +219,7 @@ rtp_t		rtp_init(const char *addr,
 			 rtp_callback callback,
 			 uint8_t *userdata,
                          bool use_ipv6);
-rtp_t		rtp_init_if(const char *addr, char *iface, 
+rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    uint16_t rx_port, uint16_t tx_port, 
 			    int ttl, double rtcp_bw, 
 			    int tfrc_on,
@@ -283,10 +283,6 @@ int              rtp_set_recv_buf(struct rtp *session, int bufsize);
 int              rtp_set_send_buf(struct rtp *session, int bufsize);
 
 void             rtp_flush_recv_buf(struct rtp *session);
-/**
- * @retval TRUE if changed successfully
- * @retval FALSE if not
- */
 int              rtp_change_dest(struct rtp *session, const char *addr);
 uint64_t         rtp_get_bytes_sent(struct rtp *session);
 int              rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc);

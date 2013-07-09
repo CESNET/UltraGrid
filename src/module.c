@@ -122,6 +122,7 @@ const char *module_class_name_pairs[] = {
         [MODULE_CLASS_COMPRESS] = "compress",
         [MODULE_CLASS_DATA] = "data",
         [MODULE_CLASS_SENDER] = "sender",
+        [MODULE_CLASS_RECEIVER] = "receiver",
         [MODULE_CLASS_TX] = "transmit",
         [MODULE_CLASS_AUDIO] = "audio",
         [MODULE_CLASS_CONTROL] = "control",

@@ -68,6 +68,7 @@ enum module_class {
         MODULE_CLASS_COMPRESS,
         MODULE_CLASS_DATA,
         MODULE_CLASS_SENDER,
+        MODULE_CLASS_RECEIVER,
         MODULE_CLASS_TX,
         MODULE_CLASS_AUDIO,
         MODULE_CLASS_CONTROL,
