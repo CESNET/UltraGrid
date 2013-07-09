@@ -352,9 +352,6 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         /* Find the first complete frame that has reached it's playout */
         /* time, and decode it into the framebuffer. Mark the frame as */
         /* decoded, but otherwise leave it in the playout buffer.      */
-#ifdef WIN32
-        UNUSED(curr_time);
-#endif
         struct pbuf_node *curr;
 
         pbuf_validate(playout_buf);
@@ -362,10 +359,8 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         curr = playout_buf->frst;
         while (curr != NULL) {
                 if (!curr->decoded 
-#ifndef WIN32
-				&& tv_gt(curr_time, curr->playout_time)
-#endif
-		   ) {
+                                && tv_gt(curr_time, curr->playout_time)
+                   ) {
                         if (frame_complete(curr)) {
                                 int ret = decode_func(curr->cdata, data);
                                 curr->decoded = 1;
