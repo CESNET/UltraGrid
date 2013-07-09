@@ -57,6 +57,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "ihdtv.h"
 #include "messaging.h"
 #include "module.h"
 #include "rtp/rtp.h"
@@ -256,7 +257,7 @@ static void *sender_thread(void *arg) {
                         goto after_send;
                 }
 
-                if(data->tx_protocol == ULTRAGRID_RTP) {
+                if (data->tx_protocol == ULTRAGRID_RTP) {
                         if(data->connections_count == 1) { /* normal case - only one connection */
                                 tx_send(data->tx, tx_frame,
                                                 data->network_devices[0]);
@@ -271,7 +272,7 @@ static void *sender_thread(void *arg) {
                                                         data->network_devices[i]);
                                 }
                         }
-                } else { // SAGE
+                } else if (data->tx_protocol == SAGE) { // SAGE
                         if(!video_desc_eq(saved_vid_desc,
                                                 video_desc_from_frame(tx_frame))) {
                                 display_reconfigure(data->sage_tx_device,
@@ -283,6 +284,8 @@ static void *sender_thread(void *arg) {
                         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                                         tx_frame->tiles[0].data_len);
                         display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
+                } else { // iHDTV
+                        ihdtv_send_frame(data->ihdtv_state, tx_frame);
                 }
 after_send:
 

@@ -47,6 +47,12 @@
 #ifndef __host_h
 #define __host_h
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,6 +61,8 @@ extern int uv_argc;
 extern char **uv_argv;
 
 extern long packet_rate;
+
+extern volatile bool should_exit_receiver;
 
 /* TODO: remove these variables (should be safe) */
 extern unsigned int hd_size_x;

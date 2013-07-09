@@ -85,7 +85,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "tfrc.h"
-#include "ihdtv/ihdtv.h"
+#include "ihdtv.h"
 #include "lib_common.h"
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
@@ -140,6 +140,7 @@ struct state_uv {
         union {
                 struct rtp **network_devices; // ULTRAGRID_RTP
                 struct display *sage_tx_device; // == SAGE
+                struct ihdtv_state *ihdtv_state; // == SAGE
         };
         unsigned int connections_count;
 
@@ -176,8 +177,7 @@ struct state_uv {
 };
 
 static int exit_status = EXIT_SUCCESS;
-static bool should_exit_receiver = false;
-static bool should_exit_sender = false;
+static volatile bool should_exit_sender = false;
 
 static struct state_uv *uv_state;
 
@@ -444,46 +444,6 @@ static void destroy_devices(struct rtp ** network_devices)
 	}
 	free(network_devices);
 }
-
-#ifdef HAVE_IHDTV
-static void *ihdtv_receiver_thread(void *arg)
-{
-        ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
-        struct display *display_device = (struct display *)((void **)arg)[1];
-
-        struct video_frame *frame_buffer = NULL;
-
-        while (1) {
-                frame_buffer = display_get_frame(display_device);
-                if (ihdtv_receive
-                    (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
-                        return 0;       // we've got some error. probably empty buffer
-                display_put_frame(display_device, frame_buffer, PUTF_BLOCKING);
-        }
-        return 0;
-}
-
-static void *ihdtv_sender_thread(void *arg)
-{
-        ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
-        struct vidcap *capture_device = (struct vidcap *)((void **)arg)[1];
-        struct video_frame *tx_frame;
-        struct audio_frame *audio;
-
-        while (1) {
-                if ((tx_frame = vidcap_grab(capture_device, &audio)) != NULL) {
-                        ihdtv_send(connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
-                        free(tx_frame);
-                } else {
-                        fprintf(stderr,
-                                "Error receiving frame from capture device\n");
-                        return 0;
-                }
-        }
-
-        return 0;
-}
-#endif // IHDTV
 
 static struct vcodec_state *new_decoder(struct state_uv *uv) {
         struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
@@ -767,8 +727,10 @@ static void *capture_thread(void *arg)
         sender_data.tx_protocol = uv->tx_protocol;
         if(uv->tx_protocol == ULTRAGRID_RTP) {
                 sender_data.network_devices = uv->network_devices;
-        } else {
+        } else if (uv->tx_protocol == SAGE) {
                 sender_data.sage_tx_device = uv->sage_tx_device;
+        } else { // IHDTV
+                sender_data.ihdtv_state = uv->ihdtv_state;
         }
         sender_data.tx = uv->tx;
 
@@ -1271,20 +1233,13 @@ int main(int argc, char *argv[])
                 return EXIT_FAIL_USAGE;
         }
 
-        if (uv->tx_protocol == IHDTV) {
-                if ((argc != 0) && (argc != 1) && (argc != 2)) {
-                        usage();
-                        return EXIT_FAIL_USAGE;
-                }
+        if (argc == 0) {
+                uv->requested_receiver = "localhost";
         } else {
-                if (argc == 0) {
-                        uv->requested_receiver = "localhost";
-                } else {
-                        uv->requested_receiver = argv[0];
-                }
-                if(uv->tx_protocol == SAGE) {
-                        sage_receiver = uv->requested_receiver;
-                }
+                uv->requested_receiver = argv[0];
+        }
+        if(uv->tx_protocol == SAGE) {
+                sage_receiver = uv->requested_receiver;
         }
 
 #ifdef WIN32
@@ -1381,83 +1336,27 @@ int main(int argc, char *argv[])
 #endif /* HAVE_SCHED_SETSCHEDULER */
 #endif /* USE_RT */         
 
+        if (strcmp("none", uv->requested_display) != 0) {
+                uv->mode |= MODE_RECEIVER;
+        }
+        if (strcmp("none", uv->requested_capture) != 0) {
+                uv->mode |= MODE_SENDER;
+        }
+
         if (uv->tx_protocol == IHDTV) {
-#ifdef HAVE_IHDTV
-                ihdtv_connection tx_connection, rx_connection;
-
-                printf("Initializing ihdtv protocol\n");
-
-                // we cannot act as both together, because parameter parsing would have to be revamped
-                if ((strcmp("none", uv->requested_display) != 0)
-                    && (strcmp("none", uv->requested_capture) != 0)) {
-                        printf
-                            ("Error: cannot act as both sender and receiver together in ihdtv mode\n");
-                        return -1;
+                struct vidcap *capture_device = NULL;
+                struct display *display_device = NULL;
+                if (uv->mode & MODE_SENDER)
+                        capture_device = uv->capture_device;
+                if (uv->mode & MODE_RECEIVER)
+                        display_device = uv->display_device;
+                uv->ihdtv_state = initialize_ihdtv(capture_device,
+                                display_device, uv->requested_mtu,
+                                argc, argv);
+                if(!uv->ihdtv_state) {
+                        usage();
+                        return EXIT_FAILURE;
                 }
-
-                void *rx_connection_and_display[] =
-                    { (void *)&rx_connection, (void *)uv->display_device };
-                void *tx_connection_and_display[] =
-                    { (void *)&tx_connection, (void *)uv->capture_device };
-
-                if (uv->requested_mtu == 0)     // mtu not specified on command line
-                {
-                        uv->requested_mtu = 8112;       // not really a mtu, but a video-data payload per packet
-                }
-
-                if (strcmp("none", uv->requested_display) != 0) {
-                        if (ihdtv_init_rx_session
-                            (&rx_connection, (argc == 0) ? NULL : argv[0],
-                             (argc ==
-                              0) ? NULL : ((argc == 1) ? argv[0] : argv[1]),
-                             3000, 3001, uv->requested_mtu) != 0) {
-                                fprintf(stderr,
-                                        "Error initializing receiver session\n");
-                                return 1;
-                        }
-
-                        if (pthread_create
-                            (&receiver_thread_id, NULL, ihdtv_receiver_thread,
-                             rx_connection_and_display) != 0) {
-                                fprintf(stderr,
-                                        "Error creating receiver thread. Quitting\n");
-                                return 1;
-                        } else {
-				receiver_thread_started = true;
-			}
-                }
-
-                if (strcmp("none", uv->requested_capture) != 0) {
-                        if (argc == 0) {
-                                fprintf(stderr,
-                                        "Error: specify the destination address\n");
-                                usage();
-                                return EXIT_FAIL_USAGE;
-                        }
-
-                        if (ihdtv_init_tx_session
-                            (&tx_connection, argv[0],
-                             (argc == 2) ? argv[1] : argv[0],
-                             uv->requested_mtu) != 0) {
-                                fprintf(stderr,
-                                        "Error initializing sender session\n");
-                                return 1;
-                        }
-
-                        if (pthread_create
-                            (&tx_thread_id, NULL, ihdtv_sender_thread,
-                             tx_connection_and_display) != 0) {
-                                fprintf(stderr,
-                                        "Error creating sender thread. Quitting\n");
-                                return 1;
-                        } else {
-				tx_thread_started = true;
-			}
-                }
-
-                while (!0) // was 'should_exit'
-                        sleep(1);
-#endif // HAVE_IHDTV
         } else if(uv->tx_protocol == ULTRAGRID_RTP) {
                 if ((uv->network_devices =
                                         initialize_network(uv->requested_receiver, uv->recv_port_number,
@@ -1507,60 +1406,69 @@ int main(int argc, char *argv[])
                 tx_thread_started = true;
         }
 
-        if(uv->tx_protocol == ULTRAGRID_RTP || uv->tx_protocol == SAGE) {
-                /* following block only shows help (otherwise initialized in receiver thread */
-                if((uv->postprocess && strstr(uv->postprocess, "help") != NULL) || 
-                                (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
-                        struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess, NULL,
-                                        uv->requested_encryption);
-                        decoder_destroy(dec);
+        /* following block only shows help (otherwise initialized in receiver thread */
+        if((uv->postprocess && strstr(uv->postprocess, "help") != NULL) ||
+                        (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
+                struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess, NULL,
+                                uv->requested_encryption);
+                decoder_destroy(dec);
+                exit_uv(EXIT_SUCCESS);
+                goto cleanup;
+        }
+        /* following block only shows help (otherwise initialized in sender thread */
+        if(strstr(uv->requested_compression,"help") != NULL) {
+                struct compress_state *compression;
+                int ret = compress_init(&root_mod, uv->requested_compression, &compression);
+
+                if(ret >= 0) {
+                        if(ret == 0)
+                                module_done(CAST_MODULE(compression));
                         exit_uv(EXIT_SUCCESS);
+                } else {
+                        exit_uv(EXIT_FAILURE);
+                }
+                goto cleanup;
+        }
+
+        void *(*rx_thread)(void *);
+        switch (uv->tx_protocol) {
+        case ULTRAGRID_RTP:
+                rx_thread = receiver_thread;
+                break;
+        case IHDTV:
+                rx_thread = ihdtv_receiver_thread;
+                break;
+        default:
+                rx_thread = NULL;
+                break;
+        }
+
+        if(uv->mode & MODE_RECEIVER) {
+                if (rx_thread == NULL) {
+                        fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
+                        exit_uv(EXIT_FAILURE);
                         goto cleanup;
                 }
-                /* following block only shows help (otherwise initialized in sender thread */
-                if(strstr(uv->requested_compression,"help") != NULL) {
-                        struct compress_state *compression;
-                        int ret = compress_init(&root_mod, uv->requested_compression, &compression);
-
-                        if(ret >= 0) {
-                                if(ret == 0)
-                                        module_done(CAST_MODULE(compression));
-                                exit_uv(EXIT_SUCCESS);
-                        } else {
-                                exit_uv(EXIT_FAILURE);
-                        }
+                if (pthread_create
+                                (&receiver_thread_id, NULL, rx_thread,
+                                 (void *)uv) != 0) {
+                        perror("Unable to create display thread!\n");
+                        exit_uv(EXIT_FAILURE);
                         goto cleanup;
+                } else {
+                        receiver_thread_started = true;
                 }
+        }
 
-                if (strcmp("none", uv->requested_display) != 0) {
-                        uv->mode |= MODE_RECEIVER;
-                }
-                if (strcmp("none", uv->requested_capture) != 0) {
-                        uv->mode |= MODE_SENDER;
-                }
-
-                if(uv->mode & MODE_RECEIVER) {
-                        if (pthread_create
-                            (&receiver_thread_id, NULL, receiver_thread,
-                             (void *)uv) != 0) {
-                                perror("Unable to create display thread!\n");
-                                exit_uv(EXIT_FAILURE);
-                                goto cleanup;
-                        } else {
-				receiver_thread_started = true;
-			}
-                }
-
-                if(uv->mode & MODE_SENDER) {
-                        if (pthread_create
-                            (&tx_thread_id, NULL, capture_thread,
-                             (void *) &root_mod) != 0) {
-                                perror("Unable to create capture thread!\n");
-                                exit_uv(EXIT_FAILURE);
-                                goto cleanup;
-                        } else {
-				tx_thread_started = true;
-			}
+        if(uv->mode & MODE_SENDER) {
+                if (pthread_create
+                                (&tx_thread_id, NULL, capture_thread,
+                                 (void *) &root_mod) != 0) {
+                        perror("Unable to create capture thread!\n");
+                        exit_uv(EXIT_FAILURE);
+                        goto cleanup;
+                } else {
+                        tx_thread_started = true;
                 }
         }
         
@@ -1574,7 +1482,8 @@ int main(int argc, char *argv[])
                 display_run(uv->display_device);
 
 cleanup:
-        if (strcmp("none", uv->requested_display) != 0 && receiver_thread_started)
+        if (strcmp("none", uv->requested_display) != 0 &&
+                        receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
         if (strcmp("none", uv->requested_capture) != 0 &&
@@ -1588,6 +1497,8 @@ cleanup:
 
         if(uv->tx_protocol == SAGE && uv->sage_tx_device)
                 display_done(uv->sage_tx_device);
+        if(uv->tx_protocol == IHDTV)
+                ihdtv_done(uv->ihdtv_state);
         if(uv->audio)
                 audio_done(uv->audio);
         if(uv->tx)

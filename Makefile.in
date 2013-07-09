@@ -99,6 +99,7 @@ OBJS	      = @OBJS@ \
 		src/crypto/openssl_encrypt.o \
 		src/crypto/openssl_decrypt.o \
 		src/crypto/random.o \
+		src/ihdtv.o \
 		src/ihdtv/ihdtv.o \
 		src/module.o \
 		src/stats.o \
