@@ -82,6 +82,9 @@ void module_register(struct module *module_data, struct module *parent)
 
 void module_done(struct module *module_data)
 {
+        if(!module_data)
+                return;
+
         assert(module_data->magic == MODULE_MAGIC);
 
         if(module_data->parent) {

@@ -143,7 +143,7 @@ struct state_uv {
         };
         unsigned int connections_count;
 
-        int mode; // sender or receiver
+        int mode; // MODE_SENDER, MODE_RECEIVER or both
         
         struct vidcap *capture_device;
         struct capture_filter *capture_filter;
@@ -168,9 +168,6 @@ struct state_uv {
 
         struct state_audio *audio;
 
-        /* used mainly to serialize initialization */
-        pthread_mutex_t master_lock;
-
         struct video_export *video_exporter;
 
         struct module *root_module;
@@ -178,17 +175,11 @@ struct state_uv {
         const char *requested_encryption;
 };
 
-static volatile int wait_to_finish = FALSE;
-static volatile int threads_joined = FALSE;
 static int exit_status = EXIT_SUCCESS;
 static bool should_exit_receiver = false;
 static bool should_exit_sender = false;
 
 static struct state_uv *uv_state;
-#ifdef HAVE_IHDTV
-static struct video_frame *frame_buffer = NULL;
-static long frame_begin[2];
-#endif
 
 //
 // prototypes
@@ -196,7 +187,6 @@ static long frame_begin[2];
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
 static void display_buf_increase_warning(int size);
-static bool enable_export(char *dir);
 static void remove_display_from_decoders(struct state_uv *uv);
 static void init_root_module(struct module *mod, struct state_uv *uv);
 
@@ -224,18 +214,10 @@ static void _exit_uv(int status);
 
 static void _exit_uv(int status) {
         exit_status = status;
-        wait_to_finish = TRUE;
-        if(!threads_joined) {
-                if(uv_state->capture_device) {
-                        should_exit_sender = true;
-                }
-                if(uv_state->display_device) {
-                        should_exit_receiver = true;
-                }
-                if(uv_state->audio)
-                        audio_finish(uv_state->audio);
-        }
-        wait_to_finish = FALSE;
+
+        should_exit_sender = true;
+        should_exit_receiver = true;
+        audio_finish(uv_state->audio);
 }
 
 void (*exit_uv)(int status) = _exit_uv;
@@ -469,12 +451,14 @@ static void *ihdtv_receiver_thread(void *arg)
         ihdtv_connection *connection = (ihdtv_connection *) ((void **)arg)[0];
         struct display *display_device = (struct display *)((void **)arg)[1];
 
+        struct video_frame *frame_buffer = NULL;
+
         while (1) {
+                frame_buffer = display_get_frame(display_device);
                 if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
                 display_put_frame(display_device, frame_buffer, PUTF_BLOCKING);
-                frame_buffer = display_get_frame(display_device);
         }
         return 0;
 }
@@ -583,8 +567,6 @@ static void *receiver_thread(void *arg)
         module_init_default(&mod);
         mod.cls = MODULE_CLASS_RECEIVER;
         module_register(&mod, uv->root_module);
-
-        pthread_mutex_unlock(&uv->master_lock);
 
         fr = 1;
 
@@ -749,7 +731,13 @@ static void *receiver_thread(void *arg)
         return 0;
 }
 
-static void *compress_thread(void *arg)
+/**
+ * This function captures video and possibly compresses it.
+ * It then delegates sending to another thread.
+ *
+ * @param[in] arg pointer to UltraGrid (root) module
+ */
+static void *capture_thread(void *arg)
 {
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
@@ -761,8 +749,18 @@ static void *compress_thread(void *arg)
         //struct video_frame *splitted_frames = NULL;
         int i = 0;
 
-        struct compress_state *compression;
+        struct compress_state *compression = NULL;
         int ret = compress_init(uv_mod, uv->requested_compression, &compression);
+        if(ret != 0) {
+                if(ret < 0) {
+                        fprintf(stderr, "Error initializing compression.\n");
+                        exit_uv(1);
+                }
+                if(ret > 0) {
+                        exit_uv(0);
+                }
+                goto compress_done;
+        }
 
         sender_data.parent = uv_mod; /// @todo should be compress thread module
         sender_data.connections_count = uv->connections_count;
@@ -777,20 +775,6 @@ static void *compress_thread(void *arg)
         if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
                 exit_uv(1);
-                pthread_mutex_unlock(&uv->master_lock);
-                goto compress_done;
-        }
-
-        pthread_mutex_unlock(&uv->master_lock);
-        /* NOTE: unlock before propagating possible error */
-        if(ret != 0) {
-                if(ret < 0) {
-                        fprintf(stderr, "Error initializing compression.\n");
-                        exit_uv(1);
-                }
-                if(ret > 0) {
-                        exit_uv(0);
-                }
                 goto compress_done;
         }
 
@@ -817,7 +801,8 @@ static void *compress_thread(void *arg)
                         bool nonblock = true;
                         /* when sending uncompressed video, we simply post it for send
                          * and wait until done */
-                        /* for compressed, we do not need to wait */
+                        /* for compressed, we do not need to wait because of
+                         * double-buffering of compression */
                         if(is_compress_none(compression)) {
                                 nonblock = false;
                         }
@@ -834,7 +819,7 @@ compress_done:
         return NULL;
 }
 
-static bool enable_export(char *dir)
+static bool enable_export(const char *dir)
 {
         if(!dir) {
                 for (int i = 1; i <= 9999; i++) {
@@ -1003,8 +988,6 @@ int main(int argc, char *argv[])
 
         init_root_module(&root_mod, uv);
         uv->root_module = &root_mod;
-
-        pthread_mutex_init(&uv->master_lock, NULL);
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -1357,11 +1340,11 @@ int main(int argc, char *argv[])
                 printf("Unable to open display device: %s\n",
                        uv->requested_display);
                 exit_uv(EXIT_FAIL_DISPLAY);
-                goto cleanup_wait_audio;
+                goto cleanup;
         }
         if(ret > 0) {
                 exit_uv(EXIT_SUCCESS);
-                goto cleanup_wait_audio;
+                goto cleanup;
         }
 
         printf("Display initialized-%s\n", uv->requested_display);
@@ -1371,11 +1354,11 @@ int main(int argc, char *argv[])
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);
                 exit_uv(EXIT_FAIL_CAPTURE);
-                goto cleanup_wait_audio;
+                goto cleanup;
         }
         if(ret > 0) {
                 exit_uv(EXIT_SUCCESS);
-                goto cleanup_wait_audio;
+                goto cleanup;
         }
         printf("Video capture initialized-%s\n", uv->requested_capture);
 
@@ -1483,7 +1466,7 @@ int main(int argc, char *argv[])
                                 == NULL) {
                         printf("Unable to open network\n");
                         exit_uv(EXIT_FAIL_NETWORK);
-                        goto cleanup_wait_display;
+                        goto cleanup;
                 } else {
                         struct rtp **item;
                         uv->connections_count = 0;
@@ -1508,7 +1491,7 @@ int main(int argc, char *argv[])
                                                 uv->requested_encryption)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
-                        goto cleanup_wait_display;
+                        goto cleanup;
                 }
                 free(requested_video_fec);
         } else { // SAGE
@@ -1517,7 +1500,7 @@ int main(int argc, char *argv[])
                 if(ret != 0) {
                         fprintf(stderr, "Unable to initialize SAGE TX.\n");
                         exit_uv(EXIT_FAIL_NETWORK);
-                        goto cleanup_wait_display;
+                        goto cleanup;
                 }
                 pthread_create(&tx_thread_id, NULL, (void * (*)(void *)) display_run,
                                 uv->sage_tx_device);
@@ -1532,7 +1515,7 @@ int main(int argc, char *argv[])
                                         uv->requested_encryption);
                         decoder_destroy(dec);
                         exit_uv(EXIT_SUCCESS);
-                        goto cleanup_wait_display;
+                        goto cleanup;
                 }
                 /* following block only shows help (otherwise initialized in sender thread */
                 if(strstr(uv->requested_compression,"help") != NULL) {
@@ -1546,7 +1529,7 @@ int main(int argc, char *argv[])
                         } else {
                                 exit_uv(EXIT_FAILURE);
                         }
-                        goto cleanup_wait_display;
+                        goto cleanup;
                 }
 
                 if (strcmp("none", uv->requested_display) != 0) {
@@ -1557,34 +1540,30 @@ int main(int argc, char *argv[])
                 }
 
                 if(uv->mode & MODE_RECEIVER) {
-                        pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
                             (&receiver_thread_id, NULL, receiver_thread,
                              (void *)uv) != 0) {
                                 perror("Unable to create display thread!\n");
                                 exit_uv(EXIT_FAILURE);
-                                goto cleanup_wait_display;
+                                goto cleanup;
                         } else {
 				receiver_thread_started = true;
 			}
                 }
 
                 if(uv->mode & MODE_SENDER) {
-                        pthread_mutex_lock(&uv->master_lock); 
                         if (pthread_create
-                            (&tx_thread_id, NULL, compress_thread,
+                            (&tx_thread_id, NULL, capture_thread,
                              (void *) &root_mod) != 0) {
                                 perror("Unable to create capture thread!\n");
                                 exit_uv(EXIT_FAILURE);
-                                goto cleanup_wait_capture;
+                                goto cleanup;
                         } else {
 				tx_thread_started = true;
 			}
                 }
         }
         
-        pthread_mutex_lock(&uv->master_lock); 
-
         if(audio_get_display_flags(uv->audio)) {
                 audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
                 audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int, 
@@ -1594,23 +1573,18 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
 
-cleanup_wait_display:
+cleanup:
         if (strcmp("none", uv->requested_display) != 0 && receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-cleanup_wait_capture:
         if (strcmp("none", uv->requested_capture) != 0 &&
                          tx_thread_started)
                 pthread_join(tx_thread_id, NULL);
 
-cleanup_wait_audio:
         /* also wait for audio threads */
         audio_join(uv->audio);
 
-cleanup:
-        while(wait_to_finish)
-                ;
-        threads_joined = TRUE;
+        control_done(control);
 
         if(uv->tx_protocol == SAGE && uv->sage_tx_device)
                 display_done(uv->sage_tx_device);
@@ -1639,16 +1613,10 @@ cleanup:
 
         video_export_destroy(uv->video_exporter);
 
-        pthread_mutex_unlock(&uv->master_lock); 
-
-        pthread_mutex_destroy(&uv->master_lock);
-
         free(uv);
         free(export_dir);
         
         lib_common_done();
-
-        control_done(control);
 
         module_done(&root_mod);
 

@@ -248,7 +248,7 @@ struct module *dxt_glsl_compress_init(struct module *parent, char * opts)
                 return NULL;
         }
 
-        if(opts && strcmp(opts, "help") == 0) {
+        if(strcmp(opts, "help") == 0) {
                 printf("DXT GLSL comperssion usage:\n");
                 printf("\t-c RTDXT:DXT1\n");
                 printf("\t\tcompress with DXT1\n");
@@ -257,17 +257,15 @@ struct module *dxt_glsl_compress_init(struct module *parent, char * opts)
                 return &compress_init_noerr;
         }
         
-        if(opts) {
-                if(strcasecmp(opts, "DXT5") == 0) {
-                        s->color_spec = DXT5;
-                } else if(strcasecmp(opts, "DXT1") == 0) {
-                        s->color_spec = DXT1;
-                } else {
-                        fprintf(stderr, "Unknown compression : %s\n", opts);
-                        return NULL;
-                }
-        } else {
+        if (strcasecmp(opts, "DXT5") == 0) {
+                s->color_spec = DXT5;
+        } else if (strcasecmp(opts, "DXT1") == 0) {
                 s->color_spec = DXT1;
+        } else if (opts[0] == '\0') {
+                s->color_spec = DXT1;
+        } else {
+                fprintf(stderr, "Unknown compression: %s\n", opts);
+                return NULL;
         }
                 
         s->configured = FALSE;

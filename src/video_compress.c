@@ -317,13 +317,10 @@ int compress_init(struct module *parent, char *config_string, struct compress_st
 
                 platform_spin_init(&proxy->spin);
                 *state = proxy;
-                //subscribe_messages(messaging_instance(), MSG_CHANGE_COMPRESS, compress_change_callback,
-                //                proxy);
+                module_register(&proxy->mod, parent);
         } else {
                 free(proxy);
         }
-
-        module_register(&proxy->mod, parent);
 
         return ret;
 }

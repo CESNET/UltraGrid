@@ -339,6 +339,8 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx, 
         struct video_frame *out;
 
         unsigned int x;
+
+        cudaSetDevice(cuda_devices[0]);
         
         if(!s->encoder) {
                 int ret;
