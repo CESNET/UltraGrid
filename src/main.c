@@ -541,6 +541,20 @@ static void receiver_process_messages(struct state_uv *uv, struct module *receiv
         }
 }
 
+struct rtp **change_tx_port(struct state_uv *uv, int tx_port)
+{
+        destroy_devices(uv->network_devices);
+        uv->send_port_number = tx_port;
+        uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
+                        uv->send_port_number, uv->participants, uv->ipv6,
+                        uv->requested_mcast_if);
+        if (!uv->network_devices) {
+                fprintf(stderr, "Changing RX port failed!\n");
+                abort();
+        }
+        return uv->network_devices;
+}
+
 static void *receiver_thread(void *arg)
 {
         struct state_uv *uv = (struct state_uv *)arg;
@@ -765,6 +779,7 @@ static void *capture_thread(void *arg)
         sender_data.parent = uv_mod; /// @todo should be compress thread module
         sender_data.connections_count = uv->connections_count;
         sender_data.tx_protocol = uv->tx_protocol;
+        sender_data.uv = uv;
         if(uv->tx_protocol == ULTRAGRID_RTP) {
                 sender_data.network_devices = uv->network_devices;
         } else {

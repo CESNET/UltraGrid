@@ -41,6 +41,7 @@ struct message {
 
 enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
+        SENDER_MSG_CHANGE_PORT,
         SENDER_MSG_PLAY,
         SENDER_MSG_PAUSE
 };
@@ -48,7 +49,10 @@ enum msg_sender_type {
 struct msg_sender {
         struct message m;
         enum msg_sender_type type;
-        char receiver[128];
+        union {
+                int port;
+                char receiver[128];
+        };
 };
 
 struct msg_receiver {

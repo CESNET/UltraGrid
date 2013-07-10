@@ -57,6 +57,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "host.h"
 #include "messaging.h"
 #include "module.h"
 #include "rtp/rtp.h"
@@ -150,6 +151,9 @@ static void sender_process_external_message(struct sender_data *data, struct msg
                                 fprintf(stderr, "Changing receiver to: %s failed!\n",
                                                 msg->receiver);
                         }
+                        break;
+                case SENDER_MSG_CHANGE_PORT:
+                        data->network_devices = change_tx_port(data->uv, msg->port);
                         break;
                 case SENDER_MSG_PAUSE:
                         data->priv->paused = true;

@@ -269,13 +269,16 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
         if(strcasecmp(message, "quit") == 0) {
                 return CONTROL_EXIT;
         } else if(prefix_matches(message, "receiver ") || prefix_matches(message, "play") ||
-                        prefix_matches(message, "pause")) {
+                        prefix_matches(message, "pause") || prefix_matches(message, "sender-port ")) {
                 struct msg_sender *msg =
                         (struct msg_sender *)
                         new_message(sizeof(struct msg_sender));
                 if(prefix_matches(message, "receiver ")) {
                         strncpy(msg->receiver, suffix(message, "receiver "), sizeof(msg->receiver) - 1);
                         msg->type = SENDER_MSG_CHANGE_RECEIVER;
+                } else if(prefix_matches(message, "sender-port ")) {
+                        msg->port = atoi(suffix(message, "sender-port "));
+                        msg->type = SENDER_MSG_CHANGE_PORT;
                 } else if(prefix_matches(message, "play")) {
                         msg->type = SENDER_MSG_PLAY;
                 } else if(prefix_matches(message, "pause")) {

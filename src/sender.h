@@ -66,6 +66,7 @@ struct response;
 struct sender_msg;
 struct video_frame;
 struct sender_priv_data;
+struct state_uv;
 
 enum tx_protocol {
         ULTRAGRID_RTP,
@@ -82,6 +83,7 @@ struct sender_data {
                 struct display *sage_tx_device; // == SAGE
         };
         struct tx *tx;
+        struct state_uv *uv;
         struct sender_priv_data *priv;
 };
 
