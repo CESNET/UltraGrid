@@ -57,6 +57,9 @@
 extern "C" {
 #endif
 
+struct rtp;
+struct video_frame;
+
 extern int uv_argc;
 extern char **uv_argv;
 
@@ -95,6 +98,9 @@ int initialize_video_capture(const char *requested_capture,
                                                struct vidcap **);
 struct vcodec_state;
 void destroy_decoder(struct vcodec_state *video_decoder_state);
+
+void *ultragrid_rtp_receiver_thread(void *arg);
+void destroy_rtp_devices(struct rtp ** network_devices);
 
 // if not NULL, data should be exported
 extern char *export_dir;

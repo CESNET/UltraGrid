@@ -51,11 +51,16 @@
  *
  */
 
+#ifndef SENDER_H_
+#define SENDER_H_
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
+#include "video.h"
 
 struct tx;
 struct rtp;
@@ -65,29 +70,47 @@ struct module;
 struct received_message;
 struct response;
 struct sender_msg;
-struct video_frame;
 struct sender_priv_data;
 
-enum tx_protocol {
+enum rxtx_protocol {
         ULTRAGRID_RTP,
         IHDTV,
         SAGE
 };
 
+struct rx_tx {
+        enum rxtx_protocol protocol;
+        const char *name;
+        void (*send)(void *, struct video_frame *);
+        void (*done)(void *);
+        void *(*receiver_thread)(void *);
+};
+
 struct sender_data {
         struct module *parent;
-        int connections_count;
-        enum tx_protocol tx_protocol;
-        union {
-                struct rtp **network_devices; // ULTRAGRID_RTP
-                struct display *sage_tx_device; // == SAGE
-                struct ihdtv_state *ihdtv_state;
-        };
-        struct tx *tx;
+        enum rxtx_protocol rxtx_protocol;
+        void (*send_frame)(void *state, struct video_frame *);
+        void *tx_module_state;
         struct sender_priv_data *priv;
+};
+
+extern struct rx_tx ultragrid_rtp;
+extern struct rx_tx sage_rxtx;
+
+struct ultragrid_rtp_state {
+        int connections_count;
+        struct rtp **network_devices; // ULTRAGRID_RTP
+        struct tx *tx;
+};
+
+struct sage_rxtx_state {
+        struct video_desc saved_vid_desc;
+        struct display *sage_tx_device;
 };
 
 bool sender_init(struct sender_data *data);
 void sender_done(struct sender_data *data);
 void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock);
+
+#endif // SENDER_H_
 

@@ -61,6 +61,7 @@
 #include "host.h"
 #include "ihdtv.h"
 #include "ihdtv/ihdtv.h"
+#include "sender.h"
 #include "video_display.h"
 #include "video_capture.h"
 
@@ -71,17 +72,31 @@ struct ihdtv_state {
 #endif
 };
 
-void ihdtv_send_frame(struct ihdtv_state *state, struct video_frame *tx_frame)
+static void ihdtv_done(void *state);
+static void ihdtv_send_frame(void *state, struct video_frame *tx_frame);
+static void *ihdtv_receiver_thread(void *arg);
+
+struct rx_tx ihdtv_rxtx = {
+        IHDTV,
+        "iHDTV",
+        ihdtv_send_frame,
+        ihdtv_done,
+        ihdtv_receiver_thread
+};
+
+
+static void ihdtv_send_frame(void *state, struct video_frame *tx_frame)
 {
 #ifdef HAVE_IHDTV
-        ihdtv_send(&state->tx_connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
+        struct ihdtv_state *s = state;
+        ihdtv_send(&s->tx_connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
 #else // IHDTV
         UNUSED(state);
         UNUSED(tx_frame);
 #endif // IHDTV
 }
 
-void *ihdtv_receiver_thread(void *arg)
+static void *ihdtv_receiver_thread(void *arg)
 {
 #ifdef HAVE_IHDTV
         struct ihdtv_state *s = (struct ihdtv_state *) arg;
@@ -194,8 +209,9 @@ struct ihdtv_state *initialize_ihdtv(struct vidcap *capture_device, struct displ
 #endif // HAVE_IHDTV
 }
 
-void ihdtv_done(struct ihdtv_state *s)
+static void ihdtv_done(void *state)
 {
+        struct ihdtv_state *s = state;
         if(!s)
                 return;
         free(s);

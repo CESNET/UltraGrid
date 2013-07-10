@@ -57,6 +57,7 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "host.h"
 #include "ihdtv.h"
 #include "messaging.h"
 #include "module.h"
@@ -70,6 +71,10 @@
 static struct sender_internal_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
 static void sender_finish(struct sender_data *data);
+static void ultragrid_rtp_send(void *state, struct video_frame *tx_frame);
+static void ultragrid_rtp_done(void *state);
+static void sage_rxtx_send(void *state, struct video_frame *tx_frame);
+static void sage_rxtx_done(void *state);
 
 struct sender_priv_data {
         struct module mod;
@@ -81,6 +86,22 @@ struct sender_priv_data {
 
         pthread_t thread_id;
         bool paused;
+};
+
+struct rx_tx ultragrid_rtp = {
+        ULTRAGRID_RTP,
+        "UltraGrid RTP",
+        ultragrid_rtp_send,
+        ultragrid_rtp_done,
+        ultragrid_rtp_receiver_thread
+};
+
+struct rx_tx sage_rxtx = {
+        SAGE,
+        "SAGE",
+        sage_rxtx_send,
+        sage_rxtx_done,
+        NULL
 };
 
 enum sender_msg_type {
@@ -143,9 +164,10 @@ static void sender_process_external_message(struct sender_data *data, struct msg
         int ret;
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
-                        assert(data->tx_protocol == ULTRAGRID_RTP);
-                        assert(data->connections_count == 1);
-                        ret = rtp_change_dest(data->network_devices[0],
+                        assert(data->rxtx_protocol == ULTRAGRID_RTP);
+                        assert(((struct ultragrid_rtp_state *) data->tx_module_state)->connections_count == 1);
+                        ret = rtp_change_dest(((struct ultragrid_rtp_state *)
+                                                data->tx_module_state)->network_devices[0],
                                         msg->receiver);
                         if(ret == FALSE) {
                                 fprintf(stderr, "Changing receiver to: %s failed!\n",
@@ -195,20 +217,69 @@ void sender_done(struct sender_data *data) {
         free(data->priv);
 }
 
+static void ultragrid_rtp_send(void *state, struct video_frame *tx_frame)
+{
+        struct ultragrid_rtp_state *data = (struct ultragrid_rtp_state *) state;
+
+        if(data->connections_count == 1) { /* normal case - only one connection */
+                tx_send(data->tx, tx_frame,
+                                data->network_devices[0]);
+        } else { /* split */
+                struct video_frame *split_frames = vf_alloc(data->connections_count);
+
+                //assert(frame_count == 1);
+                vf_split_horizontal(split_frames, tx_frame,
+                                data->connections_count);
+                for (int i = 0; i < data->connections_count; ++i) {
+                        tx_send_tile(data->tx, split_frames, i,
+                                        data->network_devices[i]);
+                }
+
+                vf_free(split_frames);
+        }
+}
+
+static void ultragrid_rtp_done(void *state)
+{
+        struct ultragrid_rtp_state *data = (struct ultragrid_rtp_state *) state;
+
+        if (data->tx) {
+                module_done(CAST_MODULE(data->tx));
+        }
+        if (data->network_devices) {
+                destroy_rtp_devices(data->network_devices);
+        }
+}
+
+static void sage_rxtx_send(void *state, struct video_frame *tx_frame)
+{
+        struct sage_rxtx_state *data = (struct sage_rxtx_state *) state;
+
+        if(!video_desc_eq(data->saved_vid_desc,
+                                video_desc_from_frame(tx_frame))) {
+                display_reconfigure(data->sage_tx_device,
+                                video_desc_from_frame(tx_frame));
+                data->saved_vid_desc = video_desc_from_frame(tx_frame);
+        }
+        struct video_frame *frame =
+                display_get_frame(data->sage_tx_device);
+        memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
+                        tx_frame->tiles[0].data_len);
+        display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
+}
+
+static void sage_rxtx_done(void *state)
+{
+        struct sage_rxtx_state *data = (struct sage_rxtx_state *) state;
+
+        display_done(data->sage_tx_device);
+}
+
 static void *sender_thread(void *arg) {
         struct sender_data *data = (struct sender_data *)arg;
-        struct video_frame *splitted_frames = NULL;
-        int tile_y_count;
         struct video_desc saved_vid_desc;
 
-        tile_y_count = data->connections_count;
         memset(&saved_vid_desc, 0, sizeof(saved_vid_desc));
-
-        /* we have more than one connection */
-        if(tile_y_count > 1) {
-                /* it is simply stripping frame */
-                splitted_frames = vf_alloc(tile_y_count);
-        }
 
         module_init_default(&data->priv->mod);
         data->priv->mod.cls = MODULE_CLASS_SENDER;
@@ -257,40 +328,22 @@ static void *sender_thread(void *arg) {
                         goto after_send;
                 }
 
-                if (data->tx_protocol == ULTRAGRID_RTP) {
-                        if(data->connections_count == 1) { /* normal case - only one connection */
-                                tx_send(data->tx, tx_frame,
-                                                data->network_devices[0]);
-                        } else { /* split */
-                                int i;
+                data->send_frame(data->tx_module_state, tx_frame);
 
-                                //assert(frame_count == 1);
-                                vf_split_horizontal(splitted_frames, tx_frame,
-                                                tile_y_count);
-                                for (i = 0; i < tile_y_count; ++i) {
-                                        tx_send_tile(data->tx, splitted_frames, i,
-                                                        data->network_devices[i]);
-                                }
-                        }
+#if 0
+                if (data->tx_protocol == ULTRAGRID_RTP) {
                 } else if (data->tx_protocol == SAGE) { // SAGE
-                        if(!video_desc_eq(saved_vid_desc,
-                                                video_desc_from_frame(tx_frame))) {
-                                display_reconfigure(data->sage_tx_device,
-                                                video_desc_from_frame(tx_frame));
-                                saved_vid_desc = video_desc_from_frame(tx_frame);
-                        }
-                        struct video_frame *frame =
-                                display_get_frame(data->sage_tx_device);
-                        memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
-                                        tx_frame->tiles[0].data_len);
-                        display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
                 } else { // iHDTV
                         ihdtv_send_frame(data->ihdtv_state, tx_frame);
                 }
+#endif
 after_send:
 
-                stats_update_int(stat_data_sent,
-                                rtp_get_bytes_sent(data->network_devices[0]));
+                if (data->rxtx_protocol == ULTRAGRID_RTP) {
+                        struct ultragrid_rtp_state *rtp_state = data->tx_module_state;
+                        stats_update_int(stat_data_sent,
+                                        rtp_get_bytes_sent(rtp_state->network_devices[0]));
+                }
 
                 pthread_mutex_lock(&data->priv->lock);
 
@@ -302,10 +355,10 @@ after_send:
         }
 
 exit:
-        if(data->tx_protocol == SAGE) {
-                display_put_frame(data->sage_tx_device, NULL, PUTF_NONBLOCK);
+        if (data->rxtx_protocol == SAGE) {
+                struct display *sage_tx_device = data->tx_module_state;
+                display_put_frame(sage_tx_device, NULL, PUTF_NONBLOCK);
         }
-        vf_free(splitted_frames);
         module_done(&data->priv->mod);
         stats_destroy(stat_data_sent);
 

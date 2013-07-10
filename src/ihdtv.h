@@ -64,12 +64,12 @@
 
 struct ihdtv_state;
 struct video_frame;
+struct rx_tx;
+
+extern struct rx_tx ihdtv_rxtx;
 
 struct ihdtv_state *initialize_ihdtv(struct vidcap *capture_device, struct display *display_device,
                 int requested_mtu, int argc, char **argv);
-void ihdtv_done(struct ihdtv_state *state);
-void ihdtv_send_frame(struct ihdtv_state *state, struct video_frame *frame);
-void *ihdtv_receiver_thread(void *arg);
 
 #endif // IHDTV_H_
 
