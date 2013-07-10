@@ -519,7 +519,11 @@ int main(int argc, char **argv)
             "received");
     uint64_t received_data = 0;
     struct timeval t0, t;
+    struct timeval t_report;
     gettimeofday(&t0, NULL);
+    gettimeofday(&t_report, NULL);
+
+    unsigned long long int last_data = 0ull;
 
     /* main loop */
     while (!should_exit) {
@@ -539,6 +543,14 @@ int main(int argc, char **argv)
             if(tv_diff(t, t0) > 1.0) {
                 stats_update_int(stat_received, received_data);
                 t0 = t;
+            }
+            double seconds = tv_diff(t, t_report);
+            if (seconds > 5.0) {
+                unsigned long long int cur_data = (received_data - last_data);
+                unsigned long long int bps = cur_data / seconds;
+                fprintf(stderr, "Received %llu bytes in %g seconds = %llu B/s.\n", cur_data, seconds, bps);
+                t_report = t;
+                last_data = received_data;
             }
         }
 
