@@ -114,12 +114,7 @@ static int blackmagic_api_version_check(STRING *current_version);
 
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
-        struct state_decklink *                 s;
-        int                                     i;
-
 public:
-        PlaybackDelegate (struct state_decklink* owner, int index);
-
         // IUnknown needs only a dummy implementation
         virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID , LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE          AddRef ()                                                                       {return 1;}
@@ -166,8 +161,6 @@ class DeckLinkTimecode : public IDeckLinkTimecode{
 class DeckLinkFrame;
 class DeckLinkFrame : public IDeckLinkMutableVideoFrame
 {
-                long ref;
-                
                 long width;
                 long height;
                 long rawBytes;
@@ -175,6 +168,8 @@ class DeckLinkFrame : public IDeckLinkMutableVideoFrame
                 char *data;
 
                 IDeckLinkTimecode *timecode;
+
+                long ref;
 
         protected:
                 DeckLinkFrame(long w, long h, long rb, BMDPixelFormat pf); 
@@ -213,12 +208,6 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
                 DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf); 
                 ~DeckLink3DFrame();
                 
-                long ref;
-                
-                long width;
-                long height;
-                long rawBytes;
-                BMDPixelFormat pixelFormat;
                 DeckLinkFrame *rightEye;
 
         public:
@@ -404,7 +393,6 @@ display_decklink_getf(void *state)
 static void update_timecode(DeckLinkTimecode *tc, double fps)
 {
         const float epsilon = 0.005;
-        int shifted;
         uint8_t hours, minutes, seconds, frames;
         BMDTimecodeBCD bcd;
         bool dropFrame = false;
@@ -444,7 +432,6 @@ static void update_timecode(DeckLinkTimecode *tc, double fps)
 
 int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
 {
-        int tmp;
         struct state_decklink *s = (struct state_decklink *)state;
         struct timeval tv;
 
@@ -570,10 +557,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 {
         struct state_decklink            *s = (struct state_decklink *)state;
         
-        bool                              modeFound = false;
         BMDDisplayMode                    displayMode;
         BMDDisplayModeSupport             supported;
-        int h_align = 0;
 
         assert(s->magic == DECKLINK_MAGIC);
         
@@ -711,9 +696,8 @@ static int blackmagic_api_version_check(STRING *current_version)
                 return FALSE;
         }
         int64_t value;
-        HRESULT res;
-        res = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
-        if(res != S_OK) {
+        result = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
+        if(result != S_OK) {
                 APIInformation->Release();
                 return FALSE;
         }
@@ -1005,7 +989,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                         }
                 }
 
-                s->state[i].delegate = new PlaybackDelegate(s, i);
+                s->state[i].delegate = new PlaybackDelegate();
                 // Provide this class as a delegate to the audio and video output interfaces
 #ifndef DECKLINK_LOW_LATENCY
                 if(!s->fast) {
@@ -1136,11 +1120,6 @@ int display_decklink_get_property(void *state, int property, void *val, size_t *
                         return FALSE;
         }
         return TRUE;
-}
-
-PlaybackDelegate::PlaybackDelegate (struct state_decklink * owner, int index) 
-        : s(owner), i(index)
-{
 }
 
 /*
@@ -1369,7 +1348,7 @@ HRESULT DeckLinkFrame::SetTimecodeUserBits (/* in */ BMDTimecodeFormat, /* in */
 
 
 DeckLink3DFrame::DeckLink3DFrame(long w, long h, long rb, BMDPixelFormat pf) 
-        : DeckLinkFrame(w, h, rb, pf), ref(1l)
+        : DeckLinkFrame(w, h, rb, pf)
 {
         rightEye = DeckLinkFrame::Create(w, h, rb, pf);        
 }

@@ -458,13 +458,11 @@ static void *worker(void *arg)
         while(!should_exit_worker) {
                 unsigned int val32;
                 UINT SubFieldIrqs = 0;
-                unsigned int FifoSize = 0;
                 uint32_t VideoMode = VID_FMT_INVALID;
-                unsigned int  DroppedFrameCount, NoFilledFrame, audioChannelMask,
+                unsigned int  DroppedFrameCount, NoFilledFrame,
                               frame_timestamp, frame_signal;
                 int BufferId = -1;
-                static  int field1_hanc_buffer_id=-1;
-                int     audioSampleType,audio_samples_per_frame,samples_read,hanc_buffer_id=-1;         // flags required for starting audio capture
+                int     samples_read,hanc_buffer_id=-1;         // flags required for starting audio capture
 
 #if defined WIN32
                 blue_videoframe_info_ex FrameInfo;
@@ -606,6 +604,7 @@ static void *worker(void *arg)
 
                 if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
 #ifdef WIN32
+                        unsigned int FifoSize = 0;
                         if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
                                                         0, &FifoSize))) {
                                 cerr << "Capture frame failed!" << endl;

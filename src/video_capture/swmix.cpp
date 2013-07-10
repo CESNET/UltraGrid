@@ -172,8 +172,6 @@ static void show_help(void);
 static void *master_worker(void *arg);
 static void *slave_worker(void *arg);
 static char *get_config_name(void);
-static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
-                FILE **config_file, unsigned int flags);
 static bool get_slave_param_from_file(FILE* config, char *slave_name, int *x, int *y,
                                         int *width, int *height);
 static bool get_device_config_from_file(FILE* config_file, char *slave_name,

@@ -243,41 +243,8 @@ void recompress_assign_ssrc(void *state, uint32_t ssrc)
 
 static void recompress_rtp_callback(struct rtp *session, rtp_event *e)
 {
-        rtcp_app *pckt_app = (rtcp_app *) e->data;
-        rtp_packet *pckt_rtp = (rtp_packet *) e->data;
-        struct state_recompress *s = (struct state_recompress *)rtp_get_userdata(session);
-
-        switch (e->type) {
-        case RX_RTP:
-                break;
-        case RX_TFRC_RX:
-                /* compute TCP friendly data rate */
-                break;
-        case RX_RTCP_START:
-                break;
-        case RX_RTCP_FINISH:
-                break;
-        case RX_SR:
-                break;
-        case RX_RR:
-                break;
-        case RX_RR_EMPTY:
-                break;
-        case RX_SDES:
-                break;
-        case RX_APP:
-                break;
-        case RX_BYE:
-                break;
-        case SOURCE_DELETED:
-                break;
-        case SOURCE_CREATED:
-                break;
-        case RR_TIMEOUT:
-                break;
-        default:
-                debug_msg("Unknown RTP event (type=%d)\n", e->type);
-        }
+        UNUSED(session);
+        UNUSED(e);
 }
 
 void recompress_done(void *state)

@@ -129,7 +129,6 @@ struct display_bluefish444_state {
         private:
                 uint32_t            m_magic;
 
-                struct timeval      m_tv;
                 struct video_frame *m_frame;
 
                 int                 m_deviceId;
@@ -169,15 +168,15 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
                 int deviceId) throw(runtime_error) :
         m_magic(BLUEFISH444_MAGIC),
         m_frame(NULL),
+        m_deviceId(deviceId),
+        m_AttachedDevicesCount(0),
         m_GoldenSize(0),
-        m_pPlayingBuffer(NULL),
         m_LastFieldCount(0),
+        m_pPlayingBuffer(NULL),
 #ifdef HAVE_BLUE_AUDIO
         m_AudioRingBuffer(ring_buffer_init(48000*4*16*8)),
 #endif
-        m_PlayAudio(false),
-        m_AttachedDevicesCount(0),
-        m_deviceId(deviceId)
+        m_PlayAudio(false)
 {
         int iDevices = 0;
         uint32_t val32;
@@ -232,6 +231,7 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
 
 display_bluefish444_state::~display_bluefish444_state() throw()
 {
+        assert(m_magic == BLUEFISH444_MAGIC);
         // Kill thread
         pthread_mutex_lock(&m_lock);
         m_ReadyFrameQueue.push(NULL);
@@ -312,8 +312,6 @@ void *display_bluefish444_state::playback_loop() throw()
 
                 for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                         unsigned char *videoBuffer;
-                        int size;
-                        int offset;
 #ifdef WIN32
                         OVERLAPPED *OverlapCh = &Overlapped[i];
 #else
@@ -622,7 +620,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 bfcSetCardProperty32(m_pSDK[0], MR2_ROUTING, val32);
 
                 val32 = blue_emb_audio_group1_enable | blue_emb_audio_enable | blue_enable_hanc_timestamp_pkt;
-                int err = bfcSetCardProperty32(m_pSDK[0], EMBEDDED_AUDIO_OUTPUT, val32);
+                bfcSetCardProperty32(m_pSDK[0], EMBEDDED_AUDIO_OUTPUT, val32);
         }
 
         //Set the required video mode

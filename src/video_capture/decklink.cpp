@@ -148,7 +148,6 @@ class VideoDelegate : public IDeckLinkInputCallback
 {
 private:
 	int32_t mRefCount;
-	double  lastTime;
 
 public:
         int	newFrameReady;
@@ -1237,12 +1236,9 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
 
 	struct vidcap_decklink_state 	*s = (struct vidcap_decklink_state *) state;
-	struct video_frame		*vf;
         int                             tiles_total = 0;
         int                             i;
         bool				frame_ready = true;
-
-	HRESULT	result;
 	
 	int		rc;
 	struct timespec	ts;
@@ -1301,6 +1297,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
                         // try to restart stream
                         /*
+                        HRESULT result;
                         debug_msg("Try to restart DeckLink stream!\n");
                         result = s->deckLinkInput->StopStreams();
                         if (result != S_OK)
@@ -1440,7 +1437,6 @@ print_output_modes (IDeckLink* deckLink)
 
 		if (result == S_OK)
 		{
-			char			modeName[64];
 			int				modeWidth;
 			int				modeHeight;
                         BMDDisplayModeFlags             flags;

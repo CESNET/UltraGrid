@@ -119,8 +119,6 @@ const char *response_status_to_text(int status)
 
 struct message *check_message(struct module *mod)
 {
-        struct message *ret;
-
         lock_guard guard(mod->lock);
 
         if(simple_linked_list_size(mod->msg_queue) > 0) {

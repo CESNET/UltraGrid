@@ -18,7 +18,7 @@ using namespace std;
 struct stats {
         public:
                 stats(string name, struct control_state *control)
-                : m_control(control), m_name(name), m_val(0) {
+                : m_name(name), m_val(0), m_control(control) {
                         platform_spin_init(&m_spin);
                         control_add_stats(control, this);
                 }
@@ -43,7 +43,6 @@ struct stats {
         private:
                 string m_name;
                 int64_t m_val;
-                void *m_messaging_subscribtion;
                 struct control_state *m_control;
                 platform_spin_t m_spin;
 };

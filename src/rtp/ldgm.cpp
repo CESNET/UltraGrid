@@ -231,10 +231,8 @@ struct ldgm_state_encoder {
 
         private:
         LDGM_session_cpu coding_session;
-        char *buffer;
         unsigned int k, m, c;
         unsigned int seed;
-        char *left_matrix;
 };
 
 struct ldgm_state_decoder {
@@ -298,7 +296,6 @@ struct ldgm_state_decoder {
 
         private:
         LDGM_session_cpu coding_session;
-        char *buffer;
 };
 
 

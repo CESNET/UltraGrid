@@ -113,8 +113,8 @@ class singleton_opts : public options_t {
                         m_init(init), m_init_data(data), m_done(done) {}
         private:
                 singleton_initializer_t m_init;
-                singleton_deleter_t m_done;
                 void *m_init_data;
+                singleton_deleter_t m_done;
                 friend class singleton;
 };
 

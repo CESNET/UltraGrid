@@ -68,7 +68,7 @@ struct worker_state_observer {
 
 struct task_data {
         task_data(task_t task, void *data, worker *w) : m_task(task), m_data(data),
-                m_result(0), m_w(w), m_returned(false) {}
+                m_result(0), m_returned(false), m_w(w) {}
         task_t m_task;
         void *m_data;
         void *m_result;

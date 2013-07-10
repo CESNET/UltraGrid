@@ -330,9 +330,6 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 	struct vidcap_deltacast_state *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
         ULONG             BrdId = 0;
-        ULONG             Status = 0;
-
-        int               i;
 
 	printf("vidcap_deltacast_init\n");
 

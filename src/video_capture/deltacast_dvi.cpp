@@ -101,12 +101,11 @@ struct vidcap_deltacast_dvi_state {
 
 static void usage(void);
 static BOOL CheckEEDID(BYTE pEEDIDBuffer[256]);
-static const char * GetErrorDescription(ULONG CodeError);
+static const char * GetErrorDescription(ULONG CodeError) __attribute__((unused));
 
 static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
-        int               i;
         printf("-t deltacast[:board=<index>][:channel=<channel>][:codec=<color_spec>]"
                         "[:edid=<edid>|preset=<format>]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
@@ -446,7 +445,6 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
         ULONG             Result = VHDERR_NOERROR,DllVersion,NbBoards,BoardType;
         ULONG             BrdId = 0;
         ULONG             Packing;
-        ULONG             Status = 0;
         int               edid = -1;
         BYTE              pEEDIDBuffer[256];
         ULONG             pEEDIDBufferSize=256;
@@ -479,7 +477,6 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
         {
                 char *save_ptr = NULL;
                 char *tok;
-                int pos = 0;
                 
                 while((tok = strtok_r(init_fmt, ":", &save_ptr)) != NULL) {
                         if(strncasecmp(tok, "board=", strlen("board=")) == 0) {

@@ -99,7 +99,6 @@ static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e);
 static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp);
 static bool decode_header(uint32_t *hdr, struct packet_desc *desc, int *buffer_len, int *substream);
 static bool decode_video_header(uint32_t *hdr, struct video_desc *desc, int *buffer_len, int *substream);
-static void decode_packet(char *frame_buffer, rtp_packet *pckt_rtp);
 static void *worker(void *arg);
 static int find_best_decompress(codec_t in_codec, codec_t out_codec,
                 int prio_min, int prio_max, uint32_t *magic);
@@ -635,7 +634,6 @@ static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp)
 
 static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e)
 {
-        rtcp_app *pckt_app = (rtcp_app *) e->data;
         rtp_packet *pckt_rtp = (rtp_packet *) e->data;
         struct state_decompress *s = (struct state_decompress *)rtp_get_userdata(session);
 
