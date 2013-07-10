@@ -129,6 +129,12 @@ void hd_rum_decompress_add_inactive_port(void *state, void *recompress_port)
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
         struct state_decompress *s = (struct state_decompress *) state;
+
+        // if there are no active output ports, simply quit
+        if (s->output_port_count == 0) {
+                return 0;
+        }
+
         struct timeval curr_time;
         gettimeofday(&curr_time, NULL);
         uint32_t ts = tv_diff(curr_time, s->start_time) * 90000;
@@ -210,7 +216,7 @@ static void *worker(void *arg)
 
         char *compressed_buffers[MAX_SUBSTREAMS];
         int compressed_len[MAX_SUBSTREAMS];
-        int current_idx;
+        int current_idx = 0;
 
         memset(&last_desc, 0, sizeof(last_desc));
         memset(&last_ldgm_desc, 0, sizeof(last_ldgm_desc));
@@ -471,6 +477,8 @@ void *hd_rum_decompress_init(unsigned short rx_port)
 
         s->output_port_count = 0;
         s->output_ports = (void **) malloc(0);
+        s->output_inact_port_count = 0;
+        s->output_inact_ports = (void **) malloc(0);
 
         s->last_packet_ts = 0u;
 
