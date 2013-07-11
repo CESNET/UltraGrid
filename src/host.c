@@ -87,7 +87,6 @@ int initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags,
                                                 struct display **out)
 {
-        struct display *d;
         display_type_t *dt;
         display_id_t id = 0;
         int i;
@@ -120,9 +119,7 @@ int initialize_video_display(const char *requested_display,
         }
         display_free_devices_extrn();
 
-        int ret = display_init_extrn(id, fmt, flags, &d);
-        *out = d;
-        return ret;
+        return display_init_extrn(id, fmt, flags, out);
 }
 
 void destroy_decoder(struct vcodec_state *video_decoder_state) {
