@@ -41,7 +41,7 @@ struct gl_context {
 bool init_gl_context(struct gl_context *context, int which);
 void gl_context_make_current(struct gl_context *context);
 void destroy_gl_context(struct gl_context *context);
-static void gl_check_error() __attribute__((unused));
+static void gl_check_error(void) __attribute__((unused));
 
 static void gl_check_error()
 {

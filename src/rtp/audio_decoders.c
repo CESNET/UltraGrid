@@ -353,12 +353,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 char *data;
                 // for definition see rtp_callbacks.h
                 uint32_t *audio_hdr = (uint32_t *)(void *) cdata->data->data;
-                uint32_t *encryption_hdr;
                 const int pt = cdata->data->pt;
 
                 if(pt == PT_ENCRYPT_AUDIO) {
-                        encryption_hdr = (uint32_t *)((void *) (cdata->data->data +
-                                        sizeof(audio_payload_hdr_t)));
                         if(!decoder->decrypt) {
                                 fprintf(stderr, "Receiving encrypted audio data but "
                                                 "no decryption key entered!\n");

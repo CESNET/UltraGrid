@@ -117,7 +117,7 @@ static void Encode(unsigned char *output, uint32_t * input, unsigned int len)
  * Decodes input (unsigned char) into output (uint32_t). Assumes len is a
  * multiple of 4.
  */
-static void Decode(uint32_t * output, unsigned char *input, unsigned int len)
+static void Decode(uint32_t * output, const unsigned char *input, unsigned int len)
 {
         unsigned int i, j;
 
@@ -131,7 +131,7 @@ static void Decode(uint32_t * output, unsigned char *input, unsigned int len)
 /*
  * MD5 basic transformation. Transforms state based on block.
  */
-static void MD5Transform(uint32_t state[4], unsigned char block[64])
+static void MD5Transform(uint32_t state[4], const unsigned char block[64])
 {
         uint32_t a = state[0], b = state[1], c = state[2], d = state[3], x[16];
 
@@ -246,7 +246,7 @@ void MD5Init(MD5_CTX * context)
  * processing another message block, and updating the context.
  **/
 
-void MD5Update(MD5_CTX * context, unsigned char *input, unsigned int inputLen)
+void MD5Update(MD5_CTX * context, const unsigned char *input, unsigned int inputLen)
 {
         unsigned int i, index, partLen;
 
@@ -265,7 +265,7 @@ void MD5Update(MD5_CTX * context, unsigned char *input, unsigned int inputLen)
         /* Transform as many times as possible.  */
         if (inputLen >= partLen) {
                 memcpy((unsigned char *)&context->buffer[index],
-                       (unsigned char *)input, partLen);
+                       (const unsigned char *)input, partLen);
                 MD5Transform(context->state, context->buffer);
 
                 for (i = partLen; i + 63 < inputLen; i += 64) {
@@ -278,7 +278,7 @@ void MD5Update(MD5_CTX * context, unsigned char *input, unsigned int inputLen)
         /* Buffer remaining input */
         if ((inputLen - i) != 0) {
                 memcpy((unsigned char *)&context->buffer[index],
-                       (unsigned char *)&input[i], inputLen - i);
+                       (const unsigned char *)&input[i], inputLen - i);
         }
 }
 

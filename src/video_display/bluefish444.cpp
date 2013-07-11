@@ -341,6 +341,8 @@ void *display_bluefish444_state::playback_loop() throw()
                                 ResetEvent(Overlapped[i].hEvent);
                         }
                 }
+#else
+                UNUSED(WaitResult);
 #endif
 
 #ifdef HAVE_BLUE_AUDIO
@@ -368,6 +370,9 @@ void *display_bluefish444_state::playback_loop() throw()
                                         case 3:
                                                 nSampleType = AUDIO_CHANNEL_24BIT;
                                                 break;
+                                        default:
+                                                fprintf(stderr, "[Blue] Unhandled audio sample type!\n");
+                                                abort();
                                 }
 
                                 if(NumberAudioChannels > 0)
@@ -511,6 +516,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 isTiled4K = true;
         } else {
                 is4K = false;
+                isTiled4K = false;
         }
 
         m_TileCount = desc.tile_count;
@@ -844,7 +850,7 @@ void *display_bluefish444_init(char *fmt, unsigned int flags)
                 }
         }
 
-        void *state;
+        void *state = NULL;
 
         try {
                 state = new display_bluefish444_state(flags, deviceId);

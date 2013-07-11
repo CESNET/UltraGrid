@@ -206,6 +206,9 @@ public:
                         case bmdDetectedVideoInputRGB444:
                                 codec = RGBA;
                                 break;
+                        default:
+                                fprintf(stderr, "[Decklink] Unhandled color spec!\n");
+                                abort();
                 }
                 int i;
                 for(i=0; codec_info[i].name != NULL; i++) {
@@ -736,7 +739,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 	IDeckLinkDisplayModeIterator*	displayModeIterator = NULL;
 	IDeckLinkDisplayMode*		displayMode = NULL;
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
-        BMDAudioConnection              audioConnection;
+        BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
 #ifdef WIN32
 	// Initialize COM on this thread

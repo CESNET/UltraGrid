@@ -99,7 +99,7 @@ int openssl_decrypt_init(struct openssl_decrypt **state,
         unsigned char hash[16];
 
         MD5Init(&context);
-        MD5Update(&context, (unsigned char *) passphrase,
+        MD5Update(&context, (const unsigned char *) passphrase,
                         strlen(passphrase));
         MD5Final(hash, &context);
 
@@ -132,7 +132,7 @@ void openssl_decrypt_destroy(struct openssl_decrypt *s)
 }
 
 static void openssl_decrypt_block(struct openssl_decrypt *s,
-                unsigned char *ciphertext, unsigned char *plaintext, const char *nonce_and_counter,
+                const unsigned char *ciphertext, unsigned char *plaintext, const char *nonce_and_counter,
                 int len)
 {
 #ifndef HAVE_CRYPTO
@@ -177,21 +177,21 @@ int openssl_decrypt(struct openssl_decrypt *decrypt,
         ciphertext += 16;
         uint32_t expected_crc;
         uint32_t crc = 0xffffffff;
-        if(aad > 0) {
-                crc = crc32buf_with_oldcrc((char *) aad, aad_len, crc);
+        if(aad_len > 0) {
+                crc = crc32buf_with_oldcrc((const char *) aad, aad_len, crc);
         }
         for(unsigned int i = 0; i < data_len; i += 16) {
                 int block_length = 16;
                 if(data_len - i < 16) block_length = data_len - i;
                 openssl_decrypt_block(decrypt,
-                                (unsigned char *) ciphertext + i,
+                                (const unsigned char *) ciphertext + i,
                                 (unsigned char *) plaintext + i,
                                 nonce_and_counter, block_length);
                 nonce_and_counter = NULL;
                 crc = crc32buf_with_oldcrc((char *) plaintext + i, block_length, crc);
         }
         openssl_decrypt_block(decrypt,
-                        (unsigned char *) ciphertext + data_len,
+                        (const unsigned char *) ciphertext + data_len,
                         (unsigned char *) &expected_crc,
                         0, sizeof(uint32_t));
         if(crc != expected_crc) {

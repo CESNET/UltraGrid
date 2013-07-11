@@ -317,7 +317,7 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
                 s->play_audio = FALSE;
         }
         
-        s->BoardHandle = s->BoardHandle = s->SlotHandle = NULL;
+        s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
         s->audio_configured = FALSE;
         pthread_mutex_init(&s->lock, NULL);
 

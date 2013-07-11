@@ -96,7 +96,7 @@ int openssl_encrypt_init(struct openssl_encrypt **state, const char *passphrase,
         unsigned char hash[16];
 
         MD5Init(&context);
-        MD5Update(&context, (unsigned char *) passphrase,
+        MD5Update(&context, (const unsigned char *) passphrase,
                         strlen(passphrase));
         MD5Final(hash, &context);
 

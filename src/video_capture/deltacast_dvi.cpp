@@ -149,7 +149,7 @@ static void usage(void)
                 }
         }
 
-        printf("\t<channel> may be channel index (for cards which have multiple inputs)\n");
+        printf("\t<channel> may be channel index (for cards which have multiple inputs, max 4)\n");
         
         printf("\t<edid> may be one of following\n");
         printf("\t\t0 - load DVI-D EEDID\n");
@@ -575,6 +575,9 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                 case 3:
                         ChannelId = VHD_ST_RX3;
                         break;
+                default:
+                        fprintf(stderr, "[DELTACAST] Bad channel index!\n");
+                        goto no_stream;
         }
         Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId, VHD_DVI_STPROC_DEFAULT,
                         NULL, &s->StreamHandle, NULL);

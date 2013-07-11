@@ -679,7 +679,6 @@ static void *master_worker(void *arg)
                 }
 
                 char *read_buf;
-                double wait_sec;
                 if(s->frame->interlacing == PROGRESSIVE) {
                         read_buf = current_buffer;
                 } else {
@@ -693,7 +692,6 @@ static void *master_worker(void *arg)
                 glBindTexture(GL_TEXTURE_2D, 0);
 
                 if(s->frame->interlacing == INTERLACED_MERGED) {
-                        wait_sec = 1.0 / s->frame->fps / 2;
                         int linesize =
                                 vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
                         for(unsigned int i = field; i < s->frame->tiles[0].height; i += 2) {

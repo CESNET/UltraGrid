@@ -157,7 +157,7 @@ void * audio_cap_testcard_init(char *cfg)
                         }
                 } else if(AUDIO_BPS == 4) {
                         int * data = (int *)(void *) s->audio_tone;
-                        for( i=0; i < AUDIO_BUFFER_SIZE/sizeof(int); i+=audio_capture_channels )
+                        for( i=0; i < (int) (AUDIO_BUFFER_SIZE/sizeof(int)); i+=audio_capture_channels )
                         {
                                 for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
                                         data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * INT_MAX * volume;

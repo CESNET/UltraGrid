@@ -333,7 +333,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                         bfcRenderBufferCapture(s->pSDK[i], BlueBuffer_Image_HANC(s->ScheduleID));
                 }
                 s->CapturingID = s->ScheduleID;
-                s->ScheduleID = (++s->ScheduleID%BUFFERS);
+                s->ScheduleID = (s->ScheduleID + 1) % BUFFERS;
                 s->LastFieldCount = FieldCount;
 
                 if(s->SubField) {
@@ -346,7 +346,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                 }
                 s->DoneID = s->CapturingID;
                 s->CapturingID = s->ScheduleID;
-                s->ScheduleID = (++s->ScheduleID%BUFFERS);
+                s->ScheduleID = (s->ScheduleID + 1) % BUFFERS;
                 s->LastFieldCount = FieldCount;
         } else {
                 for(int i = 0; i < s->attachedDevices; ++i) {
@@ -462,7 +462,7 @@ static void *worker(void *arg)
                 unsigned int  DroppedFrameCount, NoFilledFrame,
                               frame_timestamp, frame_signal;
                 int BufferId = -1;
-                int     samples_read,hanc_buffer_id=-1;         // flags required for starting audio capture
+                int     hanc_buffer_id=-1;         // flags required for starting audio capture
 
 #if defined WIN32
                 blue_videoframe_info_ex FrameInfo;
@@ -669,7 +669,6 @@ static void *worker(void *arg)
                 }
 
                 if(s->grab_audio && hanc_buffer_id != -1) {
-                        samples_read = 0;
                         bfcSystemBufferReadAsync(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, NULL, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC));
                         s->objHancDecode.audio_pcm_data_ptr = current_frame->audio_data;
                         bfcDecodeHancFrameEx(s->pSDK[0], bfcQueryCardType(s->pSDK[0]), (unsigned int *) s->hanc_buffer,
@@ -690,7 +689,7 @@ static void *worker(void *arg)
 
                                 s->DoneID = s->CapturingID;
                                 s->CapturingID = s->ScheduleID;
-                                s->ScheduleID = (++s->ScheduleID%BUFFERS);
+                                s->ScheduleID = (s->ScheduleID + 1) % BUFFERS;
                         }
                 }
 

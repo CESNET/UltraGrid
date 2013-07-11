@@ -122,6 +122,15 @@ struct libavcodec_codec_state {
         int                 change_bps_to;
 };
 
+/**
+ * Initializates selected audio codec
+ * @param audio_codec requested audio codec
+ * @param direction   which direction will be used (encoding or decoding)
+ * @param try_init    if true no error messages will be printed.
+ *                    This is intended for checking which codecs are present
+ * @retval NULL if initialization failed
+ * @retval !=NULL codec state
+ */
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init)
 {
         int codec_id = 0;
@@ -130,8 +139,10 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 codec_id = mapping[audio_codec].codec_id;
         }
         if(codec_id == 0) {
-                try_init || fprintf(stderr, "[Libavcodec] Cannot find mapping for codec \"%s\"!\n",
-                                get_name_to_audio_codec(audio_codec));
+                if (!try_init) {
+                        fprintf(stderr, "[Libavcodec] Cannot find mapping for codec \"%s\"!\n",
+                                        get_name_to_audio_codec(audio_codec));
+                }
                 return NULL;
         }
 
@@ -144,8 +155,10 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 s->codec = avcodec_find_decoder(codec_id);
         }
         if(!s->codec) {
-                try_init || fprintf(stderr, "Your Libavcodec build doesn't contain codec \"%s\".\n",
+                if (!try_init) {
+                        fprintf(stderr, "Your Libavcodec build doesn't contain codec \"%s\".\n",
                                 get_name_to_audio_codec(audio_codec));
+                }
                 return NULL;
         }
 
@@ -153,7 +166,9 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
         s->libav_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
         s->codec_ctx = avcodec_alloc_context3(s->codec);
         if(!s->codec_ctx) { // not likely :)
-                try_init || fprintf(stderr, "Could not allocate audio codec context\n");
+                if (!try_init) {
+                        fprintf(stderr, "Could not allocate audio codec context\n");
+                }
                 return NULL;
         }
 
