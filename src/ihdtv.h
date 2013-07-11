@@ -1,5 +1,5 @@
 /*
- * FILE:    main.c
+ * FILE:    ihdtv.h
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -17,25 +17,25 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by the University of Southern
  *      California Information Sciences Institute. This product also includes
  *      software developed by CESNET z.s.p.o.
- * 
+ *
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -50,68 +50,26 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-#ifndef SENDER_H_
-#define SENDER_H_
+#ifndef IHDTV_H_
+#define IHDTV_H_
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#endif
 
-#include "video.h"
+#include "video_capture.h"
+#include "video_display.h"
 
-struct tx;
-struct rtp;
-struct display;
 struct ihdtv_state;
-struct module;
-struct received_message;
-struct response;
-struct sender_msg;
-struct sender_priv_data;
+struct video_frame;
+struct rx_tx;
 
-enum rxtx_protocol {
-        ULTRAGRID_RTP,
-        IHDTV,
-        SAGE
-};
+extern struct rx_tx ihdtv_rxtx;
 
-struct rx_tx {
-        enum rxtx_protocol protocol;
-        const char *name;
-        void (*send)(void *, struct video_frame *);
-        void (*done)(void *);
-        void *(*receiver_thread)(void *);
-};
+struct ihdtv_state *initialize_ihdtv(struct vidcap *capture_device, struct display *display_device,
+                int requested_mtu, int argc, char **argv);
 
-struct sender_data {
-        struct module *parent;
-        enum rxtx_protocol rxtx_protocol;
-        void (*send_frame)(void *state, struct video_frame *);
-        void *tx_module_state;
-        struct state_uv *uv;
-        struct sender_priv_data *priv;
-};
-
-extern struct rx_tx ultragrid_rtp;
-extern struct rx_tx sage_rxtx;
-
-struct ultragrid_rtp_state {
-        int connections_count;
-        struct rtp **network_devices; // ULTRAGRID_RTP
-        struct tx *tx;
-};
-
-struct sage_rxtx_state {
-        struct video_desc saved_vid_desc;
-        struct display *sage_tx_device;
-};
-
-bool sender_init(struct sender_data *data);
-void sender_done(struct sender_data *data);
-void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock);
-
-#endif // SENDER_H_
+#endif // IHDTV_H_
 

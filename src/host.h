@@ -47,17 +47,26 @@
 #ifndef __host_h
 #define __host_h
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-struct state_uv;
 struct rtp;
+struct state_uv;
+struct video_frame;
 
 extern int uv_argc;
 extern char **uv_argv;
 
 extern long packet_rate;
+
+extern volatile bool should_exit_receiver;
 
 /* TODO: remove these variables (should be safe) */
 extern unsigned int hd_size_x;
@@ -90,6 +99,9 @@ int initialize_video_capture(const char *requested_capture,
                                                struct vidcap **);
 struct vcodec_state;
 void destroy_decoder(struct vcodec_state *video_decoder_state);
+
+void *ultragrid_rtp_receiver_thread(void *arg);
+void destroy_rtp_devices(struct rtp ** network_devices);
 struct rtp **change_tx_port(struct state_uv *, int port);
 
 // if not NULL, data should be exported
