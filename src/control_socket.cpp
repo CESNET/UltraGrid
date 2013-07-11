@@ -101,6 +101,8 @@ struct control_state {
         enum connection_type connection_type;
 
         fd_t socket_fd;
+
+        bool started;
 };
 
 #define CONTROL_EXIT -1
@@ -160,6 +162,7 @@ int control_init(int port, struct control_state **state, struct module *root_mod
         control_state *s = new control_state;
 
         s->root_module = root_module;
+        s->started = false;
 
         pthread_mutex_init(&s->stats_lock, NULL);
 
@@ -225,22 +228,26 @@ int control_init(int port, struct control_state **state, struct module *root_mod
                 }
         }
 
+        module_register(&s->mod, root_module);
+
+        *state = s;
+        return 0;
+}
+
+void control_start(struct control_state *s)
+{
         fd_t sock;
         sock = create_internal_port(&s->local_port);
 
         if(pthread_create(&s->thread_id, NULL, control_thread, s) != 0) {
                 fprintf(stderr, "Unable to create thread.\n");
                 free(s);
-                return -1;
+                abort();
         }
 
         s->internal_fd[0] = accept(sock, NULL, NULL);
         close(sock);
-
-        module_register(&s->mod, root_module);
-
-        *state = s;
-        return 0;
+        s->started = true;
 }
 
 #define prefix_matches(x,y) strncasecmp(x, y, strlen(y)) == 0
@@ -617,11 +624,11 @@ void control_done(struct control_state *s)
 
         module_done(&s->mod);
 
-        write_all(s->internal_fd[0], "quit\r\n", 6);
-
-        pthread_join(s->thread_id, NULL);
-
-        close(s->internal_fd[0]);
+        if(s->started) {
+                write_all(s->internal_fd[0], "quit\r\n", 6);
+                pthread_join(s->thread_id, NULL);
+                close(s->internal_fd[0]);
+        }
         if(s->connection_type == SERVER) {
                 // for client, the socket has already been closed
                 // by the time of control_thread exit

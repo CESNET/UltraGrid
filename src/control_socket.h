@@ -59,6 +59,7 @@ struct stats;
  * @retval 0 if success
  */
 int control_init(int port, struct control_state **state, struct module *root_module);
+void control_start(struct control_state *state);
 void control_done(struct control_state *s);
 void control_add_stats(struct control_state *state, struct stats *stats);
 void control_remove_stats(struct control_state *state, struct stats *stats);
