@@ -277,6 +277,10 @@ static void sage_rxtx_done(void *state)
 {
         struct sage_rxtx_state *data = (struct sage_rxtx_state *) state;
 
+        // poisoned pill to exit thread
+        display_put_frame(data->sage_tx_device, NULL, PUTF_NONBLOCK);
+        pthread_join(data->thread_id, NULL);
+
         display_done(data->sage_tx_device);
 }
 
@@ -335,13 +339,6 @@ static void *sender_thread(void *arg) {
 
                 data->send_frame(data->tx_module_state, tx_frame);
 
-#if 0
-                if (data->tx_protocol == ULTRAGRID_RTP) {
-                } else if (data->tx_protocol == SAGE) { // SAGE
-                } else { // iHDTV
-                        ihdtv_send_frame(data->ihdtv_state, tx_frame);
-                }
-#endif
 after_send:
 
                 if (data->rxtx_protocol == ULTRAGRID_RTP) {
@@ -360,10 +357,6 @@ after_send:
         }
 
 exit:
-        if (data->rxtx_protocol == SAGE) {
-                struct display *sage_tx_device = data->tx_module_state;
-                display_put_frame(sage_tx_device, NULL, PUTF_NONBLOCK);
-        }
         module_done(&data->priv->mod);
         stats_destroy(stat_data_sent);
 

@@ -107,6 +107,7 @@ struct ultragrid_rtp_state {
 struct sage_rxtx_state {
         struct video_desc saved_vid_desc;
         struct display *sage_tx_device;
+        pthread_t thread_id;
 };
 
 bool sender_init(struct sender_data *data);

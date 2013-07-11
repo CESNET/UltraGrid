@@ -1401,9 +1401,8 @@ int main(int argc, char *argv[])
                         exit_uv(EXIT_FAIL_NETWORK);
                         goto cleanup;
                 }
-                pthread_create(&tx_thread_id, NULL, (void * (*)(void *)) display_run,
+                pthread_create(&sage_rxtx.thread_id, NULL, (void * (*)(void *)) display_run,
                                 &sage_rxtx.sage_tx_device);
-                tx_thread_started = true;
         }
 
         /* following block only shows help (otherwise initialized in receiver thread */
