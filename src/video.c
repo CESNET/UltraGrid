@@ -174,9 +174,7 @@ struct tile * vf_get_tile(struct video_frame *buf, int pos)
 
 int video_desc_eq(struct video_desc a, struct video_desc b)
 {
-        return video_desc_eq_excl_param(a, b, PARAM_TILE_COUNT); // TILE_COUNT is excluded because it
-                                                                 // was omitted so not to break 
-                                                                 // compatibility...
+        return video_desc_eq_excl_param(a, b, 0);
 }
 
 int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned int excluded_params)
