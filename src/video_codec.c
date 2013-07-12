@@ -67,16 +67,16 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
 
 const struct codec_info_t codec_info[] = {
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, FALSE, "rgba"},
-        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, FALSE, "r10k"},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 2, 2, FALSE, FALSE, FALSE, "yuv"},
+        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 2, 2, FALSE, FALSE, FALSE, "yuv"},
+        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 2, 2, FALSE, FALSE, FALSE, "yuv"},
+        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 2, 2, FALSE, FALSE, FALSE, "yuv"},
+        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 64, 4, TRUE, FALSE, FALSE, "r10k"},
         [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "v210"},
         [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "dvs10"},
-        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, FALSE, "dxt1"},
-        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
-        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
+        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 0, 0.5, TRUE, TRUE, FALSE, "dxt1"},
+        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 0, 0.5, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 0, 1.0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
         [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, FALSE, "rgb"},
         [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, FALSE, "dpx"},
         [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, FALSE, "jpg"},
