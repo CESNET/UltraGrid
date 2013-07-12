@@ -57,7 +57,18 @@
 #include <string.h>
 #include "video_codec.h"
 
+/**
+ * @brief Creates FourCC word
+ *
+ * The main idea of FourCC is that it can be anytime read by human (by hexa editor, gdb, tcpdump).
+ * Therefore, this is stored as a big endian even on little-endian architectures - first byte
+ * of FourCC is in the memory on the lowest address.
+ */
+#ifdef WORDS_BIGENDIAN
+#define to_fourcc(a,b,c,d)     (((uint32_t)(d)) | ((uint32_t)(c)<<8) | ((uint32_t)(b)<<16) | ((uint32_t)(a)<<24))
+#else
 #define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8) | ((uint32_t)(c)<<16) | ((uint32_t)(d)<<24))
+#endif
 
 static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
@@ -111,11 +122,17 @@ const struct line_decode_from_to line_decoders[] = {
         { (codec_t) 0, (codec_t) 0, NULL }
 };
 
+/**
+ * This struct specifies alias FourCC used for another FourCC
+ */
 struct alternate_fourcc {
         uint32_t alias;
         uint32_t primary_fcc;
 };
 
+/**
+ * This array contains FourCC aliases mapping
+ */
 const struct alternate_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
@@ -268,10 +285,10 @@ static int get_halign(codec_t codec)
                         return codec_info[i].h_align;
                 i++;
         }
-        return 0;
+       return 0;
 }
 
-int get_haligned(int width_pixels, codec_t codec)
+int get_aligned_length(int width_pixels, codec_t codec)
 {
         int h_align = get_halign(codec);
         return ((width_pixels + h_align - 1) / h_align) * h_align;
@@ -288,7 +305,7 @@ int vc_get_linesize(unsigned int width, codec_t codec)
         return width * codec_info[codec].bpp;
 }
 
-/* linear blend deinterlace */
+/** linear blend deinterlace */
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
 {
         if(((long int) src & 0x0F) == 0 && src_linesize % 16 == 0) {
@@ -348,7 +365,7 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 /**
  * Unaligned version of deinterlace filter
  *
- * @param src 16-byte aligned buffer
+ * @param src 4-byte aligned buffer
  */
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
 {

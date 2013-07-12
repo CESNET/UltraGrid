@@ -312,7 +312,8 @@ static void reconf_common(struct state_quicktime *s)
                  * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
                  * further investigation for 2K!
                  */
-                (**(ImageDescriptionHandle) imageDesc).width = get_haligned(tile->width, s->frame->color_spec);
+                (**(ImageDescriptionHandle) imageDesc).width = get_aligned_length(tile->width,
+                                s->frame->color_spec);
                 (**(ImageDescriptionHandle) imageDesc).height = tile->height;
         
                 ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, NULL, 
