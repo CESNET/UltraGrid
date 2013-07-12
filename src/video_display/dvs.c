@@ -631,8 +631,8 @@ int display_dvs_reconfigure(void *state,
                 return FALSE;
         }
 
-        s->tile->linesize = vc_get_linesize(s->tile->width, desc.color_spec);
-        s->tile->data_len = s->tile->linesize * s->tile->height;
+        s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) *
+                s->tile->height;
 
         free(s->bufs[0]);
         free(s->bufs[1]);

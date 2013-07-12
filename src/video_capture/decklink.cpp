@@ -709,13 +709,12 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         free((void *)displayModeCString);
         }
 
-        tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
-        tile->data_len = tile->linesize * tile->height;
+        tile->data_len =
+                vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
 
         if(s->stereo) {
                 s->frame->tiles[1].width = s->frame->tiles[0].width;
                 s->frame->tiles[1].height = s->frame->tiles[0].height;
-                s->frame->tiles[1].linesize = s->frame->tiles[0].linesize;
                 s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
         }
 

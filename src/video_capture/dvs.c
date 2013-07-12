@@ -418,8 +418,8 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
         }
 
 
-	s->tile->linesize = vc_get_linesize(s->tile->width, s->frame->color_spec);
-	s->tile->data_len = s->tile->linesize * s->tile->height;
+	s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) *
+                s->tile->height;
 
 
         //res = sv_videomode(s->sv, s->hd_video_mode);

@@ -93,6 +93,7 @@ struct testcard_state {
         char *data;
         struct timeval t0;
         struct video_frame *frame;
+        int frame_linesize;
         struct video_frame *tiled;
         
         struct audio_frame audio;
@@ -266,11 +267,13 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
                         /* make the pointers correct */
                         s->tiles_data[y * grid_w + x] =
                                 s->tiles_data[x] +
-                                y * s->tiled->tiles[x].height * s->tiled->tiles[x].linesize;
+                                y * s->tiled->tiles[x].height *
+                                vc_get_linesize(s->tiled->tiles[x].width, s->tiled->color_spec);
                                 
                         s->tiled->tiles[y * grid_w + x].data =
                                 s->tiles_data[x] + 
-                                y * s->tiled->tiles[x].height * s->tiled->tiles[x].linesize;
+                                y * s->tiled->tiles[x].height *
+                                vc_get_linesize(s->tiled->tiles[x].width, s->tiled->color_spec);
                 }
         }
 
@@ -366,7 +369,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         rect_size = (vf_get_tile(s->frame, 0)->width + rect_size - 1) / rect_size;
         
-        vf_get_tile(s->frame, 0)->linesize = aligned_x * bpp;
+        s->frame_linesize = aligned_x * bpp;
         s->frame->interlacing = PROGRESSIVE;
         s->size = aligned_x * vf_get_tile(s->frame, 0)->height * bpp;
 
@@ -588,7 +591,7 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                 }
 
                 if(!state->still_image) {
-                        vf_get_tile(state->frame, 0)->data += vf_get_tile(state->frame, 0)->linesize;
+                        vf_get_tile(state->frame, 0)->data += state->frame_linesize;
                 }
                 if(vf_get_tile(state->frame, 0)->data > state->data + state->size)
                         vf_get_tile(state->frame, 0)->data = state->data;
@@ -625,7 +628,8 @@ struct video_frame *vidcap_testcard_grab(void *arg, struct audio_frame **audio)
                                 
                         for (i = 0; i < count; ++i) {
                                 /* shift - for semantics of vars refer to configure_tiling*/
-                                state->tiled->tiles[i].data += state->tiled->tiles[i].linesize;
+                                state->tiled->tiles[i].data += vc_get_linesize(
+                                                state->tiled->tiles[i].width, state->tiled->color_spec);
                                 /* if out of data, move to beginning
                                  * keep in mind that we have two "pictures" for
                                  * every tile stored sequentially */

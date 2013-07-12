@@ -494,11 +494,6 @@ int display_sdl_reconfigure(void *state, struct video_desc desc)
 #endif
         }
 
-        if (s->rgb)
-                s->tile->linesize = s->tile->width * 4;
-        else
-                s->tile->linesize = s->tile->width * 2;
-
         s->dst_rect.x = 0;
         s->dst_rect.y = 0;
         s->dst_rect.w = s->tile->width;

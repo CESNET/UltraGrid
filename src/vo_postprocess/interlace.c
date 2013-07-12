@@ -144,14 +144,14 @@ bool interlace_postprocess(void *state, struct video_frame *in, struct video_fra
                 return false;
         }
 
+        int linesize = vc_get_linesize(s->odd->tiles[0].width, s->odd->color_spec);
         for(unsigned int tile = 0; tile < out->tile_count; ++tile) {
                 for (unsigned int i = 0; i < out->tiles[0].height; ++i) {
                         memcpy(out->tiles[tile].data + i * req_pitch,
                                         (i % 2 == 0 ?
                                          s->odd->tiles[tile].data :
                                          s->even->tiles[tile].data) 
-                                        + i * s->odd->tiles[tile].linesize,
-                                        s->odd->tiles[tile].linesize);
+                                        + i * linesize, linesize);
                 }
         }
 

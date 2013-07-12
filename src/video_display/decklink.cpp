@@ -364,8 +364,10 @@ display_decklink_getf(void *state)
                         IDeckLinkVideoFrame     *deckLinkFrameRight;
                         assert(s->devices_cnt == 1);
                         if(!s->fast) {
-                                s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
-                                                s->frame->tiles[0].linesize, s->pixelFormat);
+                                s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width,
+                                                s->frame->tiles[0].height,
+                                                vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec),
+                                                s->pixelFormat);
                         }
                                 
                         s->state[0].deckLinkFrame->GetBytes((void **) &s->frame->tiles[0].data);
@@ -378,7 +380,8 @@ display_decklink_getf(void *state)
                         for(int i = 0; i < s->devices_cnt; ++i) {
                                 if(!s->fast) {
                                         s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
-                                                        s->frame->tiles[0].linesize, s->pixelFormat);
+                                                        vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec),
+                                                        s->pixelFormat);
                                 }
                                 
                                 s->state[i].deckLinkFrame->GetBytes((void **) &s->frame->tiles[i].data);
@@ -589,8 +592,7 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 			struct tile  *tile = vf_get_tile(s->frame, i);
 			tile->width = desc.width;
 		        tile->height = desc.height;
-	                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
-	                tile->data_len = tile->linesize * tile->height;
+	                tile->data_len = vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
 	        }
 		displayMode = get_mode(s->state[0].deckLinkOutput, desc, &s->frameRateDuration,
                                                 &s->frameRateScale);
@@ -610,7 +612,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                                 s->state[0].deckLinkFrame->Release();
                         }
                         s->state[0].deckLinkFrame = DeckLink3DFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
-                                        s->frame->tiles[0].linesize, s->pixelFormat);
+                                        vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec),
+                                        s->pixelFormat);
                 }
 
                 s->state[0].deckLinkOutput->EnableVideoOutput(displayMode,  bmdVideoOutputDualStream3D);
@@ -630,8 +633,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
 	                
 	                tile->width = desc.width;
 	                tile->height = desc.height;
-	                tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
-	                tile->data_len = tile->linesize * tile->height;
+	                tile->data_len =
+                                vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
 	                
 	                displayMode = get_mode(s->state[i].deckLinkOutput, desc, &s->frameRateDuration,
                                                 &s->frameRateScale);
@@ -657,7 +660,8 @@ display_decklink_reconfigure(void *state, struct video_desc desc)
                                         s->state[i].deckLinkFrame->Release();
                                 }
                                 s->state[i].deckLinkFrame = DeckLinkFrame::Create(s->frame->tiles[0].width, s->frame->tiles[0].height,
-                                                s->frame->tiles[0].linesize, s->pixelFormat);
+                                                vc_get_linesize(tile->width, s->frame->color_spec),
+                                                s->pixelFormat);
                         }
 
 	

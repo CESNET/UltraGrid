@@ -116,6 +116,8 @@ struct video_compress {
         struct tile *tile[2];
 
         volatile int buffer_idx;
+
+        int encoder_input_linesize;
 };
 
 static void *compress_thread(void *args);
@@ -201,7 +203,7 @@ static int reconfigure_compress(struct video_compress *compress, int width,
         assert(h_align != 0);
 
         for(i = 0; i < 2; ++i) {
-                compress->tile[i]->linesize = vf_get_tile(compress->out[i], 0)->width * 
+                compress->encoder_input_linesize = vf_get_tile(compress->out[i], 0)->width * 
                         (compress->rgb ? 4 /*RGBA*/: 2/*YUV 422*/);
 
                 if(compress->rgb) {
@@ -348,10 +350,10 @@ struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct 
 
         for (x = 0; x < out_tile->height; ++x) {
                 int src_linesize = vc_get_linesize(out_tile->width, compress->tx_color_spec);
-                compress->decoder(line2, line1, out_tile->linesize,
+                compress->decoder(line2, line1, compress->encoder_input_linesize,
                                 0, 8, 16);
                 line1 += src_linesize;
-                line2 += out_tile->linesize;
+                line2 += compress->encoder_input_linesize;
         }
 
         if(desc->interlacing != INTERLACED_MERGED && desc->interlacing != PROGRESSIVE) {
@@ -360,7 +362,7 @@ struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct 
         }
 
         if(desc->interlacing == INTERLACED_MERGED) {
-                vc_deinterlace(compress->output_data, out_tile->linesize,
+                vc_deinterlace(compress->output_data, compress->encoder_input_linesize,
                                 out_tile->height);
         }
 

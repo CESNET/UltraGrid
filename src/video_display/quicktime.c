@@ -730,8 +730,8 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                         tile->width = (**gWorldImgDesc).width;
                         tile->height = (**gWorldImgDesc).height;
 
-                        tile->linesize = vc_get_linesize(tile->width, s->cinfo->codec);
-                        tile->data_len = tile->linesize * tile->height;
+                        tile->data_len = tile->height *
+                                vc_get_linesize(tile->width, s->cinfo->codec);
                         s->buffer[0] = calloc(1, tile->data_len);
                         s->buffer[1] = calloc(1, tile->data_len);
                         tile->data = s->buffer[0];
@@ -947,8 +947,8 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 
                 tile->width = tile_width;
                 tile->height = tile_height;
-                tile->linesize = vc_get_linesize(tile_width, desc.color_spec);
-                tile->data_len = tile->linesize * tile->height;
+                tile->data_len = tile->height *
+                        vc_get_linesize(tile_width, desc.color_spec);
                 
                 free(s->buffer[0]);
                 free(s->buffer[1]);

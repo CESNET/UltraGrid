@@ -157,7 +157,6 @@ struct tile {
          */
         char                *data;
         unsigned int         data_len;
-        unsigned int         linesize;
 
         /// @brief Fragment offset from tile beginning (in bytes). Used only if frame is fragmented.
         /// @see video_frame::fragment

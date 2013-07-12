@@ -100,9 +100,8 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc)
 
         if(buf) {
                 for(unsigned int i = 0; i < desc.tile_count; ++i) {
-                        buf->tiles[i].linesize = vc_get_linesize(desc.width,
-                                        desc.color_spec);
-                        buf->tiles[i].data_len = buf->tiles[i].linesize *
+                        buf->tiles[i].data_len = vc_get_linesize(desc.width,
+                                        desc.color_spec) *
                                 desc.height;
                         buf->tiles[i].data = (char *) malloc(buf->tiles[i].data_len);
                 }

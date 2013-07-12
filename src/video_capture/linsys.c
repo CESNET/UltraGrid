@@ -665,9 +665,8 @@ vidcap_linsys_init(char *init_fmt, unsigned int flags)
                 }
                 tile->width = frame_mode->width;
                 tile->height = frame_mode->height;
-                tile->linesize = vc_get_linesize(frame_mode->width, c_info->codec);
-                tile->data_len = tile->linesize * tile->height;
-                
+                tile->data_len =
+                        vc_get_linesize(frame_mode->width, c_info->codec) * tile->height;
 
                 if((tile->data = (char *)
                                 malloc (tile->data_len)) == NULL) {

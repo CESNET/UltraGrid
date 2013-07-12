@@ -77,6 +77,8 @@ struct video_compress {
         unsigned int configured:1;
         unsigned int interlaced_input:1;
         codec_t color_spec;
+
+        int encoder_input_linesize;
         
         struct gl_context gl_context;
 };
@@ -170,7 +172,6 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         }
         
         int data_len = 0;
-        int linesize = 0;
 
         s->encoder = malloc(frame->tile_count * sizeof(struct dxt_encoder *));
         if(s->out[0]->color_spec == DXT1) {
@@ -197,16 +198,16 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
                 }
         }
 
-        linesize = s->out[0]->tiles[0].width;
+        s->encoder_input_linesize = s->out[0]->tiles[0].width;
         switch(format) { 
                 case DXT_FORMAT_RGBA:
-                        linesize *= 4;
+                        s->encoder_input_linesize *= 4;
                         break;
                 case DXT_FORMAT_RGB:
-                        linesize *= 3;
+                        s->encoder_input_linesize *= 3;
                         break;
                 case DXT_FORMAT_YUV422:
-                        linesize *= 2;
+                        s->encoder_input_linesize *= 2;
                         break;
                 case DXT_FORMAT_YUV:
                         /* not used - just not compilator to complain */
@@ -215,11 +216,10 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
         }
 
         assert(data_len > 0);
-        assert(linesize > 0);
+        assert(s->encoder_input_linesize > 0);
 
         for (i = 0; i < 2; ++i) {
                 for (x = 0; x < frame->tile_count; ++x) {
-                        vf_get_tile(s->out[i], x)->linesize = linesize;
                         vf_get_tile(s->out[i], x)->data_len = data_len;
                         vf_get_tile(s->out[i], x)->data = (char *) malloc(data_len);
                 }
@@ -309,14 +309,14 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
                 line2 = (unsigned char *) s->decoded;
                 
                 for (i = 0; i < (int) in_tile->height; ++i) {
-                        s->decoder(line2, line1, out_tile->linesize,
+                        s->decoder(line2, line1, s->encoder_input_linesize,
                                         0, 8, 16);
                         line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                        line2 += out_tile->linesize;
+                        line2 += s->encoder_input_linesize;
                 }
                 
                 if(s->interlaced_input)
-                        vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
+                        vc_deinterlace((unsigned char *) s->decoded, s->encoder_input_linesize,
                                         in_tile->height);
                 
                 dxt_encoder_compress(s->encoder[x],

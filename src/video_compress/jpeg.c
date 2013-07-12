@@ -80,6 +80,8 @@ struct compress_jpeg_state {
 
         int restart_interval;
         platform_spin_t spin;
+
+        int encoder_input_linesize;
 };
 
 static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
@@ -220,10 +222,11 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
         for (frame_idx = 0; frame_idx < 2; frame_idx++) {
                 for (x = 0; x < frame->tile_count; ++x) {
                                 vf_get_tile(s->out[frame_idx], x)->data = (char *) malloc(s->out[frame_idx]->tiles[0].width * s->out[frame_idx]->tiles[0].height * 3);
-                                vf_get_tile(s->out[frame_idx], x)->linesize = s->out[frame_idx]->tiles[0].width * (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
 
                 }
         }
+        s->encoder_input_linesize = s->out[frame_idx]->tiles[0].width *
+                (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
         
         if(!s->encoder) {
                 fprintf(stderr, "[DXT GLSL] Failed to create encoder.\n");
@@ -373,20 +376,20 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx, 
                 line2 = (unsigned char *) s->decoded;
                 
                 for (i = 0; i < (int) in_tile->height; ++i) {
-                        s->decoder(line2, line1, out_tile->linesize,
+                        s->decoder(line2, line1, s->encoder_input_linesize,
                                         0, 8, 16);
                         line1 += vc_get_linesize(in_tile->width, tx->color_spec);
-                        line2 += out_tile->linesize;
+                        line2 += s->encoder_input_linesize;
                 }
                 
-                line1 = (unsigned char *) out_tile->data + (in_tile->height - 1) * out_tile->linesize;
+                line1 = (unsigned char *) out_tile->data + (in_tile->height - 1) * s->encoder_input_linesize;
                 for( ; i < (int) out->tiles[0].height; ++i) {
-                        memcpy(line2, line1, out_tile->linesize);
-                        line2 += out_tile->linesize;
+                        memcpy(line2, line1, s->encoder_input_linesize);
+                        line2 += s->encoder_input_linesize;
                 }
                 
                 /*if(s->interlaced_input)
-                        vc_deinterlace((unsigned char *) s->decoded, out_tile->linesize,
+                        vc_deinterlace((unsigned char *) s->decoded, s->encoder_input_linesize,
                                         s->out->tiles[0].height);*/
                 
                 uint8_t *compressed;

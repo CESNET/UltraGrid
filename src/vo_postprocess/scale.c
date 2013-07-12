@@ -179,8 +179,8 @@ int scale_reconfigure(void *state, struct video_desc desc)
                 in_tile->width = desc.width;
                 in_tile->height = desc.height;
 
-                in_tile->linesize = vc_get_linesize(desc.width, desc.color_spec);
-                in_tile->data_len = in_tile->linesize * desc.height;
+                in_tile->data_len =
+                        vc_get_linesize(desc.width, desc.color_spec) * desc.height;
                 in_tile->data = malloc(in_tile->data_len);
         }
 
