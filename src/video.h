@@ -45,9 +45,7 @@
  *
  */
 #ifndef __video_h
-
 #define __video_h
-#include "tile.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -161,7 +159,7 @@ struct tile {
         unsigned int         data_len;
         unsigned int         linesize;
 
-        /// Fragment offset from tile beginning (in bytes). Used only if frame is fragmented.
+        /// @brief Fragment offset from tile beginning (in bytes). Used only if frame is fragmented.
         /// @see video_frame::fragment
         unsigned int         offset;
 };

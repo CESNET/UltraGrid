@@ -1,5 +1,5 @@
 /*
- * FILE:    tile.h
+ * FILE:    vf_split.h
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -44,22 +44,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef __tile_h
-
-#define __tile_h
-#include "config.h"
-#include "config_unix.h"
+#ifndef VF_SPLIT_H_
+#define VF_SPLIT_H_
 
 struct video_frame;
-
-struct tile_info {
-        unsigned int h_reserved:8;
-        unsigned int pos_x:4;
-        unsigned int pos_y:4;
-        unsigned int x_count:4;
-        unsigned int y_count:4;
-        unsigned int t_reserved:8;
-} __attribute__((__packed__));
 
 /**
  * vf_split splits the frame into multiple tiles.
@@ -82,15 +70,5 @@ void vf_split(struct video_frame *out, struct video_frame *src,
 void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
               unsigned int y_count);
 
-/**
- * tileinfo_eq:
- * compares count of tiles
- *
- * @param   t1  first structure
- * @param   t2  second structure
- * @return  0   if different
- *          !0  if equal
- */
-int tileinfo_eq_count(struct tile_info t1, struct tile_info t2);
+#endif // VF_SPLIT_H_
 
-#endif

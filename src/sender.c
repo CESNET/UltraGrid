@@ -65,6 +65,7 @@
 #include "sender.h"
 #include "stats.h"
 #include "transmit.h"
+#include "vf_split.h"
 #include "video.h"
 #include "video_display.h"
 

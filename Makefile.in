@@ -49,7 +49,6 @@ OBJS	      = @OBJS@ \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
-		src/tile.o \
 		src/tv.o \
 		src/transmit.o \
 		src/tfrc.o \
@@ -108,6 +107,7 @@ OBJS	      = @OBJS@ \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
 		src/utils/worker.o \
+		src/vf_split.o \
 		src/video.o \
 		src/video_codec.o \
 		src/video_capture.o \

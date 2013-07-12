@@ -61,6 +61,7 @@
 #include "video_capture.h"
 #include "video_capture/testcard.h"
 #include "song1.h"
+#include "vf_split.h"
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_LIBSDL_MIXER

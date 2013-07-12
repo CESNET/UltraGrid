@@ -52,6 +52,7 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 
+#include "vf_split.h"
 #include "video_codec.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess.h" /* VO_PP_DOES_CHANGE_TILING_MODE */

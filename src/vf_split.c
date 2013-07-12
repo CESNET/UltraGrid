@@ -1,5 +1,5 @@
 /*
- * FILE:    tile.c
+ * FILE:    vf_split.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -54,7 +54,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "video_codec.h"
-#include "tile.h"
+#include "vf_split.h"
 
 #define MAGIC_H 0xFF
 #define MAGIC_T 0xFE
@@ -133,10 +133,5 @@ void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
                 out->tiles[i].data = src->tiles[0].data + i * out->tiles[i].height 
                         * out->tiles[i].linesize;
         }
-}
-
-int tileinfo_eq_count(struct tile_info t1, struct tile_info t2)
-{
-        return t1.x_count == t2.x_count && t1.y_count == t2.y_count;
 }
 
