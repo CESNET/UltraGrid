@@ -42,9 +42,9 @@
 
 #include "host.h"
 
-/*
- * Packet formats:
- * http://www.sitola.cz/files/4K-packet-format.pdf
+/** @page av_pkt_description UltraGrid packet format
+ * Packet formats are described in papers referenced here:<br/>
+ * https://www.sitola.cz/igrid/index.php/Developer_Documentation#Packet_formats
  */
 #define PT_VIDEO        20
 #define PT_AUDIO        21

@@ -444,6 +444,19 @@ static void *compress_tile(void *arg) {
         return s;
 }
 
+static void vf_write_desc(struct video_frame *buf, struct video_desc desc)
+{
+        assert(desc.tile_count == buf->tile_count);
+
+        buf->color_spec = desc.color_spec;
+        buf->fps = desc.fps;
+        buf->interlacing = desc.interlacing;
+        for(unsigned int i = 0; i < buf->tile_count; ++i) {
+                buf->tiles[0].width = desc.width;
+                buf->tiles[0].height = desc.height;
+        }
+}
+
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index, struct module *parent)
 {
