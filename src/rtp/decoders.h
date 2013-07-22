@@ -43,11 +43,13 @@
  *
  */
 
+#include "video.h"
+
 struct coded_data;
 struct display;
 struct state_decoder;
 struct video_frame;
-enum codec_t;
+struct state_decompress;
 struct tile;
 
 /* 
@@ -61,4 +63,6 @@ void decoder_destroy(struct state_decoder *decoder);
 
 bool decoder_register_video_display(struct state_decoder *decoder, struct display *display);
 void decoder_remove_display(struct state_decoder *decoder);
+bool init_decompress(codec_t in_codec, codec_t out_codec,
+                struct state_decompress **state, int state_count);
 

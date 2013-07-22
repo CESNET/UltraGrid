@@ -13,6 +13,7 @@
 
 extern "C" {
 #include "debug.h"
+#include "rtp/decoders.h" // init_decompress()
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
@@ -100,8 +101,6 @@ static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp);
 static bool decode_header(uint32_t *hdr, struct packet_desc *desc, int *buffer_len, int *substream);
 static bool decode_video_header(uint32_t *hdr, struct video_desc *desc, int *buffer_len, int *substream);
 static void *worker(void *arg);
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
-                int prio_min, int prio_max, uint32_t *magic);
 
 void hd_rum_decompress_add_port(void *state, void *recompress_port)
 {
@@ -139,62 +138,6 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
         uint32_t ts = tv_diff(curr_time, s->start_time) * 90000;
         return rtp_recv_push_data(s->network_device,
                                           (char *) buf, count, ts);
-}
-
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
-                int prio_min, int prio_max, uint32_t *magic) {
-        int trans;
-        int best_priority = prio_max + 1;
-        // first pass - find the one with best priority (least)
-        for(trans = 0; trans < decoders_for_codec_count;
-                        ++trans) {
-                if(in_codec == decoders_for_codec[trans].from &&
-                                out_codec == decoders_for_codec[trans].to) {
-                        int priority = decoders_for_codec[trans].priority;
-                        if(priority <= prio_max &&
-                                        priority >= prio_min &&
-                                        priority < best_priority) {
-                                if(decompress_is_available(
-                                                        decoders_for_codec[trans].decompress_index)) {
-                                        best_priority = priority;
-                                        *magic = decoders_for_codec[trans].decompress_index;
-                                }
-                        }
-                }
-        }
-
-        if(best_priority == prio_max + 1)
-                return -1;
-        return best_priority;
-}
-
-struct state_decompress *init_decompress(codec_t src_color_spec, codec_t dst_color_spec) {
-        struct state_decompress *ret = NULL;
-
-        int prio_max = 1000;
-        int prio_min = 0;
-        int prio_cur;
-        uint32_t decompress_magic = 0u;
-
-        while(1) {
-                prio_cur = find_best_decompress(src_color_spec, dst_color_spec,
-                                prio_min, prio_max, &decompress_magic);
-                // if found, init decoder
-                if(prio_cur != -1) {
-                        ret = decompress_init(decompress_magic);
-
-                        if(!ret) {
-                                // failed, try to find another one
-                                fprintf(stderr, "Failed to initialize decompress: %x.\n",
-                                                decompress_magic);
-                                prio_min = prio_cur + 1;
-                                continue;
-                        } else break; // found it
-                } else {
-                        break;
-                }
-        }
-        return ret;
 }
 
 #define MAX_SUBSTREAMS 1024
@@ -314,9 +257,10 @@ static void *worker(void *arg)
                         if(is_codec_opaque(video_header.color_spec)) {
                                 if(decompress)
                                         decompress_done(decompress);
-                                decompress = init_decompress(video_header.color_spec,
-                                                uncompressed_desc.color_spec);
-                                if(!decompress) {
+                                int ret;
+                                ret = init_decompress(video_header.color_spec,
+                                                uncompressed_desc.color_spec, &decompress, 1);
+                                if(!ret) {
                                         fprintf(stderr, "Unable to initialize decompress!\n");
                                         abort();
                                 }
@@ -331,7 +275,7 @@ static void *worker(void *arg)
                                         abort();
                                 }
 
-                                int res = 0, ret;
+                                int res = 0;
                                 size_t size = sizeof(res);
                                 ret = decompress_get_property(decompress,
                                                 DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,

@@ -72,9 +72,6 @@ static void restrict_returned_codecs(codec_t *display_codecs,
                 int pp_codecs_count);
 static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
 static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame);
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
-                int prio_min, int prio_max, uint32_t *magic);
-static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t magic);
 static void wait_for_framebuffer_swap(struct state_decoder *decoder);
 static void *ldgm_thread(void *args);
 static void *decompress_thread(void *args);
@@ -865,36 +862,22 @@ void decoder_destroy(struct state_decoder *decoder)
  * @param magic magic of the requested decompressor
  * @return flat if initialization succeeded
  */
-static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t magic) {
-        decoder->decompress_state = (struct state_decompress **)
-                calloc(decoder->max_substreams, sizeof(struct state_decompress *));
-        for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
-                decoder->decompress_state[i] = decompress_init(magic);
+static bool try_initialize_decompress(uint32_t magic,
+                struct state_decompress **decompress_state, int substreams)
+{
+        for(int i = 0; i < substreams; ++i) {
+                decompress_state[i] = decompress_init(magic);
 
-                if(!decoder->decompress_state[i]) {
+                if(!decompress_state[i]) {
                         debug_msg("Decompressor with magic %x was not found.\n");
-                        for(unsigned int j = 0; j < decoder->max_substreams; ++j) {
-                                decompress_done(decoder->decompress_state[i]);
+                        for(int j = 0; j < substreams; ++j) {
+                                decompress_done(decompress_state[i]);
+                                decompress_state[i] = NULL;
                         }
-                        free(decoder->decompress_state);
                         return false;
                 }
         }
 
-
-        int res = 0, ret;
-        size_t size = sizeof(res);
-        ret = decompress_get_property(decoder->decompress_state[0],
-                        DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
-                        &res,
-                        &size);
-        if(ret && res) {
-                decoder->accepts_corrupted_frame = TRUE;
-        } else {
-                decoder->accepts_corrupted_frame = FALSE;
-        }
-
-        decoder->decoder_type = EXTERNAL_DECODER;
         return true;
 }
 
@@ -904,7 +887,7 @@ static bool try_initialize_decompress(struct state_decoder * decoder, uint32_t m
  * @param[in] prio_min minimal priority that can be probed
  * @param[in] prio_max maximal priority that can be probed
  * @param[out] magic if decompressor was found here is stored its magic
- * @retval -1 if no found
+ * @retval -1       if no found
  * @retval priority best decoder's priority
  */
 static int find_best_decompress(codec_t in_codec, codec_t out_codec,
@@ -934,6 +917,60 @@ static int find_best_decompress(codec_t in_codec, codec_t out_codec,
         return best_priority;
 }
 
+/**
+ * This helper function removes redundancy in UG - triplicity in 8-bit YCbCr
+ */
+static codec_t codec_remove_aliases(codec_t codec)
+{
+        if(codec == DVS8 || codec == Vuy2)
+                return UYVY;
+        else
+                return codec;
+}
+
+/**
+ * @brief Finds (best) decompress module for specified compression.
+ *
+ * If more than one decompress module is available, load the one with highest priority.
+ *
+ * @param[in] in_codec    source compression
+ * @param[in] out_codec   requested destination pixelformat
+ * @param[out] state      pointer (array) to be filled with state_count instances of decompressor
+ * @param[in] state_count number of decompress states to be created.
+ * This is important mainly for interlrame compressions which keeps internal state between individual
+ * frames. Different tiles need to have different states then.
+ * @retval true           if state_count members of state is filled with valid decompressor
+ * @retval false          if initialization failed
+ */
+bool init_decompress(codec_t in_codec, codec_t out_codec,
+                struct state_decompress **state, int state_count)
+{
+        out_codec = codec_remove_aliases(out_codec);
+
+        int prio_max = 1000;
+        int prio_min = 0;
+        int prio_cur;
+        uint32_t decompress_magic = 0u;
+
+        while(1) {
+                prio_cur = find_best_decompress(in_codec, out_codec,
+                                prio_min, prio_max, &decompress_magic);
+                // if found, init decoder
+                if(prio_cur != -1) {
+                        if(try_initialize_decompress(decompress_magic, state, state_count)) {
+                                return true;
+                        } else {
+                                // failed, try to find another one
+                                prio_min = prio_cur + 1;
+                                continue;
+                        }
+                } else {
+                        break;
+                }
+        }
+        return false;
+}
+
 static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
                                 codec_t *in_codec, decoder_t *decode_line)
 {
@@ -942,17 +979,13 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
         *in_codec = desc.color_spec;
         
         /* first deal with aliases */
-        if(*in_codec == DVS8 || *in_codec == Vuy2) {
-                *in_codec = UYVY;
-        }
+        *in_codec = codec_remove_aliases(*in_codec);
         
         size_t native;
         /* first check if the codec is natively supported */
         for(native = 0u; native < decoder->native_count; ++native)
         {
-                out_codec = decoder->native_codecs[native];
-                if(out_codec == DVS8 || out_codec == Vuy2)
-                        out_codec = UYVY;
+                out_codec = codec_remove_aliases(decoder->native_codecs[native]);
                 if(*in_codec == out_codec) {
                         if((out_codec == DXT1 || out_codec == DXT1_YUV ||
                                         out_codec == DXT5)
@@ -974,9 +1007,7 @@ static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, st
                                 ++trans) {
                 for(native = 0; native < decoder->native_count; ++native)
                 {
-                        out_codec = decoder->native_codecs[native];
-                        if(out_codec == DVS8 || out_codec == Vuy2)
-                                out_codec = UYVY;
+                        out_codec = codec_remove_aliases(decoder->native_codecs[native]);
                         if(*in_codec == line_decoders[trans].from &&
                                         out_codec == line_decoders[trans].to) {
                                                 
@@ -994,31 +1025,28 @@ after_linedecoder_lookup:
         if(*decode_line == NULL) {
                 for(native = 0; native < decoder->native_count; ++native)
                 {
-                        out_codec = decoder->native_codecs[native];
-                        if(out_codec == DVS8 || out_codec == Vuy2)
-                                out_codec = UYVY;
-
-                        int prio_max = 1000;
-                        int prio_min = 0;
-                        int prio_cur;
-                        uint32_t decompress_magic = 0u;
-
-                        while(1) {
-                                prio_cur = find_best_decompress(*in_codec, out_codec,
-                                                prio_min, prio_max, &decompress_magic);
-                                // if found, init decoder
-                                if(prio_cur != -1) {
-                                        if(try_initialize_decompress(decoder, decompress_magic)) {
-                                                goto after_decoder_lookup;
-                                        } else {
-                                                // failed, try to find another one
-                                                prio_min = prio_cur + 1;
-                                                continue;
-                                        }
+                        out_codec = codec_remove_aliases(decoder->native_codecs[native]);
+                        decoder->decompress_state = (struct state_decompress **)
+                                calloc(decoder->max_substreams, sizeof(struct state_decompress *));
+                        if(init_decompress(*in_codec, decoder->native_codecs[native],
+                                                decoder->decompress_state,
+                                                decoder->max_substreams)) {
+                                int res = 0, ret;
+                                size_t size = sizeof(res);
+                                ret = decompress_get_property(decoder->decompress_state[0],
+                                                DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
+                                                &res,
+                                                &size);
+                                if(ret && res) {
+                                        decoder->accepts_corrupted_frame = TRUE;
                                 } else {
-                                        break;
+                                        decoder->accepts_corrupted_frame = FALSE;
                                 }
+
+                                decoder->decoder_type = EXTERNAL_DECODER;
+                                goto after_decoder_lookup;
                         }
+
                 }
         }
 after_decoder_lookup:
