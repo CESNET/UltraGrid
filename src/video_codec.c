@@ -200,6 +200,7 @@ const char * get_codec_name(codec_t codec)
         return 0;
 }
 
+/** @brief Returns FourCC for specified codec. */
 uint32_t get_fcc_from_codec(codec_t codec)
 {
         int i = 0;
@@ -252,6 +253,10 @@ const char *get_codec_file_extension(codec_t codec)
         return 0;
 }
 
+/**
+ * @retval TRUE if codec is compressed
+ * @retval FALSE if codec is pixelformat
+ */
 int is_codec_opaque(codec_t codec)
 {
         int i = 0;
@@ -264,6 +269,12 @@ int is_codec_opaque(codec_t codec)
         return 0;
 }
 
+/**
+ * Returns whether specified codec is an interframe compression.
+ * Not defined for pixelformats
+ * @retval TRUE if compression is interframe
+ * @retval FALSE if compression is not interframe
+ */
 int is_codec_interframe(codec_t codec)
 {
         int i = 0;
@@ -288,12 +299,14 @@ static int get_halign(codec_t codec)
        return 0;
 }
 
+/** @brief Returns aligned linesize according to pixelformat specification (in pixels) */
 int get_aligned_length(int width_pixels, codec_t codec)
 {
         int h_align = get_halign(codec);
         return ((width_pixels + h_align - 1) / h_align) * h_align;
 }
 
+/** @brief Returns aligned linesize according to pixelformat specification (in bytes) */
 int vc_get_linesize(unsigned int width, codec_t codec)
 {
         if (codec_info[codec].h_align) {
@@ -305,7 +318,15 @@ int vc_get_linesize(unsigned int width, codec_t codec)
         return width * codec_info[codec].bpp;
 }
 
-/** linear blend deinterlace */
+/** @brief Deinterlaces framebuffer.
+ *
+ * vc_deinterlace performs linear blend deinterlace on a framebuffer.
+ * @param[in,out] src          framebuffer to be deinterlaced
+ * @param[in]     src_linesize length of a line (bytes)
+ * @param[in]     lines        number of lines
+ * @see vc_deinterlace_aligned
+ * @see vc_deinterlace_unaligned
+ */
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
 {
         if(((long int) src & 0x0F) == 0 && src_linesize % 16 == 0) {
@@ -319,6 +340,7 @@ void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
  * Aligned version of deinterlace filter
  *
  * @param src 16-byte aligned buffer
+ * @see vc_deinterlace
  */
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
 {
@@ -366,6 +388,7 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
  * Unaligned version of deinterlace filter
  *
  * @param src 4-byte aligned buffer
+ * @see vc_deinterlace
  */
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
 {
@@ -409,8 +432,7 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 }
 
 /**
- * Converts v210 to UYVY
- *
+ * @brief Converts v210 to UYVY
  * @param[out] dst     4-byte aligned output buffer where UYVY will be stored
  * @param[in]  src     4-byte aligned input buffer containing v210 (by definition of v210
  *                     should be even aligned to 16B boundary)
@@ -459,11 +481,8 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
 }
 
 /**
- * Converts from YUYV to UYVY.
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in YUYV
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from YUYV to UYVY.
+ * @copydetails vc_copylinev210
  */
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -512,11 +531,14 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 }
 
 /**
- * Converts from R10k to RGBA
+ * @brief Converts from R10k to RGBA
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     4B-aligned buffer containing pixels in R10k
  * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift  destination red shift
+ * @param[in]  gshift  destination green shift
+ * @param[in]  bshift  destination blue shift
  */
 void
 vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift,
@@ -576,14 +598,8 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
 }
 
 /**
- * Changes color channels' order in RGBA
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in RGBA
- * @param[in]  dst     length of data that should be writen to dst buffer (in bytes)
- * @param[in]  rshift  destination rshift
- * @param[in]  rshift  destination gshift
- * @param[in]  rshift  destination bshift
+ * @brief Changes color channels' order in RGBA
+ * @copydetails vc_copyliner10k
  */
 void
 vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift,
@@ -628,11 +644,8 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
 }
 
 /**
- * Converts from DVS10 to v210
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in DVS10
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from DVS10 to v210
+ * @copydetails vc_copylinev210
  */
 void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -720,11 +733,8 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 #else
 
 /**
- * Converts from DVS10 to UYVY
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in UYVY
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from DVS10 to UYVY
+ * @copydetails vc_copylinev210
  */
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -758,6 +768,10 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
+/**
+ * @brief Changes color order of an RGB
+ * @copydetails vc_copyliner10k
+ */
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
@@ -783,11 +797,8 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
 }
 
 /**
- * Converts from RGBA to RGB
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in RGB
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from RGBA to RGB
+ * @copydetails vc_copylinev210
  */
 void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
@@ -807,14 +818,8 @@ void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 }
 
 /**
- * Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
- *
- * @param[out] dst2     4B-aligned buffer that will contain result
- * @param[in]  src2     4B-aligned buffer containing pixels in RGB
- * @param[in]  dst_len  length of data that should be writen to dst buffer (in bytes)
- * @param[in]  rshift   source rshift
- * @param[in]  gshift   source gshift
- * @param[in]  bshift   source bshift
+ * @brief Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
+ * @copydetails vc_copyliner10k
  */
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
@@ -844,8 +849,8 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
 }
 
 /**
- * Converts from AGBR to RGB
- *
+ * @brief Converts from AGBR to RGB
+ * @copydetails vc_copylinev210
  * @see vc_copylineRGBAtoRGBwithShift
  * @see vc_copylineRGBAtoRGB
  */
@@ -877,14 +882,8 @@ void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 }
 
 /**
- * Converts RGB to RGBA
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     4B-aligned input buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
- * @param[in]  rshift  RGBA rshift
- * @param[in]  gshift  RGBA gshift
- * @param[in]  bshift  RGBA gshift
+ * @brief Converts RGB to RGBA
+ * @copydetails vc_copyliner10k
  */
 void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
@@ -902,9 +901,9 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * @param rshift rshift in bytes
- * @param gshift gshift in bytes
- * @param bshift bshift in bytes
+ * @brief Converts RGB(A) into UYVY
+ * @copydetails vc_copyliner10k
+ * @param[in] source pixel size (3 for RGB, 4 for RGBA)
  */
 static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) {
@@ -939,8 +938,9 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
 }
 
 /**
- * Converts UYVY to RGB
+ * @brief Converts UYVY to RGB.
  * Uses Rec. 709 with standard SDI ceiling and floor
+ * @copydetails vc_copylinev210
  * @todo make it faster if needed
  */
 void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
@@ -962,12 +962,9 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * Converts RGB to UYVY.
+ * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -975,12 +972,9 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * Converts BGR to UYVY.
+ * @brief Converts BGR to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer in BGR
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -988,12 +982,9 @@ void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * Converts RGBA to UYVY.
+ * @brief Converts RGBA to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer in RGBA
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -1002,10 +993,7 @@ void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst
 
 /**
  * Converts BGR to RGB.
- *
- * @param[out] dst     output buffer in RGB
- * @param[in]  src     buffer in BGR
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -1023,14 +1011,8 @@ void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_l
 }
 
 /**
- * Converts DPX10 to RGBA
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     4B-aligned input buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
- * @param[in]  rshift  RGBA rshift
- * @param[in]  gshift  RGBA gshift
- * @param[in]  bshift  RGBA gshift
+ * @brief Converts DPX10 to RGBA
+ * @copydetails vc_copyliner10k
  */
 void
 vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
@@ -1053,11 +1035,8 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
 }
 
 /**
- * Converts DPX10 to RGB
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     4B-aligned input buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @brief Converts DPX10 to RGB.
+ * @copydetails vc_copylinev210
  */
 void
 vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
@@ -1100,7 +1079,11 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
         }
 }
 
-
+/** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
+ *
+ * Unspecified for compressed codecs.
+ * @retval TRUE  if pixelformat is RGB
+ * @retval FALSE if pixelformat is not a RGB */
 int codec_is_a_rgb(codec_t codec)
 {
         int i;
