@@ -66,12 +66,16 @@ void vf_split(struct video_frame *out, struct video_frame *src,
         struct tile        *cur_tiles;
         unsigned int        tile_line = 0;
         int                 out_linesize;
+        int                 src_linesize;
 
         out->color_spec = src->color_spec;
         out->fps = src->fps;
         //out->aux = src->aux | AUX_TILED;
         
         assert(vf_get_tile(src, 0)->width % x_count == 0u && vf_get_tile(src, 0)->height % y_count == 0u);
+
+        src_linesize = vc_get_linesize(src->tiles[0].width,
+                        src->color_spec);
 
         for(tile_idx = 0u; tile_idx < x_count * y_count; ++tile_idx) {
                 out->tiles[tile_idx].width = vf_get_tile(src, 0)->width / x_count;
@@ -107,7 +111,7 @@ void vf_split(struct video_frame *out, struct video_frame *src,
                                         tile_line *
                                         out_linesize],
                                         (void *) &src->tiles[0].data[line_idx *
-                                        out_linesize + byte],
+                                        src_linesize + byte],
                                         cur_tiles[cur_tile_idx].width *
                                         get_bpp(src->color_spec));
                         byte += cur_tiles[cur_tile_idx].width * get_bpp(src->color_spec);
