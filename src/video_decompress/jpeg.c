@@ -66,7 +66,6 @@ struct state_decompress_jpeg {
         struct gpujpeg_decoder *decoder;
 
         struct video_desc desc;
-        int compressed_len;
         int rshift, gshift, bshift;
         int pitch;
         codec_t out_codec;
@@ -85,11 +84,9 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
         if(s->out_codec == RGB) {
                 s->decoder->coder.param_image.color_space = GPUJPEG_RGB;
                 s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_4_4;
-                s->compressed_len = desc.width * desc.height * 2;
         } else {
                 s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_BT709;
                 s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_2_2;
-                s->compressed_len = desc.width * desc.height * 3;
         }
 
         return TRUE;
@@ -131,25 +128,17 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                         s->gshift == gshift &&
                         s->bshift == bshift &&
                         video_desc_eq_excl_param(s->desc, desc, PARAM_INTERLACING)) {
-                ret = TRUE;
+                return TRUE;
         } else {
                 s->out_codec = out_codec;
                 s->pitch = pitch;
                 s->rshift = rshift;
                 s->gshift = gshift;
                 s->bshift = bshift;
-                if(!s->decoder) {
-                        ret = configure_with(s, desc);
-                } else {
+                if(s->decoder) {
                         gpujpeg_decoder_destroy(s->decoder);
-                        ret = configure_with(s, desc);
                 }
-        }
-
-        if(ret) {
-                return s->compressed_len;
-        } else {
-                return 0;
+                return configure_with(s, desc);
         }
 }
 

@@ -253,7 +253,7 @@ int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
         }
         pthread_mutex_unlock(&s->lock);
 
-        return desc.width * desc.height;
+        return TRUE;
 }
 
 /**

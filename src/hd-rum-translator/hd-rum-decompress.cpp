@@ -70,7 +70,7 @@ struct frame : public message {
         }
 };
 
-struct state_decompress {
+struct state_transcoder_decompress {
         void **output_ports;
         int output_port_count;
 
@@ -97,14 +97,14 @@ struct state_decompress {
  * Prototypes
  */
 static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e);
-static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp);
+static void receive_packet(struct state_transcoder_decompress *s, rtp_packet *pckt_rtp);
 static bool decode_header(uint32_t *hdr, struct packet_desc *desc, int *buffer_len, int *substream);
 static bool decode_video_header(uint32_t *hdr, struct video_desc *desc, int *buffer_len, int *substream);
 static void *worker(void *arg);
 
 void hd_rum_decompress_add_port(void *state, void *recompress_port)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         s->output_port_count += 1;
         s->output_ports = (void **) realloc(s->output_ports,
@@ -115,7 +115,7 @@ void hd_rum_decompress_add_port(void *state, void *recompress_port)
 
 void hd_rum_decompress_add_inactive_port(void *state, void *recompress_port)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         s->output_inact_port_count += 1;
         s->output_inact_ports = (void **) realloc(s->output_inact_ports,
@@ -126,7 +126,7 @@ void hd_rum_decompress_add_inactive_port(void *state, void *recompress_port)
 
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         // if there are no active output ports, simply quit
         if (s->output_port_count == 0) {
@@ -144,7 +144,7 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 
 static void *worker(void *arg)
 {
-        struct state_decompress *s = (struct state_decompress *) arg;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) arg;
         struct video_desc last_desc;
         struct ldgm_desc last_ldgm_desc;
 
@@ -394,14 +394,14 @@ next_iteration:
 
 void *hd_rum_decompress_init(unsigned short rx_port)
 {
-        struct state_decompress *s;
+        struct state_transcoder_decompress *s;
         int ttl = 255;
         double rtcp_bw = 5 * 1024 * 1024;       /*  FIXME */
         bool use_ipv6 = false;
 
         initialize_video_decompress();
 
-        s = new state_decompress;
+        s = new state_transcoder_decompress;
         s->network_device = rtp_init_if("localhost", (char *) NULL, rx_port, rx_port, ttl,
                         rtcp_bw, FALSE, hd_rum_receive_pkt, (uint8_t *) s,
                         use_ipv6);
@@ -506,7 +506,7 @@ static void decode_packet(rtp_packet *pckt, char *frame_buffer, map<int, int> &p
         packets[data_pos] = len;
 }
 
-static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp)
+static void receive_packet(struct state_transcoder_decompress *s, rtp_packet *pckt_rtp)
 {
         if(pckt_rtp->pt != PT_VIDEO && pckt_rtp->pt != PT_VIDEO_LDGM) {
                 fprintf(stderr, "Other packet types than video are not supported.\n");
@@ -579,7 +579,8 @@ static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp)
 static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e)
 {
         rtp_packet *pckt_rtp = (rtp_packet *) e->data;
-        struct state_decompress *s = (struct state_decompress *)rtp_get_userdata(session);
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *)
+                rtp_get_userdata(session);
 
         switch (e->type) {
         case RX_RTP:
@@ -619,7 +620,7 @@ static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e)
 }
 
 void hd_rum_decompress_done(void *state) {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         pthread_mutex_lock(&s->lock);
         s->received_frame.push(new poisoned_pill);
