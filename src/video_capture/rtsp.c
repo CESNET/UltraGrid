@@ -254,7 +254,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 		printf("\t-t rtsp:<uri>:<port>:<ethX>\n");
 		printf("\t\t <uri> uri server without 'rtsp://' \n");
 		printf("\t\t <port> receiver port \n");
-		printf("\t\t <ethX> receiver network interface\n");
+//		printf("\t\t <ethX> receiver network interface\n");
 		//show_codec_help("rtsp");
 		return &vidcap_init_noerr;
 	}
@@ -276,16 +276,17 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	}
 	s->port = atoi(tmp);
 
-	tmp = strtok_r(NULL, ":", &save_ptr);
-	if (!tmp) {
-		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver interface specified\n", tmp);
-		free(s);
-		return NULL;
-	}
-	s->ethX = malloc(strlen(tmp) + 32);
-	sprintf(s->ethX, "%s",tmp);
-	s->addr=get_ip_from_ethX(s->ethX);//"127.0.0.1";
-	printf("\n[rtsp] network interface %s selected with IP %s\n",s->ethX,s->addr);
+//	tmp = strtok_r(NULL, ":", &save_ptr);
+//	if (!tmp) {
+//		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver interface specified\n", tmp);
+//		free(s);
+//		return NULL;
+//	}
+//	s->ethX = malloc(strlen(tmp) + 32);
+//	sprintf(s->ethX, "%s",tmp);
+//	s->addr=get_ip_from_ethX(s->ethX);//"127.0.0.1";
+//	printf("\n[rtsp] network interface %s selected with IP %s\n",s->ethX,s->addr);
+	s->addr="127.0.0.1";
 
 	s->should_exit = false;
 
@@ -583,7 +584,5 @@ void vidcap_rtsp_done(void *state){
 /* forced sigaction handler when rtsp init waits... */
 void sigaction_handler()
 {
-
 	vidcap_rtsp_done(s_global);
-
 }
