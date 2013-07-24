@@ -33,3 +33,4 @@ m4/
 libtool
 ltmain.sh
 mtrace.txt
+*.sdp
