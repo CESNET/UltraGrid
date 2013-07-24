@@ -74,6 +74,7 @@ struct rtsp_state {
 	int port;
 };
 
+struct rtsp_state *s_global;
 void * vidcap_rtsp_thread(void *args);
 char *get_ip_from_ethX(char * ethX);
 
@@ -213,7 +214,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s = calloc(1, sizeof(struct rtsp_state));
     if (!s)
             return NULL;
-
+    s_global = s;
     s->frame = vf_alloc(1);
     s->tile = vf_get_tile(s->frame, 0);
     vf_get_tile(s->frame, 0)->width=1280;
@@ -325,7 +326,10 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->boss_waiting = false;
     s->worker_waiting = false;
 
-    init_rtsp(s->uri, s->port, s);
+	const struct sigaction action = { .sa_handler = (void *)&sigaction_handler };
+	sigaction(SIGINT, &action, NULL);
+
+	init_rtsp(s->uri, s->port, s);
 
     pthread_create(&s->rtsp_thread_id, NULL , vidcap_rtsp_thread , s);
 
@@ -574,4 +578,12 @@ void vidcap_rtsp_done(void *state){
 //    free(s->audio_tone);
 //    free(s->audio_silence);
     free(s);
+}
+
+/* forced sigaction handler when rtsp init waits... */
+void sigaction_handler()
+{
+
+	vidcap_rtsp_done(s_global);
+
 }
