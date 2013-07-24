@@ -68,7 +68,7 @@
 #define DECOMPRESS_MAGIC 0xdff34f21u
 
 /**
- * This struct describes individual decompress modules
+ * @brief This struct describes individual decompress modules
  *
  * Initially, in this struct are either callbacks or functions names.
  * For actual initialization of the callbacks/names, @ref MK_STATIC and @ref MK_NAME
@@ -111,7 +111,7 @@ static void *decompress_open_library(const char *vidcap_name)
         return open_library(name);
 }
 
-/** For a given device, load individual functions from library (previously opened). */
+/** For a given device, load individual functions from library handle (previously opened). */
 static int decompress_fill_symbols(decoder_table_t *device)
 {
         void *handle = device->handle;
@@ -159,7 +159,7 @@ struct decode_from_to decoders_for_codec[] = {
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
 
 /**
- * This table contains list of decoders compiled with this UltraGrid version.
+ * @brief This table contains list of decoders compiled with this UltraGrid version.
  * If building modular UltraGrid version, hooks for all modules will be created.
  */
 decoder_table_t decoders[] = {
@@ -195,20 +195,14 @@ decoder_table_t decoders[] = {
 /** @brief length of @ref decoders array */
 #define MAX_DECODERS (sizeof(decoders) / sizeof(decoder_table_t))
 
-/**
- * Dynamic list of available decoders
- * Initialized with @ref initialize_video_decompress
- */
+/** @brief List of available decoders
+ * Initialized with @ref initialize_video_decompress */
 decoder_table_t *available_decoders[MAX_DECODERS];
-/**
- * Count of @ref available_decoders.
- * Initialized with @ref initialize_video_decompress
- */
+/** Count of @ref available_decoders.
+ * Initialized with @ref initialize_video_decompress */
 int available_decoders_count = -1;
 
-/**
- * must be called before initalization of decoders
- */
+/** must be called before initalization of decoders */
 void initialize_video_decompress(void)
 {
         available_decoders_count = 0;

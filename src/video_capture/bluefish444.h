@@ -50,8 +50,6 @@ struct audio_frame;
 struct vidcap_type;
 struct video_frame;
 
-#include "video.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif

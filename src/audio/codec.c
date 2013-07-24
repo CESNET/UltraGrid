@@ -56,6 +56,7 @@
 #include "audio/codec/dummy_pcm.h"
 #include "audio/codec/libavcodec.h"
 #include "audio/utils.h"
+#include "debug.h"
 
 #include "lib_common.h"
 

@@ -45,16 +45,9 @@
  *
  */
 #ifndef __video_codec_h
-
 #define __video_codec_h
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "video.h"
+#include "video.h" // codec_t
 
 #ifdef __cplusplus
 extern "C" {

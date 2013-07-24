@@ -55,8 +55,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "debug.h"
-
 /** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define STRINGIFY(A) #A

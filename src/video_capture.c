@@ -49,12 +49,15 @@
  *
  */
 
+/** @addtogroup vidcap
+ * @{ */
+
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
 #include "lib_common.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
@@ -75,6 +78,10 @@
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
+/** @name Function pointers
+ * Contains pointer to hereinafter defined function. The purpose is to make them available
+ * also for dynamically loaded modules.
+ * @{ */
 void (*vidcap_free_devices_extrn)() = vidcap_free_devices;
 void (*vidcap_done_extrn)(struct vidcap *) = vidcap_done;
 vidcap_id_t (*vidcap_get_null_device_id_extrn)(void) = vidcap_get_null_device_id;
@@ -83,19 +90,28 @@ int (*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags, struct v
 struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio) = vidcap_grab;
 int (*vidcap_get_device_count_extrn)(void) = vidcap_get_device_count;
 int (*vidcap_init_devices_extrn)(void) = vidcap_init_devices;
+/// @}
 
+/**This variable represents a pseudostate and may be returned when initialization
+ * of module was successful but no state was created (eg. when driver had displayed help).
+ */
 int vidcap_init_noerr;
 
+/// @brief This struct represents video capture state.
 struct vidcap {
-        void *state;
-        int index;
-        uint32_t magic;         /* For debugging */
+        void    *state; ///< state of the created video capture driver
+        int      index; ///< index to @ref vidcap_device_table
+        uint32_t magic; ///< For debugging. Conatins @ref VIDCAP_MAGIC
 };
 
+/**
+ * This struct describes individual vidcap modules
+ * @copydetails decoder_table_t
+ */
 struct vidcap_device_api {
-        vidcap_id_t id;
+        vidcap_id_t id;                        ///< @copydoc decoder_table_t::magic
 
-        const char              *library_name;
+        const char              *library_name; ///< @copydoc decoder_table_t::library_name
 
         struct vidcap_type    *(*func_probe) (void);
         const char              *func_probe_str;
@@ -106,9 +122,18 @@ struct vidcap_device_api {
         struct video_frame    *(*func_grab) (void *state, struct audio_frame **audio);
         const char              *func_grab_str;
 
-        void                    *handle;
+        void                    *handle;       ///< @copydoc decoder_table_t::handle
+        /** @var func_init
+         * @param[in] driver configuration string
+         * @param[in]  flags  one of @ref vidcap_flags
+         * @retval NULL if initialization failed
+         * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
+         * @retval other_ptr if initialization succeeded, contains pointer to state
+         */
 };
 
+/** @brief This table contains list of video capture devices compiled with this UltraGrid version.
+ *  @copydetails decoders */
 struct vidcap_device_api vidcap_device_table[] = {
         {
          /* The aggregate capture card */
@@ -295,12 +320,15 @@ struct vidcap_device_api vidcap_device_table[] = {
 
 /* API for probing capture devices ****************************************************************/
 
-static struct vidcap_type *available_devices[VIDCAP_DEVICE_TABLE_SIZE];
-static int available_device_count = 0;
+/** @brief List of available vidcap devices
+ * Initialized with @ref vidcap_init_devices */
+static struct vidcap_type *available_vidcap_devices[VIDCAP_DEVICE_TABLE_SIZE];
+/** @brief Count of @ref available_vidcap_devices
+ * Initialized with @ref vidcap_init_devices */
+static int available_vidcap_device_count = 0;
 
 #ifdef BUILD_LIBRARIES
-/* definded in video_display.c */
-void *open_library(const char *name);
+/** Opens vidcap library of given name. */
 static void *vidcap_open_library(const char *vidcap_name)
 {
         char name[128];
@@ -309,6 +337,7 @@ static void *vidcap_open_library(const char *vidcap_name)
         return open_library(name);
 }
 
+/** For a given device, load individual functions from library handle (previously opened). */
 static int vidcap_fill_symbols(struct vidcap_device_api *device)
 {
         void *handle = device->handle;
@@ -330,12 +359,18 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
 }
 #endif
 
+/** @brief Must be called before initalization of vidcap.
+ * In modular UltraGrid build, it also opens available libraries.
+ * @todo
+ * Figure out where to close libraries. vidcap_free_devices() is not the right place because
+ * it is called to early.
+ */
 int vidcap_init_devices(void)
 {
         unsigned int i;
         struct vidcap_type *dt;
 
-        assert(available_device_count == 0);
+        assert(available_vidcap_device_count == 0);
 
         for (i = 0; i < VIDCAP_DEVICE_TABLE_SIZE; i++) {
                 //printf("probe: %d\n",i);
@@ -357,44 +392,55 @@ int vidcap_init_devices(void)
                 dt = vidcap_device_table[i].func_probe();
                 if (dt != NULL) {
                         vidcap_device_table[i].id = dt->id;
-                        available_devices[available_device_count++] = dt;
+                        available_vidcap_devices[available_vidcap_device_count++] = dt;
                 }
         }
 
-        return available_device_count;
+        return available_vidcap_device_count;
 }
 
+/** Should be called after video capture is initialized. */
 void vidcap_free_devices(void)
 {
         int i;
 
-        for (i = 0; i < available_device_count; i++) {
-                free(available_devices[i]);
-                available_devices[i] = NULL;
+        for (i = 0; i < available_vidcap_device_count; i++) {
+                free(available_vidcap_devices[i]);
+                available_vidcap_devices[i] = NULL;
         }
-        available_device_count = 0;
+        available_vidcap_device_count = 0;
 }
 
+/** Returns count of available vidcap devices. */
 int vidcap_get_device_count(void)
 {
-        return available_device_count;
+        return available_vidcap_device_count;
 }
 
+/** Returns vidcap device metadata for given index. */
 struct vidcap_type *vidcap_get_device_details(int index)
 {
-        assert(index < available_device_count);
-        assert(available_devices[index] != NULL);
+        assert(index < available_vidcap_device_count);
+        assert(available_vidcap_devices[index] != NULL);
 
-        return available_devices[index];
+        return available_vidcap_devices[index];
 }
 
+/** Returns index of the noop device. */
 vidcap_id_t vidcap_get_null_device_id(void)
 {
         return VIDCAP_NULL_ID;
 }
 
-/* API for video capture **************************************************************************/
-
+/** @brief Initializes video capture
+ * @param[in] id     index of selected video capture driver
+ * @param[in] fmt    driver options
+ * @param[in] flags  one of @ref vidcap_flags
+ * @param[out] state returned state
+ * @retval 0    if initialization was successful
+ * @retval <0   if initialization failed
+ * @retval >0   if initialization was successful but no state was returned (eg. only having shown help).
+ */
 int vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **state)
 {
         unsigned int i;
@@ -425,6 +471,8 @@ int vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **s
         return -1;
 }
 
+/** @brief Destroys vidap state
+ * @param state state to be destroyed (must have been successfully initialized with vidcap_init()) */
 void vidcap_done(struct vidcap *state)
 {
         assert(state->magic == VIDCAP_MAGIC);
@@ -432,8 +480,23 @@ void vidcap_done(struct vidcap *state)
         free(state);
 }
 
+/** @brief Grabs video frame.
+ * This function may block for a short period if waiting for incoming frame. This period, however,
+ * should not be longer than few frame times, a second at maximum.
+ *
+ * The decision of blocking behavior is on the vidcap driver.
+ *
+ * The returned video frame is valid only until next vidcap_grab() call.
+ *
+ * @param[in]  state vidcap state
+ * @param[out] audio contains audio frame if driver is grabbing audio
+ * @returns video frame. If no frame was grabbed (or timeout passed) NULL is returned.
+ */
 struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio)
 {
         assert(state->magic == VIDCAP_MAGIC);
         return vidcap_device_table[state->index].func_grab(state->state, audio);
 }
+
+/** @} */ // end of vidcap
+
