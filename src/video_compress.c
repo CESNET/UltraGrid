@@ -55,6 +55,7 @@
 #include <string.h>
 #include "messaging.h"
 #include "module.h"
+#include "video.h"
 #include "video_codec.h"
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
@@ -197,9 +198,9 @@ static int compress_fill_symbols(struct compress_t *compression)
 
         compression->init = (compress_init_t)
                 dlsym(handle, compression->init_str);
-        compression->compress_frame = (struct video_frame * (*)(void *, struct video_frame *, int))
+        compression->compress_frame = (struct video_frame * (*)(struct module *, struct video_frame *, int))
                 dlsym(handle, compression->compress_frame_str);
-        compression->compress_tile = (struct tile * (*)(void *, struct tile*, struct video_desc *, int))
+        compression->compress_tile = (struct tile * (*)(struct module *, struct tile*, struct video_desc *, int))
                 dlsym(handle, compression->compress_tile_str);
 
         if(!compression->init || (compression->compress_frame == 0 && compression->compress_tile == 0)

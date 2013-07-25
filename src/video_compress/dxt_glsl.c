@@ -62,7 +62,7 @@
 #include "dxt_compress/dxt_util.h"
 #include "host.h"
 #include "module.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
 

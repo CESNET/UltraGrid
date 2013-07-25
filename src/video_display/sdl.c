@@ -58,7 +58,7 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
-#include "video_codec.h"
+#include "video.h"
 
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>

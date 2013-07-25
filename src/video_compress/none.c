@@ -57,8 +57,8 @@
 #include "debug.h"
 #include "host.h"
 #include "module.h"
-#include "video_codec.h"
 #include "video_compress.h"
+#include "video_frame.h"
 
 
 #define MAGIC 0x45bb3321

@@ -55,7 +55,7 @@
 #ifndef _VIDEO_DISPLAY_H
 #define _VIDEO_DISPLAY_H
 
-#include "video.h"
+#include "types.h"
 
 #define DISPLAY_FLAG_AUDIO_EMBEDDED (1<<1)
 #define DISPLAY_FLAG_AUDIO_AESEBU (1<<2)

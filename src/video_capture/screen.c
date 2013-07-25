@@ -54,7 +54,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
@@ -65,9 +65,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
-
-#include "video_display.h"
-#include "video.h"
 
 #include <pthread.h>
 

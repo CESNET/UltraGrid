@@ -47,7 +47,7 @@
 #ifndef __video_codec_h
 #define __video_codec_h
 
-#include "video.h" // codec_t
+#include "types.h" // codec_t
 
 #ifdef __cplusplus
 extern "C" {

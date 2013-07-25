@@ -57,9 +57,9 @@
 #ifdef HAVE_DVS           /* From config.h */
 
 #include "debug.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/dvs.h"
-#include "video_codec.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "tv.h"

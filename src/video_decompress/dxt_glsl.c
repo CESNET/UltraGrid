@@ -57,7 +57,7 @@
 #include "dxt_compress/dxt_decoder.h"
 #include "dxt_compress/dxt_util.h"
 //#include "compat/platform_semaphore.h"
-#include "video_codec.h"
+#include "video.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/dxt_glsl.h"

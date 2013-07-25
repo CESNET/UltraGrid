@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 void * df_init(char *config);
 bool df_get_property(void *state, int property, void *val, size_t *len);

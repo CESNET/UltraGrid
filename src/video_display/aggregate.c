@@ -62,8 +62,6 @@
 #include <assert.h>
 #include <host.h>
 
-#include <video_codec.h>
-
 #define MAGIC_AGGREGATE DISPLAY_AGGREGATE_ID
 
 struct display_aggregate_state {

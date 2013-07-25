@@ -64,7 +64,6 @@
 #include "utils/resource_manager.h"
 #include "utils/worker.h"
 #include "video.h"
-#include "video_codec.h"
 #include "video_compress.h"
 
 #define DEFAULT_CODEC MJPG

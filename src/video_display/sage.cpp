@@ -54,7 +54,7 @@
 
 #include "debug.h"
 #include "host.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/sage.h"
 

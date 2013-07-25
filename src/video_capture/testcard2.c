@@ -59,7 +59,7 @@
 
 #include "debug.h"
 #include "tv.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"

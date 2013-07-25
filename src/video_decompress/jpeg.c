@@ -52,7 +52,7 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 #include "host.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_decompress.h"
 
 #include "libgpujpeg/gpujpeg_decoder.h"

@@ -59,7 +59,7 @@
 #include "video_capture.h"
 #include "video_capture/quicktime.h"
 #include "video_display/quicktime.h"
-#include "video_codec.h"
+#include "video.h"
 #include "audio/audio.h"
 #include <math.h>
 

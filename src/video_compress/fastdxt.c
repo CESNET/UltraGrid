@@ -67,6 +67,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "module.h"
+#include "video.h"
 #include "video_compress.h"
 #include "libdxt.h"
 

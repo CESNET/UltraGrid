@@ -56,6 +56,7 @@
 #include "debug.h"
 #include "libavcodec_common.h"
 #include "utils/resource_manager.h"
+#include "video.h"
 #include "video_decompress.h"
 
 struct state_libavcodec_decompress {

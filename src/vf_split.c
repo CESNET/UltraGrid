@@ -53,11 +53,9 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "video_codec.h"
 #include "vf_split.h"
-
-#define MAGIC_H 0xFF
-#define MAGIC_T 0xFE
+#include "video.h"
+#include "video_codec.h"
 
 void vf_split(struct video_frame *out, struct video_frame *src,
               unsigned int x_count, unsigned int y_count, int preallocate)

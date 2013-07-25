@@ -1,14 +1,15 @@
+/**
+ * @file   video_frame.c
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ */
 /*
- * FILE:    video_codec.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -54,8 +55,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "video.h"
 #include "video_codec.h"
+#include "video_frame.h"
 
 struct video_frame * vf_alloc(int count)
 {
@@ -193,7 +194,7 @@ struct video_desc video_desc_from_frame(struct video_frame *frame)
         return desc;
 }
 
-int get_video_mode_tiles_x(int video_type)
+int get_video_mode_tiles_x(enum video_mode video_type)
 {
         int ret = 0;
         switch(video_type) {
@@ -209,7 +210,7 @@ int get_video_mode_tiles_x(int video_type)
         return ret;
 }
 
-int get_video_mode_tiles_y(int video_type)
+int get_video_mode_tiles_y(enum video_mode video_type)
 {
         int ret = 0;
         switch(video_type) {
@@ -261,7 +262,7 @@ const char *get_interlacing_suffix(enum interlacing_t interlacing)
         return NULL;
 }
 
-const char *get_video_mode_description(int video_mode)
+const char *get_video_mode_description(enum video_mode video_mode)
 {
         switch (video_mode) {
                 case VIDEO_NORMAL:

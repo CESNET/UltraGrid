@@ -70,6 +70,7 @@
 #include "tv.h"
 #include "transmit.h"
 #include "host.h"
+#include "video.h"
 #include "video_codec.h"
 #include "compat/platform_spin.h"
 

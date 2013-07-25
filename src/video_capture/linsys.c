@@ -50,7 +50,7 @@
 #include "config_win32.h"
 
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"

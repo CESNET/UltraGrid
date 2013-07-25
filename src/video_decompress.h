@@ -51,7 +51,8 @@
  */
 #ifndef __video_decompress_h
 #define __video_decompress_h
-#include "video_codec.h"
+
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {

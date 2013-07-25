@@ -63,7 +63,6 @@
 #include "debug.h"
 #include "host.h"
 #include "video.h"
-#include "video_codec.h"
 #include "video_decompress.h"
 #include "video_decompress/jpeg.h"
 

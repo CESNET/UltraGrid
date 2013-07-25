@@ -52,7 +52,7 @@
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
-#include "video_codec.h"
+#include "video.h"
 
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>

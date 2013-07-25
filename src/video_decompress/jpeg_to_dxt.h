@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 #define JPEG_TO_DXT_MAGIC 0x20BF0088
 

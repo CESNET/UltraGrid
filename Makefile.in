@@ -108,7 +108,7 @@ OBJS	      = @OBJS@ \
 		src/utils/ring_buffer.o \
 		src/utils/worker.o \
 		src/vf_split.o \
-		src/video.o \
+		src/video_frame.o \
 		src/video_codec.o \
 		src/video_capture.o \
 		src/video_capture/aggregate.o \
@@ -152,7 +152,7 @@ LIB_COMMON = \
 		src/utils/list.o \
 		src/utils/ring_buffer.o \
 		src/utils/worker.o \
-		src/video.o \
+		src/video_frame.o \
 		src/video_codec.o \
 
 

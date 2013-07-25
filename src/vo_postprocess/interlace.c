@@ -52,11 +52,11 @@
 #endif
 #include "debug.h"
 
-#include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include "vo_postprocess/interlace.h"
+#include "video.h"
 #include "video_display.h"
+#include "vo_postprocess/interlace.h"
 
 enum last_frame {
         ODD = 0,

@@ -59,10 +59,10 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "debug.h"
+#include "video.h"
 #include "video_capture.h"
 #include "video_capture/dvs.h"
 #include "video_display/dvs.h"
-#include "video_codec.h"
 #include "tv.h"
 #include "dvs_clib.h"           /* From the DVS SDK */
 #include "dvs_fifo.h"           /* From the DVS SDK */

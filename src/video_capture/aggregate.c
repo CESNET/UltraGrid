@@ -50,7 +50,7 @@
 #include "config_win32.h"
 
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
@@ -60,9 +60,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "video_display.h"
-#include "video.h"
 
 /* prototypes of functions defined in this module */
 static void show_help(void);

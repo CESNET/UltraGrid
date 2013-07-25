@@ -58,8 +58,8 @@ extern "C" {
 #include "tv.h"
 
 #include "debug.h"
+#include "video.h"
 #include "video_capture.h"
-#include "video_codec.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 

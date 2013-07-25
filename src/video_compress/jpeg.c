@@ -59,7 +59,7 @@
 #include "video_compress/jpeg.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
 #include "libgpujpeg/gpujpeg_common.h"
-#include "video_codec.h"
+#include "video.h"
 #include <pthread.h>
 #include <stdlib.h>
 

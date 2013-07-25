@@ -61,6 +61,7 @@
 
 #include "ihdtv.h"
 #include "debug.h"
+#include "video.h"
 
 int
 ihdtv_init_rx_session(ihdtv_connection * connection, const char *address_1,

@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 #define JPEG_MAGIC 0x3fd43f51u
 

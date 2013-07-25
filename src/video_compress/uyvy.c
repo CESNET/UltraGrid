@@ -55,7 +55,7 @@
 #include "module.h"
 #include "video_compress/uyvy.h"
 #include "compat/platform_semaphore.h"
-#include "video_codec.h"
+#include "video.h"
 #include <pthread.h>
 #include <stdlib.h>
 

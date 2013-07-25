@@ -50,13 +50,14 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif
-#include "debug.h"
 
-#include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include "vo_postprocess/double-framerate.h"
+
+#include "debug.h"
+#include "video.h"
 #include "video_display.h"
+#include "vo_postprocess/double-framerate.h"
 
 struct state_df {
         struct video_frame *in;

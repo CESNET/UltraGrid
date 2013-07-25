@@ -47,6 +47,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/null.h"
 

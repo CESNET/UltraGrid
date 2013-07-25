@@ -47,7 +47,7 @@
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
@@ -58,9 +58,6 @@
 #include <queue>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "video_display.h"
-#include "video.h"
 
 #define MAX_AUDIO_LEN (1024*1024)
 

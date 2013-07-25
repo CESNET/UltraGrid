@@ -70,7 +70,6 @@
 #include "tv.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_codec.h"
 
 
 /* prototypes of functions defined in this module */

@@ -47,13 +47,8 @@
 #ifndef __vo_postprocess_h
 
 #define __vo_postprocess_h
-#include "video_codec.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "types.h"
 
 /*          property                               type                   default          */
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */

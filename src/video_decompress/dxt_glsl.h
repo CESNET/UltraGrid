@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 #define RTDXT_MAGIC 0x2cc33ba3u
 

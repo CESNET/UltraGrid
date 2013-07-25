@@ -73,7 +73,6 @@
 #include "tv.h"
 #include "utils/ring_buffer.h"
 #include "video.h"
-#include "video_codec.h"
 #include "video_display.h"
 
 #define BLUEFISH444_MAGIC DISPLAY_BLUEFISH444_ID

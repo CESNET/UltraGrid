@@ -56,7 +56,7 @@
 
 #include "debug.h"
 #include "gl_context.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 #include "vo_postprocess/scale.h"

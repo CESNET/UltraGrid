@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 void * interlaced_3d_init(char *config);
 bool interlaced_3d_get_property(void *state, int property, void *val, size_t *len);

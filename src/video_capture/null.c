@@ -52,7 +52,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 #include "video_capture/null.h"
 

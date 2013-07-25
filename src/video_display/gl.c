@@ -84,6 +84,7 @@
 #include "compat/platform_semaphore.h"
 #include <unistd.h>
 #include "debug.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/gl.h"
 #include "tv.h"
