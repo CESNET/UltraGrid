@@ -28,12 +28,12 @@
  *
  */
 
+#ifndef _RTSP_H_
+#define _RTSP_H_
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#ifndef _RTSP_H_
-#define _RTSP_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +41,7 @@ extern "C" {
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
+#include <glib.h>
 
 #if defined (WIN32)
 #  include <conio.h>  /* _getch() */
@@ -67,6 +68,7 @@ extern "C" {
 #include <curl/curl.h>
 
 #define VERSION_STR  "V1.0"
+
 #define VIDCAP_RTSP_ID	0x45b3d828  //md5 hash of VIDCAP_RTSP_ID string == a208d26f519a2664a48781c845b3d828
 
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
@@ -115,12 +117,15 @@ static void get_sdp_filename(const char *url, char *sdp_filename);
 /* scan sdp file for media control attribute */
 static void get_media_control_attribute(const char *sdp_filename, char *control);
 
-
+static int get_nals(const char *sdp_filename, unsigned char *nals);
 
 /* sigaction handler that forces teardown on current session */
 void sigaction_handler();
 
-void init_rtsp(char* rtsp_uri, int rtsp_port,void *state);
+int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals);
+
+/* sigaction handler that forces teardown on current session */
+void sigaction_handler();
 
 struct vidcap_type	*vidcap_rtsp_probe(void);
 void			*vidcap_rtsp_init(char *fmt, unsigned int flags);
@@ -128,7 +133,6 @@ void			 vidcap_rtsp_done(void *state);
 struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio);
 
 #endif
-
 
 #ifdef __cplusplus
 } // END extern "C"

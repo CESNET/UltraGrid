@@ -26,15 +26,21 @@
 #include <net/if.h>
 #include "audio/audio.h"
 
-//FILE *F_video_rtsp=NULL;
+FILE *F_video_rtsp=NULL;
 
 struct rtsp_state {
-	char *ethX;
+//	char *ethX;
+
+	char *nals;
+	int nals_size;
+
 	struct timeval t0,t;
 	int frames;
 	struct video_frame *frame;
 	struct tile *tile;
 	struct audio_frame audio;
+	int width;
+	int height;
 
 	struct recieved_data *rx_data[2];
 	int rx_index;
@@ -108,16 +114,11 @@ void * vidcap_rtsp_thread(void *arg)
 
 		int ret;
 
-		for (int i = 0; i < (int) MAX_SUBSTREAMS; ++i) {
-			s->rx_data[s->rx_index]->buffer_len[i] = 0;
-			s->rx_data[s->rx_index]->buffer_num[i] = 0;
-			s->rx_data[s->rx_index]->frame_buffer[i] = NULL;
-		}
-		//printf("PACKET RECIEVED, building FRAME\n");
 		while (s->cp != NULL ) {
 			ret = pbuf_decode(s->cp->playout_buffer, s->curr_time, decode_frame_h264, s->rx_data[s->rx_index]);
 			//printf("DECODE return value: %d\n", ret);
 			if (ret) {
+				gettimeofday(&s->curr_time, NULL);
 
                 pthread_mutex_lock(&s->lock);
                 {
@@ -127,13 +128,10 @@ void * vidcap_rtsp_thread(void *arg)
                                 s->worker_waiting = false;
                         }
 
-
                         s->new_frame = true;
-
 
                         if(s->boss_waiting)
                                 pthread_cond_signal(&s->boss_cv);
-
                 }
                 pthread_mutex_unlock(&s->lock);
 
@@ -156,9 +154,6 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 	struct rtsp_state *s;
 	s = (struct rtsp_state *)state;
 
-	s->frame->tiles[0].data = NULL;
-	s->frame->tiles[0].data_len = 0;
-
     pthread_mutex_lock(&s->lock);
     {
             while(!s->new_frame) {
@@ -173,11 +168,21 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
     }
     pthread_mutex_unlock(&s->lock);
 
-	gettimeofday(&s->curr_time, NULL);
-
-	s->frame->tiles[0].data = s->rx_data[s->rx_index]->frame_buffer[0];
+	//s->frame->tiles[0].data = s->rx_data[s->rx_index]->frame_buffer[0];
 	s->frame->tiles[0].data_len = s->rx_data[s->rx_index]->buffer_len[0];
 
+	char *data = malloc(s->rx_data[s->rx_index]->buffer_len[0] + s->nals_size);
+	if(data !=NULL){
+		printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
+
+		memcpy(data,s->nals,s->nals_size);
+		memcpy(data+s->nals_size,s->rx_data[s->rx_index]->frame_buffer[0],s->rx_data[s->rx_index]->buffer_len[0]);
+
+		memcpy(s->frame->tiles[0].data,data,s->rx_data[s->rx_index]->buffer_len[0] + s->nals_size);
+		s->frame->tiles[0].data_len += s->nals_size;
+
+		free(data);
+	}
 //	//MODUL DE CAPTURA AUDIO A FITXER PER COMPROVACIONS EN TX
 //	//CAPTURA FRAMES ABANS DE DESCODIFICAR PER COMPROVAR RECEPCIÓ.
 //	if (F_video_rtsp == NULL) {
@@ -215,18 +220,12 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     if (!s)
             return NULL;
     s_global = s;
-    s->frame = vf_alloc(1);
-    s->tile = vf_get_tile(s->frame, 0);
-    vf_get_tile(s->frame, 0)->width=1280;
-    vf_get_tile(s->frame, 0)->height=720;
-    s->frame->fps=15;
-    s->frame->color_spec=H264;
-    s->frame->interlacing=PROGRESSIVE;
 
     char *save_ptr = NULL;
 
     gettimeofday(&s->t0, NULL);
     s->frames=0;
+    s->nals = malloc(1024);
 
     s->device = NULL;
     s->rtcp_bw = 5 * 1024 * 1024; /* FIXME */
@@ -251,9 +250,11 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
     if (fmt == NULL || strcmp(fmt, "help") == 0) {
 		printf("rtsp options:\n");
-		printf("\t-t rtsp:<uri>:<port>:<ethX>\n");
+		printf("\t-t rtsp:<uri>:<port>:<width>:<height>\n");
 		printf("\t\t <uri> uri server without 'rtsp://' \n");
 		printf("\t\t <port> receiver port \n");
+		printf("\t\t <width> receiver width \n");
+		printf("\t\t <height> receiver height \n");
 //		printf("\t\t <ethX> receiver network interface\n");
 		//show_codec_help("rtsp");
 		return &vidcap_init_noerr;
@@ -276,6 +277,21 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	}
 	s->port = atoi(tmp);
 
+	tmp = strtok_r(NULL, ":", &save_ptr);
+	if (!tmp) {
+		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver width specified\n", tmp);
+		free(s);
+		return NULL;
+	}
+	s->width = atoi(tmp);
+
+	tmp = strtok_r(NULL, ":", &save_ptr);
+	if (!tmp) {
+		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver height specified\n", tmp);
+		free(s);
+		return NULL;
+	}
+	s->height = atoi(tmp);
 //	tmp = strtok_r(NULL, ":", &save_ptr);
 //	if (!tmp) {
 //		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver interface specified\n", tmp);
@@ -287,6 +303,15 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 //	s->addr=get_ip_from_ethX(s->ethX);//"127.0.0.1";
 //	printf("\n[rtsp] network interface %s selected with IP %s\n",s->ethX,s->addr);
 	s->addr="127.0.0.1";
+
+    s->frame = vf_alloc(1);
+    s->tile = vf_get_tile(s->frame, 0);
+    vf_get_tile(s->frame, 0)->width=s->width;
+    vf_get_tile(s->frame, 0)->height=s->height;
+    s->frame->fps=30;
+    s->frame->color_spec=H264;
+    s->frame->interlacing=PROGRESSIVE;
+    s->frame->tiles[0].data = calloc(1, s->width*s->height);
 
 	s->should_exit = false;
 
@@ -330,27 +355,29 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	const struct sigaction action = { .sa_handler = (void *)&sigaction_handler };
 	sigaction(SIGINT, &action, NULL);
 
-	init_rtsp(s->uri, s->port, s);
+	s->nals_size = init_rtsp(s->uri, s->port, s , s->nals);
 
     pthread_create(&s->rtsp_thread_id, NULL , vidcap_rtsp_thread , s);
 
     return s;
 }
 
-void init_rtsp(char* rtsp_uri, int rtsp_port,void *state) {
+int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	struct rtsp_state *s;
 	s = (struct rtsp_state *)state;
 	const char *range = "0.000-";
-	int rc = EXIT_SUCCESS;
+	int len_nals=0;
 	char *base_name = NULL;
 	CURLcode res;
-	//printf("\nRTSP request %s\n", VERSION_STR);
+	//printf("\n[rtsp] request %s\n", VERSION_STR);
 	//printf("    Project web site: http://code.google.com/p/rtsprequest/\n");
 	//printf("    Requires cURL V7.20 or greater\n\n");
 	const char *url = rtsp_uri;
 	char *uri = malloc(strlen(url) + 32);
 	char *sdp_filename = malloc(strlen(url) + 32);
 	char *control = malloc(strlen(url) + 32);
+	//unsigned char nals[1500];
+	//bzero(nals, 1500);
 	char transport[256];
 	bzero(transport, 256);
 	int port = rtsp_port;
@@ -362,58 +389,59 @@ void init_rtsp(char* rtsp_uri, int rtsp_port,void *state) {
 	if (res == CURLE_OK) {
 	    curl_version_info_data *data = curl_version_info(CURLVERSION_NOW);
 	    CURL *curl;
-	    //fprintf(stderr, "[rtsp] cURL V%s loaded\n", data->version);
+	    fprintf(stderr, "[rtsp]    cURL V%s loaded\n", data->version);
 
 	    /* initialize this curl session */
 	    curl = curl_easy_init();
 	    if (curl != NULL) {
-		my_curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
-		my_curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
-		my_curl_easy_setopt(curl, CURLOPT_WRITEHEADER, stdout);
-		my_curl_easy_setopt(curl, CURLOPT_URL, url);
+			my_curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+			my_curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+			my_curl_easy_setopt(curl, CURLOPT_WRITEHEADER, stdout);
+			my_curl_easy_setopt(curl, CURLOPT_URL, url);
 
-		sprintf(uri, "%s", url);
+			sprintf(uri, "%s", url);
 
-		//printf("[rtsp] uri = %s\n",uri);
+			s->curl = curl;
+			s->uri = uri;
 
-		/* setup TEARDOWN on SIGINT (CTRL-C) */
-		s->curl = curl;
-		s->uri = uri;
+			/* request server options */
+			rtsp_options(curl, uri);
+			//printf("sdp_file: %s\n", sdp_filename);
+			/* request session description and write response to sdp file */
+			rtsp_describe(curl, uri, sdp_filename);
+			//printf("sdp_file!!!!: %s\n", sdp_filename);
+			/* get media control attribute from sdp file */
+			get_media_control_attribute(sdp_filename, control);
 
-		/* request server options */
-		rtsp_options(curl, uri);
-		//printf("[rtsp] sdp_file: %s\n", sdp_filename);
-		/* request session description and write response to sdp file */
-		rtsp_describe(curl, uri, sdp_filename);
-		//printf("[rtsp] sdp_file!!!!: %s\n", sdp_filename);
-		/* get media control attribute from sdp file */
-		get_media_control_attribute(sdp_filename, control);
 
-		/* setup media stream */
-		//sprintf(uri, "%s/%s", url, "track1");
-		sprintf(uri, "%s/%s", url, control);
-		rtsp_setup(curl, uri, transport);
 
-		/* start playing media stream */
-		sprintf(uri, "%s/", url);
-		rtsp_play(curl, uri, range);
+			/* setup media stream */
+			//sprintf(uri, "%s/%s", url, "track1");
+			sprintf(uri, "%s/%s", url, control);
 
-		s->curl = curl;
-		s->uri = uri;
+			rtsp_setup(curl, uri, transport);
 
-		printf("[rtsp] playing video from server...\n");
-		//_getch();
-		//pthread_create(&s->keepalive, NULL , session_keep_alive , s);
+			/* start playing media stream */
+			sprintf(uri, "%s/", url);
+
+			rtsp_play(curl, uri, range);
+
+			/* get start nal size attribute from sdp file */
+			len_nals=get_nals(sdp_filename, nals);
+
+			s->curl = curl;
+			s->uri = uri;
+			printf("[rtsp] playing video from server...\n");
+
 	    } else {
-		fprintf(stderr, "[rtsp] curl_easy_init() failed\n");
+	    	fprintf(stderr, "[rtsp] curl_easy_init() failed\n");
 	    }
 	    curl_global_cleanup();
 	} else {
 	    fprintf(stderr, "[rtsp] curl_global_init(%s) failed: %d\n",	    "CURL_GLOBAL_ALL", res);
 	}
+	return len_nals;
 }
-
-
 
 static void rtsp_get_parameters(CURL *curl, const char *uri)
 {
@@ -446,7 +474,7 @@ static void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
         sdp_fp = stdout;
     }
     else {
-        printf("[rtsp] Writing SDP to '%s'\n", sdp_filename);
+       // printf("Writing SDP to '%s'\n", sdp_filename);
     }
     my_curl_easy_setopt(curl, CURLOPT_WRITEDATA, sdp_fp);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long)CURL_RTSPREQ_DESCRIBE);
@@ -462,7 +490,7 @@ static void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 {
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] SETUP %s\n", uri);
-    printf("[rtsp] \t      TRANSPORT %s\n", transport);
+    printf("\t TRANSPORT %s\n", transport);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_TRANSPORT, transport);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long)CURL_RTSPREQ_SETUP);
@@ -496,7 +524,7 @@ static void rtsp_teardown(CURL *curl, const char *uri)
 static void get_sdp_filename(const char *url, char *sdp_filename)
 {
     const char *s = strrchr(url, '/');
-    //printf("[rtsp] sdp_file get: %s\n", sdp_filename);
+   // printf("sdp_file get: %s\n", sdp_filename);
 
 
     if (s != NULL) {
@@ -507,24 +535,6 @@ static void get_sdp_filename(const char *url, char *sdp_filename)
     }
 }
 
-char *get_ip_from_ethX(char * ethX){
-	int fd;
-	struct ifreq ifr;
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	/* I want to get an IPv4 IP address */
-	ifr.ifr_addr.sa_family = AF_INET;
-
-	/* I want IP address attached to "ethX" */
-	strncpy(ifr.ifr_name, ethX, IFNAMSIZ - 1);
-
-	ioctl(fd, SIOCGIFADDR, &ifr);
-
-	close(fd);
-
-	return inet_ntoa(((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr);
-}
 
 /* scan sdp file for media control attribute */
 static void get_media_control_attribute(const char *sdp_filename,
@@ -544,8 +554,24 @@ static void get_media_control_attribute(const char *sdp_filename,
     }
     free(s);
 }
+char *get_ip_from_ethX(char * ethX){
+	int fd;
+	struct ifreq ifr;
 
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
 
+	/* I want to get an IPv4 IP address */
+	ifr.ifr_addr.sa_family = AF_INET;
+
+	/* I want IP address attached to "ethX" */
+	strncpy(ifr.ifr_name, ethX, IFNAMSIZ - 1);
+
+	ioctl(fd, SIOCGIFADDR, &ifr);
+
+	close(fd);
+
+	return inet_ntoa(((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr);
+}
 
 struct vidcap_type	*vidcap_rtsp_probe(void){
     struct vidcap_type *vt;
@@ -580,6 +606,57 @@ void vidcap_rtsp_done(void *state){
 //    free(s->audio_silence);
     free(s);
 }
+
+/* scan sdp file for media control attribute */
+static int get_nals(const char *sdp_filename, unsigned char *nals){
+    int max_len = 1500 , len_nals = 0;
+    char *s = malloc(max_len);
+    char *sprop;
+    bzero(s, max_len);
+    FILE *sdp_fp = fopen(sdp_filename, "rt");
+    nals[0] = '\0';
+    if (sdp_fp != NULL) {
+        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
+		sprop = strstr(s, "sprop-parameter-sets=");
+		if (sprop != NULL) {
+			int length;
+			char *nal_aux, *nals_aux, *nal;
+			nals_aux = malloc(max_len);
+			nals[0]=0x00;
+			nals[1]=0x00;
+			nals[2]=0x00;
+			nals[3]=0x01;
+			len_nals = 4;
+			nal_aux = strstr(sprop, "=") ;
+			nal_aux++;
+			nal = strtok(nal_aux, ",");
+			//convert base64 to hex
+			nals_aux = g_base64_decode(nal, &length);
+			memcpy(nals+len_nals, nals_aux, length);
+			len_nals += length;
+
+			while ((nal = strtok(NULL, ",")) != NULL){
+				//convert base64 to hex
+				nals[len_nals]=0x00;
+				nals[len_nals+1]=0x00;
+				nals[len_nals+2]=0x00;
+				nals[len_nals+3]=0x01;
+				len_nals += 4;
+				nals_aux = g_base64_decode(nal, &length);
+				memcpy(nals+len_nals, nals_aux, length);
+				len_nals += length;
+				}
+			}
+
+        	}
+
+        fclose(sdp_fp);
+    }
+
+    free(s);
+    return len_nals;
+}
+
 
 /* forced sigaction handler when rtsp init waits... */
 void sigaction_handler()
