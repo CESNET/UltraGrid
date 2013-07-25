@@ -46,8 +46,6 @@
  *
  */
 
-#include <video_codec.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,6 +53,8 @@ extern "C" {
 #define DISPLAY_SAGE_ID	0xba370a2f
 
 struct audio_frame;
+struct video_desc;
+struct video_frame;
 
 display_type_t		*display_sage_probe(void);
 void 			*display_sage_init(char *fmt, unsigned int flags);

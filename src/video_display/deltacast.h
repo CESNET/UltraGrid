@@ -39,8 +39,8 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include "video_display.h"
-#include "video.h"
+
+#include "types.h"
 
 #define DISPLAY_DELTACAST_ID	0xf46d5550
 
@@ -77,7 +77,7 @@ void                 display_deltacast_put_audio_frame(void *state, struct audio
 int                  display_deltacast_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
 
-
 #ifdef __cplusplus
 } // END extern "C"
 #endif
+

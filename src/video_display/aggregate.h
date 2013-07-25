@@ -46,10 +46,10 @@
  *
  */
 
-#include <video_codec.h>
-
 #define DISPLAY_AGGREGATE_ID	0xbbcaa321
 struct audio_frame;
+struct video_desc;
+struct video_frame;
 
 display_type_t		*display_aggregate_probe(void);
 void 			*display_aggregate_init(char *fmt, unsigned int flags);

@@ -79,6 +79,7 @@ extern "C" {
 #endif
 
 #include "video_capture/deltacast.h"
+#include "video_display.h"
 #include "video_display/deltacast.h"
 
 #include <VideoMasterHD_Core.h>

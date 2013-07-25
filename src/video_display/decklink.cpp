@@ -66,6 +66,7 @@ extern "C" {
 #include "debug.h"
 #include "video.h"
 #include "tv.h"
+#include "video_display.h"
 #include "video_display/decklink.h"
 #include "debug.h"
 #include "video_capture.h"

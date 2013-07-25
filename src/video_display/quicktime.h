@@ -47,11 +47,12 @@
  */
 
 #define DISPLAY_QUICKTIME_ID    0xba370f2f
-#include "video.h"
 
-        struct audio_frame;
+struct audio_frame;
+struct video_desc;
+struct video_frame;
 
-        typedef struct {
+typedef struct {
         char   *device;
         char   *input;
         unsigned int    width;

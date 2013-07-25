@@ -47,9 +47,10 @@
  */
 
 #define DISPLAY_SDL_ID	0xba370a2b
-#include "video.h"
 
 struct audio_frame;
+struct video_desc;
+struct video_frame;
 
 display_type_t *        display_sdl_probe (void);
 void *                  display_sdl_init (char *fmt, unsigned int flags);

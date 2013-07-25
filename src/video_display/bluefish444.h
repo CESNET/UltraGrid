@@ -39,12 +39,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include "video_display.h"
-#include "video.h"
 
 #define DISPLAY_BLUEFISH444_ID	0x52f45430
 
 struct audio_frame;
+struct video_desc;
+struct video_frame;
 
 #ifdef __cplusplus
 extern "C" {

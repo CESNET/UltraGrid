@@ -64,8 +64,6 @@
 #include "video_capture.h"
 #include "video_capture/bluefish444.h"
 
-#include "video_display/bluefish444.h"
-
 #ifndef UINT
 #define UINT uint32_t
 #endif

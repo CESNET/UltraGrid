@@ -56,6 +56,7 @@
 #include "config_win32.h"
 #endif
 
+#include "video_display.h"
 #include "video_display/bluefish444.h"
 
 #include <iomanip>

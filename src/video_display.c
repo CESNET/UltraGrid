@@ -1,16 +1,18 @@
+/**
+ * @file   video_display.c
+ * @author Colin Perkins    <csp@isi.edu>
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ */
 /*
- * FILE:   video_display.c
- * AUTHOR: Colin Perkins <csp@isi.edu>
- *         Martin Benes     <martinbenesh@gmail.com>
- *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *         Petr Holub       <hopet@ics.muni.cz>
- *         Milos Liska      <xliska@fi.muni.cz>
- *         Jiri Matela      <matela@ics.muni.cz>
- *         Dalibor Matura   <255899@mail.muni.cz>
- *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
  * Copyright (c) 2001-2003 University of Southern California
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -49,6 +51,8 @@
  *
  */
 
+/** @addtogroup display
+ * @{ */
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -70,21 +74,41 @@
 
 #include <string.h>
 
+/**
+ * @name Function pointers
+ * Contains pointer to hereinafter defined function. The purpose is to make them available
+ * also for dynamically loaded modules.
+ * @todo
+ * Figure out some better way of doing the task (same as for vidcap).
+ * @{ */
 display_type_t *(*display_get_device_details_extrn)(int index) = display_get_device_details;
 void (*display_free_devices_extrn)(void) = display_free_devices;
 display_id_t (*display_get_null_device_id_extrn)(void) = display_get_null_device_id;
 int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **) = display_init;
 int (*display_get_device_count_extrn)(void) = display_get_device_count;
 int (*display_init_devices_extrn)(void)  = display_init_devices;
+/// @}
 
-/*
- * Interface to probing the valid display types. 
- *
+#define DISPLAY_MAGIC 0x01ba7ef1
+
+/// @brief This struct represents initialized video display state.
+struct display {
+        uint32_t magic; ///< state of the created video capture driver
+        int index;      ///< index to @ref display_device_table
+        void *state;    ///< For debugging. Conatins @ref DISPLAY_MAGIC
+};
+
+/**This variable represents a pseudostate and may be returned when initialization
+ * of module was successful but no state was created (eg. when driver had displayed help). */
+int display_init_noerr;
+
+/**
+ * This struct describes individual vidcap modules
+ * @copydetails decoder_table_t
  */
-
 typedef struct {
-        display_id_t              id;
-        const  char              *library_name;
+        display_id_t              id;           ///< @copydoc decoder_table_t::magic
+        const  char              *library_name; ///< @copydoc decoder_table_t::library_name
         display_type_t         *(*func_probe) (void);
         const char               *func_probe_str;
         void                   *(*func_init) (char *fmt, unsigned int flags);
@@ -108,9 +132,13 @@ typedef struct {
                         int sample_rate);
         const char               *func_reconfigure_audio_str;
 
-        void                     *handle;
+        void                     *handle; ///< @copydoc decoder_table_t::handle
 } display_table_t;
 
+/**
+ * @brief This table contains list of video capture devices compiled with this UltraGrid version.
+ * @copydetails decoders
+ */
 static display_table_t display_device_table[] = {
         {
          0,
@@ -282,13 +310,15 @@ static display_table_t display_device_table[] = {
 
 #define DISPLAY_DEVICE_TABLE_SIZE (sizeof(display_device_table) / sizeof(display_table_t))
 
-static display_type_t *available_devices[DISPLAY_DEVICE_TABLE_SIZE];
-static int available_device_count = 0;
+/** @brief List of available display devices
+ * Initialized with @ref display_init_devices */
+static display_type_t *available_display_devices[DISPLAY_DEVICE_TABLE_SIZE];
+/** @brief Count of @ref available_display_devices
+ * Initialized with @ref display_init_devices */
+static int available_display_device_count = 0;
 
 #ifdef BUILD_LIBRARIES
-static int display_fill_symbols(display_table_t *device);
-static void *display_open_library(const char *display_name);
-
+/** Opens display library of given name. */
 static void *display_open_library(const char *display_name)
 {
         char name[128];
@@ -297,6 +327,7 @@ static void *display_open_library(const char *display_name)
         return open_library(name);
 }
 
+/** For a given device, load individual functions from library handle (previously opened). */
 static int display_fill_symbols(display_table_t *device)
 {
         void *handle = device->handle;
@@ -338,12 +369,18 @@ static int display_fill_symbols(display_table_t *device)
 }
 #endif
 
+/**
+ * Must be called to initialize list of display devices before actual
+ * video display initialization.
+ *
+ * In modular UltraGrid build, it also opens available libraries.
+ */
 int display_init_devices(void)
 {
         unsigned int i;
         display_type_t *dt;
 
-        assert(available_device_count == 0);
+        assert(available_display_device_count == 0);
 
         for (i = 0; i < DISPLAY_DEVICE_TABLE_SIZE; i++) {
 #ifdef BUILD_LIBRARIES
@@ -363,36 +400,40 @@ int display_init_devices(void)
                 dt = display_device_table[i].func_probe();
                 if (dt != NULL) {
                         display_device_table[i].id = dt->id;
-                        available_devices[available_device_count++] = dt;
+                        available_display_devices[available_display_device_count++] = dt;
                 }
         }
         return 0;
 }
 
+/** Should be called after video display is initialized. */
 void display_free_devices(void)
 {
         int i;
 
-        for (i = 0; i < available_device_count; i++) {
-                free(available_devices[i]);
-                available_devices[i] = NULL;
+        for (i = 0; i < available_display_device_count; i++) {
+                free(available_display_devices[i]);
+                available_display_devices[i] = NULL;
         }
-        available_device_count = 0;
+        available_display_device_count = 0;
 }
 
+/** Returns number of available display devices */
 int display_get_device_count(void)
 {
-        return available_device_count;
+        return available_display_device_count;
 }
 
+/** Returns metadata about specified device */
 display_type_t *display_get_device_details(int index)
 {
-        assert(index < available_device_count);
-        assert(available_devices[index] != NULL);
+        assert(index < available_display_device_count);
+        assert(available_display_devices[index] != NULL);
 
-        return available_devices[index];
+        return available_display_devices[index];
 }
 
+/** Returns null device */
 display_id_t display_get_null_device_id(void)
 {
         return DISPLAY_NULL_ID;
@@ -402,16 +443,16 @@ display_id_t display_get_null_device_id(void)
  * Display initialisation and playout routines...
  */
 
-#define DISPLAY_MAGIC 0x01ba7ef1
-
-struct display {
-        uint32_t magic;
-        int index;
-        void *state;
-};
-
-int display_init_noerr;
-
+/**
+ * @brief Initializes video display.
+ * @param[in] id     video display identifier that will be initialized
+ * @param[in] fmt    command-line entered format string
+ * @param[in] flags  bit sum of @ref display_flags
+ * @param[out] state output display state. Defined only if initialization was successful.
+ * @retval    0  if sucessful
+ * @retval   -1  if failed
+ * @retval    1  if successfully shown help (no state returned)
+ */
 int display_init(display_id_t id, char *fmt, unsigned int flags, struct display **state)
 {
         unsigned int i;
@@ -440,6 +481,10 @@ int display_init(display_id_t id, char *fmt, unsigned int flags, struct display 
         return -1;
 }
 
+/**
+ * @brief This function performs cleanup after done.
+ * @param d display do be destroyed (must not be NULL)
+ */
 void display_done(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
@@ -447,12 +492,33 @@ void display_done(struct display *d)
         free(d);
 }
 
+/**
+ * @brief Display mainloop function.
+ *
+ * This call is entered in main thread and the display may stay in this call until end of the program.
+ * This is mainly for GUI displays (GL/SDL), which usually need to be run from main thread of the
+ * program (OS X).
+ *
+ * The function must quit after receiving a poisoned pill (frame == NULL) to
+ * a display_put_frame() call.
+
+ * @param d display to be run
+ */
 void display_run(struct display *d)
 {
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_run(d->state);
 }
 
+/**
+ * @brief Returns video framebuffer which will be written to.
+ *
+ * Currently there is a restriction on number of concurrently acquired frames - only one frame
+ * can be hold at the moment. Every obtained frame from this call has to be returned back
+ * with display_put_frame()
+ *
+ * @return               video frame
+ */
 struct video_frame *display_get_frame(struct display *d)
 {
         perf_record(UVP_GETFRAME, d);
@@ -460,6 +526,15 @@ struct video_frame *display_get_frame(struct display *d)
         return display_device_table[d->index].func_getf(d->state);
 }
 
+/**
+ * @brief Puts filled video frame.
+ * After calling this function, video frame cannot be used.
+ *
+ * @param d        display to be putted frame to
+ * @param frame    frame that has been obtained from display_get_frame() and has not yet been put.
+ *                 Should not be NULL unless we want to quit display mainloop.
+ * @param nonblock specifies blocking behavior (@ref display_put_frame_flags)
+ */
 int display_put_frame(struct display *d, struct video_frame *frame, int nonblock)
 {
         perf_record(UVP_PUTFRAME, frame);
@@ -467,27 +542,74 @@ int display_put_frame(struct display *d, struct video_frame *frame, int nonblock
         return display_device_table[d->index].func_putf(d->state, frame, nonblock);
 }
 
+/**
+ * @brief Reconfigure display to new video format.
+ *
+ * video_desc::color_spec, video_desc::interlacing
+ * and video_desc::tile_count are set according
+ * to properties obtained from display_get_property().
+ *
+ * @param d    display to be reconfigured
+ * @param desc new video description to be reconfigured to
+ * @retval TRUE  if reconfiguration succeeded
+ * @retval FALSE if reconfiguration failed
+ */
 int display_reconfigure(struct display *d, struct video_desc desc)
 {
         assert(d->magic == DISPLAY_MAGIC);
         return display_device_table[d->index].func_reconfigure(d->state, desc);
 }
 
+/**
+ * @brief Gets property from video display.
+ * @param[in]     d         video display state
+ * @param[in]     property  one of @ref display_property
+ * @param[in]     val       pointer to output buffer where should be the property stored
+ * @param[in]     len       provided buffer length
+ * @param[out]    len       actual size written
+ * @retval      TRUE      if succeeded and result is contained in val and len
+ * @retval      FALSE     if the query didn't succeeded (either not supported or error)
+ */
 int display_get_property(struct display *d, int property, void *val, size_t *len)
 {
         assert(d->magic == DISPLAY_MAGIC);
         return display_device_table[d->index].func_get_property(d->state, property, val, len);
 }
 
+/**
+ * @defgroup display_audio Audio
+ * Audio related functions (embedded audio).
+ * @note
+ * This functions will be called from different thread than video functions.
+ * @{
+ */
+/**
+ * @brief Puts audio data.
+ * @param d     video display
+ * @param frame audio frame to be played
+ */
 void display_put_audio_frame(struct display *d, struct audio_frame *frame)
 {
         assert(d->magic == DISPLAY_MAGIC);
         display_device_table[d->index].func_put_audio_frame(d->state, frame);
 }
 
+/**
+ * This function instructs video driver to reconfigure itself
+ *
+ * @param               d               video display structure
+ * @param               quant_samples   number of bits per sample
+ * @param               channels        count of channels
+ * @param               sample_rate     samples per second
+ * @retval              TRUE            if reconfiguration succeeded
+ * @retval              FALSE           if reconfiguration failed
+ */
 int display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate)
 {
         assert(d->magic == DISPLAY_MAGIC);
         return display_device_table[d->index].func_reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
+/** @} */ // end of display_audio
+
+/** @} */ // end of display
 

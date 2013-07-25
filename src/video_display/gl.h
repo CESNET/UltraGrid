@@ -46,11 +46,11 @@
  *
  */
 
-#include <video_codec.h>
-
 #define DISPLAY_GL_ID  0xba370a2a
 
 struct audio_frame;
+struct video_desc;
+struct video_frame;
 
 display_type_t          *display_gl_probe(void);
 void                    *display_gl_init(char *fmt, unsigned int flags);
