@@ -118,7 +118,7 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
 ;
 
 
-struct uyvy_video_compress {
+struct state_video_compress_uyvy {
         struct module module_data;
 
         struct video_frame *out[2];
@@ -136,15 +136,15 @@ struct uyvy_video_compress {
         int gl_format;
 };
 
-int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx);
+int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx);
 static void uyvy_compress_done(struct module *mod);
 
 struct module * uyvy_compress_init(struct module *parent, char * fmt)
 {
         UNUSED(fmt);
-        struct uyvy_video_compress *s;
+        struct state_video_compress_uyvy *s;
         
-        s = (struct uyvy_video_compress *) malloc(sizeof(struct uyvy_video_compress));
+        s = (struct state_video_compress_uyvy *) malloc(sizeof(struct state_video_compress_uyvy));
         s->out[0] = s->out[1] = NULL;
 
         if(!init_gl_context(&s->context, GL_CONTEXT_LEGACY))
@@ -214,7 +214,7 @@ struct module * uyvy_compress_init(struct module *parent, char * fmt)
         return &s->module_data;
 }
 
-int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx)
+int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx)
 {
         switch (tx->color_spec) {
                 case RGB:
@@ -285,7 +285,7 @@ int uyvy_configure_with(struct uyvy_video_compress *s, struct video_frame *tx)
 
 struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx, int buffer)
 {
-        struct uyvy_video_compress *s = (struct uyvy_video_compress *) mod->priv_data;
+        struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
         assert (buffer == 0 || buffer == 1);
 
         gl_context_make_current(&s->context);
@@ -341,7 +341,7 @@ struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx, 
 
 static void uyvy_compress_done(struct module *mod)
 {
-        struct uyvy_video_compress *s = (struct uyvy_video_compress *) mod->priv_data;
+        struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
 
         for (int i = 0; i < 2; ++i) {
                 vf_free_data(s->out[i]);

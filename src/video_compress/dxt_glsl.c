@@ -66,7 +66,7 @@
 #include "video_compress.h"
 #include "video_compress/dxt_glsl.h"
 
-struct video_compress {
+struct state_video_compress_rtdxt {
         struct module module_data;
 
         struct dxt_encoder **encoder;
@@ -83,10 +83,10 @@ struct video_compress {
         struct gl_context gl_context;
 };
 
-static int configure_with(struct video_compress *s, struct video_frame *frame);
+static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame);
 static void dxt_glsl_compress_done(struct module *mod);
 
-static int configure_with(struct video_compress *s, struct video_frame *frame)
+static int configure_with(struct state_video_compress_rtdxt *s, struct video_frame *frame)
 {
         unsigned int x;
         enum dxt_format format;
@@ -233,10 +233,10 @@ static int configure_with(struct video_compress *s, struct video_frame *frame)
 
 struct module *dxt_glsl_compress_init(struct module *parent, char * opts)
 {
-        struct video_compress *s;
+        struct state_video_compress_rtdxt *s;
         int i;
         
-        s = (struct video_compress *) malloc(sizeof(struct video_compress));
+        s = (struct state_video_compress_rtdxt *) malloc(sizeof(struct state_video_compress_rtdxt));
 
         for (i = 0; i < 2; ++i) {
                 s->out[i] = NULL;
@@ -283,7 +283,7 @@ struct module *dxt_glsl_compress_init(struct module *parent, char * opts)
 
 struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * tx, int buffer_idx)
 {
-        struct video_compress *s = (struct video_compress *) mod->priv_data;
+        struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
 
@@ -331,7 +331,7 @@ struct video_frame * dxt_glsl_compress(struct module *mod, struct video_frame * 
 
 static void dxt_glsl_compress_done(struct module *mod)
 {
-        struct video_compress *s = (struct video_compress *) mod->priv_data;
+        struct state_video_compress_rtdxt *s = (struct state_video_compress_rtdxt *) mod->priv_data;
         int i, x;
         
         if(s->out[0]) {

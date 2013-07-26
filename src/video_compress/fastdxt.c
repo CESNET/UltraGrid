@@ -1,5 +1,5 @@
 /*
- * FILE:    video_compress.c
+ * FILE:    video_compress/fastdxt.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -93,7 +93,7 @@ static volatile int fastdxt_should_exit = FALSE;
  * 3. Compress 8 bit RGB -> DXT
  */
 
-struct video_compress {
+struct state_video_compress_fastdxt {
         struct module module_data;
 
         int num_threads;
@@ -122,11 +122,11 @@ struct video_compress {
 };
 
 static void *compress_thread(void *args);
-static int reconfigure_compress(struct video_compress *compress, int width,
+static int reconfigure_compress(struct state_video_compress_fastdxt *compress, int width,
                 int height, codec_t codec, enum interlacing_t, double fps);
 static void fastdxt_done(struct module *mod);
 
-static int reconfigure_compress(struct video_compress *compress, int width,
+static int reconfigure_compress(struct state_video_compress_fastdxt *compress, int width,
                 int height, codec_t codec, enum interlacing_t interlacing, double fps)
 {
         int x;
@@ -257,7 +257,7 @@ struct module *fastdxt_init(struct module *parent, char *num_threads_str)
          */
         int x;
         int i;
-        struct video_compress *compress;
+        struct state_video_compress_fastdxt *compress;
 
         if(num_threads_str && strcmp(num_threads_str, "help") == 0) {
                 printf("FastDXT usage:\n");
@@ -266,7 +266,7 @@ struct module *fastdxt_init(struct module *parent, char *num_threads_str)
                 return &compress_init_noerr;
         }
 
-        compress = calloc(1, sizeof(struct video_compress));
+        compress = calloc(1, sizeof(struct state_video_compress_fastdxt));
         /* initial values */
         compress->num_threads = 0;
         if(num_threads_str == NULL)
@@ -325,7 +325,8 @@ struct module *fastdxt_init(struct module *parent, char *num_threads_str)
 struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc, int buffer_idx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
-        struct video_compress *compress = (struct video_compress *) mod->priv_data;
+        struct state_video_compress_fastdxt *compress =
+                (struct state_video_compress_fastdxt *) mod->priv_data;
         unsigned int x;
         unsigned char *line1, *line2;
         struct video_frame *out = compress->out[buffer_idx];
@@ -387,7 +388,8 @@ struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct 
 
 static void *compress_thread(void *args)
 {
-        struct video_compress *compress = (struct video_compress *)args;
+        struct state_video_compress_fastdxt *compress =
+                (struct state_video_compress_fastdxt *)args;
         int myId, range, my_range, x;
         int my_height;
         unsigned char *retv;
@@ -447,7 +449,8 @@ static void *compress_thread(void *args)
 
 static void fastdxt_done(struct module *mod)
 {
-        struct video_compress *compress = (struct video_compress *) mod->priv_data;
+        struct state_video_compress_fastdxt *compress =
+                (struct state_video_compress_fastdxt *) mod->priv_data;
         int x;
         
         pthread_mutex_lock(&(compress->lock)); /* wait for fastdxt_compress if running */

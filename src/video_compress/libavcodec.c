@@ -105,7 +105,7 @@ static codec_params_t codec_params[] = {
         },
 };
 
-struct libav_video_compress {
+struct state_video_compress_libav {
         struct module       module_data;
 
         pthread_mutex_t    *lavcd_global_lock;
@@ -143,8 +143,8 @@ struct libav_video_compress {
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void to_yuv422(AVFrame *out_frame, unsigned char *in_data, int width, int height);
 static void usage(void);
-static int parse_fmt(struct libav_video_compress *s, char *fmt);
-static void cleanup(struct libav_video_compress *s);
+static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
+static void cleanup(struct state_video_compress_libav *s);
 
 static void usage() {
         printf("Libavcodec encoder usage:\n");
@@ -167,7 +167,7 @@ static void usage() {
         printf("\t\t\t0 means codec default (same as when parameter omitted)\n");
 }
 
-static int parse_fmt(struct libav_video_compress *s, char *fmt) {
+static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         char *item, *save_ptr = NULL;
         if(fmt) {
                 while((item = strtok_r(fmt, ":", &save_ptr)) != NULL) {
@@ -234,9 +234,9 @@ static int parse_fmt(struct libav_video_compress *s, char *fmt) {
 
 struct module * libavcodec_compress_init(struct module *parent, char * fmt)
 {
-        struct libav_video_compress *s;
+        struct state_video_compress_libav *s;
 
-        s = (struct libav_video_compress *) malloc(sizeof(struct libav_video_compress));
+        s = (struct state_video_compress_libav *) malloc(sizeof(struct state_video_compress_libav));
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
 
         /*  register all the codecs (you can also register only the codec
@@ -299,7 +299,7 @@ struct module * libavcodec_compress_init(struct module *parent, char * fmt)
         return &s->module_data;
 }
 
-static bool configure_with(struct libav_video_compress *s, struct video_desc desc)
+static bool configure_with(struct state_video_compress_libav *s, struct video_desc desc)
 {
         int ret;
         int codec_id = 0;
@@ -574,7 +574,7 @@ void *my_task(void *arg) {
 struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
                 int buffer_idx)
 {
-        struct libav_video_compress *s = (struct libav_video_compress *) mod->priv_data;
+        struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         assert (buffer_idx == 0 || buffer_idx == 1);
         static int frame_seq = 0;
         int ret;
@@ -687,7 +687,7 @@ error:
         return NULL;
 }
 
-static void cleanup(struct libav_video_compress *s)
+static void cleanup(struct state_video_compress_libav *s)
 {
         for(int i = 0; i < 2; ++i) {
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
@@ -718,7 +718,7 @@ static void cleanup(struct libav_video_compress *s)
 
 static void libavcodec_compress_done(struct module *mod)
 {
-        struct libav_video_compress *s = (struct libav_video_compress *) mod->priv_data;
+        struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
 
         cleanup(s);
 
@@ -814,7 +814,7 @@ static void setparam_vp8(AVCodecContext *codec_ctx, struct setparam_param *param
 
 static struct response *compress_change_callback(struct module *mod, struct message *msg)
 {
-        struct libav_video_compress *s = (struct libav_video_compress *) mod->priv_data;
+        struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static struct response *ret;
 
         struct msg_change_compress_data *data =

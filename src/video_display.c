@@ -9,6 +9,8 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *
+ * @ingroup display
  */
 /*
  * Copyright (c) 2001-2003 University of Southern California
@@ -51,8 +53,6 @@
  *
  */
 
-/** @addtogroup display
- * @{ */
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
@@ -577,13 +577,6 @@ int display_get_property(struct display *d, int property, void *val, size_t *len
 }
 
 /**
- * @defgroup display_audio Audio
- * Audio related functions (embedded audio).
- * @note
- * This functions will be called from different thread than video functions.
- * @{
- */
-/**
  * @brief Puts audio data.
  * @param d     video display
  * @param frame audio frame to be played
@@ -609,7 +602,4 @@ int display_reconfigure_audio(struct display *d, int quant_samples, int channels
         assert(d->magic == DISPLAY_MAGIC);
         return display_device_table[d->index].func_reconfigure_audio(d->state, quant_samples, channels, sample_rate);
 }
-/** @} */ // end of display_audio
-
-/** @} */ // end of display
 

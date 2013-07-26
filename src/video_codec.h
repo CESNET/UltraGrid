@@ -7,11 +7,6 @@
  * @author Jiri Matela      <matela@ics.muni.cz>
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * @brief This file contains video codec-related functions.
- *
- * This file contains video codecs' metadata and helper
- * functions as well as pixelformat converting functions.
  */
 /* Copyright (c) 2005-2013 CESNET z.s.p.o.
  *

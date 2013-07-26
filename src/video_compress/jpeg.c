@@ -63,7 +63,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-struct compress_jpeg_state {
+struct state_video_compress_jpeg {
         struct module module_data;
 
         struct gpujpeg_encoder *encoder;
@@ -84,13 +84,13 @@ struct compress_jpeg_state {
         int encoder_input_linesize;
 };
 
-static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame);
-static void cleanup_state(struct compress_jpeg_state *s);
+static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame);
+static void cleanup_state(struct state_video_compress_jpeg *s);
 static struct response *compress_change_callback(struct module *mod, struct message *msg);
-static void parse_fmt(struct compress_jpeg_state *s, char *fmt);
+static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt);
 static void jpeg_compress_done(struct module *mod);
 
-static int configure_with(struct compress_jpeg_state *s, struct video_frame *frame)
+static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame)
 {
         unsigned int x;
         int frame_idx;
@@ -240,7 +240,7 @@ static int configure_with(struct compress_jpeg_state *s, struct video_frame *fra
 
 static struct response *compress_change_callback(struct module *mod, struct message *msg)
 {
-        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
+        struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
 
         static struct response *ret;
 
@@ -258,7 +258,7 @@ static struct response *compress_change_callback(struct module *mod, struct mess
         return ret;
 }
 
-static void parse_fmt(struct compress_jpeg_state *s, char *fmt)
+static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
 {
         if(fmt) {
                 char *tok, *save_ptr = NULL;
@@ -278,10 +278,10 @@ static void parse_fmt(struct compress_jpeg_state *s, char *fmt)
 
 struct module * jpeg_compress_init(struct module *parent, char * opts)
 {
-        struct compress_jpeg_state *s;
+        struct state_video_compress_jpeg *s;
         int frame_idx;
         
-        s = (struct compress_jpeg_state *) malloc(sizeof(struct compress_jpeg_state));
+        s = (struct state_video_compress_jpeg *) malloc(sizeof(struct state_video_compress_jpeg));
 
         for (frame_idx = 0; frame_idx < 2; frame_idx++) {
                 s->out[frame_idx] = NULL;
@@ -336,7 +336,7 @@ struct module * jpeg_compress_init(struct module *parent, char * opts)
 
 struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx, int buffer_idx)
 {
-        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
+        struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
         int i;
         unsigned char *line1, *line2;
         struct video_frame *out;
@@ -413,7 +413,7 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx, 
 
 static void jpeg_compress_done(struct module *mod)
 {
-        struct compress_jpeg_state *s = (struct compress_jpeg_state *) mod->priv_data;
+        struct state_video_compress_jpeg *s = (struct state_video_compress_jpeg *) mod->priv_data;
 
         cleanup_state(s);
 
@@ -422,7 +422,7 @@ static void jpeg_compress_done(struct module *mod)
         free(s);
 }
 
-static void cleanup_state(struct compress_jpeg_state *s)
+static void cleanup_state(struct state_video_compress_jpeg *s)
 {
         int frame_idx;
         

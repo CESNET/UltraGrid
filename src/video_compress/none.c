@@ -65,7 +65,7 @@
 
 static void none_compress_done(struct module *mod);
 
-struct none_video_compress {
+struct state_video_compress_none {
         struct module module_data;
 
         uint32_t magic;
@@ -75,9 +75,9 @@ struct module * none_compress_init(struct module *parent, char * opts)
 {
         UNUSED(opts);
 
-        struct none_video_compress *s;
+        struct state_video_compress_none *s;
         
-        s = (struct none_video_compress *) malloc(sizeof(struct none_video_compress));
+        s = (struct state_video_compress_none *) malloc(sizeof(struct state_video_compress_none));
         s->magic = MAGIC;
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;
@@ -91,7 +91,7 @@ struct module * none_compress_init(struct module *parent, char * opts)
 struct video_frame * none_compress(struct module *mod, struct video_frame * tx, int buffer_idx)
 {
         UNUSED(buffer_idx);
-        struct none_video_compress *s = (struct none_video_compress *) mod->priv_data;
+        struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
 
         assert(s->magic == MAGIC);
 
@@ -100,7 +100,7 @@ struct video_frame * none_compress(struct module *mod, struct video_frame * tx, 
 
 static void none_compress_done(struct module *mod)
 {
-        struct none_video_compress *s = (struct none_video_compress *) mod->priv_data;
+        struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
 
         assert(s->magic == MAGIC);
 

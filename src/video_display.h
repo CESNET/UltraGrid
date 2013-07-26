@@ -9,6 +9,8 @@
  * @author Dalibor Matura   <255899@mail.muni.cz>
  * @author Martin Pulec     <pulec@cesnet.cz>
  * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *
+ * @ingroup display
  */
 /* Copyright (c) 2001-2003 University of Southern California
  * Copyright (c) 2005-2013 CESNET z.s.p.o.
@@ -131,8 +133,16 @@ enum display_put_frame_flags {
 int 		         display_put_frame(struct display *d, struct video_frame *frame, int nonblock);
 int                      display_reconfigure(struct display *d, struct video_desc desc);
 int                      display_get_property(struct display *d, int property, void *val, size_t *len);
+/**
+ * @defgroup display_audio Audio
+ * Audio related functions (embedded audio).
+ * @note
+ * This functions will be called from different thread than video functions.
+ * @{
+ */
 void                     display_put_audio_frame(struct display *d, struct audio_frame *frame);
 int                      display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
+/** @} */ // end of display_audio
 
 #endif /* _VIDEO_DISPLAY_H */
 
