@@ -16,21 +16,11 @@
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_capture/rtsp.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <net/if.h>
 //#include "audio/audio.h"
 
 FILE *F_video_rtsp=NULL;
 
 struct rtsp_state {
-//	char *ethX;
-
 	char *nals;
 	int nals_size;
 
@@ -38,12 +28,11 @@ struct rtsp_state {
 	int frames;
 	struct video_frame *frame;
 	struct tile *tile;
-	struct audio_frame audio;
+//	struct audio_frame audio;
 	int width;
 	int height;
 
-	struct recieved_data *rx_data[2];
-	int rx_index;
+	struct recieved_data *rx_data;
 	bool new_frame;
 	bool pbuf_removed;
 
@@ -61,13 +50,12 @@ struct rtsp_state {
 	int required_connections;
 	uint32_t timestamp;
 
-	int play_audio_frame;
+//	int play_audio_frame;
 
-	struct timeval last_audio_time;
-	unsigned int grab_audio:1;
+//	struct timeval last_audio_time;
+//	unsigned int grab_audio:1;
 
 	pthread_t rtsp_thread_id; //the worker_id
-//	pthread_t keepalive;
     pthread_mutex_t lock;
     pthread_cond_t worker_cv;
     volatile bool worker_waiting;
@@ -83,7 +71,6 @@ struct rtsp_state {
 
 struct rtsp_state *s_global;
 void * vidcap_rtsp_thread(void *args);
-char *get_ip_from_ethX(char * ethX);
 
 void * vidcap_rtsp_thread(void *arg)
 {
@@ -118,11 +105,8 @@ void * vidcap_rtsp_thread(void *arg)
 		s->pbuf_removed = true;
 
 		while (s->cp != NULL ) {
-			ret = pbuf_decode(s->cp->playout_buffer, s->curr_time, decode_frame_h264, s->rx_data[s->rx_index]);
-			//printf("DECODE return value: %d\n", ret);
-
+			ret = pbuf_decode(s->cp->playout_buffer, s->curr_time, decode_frame_h264, s->rx_data);
 			if (ret) {
-
                 pthread_mutex_lock(&s->lock);
                 {
                         while(s->new_frame && !s->should_exit) {
@@ -136,19 +120,13 @@ void * vidcap_rtsp_thread(void *arg)
                                 pthread_cond_signal(&s->boss_cv);
                 }
                 pthread_mutex_unlock(&s->lock);
-
 			} else {
 				//printf("FRAME not ready yet\n");
-				//s->new_frame=false;
-
 			}
 			pbuf_remove(s->cp->playout_buffer, s->curr_time);
-
 			s->cp = pdb_iter_next(&it);
 		}
-
 		pdb_iter_done(&it);
-
 	}
 	return NULL;
 }
@@ -175,36 +153,22 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 
 	gettimeofday(&s->curr_time, NULL);
 
-	//s->frame->tiles[0].data = s->rx_data[s->rx_index]->frame_buffer[0];
-	s->frame->tiles[0].data_len = s->rx_data[s->rx_index]->buffer_len[0];
+	s->frame->tiles[0].data_len = s->rx_data->buffer_len;
 
-	char *data = malloc(s->rx_data[s->rx_index]->buffer_len[0] + s->nals_size);
+	char *data = malloc(s->rx_data->buffer_len + s->nals_size);
 	if(data !=NULL){
 		//printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
 
 		memcpy(data,s->nals,s->nals_size);
-		memcpy(data+s->nals_size,s->rx_data[s->rx_index]->frame_buffer[0],s->rx_data[s->rx_index]->buffer_len[0]);
+		memcpy(data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
 
-		memcpy(s->frame->tiles[0].data,data,s->rx_data[s->rx_index]->buffer_len[0] + s->nals_size);
+		memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
 		s->frame->tiles[0].data_len += s->nals_size;
 
 		free(data);
 	}
-//	//MODUL DE CAPTURA AUDIO A FITXER PER COMPROVACIONS EN TX
-//	//CAPTURA FRAMES ABANS DE DESCODIFICAR PER COMPROVAR RECEPCIÓ.
-//	if (F_video_rtsp == NULL) {
-//		printf("[rtsp] recording rtsp rx frame...\n");
-//		F_video_rtsp = fopen("rtsp_rx_frame.mp4", "wb");
-//	}
-//
-//	fwrite(s->frame->tiles[0].data, s->frame->tiles[0].data_len, 1,F_video_rtsp);
-//	//FI CAPTURA
 
-	s->rx_index = (s->rx_index + 1) %2;
 	s->new_frame = false;
-
-//	pbuf_remove(s->cp->playout_buffer,s->curr_time_cpy);
-//	gettimeofday(&s->curr_time_cpy, NULL);
 
     gettimeofday(&s->t, NULL);
 	double seconds = tv_diff(s->t, s->t0);
@@ -236,6 +200,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->frames=0;
     s->nals = malloc(1024);
 
+	s->addr="127.0.0.1";
     s->device = NULL;
     s->rtcp_bw = 5 * 1024 * 1024; /* FIXME */
     s->ttl  = 255;
@@ -249,9 +214,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->device = (struct rtp *) malloc((s->required_connections) * sizeof(struct rtp *));
     s->participants = pdb_init();
 
-    s->rx_data[0] = calloc(1, sizeof(struct recieved_data));
-    s->rx_data[1] = calloc(1, sizeof(struct recieved_data));
-    s->rx_index=0;
+    s->rx_data = calloc(1, sizeof(struct recieved_data));
     s->new_frame = false;
 
     s->uri = NULL;
@@ -264,7 +227,6 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 		printf("\t\t <port> receiver port \n");
 		printf("\t\t <width> receiver width \n");
 		printf("\t\t <height> receiver height \n");
-//		printf("\t\t <ethX> receiver network interface\n");
 		//show_codec_help("rtsp");
 		return &vidcap_init_noerr;
 	}
@@ -301,17 +263,8 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 		return NULL;
 	}
 	s->height = atoi(tmp);
-//	tmp = strtok_r(NULL, ":", &save_ptr);
-//	if (!tmp) {
-//		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver interface specified\n", tmp);
-//		free(s);
-//		return NULL;
-//	}
-//	s->ethX = malloc(strlen(tmp) + 32);
-//	sprintf(s->ethX, "%s",tmp);
-//	s->addr=get_ip_from_ethX(s->ethX);//"127.0.0.1";
-//	printf("\n[rtsp] network interface %s selected with IP %s\n",s->ethX,s->addr);
-	s->addr="127.0.0.1";
+
+	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
 
     s->frame = vf_alloc(1);
     s->tile = vf_get_tile(s->frame, 0);
@@ -387,8 +340,6 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	char *uri = malloc(strlen(url) + 32);
 	char *sdp_filename = malloc(strlen(url) + 32);
 	char *control = malloc(strlen(url) + 32);
-	//unsigned char nals[1500];
-	//bzero(nals, 1500);
 	char transport[256];
 	bzero(transport, 256);
 	int port = rtsp_port;
@@ -568,24 +519,6 @@ static void get_media_control_attribute(const char *sdp_filename,
     }
     free(s);
 }
-char *get_ip_from_ethX(char * ethX){
-	int fd;
-	struct ifreq ifr;
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	/* I want to get an IPv4 IP address */
-	ifr.ifr_addr.sa_family = AF_INET;
-
-	/* I want IP address attached to "ethX" */
-	strncpy(ifr.ifr_name, ethX, IFNAMSIZ - 1);
-
-	ioctl(fd, SIOCGIFADDR, &ifr);
-
-	close(fd);
-
-	return inet_ntoa(((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr);
-}
 
 struct vidcap_type	*vidcap_rtsp_probe(void){
     struct vidcap_type *vt;
@@ -605,7 +538,8 @@ void vidcap_rtsp_done(void *state){
 
     s->should_exit = true;
     pthread_join(s->rtsp_thread_id, NULL);
-    //pthread_join(s->keepalive, NULL);
+
+    free(s->rx_data->frame_buffer);
 
     rtsp_teardown(s->curl, s->uri);
 
@@ -614,10 +548,6 @@ void vidcap_rtsp_done(void *state){
 
 	rtp_done(s->device);
 
-//    free(s->data);
-
-//    free(s->audio_tone);
-//    free(s->audio_silence);
     free(s);
 }
 

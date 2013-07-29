@@ -6,7 +6,6 @@
 #include "perf.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
-//#include "rtp/rtpdec.h"
 //#include "rtp/rtpdec_h264.h"
 #include "video_capture/rtsp.h"
 #include "rtp/pbuf.h"
@@ -17,7 +16,6 @@ int decode_frame_h264(struct coded_data *cdata, void *rx_data);
 
 int decode_frame_h264(struct coded_data *cdata, void *rx_data) {
 	rtp_packet *pckt = NULL;
-	int substream = 0;
 	struct coded_data *orig = cdata;
 
 	uint8_t nal;
@@ -30,19 +28,13 @@ int decode_frame_h264(struct coded_data *cdata, void *rx_data) {
 	int src_len;
 
 	struct recieved_data *buffers = (struct recieved_data *) rx_data;
-	for (int i = 0; i < (int) MAX_SUBSTREAMS; ++i) {
-		buffers->buffer_len[i] = 0;
-		buffers->buffer_num[i] = 0;
-		buffers->frame_buffer[i] = NULL;
-	}
 
 	for (pass = 0; pass < 2; pass++) {
 
 		if (pass > 0) {
 			cdata = orig;
-			buffers->buffer_len[substream] = total_length;
-			buffers->frame_buffer[substream] = (char *) malloc(total_length);
-			dst = buffers->frame_buffer[substream] + total_length;
+			buffers->buffer_len = total_length;
+			dst = buffers->frame_buffer + total_length;
 		}
 
 		while (cdata != NULL) {

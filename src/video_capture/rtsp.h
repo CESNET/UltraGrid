@@ -73,12 +73,12 @@ extern "C" {
 
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
-#define MAX_SUBSTREAMS 1
+//#define MAX_SUBSTREAMS 1
 
 struct recieved_data{
-    uint32_t buffer_len[MAX_SUBSTREAMS];
-    uint32_t buffer_num[MAX_SUBSTREAMS];
-    char *frame_buffer[MAX_SUBSTREAMS];
+    uint32_t buffer_len;//[MAX_SUBSTREAMS];
+    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
+    char *frame_buffer;//[MAX_SUBSTREAMS];
 };
 
 /* error handling macros */
