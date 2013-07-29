@@ -221,7 +221,7 @@ static int compress_fill_symbols(struct compress_t *compression)
 {
         void *handle = compression->handle;
 
-        compression->init = (compress_init_t)
+        compression->init_func = (compress_init_t)
                 dlsym(handle, compression->init_str);
         compression->compress_frame_func = (struct video_frame * (*)(struct module *,
                                 struct video_frame *, int))
@@ -230,7 +230,8 @@ static int compress_fill_symbols(struct compress_t *compression)
                                 struct tile*, struct video_desc *, int))
                 dlsym(handle, compression->compress_tile_str);
 
-        if(!compression->init || (compression->compress_frame == 0 && compression->compress_tile == 0)
+        if(!compression->init_func ||
+                        (compression->compress_frame_func == 0 && compression->compress_tile_func == 0)
                         ) {
                 fprintf(stderr, "Library %s opening error: %s \n", compression->library_name, dlerror());
                 return FALSE;

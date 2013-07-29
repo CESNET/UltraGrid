@@ -157,10 +157,11 @@ struct tile {
 
 /** Video Mode */
 enum video_mode {
-        VIDEO_NORMAL =                   0, ///< normal video (one tile)
-        VIDEO_DUAL   =                   1, ///< 1x2 video grid (is this ever used?)
-        VIDEO_STEREO =                   2, ///< stereoscopic 3D video (full left and right eye)
-        VIDEO_4K     =                   3, ///< tiled 4K video
+        VIDEO_UNKNOWN, ///< unspecified video mode
+        VIDEO_NORMAL,  ///< normal video (one tile)
+        VIDEO_DUAL,    ///< 1x2 video grid (is this ever used?)
+        VIDEO_STEREO,  ///< stereoscopic 3D video (full left and right eye)
+        VIDEO_4K,      ///< tiled 4K video
 };
 
 #ifdef __cplusplus

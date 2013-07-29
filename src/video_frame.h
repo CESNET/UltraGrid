@@ -156,18 +156,6 @@ int video_desc_eq_excl_param(struct video_desc a, struct video_desc b, unsigned 
  */
 struct video_desc video_desc_from_frame(struct video_frame *frame);
 /**
- * @brief Returns vertical count of tiles
- * @param mode requestd video mode
- * @returns vertical count of tiles
- */
-int get_video_mode_tiles_x(enum video_mode mode);
-/**
- * @brief Returns horizontal count of tiles
- * @param mode requestd video mode
- * @returns horizontal count of tiles
- */
-int get_video_mode_tiles_y(enum video_mode mode);
-/**
  * @brief Returns description of interlacing
  * Eg. "progressive"
  */
@@ -177,12 +165,6 @@ const char *get_interlacing_description(enum interlacing_t interlacing);
  * Eg. p, i or psf
  */
 const char *get_interlacing_suffix(enum interlacing_t interlacing);
-/**
- * @brief Returns description of video mode
- * Eg. "tiled 4K"
- * @param mode requestd video mode
- */
-const char *get_video_mode_description(enum video_mode mode);
 
 /* these functions transcode one interlacing format to another */
 /**

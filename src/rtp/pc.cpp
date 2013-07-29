@@ -1,29 +1,26 @@
+/**
+ * @file   rtp/pc.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * AUTHOR:   Ladan Gharai/Colin Perkins
- * 
- * Copyright (c) 2003-2004 University of Southern California
+ * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
- * 
- * 4. Neither the name of the University nor of the Institute may be used
- *    to endorse or promote products derived from this software without
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -36,32 +33,50 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
-#include "ll.h"
+#include "pc.h"
 
 #include <stdlib.h>
 
 using namespace std;
 
-struct linked_list  *ll_create()
+struct node {
+        struct node *next;
+        int val;
+        int len;
+};
+
+struct packet_counter {
+        struct node *head;
+};
+
+/**
+ * @brief Creates packet counter.
+ */
+struct packet_counter  *pc_create()
 {
-        return (struct linked_list *) calloc(1, sizeof(struct linked_list));
+        return (struct packet_counter *) calloc(1, sizeof(struct packet_counter));
 }
 
-void ll_insert(struct linked_list *ll, int val, int len) {
+/**
+ * @brief Adds packet to the counter.
+ * @param pc  packet counter instance
+ * @param val packet offset in buffer
+ * @param len packet length
+ */
+void pc_insert(struct packet_counter *pc, int val, int len) {
         struct node *cur;
         struct node **ref;
-        if(!ll->head) {
-                ll->head = (struct node *) malloc(sizeof(struct node));
-                ll->head->val = val;
-                ll->head->len = len;
-                ll->head->next = NULL;
+        if(!pc->head) {
+                pc->head = (struct node *) malloc(sizeof(struct node));
+                pc->head->val = val;
+                pc->head->len = len;
+                pc->head->next = NULL;
                 return;
         }
-        ref = &ll->head;
-        cur = ll->head;
+        ref = &pc->head;
+        cur = pc->head;
         while (cur != NULL) {
                 if (val == cur->val) return;
                 if (val < cur->val) {
@@ -82,8 +97,11 @@ void ll_insert(struct linked_list *ll, int val, int len) {
         new_node->next = NULL;
 }
 
-void ll_destroy(struct linked_list *ll) {
-        struct node *cur = ll->head;
+/**
+ * @brief Destroys packet counter created with pc_create()
+ */
+void pc_destroy(struct packet_counter *pc) {
+        struct node *cur = pc->head;
         struct node *tmp;
 
         while (cur != NULL) {
@@ -91,12 +109,17 @@ void ll_destroy(struct linked_list *ll) {
                 free(cur);
                 cur = tmp;
         }
-        free(ll);
+        free(pc);
 }
 
-unsigned int ll_count (struct linked_list *ll) {
+/**
+ * @brief Retuns total number of packets in buffere.
+ * @param pc state
+ * @return total number of packets in buffer
+ */
+unsigned int pc_count (struct packet_counter *pc) {
         unsigned int ret = 0u;
-        struct node *cur = ll->head;
+        struct node *cur = pc->head;
         while(cur != NULL) {
                 ++ret;
                 cur = cur->next;
@@ -104,9 +127,14 @@ unsigned int ll_count (struct linked_list *ll) {
         return ret;
 }
 
-unsigned int ll_count_bytes (struct linked_list *ll) {
+/**
+ * @brief Retuns total of bytes in buffer.
+ * @param pc state
+ * @return total number of bytes in buffer
+ */
+unsigned int pc_count_bytes (struct packet_counter *pc) {
         unsigned int ret = 0u;
-        struct node *cur = ll->head;
+        struct node *cur = pc->head;
         while(cur != NULL) {
                 ret += cur->len;
                 cur = cur->next;
@@ -114,11 +142,16 @@ unsigned int ll_count_bytes (struct linked_list *ll) {
         return ret;
 }
 
-std::map<int, int> ll_to_map(struct linked_list *ll)
+/**
+ * @brief Converts packet counter to map representation
+ * @param pc state
+ * @return resulting map representation
+ */
+std::map<int, int> pc_to_map(struct packet_counter *pc)
 {
         map<int, int> res;
 
-        struct node *cur = ll->head;
+        struct node *cur = pc->head;
         while(cur != NULL) {
                 res.insert(pair<int, int>(cur->val, cur->len));
                 cur = cur->next;

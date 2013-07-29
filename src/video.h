@@ -40,3 +40,25 @@
 #include "video_codec.h"
 #include "video_frame.h"
 
+enum video_mode get_video_mode_from_str(const char *requested_mode);
+/**
+ * @brief Returns vertical count of tiles
+ * @param mode requestd video mode
+ * @returns vertical count of tiles
+ */
+int get_video_mode_tiles_x(enum video_mode mode);
+/**
+ * @brief Returns horizontal count of tiles
+ * @param mode requestd video mode
+ * @returns horizontal count of tiles
+ */
+int get_video_mode_tiles_y(enum video_mode mode);
+
+/**
+ * @brief Returns description of video mode
+ * Eg. "tiled 4K"
+ * @param mode requestd video mode
+ */
+const char *get_video_mode_description(enum video_mode mode);
+
+

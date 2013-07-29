@@ -1,7 +1,6 @@
 /*
- * AUTHOR:   Ladan Gharai/Colin Perkins
- * 
  * Copyright (c) 2003-2004 University of Southern California
+ * Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -36,6 +35,35 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @file    rtp/decoders.c
+ * @author  Colin Perkins
+ * @author  Ladan Gharai
+ * @author  Martin Pulec <pulec@cesnet.cz>
+ *
+ * @ingroup video_rtp_decoder
+ *
+ * Normal workflow through threads is following:
+ * 1. decode data from in context of receiving thread with function decode_frame(),
+ *    it will decode it to framebuffer, passes it to LDGM thread
+ * 2. ldgm_thread() passes frame to decompress thread
+ * 3. thread running decompress_thread(), displays the frame
+ *
+ * ### Uncompressed video (without LDGM) ###
+ * In step one, the decoder is a linedecoder and framebuffer is the display framebuffer
+ *
+ * ### Compressed video ###
+ * Data is saved to decompress buffer. The decompression itself is done by decompress_thread().
+ *
+ * ### LDGM video ###
+ * Data is saved to LDGM buffer. Decoded with ldgm_thread().
+ *
+ * ### Encrypted video (without LDGM) ###
+ * Prior to decoding, packet is decompressed.
+ *
+ * ### Encrypted video (with LDGM) ###
+ * After LDGM decoding, the whole block is decompressed.
  *
  */
 
@@ -49,7 +77,7 @@
 #include "host.h"
 #include "perf.h"
 #include "rtp/ldgm.h"
-#include "rtp/ll.h"
+#include "rtp/pc.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -60,129 +88,155 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
-struct state_decoder;
+struct state_video_decoder;
 
-static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder, struct video_desc desc,
-                                struct video_frame *frame);
+static struct video_frame * reconfigure_decoder(struct state_video_decoder *decoder,
+                struct video_desc desc, struct video_frame *frame);
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
 static void restrict_returned_codecs(codec_t *display_codecs,
                 size_t *display_codecs_count, codec_t *pp_codecs,
                 int pp_codecs_count);
-static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode);
-static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame);
-static void wait_for_framebuffer_swap(struct state_decoder *decoder);
+static void decoder_set_video_mode(struct state_video_decoder *decoder, unsigned int video_mode);
+static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr,
+                struct video_frame **frame);
+static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *ldgm_thread(void *args);
 static void *decompress_thread(void *args);
-static void cleanup(struct state_decoder *decoder);
+static void cleanup(struct state_video_decoder *decoder);
 
+/**
+ * There are 2 possibilities to decode arriving data.
+ */
 enum decoder_type_t {
         UNSET,
-        LINE_DECODER,
-        EXTERNAL_DECODER
+        LINE_DECODER,    ///< This is simple decoder, that decodes incoming data per line (pixelformats only).
+        EXTERNAL_DECODER /**< real decompress, received buffer is opaque and has to be decompressed as
+                          * a whole. */
 };
 
+/**
+ * This structure holds data needed to use a linedecoder.
+ */
 struct line_decoder {
-        int                  base_offset; /* from the beginning of buffer */
-        double               src_bpp;
-        double               dst_bpp;
-        int                  rshift;
-        int                  gshift;
-        int                  bshift;
-        decoder_t            decode_line;
-        unsigned int         dst_linesize; /* framebuffer pitch */
-        unsigned int         dst_pitch; /* framebuffer pitch - it can be larger if SDL resolution is larger than data */
-        unsigned int         src_linesize; /* display data pitch */
+        int                  base_offset;  ///< from the beginning of buffer. Nonzero if decoding from mutiple tiles.
+        double               src_bpp;      ///< Source pixelformat BPP (bytes)
+        double               dst_bpp;      ///< Destination pixelformat BPP (bytes)
+        int                  shifts[3];    ///< requested red,green and blue shift (in bits)
+        decoder_t            decode_line;  ///< actual decoding function
+        unsigned int         dst_linesize; ///< destination linesize
+        unsigned int         dst_pitch;    ///< framebuffer pitch - it can be larger if SDL resolution is larger than data */
+        unsigned int         src_linesize; ///< source linesize
 };
 
+/**
+ * @brief LDGM FEC metadata
+ */
 struct fec {
-        int               k, m, c;
-        int               seed;
-        void             *state;
+        int               k;     ///< LDGM matrix width
+        int               m;     ///< LDGM matrix height
+        int               c;     ///< number of ones per column
+        int               seed;  ///< LDGM PRNG seed
+        void             *state; ///< LDGM state
 };
 
-struct decompress_data;
+struct decompress_msg;
 
-struct state_decoder {
+/**
+ * @brief Decoder state
+ */
+struct state_video_decoder {
         pthread_t decompress_thread_id,
                   ldgm_thread_id;
-        struct video_desc received_vid_desc;
-        struct video_desc display_desc;
+        struct video_desc received_vid_desc; ///< description of the network video
+        struct video_desc display_desc;      ///< description of the mode that display is currently configured to
 
-        struct video_frame *frame;
+        struct video_frame *frame; ///< @todo check why we need to pass the video frame in such way (remove?)
         
-        /* requested values */
-        int               requested_pitch;
-        int               rshift, gshift, bshift;
-        unsigned int      max_substreams;
-        
-        struct display   *display;
-        codec_t          *native_codecs;
-        size_t            native_count;
-        enum interlacing_t    *disp_supported_il;
-        size_t            disp_supported_il_cnt;
-        change_il_t       change_il;
+        struct display   *display; ///< assigned display device
+        /// @{
+        int               display_requested_pitch;
+        int               display_requested_rgb_shift[3];
+        codec_t          *native_codecs; ///< list of native codecs
+        size_t            native_count;  ///< count of @ref native_codecs
+        enum interlacing_t *disp_supported_il; ///< display supported interlacing mode
+        size_t            disp_supported_il_cnt; ///< count of @disp_supported_il
+        /// @}
+
+        unsigned int      max_substreams; ///< maximal number of expected substreams
+        change_il_t       change_il;      ///< function to change interlacing, if needed. Otherwise NULL.
 
         pthread_mutex_t lock;
         
-        /* actual values */
-        enum decoder_type_t decoder_type; 
-        struct {
-                struct line_decoder *line_decoder;
-                struct {
-                        struct state_decompress **decompress_state;
-                        unsigned int accepts_corrupted_frame:1;
-                        pthread_cond_t buffer_swapped_cv;
-                        pthread_cond_t decompress_boss_cv;
-                        pthread_cond_t decompress_worker_cv;
-                        bool decompress_thread_has_processed_input;
-                        struct decompress_data *decompress_data;
-                };
-        };
+        enum decoder_type_t decoder_type;  ///< how will the video data be decoded
+        struct line_decoder *line_decoder; ///< if the video is uncompressed and only pixelformat change
+                                           ///< is neeeded, use this structure
+        struct state_decompress **decompress_state; ///< state of the decompress (for every substream)
+        unsigned int accepts_corrupted_frame:1;     ///< whether we should pass corrupted frame to decompress
+        bool buffer_swapped; /**< variable indicating that display buffer
+                              * has been processed and we can write to a new one */
+        pthread_cond_t buffer_swapped_cv; ///< condition variable associated with @ref buffer_swapped
+
+        /// @{
+        pthread_cond_t decompress_msg_processed_cv;
+        pthread_cond_t decompress_msg_ready_cv;
+        struct decompress_msg *decompress_msg;
+        /// @}
+
         codec_t           out_codec;
         // display or postprocessor
         int               pitch;
         // display pitch, can differ from previous if we have postprocessor
         int               display_pitch;
         
-        struct {
-                struct vo_postprocess_state *postprocess;
-                struct video_frame *pp_frame;
-                int pp_output_frames_count;
-        };
+        /// @{
+        struct vo_postprocess_state *postprocess;
+        struct video_frame *pp_frame;
+        int pp_output_frames_count;
+        /// @}
 
+        /// @{
         pthread_cond_t    ldgm_worker_cv;
         pthread_cond_t    ldgm_boss_cv;
-        struct ldgm_data *ldgm_data;
+        struct ldgm_msg  *ldgm_msg;
+        /// @}
 
-        unsigned int      video_mode;
-        
-        unsigned          merged_fb:1;
+        enum video_mode   video_mode;  ///< video mode set for this decoder
+        unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
 
         // for statistics
+        /// @{
         unsigned long int   displayed;
         unsigned long int   dropped;
         unsigned long int   corrupted;
+        /// @}
 
-        double              set_fps; // "message" passed to our master
+        /**
+         * "message" passed to our master
+         * @todo this should be reworked! use new module messaging?
+         * @{
+         */
+        double              set_fps;
         codec_t             codec;
-        bool                slow;
+        /// @}
 
-        struct openssl_decrypt      *decrypt;
+        bool                slow; ///< display message that the computer may be slow
+
+        struct openssl_decrypt      *decrypt; ///< decrypt state
 };
 
 // message definitions
-struct ldgm_data {
+struct ldgm_msg {
         int *buffer_len;
         int *buffer_num;
         char **recv_buffers;
-        struct linked_list **pckt_list;
+        struct packet_counter **pckt_list;
         int pt;
         int k, m, c, seed;
         int substream_count;
         bool poisoned;
 };
 
-struct decompress_data {
+struct decompress_msg {
         char **decompress_buffer;
         int *buffer_len;
         int *buffer_num;
@@ -190,10 +244,10 @@ struct decompress_data {
         bool poisoned;
 };
 
-static void wait_for_framebuffer_swap(struct state_decoder *decoder) {
+static void wait_for_framebuffer_swap(struct state_video_decoder *decoder) {
         pthread_mutex_lock(&decoder->lock);
         {
-                while (!decoder->decompress_thread_has_processed_input) {
+                while (!decoder->buffer_swapped) {
                         pthread_cond_wait(&decoder->buffer_swapped_cv, &decoder->lock);
                 }
         }
@@ -204,24 +258,24 @@ static void wait_for_framebuffer_swap(struct state_decoder *decoder) {
         "no decryption key entered!\n"
 #define NOT_ENCRYPTED_ERR "Receiving unencrypted video data " \
         "while expecting encrypted.\n"
-#define SKIP_LDGM_FRAME ret = FALSE; goto cleanup;
+#define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
 
 static void *ldgm_thread(void *args) {
         uint32_t tmp_ui32;
-        struct state_decoder *decoder = args;
+        struct state_video_decoder *decoder = args;
 
         struct fec fec_state;
         memset(&fec_state, 0, sizeof(fec_state));
 
         while(1) {
-                struct ldgm_data *data = NULL;
+                struct ldgm_msg *data = NULL;
                 pthread_mutex_lock(&decoder->lock);
                 {
-                        while (decoder->ldgm_data == NULL) {
+                        while (decoder->ldgm_msg == NULL) {
                                 pthread_cond_wait(&decoder->ldgm_worker_cv, &decoder->lock);
                         }
-                        data = decoder->ldgm_data;
-                        decoder->ldgm_data = NULL;
+                        data = decoder->ldgm_msg;
+                        decoder->ldgm_msg = NULL;
 
                         pthread_cond_signal(&decoder->ldgm_boss_cv);
                 }
@@ -231,15 +285,16 @@ static void *ldgm_thread(void *args) {
                         // signal it also to decompress thread
                         pthread_mutex_lock(&decoder->lock);
                         {
-                                while (decoder->decompress_data) {
-                                        pthread_cond_wait(&decoder->decompress_boss_cv, &decoder->lock);
+                                while (decoder->decompress_msg) {
+                                        pthread_cond_wait(&decoder->decompress_msg_processed_cv,
+                                                        &decoder->lock);
                                 }
 
-                                decoder->decompress_data = malloc(sizeof(struct decompress_data));
-                                decoder->decompress_data->poisoned = true;
+                                decoder->decompress_msg = malloc(sizeof(struct decompress_msg));
+                                decoder->decompress_msg->poisoned = true;
 
                                 /*  ...and signal the worker */
-                                pthread_cond_signal(&decoder->decompress_worker_cv);
+                                pthread_cond_signal(&decoder->decompress_msg_ready_cv);
                         }
                         pthread_mutex_unlock(&decoder->lock);
                         free(data);
@@ -249,13 +304,13 @@ static void *ldgm_thread(void *args) {
                 struct video_frame *frame = decoder->frame;
                 struct tile *tile = NULL;
                 int ret = TRUE;
-                struct decompress_data *decompress_data = malloc(sizeof(struct decompress_data));
-                decompress_data->decompress_buffer = calloc(data->substream_count, sizeof(char *));
-                decompress_data->fec_buffers = calloc(data->substream_count, sizeof(char *));
-                decompress_data->buffer_len = calloc(data->substream_count, sizeof(int));
-                decompress_data->buffer_num = calloc(data->substream_count, sizeof(int));
-                memcpy(decompress_data->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
-                memcpy(decompress_data->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
+                struct decompress_msg *decompress_msg = malloc(sizeof(struct decompress_msg));
+                decompress_msg->decompress_buffer = calloc(data->substream_count, sizeof(char *));
+                decompress_msg->fec_buffers = calloc(data->substream_count, sizeof(char *));
+                decompress_msg->buffer_len = calloc(data->substream_count, sizeof(int));
+                decompress_msg->buffer_num = calloc(data->substream_count, sizeof(int));
+                memcpy(decompress_msg->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
+                memcpy(decompress_msg->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
 
                 if (data->pt == PT_VIDEO_LDGM) {
                         if(!fec_state.state || fec_state.k != data->k ||
@@ -311,7 +366,7 @@ static void *ldgm_thread(void *args) {
                                 if(ldgm_pt == PT_ENCRYPT_VIDEO) {
                                         if(!decoder->decrypt) {
                                                 fprintf(stderr, ENCRYPTED_ERR);
-                                                SKIP_LDGM_FRAME
+                                                ERROR_GOTO_CLEANUP
                                         }
                                         uint32_t *crypto_hdr = (uint32_t *)(void *) ldgm_out_buffer;
                                         tmp_ui32 = ntohl(crypto_hdr[0]);
@@ -337,7 +392,7 @@ static void *ldgm_thread(void *args) {
                                         }
 
                                         free(data->recv_buffers[pos]);
-                                        decompress_data->fec_buffers[pos] = data->recv_buffers[pos] =
+                                        decompress_msg->fec_buffers[pos] = data->recv_buffers[pos] =
                                                 plaintext;
 
                                         ldgm_out_len = plaintext_len;
@@ -345,7 +400,7 @@ static void *ldgm_thread(void *args) {
                                 } else {
                                         if(decoder->decrypt) {
                                                 fprintf(stderr, NOT_ENCRYPTED_ERR);
-                                                SKIP_LDGM_FRAME
+                                                ERROR_GOTO_CLEANUP
                                         }
                                 }
 
@@ -353,12 +408,12 @@ static void *ldgm_thread(void *args) {
                                                 &frame);
 
                                 if(!frame) {
-                                        SKIP_LDGM_FRAME
+                                        ERROR_GOTO_CLEANUP
                                 }
 
                                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                        decompress_data->buffer_len[pos] = ldgm_out_len;
-                                        decompress_data->decompress_buffer[pos] = ldgm_out_buffer;
+                                        decompress_msg->buffer_len[pos] = ldgm_out_len;
+                                        decompress_msg->decompress_buffer[pos] = ldgm_out_buffer;
                                 } else { // linedecoder
                                         wait_for_framebuffer_swap(decoder);
 
@@ -387,8 +442,9 @@ static void *ldgm_thread(void *args) {
                                         char *dst = tile->data + line_decoder->base_offset;
                                         while(data_pos < (int) ldgm_out_len) {
                                                 line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, line_decoder->src_linesize,
-                                                                line_decoder->rshift, line_decoder->gshift,
-                                                                line_decoder->bshift);
+                                                                line_decoder->shifts[0],
+                                                                line_decoder->shifts[1],
+                                                                line_decoder->shifts[2]);
                                                 src += line_decoder->src_linesize;
                                                 dst += vc_get_linesize(tile->width ,frame->color_spec);
                                                 data_pos += line_decoder->src_linesize;
@@ -398,14 +454,14 @@ static void *ldgm_thread(void *args) {
                 } else { /* PT_VIDEO */
                         for(int i = 0; i < (int) decoder->max_substreams; ++i) {
                                 bool corrupted_frame_counted = false;
-                                decompress_data->buffer_len[i] = data->buffer_len[i];
-                                decompress_data->decompress_buffer[i] = data->recv_buffers[i];
+                                decompress_msg->buffer_len[i] = data->buffer_len[i];
+                                decompress_msg->decompress_buffer[i] = data->recv_buffers[i];
 
-                                if(data->buffer_len[i] != (int) ll_count_bytes(data->pckt_list[i])) {
+                                if (data->buffer_len[i] != (int) pc_count_bytes(data->pckt_list[i])) {
                                         debug_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
                                                         (unsigned int) data->buffer_num[i],
                                                         data->buffer_len[i],
-                                                        (unsigned int) ll_count_bytes(data->pckt_list[i]));
+                                                        (unsigned int) pc_count_bytes(data->pckt_list[i]));
                                         if(!corrupted_frame_counted) {
                                                 corrupted_frame_counted = true;
                                                 decoder->corrupted++;
@@ -422,16 +478,16 @@ static void *ldgm_thread(void *args) {
 
                 pthread_mutex_lock(&decoder->lock);
                 {
-                        while (decoder->decompress_data) {
-                                pthread_cond_wait(&decoder->decompress_boss_cv, &decoder->lock);
+                        while (decoder->decompress_msg) {
+                                pthread_cond_wait(&decoder->decompress_msg_processed_cv, &decoder->lock);
                         }
 
-                        decoder->decompress_data = decompress_data;
-                        decoder->decompress_data->poisoned = false;
-                        decoder->decompress_thread_has_processed_input = false;
+                        decoder->decompress_msg = decompress_msg;
+                        decoder->decompress_msg->poisoned = false;
+                        decoder->buffer_swapped = false;
 
                         /*  ...and signal the worker */
-                        pthread_cond_signal(&decoder->decompress_worker_cv);
+                        pthread_cond_signal(&decoder->decompress_msg_ready_cv);
                 }
                 pthread_mutex_unlock(&decoder->lock);
 
@@ -447,7 +503,7 @@ cleanup:
                 free(data->buffer_num);
                 free(data->recv_buffers);
                 for(int i = 0; i < data->substream_count; ++i) {
-                        ll_destroy(data->pckt_list[i]);
+                        pc_destroy(data->pckt_list[i]);
                 }
                 free(data->pckt_list);
                 free(data);
@@ -460,25 +516,25 @@ cleanup:
 }
 
 static void *decompress_thread(void *args) {
-        struct state_decoder *decoder = args;
+        struct state_video_decoder *decoder = args;
 
         struct tile *tile;
 
         while(1) {
-                struct decompress_data *data = NULL;
+                struct decompress_msg *data = NULL;
                 pthread_mutex_lock(&decoder->lock);
                 {
-                        while (decoder->decompress_data == NULL) {
-                                pthread_cond_wait(&decoder->decompress_worker_cv, &decoder->lock);
+                        while (decoder->decompress_msg == NULL) {
+                                pthread_cond_wait(&decoder->decompress_msg_ready_cv, &decoder->lock);
                         }
                         // we have double buffering so we can signal immediately....
                         if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                decoder->decompress_thread_has_processed_input = true;
+                                decoder->buffer_swapped = true;
                                 pthread_cond_signal(&decoder->buffer_swapped_cv);
                         }
-                        data = decoder->decompress_data;
-                        decoder->decompress_data = NULL;
-                        pthread_cond_signal(&decoder->decompress_boss_cv);
+                        data = decoder->decompress_msg;
+                        decoder->decompress_msg = NULL;
+                        pthread_cond_signal(&decoder->decompress_msg_processed_cv);
                 }
                 pthread_mutex_unlock(&decoder->lock);
 
@@ -589,7 +645,7 @@ skip_frame:
                         // we have put the video frame and requested another one which is
                         // writable so on
                         if(decoder->decoder_type != EXTERNAL_DECODER) {
-                                decoder->decompress_thread_has_processed_input = true;
+                                decoder->buffer_swapped = true;
                                 pthread_cond_signal(&decoder->buffer_swapped_cv);
                         }
                 }
@@ -599,64 +655,52 @@ skip_frame:
         return NULL;
 }
 
-static void decoder_set_video_mode(struct state_decoder *decoder, unsigned int video_mode)
+static void decoder_set_video_mode(struct state_video_decoder *decoder, unsigned int video_mode)
 {
         decoder->video_mode = video_mode;
         decoder->max_substreams = get_video_mode_tiles_x(decoder->video_mode)
                         * get_video_mode_tiles_y(decoder->video_mode);
 }
 
-struct state_decoder *decoder_init(const char *requested_mode, const char *postprocess,
+/**
+ * @brief Initializes video decompress state.
+ * @param video_mode  video_mode expected to be received from network
+ * @param postprocess postprocessing specification, may be NULL
+ * @param display     Video display that is supposed to be controlled from decoder.
+ *                    display_get_frame(), display_put_frame(), display_get_propert()
+ *                    and display_reconfigure() functions may be used. If set to NULL,
+ *                    no decoding will take place.
+ * @param encryption  Encryption config string. Currently, this is a passphrase to be
+ *                    used. This may change eventually.
+ * @return Newly created decoder state. If an error occured, returns NULL.
+ * @ingroup video_rtp_decoder
+ */
+struct state_video_decoder *video_decoder_init(enum video_mode video_mode, const char *postprocess,
                 struct display *display, const char *encryption)
 {
-        struct state_decoder *s;
+        struct state_video_decoder *s;
         
-        s = (struct state_decoder *) calloc(1, sizeof(struct state_decoder));
+        s = (struct state_video_decoder *) calloc(1, sizeof(struct state_video_decoder));
         s->native_codecs = NULL;
         s->disp_supported_il = NULL;
         s->postprocess = NULL;
         s->change_il = NULL;
-        s->display = display;
 
         s->displayed = s->dropped = s->corrupted = 0ul;
         pthread_mutex_init(&s->lock, NULL);
-        pthread_cond_init(&s->decompress_boss_cv, NULL);
-        pthread_cond_init(&s->decompress_worker_cv, NULL);
+        pthread_cond_init(&s->decompress_msg_processed_cv, NULL);
+        pthread_cond_init(&s->decompress_msg_ready_cv, NULL);
         pthread_cond_init(&s->buffer_swapped_cv, NULL);
 
         pthread_cond_init(&s->ldgm_boss_cv, NULL);
         pthread_cond_init(&s->ldgm_worker_cv, NULL);
-        s->ldgm_data = NULL;
-        s->decompress_thread_has_processed_input = true;
+        s->ldgm_msg = NULL;
+        s->buffer_swapped = true;
         
-        int video_mode = VIDEO_NORMAL;
-
-        if(encryption) {
+        if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
                         fprintf(stderr, "Unable to create decompress!\n");
-                        return NULL;
-                }
-        }
-
-        if(requested_mode) {
-                /* these are data comming from newtork ! */
-                if(strcasecmp(requested_mode, "help") == 0) {
-                        printf("Video mode options\n\n");
-                        printf("-M {tiled-4K | 3D | dual-link }\n");
-                        free(s);
-                        exit_uv(129);
-                        return NULL;
-                } else if(strcasecmp(requested_mode, "tiled-4K") == 0) {
-                        video_mode = VIDEO_4K;
-                } else if(strcasecmp(requested_mode, "3D") == 0) {
-                        video_mode = VIDEO_STEREO;
-                } else if(strcasecmp(requested_mode, "dual-link") == 0) {
-                        video_mode = VIDEO_DUAL;
-                } else {
-                        fprintf(stderr, "[decoder] Unknown video mode (see -M help)\n");
-                        free(s);
-                        exit_uv(129);
                         return NULL;
                 }
         }
@@ -679,7 +723,7 @@ struct state_decoder *decoder_init(const char *requested_mode, const char *postp
                 }
         }
 
-        if(!decoder_register_video_display(s, display))
+        if(!video_decoder_register_display(s, display))
                 return NULL;
 
         return s;
@@ -711,9 +755,24 @@ static void restrict_returned_codecs(codec_t *display_codecs,
         }
 }
 
-bool decoder_register_video_display(struct state_decoder *decoder, struct display *display)
+/**
+ * @brief Registers video display to be used for displaying decoded video frames.
+ *
+ * No display should be managed by this decoder when this function is called.
+ *
+ * @see decoder_remove_display
+ *
+ * @param decoder decoder state
+ * @param display new display to be registered
+ * @return        whether registration was successful
+ */
+bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display)
 {
+        assert(display != NULL);
+        assert(decoder->display == NULL);
+
         int ret, i;
+
         decoder->display = display;
         
         free(decoder->native_codecs);
@@ -780,19 +839,24 @@ bool decoder_register_video_display(struct state_decoder *decoder, struct displa
 }
 
 /**
- * This removes display from current decoder. From now on
+ * @brief This removes display from current decoder.
+ *
+ * From now on no video frames will be decoded with current decoder.
+ * @see decoder_register_display - the counterpart of this functon
+ *
+ * @param decoder decoder from which will the decoder be removed
  */
-void decoder_remove_display(struct state_decoder *decoder)
+void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
                 pthread_mutex_lock(&decoder->lock);
                 {
-                        while (decoder->ldgm_data) {
+                        while (decoder->ldgm_msg) {
                                 pthread_cond_wait(&decoder->ldgm_boss_cv, &decoder->lock);
                         }
 
-                        decoder->ldgm_data = malloc(sizeof(struct ldgm_data));
-                        decoder->ldgm_data->poisoned = true;
+                        decoder->ldgm_msg = malloc(sizeof(struct ldgm_msg));
+                        decoder->ldgm_msg->poisoned = true;
 
                         /*  ...and signal the worker */
                         pthread_cond_signal(&decoder->ldgm_worker_cv);
@@ -803,10 +867,11 @@ void decoder_remove_display(struct state_decoder *decoder)
                 pthread_join(decoder->decompress_thread_id, NULL);
 
                 decoder->display = NULL;
+                memset(&decoder->display_desc, 0, sizeof(decoder->display_desc));
         }
 }
 
-static void cleanup(struct state_decoder *decoder)
+static void cleanup(struct state_video_decoder *decoder)
 {
         decoder->decoder_type = UNSET;
         if(decoder->decompress_state) {
@@ -822,18 +887,22 @@ static void cleanup(struct state_decoder *decoder)
         }
 }
 
-void decoder_destroy(struct state_decoder *decoder)
+/**
+ * @brief Destroys decoder created with decoder_init()
+ * @param decode decoder to be destroyed. If NULL, no action is performed.
+ */
+void video_decoder_destroy(struct state_video_decoder *decoder)
 {
         if(!decoder)
                 return;
 
         openssl_decrypt_destroy(decoder->decrypt);
 
-        decoder_remove_display(decoder);
+        video_decoder_remove_display(decoder);
 
         pthread_mutex_destroy(&decoder->lock);
-        pthread_cond_destroy(&decoder->decompress_boss_cv);
-        pthread_cond_destroy(&decoder->decompress_worker_cv);
+        pthread_cond_destroy(&decoder->decompress_msg_processed_cv);
+        pthread_cond_destroy(&decoder->decompress_msg_ready_cv);
 
         pthread_cond_destroy(&decoder->ldgm_boss_cv);
         pthread_cond_destroy(&decoder->ldgm_worker_cv);
@@ -969,7 +1038,7 @@ bool init_decompress(codec_t in_codec, codec_t out_codec,
         return false;
 }
 
-static codec_t choose_codec_and_decoder(struct state_decoder * const decoder, struct video_desc desc,
+static codec_t choose_codec_and_decoder(struct state_video_decoder * const decoder, struct video_desc desc,
                                 codec_t *in_codec, decoder_t *decode_line)
 {
         codec_t out_codec = (codec_t) -1;
@@ -1090,7 +1159,14 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
         return NULL;
 }
 
-static struct video_frame * reconfigure_decoder(struct state_decoder * const decoder,
+/**
+ * Reconfigures decoder if network received video data format has changed.
+ *
+ * @param decoder       the video decoder state
+ * @param desc          new video description to be reconfigured to
+ * @param frame_display    
+ */
+static struct video_frame * reconfigure_decoder(struct state_video_decoder *decoder,
                 struct video_desc desc, struct video_frame *frame_display)
 {
         codec_t out_codec, in_codec;
@@ -1194,22 +1270,20 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 frame = frame_display;
         }*/
         
-        int rgb_shift[3] = {0, 8, 16};
-        len = sizeof(rgb_shift);
+        len = sizeof(decoder->display_requested_rgb_shift);
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RGB_SHIFT,
-                        &rgb_shift, &len);
+                        &decoder->display_requested_rgb_shift, &len);
         if(!ret) {
                 debug_msg("Failed to get r,g,b shift property from video driver.\n");
+                int rgb_shift[3] = {0, 8, 16};
+                memcpy(&decoder->display_requested_rgb_shift, rgb_shift, sizeof(rgb_shift));
         }
-        decoder->rshift = rgb_shift[0];
-        decoder->gshift = rgb_shift[1];
-        decoder->bshift = rgb_shift[2];
         
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
-                        &decoder->requested_pitch, &len);
+                        &decoder->display_requested_pitch, &len);
         if(!ret) {
                 debug_msg("Failed to get pitch from video driver.\n");
-                decoder->requested_pitch = PITCH_DEFAULT;
+                decoder->display_requested_pitch = PITCH_DEFAULT;
         }
         
         int linewidth;
@@ -1220,18 +1294,18 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         }
 
         if(!decoder->postprocess) {
-                if(decoder->requested_pitch == PITCH_DEFAULT)
+                if(decoder->display_requested_pitch == PITCH_DEFAULT)
                         decoder->pitch = vc_get_linesize(linewidth, out_codec);
                 else
-                        decoder->pitch = decoder->requested_pitch;
+                        decoder->pitch = decoder->display_requested_pitch;
         } else {
                 decoder->pitch = vc_get_linesize(linewidth, out_codec);
         }
 
-        if(decoder->requested_pitch == PITCH_DEFAULT) {
+        if(decoder->display_requested_pitch == PITCH_DEFAULT) {
                 decoder->display_pitch = vc_get_linesize(display_desc.width, out_codec);
         } else {
-                decoder->display_pitch = decoder->requested_pitch;
+                decoder->display_pitch = decoder->display_requested_pitch;
         }
 
         int src_x_tiles = get_video_mode_tiles_x(decoder->video_mode);
@@ -1245,9 +1319,7 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                         out->base_offset = 0;
                         out->src_bpp = get_bpp(in_codec);
                         out->dst_bpp = get_bpp(out_codec);
-                        out->rshift = decoder->rshift;
-                        out->gshift = decoder->gshift;
-                        out->bshift = decoder->bshift;
+                        memcpy(out->shifts, decoder->display_requested_rgb_shift, 3 * sizeof(int));
                 
                         out->decode_line = decode_line;
                         out->dst_pitch = decoder->pitch;
@@ -1267,10 +1339,8 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
 
                                         out->src_bpp = get_bpp(in_codec);
                                         out->dst_bpp = get_bpp(out_codec);
-
-                                        out->rshift = decoder->rshift;
-                                        out->gshift = decoder->gshift;
-                                        out->bshift = decoder->bshift;
+                                        memcpy(out->shifts, decoder->display_requested_rgb_shift,
+                                                        3 * sizeof(int));
                 
                                         out->decode_line = decode_line;
 
@@ -1291,9 +1361,8 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                                         out->base_offset = 0;
                                         out->src_bpp = get_bpp(in_codec);
                                         out->dst_bpp = get_bpp(out_codec);
-                                        out->rshift = decoder->rshift;
-                                        out->gshift = decoder->gshift;
-                                        out->bshift = decoder->bshift;
+                                        memcpy(out->shifts, decoder->display_requested_rgb_shift,
+                                                        3 * sizeof(int));
                 
                                         out->decode_line = decode_line;
                                         out->src_linesize =
@@ -1310,7 +1379,10 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 
                 for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
                         buf_size = decompress_reconfigure(decoder->decompress_state[i], desc,
-                                        decoder->rshift, decoder->gshift, decoder->bshift, decoder->pitch,
+                                        decoder->display_requested_rgb_shift[0],
+                                        decoder->display_requested_rgb_shift[1],
+                                        decoder->display_requested_rgb_shift[2],
+                                        decoder->pitch,
                                         out_codec);
                         if(!buf_size) {
                                 return NULL;
@@ -1326,7 +1398,17 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
         return frame_display;
 }
 
-static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, struct video_frame **frame)
+/**
+ * Checks if network format has changed.
+ *
+ * @param decoder decoder state
+ * @param hdr     raw RTP payload header
+ * @param frame   output frame (see todo for @ref state_video_decoder::frame)
+ *
+ * @return TRUE if format changed, FALSE if not
+ */
+static int check_for_mode_change(struct state_video_decoder *decoder,
+                uint32_t *hdr, struct video_frame **frame)
 {
         uint32_t tmp;
         int ret = FALSE;
@@ -1379,12 +1461,21 @@ static int check_for_mode_change(struct state_decoder *decoder, uint32_t *hdr, s
         return ret;
 }
 
-#define SKIP_PACKET ret = FALSE; goto cleanup;
+#define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
 
-int decode_frame(struct coded_data *cdata, void *decode_data)
+/**
+ * @brief Decodes a participant buffer representing one video frame.
+ * @param cdata        PBUF buffer
+ * @param decoder_data @ref vcodec_state containing decoder state and some additional data
+ * @retval TRUE        if decoding was successful.
+ *                     It stil doesn't mean that the frame will be correctly displayed,
+ *                     decoding may fail in some subsequent (asynchronous) steps.
+ * @retval FALSE       if decoding failed
+ */
+int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 {
-        struct vcodec_state *pbuf_data = (struct vcodec_state *) decode_data;
-        struct state_decoder *decoder = pbuf_data->decoder;
+        struct vcodec_state *pbuf_data = (struct vcodec_state *) decoder_data;
+        struct state_video_decoder *decoder = pbuf_data->decoder;
         struct video_frame *frame = decoder->frame;
 
         int ret = TRUE;
@@ -1400,7 +1491,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         uint32_t substream;
 
         int i;
-        struct linked_list *pckt_list[decoder->max_substreams];
+        struct packet_counter *pckt_list[decoder->max_substreams];
         uint32_t buffer_len[decoder->max_substreams];
         uint32_t buffer_num[decoder->max_substreams];
         // the following is just LDGM related optimalization - normally we fill up
@@ -1408,7 +1499,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
         // is just the LDGM buffer present, so we point to it instead to copying
         char *recv_buffers[decoder->max_substreams]; // for FEC or compressed data
         for (i = 0; i < (int) decoder->max_substreams; ++i) {
-                pckt_list[i] = ll_create();
+                pckt_list[i] = pc_create();
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
                 recv_buffers[i] = NULL;
@@ -1458,7 +1549,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
                         if(decoder->decrypt) {
                                 fprintf(stderr, NOT_ENCRYPTED_ERR);
-                                SKIP_PACKET
+                                ERROR_GOTO_CLEANUP
                         }
                 } else if (pt == PT_VIDEO_LDGM) {
                         len = pckt->data_len - sizeof(ldgm_video_payload_hdr_t);
@@ -1477,7 +1568,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         contained_pt = PT_VIDEO;
                         if(!decoder->decrypt) {
                                 fprintf(stderr, ENCRYPTED_ERR);
-                                SKIP_PACKET
+                                ERROR_GOTO_CLEANUP
                         }
                 } else {
                         fprintf(stderr, "[decoder] Unknown packet type: %d.\n", pckt->pt);
@@ -1544,7 +1635,7 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                         goto cleanup;
                 }
 
-                ll_insert(pckt_list[substream], data_pos, len);
+                pc_insert(pckt_list[substream], data_pos, len);
 
                 if (contained_pt == PT_VIDEO && decoder->decoder_type == LINE_DECODER) {
                         if(!buffer_swapped) {
@@ -1618,8 +1709,8 @@ int decode_frame(struct coded_data *cdata, void *decode_data)
                                          * we update source contiguously
                                          * we pass {r,g,b}shifts */
                                         line_decoder->decode_line((unsigned char*)tile->data + line_decoder->base_offset + offset, source, l,
-                                                        line_decoder->rshift, line_decoder->gshift,
-                                                        line_decoder->bshift);
+                                                        line_decoder->shifts[0], line_decoder->shifts[1],
+                                                        line_decoder->shifts[2]);
                                         /* we decoded one line (or a part of one line) to the end of the line
                                          * so decrease *source* len by 1 line (or that part of the line */
                                         len -= line_decoder->src_linesize - s_x;
@@ -1659,37 +1750,37 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        struct ldgm_data *ldgm_data = malloc(sizeof(struct ldgm_data));
-        ldgm_data->buffer_len = malloc(sizeof(buffer_len));
-        ldgm_data->buffer_num = malloc(sizeof(buffer_num));
-        ldgm_data->recv_buffers = malloc(sizeof(recv_buffers));
-        ldgm_data->pckt_list = malloc(sizeof(pckt_list));
-        ldgm_data->k = k;
-        ldgm_data->m = m;
-        ldgm_data->c = c;
-        ldgm_data->seed = seed;
-        ldgm_data->substream_count = decoder->max_substreams;
-        ldgm_data->pt = contained_pt;
-        ldgm_data->poisoned = false;
-        memcpy(ldgm_data->buffer_len, buffer_len, sizeof(buffer_len));
-        memcpy(ldgm_data->buffer_num, buffer_num, sizeof(buffer_num));
-        memcpy(ldgm_data->recv_buffers, recv_buffers, sizeof(recv_buffers));
-        memcpy(ldgm_data->pckt_list, pckt_list, sizeof(pckt_list));
+        struct ldgm_msg *ldgm_msg = malloc(sizeof(struct ldgm_msg));
+        ldgm_msg->buffer_len = malloc(sizeof(buffer_len));
+        ldgm_msg->buffer_num = malloc(sizeof(buffer_num));
+        ldgm_msg->recv_buffers = malloc(sizeof(recv_buffers));
+        ldgm_msg->pckt_list = malloc(sizeof(pckt_list));
+        ldgm_msg->k = k;
+        ldgm_msg->m = m;
+        ldgm_msg->c = c;
+        ldgm_msg->seed = seed;
+        ldgm_msg->substream_count = decoder->max_substreams;
+        ldgm_msg->pt = contained_pt;
+        ldgm_msg->poisoned = false;
+        memcpy(ldgm_msg->buffer_len, buffer_len, sizeof(buffer_len));
+        memcpy(ldgm_msg->buffer_num, buffer_num, sizeof(buffer_num));
+        memcpy(ldgm_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
+        memcpy(ldgm_msg->pckt_list, pckt_list, sizeof(pckt_list));
 
         pthread_mutex_lock(&decoder->lock);
         {
-                if(decoder->ldgm_data && !decoder->slow) {
+                if(decoder->ldgm_msg && !decoder->slow) {
                         fprintf(stderr, "Your computer is too SLOW to play this !!!\n");
                         decoder->slow = true;
                 } else {
                         decoder->slow = false;
                 }
 
-                while (decoder->ldgm_data) {
+                while (decoder->ldgm_msg) {
                         pthread_cond_wait(&decoder->ldgm_boss_cv, &decoder->lock);
                 }
 
-                decoder->ldgm_data = ldgm_data;
+                decoder->ldgm_msg = ldgm_msg;
 
                 /*  ...and signal the worker */
                 pthread_cond_signal(&decoder->ldgm_worker_cv);
@@ -1700,11 +1791,11 @@ cleanup:
         ;
         unsigned int frame_size = 0;
 
-        for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct linked_list *)); ++i) {
+        for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct packet_counter *)); ++i) {
 
                 if(ret != TRUE) {
                         free(recv_buffers[i]);
-                        ll_destroy(pckt_list[i]);
+                        pc_destroy(pckt_list[i]);
                 }
 
                 frame_size += buffer_len[i];

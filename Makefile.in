@@ -58,7 +58,7 @@ OBJS	      = @OBJS@ \
 		src/rtp/audio_decoders.o \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
-		src/rtp/ll.o \
+		src/rtp/pc.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
 		src/audio/audio.o \
@@ -108,6 +108,7 @@ OBJS	      = @OBJS@ \
 		src/utils/ring_buffer.o \
 		src/utils/worker.o \
 		src/vf_split.o \
+		src/video.o \
 		src/video_frame.o \
 		src/video_codec.o \
 		src/video_capture.o \
@@ -134,7 +135,7 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 		@LIB_SUPPORT_OBJ@ \
 
-ULTRAGRID_OBJS = src/main.o src/sender.o
+ULTRAGRID_OBJS = src/main.o src/sender.o \
 
 REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
@@ -152,6 +153,7 @@ LIB_COMMON = \
 		src/utils/list.o \
 		src/utils/ring_buffer.o \
 		src/utils/worker.o \
+		src/video.o \
 		src/video_frame.o \
 		src/video_codec.o \
 

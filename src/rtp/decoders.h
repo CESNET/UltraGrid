@@ -1,8 +1,16 @@
+/**
+ * @file    decoders.h
+ * @author  Colin Perkins
+ * @author  Ladan Gharai
+ * @author  Martin Pulec <pulec@cesnet.cz>
+
+ * @ingroup video_rtp_decoder
+ *
+ * @brief Video RTP decoder.
+ */
 /*
- * FILE:     decoders.h 
- * AUTHOR:   Ladan Gharai/Colin Perkins 
- * 
  * Copyright (c) 2003 University of Southern California
+ * Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -37,32 +45,32 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * $Revision: 1.1.2.3 $
- * $Date: 2010/01/30 20:11:45 $
- *
+ */
+/**
+ * @defgroup video_rtp_decoder Video Decoder
+ * @{
  */
 
-#include "video.h"
+#include "types.h"
 
 struct coded_data;
 struct display;
-struct state_decoder;
+struct state_video_decoder;
 struct video_frame;
 struct state_decompress;
 struct tile;
 
-/* 
- * External interface: 
- */
-int decode_frame(struct coded_data *compressed_frame, void *decode_data);
+int decode_video_frame(struct coded_data *compressed_frame, void *decoder_data);
 
-struct state_decoder *decoder_init(const char *requested_mode, const char *postprocess,
+struct state_video_decoder *video_decoder_init(enum video_mode, const char *postprocess,
                 struct display *display, const char *encryption);
-void decoder_destroy(struct state_decoder *decoder);
+void video_decoder_destroy(struct state_video_decoder *decoder);
+bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display);
+void video_decoder_remove_display(struct state_video_decoder *decoder);
 
-bool decoder_register_video_display(struct state_decoder *decoder, struct display *display);
-void decoder_remove_display(struct state_decoder *decoder);
+/** @} */ // end of video_rtp_decoder
+
+// used also by hd_rum_translator
 bool init_decompress(codec_t in_codec, codec_t out_codec,
                 struct state_decompress **state, int state_count);
 

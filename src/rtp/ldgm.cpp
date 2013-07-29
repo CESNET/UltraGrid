@@ -72,6 +72,7 @@
 #include "ldgm-coding/ldgm-session-cpu.h"
 #include "ldgm-coding/matrix-gen/matrix-generator.h"
 #include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
+#include "rtp/pc.h"
 
 using namespace std;
 
@@ -275,10 +276,10 @@ struct ldgm_state_decoder {
                 coding_session.set_pcMatrix(filename);
         }
 
-        void decode(const char *frame, int size, char **out, int *out_size, struct linked_list *ll) {
+        void decode(const char *frame, int size, char **out, int *out_size, struct packet_counter *pc) {
                 char *decoded;
 
-                decoded = coding_session.decode_frame((char *) frame, size, out_size, ll_to_map(ll));
+                decoded = coding_session.decode_frame((char *) frame, size, out_size, pc_to_map(pc));
 
                 *out = decoded;
         }
@@ -522,11 +523,12 @@ void * ldgm_decoder_init(unsigned int k, unsigned int m, unsigned int c, unsigne
         return s;
 }
 
-void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, int *len, struct linked_list  *ll)
+void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, int *len,
+                struct packet_counter  *pc)
 {
         struct ldgm_state_decoder *s = (struct ldgm_state_decoder *) state;
 
-        s->decode(in, in_len, out, len, ll);
+        s->decode(in, in_len, out, len, pc);
 }
 
 void ldgm_decoder_decode_map(void *state, const char *in, int in_len, char **out,

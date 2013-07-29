@@ -196,38 +196,6 @@ struct video_desc video_desc_from_frame(struct video_frame *frame)
         return desc;
 }
 
-int get_video_mode_tiles_x(enum video_mode video_type)
-{
-        int ret = 0;
-        switch(video_type) {
-                case VIDEO_NORMAL:
-                case VIDEO_DUAL:
-                        ret = 1;
-                        break;
-                case VIDEO_4K:
-                case VIDEO_STEREO:
-                        ret = 2;
-                        break;
-        }
-        return ret;
-}
-
-int get_video_mode_tiles_y(enum video_mode video_type)
-{
-        int ret = 0;
-        switch(video_type) {
-                case VIDEO_NORMAL:
-                case VIDEO_STEREO:
-                        ret = 1;
-                        break;
-                case VIDEO_4K:
-                case VIDEO_DUAL:
-                        ret = 2;
-                        break;
-        }
-        return ret;
-}
-
 const char *get_interlacing_description(enum interlacing_t interlacing)
 {
         switch (interlacing) {
@@ -261,21 +229,6 @@ const char *get_interlacing_suffix(enum interlacing_t interlacing)
                         return "psf";
         }
 
-        return NULL;
-}
-
-const char *get_video_mode_description(enum video_mode video_mode)
-{
-        switch (video_mode) {
-                case VIDEO_NORMAL:
-                        return "normal";
-                case VIDEO_STEREO:
-                        return "3D";
-                case VIDEO_4K:
-                        return "tiled 4K";
-                case VIDEO_DUAL:
-                        return "dual-link";
-        }
         return NULL;
 }
 

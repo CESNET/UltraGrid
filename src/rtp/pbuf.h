@@ -95,7 +95,7 @@ struct fps_changed_message {
 
 struct vcodec_state {
         struct display *display;
-        struct state_decoder *decoder;
+        struct state_video_decoder *decoder;
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly
         unsigned int decoded;

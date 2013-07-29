@@ -74,7 +74,7 @@
 #include "rtp/pbuf.h"
 #include "sender.h"
 #include "stats.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
 #include "video_display/sdl.h"
@@ -150,7 +150,7 @@ struct state_uv {
         struct timeval start_time;
         struct pdb *participants;
 
-        char *decoder_mode;
+        enum video_mode decoder_mode;
         char *postprocess;
 
         uint32_t ts;
@@ -450,7 +450,7 @@ static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
 
         if(state) {
                 state->messages = simple_linked_list_init();
-                state->decoder = decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device,
+                state->decoder = video_decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device,
                                 uv->requested_encryption);
 
                 if(!state->decoder) {
@@ -459,7 +459,7 @@ static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
                         exit_uv(1);
                         return NULL;
                 } else {
-                        //decoder_register_video_display(state->decoder, uv->display_device);
+                        //decoder_register_display(state->decoder, uv->display_device);
                 }
         }
 
@@ -474,7 +474,7 @@ static void destroy_video_decoder(void *state) {
         }
 
         simple_linked_list_destroy(video_decoder_state->messages);
-        decoder_destroy(video_decoder_state->decoder);
+        video_decoder_destroy(video_decoder_state->decoder);
 
         free(video_decoder_state);
 }
@@ -489,7 +489,8 @@ static void remove_display_from_decoders(struct state_uv *uv) {
                 struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
                 while (cp != NULL) {
                         if(cp->decoder_state)
-                                decoder_remove_display(((struct vcodec_state*) cp->decoder_state)->decoder);
+                                video_decoder_remove_display(
+                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);
@@ -622,7 +623,7 @@ void *ultragrid_rtp_receiver_thread(void *arg)
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, curr_time, decode_frame, vdecoder_state)) {
+                            (cp->playout_buffer, curr_time, decode_video_frame, vdecoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count)
@@ -958,7 +959,7 @@ int main(int argc, char *argv[])
         uv->requested_display = "none";
         uv->requested_capture = "none";
         uv->requested_compression = "none";
-        uv->decoder_mode = NULL;
+        uv->decoder_mode = VIDEO_NORMAL;
         uv->postprocess = NULL;
         uv->requested_mtu = 0;
         uv->participants = NULL;
@@ -1009,7 +1010,10 @@ int main(int argc, char *argv[])
                         uv->requested_mtu = atoi(optarg);
                         break;
                 case 'M':
-                        uv->decoder_mode = optarg;
+                        uv->decoder_mode = get_video_mode_from_str(optarg);
+                        if (uv->decoder_mode == VIDEO_UNKNOWN) {
+                                return strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
+                        }
                         break;
                 case 'p':
                         uv->postprocess = optarg;
@@ -1424,11 +1428,11 @@ int main(int argc, char *argv[])
         }
 
         /* following block only shows help (otherwise initialized in receiver thread */
-        if((uv->postprocess && strstr(uv->postprocess, "help") != NULL) ||
-                        (uv->decoder_mode && strstr(uv->decoder_mode, "help") != NULL)) {
-                struct state_decoder *dec = decoder_init(uv->decoder_mode, uv->postprocess, NULL,
+        if((uv->postprocess && strstr(uv->postprocess, "help") != NULL)) {
+                struct state_video_decoder *dec = video_decoder_init(uv->decoder_mode,
+                                uv->postprocess, NULL,
                                 uv->requested_encryption);
-                decoder_destroy(dec);
+                video_decoder_destroy(dec);
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
