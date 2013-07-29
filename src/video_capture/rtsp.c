@@ -270,7 +270,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->tile = vf_get_tile(s->frame, 0);
     vf_get_tile(s->frame, 0)->width=s->width;
     vf_get_tile(s->frame, 0)->height=s->height;
-    s->frame->fps=30;
+    //s->frame->fps=30;
     s->frame->color_spec=H264;  //TODO Configure from SDP
     s->frame->interlacing=PROGRESSIVE;
     s->frame->tiles[0].data = calloc(1, s->width*s->height);
@@ -357,7 +357,8 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	    curl = curl_easy_init();
 	    if (curl != NULL) {
 	    	my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);  //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
-			my_curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+	    	//my_curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, 1);
+	    	my_curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
 			my_curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
 			my_curl_easy_setopt(curl, CURLOPT_WRITEHEADER, stdout);
 			my_curl_easy_setopt(curl, CURLOPT_URL, url);
