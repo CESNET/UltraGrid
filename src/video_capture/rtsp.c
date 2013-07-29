@@ -24,7 +24,7 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
-#include "audio/audio.h"
+//#include "audio/audio.h"
 
 FILE *F_video_rtsp=NULL;
 
@@ -45,6 +45,7 @@ struct rtsp_state {
 	struct recieved_data *rx_data[2];
 	int rx_index;
 	bool new_frame;
+	bool pbuf_removed;
 
 	struct rtp *device;
 	struct pdb *participants;
@@ -114,11 +115,13 @@ void * vidcap_rtsp_thread(void *arg)
 
 		int ret;
 
+		s->pbuf_removed = true;
+
 		while (s->cp != NULL ) {
 			ret = pbuf_decode(s->cp->playout_buffer, s->curr_time, decode_frame_h264, s->rx_data[s->rx_index]);
 			//printf("DECODE return value: %d\n", ret);
+
 			if (ret) {
-				gettimeofday(&s->curr_time, NULL);
 
                 pthread_mutex_lock(&s->lock);
                 {
@@ -127,7 +130,6 @@ void * vidcap_rtsp_thread(void *arg)
                                 pthread_cond_wait(&s->worker_cv, &s->lock);
                                 s->worker_waiting = false;
                         }
-
                         s->new_frame = true;
 
                         if(s->boss_waiting)
@@ -141,6 +143,7 @@ void * vidcap_rtsp_thread(void *arg)
 
 			}
 			pbuf_remove(s->cp->playout_buffer, s->curr_time);
+
 			s->cp = pdb_iter_next(&it);
 		}
 
@@ -153,6 +156,8 @@ void * vidcap_rtsp_thread(void *arg)
 struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 	struct rtsp_state *s;
 	s = (struct rtsp_state *)state;
+
+	*audio = NULL;
 
     pthread_mutex_lock(&s->lock);
     {
@@ -168,12 +173,14 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
     }
     pthread_mutex_unlock(&s->lock);
 
+	gettimeofday(&s->curr_time, NULL);
+
 	//s->frame->tiles[0].data = s->rx_data[s->rx_index]->frame_buffer[0];
 	s->frame->tiles[0].data_len = s->rx_data[s->rx_index]->buffer_len[0];
 
 	char *data = malloc(s->rx_data[s->rx_index]->buffer_len[0] + s->nals_size);
 	if(data !=NULL){
-		printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
+		//printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
 
 		memcpy(data,s->nals,s->nals_size);
 		memcpy(data+s->nals_size,s->rx_data[s->rx_index]->frame_buffer[0],s->rx_data[s->rx_index]->buffer_len[0]);
@@ -196,6 +203,8 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 	s->rx_index = (s->rx_index + 1) %2;
 	s->new_frame = false;
 
+//	pbuf_remove(s->cp->playout_buffer,s->curr_time_cpy);
+//	gettimeofday(&s->curr_time_cpy, NULL);
 
     gettimeofday(&s->t, NULL);
 	double seconds = tv_diff(s->t, s->t0);
@@ -309,7 +318,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     vf_get_tile(s->frame, 0)->width=s->width;
     vf_get_tile(s->frame, 0)->height=s->height;
     s->frame->fps=30;
-    s->frame->color_spec=H264;
+    s->frame->color_spec=H264;  //TODO Configure from SDP
     s->frame->interlacing=PROGRESSIVE;
     s->frame->tiles[0].data = calloc(1, s->width*s->height);
 
@@ -359,6 +368,8 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
     pthread_create(&s->rtsp_thread_id, NULL , vidcap_rtsp_thread , s);
 
+    printf("[rtsp] rtsp capture init done\n");
+
     return s;
 }
 
@@ -394,6 +405,7 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	    /* initialize this curl session */
 	    curl = curl_easy_init();
 	    if (curl != NULL) {
+	    	my_curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);  //This tells curl not to use any functions that install signal handlers or cause signals to be sent to your process.
 			my_curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
 			my_curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
 			my_curl_easy_setopt(curl, CURLOPT_WRITEHEADER, stdout);
@@ -404,6 +416,10 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 			s->curl = curl;
 			s->uri = uri;
 
+			//TODO TO CHECK CONFIGURING ERRORS
+			//CURLOPT_ERRORBUFFER
+			//http://curl.haxx.se/libcurl/c/curl_easy_perform.html
+
 			/* request server options */
 			rtsp_options(curl, uri);
 			//printf("sdp_file: %s\n", sdp_filename);
@@ -412,8 +428,6 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 			//printf("sdp_file!!!!: %s\n", sdp_filename);
 			/* get media control attribute from sdp file */
 			get_media_control_attribute(sdp_filename, control);
-
-
 
 			/* setup media stream */
 			//sprintf(uri, "%s/%s", url, "track1");
