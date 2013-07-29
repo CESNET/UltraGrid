@@ -489,6 +489,7 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
                 , DXT5
 #endif // SAGE_NATIVE_DXT5YCOCG
         };
+        int rgb_shift[] = {0, 8, 16};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -508,17 +509,12 @@ int display_sage_get_property(void *state, int property, void *val, size_t *len)
                                 }
                         }
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;

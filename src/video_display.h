@@ -89,12 +89,10 @@ typedef struct {
  * @{ */
 enum display_property {
         DISPLAY_PROPERTY_CODECS = 0, ///< list of natively supported codecs - codec_t[]
-        DISPLAY_PROPERTY_RSHIFT = 1, ///< red shift - int (bits)
-        DISPLAY_PROPERTY_GSHIFT = 2, ///< blue shift - int (bits)
-        DISPLAY_PROPERTY_BSHIFT = 3, ///< green shift - int (bits)
-        DISPLAY_PROPERTY_BUF_PITCH = 4, ///< requested framebuffer pitch - int (bytes), may be @ref PITCH_DEFAULT
-        DISPLAY_PROPERTY_VIDEO_MODE = 5, ///< requested video mode - int (one of @ref display_prop_vid_mode)
-        DISPLAY_PROPERTY_SUPPORTED_IL_MODES = 6 ///< display supported interlacing modes - enum interlacing_t[]
+        DISPLAY_PROPERTY_RGB_SHIFT = 1, ///< red,green,blue shift - int[3] (bits)
+        DISPLAY_PROPERTY_BUF_PITCH = 2, ///< requested framebuffer pitch - int (bytes), may be @ref PITCH_DEFAULT
+        DISPLAY_PROPERTY_VIDEO_MODE = 3, ///< requested video mode - int (one of @ref display_prop_vid_mode)
+        DISPLAY_PROPERTY_SUPPORTED_IL_MODES = 4 ///< display supported interlacing modes - enum interlacing_t[]
 };
 
 #define PITCH_DEFAULT -1 ///< default pitch, i. e. respective linesize

@@ -427,6 +427,7 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
         UNUSED(state);
         codec_t codecs[] = {v210, UYVY, RAW};
         interlacing_t supported_il_modes[] = {PROGRESSIVE, UPPER_FIELD_FIRST, SEGMENTED_FRAME};
+        int rgb_shift[] = {0, 8, 16};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -438,17 +439,12 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
                         
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;

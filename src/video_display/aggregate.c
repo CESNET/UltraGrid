@@ -338,27 +338,28 @@ err_codecs:
                                 return FALSE;
                         }
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                case DISPLAY_PROPERTY_GSHIFT:
-                case DISPLAY_PROPERTY_BSHIFT:
+                case DISPLAY_PROPERTY_RGB_SHIFT:
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         {
                                 int ret;
-                                int first_val;
-                                size_t size;
-                                ret = display_get_property(s->devices[0], property, &first_val, &size);
+                                char first_val[128];
+                                size_t first_size = sizeof(first_val);
+                                ret = display_get_property(s->devices[0], property, &first_val, &first_size);
                                 if(!ret) goto err;
 
                                 for (i = 1; i < s->devices_cnt; ++i) {
-                                        int new_val;
-                                        ret = display_get_property(s->devices[i], property, &new_val, &size);
+                                        char new_val[128];
+                                        size_t new_size = sizeof(new_val);
+                                        ret = display_get_property(s->devices[i], property, &new_val, &new_size);
                                         if(!ret) goto err;
-                                        if(new_val != first_val)
+                                        if(new_size != first_size || memcmp(first_val, new_val, first_size) != 0)
                                                 goto err;
 
                                 }
-                                *len = size;
-                                *(int *) val = first_val;
+                                if (first_size > *len)
+                                        goto err;
+                                *len = first_size;
+                                memcpy(val, first_val, first_size);
                                 return TRUE;
 err:
                                 return FALSE;

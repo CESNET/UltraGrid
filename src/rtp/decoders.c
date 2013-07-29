@@ -1196,24 +1196,16 @@ static struct video_frame * reconfigure_decoder(struct state_decoder * const dec
                 frame = frame_display;
         }*/
         
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RSHIFT,
-                        &decoder->rshift, &len);
+        int rgb_shift[3] = {0, 8, 16};
+        len = sizeof(rgb_shift);
+        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RGB_SHIFT,
+                        &rgb_shift, &len);
         if(!ret) {
-                debug_msg("Failed to get rshift property from video driver.\n");
-                decoder->rshift = 0;
+                debug_msg("Failed to get r,g,b shift property from video driver.\n");
         }
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_GSHIFT,
-                        &decoder->gshift, &len);
-        if(!ret) {
-                debug_msg("Failed to get gshift property from video driver.\n");
-                decoder->gshift = 8;
-        }
-        ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BSHIFT,
-                        &decoder->bshift, &len);
-        if(!ret) {
-                debug_msg("Failed to get bshift property from video driver.\n");
-                decoder->bshift = 16;
-        }
+        decoder->rshift = rgb_shift[0];
+        decoder->gshift = rgb_shift[1];
+        decoder->bshift = rgb_shift[2];
         
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
                         &decoder->requested_pitch, &len);
