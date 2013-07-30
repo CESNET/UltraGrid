@@ -57,6 +57,12 @@
  * information about a particular participant in a teleconference.
  *
  */
+
+/**
+ * Deletes decoder for participant when the participant is deleted
+ */
+typedef void (*decoder_state_deleter_t)(void *);
+
 struct pdb_e {
 	uint32_t		 ssrc;
 	char			*sdes_cname;
@@ -66,7 +72,8 @@ struct pdb_e {
 	char			*sdes_loc;
 	char			*sdes_tool;
 	char			*sdes_note;
-	struct vcodec_state	*video_decoder_state;
+	void                    *decoder_state; ///< state of decoder for participant
+        decoder_state_deleter_t  decoder_state_deleter; ///< decoder state deleter
 	uint8_t			 pt;	/* Last seen RTP payload type for this participant */
 	struct pbuf		*playout_buffer;
 	struct tfrc		*tfrc_state;

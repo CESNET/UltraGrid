@@ -41,7 +41,6 @@ extern struct vidcap_type *(*vidcap_get_device_details_extrn)(int i);
 extern void (*display_free_devices_extrn)(void);
 extern vidcap_id_t (*vidcap_get_null_device_id_extrn)();
 extern display_id_t (*display_get_null_device_id_extrn)();
-extern void (*decoder_destroy_extrn)(struct state_decoder *decoder);
 extern int (*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **);
 extern int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **);
 extern int (*vidcap_get_device_count_extrn)(void);
@@ -121,16 +120,5 @@ int initialize_video_display(const char *requested_display,
         display_free_devices_extrn();
 
         return display_init_extrn(id, fmt, flags, out);
-}
-
-void destroy_decoder(struct vcodec_state *video_decoder_state) {
-        if(!video_decoder_state) {
-                return;
-        }
-
-        simple_linked_list_destroy(video_decoder_state->messages);
-        decoder_destroy_extrn(video_decoder_state->decoder);
-
-        free(video_decoder_state);
 }
 

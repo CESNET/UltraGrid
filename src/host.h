@@ -97,8 +97,6 @@ int initialize_video_display(const char *requested_display,
 int initialize_video_capture(const char *requested_capture,
                                                char *fmt, unsigned int flags,
                                                struct vidcap **);
-struct vcodec_state;
-void destroy_decoder(struct vcodec_state *video_decoder_state);
 
 void *ultragrid_rtp_receiver_thread(void *arg);
 void destroy_rtp_devices(struct rtp ** network_devices);

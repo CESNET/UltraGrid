@@ -240,9 +240,9 @@ void rtp_recv_callback(struct rtp *session, rtp_event * e)
                 {
                         struct pdb_e *pdb_item = NULL;
                         if(pdb_remove(participants, e->ssrc, &pdb_item) == 0) {
-#ifndef SHARED_DECODER
-                                destroy_decoder(pdb_item->video_decoder_state);
-#endif
+                                if (pdb_item->decoder_state_deleter) {
+                                        pdb_item->decoder_state_deleter(pdb_item->decoder_state);
+                                }
                         }
                 }
                 break;

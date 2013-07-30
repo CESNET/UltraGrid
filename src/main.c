@@ -445,7 +445,7 @@ void destroy_rtp_devices(struct rtp ** network_devices)
 	free(network_devices);
 }
 
-static struct vcodec_state *new_decoder(struct state_uv *uv) {
+static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
         struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
@@ -466,6 +466,19 @@ static struct vcodec_state *new_decoder(struct state_uv *uv) {
         return state;
 }
 
+static void destroy_video_decoder(void *state) {
+        struct vcodec_state *video_decoder_state = state;
+
+        if(!video_decoder_state) {
+                return;
+        }
+
+        simple_linked_list_destroy(video_decoder_state->messages);
+        decoder_destroy(video_decoder_state->decoder);
+
+        free(video_decoder_state);
+}
+
 /**
  * Removes display from decoders and effectively kills them. They cannot be used
  * until new display assigned.
@@ -475,8 +488,8 @@ static void remove_display_from_decoders(struct state_uv *uv) {
                 pdb_iter_t it;
                 struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
                 while (cp != NULL) {
-                        if(cp->video_decoder_state)
-                                decoder_remove_display(cp->video_decoder_state->decoder);
+                        if(cp->decoder_state)
+                                decoder_remove_display(((struct vcodec_state*) cp->decoder_state)->decoder);
                         cp = pdb_iter_next(&it);
                 }
                 pdb_iter_done(&it);
@@ -589,24 +602,27 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                                                curr_time));
                         }
 
-                        if(cp->video_decoder_state == NULL) {
+                        if(cp->decoder_state == NULL) {
 #ifdef SHARED_DECODER
-                                cp->video_decoder_state = shared_decoder;
+                                cp->decoder_state = shared_decoder;
 #else
-                                cp->video_decoder_state = new_decoder(uv);
+                                cp->decoder_state = new_video_decoder(uv);
+                                cp->decoder_state_deleter = destroy_video_decoder;
 #endif // SHARED_DECODER
-                                if(cp->video_decoder_state == NULL) {
+                                if(cp->decoder_state == NULL) {
                                         fprintf(stderr, "Fatal: unable to find decoder state for "
                                                         "participant %u.\n", cp->ssrc);
                                         exit_uv(1);
                                         break;
                                 }
-                                cp->video_decoder_state->display = uv->display_device;
+                                ((struct vcodec_state*) cp->decoder_state)->display = uv->display_device;
                         }
+
+                        struct vcodec_state *vdecoder_state = cp->decoder_state;
 
                         /* Decode and render video... */
                         if (pbuf_decode
-                            (cp->playout_buffer, curr_time, decode_frame, cp->video_decoder_state)) {
+                            (cp->playout_buffer, curr_time, decode_frame, vdecoder_state)) {
                                 tiles_post++;
                                 /* we have data from all connections we need */
                                 if(tiles_post == uv->connections_count)
@@ -643,8 +659,8 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                 last_tile_received = curr_time;
                         }
 
-                        if(cp->video_decoder_state->decoded % 100 == 99) {
-                                int new_size = cp->video_decoder_state->max_frame_size * 110ull / 100;
+                        if(vdecoder_state->decoded % 100 == 99) {
+                                int new_size = vdecoder_state->max_frame_size * 110ull / 100;
                                 if(new_size > last_buf_size) {
                                         struct rtp **device = uv->network_devices;
                                         while(*device) {
@@ -659,9 +675,9 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                 last_buf_size = new_size;
                         }
 
-                        while(simple_linked_list_size(cp->video_decoder_state->messages) > 0) {
+                        while(simple_linked_list_size(vdecoder_state->messages) > 0) {
                                 struct vcodec_message *msg =
-                                        simple_linked_list_pop(cp->video_decoder_state->messages);
+                                        simple_linked_list_pop(vdecoder_state->messages);
 
                                 assert(msg->type == FPS_CHANGED);
                                 struct fps_changed_message *data = msg->data;
