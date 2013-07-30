@@ -69,7 +69,7 @@ struct rtsp_state {
 	int port;
 };
 
-struct rtsp_state *s_global;
+char *data;
 void * vidcap_rtsp_thread(void *args);
 
 void * vidcap_rtsp_thread(void *arg)
@@ -155,18 +155,13 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 
 	s->frame->tiles[0].data_len = s->rx_data->buffer_len;
 
-	char *data = malloc(s->rx_data->buffer_len + s->nals_size);
-	if(data !=NULL){
-		//printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
+	//printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
 
-		memcpy(data,s->nals,s->nals_size);
-		memcpy(data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
+	memcpy(data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
 
-		memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
-		s->frame->tiles[0].data_len += s->nals_size;
+	memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
+	s->frame->tiles[0].data_len += s->nals_size;
 
-		free(data);
-	}
 
 	s->new_frame = false;
 
@@ -265,6 +260,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	s->height = atoi(tmp);
 
 	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
+	data = malloc(4*s->width*s->height + s->nals_size);
 
     s->frame = vf_alloc(1);
     s->tile = vf_get_tile(s->frame, 0);
@@ -318,6 +314,12 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	sigaction(SIGINT, &action, NULL);
 
 	s->nals_size = init_rtsp(s->uri, s->port, s , s->nals);
+
+	if(s->nals_size>=0)
+		memcpy(data,s->nals,s->nals_size);
+	else
+		//if(s->nals_size < 0)
+		return NULL;
 
     pthread_create(&s->rtsp_thread_id, NULL , vidcap_rtsp_thread , s);
 
@@ -541,6 +543,7 @@ void vidcap_rtsp_done(void *state){
     pthread_join(s->rtsp_thread_id, NULL);
 
     free(s->rx_data->frame_buffer);
+	free(data);
 
     rtsp_teardown(s->curl, s->uri);
 

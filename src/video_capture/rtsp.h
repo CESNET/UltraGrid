@@ -80,6 +80,7 @@ struct recieved_data{
     //uint32_t buffer_num;//[MAX_SUBSTREAMS];
     char *frame_buffer;//[MAX_SUBSTREAMS];
 };
+struct rtsp_state *s_global;
 
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C) \
