@@ -23,6 +23,7 @@ FILE *F_video_rtsp=NULL;
 struct rtsp_state {
 	char *nals;
 	int nals_size;
+	uint32_t *in_codec;
 
 	struct timeval t0,t;
 	int frames;
@@ -212,6 +213,8 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->rx_data = calloc(1, sizeof(struct recieved_data));
     s->new_frame = false;
 
+    s->in_codec = malloc(sizeof(uint32_t *) * 10);
+
     s->uri = NULL;
     s->curl = NULL;
 
@@ -267,7 +270,9 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     vf_get_tile(s->frame, 0)->width=s->width;
     vf_get_tile(s->frame, 0)->height=s->height;
     //s->frame->fps=30;
-    s->frame->color_spec=H264;  //TODO Configure from SDP
+    //s->frame->color_spec = H264;
+    //printf("codec:  %s\n",  s->frame->color_spec);
+
     s->frame->interlacing=PROGRESSIVE;
     s->frame->tiles[0].data = calloc(1, s->width*s->height);
 
@@ -314,6 +319,8 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	sigaction(SIGINT, &action, NULL);
 
 	s->nals_size = init_rtsp(s->uri, s->port, s , s->nals);
+
+    printf("incoming codec: %u\n", s->frame->color_spec);
 
 	if(s->nals_size>=0)
 		memcpy(data,s->nals,s->nals_size);
@@ -382,6 +389,9 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 			//printf("sdp_file!!!!: %s\n", sdp_filename);
 			/* get media control attribute from sdp file */
 			get_media_control_attribute(sdp_filename, control);
+
+			/* set incoming media codec attribute from sdp file */
+			set_codec_attribute_from_incoming_media(sdp_filename, s);
 
 			/* setup media stream */
 			//sprintf(uri, "%s/%s", url, "track1");
@@ -494,7 +504,6 @@ static void get_sdp_filename(const char *url, char *sdp_filename)
     const char *s = strrchr(url, '/');
    // printf("sdp_file get: %s\n", sdp_filename);
 
-
     if (s != NULL) {
         s++;
         if (s[0] != '\0') {
@@ -502,7 +511,6 @@ static void get_sdp_filename(const char *url, char *sdp_filename)
         }
     }
 }
-
 
 /* scan sdp file for media control attribute */
 static void get_media_control_attribute(const char *sdp_filename,
@@ -521,6 +529,55 @@ static void get_media_control_attribute(const char *sdp_filename,
         fclose(sdp_fp);
     }
     free(s);
+}
+
+/* scan sdp file for incoming codec and set it */
+static void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state)
+{
+	struct rtsp_state *sr;
+	sr = (struct rtsp_state *)state;
+
+	int max_len = 1256;
+    char *pt = malloc(4*sizeof(char *));
+    char *codec = malloc(32*sizeof(char *));
+    char *s = malloc(max_len);
+    FILE *sdp_fp = fopen(sdp_filename, "rt");
+
+    if (sdp_fp != NULL) {
+        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
+            sscanf(s, " m = video 0 RTP/AVP %s", pt);
+        }
+        fclose(sdp_fp);
+    }
+    free(s);
+
+    s = malloc(max_len);
+    sdp_fp = fopen(sdp_filename, "rt");
+
+    if (sdp_fp != NULL) {
+        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
+            sscanf(s, " a=rtpmap:96 %s", codec);
+        }
+        fclose(sdp_fp);
+    }
+    free(s);
+
+    char *save_ptr = NULL;
+    char *tmp;
+	tmp = strtok_r(codec, "/", &save_ptr);
+	if (!tmp) {
+		fprintf(stderr, "[rtsp] no codec atribute found into sdp file...\n", tmp);
+		free(s);
+		return NULL;
+	}
+	sprintf(sr->in_codec, "%s",tmp);
+
+	if(memcmp(sr->in_codec,"H264",4)==0)
+		sr->frame->color_spec = H264;
+	else if(memcmp(sr->in_codec,"VP8",4)==0)
+		sr->frame->color_spec = VP8;
+	else
+		sr->frame->color_spec = RGBA;
 }
 
 struct vidcap_type	*vidcap_rtsp_probe(void){

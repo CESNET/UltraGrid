@@ -118,6 +118,9 @@ static void get_sdp_filename(const char *url, char *sdp_filename);
 /* scan sdp file for media control attribute */
 static void get_media_control_attribute(const char *sdp_filename, char *control);
 
+/* scan sdp file for incoming codec */
+static void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state);
+
 static int get_nals(const char *sdp_filename, unsigned char *nals);
 
 /* sigaction handler that forces teardown on current session */
