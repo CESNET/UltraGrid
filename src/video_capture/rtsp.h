@@ -71,6 +71,7 @@ extern "C" {
 
 #define VIDCAP_RTSP_ID	0x45b3d828  //md5 hash of VIDCAP_RTSP_ID string == a208d26f519a2664a48781c845b3d828
 
+//TODO set lower initial video recv buffer size (the minimal)
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
 //#define MAX_SUBSTREAMS 1
@@ -80,6 +81,7 @@ struct recieved_data{
     //uint32_t buffer_num;//[MAX_SUBSTREAMS];
     char *frame_buffer;//[MAX_SUBSTREAMS];
 };
+
 struct rtsp_state *s_global;
 
 /* error handling macros */
@@ -95,33 +97,33 @@ fprintf(stderr, "curl_easy_perform(%s) failed: %d\n", #A, res);
 
 
 /* send RTSP GET_PARAMETERS request */
-static void rtsp_get_parameters(CURL *curl, const char *uri);
+void rtsp_get_parameters(CURL *curl, const char *uri);
 
 /* send RTSP OPTIONS request */
-static void rtsp_options(CURL *curl, const char *uri);
+void rtsp_options(CURL *curl, const char *uri);
 
 /* send RTSP DESCRIBE request and write sdp response to a file */
-static void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename);
+void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename);
 
 /* send RTSP SETUP request */
-static void rtsp_setup(CURL *curl, const char *uri, const char *transport);
+void rtsp_setup(CURL *curl, const char *uri, const char *transport);
 
 /* send RTSP PLAY request */
-static void rtsp_play(CURL *curl, const char *uri, const char *range);
+void rtsp_play(CURL *curl, const char *uri, const char *range);
 
 /* send RTSP TEARDOWN request */
-static void rtsp_teardown(CURL *curl, const char *uri);
+void rtsp_teardown(CURL *curl, const char *uri);
 
 /* convert url into an sdp filename */
-static void get_sdp_filename(const char *url, char *sdp_filename);
+void get_sdp_filename(const char *url, char *sdp_filename);
 
 /* scan sdp file for media control attribute */
-static void get_media_control_attribute(const char *sdp_filename, char *control);
+void get_media_control_attribute(const char *sdp_filename, char *control);
 
 /* scan sdp file for incoming codec */
-static void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state);
+void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state);
 
-static int get_nals(const char *sdp_filename, unsigned char *nals);
+int get_nals(const char *sdp_filename, unsigned char *nals);
 
 /* sigaction handler that forces teardown on current session */
 void sigaction_handler();

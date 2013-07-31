@@ -25,6 +25,7 @@ struct rtsp_state {
 	int nals_size;
 	uint32_t *in_codec;
 
+
 	struct timeval t0,t;
 	int frames;
 	struct video_frame *frame;
@@ -85,7 +86,7 @@ void * vidcap_rtsp_thread(void *arg)
 		gettimeofday(&s->curr_time, NULL);
 		s->timestamp = tv_diff(s->curr_time, s->start_time) * 90000;
 
-		if(tv_diff(s->curr_time, s->prev_time) >= 30){
+		if(tv_diff(s->curr_time, s->prev_time) >= 20){
 			rtsp_get_parameters(s->curl, s->uri);
 			gettimeofday(&s->prev_time, NULL);
 		}
@@ -146,25 +147,26 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
                     s->boss_waiting = false;
             }
 
+        	gettimeofday(&s->curr_time, NULL);
+
+        	s->frame->tiles[0].data_len = s->rx_data->buffer_len;
+
+        	//printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
+
+        	memcpy(data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
+
+        	memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
+        	s->frame->tiles[0].data_len += s->nals_size;
+
+        	s->new_frame = false;
+
             if(s->worker_waiting) {
                     pthread_cond_signal(&s->worker_cv);
             }
     }
     pthread_mutex_unlock(&s->lock);
 
-	gettimeofday(&s->curr_time, NULL);
 
-	s->frame->tiles[0].data_len = s->rx_data->buffer_len;
-
-	//printf("\n[rtsp] data no NULL with nal size of %d bytes\n",s->nals_size);
-
-	memcpy(data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
-
-	memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
-	s->frame->tiles[0].data_len += s->nals_size;
-
-
-	s->new_frame = false;
 
     gettimeofday(&s->t, NULL);
 	double seconds = tv_diff(s->t, s->t0);
@@ -320,7 +322,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
 	s->nals_size = init_rtsp(s->uri, s->port, s , s->nals);
 
-    printf("incoming codec: %u\n", s->frame->color_spec);
+    printf("[rtsp] incoming codec: %u\n", s->frame->color_spec);
 
 	if(s->nals_size>=0)
 		memcpy(data,s->nals,s->nals_size);
@@ -421,7 +423,7 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	return len_nals;
 }
 
-static void rtsp_get_parameters(CURL *curl, const char *uri)
+void rtsp_get_parameters(CURL *curl, const char *uri)
 {
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] GET_PARAMETERS %s\n", uri);
@@ -431,7 +433,7 @@ static void rtsp_get_parameters(CURL *curl, const char *uri)
 }
 
 /* send RTSP OPTIONS request */
-static void rtsp_options(CURL *curl, const char *uri)
+void rtsp_options(CURL *curl, const char *uri)
 {
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] OPTIONS %s\n", uri);
@@ -442,7 +444,7 @@ static void rtsp_options(CURL *curl, const char *uri)
 
 
 /* send RTSP DESCRIBE request and write sdp response to a file */
-static void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
+void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
 {
     CURLcode res = CURLE_OK;
     FILE *sdp_fp = fopen(sdp_filename, "wt");
@@ -464,7 +466,7 @@ static void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
 }
 
 /* send RTSP SETUP request */
-static void rtsp_setup(CURL *curl, const char *uri, const char *transport)
+void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 {
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] SETUP %s\n", uri);
@@ -477,7 +479,7 @@ static void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 
 
 /* send RTSP PLAY request */
-static void rtsp_play(CURL *curl, const char *uri, const char *range)
+void rtsp_play(CURL *curl, const char *uri, const char *range)
 {
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] PLAY %s\n", uri);
@@ -489,7 +491,7 @@ static void rtsp_play(CURL *curl, const char *uri, const char *range)
 
 
 /* send RTSP TEARDOWN request */
-static void rtsp_teardown(CURL *curl, const char *uri)
+void rtsp_teardown(CURL *curl, const char *uri)
 {
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] TEARDOWN %s\n", uri);
@@ -499,7 +501,7 @@ static void rtsp_teardown(CURL *curl, const char *uri)
 
 
 /* convert url into an sdp filename */
-static void get_sdp_filename(const char *url, char *sdp_filename)
+void get_sdp_filename(const char *url, char *sdp_filename)
 {
     const char *s = strrchr(url, '/');
    // printf("sdp_file get: %s\n", sdp_filename);
@@ -513,7 +515,7 @@ static void get_sdp_filename(const char *url, char *sdp_filename)
 }
 
 /* scan sdp file for media control attribute */
-static void get_media_control_attribute(const char *sdp_filename,
+void get_media_control_attribute(const char *sdp_filename,
                                         char *control)
 {
     int max_len = 1256;
@@ -532,7 +534,7 @@ static void get_media_control_attribute(const char *sdp_filename,
 }
 
 /* scan sdp file for incoming codec and set it */
-static void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state)
+void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state)
 {
 	struct rtsp_state *sr;
 	sr = (struct rtsp_state *)state;
@@ -613,7 +615,7 @@ void vidcap_rtsp_done(void *state){
 }
 
 /* scan sdp file for media control attribute */
-static int get_nals(const char *sdp_filename, unsigned char *nals){
+int get_nals(const char *sdp_filename, unsigned char *nals){
     int max_len = 1500 , len_nals = 0;
     char *s = malloc(max_len);
     char *sprop;
