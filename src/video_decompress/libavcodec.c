@@ -540,13 +540,13 @@ int libavcodec_decompress_get_property(void *state, int property, void *val, siz
         switch(property) {
                 case DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME:
                         if(*len >= sizeof(int)) {
-                                *(int *) val = FALSE;
-                                *len = sizeof(int);
 #ifdef LAVD_ACCEPT_CORRUPTED
-                                ret = TRUE;
+                                *(int *) val = TRUE;
 #else
-                                ret = FALSE;
+                                *(int *) val = FALSE;
 #endif
+                                *len = sizeof(int);
+                                ret = TRUE;
                         }
                         break;
                 default:
