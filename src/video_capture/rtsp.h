@@ -130,6 +130,8 @@ void sigaction_handler();
 
 int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals);
 
+int init_decompressor(void *state);
+
 /* sigaction handler that forces teardown on current session */
 void sigaction_handler();
 

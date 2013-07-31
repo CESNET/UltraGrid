@@ -9,6 +9,9 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/rtpdec_h264.h"
 
+#include "video_decompress.h"
+#include "video_decompress/libavcodec.h"
+
 #include "pdb.h"
 #include "rtp/pbuf.h"
 
@@ -38,6 +41,8 @@ struct rtsp_state {
 	bool new_frame;
 	bool pbuf_removed;
 
+	bool decompress;
+
 	struct rtp *device;
 	struct pdb *participants;
 	struct pdb_e *cp;
@@ -66,6 +71,10 @@ struct rtsp_state {
 
 	volatile bool should_exit;
 
+	struct state_decompress *sd;
+	struct video_desc des;
+	char * out_frame;
+
 	CURL *curl;
 	char *uri;
 	int port;
@@ -73,6 +82,19 @@ struct rtsp_state {
 
 char *data;
 void * vidcap_rtsp_thread(void *args);
+void show_help(void);
+
+void show_help(){
+	printf("[rtsp] usage:\n");
+	printf("\t-t rtsp:<uri>:<port>:<width>:<height>[:<decompress>]\n");
+	printf("\t\t <uri> uri server without 'rtsp://' \n");
+	printf("\t\t <port> receiver port number \n");
+	printf("\t\t <width> receiver width number \n");
+	printf("\t\t <height> receiver height number \n");
+	printf("\t\t <decompress> receiver decompress boolean [true|false] - default: false - no decompression active\n\n");
+	//show_codec_help("rtsp");
+	return &vidcap_init_noerr;
+}
 
 void * vidcap_rtsp_thread(void *arg)
 {
@@ -86,7 +108,7 @@ void * vidcap_rtsp_thread(void *arg)
 		gettimeofday(&s->curr_time, NULL);
 		s->timestamp = tv_diff(s->curr_time, s->start_time) * 90000;
 
-		if(tv_diff(s->curr_time, s->prev_time) >= 20){
+		if(tv_diff(s->curr_time, s->prev_time) >= 30){
 			rtsp_get_parameters(s->curl, s->uri);
 			gettimeofday(&s->prev_time, NULL);
 		}
@@ -166,8 +188,6 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
     }
     pthread_mutex_unlock(&s->lock);
 
-
-
     gettimeofday(&s->t, NULL);
 	double seconds = tv_diff(s->t, s->t0);
 	if (seconds >= 5) {
@@ -221,48 +241,73 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->curl = NULL;
 
     if (fmt == NULL || strcmp(fmt, "help") == 0) {
-		printf("rtsp options:\n");
-		printf("\t-t rtsp:<uri>:<port>:<width>:<height>\n");
-		printf("\t\t <uri> uri server without 'rtsp://' \n");
-		printf("\t\t <port> receiver port \n");
-		printf("\t\t <width> receiver width \n");
-		printf("\t\t <height> receiver height \n");
-		//show_codec_help("rtsp");
-		return &vidcap_init_noerr;
+    	show_help();
 	}
-    char *tmp;
-	tmp = strtok_r(fmt, ":", &save_ptr);
-	if (!tmp) {
-		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no rtsp server specified\n", tmp);
-		free(s);
-		return NULL;
-	}
-	s->uri = malloc(strlen(tmp) + 32);
-	sprintf(s->uri, "rtsp://%s",tmp);
+    else{
+		char *tmp;
+		int i = 0;
+		while((tmp = strtok_r(fmt, ":", &save_ptr))) {
+			int len;
+			switch (i) {
+					case 0:
+							if(tmp){
+								s->uri = malloc(strlen(tmp) + 32);
+								sprintf(s->uri, "rtsp://%s",tmp);
+							}else{
+								printf("\n[rtsp] Wrong format for uri! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 1:
+							if(tmp){
+								s->port = atoi(tmp);
+							}else{
+								printf("\n[rtsp] Wrong format for port! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 2:
+							if(tmp){
+								s->width = atoi(tmp);
+							}else{
+								printf("\n[rtsp] Wrong format for width! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 3:
+							if(tmp){
+								s->height = atoi(tmp);
+							}else{
+								printf("\n[rtsp] Wrong format for height! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 4:
+							if(tmp){
+								if(strcmp(tmp,"true")==0) s->decompress = true;
+								else s->decompress = false;
+							}else continue;
+							break;
+					case 5:
+							continue;
+			}
+			fmt = NULL;
+			++i;
+		}
+    }
 
-	tmp = strtok_r(NULL, ":", &save_ptr);
-	if (!tmp) {
-		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver port specified\n", tmp);
-		free(s);
-		return NULL;
-	}
-	s->port = atoi(tmp);
+    printf("[rtsp] selected flags:\n");
+    printf("\t  uri: %s\n",s->uri);
+    printf("\t  port: %d\n", s->port);
+    printf("\t  width: %d\n",s->width);
+    printf("\t  height: %d\n",s->height);
+    printf("\t  decompress: %d\n",s->decompress);
 
-	tmp = strtok_r(NULL, ":", &save_ptr);
-	if (!tmp) {
-		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver width specified\n", tmp);
-		free(s);
-		return NULL;
-	}
-	s->width = atoi(tmp);
 
-	tmp = strtok_r(NULL, ":", &save_ptr);
-	if (!tmp) {
-		fprintf(stderr, "[rtsp] Wrong format for rtsp '%s' - no receiver height specified\n", tmp);
-		free(s);
-		return NULL;
-	}
-	s->height = atoi(tmp);
 
 	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
 	data = malloc(4*s->width*s->height + s->nals_size);
@@ -422,6 +467,33 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	}
 	return len_nals;
 }
+
+int init_decompressor(void *state) {
+	struct rtsp_state *sr;
+	sr = (struct rtsp_state *)state;
+
+	sr->sd = (struct state_decompress *) calloc(2, sizeof(struct state_decompress *));
+	printf("Trying to initialize decompressor\n");
+	initialize_video_decompress();
+	printf("Decompressor initialized ;^)\n");
+	printf("Trying to initialize decoder\n");
+
+	printf("Trying to initialize decoder\n");
+	if (decompress_is_available(LIBAVCODEC_MAGIC)) {
+		sr->sd = decompress_init(LIBAVCODEC_MAGIC);
+
+		sr->des.width = sr->width;
+		sr->des.height = sr->height;
+		sr->des.color_spec  = sr->frame->color_spec;
+		sr->des.tile_count = 0;
+		sr->des.interlacing = PROGRESSIVE;
+		//des.fps=5;
+
+		decompress_reconfigure(sr->sd, sr->des, 16, 8, 0, vc_get_linesize(sr->des.width, UYVY), UYVY);  //r=16,g=8,b=0
+	}
+	sr->out_frame =  malloc(sr->width*sr->height*4);
+}
+
 
 void rtsp_get_parameters(CURL *curl, const char *uri)
 {
