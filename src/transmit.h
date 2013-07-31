@@ -53,16 +53,12 @@
 #define TRANSMIT_H_
 
 #include "audio/audio.h"
+#include "types.h"
 
 struct module;
 struct rtp;
 struct tx;
 struct video_frame;
-
-enum tx_media_type {
-        TX_MEDIA_AUDIO,
-        TX_MEDIA_VIDEO
-};
 
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
                 char *fec, const char *encryption);

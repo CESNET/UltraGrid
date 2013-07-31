@@ -13,7 +13,7 @@
 
 extern "C" {
 #include "debug.h"
-#include "rtp/decoders.h" // init_decompress()
+#include "rtp/video_decoders.h" // init_decompress()
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"

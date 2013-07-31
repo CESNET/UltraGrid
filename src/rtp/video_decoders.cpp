@@ -5,24 +5,24 @@
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by the University of Southern
  *      California Information Sciences Institute.
- * 
+ *
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -37,7 +37,7 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /**
- * @file    rtp/decoders.c
+ * @file    rtp/video_decoders.cpp
  * @author  Colin Perkins
  * @author  Ladan Gharai
  * @author  Martin Pulec <pulec@cesnet.cz>
@@ -72,40 +72,50 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
+
 #include "crypto/openssl_decrypt.h"
 #include "debug.h"
 #include "host.h"
+#include "messaging.h"
 #include "perf.h"
 #include "rtp/ldgm.h"
 #include "rtp/pc.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
-#include "rtp/decoders.h"
+#include "rtp/video_decoders.h"
 #include "video.h"
-#include "video_codec.h"
 #include "video_decompress.h"
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#include <queue>
+
+using std::queue;
+
 struct state_video_decoder;
 
-static struct video_frame * reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc, struct video_frame *frame);
+/**
+ * Interlacing changing function protoype. The function should be able to change buffer
+ * in place, that is when dst and src are the same.
+ */
 typedef void (*change_il_t)(char *dst, char *src, int linesize, int height);
+
+// prototypes
+static bool reconfigure_decoder(struct state_video_decoder *decoder,
+                struct video_desc desc);
 static void restrict_returned_codecs(codec_t *display_codecs,
                 size_t *display_codecs_count, codec_t *pp_codecs,
                 int pp_codecs_count);
-static void decoder_set_video_mode(struct state_video_decoder *decoder, unsigned int video_mode);
-static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr,
-                struct video_frame **frame);
+static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
 static void *ldgm_thread(void *args);
 static void *decompress_thread(void *args);
 static void cleanup(struct state_video_decoder *decoder);
+static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc);
 
 /**
- * There are 2 possibilities to decode arriving data.
+ * Enumerates 2 possibilities how to decode arriving data.
  */
 enum decoder_type_t {
         UNSET,
@@ -140,18 +150,23 @@ struct fec {
 };
 
 struct decompress_msg;
+struct main_msg;
 
 /**
  * @brief Decoder state
  */
 struct state_video_decoder {
+        virtual ~state_video_decoder() {}
+
+        struct module *parent;
+
         pthread_t decompress_thread_id,
                   ldgm_thread_id;
         struct video_desc received_vid_desc; ///< description of the network video
         struct video_desc display_desc;      ///< description of the mode that display is currently configured to
 
-        struct video_frame *frame; ///< @todo check why we need to pass the video frame in such way (remove?)
-        
+        struct video_frame *frame; ///< @todo rewrite this more reasonably
+
         struct display   *display; ///< assigned display device
         /// @{
         int               display_requested_pitch;
@@ -159,14 +174,14 @@ struct state_video_decoder {
         codec_t          *native_codecs; ///< list of native codecs
         size_t            native_count;  ///< count of @ref native_codecs
         enum interlacing_t *disp_supported_il; ///< display supported interlacing mode
-        size_t            disp_supported_il_cnt; ///< count of @disp_supported_il
+        size_t            disp_supported_il_cnt; ///< count of @ref disp_supported_il
         /// @}
 
         unsigned int      max_substreams; ///< maximal number of expected substreams
         change_il_t       change_il;      ///< function to change interlacing, if needed. Otherwise NULL.
 
         pthread_mutex_t lock;
-        
+
         enum decoder_type_t decoder_type;  ///< how will the video data be decoded
         struct line_decoder *line_decoder; ///< if the video is uncompressed and only pixelformat change
                                            ///< is neeeded, use this structure
@@ -187,7 +202,7 @@ struct state_video_decoder {
         int               pitch;
         // display pitch, can differ from previous if we have postprocessor
         int               display_pitch;
-        
+
         /// @{
         struct vo_postprocess_state *postprocess;
         struct video_frame *pp_frame;
@@ -210,22 +225,30 @@ struct state_video_decoder {
         unsigned long int   corrupted;
         /// @}
 
-        /**
-         * "message" passed to our master
-         * @todo this should be reworked! use new module messaging?
-         * @{
-         */
-        double              set_fps;
-        codec_t             codec;
-        /// @}
-
-        bool                slow; ///< display message that the computer may be slow
+        queue<main_msg*>    msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
 };
 
 // message definitions
+typedef char *char_p;
+typedef struct packet_counter *packet_counter_p;
 struct ldgm_msg {
+        ldgm_msg(int count) : substream_count(count) {
+                buffer_len = new int[count];
+                buffer_num = new int[count];
+                recv_buffers = new char_p[count];
+                pckt_list = new packet_counter_p[count];
+        }
+        ~ldgm_msg() {
+                delete buffer_len;
+                delete buffer_num;
+                delete recv_buffers;
+                for(int i = 0; i < substream_count; ++i) {
+                        pc_destroy(pckt_list[i]);
+                }
+                delete pckt_list;
+        }
         int *buffer_len;
         int *buffer_num;
         char **recv_buffers;
@@ -237,6 +260,18 @@ struct ldgm_msg {
 };
 
 struct decompress_msg {
+        decompress_msg(int count) {
+                decompress_buffer = new char_p[count];
+                fec_buffers = new char_p[count];
+                buffer_len = new int[count];
+                buffer_num = new int[count];
+        }
+        ~decompress_msg() {
+                delete decompress_buffer;
+                delete fec_buffers;
+                delete buffer_len;
+                delete buffer_num;
+        }
         char **decompress_buffer;
         int *buffer_len;
         int *buffer_num;
@@ -244,6 +279,29 @@ struct decompress_msg {
         bool poisoned;
 };
 
+enum main_msg_type {
+        RECONFIGURE,
+};
+
+struct main_msg {
+        virtual ~main_msg(){}
+};
+
+struct main_msg_reconfigure : public main_msg {
+        main_msg_reconfigure(struct video_desc d) : desc(d) {}
+        struct video_desc   desc;
+};
+
+struct video_new_prop : public main_msg {
+        double              set_fps;
+        codec_t             codec;
+};
+
+/**
+ * This function blocks until video frame is displayed and decoder::frame
+ * can be filled with new data. Until this point, the video frame is not considered
+ * valid.
+ */
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder) {
         pthread_mutex_lock(&decoder->lock);
         {
@@ -262,7 +320,8 @@ static void wait_for_framebuffer_swap(struct state_video_decoder *decoder) {
 
 static void *ldgm_thread(void *args) {
         uint32_t tmp_ui32;
-        struct state_video_decoder *decoder = args;
+        struct state_video_decoder *decoder =
+                (struct state_video_decoder *) args;
 
         struct fec fec_state;
         memset(&fec_state, 0, sizeof(fec_state));
@@ -290,25 +349,21 @@ static void *ldgm_thread(void *args) {
                                                         &decoder->lock);
                                 }
 
-                                decoder->decompress_msg = malloc(sizeof(struct decompress_msg));
+                                decoder->decompress_msg = new decompress_msg(0);
                                 decoder->decompress_msg->poisoned = true;
 
                                 /*  ...and signal the worker */
                                 pthread_cond_signal(&decoder->decompress_msg_ready_cv);
                         }
                         pthread_mutex_unlock(&decoder->lock);
-                        free(data);
+                        delete data;
                         break; // exit from loop
                 }
 
                 struct video_frame *frame = decoder->frame;
                 struct tile *tile = NULL;
                 int ret = TRUE;
-                struct decompress_msg *decompress_msg = malloc(sizeof(struct decompress_msg));
-                decompress_msg->decompress_buffer = calloc(data->substream_count, sizeof(char *));
-                decompress_msg->fec_buffers = calloc(data->substream_count, sizeof(char *));
-                decompress_msg->buffer_len = calloc(data->substream_count, sizeof(int));
-                decompress_msg->buffer_num = calloc(data->substream_count, sizeof(int));
+                struct decompress_msg *decompress_msg = new struct decompress_msg( data->substream_count);
                 memcpy(decompress_msg->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
                 memcpy(decompress_msg->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
 
@@ -378,7 +433,7 @@ static void *ldgm_thread(void *args) {
 
                                         int ciphertext_len = ldgm_out_len -
                                                 sizeof(crypto_payload_hdr_t);
-                                        char *plaintext = malloc(ciphertext_len);
+                                        char *plaintext = (char *) malloc(ciphertext_len);
                                         char *ciphertext = (char *)
                                                 ldgm_out_buffer + sizeof(crypto_payload_hdr_t);
                                         int plaintext_len;
@@ -404,8 +459,15 @@ static void *ldgm_thread(void *args) {
                                         }
                                 }
 
-                                check_for_mode_change(decoder, video_hdr,
-                                                &frame);
+                                struct video_desc network_desc;
+                                parse_video_hdr(video_hdr, &network_desc);
+                                if (!video_desc_eq_excl_param(decoder->received_vid_desc,
+                                                        network_desc, PARAM_TILE_COUNT)) {
+                                        pthread_mutex_lock(&decoder->lock);
+                                        main_msg *msg = new main_msg_reconfigure(network_desc);
+                                        decoder->msg_queue.push(msg);
+                                        pthread_mutex_unlock(&decoder->lock);
+                                }
 
                                 if(!frame) {
                                         ERROR_GOTO_CLEANUP
@@ -499,14 +561,7 @@ cleanup:
                         decoder->corrupted++;
                         decoder->dropped++;
                 }
-                free(data->buffer_len);
-                free(data->buffer_num);
-                free(data->recv_buffers);
-                for(int i = 0; i < data->substream_count; ++i) {
-                        pc_destroy(data->pckt_list[i]);
-                }
-                free(data->pckt_list);
-                free(data);
+                delete data;
         }
 
         if(fec_state.state)
@@ -516,30 +571,26 @@ cleanup:
 }
 
 static void *decompress_thread(void *args) {
-        struct state_video_decoder *decoder = args;
+        struct state_video_decoder *decoder =
+                (struct state_video_decoder *) args;
 
         struct tile *tile;
 
         while(1) {
-                struct decompress_msg *data = NULL;
+                struct decompress_msg *msg = NULL;
                 pthread_mutex_lock(&decoder->lock);
                 {
                         while (decoder->decompress_msg == NULL) {
                                 pthread_cond_wait(&decoder->decompress_msg_ready_cv, &decoder->lock);
                         }
-                        // we have double buffering so we can signal immediately....
-                        if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                decoder->buffer_swapped = true;
-                                pthread_cond_signal(&decoder->buffer_swapped_cv);
-                        }
-                        data = decoder->decompress_msg;
+                        msg = decoder->decompress_msg;
                         decoder->decompress_msg = NULL;
                         pthread_cond_signal(&decoder->decompress_msg_processed_cv);
                 }
                 pthread_mutex_unlock(&decoder->lock);
 
-                if(data->poisoned) {
-                        free(data);
+                if(msg->poisoned) {
+                        delete msg;
                         break;
                 }
 
@@ -568,9 +619,9 @@ static void *decompress_thread(void *args) {
                                         }
                                         decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
-                                                        (unsigned char *) data->decompress_buffer[pos],
-                                                        data->buffer_len[pos],
-                                                        data->buffer_num[pos]);
+                                                        (unsigned char *) msg->decompress_buffer[pos],
+                                                        msg->buffer_len[pos],
+                                                        msg->buffer_num[pos]);
                                 }
                         }
                 }
@@ -610,44 +661,40 @@ static void *decompress_thread(void *args) {
                         unsigned int i;
                         for(i = 0; i < decoder->frame->tile_count; ++i) {
                                 struct tile *tile = vf_get_tile(decoder->frame, i);
-                                decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width, decoder->out_codec), tile->height);
+                                decoder->change_il(tile->data, tile->data, vc_get_linesize(tile->width,
+                                                        decoder->out_codec), tile->height);
                         }
                 }
 
-                int putf_flags = 0;
-                if(is_codec_interframe(decoder->codec)) {
-                        putf_flags = PUTF_NONBLOCK;
-                }
+                {
+                        int putf_flags = 0;
 
-                int ret = display_put_frame(decoder->display,
-                                decoder->frame, putf_flags);
-                if(ret == 0) {
-                        decoder->frame =
-                                display_get_frame(decoder->display);
-                } else {
-                        decoder->dropped++;
+                        if(is_codec_interframe(decoder->received_vid_desc.color_spec)) {
+                                putf_flags = PUTF_NONBLOCK;
+                        }
+                        int ret = display_put_frame(decoder->display,
+                                        decoder->frame, putf_flags);
+                        if(ret == 0) {
+                                decoder->frame =
+                                        display_get_frame(decoder->display);
+                        } else {
+                                decoder->dropped++;
+                        }
                 }
 
 skip_frame:
 
                 for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
-                        free(data->fec_buffers[i]);
+                        free(msg->fec_buffers[i]);
                 }
-                free(data->fec_buffers);
-
-                free(data->decompress_buffer);
-                free(data->buffer_len);
-                free(data->buffer_num);
-                free(data);
+                delete msg;
 
                 pthread_mutex_lock(&decoder->lock);
                 {
                         // we have put the video frame and requested another one which is
                         // writable so on
-                        if(decoder->decoder_type != EXTERNAL_DECODER) {
-                                decoder->buffer_swapped = true;
-                                pthread_cond_signal(&decoder->buffer_swapped_cv);
-                        }
+                        decoder->buffer_swapped = true;
+                        pthread_cond_signal(&decoder->buffer_swapped_cv);
                 }
                 pthread_mutex_unlock(&decoder->lock);
         }
@@ -655,7 +702,7 @@ skip_frame:
         return NULL;
 }
 
-static void decoder_set_video_mode(struct state_video_decoder *decoder, unsigned int video_mode)
+static void decoder_set_video_mode(struct state_video_decoder *decoder, enum video_mode video_mode)
 {
         decoder->video_mode = video_mode;
         decoder->max_substreams = get_video_mode_tiles_x(decoder->video_mode)
@@ -675,12 +722,17 @@ static void decoder_set_video_mode(struct state_video_decoder *decoder, unsigned
  * @return Newly created decoder state. If an error occured, returns NULL.
  * @ingroup video_rtp_decoder
  */
-struct state_video_decoder *video_decoder_init(enum video_mode video_mode, const char *postprocess,
+struct state_video_decoder *video_decoder_init(struct module *parent,
+                enum video_mode video_mode, const char *postprocess,
                 struct display *display, const char *encryption)
 {
         struct state_video_decoder *s;
-        
-        s = (struct state_video_decoder *) calloc(1, sizeof(struct state_video_decoder));
+
+        s = (state_video_decoder *) calloc(1, sizeof(state_video_decoder));
+        s = new(s) state_video_decoder; // call the constructor
+
+        s->parent = parent;
+
         s->native_codecs = NULL;
         s->disp_supported_il = NULL;
         s->postprocess = NULL;
@@ -696,7 +748,7 @@ struct state_video_decoder *video_decoder_init(enum video_mode video_mode, const
         pthread_cond_init(&s->ldgm_worker_cv, NULL);
         s->ldgm_msg = NULL;
         s->buffer_swapped = true;
-        
+
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
                                                 encryption, MODE_AES128_CTR) != 0) {
@@ -774,7 +826,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         int ret, i;
 
         decoder->display = display;
-        
+
         free(decoder->native_codecs);
         decoder->native_count = 20 * sizeof(codec_t);
         decoder->native_codecs = (codec_t *)
@@ -785,7 +837,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 fprintf(stderr, "Failed to query codecs from video display.\n");
                 return false;
         }
-        
+
         /* next check if we didn't receive alias for UYVY */
         for(i = 0; i < (int) decoder->native_count; ++i) {
                 assert(decoder->native_codecs[i] != Vuy2 &&
@@ -812,7 +864,8 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 
         free(decoder->disp_supported_il);
         decoder->disp_supported_il_cnt = 20 * sizeof(enum interlacing_t);
-        decoder->disp_supported_il = malloc(decoder->disp_supported_il_cnt);
+        decoder->disp_supported_il = (enum interlacing_t*) calloc(decoder->disp_supported_il_cnt,
+                        sizeof(enum interlacing_t));
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_SUPPORTED_IL_MODES, decoder->disp_supported_il, &decoder->disp_supported_il_cnt);
         if(ret) {
                 decoder->disp_supported_il_cnt /= sizeof(enum interlacing_t);
@@ -855,7 +908,7 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
                                 pthread_cond_wait(&decoder->ldgm_boss_cv, &decoder->lock);
                         }
 
-                        decoder->ldgm_msg = malloc(sizeof(struct ldgm_msg));
+                        decoder->ldgm_msg = new ldgm_msg(0);
                         decoder->ldgm_msg->poisoned = true;
 
                         /*  ...and signal the worker */
@@ -866,7 +919,12 @@ void video_decoder_remove_display(struct state_video_decoder *decoder)
                 pthread_join(decoder->ldgm_thread_id, NULL);
                 pthread_join(decoder->decompress_thread_id, NULL);
 
+                if (decoder->frame)
+                        display_put_frame(decoder->display, decoder->frame,
+                                        PUTF_NONBLOCK);
+
                 decoder->display = NULL;
+                decoder->frame = NULL;
                 memset(&decoder->display_desc, 0, sizeof(decoder->display_desc));
         }
 }
@@ -889,7 +947,7 @@ static void cleanup(struct state_video_decoder *decoder)
 
 /**
  * @brief Destroys decoder created with decoder_init()
- * @param decode decoder to be destroyed. If NULL, no action is performed.
+ * @param decoder decoder to be destroyed. If NULL, no action is performed.
  */
 void video_decoder_destroy(struct state_video_decoder *decoder)
 {
@@ -919,15 +977,17 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
 
         fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
                         decoder->displayed, decoder->dropped, decoder->corrupted);
-        free(decoder);
+
+        delete decoder;
 }
 
 /**
  * Attemps to initialize decompress of given magic
  *
- * @param decoder decoder state
- * @param magic magic of the requested decompressor
- * @return flat if initialization succeeded
+ * @param[in]  magic      magic of the requested decompressor
+ * @param[out] decompress_state decoder state
+ * @param[in]  substreams number of decoders to be created
+ * @return     true if initialization succeeded
  */
 static bool try_initialize_decompress(uint32_t magic,
                 struct state_decompress **decompress_state, int substreams)
@@ -985,7 +1045,7 @@ static int find_best_decompress(codec_t in_codec, codec_t out_codec,
 }
 
 /**
- * This helper function removes redundancy in UG - triplicity in 8-bit YCbCr
+ * This helper function removes redundancy in codec_t - triplicity of 8-bit YCbCr.
  */
 static codec_t codec_remove_aliases(codec_t codec)
 {
@@ -1038,33 +1098,38 @@ bool init_decompress(codec_t in_codec, codec_t out_codec,
         return false;
 }
 
-static codec_t choose_codec_and_decoder(struct state_video_decoder * const decoder, struct video_desc desc,
-                                codec_t *in_codec, decoder_t *decode_line)
+/**
+ * This function selects, according to given video description, appropriate
+ *
+ * @param[in]  decoder     decoder to be taken parameters from (video mode, native codecs etc.)
+ * @param[in]  desc        incoming video description
+ * @param[out] decode_line If chosen decoder is a linedecoder, this variable contains the
+ *                         decoding function.
+ * @return                 Output codec, if no decoding function found, -1 is returned.
+ */
+static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, struct video_desc desc,
+                                decoder_t *decode_line)
 {
         codec_t out_codec = (codec_t) -1;
         *decode_line = NULL;
-        *in_codec = desc.color_spec;
-        
-        /* first deal with aliases */
-        *in_codec = codec_remove_aliases(*in_codec);
-        
+
         size_t native;
         /* first check if the codec is natively supported */
         for(native = 0u; native < decoder->native_count; ++native)
         {
                 out_codec = codec_remove_aliases(decoder->native_codecs[native]);
-                if(*in_codec == out_codec) {
+                if(desc.color_spec == out_codec) {
                         if((out_codec == DXT1 || out_codec == DXT1_YUV ||
                                         out_codec == DXT5)
                                         && decoder->video_mode != VIDEO_NORMAL)
                                 continue; /* it is a exception, see NOTES #1 */
-                        if(*in_codec == RGBA || /* another exception - we may change shifts */
-                                        *in_codec == RGB)
+                        if(desc.color_spec == RGBA || /* another exception - we may change shifts */
+                                        desc.color_spec == RGB)
                                 continue;
-                        
+
                         *decode_line = (decoder_t) memcpy;
                         decoder->decoder_type = LINE_DECODER;
-                        
+
                         goto after_linedecoder_lookup;
                 }
         }
@@ -1075,17 +1140,17 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder * const decod
                 for(native = 0; native < decoder->native_count; ++native)
                 {
                         out_codec = codec_remove_aliases(decoder->native_codecs[native]);
-                        if(*in_codec == line_decoders[trans].from &&
+                        if(desc.color_spec == line_decoders[trans].from &&
                                         out_codec == line_decoders[trans].to) {
-                                                
+
                                 *decode_line = line_decoders[trans].line_decoder;
-                                
+
                                 decoder->decoder_type = LINE_DECODER;
                                 goto after_linedecoder_lookup;
                         }
                 }
         }
-        
+
 after_linedecoder_lookup:
 
         /* we didn't find line decoder. So try now regular (aka DXT) decoder */
@@ -1095,7 +1160,7 @@ after_linedecoder_lookup:
                         out_codec = codec_remove_aliases(decoder->native_codecs[native]);
                         decoder->decompress_state = (struct state_decompress **)
                                 calloc(decoder->max_substreams, sizeof(struct state_decompress *));
-                        if(init_decompress(*in_codec, decoder->native_codecs[native],
+                        if(init_decompress(desc.color_spec, decoder->native_codecs[native],
                                                 decoder->decompress_state,
                                                 decoder->max_substreams)) {
                                 int res = 0, ret;
@@ -1123,12 +1188,21 @@ after_decoder_lookup:
                 exit_uv(128);
                 return (codec_t) -1;
         }
-        
-        decoder->out_codec = out_codec;
+
         return out_codec;
 }
 
-static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *supported, int il_out_cnt, /*out*/ enum interlacing_t *out_il)
+/**
+ * This function finds interlacing mode changing function.
+ *
+ * @param[in]  in_il       input_interlacing
+ * @param[in]  supported   list of supported output interlacing modes
+ * @param[in]  il_out_cnt  count of supported items
+ * @param[out] out_il      selected output interlacing
+ * @return                 selected interlacing changing function, NULL if not needed or not found
+ */
+static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *supported,
+                int il_out_cnt, /*out*/ enum interlacing_t *out_il)
 {
         struct transcode_t { enum interlacing_t in; enum interlacing_t out; change_il_t func; };
 
@@ -1164,30 +1238,37 @@ static change_il_t select_il_func(enum interlacing_t in_il, enum interlacing_t *
  *
  * @param decoder       the video decoder state
  * @param desc          new video description to be reconfigured to
- * @param frame_display    
+ * @return              boolean value if reconfiguration was successful
  */
-static struct video_frame * reconfigure_decoder(struct state_video_decoder *decoder,
-                struct video_desc desc, struct video_frame *frame_display)
+static bool reconfigure_decoder(struct state_video_decoder *decoder,
+                struct video_desc desc)
 {
-        codec_t out_codec, in_codec;
+        codec_t out_codec;
         decoder_t decode_line;
         enum interlacing_t display_il = PROGRESSIVE;
         //struct video_frame *frame;
         int render_mode;
 
-        wait_for_framebuffer_swap(decoder);
+        // this code forces flushing the pipelined data
+        struct display *tmp_display = decoder->display;
+        video_decoder_remove_display(decoder);
+        video_decoder_register_display(decoder, tmp_display);
 
         assert(decoder != NULL);
         assert(decoder->native_codecs != NULL);
-        
+
         cleanup(decoder);
 
         desc.tile_count = get_video_mode_tiles_x(decoder->video_mode)
                         * get_video_mode_tiles_y(decoder->video_mode);
-        
-        out_codec = choose_codec_and_decoder(decoder, desc, &in_codec, &decode_line);
+
+        desc.color_spec = codec_remove_aliases(desc.color_spec);
+
+        out_codec = choose_codec_and_decoder(decoder, desc, &decode_line);
         if(out_codec == (codec_t) -1)
-                return NULL;
+                return false;
+        else
+                decoder->out_codec = out_codec;
         struct video_desc display_desc = desc;
 
         int display_mode;
@@ -1232,12 +1313,9 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                         display_desc.tile_count = 1;
                 }
         }
-        
-        if(!is_codec_opaque(out_codec)) {
-                decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il, decoder->disp_supported_il_cnt, &display_il);
-        } else {
-                decoder->change_il = NULL;
-        }
+
+        decoder->change_il = select_il_func(desc.interlacing, decoder->disp_supported_il,
+                        decoder->disp_supported_il_cnt, &display_il);
 
         if (!decoder->postprocess || !pp_does_change_tiling_mode) { /* otherwise we need postprocessor mode, which we obtained before */
                 render_mode = display_mode;
@@ -1254,14 +1332,13 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                  * that vo driver is initialized so far:(
                  */
                 //display_put_frame(decoder->display, frame);
-                /* reconfigure VO and give it opportunity to pass us pitch */        
+                /* reconfigure VO and give it opportunity to pass us pitch */
                 ret = display_reconfigure(decoder->display, display_desc);
                 if(!ret) {
                         fprintf(stderr, "[decoder] Unable to reconfigure display.\n");
                         exit_uv(128);
-                        return NULL;
+                        return false;
                 }
-                frame_display = display_get_frame(decoder->display);
                 decoder->display_desc = display_desc;
         }
         /*if(decoder->postprocess) {
@@ -1269,7 +1346,7 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
         } else {
                 frame = frame_display;
         }*/
-        
+
         len = sizeof(decoder->display_requested_rgb_shift);
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_RGB_SHIFT,
                         &decoder->display_requested_rgb_shift, &len);
@@ -1278,17 +1355,17 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                 int rgb_shift[3] = {0, 8, 16};
                 memcpy(&decoder->display_requested_rgb_shift, rgb_shift, sizeof(rgb_shift));
         }
-        
+
         ret = display_get_property(decoder->display, DISPLAY_PROPERTY_BUF_PITCH,
                         &decoder->display_requested_pitch, &len);
         if(!ret) {
                 debug_msg("Failed to get pitch from video driver.\n");
                 decoder->display_requested_pitch = PITCH_DEFAULT;
         }
-        
+
         int linewidth;
         if(render_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
-                linewidth = desc.width; 
+                linewidth = desc.width;
         } else {
                 linewidth = desc.width * get_video_mode_tiles_x(decoder->video_mode);
         }
@@ -1310,20 +1387,20 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
 
         int src_x_tiles = get_video_mode_tiles_x(decoder->video_mode);
         int src_y_tiles = get_video_mode_tiles_y(decoder->video_mode);
-        
+
         if(decoder->decoder_type == LINE_DECODER) {
-                decoder->line_decoder = malloc(src_x_tiles * src_y_tiles *
-                                        sizeof(struct line_decoder));                
+                decoder->line_decoder = (struct line_decoder *) malloc(src_x_tiles * src_y_tiles *
+                                        sizeof(struct line_decoder));
                 if(render_mode == DISPLAY_PROPERTY_VIDEO_MERGED && decoder->video_mode == VIDEO_NORMAL) {
                         struct line_decoder *out = &decoder->line_decoder[0];
                         out->base_offset = 0;
-                        out->src_bpp = get_bpp(in_codec);
+                        out->src_bpp = get_bpp(desc.color_spec);
                         out->dst_bpp = get_bpp(out_codec);
                         memcpy(out->shifts, decoder->display_requested_rgb_shift, 3 * sizeof(int));
-                
+
                         out->decode_line = decode_line;
                         out->dst_pitch = decoder->pitch;
-                        out->src_linesize = vc_get_linesize(desc.width, in_codec);
+                        out->src_linesize = vc_get_linesize(desc.width, desc.color_spec);
                         out->dst_linesize = vc_get_linesize(desc.width, out_codec);
                         decoder->merged_fb = TRUE;
                 } else if(render_mode == DISPLAY_PROPERTY_VIDEO_MERGED
@@ -1331,22 +1408,22 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                         int x, y;
                         for(x = 0; x < src_x_tiles; ++x) {
                                 for(y = 0; y < src_y_tiles; ++y) {
-                                        struct line_decoder *out = &decoder->line_decoder[x + 
+                                        struct line_decoder *out = &decoder->line_decoder[x +
                                                         src_x_tiles * y];
                                         out->base_offset = y * (desc.height)
-                                                        * decoder->pitch + 
+                                                        * decoder->pitch +
                                                         vc_get_linesize(x * desc.width, out_codec);
 
-                                        out->src_bpp = get_bpp(in_codec);
+                                        out->src_bpp = get_bpp(desc.color_spec);
                                         out->dst_bpp = get_bpp(out_codec);
                                         memcpy(out->shifts, decoder->display_requested_rgb_shift,
                                                         3 * sizeof(int));
-                
+
                                         out->decode_line = decode_line;
 
                                         out->dst_pitch = decoder->pitch;
                                         out->src_linesize =
-                                                vc_get_linesize(desc.width, in_codec);
+                                                vc_get_linesize(desc.width, desc.color_spec);
                                         out->dst_linesize =
                                                 vc_get_linesize(desc.width, out_codec);
                                 }
@@ -1356,18 +1433,18 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                         int x, y;
                         for(x = 0; x < src_x_tiles; ++x) {
                                 for(y = 0; y < src_y_tiles; ++y) {
-                                        struct line_decoder *out = &decoder->line_decoder[x + 
+                                        struct line_decoder *out = &decoder->line_decoder[x +
                                                         src_x_tiles * y];
                                         out->base_offset = 0;
-                                        out->src_bpp = get_bpp(in_codec);
+                                        out->src_bpp = get_bpp(desc.color_spec);
                                         out->dst_bpp = get_bpp(out_codec);
                                         memcpy(out->shifts, decoder->display_requested_rgb_shift,
                                                         3 * sizeof(int));
-                
+
                                         out->decode_line = decode_line;
                                         out->src_linesize =
-                                                vc_get_linesize(desc.width, in_codec);
-                                        out->dst_pitch = 
+                                                vc_get_linesize(desc.width, desc.color_spec);
+                                        out->dst_pitch =
                                                 out->dst_linesize =
                                                 vc_get_linesize(desc.width, out_codec);
                                 }
@@ -1376,7 +1453,7 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                 }
         } else if (decoder->decoder_type == EXTERNAL_DECODER) {
                 int buf_size;
-                
+
                 for(unsigned int i = 0; i < decoder->max_substreams; ++i) {
                         buf_size = decompress_reconfigure(decoder->decompress_state[i], desc,
                                         decoder->display_requested_rgb_shift[0],
@@ -1385,7 +1462,7 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                                         decoder->pitch,
                                         out_codec);
                         if(!buf_size) {
-                                return NULL;
+                                return false;
                         }
                 }
                 if(render_mode == DISPLAY_PROPERTY_VIDEO_SEPARATE_TILES) {
@@ -1394,74 +1471,85 @@ static struct video_frame * reconfigure_decoder(struct state_video_decoder *deco
                         decoder->merged_fb = TRUE;
                 }
         }
-        
-        return frame_display;
+
+        return true;
 }
 
-/**
- * Checks if network format has changed.
- *
- * @param decoder decoder state
- * @param hdr     raw RTP payload header
- * @param frame   output frame (see todo for @ref state_video_decoder::frame)
- *
- * @return TRUE if format changed, FALSE if not
- */
-static int check_for_mode_change(struct state_video_decoder *decoder,
-                uint32_t *hdr, struct video_frame **frame)
+static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
 {
         uint32_t tmp;
-        int ret = FALSE;
-        unsigned int width, height;
-        codec_t color_spec;
-        enum interlacing_t interlacing;
-        double fps;
         int fps_pt, fpsd, fd, fi;
 
-        width = ntohl(hdr[3]) >> 16;
-        height = ntohl(hdr[3]) & 0xffff;
-        color_spec = get_codec_from_fcc(hdr[4]);
-        if(color_spec == (codec_t) -1) {
+        desc->width = ntohl(hdr[3]) >> 16;
+        desc->height = ntohl(hdr[3]) & 0xffff;
+        desc->color_spec = get_codec_from_fcc(hdr[4]);
+        if(desc->color_spec == (codec_t) -1) {
                 fprintf(stderr, "Unknown FourCC \"%4s\"!\n", (char *) &hdr[4]);
+                return false;
         }
 
         tmp = ntohl(hdr[5]);
-        interlacing = (enum interlacing_t) (tmp >> 29);
+        desc->interlacing = (enum interlacing_t) (tmp >> 29);
         fps_pt = (tmp >> 19) & 0x3ff;
         fpsd = (tmp >> 15) & 0xf;
         fd = (tmp >> 14) & 0x1;
         fi = (tmp >> 13) & 0x1;
 
-        fps = compute_fps(fps_pt, fpsd, fd, fi);
-        if (!(decoder->received_vid_desc.width == width &&
-                                decoder->received_vid_desc.height == height &&
-                                decoder->received_vid_desc.color_spec == color_spec &&
-                                decoder->received_vid_desc.interlacing == interlacing  &&
-                                //decoder->received_vid_desc.video_type == video_type &&
-                                decoder->received_vid_desc.fps == fps
-             )) {
-                printf("New incoming video format detected: %dx%d @%.2f%s, codec %s\n",
-                                width, height, fps,
-                                get_interlacing_suffix(interlacing),
-                                get_codec_name(color_spec));
-                decoder->received_vid_desc = (struct video_desc) {
-                        .width = width, 
-                        .height = height,
-                        .color_spec = color_spec,
-                        .interlacing = interlacing,
-                        .fps = fps };
+        desc->fps = compute_fps(fps_pt, fpsd, fd, fi);
 
-                *frame = reconfigure_decoder(decoder, decoder->received_vid_desc,
-                                *frame);
-                decoder->frame = *frame;
-                ret = TRUE;
-                decoder->set_fps = fps;
-                decoder->codec = color_spec;
+        return true;
+}
+
+static int reconfigure_if_needed(struct state_video_decoder *decoder,
+                struct video_desc network_desc)
+{
+        int ret = FALSE;
+
+        if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
+                printf("New incoming video format detected: %dx%d @%.2f%s, codec %s\n",
+                                network_desc.width, network_desc.height, network_desc.fps,
+                                get_interlacing_suffix(network_desc.interlacing),
+                                get_codec_name(network_desc.color_spec));
+                decoder->received_vid_desc = network_desc;
+
+                if (reconfigure_decoder(decoder, decoder->received_vid_desc)) {
+                        decoder->frame = display_get_frame(decoder->display);
+                        ret = TRUE;
+                } else {
+                        decoder->frame = NULL;
+                        ret = FALSE;
+                }
+
+                // Pass metadata to receiver thread (it can tweak parameters)
+                struct msg_receiver *msg = (struct msg_receiver *)
+                        new_message(sizeof(struct msg_receiver));
+                msg->type = RECEIVER_MSG_VIDEO_PROP_CHANGED;
+                msg->new_desc = decoder->received_vid_desc;
+                struct response *resp =
+                        send_message_to_receiver(decoder->parent, (struct message *) msg);
+                resp->deleter(resp);
         }
         return ret;
 }
+/**
+ * Checks if network format has changed.
+ *
+ * @param decoder decoder state
+ * @param hdr     raw RTP payload header
+ *
+ * @return TRUE if format changed (and reconfiguration was successful), FALSE if not
+ */
+static int check_for_mode_change(struct state_video_decoder *decoder,
+                uint32_t *hdr)
+{
+        struct video_desc network_desc;
+
+        parse_video_hdr(hdr, &network_desc);
+        return reconfigure_if_needed(decoder, network_desc);
+}
 
 #define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
+#define max(a, b)       (((a) > (b))? (a): (b))
 
 /**
  * @brief Decodes a participant buffer representing one video frame.
@@ -1476,7 +1564,6 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 {
         struct vcodec_state *pbuf_data = (struct vcodec_state *) decoder_data;
         struct state_video_decoder *decoder = pbuf_data->decoder;
-        struct video_frame *frame = decoder->frame;
 
         int ret = TRUE;
         uint32_t offset;
@@ -1505,31 +1592,35 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 recv_buffers[i] = NULL;
         }
 
-        perf_record(UVP_DECODEFRAME, frame);
+        perf_record(UVP_DECODEFRAME, cdata);
 
         // We have no framebuffer assigned, exitting
         if(!decoder->display) {
                 return FALSE;
         }
-        
+
         int k = 0, m = 0, c = 0, seed = 0; // LDGM
         int buffer_number, buffer_length;
 
-        // first, dispatch "messages"
-        if(decoder->set_fps) {
-                struct vcodec_message *msg = malloc(sizeof(struct vcodec_message));
-                struct fps_changed_message *data = malloc(sizeof(struct fps_changed_message));
-                msg->type = FPS_CHANGED;
-                msg->data = data;
-                data->val = decoder->set_fps;
-                data->interframe_codec = is_codec_interframe(decoder->codec);
-                simple_linked_list_append(pbuf_data->messages, msg);
-                decoder->set_fps = 0;
+        // first, dispatch messages
+        pthread_mutex_lock(&decoder->lock);
+        while (decoder->msg_queue.size() > 0) {
+                main_msg *msg = decoder->msg_queue.front();
+                decoder->msg_queue.pop();
+                pthread_mutex_unlock(&decoder->lock);
+                if (dynamic_cast<main_msg_reconfigure *>(msg)) {
+                        main_msg_reconfigure *msg_reconf = dynamic_cast<main_msg_reconfigure *>(msg);
+                        reconfigure_if_needed(decoder, msg_reconf->desc);
+                }
+                delete msg;
+                pthread_mutex_lock(&decoder->lock);
         }
+        pthread_mutex_unlock(&decoder->lock);
 
         int pt;
         int contained_pt; // if packed is encrypted it encapsulates other pt
         bool buffer_swapped = false;
+        struct ldgm_msg *ldgm_msg = NULL;
 
         while (cdata != NULL) {
                 uint32_t *hdr;
@@ -1606,7 +1697,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 
                 buffer_num[substream] = buffer_number;
                 buffer_len[substream] = buffer_length;
-                
+
                 uint32_t *video_header = hdr;
 
                 char plaintext[len]; // will be actually shorter
@@ -1628,11 +1719,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         /* Critical section
                          * each thread *MUST* wait here if this condition is true
                          */
-                        check_for_mode_change(decoder, video_header, &frame);
-                }
-                if(contained_pt == PT_VIDEO && !frame) {
-                        ret = FALSE;
-                        goto cleanup;
+                        check_for_mode_change(decoder, video_header);
                 }
 
                 pc_insert(pckt_list[substream], data_pos, len);
@@ -1645,9 +1732,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 
                         if(!decoder->postprocess) {
                                 if (!decoder->merged_fb) {
-                                        tile = vf_get_tile(frame, substream);
+                                        tile = vf_get_tile(decoder->frame, substream);
                                 } else {
-                                        tile = vf_get_tile(frame, 0);
+                                        tile = vf_get_tile(decoder->frame, 0);
                                 }
                         } else {
                                 if (!decoder->merged_fb) {
@@ -1657,16 +1744,16 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                                 }
                         }
 
-                        struct line_decoder *line_decoder = 
+                        struct line_decoder *line_decoder =
                                 &decoder->line_decoder[substream];
 
                         /* End of critical section */
 
-                        /* MAGIC, don't touch it, you definitely break it 
+                        /* MAGIC, don't touch it, you definitely break it
                          *  *source* is data from network, *destination* is frame buffer
                          */
 
-                        /* compute Y pos in source frame and convert it to 
+                        /* compute Y pos in source frame and convert it to
                          * byte offset in the destination frame
                          */
                         int y = (data_pos / line_decoder->src_linesize) * line_decoder->dst_pitch;
@@ -1675,7 +1762,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         int s_x = data_pos % line_decoder->src_linesize;
 
                         /* convert X pos from source frame into the destination frame.
-                         * it is byte offset from the beginning of a line. 
+                         * it is byte offset from the beginning of a line.
                          */
                         int d_x = ((int)((s_x) / line_decoder->src_bpp)) *
                                 line_decoder->dst_bpp;
@@ -1683,17 +1770,17 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         /* pointer to data payload in packet */
                         source = (unsigned char*)(data);
 
-                        /* copy whole packet that can span several lines. 
+                        /* copy whole packet that can span several lines.
                          * we need to clip data (v210 case) or center data (RGBA, R10k cases)
                          */
                         while (len > 0) {
                                 /* len id payload length in source BPP
-                                 * decoder needs len in destination BPP, so convert it 
+                                 * decoder needs len in destination BPP, so convert it
                                  */
                                 int l = ((int)(len / line_decoder->src_bpp)) * line_decoder->dst_bpp;
 
-                                /* do not copy multiple lines, we need to 
-                                 * copy (& clip, center) line by line 
+                                /* do not copy multiple lines, we need to
+                                 * copy (& clip, center) line by line
                                  */
                                 if (l + d_x > (int) line_decoder->dst_linesize) {
                                         l = line_decoder->dst_linesize - d_x;
@@ -1750,16 +1837,11 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        struct ldgm_msg *ldgm_msg = malloc(sizeof(struct ldgm_msg));
-        ldgm_msg->buffer_len = malloc(sizeof(buffer_len));
-        ldgm_msg->buffer_num = malloc(sizeof(buffer_num));
-        ldgm_msg->recv_buffers = malloc(sizeof(recv_buffers));
-        ldgm_msg->pckt_list = malloc(sizeof(pckt_list));
+        ldgm_msg = new struct ldgm_msg(decoder->max_substreams);
         ldgm_msg->k = k;
         ldgm_msg->m = m;
         ldgm_msg->c = c;
         ldgm_msg->seed = seed;
-        ldgm_msg->substream_count = decoder->max_substreams;
         ldgm_msg->pt = contained_pt;
         ldgm_msg->poisoned = false;
         memcpy(ldgm_msg->buffer_len, buffer_len, sizeof(buffer_len));
@@ -1769,11 +1851,8 @@ next_packet:
 
         pthread_mutex_lock(&decoder->lock);
         {
-                if(decoder->ldgm_msg && !decoder->slow) {
+                if(decoder->ldgm_msg) {
                         fprintf(stderr, "Your computer is too SLOW to play this !!!\n");
-                        decoder->slow = true;
-                } else {
-                        decoder->slow = false;
                 }
 
                 while (decoder->ldgm_msg) {

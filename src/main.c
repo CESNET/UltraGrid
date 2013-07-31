@@ -68,7 +68,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "perf.h"
-#include "rtp/decoders.h"
+#include "rtp/video_decoders.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -449,8 +449,8 @@ static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
         struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
-                state->messages = simple_linked_list_init();
-                state->decoder = video_decoder_init(uv->decoder_mode, uv->postprocess, uv->display_device,
+                state->decoder = video_decoder_init(&uv->receiver_mod, uv->decoder_mode,
+                                uv->postprocess, uv->display_device,
                                 uv->requested_encryption);
 
                 if(!state->decoder) {
@@ -473,7 +473,6 @@ static void destroy_video_decoder(void *state) {
                 return;
         }
 
-        simple_linked_list_destroy(video_decoder_state->messages);
         video_decoder_destroy(video_decoder_state->decoder);
 
         free(video_decoder_state);
@@ -501,16 +500,37 @@ static void receiver_process_messages(struct state_uv *uv, struct module *receiv
 {
         struct msg_receiver *msg;
         while ((msg = (struct msg_receiver *) check_message(receiver_mod))) {
-                assert(uv->mode == MODE_RECEIVER); // receiver only
-                destroy_rtp_devices(uv->network_devices);
-                uv->recv_port_number = msg->new_rx_port;
-                uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
-                                uv->send_port_number, uv->participants, uv->ipv6,
-                                uv->requested_mcast_if);
-                if (!uv->network_devices) {
-                        fprintf(stderr, "Changing RX port failed!\n");
-                        abort();
+                switch (msg->type) {
+                case RECEIVER_MSG_CHANGE_RX_PORT:
+                        assert(uv->mode == MODE_RECEIVER); // receiver only
+                        destroy_rtp_devices(uv->network_devices);
+                        uv->recv_port_number = msg->new_rx_port;
+                        uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
+                                        uv->send_port_number, uv->participants, uv->ipv6,
+                                        uv->requested_mcast_if);
+                        if (!uv->network_devices) {
+                                fprintf(stderr, "Changing RX port failed!\n");
+                                abort();
+                        }
+                        break;
+                case RECEIVER_MSG_VIDEO_PROP_CHANGED:
+                        {
+                                pdb_iter_t it;
+                                /// @todo should be set only to relevant participant, not all
+                                struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
+                                while (cp) {
+                                        pbuf_set_playout_delay(cp->playout_buffer,
+                                                        1.0 / msg->new_desc.fps,
+                                                        1.0 / msg->new_desc.fps *
+                                                        (is_codec_interframe(msg->new_desc.color_spec) ? 2.2 : 1.2)
+                                                        );
+
+                                        cp = pdb_iter_next(&it);
+                                }
+                        }
+                        break;
                 }
+
                 free_message((struct message *) msg);
         }
 }
@@ -675,22 +695,6 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                 }
                                 last_buf_size = new_size;
                         }
-
-                        while(simple_linked_list_size(vdecoder_state->messages) > 0) {
-                                struct vcodec_message *msg =
-                                        simple_linked_list_pop(vdecoder_state->messages);
-
-                                assert(msg->type == FPS_CHANGED);
-                                struct fps_changed_message *data = msg->data;
-
-                                pbuf_set_playout_delay(cp->playout_buffer,
-                                                1.0 / data->val,
-                                                1.0 / data->val * (data->interframe_codec ? 2.2 : 1.2)
-                                                );
-                                free(data);
-                                free(msg);
-                        }
-
 
                         pbuf_remove(cp->playout_buffer, curr_time);
                         cp = pdb_iter_next(&it);
@@ -1429,7 +1433,7 @@ int main(int argc, char *argv[])
 
         /* following block only shows help (otherwise initialized in receiver thread */
         if((uv->postprocess && strstr(uv->postprocess, "help") != NULL)) {
-                struct state_video_decoder *dec = video_decoder_init(uv->decoder_mode,
+                struct state_video_decoder *dec = video_decoder_init(NULL, uv->decoder_mode,
                                 uv->postprocess, NULL,
                                 uv->requested_encryption);
                 video_decoder_destroy(dec);

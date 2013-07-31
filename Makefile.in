@@ -54,13 +54,13 @@ OBJS	      = @OBJS@ \
 		src/tfrc.o \
 		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
-		src/rtp/decoders.o \
 		src/rtp/audio_decoders.o \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
 		src/rtp/pc.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
+		src/rtp/video_decoders.o \
 		src/audio/audio.o \
 		src/audio/audio_capture.o \
 		src/audio/audio_playback.o \

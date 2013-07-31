@@ -1,5 +1,5 @@
 /**
- * @file    decoders.h
+ * @file    video_decoders.h
  * @author  Colin Perkins
  * @author  Ladan Gharai
  * @author  Martin Pulec <pulec@cesnet.cz>
@@ -55,15 +55,20 @@
 
 struct coded_data;
 struct display;
+struct module;
 struct state_video_decoder;
 struct video_frame;
 struct state_decompress;
 struct tile;
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 int decode_video_frame(struct coded_data *compressed_frame, void *decoder_data);
 
-struct state_video_decoder *video_decoder_init(enum video_mode, const char *postprocess,
-                struct display *display, const char *encryption);
+struct state_video_decoder *video_decoder_init(struct module *parent, enum video_mode,
+                const char *postprocess, struct display *display, const char *encryption);
 void video_decoder_destroy(struct state_video_decoder *decoder);
 bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display);
 void video_decoder_remove_display(struct state_video_decoder *decoder);
@@ -73,4 +78,8 @@ void video_decoder_remove_display(struct state_video_decoder *decoder);
 // used also by hd_rum_translator
 bool init_decompress(codec_t in_codec, codec_t out_codec,
                 struct state_decompress **state, int state_count);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 

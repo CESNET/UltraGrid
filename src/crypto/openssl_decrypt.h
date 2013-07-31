@@ -54,6 +54,10 @@
 
 #include "crypto/openssl_encrypt.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct openssl_decrypt;
 
 /**
@@ -88,6 +92,10 @@ int openssl_decrypt(struct openssl_decrypt *decrypt,
                 const char *ciphertext, int ciphertext_len,
                 const char *aad, int aad_len,
                 char *plaintext);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif //  OPENSSL_DECRYPT_H_
 

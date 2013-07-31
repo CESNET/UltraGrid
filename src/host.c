@@ -14,7 +14,7 @@
 #include "video_display.h"
 
 #include "utils/resource_manager.h"
-#include "rtp/decoders.h"
+#include "rtp/video_decoders.h"
 #include "rtp/rtp.h"
 #include "rtp/pbuf.h"
 

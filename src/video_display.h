@@ -63,6 +63,10 @@
 
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 /** @anchor display_flags
  * @name Initialization Flags
  * @{ */
@@ -141,6 +145,10 @@ int                      display_get_property(struct display *d, int property, v
 void                     display_put_audio_frame(struct display *d, struct audio_frame *frame);
 int                      display_reconfigure_audio(struct display *d, int quant_samples, int channels, int sample_rate);
 /** @} */ // end of display_audio
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 
 #endif /* _VIDEO_DISPLAY_H */
 

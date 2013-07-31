@@ -65,8 +65,6 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video_display.h"
-
 #include "audio/audio.h"
 #include "utils/list.h"
 
@@ -79,19 +77,10 @@ struct coded_data {
 };
 
 /* The playout buffer */
+struct display;
 struct pbuf;
 struct state_decoder;
 struct state_audio_decoder;
-
-struct vcodec_message {
-        enum { FPS_CHANGED } type;
-        void *data;
-};
-
-struct fps_changed_message {
-        double val;
-        unsigned interframe_codec:1;
-};
 
 struct vcodec_state {
         struct display *display;
@@ -99,7 +88,6 @@ struct vcodec_state {
         unsigned int max_frame_size; // maximal frame size
                                      // to be returned to caller by a decoder to allow him adjust buffers accordingly
         unsigned int decoded;
-        struct simple_linked_list *messages;
 };
 
 struct pbuf_audio_data {

@@ -50,6 +50,10 @@
 
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*          property                               type                   default          */
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
 #define VO_PP_DOES_CHANGE_TILING_MODE        1 /*  bool                    false           */
@@ -129,5 +133,9 @@ bool vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct v
 void vo_postprocess_done(struct vo_postprocess_state *s);
 
 void show_vo_postprocess_help(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __vo_postprocess_h */

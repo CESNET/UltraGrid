@@ -37,8 +37,15 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef VIDEO_H_
+#define VIDEO_H_
+
 #include "video_codec.h"
 #include "video_frame.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 enum video_mode get_video_mode_from_str(const char *requested_mode);
 /**
@@ -61,4 +68,9 @@ int get_video_mode_tiles_y(enum video_mode mode);
  */
 const char *get_video_mode_description(enum video_mode mode);
 
+#ifdef __cplusplus
+}
+#endif // __cplusplus
+
+#endif // VIDEO_H_
 

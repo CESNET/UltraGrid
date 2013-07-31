@@ -7,7 +7,7 @@
 #include "config_win32.h"
 #endif
 
-#include <transmit.h>
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,9 +55,17 @@ struct msg_sender {
         };
 };
 
+enum msg_receiver_type {
+        RECEIVER_MSG_CHANGE_RX_PORT,
+        RECEIVER_MSG_VIDEO_PROP_CHANGED,
+};
 struct msg_receiver {
         struct message m;
-        uint16_t new_rx_port;
+        enum msg_receiver_type type;
+        union {
+                uint16_t new_rx_port;
+                struct video_desc new_desc;
+        };
 };
 
 struct msg_change_fec_data {

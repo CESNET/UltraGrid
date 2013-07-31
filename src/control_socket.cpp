@@ -302,6 +302,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                 struct msg_receiver *msg =
                         (struct msg_receiver *)
                         new_message(sizeof(struct msg_receiver));
+                msg->type = RECEIVER_MSG_CHANGE_RX_PORT;
                 msg->new_rx_port = atoi(suffix(message, "receiver-port "));
 
                 enum module_class path_receiver[] = { MODULE_CLASS_RECEIVER, MODULE_CLASS_NONE };

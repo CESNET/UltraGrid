@@ -164,6 +164,11 @@ enum video_mode {
         VIDEO_4K,      ///< tiled 4K video
 };
 
+enum tx_media_type {
+        TX_MEDIA_AUDIO,
+        TX_MEDIA_VIDEO
+};
+
 #ifdef __cplusplus
 }
 #endif
