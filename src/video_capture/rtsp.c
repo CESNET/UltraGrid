@@ -180,6 +180,11 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
         	memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
         	s->frame->tiles[0].data_len += s->nals_size;
 
+        	if(s->decompress){
+				decompress_frame(s->sd,(unsigned char *) s->out_frame,(unsigned char *)s->frame->tiles[0].data,s->rx_data->buffer_len + s->nals_size,0);
+				s->frame->tiles[0].data = s->out_frame;//rx_data->frame_buffer[0];
+				s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)*s->des.height;//rx_data->buffer_len[0];
+        	}
         	s->new_frame = false;
 
             if(s->worker_waiting) {
@@ -300,14 +305,12 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 		}
     }
 
-    printf("[rtsp] selected flags:\n");
-    printf("\t  uri: %s\n",s->uri);
-    printf("\t  port: %d\n", s->port);
-    printf("\t  width: %d\n",s->width);
-    printf("\t  height: %d\n",s->height);
-    printf("\t  decompress: %d\n",s->decompress);
-
-
+//    printf("[rtsp] selected flags:\n");
+//    printf("\t  uri: %s\n",s->uri);
+//    printf("\t  port: %d\n", s->port);
+//    printf("\t  width: %d\n",s->width);
+//    printf("\t  height: %d\n",s->height);
+//    printf("\t  decompress: %d\n\n",s->decompress);
 
 	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
 	data = malloc(4*s->width*s->height + s->nals_size);
@@ -317,10 +320,8 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     vf_get_tile(s->frame, 0)->width=s->width;
     vf_get_tile(s->frame, 0)->height=s->height;
     //s->frame->fps=30;
-    //s->frame->color_spec = H264;
-    //printf("codec:  %s\n",  s->frame->color_spec);
-
     s->frame->interlacing=PROGRESSIVE;
+
     s->frame->tiles[0].data = calloc(1, s->width*s->height);
 
 	s->should_exit = false;
@@ -372,8 +373,12 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 	if(s->nals_size>=0)
 		memcpy(data,s->nals,s->nals_size);
 	else
-		//if(s->nals_size < 0)
 		return NULL;
+
+	if(s->decompress) {
+		init_decompressor(s);
+		s->frame->color_spec = UYVY;
+	}
 
     pthread_create(&s->rtsp_thread_id, NULL , vidcap_rtsp_thread , s);
 
@@ -681,6 +686,7 @@ void vidcap_rtsp_done(void *state){
 	curl_easy_cleanup(s->curl);
 	s->curl = NULL;
 
+	if(s->decompress) decompress_done(s->sd);
 	rtp_done(s->device);
 
     free(s);
