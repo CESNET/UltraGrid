@@ -744,6 +744,7 @@ static void *capture_thread(void *arg)
                 if(ret > 0) {
                         exit_uv(0);
                 }
+                pthread_mutex_unlock(&uv->init_lock);
                 goto compress_done;
         }
 
@@ -756,6 +757,7 @@ static void *capture_thread(void *arg)
         if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
                 exit_uv(1);
+                pthread_mutex_unlock(&uv->init_lock);
                 goto compress_done;
         }
 
