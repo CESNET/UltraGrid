@@ -460,7 +460,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
 
 	printf("vidcap_deltacast_dvi_init\n");
 
-        s = (struct vidcap_deltacast_dvi_state *) malloc(sizeof(struct vidcap_deltacast_dvi_state));
+        s = (struct vidcap_deltacast_dvi_state *) calloc(1, sizeof(struct vidcap_deltacast_dvi_state));
         s->codec = BGR;
         s->configured = false;
         
