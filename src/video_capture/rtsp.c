@@ -119,38 +119,36 @@ void * vidcap_rtsp_thread(void *arg)
 		s->timeout.tv_sec = 0;
 		s->timeout.tv_usec = 10000;
 
-		rtp_recv_r(s->device, &s->timeout, s->timestamp);
+		if(!rtp_recv_r(s->device, &s->timeout, s->timestamp)){
 
-		pdb_iter_t it;
-		s->cp = pdb_iter_init(s->participants, &it);
+            pdb_iter_t it;
+            s->cp = pdb_iter_init(s->participants, &it);
 
-		int ret;
+            int ret;
 
-		s->pbuf_removed = true;
+            s->pbuf_removed = true;
 
-		while (s->cp != NULL ) {
-			ret = pbuf_decode(s->cp->playout_buffer, s->curr_time, decode_frame_h264, s->rx_data);
-			if (ret) {
-                pthread_mutex_lock(&s->lock);
-                {
-                        while(s->new_frame && !s->should_exit) {
-                                s->worker_waiting = true;
-                                pthread_cond_wait(&s->worker_cv, &s->lock);
-                                s->worker_waiting = false;
-                        }
-                        s->new_frame = true;
+            while (s->cp != NULL ) {
+                if (pbuf_decode(s->cp->playout_buffer, s->curr_time, decode_frame_h264, s->rx_data)) {
+                    pthread_mutex_lock(&s->lock);
+                    {
+                            while(s->new_frame && !s->should_exit) {
+                                    s->worker_waiting = true;
+                                    pthread_cond_wait(&s->worker_cv, &s->lock);
+                                    s->worker_waiting = false;
+                            }
+                            s->new_frame = true;
 
-                        if(s->boss_waiting)
-                                pthread_cond_signal(&s->boss_cv);
+                            if(s->boss_waiting)
+                                    pthread_cond_signal(&s->boss_cv);
+                    }
+                    pthread_mutex_unlock(&s->lock);
                 }
-                pthread_mutex_unlock(&s->lock);
-			} else {
-				//printf("FRAME not ready yet\n");
-			}
-			pbuf_remove(s->cp->playout_buffer, s->curr_time);
-			s->cp = pdb_iter_next(&it);
-		}
-		pdb_iter_done(&it);
+                pbuf_remove(s->cp->playout_buffer, s->curr_time);
+                s->cp = pdb_iter_next(&it);
+            }
+            pdb_iter_done(&it);
+        }
 	}
 	return NULL;
 }
@@ -182,8 +180,8 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 
         	if(s->decompress){
 				decompress_frame(s->sd,(unsigned char *) s->out_frame,(unsigned char *)s->frame->tiles[0].data,s->rx_data->buffer_len + s->nals_size,0);
-				s->frame->tiles[0].data = s->out_frame;//rx_data->frame_buffer[0];
-				s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)*s->des.height;//rx_data->buffer_len[0];
+				s->frame->tiles[0].data = s->out_frame;                                         //TODO memcpy?
+				s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)*s->des.height;//TODO reconfigurable
         	}
         	s->new_frame = false;
 
@@ -376,7 +374,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 		return NULL;
 
 	if(s->decompress) {
-		init_decompressor(s);
+		if(init_decompressor(s)==0) return NULL;
 		s->frame->color_spec = UYVY;
 	}
 
@@ -478,12 +476,8 @@ int init_decompressor(void *state) {
 	sr = (struct rtsp_state *)state;
 
 	sr->sd = (struct state_decompress *) calloc(2, sizeof(struct state_decompress *));
-	printf("Trying to initialize decompressor\n");
 	initialize_video_decompress();
-	printf("Decompressor initialized ;^)\n");
-	printf("Trying to initialize decoder\n");
 
-	printf("Trying to initialize decoder\n");
 	if (decompress_is_available(LIBAVCODEC_MAGIC)) {
 		sr->sd = decompress_init(LIBAVCODEC_MAGIC);
 
@@ -495,8 +489,9 @@ int init_decompressor(void *state) {
 		//des.fps=5;
 
 		decompress_reconfigure(sr->sd, sr->des, 16, 8, 0, vc_get_linesize(sr->des.width, UYVY), UYVY);  //r=16,g=8,b=0
-	}
+	}else return 0;
 	sr->out_frame =  malloc(sr->width*sr->height*4);
+	return 1;
 }
 
 

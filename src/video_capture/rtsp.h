@@ -71,7 +71,7 @@ extern "C" {
 
 #define VIDCAP_RTSP_ID	0x45b3d828  //md5 hash of VIDCAP_RTSP_ID string == a208d26f519a2664a48781c845b3d828
 
-//TODO set lower initial video recv buffer size (the minimal)
+//TODO set lower initial video recv buffer size (to find the minimal)
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
 //#define MAX_SUBSTREAMS 1
