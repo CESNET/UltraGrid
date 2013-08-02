@@ -120,7 +120,7 @@ void * vidcap_rtsp_thread(void *arg)
 		s->timeout.tv_usec = 10000;
 
 		if(!rtp_recv_r(s->device, &s->timeout, s->timestamp)){
-
+		    //rtp_recv_r(s->device, &s->timeout, s->timestamp);
             pdb_iter_t it;
             s->cp = pdb_iter_init(s->participants, &it);
 
