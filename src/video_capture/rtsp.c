@@ -366,7 +366,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
 	s->nals_size = init_rtsp(s->uri, s->port, s , s->nals);
 
-    printf("[rtsp] incoming codec: %u\n", s->frame->color_spec);
+    //printf("[rtsp] incoming codec: %u\n", s->frame->color_spec);
 
 	if(s->nals_size>=0)
 		memcpy(data,s->nals,s->nals_size);

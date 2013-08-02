@@ -130,6 +130,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_import_grab),
          NULL
         },
+#if defined HAVE_RTSP
         {
          0,
          "rtsp",
@@ -139,6 +140,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_rtsp_grab),
          NULL
         },
+#endif
 #if defined HAVE_SWMIX || defined BUILD_LIBRARIES
         {
          /* The SW mix capture card */
