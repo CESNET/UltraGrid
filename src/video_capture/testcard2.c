@@ -140,7 +140,7 @@ static int configure_audio(struct testcard_state2 *s)
         return 0;
 }
 
-void *vidcap_testcard2_init(char *fmt, unsigned int flags)
+void *vidcap_testcard2_init(const struct vidcap_params *params)
 {
         struct testcard_state2 *s;
         const char *strip_fmt = NULL;
@@ -148,7 +148,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         unsigned int rect_size = COL_NUM;
         codec_t codec=0;
 
-        if (fmt == NULL || strcmp(fmt, "help") == 0) {
+        if (params->fmt == NULL || strcmp(params->fmt, "help") == 0) {
                 printf("testcard2 options:\n");
                 printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
                 show_codec_help("testcard");
@@ -159,6 +159,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         if (!s)
                 return NULL;
 
+        char *fmt = strdup(params->fmt);
         char *tmp;
 
         s->frame = vf_alloc(1);
@@ -277,7 +278,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         // we cannot generate tiles by now
         UNUSED(strip_fmt);
         
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
@@ -298,7 +299,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         s->tile->data_len = s->size;
 
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
@@ -317,6 +318,8 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         gettimeofday(&s->start_time, NULL);
         
         pthread_create(&s->thread_id, NULL, vidcap_testcard2_thread, s);
+
+        free(fmt);
 
         return s;
 }

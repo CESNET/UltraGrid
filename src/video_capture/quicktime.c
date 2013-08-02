@@ -946,7 +946,7 @@ struct vidcap_type *vidcap_quicktime_probe(void)
 }
 
 /* Initialize the QuickTime grabbing system */
-void *vidcap_quicktime_init(char *fmt, unsigned int flags)
+void *vidcap_quicktime_init(const struct vidcap_params *params)
 {
         struct qt_grabber_state *s;
 
@@ -966,7 +966,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->frame->color_spec = 0xffffffff;
 
                 s->grab_audio = FALSE;
-                if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+                if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
 #ifdef QT_ENABLE_AUDIO
                         s->grab_audio = TRUE;
 #else
@@ -976,7 +976,9 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 #endif
                 }
 
+                char *fmt = strdup(params->fmt);
                 int ret = qt_open_grabber(s, fmt);
+                free(fmt);
 
                 if (ret != 1) {
                         free(s);

@@ -47,7 +47,7 @@
 #define VIDCAP_TESTCARD2_ID	0xb06ba92b
 
 struct vidcap_type	*vidcap_testcard2_probe(void);
-void			*vidcap_testcard2_init(char *fmt, unsigned int flags);
+void			*vidcap_testcard2_init(const struct vidcap_params *params);
 void			 vidcap_testcard2_done(void *state);
 struct video_frame	*vidcap_testcard2_grab(void *state, struct audio_frame **audio);
 

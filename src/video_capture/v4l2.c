@@ -52,6 +52,7 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include "video_capture.h"
 #include "video_capture/v4l2.h"
 
 #include <arpa/inet.h> // ntohl
@@ -69,7 +70,6 @@
 #include "host.h"
 #include "tv.h"
 #include "video.h"
-#include "video_capture.h"
 
 
 /* prototypes of functions defined in this module */
@@ -245,7 +245,7 @@ struct vidcap_type * vidcap_v4l2_probe(void)
         return vt;
 }
 
-void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
+void * vidcap_v4l2_init(const struct vidcap_params *params)
 {
         struct vidcap_v4l2_state *s;
         char *dev_name = DEFAULT_DEVICE;
@@ -255,11 +255,9 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
         uint32_t numerator = 0,
                  denominator = 0;
 
-        UNUSED(flags);
-
         printf("vidcap_v4l2_init\n");
 
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
+        if(params->fmt && strcmp(params->fmt, "help") == 0) {
                show_help(); 
                return &vidcap_init_noerr;
         }
@@ -271,7 +269,9 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
                 return NULL;
         }
 
-        if(init_fmt) {
+        if(params->fmt) {
+                char *tmp = strdup(params->fmt);
+                char *init_fmt = tmp;
                 char *save_ptr = NULL;
                 char *item;
                 int i = 0;
@@ -312,6 +312,7 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
                         init_fmt = NULL;
                         ++i;
                 }
+                free(tmp);
         }
 
         s->frame = NULL;

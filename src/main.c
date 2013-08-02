@@ -1320,7 +1320,11 @@ int main(int argc, char *argv[])
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-        ret = initialize_video_capture(uv->requested_capture, capture_cfg, vidcap_flags, &uv->capture_device);
+        struct vidcap_params params;
+        memset(&params, 0, sizeof(params));
+        params.fmt = capture_cfg;
+        params.flags = vidcap_flags;
+        ret = initialize_video_capture(uv->requested_capture, &params, &uv->capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
                        uv->requested_capture);

@@ -169,6 +169,8 @@ enum tx_media_type {
         TX_MEDIA_VIDEO
 };
 
+struct vidcap_params;
+
 #ifdef __cplusplus
 }
 #endif

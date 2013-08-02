@@ -303,13 +303,11 @@ struct vidcap_type * vidcap_screen_probe(void)
         return vt;
 }
 
-void * vidcap_screen_init(char *init_fmt, unsigned int flags)
+void * vidcap_screen_init(const struct vidcap_params *params)
 {
         struct vidcap_screen_state *s;
 
         printf("vidcap_screen_init\n");
-
-        UNUSED(flags);
 
         state = s = (struct vidcap_screen_state *) malloc(sizeof(struct vidcap_screen_state));
         if(s == NULL) {
@@ -337,12 +335,12 @@ void * vidcap_screen_init(char *init_fmt, unsigned int flags)
 
         s->frames = 0;
 
-        if(init_fmt) {
-                if (strcmp(init_fmt, "help") == 0) {
+        if(params->fmt) {
+                if (strcmp(params->fmt, "help") == 0) {
                         show_help();
                         return &vidcap_init_noerr;
-                } else if (strncasecmp(init_fmt, "fps=", strlen("fps=")) == 0) {
-                        s->fps = atoi(init_fmt + strlen("fps="));
+                } else if (strncasecmp(params->fmt, "fps=", strlen("fps=")) == 0) {
+                        s->fps = atoi(params->fmt + strlen("fps="));
                 }
         }
 

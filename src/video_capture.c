@@ -87,7 +87,7 @@ void (*vidcap_free_devices_extrn)() = vidcap_free_devices;
 void (*vidcap_done_extrn)(struct vidcap *) = vidcap_done;
 vidcap_id_t (*vidcap_get_null_device_id_extrn)(void) = vidcap_get_null_device_id;
 struct vidcap_type *(*vidcap_get_device_details_extrn)(int index) = vidcap_get_device_details;
-int (*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **) = vidcap_init;
+int (*vidcap_init_extrn)(vidcap_id_t id, const struct vidcap_params *, struct vidcap **) = vidcap_init;
 struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio) = vidcap_grab;
 int (*vidcap_get_device_count_extrn)(void) = vidcap_get_device_count;
 int (*vidcap_init_devices_extrn)(void) = vidcap_init_devices;
@@ -116,7 +116,7 @@ struct vidcap_device_api {
 
         struct vidcap_type    *(*func_probe) (void);
         const char              *func_probe_str;
-        void                  *(*func_init) (char *fmt, unsigned int flags);
+        void                  *(*func_init) (const struct vidcap_params *param);
         const char              *func_init_str;
         void                   (*func_done) (void *state);
         const char              *func_done_str;
@@ -126,7 +126,7 @@ struct vidcap_device_api {
         void                    *handle;       ///< @copydoc decoder_table_t::handle
         /** @var func_init
          * @param[in] driver configuration string
-         * @param[in]  flags  one of @ref vidcap_flags
+         * @param[in] param  driver parameters
          * @retval NULL if initialization failed
          * @retval &vidcap_init_noerr if initialization succeeded but a state was not returned (eg. help)
          * @retval other_ptr if initialization succeeded, contains pointer to state
@@ -345,7 +345,7 @@ static int vidcap_fill_symbols(struct vidcap_device_api *device)
 
         device->func_probe = (struct vidcap_type *(*) (void))
                 dlsym(handle, device->func_probe_str);
-        device->func_init = (void *(*) (char *, unsigned int))
+        device->func_init = (void *(*) (const struct vidcap_params *))
                 dlsym(handle, device->func_init_str);
         device->func_done = (void (*) (void *))
                 dlsym(handle, device->func_done_str);
@@ -435,14 +435,13 @@ vidcap_id_t vidcap_get_null_device_id(void)
 
 /** @brief Initializes video capture
  * @param[in] id     index of selected video capture driver
- * @param[in] fmt    driver options
- * @param[in] flags  one of @ref vidcap_flags
+ * @param[in] param  driver parameters
  * @param[out] state returned state
  * @retval 0    if initialization was successful
  * @retval <0   if initialization failed
  * @retval >0   if initialization was successful but no state was returned (eg. only having shown help).
  */
-int vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **state)
+int vidcap_init(vidcap_id_t id, const struct vidcap_params *param, struct vidcap **state)
 {
         unsigned int i;
 
@@ -451,7 +450,7 @@ int vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **s
                         struct vidcap *d =
                             (struct vidcap *)malloc(sizeof(struct vidcap));
                         d->magic = VIDCAP_MAGIC;
-                        d->state = vidcap_device_table[i].func_init(fmt, flags);
+                        d->state = vidcap_device_table[i].func_init(param);
                         d->index = i;
                         if (d->state == NULL) {
                                 debug_msg

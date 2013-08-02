@@ -437,9 +437,8 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
 }
 
 void *
-vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
+vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 {
-        UNUSED(flags); // DVI doesn't support audio
 	struct vidcap_deltacast_dvi_state *s;
         ULONG Width = 0, Height = 0, RefreshRate = 0;
         ULONG             Result = VHDERR_NOERROR,DllVersion,NbBoards,BoardType;
@@ -468,6 +467,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
+        char *init_fmt = strdup(params->fmt);
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
                 return &vidcap_init_noerr;
@@ -530,6 +530,7 @@ vidcap_deltacast_dvi_init(char *init_fmt, unsigned int flags)
                 BrdId = 0;
                 printf("[DELTACAST] Automatically choosen device nr. 0\n");
         }
+        free(init_fmt);
 
         /* Query VideoMasterHD information */
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);

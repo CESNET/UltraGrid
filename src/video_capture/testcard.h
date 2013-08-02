@@ -47,13 +47,7 @@
 #define VIDCAP_TESTCARD_ID	0xb06ba92a
 
 struct vidcap_type	*vidcap_testcard_probe(void);
-void			*vidcap_testcard_init(char *fmt, unsigned int flags);
+void			*vidcap_testcard_init(const struct vidcap_params *params);
 void			 vidcap_testcard_done(void *state);
 struct video_frame	*vidcap_testcard_grab(void *state, struct audio_frame **audio);
 
-// for testcard2.c
-void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
-unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
-                unsigned int height, double bpp);
-void toR10k(unsigned char *in, unsigned int width, unsigned int height);
-char * toRGB(unsigned char *in, unsigned int width, unsigned int height);

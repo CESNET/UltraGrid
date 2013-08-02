@@ -102,7 +102,7 @@ vidcap_aggregate_probe(void)
 }
 
 void *
-vidcap_aggregate_init(char *init_fmt, unsigned int flags)
+vidcap_aggregate_init(const struct vidcap_params *params)
 {
 	struct vidcap_aggregate_state *s;
         char *save_ptr = NULL;
@@ -123,14 +123,14 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
         s->frames = 0;
         gettimeofday(&s->t0, NULL);
 
-        if(!init_fmt || strcmp(init_fmt, "help") == 0) {
+        if(!params->fmt || strcmp(params->fmt, "help") == 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
 
 
         s->devices_cnt = 0;
-        tmp = parse_string = strdup(init_fmt);
+        tmp = parse_string = strdup(params->fmt);
         while(strtok_r(tmp, "#", &save_ptr)) {
                 s->devices_cnt++;
                 tmp = NULL;
@@ -139,30 +139,31 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
 
         s->devices = calloc(1, s->devices_cnt * sizeof(struct vidcap *));
         i = 0;
-        tmp = parse_string = strdup(init_fmt);
+        tmp = parse_string = strdup(params->fmt);
         while((item = strtok_r(tmp, "#", &save_ptr))) {
+                struct vidcap_params dev_params;
+                memset(&dev_params, 0, sizeof(dev_params));
+
                 char *device;
                 char *config = strdup(item);
-                char *device_cfg = NULL;
-                unsigned int dev_flags = 0u;
                 device = config;
 		if(strchr(config, ':')) {
 			char *delim = strchr(config, ':');
 			*delim = '\0';
-			device_cfg = delim + 1;
+			dev_params.fmt = delim + 1;
 		}
 
                 if(i == 0) {
-                        dev_flags = flags;
+                        dev_params.flags = params->flags;
                 } else { // do not grab from second and other devices
-                        dev_flags = flags & ~(VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG);
+                        dev_params.flags = params->flags & ~(VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG);
                 }
 
-                int ret = initialize_video_capture(device,
-                                               device_cfg, dev_flags, &s->devices[i]);
+                int ret = initialize_video_capture(device, &dev_params, &s->devices[i]);
                 free(config);
                 if(ret != 0) {
-                        fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n", i, device, device_cfg);
+                        fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
+                                        i, device, dev_params.fmt);
                         goto error;
                 }
                 ++i;

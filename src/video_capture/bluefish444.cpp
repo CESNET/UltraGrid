@@ -755,7 +755,7 @@ static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
 }
 
 void *
-vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
+vidcap_bluefish444_init(const struct vidcap_params *params)
 {
 	struct vidcap_bluefish444_state *s;
         ULONG InputChannels[4] = {
@@ -775,7 +775,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
                 EPOCH_DEST_INPUT_MEM_INTERFACE_CHD
         };
 
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
+        if(params->fmt && strcmp(params->fmt, "help") == 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
@@ -796,7 +796,9 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         s->iDeviceId = 1;
         s->is4K = false;
 
-        parse_fmt(s, init_fmt);
+        char *tmp_fmt = strdup(params->fmt);
+        parse_fmt(s, tmp_fmt);
+        free(tmp_fmt);
 
 #ifdef WIN32
         memset(&s->OverlapChA, 0, sizeof(s->OverlapChA));
@@ -905,12 +907,12 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         s->audio.max_size = 0;
         s->hanc_buffer = NULL;
 #ifdef HAVE_BLUE_AUDIO
-        if(flags) {
+        if(params->flags) {
                 if(s->SubField) {
                         cerr << "[Blue cap] Unable to grab audio in sub-field mode." << endl;
                         goto error;
                 }
-                bool ret = setup_audio(s, flags);
+                bool ret = setup_audio(s, params->flags);
                 if(ret == false) {
                         cerr << "[Blue cap] Unable to setup audio." << endl;
                         goto error;
@@ -919,7 +921,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
                 }
         }
 #else
-        if(flags) {
+        if(params->flags) {
                 cerr << "[Blue cap] Unable to capture audio. Support isn't compiled in." << endl;
                 goto error;
         }

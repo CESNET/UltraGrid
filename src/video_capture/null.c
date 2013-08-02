@@ -58,10 +58,9 @@
 
 static int capture_state = 0;
 
-void *vidcap_null_init(char *fmt, unsigned int flags)
+void *vidcap_null_init(const struct vidcap_params *params)
 {
-        UNUSED(fmt);
-        UNUSED(flags);
+        UNUSED(params);
         capture_state = 0;
         return &capture_state;
 }

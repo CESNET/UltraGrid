@@ -60,6 +60,7 @@
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/testcard.h"
+#include "video_capture/testcard_common.h"
 #include "song1.h"
 #include "vf_split.h"
 #include <stdio.h>
@@ -280,7 +281,7 @@ static int configure_tiling(struct testcard_state *s, const char *fmt)
         return 0;
 }
 
-void *vidcap_testcard_init(char *fmt, unsigned int flags)
+void *vidcap_testcard_init(const struct vidcap_params *params)
 {
         struct testcard_state *s;
         char *filename;
@@ -293,7 +294,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         int aligned_x;
         char *save_ptr = NULL;
 
-        if (fmt == NULL || strcmp(fmt, "help") == 0) {
+        if (params->fmt == NULL || strcmp(params->fmt, "help") == 0) {
                 printf("testcard options:\n");
                 printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>][:i|:sf]:still\n");
                 printf("\tp - pan with frame\n");
@@ -310,6 +311,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
 
         s->frame = vf_alloc(1);
         
+        char *fmt = strdup(params->fmt);
         char *tmp;
 
         tmp = strtok_r(fmt, ":", &save_ptr);
@@ -514,7 +516,7 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
                         return NULL;
         }
         
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
@@ -524,6 +526,8 @@ void *vidcap_testcard_init(char *fmt, unsigned int flags)
         } else {
                 s->grab_audio = FALSE;
         }
+
+        free(fmt);
 
         return s;
 }

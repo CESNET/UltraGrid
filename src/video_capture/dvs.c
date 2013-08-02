@@ -225,7 +225,7 @@ static void show_help(void)
 
 /* External API ***********************************************************************************/
 
-void *vidcap_dvs_init(char *fmt, unsigned int flags)
+void *vidcap_dvs_init(const struct vidcap_params *params)
 {
         struct vidcap_dvs_state *s;
         int i;
@@ -247,12 +247,13 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        if (fmt != NULL) {
-                if (strcmp(fmt, "help") == 0) {
+        if (params->fmt != NULL) {
+                if (strcmp(params->fmt, "help") == 0) {
 			show_help();
                         return 0;
                 }
 
+                char *fmt = strdup(params->fmt);
                 char *tmp;
 
                 if(strncmp(fmt, "PCI", 3) == 0) {
@@ -304,6 +305,8 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                                 printf("[DVS] Choosen card: %s.\n", card_name);
                         }
                 }
+
+                free(fmt);
         } else {
                 s->detect_mode = TRUE;
         }
@@ -319,7 +322,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
         } else {
                 s->grab_audio = FALSE;

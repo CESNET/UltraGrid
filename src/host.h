@@ -60,6 +60,7 @@ extern "C" {
 struct rtp;
 struct state_uv;
 struct video_frame;
+struct vidcap_params;
 
 extern int uv_argc;
 extern char **uv_argv;
@@ -95,8 +96,8 @@ int initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags,
                                                 struct display **);
 int initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags,
-                                               struct vidcap **);
+                const struct vidcap_params *params,
+                struct vidcap **);
 
 void *ultragrid_rtp_receiver_thread(void *arg);
 void destroy_rtp_devices(struct rtp ** network_devices);

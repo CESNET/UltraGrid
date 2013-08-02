@@ -326,7 +326,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
 }
 
 void *
-vidcap_deltacast_init(char *init_fmt, unsigned int flags)
+vidcap_deltacast_init(const struct vidcap_params *params)
 {
 	struct vidcap_deltacast_state *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
@@ -353,6 +353,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
+        char *init_fmt = strdup(params->fmt);
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
                 return &vidcap_init_noerr;
@@ -398,6 +399,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                 BrdId = 0;
                 printf("[DELTACAST] Automatically choosen device nr. 0\n");
         }
+        free(init_fmt);
 
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
@@ -437,7 +439,7 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
         /* Disable RX0-TX0 by-pass relay loopthrough */
         VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,FALSE);
 
-        s->initialize_flags = flags;
+        s->initialize_flags = params->flags;
         printf("\nWaiting for channel locked...\n");
         try {
                 if(wait_for_channel(s)) {

@@ -650,7 +650,7 @@ HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
-void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
+void * vidcap_dshow_init(const struct vidcap_params *params) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
 
@@ -660,7 +660,7 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 		return NULL;
 	}
 
-	if (init_fmt && strcmp(init_fmt, "help") == 0) {
+	if (params->fmt && strcmp(params_fmt, "help") == 0) {
 		show_help(s); 
 		cleanup(s);
 		return &vidcap_init_noerr;
@@ -670,8 +670,10 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 		goto error;
 	}
 
-	if (init_fmt != NULL) {
+	if (params->fmt != NULL) {
+                char *init_fmt = strdup(params->fmt);
 		if (!process_args(s, init_fmt)) goto error;
+                free(init_fmt);
 	}
 
 	InitializeConditionVariable(&s->grabWaitCV);

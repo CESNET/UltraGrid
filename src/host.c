@@ -41,7 +41,7 @@ extern struct vidcap_type *(*vidcap_get_device_details_extrn)(int i);
 extern void (*display_free_devices_extrn)(void);
 extern vidcap_id_t (*vidcap_get_null_device_id_extrn)();
 extern display_id_t (*display_get_null_device_id_extrn)();
-extern int (*vidcap_init_extrn)(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **);
+extern int (*vidcap_init_extrn)(vidcap_id_t id, const struct vidcap_params *, struct vidcap **);
 extern int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **);
 extern int (*vidcap_get_device_count_extrn)(void);
 extern int (*display_get_device_count_extrn)(void);
@@ -49,8 +49,8 @@ extern int (*vidcap_init_devices_extrn)(void);
 extern int (*display_init_devices_extrn)(void);
 
 int initialize_video_capture(const char *requested_capture,
-                                               char *fmt, unsigned int flags,
-                                               struct vidcap **state)
+                const struct vidcap_params *params,
+                struct vidcap **state)
 {
         struct vidcap_type *vt;
         vidcap_id_t id = 0;
@@ -80,7 +80,7 @@ int initialize_video_capture(const char *requested_capture,
         pthread_mutex_unlock(vidcap_lock);
         rm_release_shared_lock("VIDCAP_LOCK");
 
-        return vidcap_init_extrn(id, fmt, flags, state);
+        return vidcap_init_extrn(id, params, state);
 }
 
 int initialize_video_display(const char *requested_display,

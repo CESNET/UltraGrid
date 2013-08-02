@@ -51,10 +51,11 @@ extern "C" {
 #endif
 
 struct vidcap_type	*vidcap_decklink_probe(void);
-void			*vidcap_decklink_init(char *fmt, unsigned int flags);
+void			*vidcap_decklink_init(const struct vidcap_params *params);
 void			 vidcap_decklink_done(void *state);
 struct video_frame	*vidcap_decklink_grab(void *state, struct audio_frame **audio);
 
 #ifdef __cplusplus
 } // END extern "C"
 #endif
+
