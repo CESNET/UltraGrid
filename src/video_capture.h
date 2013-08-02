@@ -110,10 +110,16 @@ struct vidcap_type {
 	//video_colour_mode_t	 colour_mode;
 };
 
-/** Defines parameters passed to video capture driver. */
+struct vidcap_params;
+
+/**
+ * Defines parameters passed to video capture driver.
+ * Unused parameters should be set to zero.
+  */
 struct vidcap_params {
-        const char  *fmt;   ///< driver options
-        unsigned int flags; ///< one of @ref vidcap_flags
+        const char  *driver; ///< driver name
+        const char  *fmt;    ///< driver options
+        unsigned int flags;  ///< one of @ref vidcap_flags
 };
 
 int			 vidcap_init_devices(void);

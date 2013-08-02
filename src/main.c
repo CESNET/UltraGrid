@@ -134,6 +134,8 @@
 #define MODE_SENDER   1
 #define MODE_RECEIVER 2
 
+#define MAX_CAPTURE_COUNT 17
+
 struct state_uv {
         int recv_port_number;
         int send_port_number;
@@ -157,7 +159,6 @@ struct state_uv {
         struct display *display_device;
         char *requested_compression;
         const char *requested_display;
-        const char *requested_capture;
         const char *requested_receiver;
         bool ipv6;
         const char *requested_mcast_if;
@@ -860,12 +861,21 @@ static void init_root_module(struct module *mod, struct state_uv *uv)
         mod->priv_data = uv;
 }
 
+#define CHECK_MAX_CAP_DEVICE_COUNT \
+        if (vidcap_count >= MAX_CAPTURE_COUNT) { \
+                fprintf(stderr, "Maximal count of capture devices (%d) exceeded.\n", MAX_CAPTURE_COUNT); \
+                return EXIT_FAIL_USAGE; \
+        }
+
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
-        char *capture_cfg = NULL;
+        // NULL terminated array of capture devices
+        struct vidcap_params vidcap_params[MAX_CAPTURE_COUNT + 1];
+        int vidcap_count = 0;
+
         char *display_cfg = NULL;
         const char *audio_recv = "none";
         const char *audio_send = "none";
@@ -909,6 +919,9 @@ int main(int argc, char *argv[])
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
 #endif
+
+        memset(vidcap_params, 0, sizeof(vidcap_params));
+        vidcap_params[0].driver = "none";
 
         if (argc == 1) {
                 usage();
@@ -961,7 +974,6 @@ int main(int argc, char *argv[])
         uv->capture_device = NULL;
         uv->display_device = NULL;
         uv->requested_display = "none";
-        uv->requested_capture = "none";
         uv->requested_compression = "none";
         uv->decoder_mode = VIDEO_NORMAL;
         uv->postprocess = NULL;
@@ -1003,12 +1015,20 @@ int main(int argc, char *argv[])
                                 list_video_capture_devices();
                                 return 0;
                         }
-                        uv->requested_capture = optarg;
-			if(strchr(optarg, ':')) {
-				char *delim = strchr(optarg, ':');
-				*delim = '\0';
-				capture_cfg = delim + 1;
-			}
+                        {
+                                char *name, *opts = NULL;
+                                name = optarg;
+                                if (strchr(optarg, ':')) {
+                                        char *delim = strchr(optarg, ':');
+                                        *delim = '\0';
+                                        opts = delim + 1;
+                                }
+                                CHECK_MAX_CAP_DEVICE_COUNT
+                                vidcap_params[vidcap_count].driver = name;
+                                vidcap_params[vidcap_count].fmt = opts;
+                                vidcap_count++;
+                        }
+
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
@@ -1170,9 +1190,11 @@ int main(int argc, char *argv[])
                         export_opts = optarg;
                         break;
                 case OPT_IMPORT:
-                        uv->requested_capture = "import";
                         audio_send = strdup("embedded");
-                        capture_cfg = optarg;
+                        CHECK_MAX_CAP_DEVICE_COUNT
+                        vidcap_params[vidcap_count].driver = "import";
+                        vidcap_params[vidcap_count].fmt = optarg;
+                        vidcap_count++;
                         break;
                 case OPT_AUDIO_CODEC:
                         if(strcmp(optarg, "help") == 0) {
@@ -1220,7 +1242,7 @@ int main(int argc, char *argv[])
 #endif
         printf("\n");
         printf("Display device   : %s\n", uv->requested_display);
-        printf("Capture device   : %s\n", uv->requested_capture);
+        printf("Capture device   : %s\n", vidcap_params[0].driver);
         printf("Audio capture    : %s\n", audio_send);
         printf("Audio playback   : %s\n", audio_recv);
         printf("MTU              : %d B\n", uv->requested_mtu);
@@ -1320,14 +1342,10 @@ int main(int argc, char *argv[])
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-        struct vidcap_params params;
-        memset(&params, 0, sizeof(params));
-        params.fmt = capture_cfg;
-        params.flags = vidcap_flags;
-        ret = initialize_video_capture(uv->requested_capture, &params, &uv->capture_device);
+        ret = initialize_video_capture(vidcap_params[0].driver, &vidcap_params[0], &uv->capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
-                       uv->requested_capture);
+                       vidcap_params[0].driver);
                 exit_uv(EXIT_FAIL_CAPTURE);
                 goto cleanup;
         }
@@ -1335,7 +1353,7 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
-        printf("Video capture initialized-%s\n", uv->requested_capture);
+        printf("Video capture initialized-%s\n", vidcap_params[0].driver);
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
@@ -1359,7 +1377,7 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0) {
                 uv->mode |= MODE_RECEIVER;
         }
-        if (strcmp("none", uv->requested_capture) != 0) {
+        if (strcmp("none", vidcap_params[0].driver) != 0) {
                 uv->mode |= MODE_SENDER;
         }
 
@@ -1514,7 +1532,7 @@ cleanup:
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (strcmp("none", uv->requested_capture) != 0 &&
+        if (strcmp("none", vidcap_params[0].driver) != 0 &&
                          tx_thread_started)
                 pthread_join(tx_thread_id, NULL);
 

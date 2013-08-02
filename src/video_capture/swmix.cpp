@@ -1,8 +1,6 @@
 /*
- * FILE:    swmix.c
- * AUTHOR:  Martin Pulec     <pulec@cesnet.cz>
- *
- * Copyright (c) 2012 CESNET z.s.p.o.
+ * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -15,12 +13,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -36,8 +29,20 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+/**
+ * @file   video_capture/swmix.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * @brief SW video mix is a virtual video mixer.
+ *
+ * @todo
+ * Reenable configuration file position matching.
+ *
+ * @todo
+ * Refactor to use also different scalers than OpenGL (eg. libswscale)
+ */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -172,7 +177,7 @@ static char *get_config_name(void);
 static bool get_slave_param_from_file(FILE* config, char *slave_name, int *x, int *y,
                                         int *width, int *height);
 static bool get_device_config_from_file(FILE* config_file, char *slave_name,
-                char *device_name_config);
+                char *device_name_config) __attribute__((unused));
 
 static char *get_config_name()
 {
@@ -191,11 +196,11 @@ static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]]#<dev1_config>#"
-                        "<dev2_config>[#....]\n");
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]] -t <dev1_config>"
+                        "-t <dev2_config>\n");
         printf("\tor\n");
         printf("\t-t swmix:file#<dev1_name>[@<dev1_config>]#"
-                        "<dev2_name>[@<dev2_config>][#....]\n");
+                        "<dev2_name>[@<dev2_config>][#....] (currently defunct)\n");
         printf("\t\twhere <devn_config> is a complete configuration string of device\n"
                         "\t\t\tinvolved in an SW mix device, if not set, must be filled in\n"
                         "\t\t\tthe config file (last item)\n");
@@ -215,14 +220,13 @@ struct state_slave {
         bool                should_exit;
         pthread_mutex_t     lock;
         char               *name;
-        char               *device_vendor;
-        struct vidcap_params device_params;
+        const struct vidcap_params *device_params;
 
         struct video_frame *captured_frame;
         struct video_frame *done_frame;
 
-        bool                capture_audio;
         struct audio_frame  audio_frame;
+        bool                audio_captured;
 };
 
 struct vidcap_swmix_state {
@@ -242,6 +246,7 @@ struct vidcap_swmix_state {
         char               *completed_audio_buffer;
         int                 completed_audio_buffer_len;
         struct audio_frame  audio;
+        int                 audio_device_index; ///< index of video device from which to take audio
         queue<char *>       free_buffer_queue;
         pthread_cond_t      free_buffer_queue_not_empty_cv;
 
@@ -547,7 +552,13 @@ static void *master_worker(void *arg)
                 // load data
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                if(field == 1 && s->slaves[i].capture_audio) {
+                                if(s->slaves[i].audio_captured && s->audio_device_index == -1) {
+                                        fprintf(stderr, "[swmix] Locking device #%d as an audio source.\n",
+                                                        i);
+                                        s->audio_device_index = i;
+                                }
+
+                                if(field == 1 && s->audio_device_index == i) {
                                         s->audio.bps = s->slaves[i].audio_frame.bps;
                                         s->audio.ch_count = s->slaves[i].audio_frame.ch_count;
                                         s->audio.sample_rate = s->slaves[i].audio_frame.sample_rate;
@@ -738,10 +749,10 @@ static void *slave_worker(void *arg)
 
         struct vidcap *device;
         int ret =
-                initialize_video_capture(s->device_vendor, &s->device_params, &device);
+                initialize_video_capture(s->device_params->driver, s->device_params, &device);
         if(ret != 0) {
                 fprintf(stderr, "[swmix] Unable to initialize device %s (%s:%s).\n",
-                                s->name, s->device_vendor, s->device_params.fmt);
+                                s->name, s->device_params->driver, s->device_params->fmt);
                 return NULL;
         }
 
@@ -757,7 +768,8 @@ static void *slave_worker(void *arg)
                                 vf_free_data(s->captured_frame);
                         }
                         s->captured_frame = frame_copy;
-                        if(s->capture_audio && audio) {
+                        if(audio) {
+                                s->audio_captured = true;
                                 int len = audio->data_len;
                                 if(len + s->audio_frame.data_len > (int) s->audio_frame.max_size) {
                                         len = s->audio_frame.max_size - s->audio_frame.data_len;
@@ -899,12 +911,9 @@ static int parse_config_string(const char *fmt, unsigned int *width,
 }
 
 static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
-                FILE **config_file, interpolation_t *interpolation, unsigned int vidcap_flags)
+                FILE **config_file, interpolation_t *interpolation,
+                const struct vidcap_params *params)
 {
-        char *save_ptr = NULL;
-        char *item;
-        char *parse_string;
-        char *tmp;
         *config_file = NULL;
         int ret;
 
@@ -949,80 +958,28 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 return false;
         }
 
-        s->devices_cnt = -1;
-        tmp = parse_string = strdup(fmt);
-        while(strtok_r(tmp, "#", &save_ptr)) {
-                s->devices_cnt++;
-                tmp = NULL;
+        s->devices_cnt = 0;
+        const struct vidcap_params *tmp = params;
+        while((tmp = tmp + 1)) {
+                if (tmp->driver != NULL)
+                        s->devices_cnt++;
+                else
+                        break;
         }
-        free(parse_string);
 
         s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
-        int i = 0;
-        parse_string = strdup(fmt);
-        strtok_r(parse_string, "#", &save_ptr); // drop first part
-        while((item = strtok_r(NULL, "#", &save_ptr))) {
-                char *copy = strdup(item);
-                char *device;
-                char *config = copy;
-                char *device_cfg = NULL;
-                char *name = NULL;
 
-                if(i == 0) {
-                        s->slaves[i].capture_audio = true;
-                        s->slaves[i].audio_frame.max_size = MAX_AUDIO_LEN;
-                        s->slaves[i].audio_frame.data = (char *)
-                                malloc(s->slaves[i].audio_frame.max_size);
-                        s->slaves[i].audio_frame.data_len = 0;
-                        s->slaves[i].device_params.flags = vidcap_flags;
-                } else {
-                        s->slaves[i].capture_audio = false;
-                        s->slaves[i].device_params.flags = 0;
-                }
-
-                if(s->use_config_file == true) {
-                        // we have device name and configuration
-                        if(strchr(config, '@')) {
-                                char *delim = strchr(config, '@');
-                                *delim = '\0';
-                                config = delim + 1;
-                                name = config;
-                        } else { // we have only device name and configuration in config file
-                                copy = (char *) realloc(copy, strlen(copy) + 128 + 2);
-                                config = copy + strlen(copy) + 1;
-                                name = copy;
-                                if(!get_device_config_from_file(*config_file, name,
-                                                        config)) {
-                                        fprintf(stderr, "Unable to get configuration for slave '%s' "
-                                                        "from config file.\n", name);
-                                        return false;
-                                }
-                        }
-                }
-                device = config;
-		if(strchr(config, ':')) {
-			char *delim = strchr(config, ':');
-			*delim = '\0';
-			device_cfg = delim + 1;
-		}
-
-                memset(&s->slaves[i].device_params, 0, sizeof(s->slaves[i].device_params));
-                s->slaves[i].device_vendor = strdup(device);
-                if(device_cfg) {
-                        s->slaves[i].device_params.fmt = strdup(device_cfg);
-                } else {
-                        s->slaves[i].device_params.fmt = NULL;
-                }
-                if(name) {
-                        s->slaves[i].name = strdup(name);
-                } else {
-                        s->slaves[i].name = NULL;
-                }
-
-                free(copy);
-                ++i;
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                s->slaves[i].audio_frame.max_size = MAX_AUDIO_LEN;
+                s->slaves[i].audio_frame.data = (char *)
+                        malloc(s->slaves[i].audio_frame.max_size);
+                s->slaves[i].audio_frame.data_len = 0;
         }
-        free(parse_string);
+
+        tmp = &params[1];
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                s->slaves[i].device_params = tmp + i;
+        }
 
         return true;
 }
@@ -1047,6 +1004,7 @@ vidcap_swmix_init(const struct vidcap_params *params)
 
         s->frames = 0;
         s->slaves = NULL;
+        s->audio_device_index = -1;
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
 
@@ -1063,7 +1021,7 @@ vidcap_swmix_init(const struct vidcap_params *params)
         FILE *config_file = NULL;
 
         char *init_fmt = strdup(params->fmt);
-        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params->flags)) {
+        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
                 goto error;
         }
         free(init_fmt);
@@ -1202,9 +1160,8 @@ vidcap_swmix_done(void *state)
                 pthread_mutex_destroy(&s->slaves[i].lock);
                 vf_free_data(s->slaves[i].captured_frame);
                 vf_free_data(s->slaves[i].done_frame);
-                free((void *) s->slaves[i].device_params.fmt);
-                free(s->slaves[i].device_vendor);
                 free(s->slaves[i].name);
+                free(s->slaves[i].audio_frame.data);
         }
         free(s->slaves);
 
