@@ -100,8 +100,6 @@ enum fec_scheme_t {
 #define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
 #endif
 
-/** @todo Take the alignment according to the actual codec */
-#define ALIGNMENT 16
 
 static bool fec_is_ldgm(struct tx *tx);
 static void tx_update(struct tx *tx, struct tile *tile);
@@ -163,7 +161,7 @@ static void tx_update(struct tx *tx, struct tile *tile)
                 if(tx->fec_scheme == FEC_LDGM && tx->max_loss > 0.0) {
                         if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
                                 int data_len = tx->mtu -  (40 + (sizeof(ldgm_video_payload_hdr_t)));
-                                data_len = (data_len / ALIGNMENT) * ALIGNMENT;
+                                data_len = (data_len / 48) * 48;
                                 void *fec_state_old = tx->fec_state;
                                 tx->fec_state = ldgm_encoder_init_with_param(data_len, tx->avg_len, tx->max_loss);
                                 if(tx->fec_state != NULL) {
@@ -555,7 +553,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;
-                data_len = (data_len / ALIGNMENT) * ALIGNMENT;
+                data_len = (data_len / 48) * 48;
                 if (pos + data_len >= (unsigned int) data_to_send_len) {
                         if (send_m) {
                                 m = 1;
