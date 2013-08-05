@@ -120,6 +120,8 @@ struct vidcap_params {
         const char  *driver; ///< driver name
         const char  *fmt;    ///< driver options
         unsigned int flags;  ///< one of @ref vidcap_flags
+
+        const char *requested_capture_filter;
 };
 
 int			 vidcap_init_devices(void);

@@ -61,7 +61,6 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <pthread.h>
-#include "capture_filter.h"
 #include "control_socket.h"
 #include "debug.h"
 #include "host.h"
@@ -148,7 +147,6 @@ struct state_uv {
         int mode; // MODE_SENDER, MODE_RECEIVER or both
         
         struct vidcap *capture_device;
-        struct capture_filter *capture_filter;
         struct timeval start_time;
         struct pdb *participants;
 
@@ -772,10 +770,6 @@ static void *capture_thread(void *arg)
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 tx_frame = vidcap_grab(uv->capture_device, &audio);
-                if(tx_frame) {
-                        tx_frame = capture_filter(uv->capture_filter, tx_frame);
-
-                }
                 if (tx_frame != NULL) {
                         if(audio) {
                                 audio_sdi_send(uv->audio, audio);
@@ -902,8 +896,6 @@ int main(int argc, char *argv[])
         struct module root_mod;
         struct state_uv *uv;
         int ch;
-
-        char *requested_capture_filter = NULL;
 
         audio_codec_t audio_codec = AC_PCM;
 
@@ -1213,7 +1205,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_CAPTURE_FILTER:
-                        requested_capture_filter = optarg;
+                        vidcap_params[vidcap_count].requested_capture_filter = optarg;
                         break;
                 case OPT_ENCRYPTION:
                         uv->requested_encryption = optarg;
@@ -1300,11 +1292,6 @@ int main(int argc, char *argv[])
                 if(control_port != CONTROL_DEFAULT_PORT) {
                         return EXIT_FAILURE;
                 }
-        }
-
-        ret = capture_filter_init(requested_capture_filter, &uv->capture_filter);
-        if(ret != 0) {
-                goto cleanup;
         }
 
         if(!audio_host) {

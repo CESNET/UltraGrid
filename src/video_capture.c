@@ -56,6 +56,8 @@
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
+
+#include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
 #include "video.h"
@@ -103,6 +105,8 @@ struct vidcap {
         void    *state; ///< state of the created video capture driver
         int      index; ///< index to @ref vidcap_device_table
         uint32_t magic; ///< For debugging. Conatins @ref VIDCAP_MAGIC
+
+        struct capture_filter *capture_filter; ///< capture_filter_state
 };
 
 /**
@@ -463,6 +467,13 @@ int vidcap_init(vidcap_id_t id, const struct vidcap_params *param, struct vidcap
                                 free(d);
                                 return 1;
                         }
+                        int ret = capture_filter_init(param->requested_capture_filter, &d->capture_filter);
+                        if(ret != 0) {
+                                fprintf(stderr, "Unable to initialize capture filter: %s.\n",
+                                        param->requested_capture_filter);
+                                return ret;
+                        }
+
                         *state = d;
                         return 0;
                 }
@@ -477,6 +488,7 @@ void vidcap_done(struct vidcap *state)
 {
         assert(state->magic == VIDCAP_MAGIC);
         vidcap_device_table[state->index].func_done(state->state);
+        capture_filter_destroy(state->capture_filter);
         free(state);
 }
 
@@ -495,6 +507,10 @@ void vidcap_done(struct vidcap *state)
 struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio)
 {
         assert(state->magic == VIDCAP_MAGIC);
-        return vidcap_device_table[state->index].func_grab(state->state, audio);
+        struct video_frame *frame;
+        frame = vidcap_device_table[state->index].func_grab(state->state, audio);
+        if (frame != NULL)
+                frame = capture_filter(state->capture_filter, frame);
+        return frame;
 }
 
