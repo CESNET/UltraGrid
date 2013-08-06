@@ -1868,10 +1868,9 @@ JPEG_INC=
 JPEG_LIB=
 
 jpeg=no
-jpeg_static=no
 
 AC_ARG_ENABLE(jpeg,
-      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto if GPUJPEG library in system)]),
+      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto)]),
 	[jpeg_req=$enableval],
         [jpeg_req=auto])
 
@@ -1909,11 +1908,8 @@ fi
 SAVED_LIBS=$LIBS
 AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
 LIBS=$SAVED_LIBS
-if test $ac_cv_lib_gpujpeg_gpujpeg_encoder_create = no; then
-        jpeg_static=yes
-fi
 
-if test \( "$jpeg_req" = yes -o \( "$jpeg_req" = auto -a $jpeg_static = no \) \) -a \
+if test "$jpeg_req" != no -a "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
         $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
         "$jpeg_os_version_ok" = yes
 then
@@ -1922,12 +1918,7 @@ then
         JPEG_LIB=" $CUDA_LIB"
         JPEG_INC=$CUDA_INC
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
-        if test $jpeg_static = yes; then
-                JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ gpujpeg/.libs/libgpujpeg.a"
-                JPEG_INC="$JPEG_INC -Igpujpeg"
-        else
-                JPEG_LIB="$JPEG_LIB -lgpujpeg"
-        fi
+        JPEG_LIB="$JPEG_LIB -lgpujpeg"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
         LINKER=$CXX
         AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
@@ -2566,18 +2557,6 @@ if test $crypto_req = yes -a $crypto = no; then
         AC_MSG_ERROR([OpenSSL not found]);
 fi
 
-# -------------------------------------------------------------------------------------------------
-# Run subsequent configure scripts
-# -------------------------------------------------------------------------------------------------
-if test $jpeg = yes -a $jpeg_static = yes
-then
-        AC_MSG_NOTICE(
-[
-Configuring JPEG
-])
-        /bin/sh -c "cd gpujpeg; ./configure --with-cuda=$CUDA_PATH"
-fi
-
 LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
 
 # -------------------------------------------------------------------------------------------------
@@ -2616,7 +2595,7 @@ RESULT=\
 
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
-  JPEG ........................ $jpeg (static: $jpeg_static)
+  JPEG ........................ $jpeg
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec (audio: $libavcodec_audio)
 
