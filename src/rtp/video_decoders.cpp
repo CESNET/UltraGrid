@@ -84,6 +84,7 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
 #include "rtp/video_decoders.h"
+#include "utils/timed_message.h"
 #include "video.h"
 #include "video_decompress.h"
 #include "video_display.h"
@@ -227,6 +228,7 @@ struct state_video_decoder {
         unsigned long int   dropped;
         unsigned long int   corrupted;
         /// @}
+        timed_message       slow_msg; ///< shows warning ony in certain interval
 
         queue<main_msg*>    msg_queue;
 
@@ -1852,7 +1854,7 @@ next_packet:
         pthread_mutex_lock(&decoder->lock);
         {
                 if(decoder->ldgm_msg) {
-                        fprintf(stderr, "Your computer is too SLOW to play this !!!\n");
+                        decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
                 }
 
                 while (decoder->ldgm_msg) {

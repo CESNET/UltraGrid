@@ -106,6 +106,7 @@ OBJS	      = @OBJS@ \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
+		src/utils/timed_message.o \
 		src/utils/worker.o \
 		src/vf_split.o \
 		src/video.o \
