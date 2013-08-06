@@ -142,6 +142,9 @@ struct line_decoder {
  * @brief LDGM FEC metadata
  */
 struct fec {
+        fec() : k(0), m(0), c(0), seed(0), state(0) {}
+        fec(int _k, int _m, int _c, int _seed, void *_state)
+                : k(_k), m(_m), c(_c), seed(_seed), state(_state) {}
         int               k;     ///< LDGM matrix width
         int               m;     ///< LDGM matrix height
         int               c;     ///< number of ones per column
@@ -324,7 +327,6 @@ static void *ldgm_thread(void *args) {
                 (struct state_video_decoder *) args;
 
         struct fec fec_state;
-        memset(&fec_state, 0, sizeof(fec_state));
 
         while(1) {
                 struct ldgm_msg *data = NULL;
@@ -376,11 +378,9 @@ static void *ldgm_thread(void *args) {
                                 if(fec_state.state) {
                                         ldgm_decoder_destroy(fec_state.state);
                                 }
-                                fec_state = (struct fec) {
-                                        .k = data->k, .m = data->m, .c = data->c,
-                                                .seed = data->seed };
-                                fec_state.state = ldgm_decoder_init(data->k, data->m, data->c,
-                                                data->seed);
+                                fec_state = fec(data->k, data->m, data->c, data->seed,
+                                                ldgm_decoder_init(data->k, data->m, data->c,
+                                                        data->seed));
                                 if(fec_state.state == NULL) {
                                         fprintf(stderr, "[decoder] Unable to initialize LDGM.\n");
                                         exit_uv(1);
