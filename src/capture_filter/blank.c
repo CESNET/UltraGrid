@@ -63,6 +63,7 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_blank {
         int x,y, width, height;
+        bool outline;
 };
 
 static int init(const char *cfg, void **state)
@@ -71,25 +72,33 @@ static int init(const char *cfg, void **state)
         unsigned int counter = 0;
         char *cfg_mutable = NULL, *tmp = NULL;
         char *item, *save_ptr;
+        bool outline = false;
 
         if(cfg) {
                 if(strcasecmp(cfg, "help") == 0) {
                         printf("Blanks specified rectangular area:\n\n");
                         printf("blank usage:\n");
-                        printf("\tblank:x:y:widht:height\n");
+                        printf("\tblank:x:y:widht:height[:outline]\n");
                         printf("\t(all values in pixels)\n");
                         return 1;
                 }
                 cfg_mutable = tmp = strdup(cfg);
-                while((item = strtok_r(cfg_mutable, ":", &save_ptr))) {
-                        if(counter > sizeof(vals) / sizeof(int)) {
-                                fprintf(stderr, "[Blank] Trailing config values.\n");
-                                return -1;
-                        }
+                while ((item = strtok_r(cfg_mutable, ":", &save_ptr))) {
                         vals[counter] = atoi(item);
 
                         cfg_mutable = NULL;
                         counter += 1;
+                        if (counter == sizeof(vals) / sizeof(int))
+                                break;
+                }
+                while ((item = strtok_r(cfg_mutable, ":", &save_ptr))) {
+                        if (strcmp(item, "outline") == 0) {
+                                outline = true;
+                        } else {
+                                fprintf(stderr, "[Blank] Unknown config value: %s\n",
+                                                item);
+                                return -1;
+                        }
                 }
         }
 
@@ -104,6 +113,7 @@ static int init(const char *cfg, void **state)
         s->y = vals[1];
         s->width = vals[2];
         s->height = vals[3];
+        s->outline = outline;
 
         free(tmp);
 
@@ -116,22 +126,56 @@ static void done(void *state)
         free(state);
 }
 
+/**
+ * @note v210 etc. will be green
+ */
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_blank *s = state;
+        codec_t codec = in->color_spec;
 
         for(int y = s->y; y < s->y + s->height; ++y) {
-                if(y < (int) in->tiles[0].height) {
-                        int linesize = vc_get_linesize(in->tiles[0].width, in->color_spec);
-                        double bpp = get_bpp(in->color_spec);
-                        int start = s->x * bpp;
-                        if(start < linesize) {
-                                int length = s->width * bpp;
-                                if(start + length <= linesize) {
-                                        memset(in->tiles[0].data + y * linesize + start, 0, length);
-                                } else {
-                                        memset(in->tiles[0].data + y * linesize + start, 0, linesize - start);
+                if(y >= (int) in->tiles[0].height) {
+                        break;
+                }
+                unsigned char pattern[4];
+
+                memset(pattern, 0, sizeof(pattern));
+                if (codec == UYVY) {
+                        pattern[0] = 127;
+                        pattern[1] = 0;
+                }
+
+                int start = s->x * get_bpp(codec);
+                int length = s->width * get_bpp(codec);
+                int linesize = vc_get_linesize(in->tiles[0].width, codec);
+                // following code won't work correctly eg. for v210
+                if(start >= linesize) {
+                        return in;
+                }
+                if(start + length > linesize) {
+                        length = linesize - start;
+                }
+                if (codec == UYVY || codec_is_a_rgb(codec)) {
+                        // bpp should be integer here, so we can afford this
+                        for (int x = start; x < start + length; x += get_bpp(codec)) {
+                                memcpy(in->tiles[0].data  + y * linesize + x, pattern,
+                                                get_bpp(codec));
+                                if (x == start && s->outline &&
+                                                y != s->y && y != s->y + s->height - 1) {
+                                        x = start + length - 2 * get_bpp(codec);
                                 }
+                        }
+                } else { //fallback
+                        if (s->outline &&
+                                        y != s->y && y != s->y + s->height - 1) {
+                                memset(in->tiles[0].data + y * linesize + start, 0,
+                                                get_pf_block_size(codec));
+                                memset(in->tiles[0].data + y * linesize + start + length -
+                                                get_pf_block_size(codec), 0,
+                                                get_pf_block_size(codec));
+                        } else {
+                                memset(in->tiles[0].data + y * linesize + start, 0, length);
                         }
                 }
         }

@@ -79,6 +79,7 @@ struct codec_info_t {
         uint32_t fcc;                 ///< FourCC
         int h_align;                  ///< Number of pixels each line is aligned to
         double bpp;                   ///< Number of bytes per pixel
+        int block_size;               ///< Bytes per pixel block (pixelformats only)
         unsigned rgb:1;               ///< Whether pixelformat is RGB
         unsigned opaque:1;            ///< If codec is opaque (= compressed)
         unsigned interframe:1;        ///< Indicates if compression is interframe
@@ -101,17 +102,19 @@ extern const struct line_decode_from_to line_decoders[]; /* defined int .c */
  * @deprecated Individual modules should print list of supported codecs by itself.
  */
 void             show_codec_help(char *module);
-double           get_bpp(codec_t codec);
-uint32_t         get_fourcc(codec_t codec);
-const char      *get_codec_name(codec_t codec);
-int              is_codec_opaque(codec_t codec);
-int              is_codec_interframe(codec_t codec);
-codec_t          get_codec_from_fcc(uint32_t fourcc);
-const char      *get_codec_file_extension(codec_t codec);
+double           get_bpp(codec_t codec) __attribute__((pure));
+uint32_t         get_fourcc(codec_t codec) __attribute__((pure));
+const char      *get_codec_name(codec_t codec) __attribute__((pure));
+int              is_codec_opaque(codec_t codec) __attribute__((pure));
+int              is_codec_interframe(codec_t codec) __attribute__((pure));
+codec_t          get_codec_from_fcc(uint32_t fourcc) __attribute__((pure));
+const char      *get_codec_file_extension(codec_t codec) __attribute__((pure));
 
-uint32_t get_fcc_from_codec(codec_t codec);
-int get_aligned_length(int width, codec_t codec);
-int vc_get_linesize(unsigned int width, codec_t codec);
+uint32_t get_fcc_from_codec(codec_t codec) __attribute__((pure));
+int get_aligned_length(int width, codec_t codec) __attribute__((pure));
+int get_pf_block_size(codec_t codec) __attribute__((pure));
+int vc_get_linesize(unsigned int width, codec_t codec) __attribute__((pure));
+int codec_is_a_rgb(codec_t codec) __attribute__((pure));
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
@@ -140,8 +143,6 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
 bool get_decoder_from_to(codec_t in, codec_t out, decoder_t *decoder);
-
-int codec_is_a_rgb(codec_t codec);
 
 #ifdef __cplusplus
 }
