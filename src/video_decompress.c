@@ -182,11 +182,11 @@ decoder_table_t decoders[] = {
                 MK_NAME(libavcodec_decompress_done),
                 NULL},
 #endif
-#if defined HAVE_TRANSCODE && ! defined BUILD_LIBRARIES
-        { TRANSCODE_MAGIC, "transcode", MK_STATIC(transcode_decompress_init), MK_STATIC(transcode_decompress_reconfigure),
-                MK_STATIC(transcode_decompress), MK_STATIC(transcode_decompress_get_property),
-                MK_STATIC(transcode_decompress_done), NULL},
-#endif // ! defined BUILD_LIBRARIES && defined HAVE_JPEG || defined HAVE_RTDXT
+#if defined HAVE_JPEG_TO_DXT || defined BUILD_LIBRARIES
+        { JPEG_TO_DXT_MAGIC, "jpeg_to_dxt", MK_NAME(jpeg_to_dxt_decompress_init), MK_NAME(jpeg_to_dxt_decompress_reconfigure),
+                MK_NAME(jpeg_to_dxt_decompress), MK_NAME(jpeg_to_dxt_decompress_get_property),
+                MK_NAME(jpeg_to_dxt_decompress_done), NULL},
+#endif
         { NULL_MAGIC, NULL, MK_STATIC(null_decompress_init), MK_STATIC(null_decompress_reconfigure),
                 MK_STATIC(null_decompress), MK_NAME(null_decompress_get_property),
                 MK_STATIC(null_decompress_done), NULL}

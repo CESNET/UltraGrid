@@ -237,6 +237,20 @@ AC_DEFUN([DEFINE_GL], [
           AC_SUBST(GL_COMMON_OBJ)
           ])
 
+AC_DEFUN([DEFINE_CUDA], [
+          if test -z "$cuda_var_defined"; then
+                  AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
+                  LINKER=$CXX
+                  POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
+decompression, you will need to have CUDA libraries visible to your OS.\n\
+If not done so, you can accomplish this by adding line:\n\
+        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
+to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
+        exec bash\n***\n"
+                  cuda_var_defined=yes
+          fi
+        ])
+
 AC_MSG_CHECKING([if_nametoindex])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <windows.h>
@@ -1909,9 +1923,17 @@ SAVED_LIBS=$LIBS
 AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
 LIBS=$SAVED_LIBS
 
-if test "$jpeg_req" != no -a "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+# Used also by JPEG_TO_DXT
+if test "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
         $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
         "$jpeg_os_version_ok" = yes
+then
+        jpeg_env_ok=yes
+else
+        jpeg_env_ok=no
+fi
+
+if test "$jpeg_req" != no -a $jpeg_env_ok = yes
 then
         jpeg=yes
 
@@ -1920,19 +1942,12 @@ then
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         JPEG_LIB="$JPEG_LIB -lgpujpeg"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
-        LINKER=$CXX
-        AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
-        POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
-decompression, you will need to have CUDA libraries visible to your OS.\n\
-If not done so, you can accomplish this by adding line:\n\
-        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
-to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
-        exec bash\n***\n"
+        DEFINE_CUDA
 fi
 
 if test $jpeg_req = yes -a $jpeg = no; then
@@ -1952,14 +1967,18 @@ AC_SUBST(JPEG_LIB)
 # -------------------------------------------------------------------------------------------------
 jpeg_to_dxt=no
 AC_ARG_ENABLE(jpeg_to_dxt,
-              AS_HELP_STRING([--enable-jpeg-to-dxt], [enable JPEG to DXT transcoder (default is disable)]),
+              AS_HELP_STRING([--disable-jpeg-to-dxt], [disable JPEG to DXT transcoder (default is auto)]),
               [jpeg_to_dxt_req=$enableval],
-              [jpeg_to_dxt_req=no])
+              [jpeg_to_dxt_req=auto])
 
-if test $jpeg = yes -a $jpeg_to_dxt_req = yes -a \
-        "$build_libraries" = no # only supported in a "bundle" build
+if test $jpeg_env_ok = yes -a $jpeg_to_dxt_req != no
 then
-        LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        JPEG_TO_DXT_INC=" $CUDA_INC"
+        JPEG_TO_DXT_LIB=" $CUDA_LIB -lgpujpeg"
+        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        AC_SUBST(JPEG_TO_DXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg_to_dxt.so.$video_decompress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $JPEG_TO_DXT_DECOMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS $JPEG_TO_DXT_OBJ"
         AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
         jpeg_to_dxt=yes
 fi
@@ -1968,6 +1987,12 @@ if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes
 then
         AC_MSG_ERROR([JPEG to DXT transcoder not found])
 fi
+
+AC_SUBST(JPEG_TO_DXT_OBJ)
+AC_SUBST(JPEG_TO_DXT_INC)
+AC_SUBST(JPEG_TO_DXT_LIB)
+
+LIB_MODULES="$LIB_MODULES $JPEG_TO_DXT_LIB"
 
 # -------------------------------------------------------------------------------------------------
 # SAGE stuff
@@ -2596,6 +2621,7 @@ RESULT=\
   FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg
+  JPEG to DXT ................. $jpeg_to_dxt
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec (audio: $libavcodec_audio)
 

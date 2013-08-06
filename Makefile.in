@@ -144,8 +144,10 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 LIB_COMMON = \
 		src/audio/utils.o \
 		src/compat/platform_semaphore.o \
+		src/compat/platform_spin.o \
 		src/crypto/random.o \
 		src/debug.o \
+		src/messaging.o \
 		src/module.o \
 		src/tile.o \
 		src/tv.o \
@@ -185,7 +187,7 @@ $(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(REFLECTOR_OBJS)
 
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(NVCCFLAGS) -Xcompiler -fPIC -c $< -o $@
 
 src/audio/resample.o:
 	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
@@ -604,6 +606,11 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 @JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $^ @JPEG_LIB@ -o $@
+
+@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ -o $@
+
 
 @ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
 	mkdir -p lib/ultragrid
