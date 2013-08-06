@@ -381,7 +381,7 @@ fi
 # Dynamic libraries stuff
 #
 build_libraries=no
-AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build modules as libraries (default is off)]),
+AC_ARG_ENABLE(plugins, AS_HELP_STRING([--enable-plugins], [build modules as libraries (default is off)]),
 	[build_libraries=$enableval])
 
 if test "$build_libraries" = yes
@@ -390,7 +390,7 @@ then
         then
                 LIBS+=' -ldl'
         else
-                AC_MSG_WARN([*** Building libraries is not supported with Mac OS X])
+                AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
                 build_libraries=no
         fi
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
