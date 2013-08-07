@@ -49,6 +49,10 @@
 
 #define JPEG_TO_DXT_MAGIC 0x20BF0088
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 void * jpeg_to_dxt_decompress_init(void);
 int jpeg_to_dxt_decompress_reconfigure(void *state, struct video_desc desc,
                         int rshift, int gshift, int bshift, int pitch, codec_t out_codec);
@@ -56,4 +60,8 @@ int jpeg_to_dxt_decompress(void *state, unsigned char *dst, unsigned char *buffe
                 unsigned int src_len, int frame_seq);
 int jpeg_to_dxt_decompress_get_property(void *state, int property, void *val, size_t *len);
 void jpeg_to_dxt_decompress_done(void *state);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
 

@@ -44,6 +44,9 @@ struct msg {
         virtual ~msg() {}
 };
 
+// some common messages
+struct msg_quit : public msg {};
+
 class message_queue {
 public:
         message_queue(int max_len = -1);
