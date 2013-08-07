@@ -35,6 +35,8 @@ char *export_dir = NULL;
 const char *sage_receiver = NULL;
 volatile bool should_exit_receiver = false;
 
+bool verbose = false;
+
 extern void (*vidcap_free_devices_extrn)();
 extern display_type_t *(*display_get_device_details_extrn)(int i);
 extern struct vidcap_type *(*vidcap_get_device_details_extrn)(int i);

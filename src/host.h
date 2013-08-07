@@ -89,6 +89,8 @@ extern unsigned int cuda_devices_count;
 
 extern const char *sage_receiver;
 
+extern bool verbose;
+
 // for aggregate.c
 struct vidcap;
 struct display;

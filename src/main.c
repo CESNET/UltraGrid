@@ -123,6 +123,7 @@
 #define OPT_CAPTURE_FILTER (('O' << 8) | 'F')
 #define OPT_ENCRYPTION (('E' << 8) | 'N')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
+#define OPT_VERBOSE (('V' << 8) | 'E')
 
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
@@ -232,6 +233,8 @@ static void usage(void)
         printf("          [--mcast-if <iface>]\n");
         printf("          [--export[=<d>]|--import <d>]\n");
         printf("          address(es)\n\n");
+        printf("\t--verbose                \tprint verbose messages\n");
+        printf("\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
         printf("\t                         \tto get list of supported devices\n");
@@ -295,7 +298,7 @@ static void usage(void)
         printf("\t                         \tIf not specified, will use same as for video\n");
         printf("\t--audio-codec <codec>[:<sample_rate>]|help\taudio codec\n");
         printf("\n");
-        printf("\t--capture-filter <filter>\tCapture filter(s)\n");
+        printf("\t--capture-filter <filter>\tCapture filter(s), must preceed\n");
         printf("\n");
         printf("\t--encryption <passphrase>\tKey material for encryption\n");
         printf("\n");
@@ -953,6 +956,7 @@ int main(int argc, char *argv[])
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
+                {"verbose", no_argument, 0, OPT_VERBOSE},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -1212,6 +1216,9 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_CONTROL_PORT:
                         control_port = atoi(optarg);
+                        break;
+                case OPT_VERBOSE:
+                        verbose = true;
                         break;
                 case '?':
                 default:

@@ -52,6 +52,8 @@ void _errprintf(const char *format, ...);
 void _dprintf(const char *format, ...);
 void debug_dump(void*lp, int len);
 
+void verbose_msg(const char *format, ...);
+
 #ifdef __cplusplus
 }
 #endif

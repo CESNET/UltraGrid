@@ -522,7 +522,7 @@ static void *ldgm_thread(void *args) {
                                 decompress_msg->decompress_buffer[i] = data->recv_buffers[i];
 
                                 if (data->buffer_len[i] != (int) pc_count_bytes(data->pckt_list[i])) {
-                                        debug_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
+                                        verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
                                                         (unsigned int) data->buffer_num[i],
                                                         data->buffer_len[i],
                                                         (unsigned int) pc_count_bytes(data->pckt_list[i]));
@@ -532,10 +532,10 @@ static void *ldgm_thread(void *args) {
                                         }
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                                 ret = FALSE;
-                                                debug_msg("dropped.\n");
+                                                verbose_msg("dropped.\n");
                                                 goto cleanup;
                                         }
-                                        debug_msg("\n");
+                                        verbose_msg("\n");
                                 }
                         }
                 }
