@@ -1179,8 +1179,10 @@ after_linedecoder_lookup:
 
                                 decoder->decoder_type = EXTERNAL_DECODER;
                                 goto after_decoder_lookup;
+                        } else {
+                                free(decoder->decompress_state);
+                                decoder->decompress_state = 0;
                         }
-
                 }
         }
 after_decoder_lookup:
