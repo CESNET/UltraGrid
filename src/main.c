@@ -73,6 +73,7 @@
 #include "rtp/pbuf.h"
 #include "sender.h"
 #include "stats.h"
+#include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -723,6 +724,12 @@ void *ultragrid_rtp_receiver_thread(void *arg)
         return 0;
 }
 
+static void uncompressed_frame_dispose(struct video_frame *frame)
+{
+        struct wait_obj *wait_obj = (struct wait_obj *) frame->dispose_udata;
+        wait_obj_notify(wait_obj);
+}
+
 /**
  * This function captures video and possibly compresses it.
  * It then delegates sending to another thread.
@@ -735,11 +742,6 @@ static void *capture_thread(void *arg)
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
         struct sender_data sender_data;
         memset(&sender_data, 0, sizeof(sender_data));
-
-        struct video_frame *tx_frame;
-        struct audio_frame *audio;
-        //struct video_frame *splitted_frames = NULL;
-        int i = 0;
 
         struct compress_state *compression = NULL;
         int ret = compress_init(uv_mod, uv->requested_compression, &compression);
@@ -760,6 +762,10 @@ static void *capture_thread(void *arg)
         sender_data.tx_module_state = uv->rxtx_state;
         sender_data.send_frame = uv->rxtx->send;
         sender_data.uv = uv;
+        sender_data.video_exporter = uv->video_exporter;
+        sender_data.compression = compression;
+
+        struct wait_obj *wait_obj = wait_obj_init();
 
         if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
@@ -772,34 +778,34 @@ static void *capture_thread(void *arg)
 
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
-                tx_frame = vidcap_grab(uv->capture_device, &audio);
+                struct audio_frame *audio;
+                struct video_frame *tx_frame = vidcap_grab(uv->capture_device, &audio);
+                void (*old_dispose)(struct video_frame *) = NULL;
+                void *old_udata = NULL;
                 if (tx_frame != NULL) {
                         if(audio) {
                                 audio_sdi_send(uv->audio, audio);
                         }
-                        //TODO: Unghetto this
-                        tx_frame = compress_frame(compression, tx_frame, i);
-                        if(!tx_frame)
-                                continue;
+                        //tx_frame = vf_get_copy(tx_frame);
+                        old_dispose = tx_frame->dispose;
+                        old_udata = tx_frame->dispose_udata;
+                        tx_frame->dispose = uncompressed_frame_dispose;
+                        tx_frame->dispose_udata = wait_obj;
+                        wait_obj_reset(wait_obj);
 
-                        i = (i + 1) % 2;
+                        // Sends frame to compression - this passes it to a sender thread
+                        compress_frame(compression, tx_frame);
 
-                        video_export(uv->video_exporter, tx_frame);
-
-                        bool nonblock = true;
-                        /* when sending uncompressed video, we simply post it for send
-                         * and wait until done */
-                        /* for compressed, we do not need to wait because of
-                         * double-buffering of compression */
-                        if(is_compress_none(compression)) {
-                                nonblock = false;
-                        }
-
-                        sender_post_new_frame(&sender_data, tx_frame, nonblock);
+                        // wait to frame is processed - eg by compress or sender (uncompressed video)
+                        wait_obj_wait(wait_obj);
+                        tx_frame->dispose = old_dispose;
+                        tx_frame->dispose_udata = old_udata;
                 }
         }
 
+        compress_frame(compression, NULL); // pass poisoned pill (will go through to the sender)
         sender_done(&sender_data);
+        wait_obj_done(wait_obj);
 
 compress_done:
         module_done(CAST_MODULE(compression));

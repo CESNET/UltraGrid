@@ -108,6 +108,7 @@ OBJS	      = @OBJS@ \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
 		src/utils/timed_message.o \
+		src/utils/wait_obj.o \
 		src/utils/worker.o \
 		src/vf_split.o \
 		src/video.o \

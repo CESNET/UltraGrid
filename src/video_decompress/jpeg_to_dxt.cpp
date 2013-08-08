@@ -56,6 +56,8 @@
 #include "video_decompress.h"
 #include "video_decompress/jpeg.h"
 
+namespace {
+
 struct thread_data {
         thread_data() :
                 m_in(1), m_out(1),
@@ -111,6 +113,8 @@ struct state_decompress_jpeg_to_dxt {
         unsigned int             occupied_count; // number of GPUs occupied
 
 };
+
+} // namespace
 
 static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int ppb);
 

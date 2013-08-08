@@ -115,6 +115,7 @@ static void *decompress_thread(void *args);
 static void cleanup(struct state_video_decoder *decoder);
 static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc);
 
+namespace {
 /**
  * Enumerates 2 possibilities how to decode arriving data.
  */
@@ -155,6 +156,74 @@ struct fec {
 
 struct decompress_msg;
 struct main_msg;
+
+// message definitions
+typedef char *char_p;
+typedef struct packet_counter *packet_counter_p;
+struct ldgm_msg {
+        ldgm_msg(int count) : substream_count(count) {
+                buffer_len = new int[count];
+                buffer_num = new int[count];
+                recv_buffers = new char_p[count];
+                pckt_list = new packet_counter_p[count];
+        }
+        ~ldgm_msg() {
+                delete buffer_len;
+                delete buffer_num;
+                delete recv_buffers;
+                for(int i = 0; i < substream_count; ++i) {
+                        pc_destroy(pckt_list[i]);
+                }
+                delete pckt_list;
+        }
+        int *buffer_len;
+        int *buffer_num;
+        char **recv_buffers;
+        struct packet_counter **pckt_list;
+        int pt;
+        int k, m, c, seed;
+        int substream_count;
+        bool poisoned;
+};
+
+struct decompress_msg {
+        decompress_msg(int count) {
+                decompress_buffer = new char_p[count];
+                fec_buffers = new char_p[count];
+                buffer_len = new int[count];
+                buffer_num = new int[count];
+        }
+        ~decompress_msg() {
+                delete decompress_buffer;
+                delete fec_buffers;
+                delete buffer_len;
+                delete buffer_num;
+        }
+        char **decompress_buffer;
+        int *buffer_len;
+        int *buffer_num;
+        char **fec_buffers;
+        bool poisoned;
+};
+
+enum main_msg_type {
+        RECONFIGURE,
+};
+
+struct main_msg {
+        virtual ~main_msg(){}
+};
+
+struct main_msg_reconfigure : public main_msg {
+        main_msg_reconfigure(struct video_desc d) : desc(d) {}
+        struct video_desc   desc;
+};
+
+struct video_new_prop : public main_msg {
+        double              set_fps;
+        codec_t             codec;
+};
+}
 
 /**
  * @brief Decoder state
@@ -233,73 +302,6 @@ struct state_video_decoder {
         queue<main_msg*>    msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
-};
-
-// message definitions
-typedef char *char_p;
-typedef struct packet_counter *packet_counter_p;
-struct ldgm_msg {
-        ldgm_msg(int count) : substream_count(count) {
-                buffer_len = new int[count];
-                buffer_num = new int[count];
-                recv_buffers = new char_p[count];
-                pckt_list = new packet_counter_p[count];
-        }
-        ~ldgm_msg() {
-                delete buffer_len;
-                delete buffer_num;
-                delete recv_buffers;
-                for(int i = 0; i < substream_count; ++i) {
-                        pc_destroy(pckt_list[i]);
-                }
-                delete pckt_list;
-        }
-        int *buffer_len;
-        int *buffer_num;
-        char **recv_buffers;
-        struct packet_counter **pckt_list;
-        int pt;
-        int k, m, c, seed;
-        int substream_count;
-        bool poisoned;
-};
-
-struct decompress_msg {
-        decompress_msg(int count) {
-                decompress_buffer = new char_p[count];
-                fec_buffers = new char_p[count];
-                buffer_len = new int[count];
-                buffer_num = new int[count];
-        }
-        ~decompress_msg() {
-                delete decompress_buffer;
-                delete fec_buffers;
-                delete buffer_len;
-                delete buffer_num;
-        }
-        char **decompress_buffer;
-        int *buffer_len;
-        int *buffer_num;
-        char **fec_buffers;
-        bool poisoned;
-};
-
-enum main_msg_type {
-        RECONFIGURE,
-};
-
-struct main_msg {
-        virtual ~main_msg(){}
-};
-
-struct main_msg_reconfigure : public main_msg {
-        main_msg_reconfigure(struct video_desc d) : desc(d) {}
-        struct video_desc   desc;
-};
-
-struct video_new_prop : public main_msg {
-        double              set_fps;
-        codec_t             codec;
 };
 
 /**

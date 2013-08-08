@@ -95,9 +95,9 @@ static void *worker(void *arg)
                         free_message(msg);
                 }
 
+                compress_frame(s->compress, s->frame);
                 struct video_frame *tx_frame =
-                        compress_frame((struct compress_state *) s->compress,
-                                        s->frame, 0);
+                        compress_pop(s->compress);
 
                 if(tx_frame) {
                         tx_send(s->tx, tx_frame, s->network_device);

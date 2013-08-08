@@ -90,15 +90,23 @@ typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct v
  */
 typedef  struct tile * (*compress_tile_t)(struct module *state, struct tile *tile,
                 struct video_desc *desc, int buffer_index);
+/**
+ * @brief Gets back tile/frame from driver
+ *
+ * @param[in]  state         driver internal state
+ * @param[out] desc          output video desc (only for tiles - for frames this is directly in metadata_
+ * @retval   !=NULL          compressed tile/frame
+ * @retval     NULL          signal that queue has finished
+ */
+typedef  void * (*compress_pop_t)(struct module *state, struct video_desc *desc);
 /// @}
 
 void show_compress_help(void);
 int compress_init(struct module *parent, const char *config_string, struct compress_state **);
 const char *get_compress_name(struct compress_state *);
 
-int is_compress_none(struct compress_state *);
-
-struct video_frame *compress_frame(struct compress_state *, struct video_frame*, int buffer_index);
+void compress_frame(struct compress_state *, struct video_frame*);
+struct video_frame *compress_pop(struct compress_state *);
 
 #ifdef __cplusplus
 }

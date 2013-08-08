@@ -57,8 +57,10 @@
 #include "video_compress/none.h"
 #include "video_compress/uyvy.h"
 #include "lib_common.h"
+#include "utils/message_queue.h"
 #include "utils/worker.h"
 
+namespace {
 /* *_str are symbol names inside library */
 /**
  * @brief This struct describes individual compress module
@@ -81,6 +83,12 @@ struct compress_t {
         const char         *compress_frame_str;
         compress_tile_t     compress_tile_func;  ///< compress function for Tile API
         const char         *compress_tile_str;
+        /**
+         * Async readback function.
+         * If not defined, synchronous API is supposed.
+         */
+        compress_pop_t      compress_pop_func;
+        const char         *compress_pop_str;
 
         void *handle;                     ///< for modular build, dynamically loaded library handle
 };
@@ -99,7 +107,16 @@ struct compress_state_real {
                                                      * uses tile API. In this case returned tiles are
                                                      * arranged to frame.
                                                      * @see compress_t */
+        message_queue      *queue;
+
+        int                 buffer_index;
 };
+
+struct msg_frame : public msg {
+        msg_frame(struct video_frame *f) : frame(f) {}
+        struct video_frame *frame;
+};
+}
 
 /**
  * @brief Video compress state.
@@ -140,6 +157,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(fastdxt_init),
                 MK_NAME(NULL),
                 MK_NAME(fastdxt_compress_tile),
+                MK_NAME(NULL),
                 NULL
         },
 #endif
@@ -149,6 +167,7 @@ struct compress_t compress_modules[] = {
                 "rtdxt",
                 MK_NAME(dxt_glsl_compress_init),
                 MK_NAME(dxt_glsl_compress),
+                MK_NAME(NULL),
                 MK_NAME(NULL),
                 NULL
         },
@@ -160,6 +179,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(jpeg_compress_init),
                 MK_NAME(jpeg_compress),
                 MK_NAME(NULL),
+                MK_NAME(NULL),
                 NULL
         },
 #endif
@@ -169,6 +189,7 @@ struct compress_t compress_modules[] = {
                 "uyvy",
                 MK_NAME(uyvy_compress_init),
                 MK_NAME(uyvy_compress),
+                MK_NAME(NULL),
                 MK_NAME(NULL),
                 NULL
         },
@@ -180,6 +201,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(libavcodec_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(libavcodec_compress_tile),
+                MK_NAME(NULL),
                 NULL
         },
 #endif
@@ -190,6 +212,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(cuda_dxt_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(cuda_dxt_compress_tile),
+                MK_NAME(NULL),
                 NULL
         },
 #endif
@@ -199,6 +222,7 @@ struct compress_t compress_modules[] = {
                 MK_STATIC(none_compress_init),
                 MK_STATIC(none_compress),
                 MK_STATIC(NULL),
+                MK_NAME(NULL),
                 NULL
         },
 };
@@ -341,7 +365,7 @@ int compress_init(struct module *parent, const char *config_string, struct compr
         struct compress_state_real *s;
 
         compress_state_proxy *proxy;
-        proxy = malloc(sizeof(compress_state_proxy));
+        proxy = (compress_state_proxy *) malloc(sizeof(compress_state_proxy));
 
         module_init_default(&proxy->mod);
         proxy->mod.cls = MODULE_CLASS_COMPRESS;
@@ -374,11 +398,11 @@ static int compress_init_real(struct module *parent, const char *config_string,
                 struct compress_state_real **state)
 {
         struct compress_state_real *s;
-        char *compress_options = NULL;
-        
-        if(!config_string) 
+        const char *compress_options = NULL;
+
+        if(!config_string)
                 return -1;
-        
+
         if(strcmp(config_string, "help") == 0)
         {
                 show_compress_help();
@@ -386,15 +410,17 @@ static int compress_init_real(struct module *parent, const char *config_string,
         }
 
         pthread_once(&compression_list_initialized, init_compressions);
-        
+
         s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
+        s->queue = new message_queue(1);
+
         s->state_count = 1;
         int i;
         for(i = 0; i < compress_modules_count; ++i) {
                 if(strncasecmp(config_string, available_compress_modules[i]->name,
                                 strlen(available_compress_modules[i]->name)) == 0) {
                         s->handle = available_compress_modules[i];
-                        if(config_string[strlen(available_compress_modules[i]->name)] == ':') 
+                        if(config_string[strlen(available_compress_modules[i]->name)] == ':')
                                 compress_options = config_string +
                                         strlen(available_compress_modules[i]->name) + 1;
                         else
@@ -409,7 +435,7 @@ static int compress_init_real(struct module *parent, const char *config_string,
         strncpy(s->compress_options, compress_options, sizeof(s->compress_options) - 1);
         s->compress_options[sizeof(s->compress_options) - 1] = '\0';
         if(s->handle->init_func) {
-                s->state = calloc(1, sizeof(struct module *));
+                s->state = (struct module **) calloc(1, sizeof(struct module *));
                 s->state[0] = s->handle->init_func(parent, s->compress_options);
                 if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
@@ -457,27 +483,45 @@ const char *get_compress_name(compress_state_proxy *proxy)
  *                     same index.
  * @return             compressed frame, may be NULL if compression failed
  */
-struct video_frame *compress_frame(compress_state_proxy *proxy, struct video_frame *frame, int buffer_index)
+void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
 {
-        struct video_frame *ret;
-        if(!proxy)
-                return NULL;
+        if (!proxy)
+                abort();
+
+        struct compress_state_real *s = proxy->ptr;
+
+        if (frame == NULL) { // pass poisoned pill
+                s->queue->push(new msg_frame(NULL));
+                return;
+        }
+
         struct msg_change_compress_data *msg = NULL;
         while ((msg = (struct msg_change_compress_data *) check_message(&proxy->mod))) {
                 compress_process_message(proxy, msg);
         }
 
-        struct compress_state_real *s = proxy->ptr;
-
+        struct video_frame *sync_api_frame;
         if(s->handle->compress_frame_func) {
-                ret = s->handle->compress_frame_func(s->state[0], frame, buffer_index);
+                sync_api_frame = s->handle->compress_frame_func(s->state[0], frame, s->buffer_index);
         } else if(s->handle->compress_tile_func) {
-                ret = compress_frame_tiles(s, frame, buffer_index, &proxy->mod);
+                sync_api_frame = compress_frame_tiles(s, frame, s->buffer_index, &proxy->mod);
         } else {
-                ret = NULL;
+                sync_api_frame = NULL;
         }
 
-        return ret;
+        s->buffer_index = (s->buffer_index + 1) % 2;
+        // returned frame is different, so we may dispose the previous one
+        if (sync_api_frame != frame) {
+                frame->dispose(frame);
+        }
+
+        msg_frame *frame_msg;
+        if (s->handle->compress_pop_func) {
+                abort(); // not yet implemented
+        } else {
+                frame_msg = new msg_frame(sync_api_frame);
+        }
+        s->queue->push(frame_msg);
 }
 
 /**
@@ -489,7 +533,7 @@ struct video_frame *compress_frame(compress_state_proxy *proxy, struct video_fra
  * @brief Auxiliary structure passed to worker thread.
  */
 struct compress_worker_data {
-        void *state;              ///< compress driver status
+        struct module *state;     ///< compress driver status
         struct tile *tile;        ///< uncompressed tile to be compressed
         struct video_desc desc;   ///< IN - src video description; OUT - compressed description
         int buffer_index;         ///< buffer index @see compress_frame
@@ -531,7 +575,7 @@ static void vf_write_desc(struct video_frame *buf, struct video_desc desc)
 
 /**
  * Compresses video frame with tiles API
- * 
+ *
  * @param[in]     s             compress state
  * @param[in]     frame         uncompressed frame
  * @param         buffer_index  0 or 1 - driver should have 2 output buffers, filling the selected one.
@@ -544,7 +588,7 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s, s
                 int buffer_index, struct module *parent)
 {
         if(frame->tile_count != s->state_count) {
-                s->state = realloc(s->state, frame->tile_count * sizeof(struct module *));
+                s->state = (struct module **) realloc(s->state, frame->tile_count * sizeof(struct module *));
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
                         s->state[i] = s->handle->init_func(parent, s->compress_options);
                         if(!s->state[i]) {
@@ -575,7 +619,8 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s, s
         }
 
         for(unsigned int i = 0; i < frame->tile_count; ++i) {
-                struct compress_worker_data *data = wait_task(task_handle[i]);
+                struct compress_worker_data *data = (struct compress_worker_data *)
+                        wait_task(task_handle[i]);
 
                 if(i == 0) { // update metadata from first tile
                         data->desc.tile_count = frame->tile_count;
@@ -604,7 +649,7 @@ static void compress_done(struct module *mod)
         if(!mod)
                 return;
 
-        compress_state_proxy *proxy = mod->priv_data;
+        compress_state_proxy *proxy = (compress_state_proxy *) mod->priv_data;
         struct compress_state_real *s = proxy->ptr;
         compress_done_real(s);
 
@@ -625,19 +670,28 @@ static void compress_done_real(struct compress_state_real *s)
                 module_done(s->state[i]);
         }
         free(s->state);
+        delete s->queue;
         free(s);
 }
 
-/**
- * @brief Returns whether we are using dummy (none) compression or not.
- * @param proxy  video compress state
- * @retval TRUE  video compress is a dummy one
- * @retval FALSE We are using some non-trivial video compression.
- */
-int is_compress_none(compress_state_proxy *proxy)
+struct video_frame *compress_pop(compress_state_proxy *proxy)
 {
-        assert(proxy != NULL);
+        struct video_frame *ret = NULL;
+        if(!proxy)
+                return NULL;
 
-        return strcmp("none", get_compress_name(proxy)) == 0 ? TRUE : FALSE;
+        struct compress_state_real *s = proxy->ptr;
+
+        if(s->handle->compress_pop_func) {
+                // ret = s->handle->compress_pop_func(s->state[0], frame, buffer_index);
+        } else {
+                msg *message = s->queue->pop();
+                msg_frame *frame_msg = dynamic_cast<msg_frame *>(message);
+                assert(frame_msg != NULL);
+                ret = frame_msg->frame;
+                delete frame_msg;
+        }
+
+        return ret;
 }
 

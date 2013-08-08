@@ -71,6 +71,7 @@ struct received_message;
 struct response;
 struct sender_msg;
 struct sender_priv_data;
+struct video_compress;
 
 enum rxtx_protocol {
         ULTRAGRID_RTP,
@@ -93,6 +94,8 @@ struct sender_data {
         void *tx_module_state;
         struct state_uv *uv;
         struct sender_priv_data *priv;
+        struct video_export *video_exporter;
+        struct compress_state *compression;
 };
 
 extern struct rx_tx ultragrid_rtp;
@@ -112,7 +115,6 @@ struct sage_rxtx_state {
 
 bool sender_init(struct sender_data *data);
 void sender_done(struct sender_data *data);
-void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock);
 
 #endif // SENDER_H_
 

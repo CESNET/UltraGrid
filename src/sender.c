@@ -67,11 +67,11 @@
 #include "transmit.h"
 #include "vf_split.h"
 #include "video.h"
+#include "video_compress.h"
 #include "video_display.h"
+#include "video_export.h"
 
-static struct sender_internal_msg *new_frame_msg(struct video_frame *frame);
 static void *sender_thread(void *arg);
-static void sender_finish(struct sender_data *data);
 static void ultragrid_rtp_send(void *state, struct video_frame *tx_frame);
 static void ultragrid_rtp_done(void *state);
 static void sage_rxtx_send(void *state, struct video_frame *tx_frame);
@@ -81,9 +81,6 @@ struct sender_priv_data {
         struct module mod;
 
         pthread_mutex_t lock;
-        pthread_cond_t msg_ready_cv;
-        pthread_cond_t msg_processed_cv;
-        struct sender_internal_msg *msg;
 
         pthread_t thread_id;
         bool paused;
@@ -104,61 +101,6 @@ struct rx_tx sage_rxtx = {
         sage_rxtx_done,
         NULL
 };
-
-enum sender_msg_type {
-        FRAME,
-        QUIT
-};
-
-struct sender_internal_msg {
-        enum sender_msg_type type;
-        void *data;
-        void (*deleter)(struct sender_internal_msg *);
-};
-
-static struct sender_internal_msg *new_frame_msg(struct video_frame *frame)
-{
-        struct sender_internal_msg *msg = malloc(sizeof(struct sender_internal_msg));
-        msg->type = FRAME;
-        msg->deleter = (void (*) (struct sender_internal_msg *)) free;
-        msg->data = frame;
-
-        return msg;
-}
-
-void sender_post_new_frame(struct sender_data *data, struct video_frame *frame, bool nonblock) {
-        pthread_mutex_lock(&data->priv->lock);
-        while(data->priv->msg) {
-                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
-        }
-
-        data->priv->msg = new_frame_msg(frame);
-        pthread_cond_signal(&data->priv->msg_ready_cv);
-
-        if(!nonblock) {
-                // we wait until frame is completed
-                while(data->priv->msg) {
-                        pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
-                }
-        }
-        pthread_mutex_unlock(&data->priv->lock);
-}
-
-static void sender_finish(struct sender_data *data) {
-        pthread_mutex_lock(&data->priv->lock);
-
-        while(data->priv->msg) {
-                pthread_cond_wait(&data->priv->msg_processed_cv, &data->priv->lock);
-        }
-
-        data->priv->msg = malloc(sizeof(struct sender_internal_msg));
-        data->priv->msg->type = QUIT;
-        data->priv->msg->deleter = (void (*) (struct sender_internal_msg *)) free;
-
-        pthread_cond_signal(&data->priv->msg_ready_cv);
-
-        pthread_mutex_unlock(&data->priv->lock);
-}
 
 static void sender_process_external_message(struct sender_data *data, struct msg_sender *msg)
 {
@@ -192,9 +134,6 @@ static void sender_process_external_message(struct sender_data *data, struct msg
 bool sender_init(struct sender_data *data) {
         data->priv = calloc(1, sizeof(struct sender_priv_data));
         pthread_mutex_init(&data->priv->lock, NULL);
-        pthread_cond_init(&data->priv->msg_ready_cv, NULL);
-        pthread_cond_init(&data->priv->msg_processed_cv, NULL);
-        data->priv->msg = NULL;
 
         // we lock and thred unlocks after initialized
         pthread_mutex_lock(&data->priv->lock);
@@ -214,12 +153,8 @@ bool sender_init(struct sender_data *data) {
 }
 
 void sender_done(struct sender_data *data) {
-        sender_finish(data);
         pthread_join(data->priv->thread_id, NULL);
 
-        pthread_mutex_destroy(&data->priv->lock);
-        pthread_cond_destroy(&data->priv->msg_ready_cv);
-        pthread_cond_destroy(&data->priv->msg_processed_cv);
         free(data->priv);
 }
 
@@ -311,34 +246,21 @@ static void *sender_thread(void *arg) {
                         free_message(msg_external);
                 }
 
-                pthread_mutex_lock(&data->priv->lock);
                 struct video_frame *tx_frame = NULL;
 
-                while(!data->priv->msg) {
-                        pthread_cond_wait(&data->priv->msg_ready_cv, &data->priv->lock);
-                }
-                struct sender_internal_msg *msg = data->priv->msg;
-                switch (msg->type) {
-                        case QUIT:
-                                data->priv->msg = NULL;
-                                msg->deleter(msg);
-                                pthread_cond_broadcast(&data->priv->msg_processed_cv);
-                                pthread_mutex_unlock(&data->priv->lock);
-                                goto exit;
-                        case FRAME:
-                                tx_frame = msg->data;
-                                break;
-                        default:
-                                abort();
-                }
-
-                pthread_mutex_unlock(&data->priv->lock);
+                tx_frame = compress_pop(data->compression);
+                if (!tx_frame)
+                        goto exit;
 
                 if(data->priv->paused) {
                         goto after_send;
                 }
 
+                video_export(data->video_exporter, tx_frame);
+
                 data->send_frame(data->tx_module_state, tx_frame);
+                if (tx_frame->dispose)
+                        tx_frame->dispose(tx_frame);
 
 after_send:
 
@@ -348,13 +270,6 @@ after_send:
                                         rtp_get_bytes_sent(rtp_state->network_devices[0]));
                 }
 
-                pthread_mutex_lock(&data->priv->lock);
-
-                data->priv->msg = NULL;
-                msg->deleter(msg);
-
-                pthread_cond_broadcast(&data->priv->msg_processed_cv);
-                pthread_mutex_unlock(&data->priv->lock);
         }
 
 exit:

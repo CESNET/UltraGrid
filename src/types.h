@@ -133,11 +133,25 @@ struct video_frame {
         unsigned int         frame_fragment_id:14;
         /// @}
 
+        /// @{
+        /**
+         * This function (if defined) is called when frame is no longer needed
+         * by processing queue.
+         * @note
+         * Currently, this is only used in sending workflow, not the receiving one!
+         * Can be called from arbitrary thread.
+         */
+        void               (*dispose)(struct video_frame *);
+        /**
+         * Additional data needed to dispose the frame
+        */
+        void                *dispose_udata;
         /**
          * This function (if defined) is called by vf_free() to destruct video data
          * (@ref tile::data members).
          */
         void               (*data_deleter)(struct video_frame *);
+        /// @}
 };
 
 /**
