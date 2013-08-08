@@ -225,7 +225,7 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
 
                 }
         }
-        s->encoder_input_linesize = s->out[frame_idx]->tiles[0].width *
+        s->encoder_input_linesize = s->out[0]->tiles[0].width *
                 (param_image.color_space == GPUJPEG_RGB ? 3 : 2);
         
         if(!s->encoder) {
@@ -260,7 +260,7 @@ static struct response *compress_change_callback(struct module *mod, struct mess
 
 static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
 {
-        if(fmt) {
+        if(fmt && fmt[0] != '\0') {
                 char *tok, *save_ptr = NULL;
                 gpujpeg_set_default_parameters(&s->encoder_param);
                 tok = strtok_r(fmt, ":", &save_ptr);
@@ -302,7 +302,7 @@ struct module * jpeg_compress_init(struct module *parent, char * opts)
 
         gpujpeg_set_default_parameters(&s->encoder_param);
 
-        if(opts) {
+        if(opts && opts[0] != '\0') {
                 parse_fmt(s, opts);
         } else {
                 printf("[JPEG] setting default encode parameters (quality: %d)\n", 
