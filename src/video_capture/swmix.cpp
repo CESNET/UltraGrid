@@ -520,7 +520,7 @@ static void *master_worker(void *arg)
                 // "capture" frames
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         pthread_mutex_lock(&s->slaves[i].lock);
-                        vf_free_data(s->slaves[i].done_frame);
+                        vf_free(s->slaves[i].done_frame);
                         s->slaves[i].done_frame = s->slaves_data[i].current_frame;
                         s->slaves_data[i].current_frame = NULL;
                         if(s->slaves[i].captured_frame) {
@@ -765,7 +765,7 @@ static void *slave_worker(void *arg)
                         struct video_frame *frame_copy = vf_get_copy(frame);
                         pthread_mutex_lock(&s->lock);
                         if(s->captured_frame) {
-                                vf_free_data(s->captured_frame);
+                                vf_free(s->captured_frame);
                         }
                         s->captured_frame = frame_copy;
                         if(audio) {
@@ -1158,8 +1158,8 @@ vidcap_swmix_done(void *state)
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 pthread_mutex_destroy(&s->slaves[i].lock);
-                vf_free_data(s->slaves[i].captured_frame);
-                vf_free_data(s->slaves[i].done_frame);
+                vf_free(s->slaves[i].captured_frame);
+                vf_free(s->slaves[i].done_frame);
                 free(s->slaves[i].name);
                 free(s->slaves[i].audio_frame.data);
         }

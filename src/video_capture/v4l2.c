@@ -467,6 +467,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) *
                         s->tile->height;
                 s->tile->data = malloc(s->tile->data_len);
+                s->frame->data_deleter = vf_data_deleter;
                 s->convert = v4lconvert_create(s->fd);
         } else {
                 s->convert = NULL;
@@ -558,10 +559,9 @@ void vidcap_v4l2_done(void *state)
 
         close(s->fd);
 
-        if(!s->conversion_needed) {
-                vf_free(s->frame);
-        } else {
-                vf_free_data(s->frame);
+        vf_free(s->frame);
+
+        if(s->conversion_needed) {
                 v4lconvert_destroy(s->convert);
         }
 

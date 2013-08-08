@@ -110,6 +110,8 @@ struct video_frame * vf_alloc_desc_data(struct video_desc desc)
                 }
         }
 
+        buf->data_deleter = vf_data_deleter;
+
         return buf;
 }
 
@@ -117,11 +119,14 @@ void vf_free(struct video_frame *buf)
 {
         if(!buf)
                 return;
+        if (buf->data_deleter) {
+                buf->data_deleter(buf);
+        }
         free(buf->tiles);
         free(buf);
 }
 
-void vf_free_data(struct video_frame *buf)
+void vf_data_deleter(struct video_frame *buf)
 {
         if(!buf)
                 return;
@@ -129,7 +134,6 @@ void vf_free_data(struct video_frame *buf)
         for(unsigned int i = 0u; i < buf->tile_count; ++i) {
                 free(buf->tiles[i].data);
         }
-        vf_free(buf);
 }
 
 struct tile *tile_alloc()
@@ -313,6 +317,8 @@ struct video_frame *vf_get_copy(struct video_frame *original) {
                 memcpy(frame_copy->tiles[i].data, original->tiles[i].data,
                                 frame_copy->tiles[i].data_len);
         }
+
+        frame_copy->data_deleter = vf_data_deleter;
 
         return frame_copy;
 }

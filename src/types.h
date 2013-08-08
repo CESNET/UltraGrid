@@ -132,6 +132,12 @@ struct video_frame {
         /// Used only if (fragment == 1). ID of the frame. Fragments of same frame must have the same ID
         unsigned int         frame_fragment_id:14;
         /// @}
+
+        /**
+         * This function (if defined) is called by vf_free() to destruct video data
+         * (@ref tile::data members).
+         */
+        void               (*data_deleter)(struct video_frame *);
 };
 
 /**

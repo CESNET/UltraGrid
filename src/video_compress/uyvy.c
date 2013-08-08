@@ -233,6 +233,7 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
                 s->out[i]->color_spec = UYVY;
                 s->out[i]->interlacing = tx->interlacing;
                 s->out[i]->fps = tx->fps;
+                s->out[i]->data_deleter = vf_data_deleter;
 
                 struct tile *tile = &s->out[i]->tiles[0];
                 tile->width = tx->tiles[0].width;
@@ -344,7 +345,7 @@ static void uyvy_compress_done(struct module *mod)
         struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
 
         for (int i = 0; i < 2; ++i) {
-                vf_free_data(s->out[i]);
+                vf_free(s->out[i]);
         }
         glDeleteFramebuffers(1, &s->fbo);
         glDeleteTextures(1, &s->texture_rgba);

@@ -108,8 +108,8 @@ int interlace_reconfigure(void *state, struct video_desc desc)
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
-        vf_free_data(s->odd);
-        vf_free_data(s->even);
+        vf_free(s->odd);
+        vf_free(s->even);
         s->odd = vf_alloc_desc_data(desc);
         s->even = vf_alloc_desc_data(desc);
 
@@ -162,8 +162,8 @@ void interlace_done(void *state)
 {
         struct state_interlace *s = (struct state_interlace *) state;
         
-        vf_free_data(s->odd);
-        vf_free_data(s->even);
+        vf_free(s->odd);
+        vf_free(s->even);
 
         free(state);
 }

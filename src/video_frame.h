@@ -80,6 +80,9 @@ struct video_frame * vf_alloc(int count);
 struct video_frame * vf_alloc_desc(struct video_desc desc);
 /**
  * Same as vf_alloc_desc plus initializes data members of tiles
+ * according to video description.
+ *
+ * The allocated data members are deleted automatically by vf_free()
  *
  * @see vf_alloc_desc
  *
@@ -89,16 +92,16 @@ struct video_frame * vf_alloc_desc(struct video_desc desc);
  */
 struct video_frame * vf_alloc_desc_data(struct video_desc desc);
 /**
- * @brief Frees video frame excluding video data
- * @note
- * Video data is not freed
+ * @brief Frees video frame.
+ *
+ * Calls video_frame::data_deleter
  */
 void vf_free(struct video_frame *buf);
 /**
- * @brief Frees video frame including video data
- * @see vf_free
+ * Deletes video data members with a free() call.
+ * @see video_frame::data_deleter
  */
-void vf_free_data(struct video_frame *buf);
+void vf_data_deleter(struct video_frame *buf);
 /**
  * @brief Allocates blank tile
  * @return allocated tile
@@ -130,6 +133,8 @@ void tile_free_data(struct tile*);
 struct tile * vf_get_tile(struct video_frame *buf, int pos);
 /**
  * @brief Makes deep copy of the video frame
+ *
+ * Copied data are automatically freeed by vf_free()
  */
 struct video_frame * vf_get_copy(struct video_frame *frame);
 /**
