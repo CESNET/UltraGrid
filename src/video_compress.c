@@ -49,6 +49,7 @@
 #include "module.h"
 #include "video.h"
 #include "video_compress.h"
+#include "video_compress/cuda_dxt.h"
 #include "video_compress/dxt_glsl.h"
 #include "video_compress/fastdxt.h"
 #include "video_compress/libavcodec.h"
@@ -182,6 +183,16 @@ struct compress_t compress_modules[] = {
                 MK_NAME(libavcodec_compress_init),
                 MK_NAME(NULL),
                 MK_NAME(libavcodec_compress_tile),
+                NULL
+        },
+#endif
+#if defined HAVE_CUDA_DXT || defined  BUILD_LIBRARIES
+        {
+                "cuda_dxt",
+                "cuda_dxt",
+                MK_NAME(cuda_dxt_compress_init),
+                MK_NAME(NULL),
+                MK_NAME(cuda_dxt_compress_tile),
                 NULL
         },
 #endif

@@ -602,6 +602,10 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
 
+@CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ -o $@
+
 @RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@

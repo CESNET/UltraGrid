@@ -139,6 +139,8 @@ void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
+bool get_decoder_from_to(codec_t in, codec_t out, decoder_t *decoder);
+
 int codec_is_a_rgb(codec_t codec);
 
 #ifdef __cplusplus

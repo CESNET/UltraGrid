@@ -1963,6 +1963,50 @@ AC_SUBST(JPEG_INC)
 AC_SUBST(JPEG_LIB)
 
 # -------------------------------------------------------------------------------------------------
+# CUDA DXT
+# -------------------------------------------------------------------------------------------------
+CUDA_DXT_OBJ=
+CUDA_DXT_INC=
+CUDA_DXT_LIB=
+
+cuda_dxt=no
+
+AC_ARG_ENABLE(cuda-dxt,
+      AS_HELP_STRING([--disable-cuda-dxt], [disable CUDA DXT compression (auto)]),
+	[cuda_dxt_req=$enableval],
+        [cuda_dxt_req=auto])
+
+LIBS=$SAVED_LIBS
+
+if test "$jpeg_req" != no -a $HAVE_CUDA = yes
+then
+        cuda_dxt=yes
+
+        CUDA_DXT_LIB=" $CUDA_LIB"
+        CUDA_DXT_INC=$CUDA_INC
+        CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
+        AC_SUBST(CUDA_DXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_cuda_dxt.so.$video_compress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $CUDA_DXT_COMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS src/video_compress/cuda_dxt.o"
+        if test -z "$included_shared_cuda_dxt_cu"; then
+                LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.cu.o"
+                included_shared_cuda_dxt_cu=yes
+        fi
+        DEFINE_CUDA
+fi
+
+if test $cuda_dxt_req = yes -a $cuda_dxt = no; then
+        AC_MSG_ERROR([CUDA DXT not found]);
+fi
+
+LIB_MODULES="$LIB_MODULES $CUDA_DXT_LIB"
+
+AC_SUBST(CUDA_DXT_OBJ)
+AC_SUBST(CUDA_DXT_INC)
+AC_SUBST(CUDA_DXT_LIB)
+
+# -------------------------------------------------------------------------------------------------
 # JPEG to DXT plugin
 # -------------------------------------------------------------------------------------------------
 jpeg_to_dxt=no
@@ -1973,14 +2017,19 @@ AC_ARG_ENABLE(jpeg_to_dxt,
 
 if test $jpeg_env_ok = yes -a $jpeg_to_dxt_req != no
 then
+        jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
         JPEG_TO_DXT_LIB=" $CUDA_LIB -lgpujpeg"
         JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
         AC_SUBST(JPEG_TO_DXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg_to_dxt.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_TO_DXT_DECOMPRESS_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $JPEG_TO_DXT_OBJ"
+        LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o"
         AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
-        jpeg_to_dxt=yes
+        if test -z "$included_shared_cuda_dxt_cu"; then
+                LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.cu.o"
+                included_shared_cuda_dxt_cu=yes
+        fi
+        DEFINE_CUDA
 fi
 
 if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes

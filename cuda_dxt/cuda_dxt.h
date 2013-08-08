@@ -84,6 +84,8 @@ int cuda_rgb_to_dxt6
     cudaStream_t stream
 );
 
+int cuda_yuv_to_dxt6(const void * src, void * out, int size_x, int size_y, cudaStream_t stream);
+int cuda_yuv422_to_yuv444(const void * src, void * out, int pix_count, cudaStream_t str);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

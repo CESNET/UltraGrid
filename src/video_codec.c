@@ -1100,3 +1100,45 @@ int codec_is_a_rgb(codec_t codec)
 	}
         return 0;
 }
+
+/**
+ * Returns line decoder for specifiedn input and output codec.
+ */
+bool get_decoder_from_to(codec_t in, codec_t out, decoder_t *decoder)
+{
+        struct item {
+                decoder_t decoder;
+                codec_t in;
+                codec_t out;
+        };
+
+        struct item decoders[] = {
+                { (decoder_t) vc_copylineDVS10,       DVS10, UYVY },
+                { (decoder_t) vc_copylinev210,        v210,  UYVY },
+                { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY },
+                { (decoder_t) vc_copyliner10k,        R10k,  RGBA },
+              //{ vc_copylineRGBA,        RGBA,  RGBA },
+                { (decoder_t) vc_copylineDVS10toV210, DVS10, v210 },
+                { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB  },
+                { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA },
+                // following is disabled - shouldn't be senected automatically
+              //{ (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY },
+              //{ (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB  },
+              //{ vc_copylineBGRtoUYVY,   BGR,   UYVY },
+              //{ vc_copylineRGBAtoUYVY,  RGBA,  UYVY },
+                { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB  },
+                { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA },
+                { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB  },
+              //{ vc_copylineRGB,         RGB,   RGB  }.
+        };
+
+        for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct item); ++i) {
+                if (decoders[i].in == in && decoders[i].out == out) {
+                        *decoder = decoders[i].decoder;
+                        return true;
+                }
+        }
+
+        return false;
+}
+
