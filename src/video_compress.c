@@ -57,7 +57,6 @@
 #include "video_compress/none.h"
 #include "video_compress/uyvy.h"
 #include "lib_common.h"
-#include "compat/platform_spin.h"
 #include "utils/worker.h"
 
 /* *_str are symbol names inside library */
@@ -111,7 +110,6 @@ struct compress_state_real {
 struct compress_state {
         struct module mod;               ///< compress module data
         struct compress_state_real *ptr; ///< pointer to real compress state
-        platform_spin_t spin;            ///< a spinlock used when reconfiguring from callback
 };
 
 typedef struct compress_state compress_state_proxy; ///< Used to emphasize that the state is actually a proxy.
@@ -125,7 +123,6 @@ struct module compress_init_noerr;
 static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index, struct module *parent);
-static struct response *compress_change_callback(struct module *receiver, struct message *msg);
 static int compress_init_real(struct module *parent, char *config_string,
                 struct compress_state_real **state);
 static void compress_done_real(struct compress_state_real *s);
@@ -288,44 +285,31 @@ void show_compress_help()
 }
 
 /**
- * @brief Callback called from control thread.
+ * @brief Processes message.
  *
  * This function is a callback called from control thread to change some parameters of
  * compression.
  *
  * @param[in] receiver pointer to the compress module
- * @param[in] msg      message passed to callback
- * @returns            response to the message
+ * @param[in] msg      message to process
  */
-static struct response *compress_change_callback(struct module *receiver, struct message *msg)
+static void compress_process_message(compress_state_proxy *proxy, struct msg_change_compress_data *data)
 {
-        struct msg_change_compress_data *data =
-                (struct msg_change_compress_data *) msg;
-        compress_state_proxy *proxy = receiver->priv_data;
-
         /* In this case we are only changing some parameter of compression.
          * This means that we pass the parameter to compress driver. */
         if(data->what == CHANGE_PARAMS) {
-                platform_spin_lock(&proxy->spin);
-                struct response *resp = NULL;
                 for(unsigned int i = 0; i < proxy->ptr->state_count; ++i) {
-                        if(resp) {
-                                resp->deleter(resp);
-                        }
                         struct msg_change_compress_data *tmp_data =
                                 (struct msg_change_compress_data *)
                                 new_message(sizeof(struct msg_change_compress_data));
                         tmp_data->what = data->what;
                         strncpy(tmp_data->config_string, data->config_string,
                                         sizeof(tmp_data->config_string) - 1);
-                        resp = send_message_to_receiver(proxy->ptr->state[i],
+                        struct response *resp = send_message_to_receiver(proxy->ptr->state[i],
                                         (struct message *) tmp_data);
+                        resp->deleter(resp);
                 }
-                platform_spin_unlock(&proxy->spin);
 
-                free_message(msg);
-
-                return resp;
         } else {
                 struct compress_state_real *new_state;
                 char config[1024];
@@ -334,16 +318,12 @@ static struct response *compress_change_callback(struct module *receiver, struct
                 int ret = compress_init_real(&proxy->mod, config, &new_state);
                 if(ret == 0) {
                         struct compress_state_real *old = proxy->ptr;
-                        platform_spin_lock(&proxy->spin);
                         proxy->ptr = new_state;
-                        platform_spin_unlock(&proxy->spin);
                         compress_done_real(old);
-
-                        return new_response(RESPONSE_OK, NULL);
                 }
-
-                return new_response(RESPONSE_INT_SERV_ERR, NULL);
         }
+
+        free_message((struct message *) data);
 }
 
 /**
@@ -367,13 +347,11 @@ int compress_init(struct module *parent, char *config_string, struct compress_st
         proxy->mod.cls = MODULE_CLASS_COMPRESS;
         proxy->mod.priv_data = proxy;
         proxy->mod.deleter = compress_done;
-        proxy->mod.msg_callback = compress_change_callback;
 
         int ret = compress_init_real(&proxy->mod, config_string, &s);
         if(ret == 0) {
                 proxy->ptr = s;
 
-                platform_spin_init(&proxy->spin);
                 *state = proxy;
                 module_register(&proxy->mod, parent);
         } else {
@@ -486,8 +464,10 @@ struct video_frame *compress_frame(compress_state_proxy *proxy, struct video_fra
         struct video_frame *ret;
         if(!proxy)
                 return NULL;
-
-        platform_spin_lock(&proxy->spin);
+        struct msg_change_compress_data *msg = NULL;
+        while ((msg = (struct msg_change_compress_data *) check_message(&proxy->mod))) {
+                compress_process_message(proxy, msg);
+        }
 
         struct compress_state_real *s = proxy->ptr;
 
@@ -498,8 +478,6 @@ struct video_frame *compress_frame(compress_state_proxy *proxy, struct video_fra
         } else {
                 ret = NULL;
         }
-
-        platform_spin_unlock(&proxy->spin);
 
         return ret;
 }
@@ -635,7 +613,6 @@ static void compress_done(struct module *mod)
         struct compress_state_real *s = proxy->ptr;
         compress_done_real(s);
 
-        platform_spin_destroy(&proxy->spin);
         free(proxy);
 }
 
