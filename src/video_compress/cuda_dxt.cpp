@@ -70,7 +70,7 @@ struct state_video_compress_cuda_dxt {
 
 static void cuda_dxt_compress_done(struct module *mod);
 
-struct module *cuda_dxt_compress_init(struct module *parent, char *fmt)
+struct module *cuda_dxt_compress_init(struct module *parent, const char *fmt)
 {
         state_video_compress_cuda_dxt *s =
                 new state_video_compress_cuda_dxt;

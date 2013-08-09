@@ -54,6 +54,6 @@
 struct video_frame;
 struct module;
 
-struct module      *dxt_glsl_compress_init(struct module *parent, char * opts);
+struct module      *dxt_glsl_compress_init(struct module *parent, const char *opts);
 struct video_frame *dxt_glsl_compress(struct module *mod, struct video_frame * tx, int buffer_index);
 

@@ -123,7 +123,7 @@ struct module compress_init_noerr;
 static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index, struct module *parent);
-static int compress_init_real(struct module *parent, char *config_string,
+static int compress_init_real(struct module *parent, const char *config_string,
                 struct compress_state_real **state);
 static void compress_done_real(struct compress_state_real *s);
 static void compress_done(struct module *mod);
@@ -337,7 +337,7 @@ static void compress_process_message(compress_state_proxy *proxy, struct msg_cha
  * @retval    <0            if error occured
  * @retval    >0            finished successfully, no state created (eg. displayed help)
  */
-int compress_init(struct module *parent, char *config_string, struct compress_state **state) {
+int compress_init(struct module *parent, const char *config_string, struct compress_state **state) {
         struct compress_state_real *s;
 
         compress_state_proxy *proxy;
@@ -370,7 +370,8 @@ int compress_init(struct module *parent, char *config_string, struct compress_st
  * @retval    <0            if error occured
  * @retval    >0            finished successfully, no state created (eg. displayed help)
  */
-static int compress_init_real(struct module *parent, char *config_string, struct compress_state_real **state)
+static int compress_init_real(struct module *parent, const char *config_string,
+                struct compress_state_real **state)
 {
         struct compress_state_real *s;
         char *compress_options = NULL;
@@ -409,10 +410,7 @@ static int compress_init_real(struct module *parent, char *config_string, struct
         s->compress_options[sizeof(s->compress_options) - 1] = '\0';
         if(s->handle->init_func) {
                 s->state = calloc(1, sizeof(struct module *));
-                char compress_options[1024];
-                strncpy(compress_options, s->compress_options, sizeof(compress_options) - 1);
-                compress_options[sizeof(compress_options) - 1] = '\0';
-                s->state[0] = s->handle->init_func(parent, compress_options);
+                s->state[0] = s->handle->init_func(parent, s->compress_options);
                 if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
                         free(s->state);
@@ -548,10 +546,7 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s, s
         if(frame->tile_count != s->state_count) {
                 s->state = realloc(s->state, frame->tile_count * sizeof(struct module *));
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
-                        char compress_options[1024];
-                        strncpy(compress_options, s->compress_options, sizeof(compress_options));
-                        compress_options[sizeof(compress_options) - 1] = '\0';
-                        s->state[i] = s->handle->init_func(parent, compress_options);
+                        s->state[i] = s->handle->init_func(parent, s->compress_options);
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
                                 return NULL;

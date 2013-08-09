@@ -64,7 +64,7 @@ extern struct module compress_init_noerr;
  * @param[in] cfg    configuration string
  * @return           driver internal state
  */
-typedef struct module *(*compress_init_t)(struct module *parent, char *cfg);
+typedef struct module *(*compress_init_t)(struct module *parent, const char *cfg);
 /**
  * @brief Compresses video frame
  * 
@@ -93,7 +93,7 @@ typedef  struct tile * (*compress_tile_t)(struct module *state, struct tile *til
 /// @}
 
 void show_compress_help(void);
-int compress_init(struct module *parent, char *config_string, struct compress_state **);
+int compress_init(struct module *parent, const char *config_string, struct compress_state **);
 const char *get_compress_name(struct compress_state *);
 
 int is_compress_none(struct compress_state *);

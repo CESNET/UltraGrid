@@ -71,7 +71,7 @@ struct state_video_compress_none {
         uint32_t magic;
 };
 
-struct module * none_compress_init(struct module *parent, char * opts)
+struct module * none_compress_init(struct module *parent, const char *opts)
 {
         UNUSED(opts);
 

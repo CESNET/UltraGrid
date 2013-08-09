@@ -249,7 +249,7 @@ static int reconfigure_compress(struct state_video_compress_fastdxt *compress, i
         return TRUE;
 }
 
-struct module *fastdxt_init(struct module *parent, char *num_threads_str)
+struct module *fastdxt_init(struct module *parent, const char *num_threads_str)
 {
         /* This function does the following:
          * 1. Allocate memory for buffers 

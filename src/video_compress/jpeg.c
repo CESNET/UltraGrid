@@ -276,7 +276,7 @@ static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
         }
 }
 
-struct module * jpeg_compress_init(struct module *parent, char * opts)
+struct module * jpeg_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_jpeg *s;
         int frame_idx;
@@ -303,7 +303,9 @@ struct module * jpeg_compress_init(struct module *parent, char * opts)
         gpujpeg_set_default_parameters(&s->encoder_param);
 
         if(opts && opts[0] != '\0') {
-                parse_fmt(s, opts);
+                char *fmt = strdup(opts);
+                parse_fmt(s, fmt);
+                free(fmt);
         } else {
                 printf("[JPEG] setting default encode parameters (quality: %d)\n", 
                                 s->encoder_param.quality

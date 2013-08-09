@@ -49,7 +49,7 @@ struct module;
 struct tile;
 struct video_desc;
 
-struct module       *libavcodec_compress_init(struct module *parent, char * opts);
+struct module       *libavcodec_compress_init(struct module *parent, const char *opts);
 struct tile         *libavcodec_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
                 int buffer);
 

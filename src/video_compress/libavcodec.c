@@ -232,7 +232,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         return 0;
 }
 
-struct module * libavcodec_compress_init(struct module *parent, char * fmt)
+struct module * libavcodec_compress_init(struct module *parent, const char *opts)
 {
         struct state_video_compress_libav *s;
 
@@ -256,7 +256,9 @@ struct module * libavcodec_compress_init(struct module *parent, char * fmt)
 
         memset(&s->saved_desc, 0, sizeof(s->saved_desc));
 
+        char *fmt = strdup(opts);
         int ret = parse_fmt(s, fmt);
+        free(fmt);
         if(ret != 0) {
                 free(s);
                 if(ret > 0)

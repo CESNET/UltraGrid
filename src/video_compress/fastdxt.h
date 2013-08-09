@@ -55,6 +55,6 @@ struct modul;
 struct tile;
 struct video_desc;
 
-struct module      *fastdxt_init(struct module *parent, char *num_threads_str);
+struct module      *fastdxt_init(struct module *parent, const char *num_threads_str);
 struct tile        *fastdxt_compress_tile(struct module *mod, struct tile * tx, struct video_desc *desc, int buffer_index);
 

@@ -45,7 +45,7 @@ extern "C" {
 
 struct module;
 
-struct module *cuda_dxt_compress_init(struct module *parent, char * opts);
+struct module *cuda_dxt_compress_init(struct module *parent, const char *opts);
 struct tile   *cuda_dxt_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
                 int buffer);
 
