@@ -46,12 +46,14 @@
 
 struct video_frame;
 struct module;
+struct video_compres_params;
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-struct module      *dxt_glsl_compress_init(struct module *parent, const char *opts);
+struct module      *dxt_glsl_compress_init(struct module *parent,
+                const struct video_compress_params *params);
 struct video_frame *dxt_glsl_compress(struct module *mod, struct video_frame * tx, int buffer_index);
 
 #ifdef __cplusplus

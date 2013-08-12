@@ -50,8 +50,10 @@ extern "C" {
 
 struct module;
 struct video_frame;
+struct video_compress_params;
 
-struct module      *jpeg_compress_init(struct module *parent, const char *opts);
+struct module      *jpeg_compress_init(struct module *parent,
+                const struct video_compress_params *params);
 struct video_frame *jpeg_compress(struct module *mod, struct video_frame * tx, int buffer_index);
 
 #ifdef __cplusplus

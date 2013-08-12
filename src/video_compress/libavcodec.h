@@ -44,10 +44,12 @@ extern "C" {
 struct module;
 struct tile;
 struct video_desc;
+struct video_compress_params;
 
-struct module       *libavcodec_compress_init(struct module *parent, const char *opts);
-struct tile         *libavcodec_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
-                int buffer);
+struct module       *libavcodec_compress_init(struct module *parent,
+                const struct video_compress_params *params);
+struct video_frame  *libavcodec_compress_tile(struct module *mod, struct video_frame *tx,
+                int tile_idx, int buffer);
 
 #ifdef __cplusplus
 }

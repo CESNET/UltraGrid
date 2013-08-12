@@ -46,13 +46,15 @@
 struct module;
 struct tile;
 struct video_desc;
+struct video_compress_params;
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-struct module      *fastdxt_init(struct module *parent, const char *num_threads_str);
-struct tile        *fastdxt_compress_tile(struct module *mod, struct tile * tx, struct video_desc *desc, int buffer_index);
+struct module      *fastdxt_init(struct module *parent, const struct video_compress_params *params);
+struct tile        *fastdxt_compress_tile(struct module *mod, struct tile * tx,
+                struct video_desc *desc, int buffer_index);
 
 #ifdef __cplusplus
 }

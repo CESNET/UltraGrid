@@ -57,6 +57,11 @@ extern struct module compress_init_noerr;
 
 /** @name API for capture modules
  * @{ */
+
+struct video_compress_params {
+        const char *cfg;
+};
+
 /**
  * @brief Initializes video compression
  * 
@@ -64,7 +69,8 @@ extern struct module compress_init_noerr;
  * @param[in] cfg    configuration string
  * @return           driver internal state
  */
-typedef struct module *(*compress_init_t)(struct module *parent, const char *cfg);
+typedef struct module *(*compress_init_t)(struct module *parent,
+                const struct video_compress_params *params);
 /**
  * @brief Compresses video frame
  * 
@@ -81,15 +87,15 @@ typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct v
  * @brief Compresses tile of a video frame
  * 
  * @param[in]     state         driver internal state
- * @param[in]     tile          uncompressed tile
- * @param[in,out] desc          input and then output video desc
+ * @param[in]     in_frame      uncompressed frame
+ * @param[in]     tile_index    index of tile to be compressed
  * @param         buffer_index  0 or 1 - driver should have 2 output buffers, filling the selected one.
  *                Returned video frame should stay valid until requesting compress with the
  *                same index.
- * @return                      compressed tile, may be NULL if compression failed
+ * @return                      compressed frame with one tile, may be NULL if compression failed
  */
-typedef  struct tile * (*compress_tile_t)(struct module *state, struct tile *tile,
-                struct video_desc *desc, int buffer_index);
+typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame,
+                int tile_index, int buffer_index);
 /**
  * @brief Gets back tile/frame from driver
  *

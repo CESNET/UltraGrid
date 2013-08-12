@@ -44,10 +44,12 @@ extern "C" {
 #endif // __cplusplus
 
 struct module;
+struct video_compress_params;
 
-struct module *cuda_dxt_compress_init(struct module *parent, const char *opts);
-struct tile   *cuda_dxt_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
-                int buffer);
+struct module *cuda_dxt_compress_init(struct module *parent,
+                const struct video_compress_params *parms);
+struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx,
+                int tile_idx, int buffer);
 
 #ifdef __cplusplus
 }

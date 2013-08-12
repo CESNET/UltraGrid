@@ -110,7 +110,7 @@ struct state_video_compress_libav {
 
         pthread_mutex_t    *lavcd_global_lock;
 
-        struct tile        *out[2];
+        struct video_frame *out[2];
         struct video_desc   saved_desc;
 
         AVFrame            *in_frame;
@@ -232,9 +232,10 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
         return 0;
 }
 
-struct module * libavcodec_compress_init(struct module *parent, const char *opts)
+struct module * libavcodec_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_libav *s;
+        const char *opts = params->cfg;
 
         s = (struct state_video_compress_libav *) malloc(sizeof(struct state_video_compress_libav));
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
@@ -324,6 +325,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         compressed_desc.color_spec = s->selected_codec_id;
+        compressed_desc.tile_count = 1;
 
 #ifndef HAVE_GPL
         if(s->selected_codec_id == H264) {
@@ -385,9 +387,9 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         }
 
         for(int i = 0; i < 2; ++i) {
-                s->out[i] = tile_alloc_desc(compressed_desc);
+                s->out[i] = vf_alloc_desc(compressed_desc);
 #ifndef HAVE_AVCODEC_ENCODE_VIDEO2
-                s->out[i]->data = malloc(compressed_desc.width *
+                s->out[i]->tiles[0].data = malloc(compressed_desc.width *
                         compressed_desc.height * 4);
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
         }
@@ -573,8 +575,8 @@ void *my_task(void *arg) {
         return NULL;
 }
 
-struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
-                int buffer_idx)
+struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_frame *tx,
+                int tile_idx, int buffer_idx)
 {
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         assert (buffer_idx == 0 || buffer_idx == 1);
@@ -587,9 +589,10 @@ struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, stru
 
         platform_spin_lock(&s->spin);
 
-        if(!video_desc_eq(*desc, s->saved_desc)) {
+        if(!video_desc_eq_excl_param(video_desc_from_frame(tx),
+                                s->saved_desc, PARAM_TILE_COUNT)) {
                 cleanup(s);
-                int ret = configure_with(s, *desc);
+                int ret = configure_with(s, video_desc_from_frame(tx));
                 if(!ret) {
                         goto error;
                 }
@@ -604,11 +607,11 @@ struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, stru
 #endif
 
         if((void *) s->decoder != (void *) memcpy) {
-                unsigned char *line1 = (unsigned char *) tx->data;
+                unsigned char *line1 = (unsigned char *) tx->tiles[tile_idx].data;
                 unsigned char *line2 = (unsigned char *) s->decoded;
-                int src_linesize = vc_get_linesize(tx->width, desc->color_spec);
-                int dst_linesize = tx->width * 2; /* UYVY */
-                for (int i = 0; i < (int) tx->height; ++i) {
+                int src_linesize = vc_get_linesize(tx->tiles[tile_idx].width, tx->color_spec);
+                int dst_linesize = tx->tiles[tile_idx].width * 2; /* UYVY */
+                for (int i = 0; i < (int) tx->tiles[tile_idx].height; ++i) {
                         s->decoder(line2, line1, dst_linesize,
                                         0, 8, 16);
                         line1 += src_linesize;
@@ -616,7 +619,7 @@ struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, stru
                 }
                 decoded = s->decoded;
         } else {
-                decoded = (unsigned char *) tx->data;
+                decoded = (unsigned char *) tx->tiles[tile_idx].data;
         }
 
         {
@@ -626,14 +629,15 @@ struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, stru
                         assert(s->subsampling == 422 || s->subsampling == 420);
                         data[i].callback = s->subsampling == 420 ? to_yuv420 : to_yuv422;
                         data[i].out_frame = s->in_frame_part[i];
-                        data[i].height = tx->height / s->cpu_count;
+                        data[i].height = tx->tiles[tile_idx].height / s->cpu_count;
                         data[i].height = data[i].height / 2 * 2;
                         if(i == s->cpu_count - 1) {
-                                data[i].height = tx->height - data[i].height * (s->cpu_count - 1);
+                                data[i].height = tx->tiles[tile_idx].height -
+                                        data[i].height * (s->cpu_count - 1);
                         }
-                        data[i].width = tx->width;
+                        data[i].width = tx->tiles[tile_idx].width;
                         data[i].in_data = decoded + i * data[i].height *
-                                vc_get_linesize(tx->width, UYVY);
+                                vc_get_linesize(tx->tiles[tile_idx].width, UYVY);
 
                         // run !
                         handle[i] = task_run_async(my_task, (void *) &data[i]);
@@ -655,8 +659,8 @@ struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, stru
 
         if (got_output) {
                 //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
-                s->out[buffer_idx]->data = (char *) s->pkt[buffer_idx].data;
-                s->out[buffer_idx]->data_len = s->pkt[buffer_idx].size;
+                s->out[buffer_idx]->tiles[0].data = (char *) s->pkt[buffer_idx].data;
+                s->out[buffer_idx]->tiles[0].data_len = s->pkt[buffer_idx].size;
         } else {
                 goto error;
         }
@@ -678,8 +682,6 @@ struct tile * libavcodec_compress_tile(struct module *mod, struct tile *tx, stru
         }
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
 
-        desc->color_spec = s->out_codec;
-
         platform_spin_unlock(&s->spin);
 
         return s->out[buffer_idx];
@@ -693,11 +695,12 @@ static void cleanup(struct state_video_compress_libav *s)
 {
         for(int i = 0; i < 2; ++i) {
 #ifdef HAVE_AVCODEC_ENCODE_VIDEO2
-                tile_free(s->out[i]);
+                vf_free(s->out[i]);
                 s->out[i] = 0;
                 av_free_packet(&s->pkt[i]);
 #else
-                tile_free_data(s->out[i]);
+                free(s->out[i]->tiles[0].data);
+                vf_free(s->out[i]);
                 s->out[i] = 0;
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
         }

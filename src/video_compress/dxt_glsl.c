@@ -231,10 +231,11 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
         return TRUE;
 }
 
-struct module *dxt_glsl_compress_init(struct module *parent, const char *opts)
+struct module *dxt_glsl_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_rtdxt *s;
         int i;
+        const char *opts = params->cfg;
         
         s = (struct state_video_compress_rtdxt *) malloc(sizeof(struct state_video_compress_rtdxt));
 

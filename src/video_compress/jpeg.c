@@ -276,9 +276,10 @@ static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
         }
 }
 
-struct module * jpeg_compress_init(struct module *parent, const char *opts)
+struct module * jpeg_compress_init(struct module *parent, const struct video_compress_params *params)
 {
         struct state_video_compress_jpeg *s;
+        const char *opts = params->cfg;
         int frame_idx;
         
         s = (struct state_video_compress_jpeg *) malloc(sizeof(struct state_video_compress_jpeg));

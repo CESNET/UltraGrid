@@ -255,11 +255,9 @@ static int compress_fill_symbols(struct compress_t *compression)
 
         compression->init_func = (compress_init_t)
                 dlsym(handle, compression->init_str);
-        compression->compress_frame_func = (struct video_frame * (*)(struct module *,
-                                struct video_frame *, int))
+        compression->compress_frame_func = (compress_frame_t)
                 dlsym(handle, compression->compress_frame_str);
-        compression->compress_tile_func = (struct tile * (*)(struct module *,
-                                struct tile*, struct video_desc *, int))
+        compression->compress_tile_func = (compress_tile_t)
                 dlsym(handle, compression->compress_tile_str);
 
         if(!compression->init_func ||
@@ -398,6 +396,7 @@ static int compress_init_real(struct module *parent, const char *config_string,
                 struct compress_state_real **state)
 {
         struct compress_state_real *s;
+        struct video_compress_params params;
         const char *compress_options = NULL;
 
         if(!config_string)
@@ -410,6 +409,8 @@ static int compress_init_real(struct module *parent, const char *config_string,
         }
 
         pthread_once(&compression_list_initialized, init_compressions);
+
+        memset(&params, 0, sizeof(params));
 
         s = (struct compress_state_real *) calloc(1, sizeof(struct compress_state_real));
         s->queue = new message_queue(1);
@@ -434,9 +435,10 @@ static int compress_init_real(struct module *parent, const char *config_string,
         }
         strncpy(s->compress_options, compress_options, sizeof(s->compress_options) - 1);
         s->compress_options[sizeof(s->compress_options) - 1] = '\0';
+        params.cfg = s->compress_options;
         if(s->handle->init_func) {
                 s->state = (struct module **) calloc(1, sizeof(struct module *));
-                s->state[0] = s->handle->init_func(parent, s->compress_options);
+                s->state[0] = s->handle->init_func(parent, &params);
                 if(!s->state[0]) {
                         fprintf(stderr, "Compression initialization failed: %s\n", config_string);
                         free(s->state);
@@ -533,13 +535,13 @@ void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
  * @brief Auxiliary structure passed to worker thread.
  */
 struct compress_worker_data {
-        struct module *state;     ///< compress driver status
-        struct tile *tile;        ///< uncompressed tile to be compressed
-        struct video_desc desc;   ///< IN - src video description; OUT - compressed description
-        int buffer_index;         ///< buffer index @see compress_frame
+        struct module *state;      ///< compress driver status
+        struct video_frame *frame; ///< uncompressed tile to be compressed
+        int tile_idx;              ///< tile to be compressed
+        int buffer_index;          ///< buffer index @see compress_frame
 
-        compress_tile_t callback; ///< tile compress callback
-        void *ret;                ///< OUT - returned compressed tile, NULL if failed
+        compress_tile_t callback;  ///< tile compress callback
+        void *ret;                 ///< OUT - returned compressed tile, NULL if failed
 };
 
 /**
@@ -550,7 +552,7 @@ struct compress_worker_data {
 static void *compress_tile_callback(void *arg) {
         struct compress_worker_data *s = (struct compress_worker_data *) arg;
 
-        s->ret = s->callback(s->state, s->tile, &s->desc, s->buffer_index);
+        s->ret = s->callback(s->state, s->frame, s->tile_idx, s->buffer_index);
 
         return s;
 }
@@ -587,10 +589,13 @@ static void vf_write_desc(struct video_frame *buf, struct video_desc desc)
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
                 int buffer_index, struct module *parent)
 {
+        struct video_compress_params params;
+        memset(&params, 0, sizeof(params));
+        params.cfg = s->compress_options;
         if(frame->tile_count != s->state_count) {
                 s->state = (struct module **) realloc(s->state, frame->tile_count * sizeof(struct module *));
                 for(unsigned int i = s->state_count; i < frame->tile_count; ++i) {
-                        s->state[i] = s->handle->init_func(parent, s->compress_options);
+                        s->state[i] = s->handle->init_func(parent, &params);
                         if(!s->state[i]) {
                                 fprintf(stderr, "Compression initialization failed\n");
                                 return NULL;
@@ -609,9 +614,8 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s, s
         for(unsigned int i = 0; i < frame->tile_count; ++i) {
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
-                data->tile = &frame->tiles[i];
-                data->desc = video_desc_from_frame(frame);
-                data->desc.tile_count = 1;
+                data->frame = frame;
+                data->tile_idx = i;
                 data->buffer_index = buffer_index;;
                 data->callback = s->handle->compress_tile_func;
 
@@ -622,16 +626,20 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s, s
                 struct compress_worker_data *data = (struct compress_worker_data *)
                         wait_task(task_handle[i]);
 
-                if(i == 0) { // update metadata from first tile
-                        data->desc.tile_count = frame->tile_count;
-                        vf_write_desc(s->out_frame[buffer_index], data->desc);
-                }
-
-                if(data->ret) {
-                        memcpy(&s->out_frame[buffer_index]->tiles[i], data->ret, sizeof(struct tile));
-                } else {
+                if(!data->ret) {
                         return NULL;
                 }
+
+                if(i == 0) { // update metadata from first tile
+                        struct video_desc desc =
+                                video_desc_from_frame((struct video_frame *) data->ret);
+                        desc.tile_count = frame->tile_count;
+                        vf_write_desc(s->out_frame[buffer_index], desc);
+                }
+
+                memcpy(&s->out_frame[buffer_index]->tiles[i],
+                                &((struct video_frame *) data->ret)->tiles[0],
+                                sizeof(struct tile));
         }
 
         return s->out_frame[buffer_index];

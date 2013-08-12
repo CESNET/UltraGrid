@@ -139,9 +139,9 @@ struct state_video_compress_uyvy {
 int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx);
 static void uyvy_compress_done(struct module *mod);
 
-struct module * uyvy_compress_init(struct module *parent, const char *opts)
+struct module * uyvy_compress_init(struct module *parent, const struct video_compress_params *params)
 {
-        UNUSED(opts);
+        UNUSED(params);
         struct state_video_compress_uyvy *s;
         
         s = (struct state_video_compress_uyvy *) malloc(sizeof(struct state_video_compress_uyvy));

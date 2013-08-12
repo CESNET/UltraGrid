@@ -48,6 +48,7 @@
 #include "host.h"
 #include "module.h"
 #include "video.h"
+#include "video_compress.h"
 
 struct state_video_compress_cuda_dxt {
         state_video_compress_cuda_dxt() {
@@ -62,7 +63,7 @@ struct state_video_compress_cuda_dxt {
         char               *in_buffer;      ///< for decoded data
         char               *cuda_uyvy_buffer; ///< same as in_buffer but in device memory
         char               *cuda_in_buffer;  ///< same as in_buffer but in device memory
-        struct tile        *out[2];
+        struct video_frame *out[2];
         codec_t             in_codec;
         codec_t             out_codec;
         decoder_t           decoder;
@@ -70,11 +71,12 @@ struct state_video_compress_cuda_dxt {
 
 static void cuda_dxt_compress_done(struct module *mod);
 
-struct module *cuda_dxt_compress_init(struct module *parent, const char *fmt)
+struct module *cuda_dxt_compress_init(struct module *parent,
+                const struct video_compress_params *params)
 {
         state_video_compress_cuda_dxt *s =
                 new state_video_compress_cuda_dxt;
-
+        const char *fmt = params->cfg;
         s->out_codec = DXT1;
 
         if (fmt && fmt[0] != '\0') {
@@ -114,8 +116,8 @@ static void cleanup(struct state_video_compress_cuda_dxt *s)
         }
         for (int i = 0; i < 2; ++i) {
                 if (s->out[i] != NULL) {
-                        cudaFree(s->out[i]->data);
-                        s->out[i]->data = NULL;
+                        cudaFree(s->out[i]->tiles[0].data);
+                        s->out[i]->tiles[0].data = NULL;
                 }
         }
 }
@@ -154,11 +156,12 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         for (int i = 0; i < 2; ++i) {
                 struct video_desc compressed_desc = desc;
                 compressed_desc.color_spec = s->out_codec;
+                compressed_desc.tile_count = 1;
 
-                s->out[i] = tile_alloc_desc(compressed_desc);
-                s->out[i]->data_len = desc.width * desc.height / (s->out_codec == DXT1 ? 2 : 1);
-                if (cudaSuccess != cudaMallocHost((void **) &s->out[i]->data,
-                                        s->out[i]->data_len)) {
+                s->out[i] = vf_alloc_desc(compressed_desc);
+                s->out[i]->tiles[0].data_len = desc.width * desc.height / (s->out_codec == DXT1 ? 2 : 1);
+                if (cudaSuccess != cudaMallocHost((void **) &s->out[i]->tiles[0].data,
+                                        s->out[i]->tiles[0].data_len)) {
                         fprintf(stderr, "Could not allocate CUDA output buffer.\n");
                         return false;
                 }
@@ -167,17 +170,18 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         return true;
 }
 
-struct tile *cuda_dxt_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc,
-                int buffer)
+struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx,
+                int tile_idx, int buffer)
 {
         struct state_video_compress_cuda_dxt *s =
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 
         cudaSetDevice(cuda_devices[0]);
 
-        if (!video_desc_eq(*desc, s->saved_desc)) {
-                if(configure_with(s, *desc)) {
-                        s->saved_desc = *desc;
+        if (!video_desc_eq_excl_param(video_desc_from_frame(tx),
+                                s->saved_desc, PARAM_TILE_COUNT)) {
+                if(configure_with(s, video_desc_from_frame(tx))) {
+                        s->saved_desc = video_desc_from_frame(tx);
                 } else {
                         fprintf(stderr, "[CUDA DXT] Reconfiguration failed!\n");
                         return NULL;
@@ -185,35 +189,38 @@ struct tile *cuda_dxt_compress_tile(struct module *mod, struct tile *tx, struct 
         }
 
         char *in_buffer;
-        if (desc->color_spec == s->in_codec) {
-                in_buffer = tx->data;
+        if (tx->color_spec == s->in_codec) {
+                in_buffer = tx->tiles[tile_idx].data;
         } else {
-                unsigned char *line1 = (unsigned char *) tx->data;
+                unsigned char *line1 = (unsigned char *) tx->tiles[tile_idx].data;
                 unsigned char *line2 = (unsigned char *) s->in_buffer;
 
-                for (int i = 0; i < (int) tx->height; ++i) {
-                        s->decoder(line2, line1, vc_get_linesize(tx->width, s->in_codec),
-                                        0, 8, 16);
-                        line1 += vc_get_linesize(tx->width, desc->color_spec);
-                        line2 += vc_get_linesize(tx->width, s->in_codec);
+                for (int i = 0; i < (int) tx->tiles[tile_idx].height; ++i) {
+                        s->decoder(line2, line1, vc_get_linesize(tx->tiles[tile_idx].width,
+                                                s->in_codec), 0, 8, 16);
+                        line1 += vc_get_linesize(tx->tiles[tile_idx].width, tx->color_spec);
+                        line2 += vc_get_linesize(tx->tiles[tile_idx].width, s->in_codec);
                 }
                 in_buffer = s->in_buffer;
         }
 
         if (s->in_codec == UYVY) {
-                if (cudaMemcpy(s->cuda_uyvy_buffer, in_buffer, desc->width * desc->height * 2,
+                if (cudaMemcpy(s->cuda_uyvy_buffer, in_buffer, tx->tiles[tile_idx].width *
+                                        tx->tiles[tile_idx].height * 2,
                                         cudaMemcpyHostToDevice) != cudaSuccess) {
                         fprintf(stderr, "Memcpy failed: %s\n",
                                         cudaGetErrorString(cudaGetLastError()));
                         return NULL;
                 }
                 if (cuda_yuv422_to_yuv444(s->cuda_uyvy_buffer, s->cuda_in_buffer,
-                                        desc->width * desc->height, 0) != 0) {
+                                        tx->tiles[tile_idx].width *
+                                        tx->tiles[tile_idx].height, 0) != 0) {
                         fprintf(stderr, "UYVY kernel failed: %s\n",
                                         cudaGetErrorString(cudaGetLastError()));
                 }
         } else {
-                if (cudaMemcpy(s->cuda_in_buffer, in_buffer, desc->width * desc->height * 3,
+                if (cudaMemcpy(s->cuda_in_buffer, in_buffer, tx->tiles[tile_idx].width *
+                                        tx->tiles[tile_idx].height * 3,
                                         cudaMemcpyHostToDevice) != cudaSuccess) {
                         fprintf(stderr, "Memcpy failed: %s\n",
                                         cudaGetErrorString(cudaGetLastError()));
@@ -236,15 +243,14 @@ struct tile *cuda_dxt_compress_tile(struct module *mod, struct tile *tx, struct 
                         cuda_dxt_enc_func = cuda_yuv_to_dxt6;
                 }
         }
-        int ret = cuda_dxt_enc_func(s->cuda_in_buffer, s->out[buffer]->data, s->saved_desc.width,
-                        s->saved_desc.height, 0);
+        int ret = cuda_dxt_enc_func(s->cuda_in_buffer, s->out[buffer]->tiles[0].data,
+                        s->saved_desc.width, s->saved_desc.height, 0);
         if (ret != 0) {
                 fprintf(stderr, "Encoding failed: %s\n",
                                 cudaGetErrorString(cudaGetLastError()));
                 return NULL;
         }
 
-        desc->color_spec = s->out_codec;
         return s->out[buffer];
 }
 

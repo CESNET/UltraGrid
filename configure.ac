@@ -1978,7 +1978,7 @@ AC_ARG_ENABLE(cuda-dxt,
 
 LIBS=$SAVED_LIBS
 
-if test "$jpeg_req" != no -a $HAVE_CUDA = yes
+if test "$cuda_dxt_req" != no -a $HAVE_CUDA = yes
 then
         cuda_dxt=yes
 

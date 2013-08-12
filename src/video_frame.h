@@ -102,30 +102,6 @@ void vf_free(struct video_frame *buf);
  * @see video_frame::data_deleter
  */
 void vf_data_deleter(struct video_frame *buf);
-/**
- * @brief Allocates blank tile
- * @return allocated tile
- */
-struct tile * tile_alloc(void);
-/**
- * @brief Allocates blank tile and sets width and height
- * @param desc video description
- * @return allocated tile
- */
-struct tile *tile_alloc_desc(struct video_desc desc);
-/**
- * @brief Frees video tile excluding video data
- * @note
- * Only tile allocated with tile_alloc should be freed
- */
-void tile_free(struct tile*);
-/**
- * @brief Frees video tile including video data
- * @see tile_free
- * @note
- * Only tile allocated with tile_alloc should be freed
- */
-void tile_free_data(struct tile*);
 
 /**
  * @brief Returns n-th tile from video frame

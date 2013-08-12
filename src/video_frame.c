@@ -136,30 +136,6 @@ void vf_data_deleter(struct video_frame *buf)
         }
 }
 
-struct tile *tile_alloc()
-{
-        return calloc(1, sizeof(struct tile));
-}
-
-struct tile *tile_alloc_desc(struct video_desc desc)
-{
-        struct tile *res = tile_alloc();
-        res->width = desc.width;
-        res->height = desc.height;
-        return res;
-}
-
-void tile_free(struct tile *tile) {
-        free(tile);
-}
-
-void tile_free_data(struct tile *tile) {
-        if(tile) {
-                free(tile->data);
-                tile_free(tile);
-        }
-}
-
 struct tile * vf_get_tile(struct video_frame *buf, int pos)
 {
         assert ((unsigned int) pos < buf->tile_count);
