@@ -130,9 +130,11 @@ int			 vidcap_get_device_count(void);
 struct vidcap_type	*vidcap_get_device_details(int index);
 vidcap_id_t 		 vidcap_get_null_device_id(void);
 
+struct module;
 struct vidcap;
 
-int                      vidcap_init(vidcap_id_t id, const struct vidcap_params *param, struct vidcap **);
+int                      vidcap_init(struct module *parent, vidcap_id_t id,
+                const struct vidcap_params *param, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 

@@ -60,6 +60,7 @@
 #include "capture_filter.h"
 #include "debug.h"
 #include "lib_common.h"
+#include "module.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
@@ -89,7 +90,7 @@ void (*vidcap_free_devices_extrn)() = vidcap_free_devices;
 void (*vidcap_done_extrn)(struct vidcap *) = vidcap_done;
 vidcap_id_t (*vidcap_get_null_device_id_extrn)(void) = vidcap_get_null_device_id;
 struct vidcap_type *(*vidcap_get_device_details_extrn)(int index) = vidcap_get_device_details;
-int (*vidcap_init_extrn)(vidcap_id_t id, const struct vidcap_params *, struct vidcap **) = vidcap_init;
+int (*vidcap_init_extrn)(struct module *mod, vidcap_id_t id, const struct vidcap_params *, struct vidcap **) = vidcap_init;
 struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio) = vidcap_grab;
 int (*vidcap_get_device_count_extrn)(void) = vidcap_get_device_count;
 int (*vidcap_init_devices_extrn)(void) = vidcap_init_devices;
@@ -102,6 +103,7 @@ int vidcap_init_noerr;
 
 /// @brief This struct represents video capture state.
 struct vidcap {
+        struct module mod;
         void    *state; ///< state of the created video capture driver
         int      index; ///< index to @ref vidcap_device_table
         uint32_t magic; ///< For debugging. Conatins @ref VIDCAP_MAGIC
@@ -445,7 +447,8 @@ vidcap_id_t vidcap_get_null_device_id(void)
  * @retval <0   if initialization failed
  * @retval >0   if initialization was successful but no state was returned (eg. only having shown help).
  */
-int vidcap_init(vidcap_id_t id, const struct vidcap_params *param, struct vidcap **state)
+int vidcap_init(struct module *parent, vidcap_id_t id, const struct vidcap_params *param,
+                struct vidcap **state)
 {
         unsigned int i;
 
@@ -467,14 +470,22 @@ int vidcap_init(vidcap_id_t id, const struct vidcap_params *param, struct vidcap
                                 free(d);
                                 return 1;
                         }
-                        int ret = capture_filter_init(param->requested_capture_filter, &d->capture_filter);
+
+                        module_init_default(&d->mod);
+                        d->mod.cls = MODULE_CLASS_CAPTURE;
+                        module_register(&d->mod, parent);
+
+                        int ret = capture_filter_init(&d->mod, param->requested_capture_filter,
+                                        &d->capture_filter);
                         if(ret != 0) {
                                 fprintf(stderr, "Unable to initialize capture filter: %s.\n",
                                         param->requested_capture_filter);
+                                module_done(&d->mod);
                                 return ret;
                         }
 
                         *state = d;
+
                         return 0;
                 }
         }
@@ -489,6 +500,7 @@ void vidcap_done(struct vidcap *state)
         assert(state->magic == VIDCAP_MAGIC);
         vidcap_device_table[state->index].func_done(state->state);
         capture_filter_destroy(state->capture_filter);
+        module_done(&state->mod);
         free(state);
 }
 

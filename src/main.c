@@ -1342,7 +1342,8 @@ int main(int argc, char *argv[])
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-        ret = initialize_video_capture(vidcap_params[0].driver, &vidcap_params[0], &uv->capture_device);
+        ret = initialize_video_capture(&root_mod, vidcap_params[0].driver,
+                        &vidcap_params[0], &uv->capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
                        vidcap_params[0].driver);

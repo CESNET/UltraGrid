@@ -29,6 +29,12 @@ void *simple_linked_list_it_next(void **it);
  */
 int simple_linked_list_remove(struct simple_linked_list *, void *);
 
+/**
+ * @retval pointer pointer to removed value
+ * @retval NULL if not found
+ */
+void *simple_linked_list_remove_index(struct simple_linked_list *, int index);
+
 #ifdef __cplusplus
 }
 #endif

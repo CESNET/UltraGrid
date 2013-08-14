@@ -54,12 +54,16 @@
 
 #include "capture_filter.h"
 
+#include "debug.h"
+
 #include "video.h"
 #include "video_codec.h"
 
 #define MAX_TILES 16
 
-static int init(const char *cfg, void **state);
+struct module;
+
+static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
@@ -77,8 +81,10 @@ static void usage() {
         printf("Example: every:2 - every second frame will be dropped\n");
 }
 
-static int init(const char *cfg, void **state)
+static int init(struct module *parent, const char *cfg, void **state)
 {
+        UNUSED(parent);
+
         int n;
         int denom = 1;;
         if(cfg) {

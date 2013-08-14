@@ -91,6 +91,11 @@ struct msg_stats {
         int value;
 };
 
+struct msg_universal {
+        struct message m;
+        char text[8192];
+};
+
 struct response *new_response(int status, char *optional_message);
 
 typedef struct response *(*msg_callback_t)(struct module *mod, struct message *msg);

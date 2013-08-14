@@ -53,69 +53,88 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
+#include "messaging.h"
+#include "module.h"
 
 #include "video.h"
 #include "video_codec.h"
 
-static int init(const char *cfg, void **state);
+static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_blank {
+        struct module mod;
         int x,y, width, height;
         bool outline;
 };
 
-static int init(const char *cfg, void **state)
+static bool parse(struct state_blank *s, char *cfg)
 {
         int vals[4];
         unsigned int counter = 0;
-        char *cfg_mutable = NULL, *tmp = NULL;
-        char *item, *save_ptr;
         bool outline = false;
 
-        if(cfg) {
-                if(strcasecmp(cfg, "help") == 0) {
-                        printf("Blanks specified rectangular area:\n\n");
-                        printf("blank usage:\n");
-                        printf("\tblank:x:y:widht:height[:outline]\n");
-                        printf("\t(all values in pixels)\n");
-                        return 1;
-                }
-                cfg_mutable = tmp = strdup(cfg);
-                while ((item = strtok_r(cfg_mutable, ":", &save_ptr))) {
-                        vals[counter] = atoi(item);
+        char *item, *save_ptr;
+        while ((item = strtok_r(cfg, ":", &save_ptr))) {
+                vals[counter] = atoi(item);
 
-                        cfg_mutable = NULL;
-                        counter += 1;
-                        if (counter == sizeof(vals) / sizeof(int))
-                                break;
-                }
-                while ((item = strtok_r(cfg_mutable, ":", &save_ptr))) {
-                        if (strcmp(item, "outline") == 0) {
-                                outline = true;
-                        } else {
-                                fprintf(stderr, "[Blank] Unknown config value: %s\n",
-                                                item);
-                                return -1;
-                        }
+                cfg = NULL;
+                counter += 1;
+                if (counter == sizeof(vals) / sizeof(int))
+                        break;
+        }
+        while ((item = strtok_r(cfg, ":", &save_ptr))) {
+                if (strcmp(item, "outline") == 0) {
+                        outline = true;
+                } else {
+                        fprintf(stderr, "[Blank] Unknown config value: %s\n",
+                                        item);
+                        return false;
                 }
         }
 
         if(counter != sizeof(vals) / sizeof(int)) {
                 fprintf(stderr, "[Blank] Few config values.\n");
-                return -1;
+                return false;
         }
 
-        struct state_blank *s = calloc(1, sizeof(struct state_blank));
-        assert(s);
+
         s->x = vals[0];
         s->y = vals[1];
         s->width = vals[2];
         s->height = vals[3];
         s->outline = outline;
 
-        free(tmp);
+        return true;
+}
+
+static int init(struct module *parent, const char *cfg, void **state)
+{
+        if (cfg && strcasecmp(cfg, "help") == 0) {
+                printf("Blanks specified rectangular area:\n\n");
+                printf("blank usage:\n");
+                printf("\tblank:x:y:widht:height[:outline]\n");
+                printf("\t(all values in pixels)\n");
+                return 1;
+        }
+
+        struct state_blank *s = calloc(1, sizeof(struct state_blank));
+        assert(s);
+
+        if (cfg) {
+                char *tmp = strdup(cfg);
+                bool ret = parse(s, tmp);
+                free(tmp);
+                if (!ret) {
+                        free(s);
+                        return -1;
+                }
+        }
+
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_DATA;
+        module_register(&s->mod, parent);
 
         *state = s;
         return 0;
@@ -123,7 +142,14 @@ static int init(const char *cfg, void **state)
 
 static void done(void *state)
 {
+        struct state_blank *s = state;
+        module_done(&s->mod);
         free(state);
+}
+
+static void process_message(struct state_blank *s, struct msg_universal *msg)
+{
+        parse(s, msg->text);
 }
 
 /**
@@ -133,6 +159,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_blank *s = state;
         codec_t codec = in->color_spec;
+
+        struct message *msg;
+        while ((msg = check_message(&s->mod))) {
+                process_message(s, (struct msg_universal *) msg);
+                free_message(msg);
+        }
 
         for(int y = s->y; y < s->y + s->height; ++y) {
                 if(y >= (int) in->tiles[0].height) {

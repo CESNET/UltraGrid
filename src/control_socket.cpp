@@ -261,8 +261,10 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
 {
         int ret = 0;
         struct response *resp = NULL;
-        char path[1024] = { '\0' };
+        char path[1024];
         char buf[1024];
+
+        memset(path, 0, sizeof(path));
 
         if(prefix_matches(message, "port ")) {
                 message = suffix(message, "port ");
@@ -358,9 +360,18 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
         } else if(strcasecmp(message, "bye") == 0) {
                 ret = CONTROL_CLOSE_HANDLE;
                 resp = new_response(RESPONSE_OK, NULL);
-        } else {
-                snprintf(buf, sizeof(buf), "(unrecognized control sequence: %s)", message);
-                resp = new_response(RESPONSE_BAD_REQUEST, strdup(buf));
+        } else { // assume message in format "path message"
+                struct msg_universal *msg = (struct msg_universal *)
+                        new_message(sizeof(struct msg_universal));
+
+                if (strchr(message, ' ')) {
+                        memcpy(path, message, strchr(message, ' ') - message);
+                        strncpy(msg->text, strchr(message, ' ') + 1, sizeof(path) - 1);
+                } else {
+                        strncpy(path, message, sizeof(path) - 1); // empty message ??
+                }
+
+                resp = send_message(s->root_module, path, (struct message *) msg);
         }
 
         if(!resp) {
