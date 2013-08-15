@@ -65,19 +65,38 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_blank {
         struct module mod;
-        int x,y, width, height;
+
+        int x, y, width, height;
+        double x_relative, y_relative, width_relative, height_relative;
+
+        struct video_desc saved_desc;
+
+        bool in_relative_units;
         bool outline;
 };
 
 static bool parse(struct state_blank *s, char *cfg)
 {
         int vals[4];
+        double vals_relative[4];
         unsigned int counter = 0;
         bool outline = false;
 
+        memset(&s->saved_desc, 0, sizeof(s->saved_desc));
+
+        if (strchr(cfg, '%')) {
+                s->in_relative_units = true;
+        } else {
+                s->in_relative_units = false;
+        }
+
         char *item, *save_ptr;
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
-                vals[counter] = atoi(item);
+                if (s->in_relative_units) {
+                        vals_relative[counter] = atof(item) / 100.0;
+                } else {
+                        vals[counter] = atoi(item);
+                }
 
                 cfg = NULL;
                 counter += 1;
@@ -99,11 +118,17 @@ static bool parse(struct state_blank *s, char *cfg)
                 return false;
         }
 
-
-        s->x = vals[0];
-        s->y = vals[1];
-        s->width = vals[2];
-        s->height = vals[3];
+        if (s->in_relative_units) {
+                s->x_relative = vals_relative[0];
+                s->y_relative = vals_relative[1];
+                s->width_relative = vals_relative[2];
+                s->height_relative = vals_relative[3];
+        } else {
+                s->x = vals[0];
+                s->y = vals[1];
+                s->width = vals[2];
+                s->height = vals[3];
+        }
         s->outline = outline;
 
         return true;
@@ -115,6 +140,8 @@ static int init(struct module *parent, const char *cfg, void **state)
                 printf("Blanks specified rectangular area:\n\n");
                 printf("blank usage:\n");
                 printf("\tblank:x:y:widht:height[:outline]\n");
+                printf("\t\tor\n");
+                printf("\tblank:x%%:y%%:widht%%:height%%[:outline]\n");
                 printf("\t(all values in pixels)\n");
                 return 1;
         }
@@ -159,6 +186,17 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 {
         struct state_blank *s = state;
         codec_t codec = in->color_spec;
+
+        assert(in->tile_count == 1);
+
+        if (s->in_relative_units && !video_desc_eq(s->saved_desc,
+                                video_desc_from_frame(in))) {
+                s->x = s->x_relative * in->tiles[0].width;
+                s->y = s->y_relative * in->tiles[0].height;
+                s->width = s->width_relative * in->tiles[0].width;
+                s->height = s->height_relative * in->tiles[0].height;
+                s->saved_desc = video_desc_from_frame(in);
+        }
 
         struct message *msg;
         while ((msg = check_message(&s->mod))) {
