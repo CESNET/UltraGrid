@@ -178,8 +178,15 @@ static void process_message(struct capture_filter *s, struct msg_universal *msg)
                                         index);
                 } else {
                         printf("Capture filter #%d removed successfully.\n", index);
+                        capture_filters[inst->index]->done(inst->state);
+                        free(inst);
                 }
-                capture_filters[inst->index]->done(inst->state);
+        } else if (strcmp("flush", msg->text) == 0) {
+                while(simple_linked_list_size(s->filters) > 0) {
+                        struct capture_filter_instance *inst = simple_linked_list_pop(s->filters);
+                        capture_filters[inst->index]->done(inst->state);
+                        free(inst);
+                }
         } else {
                 char *fmt = strdup(msg->text);
                 if (!create_filter(s, fmt)) {
