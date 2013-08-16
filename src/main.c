@@ -198,17 +198,20 @@ static void signal_handler(int signal)
         return;
 }
 
-static void crash_signal_handler(int signal)
+static void crash_signal_handler(int sig)
 {
         fprintf(stderr, "\n%s has crashed", PACKAGE_NAME);
 #ifndef WIN32
-        fprintf(stderr, " (%s)", strsignal(signal));
+        fprintf(stderr, " (%s)", strsignal(sig));
 #endif
         fprintf(stderr, ".\n\nPlease send a bug report to address %s.\n"
                         , PACKAGE_BUGREPORT);
         fprintf(stderr, "You may find some tips how to report bugs in file REPORTING-BUGS "
                         "distributed with %s.\n", PACKAGE_NAME);
-        _Exit(128 + signal);
+
+        signal(SIGABRT, SIG_DFL);
+        signal(SIGSEGV, SIG_DFL);
+        raise(sig);
 }
 
 static void _exit_uv(int status);
