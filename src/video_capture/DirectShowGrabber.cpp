@@ -660,7 +660,7 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 		return NULL;
 	}
 
-	if (params->fmt && strcmp(params_fmt, "help") == 0) {
+	if (params->fmt && strcmp(params->fmt, "help") == 0) {
 		show_help(s); 
 		cleanup(s);
 		return &vidcap_init_noerr;

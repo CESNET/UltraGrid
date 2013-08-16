@@ -749,7 +749,7 @@ static void *slave_worker(void *arg)
 
         struct vidcap *device;
         int ret =
-                initialize_video_capture(s->device_params->driver, s->device_params, &device);
+                initialize_video_capture(NULL, s->device_params->driver, s->device_params, &device);
         if(ret != 0) {
                 fprintf(stderr, "[swmix] Unable to initialize device %s (%s:%s).\n",
                                 s->name, s->device_params->driver, s->device_params->fmt);

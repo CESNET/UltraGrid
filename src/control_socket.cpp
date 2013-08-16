@@ -108,7 +108,7 @@ struct control_state {
 #define CONTROL_EXIT -1
 #define CONTROL_CLOSE_HANDLE -2
 
-static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len);
+static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int *new_buffer_len);
 static int process_msg(struct control_state *s, fd_t client_fd, char *message);
 static ssize_t write_all(fd_t fd, const void *buf, size_t count);
 static void * control_thread(void *args);
@@ -120,7 +120,7 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count)
     size_t rest = count;
     ssize_t w = 0;
 
-    while (rest > 0 && (w = send(fd, p, rest, 0)) >= 0) {
+    while (rest > 0 && (w = send(fd, p, rest, MSG_NOSIGNAL)) >= 0) {
         p += w;
         rest -= w;
     }
@@ -402,7 +402,7 @@ static void send_response(fd_t fd, struct response *resp)
         resp->deleter(resp);
 }
 
-static bool parse_msg(char *buffer, char buffer_len, /* out */ char *message, int *new_buffer_len)
+static bool parse_msg(char *buffer, int buffer_len, /* out */ char *message, int *new_buffer_len)
 {
         bool ret = false;
         int i = 0;

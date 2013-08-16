@@ -106,6 +106,9 @@ int simple_linked_list_remove(struct simple_linked_list *l, void *item)
                 child_ptr = &(*child_ptr)->next;
         }
 
+        if(!l->head)
+                l->tail = NULL;
+
         if(found) {
                 l->size -= 1;
                 return TRUE;
@@ -138,6 +141,9 @@ void *simple_linked_list_remove_index(struct simple_linked_list *l, int index)
                 l->tail = parent;
         }
         free(tmp);
+
+        if(!l->head)
+                l->tail = NULL;
 
         l->size -= 1;
         return ret;

@@ -94,8 +94,12 @@ static bool parse(struct state_blank *s, char *cfg)
         while ((item = strtok_r(cfg, ":", &save_ptr))) {
                 if (s->in_relative_units) {
                         vals_relative[counter] = atof(item) / 100.0;
+                        if (vals_relative[counter] < 0.0)
+                                vals_relative[counter] = 0.0;
                 } else {
                         vals[counter] = atoi(item);
+                        if (vals[counter] < 0)
+                                vals[counter] = 0;
                 }
 
                 cfg = NULL;
