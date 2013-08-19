@@ -890,6 +890,7 @@ static void gl_draw(double ratio)
 
 static void glut_close_callback(void)
 {
+        gl->should_exit_main_loop = true;
         exit_uv(0);
 }
 
