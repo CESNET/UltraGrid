@@ -269,8 +269,10 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 return NULL;
         }
 
+        char *tmp = NULL;
+
         if(params->fmt) {
-                char *tmp = strdup(params->fmt);
+                tmp = strdup(params->fmt);
                 char *init_fmt = tmp;
                 char *save_ptr = NULL;
                 char *item;
@@ -312,14 +314,14 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                         init_fmt = NULL;
                         ++i;
                 }
-                free(tmp);
         }
 
         s->frame = NULL;
         s->fd = open(dev_name, O_RDWR);
 
         if(s->fd == -1) {
-                perror("[V4L2] Unable to open input device");
+                fprintf(stderr, "[V4L2] Unable to open input device %s: %s\n",
+                                dev_name, strerror(errno));
                 goto error_fd;
         }
 
@@ -537,6 +539,8 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         gettimeofday(&s->t0, NULL);
         s->frames = 0;
+
+        free(tmp);
 
         return s;
 
