@@ -101,6 +101,7 @@ OBJS	      = @OBJS@ \
 		src/ihdtv/ihdtv.o \
 		src/module.o \
 		src/stats.o \
+		src/utils/config_file.o \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
 		src/utils/message_queue.o \
@@ -154,6 +155,7 @@ LIB_COMMON = \
 		src/module.o \
 		src/tile.o \
 		src/tv.o \
+		src/utils/config_file.o \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
 		src/utils/message_queue.o \

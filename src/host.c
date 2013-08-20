@@ -13,6 +13,7 @@
 #include "video_capture.h"
 #include "video_display.h"
 
+#include "utils/config_file.h"
 #include "utils/resource_manager.h"
 #include "rtp/video_decoders.h"
 #include "rtp/rtp.h"
@@ -56,6 +57,25 @@ int initialize_video_capture(struct module *parent,
                 const struct vidcap_params *params,
                 struct vidcap **state)
 {
+        // firsty, dispatch aliases if any
+        char buf[1024];
+        char *alias;
+        struct config_file *conf =
+                config_file_open(default_config_file(buf,
+                                        sizeof(buf)));
+        alias = config_file_get_alias(conf, "capture", requested_capture);
+        struct vidcap_params aliased_params;
+        if (alias) {
+                memcpy(&aliased_params, params, sizeof(aliased_params));
+                aliased_params.driver = alias;
+                if (strchr(alias, ':')) {
+                        aliased_params.fmt = strchr(alias, ':') + 1;
+                        *strchr(alias, ':') = '\0';
+                }
+                requested_capture = aliased_params.driver;
+                params = &aliased_params;
+        }
+
         struct vidcap_type *vt;
         vidcap_id_t id = 0;
         int i;
@@ -84,7 +104,9 @@ int initialize_video_capture(struct module *parent,
         pthread_mutex_unlock(vidcap_lock);
         rm_release_shared_lock("VIDCAP_LOCK");
 
-        return vidcap_init_extrn(parent, id, params, state);
+        int ret = vidcap_init_extrn(parent, id, params, state);
+        config_file_close(conf);
+        return ret;
 }
 
 int initialize_video_display(const char *requested_display,
