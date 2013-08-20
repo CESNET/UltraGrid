@@ -206,6 +206,7 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 	return s->frame;
 }
 
+
 void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
     struct rtsp_state *s;
@@ -249,66 +250,84 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     else{
 		char *tmp;
 		int i = 0;
-		while((tmp = strtok_r(fmt, ":", &save_ptr))) {
-			int len;
-			switch (i) {
-					case 0:
-							if(tmp){
-								s->uri = malloc(strlen(tmp) + 32);
-								sprintf(s->uri, "rtsp://%s",tmp);
-							}else{
-								printf("\n[rtsp] Wrong format for uri! \n");
-								show_help();
-								exit(0);
-							}
-							break;
-					case 1:
-							if(tmp){
-								s->port = atoi(tmp);
-							}else{
-								printf("\n[rtsp] Wrong format for port! \n");
-								show_help();
-								exit(0);
-							}
-							break;
-					case 2:
-							if(tmp){
-								s->width = atoi(tmp);
-							}else{
-								printf("\n[rtsp] Wrong format for width! \n");
-								show_help();
-								exit(0);
-							}
-							break;
-					case 3:
-							if(tmp){
-								s->height = atoi(tmp);
-							}else{
-								printf("\n[rtsp] Wrong format for height! \n");
-								show_help();
-								exit(0);
-							}
-							break;
-					case 4:
-							if(tmp){
-								if(strcmp(tmp,"true")==0) s->decompress = true;
-								else s->decompress = false;
-							}else continue;
-							break;
-					case 5:
-							continue;
-			}
-			fmt = NULL;
-			++i;
-		}
+
+		printf("[str_split] input flag string = %s\n", fmt);
+
+        char ip[100];
+        int port;
+        char page[100];
+        sscanf(fmt, "rtsp://%99[^:]:%99d/%99[^\n]", ip, &port, page);
+        printf("ip = %s \n", ip);
+        printf("port = %d\n", port);
+        printf("page = %s\n", page);
+        s->uri = malloc(strlen(fmt) + 32);
+        sprintf(s->uri, "rtsp://%s:%d/%s",ip,port,page);
+        printf("%s\n",s->uri);
+
+//		while((tmp = strtok_r(fmt, ":", &save_ptr))) {
+//			int len;
+//			switch (i) {
+//					case 0:
+//							if(tmp){
+//								s->uri = malloc(strlen(tmp) + 32);
+//                                sprintf(s->uri, "%s",tmp);
+//                            }else{
+//								printf("\n[rtsp] Wrong format for uri! \n");
+//								show_help();
+//								exit(0);
+//							}
+//							break;
+//					case 1:
+//							if(tmp){
+//								s->port = atoi(tmp);
+//							}else{
+//								printf("\n[rtsp] Wrong format for port! \n");
+//								show_help();
+//								exit(0);
+//							}
+//							break;
+//					case 2:
+//							if(tmp){
+//								s->width = atoi(tmp);
+//							}else{
+//								printf("\n[rtsp] Wrong format for width! \n");
+//								show_help();
+//								exit(0);
+//							}
+//							break;
+//					case 3:
+//							if(tmp){
+//								s->height = atoi(tmp);
+//							}else{
+//								printf("\n[rtsp] Wrong format for height! \n");
+//								show_help();
+//								exit(0);
+//							}
+//							break;
+//					case 4:
+//							if(tmp){
+//								if(strcmp(tmp,"true")==0) s->decompress = true;
+//								else s->decompress = false;
+//							}else continue;
+//							break;
+//					case 5:
+//							continue;
+//			}
+//			fmt = NULL;
+//			++i;
+//		}
     }
 
-//    printf("[rtsp] selected flags:\n");
-//    printf("\t  uri: %s\n",s->uri);
-//    printf("\t  port: %d\n", s->port);
-//    printf("\t  width: %d\n",s->width);
-//    printf("\t  height: %d\n",s->height);
-//    printf("\t  decompress: %d\n\n",s->decompress);
+    printf("[rtsp] selected flags:\n");
+    printf("\t  uri: %s\n",s->uri);
+    printf("\t  port: %d\n", s->port);
+    printf("\t  width: %d\n",s->width);
+    printf("\t  height: %d\n",s->height);
+    printf("\t  decompress: %d\n\n",s->decompress);
+
+
+    exit(0);
+
 
 	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
 	data = malloc(4*s->width*s->height + s->nals_size);
