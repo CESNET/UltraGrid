@@ -638,6 +638,11 @@ unsigned int vidcap_params_get_flags(const struct vidcap_params *params)
         return params->flags;
 }
 
+const char *vidcap_params_get_name(const struct vidcap_params *params)
+{
+        return params->name;
+}
+
 /**
  * Creates deep copy of @ref vidcap_params structure.
  */
