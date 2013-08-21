@@ -59,10 +59,12 @@
 
 #include "capture_filter/blank.h"
 #include "capture_filter/every.h"
+#include "capture_filter/none.h"
 
 static struct capture_filter_info *capture_filters[] = {
         &capture_filter_blank,
-        &capture_filter_every
+        &capture_filter_every,
+        &capture_filter_none,
 };
 
 struct capture_filter {

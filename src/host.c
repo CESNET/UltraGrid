@@ -59,21 +59,29 @@ int initialize_video_capture(struct module *parent,
 {
         // firsty, dispatch aliases if any
         char buf[1024];
-        char *alias;
+        char *real_capture;
         struct config_file *conf =
                 config_file_open(default_config_file(buf,
                                         sizeof(buf)));
-        alias = config_file_get_alias(conf, "capture", requested_capture);
+        const char *alias = NULL;
+        real_capture = config_file_get_alias(conf, "capture", requested_capture);
         struct vidcap_params aliased_params;
-        if (alias) {
+        if (real_capture) {
                 memcpy(&aliased_params, params, sizeof(aliased_params));
-                aliased_params.driver = alias;
-                if (strchr(alias, ':')) {
-                        aliased_params.fmt = strchr(alias, ':') + 1;
-                        *strchr(alias, ':') = '\0';
+                aliased_params.driver = real_capture;
+                if (strchr(real_capture, ':')) {
+                        aliased_params.fmt = strchr(real_capture, ':') + 1;
+                        *strchr(real_capture, ':') = '\0';
                 }
+                alias = requested_capture;
                 requested_capture = aliased_params.driver;
                 params = &aliased_params;
+        }
+
+        if (alias && aliased_params.requested_capture_filter == NULL) {
+                aliased_params.requested_capture_filter =
+                        config_file_get_capture_filter_for_alias(conf,
+                                        alias);
         }
 
         struct vidcap_type *vt;

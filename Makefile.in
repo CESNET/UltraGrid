@@ -81,6 +81,7 @@ OBJS	      = @OBJS@ \
 		src/capture_filter.o \
 		src/capture_filter/blank.o \
 		src/capture_filter/every.o \
+		src/capture_filter/none.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
 		src/compat/inet_ntop.o \

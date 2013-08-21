@@ -1,6 +1,7 @@
 /**
- * @file   utils/config_file.h
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @file   capture_filter/none.h
+ * @author Martin Pulec <pulec@cesnet.cz>
+ * Copyright (c) 2005-2010 CESNET z.s.p.o.
  */
 /*
  * Copyright (c) 2013 CESNET z.s.p.o.
@@ -35,31 +36,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CONFIG_FILE_H_
-#define CONFIG_FILE_H_
+#ifndef CAPTURE_FILTER_NONE_H_
+#define CAPTURE_FILTER_NONE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+struct capture_filter_info;
+extern struct capture_filter_info capture_filter_none;
 
-struct config_file;
-
-char *default_config_file(char *buf, int buf_len);
-struct config_file *config_file_open(const char *name);
-void config_file_close(struct config_file *config_file);
-char *config_file_get_alias(struct config_file *config_file,
-                const char *requested_class, const char *requested_name);
-char ***config_file_get_aliases_for_class(struct config_file *config_file,
-                const char *requested_class);
-char *config_file_get_capture_filter_for_alias(struct config_file *config_file,
-                const char *alias);
-int config_file_save_capture_filter_for_alias(struct config_file *config_file,
-                const char *alias, const char *capture_filter);
-
-
-#ifdef __cplusplus
-}
-#endif // __cplusplus
-
-#endif // CONFIG_FILE_H_
-
+#endif // CAPTURE_FILTER_NONE_H_

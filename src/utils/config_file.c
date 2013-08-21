@@ -3,6 +3,10 @@
  * @author Martin Pulec     <pulec@cesnet.cz>
  *
  * @brief  Configuration file for UltraGrid
+ *
+ * @todo
+ * What about not storing every queried item but eg. a hash table
+ * instead?
  */
 /*
  * Copyright (c) 2013 CESNET z.s.p.o.
@@ -37,6 +41,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_win32.h"
+#include "config_unix.h"
+#endif // HAVE_CONFIG_H
+
 #include "config_file.h"
 
 #include <stdio.h>
@@ -45,6 +55,7 @@
 
 struct config_file {
         FILE *f; ///< handle to config file, NULL if opening failed
+        char file_name[1024];
         char **tmp_buffer; ///< temporary storage for returned strings
         int tmp_buffer_count;
 
@@ -52,6 +63,10 @@ struct config_file {
                                    *   strings which are stored in @ref tmp_buffer */
         int tmp_list_buffer_count;
 };
+
+static void reopen_for_reading(struct config_file *s);
+static int truncate_for_writing(struct config_file *s);
+
 
 /**
  * Returns location of default UltraGrid config file
@@ -87,6 +102,7 @@ struct config_file *config_file_open(const char *name)
         s->tmp_buffer = (char **) malloc(s->tmp_buffer_count * sizeof(char *));
         s->tmp_list_buffer = (char ****) malloc(s->tmp_list_buffer_count *
                         sizeof(char ***));
+        strncpy(s->file_name, name, sizeof(s->file_name) - 1);
         return s;
 }
 
@@ -134,6 +150,55 @@ static char *get_line_suffix(struct config_file *s, const char *prefix)
         return NULL;
 }
 
+#define MAX_FILE_LEN (1024 * 1024)
+
+/**
+ * @retval 0 if failed
+ * @retval 1 if succeeded
+ */
+static int replace_line_suffix(struct config_file *s, const char *prefix, const char *new_suffix)
+{
+        if (!s->f)
+                return 0;
+
+        char *new_file_content = calloc(1, MAX_FILE_LEN);
+        int replaced = 0;
+
+        char line[1024];
+        fseek(s->f, 0, SEEK_SET); // rewind
+        while (fgets(line, sizeof(line), s->f)) {
+                if (strncmp(prefix, line, strlen(prefix)) == 0) { // replace suffix
+                        line[sizeof(line) - 1] = '\0';
+                        strncpy(line + strlen(prefix),
+                                        new_suffix, sizeof(line) - strlen(prefix) - 1);
+                        strncat(line, "\n", sizeof(line) - strlen(line) -  1);
+                        replaced = 1;
+                }
+                strncat(new_file_content, line, MAX_FILE_LEN - strlen(new_file_content) - 1);
+        }
+
+        if (!replaced) {
+                line[sizeof(line) - 1] = '\0';
+                strncpy(line, prefix, sizeof(line) - 1);
+                strncat(line, new_suffix, sizeof(line) - strlen(line) - 1);
+                strncat(line, "\n", sizeof(line) - strlen(line) - 1);
+                strncat(new_file_content, line, MAX_FILE_LEN - strlen(new_file_content) - 1);
+        }
+
+        if (!truncate_for_writing(s)) {
+                return 0;
+        }
+
+        int ret = fwrite(new_file_content, strlen(new_file_content), 1, s->f);
+
+        reopen_for_reading(s);
+
+        if (ret == 1)
+                return 1;
+        else
+                return 0;
+}
+
 /**
  * Returns alias for specified class and item name.
  *
@@ -151,19 +216,13 @@ static char *get_line_suffix(struct config_file *s, const char *prefix)
 char *config_file_get_alias(struct config_file *s, const char *req_item_class,
                 const char *requested_name)
 {
-        char line[1024];
-        fseek(s->f, 0, SEEK_SET); // rewind
-        while (fgets(line, sizeof(line), s->f)) {
-                char prefix[1024];
-                memset(prefix, 0, sizeof(prefix));
+        char prefix[1024];
+        memset(prefix, 0, sizeof(prefix));
 
-                snprintf(prefix, sizeof(prefix) - 1, "alias %s %s ",
-                                req_item_class, requested_name);
+        snprintf(prefix, sizeof(prefix) - 1, "alias %s %s ",
+                        req_item_class, requested_name);
 
-                return get_line_suffix(s, prefix);
-        }
-
-        return NULL;
+        return get_line_suffix(s, prefix);
 }
 
 /**
@@ -229,5 +288,57 @@ char ***config_file_get_aliases_for_class(struct config_file *s,
         current_buffer[current_len] = NULL;
 
         return current_buffer;
+}
+
+char *config_file_get_capture_filter_for_alias(struct config_file *s,
+                const char *alias)
+{
+        char prefix[1024];
+        memset(prefix, 0, sizeof(prefix));
+
+        snprintf(prefix, sizeof(prefix) - 1, "capture-filter %s ",
+                        alias);
+
+        return get_line_suffix(s, prefix);
+}
+
+/**
+ * @retwal 1 if succeeded
+ * @retwal 0 if not successful
+ */
+static int truncate_for_writing(struct config_file *s)
+{
+        if (s->f)
+                fclose(s->f);
+        s->f = fopen(s->file_name, "w");
+        if (s->f) {
+                return 1;
+        } else { // failed, try to open again for reading
+                s->f = fopen(s->file_name, "r");
+                return 0;
+        }
+}
+
+static void reopen_for_reading(struct config_file *s)
+{
+        if (s->f)
+                fclose(s->f);
+        s->f = fopen(s->file_name, "r");
+}
+
+/**
+ * @retwal 1 if succeeded
+ * @retwal 0 if failed
+ */
+int config_file_save_capture_filter_for_alias(struct config_file *s,
+                const char *alias, const char *capture_filter)
+{
+        char prefix[1024];
+        memset(prefix, 0, sizeof(prefix));
+
+        snprintf(prefix, sizeof(prefix) - 1, "capture-filter %s ",
+                        alias);
+
+        return replace_line_suffix(s, prefix, capture_filter);
 }
 

@@ -1,6 +1,6 @@
 /**
- * @file   utils/config_file.h
- * @author Martin Pulec     <pulec@cesnet.cz>
+ * @file   capture_filter/none.c
+ * @author Martin Pulec <pulec@cesnet.cz>
  */
 /*
  * Copyright (c) 2013 CESNET z.s.p.o.
@@ -35,31 +35,52 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CONFIG_FILE_H_
-#define CONFIG_FILE_H_
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif /* HAVE_CONFIG_H */
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+#include "capture_filter.h"
 
-struct config_file;
+#include "debug.h"
 
-char *default_config_file(char *buf, int buf_len);
-struct config_file *config_file_open(const char *name);
-void config_file_close(struct config_file *config_file);
-char *config_file_get_alias(struct config_file *config_file,
-                const char *requested_class, const char *requested_name);
-char ***config_file_get_aliases_for_class(struct config_file *config_file,
-                const char *requested_class);
-char *config_file_get_capture_filter_for_alias(struct config_file *config_file,
-                const char *alias);
-int config_file_save_capture_filter_for_alias(struct config_file *config_file,
-                const char *alias, const char *capture_filter);
+#include "video.h"
+#include "video_codec.h"
 
+struct module;
 
-#ifdef __cplusplus
+static int init(struct module *parent, const char *cfg, void **state);
+static void done(void *state);
+static struct video_frame *filter(void *state, struct video_frame *in);
+
+int capture_filter_state_none;
+
+static int init(struct module *parent, const char *cfg, void **state)
+{
+        UNUSED(parent);
+        UNUSED(cfg);
+        UNUSED(state);
+
+        *state = &capture_filter_state_none;
+        return 0;
 }
-#endif // __cplusplus
 
-#endif // CONFIG_FILE_H_
+static void done(void *state)
+{
+        UNUSED(state);
+}
+
+static struct video_frame *filter(void *state, struct video_frame *in)
+{
+        assert(state == &capture_filter_state_none);
+        return in;
+}
+
+struct capture_filter_info capture_filter_none = {
+        .name = "none",
+        .init = init,
+        .done = done,
+        .filter = filter,
+};
 
