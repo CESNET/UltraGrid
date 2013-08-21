@@ -86,7 +86,6 @@
 #include "transmit.h"
 #include "tfrc.h"
 #include "ihdtv.h"
-#include "lib_common.h"
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
@@ -214,17 +213,13 @@ static void crash_signal_handler(int sig)
         raise(sig);
 }
 
-static void _exit_uv(int status);
-
-static void _exit_uv(int status) {
+void exit_uv(int status) {
         exit_status = status;
 
         should_exit_sender = true;
         should_exit_receiver = true;
         audio_finish(uv_state->audio);
 }
-
-void (*exit_uv)(int status) = _exit_uv;
 
 static void usage(void)
 {
@@ -997,8 +992,6 @@ int main(int argc, char *argv[])
         perf_init();
         perf_record(UVP_INIT, 0);
 
-        init_lib_common();
-
         while ((ch =
                 getopt_long(argc, argv, "d:t:m:r:s:v6c:ihj:M:p:f:P:l:A:", getopt_options,
                             &option_index)) != -1) {
@@ -1569,8 +1562,6 @@ cleanup:
         video_export_destroy(uv->video_exporter);
 
         free(export_dir);
-
-        lib_common_done();
 
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);

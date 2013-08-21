@@ -58,6 +58,7 @@
 
 #include "crypto/random.h"
 #include "debug.h"
+#include "host.h"
 #include "perf.h"
 #include "audio/audio.h"
 #include "audio/codec.h"
@@ -69,14 +70,11 @@
 #include "rtp/rtp_callback.h"
 #include "tv.h"
 #include "transmit.h"
-#include "host.h"
 #include "video.h"
 #include "video_codec.h"
 #include "compat/platform_spin.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
-
-extern long packet_rate;
 
 enum fec_scheme_t {
         FEC_NONE,

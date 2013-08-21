@@ -82,20 +82,6 @@
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
-/** @name Function pointers
- * Contains pointer to hereinafter defined function. The purpose is to make them available
- * also for dynamically loaded modules.
- * @{ */
-void (*vidcap_free_devices_extrn)() = vidcap_free_devices;
-void (*vidcap_done_extrn)(struct vidcap *) = vidcap_done;
-vidcap_id_t (*vidcap_get_null_device_id_extrn)(void) = vidcap_get_null_device_id;
-struct vidcap_type *(*vidcap_get_device_details_extrn)(int index) = vidcap_get_device_details;
-int (*vidcap_init_extrn)(struct module *mod, vidcap_id_t id, const struct vidcap_params *, struct vidcap **) = vidcap_init;
-struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio) = vidcap_grab;
-int (*vidcap_get_device_count_extrn)(void) = vidcap_get_device_count;
-int (*vidcap_init_devices_extrn)(void) = vidcap_init_devices;
-/// @}
-
 /**This variable represents a pseudostate and may be returned when initialization
  * of module was successful but no state was created (eg. when driver had displayed help).
  */

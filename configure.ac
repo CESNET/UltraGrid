@@ -234,6 +234,7 @@ AC_DEFUN([DEFINE_GL], [
                   GL_COMMON_OBJ="src/win32_gl_common.o src/gl_context.o"
           fi
           fi
+          LIB_OBJS="$LIB_OBJS $GL_COMMON_OBJ"
           AC_SUBST(GL_COMMON_OBJ)
           ])
 
@@ -410,12 +411,6 @@ then
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
-common_lib_abi_version=1
-AC_DEFINE_UNQUOTED([COMMON_LIB_ABI_VERSION], $common_lib_abi_version, [Specifies ABI version for shared objects])
-AC_SUBST(common_lib_abi_version)
-AC_SUBST(COMMON_LIB_TARGET, "lib/ultragrid/ug_lib_common.so.$common_lib_abi_version")
-LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
-
 video_display_abi_version=6
 video_capture_abi_version=3
 video_compress_abi_version=2
@@ -497,6 +492,7 @@ case "$host_os" in
                 fi
                 X_LIBS="$X_LIBS -lX11"
                 X_OBJ="src/x11_common.o"
+                LIB_OBJS="$LIB_OBJS $X_OBJ"
                 CFLAGS="$CFLAGS"
         fi
         ;;
@@ -2566,10 +2562,8 @@ fi
 # -------------------------------------------------------------------------------------------------
 
 # this is only needed when passing to "clean" make target
-if test "$build_libraries" = yes
+if test "$build_libraries" != yes
 then
-        LIB_SUPPORT_OBJ="src/lib_common.o"
-else
         LIBS="$LIBS $LIB_MODULES"
         OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ"
         HEADERS="$HEADERS $LIB_HEADERS"

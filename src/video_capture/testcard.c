@@ -109,17 +109,6 @@ struct testcard_state {
         unsigned int still_image;
 };
 
-const int rect_colors[] = {
-        0xff0000ff,
-        0xff00ff00,
-        0xffff0000,
-        0xff00ffff,
-        0xffffff00,
-        0xffff00ff
-};
-
-#define COL_NUM 6
-
 static void testcard_fillRect(struct testcard_pixmap *s, struct testcard_rect *r, int color)
 {
         int cur_x, cur_y;

@@ -79,7 +79,7 @@ extern unsigned int bitdepth;
 
 extern unsigned int progressive;
 
-extern void (*exit_uv)(int status);
+void exit_uv(int status);
 
 extern unsigned int audio_capture_channels;
 

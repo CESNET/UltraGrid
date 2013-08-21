@@ -70,26 +70,6 @@ typedef int type_t;
 
 using namespace std;
 
-// prototypes
-static pthread_mutex_t *rm_acquire_shared_lock_real(const char *name);
-static void rm_release_shared_lock_real(const char *name);
-static void rm_lock_real();
-static void rm_unlock_real();
-static void *rm_get_shm_real(const char *name, int size);
-static void *rm_singleton_real(const char *name, singleton_initializer_t, void *,
-                singleton_deleter_t);
- 
-// functon pointers' assignments
-pthread_mutex_t *(*rm_acquire_shared_lock)(const char *name) =
-        rm_acquire_shared_lock_real;
-void (*rm_release_shared_lock)(const char *name) = 
-        rm_release_shared_lock_real;
-void (*rm_lock)() = rm_lock_real;
-void (*rm_unlock)() = rm_unlock_real;
-void *(*rm_get_shm)(const char *name, int size) = rm_get_shm_real;
-void *(*rm_singleton)(const char *name, singleton_initializer_t, void *, singleton_deleter_t)
-        = rm_singleton_real;
-
 class options_t {
         public:
                 virtual ~options_t() {}
@@ -278,7 +258,7 @@ string resource::get_suffix(type_t type)
         }
 }
 
-static pthread_mutex_t *rm_acquire_shared_lock_real(const char *name)
+pthread_mutex_t *rm_acquire_shared_lock(const char *name)
 {
         lock *l = dynamic_cast<lock *>(resource_manager.acquire(
                                 string(name), TYPE_LOCK, no_opts()));
@@ -289,22 +269,22 @@ static pthread_mutex_t *rm_acquire_shared_lock_real(const char *name)
         }
 }
 
-static void rm_release_shared_lock_real(const char *name)
+void rm_release_shared_lock(const char *name)
 {
         resource_manager.release(string(name), TYPE_LOCK);
 }
 
-static void rm_lock_real()
+void rm_lock()
 {
         resource_manager.lock();
 }
 
-static void rm_unlock_real()
+void rm_unlock()
 {
         resource_manager.unlock();
 }
 
-static void *rm_get_shm_real(const char *name, int size)
+void *rm_get_shm(const char *name, int size)
 {
         shm *s = dynamic_cast<shm *>(resource_manager.acquire(
                                 string(name), TYPE_SHM, shm_opts(size)));
@@ -315,7 +295,7 @@ static void *rm_get_shm_real(const char *name, int size)
         }
 }
 
-static void *rm_singleton_real(const char *name, singleton_initializer_t initializer, void *data,
+void *rm_singleton(const char *name, singleton_initializer_t initializer, void *data,
                 singleton_deleter_t done)
 {
         singleton *s = dynamic_cast<singleton *>(resource_manager.acquire(

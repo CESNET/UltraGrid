@@ -84,6 +84,7 @@
 #include "compat/platform_semaphore.h"
 #include <unistd.h>
 #include "debug.h"
+#include "host.h"
 #include "video.h"
 #include "video_display.h"
 #include "video_display/gl.h"
@@ -154,10 +155,6 @@ void main()
         gl_FragColor = vec4(Y + Co - Cg, Y + Cg, Y - Co - Cg, 1.0);
 } // main end
 );
-
-/* defined in main.c */
-extern int uv_argc;
-extern char **uv_argv;
 
 struct state_gl {
         GLuint          PHandle_uyvy, PHandle_dxt, PHandle_dxt5;

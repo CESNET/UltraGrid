@@ -73,9 +73,6 @@ typedef enum {
         BILINEAR
 } interpolation_t;
 
-extern void (*vidcap_done_extrn)(struct vidcap*);
-extern struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio);
-
 /*
  * Bicubic interpolation taken from:
  * http://www.codeproject.com/Articles/236394/Bi-Cubic-and-Bi-Linear-Interpolation-with-GLSL
@@ -760,7 +757,7 @@ static void *slave_worker(void *arg)
                 struct video_frame *frame;
                 struct audio_frame *audio;
 
-                frame = vidcap_grab_extrn(device, &audio);
+                frame = vidcap_grab(device, &audio);
                 if(frame) {
                         struct video_frame *frame_copy = vf_get_copy(frame);
                         pthread_mutex_lock(&s->lock);
@@ -786,7 +783,7 @@ static void *slave_worker(void *arg)
                 }
         }
 
-        vidcap_done_extrn(device);
+        vidcap_done(device);
 
         return NULL;
 }

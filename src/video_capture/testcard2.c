@@ -113,10 +113,6 @@ struct testcard_state2 {
         volatile bool should_exit;
 };
 
-extern const int rect_colors[];
-
-#define COL_NUM 6
-
 static int configure_audio(struct testcard_state2 *s)
 {
         int i;

@@ -54,6 +54,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "debug.h"
+#include "host.h"
 #include "video.h"
 #include "video_capture.h"
 
@@ -98,10 +99,6 @@ static void show_help()
         printf("\t-t screen[:fps=<fps>]\n");
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
 }
-
-/* defined in main.c */
-extern int uv_argc;
-extern char **uv_argv;
 
 static struct vidcap_screen_state *state;
 

@@ -38,20 +38,6 @@ volatile bool should_exit_receiver = false;
 
 bool verbose = false;
 
-extern void (*vidcap_free_devices_extrn)();
-extern display_type_t *(*display_get_device_details_extrn)(int i);
-extern struct vidcap_type *(*vidcap_get_device_details_extrn)(int i);
-extern void (*display_free_devices_extrn)(void);
-extern vidcap_id_t (*vidcap_get_null_device_id_extrn)();
-extern display_id_t (*display_get_null_device_id_extrn)();
-extern int (*vidcap_init_extrn)(struct module *parent, vidcap_id_t id,
-                const struct vidcap_params *, struct vidcap **);
-extern int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **);
-extern int (*vidcap_get_device_count_extrn)(void);
-extern int (*display_get_device_count_extrn)(void);
-extern int (*vidcap_init_devices_extrn)(void);
-extern int (*display_init_devices_extrn)(void);
-
 int initialize_video_capture(struct module *parent,
                 const char *requested_capture,
                 const struct vidcap_params *params,
@@ -89,30 +75,30 @@ int initialize_video_capture(struct module *parent,
         int i;
 
         if(!strcmp(requested_capture, "none"))
-                id = vidcap_get_null_device_id_extrn();
+                id = vidcap_get_null_device_id();
 
         pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
         pthread_mutex_lock(vidcap_lock);
 
-        vidcap_init_devices_extrn();
-        for (i = 0; i < vidcap_get_device_count_extrn(); i++) {
-                vt = vidcap_get_device_details_extrn(i);
+        vidcap_init_devices();
+        for (i = 0; i < vidcap_get_device_count(); i++) {
+                vt = vidcap_get_device_details(i);
                 if (strcmp(vt->name, requested_capture) == 0) {
                         id = vt->id;
                         break;
                 }
         }
-        if(i == vidcap_get_device_count_extrn()) {
+        if(i == vidcap_get_device_count()) {
                 fprintf(stderr, "WARNING: Selected '%s' capture card "
                         "was not found.\n", requested_capture);
                 return -1;
         }
-        vidcap_free_devices_extrn();
+        vidcap_free_devices();
 
         pthread_mutex_unlock(vidcap_lock);
         rm_release_shared_lock("VIDCAP_LOCK");
 
-        int ret = vidcap_init_extrn(parent, id, params, state);
+        int ret = vidcap_init(parent, id, params, state);
         config_file_close(conf);
         return ret;
 }
@@ -126,17 +112,17 @@ int initialize_video_display(const char *requested_display,
         int i;
 
         if(!strcmp(requested_display, "none"))
-                 id = display_get_null_device_id_extrn();
+                 id = display_get_null_device_id();
 
-        if (display_init_devices_extrn() != 0) {
+        if (display_init_devices() != 0) {
                 printf("Unable to initialise devices\n");
                 abort();
         } else {
                 debug_msg("Found %d display devices\n",
-                          display_get_device_count_extrn());
+                          display_get_device_count());
         }
-        for (i = 0; i < display_get_device_count_extrn(); i++) {
-                dt = display_get_device_details_extrn(i);
+        for (i = 0; i < display_get_device_count(); i++) {
+                dt = display_get_device_details(i);
                 if (strcmp(requested_display, dt->name) == 0) {
                         id = dt->id;
                         debug_msg("Found device\n");
@@ -146,13 +132,13 @@ int initialize_video_display(const char *requested_display,
                                   requested_display);
                 }
         }
-        if(i == display_get_device_count_extrn()) {
+        if(i == display_get_device_count()) {
                 fprintf(stderr, "WARNING: Selected '%s' display card "
                         "was not found.\n", requested_display);
                 return -1;
         }
-        display_free_devices_extrn();
+        display_free_devices();
 
-        return display_init_extrn(id, fmt, flags, out);
+        return display_init(id, fmt, flags, out);
 }
 

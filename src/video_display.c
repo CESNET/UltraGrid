@@ -74,21 +74,6 @@
 
 #include <string.h>
 
-/**
- * @name Function pointers
- * Contains pointer to hereinafter defined function. The purpose is to make them available
- * also for dynamically loaded modules.
- * @todo
- * Figure out some better way of doing the task (same as for vidcap).
- * @{ */
-display_type_t *(*display_get_device_details_extrn)(int index) = display_get_device_details;
-void (*display_free_devices_extrn)(void) = display_free_devices;
-display_id_t (*display_get_null_device_id_extrn)(void) = display_get_null_device_id;
-int (*display_init_extrn)(display_id_t id, char *fmt, unsigned int flags, struct display **) = display_init;
-int (*display_get_device_count_extrn)(void) = display_get_device_count;
-int (*display_init_devices_extrn)(void)  = display_init_devices;
-/// @}
-
 #define DISPLAY_MAGIC 0x01ba7ef1
 
 /// @brief This struct represents initialized video display state.
