@@ -283,7 +283,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
         int aligned_x;
         char *save_ptr = NULL;
 
-        if (params->fmt == NULL || strcmp(params->fmt, "help") == 0) {
+        if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard options:\n");
                 printf("\t-t testcard:<width>:<height>:<fps>:<codec>[:<filename>][:p][:s=<X>x<Y>][:i|:sf]:still\n");
                 printf("\tp - pan with frame\n");
@@ -300,7 +300,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
 
         s->frame = vf_alloc(1);
         
-        char *fmt = strdup(params->fmt);
+        char *fmt = strdup(vidcap_params_get_fmt(params));
         char *tmp;
 
         tmp = strtok_r(fmt, ":", &save_ptr);
@@ -505,7 +505,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         return NULL;
         }
         
-        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;

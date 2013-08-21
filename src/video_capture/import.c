@@ -278,7 +278,7 @@ void *
 vidcap_import_init(const struct vidcap_params *params)
 {
 	struct vidcap_import_state *s;
-        const char *directory = params->fmt;
+        const char *directory = vidcap_params_get_fmt(params);
 
 	printf("vidcap_import_init\n");
 
@@ -304,7 +304,7 @@ vidcap_import_init(const struct vidcap_params *params)
         assert(audio_filename != NULL);
         strcpy(audio_filename, directory);
         strcat(audio_filename, "/sound.wav");
-        if((params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
+        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
                 s->audio_state.has_audio = true;
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
                         fprintf(stderr, "Unable to create thread.\n");

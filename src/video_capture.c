@@ -61,6 +61,7 @@
 #include "debug.h"
 #include "lib_common.h"
 #include "module.h"
+#include "utils/config_file.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
@@ -86,6 +87,22 @@
  * of module was successful but no state was created (eg. when driver had displayed help).
  */
 int vidcap_init_noerr;
+
+struct vidcap_params;
+
+/**
+ * Defines parameters passed to video capture driver.
+  */
+struct vidcap_params {
+        char  *driver; ///< driver name
+        char  *fmt;    ///< driver options
+        unsigned int flags;  ///< one of @ref vidcap_flags
+
+        char *requested_capture_filter;
+        char  *name;   ///< input name (capture alias in config file or complete config if not alias)
+        struct vidcap_params *next; /**< Pointer to next vidcap params. Used by aggregate capture drivers.
+                                     *   Last device in list has @ref driver set to NULL. */
+};
 
 /// @brief This struct represents video capture state.
 struct vidcap {
@@ -510,5 +527,157 @@ struct video_frame *vidcap_grab(struct vidcap *state, struct audio_frame **audio
         if (frame != NULL)
                 frame = capture_filter(state->capture_filter, frame);
         return frame;
+}
+
+/**
+ * @brier Allocates blank @ref vidcap_params structure.
+ */
+struct vidcap_params *vidcap_params_allocate(void)
+{
+        return calloc(1, sizeof(struct vidcap_params));
+}
+
+/**
+ * @brier Allocates blank @ref vidcap_params structure.
+ *
+ * Follows curr struct in the virtual list.
+ * @param curr structure to be appended after
+ * @returns pointer to newly created structure
+ */
+struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *curr)
+{
+        curr->next = vidcap_params_allocate();
+        return curr->next;
+}
+
+/**
+ * @brier Returns next item in virtual @ref vidcap_params list.
+ */
+struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *curr)
+{
+        return curr->next;
+}
+
+/**
+ * This function does 2 things:
+ * * checks whether @ref vidcap_params::name is not an alias
+ * * tries to find capture filter for @ref vidcap_params::name if not given
+ * @retval true  if alias dispatched successfully
+ * @retval false otherwise
+ */
+static bool vidcap_dispatch_alias(struct vidcap_params *params)
+{
+        bool ret;
+        char buf[1024];
+        char *real_capture;
+        struct config_file *conf =
+                config_file_open(default_config_file(buf,
+                                        sizeof(buf)));
+        real_capture = config_file_get_alias(conf, "capture", params->name);
+        if (!real_capture) {
+                ret = false;
+        } else {
+                params->driver = strdup(real_capture);
+                if (strchr(params->driver, ':')) {
+                        char *delim = strchr(params->driver, ':');
+                        params->fmt = strdup(delim + 1);
+                        *delim = '\0';
+                }
+                ret = true;
+        }
+
+
+        if (params->requested_capture_filter == NULL) {
+                char *matched_cap_filter = config_file_get_capture_filter_for_alias(conf,
+                                        params->name);
+                if (matched_cap_filter)
+                        params->requested_capture_filter = strdup(matched_cap_filter);
+        }
+
+        config_file_close(conf);
+
+        return ret;
+}
+
+/**
+ * Fills the structure with device config string in format either driver[:params] or
+ * alias.
+ */
+void vidcap_params_assign_device(struct vidcap_params *params, const char *config)
+{
+        params->name = strdup(config);
+
+        if (!vidcap_dispatch_alias(params)) {
+                params->driver = strdup(config);
+                if (strchr(params->driver, ':')) {
+                        char *delim = strchr(params->driver, ':');
+                        *delim = '\0';
+                        params->fmt = strdup(delim + 1);
+                }
+        }
+}
+
+void vidcap_params_assign_capture_filter(struct vidcap_params *params,
+                const char *req_capture_filter)
+{
+        params->requested_capture_filter = strdup(req_capture_filter);
+}
+
+const char *vidcap_params_get_driver(const struct vidcap_params *params)
+{
+        return params->driver;
+}
+
+const char *vidcap_params_get_fmt(const struct vidcap_params *params)
+{
+        return params->fmt;
+}
+
+unsigned int vidcap_params_get_flags(const struct vidcap_params *params)
+{
+        return params->flags;
+}
+
+/**
+ * Creates deep copy of @ref vidcap_params structure.
+ */
+struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
+{
+        if (!params)
+                return NULL;
+
+        struct vidcap_params *ret = calloc(1, sizeof(struct vidcap_params));
+
+        if (params->driver)
+                ret->driver = strdup(params->driver);
+        if (params->fmt)
+                ret->fmt = strdup(params->fmt);
+        if (params->requested_capture_filter)
+                ret->requested_capture_filter =
+                        strdup(params->requested_capture_filter);
+        if (params->name)
+                ret->name = strdup(params->name);
+
+        ret->next = NULL; // there is high probability that the pointer will be invalid
+
+        return ret;
+}
+
+/**
+ * Frees all members of the given structure as well as its members.
+ *
+ * @param[in] buf structure to be feed
+ */
+void vidcap_params_free_struct(struct vidcap_params *buf)
+{
+        if (!buf)
+                return;
+
+        free(buf->driver);
+        free(buf->fmt);
+        free(buf->requested_capture_filter);
+        free(buf->name);
+
+        free(buf);
 }
 

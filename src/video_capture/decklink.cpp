@@ -797,7 +797,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
         s->flags = 0;
 
 	// SET UP device and mode
-        char *tmp_fmt = strdup(params->fmt);
+        char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
         int ret = settings_init(s, tmp_fmt);
         free(tmp_fmt);
 	if(ret == 0) {
@@ -809,9 +809,9 @@ vidcap_decklink_init(const struct vidcap_params *params)
 		return &vidcap_init_noerr;
 	}
 
-        if(params->flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
+        if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
-                switch(params->flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
+                switch(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                         case VIDCAP_FLAG_AUDIO_EMBEDDED:
                                 audioConnection = bmdAudioConnectionEmbedded;
                                 break;

@@ -376,12 +376,12 @@ vidcap_linsys_init(const struct vidcap_params *params)
 		return NULL;
 	}
 
-        if(!params->fmt || strcmp(params->fmt, "help") == 0) {
+        if(!vidcap_params_get_fmt(params) || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 print_output_modes();
                 return &vidcap_init_noerr;
         }
         
-        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 
                 s->audio.bps = LINSYS_AUDIO_BPS;
@@ -405,7 +405,7 @@ vidcap_linsys_init(const struct vidcap_params *params)
                 s->grab_audio = FALSE;
         }
 
-        fmt_dup = strdup(params->fmt);
+        fmt_dup = strdup(vidcap_params_get_fmt(params));
 
         item = strtok_r(fmt_dup, ":", &save_ptr);
         if(item == NULL) {

@@ -966,7 +966,7 @@ void *vidcap_quicktime_init(const struct vidcap_params *params)
                 s->frame->color_spec = 0xffffffff;
 
                 s->grab_audio = FALSE;
-                if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+                if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
 #ifdef QT_ENABLE_AUDIO
                         s->grab_audio = TRUE;
 #else
@@ -976,7 +976,7 @@ void *vidcap_quicktime_init(const struct vidcap_params *params)
 #endif
                 }
 
-                char *fmt = strdup(params->fmt);
+                char *fmt = strdup(vidcap_params_get_fmt(params));
                 int ret = qt_open_grabber(s, fmt);
                 free(fmt);
 

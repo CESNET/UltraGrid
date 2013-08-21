@@ -13,7 +13,6 @@
 #include "video_capture.h"
 #include "video_display.h"
 
-#include "utils/config_file.h"
 #include "utils/resource_manager.h"
 #include "rtp/video_decoders.h"
 #include "rtp/rtp.h"
@@ -39,58 +38,31 @@ volatile bool should_exit_receiver = false;
 bool verbose = false;
 
 int initialize_video_capture(struct module *parent,
-                const char *requested_capture,
                 const struct vidcap_params *params,
                 struct vidcap **state)
 {
-        // firsty, dispatch aliases if any
-        char buf[1024];
-        char *real_capture;
-        struct config_file *conf =
-                config_file_open(default_config_file(buf,
-                                        sizeof(buf)));
-        const char *alias = NULL;
-        real_capture = config_file_get_alias(conf, "capture", requested_capture);
-        struct vidcap_params aliased_params;
-        if (real_capture) {
-                memcpy(&aliased_params, params, sizeof(aliased_params));
-                aliased_params.driver = real_capture;
-                if (strchr(real_capture, ':')) {
-                        aliased_params.fmt = strchr(real_capture, ':') + 1;
-                        *strchr(real_capture, ':') = '\0';
-                }
-                alias = requested_capture;
-                requested_capture = aliased_params.driver;
-                params = &aliased_params;
-        }
-
-        if (alias && aliased_params.requested_capture_filter == NULL) {
-                aliased_params.requested_capture_filter =
-                        config_file_get_capture_filter_for_alias(conf,
-                                        alias);
-        }
-
         struct vidcap_type *vt;
         vidcap_id_t id = 0;
         int i;
 
-        if(!strcmp(requested_capture, "none"))
+        if(!strcmp(vidcap_params_get_driver(params), "none"))
                 id = vidcap_get_null_device_id();
 
+        // locking here is because listing of the devices is not really thread safe
         pthread_mutex_t *vidcap_lock = rm_acquire_shared_lock("VIDCAP_LOCK");
         pthread_mutex_lock(vidcap_lock);
 
         vidcap_init_devices();
         for (i = 0; i < vidcap_get_device_count(); i++) {
                 vt = vidcap_get_device_details(i);
-                if (strcmp(vt->name, requested_capture) == 0) {
+                if (strcmp(vt->name, vidcap_params_get_driver(params)) == 0) {
                         id = vt->id;
                         break;
                 }
         }
         if(i == vidcap_get_device_count()) {
                 fprintf(stderr, "WARNING: Selected '%s' capture card "
-                        "was not found.\n", requested_capture);
+                        "was not found.\n", vidcap_params_get_driver(params));
                 return -1;
         }
         vidcap_free_devices();
@@ -98,9 +70,7 @@ int initialize_video_capture(struct module *parent,
         pthread_mutex_unlock(vidcap_lock);
         rm_release_shared_lock("VIDCAP_LOCK");
 
-        int ret = vidcap_init(parent, id, params, state);
-        config_file_close(conf);
-        return ret;
+        return vidcap_init(parent, id, params, state);
 }
 
 int initialize_video_display(const char *requested_display,

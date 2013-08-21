@@ -775,7 +775,7 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
                 EPOCH_DEST_INPUT_MEM_INTERFACE_CHD
         };
 
-        if(params->fmt && strcmp(params->fmt, "help") == 0) {
+        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
@@ -796,7 +796,7 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
         s->iDeviceId = 1;
         s->is4K = false;
 
-        char *tmp_fmt = strdup(params->fmt);
+        char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
         parse_fmt(s, tmp_fmt);
         free(tmp_fmt);
 
@@ -907,12 +907,12 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
         s->audio.max_size = 0;
         s->hanc_buffer = NULL;
 #ifdef HAVE_BLUE_AUDIO
-        if(params->flags) {
+        if(vidcap_params_get_flags(params)) {
                 if(s->SubField) {
                         cerr << "[Blue cap] Unable to grab audio in sub-field mode." << endl;
                         goto error;
                 }
-                bool ret = setup_audio(s, params->flags);
+                bool ret = setup_audio(s, vidcap_params_get_flags(params));
                 if(ret == false) {
                         cerr << "[Blue cap] Unable to setup audio." << endl;
                         goto error;
@@ -921,7 +921,7 @@ vidcap_bluefish444_init(const struct vidcap_params *params)
                 }
         }
 #else
-        if(params->flags) {
+        if(vidcap_params_get_flags(params)) {
                 cerr << "[Blue cap] Unable to capture audio. Support isn't compiled in." << endl;
                 goto error;
         }

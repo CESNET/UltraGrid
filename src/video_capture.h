@@ -110,19 +110,24 @@ struct vidcap_type {
 	//video_colour_mode_t	 colour_mode;
 };
 
+/**
+ * @name Vidcap Parameters Handling Functions
+ * @{ */
 struct vidcap_params;
 
-/**
- * Defines parameters passed to video capture driver.
- * Unused parameters should be set to zero.
-  */
-struct vidcap_params {
-        const char  *driver; ///< driver name
-        const char  *fmt;    ///< driver options
-        unsigned int flags;  ///< one of @ref vidcap_flags
-
-        const char *requested_capture_filter;
-};
+struct vidcap_params *vidcap_params_allocate(void);
+struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
+struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *params);
+void                  vidcap_params_assign_device(struct vidcap_params *params, const char *config);
+void                  vidcap_params_assign_capture_filter(struct vidcap_params *params,
+                const char *req_capture_filter);
+const char           *vidcap_params_get_driver(const struct vidcap_params *params);
+unsigned int          vidcap_params_get_flags(const struct vidcap_params *params);
+const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
+const char           *vidcap_params_get_name(const struct vidcap_params *params);
+struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
+void                  vidcap_params_free_struct(struct vidcap_params *params);
+/// @}
 
 int			 vidcap_init_devices(void);
 void			 vidcap_free_devices(void);

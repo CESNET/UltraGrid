@@ -247,13 +247,13 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                 return NULL;
         }
 
-        if (params->fmt != NULL) {
-                if (strcmp(params->fmt, "help") == 0) {
+        if (vidcap_params_get_fmt(params) != NULL) {
+                if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 			show_help();
                         return 0;
                 }
 
-                char *fmt = strdup(params->fmt);
+                char *fmt = strdup(vidcap_params_get_fmt(params));
                 char *tmp;
 
                 if(strncmp(fmt, "PCI", 3) == 0) {
@@ -322,7 +322,7 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                 return NULL;
         }
 
-        if(params->flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
         } else {
                 s->grab_audio = FALSE;

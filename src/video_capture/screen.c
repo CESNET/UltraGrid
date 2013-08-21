@@ -332,12 +332,12 @@ void * vidcap_screen_init(const struct vidcap_params *params)
 
         s->frames = 0;
 
-        if(params->fmt) {
-                if (strcmp(params->fmt, "help") == 0) {
+        if(vidcap_params_get_fmt(params)) {
+                if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                         show_help();
                         return &vidcap_init_noerr;
-                } else if (strncasecmp(params->fmt, "fps=", strlen("fps=")) == 0) {
-                        s->fps = atoi(params->fmt + strlen("fps="));
+                } else if (strncasecmp(vidcap_params_get_fmt(params), "fps=", strlen("fps=")) == 0) {
+                        s->fps = atoi(vidcap_params_get_fmt(params) + strlen("fps="));
                 }
         }
 

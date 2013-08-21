@@ -660,7 +660,7 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 		return NULL;
 	}
 
-	if (params->fmt && strcmp(params->fmt, "help") == 0) {
+	if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 		show_help(s); 
 		cleanup(s);
 		return &vidcap_init_noerr;
@@ -670,8 +670,8 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 		goto error;
 	}
 
-	if (params->fmt != NULL) {
-                char *init_fmt = strdup(params->fmt);
+	if (vidcap_params_get_fmt(params) != NULL) {
+                char *init_fmt = strdup(vidcap_params_get_fmt(params));
 		if (!process_args(s, init_fmt)) goto error;
                 free(init_fmt);
 	}

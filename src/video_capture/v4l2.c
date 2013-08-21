@@ -257,7 +257,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         printf("vidcap_v4l2_init\n");
 
-        if(params->fmt && strcmp(params->fmt, "help") == 0) {
+        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                show_help(); 
                return &vidcap_init_noerr;
         }
@@ -271,8 +271,8 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         char *tmp = NULL;
 
-        if(params->fmt) {
-                tmp = strdup(params->fmt);
+        if(vidcap_params_get_fmt(params)) {
+                tmp = strdup(vidcap_params_get_fmt(params));
                 char *init_fmt = tmp;
                 char *save_ptr = NULL;
                 char *item;

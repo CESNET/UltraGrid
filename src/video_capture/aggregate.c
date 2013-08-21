@@ -110,7 +110,7 @@ vidcap_aggregate_init(const struct vidcap_params *params)
         s->frames = 0;
         gettimeofday(&s->t0, NULL);
 
-        if(params->fmt && strcmp(params->fmt, "") != 0) {
+        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
@@ -118,8 +118,8 @@ vidcap_aggregate_init(const struct vidcap_params *params)
 
         s->devices_cnt = 0;
         const struct vidcap_params *tmp = params;
-        while((tmp = tmp + 1)) {
-                if (tmp->driver != NULL)
+        while((tmp = vidcap_params_get_next(tmp))) {
+                if (vidcap_params_get_driver(tmp) != NULL)
                         s->devices_cnt++;
                 else
                         break;
@@ -127,13 +127,15 @@ vidcap_aggregate_init(const struct vidcap_params *params)
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
         i = 0;
+        tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
-                const struct vidcap_params *dev_params = params + 1 + i;
+                tmp = vidcap_params_get_next(tmp);
 
-                int ret = initialize_video_capture(NULL, dev_params->driver, dev_params, &s->devices[i]);
+                int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
                 if(ret != 0) {
                         fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
-                                        i, dev_params->driver, dev_params->fmt);
+                                        i, vidcap_params_get_driver(tmp),
+                                        vidcap_params_get_fmt(tmp));
                         goto error;
                 }
         }
@@ -186,13 +188,13 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
         }
         for (int i = 0; i < s->devices_cnt; ++i) {
                 frame = NULL;
+                while(!frame) {
+                        frame = vidcap_grab(s->devices[i], &audio_frame);
+                }
                 if (i == 0) {
                         s->frame->color_spec = frame->color_spec;
                         s->frame->interlacing = frame->interlacing;
                         s->frame->fps = frame->fps;
-                }
-                while(!frame) {
-                        frame = vidcap_grab(s->devices[i], &audio_frame);
                 }
                 if (s->audio_source_index == -1 && audio_frame != NULL) {
                         fprintf(stderr, "[aggregate] Locking device #%d as an audio source.\n",

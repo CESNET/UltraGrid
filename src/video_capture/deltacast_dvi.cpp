@@ -467,7 +467,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
-        char *init_fmt = strdup(params->fmt);
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
                 return &vidcap_init_noerr;

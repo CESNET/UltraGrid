@@ -217,7 +217,7 @@ struct state_slave {
         bool                should_exit;
         pthread_mutex_t     lock;
         char               *name;
-        const struct vidcap_params *device_params;
+        struct vidcap_params *device_params;
 
         struct video_frame *captured_frame;
         struct video_frame *done_frame;
@@ -746,10 +746,11 @@ static void *slave_worker(void *arg)
 
         struct vidcap *device;
         int ret =
-                initialize_video_capture(NULL, s->device_params->driver, s->device_params, &device);
+                initialize_video_capture(NULL, s->device_params, &device);
         if(ret != 0) {
                 fprintf(stderr, "[swmix] Unable to initialize device %s (%s:%s).\n",
-                                s->name, s->device_params->driver, s->device_params->fmt);
+                                s->name, vidcap_params_get_driver(s->device_params),
+                                vidcap_params_get_fmt(s->device_params));
                 return NULL;
         }
 
@@ -957,8 +958,8 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
 
         s->devices_cnt = 0;
         const struct vidcap_params *tmp = params;
-        while((tmp = tmp + 1)) {
-                if (tmp->driver != NULL)
+        while((tmp = vidcap_params_get_next(tmp))) {
+                if (vidcap_params_get_driver(tmp) != NULL)
                         s->devices_cnt++;
                 else
                         break;
@@ -973,9 +974,10 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 s->slaves[i].audio_frame.data_len = 0;
         }
 
-        tmp = &params[1];
+        tmp = params;
         for (int i = 0; i < s->devices_cnt; ++i) {
-                s->slaves[i].device_params = tmp + i;
+                tmp = vidcap_params_get_next(tmp);
+                s->slaves[i].device_params = vidcap_params_copy(tmp);
         }
 
         return true;
@@ -1005,7 +1007,8 @@ vidcap_swmix_init(const struct vidcap_params *params)
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
 
-        if(!params->fmt || strcmp(params->fmt, "help") == 0) {
+        if(!vidcap_params_get_fmt(params) ||
+                        strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
@@ -1017,7 +1020,7 @@ vidcap_swmix_init(const struct vidcap_params *params)
         s->interpolation = BICUBIC;
         FILE *config_file = NULL;
 
-        char *init_fmt = strdup(params->fmt);
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
         if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
                 goto error;
         }
@@ -1157,6 +1160,7 @@ vidcap_swmix_done(void *state)
                 pthread_mutex_destroy(&s->slaves[i].lock);
                 vf_free(s->slaves[i].captured_frame);
                 vf_free(s->slaves[i].done_frame);
+                vidcap_params_free_struct(s->slaves[i].device_params);
                 free(s->slaves[i].name);
                 free(s->slaves[i].audio_frame.data);
         }

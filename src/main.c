@@ -862,20 +862,14 @@ static void init_root_module(struct module *mod, struct state_uv *uv)
         mod->priv_data = uv;
 }
 
-#define CHECK_MAX_CAP_DEVICE_COUNT \
-        if (vidcap_count >= MAX_CAPTURE_COUNT) { \
-                fprintf(stderr, "Maximal count of capture devices (%d) exceeded.\n", MAX_CAPTURE_COUNT); \
-                return EXIT_FAIL_USAGE; \
-        }
-
 int main(int argc, char *argv[])
 {
 #if defined HAVE_SCHED_SETSCHEDULER && defined USE_RT
         struct sched_param sp;
 #endif
         // NULL terminated array of capture devices
-        struct vidcap_params vidcap_params[MAX_CAPTURE_COUNT + 1];
-        int vidcap_count = 0;
+        struct vidcap_params *vidcap_params = vidcap_params_allocate();
+        struct vidcap_params *vidcap_params_tail = vidcap_params;
 
         char *display_cfg = NULL;
         const char *audio_recv = "none";
@@ -919,8 +913,7 @@ int main(int argc, char *argv[])
         mtrace();
 #endif
 
-        memset(vidcap_params, 0, sizeof(vidcap_params));
-        vidcap_params[0].driver = "none";
+        vidcap_params_assign_device(vidcap_params, "none");
 
         if (argc == 1) {
                 usage();
@@ -1013,20 +1006,8 @@ int main(int argc, char *argv[])
                                 list_video_capture_devices();
                                 return 0;
                         }
-                        {
-                                char *name, *opts = NULL;
-                                name = optarg;
-                                if (strchr(optarg, ':')) {
-                                        char *delim = strchr(optarg, ':');
-                                        *delim = '\0';
-                                        opts = delim + 1;
-                                }
-                                CHECK_MAX_CAP_DEVICE_COUNT
-                                vidcap_params[vidcap_count].driver = name;
-                                vidcap_params[vidcap_count].fmt = opts;
-                                vidcap_count++;
-                        }
-
+                        vidcap_params_assign_device(vidcap_params_tail, optarg);
+                        vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
                         break;
                 case 'm':
                         uv->requested_mtu = atoi(optarg);
@@ -1189,10 +1170,12 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_IMPORT:
                         audio_send = strdup("embedded");
-                        CHECK_MAX_CAP_DEVICE_COUNT
-                        vidcap_params[vidcap_count].driver = "import";
-                        vidcap_params[vidcap_count].fmt = optarg;
-                        vidcap_count++;
+                        {
+                                char dev_string[1024];
+                                snprintf(dev_string, sizeof(dev_string), "import:%s", optarg);
+                                vidcap_params_assign_device(vidcap_params_tail, dev_string);
+                                vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
+                        }
                         break;
                 case OPT_AUDIO_CODEC:
                         if(strcmp(optarg, "help") == 0) {
@@ -1211,7 +1194,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_CAPTURE_FILTER:
-                        vidcap_params[vidcap_count].requested_capture_filter = optarg;
+                        vidcap_params_assign_capture_filter(vidcap_params_tail, optarg);
                         break;
                 case OPT_ENCRYPTION:
                         uv->requested_encryption = optarg;
@@ -1243,7 +1226,7 @@ int main(int argc, char *argv[])
 #endif
         printf("\n");
         printf("Display device   : %s\n", uv->requested_display);
-        printf("Capture device   : %s\n", vidcap_params[0].driver);
+        printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params));
         printf("Audio capture    : %s\n", audio_send);
         printf("Audio playback   : %s\n", audio_recv);
         printf("MTU              : %d B\n", uv->requested_mtu);
@@ -1338,11 +1321,10 @@ int main(int argc, char *argv[])
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-        ret = initialize_video_capture(&root_mod, vidcap_params[0].driver,
-                        &vidcap_params[0], &uv->capture_device);
+        ret = initialize_video_capture(&root_mod, vidcap_params, &uv->capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
-                       vidcap_params[0].driver);
+                                vidcap_params_get_driver(vidcap_params));
                 exit_uv(EXIT_FAIL_CAPTURE);
                 goto cleanup;
         }
@@ -1350,7 +1332,7 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
-        printf("Video capture initialized-%s\n", vidcap_params[0].driver);
+        printf("Video capture initialized-%s\n", vidcap_params_get_driver(vidcap_params));
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
@@ -1374,7 +1356,7 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0) {
                 uv->mode |= MODE_RECEIVER;
         }
-        if (strcmp("none", vidcap_params[0].driver) != 0) {
+        if (strcmp("none", vidcap_params_get_driver(vidcap_params)) != 0) {
                 uv->mode |= MODE_SENDER;
         }
 
@@ -1529,8 +1511,9 @@ cleanup:
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (strcmp("none", vidcap_params[0].driver) != 0 &&
-                         tx_thread_started)
+                ;
+        if (uv->mode & MODE_SENDER
+                        && tx_thread_started)
                 pthread_join(tx_thread_id, NULL);
 
         /* also wait for audio threads */
@@ -1562,6 +1545,12 @@ cleanup:
         video_export_destroy(uv->video_exporter);
 
         free(export_dir);
+
+        while  (vidcap_params) {
+                struct vidcap_params *next = vidcap_params_get_next(vidcap_params);
+                vidcap_params_free_struct(vidcap_params);
+                vidcap_params = next;
+        }
 
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);

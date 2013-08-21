@@ -353,7 +353,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
-        char *init_fmt = strdup(params->fmt);
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
                 return &vidcap_init_noerr;
@@ -439,7 +439,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
         /* Disable RX0-TX0 by-pass relay loopthrough */
         VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,FALSE);
 
-        s->initialize_flags = params->flags;
+        s->initialize_flags = vidcap_params_get_flags(params);
         printf("\nWaiting for channel locked...\n");
         try {
                 if(wait_for_channel(s)) {
