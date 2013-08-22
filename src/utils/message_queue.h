@@ -52,8 +52,9 @@ public:
         message_queue(int max_len = -1);
         virtual ~message_queue();
 
+        int size();
         void push(msg *);
-        msg *pop();
+        msg *pop(bool nonblocking = false);
 
 private:
         int               m_max_len;

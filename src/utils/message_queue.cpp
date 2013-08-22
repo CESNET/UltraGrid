@@ -57,6 +57,12 @@ message_queue::~message_queue()
         pthread_cond_destroy(&m_queue_decremented);
 }
 
+int message_queue::size()
+{
+        lock_guard guard(m_lock);
+        return m_queue.size();
+}
+
 void message_queue::push(msg *message)
 {
         lock_guard guard(m_lock);
@@ -69,9 +75,13 @@ void message_queue::push(msg *message)
         pthread_cond_signal(&m_queue_incremented); 
 }
 
-msg *message_queue::pop()
+msg *message_queue::pop(bool nonblocking)
 {
         lock_guard guard(m_lock);
+        if (m_queue.size() == 0 && nonblocking) {
+                return NULL;
+        }
+
         while (m_queue.size() == 0) {
                 pthread_cond_wait(&m_queue_incremented, &m_lock); 
         }
