@@ -740,7 +740,7 @@ int display_sdl_get_property(void *state, int property, void *val, size_t *len)
         struct state_sdl *s = (struct state_sdl *) state;
         
         codec_t codecs[] = {UYVY, RGBA, RGB};
-        int rgb_shift[] = {0, 8, 16};
+        int rgb_shift[] = {s->rshift, s->gshift, s->bshift};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
