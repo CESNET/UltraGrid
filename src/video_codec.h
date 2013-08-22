@@ -109,12 +109,14 @@ int              is_codec_opaque(codec_t codec) __attribute__((pure));
 int              is_codec_interframe(codec_t codec) __attribute__((pure));
 codec_t          get_codec_from_fcc(uint32_t fourcc) __attribute__((pure));
 const char      *get_codec_file_extension(codec_t codec) __attribute__((pure));
+decoder_t        get_decoder_from_to(codec_t in, codec_t out) __attribute__((pure));
 
 uint32_t get_fcc_from_codec(codec_t codec) __attribute__((pure));
 int get_aligned_length(int width, codec_t codec) __attribute__((pure));
 int get_pf_block_size(codec_t codec) __attribute__((pure));
 int vc_get_linesize(unsigned int width, codec_t codec) __attribute__((pure));
 int codec_is_a_rgb(codec_t codec) __attribute__((pure));
+bool codec_is_in_set(codec_t codec, codec_t *set) __attribute__((pure));
 
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines);
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len);
@@ -142,7 +144,6 @@ void vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift);
 
-bool get_decoder_from_to(codec_t in, codec_t out, decoder_t *decoder);
 
 #ifdef __cplusplus
 }

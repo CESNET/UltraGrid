@@ -285,10 +285,13 @@ struct slave_data {
         struct video_desc   saved_desc;
         float               posX[4];
         float               posY[4];
-        GLuint              texture[2]; // original, RGB(A)
+        GLuint              texture[2]; // RGB(A), (UYVY)
         GLuint              fbo; // RGB(A)
         double              x, y, width, height; // in 1x1 unit space
         double              fb_aspect;
+
+        decoder_t           decoder;
+        codec_t             decoder_from, decoder_to;
 };
 
 static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
@@ -469,6 +472,137 @@ void main() {
         gl_Position = ftransform();
 });
 
+static void check_for_slave_format_change(struct slave_data *s)
+{
+        struct video_desc desc = video_desc_from_frame(s->current_frame);
+
+        if(!video_desc_eq(desc, s->saved_desc)) {
+                codec_t in_codec = s->current_frame->color_spec;
+                codec_t out_codec = in_codec;
+                codec_t natively_supported[] = { RGB, BGR, RGBA, UYVY, VIDEO_CODEC_NONE };
+
+                // prepare decoder
+                if (!codec_is_in_set(desc.color_spec, natively_supported)) {
+                        int j = 0;
+                        while (natively_supported[j] != VIDEO_CODEC_NONE) {
+                                if ((s->decoder = get_decoder_from_to(out_codec, natively_supported[j]))) {
+                                        s->decoder_from = desc.color_spec;
+                                        desc.color_spec = s->decoder_to = natively_supported[j];
+                                        break;
+                                }
+                                j++;
+                        }
+                }
+
+                reconfigure_slave_rendering(s, desc);
+                desc.color_spec = s->decoder_from;
+                s->saved_desc = desc;
+        }
+}
+
+static void load_texture(struct slave_data *s, GLuint from_uyvy)
+{
+        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+        int width = s->current_frame->tiles[0].width;
+        GLenum format;
+
+        codec_t in_codec = s->current_frame->color_spec;
+        codec_t out_codec = in_codec;
+        codec_t natively_supported[] = { RGB, BGR, RGBA, UYVY, VIDEO_CODEC_NONE };
+        decoder_t decoder = NULL;
+        if (!codec_is_in_set(out_codec, natively_supported)) {
+                if (s->decoder_from == in_codec) {
+                        out_codec = s->decoder_to;
+                        decoder = s->decoder;
+                }
+        }
+
+        switch (out_codec) {
+                case UYVY:
+                        width /= 2;
+                        format = GL_RGBA;
+                        break;
+                case RGB:
+                        format = GL_RGB;
+                        break;
+                case BGR:
+                        format = GL_BGR;
+                        break;
+                case RGBA:
+                        format = GL_RGBA;
+                        break;
+                default:
+                        error_msg("Unexpected color space %s!",
+                                        get_codec_name(out_codec));
+                        abort();
+        }
+        int src_height = s->current_frame->tiles[0].height;
+        int src_width = s->current_frame->tiles[0].width;
+        unsigned char *data = (unsigned char *) s->current_frame->tiles[0].data;
+        unsigned char *tmp = NULL, *in_gl_buffer = data;
+        if (decoder) {
+                tmp = in_gl_buffer = (unsigned char *) malloc(src_height *
+                                vc_get_linesize(src_width, out_codec));
+                for (int i = 0; i < src_height; ++i) {
+                        decoder(tmp + i * vc_get_linesize(src_width, out_codec),
+                                        data + i * vc_get_linesize(src_width, in_codec),
+                                        vc_get_linesize(src_width, out_codec), 0, 8, 16);
+                }
+        }
+
+        if(out_codec == UYVY) {
+                glBindTexture(GL_TEXTURE_2D, s->texture[1]);
+        } else {
+                glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+        }
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                        width, src_height, format, GL_UNSIGNED_BYTE, in_gl_buffer);
+        free(tmp);
+
+        if(out_codec == UYVY) {
+                glUseProgram(from_uyvy);
+                glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
+                glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
+                                (GLfloat) s->current_frame->tiles[0].width);
+
+                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
+                                GL_TEXTURE_2D, s->texture[0], 0);
+
+                glViewport(0, 0, s->current_frame->tiles[0].width,
+                                s->current_frame->tiles[0].height);
+                glBegin(GL_QUADS);
+                glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                glEnd();
+                glUseProgram(0);
+        }
+}
+
+static void render_slave(struct slave_data *s, interpolation_t interpolation, GLuint bicubic_program)
+{
+        if(interpolation == BICUBIC) {
+                glUniform1f(glGetUniformLocation(bicubic_program, "fWidth"),
+                                (GLfloat) s->current_frame->tiles[0].width);
+                glUniform1f(glGetUniformLocation(bicubic_program, "fHeight"),
+                                (GLfloat) s->current_frame->tiles[0].height);
+        }
+        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0); glVertex2f(s->posX[0],
+                        s->posY[0]);
+        glTexCoord2f(1.0, 0.0); glVertex2f(s->posX[1],
+                        s->posY[1]);
+        glTexCoord2f(1.0, 1.0); glVertex2f(s->posX[2],
+                        s->posY[2]);
+        glTexCoord2f(0.0, 1.0); glVertex2f(s->posX[3],
+                        s->posY[3]);
+        glEnd();
+}
+
 static void *master_worker(void *arg)
 {
         struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) arg;
@@ -535,11 +669,7 @@ static void *master_worker(void *arg)
                 // check for mode change
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                struct video_desc desc = video_desc_from_frame(s->slaves_data[i].current_frame);
-                                if(!video_desc_eq(desc, s->slaves_data[i].saved_desc)) {
-                                        reconfigure_slave_rendering(&s->slaves_data[i], desc);
-                                        s->slaves_data[i].saved_desc = desc;
-                                }
+                                check_for_slave_format_change(&s->slaves_data[i]);
                         }
                 }
 
@@ -567,53 +697,9 @@ static void *master_worker(void *arg)
                                                 s->slaves[i].audio_frame.data_len = 0;
                                         }
                                 }
-                                glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[0]);
-                                int width = s->slaves_data[i].current_frame->tiles[0].width;
-                                GLenum format;
-                                switch(s->slaves_data[i].current_frame->color_spec) {
-                                        case UYVY:
-                                                width /= 2;
-                                                format = GL_RGBA;
-                                                break;
-                                        case RGB:
-                                                format = GL_RGB;
-                                                break;
-                                        case BGR:
-                                                format = GL_BGR;
-                                                break;
-                                        case RGBA:
-                                                format = GL_RGBA;
-                                                break;
-                                        default:
-                                                error_msg("Unexpected color space!");
-                                                abort();
-                                }
-                                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                                width,
-                                                s->slaves_data[i].current_frame->tiles[0].height,
-                                                format, GL_UNSIGNED_BYTE,
-                                                s->slaves_data[i].current_frame->tiles[0].data);
 
-                                if(s->slaves_data[i].current_frame->color_spec == UYVY) {
-                                        glUseProgram(from_uyvy);
-                                        glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
-                                        glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
-                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
+                                load_texture(&s->slaves_data[i], from_uyvy);
 
-                                        glBindFramebuffer(GL_FRAMEBUFFER, s->slaves_data[i].fbo);
-                                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
-                                                        GL_TEXTURE_2D, s->slaves_data[i].texture[1], 0);
-
-                                        glViewport(0, 0, s->slaves_data[i].current_frame->tiles[0].width,
-                                                        s->slaves_data[i].current_frame->tiles[0].height);
-                                        glBegin(GL_QUADS);
-                                        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-                                        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-                                        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-                                        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-                                        glEnd();
-                                        glUseProgram(0);
-                                }
                         }
                 }
 
@@ -633,28 +719,7 @@ static void *master_worker(void *arg)
 
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                if(s->interpolation == BICUBIC) {
-                                        glUniform1f(glGetUniformLocation(s->bicubic_program, "fWidth"),
-                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
-                                        glUniform1f(glGetUniformLocation(s->bicubic_program, "fHeight"),
-                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].height);
-                                }
-                                if(s->slaves_data[i].current_frame->color_spec == UYVY) {
-                                        glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[1]);
-                                } else {
-                                        glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[0]);
-                                }
-
-                                glBegin(GL_QUADS);
-                                glTexCoord2f(0.0, 0.0); glVertex2f(s->slaves_data[i].posX[0],
-                                                s->slaves_data[i].posY[0]);
-                                glTexCoord2f(1.0, 0.0); glVertex2f(s->slaves_data[i].posX[1],
-                                                s->slaves_data[i].posY[1]);
-                                glTexCoord2f(1.0, 1.0); glVertex2f(s->slaves_data[i].posX[2],
-                                                s->slaves_data[i].posY[2]);
-                                glTexCoord2f(0.0, 1.0); glVertex2f(s->slaves_data[i].posX[3],
-                                                s->slaves_data[i].posY[3]);
-                                glEnd();
+                                render_slave(&s->slaves_data[i], s->interpolation, s->bicubic_program);
                         }
                 }
                 glUseProgram(0);

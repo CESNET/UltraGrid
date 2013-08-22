@@ -56,6 +56,7 @@ extern "C" {
  * @note May include features not compatible with GPUJPEG.
  */
 typedef enum {
+        VIDEO_CODEC_NONE = 0, ///< dummy color spec
         RGBA,     ///< RGBA 8-bit
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr

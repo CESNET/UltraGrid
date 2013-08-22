@@ -82,6 +82,7 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
                 int rshift, int gshift, int bshift, int pix_size);
 
 const struct codec_info_t codec_info[] = {
+        [VIDEO_CODEC_NONE] = {VIDEO_CODEC_NONE, "(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
         [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
         [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
@@ -1099,7 +1100,7 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 /**
  * Returns line decoder for specifiedn input and output codec.
  */
-bool get_decoder_from_to(codec_t in, codec_t out, decoder_t *decoder)
+decoder_t get_decoder_from_to(codec_t in, codec_t out)
 {
         struct item {
                 decoder_t decoder;
@@ -1129,12 +1130,11 @@ bool get_decoder_from_to(codec_t in, codec_t out, decoder_t *decoder)
 
         for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct item); ++i) {
                 if (decoders[i].in == in && decoders[i].out == out) {
-                        *decoder = decoders[i].decoder;
-                        return true;
+                        return decoders[i].decoder;
                 }
         }
 
-        return false;
+        return NULL;
 }
 
 /** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
@@ -1152,5 +1152,20 @@ int codec_is_a_rgb(codec_t codec)
 		}
 	}
         return 0;
+}
+
+/**
+ * Tries to find specified codec in set of video codecs.
+ * The set must by ended by VIDEO_CODEC_NONE.
+ */
+bool codec_is_in_set(codec_t codec, codec_t *set)
+{
+        assert (codec != VIDEO_CODEC_NONE);
+        assert (set != NULL);
+        while (*set != VIDEO_CODEC_NONE) {
+                if (*(set++) == codec)
+                        return true;
+        }
+        return false;
 }
 
