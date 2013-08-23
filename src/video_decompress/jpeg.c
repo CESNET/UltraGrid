@@ -57,7 +57,6 @@
 
 #include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
-#include <cuda_runtime.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/jpeg.h"
@@ -82,11 +81,11 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
                 return FALSE;
         }
         if(s->out_codec == RGB) {
-                s->decoder->coder.param_image.color_space = GPUJPEG_RGB;
-                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_4_4;
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
+                                GPUJPEG_4_4_4);
         } else {
-                s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_BT709;
-                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_2_2;
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
+                                GPUJPEG_4_2_2);
         }
 
         return TRUE;
@@ -118,7 +117,6 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
-        int ret;
         
         assert(out_codec == RGB || out_codec == UYVY);
 
@@ -157,7 +155,7 @@ int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 linesize = s->desc.width * 2;
         }
         
-        cudaSetDevice(cuda_devices[0]);
+        gpujpeg_set_device(cuda_devices[0]);
 
         if((s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
                         s->pitch == linesize) {

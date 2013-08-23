@@ -29,20 +29,21 @@
  
 #include <libgpujpeg/gpujpeg_writer.h>
 #include <libgpujpeg/gpujpeg_encoder.h>
+#include <libgpujpeg/gpujpeg_encoder_internal.h>
 #include <libgpujpeg/gpujpeg_util.h>
 
 /** Documented at declaration */
 struct gpujpeg_writer*
 gpujpeg_writer_create(struct gpujpeg_encoder* encoder)
 {
-    struct gpujpeg_writer* writer = malloc(sizeof(struct gpujpeg_writer));
+    struct gpujpeg_writer* writer = (struct gpujpeg_writer*) malloc(sizeof(struct gpujpeg_writer));
     if ( writer == NULL )
         return NULL;
     
     // Allocate output buffer
     int buffer_size = 1000;
     buffer_size += encoder->coder.param_image.width * encoder->coder.param_image.height * encoder->coder.param_image.comp_count * 2;
-    writer->buffer = malloc(buffer_size * sizeof(uint8_t));
+    writer->buffer = (uint8_t *) malloc(buffer_size * sizeof(uint8_t));
     if ( writer->buffer == NULL )
         return NULL;
     writer->buffer_current = NULL;

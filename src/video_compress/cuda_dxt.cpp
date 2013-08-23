@@ -44,6 +44,7 @@
 #include "video_compress/cuda_dxt.h"
 
 #include "cuda_dxt/cuda_dxt.h"
+#include "cuda_wrapper.h"
 
 #include "host.h"
 #include "module.h"
@@ -57,12 +58,14 @@ struct state_video_compress_cuda_dxt {
                 in_buffer = NULL;
                 cuda_in_buffer = NULL;
                 cuda_uyvy_buffer = NULL;
+                cuda_out_buffer = NULL;
         }
         struct module       module_data;
         struct video_desc   saved_desc;
         char               *in_buffer;      ///< for decoded data
         char               *cuda_uyvy_buffer; ///< same as in_buffer but in device memory
         char               *cuda_in_buffer;  ///< same as in_buffer but in device memory
+        char               *cuda_out_buffer;  ///< same as in_buffer but in device memory
         struct video_frame *out[2];
         codec_t             in_codec;
         codec_t             out_codec;
@@ -107,16 +110,20 @@ static void cleanup(struct state_video_compress_cuda_dxt *s)
                 s->in_buffer = NULL;
         }
         if (s->cuda_uyvy_buffer) {
-                cudaFree(s->cuda_uyvy_buffer);
+                cuda_wrapper_free(s->cuda_uyvy_buffer);
                 s->cuda_uyvy_buffer = NULL;
         }
         if (s->cuda_in_buffer) {
-                cudaFree(s->cuda_in_buffer);
+                cuda_wrapper_free(s->cuda_in_buffer);
                 s->cuda_in_buffer = NULL;
+        }
+        if (s->cuda_out_buffer) {
+                cuda_wrapper_free(s->cuda_out_buffer);
+                s->cuda_out_buffer = NULL;
         }
         for (int i = 0; i < 2; ++i) {
                 if (s->out[i] != NULL) {
-                        cudaFree(s->out[i]->tiles[0].data);
+                        cuda_wrapper_free(s->out[i]->tiles[0].data);
                         s->out[i]->tiles[0].data = NULL;
                 }
         }
@@ -138,7 +145,7 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
         }
 
         if (s->in_codec == UYVY) {
-                if (cudaSuccess != cudaMalloc((void **) &s->cuda_uyvy_buffer,
+                if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **) &s->cuda_uyvy_buffer,
                                         desc.width * desc.height * 2)) {
                         fprintf(stderr, "Could not allocate CUDA UYVY buffer.\n");
                         return false;
@@ -147,7 +154,7 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
 
         s->in_buffer = (char *) malloc(desc.width * desc.height * 3);
 
-        if (cudaSuccess != cudaMalloc((void **) &s->cuda_in_buffer,
+        if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **) &s->cuda_in_buffer,
                                 desc.width * desc.height * 3)) {
                 fprintf(stderr, "Could not allocate CUDA output buffer.\n");
                 return false;
@@ -160,11 +167,17 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
 
                 s->out[i] = vf_alloc_desc(compressed_desc);
                 s->out[i]->tiles[0].data_len = desc.width * desc.height / (s->out_codec == DXT1 ? 2 : 1);
-                if (cudaSuccess != cudaMallocHost((void **) &s->out[i]->tiles[0].data,
+                if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc_host((void **) &s->out[i]->tiles[0].data,
                                         s->out[i]->tiles[0].data_len)) {
-                        fprintf(stderr, "Could not allocate CUDA output buffer.\n");
+                        fprintf(stderr, "Could not allocate CUDA output host buffer.\n");
                         return false;
                 }
+        }
+        if (CUDA_WRAPPER_SUCCESS != cuda_wrapper_malloc((void **)
+                                &s->cuda_out_buffer,
+                                s->out[0]->tiles[0].data_len)) {
+                fprintf(stderr, "Could not allocate CUDA output buffer.\n");
+                return false;
         }
 
         return true;
@@ -176,7 +189,7 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
         struct state_video_compress_cuda_dxt *s =
                 (struct state_video_compress_cuda_dxt *) mod->priv_data;
 
-        cudaSetDevice(cuda_devices[0]);
+        cuda_wrapper_set_device(cuda_devices[0]);
 
         if (!video_desc_eq_excl_param(video_desc_from_frame(tx),
                                 s->saved_desc, PARAM_TILE_COUNT)) {
@@ -205,30 +218,28 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
         }
 
         if (s->in_codec == UYVY) {
-                if (cudaMemcpy(s->cuda_uyvy_buffer, in_buffer, tx->tiles[tile_idx].width *
+                if (cuda_wrapper_memcpy(s->cuda_uyvy_buffer, in_buffer, tx->tiles[tile_idx].width *
                                         tx->tiles[tile_idx].height * 2,
-                                        cudaMemcpyHostToDevice) != cudaSuccess) {
-                        fprintf(stderr, "Memcpy failed: %s\n",
-                                        cudaGetErrorString(cudaGetLastError()));
+                                        CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE) != CUDA_WRAPPER_SUCCESS) {
+                        fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
                         return NULL;
                 }
                 if (cuda_yuv422_to_yuv444(s->cuda_uyvy_buffer, s->cuda_in_buffer,
                                         tx->tiles[tile_idx].width *
-                                        tx->tiles[tile_idx].height, 0) != 0) {
-                        fprintf(stderr, "UYVY kernel failed: %s\n",
-                                        cudaGetErrorString(cudaGetLastError()));
+                                        tx->tiles[tile_idx].height, 0) != CUDA_WRAPPER_SUCCESS) {
+                        fprintf(stderr, "Kernel failed: %s\n", cuda_wrapper_last_error_string());
                 }
         } else {
-                if (cudaMemcpy(s->cuda_in_buffer, in_buffer, tx->tiles[tile_idx].width *
+                if (cuda_wrapper_memcpy(s->cuda_in_buffer, in_buffer, tx->tiles[tile_idx].width *
                                         tx->tiles[tile_idx].height * 3,
-                                        cudaMemcpyHostToDevice) != cudaSuccess) {
-                        fprintf(stderr, "Memcpy failed: %s\n",
-                                        cudaGetErrorString(cudaGetLastError()));
+                                        CUDA_WRAPPER_MEMCPY_HOST_TO_DEVICE) != CUDA_WRAPPER_SUCCESS) {
+                        fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
                         return NULL;
                 }
         }
 
-        int (*cuda_dxt_enc_func)(const void * src, void * out, int size_x, int size_y, cudaStream_t stream);
+        int (*cuda_dxt_enc_func)(const void * src, void * out, int size_x, int size_y,
+                        cuda_wrapper_stream_t stream);
 
         if (s->out_codec == DXT1) {
                 if (s->in_codec == RGB) {
@@ -243,11 +254,18 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
                         cuda_dxt_enc_func = cuda_yuv_to_dxt6;
                 }
         }
-        int ret = cuda_dxt_enc_func(s->cuda_in_buffer, s->out[buffer]->tiles[0].data,
+        int ret = cuda_dxt_enc_func(s->cuda_in_buffer, s->cuda_out_buffer,
                         s->saved_desc.width, s->saved_desc.height, 0);
         if (ret != 0) {
-                fprintf(stderr, "Encoding failed: %s\n",
-                                cudaGetErrorString(cudaGetLastError()));
+                fprintf(stderr, "Encoding failed: %s\n", cuda_wrapper_last_error_string());
+                return NULL;
+        }
+
+        if (cuda_wrapper_memcpy(s->out[buffer]->tiles[0].data,
+                                s->cuda_out_buffer,
+                                s->out[buffer]->tiles[0].data_len,
+                                CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST) != CUDA_WRAPPER_SUCCESS) {
+                fprintf(stderr, "Memcpy failed: %s\n", cuda_wrapper_last_error_string());
                 return NULL;
         }
 

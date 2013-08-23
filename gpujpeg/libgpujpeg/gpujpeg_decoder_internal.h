@@ -27,56 +27,43 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GPUJPEG_PREPROCESSOR_H
-#define GPUJPEG_PREPROCESSOR_H
+#ifndef GPUJPEG_DECODER_INTERNAL_H
+#define GPUJPEG_DECODER_INTERNAL_H
 
-#include <libgpujpeg/gpujpeg_encoder_internal.h>
-#include <libgpujpeg/gpujpeg_decoder_internal.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <libgpujpeg/gpujpeg_common.h>
+#include <libgpujpeg/gpujpeg_common_internal.h>
+#include <libgpujpeg/gpujpeg_table.h>
+#include <libgpujpeg/gpujpeg_reader.h>
 
 /**
- * Init preprocessor encoder
- * 
- * @param encoder
- * @return 0 if succeeds, otherwise nonzero
+ * JPEG decoder structure
  */
-int
-gpujpeg_preprocessor_encoder_init(struct gpujpeg_coder* coder);
+struct gpujpeg_decoder
+{
+    // JPEG coder structure
+    struct gpujpeg_coder coder;
+    
+    // JPEG reader structure
+    struct gpujpeg_reader* reader;
+    
+    // Quantization tables
+    struct gpujpeg_table_quantization table_quantization[GPUJPEG_COMPONENT_TYPE_COUNT];
+    
+    // Huffman coder tables
+    struct gpujpeg_table_huffman_decoder table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
+    // Huffman coder tables in device memory
+    struct gpujpeg_table_huffman_decoder* d_table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
+    
+    // Current segment count for decoded image
+    int segment_count;
+    
+    // Current data compressed size for decoded image
+    int data_compressed_size;
 
-/**
- * Preprocessor encode
- * 
- * @param encoder  Encoder structure
- * @param image  Image source data
- * @return 0 if succeeds, otherwise nonzero
- */
-int
-gpujpeg_preprocessor_encode(struct gpujpeg_coder* coder);
+    // Timers
+    GPUJPEG_CUSTOM_TIMER_DECLARE(def)
+    GPUJPEG_CUSTOM_TIMER_DECLARE(in_gpu)
+};
 
-/**
- * Init preprocessor decoder
- * 
- * @param encoder
- * @return 0 if succeeds, otherwise nonzero
- */
-int
-gpujpeg_preprocessor_decoder_init(struct gpujpeg_coder* coder);
+#endif // GPUJPEG_DECODER_INTERNAL_H
 
-/**
- * Preprocessor decode
- * 
- * @param encoder  Encoder structure
- * @param image  Image source data
- * @return 0 if succeeds, otherwise nonzero
- */
-int
-gpujpeg_preprocessor_decode(struct gpujpeg_coder* coder);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif // GPUJPEG_PREPROCESSOR_H

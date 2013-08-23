@@ -153,7 +153,8 @@ modules: @LIB_TARGETS@
 
 $(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(HEADERS)
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) -rdynamic $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
+	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
+	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 bin/import_control_keyboard: src/import_control_keyboard.o
 	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
@@ -173,7 +174,9 @@ $(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(REFLECTOR_OBJS)
 
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -Xcompiler -fPIC -c $< -o $@
+	$(NVCC) $(NVCCFLAGS) $(INC) -c $< -o $@
+%.cu.lib: %.cu
+	$(NVCC) $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
 src/audio/resample.o:
 	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
@@ -415,7 +418,7 @@ clean:
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
-	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@
+	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
 	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
@@ -581,9 +584,9 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
 
-@CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@
+@CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@ @CUDA_COMMON_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ @CUDA_COMMON_OBJ@ -o $@
 
 @RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
@@ -593,9 +596,9 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $^ @JPEG_LIB@ -o $@
 
-@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@
+@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@ @CUDA_COMMON_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ @CUDA_COMMON_OBJ@ -o $@
 
 
 @ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
@@ -647,6 +650,7 @@ install: all
 	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(docdir)
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)/$(docdir)
+	$(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)/$(bindir)
 
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv

@@ -58,7 +58,6 @@
 #include "module.h"
 #include "video_compress/jpeg.h"
 #include "libgpujpeg/gpujpeg_encoder.h"
-#include "libgpujpeg/gpujpeg_common.h"
 #include "video.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -346,7 +345,7 @@ struct video_frame * jpeg_compress(struct module *mod, struct video_frame * tx, 
 
         unsigned int x;
 
-        cudaSetDevice(cuda_devices[0]);
+        gpujpeg_set_device(cuda_devices[0]);
         
         if(!s->encoder) {
                 int ret;

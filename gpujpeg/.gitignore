@@ -1,4 +1,3 @@
-gpujpeg
 .libs
 src/*.o
 src/*.lo
@@ -27,4 +26,12 @@ src/.deps/
 src/.dirstamp
 stamp-h1
 libgpujpeg.la
+
+# VS
+*.pdb
+*.sdf
+*.suo
+*.user
+Debug
+Release
 

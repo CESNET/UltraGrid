@@ -1,0 +1,132 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{B9D06885-F4F3-4B01-8C43-E131210B9F27}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>gpujpeg</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 5.5.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;GPUJPEG_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CudaCompile>
+      <CodeGeneration>compute_20,sm_20;compute_30,sm_30;compute_35,sm_35;%(CodeGeneration)</CodeGeneration>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;GPUJPEG_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CudaCompile>
+      <CodeGeneration>compute_20,sm_20;compute_30,sm_30;compute_35,sm_53;%(CodeGeneration)</CodeGeneration>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="libgpujpeg\gpujpeg.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_common.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_common_internal.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_decoder.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_decoder_internal.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_encoder.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_encoder_internal.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_reader.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_table.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_type.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_util.h" />
+    <ClInclude Include="libgpujpeg\gpujpeg_writer.h" />
+    <ClInclude Include="src\gpujpeg_colorspace.h" />
+    <ClInclude Include="src\gpujpeg_dct_cpu.h" />
+    <ClInclude Include="src\gpujpeg_dct_gpu.h" />
+    <ClInclude Include="src\gpujpeg_huffman_cpu_decoder.h" />
+    <ClInclude Include="src\gpujpeg_huffman_cpu_encoder.h" />
+    <ClInclude Include="src\gpujpeg_huffman_gpu_decoder.h" />
+    <ClInclude Include="src\gpujpeg_huffman_gpu_encoder.h" />
+    <ClInclude Include="src\gpujpeg_preprocessor.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\gpujpeg_common.cpp" />
+    <ClCompile Include="src\gpujpeg_dct_cpu.cpp" />
+    <ClCompile Include="src\gpujpeg_decoder.cpp" />
+    <ClCompile Include="src\gpujpeg_encoder.cpp" />
+    <ClCompile Include="src\gpujpeg_huffman_cpu_decoder.cpp" />
+    <ClCompile Include="src\gpujpeg_huffman_cpu_encoder.cpp" />
+    <ClCompile Include="src\gpujpeg_reader.cpp" />
+    <ClCompile Include="src\gpujpeg_table.cpp" />
+    <ClCompile Include="src\gpujpeg_writer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\gpujpeg_dct_gpu.cu" />
+    <CudaCompile Include="src\gpujpeg_huffman_gpu_decoder.cu" />
+    <CudaCompile Include="src\gpujpeg_huffman_gpu_encoder.cu" />
+    <CudaCompile Include="src\gpujpeg_preprocessor.cu" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 5.5.targets" />
+  </ImportGroup>
+</Project>

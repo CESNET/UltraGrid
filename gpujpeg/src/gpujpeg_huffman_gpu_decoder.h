@@ -30,7 +30,7 @@
 #ifndef GPUJPEG_HUFFMAN_GPU_DECODER_H
 #define GPUJPEG_HUFFMAN_GPU_DECODER_H
 
-#include <libgpujpeg/gpujpeg_decoder.h>
+#include <libgpujpeg/gpujpeg_decoder_internal.h>
 
 #ifdef __cplusplus
 extern "C" {

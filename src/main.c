@@ -1127,7 +1127,7 @@ int main(int argc, char *argv[])
                         echo_cancellation = true;
                         break;
                 case OPT_CUDA_DEVICE:
-#ifdef HAVE_CUDA
+#ifdef HAVE_JPEG
                         if(strcmp("help", optarg) == 0) {
                                 struct compress_state *compression;
                                 int ret = compress_init(&root_mod, "JPEG:list_devices", &compression);

@@ -29,13 +29,15 @@
  
 #include <libgpujpeg/gpujpeg_reader.h>
 #include <libgpujpeg/gpujpeg_decoder.h>
+#include <libgpujpeg/gpujpeg_decoder_internal.h>
 #include <libgpujpeg/gpujpeg_util.h>
 
 /** Documented at declaration */
 struct gpujpeg_reader*
 gpujpeg_reader_create()
 {
-    struct gpujpeg_reader* reader = malloc(sizeof(struct gpujpeg_reader));
+    struct gpujpeg_reader* reader = (struct gpujpeg_reader*)
+            malloc(sizeof(struct gpujpeg_reader));
     if ( reader == NULL )
         return NULL;
     reader->comp_count = 0;
@@ -122,7 +124,7 @@ gpujpeg_reader_read_app0(uint8_t** image)
         return -1;
     }
 
-    char jfif[4];
+    char jfif[5];
     jfif[0] = gpujpeg_reader_read_byte(*image);
     jfif[1] = gpujpeg_reader_read_byte(*image);
     jfif[2] = gpujpeg_reader_read_byte(*image);

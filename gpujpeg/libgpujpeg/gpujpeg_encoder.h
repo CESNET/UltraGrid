@@ -31,12 +31,23 @@
 #define GPUJPEG_ENCODER_H
 
 #include <libgpujpeg/gpujpeg_common.h>
-#include <libgpujpeg/gpujpeg_table.h>
-#include <libgpujpeg/gpujpeg_writer.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#if defined _MSC_VER || defined __MINGW32__
+#ifdef GPUJPEG_EXPORTS
+#define GPUJPEG_API __declspec(dllexport)
+#else
+#define GPUJPEG_API __declspec(dllimport)
+#endif
+#else // other platforms
+#define GPUJPEG_API
+#endif
+
+struct gpujpeg_encoder;
 
 /**
  * Encoder input type
@@ -70,7 +81,7 @@ struct gpujpeg_encoder_input
  * @param image  Input image data
  * @return void
  */
-void
+GPUJPEG_API void
 gpujpeg_encoder_input_set_image(struct gpujpeg_encoder_input* input, uint8_t* image);
 
 /**
@@ -80,30 +91,8 @@ gpujpeg_encoder_input_set_image(struct gpujpeg_encoder_input* input, uint8_t* im
  * @param texture_id  OpenGL texture id
  * @return void
  */
-void
+GPUJPEG_API void
 gpujpeg_encoder_input_set_texture(struct gpujpeg_encoder_input* input, struct gpujpeg_opengl_texture* texture);
-
-/**
- * JPEG encoder structure
- */
-struct gpujpeg_encoder
-{   
-    // JPEG coder structure
-    struct gpujpeg_coder coder;
-    
-    // JPEG writer structure
-    struct gpujpeg_writer* writer;
-    
-    // Quantization tables
-    struct gpujpeg_table_quantization table_quantization[GPUJPEG_COMPONENT_TYPE_COUNT];
-    
-    // Huffman coder tables
-    struct gpujpeg_table_huffman_encoder table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
-    
-    // Timers
-    GPUJPEG_CUSTOM_TIMER_DECLARE(def)
-    GPUJPEG_CUSTOM_TIMER_DECLARE(in_gpu)
-};
 
 /**
  * Create JPEG encoder
@@ -112,7 +101,7 @@ struct gpujpeg_encoder
  * @param param_image  Parameters for image data
  * @return encoder structure if succeeds, otherwise NULL
  */
-struct gpujpeg_encoder*
+GPUJPEG_API struct gpujpeg_encoder*
 gpujpeg_encoder_create(struct gpujpeg_parameters* param, struct gpujpeg_image_parameters* param_image);
 
 /**
@@ -124,7 +113,7 @@ gpujpeg_encoder_create(struct gpujpeg_parameters* param, struct gpujpeg_image_pa
  * @param image_compressed_size  Pointer to variable where compressed image size will be placed
  * @return 0 if succeeds, otherwise nonzero
  */
-int
+GPUJPEG_API int
 gpujpeg_encoder_encode(struct gpujpeg_encoder* encoder, struct gpujpeg_encoder_input* input, uint8_t** image_compressed, int* image_compressed_size);
 
 /**
@@ -133,7 +122,7 @@ gpujpeg_encoder_encode(struct gpujpeg_encoder* encoder, struct gpujpeg_encoder_i
  * @param encoder  Encoder structure
  * @return 0 if succeeds, otherwise nonzero
  */
-int
+GPUJPEG_API int
 gpujpeg_encoder_destroy(struct gpujpeg_encoder* encoder);
 
 #ifdef __cplusplus

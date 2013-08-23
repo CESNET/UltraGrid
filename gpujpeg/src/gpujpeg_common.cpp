@@ -31,6 +31,8 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
  
+#include <algorithm>
+#include <ctype.h>
 #include <libgpujpeg/gpujpeg_common.h>
 #include <libgpujpeg/gpujpeg_util.h>
 #include "gpujpeg_preprocessor.h"
@@ -39,8 +41,8 @@
     #define GL_GLEXT_PROTOTYPES
     #include <GL/gl.h>
     #include <GL/glx.h>
+    #include <cuda_gl_interop.h>
 #endif
-#include <cuda_gl_interop.h>
 
 // rounds number of segment bytes up to next multiple of 128
 #define SEGMENT_ALIGN(b) (((b) + 127) & ~127)
@@ -142,10 +144,12 @@ gpujpeg_init_device(int device_id, int flags)
         return -1;
     }
     
+#ifdef GPUJPEG_USE_OPENGL
     if ( flags & GPUJPEG_OPENGL_INTEROPERABILITY ) {
         cudaGLSetGLDevice(device_id);
         gpujpeg_cuda_check_error("Enabling OpenGL interoperability");
     }
+#endif
 
     if ( flags & GPUJPEG_VERBOSE ) {
         int cuda_driver_version = 0;
@@ -234,16 +238,24 @@ gpujpeg_image_get_file_format(const char* filename)
         GPUJPEG_IMAGE_FILE_JPEG
     };
         
-    char * ext = strrchr(filename, '.');
+    const char * ext = strrchr(filename, '.');
     if ( ext == NULL )
-        return -1;
+        return GPUJPEG_IMAGE_FILE_UNKNOWN;
     ext++;
+    char ext_lc[3];
+    strncpy(ext_lc, ext, 3);
+    std::transform(ext_lc, ext_lc + sizeof(ext_lc), ext_lc, ::tolower);
     for ( int i = 0; i < sizeof(format) / sizeof(*format); i++ ) {
-        if ( strncasecmp(ext, extension[i], 3) == 0 ) {
+        if ( strncmp(ext_lc, extension[i], 3) == 0 ) {
             return format[i];
         }
     }
     return GPUJPEG_IMAGE_FILE_UNKNOWN;
+}
+
+void gpujpeg_set_device(int index)
+{
+    cudaSetDevice(index);
 }
 
 /** Documented at declaration */

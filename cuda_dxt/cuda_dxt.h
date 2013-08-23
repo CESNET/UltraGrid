@@ -8,12 +8,11 @@
 #ifndef CUDA_DXT_H
 #define CUDA_DXT_H
 
+#include "cuda_wrapper.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <cuda_runtime_api.h>
-
 
 /**
  * CUDA DXT1 compression (only RGB without alpha).
@@ -28,13 +27,13 @@ extern "C" {
  * @param stream  CUDA stream to run in, or 0 for default stream.
  * @return 0 if OK, nonzero if failed.
  */
-int cuda_rgb_to_dxt1
+CUDA_DLL_API int cuda_rgb_to_dxt1
 (
     const void * src, 
     void * out, 
     int size_x, 
     int size_y, 
-    cudaStream_t stream
+    cuda_wrapper_stream_t stream
 );
 
 
@@ -52,13 +51,13 @@ int cuda_rgb_to_dxt1
  * @param stream  CUDA stream to run in, or 0 for default stream.
  * @return 0 if OK, nonzero if failed.
  */
-int cuda_yuv_to_dxt1
+CUDA_DLL_API int cuda_yuv_to_dxt1
 (
     const void * src,
     void * out,
     int size_x,
     int size_y,
-    cudaStream_t stream
+    cuda_wrapper_stream_t stream
 );
 
 
@@ -75,17 +74,19 @@ int cuda_yuv_to_dxt1
  * @param stream  CUDA stream to run in, or 0 for default stream.
  * @return 0 if OK, nonzero if failed.
  */
-int cuda_rgb_to_dxt6
+CUDA_DLL_API int cuda_rgb_to_dxt6
 (
     const void * src, 
     void * out, 
     int size_x, 
     int size_y, 
-    cudaStream_t stream
+    cuda_wrapper_stream_t stream
 );
 
-int cuda_yuv_to_dxt6(const void * src, void * out, int size_x, int size_y, cudaStream_t stream);
-int cuda_yuv422_to_yuv444(const void * src, void * out, int pix_count, cudaStream_t str);
+CUDA_DLL_API int cuda_yuv_to_dxt6(const void * src, void * out,
+                int size_x, int size_y, cuda_wrapper_stream_t stream);
+CUDA_DLL_API int cuda_yuv422_to_yuv444(const void * src, void * out,
+                int pix_count, cuda_wrapper_stream_t str);
 
 #ifdef __cplusplus
 } /* end of extern "C" */

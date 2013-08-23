@@ -158,9 +158,10 @@ static void *worker_thread(void *arg)
 
                         msg_frame *output_frame = new msg_frame(s->desc.width * s->desc.height / s->ppb);
 
-                        if (cudaSuccess != cudaMemcpy((char*) output_frame->data, s->dxt_out_buff,
+                        if (cuda_wrapper_memcpy((char*) output_frame->data, s->dxt_out_buff,
                                                 output_frame->data_len,
-                                                cudaMemcpyDeviceToHost)) {
+                                                CUDA_WRAPPER_MEMCPY_DEVICE_TO_HOST) !=
+                                        CUDA_WRAPPER_SUCCESS) {
                                 fprintf(stderr, "[jpeg_to_dxt] unable to copy from device.");
                         }
                         s->m_out.push(output_frame);
@@ -173,7 +174,7 @@ static void *worker_thread(void *arg)
                 gpujpeg_decoder_destroy(s->jpeg_decoder);
         }
 
-        cudaFree(s->dxt_out_buff);
+        cuda_wrapper_free(s->dxt_out_buff);
 
         return NULL;
 }
@@ -272,11 +273,12 @@ static int reconfigure_thread(struct thread_data *s, struct video_desc desc, int
         }
 
         if(s->dxt_out_buff != NULL) {
-                cudaFree(s->dxt_out_buff);
+                cuda_wrapper_free(s->dxt_out_buff);
                 s->dxt_out_buff = NULL;
         }
 
-        if(cudaSuccess != cudaMallocHost((void **) &s->dxt_out_buff, desc.width * desc.height / ppb)) {
+        if(cuda_wrapper_malloc_host((void **) &s->dxt_out_buff, desc.width * desc.height / ppb)
+                        != CUDA_WRAPPER_SUCCESS) {
                 fprintf(stderr, "Could not allocate CUDA output buffer.\n");
                 return false;
         }

@@ -30,7 +30,7 @@
 #ifndef GPUJPEG_HUFFMAN_CPU_ENCODER_H
 #define GPUJPEG_HUFFMAN_CPU_ENCODER_H
 
-#include <libgpujpeg/gpujpeg_encoder.h>
+#include <libgpujpeg/gpujpeg_encoder_internal.h>
 
 /**
  * Perform huffman encoding

@@ -5,7 +5,6 @@ AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
-LT_INIT
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
 
@@ -161,7 +160,12 @@ then
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
         NVCCFLAGS="$NVCCFLAGS -Xcompiler -fPIC"
+        CU_SUFFIX="cu.o"
+else
+        NVCCFLAGS="-m32"
+        CU_SUFFIX="cu.lib"
 fi
+AC_SUBST(NVCCFLAGS)
 
 AH_BOTTOM([
 /*
@@ -237,19 +241,30 @@ AC_DEFUN([DEFINE_GL], [
           AC_SUBST(GL_COMMON_OBJ)
           ])
 
-AC_DEFUN([DEFINE_CUDA], [
-          if test -z "$cuda_var_defined"; then
-                  AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
-                  LINKER=$CXX
-                  POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
+AC_DEFUN([CUDA_MESSAGE], [
+          if test -z "$cuda_msg_defined"; then
+                  POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
 decompression, you will need to have CUDA libraries visible to your OS.\n\
 If not done so, you can accomplish this by adding line:\n\
         export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
 to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
         exec bash\n***\n"
+                  cuda_msg_defined=yes
+          fi
+        ])
+
+AC_DEFUN([DEFINE_CUDA], [
+          if test -z "$cuda_var_defined"; then
+                  AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
+                  CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_SUFFIX
+                  if test $system = Windows; then
+                          DLL_LIBS="$DLL_LIBS src/cuda_wrapper.cu.dll"
+                  fi
+                  AC_SUBST(CUDA_COMMON_OBJ)
                   cuda_var_defined=yes
           fi
         ])
+AC_SUBST(DLL_LIBS)
 
 AC_MSG_CHECKING([if_nametoindex])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -402,7 +417,8 @@ if test "$build_libraries" = yes
 then
         if test "$system" = "Linux"
         then
-                LIBS+=' -ldl'
+                LIBS="$LIBS -ldl"
+                LDFLAGS+="-rdynamic -ldl"
         else
                 AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
                 build_libraries=no
@@ -438,7 +454,7 @@ AC_SUBST(vo_pp_abi_version)
 # ------------------------------------------------------------------------------------------------
 # environment variables
 #
-AC_ARG_VAR([CUDA_DIRECTORY], [Directory of your Nvidia toolkit instalation.])
+AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
@@ -690,7 +706,6 @@ then
         DECKLINK_COMMON="src/video_capture/DeckLinkAPIDispatch.o"
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
-    LINKER=$CXX
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
     AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/display_decklink.so.$video_display_abi_version")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/aplay_decklink.so.$audio_playback_abi_version")
@@ -1655,7 +1670,6 @@ then
 	FASTDXT_LIB=""
 	FASTDXT_OBJ="$FASTDXT_OBJ src/video_compress/fastdxt.o ${FASTDXT_PATH}/libdxt.a"
         AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
-	LINKER=$CXX
         AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $FASTDXT_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $FASTDXT_OBJ"
@@ -1782,10 +1796,8 @@ AC_SUBST(UYVY_LIB)
 CUDA_INC=
 CUDA_LIB=
 NVCC=
-NVCCFLAGS=
 CUDA_LIB_PATH=
 FOUND_CUDA=no
-HAVE_CUDA=no
 CUDA_PATH=$CUDA_DIRECTORY
 
 AC_ARG_WITH(cuda,
@@ -1797,18 +1809,12 @@ SAVED_LIBS=$LIBS
 LIBS="$LIBS -lcudart"
 if test -z "$CUDA_PATH"
 then
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
-                           ]],
-                           [[int devices_count;
-                            cudaGetDeviceCount(&devices_count);
-                            ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
         AC_CHECK_PROG([NVCC], [nvcc], [nvcc],
                       [])
 fi
 
-if test $FOUND_CUDA = no -o -z "$NVCC"
+if test -z "$NVCC"
 then
-        FOUND_CUDA=no
         NVCC=
         if test -z "$CUDA_PATH"; then
                 CUDA_PATH=/usr/local/cuda
@@ -1821,11 +1827,6 @@ then
         else
                 LIBS="$LIBS -L$CUDA_PATH/lib"
         fi
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
-                           ]],
-                           [[int devices_count;
-                            cudaGetDeviceCount(&devices_count);
-                            ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
         CFLAGS=$SAVED_CFLAGS
         AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
                       [],
@@ -1834,9 +1835,17 @@ fi
 
 LIBS=$SAVED_LIBS
 
-if test -n "$NVCC" -a $FOUND_CUDA = yes
+if test -n "$NVCC"
 then
-        HAVE_CUDA=yes
+        if test $system = Windows; then
+                AC_CHECK_PROG([CL], [cl], [cl],
+                              [])
+                if test -n $CL; then
+                        FOUND_CUDA=yes
+                fi
+        else
+                FOUND_CUDA=yes
+        fi
 	AC_MSG_CHECKING([CUDA Toolkit version - major])
         nvcc_major=`$NVCC --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_major)
@@ -1859,10 +1868,8 @@ then
         CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
 fi
 
-AC_SUBST(HAVE_CUDA)
 AC_SUBST(NVCC)
 AC_SUBST(FOUND_CUDA)
-AC_SUBST(NVCCFLAGS)
 AC_SUBST(CUDA_PATH)
 AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_INC)
@@ -1893,46 +1900,23 @@ CFLAGS=$SAVED_CFLAGS
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
-if test $HAVE_CUDA = yes
+if test $system = Windows
 then
-        if test \( $nvcc_major -gt 4 \) -o \( $nvcc_major -eq 4 -a $nvcc_minor -ge 1 \) -o $version_check = no
-        then
-                jpeg_cuda_version_ok=yes
-        else
-                AC_MSG_WARN([*** CUDA Toolkit older than 4.1 detected. Please install at least v4.1 to use JPEG.])
-                HM_VERSION_WARNING
-        fi
-
-        if test $version_check = no -o \
-                \( $system = Linux -o $os_version_major -ge 10 \) # Linux or Mac at least Snow Leopard
-        then
-                jpeg_os_version_ok=yes
-        else
-                AC_MSG_WARN([*** Detected unsupported OS version for CUDA.])
-                HM_VERSION_WARNING
-        fi
+        JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release"
+        DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
 fi
 
 SAVED_LIBS=$LIBS
+LIBS="$LIBS $JPEG_LIB"
 AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
 LIBS=$SAVED_LIBS
 
-# Used also by JPEG_TO_DXT
-if test "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
-        $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
-        "$jpeg_os_version_ok" = yes
-then
-        jpeg_env_ok=yes
-else
-        jpeg_env_ok=no
-fi
-
-if test "$jpeg_req" != no -a $jpeg_env_ok = yes
+if test "$jpeg_req" != no -a \
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes
 then
         jpeg=yes
 
-        JPEG_LIB=" $CUDA_LIB"
-        JPEG_INC=$CUDA_INC
+        JPEG_INC="$JPEG_INC -Igpujpeg"
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
         JPEG_LIB="$JPEG_LIB -lgpujpeg"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
@@ -1941,7 +1925,7 @@ then
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
-        DEFINE_CUDA
+        CUDA_MESSAGE
 fi
 
 if test $jpeg_req = yes -a $jpeg = no; then
@@ -1965,6 +1949,16 @@ CUDA_DXT_LIB=
 
 cuda_dxt=no
 
+AC_DEFUN([ADD_CUDA_DXT_OBJ], [
+          if test -z "$included_shared_cuda_dxt_cu"; then
+                  LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.$CU_SUFFIX"
+                  if test $system = Windows; then
+                          DLL_LIBS="$DLL_LIBS cuda_dxt/cuda_dxt.cu.dll"
+                  fi
+                  included_shared_cuda_dxt_cu=yes
+          fi
+        ])
+
 AC_ARG_ENABLE(cuda-dxt,
       AS_HELP_STRING([--disable-cuda-dxt], [disable CUDA DXT compression (auto)]),
 	[cuda_dxt_req=$enableval],
@@ -1972,22 +1966,20 @@ AC_ARG_ENABLE(cuda-dxt,
 
 LIBS=$SAVED_LIBS
 
-if test "$cuda_dxt_req" != no -a $HAVE_CUDA = yes
+if test "$cuda_dxt_req" != no -a $FOUND_CUDA = yes
 then
         cuda_dxt=yes
 
         CUDA_DXT_LIB=" $CUDA_LIB"
         CUDA_DXT_INC=$CUDA_INC
-        CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
         AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
         AC_SUBST(CUDA_DXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_cuda_dxt.so.$video_compress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $CUDA_DXT_COMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS src/video_compress/cuda_dxt.o"
-        if test -z "$included_shared_cuda_dxt_cu"; then
-                LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.cu.o"
-                included_shared_cuda_dxt_cu=yes
-        fi
+        ADD_CUDA_DXT_OBJ
         DEFINE_CUDA
+        CUDA_MESSAGE
 fi
 
 if test $cuda_dxt_req = yes -a $cuda_dxt = no; then
@@ -2009,21 +2001,20 @@ AC_ARG_ENABLE(jpeg_to_dxt,
               [jpeg_to_dxt_req=$enableval],
               [jpeg_to_dxt_req=auto])
 
-if test $jpeg_env_ok = yes -a $jpeg_to_dxt_req != no
+if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes
 then
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
         JPEG_TO_DXT_LIB=" $CUDA_LIB -lgpujpeg"
-        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
         AC_SUBST(JPEG_TO_DXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg_to_dxt.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_TO_DXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o"
         AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
-        if test -z "$included_shared_cuda_dxt_cu"; then
-                LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.cu.o"
-                included_shared_cuda_dxt_cu=yes
-        fi
+        ADD_CUDA_DXT_OBJ
         DEFINE_CUDA
+        CUDA_MESSAGE
 fi
 
 if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes
@@ -2083,7 +2074,6 @@ then
     SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
     SAGE_OBJ="src/video_display/sage.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
-    LINKER=$CXX
     AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
     CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
     LIB_TARGETS="$LIB_TARGETS $SAGE_LIB_TARGET"
@@ -2563,7 +2553,7 @@ fi
 if test "$build_libraries" != yes
 then
         LIBS="$LIBS $LIB_MODULES"
-        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ"
+        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
         HEADERS="$HEADERS $LIB_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
@@ -2663,6 +2653,7 @@ RESULT=\
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg
   JPEG to DXT ................. $jpeg_to_dxt
+  CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec (audio: $libavcodec_audio)
 

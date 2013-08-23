@@ -226,7 +226,7 @@ gpujpeg_idct_cpu(struct gpujpeg_decoder* decoder)
                 int index = y * width + x;
                 gpujpeg_idct_cpu_perform(
                     &component->data_quantized[index * 64],
-                    decoder->table_quantization[type].table
+                    (int16_t *) decoder->table_quantization[type].table
                 );
             }
         }

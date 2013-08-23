@@ -34,9 +34,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 #include <assert.h>
-#include <cuda_runtime.h>
+#include "cuda_runtime.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -114,6 +114,10 @@ static ssize_t write_all(fd_t fd, const void *buf, size_t count);
 static void * control_thread(void *args);
 static void send_response(fd_t fd, struct response *resp);
 
+#ifndef HAVE_LINUX
+#define MSG_NOSIGNAL 0
+#endif
+
 static ssize_t write_all(fd_t fd, const void *buf, size_t count)
 {
     char *p = (char *) buf;
