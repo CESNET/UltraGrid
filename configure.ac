@@ -234,7 +234,6 @@ AC_DEFUN([DEFINE_GL], [
                   GL_COMMON_OBJ="src/win32_gl_common.o src/gl_context.o"
           fi
           fi
-          LIB_OBJS="$LIB_OBJS $GL_COMMON_OBJ"
           AC_SUBST(GL_COMMON_OBJ)
           ])
 
@@ -492,7 +491,6 @@ case "$host_os" in
                 fi
                 X_LIBS="$X_LIBS -lX11"
                 X_OBJ="src/x11_common.o"
-                LIB_OBJS="$LIB_OBJS $X_OBJ"
                 CFLAGS="$CFLAGS"
         fi
         ;;

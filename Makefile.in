@@ -415,7 +415,7 @@ clean:
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
-	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
+	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@
 	-rm -rf bin/import_control_keyboard
 	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
