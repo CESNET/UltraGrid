@@ -932,7 +932,8 @@ static bool try_initialize_decompress(uint32_t magic,
                 if(!decompress_state[i]) {
                         debug_msg("Decompressor with magic %x was not found.\n");
                         for(int j = 0; j < substreams; ++j) {
-                                decompress_done(decompress_state[i]);
+                                if (decompress_state[i] != NULL)
+                                        decompress_done(decompress_state[i]);
                                 decompress_state[i] = NULL;
                         }
                         return false;

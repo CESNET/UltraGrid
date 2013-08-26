@@ -260,10 +260,14 @@ struct state_decompress *decompress_init(unsigned int decoder_index)
 
         for(i = 0; i < available_decoders_count; ++i) {
                 if(available_decoders[i]->magic == decoder_index) {
-                        s = (struct state_decompress *) malloc(sizeof(struct state_decompress));
+                        s = (struct state_decompress *) calloc(1, sizeof(struct state_decompress));
                         s->magic = DECOMPRESS_MAGIC;
                         s->functions = available_decoders[i];
                         s->state = s->functions->init();
+                        if (s->state == NULL) {
+                                free(s);
+                                return NULL;
+                        }
                         return s;
                 }
         }
