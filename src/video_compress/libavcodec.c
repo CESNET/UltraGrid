@@ -666,8 +666,8 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
         }
 #else
         /* encode the image */
-        ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) s->out[buffer_idx]->data,
-                        s->out[buffer_idx]->width * s->out[buffer_idx]->height * 4,
+        ret = avcodec_encode_video(s->codec_ctx, (uint8_t *) s->out[buffer_idx]->tiles[0].data,
+                        s->out[buffer_idx]->tiles[0].width * s->out[buffer_idx]->tiles[0].height * 4,
                         s->in_frame);
         if (ret < 0) {
                 fprintf(stderr, "Error encoding frame\n");
@@ -676,7 +676,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 
         if (ret) {
                 //printf("Write frame %3d (size=%5d)\n", frame_seq, s->pkt[buffer_idx].size);
-                s->out[buffer_idx]->data_len = ret;
+                s->out[buffer_idx]->tiles[0].data_len = ret;
         } else {
                 goto error;
         }
