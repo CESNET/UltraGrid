@@ -49,7 +49,7 @@
 #define PT_VIDEO_LDGM   22
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
-
+#define PT_H264 96
 /*
  * Video payload
  *

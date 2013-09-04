@@ -1065,7 +1065,7 @@ case $host_os in
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
 
-		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
+		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes
 		then
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
@@ -1225,8 +1225,60 @@ AC_SUBST(SDL_OBJ)
 AC_SUBST(SDL_LIBS)
 
 # -------------------------------------------------------------------------------------------------
-# Testcard stuff
+# RTSP capture stuff
+# -------------------------------------------------------------------------------------------------
+RTSP_INC=
+RTSP_LIB=
+RTSP_OBJ=
+rtsp=no
+curl=no
+glib=no
 
+AC_ARG_ENABLE(rtsp,
+      AS_HELP_STRING([--disable-rtsp], [disable RTSP support(default is auto)]),
+    [rtsp_req=$enableval],
+    [rtsp_req=auto]
+    )
+
+case $host in
+    *-linux-*)
+		PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.24.1], FOUND_GLIB_H=yes, FOUND_GLIB_H=no)
+		PKG_CHECK_MODULES([CURL], [libcurl], FOUND_CURL_H=yes, FOUND_CURL_H=no)
+
+		if test $rtsp_req != no -a $FOUND_CURL_H = yes -a $FOUND_GLIB_H = yes  
+		then
+			AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
+	        SAVED_CFLAGS=$CFLAGS
+	        CFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
+	        SAVED_CXXFLAGS=$CFLAGS
+	        CXXFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"	        
+			RTSP_INC=
+			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
+			RTSP_OBJ="src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+                        #LIB_TARGETS not needed here since we are not building modules on Mac
+                        LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
+                        rtsp=yes
+                        curl=yes
+                        glib=yes
+		fi
+    ;;
+esac
+
+if test $rtsp = yes -a $rtsp = no; then
+        AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
+fi
+
+LIB_MODULES="$LIB_MODULES $RTSP_LIB"
+
+AC_SUBST(RTSP_INC)
+AC_SUBST(RTSP_LIB)
+AC_SUBST(RTSP_OBJ)
+
+
+
+# -------------------------------------------------------------------------------------------------
+# Testcard stuff
+# -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
       AS_HELP_STRING([--enable-testcard-extras], [enable testcard addons - audio and testcard2 (default is disabled)]),
     [testcard_extras_req=$enableval],
@@ -2628,6 +2680,8 @@ RESULT=\
   License ..................... $license
   iHDTV support ............... $ihdtv
   OpenSSL-libcrypto ........... $crypto
+  Library glib ................ $glib
+  Library curl ................ $curl
 
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
@@ -2641,6 +2695,7 @@ RESULT=\
   SDL ......................... $sdl
   Screen Capture .............. $screen_cap
   V4L2 ........................ $v4l2
+  RTSP Capture ................ $rtsp
   SW Video Mix ................ $swmix
 
   Portaudio ................... $portaudio
