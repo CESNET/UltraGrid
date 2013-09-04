@@ -156,7 +156,8 @@ void * vidcap_rtsp_thread(void *arg)
 		}
 
 		rtp_update(s->device, s->curr_time);
-		rtp_send_ctrl(s->device, s->timestamp, 0, s->curr_time);
+		//TODO rtcp communication between ug and rtsp server?
+		//rtp_send_ctrl(s->device, s->timestamp, 0, s->curr_time);
 
 		s->timeout.tv_sec = 0;
 		s->timeout.tv_usec = 10000;
@@ -415,7 +416,7 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
 	s->should_exit = false;
 
-    s->device = rtp_init_if(s->addr, s->mcast_if, s->port, s->port, s->ttl, s->rtcp_bw, 0, rtp_recv_callback, (void *)s->participants, 0);
+    s->device = rtp_init_if(NULL, s->mcast_if, s->port, 0, s->ttl, s->rtcp_bw, 0, rtp_recv_callback, (void *)s->participants, 0);
 
     if (s->device != NULL) {
         //printf("[rtsp] RTP INIT OPTIONS\n");
