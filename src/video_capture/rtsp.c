@@ -167,7 +167,7 @@ void * vidcap_rtsp_thread(void *arg)
             pdb_iter_t it;
             s->cp = pdb_iter_init(s->participants, &it);
 
-            int ret;
+            //int ret;
 
             s->pbuf_removed = true;
 
@@ -250,7 +250,7 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 }
 
 
-void *vidcap_rtsp_init(char *fmt, unsigned int flags){
+void *vidcap_rtsp_init(const struct vidcap_params *params){
 
     struct rtsp_state *s;
 
@@ -286,15 +286,19 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
     s->uri = NULL;
     s->curl = NULL;
-
+    char *fmt = NULL;
     char *uri_tmp1;
     char *uri_tmp2;
 
-    if (fmt == NULL || strcmp(fmt, "help") == 0) {
-    	show_help();
-	}
+    //if(params->fmt && strcmp(params->fmt, "help") == 0) {
+    if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+        show_help();
+        //return &vidcap_init_noerr;
+    }
     else{
-		char *tmp;
+		char *tmp = NULL;
+		fmt = strdup(vidcap_params_get_fmt(params));
+		//char *fmt = tmp;
 		int i = 0;
 
 		printf("[str_split] input flag string = %s\n", fmt);

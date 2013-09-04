@@ -140,7 +140,7 @@ int init_decompressor(void *state);
 void sigaction_handler();
 
 struct vidcap_type	*vidcap_rtsp_probe(void);
-void			*vidcap_rtsp_init(char *fmt, unsigned int flags);
+void			*vidcap_rtsp_init(const struct vidcap_params *params);
 void			 vidcap_rtsp_done(void *state);
 struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio);
 
