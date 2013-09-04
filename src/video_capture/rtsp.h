@@ -1,5 +1,5 @@
-/* AUTHOR:   Gerard Castillo <gerard.castillo@i2cat.net>
- * MODIFIED: Martin German <martin.german@i2cat.net>
+/* AUTHORS:   Gerard Castillo <gerard.castillo@i2cat.net>,
+ *            Martin German <martin.german@i2cat.net>
  *
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya

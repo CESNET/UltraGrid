@@ -1,6 +1,6 @@
 /*
- * AUTHOR:   Gerard Castillo <gerard.castillo@i2cat.net>
- * MODIFIED: Martin German <martin.german@i2cat.net>
+ * AUTHOR:   Gerard Castillo <gerard.castillo@i2cat.net>,
+ *           Martin German <martin.german@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
@@ -278,13 +278,16 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     s->device = (struct rtp *) malloc((s->required_connections) * sizeof(struct rtp *));
     s->participants = pdb_init();
 
-    s->rx_data = calloc(1, sizeof(struct recieved_data));
+    s->rx_data = malloc(sizeof(struct recieved_data));
     s->new_frame = false;
 
     s->in_codec = malloc(sizeof(uint32_t *) * 10);
 
     s->uri = NULL;
     s->curl = NULL;
+
+    char *uri_tmp1;
+    char *uri_tmp2;
 
     if (fmt == NULL || strcmp(fmt, "help") == 0) {
     	show_help();
@@ -295,70 +298,98 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
 
 		printf("[str_split] input flag string = %s\n", fmt);
 
-        char ip[100];
-        int port;
-        char page[100];
-        sscanf(fmt, "rtsp://%99[^:]:%99d/%99[^\n]", ip, &port, page);
-        printf("ip = %s \n", ip);
-        printf("port = %d\n", port);
-        printf("page = %s\n", page);
-        s->uri = malloc(strlen(fmt) + 32);
-        sprintf(s->uri, "rtsp://%s:%d/%s",ip,port,page);
-        printf("%s\n",s->uri);
-
-//		while((tmp = strtok_r(fmt, ":", &save_ptr))) {
-//			int len;
-//			switch (i) {
-//					case 0:
-//							if(tmp){
-//								s->uri = malloc(strlen(tmp) + 32);
-//                                sprintf(s->uri, "%s",tmp);
-//                            }else{
-//								printf("\n[rtsp] Wrong format for uri! \n");
-//								show_help();
-//								exit(0);
-//							}
-//							break;
-//					case 1:
-//							if(tmp){
-//								s->port = atoi(tmp);
-//							}else{
-//								printf("\n[rtsp] Wrong format for port! \n");
-//								show_help();
-//								exit(0);
-//							}
-//							break;
-//					case 2:
-//							if(tmp){
-//								s->width = atoi(tmp);
-//							}else{
-//								printf("\n[rtsp] Wrong format for width! \n");
-//								show_help();
-//								exit(0);
-//							}
-//							break;
-//					case 3:
-//							if(tmp){
-//								s->height = atoi(tmp);
-//							}else{
-//								printf("\n[rtsp] Wrong format for height! \n");
-//								show_help();
-//								exit(0);
-//							}
-//							break;
-//					case 4:
-//							if(tmp){
-//								if(strcmp(tmp,"true")==0) s->decompress = true;
-//								else s->decompress = false;
-//							}else continue;
-//							break;
-//					case 5:
-//							continue;
-//			}
-//			fmt = NULL;
-//			++i;
-//		}
+		while((tmp = strtok_r(fmt, ":", &save_ptr))) {
+			int len;
+			switch (i) {
+					case 0:
+							if(tmp){
+					            tmp = strtok_r(NULL, ":", &save_ptr);
+					            uri_tmp1 = malloc(strlen(tmp) + 32);
+					            sprintf(uri_tmp1, "%s",tmp);
+			                    tmp = strtok_r(NULL, ":", &save_ptr);
+			                    uri_tmp2 = malloc(strlen(tmp) + 32);
+			                    sprintf(uri_tmp2, "%s",tmp);
+								s->uri = malloc(1024 + 32);
+                                sprintf(s->uri, "rtsp:%s:%s",uri_tmp1,uri_tmp2);
+                            }else{
+								printf("\n[rtsp] Wrong format for uri! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 1:
+							if(tmp){    //TODO check if it's a number
+								s->port = atoi(tmp);
+							}else{
+								printf("\n[rtsp] Wrong format for port! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 2:
+							if(tmp){  //TODO check if it's a number
+								s->width = atoi(tmp);
+							}else{
+								printf("\n[rtsp] Wrong format for width! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 3:
+							if(tmp){  //TODO check if it's a number
+								s->height = atoi(tmp);
+								//Now checking if we have user and password parameters...
+								if(s->height == 0){
+								    int ntmp = 0;
+								    ntmp = s->width;
+								    s->width = s->port;
+								    s->height = ntmp;
+								    sprintf(s->uri, "rtsp:%s",uri_tmp1);
+								    s->port = atoi(uri_tmp2);
+								    if(tmp){
+                                        if(strcmp(tmp,"true")==0) s->decompress = true;
+                                        else if (strcmp(tmp,"false")==0) s->decompress = false;
+                                        else{
+                                            printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
+                                            show_help();
+                                            exit(0);
+                                        }
+                                    }else continue;
+								}
+							}else{
+								printf("\n[rtsp] Wrong format for height! \n");
+								show_help();
+								exit(0);
+							}
+							break;
+					case 4:
+							if(tmp){
+								if(strcmp(tmp,"true")==0) s->decompress = true;
+								else if (strcmp(tmp,"false")==0) s->decompress = false;
+								else{
+								    printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
+                                    show_help();
+                                    exit(0);
+								}
+							}else continue;
+							break;
+					case 5:
+							continue;
+			}
+			fmt = NULL;
+			++i;
+		}
     }
+    //re-check parameters
+    if(s->height == 0){
+        int ntmp = 0;
+        ntmp = s->width;
+        s->width = (int)s->port;
+        s->height = (int) ntmp;
+        sprintf(s->uri, "rtsp:%s",uri_tmp1);
+        s->port = (int) atoi(uri_tmp2);
+    }
+
 
     printf("[rtsp] selected flags:\n");
     printf("\t  uri: %s\n",s->uri);
@@ -367,9 +398,8 @@ void *vidcap_rtsp_init(char *fmt, unsigned int flags){
     printf("\t  height: %d\n",s->height);
     printf("\t  decompress: %d\n\n",s->decompress);
 
-
-    exit(0);
-
+    free(uri_tmp1);
+    free(uri_tmp2);
 
 	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
 	data = malloc(4*s->width*s->height + s->nals_size);
@@ -459,7 +489,8 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	const char *url = rtsp_uri;
 	char *uri = malloc(strlen(url) + 32);
 	char *sdp_filename = malloc(strlen(url) + 32);
-	char *control = malloc(strlen(url) + 32);
+	char control[150];// = malloc(strlen(url) + 32);
+    bzero(control, 150);
 	char transport[256];
 	bzero(transport, 256);
 	int port = rtsp_port;
@@ -499,20 +530,17 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 			rtsp_describe(curl, uri, sdp_filename);
 			//printf("sdp_file!!!!: %s\n", sdp_filename);
 			/* get media control attribute from sdp file */
-			get_media_control_attribute(sdp_filename, control);
+			get_media_control_attribute(sdp_filename, &control);
 
 			/* set incoming media codec attribute from sdp file */
 			set_codec_attribute_from_incoming_media(sdp_filename, s);
 
 			/* setup media stream */
-			//sprintf(uri, "%s/%s", url, "track1");
 			sprintf(uri, "%s/%s", url, control);
-
 			rtsp_setup(curl, uri, transport);
 
 			/* start playing media stream */
-			sprintf(uri, "%s/", url);
-
+			sprintf(uri, "%s", url);
 			rtsp_play(curl, uri, range);
 
 			/* get start nal size attribute from sdp file */
@@ -568,9 +596,32 @@ void rtsp_get_parameters(CURL *curl, const char *uri)
 /* send RTSP OPTIONS request */
 void rtsp_options(CURL *curl, const char *uri)
 {
+    char control[1500], *user, *pass, *strtoken;
+    user = malloc(1500);
+    pass = malloc(1500);
+    bzero(control, 1500);
+    bzero(user, 1500);
+    bzero(pass, 1500);
+
     CURLcode res = CURLE_OK;
     printf("\n[rtsp] OPTIONS %s\n", uri);
     my_curl_easy_setopt(curl, CURLOPT_RTSP_STREAM_URI, uri);
+
+    sscanf(uri, "rtsp://%s", control);
+    strtoken = strtok(control, ":");
+    memcpy(user, strtoken, strlen(strtoken));
+    strtoken = strtok(NULL, "@");
+    if (strtoken == NULL){
+      user = NULL;
+      pass = NULL;
+    }
+    else
+      memcpy(pass, strtoken, strlen(strtoken));
+    if (user != NULL)
+      my_curl_easy_setopt(curl, CURLOPT_USERNAME, user);
+    if (pass != NULL)
+      my_curl_easy_setopt(curl, CURLOPT_PASSWORD, pass);
+
     my_curl_easy_setopt(curl, CURLOPT_RTSP_REQUEST, (long)CURL_RTSPREQ_OPTIONS);
     my_curl_easy_perform(curl);
 }
@@ -653,17 +704,23 @@ void get_media_control_attribute(const char *sdp_filename,
 {
     int max_len = 1256;
     char *s = malloc(max_len);
+
+    char *track = malloc(max_len);
+    char *track_ant = malloc(max_len);
+
     FILE *sdp_fp = fopen(sdp_filename, "rt");
-    control[0] = '\0';
+    //control[0] = '\0';
     if (sdp_fp != NULL) {
         while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-            sscanf(s, " a = control: %s", control);
-		//printf("el control: %s\n", control);
+            sscanf(s, " a = control: %s", track_ant);
+            if (strcmp(track_ant, "") != 0)
+                track = strstr(track_ant, "track");
         }
 
         fclose(sdp_fp);
     }
     free(s);
+    memcpy(control, track, strlen(track));
 }
 
 /* scan sdp file for incoming codec and set it */
@@ -758,41 +815,41 @@ int get_nals(const char *sdp_filename, unsigned char *nals){
     nals[0] = '\0';
     if (sdp_fp != NULL) {
         while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-		sprop = strstr(s, "sprop-parameter-sets=");
-		if (sprop != NULL) {
-			int length;
-			char *nal_aux, *nals_aux, *nal;
-			nals_aux = malloc(max_len);
-			nals[0]=0x00;
-			nals[1]=0x00;
-			nals[2]=0x00;
-			nals[3]=0x01;
-			len_nals = 4;
-			nal_aux = strstr(sprop, "=") ;
-			nal_aux++;
-			nal = strtok(nal_aux, ",");
-			//convert base64 to hex
-			nals_aux = g_base64_decode(nal, &length);
-			memcpy(nals+len_nals, nals_aux, length);
-			len_nals += length;
+            sprop = strstr(s, "sprop-parameter-sets=");
+            if (sprop != NULL) {
+                int length;
+                char *nal_aux, *nals_aux, *nal;
+                nals_aux = malloc(max_len);
+                nals[0]=0x00;
+                nals[1]=0x00;
+                nals[2]=0x00;
+                nals[3]=0x01;
+                len_nals = 4;
+                nal_aux = strstr(sprop, "=") ;
+                nal_aux++;
+                nal = strtok(nal_aux, ",;");
+                //convert base64 to hex
+                nals_aux = g_base64_decode(nal, &length);
+                memcpy(nals+len_nals, nals_aux, length);
+                len_nals += length;
 
-			while ((nal = strtok(NULL, ",")) != NULL){
-				//convert base64 to hex
-				nals[len_nals]=0x00;
-				nals[len_nals+1]=0x00;
-				nals[len_nals+2]=0x00;
-				nals[len_nals+3]=0x01;
-				len_nals += 4;
-				nals_aux = g_base64_decode(nal, &length);
-				memcpy(nals+len_nals, nals_aux, length);
-				len_nals += length;
-				}
-			}
-
-        	}
-
+                while ((nal = strtok(NULL, ",;")) != NULL){
+                    nals_aux = g_base64_decode(nal, &length);
+                    if (length) {
+                        //convert base64 to hex
+                        nals[len_nals]=0x00;
+                        nals[len_nals+1]=0x00;
+                        nals[len_nals+2]=0x00;
+                        nals[len_nals+3]=0x01;
+                        len_nals += 4;
+                        memcpy(nals+len_nals, nals_aux, length);
+                        len_nals += length;
+                    } //end if (length) {
+                }//end while ((nal = strtok(NULL, ",;")) != NULL){
+            }//end if (sprop != NULL) {
+        }//end while (fgets(s, max_len - 2, sdp_fp) != NULL) {
         fclose(sdp_fp);
-    }
+    }//end if (sdp_fp != NULL) {
 
     free(s);
     return len_nals;
