@@ -9,7 +9,11 @@
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *          David Cassany    <david.cassany@i2cat.net>
+ *          Ignacio Contreras <ignacio.contreras@i2cat.net>
+ *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -76,7 +80,8 @@ struct video_compress;
 enum rxtx_protocol {
         ULTRAGRID_RTP,
         IHDTV,
-        SAGE
+        SAGE,
+        H264_STD
 };
 
 struct rx_tx {
@@ -100,6 +105,7 @@ struct sender_data {
 
 extern struct rx_tx ultragrid_rtp;
 extern struct rx_tx sage_rxtx;
+extern struct rx_tx h264_rtp;
 
 struct ultragrid_rtp_state {
         int connections_count;
@@ -111,6 +117,12 @@ struct sage_rxtx_state {
         struct video_desc saved_vid_desc;
         struct display *sage_tx_device;
         pthread_t thread_id;
+};
+
+struct h264_rtp_state {
+        int connections_count;
+        struct rtp **network_devices;
+        struct tx *tx;
 };
 
 bool sender_init(struct sender_data *data);

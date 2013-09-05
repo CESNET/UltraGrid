@@ -9,7 +9,11 @@
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *          David Cassany    <david.cassany@i2cat.net>
+ *          Ignacio Contreras <ignacio.contreras@i2cat.net>
+ *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -76,6 +80,8 @@ static void ultragrid_rtp_send(void *state, struct video_frame *tx_frame);
 static void ultragrid_rtp_done(void *state);
 static void sage_rxtx_send(void *state, struct video_frame *tx_frame);
 static void sage_rxtx_done(void *state);
+static void h264_rtp_send(void *state, struct video_frame *tx_frame);
+static void h264_rtp_done(void *state);
 
 struct sender_priv_data {
         struct module mod;
@@ -100,6 +106,14 @@ struct rx_tx sage_rxtx = {
         sage_rxtx_send,
         sage_rxtx_done,
         NULL
+};
+
+struct rx_tx h264_rtp = {
+        H264_STD,
+        "H264 standard",
+        h264_rtp_send,
+        h264_rtp_done,
+        ultragrid_rtp_receiver_thread
 };
 
 static void sender_process_external_message(struct sender_data *data, struct msg_sender *msg)
@@ -135,7 +149,7 @@ bool sender_init(struct sender_data *data) {
         data->priv = calloc(1, sizeof(struct sender_priv_data));
         pthread_mutex_init(&data->priv->lock, NULL);
 
-        // we lock and thred unlocks after initialized
+        // we lock and thread unlocks after initialized
         pthread_mutex_lock(&data->priv->lock);
 
         if (pthread_create
@@ -218,6 +232,33 @@ static void sage_rxtx_done(void *state)
         pthread_join(data->thread_id, NULL);
 
         display_done(data->sage_tx_device);
+}
+
+static void h264_rtp_send(void *state, struct video_frame *tx_frame)
+{
+        struct h264_rtp_state *data = (struct h264_rtp_state *) state;
+
+        if(data->connections_count == 1) { /* normal/default case - only one connection */
+            tx_send_h264(data->tx, tx_frame, data->network_devices[0]);
+        } else {
+            //TODO to be tested, the idea is to reply per destiny
+                for (int i = 0; i < data->connections_count; ++i) {
+                    tx_send_h264(data->tx, tx_frame,
+                                        data->network_devices[i]);
+                }
+        }
+}
+
+static void h264_rtp_done(void *state)
+{
+        struct h264_rtp_state *data = (struct h264_rtp_state *) state;
+
+        if (data->tx) {
+                module_done(CAST_MODULE(data->tx));
+        }
+        if (data->network_devices) {
+                destroy_rtp_devices(data->network_devices);
+        }
 }
 
 static void *sender_thread(void *arg) {
