@@ -64,12 +64,13 @@
 //#include "audio/audio.h"
 
 FILE *F_video_rtsp=NULL;
-
+/**
+ * @struct rtsp_state
+ */
 struct rtsp_state {
 	char *nals;
 	int nals_size;
 	uint32_t *in_codec;
-
 
 	struct timeval t0,t;
 	int frames;
@@ -474,6 +475,9 @@ void *vidcap_rtsp_init(const struct vidcap_params *params){
     return s;
 }
 
+/**
+ * Initializes rtsp state and internal parameters
+ */
 int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	struct rtsp_state *s;
 	s = (struct rtsp_state *)state;
@@ -558,6 +562,9 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	return len_nals;
 }
 
+/**
+ * Initializes decompressor if required by decompress flag
+ */
 int init_decompressor(void *state) {
 	struct rtsp_state *sr;
 	sr = (struct rtsp_state *)state;
@@ -590,7 +597,9 @@ void rtsp_get_parameters(CURL *curl, const char *uri)
     my_curl_easy_perform(curl);
 }
 
-/* send RTSP OPTIONS request */
+/**
+ * send RTSP OPTIONS request
+ */
 void rtsp_options(CURL *curl, const char *uri)
 {
     char control[1500], *user, *pass, *strtoken;
@@ -624,7 +633,9 @@ void rtsp_options(CURL *curl, const char *uri)
 }
 
 
-/* send RTSP DESCRIBE request and write sdp response to a file */
+/**
+ * send RTSP DESCRIBE request and write sdp response to a file
+ */
 void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
 {
     CURLcode res = CURLE_OK;
@@ -646,7 +657,9 @@ void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
     }
 }
 
-/* send RTSP SETUP request */
+/**
+ * send RTSP SETUP request
+ */
 void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 {
     CURLcode res = CURLE_OK;
@@ -659,7 +672,9 @@ void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 }
 
 
-/* send RTSP PLAY request */
+/**
+ * send RTSP PLAY request
+ */
 void rtsp_play(CURL *curl, const char *uri, const char *range)
 {
     CURLcode res = CURLE_OK;
@@ -671,7 +686,9 @@ void rtsp_play(CURL *curl, const char *uri, const char *range)
 }
 
 
-/* send RTSP TEARDOWN request */
+/**
+ * send RTSP TEARDOWN request
+ */
 void rtsp_teardown(CURL *curl, const char *uri)
 {
     CURLcode res = CURLE_OK;
@@ -681,7 +698,9 @@ void rtsp_teardown(CURL *curl, const char *uri)
 }
 
 
-/* convert url into an sdp filename */
+/**
+ * convert url into an sdp filename
+ */
 void get_sdp_filename(const char *url, char *sdp_filename)
 {
     const char *s = strrchr(url, '/');
@@ -695,7 +714,9 @@ void get_sdp_filename(const char *url, char *sdp_filename)
     }
 }
 
-/* scan sdp file for media control attribute */
+/**
+ * scan sdp file for media control attribute
+ */
 void get_media_control_attribute(const char *sdp_filename,
                                         char *control)
 {
@@ -723,7 +744,9 @@ void get_media_control_attribute(const char *sdp_filename,
     memcpy(control, track, strlen(track));
 }
 
-/* scan sdp file for incoming codec and set it */
+/**
+ * scan sdp file for incoming codec and set it
+ */
 void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state)
 {
 	struct rtsp_state *sr;
@@ -805,7 +828,9 @@ void vidcap_rtsp_done(void *state){
     free(s);
 }
 
-/* scan sdp file for media control attribute */
+/**
+ * scan sdp file for media control attribute to generate nal starting bytes
+ */
 int get_nals(const char *sdp_filename, unsigned char *nals){
     int max_len = 1500 , len_nals = 0;
     char *s = malloc(max_len);
@@ -856,7 +881,9 @@ int get_nals(const char *sdp_filename, unsigned char *nals){
 }
 
 
-/* forced sigaction handler when rtsp init waits... */
+/**
+ * forced sigaction handler when rtsp init waits
+ */
 void sigaction_handler()
 {
 	vidcap_rtsp_done(s_global);
