@@ -710,8 +710,11 @@ void get_media_control_attribute(const char *sdp_filename,
     if (sdp_fp != NULL) {
         while (fgets(s, max_len - 2, sdp_fp) != NULL) {
             sscanf(s, " a = control: %s", track_ant);
-            if (strcmp(track_ant, "") != 0)
+            if (strcmp(track_ant, "") != 0){
                 track = strstr(track_ant, "track");
+                if(track != NULL)
+                    break;
+            }
         }
 
         fclose(sdp_fp);

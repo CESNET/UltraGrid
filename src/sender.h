@@ -65,6 +65,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "video.h"
+#include "utils/sdp.h"
 
 struct tx;
 struct rtp;
@@ -123,6 +124,7 @@ struct h264_rtp_state {
         int connections_count;
         struct rtp **network_devices;
         struct tx *tx;
+        struct sdp *sdp;
 };
 
 bool sender_init(struct sender_data *data);

@@ -14,7 +14,6 @@
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- *
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -79,6 +78,7 @@
 #include "sender.h"
 #include "stats.h"
 #include "utils/wait_obj.h"
+#include "utils/sdp.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -249,7 +249,7 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
-        printf("\t--h264                 \tsend h264 stream following the h264 rtp standard\n");
+        printf("\t--h264                 \t\tsend h264 stream following the h264 rtp standard\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
@@ -1402,8 +1402,11 @@ int main(int argc, char *argv[])
                         struct rtp **item;
                         uv->connections_count = 0;
                         /* only count how many connections has initialize_network opened */
-                        for(item = uv->network_devices; *item != NULL; ++item)
+                        for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
+                                h264_rtp.sdp = new_sdp(std_H264,uv->send_port_number);
+                                get_sdp(h264_rtp.sdp);
+                        }
                 }
 
                 if(bitrate == 0) { // else packet_rate defaults to 13600 or so
