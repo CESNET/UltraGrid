@@ -113,7 +113,7 @@ struct rx_tx h264_rtp = {
         "H264 standard",
         h264_rtp_send,
         h264_rtp_done,
-        ultragrid_rtp_receiver_thread
+        NULL //TODO: h264_rtp_receiver_thread
 };
 
 static void sender_process_external_message(struct sender_data *data, struct msg_sender *msg)
