@@ -1405,7 +1405,10 @@ int main(int argc, char *argv[])
                         for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
                                 h264_rtp.sdp = new_sdp(std_H264,uv->send_port_number);
-                                get_sdp(h264_rtp.sdp);
+                                if(h264_rtp.sdp!= NULL && get_sdp(h264_rtp.sdp)){
+                                    debug_msg("[SDP] File ug_h264_std.sdp created\n");
+                                }else
+                                    debug_msg("[SDP] File creation failed\n");
                         }
                 }
 

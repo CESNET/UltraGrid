@@ -105,6 +105,7 @@ OBJS	      = @OBJS@ \
 		src/utils/config_file.o \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
+		src/utils/sdp.o \
 		src/lib_common.o \
 		src/utils/message_queue.o \
 		src/utils/packet_counter.o \

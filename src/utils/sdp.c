@@ -67,52 +67,59 @@ struct sdp *new_sdp(enum rtp_standard std, int port){
             set_connection(sdp);
             set_times(sdp);
             set_stream(sdp);
-
+            return sdp;
             break;
         default://UNKNOWN
             break;
     }
-    return sdp;
+    return NULL;
 }
+
 bool get_sdp(struct sdp *sdp){
     bool rc = 0;
 
-    FILE *fOut = fopen ("UG_H264_STD.sdp", "w+");
-    if (fOut != NULL) {
-        if (fprintf (fOut,sdp->version) >= 0) {
-            rc = 1;
-        }
-        if (fprintf (fOut,sdp->origin) >= 0) {
-            rc = 1;
-        }
-        if (fprintf (fOut,sdp->session_name) >= 0) {
-            rc = 1;
-        }
-        if (fprintf (fOut,sdp->connection) >= 0) {
-            rc = 1;
-        }
-        if (fprintf (fOut,sdp->times) >= 0) {
-            rc = 1;
-        }
-        if (fprintf (fOut,sdp->stream[sdp->stream_count]->media_info) >= 0) {
-            rc = 1;
-        }
-        if (fprintf (fOut,sdp->stream[sdp->stream_count]->rtpmap) >= 0) {
-            rc = 1;
-        }
-        fclose (fOut); // or for the paranoid: if (fclose (fOut) == EOF) rc = 0;
+    if(sdp!=NULL){
+        FILE *fOut = fopen ("ug_h264_std.sdp", "w+");
+        if (fOut != NULL) {
+            if (fprintf (fOut,sdp->version) >= 0) {
+                rc = 1;
+            }
+            if (fprintf (fOut,sdp->origin) >= 0) {
+                rc = 1;
+            }
+            if (fprintf (fOut,sdp->session_name) >= 0) {
+                rc = 1;
+            }
+            if (fprintf (fOut,sdp->connection) >= 0) {
+                rc = 1;
+            }
+            if (fprintf (fOut,sdp->times) >= 0) {
+                rc = 1;
+            }
+            if (fprintf (fOut,sdp->stream[sdp->stream_count]->media_info) >= 0) {
+                rc = 1;
+            }
+            if (fprintf (fOut,sdp->stream[sdp->stream_count]->rtpmap) >= 0) {
+                rc = 1;
+            }
+            fclose (fOut); // or for the paranoid: if (fclose (fOut) == EOF) rc = 0;
+        }else rc=0;
+    }else rc = 0;
+
+    if(rc){
+        printf("\n[SDP] File ug_h264_std.sdp created.\nPrinted version:\n");
+        printf("%s",sdp->version);
+        printf("%s",sdp->origin);
+        printf("%s",sdp->session_name);
+        printf("%s",sdp->connection);
+        printf("%s",sdp->times);
+        //TODO check all stream vector (while!=NULL...)
+        printf("%s",sdp->stream[sdp->stream_count]->media_info);
+        printf("%s",sdp->stream[sdp->stream_count]->rtpmap);
+        printf("\n\n");
     }
 
-    printf("\n[SDP] printed version:\n");
-    printf("%s",sdp->version);
-    printf("%s",sdp->origin);
-    printf("%s",sdp->session_name);
-    printf("%s",sdp->connection);
-    printf("%s",sdp->times);
-    //TODO check all stream vector (while!=NULL...)
-    printf("%s",sdp->stream[sdp->stream_count]->media_info);
-    printf("%s",sdp->stream[sdp->stream_count]->rtpmap);
-    printf("\n\n");
+    return rc;
 }
 
 void set_version(struct sdp *sdp){
@@ -146,17 +153,17 @@ void set_times(struct sdp *sdp){
 void get_times(struct sdp *sdp);
 
 void set_stream(struct sdp *sdp){
-    if(add_stream(sdp)){
+    if(new_stream(sdp)){
     }
     else{
         printf("[SDP] stream NOT added -> error: maximum stream definition reached\n");
     }
 
 }
-void get_stream(struct sdp *sdp);
+void get_stream(struct sdp *sdp, int index);
 
 
-bool add_stream(struct sdp *sdp){
+bool new_stream(struct sdp *sdp){
     //struct stream_info *stream;
     sdp->stream_count++;
     if(sdp->stream_count < MAX_STREAMS + 1){
@@ -164,8 +171,7 @@ bool add_stream(struct sdp *sdp){
         sdp->stream[sdp->stream_count] = malloc(sizeof(struct stream_info));
         sdp->stream[sdp->stream_count]->media_info = set_stream_media_info(sdp, sdp->stream_count);
         sdp->stream[sdp->stream_count]->rtpmap = set_stream_rtpmap(sdp, sdp->stream_count);
-        //set_stream_rtpmap(sdp, sdp->stream_count);
-        //set_stream_fmtp(sdp->stream[sdp->stream_count]);
+
         return true;
     }
     else{

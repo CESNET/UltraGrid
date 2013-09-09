@@ -99,12 +99,12 @@ void set_times(struct sdp *sdp);
 void get_times(struct sdp *sdp);
 
 void set_stream(struct sdp *sdp);
-void get_stream(struct sdp *sdp);
+void get_stream(struct sdp *sdp, int index);
 
 /*
  * Internal API
  */
-bool add_stream(struct sdp *sdp);
+bool new_stream(struct sdp *sdp);
 char *set_stream_media_info(struct sdp *sdp, int index);
 char *set_stream_rtpmap(struct sdp *sdp, int index);
 
