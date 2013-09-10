@@ -196,3 +196,9 @@ char *set_stream_rtpmap(struct sdp *sdp, int index){
 
     return sdp->stream[index]->rtpmap;
 }
+
+void clean_sdp(struct sdp *sdp){
+    //TODO to free all memory
+
+
+}

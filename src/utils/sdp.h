@@ -107,6 +107,7 @@ void get_stream(struct sdp *sdp, int index);
 bool new_stream(struct sdp *sdp);
 char *set_stream_media_info(struct sdp *sdp, int index);
 char *set_stream_rtpmap(struct sdp *sdp, int index);
+void clean_sdp(struct sdp *sdp);
 
 #ifdef __cplusplus
 }
