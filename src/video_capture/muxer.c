@@ -141,7 +141,7 @@ vidcap_muxer_init(const struct vidcap_params *params)
                 }
         }
 
-        s->frame = vf_alloc(s->devices_cnt);
+        s->frame = vf_alloc(1);//s->devices_cnt);
         
 	return s;
 
@@ -175,6 +175,8 @@ vidcap_muxer_done(void *state)
         vf_free(s->frame);
 }
 
+int icounting=0;
+
 struct video_frame *
 vidcap_muxer_grab(void *state, struct audio_frame **audio)
 {
@@ -182,56 +184,62 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
         struct audio_frame *audio_frame = NULL;
         struct video_frame *frame = NULL;
 
+
         if(audio_frame) {
                 *audio = audio_frame;
         } else {
                 *audio = NULL;
         }
-        for (int i = 0; i < s->devices_cnt; ++i) {
+        //for (int i = 0; i < s->devices_cnt; ++i) {
                 frame = NULL;
                 while(!frame) {
-                        frame = vidcap_grab(s->devices[i], &audio_frame);
+                        frame = vidcap_grab(s->devices[icounting], &audio_frame);
                 }
-                if (i == 0) {
-                        s->frame->color_spec = frame->color_spec;
-                        s->frame->interlacing = frame->interlacing;
-                        s->frame->fps = frame->fps;
-                }
-                if (s->audio_source_index == -1 && audio_frame != NULL) {
-                        fprintf(stderr, "[muxer] Locking device #%d as an audio source.\n",
-                                        i);
-                        s->audio_source_index = i;
-                }
-                if (s->audio_source_index == i) {
-                        *audio = audio_frame;
-                }
-                if (frame->color_spec != s->frame->color_spec ||
-                                frame->fps != s->frame->fps ||
-                                frame->interlacing != s->frame->interlacing) {
-                        fprintf(stderr, "[muxer] Different format detected: ");
-                        if(frame->color_spec != s->frame->color_spec)
-                                fprintf(stderr, "codec");
-                        if(frame->interlacing != s->frame->interlacing)
-                                fprintf(stderr, "interlacing");
-                        if(frame->fps != s->frame->fps)
-                                fprintf(stderr, "FPS (%.2f and %.2f)", frame->fps, s->frame->fps);
-                        fprintf(stderr, "\n");
-                        
-                        return NULL;
-                }
-                vf_get_tile(s->frame, i)->width = vf_get_tile(frame, 0)->width;
-                vf_get_tile(s->frame, i)->height = vf_get_tile(frame, 0)->height;
-                vf_get_tile(s->frame, i)->data_len = vf_get_tile(frame, 0)->data_len;
-                vf_get_tile(s->frame, i)->data = vf_get_tile(frame, 0)->data;
-        }
+//                if (icounting == 0) {
+//                        s->frame->color_spec = frame->color_spec;
+//                        s->frame->interlacing = frame->interlacing;
+//                        s->frame->fps = frame->fps;
+//                }
+//                if (s->audio_source_index == -1 && audio_frame != NULL) {
+//                        fprintf(stderr, "[muxer] Locking device #%d as an audio source.\n",
+//                            icounting);
+//                        s->audio_source_index = icounting;
+//                }
+//                if (s->audio_source_index == icounting) {
+//                        *audio = audio_frame;
+//                }
+//                if (frame->color_spec != s->frame->color_spec ||
+//                                frame->fps != s->frame->fps ||
+//                                frame->interlacing != s->frame->interlacing) {
+//                        fprintf(stderr, "[muxer] Different format detected: ");
+//                        if(frame->color_spec != s->frame->color_spec)
+//                                fprintf(stderr, "codec");
+//                        if(frame->interlacing != s->frame->interlacing)
+//                                fprintf(stderr, "interlacing");
+//                        if(frame->fps != s->frame->fps)
+//                                fprintf(stderr, "FPS (%.2f and %.2f)", frame->fps, s->frame->fps);
+//                        fprintf(stderr, "\n");
+//
+//                        //return NULL;
+//                }
+                vf_get_tile(s->frame, 0)->width = vf_get_tile(frame, 0)->width;
+                vf_get_tile(s->frame, 0)->height = vf_get_tile(frame, 0)->height;
+                vf_get_tile(s->frame, 0)->data_len = vf_get_tile(frame, 0)->data_len;
+                vf_get_tile(s->frame, 0)->data = vf_get_tile(frame, 0)->data;
+                s->frame->color_spec = frame->color_spec;
+                s->frame->interlacing = frame->interlacing;
+                s->frame->fps = 15;//frame->fps;
+
+        //}
         s->frames++;
         gettimeofday(&s->t, NULL);
         double seconds = tv_diff(s->t, s->t0);    
         if (seconds >= 5) {
             float fps  = s->frames / seconds;
-            fprintf(stderr, "[muxer cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
+            fprintf(stderr, "[muxer] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
             s->t0 = s->t;
             s->frames = 0;
+            icounting=(icounting+1)%s->devices_cnt;
         }  
 
 	return s->frame;
