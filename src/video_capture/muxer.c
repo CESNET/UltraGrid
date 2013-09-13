@@ -53,7 +53,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <termios.h>
 
+
+/**
+ * MUXER CAPTURE
+ */
 /* prototypes of functions defined in this module */
 static void show_help(void);
 
@@ -73,6 +81,8 @@ struct vidcap_muxer_state {
         struct video_frame       *frame; 
         int frames;
         struct       timeval t, t0;
+
+        int         dev_index;
 
         int          audio_source_index;
 };
@@ -95,67 +105,67 @@ vidcap_muxer_probe(void)
 void *
 vidcap_muxer_init(const struct vidcap_params *params)
 {
-	struct vidcap_muxer_state *s;
-        int i;
+    struct vidcap_muxer_state *s;
+    int i;
 
-	printf("vidcap_muxer_init\n");
+    printf("vidcap_muxer_init\n");
 
-
-        s = (struct vidcap_muxer_state *) calloc(1, sizeof(struct vidcap_muxer_state));
-	if(s == NULL) {
-		printf("Unable to allocate muxer capture state\n");
-		return NULL;
-	}
-
-        s->audio_source_index = -1;
-        s->frames = 0;
-        gettimeofday(&s->t0, NULL);
-
-        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
-                show_help();
-                return &vidcap_init_noerr;
-        }
-
-
-        s->devices_cnt = 0;
-        const struct vidcap_params *tmp = params;
-        while((tmp = vidcap_params_get_next(tmp))) {
-                if (vidcap_params_get_driver(tmp) != NULL)
-                        s->devices_cnt++;
-                else
-                        break;
-        }
-
-        s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
-        i = 0;
-        tmp = params;
-        for (int i = 0; i < s->devices_cnt; ++i) {
-                tmp = vidcap_params_get_next(tmp);
-
-                int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
-                if(ret != 0) {
-                        fprintf(stderr, "[muxer] Unable to initialize device %d (%s:%s).\n",
-                                        i, vidcap_params_get_driver(tmp),
-                                        vidcap_params_get_fmt(tmp));
-                        goto error;
-                }
-        }
-
-        s->frame = vf_alloc(1);//s->devices_cnt);
-        
-	return s;
-
-error:
-        if(s->devices) {
-                int i;
-                for (i = 0u; i < s->devices_cnt; ++i) {
-                        if(s->devices[i]) {
-                                 vidcap_done(s->devices[i]);
-                        }
-                }
-        }
-        free(s);
+    s = (struct vidcap_muxer_state *) calloc(1,
+        sizeof(struct vidcap_muxer_state));
+    if (s == NULL) {
+        printf("Unable to allocate muxer capture state\n");
         return NULL;
+    }
+
+    s->audio_source_index = -1;
+    s->frames = 0;
+    s->dev_index = 0;
+    gettimeofday(&s->t0, NULL);
+
+    if (vidcap_params_get_fmt(params)
+        && strcmp(vidcap_params_get_fmt(params), "") != 0)
+    {
+        show_help();
+        return &vidcap_init_noerr;
+    }
+
+    s->devices_cnt = 0;
+    const struct vidcap_params *tmp = params;
+    while ((tmp = vidcap_params_get_next(tmp))) {
+        if (vidcap_params_get_driver(tmp) != NULL)
+            s->devices_cnt++;
+        else
+            break;
+    }
+
+    s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
+    i = 0;
+    tmp = params;
+    for (int i = 0; i < s->devices_cnt; ++i) {
+        tmp = vidcap_params_get_next(tmp);
+
+        int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+        if (ret != 0) {
+            fprintf(stderr, "[muxer] Unable to initialize device %d (%s:%s).\n",
+                i, vidcap_params_get_driver(tmp), vidcap_params_get_fmt(tmp));
+            goto error;
+        }
+    }
+
+    s->frame = vf_alloc(1); //s->devices_cnt);
+
+    return s;
+
+    error: if (s->devices) {
+        int i;
+        for (i = 0u; i < s->devices_cnt; ++i) {
+            if (s->devices[i]) {
+                vidcap_done(s->devices[i]);
+            }
+        }
+    }
+    free(s);
+    return NULL;
 }
 
 void
@@ -175,39 +185,45 @@ vidcap_muxer_done(void *state)
         vf_free(s->frame);
 }
 
-int icounting=0;
-
 struct video_frame *
 vidcap_muxer_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_muxer_state *s = (struct vidcap_muxer_state *) state;
-        struct audio_frame *audio_frame = NULL;
-        struct video_frame *frame = NULL;
+    struct audio_frame *audio_frame = NULL;
+    struct video_frame *frame = NULL;
+
+    set_conio_terminal_mode();
+    int c;
+
+    if (kbhit()) {
+        c = (int) getch();
+        debug_msg("num %d pressed...\r\n", c);
+    }
+    if(c >= 48 && c < 48+s->devices_cnt){
+        s->dev_index = c - 48;
+        printf("[muxer] device %d selected of %d devices...\r\n",s->dev_index,s->devices_cnt);
+    }
+    reset_terminal_mode();
 
 
-        if(audio_frame) {
-                *audio = audio_frame;
-        } else {
-                *audio = NULL;
-        }
-        //for (int i = 0; i < s->devices_cnt; ++i) {
-                frame = NULL;
-                while(!frame) {
-                        frame = vidcap_grab(s->devices[icounting], &audio_frame);
-                }
-//                if (icounting == 0) {
-//                        s->frame->color_spec = frame->color_spec;
-//                        s->frame->interlacing = frame->interlacing;
-//                        s->frame->fps = frame->fps;
-//                }
-//                if (s->audio_source_index == -1 && audio_frame != NULL) {
-//                        fprintf(stderr, "[muxer] Locking device #%d as an audio source.\n",
-//                            icounting);
-//                        s->audio_source_index = icounting;
-//                }
-//                if (s->audio_source_index == icounting) {
-//                        *audio = audio_frame;
-//                }
+    if (audio_frame) {
+        *audio = audio_frame;
+    } else {
+        *audio = NULL;
+    }
+
+    frame = NULL;
+    while (!frame) {
+        frame = vidcap_grab(s->devices[s->dev_index], &audio_frame);
+    }
+    if (s->audio_source_index == -1 && audio_frame != NULL) {
+        fprintf(stderr, "[muxer] Locking device #%d as an audio source.\n",
+            s->dev_index);
+        s->audio_source_index = s->dev_index;
+    }
+    if (s->audio_source_index == s->dev_index) {
+        *audio = audio_frame;
+    }
 //                if (frame->color_spec != s->frame->color_spec ||
 //                                frame->fps != s->frame->fps ||
 //                                frame->interlacing != s->frame->interlacing) {
@@ -222,26 +238,77 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
 //
 //                        //return NULL;
 //                }
-                vf_get_tile(s->frame, 0)->width = vf_get_tile(frame, 0)->width;
-                vf_get_tile(s->frame, 0)->height = vf_get_tile(frame, 0)->height;
-                vf_get_tile(s->frame, 0)->data_len = vf_get_tile(frame, 0)->data_len;
-                vf_get_tile(s->frame, 0)->data = vf_get_tile(frame, 0)->data;
-                s->frame->color_spec = frame->color_spec;
-                s->frame->interlacing = frame->interlacing;
-                s->frame->fps = 15;//frame->fps;
+    if (frame != NULL) {
+        vf_get_tile(s->frame, 0)->width = vf_get_tile(frame, 0)->width;
+        vf_get_tile(s->frame, 0)->height = vf_get_tile(frame, 0)->height;
+        vf_get_tile(s->frame, 0)->data_len = vf_get_tile(frame, 0)->data_len;
+        vf_get_tile(s->frame, 0)->data = vf_get_tile(frame, 0)->data;
+        s->frame->color_spec = frame->color_spec;
+        s->frame->interlacing = frame->interlacing;
+        if (frame->fps == 0)
+            s->frame->fps = 15;
+        else
+            s->frame->fps = frame->fps;
+    } else
+        return NULL;
 
-        //}
-        s->frames++;
-        gettimeofday(&s->t, NULL);
-        double seconds = tv_diff(s->t, s->t0);    
-        if (seconds >= 5) {
-            float fps  = s->frames / seconds;
-            fprintf(stderr, "[muxer] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-            s->t0 = s->t;
-            s->frames = 0;
-            icounting=(icounting+1)%s->devices_cnt;
-        }  
+    s->frames++;
+    gettimeofday(&s->t, NULL);
+    double seconds = tv_diff(s->t, s->t0);
+    if (seconds >= 5) {
+        float fps = s->frames / seconds;
+        fprintf(stderr, "[muxer] %d frames in %g seconds = %g FPS\n", s->frames,
+            seconds, fps);
+        s->t0 = s->t;
+        s->frames = 0;
+        //s->dev_index = (s->dev_index + 1) % s->devices_cnt;
+    }
 
 	return s->frame;
+}
+
+/**
+ * KEYBOARD HANDLER
+ */
+
+struct termios orig_termios;
+
+void reset_terminal_mode()
+{
+    tcsetattr(0, TCSANOW, &orig_termios);
+}
+
+void set_conio_terminal_mode()
+{
+    struct termios new_termios;
+
+    /* take two copies - one for now, one for later */
+    tcgetattr(0, &orig_termios);
+    memcpy(&new_termios, &orig_termios, sizeof(new_termios));
+
+    /* register cleanup handler, and set the new terminal mode */
+    atexit(reset_terminal_mode);
+    cfmakeraw(&new_termios);
+    tcsetattr(0, TCSANOW, &new_termios);
+}
+
+int kbhit()
+{
+    struct timeval tv = { 0L, 0L };
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(0, &fds);
+    return select(1, &fds, NULL, NULL, &tv);
+}
+
+int getch()
+{
+    int r;
+    unsigned char c;
+    if ((r = read(0, &c, sizeof(c))) < 0) {
+        return r;
+    } else {
+    return c;
+    }
 }
 
