@@ -1909,10 +1909,12 @@ fi
 SAVED_LIBS=$LIBS
 LIBS="$LIBS $JPEG_LIB"
 AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
 LIBS=$SAVED_LIBS
 
 if test "$jpeg_req" != no -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
 then
         jpeg=yes
 
@@ -2002,7 +2004,8 @@ AC_ARG_ENABLE(jpeg_to_dxt,
               [jpeg_to_dxt_req=auto])
 
 if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
 then
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
