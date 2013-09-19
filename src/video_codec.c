@@ -78,8 +78,10 @@
 static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
-static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
-                int rshift, int gshift, int bshift, int pix_size);
+static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
+static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 
 const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {VIDEO_CODEC_NONE, "(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
@@ -920,10 +922,12 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
 
 /**
  * @brief Converts RGB(A) into UYVY
+ *
+ * Uses full scale Rec. 601 YUV (aka JPEG)
  * @copydetails vc_copyliner10k
  * @param[in] source pixel size (3 for RGB, 4 for RGBA)
  */
-static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
+static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) {
         register int r, g, b;
         register int y1, y2, u ,v;
@@ -944,6 +948,45 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
                 y2 = 19595 * r + 38469 * g + 7471 * b;
                 u += -9642 * r -18931 * g + 28573 * b;
                 v += 40304 * r - 33750 * g - 6554 * b;
+                u = u / 2 + (1<<23);
+                v = v / 2 + (1<<23);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
+                        (min(max(u, 0), (1<<24)-1) >> 16);
+                dst_len -= 4;
+        }
+}
+
+/**
+ * @brief Converts RGB(A) into UYVY
+ *
+ * Uses Rec. 709 with standard SDI ceiling and floor
+ * @copydetails vc_copyliner10k
+ * @param[in] source pixel size (3 for RGB, 4 for RGBA)
+ */
+static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) {
+        register int r, g, b;
+        register int y1, y2, u ,v;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+
+        while(dst_len > 0) {
+                r = *(src + rshift);
+                g = *(src + gshift);
+                b = *(src + bshift);
+                src += pix_size;
+                y1 = 11993 * r + 40239 * g + 4063 * b + (1<<20);
+                u  = -6619 * r -22151 * g + 28770 * b;
+                v  = 28770 * r - 26149 * g - 2621 * b;
+                r = *(src + rshift);
+                g = *(src + gshift);
+                b = *(src + bshift);
+                src += pix_size;
+                y2 = 11993 * r + 40239 * g + 4063 * b + (1<<20);
+                u += -6619 * r -22151 * g + 28770 * b;
+                v += 28770 * r - 26149 * g - 2621 * b;
                 u = u / 2 + (1<<23);
                 v = v / 2 + (1<<23);
 
@@ -986,7 +1029,7 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
  */
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 3);
+        vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 3);
 }
 
 /**
@@ -996,7 +1039,7 @@ void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  */
 void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        vc_copylineToUYVY(dst, src, dst_len, 2, 1, 0, 3);
+        vc_copylineToUYVY709(dst, src, dst_len, 2, 1, 0, 3);
 }
 
 /**
@@ -1006,7 +1049,7 @@ void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_
  */
 void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 4);
+        vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
 }
 
 /**
@@ -1100,39 +1143,43 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 /**
  * Returns line decoder for specifiedn input and output codec.
  */
-decoder_t get_decoder_from_to(codec_t in, codec_t out)
+decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
 {
         struct item {
                 decoder_t decoder;
                 codec_t in;
                 codec_t out;
+                bool slow;
         };
 
         struct item decoders[] = {
-                { (decoder_t) vc_copylineDVS10,       DVS10, UYVY },
-                { (decoder_t) vc_copylinev210,        v210,  UYVY },
-                { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY },
-                { (decoder_t) vc_copyliner10k,        R10k,  RGBA },
-              //{ vc_copylineRGBA,        RGBA,  RGBA },
-                { (decoder_t) vc_copylineDVS10toV210, DVS10, v210 },
-                { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB  },
-                { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA },
-                // following is disabled - shouldn't be senected automatically
-              //{ (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY },
-              //{ (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB  },
-              //{ vc_copylineBGRtoUYVY,   BGR,   UYVY },
-              //{ vc_copylineRGBAtoUYVY,  RGBA,  UYVY },
-                { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB  },
-                { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA },
-                { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB  },
-              //{ vc_copylineRGB,         RGB,   RGB  }.
+                { (decoder_t) vc_copylineDVS10,       DVS10, UYVY, false },
+                { (decoder_t) vc_copylinev210,        v210,  UYVY, false },
+                { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
+                { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
+                { vc_copylineRGBA,        RGBA,  RGBA, false },
+                { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
+                { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
+                { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
+                { (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
+                { (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
+                { (decoder_t) vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
+                { (decoder_t) vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
+                { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB, false },
+                { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA, false },
+                { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB, false },
+                { vc_copylineRGB,         RGB,   RGB, false },
         };
 
         for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct item); ++i) {
-                if (decoders[i].in == in && decoders[i].out == out) {
+                if (decoders[i].in == in && decoders[i].out == out &&
+                                (decoders[i].slow == false || slow == true)) {
                         return decoders[i].decoder;
                 }
         }
+
+        if (in == out)
+                return (decoder_t) memcpy;
 
         return NULL;
 }

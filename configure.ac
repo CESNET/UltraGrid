@@ -1250,23 +1250,23 @@ then
         LIBS=$SAVED_LIBS
         if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
         then
-                TESTCARD_LIB="-lSDL -lSDL_mixer $X11_LIB"
+                TESTCARD2_LIB="-lSDL_mixer"
         fi
 
         TESTCARD2_OBJ=
-        TESTCARD2_LIB=
         if test $sdl = yes
         then
                 TESTCARD2_OBJ="src/video_capture/testcard2.o"
-                TESTCARD2_LIB=$SDL_LIB
+                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB $X11_LIB"
                 SAVED_LIBS=$LIBS
                 AC_CHECK_LIB(SDL_ttf, TTF_Init)
                 LIBS=$SAVED_LIBS
                 if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
                 then
                         TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
+                        AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
-                AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
+                AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"

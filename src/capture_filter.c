@@ -59,11 +59,13 @@
 
 #include "capture_filter/blank.h"
 #include "capture_filter/every.h"
+#include "capture_filter/logo.h"
 #include "capture_filter/none.h"
 
 static struct capture_filter_info *capture_filters[] = {
         &capture_filter_blank,
         &capture_filter_every,
+        &capture_filter_logo,
         &capture_filter_none,
 };
 
@@ -77,7 +79,7 @@ struct capture_filter_instance {
         void *state;
 };
 
-static bool create_filter(struct capture_filter *s, char *cfg)
+static int create_filter(struct capture_filter *s, char *cfg)
 {
         unsigned int i;
         char *options = NULL;
@@ -108,7 +110,7 @@ static bool create_filter(struct capture_filter *s, char *cfg)
                                 filter_name);
                 return false;
         }
-        return true;
+        return 0;
 }
 
 int capture_filter_init(struct module *parent, const char *cfg, struct capture_filter **state)
@@ -139,8 +141,13 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
                 while((item = strtok_r(filter_list_str, ",", &save_ptr))) {
                         char filter_name[128];
                         strncpy(filter_name, item, sizeof(filter_name));
-                        if (!create_filter(s, filter_name))
-                                return -1;
+
+                        int ret = create_filter(s, filter_name);
+                        if (ret != 0) {
+                                module_done(&s->mod);
+                                free(s);
+                                return ret;
+                        }
                         filter_list_str = NULL;
                 }
         }
@@ -191,7 +198,7 @@ static void process_message(struct capture_filter *s, struct msg_universal *msg)
                 }
         } else {
                 char *fmt = strdup(msg->text);
-                if (!create_filter(s, fmt)) {
+                if (create_filter(s, fmt) != 0) {
                         fprintf(stderr, "Cannot create capture filter: %s.\n",
                                         msg->text);
                 } else {

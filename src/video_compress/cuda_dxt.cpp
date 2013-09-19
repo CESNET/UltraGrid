@@ -135,9 +135,9 @@ static bool configure_with(struct state_video_compress_cuda_dxt *s, struct video
 
         if (desc.color_spec == RGB || desc.color_spec == UYVY) {
                 s->in_codec = desc.color_spec;
-        } else if ((s->decoder = get_decoder_from_to(desc.color_spec, RGB))) {
+        } else if ((s->decoder = get_decoder_from_to(desc.color_spec, RGB, false))) {
                 s->in_codec = RGB;
-        } else if ((s->decoder = get_decoder_from_to(desc.color_spec, UYVY))) {
+        } else if ((s->decoder = get_decoder_from_to(desc.color_spec, UYVY, false))) {
                 s->in_codec = UYVY;
         } else {
                 fprintf(stderr, "Unsupported codec: %s\n", get_codec_name(desc.color_spec));

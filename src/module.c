@@ -109,7 +109,8 @@ void module_done(struct module *module_data)
         pthread_mutex_destroy(&tmp.lock);
 
         if(simple_linked_list_size(tmp.childs) > 0) {
-                fprintf(stderr, "Warning: Child database not empty!\n");
+                fprintf(stderr, "Warning: Child database not empty! Remaining:\n");
+                dump_tree(&tmp, 0);
         }
         simple_linked_list_destroy(tmp.childs);
 
