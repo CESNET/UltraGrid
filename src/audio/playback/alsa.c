@@ -126,7 +126,7 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                         format = SND_PCM_FORMAT_S16_LE;
                         break;
                 case 24:
-                        format = SND_PCM_FORMAT_S24_LE;
+                        format = SND_PCM_FORMAT_S24_3LE;
                         break;
                 case 32:
                         format = SND_PCM_FORMAT_S32_LE;
