@@ -418,7 +418,7 @@ then
         if test "$system" = "Linux"
         then
                 LIBS="$LIBS -ldl"
-                LDFLAGS+="-rdynamic -ldl"
+                LDFLAGS="$LDFLAGS -rdynamic -ldl"
         else
                 AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
                 build_libraries=no
@@ -884,7 +884,7 @@ fi
 
 
 
-if test $BLUE_H = yes -a $BLUE_L = yes
+if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
 then
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
