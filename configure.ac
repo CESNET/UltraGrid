@@ -1264,7 +1264,7 @@ case $host in
     ;;
 esac
 
-if test $rtsp = yes -a $rtsp = no; then
+if test $rtsp_req = yes -a $rtsp = no; then
         AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
 fi
 
