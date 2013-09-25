@@ -53,8 +53,12 @@
 #include "video_capture/rtsp.h"
 #include "rtp/pbuf.h"
 
+struct recieved_data{
+    uint32_t buffer_len;//[MAX_SUBSTREAMS];
+    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
+    char *frame_buffer;//[MAX_SUBSTREAMS];
+};
 static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
-
 int decode_frame_h264(struct coded_data *cdata, void *rx_data);
 
 int decode_frame_h264(struct coded_data *cdata, void *rx_data) {

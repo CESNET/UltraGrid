@@ -44,6 +44,16 @@
 #include "config_unix.h"
 #include "config_win32.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <pthread.h>
+#include <glib.h>
+
+struct coded_data;
+
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -63,6 +73,77 @@
 #include "video_capture/rtsp.h"
 //#include "audio/audio.h"
 
+#include <curl/curl.h>
+
+#define VERSION_STR  "V1.0"
+
+//TODO set lower initial video recv buffer size (to find the minimal)
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
+
+//#define MAX_SUBSTREAMS 1
+
+struct recieved_data{
+    uint32_t buffer_len;//[MAX_SUBSTREAMS];
+    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
+    char *frame_buffer;//[MAX_SUBSTREAMS];
+};
+
+struct rtsp_state *s_global;
+
+/* error handling macros */
+#define my_curl_easy_setopt(A, B, C) \
+    if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK) \
+fprintf(stderr, "curl_easy_setopt(%s, %s, %s) failed: %d\n", \
+#A, #B, #C, res);
+
+#define my_curl_easy_perform(A) \
+    if ((res = curl_easy_perform((A))) != CURLE_OK) \
+fprintf(stderr, "curl_easy_perform(%s) failed: %d\n", #A, res);
+
+
+
+/* send RTSP GET_PARAMETERS request */
+static void rtsp_get_parameters(CURL *curl, const char *uri);
+
+/* send RTSP OPTIONS request */
+static void rtsp_options(CURL *curl, const char *uri);
+
+/* send RTSP DESCRIBE request and write sdp response to a file */
+static void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename);
+
+/* send RTSP SETUP request */
+static void rtsp_setup(CURL *curl, const char *uri, const char *transport);
+
+/* send RTSP PLAY request */
+static void rtsp_play(CURL *curl, const char *uri, const char *range);
+
+/* send RTSP TEARDOWN request */
+static void rtsp_teardown(CURL *curl, const char *uri);
+
+/* convert url into an sdp filename */
+static void get_sdp_filename(const char *url, char *sdp_filename);
+
+/* scan sdp file for media control attribute */
+static void get_media_control_attribute(const char *sdp_filename, char *control);
+
+/* scan sdp file for incoming codec */
+static int set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state);
+
+static int get_nals(const char *sdp_filename, unsigned char *nals);
+
+/* sigaction handler that forces teardown on current session */
+static void sigaction_handler();
+
+static int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals);
+
+static int init_decompressor(void *state);
+
+/* sigaction handler that forces teardown on current session */
+static void sigaction_handler();
+
+static void * vidcap_rtsp_thread(void *args);
+static void show_help(void);
+
 FILE *F_video_rtsp=NULL;
 /**
  * @struct rtsp_state
@@ -70,6 +151,7 @@ FILE *F_video_rtsp=NULL;
 struct rtsp_state {
 	char *nals;
 	int nals_size;
+	char *data; //nals + data
 	uint32_t *in_codec;
 
 	struct timeval t0,t;
@@ -124,11 +206,9 @@ struct rtsp_state {
 	float fps;
 };
 
-char *data;
-void * vidcap_rtsp_thread(void *args);
-void show_help(void);
 
-void show_help(){
+
+static void show_help(){
 	printf("[rtsp] usage:\n");
 	printf("\t-t rtsp:<uri>:<port>:<width>:<height>[:<decompress>]\n");
 	printf("\t\t <uri> uri server without 'rtsp://' \n");
@@ -136,10 +216,9 @@ void show_help(){
 	printf("\t\t <width> receiver width number \n");
 	printf("\t\t <height> receiver height number \n");
 	printf("\t\t <decompress> receiver decompress boolean [true|false] - default: false - no decompression active\n\n");
-	return &vidcap_init_noerr;
 }
 
-void * vidcap_rtsp_thread(void *arg)
+static void * vidcap_rtsp_thread(void *arg)
 {
 	struct rtsp_state *s;
 	s = (struct rtsp_state *)arg;
@@ -212,9 +291,9 @@ struct video_frame	*vidcap_rtsp_grab(void *state, struct audio_frame **audio){
 
         	s->frame->tiles[0].data_len = s->rx_data->buffer_len;
 
-        	memcpy(data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
+        	memcpy(s->data+s->nals_size,s->rx_data->frame_buffer,s->rx_data->buffer_len);
 
-        	memcpy(s->frame->tiles[0].data,data,s->rx_data->buffer_len + s->nals_size);
+        	memcpy(s->frame->tiles[0].data,s->data,s->rx_data->buffer_len + s->nals_size);
         	s->frame->tiles[0].data_len += s->nals_size;
 
         	if(s->decompress){
@@ -293,6 +372,7 @@ void *vidcap_rtsp_init(const struct vidcap_params *params){
 
     if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
         show_help();
+	return &vidcap_init_noerr;
     }
     else{
 		char *tmp = NULL;
@@ -403,7 +483,7 @@ void *vidcap_rtsp_init(const struct vidcap_params *params){
     free(uri_tmp2);
 
 	s->rx_data->frame_buffer = malloc(4*s->width*s->height);
-	data = malloc(4*s->width*s->height + s->nals_size);
+	s->data = malloc(4*s->width*s->height + s->nals_size);
 
     s->frame = vf_alloc(1);
     s->tile = vf_get_tile(s->frame, 0);
@@ -459,7 +539,7 @@ void *vidcap_rtsp_init(const struct vidcap_params *params){
 	s->nals_size = init_rtsp(s->uri, s->port, s , s->nals);
 
 	if(s->nals_size>=0)
-		memcpy(data,s->nals,s->nals_size);
+		memcpy(s->data,s->nals,s->nals_size);
 	else
 		return NULL;
 
@@ -478,11 +558,11 @@ void *vidcap_rtsp_init(const struct vidcap_params *params){
 /**
  * Initializes rtsp state and internal parameters
  */
-int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
+static int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 	struct rtsp_state *s;
 	s = (struct rtsp_state *)state;
 	const char *range = "0.000-";
-	int len_nals=0;
+	int len_nals=-1;
 	char *base_name = NULL;
 	CURLcode res;
 	debug_msg("\n[rtsp] request %s\n", VERSION_STR);
@@ -535,7 +615,8 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 			get_media_control_attribute(sdp_filename, &control);
 
 			/* set incoming media codec attribute from sdp file */
-			set_codec_attribute_from_incoming_media(sdp_filename, s);
+			if (set_codec_attribute_from_incoming_media(sdp_filename, s) == 0)
+                                return -1;
 
 			/* setup media stream */
 			sprintf(uri, "%s/%s", url, control);
@@ -565,7 +646,7 @@ int init_rtsp(char* rtsp_uri, int rtsp_port,void *state, unsigned char* nals) {
 /**
  * Initializes decompressor if required by decompress flag
  */
-int init_decompressor(void *state) {
+static int init_decompressor(void *state) {
 	struct rtsp_state *sr;
 	sr = (struct rtsp_state *)state;
 
@@ -588,7 +669,7 @@ int init_decompressor(void *state) {
 }
 
 
-void rtsp_get_parameters(CURL *curl, const char *uri)
+static void rtsp_get_parameters(CURL *curl, const char *uri)
 {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] GET_PARAMETERS %s\n", uri);
@@ -600,7 +681,7 @@ void rtsp_get_parameters(CURL *curl, const char *uri)
 /**
  * send RTSP OPTIONS request
  */
-void rtsp_options(CURL *curl, const char *uri)
+static void rtsp_options(CURL *curl, const char *uri)
 {
     char control[1500], *user, *pass, *strtoken;
     user = malloc(1500);
@@ -636,7 +717,7 @@ void rtsp_options(CURL *curl, const char *uri)
 /**
  * send RTSP DESCRIBE request and write sdp response to a file
  */
-void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
+static void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
 {
     CURLcode res = CURLE_OK;
     FILE *sdp_fp = fopen(sdp_filename, "wt");
@@ -660,7 +741,7 @@ void rtsp_describe(CURL *curl, const char *uri, const char *sdp_filename)
 /**
  * send RTSP SETUP request
  */
-void rtsp_setup(CURL *curl, const char *uri, const char *transport)
+static void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] SETUP %s\n", uri);
@@ -675,7 +756,7 @@ void rtsp_setup(CURL *curl, const char *uri, const char *transport)
 /**
  * send RTSP PLAY request
  */
-void rtsp_play(CURL *curl, const char *uri, const char *range)
+static void rtsp_play(CURL *curl, const char *uri, const char *range)
 {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] PLAY %s\n", uri);
@@ -689,7 +770,7 @@ void rtsp_play(CURL *curl, const char *uri, const char *range)
 /**
  * send RTSP TEARDOWN request
  */
-void rtsp_teardown(CURL *curl, const char *uri)
+static void rtsp_teardown(CURL *curl, const char *uri)
 {
     CURLcode res = CURLE_OK;
     debug_msg("\n[rtsp] TEARDOWN %s\n", uri);
@@ -701,7 +782,7 @@ void rtsp_teardown(CURL *curl, const char *uri)
 /**
  * convert url into an sdp filename
  */
-void get_sdp_filename(const char *url, char *sdp_filename)
+static void get_sdp_filename(const char *url, char *sdp_filename)
 {
     const char *s = strrchr(url, '/');
     debug_msg("sdp_file get: %s\n", sdp_filename);
@@ -717,7 +798,7 @@ void get_sdp_filename(const char *url, char *sdp_filename)
 /**
  * scan sdp file for media control attribute
  */
-void get_media_control_attribute(const char *sdp_filename,
+static void get_media_control_attribute(const char *sdp_filename,
                                         char *control)
 {
     int max_len = 1256;
@@ -747,7 +828,7 @@ void get_media_control_attribute(const char *sdp_filename,
 /**
  * scan sdp file for incoming codec and set it
  */
-void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state)
+static int set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state)
 {
 	struct rtsp_state *sr;
 	sr = (struct rtsp_state *)state;
@@ -782,17 +863,17 @@ void set_codec_attribute_from_incoming_media(const char *sdp_filename, void *sta
 	tmp = strtok_r(codec, "/", &save_ptr);
 	if (!tmp) {
 		fprintf(stderr, "[rtsp] no codec atribute found into sdp file...\n", tmp);
-		free(s);
-		return NULL;
+		return 0;
 	}
 	sprintf(sr->in_codec, "%s",tmp);
 
 	if(memcmp(sr->in_codec,"H264",4)==0)
 		sr->frame->color_spec = H264;
-	else if(memcmp(sr->in_codec,"VP8",4)==0)
+	else if(memcmp(sr->in_codec,"VP8",3)==0)
 		sr->frame->color_spec = VP8;
 	else
 		sr->frame->color_spec = RGBA;
+        return 1;
 }
 
 struct vidcap_type	*vidcap_rtsp_probe(void){
@@ -815,7 +896,7 @@ void vidcap_rtsp_done(void *state){
     pthread_join(s->rtsp_thread_id, NULL);
 
     free(s->rx_data->frame_buffer);
-	free(data);
+	free(s->data);
 
     rtsp_teardown(s->curl, s->uri);
 
@@ -831,7 +912,7 @@ void vidcap_rtsp_done(void *state){
 /**
  * scan sdp file for media control attribute to generate nal starting bytes
  */
-int get_nals(const char *sdp_filename, unsigned char *nals){
+static int get_nals(const char *sdp_filename, unsigned char *nals){
     int max_len = 1500 , len_nals = 0;
     char *s = malloc(max_len);
     char *sprop;
@@ -884,7 +965,7 @@ int get_nals(const char *sdp_filename, unsigned char *nals){
 /**
  * forced sigaction handler when rtsp init waits
  */
-void sigaction_handler()
+static void sigaction_handler()
 {
 	vidcap_rtsp_done(s_global);
 }
