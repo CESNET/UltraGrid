@@ -88,8 +88,6 @@ struct recieved_data{
     char *frame_buffer;//[MAX_SUBSTREAMS];
 };
 
-struct rtsp_state *s_global;
-
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C) \
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
@@ -332,7 +330,6 @@ void *vidcap_rtsp_init(const struct vidcap_params *params){
     s = calloc(1, sizeof(struct rtsp_state));
     if (!s)
             return NULL;
-    s_global = s;
 
     char *save_ptr = NULL;
 
