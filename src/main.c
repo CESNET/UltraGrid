@@ -9,7 +9,11 @@
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *          David Cassany    <david.cassany@i2cat.net>
+ *          Ignacio Contreras <ignacio.contreras@i2cat.net>
+ *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -74,6 +78,7 @@
 #include "sender.h"
 #include "stats.h"
 #include "utils/wait_obj.h"
+#include "utils/sdp.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -243,6 +248,8 @@ static void usage(void)
         printf("\t                         \tto get list of supported devices\n");
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
+        printf("\n");
+        printf("\t--h264                 \t\tsend h264 stream following the h264 rtp standard\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
@@ -933,6 +940,7 @@ int main(int argc, char *argv[])
                 {"compress", required_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"sage", optional_argument, 0, 'S'},
+                {"h264", no_argument, 0, 'H'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
@@ -1047,6 +1055,10 @@ int main(int argc, char *argv[])
                 case 'S':
                         uv->rxtx = &sage_rxtx;
                         sage_opts = optarg;
+                        break;
+                case 'H':
+                        uv->rxtx = &h264_rtp;
+                        //h264_opts = optarg;
                         break;
                 case 'r':
                         audio_recv = optarg;                       
@@ -1362,6 +1374,7 @@ int main(int argc, char *argv[])
 
         struct ultragrid_rtp_state ug_rtp;
         struct sage_rxtx_state sage_rxtx;
+        struct h264_rtp_state h264_rtp;
 
         if (uv->rxtx->protocol == IHDTV) {
                 struct vidcap *capture_device = NULL;
@@ -1377,6 +1390,52 @@ int main(int argc, char *argv[])
                         usage();
                         return EXIT_FAILURE;
                 }
+        }else if (uv->rxtx->protocol == H264_STD) {
+                if ((uv->network_devices = initialize_network(uv->requested_receiver,
+                    uv->recv_port_number, uv->send_port_number, uv->participants,
+                    uv->ipv6, uv->requested_mcast_if)) == NULL)
+                {
+                        printf("Unable to open network\n");
+                        exit_uv(EXIT_FAIL_NETWORK);
+                        goto cleanup;
+                } else {
+                        struct rtp **item;
+                        uv->connections_count = 0;
+                        /* only count how many connections has initialize_network opened */
+                        for(item = uv->network_devices; *item != NULL; ++item){
+                                ++uv->connections_count;
+                                h264_rtp.sdp = new_sdp(std_H264,uv->send_port_number);
+                                if(h264_rtp.sdp!= NULL && get_sdp(h264_rtp.sdp)){
+                                    debug_msg("[SDP] File ug_h264_std.sdp created\n");
+                                }else
+                                    debug_msg("[SDP] File creation failed\n");
+                        }
+                }
+
+                if(bitrate == 0) { // else packet_rate defaults to 13600 or so
+                        bitrate = 6618;
+                }
+
+                if(bitrate != -1) {
+                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+                } else {
+                        packet_rate = 0;
+                }
+
+                if ((h264_rtp.tx = tx_init(&root_mod,
+                                                uv->requested_mtu, TX_MEDIA_VIDEO,
+                                                NULL,
+                                                NULL)) == NULL) {
+                        printf("Unable to initialize transmitter.\n");
+                        exit_uv(EXIT_FAIL_TRANSMIT);
+                        goto cleanup;
+                }
+
+                h264_rtp.connections_count = uv->connections_count;
+                h264_rtp.network_devices = uv->network_devices;
+
+                uv->rxtx_state = &h264_rtp;
+                free(requested_video_fec);
         } else if(uv->rxtx->protocol == ULTRAGRID_RTP) {
                 if ((uv->network_devices =
                                         initialize_network(uv->requested_receiver, uv->recv_port_number,

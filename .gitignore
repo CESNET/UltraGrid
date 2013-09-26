@@ -4,6 +4,10 @@ config.h
 config.h.in
 *.o
 *.lo
+*.txt
+*.mp4
+*.h264
+*.log
 uv
 bin/
 lib/
@@ -33,3 +37,5 @@ m4/
 libtool
 ltmain.sh
 mtrace.txt
+.project
+*.sdp

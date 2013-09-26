@@ -13,12 +13,15 @@
  *           Jiri Matela      <matela@ics.muni.cz>
  *           Dalibor Matura   <255899@mail.muni.cz>
  *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *           David Cassany   <david.cassany@i2cat.net>
+ *           Gerard Castillo <gerard.castillo@i2cat.net>
  *
  * The routines in this file implement the Real-time Transport Protocol,
  * RTP, as specified in RFC1889 with current updates under discussion in
  * the IETF audio/video transport working group. Portions of the code are
  * derived from the algorithms published in that specification.
  *
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -1076,14 +1079,19 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->magic = 0xfeedface;
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
-        session->addr = strdup(addr);
+	if (addr != NULL) {
+		session->addr = strdup(addr);
+	} else {
+		session->addr = NULL;
+	}
         session->rx_port = rx_port;
         session->tx_port = tx_port;
         session->ttl = min(ttl, 127);
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6);
+
         session->rtcp_socket =
             udp_init_if(addr, iface, (uint16_t) (rx_port + (rx_port ? 1 : 0)),
-                        (uint16_t) (tx_port + 1), ttl, use_ipv6);
+                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, use_ipv6);
 
         init_opt(session);
 
