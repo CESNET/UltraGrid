@@ -1255,7 +1255,8 @@ case $host in
 			RTSP_INC=
 			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
 			RTSP_OBJ="src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-                        #LIB_TARGETS not needed here since we are not building modules on Mac
+                        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
+                        LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
                         rtsp=yes
                         curl=yes

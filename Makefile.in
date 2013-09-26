@@ -487,6 +487,7 @@ portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
 jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
 scale: @SCALE_LIB_TARGET@
 libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@
+rtsp: @RTSP_LIB_TARGET@
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
@@ -495,6 +496,10 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 @GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@ @GL_COMMON_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
+
+@RTSP_LIB_TARGET@: @RTSP_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIB@ -o $@
 
 @TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
