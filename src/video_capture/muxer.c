@@ -79,6 +79,7 @@ struct vidcap_muxer_state {
         int                 devices_cnt;
 
         struct video_frame       *frame; 
+        struct video_frame       *prev_frame;
         int frames;
         struct       timeval t, t0;
 
@@ -152,7 +153,7 @@ vidcap_muxer_init(const struct vidcap_params *params)
         }
     }
 
-    s->frame = vf_alloc(1); //s->devices_cnt);
+    s->frame = vf_alloc(1);
 
     return s;
 
@@ -192,9 +193,11 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
     struct audio_frame *audio_frame = NULL;
     struct video_frame *frame = NULL;
 
+    /**
+     * remote control (now keyboard handler)
+     */
     set_conio_terminal_mode();
     int c;
-
     if (kbhit()) {
         c = (int) getch();
         debug_msg("num %d pressed...\r\n", c);
@@ -205,16 +208,16 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
     }
     reset_terminal_mode();
 
-
+    /**
+     * vidcap_grap
+     */
+    while (!frame) {
+        frame = vidcap_grab(s->devices[s->dev_index], &audio_frame);
+    }
     if (audio_frame) {
         *audio = audio_frame;
     } else {
         *audio = NULL;
-    }
-
-    frame = NULL;
-    while (!frame) {
-        frame = vidcap_grab(s->devices[s->dev_index], &audio_frame);
     }
     if (s->audio_source_index == -1 && audio_frame != NULL) {
         fprintf(stderr, "[muxer] Locking device #%d as an audio source.\n",
@@ -261,7 +264,6 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
             seconds, fps);
         s->t0 = s->t;
         s->frames = 0;
-        //s->dev_index = (s->dev_index + 1) % s->devices_cnt;
     }
 
 	return s->frame;
