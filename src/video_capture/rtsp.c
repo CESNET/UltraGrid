@@ -153,6 +153,9 @@ vidcap_rtsp_thread(void *args);
 static void
 show_help(void);
 
+void
+rtsp_keepalive(void *state);
+
 FILE *F_video_rtsp = NULL;
 /**
  * @struct rtsp_state
@@ -173,9 +176,8 @@ struct rtsp_state {
 
     struct recieved_data *rx_data;
     bool new_frame;
-    bool pbuf_removed;
-
     bool decompress;
+    bool grab;
 
     struct rtp *device;
     struct pdb *participants;
@@ -233,7 +235,7 @@ rtsp_keepalive(void *state) {
     s = (struct rtsp_state *) state;
     struct timeval now;
     gettimeofday(&now, NULL);
-    if (tv_diff(now, s->prev_time) >= 30) {
+    if (tv_diff(now, s->prev_time) >= 20) {
         rtsp_get_parameters(s->curl, s->uri);
         gettimeofday(&s->prev_time, NULL);
     }
@@ -264,30 +266,32 @@ vidcap_rtsp_thread(void *arg) {
             pdb_iter_t it;
             s->cp = pdb_iter_init(s->participants, &it);
 
-            s->pbuf_removed = true;
-
             while (s->cp != NULL) {
-                if (pbuf_decode(s->cp->playout_buffer, s->curr_time,
-                    decode_frame_h264, s->rx_data))
-                {
-                    if(pthread_mutex_trylock(&s->lock)==0){
-                        {
+                if (pthread_mutex_trylock(&s->lock) == 0) {
+                    {
+                        if(s->grab){
+
                             while (s->new_frame && !s->should_exit) {
                                 s->worker_waiting = true;
                                 pthread_cond_wait(&s->worker_cv, &s->lock);
                                 s->worker_waiting = false;
                             }
-                            s->new_frame = true;
 
+                            if (pbuf_decode(s->cp->playout_buffer, s->curr_time,
+                                decode_frame_h264, s->rx_data))
+                            {
+                                s->new_frame = true;
+                            }
                             if (s->boss_waiting)
                                 pthread_cond_signal(&s->boss_cv);
                         }
-                        pthread_mutex_unlock(&s->lock);
                     }
+                    pthread_mutex_unlock(&s->lock);
                 }
                 pbuf_remove(s->cp->playout_buffer, s->curr_time);
                 s->cp = pdb_iter_next(&it);
             }
+
             pdb_iter_done(&it);
         }
     }
@@ -303,6 +307,8 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     if(pthread_mutex_trylock(&s->lock)==0){
         {
+            s->grab = true;
+
             while (!s->new_frame) {
                 s->boss_waiting = true;
                 pthread_cond_wait(&s->boss_cv, &s->lock);
@@ -326,7 +332,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                     s->rx_data->buffer_len + s->nals_size, 0);
                 s->frame->tiles[0].data = s->out_frame;               //TODO memcpy?
                 s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)
-                    * s->des.height;                           //TODO reconfigurable
+                    * s->des.height;                           //TODO reconfigurable?
             }
             s->new_frame = false;
 
@@ -353,6 +359,8 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             }
         }
         s->frames++;
+        s->grab = false;
+
     }
 
     return s->frame;
@@ -372,6 +380,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     gettimeofday(&s->t0, NULL);
     s->frames = 0;
     s->nals = malloc(1024);
+    s->grab = false;
 
     s->addr = "127.0.0.1";
     s->device = NULL;

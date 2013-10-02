@@ -48,8 +48,6 @@ extern "C" {
     vidcap_rtsp_done(void *state);
     struct video_frame *
     vidcap_rtsp_grab(void *state, struct audio_frame **audio);
-    void
-    rtsp_keepalive(void *state);
 #endif
 
 #ifdef __cplusplus
