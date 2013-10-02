@@ -137,6 +137,8 @@ static int decompress_fill_symbols(decoder_table_t *device)
 
 /**
  * This array represent list of all known decoders and its capabilities
+ *
+ * The lower priority decoders are selected earlier if present.
  */
 struct decode_from_to decoders_for_codec[] = {
         { DXT1, RGBA, RTDXT_MAGIC, 500},

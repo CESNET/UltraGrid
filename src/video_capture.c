@@ -325,7 +325,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_testcard2_grab),
          NULL
         },
-#endif /* HAVE_SDL */
+#endif /* HAVE_TESTCARD2 */
 #if defined HAVE_V4L2 || defined BUILD_LIBRARIES
         {
          /* Dummy sender for testing purposes */
@@ -503,15 +503,17 @@ int vidcap_init(struct module *parent, vidcap_id_t id, const struct vidcap_param
 
                         int ret = capture_filter_init(&d->mod, param->requested_capture_filter,
                                         &d->capture_filter);
-                        if(ret != 0) {
+                        if(ret < 0) {
                                 fprintf(stderr, "Unable to initialize capture filter: %s.\n",
                                         param->requested_capture_filter);
+                        }
+
+                        if (ret != 0) {
                                 module_done(&d->mod);
                                 return ret;
                         }
 
                         *state = d;
-
                         return 0;
                 }
         }

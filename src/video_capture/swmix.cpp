@@ -360,6 +360,7 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
 {
         glBindTexture(GL_TEXTURE_2D, s->texture[0]);
         switch (desc.color_spec) {
+                case UYVY:
                 case RGBA:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
                                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -372,10 +373,6 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height,
                                         0, GL_BGR, GL_UNSIGNED_BYTE, NULL);
                         break;
-                case UYVY:
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width / 2, desc.height,
-                                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-                        break;
                 default:
                         fprintf(stderr, "SW mix: Unsupported color spec.\n");
                         exit_uv(1);
@@ -383,7 +380,7 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
 
         if(desc.color_spec == UYVY) {
                 glBindTexture(GL_TEXTURE_2D, s->texture[1]);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width / 2, desc.height,
                                 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         }
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -486,7 +483,7 @@ static void check_for_slave_format_change(struct slave_data *s)
                 if (!codec_is_in_set(desc.color_spec, natively_supported)) {
                         int j = 0;
                         while (natively_supported[j] != VIDEO_CODEC_NONE) {
-                                if ((s->decoder = get_decoder_from_to(out_codec, natively_supported[j]))) {
+                                if ((s->decoder = get_decoder_from_to(out_codec, natively_supported[j], false))) {
                                         s->decoder_from = desc.color_spec;
                                         desc.color_spec = s->decoder_to = natively_supported[j];
                                         break;

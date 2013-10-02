@@ -1588,6 +1588,9 @@ cleanup:
                 vidcap_done(uv->capture_device);
         if(uv->display_device)
                 display_done(uv->display_device);
+        if (uv->network_devices) {
+                destroy_rtp_devices(uv->network_devices);
+        }
         if (uv->participants != NULL) {
                 pdb_iter_t it;
                 struct pdb_e *cp = pdb_iter_init(uv->participants, &it);

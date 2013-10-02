@@ -201,9 +201,6 @@ static void ultragrid_rtp_done(void *state)
         if (data->tx) {
                 module_done(CAST_MODULE(data->tx));
         }
-        if (data->network_devices) {
-                destroy_rtp_devices(data->network_devices);
-        }
 }
 
 static void sage_rxtx_send(void *state, struct video_frame *tx_frame)
@@ -293,17 +290,15 @@ static void *sender_thread(void *arg) {
                 if (!tx_frame)
                         goto exit;
 
-                if(data->priv->paused) {
-                        goto after_send;
-                }
-
                 video_export(data->video_exporter, tx_frame);
 
-                data->send_frame(data->tx_module_state, tx_frame);
-                if (tx_frame->dispose)
-                        tx_frame->dispose(tx_frame);
+                if (!data->priv->paused) {
+                        data->send_frame(data->tx_module_state, tx_frame);
+                }
 
-after_send:
+                if (tx_frame->dispose) {
+                        tx_frame->dispose(tx_frame);
+                }
 
                 if (data->rxtx_protocol == ULTRAGRID_RTP) {
                         struct ultragrid_rtp_state *rtp_state = data->tx_module_state;

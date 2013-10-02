@@ -81,6 +81,7 @@ OBJS	      = @OBJS@ \
 		src/capture_filter.o \
 		src/capture_filter/blank.o \
 		src/capture_filter/every.o \
+		src/capture_filter/logo.o \
 		src/capture_filter/none.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
@@ -353,10 +354,6 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-
-gpujpeg/.libs/libgpujpeg.a:
-	make -j -C gpujpeg/ static
-
 @FASTDXT_PATH@/libdxt.a:
 	make -j -C @FASTDXT_PATH@/ lib
 
@@ -422,13 +419,11 @@ clean:
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
 	-rm -rf bin/import_control_keyboard
-	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
-	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ distclean
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ distclean
 
 etags:
@@ -493,6 +488,7 @@ portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
 jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
 scale: @SCALE_LIB_TARGET@
 libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@
+rtsp: @RTSP_LIB_TARGET@
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
@@ -501,6 +497,10 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 @GL_LIB_TARGET@: @GL_OBJ@ @X_OBJ@ @GL_COMMON_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
+
+@RTSP_LIB_TARGET@: @RTSP_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIB@ -o $@
 
 @TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
@@ -588,7 +588,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 
 @CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@ @CUDA_COMMON_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ @CUDA_COMMON_OBJ@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ -o $@
 
 @RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
@@ -600,7 +600,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 
 @JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@ @CUDA_COMMON_OBJ@
 	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ @CUDA_COMMON_OBJ@ -o $@
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ -o $@
 
 
 @ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
@@ -652,7 +652,7 @@ install: all
 	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(docdir)
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)/$(docdir)
-	$(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)/$(bindir)
+	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)/$(bindir); fi
 
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv

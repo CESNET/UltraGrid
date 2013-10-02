@@ -418,7 +418,7 @@ then
         if test "$system" = "Linux"
         then
                 LIBS="$LIBS -ldl"
-                LDFLAGS+="-rdynamic -ldl"
+                LDFLAGS="$LDFLAGS -rdynamic -ldl"
         else
                 AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
                 build_libraries=no
@@ -884,7 +884,7 @@ fi
 
 
 
-if test $BLUE_H = yes -a $BLUE_L = yes
+if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
 then
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
@@ -1255,7 +1255,8 @@ case $host in
 			RTSP_INC=
 			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
 			RTSP_OBJ="src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
-                        #LIB_TARGETS not needed here since we are not building modules on Mac
+                        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
+                        LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
                         rtsp=yes
                         curl=yes
@@ -1302,23 +1303,23 @@ then
         LIBS=$SAVED_LIBS
         if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
         then
-                TESTCARD_LIB="-lSDL -lSDL_mixer $X11_LIB"
+                TESTCARD2_LIB="-lSDL_mixer"
         fi
 
         TESTCARD2_OBJ=
-        TESTCARD2_LIB=
         if test $sdl = yes
         then
                 TESTCARD2_OBJ="src/video_capture/testcard2.o"
-                TESTCARD2_LIB=$SDL_LIB
+                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB $X11_LIB"
                 SAVED_LIBS=$LIBS
                 AC_CHECK_LIB(SDL_ttf, TTF_Init)
                 LIBS=$SAVED_LIBS
                 if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
                 then
                         TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
+                        AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
-                AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
+                AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
@@ -1961,10 +1962,12 @@ fi
 SAVED_LIBS=$LIBS
 LIBS="$LIBS $JPEG_LIB"
 AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
 LIBS=$SAVED_LIBS
 
 if test "$jpeg_req" != no -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
 then
         jpeg=yes
 
@@ -2054,7 +2057,8 @@ AC_ARG_ENABLE(jpeg_to_dxt,
               [jpeg_to_dxt_req=auto])
 
 if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
 then
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
