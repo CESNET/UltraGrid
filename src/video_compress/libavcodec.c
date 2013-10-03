@@ -699,7 +699,8 @@ static void cleanup(struct state_video_compress_libav *s)
                 s->out[i] = 0;
                 av_free_packet(&s->pkt[i]);
 #else
-                free(s->out[i]->tiles[0].data);
+                if (s->out[i])
+                        free(s->out[i]->tiles[0].data);
                 vf_free(s->out[i]);
                 s->out[i] = 0;
 #endif // HAVE_AVCODEC_ENCODE_VIDEO2
