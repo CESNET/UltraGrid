@@ -683,7 +683,8 @@ static void *master_worker(void *arg)
                                         s->audio_device_index = i;
                                 }
 
-                                if(field == 1 && s->audio_device_index == i) {
+                                if ((s->frame->interlacing != INTERLACED_MERGED || field == 1)
+							&& s->audio_device_index == i) {
                                         s->audio.bps = s->slaves[i].audio_frame.bps;
                                         s->audio.ch_count = s->slaves[i].audio_frame.ch_count;
                                         s->audio.sample_rate = s->slaves[i].audio_frame.sample_rate;

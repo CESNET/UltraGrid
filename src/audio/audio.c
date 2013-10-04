@@ -665,7 +665,7 @@ static void *audio_sender_thread(void *arg)
 
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         void *sdi_capture;
-        if(!audio_capture_get_vidcap_flags(s->audio_capture_device))
+        if(!audio_capture_get_vidcap_flags(audio_capture_get_driver_name(s->audio_capture_device)))
                 return;
         
         sdi_capture = audio_capture_get_state_pointer(s->audio_capture_device);
@@ -693,11 +693,6 @@ void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(
         
         sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_reconfigure_callback(sdi_playback, callback, udata);
-}
-
-unsigned int audio_get_vidcap_flags(struct state_audio *s)
-{
-        return audio_capture_get_vidcap_flags(s->audio_capture_device);
 }
 
 unsigned int audio_get_display_flags(struct state_audio *s)

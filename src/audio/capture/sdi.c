@@ -71,11 +71,13 @@ struct state_sdi_capture {
 
 void * sdi_capture_init(char *cfg)
 {
-        if(cfg && strcmp(cfg, "help")) {
-                printf("Available embedded devices:\n");
+        if(cfg && strcmp(cfg, "help") == 0) {
+                printf("Available vidcap audio devices:\n");
                 sdi_capture_help("embedded");
                 sdi_capture_help("AESEBU");
                 sdi_capture_help("analog");
+                printf("\t\twhere <index> is index of vidcap device "
+                                "to be taken audio from.\n");
                 return &audio_init_state_ok;
         }
         struct state_sdi_capture *s;
@@ -140,11 +142,11 @@ void sdi_capture_done(void *state)
 void sdi_capture_help(const char *driver_name)
 {
         if(strcmp(driver_name, "embedded") == 0) {
-                printf("\tembedded : SDI audio (if available)\n");
+                printf("\tembedded[:<index>] : SDI audio (if available)\n");
         } else if(strcmp(driver_name, "AESEBU") == 0) {
-                printf("\tAESEBU : separately connected AES/EBU to a grabbing card (if available)\n");
+                printf("\tAESEBU[:<index>] : separately connected AES/EBU to a grabbing card (if available)\n");
         } else if(strcmp(driver_name, "analog") == 0) {
-                printf("\tanalog : analog input of grabbing card (if available)\n");
+                printf("\tanalog[:<index>] : analog input of grabbing card (if available)\n");
         }
 }
 

@@ -93,6 +93,7 @@
 #include "ihdtv.h"
 #include "compat/platform_semaphore.h"
 #include "audio/audio.h"
+#include "audio/audio_capture.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
 
@@ -875,8 +876,8 @@ int main(int argc, char *argv[])
         struct sched_param sp;
 #endif
         // NULL terminated array of capture devices
-        struct vidcap_params *vidcap_params = vidcap_params_allocate();
-        struct vidcap_params *vidcap_params_tail = vidcap_params;
+        struct vidcap_params *vidcap_params_head = vidcap_params_allocate();
+        struct vidcap_params *vidcap_params_tail = vidcap_params_head;
 
         char *display_cfg = NULL;
         const char *audio_recv = "none";
@@ -911,8 +912,7 @@ int main(int argc, char *argv[])
                   tx_thread_id;
 	bool receiver_thread_started = false,
 		  tx_thread_started = false;
-        unsigned vidcap_flags = 0,
-                 display_flags = 0;
+        unsigned display_flags = 0;
         int compressed_audio_sample_rate = 48000;
         int ret;
 
@@ -920,7 +920,7 @@ int main(int argc, char *argv[])
         mtrace();
 #endif
 
-        vidcap_params_assign_device(vidcap_params, "none");
+        vidcap_params_set_device(vidcap_params_head, "none");
 
         if (argc == 1) {
                 usage();
@@ -1014,7 +1014,7 @@ int main(int argc, char *argv[])
                                 list_video_capture_devices();
                                 return 0;
                         }
-                        vidcap_params_assign_device(vidcap_params_tail, optarg);
+                        vidcap_params_set_device(vidcap_params_tail, optarg);
                         vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
                         break;
                 case 'm':
@@ -1185,7 +1185,7 @@ int main(int argc, char *argv[])
                         {
                                 char dev_string[1024];
                                 snprintf(dev_string, sizeof(dev_string), "import:%s", optarg);
-                                vidcap_params_assign_device(vidcap_params_tail, dev_string);
+                                vidcap_params_set_device(vidcap_params_tail, dev_string);
                                 vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
                         }
                         break;
@@ -1206,7 +1206,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case OPT_CAPTURE_FILTER:
-                        vidcap_params_assign_capture_filter(vidcap_params_tail, optarg);
+                        vidcap_params_set_capture_filter(vidcap_params_tail, optarg);
                         break;
                 case OPT_ENCRYPTION:
                         uv->requested_encryption = optarg;
@@ -1238,7 +1238,7 @@ int main(int argc, char *argv[])
 #endif
         printf("\n");
         printf("Display device   : %s\n", uv->requested_display);
-        printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params));
+        printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params_head));
         printf("Audio capture    : %s\n", audio_send);
         printf("Audio playback   : %s\n", audio_recv);
         printf("MTU              : %d B\n", uv->requested_mtu);
@@ -1311,7 +1311,6 @@ int main(int argc, char *argv[])
         if(!uv->audio)
                 goto cleanup;
 
-        vidcap_flags |= audio_get_vidcap_flags(uv->audio);
         display_flags |= audio_get_display_flags(uv->audio);
 
         uv->participants = pdb_init();
@@ -1333,10 +1332,26 @@ int main(int argc, char *argv[])
 
         printf("Display initialized-%s\n", uv->requested_display);
 
-        ret = initialize_video_capture(&root_mod, vidcap_params, &uv->capture_device);
+        /* Pass embedded/analog/AESEBU flags to selected vidcap
+         * device. */
+        struct vidcap_params *audio_cap_dev = vidcap_params_get_nth(
+                        vidcap_params_head,
+                        audio_capture_get_vidcap_index(audio_send));
+        if (audio_cap_dev != NULL) {
+                unsigned int orig_flags =
+                        vidcap_params_get_flags(audio_cap_dev);
+                vidcap_params_set_flags(audio_cap_dev, orig_flags
+                                | audio_capture_get_vidcap_flags(audio_send));
+        } else {
+                fprintf(stderr, "Entered index for non-existing vidcap (audio).");
+                exit_uv(EXIT_FAIL_CAPTURE);
+                goto cleanup;
+        }
+
+        ret = initialize_video_capture(&root_mod, vidcap_params_head, &uv->capture_device);
         if (ret < 0) {
                 printf("Unable to open capture device: %s\n",
-                                vidcap_params_get_driver(vidcap_params));
+                                vidcap_params_get_driver(vidcap_params_head));
                 exit_uv(EXIT_FAIL_CAPTURE);
                 goto cleanup;
         }
@@ -1344,7 +1359,7 @@ int main(int argc, char *argv[])
                 exit_uv(EXIT_SUCCESS);
                 goto cleanup;
         }
-        printf("Video capture initialized-%s\n", vidcap_params_get_driver(vidcap_params));
+        printf("Video capture initialized-%s\n", vidcap_params_get_driver(vidcap_params_head));
 
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
@@ -1368,7 +1383,7 @@ int main(int argc, char *argv[])
         if (strcmp("none", uv->requested_display) != 0) {
                 uv->mode |= MODE_RECEIVER;
         }
-        if (strcmp("none", vidcap_params_get_driver(vidcap_params)) != 0) {
+        if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
                 uv->mode |= MODE_SENDER;
         }
 
@@ -1608,10 +1623,10 @@ cleanup:
 
         free(export_dir);
 
-        while  (vidcap_params) {
-                struct vidcap_params *next = vidcap_params_get_next(vidcap_params);
-                vidcap_params_free_struct(vidcap_params);
-                vidcap_params = next;
+        while  (vidcap_params_head) {
+                struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);
+                vidcap_params_free_struct(vidcap_params_head);
+                vidcap_params_head = next;
         }
 
         module_done(&root_mod);
