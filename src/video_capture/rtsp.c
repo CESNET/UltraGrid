@@ -52,8 +52,6 @@
 #include <pthread.h>
 #include <glib.h>
 
-struct coded_data;
-
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -71,21 +69,14 @@ struct coded_data;
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_capture/rtsp.h"
-//#include "audio/audio.h"
+#include "audio/audio.h"
 
 #include <curl/curl.h>
 
 #define VERSION_STR  "V1.0"
 
-//TODO set lower initial video recv buffer size (to find the minimal)
+//TODO set lower initial video recv buffer size (to find the minimal?)
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
-//#define MAX_SUBSTREAMS 1
-
-struct recieved_data {
-    uint32_t buffer_len; //[MAX_SUBSTREAMS];
-    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
-    char *frame_buffer;    //[MAX_SUBSTREAMS];
-};
 
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C) \
@@ -170,7 +161,7 @@ struct rtsp_state {
     int frames;
     struct video_frame *frame;
     struct tile *tile;
-//	struct audio_frame audio;
+	struct audio_frame audio;
     int width;
     int height;
 
@@ -193,10 +184,10 @@ struct rtsp_state {
     int required_connections;
     uint32_t timestamp;
 
-//	int play_audio_frame;
+	int play_audio_frame;
 
-//	struct timeval last_audio_time;
-//	unsigned int grab_audio:1;
+	struct timeval last_audio_time;
+	unsigned int grab_audio:1;
 
     pthread_t rtsp_thread_id; //the worker_id
     pthread_mutex_t lock;
@@ -256,7 +247,7 @@ vidcap_rtsp_thread(void *arg) {
         rtsp_keepalive(s);
 
         rtp_update(s->device, s->curr_time);
-        //TODO rtcp communication between ug and rtsp server?
+        //TODO no need of rtcp communication between ug and rtsp server?
         //rtp_send_ctrl(s->device, s->timestamp, 0, s->curr_time);
 
         s->timeout.tv_sec = 0;
@@ -360,7 +351,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
         }
         s->frames++;
         s->grab = false;
-
     }
 
     return s->frame;
