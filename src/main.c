@@ -1422,7 +1422,7 @@ int main(int argc, char *argv[])
                         packet_rate = 0;
                 }
 
-                if ((h264_rtp.tx = tx_init(&root_mod,
+                if ((h264_rtp.tx = tx_init_h264(&root_mod,
                                                 uv->requested_mtu, TX_MEDIA_VIDEO,
                                                 NULL,
                                                 NULL)) == NULL) {

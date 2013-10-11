@@ -39,10 +39,26 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#ifndef _MUXER_H_
+#define _MUXER_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define VIDCAP_MUXER_ID 0x9bd6abc0   //md5 hash of VIDCAP_MUXER_ID string == 241c3648599dc72ce3f119a99bd6abc0
 
-struct vidcap_type      *vidcap_muxer_probe(void);
-void                    *vidcap_muxer_init(const struct vidcap_params *params);
-void                     vidcap_muxer_done(void *state);
-struct video_frame      *vidcap_muxer_grab(void *state, struct audio_frame **audio);
+struct vidcap_type *
+vidcap_muxer_probe(void);
+void *
+vidcap_muxer_init(const struct vidcap_params *params);
+void
+vidcap_muxer_done(void *state);
+struct video_frame *
+vidcap_muxer_grab(void *state, struct audio_frame **audio);
 
+#endif
+
+#ifdef __cplusplus
+} // END extern "C"
+#endif

@@ -83,7 +83,8 @@ struct vidcap_muxer_state {
         int frames;
         struct       timeval t, t0;
 
-        int         dev_index;
+        int         dev_index_curr;
+        int         dev_index_next;
 
         int          audio_source_index;
 };
@@ -120,7 +121,9 @@ vidcap_muxer_init(const struct vidcap_params *params)
 
     s->audio_source_index = -1;
     s->frames = 0;
-    s->dev_index = 0;
+    s->dev_index_curr = 0;
+    s->dev_index_next = 0;
+
     gettimeofday(&s->t0, NULL);
 
     if (vidcap_params_get_fmt(params)
@@ -191,6 +194,8 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_muxer_state *s = (struct vidcap_muxer_state *) state;
     struct audio_frame *audio_frame = NULL;
+    struct video_frame *frame_curr = NULL;
+    struct video_frame *frame_next = NULL;
     struct video_frame *frame = NULL;
 
     /**
@@ -203,17 +208,39 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
         debug_msg("num %d pressed...\r\n", c);
     }
     if(c >= 48 && c < 48+s->devices_cnt){
-        s->dev_index = c - 48;
-        printf("[muxer] device %d selected of %d devices...\r\n",s->dev_index,s->devices_cnt);
+       // s->dev_index_curr = s->dev_index_next;
+        s->dev_index_next = c - 48;
+        printf("\n[MUXER] device %d (previous was: %d) selected of %d devices...\r\n",s->dev_index_next,s->dev_index_curr,s->devices_cnt);
     }
     reset_terminal_mode();
 
     /**
      * vidcap_grap
      */
-    while (!frame) {
-        frame = vidcap_grab(s->devices[s->dev_index], &audio_frame);
+    while (!frame_curr) {
+        frame_curr = vidcap_grab(s->devices[s->dev_index_curr], &audio_frame);
     }
+    if(s->dev_index_next != s->dev_index_curr){
+        while (!frame_next) {
+                frame_next = vidcap_grab(s->devices[s->dev_index_next], &audio_frame);
+        }
+
+        printf("\n\n[MUXER] frameNext is std = %d...\n\n",frame_next->isStd);
+
+        if(frame_next->isStd == TRUE){
+            printf("\n\n[MUXER] RTSP INCOMING FRAME...\n");
+            if(frame_next->h264_iframe == TRUE){
+                s->dev_index_curr = s->dev_index_next;
+                frame_curr = frame_next;
+                printf("[MUXER] GOT INTRA FRAME! SWITCHING...\n\n");
+            }else printf("[MUXER] NO INTRA FRAME YET...\n");
+        }else{
+            frame_curr = frame_next;
+            s->dev_index_curr = s->dev_index_next;
+        }
+    }
+    frame = frame_curr;
+
     if (audio_frame) {
         *audio = audio_frame;
     } else {
@@ -221,10 +248,10 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
     }
     if (s->audio_source_index == -1 && audio_frame != NULL) {
         fprintf(stderr, "[muxer] Locking device #%d as an audio source.\n",
-            s->dev_index);
-        s->audio_source_index = s->dev_index;
+            s->dev_index_curr);
+        s->audio_source_index = s->dev_index_curr;
     }
-    if (s->audio_source_index == s->dev_index) {
+    if (s->audio_source_index == s->dev_index_curr) {
         *audio = audio_frame;
     }
 //                if (frame->color_spec != s->frame->color_spec ||

@@ -165,7 +165,7 @@ struct rtsp_state {
     int width;
     int height;
 
-    struct recieved_data *rx_data;
+    struct std_frame_received *rx_data;
     bool new_frame;
     bool decompress;
     bool grab;
@@ -307,12 +307,11 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             }
 
             gettimeofday(&s->curr_time, NULL);
-
+            s->frame->h264_iframe = s->rx_data->iframe;
+            s->frame->h264_iframe = s->rx_data->iframe;
             s->frame->tiles[0].data_len = s->rx_data->buffer_len;
-
             memcpy(s->data + s->nals_size, s->rx_data->frame_buffer,
                 s->rx_data->buffer_len);
-
             memcpy(s->frame->tiles[0].data, s->data,
                 s->rx_data->buffer_len + s->nals_size);
             s->frame->tiles[0].data_len += s->nals_size;
@@ -341,13 +340,13 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                 s->frames, seconds, fps);
             s->t0 = s->t;
             s->frames = 0;
-            //Threshold of 1fps in order to update fps parameter
-            if (fps > s->fps + 1 || fps < s->fps - 1) {
-                debug_msg(
-                    "\n[rtsp] updating fps from rtsp server stream... now = %f , before = %f\n",fps,s->fps);
-                s->frame->fps = fps;
-                s->fps = fps;
-            }
+            //TODO: Threshold of ¿1fps? in order to update fps parameter. Now a higher fps is fixed to 30fps...
+            //if (fps > s->fps + 1 || fps < s->fps - 1) {
+            //      debug_msg(
+            //          "\n[rtsp] updating fps from rtsp server stream... now = %f , before = %f\n",fps,s->fps);
+            //      s->frame->fps = fps;
+            //      s->fps = fps;
+            //  }
         }
         s->frames++;
         s->grab = false;
@@ -387,7 +386,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
         (s->required_connections) * sizeof(struct rtp *));
     s->participants = pdb_init();
 
-    s->rx_data = malloc(sizeof(struct recieved_data));
+    s->rx_data = malloc(sizeof(struct std_frame_received));
     s->new_frame = false;
 
     s->in_codec = malloc(sizeof(uint32_t *) * 10);
@@ -523,12 +522,15 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->data = malloc(4 * s->width * s->height + s->nals_size);
 
     s->frame = vf_alloc(1);
+    s->frame->isStd = TRUE;
+    s->frame->h264_bframe = FALSE;
+    s->frame->h264_iframe = FALSE;
     s->tile = vf_get_tile(s->frame, 0);
     vf_get_tile(s->frame, 0)->width = s->width;
     vf_get_tile(s->frame, 0)->height = s->height;
     //TODO fps should be autodetected, now reset and controlled at vidcap_grab function
-    s->frame->fps = 60;
-    s->fps = 60;
+    s->frame->fps = 30;
+    s->fps = 30;
     s->frame->interlacing = PROGRESSIVE;
 
     s->frame->tiles[0].data = calloc(1, s->width * s->height);

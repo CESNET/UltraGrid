@@ -68,7 +68,7 @@ int decode_frame_h264(struct coded_data *cdata, void *rx_data) {
     char *dst = NULL;
     int src_len;
 
-    struct recieved_data *buffers = (struct recieved_data *) rx_data;
+    struct std_frame_received *buffers = (struct std_frame_received *) rx_data;
 
     for (pass = 0; pass < 2; pass++) {
 
