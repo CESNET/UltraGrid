@@ -327,7 +327,7 @@ static void tx_done(struct module *mod)
         struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
         ldgm_encoder_destroy(tx->fec_state);
-        pthread_spin_destroy(&tx->spin);
+        platform_spin_destroy(&tx->spin);
         free(tx);
 }
 
