@@ -132,6 +132,7 @@ const char *module_class_name_pairs[] = {
         [MODULE_CLASS_CONTROL] = "control",
         [MODULE_CLASS_CAPTURE] = "capture",
         [MODULE_CLASS_FILTER] = "filter",
+        [MODULE_CLASS_MUXER] = "muxer",
 };
 
 const char *module_class_name(enum module_class cls)

@@ -46,6 +46,9 @@
 #include "video.h"
 #include "video_capture.h"
 
+#include "messaging.h"
+#include "module.h"
+
 #include "tv.h"
 
 #include "video_capture/muxer.h"
@@ -58,6 +61,53 @@
 #include <sys/select.h>
 #include <termios.h>
 
+struct vidcap_muxer_state {
+        struct module mod;
+
+        struct vidcap     **devices;
+        int                 devices_cnt;
+
+        struct video_frame       *frame;
+        struct video_frame       *prev_frame;
+        int frames;
+        struct       timeval t, t0;
+
+        int         dev_index_curr;
+        int         dev_index_next;
+
+        int          audio_source_index;
+};
+
+/**
+ * MUXER REMOTE CONTROL
+ */
+static int init(struct module *parent,void *state);
+static void done(void *state);
+static bool parse(struct vidcap_muxer_state *s, char *cfg)
+{
+        char *item, *save_ptr;
+        while ((item = strtok_r(cfg, ":", &save_ptr)))
+            s->dev_index_next = atoi(item);
+
+        return true;
+}
+
+static int init(struct module *parent, void *state)
+{
+        struct vidcap_muxer_state *s = calloc(1, sizeof(struct vidcap_muxer_state));
+        assert(s);
+
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_MUXER;
+        module_register(&s->mod, parent);
+
+        return 0;
+}
+
+static void process_message(struct vidcap_muxer_state *s, struct msg_universal *msg)
+{
+        parse(s, msg->text);
+}
 
 /**
  * MUXER CAPTURE
@@ -73,21 +123,6 @@ static void show_help()
         printf("\t\twhere devn_config is a complete configuration string of device involved in the muxer device\n");
 
 }
-
-struct vidcap_muxer_state {
-        struct vidcap     **devices;
-        int                 devices_cnt;
-
-        struct video_frame       *frame; 
-        struct video_frame       *prev_frame;
-        int frames;
-        struct       timeval t, t0;
-
-        int         dev_index_curr;
-        int         dev_index_next;
-
-        int          audio_source_index;
-};
 
 
 struct vidcap_type *
@@ -185,8 +220,10 @@ vidcap_muxer_done(void *state)
                          vidcap_done(s->devices[i]);
 		}
 	}
-        
-        vf_free(s->frame);
+
+	module_done(&s->mod);
+
+    vf_free(s->frame);
 }
 
 struct video_frame *
@@ -213,6 +250,15 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
         printf("\n[MUXER] device %d (previous was: %d) selected of %d devices...\r\n",s->dev_index_next,s->dev_index_curr,s->devices_cnt);
     }
     reset_terminal_mode();
+
+    /**
+     * REMOTE CONTROL
+     */
+    struct message *msg;
+    while ((msg = check_message(&s->mod))) {
+            process_message(s,((struct msg_universal *) msg)->text);
+            free_message(msg);
+    }
 
     /**
      * vidcap_grap
