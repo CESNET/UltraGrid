@@ -46,6 +46,7 @@
 #include "video.h"
 #include "video_capture.h"
 
+#include "capture_filter.h"
 #include "messaging.h"
 #include "module.h"
 
@@ -98,17 +99,40 @@ static int init(struct module *parent, void *state)
         assert(s);
 
         module_init_default(&s->mod);
-        s->mod.cls = MODULE_CLASS_MUXER;
+        s->mod.cls = MODULE_CLASS_DATA;
         module_register(&s->mod, parent);
 
         return 0;
 }
-
+static void done(void *state)
+{
+        struct vidcap_muxer_state *s = state;
+        module_done(&s->mod);
+        if(state!=NULL)free(state);
+}
 static void process_message(struct vidcap_muxer_state *s, struct msg_universal *msg)
 {
         parse(s, msg->text);
 }
 
+static struct video_frame *filter(void *state, struct video_frame *in)
+{
+        struct vidcap_muxer_state *s = (struct vidcap_muxer_state *) state;
+        struct message *msg;
+        while ((msg = check_message(&s->mod))) {
+                process_message(s, (struct msg_universal *) msg);
+                free_message(msg);
+        }
+        return in;
+}
+
+
+struct capture_filter_info capture_filter_muxer = {
+        .name = "muxer",
+        .init = init,
+        .done = done,
+        .filter = filter,
+};
 /**
  * MUXER CAPTURE
  */
@@ -221,8 +245,6 @@ vidcap_muxer_done(void *state)
 		}
 	}
 
-	module_done(&s->mod);
-
     vf_free(s->frame);
 }
 
@@ -251,14 +273,14 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
     }
     reset_terminal_mode();
 
-    /**
-     * REMOTE CONTROL
-     */
-    struct message *msg;
-    while ((msg = check_message(&s->mod))) {
-            process_message(s,((struct msg_universal *) msg)->text);
-            free_message(msg);
-    }
+//    /**
+//     * REMOTE CONTROL
+//     */
+//    struct message *msg;
+//    while ((msg = check_message(&s->mod))) {
+//            process_message(s,((struct msg_universal *) msg)->text);
+//            free_message(msg);
+//    }
 
     /**
      * vidcap_grap

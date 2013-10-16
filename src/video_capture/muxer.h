@@ -57,6 +57,10 @@ vidcap_muxer_done(void *state);
 struct video_frame *
 vidcap_muxer_grab(void *state, struct audio_frame **audio);
 
+
+struct capture_filter_info;
+extern struct capture_filter_info capture_filter_muxer;
+
 #endif
 
 #ifdef __cplusplus

@@ -74,7 +74,6 @@ enum module_class {
         MODULE_CLASS_CONTROL,
         MODULE_CLASS_CAPTURE,
         MODULE_CLASS_FILTER,
-        MODULE_CLASS_MUXER,
 };
 
 struct module;
