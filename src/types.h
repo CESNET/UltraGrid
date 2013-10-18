@@ -153,6 +153,13 @@ struct video_frame {
          */
         void               (*data_deleter)(struct video_frame *);
         /// @}
+
+        //h264_params
+        uint8_t isStd;
+        uint8_t h264_bframe;
+        uint8_t h264_iframe;
+        int h264_width;
+        int h264_height;
 };
 
 /**

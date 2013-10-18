@@ -52,8 +52,6 @@
 #include <pthread.h>
 #include <glib.h>
 
-struct coded_data;
-
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
@@ -71,32 +69,27 @@ struct coded_data;
 #include "video_codec.h"
 #include "video_capture.h"
 #include "video_capture/rtsp.h"
-//#include "audio/audio.h"
+#include "audio/audio.h"
 
 #include <curl/curl.h>
 
 #define VERSION_STR  "V1.0"
 
-//TODO set lower initial video recv buffer size (to find the minimal)
+//TODO set lower initial video recv buffer size (to find the minimal?)
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
-//#define MAX_SUBSTREAMS 1
-
-struct recieved_data {
-    uint32_t buffer_len; //[MAX_SUBSTREAMS];
-    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
-    char *frame_buffer;    //[MAX_SUBSTREAMS];
-};
 
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C) \
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
-fprintf(stderr, "curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
+fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
+printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
 exit(0); \
 }
 
 #define my_curl_easy_perform(A) \
     if ((res = curl_easy_perform((A))) != CURLE_OK){ \
-fprintf(stderr, "curl_easy_perform(%s) failed: %d\n", #A, res); \
+fprintf(stderr, "[rtsp error] curl_easy_perform(%s) failed: %d\n", #A, res); \
+printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
 exit(0); \
 }
 
@@ -147,8 +140,12 @@ init_decompressor(void *state);
 
 static void *
 vidcap_rtsp_thread(void *args);
+
 static void
 show_help(void);
+
+void
+rtsp_keepalive(void *state);
 
 FILE *F_video_rtsp = NULL;
 /**
@@ -164,15 +161,14 @@ struct rtsp_state {
     int frames;
     struct video_frame *frame;
     struct tile *tile;
-//	struct audio_frame audio;
+	struct audio_frame audio;
     int width;
     int height;
 
-    struct recieved_data *rx_data;
+    struct std_frame_received *rx_data;
     bool new_frame;
-    bool pbuf_removed;
-
     bool decompress;
+    bool grab;
 
     struct rtp *device;
     struct pdb *participants;
@@ -188,10 +184,10 @@ struct rtsp_state {
     int required_connections;
     uint32_t timestamp;
 
-//	int play_audio_frame;
+	int play_audio_frame;
 
-//	struct timeval last_audio_time;
-//	unsigned int grab_audio:1;
+	struct timeval last_audio_time;
+	unsigned int grab_audio:1;
 
     pthread_t rtsp_thread_id; //the worker_id
     pthread_mutex_t lock;
@@ -224,6 +220,18 @@ show_help() {
         "\t\t <decompress> receiver decompress boolean [true|false] - default: false - no decompression active\n\n");
 }
 
+void
+rtsp_keepalive(void *state) {
+    struct rtsp_state *s;
+    s = (struct rtsp_state *) state;
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    if (tv_diff(now, s->prev_time) >= 20) {
+        rtsp_get_parameters(s->curl, s->uri);
+        gettimeofday(&s->prev_time, NULL);
+    }
+}
+
 static void *
 vidcap_rtsp_thread(void *arg) {
     struct rtsp_state *s;
@@ -236,13 +244,10 @@ vidcap_rtsp_thread(void *arg) {
         gettimeofday(&s->curr_time, NULL);
         s->timestamp = tv_diff(s->curr_time, s->start_time) * 90000;
 
-        if (tv_diff(s->curr_time, s->prev_time) >= 30) {
-            rtsp_get_parameters(s->curl, s->uri);
-            gettimeofday(&s->prev_time, NULL);
-        }
+        rtsp_keepalive(s);
 
         rtp_update(s->device, s->curr_time);
-        //TODO rtcp communication between ug and rtsp server?
+        //TODO no need of rtcp communication between ug and rtsp server?
         //rtp_send_ctrl(s->device, s->timestamp, 0, s->curr_time);
 
         s->timeout.tv_sec = 0;
@@ -252,29 +257,32 @@ vidcap_rtsp_thread(void *arg) {
             pdb_iter_t it;
             s->cp = pdb_iter_init(s->participants, &it);
 
-            s->pbuf_removed = true;
-
             while (s->cp != NULL) {
-                if (pbuf_decode(s->cp->playout_buffer, s->curr_time,
-                    decode_frame_h264, s->rx_data))
-                {
-                    pthread_mutex_lock(&s->lock);
+                if (pthread_mutex_trylock(&s->lock) == 0) {
                     {
-                        while (s->new_frame && !s->should_exit) {
-                            s->worker_waiting = true;
-                            pthread_cond_wait(&s->worker_cv, &s->lock);
-                            s->worker_waiting = false;
-                        }
-                        s->new_frame = true;
+                        if(s->grab){
 
-                        if (s->boss_waiting)
-                            pthread_cond_signal(&s->boss_cv);
+                            while (s->new_frame && !s->should_exit) {
+                                s->worker_waiting = true;
+                                pthread_cond_wait(&s->worker_cv, &s->lock);
+                                s->worker_waiting = false;
+                            }
+
+                            if (pbuf_decode(s->cp->playout_buffer, s->curr_time,
+                                decode_frame_h264, s->rx_data))
+                            {
+                                s->new_frame = true;
+                            }
+                            if (s->boss_waiting)
+                                pthread_cond_signal(&s->boss_cv);
+                        }
                     }
                     pthread_mutex_unlock(&s->lock);
                 }
                 pbuf_remove(s->cp->playout_buffer, s->curr_time);
                 s->cp = pdb_iter_next(&it);
             }
+
             pdb_iter_done(&it);
         }
     }
@@ -288,58 +296,61 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     *audio = NULL;
 
-    pthread_mutex_lock(&s->lock);
-    {
-        while (!s->new_frame) {
-            s->boss_waiting = true;
-            pthread_cond_wait(&s->boss_cv, &s->lock);
-            s->boss_waiting = false;
+    if(pthread_mutex_trylock(&s->lock)==0){
+        {
+            s->grab = true;
+
+            while (!s->new_frame) {
+                s->boss_waiting = true;
+                pthread_cond_wait(&s->boss_cv, &s->lock);
+                s->boss_waiting = false;
+            }
+
+            gettimeofday(&s->curr_time, NULL);
+            s->frame->h264_iframe = s->rx_data->iframe;
+            s->frame->h264_iframe = s->rx_data->iframe;
+            s->frame->tiles[0].data_len = s->rx_data->buffer_len;
+            memcpy(s->data + s->nals_size, s->rx_data->frame_buffer,
+                s->rx_data->buffer_len);
+            memcpy(s->frame->tiles[0].data, s->data,
+                s->rx_data->buffer_len + s->nals_size);
+            s->frame->tiles[0].data_len += s->nals_size;
+
+            if (s->decompress) {
+                decompress_frame(s->sd, (unsigned char *) s->out_frame,
+                    (unsigned char *) s->frame->tiles[0].data,
+                    s->rx_data->buffer_len + s->nals_size, 0);
+                s->frame->tiles[0].data = s->out_frame;               //TODO memcpy?
+                s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)
+                    * s->des.height;                           //TODO reconfigurable?
+            }
+            s->new_frame = false;
+
+            if (s->worker_waiting) {
+                pthread_cond_signal(&s->worker_cv);
+            }
         }
+        pthread_mutex_unlock(&s->lock);
 
-        gettimeofday(&s->curr_time, NULL);
-
-        s->frame->tiles[0].data_len = s->rx_data->buffer_len;
-
-        memcpy(s->data + s->nals_size, s->rx_data->frame_buffer,
-            s->rx_data->buffer_len);
-
-        memcpy(s->frame->tiles[0].data, s->data,
-            s->rx_data->buffer_len + s->nals_size);
-        s->frame->tiles[0].data_len += s->nals_size;
-
-        if (s->decompress) {
-            decompress_frame(s->sd, (unsigned char *) s->out_frame,
-                (unsigned char *) s->frame->tiles[0].data,
-                s->rx_data->buffer_len + s->nals_size, 0);
-            s->frame->tiles[0].data = s->out_frame;               //TODO memcpy?
-            s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)
-                * s->des.height;                           //TODO reconfigurable
+        gettimeofday(&s->t, NULL);
+        double seconds = tv_diff(s->t, s->t0);
+        if (seconds >= 5) {
+            float fps = s->frames / seconds;
+            fprintf(stderr, "[rtsp capture] %d frames in %g seconds = %g FPS\n",
+                s->frames, seconds, fps);
+            s->t0 = s->t;
+            s->frames = 0;
+            //TODO: Threshold of ¿1fps? in order to update fps parameter. Now a higher fps is fixed to 30fps...
+            //if (fps > s->fps + 1 || fps < s->fps - 1) {
+            //      debug_msg(
+            //          "\n[rtsp] updating fps from rtsp server stream... now = %f , before = %f\n",fps,s->fps);
+            //      s->frame->fps = fps;
+            //      s->fps = fps;
+            //  }
         }
-        s->new_frame = false;
-
-        if (s->worker_waiting) {
-            pthread_cond_signal(&s->worker_cv);
-        }
+        s->frames++;
+        s->grab = false;
     }
-    pthread_mutex_unlock(&s->lock);
-
-    gettimeofday(&s->t, NULL);
-    double seconds = tv_diff(s->t, s->t0);
-    if (seconds >= 5) {
-        float fps = s->frames / seconds;
-        fprintf(stderr, "[rtsp capture] %d frames in %g seconds = %g FPS\n",
-            s->frames, seconds, fps);
-        s->t0 = s->t;
-        s->frames = 0;
-        //Threshold of 1fps in order to update fps parameter
-        if (fps > s->fps + 1 || fps < s->fps - 1) {
-            debug_msg(
-                "\n[rtsp] updating fps from rtsp server stream... now = %f , before = %f\n",fps,s->fps);
-            s->frame->fps = fps;
-            s->fps = fps;
-        }
-    }
-    s->frames++;
 
     return s->frame;
 }
@@ -358,6 +369,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     gettimeofday(&s->t0, NULL);
     s->frames = 0;
     s->nals = malloc(1024);
+    s->grab = false;
 
     s->addr = "127.0.0.1";
     s->device = NULL;
@@ -374,7 +386,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
         (s->required_connections) * sizeof(struct rtp *));
     s->participants = pdb_init();
 
-    s->rx_data = malloc(sizeof(struct recieved_data));
+    s->rx_data = malloc(sizeof(struct std_frame_received));
     s->new_frame = false;
 
     s->in_codec = malloc(sizeof(uint32_t *) * 10);
@@ -510,12 +522,15 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->data = malloc(4 * s->width * s->height + s->nals_size);
 
     s->frame = vf_alloc(1);
+    s->frame->isStd = TRUE;
+    s->frame->h264_bframe = FALSE;
+    s->frame->h264_iframe = FALSE;
     s->tile = vf_get_tile(s->frame, 0);
     vf_get_tile(s->frame, 0)->width = s->width;
     vf_get_tile(s->frame, 0)->height = s->height;
     //TODO fps should be autodetected, now reset and controlled at vidcap_grab function
-    s->frame->fps = 60;
-    s->fps = 60;
+    s->frame->fps = 30;
+    s->fps = 30;
     s->frame->interlacing = PROGRESSIVE;
 
     s->frame->tiles[0].data = calloc(1, s->width * s->height);

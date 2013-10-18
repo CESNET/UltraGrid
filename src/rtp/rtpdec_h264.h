@@ -44,6 +44,14 @@
 #ifndef _RTP_DEC_H264_H
 #define _RTP_DEC_H264_H
 
+struct std_frame_received {
+    uint32_t buffer_len; //[MAX_SUBSTREAMS];
+    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
+    char *frame_buffer;    //[MAX_SUBSTREAMS];
+    uint8_t bframe;
+    uint8_t iframe;
+};
+
 int
 decode_frame_h264(struct coded_data *cdata, void *rx_data);
 
