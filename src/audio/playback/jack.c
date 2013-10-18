@@ -73,7 +73,7 @@ struct state_jack_playback {
         int jack_sample_rate;
         jack_client_t *client;
         jack_port_t *output_port[MAX_PORTS];
-        struct audio_frame frame;
+        struct audio_desc desc;
         char *channel;
         float *converted;
 #ifdef HAVE_SPEEX
@@ -104,7 +104,7 @@ static int jack_process_callback(jack_nframes_t nframes, void *arg)
         int i;
 	int channels; // actual written channels (max of available and required)
 
-	channels = s->frame.ch_count;
+	channels = s->desc.ch_count;
 	if(channels > s->jack_ports_count)
 		channels = s->jack_ports_count;
 
@@ -190,7 +190,6 @@ void * audio_play_jack_init(char *cfg)
 
         s = calloc(1, sizeof(struct state_jack_playback));
 
-        s->frame.data = NULL;
         s->jack_ports_pattern = cfg;
 
         if(!s) {
@@ -277,15 +276,11 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
                 jack_disconnect(s->client, jack_port_name (s->output_port[i]), ports[i]);
 		fprintf(stderr, "[JACK playback] Port %d: %s\n", i, ports[i]);
         }
-        free(s->frame.data);
         free(s->channel);
         free(s->converted);
-        s->frame.bps = quant_samples / 8;
-        s->frame.ch_count = channels;
-        s->frame.sample_rate = sample_rate;
-
-        s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate;
-        s->frame.data = malloc(s->frame.max_size);
+        s->desc.bps = quant_samples / 8;
+        s->desc.ch_count = channels;
+        s->desc.sample_rate = sample_rate;
 
 #ifdef HAVE_SPEEX
         free(s->converted_resampled);
@@ -304,7 +299,7 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
         }
 #endif
 
-        s->channel = malloc(s->frame.bps * sample_rate);
+        s->channel = malloc(s->desc.bps * sample_rate);
         s->converted = (float *) malloc(sample_rate * sizeof(float));
 
         for(i = 0; i < channels; ++i) {
@@ -325,13 +320,6 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
         free(ports);
 
         return TRUE;
-}
-
-struct audio_frame *audio_play_jack_get_frame(void *state)
-{
-        struct state_jack_playback *s = (struct state_jack_playback *) state;
-
-        return &s->frame;
 }
 
 void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
