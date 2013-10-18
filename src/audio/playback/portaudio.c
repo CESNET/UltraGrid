@@ -68,7 +68,7 @@
 #define BUFFER_LEN_SEC 2
 
 struct state_portaudio_playback {
-        audio_frame frame;
+        struct audio_desc desc;
         int samples;
         int device;
         PaStream *stream;
@@ -242,7 +242,6 @@ void portaudio_close_playback(void *state)
 
 static void cleanup(struct state_portaudio_playback * s)
 {
-        free(s->frame.data);
         portaudio_close(s->stream);
 
         ring_buffer_destroy(s->data);
@@ -266,14 +265,9 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
         s->data = ring_buffer_init(size);
         s->tmp_buffer = malloc(size);
         
-        s->frame.bps = quant_samples / 8;
-        s->frame.ch_count = channels;
-        s->frame.sample_rate = sample_rate;
-        
-        s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate; // can hold up to 1 sec
-        
-        s->frame.data = (char*)malloc(s->frame.max_size);
-        assert(s->frame.data != NULL);
+        s->desc.bps = quant_samples / 8;
+        s->desc.ch_count = channels;
+        s->desc.sample_rate = sample_rate;
         
 	printf("(Re)initializing portaudio playback.\n");
 
@@ -345,12 +339,6 @@ int portaudio_reconfigure(void *state, int quant_samples, int channels,
         return TRUE;
 }                        
 
-// get first empty frame, bud don't consider it as being used
-struct audio_frame* portaudio_get_frame(void *state)
-{
-	return &((struct state_portaudio_playback *) state)->frame;
-}
-
 /* This routine will be called by the PortAudio engine when audio is needed.
    It may called at interrupt level on some machines so don't do anything
    that could mess up the system like calling malloc() or free().
@@ -367,8 +355,8 @@ static int callback( const void *inputBuffer, void *outputBuffer,
         UNUSED(timeInfo);
         UNUSED(statusFlags);
 
-        ring_buffer_read(s->data, outputBuffer, framesPerBuffer * s->frame.ch_count *
-                        s->frame.bps);
+        ring_buffer_read(s->data, outputBuffer, framesPerBuffer *
+                        s->desc.ch_count * s->desc.bps);
 
         return paContinue;
 }
@@ -381,18 +369,18 @@ void portaudio_put_frame(void *state, struct audio_frame *buffer)
         const int samples_count = buffer->data_len / (buffer->bps * buffer->ch_count);
 
         /* if we got more channel we can play - skip the additional channels */
-        if(s->frame.ch_count > s->max_output_channels) {
+        if(s->desc.ch_count > s->max_output_channels) {
                 int i;
                 for (i = 0; i < samples_count; ++i) {
                         int j;
                         for(j = 0; j < s->max_output_channels; ++j)
-                                memcpy(buffer->data + s->frame.bps * ( i * s->max_output_channels + j),
-                                        buffer->data + s->frame.bps * ( i * buffer->ch_count + j),
+                                memcpy(buffer->data + s->desc.bps * ( i * s->max_output_channels + j),
+                                        buffer->data + s->desc.bps * ( i * buffer->ch_count + j),
                                         buffer->bps);
                 }
         }
 
-        int out_channels = s->frame.ch_count;
+        int out_channels = s->desc.ch_count;
         if (out_channels > s->max_output_channels) {
                 out_channels = s->max_output_channels;
         }

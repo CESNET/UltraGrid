@@ -51,7 +51,6 @@ extern "C" {
 
 void decklink_playback_help(const char *driver_name);
 void *decklink_playback_init(char *cfg);
-struct audio_frame* decklink_get_frame(void *state);
 void decklink_put_frame(void *state, struct audio_frame *frame);
 void decklink_close_playback(void *state);
 int decklink_reconfigure(void *state, int quant_samples, int channels,

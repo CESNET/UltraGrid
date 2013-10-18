@@ -67,7 +67,7 @@ struct state_ca_playback {
         AudioComponentInstance
 #endif
                         auHALComponentInstance;
-        struct audio_frame frame;
+        struct audio_desc desc;
         struct ring_buffer *buffer;
         int audio_packet_size;
 };
@@ -107,7 +107,7 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
                                                 int sample_rate)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
-        AudioStreamBasicDescription desc;
+        AudioStreamBasicDescription stream_desc;
         UInt32 size;
         OSErr ret = noErr;
         AURenderCallbackStruct  renderStruct;
@@ -115,18 +115,14 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
         printf("[CoreAudio] Audio reinitialized to %d-bit, %d channels, %d Hz\n", 
                         quant_samples, channels, sample_rate);
 
-        s->frame.bps = quant_samples / 8;
-        s->frame.ch_count = channels;
-        s->frame.sample_rate = sample_rate;
+        s->desc.bps = quant_samples / 8;
+        s->desc.ch_count = channels;
+        s->desc.sample_rate = sample_rate;
 
         ring_buffer_destroy(s->buffer);
         s->buffer = NULL;
-        free(s->frame.data);
-        s->frame.data = NULL;
 
-        s->frame.max_size = quant_samples / 8 * channels * sample_rate;
-        s->frame.data = (char *) malloc(s->frame.max_size);
-        s->buffer = ring_buffer_init(s->frame.max_size);
+        s->buffer = ring_buffer_init(quant_samples / 8 * channels * sample_rate);
 
         ret = AudioOutputUnitStop(s->auHALComponentInstance);
         if(ret) {
@@ -140,23 +136,23 @@ int audio_play_ca_reconfigure(void *state, int quant_samples, int channels,
                 goto error;
         }
 
-        size = sizeof(desc);
+        size = sizeof(stream_desc);
         ret = AudioUnitGetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
-                        0, &desc, &size);
+                        0, &stream_desc, &size);
         if(ret) {
                 fprintf(stderr, "[CoreAudio playback] Cannot get device format from AUHAL instance.\n");
                 goto error;
         }
-        desc.mSampleRate = sample_rate;
-        desc.mFormatID = kAudioFormatLinearPCM;
-        desc.mChannelsPerFrame = channels;
-        desc.mBitsPerChannel = quant_samples;
-        desc.mFormatFlags = kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked;
-        desc.mFramesPerPacket = 1;
-        s->audio_packet_size = desc.mBytesPerFrame = desc.mBytesPerPacket = desc.mFramesPerPacket * channels * (quant_samples / 8);
+        stream_desc.mSampleRate = sample_rate;
+        stream_desc.mFormatID = kAudioFormatLinearPCM;
+        stream_desc.mChannelsPerFrame = channels;
+        stream_desc.mBitsPerChannel = quant_samples;
+        stream_desc.mFormatFlags = kAudioFormatFlagIsSignedInteger|kAudioFormatFlagIsPacked;
+        stream_desc.mFramesPerPacket = 1;
+        s->audio_packet_size = stream_desc.mBytesPerFrame = stream_desc.mBytesPerPacket = stream_desc.mFramesPerPacket * channels * (quant_samples / 8);
         
         ret = AudioUnitSetProperty(s->auHALComponentInstance, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
-                        0, &desc, sizeof(desc));
+                        0, &stream_desc, sizeof(stream_desc));
         if(ret) {
                 fprintf(stderr, "[CoreAudio playback] Cannot set device format to AUHAL instance.\n");
                 goto error;
@@ -229,10 +225,10 @@ void * audio_play_ca_init(char *cfg)
         OSErr ret = noErr;
 #if OS_VERSION_MAJOR <= 9
         Component comp;
-        ComponentDescription desc;
+        ComponentDescription comp_desc;
 #else
         AudioComponent comp;
-        AudioComponentDescription desc;
+        AudioComponentDescription comp_desc;
 #endif
         UInt32 size;
         AudioDeviceID device;
@@ -242,34 +238,32 @@ void * audio_play_ca_init(char *cfg)
         //There are several different types of Audio Units.
         //Some audio units serve as Outputs, Mixers, or DSP
         //units. See AUComponent.h for listing
-        desc.componentType = kAudioUnitType_Output;
+        comp_desc.componentType = kAudioUnitType_Output;
 
         //Every Component has a subType, which will give a clearer picture
         //of what this components function will be.
-        //desc.componentSubType = kAudioUnitSubType_DefaultOutput;
-        desc.componentSubType = kAudioUnitSubType_HALOutput;
+        //comp_desc.componentSubType = kAudioUnitSubType_DefaultOutput;
+        comp_desc.componentSubType = kAudioUnitSubType_HALOutput;
 
         //all Audio Units in AUComponent.h must use 
         //"kAudioUnitManufacturer_Apple" as the Manufacturer
-        desc.componentManufacturer = kAudioUnitManufacturer_Apple;
-        desc.componentFlags = 0;
-        desc.componentFlagsMask = 0;
+        comp_desc.componentManufacturer = kAudioUnitManufacturer_Apple;
+        comp_desc.componentFlags = 0;
+        comp_desc.componentFlagsMask = 0;
 
 #if OS_VERSION_MAJOR <= 9
-        comp = FindNextComponent(NULL, &desc);
+        comp = FindNextComponent(NULL, &comp_desc);
         if(!comp) goto error;
         ret = OpenAComponent(comp, &s->auHALComponentInstance);
         if (ret != noErr) goto error;
 #else
-        comp = AudioComponentFindNext(NULL, &desc);
+        comp = AudioComponentFindNext(NULL, &comp_desc);
         if(!comp) goto error;
         ret = AudioComponentInstanceNew(comp, &s->auHALComponentInstance);
         if (ret != noErr) goto error;
 #endif
         
-        s->frame.data = NULL;
         s->buffer = NULL;
-        s->frame.max_size = 0;
 
         ret = AudioUnitUninitialize(s->auHALComponentInstance);
         if(ret) goto error;
@@ -305,13 +299,6 @@ error:
         return NULL;
 }
 
-struct audio_frame *audio_play_ca_get_frame(void *state)
-{
-        struct state_ca_playback *s = (struct state_ca_playback *)state;
-
-        return &s->frame;
-}
-
 void audio_play_ca_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_ca_playback *s = (struct state_ca_playback *)state;
@@ -325,7 +312,6 @@ void audio_play_ca_done(void *state)
 
         AudioOutputUnitStop(s->auHALComponentInstance);
         AudioUnitUninitialize(s->auHALComponentInstance);
-        free(s->frame.data);
         ring_buffer_destroy(s->buffer);
         free(s);
 }

@@ -98,9 +98,9 @@ extern "C" {
 void print_output_modes(IDeckLink *);
 static int blackmagic_api_version_check(STRING *current_version);
 
-
+namespace {
 class PlaybackDelegate;
-
+}
 
 #define DECKLINK_MAGIC DISPLAY_DECKLINK_ID
 
@@ -108,7 +108,7 @@ class PlaybackDelegate;
 struct state_decklink {
         uint32_t            magic;
 
-        struct audio_frame  audio;
+        struct audio_desc  audio_desc;
 
         int                 output_audio_channel_count;
 
@@ -123,6 +123,7 @@ struct state_decklink {
         int frames;
  };
 
+namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
         struct state_decklink *                 s;
@@ -147,6 +148,7 @@ public:
         virtual HRESULT STDMETHODCALLTYPE          ScheduledPlaybackHasStopped () { return S_OK; } 
         //virtual HRESULT         RenderAudioSamples (bool preroll);
 };
+} // end of unnamed namespace
 
 static int blackmagic_api_version_check(STRING *current_version)
 {
@@ -353,8 +355,6 @@ void *decklink_playback_init(char *index_str)
                 return NULL;
         }
 
-        s->audio.data = NULL;
-        
         // Obtain the audio/video output interface (IDeckLinkOutput)
         if (s->deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&s->deckLinkOutput) != S_OK) {
                 if(s->deckLinkOutput != NULL)
@@ -410,18 +410,11 @@ void *decklink_playback_init(char *index_str)
         return (void *)s;
 }
 
-struct audio_frame* decklink_get_frame(void *state)
-{
-        struct state_decklink *s = (struct state_decklink *)state;
-        
-        return &s->audio;
-}
-
 void decklink_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_decklink *s = (struct state_decklink *)state;
-        unsigned int sampleFrameCount = s->audio.data_len / (s->audio.bps *
-                        s->audio.ch_count);
+        unsigned int sampleFrameCount = frame->data_len /
+                (s->audio_desc.bps * s->audio_desc.ch_count);
 #ifdef WIN32
         unsigned long int sampleFramesWritten;
 #else
@@ -429,8 +422,8 @@ void decklink_put_frame(void *state, struct audio_frame *frame)
 #endif
 
         /* we got probably count that cannot be played directly (probably 1) */
-        if(s->output_audio_channel_count != s->audio.ch_count) {
-                assert(s->audio.ch_count == 1); /* only reasonable value so far */
+        if(s->output_audio_channel_count != s->audio_desc.ch_count) {
+                assert(s->audio_desc.ch_count == 1); /* only reasonable value so far */
                 if (sampleFrameCount * s->output_audio_channel_count 
                                 * frame->bps > frame->max_size) {
                         fprintf(stderr, "[decklink] audio buffer overflow!\n");
@@ -444,7 +437,7 @@ void decklink_put_frame(void *state, struct audio_frame *frame)
                                 s->output_audio_channel_count);
         }
         
-	s->deckLinkOutput->ScheduleAudioSamples (s->audio.data, sampleFrameCount, 0, 		
+	s->deckLinkOutput->ScheduleAudioSamples (frame->data, sampleFrameCount, 0, 		
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
                 fprintf(stderr, "[decklink] audio buffer underflow!\n");
@@ -456,23 +449,21 @@ int decklink_reconfigure(void *state, int quant_samples, int channels,
         struct state_decklink *s = (struct state_decklink *)state;
         BMDAudioSampleType sample_type;
 
-        if(s->audio.data != NULL)
-                free(s->audio.data);
-                
-        s->audio.bps = quant_samples / 8;
-        s->audio.sample_rate = sample_rate;
-        s->output_audio_channel_count = s->audio.ch_count = channels;
+        s->audio_desc.bps = quant_samples / 8;
+        s->audio_desc.sample_rate = sample_rate;
+        s->output_audio_channel_count = s->audio_desc.ch_count = channels;
         
-        if (s->audio.ch_count != 1 &&
-                        s->audio.ch_count != 2 && s->audio.ch_count != 8 &&
-                        s->audio.ch_count != 16) {
+        if (s->audio_desc.ch_count != 1 &&
+                        s->audio_desc.ch_count != 2 &&
+                        s->audio_desc.ch_count != 8 &&
+                        s->audio_desc.ch_count != 16) {
                 fprintf(stderr, "[decklink] requested channel count isn't supported: "
-                        "%d\n", s->audio.ch_count);
+                        "%d\n", s->audio_desc.ch_count);
                 return FALSE;
         }
         
         /* toggle one channel to supported two */
-        if(s->audio.ch_count == 1) {
+        if(s->audio_desc.ch_count == 1) {
                  s->output_audio_channel_count = 2;
         }
         
@@ -500,11 +491,6 @@ int decklink_reconfigure(void *state, int quant_samples, int channels,
                         bmdAudioOutputStreamContinuous);
         s->deckLinkOutput->StartScheduledPlayback(0, s->frameRateScale, s->frameRateDuration);
         
-        s->audio.max_size = 5 * (quant_samples / 8) 
-                        * s->audio.ch_count
-                        * sample_rate;                
-        s->audio.data = (char *) malloc (s->audio.max_size);
-
         return TRUE;
 }
 
@@ -517,7 +503,6 @@ void decklink_close_playback(void *state)
         s->deckLinkFrame->Release();
         s->deckLink->Release();
         s->deckLinkOutput->Release();
-        free(s->audio.data);
         free(s);
 }
 

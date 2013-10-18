@@ -75,7 +75,7 @@
 
 struct state_alsa_playback {
         snd_pcm_t *handle;
-        struct audio_frame frame;
+        struct audio_desc desc;
 
         unsigned int min_device_channels;
 };
@@ -91,9 +91,9 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         int rc;
         snd_pcm_uframes_t frames;
 
-        s->frame.bps = quant_samples / 8;
-        s->min_device_channels = s->frame.ch_count = channels;
-        s->frame.sample_rate = sample_rate;
+        s->desc.bps = quant_samples / 8;
+        s->min_device_channels = s->desc.ch_count = channels;
+        s->desc.sample_rate = sample_rate;
 
 
         /* Allocate a hardware parameters object. */
@@ -217,12 +217,6 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                 return FALSE;
         }
 
-        free(s->frame.data);
-
-        s->frame.max_size = s->frame.bps * s->frame.ch_count * s->frame.sample_rate; // can hold up to 1 sec
-        s->frame.data = (char*)malloc(s->frame.max_size);
-        assert(s->frame.data != NULL);
-
         return TRUE;
 }
 
@@ -307,13 +301,6 @@ error:
         return NULL;
 }
 
-struct audio_frame *audio_play_alsa_get_frame(void *state)
-{
-        struct state_alsa_playback *s = (struct state_alsa_playback *) state;
-
-        return &s->frame;
-}
-
 void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
@@ -372,7 +359,6 @@ void audio_play_alsa_done(void *state)
 
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
-        free(s->frame.data);
         free(s);
 }
 
