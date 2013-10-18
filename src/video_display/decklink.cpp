@@ -113,6 +113,7 @@ static int blackmagic_api_version_check(STRING *current_version);
 
 #define MAX_DEVICES 4
 
+namespace {
 class PlaybackDelegate : public IDeckLinkVideoOutputCallback // , public IDeckLinkAudioOutputCallback
 {
 public:
@@ -223,6 +224,7 @@ class DeckLink3DFrame : public DeckLinkFrame, public IDeckLinkVideoFrame3DExtens
                 BMDVideo3DPackingFormat STDMETHODCALLTYPE Get3DPackingFormat();
                 HRESULT STDMETHODCALLTYPE GetFrameForRightEye(IDeckLinkVideoFrame**);
 };
+} // end of unnamed namespace
 
 #define DECKLINK_MAGIC DISPLAY_DECKLINK_ID
 
@@ -438,6 +440,9 @@ int display_decklink_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_decklink *s = (struct state_decklink *)state;
         struct timeval tv;
+
+        if (frame == NULL)
+                return FALSE;
 
         UNUSED(frame);
         UNUSED(nonblock);
@@ -1220,7 +1225,7 @@ int display_decklink_reconfigure_audio(void *state, int quant_samples, int chann
 }
 
 #ifndef WIN32
-bool operator==(const REFIID & first, const REFIID & second){
+static bool operator==(const REFIID & first, const REFIID & second){
     return (first.byte0 == second.byte0) &&
         (first.byte1 == second.byte1) &&
         (first.byte2 == second.byte2) &&

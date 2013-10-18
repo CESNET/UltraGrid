@@ -718,14 +718,17 @@ struct video_frame *display_bluefish444_state::getf() throw()
 
 void display_bluefish444_state::putf(struct video_frame *frame) throw (runtime_error, logic_error)
 {
-        if(!frame || frame->tiles[0].data !=
+        if (!frame)
+                return;
+
+        if (frame->tiles[0].data !=
                         (char *) m_pTmpFrame->pVideoBuffer[0]) {
                 throw invalid_argument("Invalid frame supplied!");
         }
 
         pthread_mutex_lock(&m_lock);
         for(int i = 0; i < m_TileCount; ++i) {
-                m_pTmpFrame->pVideoBuffer[i] = (unsigned int *) m_frame->tiles[i].data;
+                m_pTmpFrame->pVideoBuffer[i] = (unsigned int *)(void *) m_frame->tiles[i].data;
         }
         m_ReadyFrameQueue.push(m_pTmpFrame);
         pthread_cond_signal(&m_WorkerCv);
