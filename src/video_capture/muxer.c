@@ -77,31 +77,24 @@ struct vidcap_muxer_state {
         int         dev_index_next;
 
         int          audio_source_index;
+        int change;
 };
+static struct vidcap_muxer_state *muxer_state;
 
 /**
  * MUXER REMOTE CONTROL
  */
-static int init(struct module *parent,void *state);
+static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
-static bool parse(struct vidcap_muxer_state *s, char *cfg)
+static struct video_frame *filter(void *state, struct video_frame *in);
+
+static int init(struct module *parent, const char *cfg, void **state)
 {
-        char *item, *save_ptr;
-        while ((item = strtok_r(cfg, ":", &save_ptr)))
-            s->dev_index_next = atoi(item);
+        int ch = atoi(cfg);
+        if(ch > 0 && ch < muxer_state->devices_cnt) muxer_state->change = atoi(cfg);
+        //else printf("\n[MUXER REMOTE CONTROL] ERROR: devices available from 1 to %d\n",muxer_state->devices_cnt-1);
 
-        return true;
-}
-
-static int init(struct module *parent, void *state)
-{
-        struct vidcap_muxer_state *s = calloc(1, sizeof(struct vidcap_muxer_state));
-        assert(s);
-
-        module_init_default(&s->mod);
-        s->mod.cls = MODULE_CLASS_DATA;
-        module_register(&s->mod, parent);
-
+        *state = muxer_state;
         return 0;
 }
 static void done(void *state)
@@ -110,23 +103,10 @@ static void done(void *state)
         module_done(&s->mod);
         if(state!=NULL)free(state);
 }
-static void process_message(struct vidcap_muxer_state *s, struct msg_universal *msg)
-{
-        parse(s, msg->text);
-}
-
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-        struct vidcap_muxer_state *s = (struct vidcap_muxer_state *) state;
-        struct message *msg;
-        while ((msg = check_message(&s->mod))) {
-                process_message(s, (struct msg_universal *) msg);
-                free_message(msg);
-        }
         return in;
 }
-
-
 struct capture_filter_info capture_filter_muxer = {
         .name = "muxer",
         .init = init,
@@ -145,7 +125,6 @@ static void show_help()
         printf("Usage\n");
         printf("\t-t muxer -t <dev1_config> -t <dev2_config> ....]\n");
         printf("\t\twhere devn_config is a complete configuration string of device involved in the muxer device\n");
-
 }
 
 
@@ -166,24 +145,25 @@ vidcap_muxer_probe(void)
 void *
 vidcap_muxer_init(const struct vidcap_params *params)
 {
-    struct vidcap_muxer_state *s;
+    //struct vidcap_muxer_state *s;
     int i;
 
     printf("vidcap_muxer_init\n");
 
-    s = (struct vidcap_muxer_state *) calloc(1,
+    muxer_state = (struct vidcap_muxer_state *) calloc(1,
         sizeof(struct vidcap_muxer_state));
-    if (s == NULL) {
+    if (muxer_state == NULL) {
         printf("Unable to allocate muxer capture state\n");
         return NULL;
     }
 
-    s->audio_source_index = -1;
-    s->frames = 0;
-    s->dev_index_curr = 0;
-    s->dev_index_next = 0;
+    muxer_state->audio_source_index = -1;
+    muxer_state->frames = 0;
+    muxer_state->dev_index_curr = 1;
+    muxer_state->dev_index_next = 1;
+    muxer_state->change = 0;
 
-    gettimeofday(&s->t0, NULL);
+    gettimeofday(&muxer_state->t0, NULL);
 
     if (vidcap_params_get_fmt(params)
         && strcmp(vidcap_params_get_fmt(params), "") != 0)
@@ -192,22 +172,22 @@ vidcap_muxer_init(const struct vidcap_params *params)
         return &vidcap_init_noerr;
     }
 
-    s->devices_cnt = 0;
+    muxer_state->devices_cnt = 1;
     const struct vidcap_params *tmp = params;
     while ((tmp = vidcap_params_get_next(tmp))) {
         if (vidcap_params_get_driver(tmp) != NULL)
-            s->devices_cnt++;
+            muxer_state->devices_cnt++;
         else
             break;
     }
 
-    s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
+    muxer_state->devices = calloc(muxer_state->devices_cnt, sizeof(struct vidcap *));
     i = 0;
     tmp = params;
-    for (int i = 0; i < s->devices_cnt; ++i) {
+    for (int i = 1; i < muxer_state->devices_cnt; ++i) {
         tmp = vidcap_params_get_next(tmp);
 
-        int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+        int ret = initialize_video_capture(NULL, tmp, &muxer_state->devices[i]);
         if (ret != 0) {
             fprintf(stderr, "[muxer] Unable to initialize device %d (%s:%s).\n",
                 i, vidcap_params_get_driver(tmp), vidcap_params_get_fmt(tmp));
@@ -215,19 +195,19 @@ vidcap_muxer_init(const struct vidcap_params *params)
         }
     }
 
-    s->frame = vf_alloc(1);
+    muxer_state->frame = vf_alloc(1);
 
-    return s;
+    return muxer_state;
 
-    error: if (s->devices) {
+    error: if (muxer_state->devices) {
         int i;
-        for (i = 0u; i < s->devices_cnt; ++i) {
-            if (s->devices[i]) {
-                vidcap_done(s->devices[i]);
+        for (i = 1u; i < muxer_state->devices_cnt; ++i) {
+            if (muxer_state->devices[i]) {
+                vidcap_done(muxer_state->devices[i]);
             }
         }
     }
-    free(s);
+    free(muxer_state);
     return NULL;
 }
 
@@ -240,7 +220,7 @@ vidcap_muxer_done(void *state)
 
 	if (s != NULL) {
                 int i;
-		for (i = 0; i < s->devices_cnt; ++i) {
+		for (i = 1; i < s->devices_cnt; ++i) {
                          vidcap_done(s->devices[i]);
 		}
 	}
@@ -269,7 +249,7 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
     if(c >= 48 && c < 48+s->devices_cnt){
        // s->dev_index_curr = s->dev_index_next;
         s->dev_index_next = c - 48;
-        printf("\n[MUXER] device %d (previous was: %d) selected of %d devices...\r\n",s->dev_index_next,s->dev_index_curr,s->devices_cnt);
+        //printf("\n[MUXER] device %d (previous was: %d) selected of %d devices...\r\n",s->dev_index_next,s->dev_index_curr,s->devices_cnt-1);
     }
     reset_terminal_mode();
 
@@ -281,7 +261,10 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
 //            process_message(s,((struct msg_universal *) msg)->text);
 //            free_message(msg);
 //    }
-
+    if(s->change != 0){
+        s->dev_index_next = s->change;
+        s->change = 0;
+    }
     /**
      * vidcap_grap
      */
@@ -293,15 +276,15 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
                 frame_next = vidcap_grab(s->devices[s->dev_index_next], &audio_frame);
         }
 
-        printf("\n\n[MUXER] frameNext is std = %d...\n\n",frame_next->isStd);
+        //printf("\n\n[MUXER] frameNext is std = %d...\n\n",frame_next->isStd);
 
         if(frame_next->isStd == TRUE){
-            printf("\n\n[MUXER] RTSP INCOMING FRAME...\n");
+            //printf("\n\n[MUXER] RTSP INCOMING FRAME...\n");
             if(frame_next->h264_iframe == TRUE){
                 s->dev_index_curr = s->dev_index_next;
                 frame_curr = frame_next;
-                printf("[MUXER] GOT INTRA FRAME! SWITCHING...\n\n");
-            }else printf("[MUXER] NO INTRA FRAME YET...\n");
+                //printf("[MUXER] GOT INTRA FRAME! SWITCHING...\n\n");
+            }//else printf("[MUXER] NO INTRA FRAME YET...\n");
         }else{
             frame_curr = frame_next;
             s->dev_index_curr = s->dev_index_next;
@@ -322,20 +305,6 @@ vidcap_muxer_grab(void *state, struct audio_frame **audio)
     if (s->audio_source_index == s->dev_index_curr) {
         *audio = audio_frame;
     }
-//                if (frame->color_spec != s->frame->color_spec ||
-//                                frame->fps != s->frame->fps ||
-//                                frame->interlacing != s->frame->interlacing) {
-//                        fprintf(stderr, "[muxer] Different format detected: ");
-//                        if(frame->color_spec != s->frame->color_spec)
-//                                fprintf(stderr, "codec");
-//                        if(frame->interlacing != s->frame->interlacing)
-//                                fprintf(stderr, "interlacing");
-//                        if(frame->fps != s->frame->fps)
-//                                fprintf(stderr, "FPS (%.2f and %.2f)", frame->fps, s->frame->fps);
-//                        fprintf(stderr, "\n");
-//
-//                        //return NULL;
-//                }
     if (frame != NULL) {
         vf_get_tile(s->frame, 0)->width = vf_get_tile(frame, 0)->width;
         vf_get_tile(s->frame, 0)->height = vf_get_tile(frame, 0)->height;
