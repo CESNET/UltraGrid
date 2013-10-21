@@ -281,6 +281,11 @@ vidcap_import_init(char *directory, unsigned int flags)
 
 	printf("vidcap_import_init\n");
 
+        if (!directory) {
+                fprintf(stderr, "Missing directory name!\n");
+                return NULL;
+        }
+
         s = (struct vidcap_import_state *) calloc(1, sizeof(struct vidcap_import_state));
         s->head = s->tail = NULL;
         s->queue_len = 0;

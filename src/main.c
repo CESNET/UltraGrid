@@ -249,7 +249,7 @@ static void usage(void)
         printf("          [-m <video_mode>] [-p <postprocess>] "
                         "[-f <fec_options>] [-p <port>]\n");
         printf("          [--mcast-if <iface>]\n");
-        printf("          [--export[=<d>]|--import <d>]\n");
+        printf("          [--record[=<d>]|--playback <d>]\n");
         printf("          address(es)\n\n");
         printf
             ("\t-d <display_device>        \tselect display device, use '-d help'\n");
@@ -306,9 +306,9 @@ static void usage(void)
         printf("\n");
         printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
         printf("\n");
-        printf("\t--import <directory>     \timport previous session from directory\n");
+        printf("\t--playback <directory>   \treplays captured recorded\n");
         printf("\n");
-        printf("\t--export[=<directory>]   \texport captured (and compressed) data\n");
+        printf("\t--record[=<directory>]   \trecord captured audio and video\n");
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
@@ -1030,8 +1030,8 @@ int main(int argc, char *argv[])
                 {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
                 {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, OPT_MCAST_IF},
-                {"export", optional_argument, 0, OPT_EXPORT},
-                {"import", required_argument, 0, OPT_IMPORT},
+                {"record", optional_argument, 0, OPT_EXPORT},
+                {"playback", required_argument, 0, OPT_IMPORT},
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
