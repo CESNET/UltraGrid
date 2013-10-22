@@ -1,16 +1,22 @@
 next
 =====
 * screen capture performance updates
+* screen capture - added cursor capture (X11)
 * added interlacing postprocessor
 * added V4L2 capture
-* AV import and export
-* MS Windows support including most modules
-* support for libavcodec compression/decompression
+* AV record and playback
+* MS Windows support (most of modules)
+* support for libavcodec compression/decompression (H.264, VP8, MJPEG)
 * GPUJPEG performance optimalizations
 * DirectShow capture support
 * added SAGE transmit (alternative to native RTP)
 * recompressing support added to a reflector
 * added SW video mix
+* direct transcoding from JPEG to DXT
+* support for BlueFish444 cards
+* RTDXT compress now runs on Intel graphics cards (Linux)
+* OpenGL - key shortcuts for screenshot and pause
+* added audio compression
 
 1.1
 =====
