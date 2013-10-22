@@ -21,7 +21,7 @@ BUNDLE        = uv.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
 NVCC	      = @NVCC@
 
-DOCS 	      = COPYRIGHT README REPORTING-BUGS
+DOCS 	      = README REPORTING-BUGS
 
 GUI_TARGET    = @GUI_TARGET@
 
@@ -640,6 +640,7 @@ install: all
 	$(INSTALL) -m 755 data/ultragrid-bugreport-collect.sh $(DESTDIR)/$(uv_datadir)
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(docdir)
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)/$(docdir)
+	$(CP) @COPYRIGHT@ $(DESTDIR)/$(docdir)/COPYRIGHT
 
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv

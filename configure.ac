@@ -205,8 +205,6 @@ fi
 # Licensing
 # -------------------------------------------------------------------------------------------------
 # default UltraGrid license
-license="BSD License"
-
 gpl=no
 AC_ARG_ENABLE(gpl,
               AS_HELP_STRING([--enable-gpl], [allow use of GPL code, ]
@@ -214,10 +212,15 @@ AC_ARG_ENABLE(gpl,
 	[gpl=$enableval])
 if test $gpl = yes
 then
-          AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
-          license=unredistributeable
+        AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
+        license="GPLv2"
+        COPYRIGHT="COPYRIGHT.GPL-2"
+else
+        license="BSD License"
+        COPYRIGHT="COPYRIGHT.BSD"
 fi
 
+AC_SUBST(COPYRIGHT)
 
 # -------------------------------------------------------------------------------------------------
 # Additional macros
