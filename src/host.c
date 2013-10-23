@@ -87,7 +87,6 @@ int initialize_video_display(const char *requested_display,
                                                 char *fmt, unsigned int flags,
                                                 struct display **out)
 {
-        struct display *d;
         display_type_t *dt;
         display_id_t id = 0;
         int i;
@@ -120,8 +119,7 @@ int initialize_video_display(const char *requested_display,
         }
         display_free_devices_extrn();
 
-        int ret = display_init_extrn(id, fmt, flags, &d);
-        *out = d;
+        int ret = display_init_extrn(id, fmt, flags, out);
         return ret;
 }
 
