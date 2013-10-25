@@ -478,7 +478,7 @@ static void *ihdtv_receiver_thread(void *arg)
                 if (ihdtv_receive
                     (connection, frame_buffer->tiles[0].data, frame_buffer->tiles[0].data_len))
                         return 0;       // we've got some error. probably empty buffer
-                display_put_frame(display_device, frame_buffer);
+                display_put_frame(display_device, frame_buffer, 0);
                 frame_buffer = display_get_frame(display_device);
         }
         return 0;
