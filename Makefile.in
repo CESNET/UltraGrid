@@ -1,5 +1,6 @@
 AR            = ar
 RANLIB        = ranlib
+CP            = cp
 CC            = @CC@
 CXX           = @CXX@
 QMAKE         = @QMAKE@
@@ -379,7 +380,7 @@ suggest-tests:
 	@echo ""
 
 configure-messages:
-	@echo "@POST_COMPILE_MSG@"
+	@printf "@POST_COMPILE_MSG@"
 
 
 tests: test/run_tests
