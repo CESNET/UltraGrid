@@ -344,6 +344,14 @@ static int frame_complete(struct pbuf_node *frame)
         return (frame->mbit == 1);
 }
 
+int pbuf_is_empty(struct pbuf *playout_buf)
+{
+        if (playout_buf->frst == NULL)
+                return TRUE;
+        else
+                return FALSE;
+}
+
 int
 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data)

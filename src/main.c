@@ -632,10 +632,13 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                                                curr_time));
                         }
 
-                        if(cp->decoder_state == NULL) {
+                        if(cp->decoder_state == NULL &&
+                                        !pbuf_is_empty(cp->playout_buffer)) { // the second check is needed because we want to assign display to participant that really sends data
 #ifdef SHARED_DECODER
                                 cp->decoder_state = shared_decoder;
 #else
+                                // we are assigning our display so we make sure it is removed from other dispaly
+                                remove_display_from_decoders(uv);
                                 cp->decoder_state = new_video_decoder(uv);
                                 cp->decoder_state_deleter = destroy_video_decoder;
 #endif // SHARED_DECODER
@@ -689,7 +692,7 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                 last_tile_received = curr_time;
                         }
 
-                        if(vdecoder_state->decoded % 100 == 99) {
+                        if(vdecoder_state && vdecoder_state->decoded % 100 == 99) {
                                 int new_size = vdecoder_state->max_frame_size * 110ull / 100;
                                 if(new_size > last_buf_size) {
                                         struct rtp **device = uv->network_devices;

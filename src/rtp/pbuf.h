@@ -108,6 +108,7 @@ struct pbuf	*pbuf_init(void);
 void		 pbuf_insert(struct pbuf *playout_buf, rtp_packet *r);
 int 	 	 audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data);
+int 	 	 pbuf_is_empty(struct pbuf *playout_buf);
 int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data);
                              //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
