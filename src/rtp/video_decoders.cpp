@@ -1653,6 +1653,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         check_for_mode_change(decoder, video_header);
                 }
 
+                // hereafter, display framebuffer can be used, so we
+                // check if we got it
+                if (decoder->frame == NULL) {
+                        return FALSE;
+                }
+
                 pc_insert(pckt_list[substream], data_pos, len);
 
                 if (contained_pt == PT_VIDEO && decoder->decoder_type == LINE_DECODER) {
