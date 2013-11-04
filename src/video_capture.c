@@ -75,7 +75,8 @@
 #include "video_capture/linsys.h"
 #include "video_capture/null.h"
 #include "video_capture/quicktime.h"
-#include "video_capture/screen.h"
+#include "video_capture/screen_osx.h"
+#include "video_capture/screen_x11.h"
 #include "video_capture/swmix.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
@@ -217,10 +218,17 @@ struct vidcap_device_api vidcap_device_table[] = {
          /* The screen capture card */
          0,
          "screen",
-         MK_NAME(vidcap_screen_probe),
-         MK_NAME(vidcap_screen_init),
-         MK_NAME(vidcap_screen_done),
-         MK_NAME(vidcap_screen_grab),
+#ifdef HAVE_LINUX
+         MK_NAME(vidcap_screen_x11_probe),
+         MK_NAME(vidcap_screen_x11_init),
+         MK_NAME(vidcap_screen_x11_done),
+         MK_NAME(vidcap_screen_x11_grab),
+#else
+         MK_NAME(vidcap_screen_osx_probe),
+         MK_NAME(vidcap_screen_osx_init),
+         MK_NAME(vidcap_screen_osx_done),
+         MK_NAME(vidcap_screen_osx_grab),
+#endif // ! defined HAVE_LINUX
          NULL
         },
 #endif /* HAVE_SCREEN */

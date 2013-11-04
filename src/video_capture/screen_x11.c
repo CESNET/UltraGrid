@@ -1,32 +1,23 @@
+/**
+ * @file   screen_x11.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    screen.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2012-2013 CESNET, z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,11 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
-
-#include "host.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -60,37 +48,25 @@
 
 #include "tv.h"
 
-#include "video_capture/screen.h"
+#include "video_capture/screen_x11.h"
 #include "audio/audio.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
 
-#include <pthread.h>
-
-#ifdef HAVE_MACOSX
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/gl.h>
-#include <Carbon/Carbon.h>
-#else
 #include <X11/Xlib.h>
 #ifdef HAVE_XFIXES
 #include <X11/extensions/Xfixes.h>
 #endif // HAVE_XFIXES
 #include <X11/Xutil.h>
 #include "x11_common.h"
-#endif
 
 #define QUEUE_SIZE_MAX 3
 
 /* prototypes of functions defined in this module */
 static void show_help(void);
-#ifdef HAVE_LINUX
 static void *grab_thread(void *args);
-#endif // HAVE_LINUX
-
-static volatile bool should_exit = false;
 
 static void show_help()
 {
@@ -100,25 +76,18 @@ static void show_help()
         printf("\t\t<fps> - preferred grabbing fps (otherwise unlimited)\n");
 }
 
-static struct vidcap_screen_state *state;
-
-#ifdef HAVE_LINUX
 struct grabbed_data;
 
 struct grabbed_data {
         XImage *data;
         struct grabbed_data *next;
 };
-#endif
 
-struct vidcap_screen_state {
+struct vidcap_screen_x11_state {
         struct video_frame       *frame; 
         struct tile       *tile; 
         int frames;
         struct       timeval t, t0;
-#ifdef HAVE_MACOSX
-        CGDirectDisplayID display;
-#else
         Display *dpy;
         Window root;
 
@@ -134,24 +103,18 @@ struct vidcap_screen_state {
         volatile bool should_exit_worker;
 
         pthread_t worker_id;
-#endif
 
         struct timeval prev_time;
 
         double fps;
 
+        bool initialized;
 };
 
-pthread_once_t initialized = PTHREAD_ONCE_INIT;
-
-static void initialize() {
-        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
-
+static void initialize(struct vidcap_screen_x11_state *s) {
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
 
-
-#ifndef HAVE_MACOSX
         XWindowAttributes wa;
 
         x11_lock();
@@ -178,15 +141,6 @@ static void initialize() {
 
         s->should_exit_worker = false;
 
-#else
-        s->display = CGMainDisplayID();
-        CGImageRef image = CGDisplayCreateImage(s->display);
-
-        s->tile->width = CGImageGetWidth(image);
-        s->tile->height = CGImageGetHeight(image);
-        CFRelease(image);
-#endif
-
         s->frame->color_spec = RGB;
         if(s->fps > 0.0) {
                 s->frame->fps = s->fps;
@@ -196,13 +150,9 @@ static void initialize() {
         s->frame->interlacing = PROGRESSIVE;
         s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) * s->tile->height;
 
-#ifndef HAVE_MACOSX
         s->tile->data = (char *) malloc(s->tile->data_len);
 
         pthread_create(&s->worker_id, NULL, grab_thread, s);
-#else
-        s->tile->data = (char *) malloc(s->tile->data_len);
-#endif
 
         return;
 
@@ -213,10 +163,9 @@ error:
 }
 
 
-#ifdef HAVE_LINUX
 static void *grab_thread(void *args)
 {
-        struct vidcap_screen_state *s = args;
+        struct vidcap_screen_x11_state *s = args;
 
         while(!s->should_exit_worker) {
                 struct grabbed_data *new_item = malloc(sizeof(struct grabbed_data));
@@ -285,9 +234,8 @@ static void *grab_thread(void *args)
 
         return NULL;
 }
-#endif // HAVE_LINUX
 
-struct vidcap_type * vidcap_screen_probe(void)
+struct vidcap_type * vidcap_screen_x11_probe(void)
 {
         struct vidcap_type*		vt;
 
@@ -300,17 +248,18 @@ struct vidcap_type * vidcap_screen_probe(void)
         return vt;
 }
 
-void * vidcap_screen_init(const struct vidcap_params *params)
+void * vidcap_screen_x11_init(const struct vidcap_params *params)
 {
-        struct vidcap_screen_state *s;
+        struct vidcap_screen_x11_state *s;
 
         printf("vidcap_screen_init\n");
 
-        state = s = (struct vidcap_screen_state *) malloc(sizeof(struct vidcap_screen_state));
+        s = (struct vidcap_screen_x11_state *) malloc(sizeof(struct vidcap_screen_x11_state));
         if(s == NULL) {
                 printf("Unable to allocate screen capture state\n");
                 return NULL;
         }
+        s->initialized = false;
 
         gettimeofday(&s->t0, NULL);
 
@@ -319,16 +268,13 @@ void * vidcap_screen_init(const struct vidcap_params *params)
         s->frame = NULL;
         s->tile = NULL;
 
-#ifdef HAVE_LINUX
         s->worker_id = 0;
 #ifndef HAVE_XFIXES
         fprintf(stderr, "[Screen capture] Compiled without XFixes library, cursor won't be shown!\n");
 #endif // ! HAVE_XFIXES
-#endif // HAVE_LINUX
 
         s->prev_time.tv_sec = 
                 s->prev_time.tv_usec = 0;
-
 
         s->frames = 0;
 
@@ -344,13 +290,11 @@ void * vidcap_screen_init(const struct vidcap_params *params)
         return s;
 }
 
-static void vidcap_screen_finish(void *state)
+static void vidcap_screen_x11_finish(void *state)
 {
-        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
+        struct vidcap_screen_x11_state *s = (struct vidcap_screen_x11_state *) state;
 
         assert(s != NULL);
-        should_exit = true;
-#ifdef HAVE_LINUX
         pthread_mutex_lock(&s->lock);
         if(s->boss_waiting) {
                 pthread_cond_signal(&s->boss_cv);
@@ -366,18 +310,16 @@ static void vidcap_screen_finish(void *state)
         if(s->worker_id) {
                 pthread_join(s->worker_id, NULL);
         }
-#endif // HAVE_LINUX
 }
 
-void vidcap_screen_done(void *state)
+void vidcap_screen_x11_done(void *state)
 {
-        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
+        struct vidcap_screen_x11_state *s = (struct vidcap_screen_x11_state *) state;
 
         assert(s != NULL);
 
-        vidcap_screen_finish(state);
+        vidcap_screen_x11_finish(state);
 
-#ifdef HAVE_LINUX
         pthread_mutex_lock(&s->lock);
         {
                 while(s->queue_len > 0) {
@@ -392,26 +334,21 @@ void vidcap_screen_done(void *state)
 
         if(s->tile)
                 free(s->tile->data);
-#endif
 
-        if(s->tile) {
-#ifdef HAVE_MACOS_X
-                free(s->tile->data);
-#endif
-        }
         vf_free(s->frame);
         free(s);
 }
 
-struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
+struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_frame **audio)
 {
-        struct vidcap_screen_state *s = (struct vidcap_screen_state *) state;
+        struct vidcap_screen_x11_state *s = (struct vidcap_screen_x11_state *) state;
 
-        pthread_once(&initialized, initialize);
+        if (!s->initialized) {
+                initialize(s);
+                s->initialized = true;
+        }
 
         *audio = NULL;
-
-#ifndef HAVE_MACOSX
 
         struct grabbed_data *item = NULL;
 
@@ -444,25 +381,6 @@ struct video_frame * vidcap_screen_grab(void *state, struct audio_frame **audio)
 
         XDestroyImage(item->data);
         free(item);
-#else
-        CGImageRef image = CGDisplayCreateImage(s->display);
-        CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
-        const unsigned char *pixels = CFDataGetBytePtr(data);
-
-        int linesize = s->tile->width * 4;
-        int y;
-        unsigned char *dst = (unsigned char *) s->tile->data;
-        const unsigned char *src = (const unsigned char *) pixels;
-        for(y = 0; y < (int) s->tile->height; ++y) {
-                vc_copylineRGBA (dst, src, linesize, 16, 8, 0);
-                src += linesize;
-                dst += linesize;
-        }
-
-        CFRelease(data);
-        CFRelease(image);
-
-#endif
 
         if(s->fps > 0.0) {
                 struct timeval cur_time;

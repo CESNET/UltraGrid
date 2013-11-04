@@ -1668,9 +1668,14 @@ esac
 
 if test $screen_cap = yes
 then
-        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen_capture])
+        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
         AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
-        SCREEN_CAP_OBJ="src/video_capture/screen.o"
+        if test $system = MacOSX; then
+                SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
+        else if test $system = Linux; then
+                SCREEN_CAP_OBJ="src/video_capture/screen_x11.o"
+        fi
+        fi
         LIB_TARGETS="$LIB_TARGETS $SCREEN_CAP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
 fi
