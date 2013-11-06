@@ -912,7 +912,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
                         decoder->displayed, decoder->dropped, decoder->corrupted);
 
-        delete decoder;
+        free(decoder);
 }
 
 /**
