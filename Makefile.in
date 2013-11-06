@@ -417,7 +417,7 @@ clean:
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
-	-rm -rf bin/import_control_keyboard
+	-rm -rf bin/import_control_keyboard src/import_control_keyboard.o
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
