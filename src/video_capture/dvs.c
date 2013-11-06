@@ -186,7 +186,7 @@ static void show_help(void)
                 return;
         }
 	while (res == SV_OK) {
-                printf("\tCard %s - supported modes:\n\n", name);
+                printf("\tCard \"%s\" - supported modes:\n\n", name);
                 for(i=0; hdsp_mode_table[i].width !=0; i++) {
                         int res;
                         sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
@@ -285,7 +285,6 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                         }
                         if (s->frame->color_spec == (codec_t) 0xffffffff) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
-                                free(tmp);
                                 return 0;
                         }
 
@@ -497,7 +496,7 @@ void *vidcap_dvs_init(char *fmt, unsigned int flags)
                 return NULL;
         }
 
-        printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->color_spec));
+        printf("DVS capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->color_spec));
 
         debug_msg("DVS capture device enabled\n");
         return s;
@@ -558,11 +557,27 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
 
         pthread_mutex_lock(&(s->lock));
 
+        struct timespec ts;
+        struct timeval  tp;
+        int rc = 0;
+
+        // get time for timeout
+        gettimeofday(&tp, NULL);
+
+        /* Convert from timeval to timespec */
+        ts.tv_sec  = tp.tv_sec + 1;
+        ts.tv_nsec = tp.tv_usec * 1000;
+
         /* Wait for the worker to finish... */
-        while (s->work_to_do) {
+        while (s->work_to_do && rc != ETIMEDOUT) {
                 s->boss_waiting = TRUE;
-                pthread_cond_wait(&(s->boss_cv), &(s->lock));
+                rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                 s->boss_waiting = FALSE;
+        }
+
+        if (rc == ETIMEDOUT) { // timeout
+                pthread_mutex_unlock(&(s->lock));
+                return NULL;
         }
 
         /* ...and give it more to do... */
