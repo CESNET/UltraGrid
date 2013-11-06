@@ -252,7 +252,7 @@ void * jpeg_compress_init(char * opts)
 
         s->restart_interval = -1;
 
-        if(opts) {
+        if(opts && opts[0] != '\0') {
                 char *tok, *save_ptr = NULL;
                 gpujpeg_set_default_parameters(&s->encoder_param);
                 tok = strtok_r(opts, ":", &save_ptr);

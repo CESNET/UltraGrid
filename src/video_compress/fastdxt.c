@@ -262,7 +262,7 @@ void *fastdxt_init(char *num_threads_str)
         compress = calloc(1, sizeof(struct video_compress));
         /* initial values */
         compress->num_threads = 0;
-        if(num_threads_str == NULL)
+        if(num_threads_str == NULL || num_threads_str[0] == '\0')
                 compress->num_threads = NUM_THREADS_DEFAULT;
         else
                 compress->num_threads = atoi(num_threads_str);
