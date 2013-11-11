@@ -58,7 +58,7 @@ struct audio_frame;
 
 void * jack_start(char *cfg);
 void jack_send(void *s, struct audio_frame *frame);
-void jack_receive(void *state, void *data);
+bool jack_receive(void *state, void *data);
 
 int is_jack_sender(void *state);
 int is_jack_receiver(void *state);

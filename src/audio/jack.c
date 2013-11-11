@@ -127,7 +127,7 @@ int jack_process_callback(jack_nframes_t nframes, void *arg) {
                 jack_default_audio_sample_t *in =
                         jack_port_get_buffer (s->input_port[i], nframes);
                 for(j = 0; j < (int) nframes; ++j) {
-                        *(int *)(s->rec_buffer + ((s->rec_buffer_end + (j * s->record.ch_count + i) * sizeof(int32_t)) % BUFF_SIZE)) =
+                        *(int *)(void *)(s->rec_buffer + ((s->rec_buffer_end + (j * s->record.ch_count + i) * sizeof(int32_t)) % BUFF_SIZE)) =
                                         in[j] * INT_MAX;
                 }
         }
@@ -361,8 +361,9 @@ void jack_send(void *state, struct audio_frame *frame)
         for(i = 0; i < frame->data_len; i+= frame->bps * frame->ch_count) {
                 int channels;
                 for (channels = 0; channels < s->out_channel_count; ++channels) {
-                        float *pos = (float *) &s->play_buffer[channels][(s->play_buffer_end + i * 4 / (frame->ch_count * frame->bps)) % BUFF_SIZE];
-                                        *pos = (*((int *) (in_ptr + channels * frame->bps)) << (32 - frame->bps * 8)) / (float) INT_MAX;
+                        float *pos = (float *)(void *) &s->play_buffer[channels][(s->play_buffer_end + i * 4
+                                        / (frame->ch_count * frame->bps)) % BUFF_SIZE];
+                        *pos = (*((int *)(void *) (in_ptr + channels * frame->bps)) << (32 - frame->bps * 8)) / (float) INT_MAX;
                 }
                 
                 in_ptr += frame->bps * frame->ch_count;
@@ -370,25 +371,33 @@ void jack_send(void *state, struct audio_frame *frame)
         s->play_buffer_end = (s->play_buffer_end + frame->data_len / (frame->bps * frame->ch_count) * sizeof(float)) % BUFF_SIZE;
 }
 
-void jack_receive(void *state, void *data)
+/**
+ * @brief Receives data from JACK
+ *
+ * @param[in]  state state returned by jack_init()
+ * @param[out] data  @ref pbuf_audio_data
+ * @retval     true  if some data are receied
+ * @retval     false if no data were receied
+ */
+bool jack_receive(void *state, void *data)
 {
         struct state_jack *s = (struct state_jack *) state;
         struct pbuf_audio_data *audio_data = (struct pbuf_audio_data *) data;
-        struct audio_frame *buffer = audio_data->buffer;
+        struct audio_frame *buffer = &audio_data->buffer;
         
+        /// @todo repair this
         while(s->rec_buffer_start == s->rec_buffer_end);
         //fprintf(stderr, "%d ", s->record.data_len);
         int end = s->rec_buffer_end;
              
-        if(buffer->ch_count != s->record.ch_count ||
-                        buffer->bps != s->record.bps ||
-                        buffer->sample_rate != s->record.sample_rate) {
-                audio_reconfigure(audio_data->audio_state, s->record.bps * 8, s->record.ch_count,
-                        s->record.sample_rate);
-        }
+        buffer->ch_count = s->record.ch_count;
+        buffer->bps = s->record.bps;
+        buffer->sample_rate = s->record.sample_rate;
         
         buffer->data_len = end - s->rec_buffer_start;
-        if(buffer->data_len < 0) buffer->data_len += BUFF_SIZE;
+        if (buffer->data_len < 0) buffer->data_len += BUFF_SIZE;
+        buffer->data = (char *) malloc(buffer->data_len);
+
         if (s->rec_buffer_start < end) {
                 memcpy(buffer->data, s->rec_buffer + s->rec_buffer_start, 
                                 buffer->data_len);
@@ -400,6 +409,8 @@ void jack_receive(void *state, void *data)
                                 buffer->data_len + BUFF_SIZE - s->rec_buffer_start);
         }
         s->rec_buffer_start = (s->rec_buffer_start + buffer->data_len) % BUFF_SIZE;
+
+        return true;
 }
 
 int is_jack_sender(void *state)
