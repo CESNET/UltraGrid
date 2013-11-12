@@ -661,6 +661,9 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 		return NULL;
 	}
 
+	InitializeConditionVariable(&s->grabWaitCV);
+	InitializeCriticalSection(&s->returnBufferCS);
+
 	if (init_fmt && strcmp(init_fmt, "help") == 0) {
 		show_help(s); 
 		cleanup(s);
@@ -674,8 +677,6 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 	if (init_fmt != NULL) {
 		if (!process_args(s, init_fmt)) goto error;
 	}
-
-	InitializeConditionVariable(&s->grabWaitCV);
 
 	// Select video capture device
 	if (s->deviceNumber != -1) { // Device was specified by number
