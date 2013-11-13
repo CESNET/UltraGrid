@@ -55,7 +55,9 @@
 #include "audio/codec/libavcodec.h"
 
 #include <libavcodec/avcodec.h>
+#if LIBAVCODEC_VERSION_MAJOR >= 55
 #include <libavutil/channel_layout.h>
+#endif
 #include <libavutil/mem.h>
 
 #include "audio/audio.h"
@@ -99,7 +101,9 @@ static const audio_codec_t_to_codec_id_mapping_t mapping[] =
         [AC_MULAW] = { .codec_id = AV_CODEC_ID_PCM_MULAW },
         [AC_ADPCM_IMA_WAV] = { .codec_id = AV_CODEC_ID_ADPCM_IMA_WAV },
         [AC_SPEEX] = { .codec_id = AV_CODEC_ID_SPEEX },
+#if LIBAVCODEC_VERSION_MAJOR >= 55
         [AC_OPUS] = { .codec_id = AV_CODEC_ID_OPUS },
+#endif
         [AC_G722] = { .codec_id = AV_CODEC_ID_ADPCM_G722 },
         [AC_G726] = { .codec_id = AV_CODEC_ID_ADPCM_G726 },
 };
@@ -255,7 +259,9 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         s->av_frame->nb_samples     = s->codec_ctx->frame_size;
         s->av_frame->format         = s->codec_ctx->sample_fmt;
+#if LIBAVCODEC_VERSION_MAJOR >= 55
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
+#endif
 
         int channels = 1;
         /* the codec gives us the frame size, in samples,
@@ -447,7 +453,11 @@ static void libavcodec_done(void *state)
         free(s->tmp.data);
         av_free_packet(&s->pkt);
         av_freep(&s->samples);
+#if LIBAVCODEC_VERSION_MAJOR >= 55
         avcodec_free_frame(&s->av_frame);
+#else
+        av_free(s->av_frame);
+#endif
 
         free(s);
 }

@@ -2589,7 +2589,6 @@ else
 fi
 else # Linux, OS X
 PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec >= 53.35.0 ], [found_libavcodec=yes], [found_libavcodec=no])
-PKG_CHECK_MODULES([LIBAVCODEC_GE_55], [libavcodec >= 55.0.0 ], [libavcodec_ge_55=yes], [libavcodec_ge_55=no])
 PKG_CHECK_MODULES([LIBAVUTIL], [libavutil >= 51.22.1 ], [found_libavutil=yes], [found_libavutil=no])
 fi
 
@@ -2599,12 +2598,11 @@ then
         AC_DEFINE([HAVE_LAVC], [1], [Build with LAVC support])
         AC_SUBST(LIBAVCODEC_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_libavcodec.so.$video_compress_abi_version")
         AC_SUBST(LIBAVCODEC_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_libavcodec.so.$video_decompress_abi_version")
-        if test $libavcodec_ge_55 = yes; then
-                AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/acodec_libavcodec.so.$audio_codec_abi_version")
-                AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
-                libavcodec_audio=yes
-                LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
-        fi
+
+        AC_SUBST(LIBAVCODEC_AUDIO_CODEC_LIB_TARGET, "lib/ultragrid/acodec_libavcodec.so.$audio_codec_abi_version")
+        AC_DEFINE([HAVE_LAVC_AUDIO], [1], [Build with LAVC audio support])
+        LIBAVCODEC_AUDIO_CODEC_OBJ=src/audio/codec/libavcodec.o
+
         LIB_TARGETS="$LIB_TARGETS $LIBAVCODEC_COMPRESS_LIB_TARGET $LIBAVCODEC_DECOMPRESS_LIB_TARGET $LIBAVCODEC_AUDIO_CODEC_LIB_TARGET"
         LIBAVCODEC_COMPRESS_OBJ=src/video_compress/libavcodec.o
         LIBAVCODEC_DECOMPRESS_OBJ=src/video_decompress/libavcodec.o
@@ -2774,7 +2772,7 @@ RESULT=\
   JPEG to DXT ................. $jpeg_to_dxt
   CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
-  Libavcodec .................. $libavcodec (audio: $libavcodec_audio)
+  Libavcodec .................. $libavcodec
 
   scale postprocessor ......... $scale
   testcard extras ............. $testcard_extras_req
