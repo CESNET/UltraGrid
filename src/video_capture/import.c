@@ -411,7 +411,7 @@ vidcap_import_init(char *directory, unsigned int flags)
         s->directory = strdup(directory);
 
         char name[1024];
-        snprintf(name, sizeof(name), "%s/%08d.%s", s->directory, 0,
+        snprintf(name, sizeof(name), "%s/%08d.%s", s->directory, 1,
                         get_codec_file_extension(desc.color_spec));
 
         struct stat sb;
@@ -421,7 +421,7 @@ vidcap_import_init(char *directory, unsigned int flags)
                 desc.tile_count = 0;
                 for (int i = 0; i < 10; i++) {
                         snprintf(name, sizeof(name), "%s/%08d_%d.%s",
-                                        s->directory, 0, i,
+                                        s->directory, 1, i,
                                         get_codec_file_extension(desc.color_spec));
                         if (stat(name, &sb) == 0) {
                                 desc.tile_count++;
@@ -1003,7 +1003,7 @@ static void * reading_thread(void *args)
                                 sprintf(tile_idx, "_%d", i);
                         }
                         snprintf(name, sizeof(name), "%s/%08d%s.%s",
-                                        s->directory, index, tile_idx,
+                                        s->directory, index + 1, tile_idx,
                                         get_codec_file_extension(s->frame->color_spec));
 
                         struct stat sb;
