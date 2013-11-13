@@ -374,7 +374,9 @@ void show_help(struct vidcap_dshow_state *s) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)) {
+			if ((mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER))
+                                                && (mediaType->formattype != FORMAT_VideoInfo2
+                                                        || mediaType->cbFormat < sizeof(VIDEOINFOHEADER2))) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
 				continue;
 			}
@@ -842,7 +844,9 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)) {
+			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)
+                                        && (mediaType->formattype != FORMAT_VideoInfo2
+                                                        || mediaType->cbFormat < sizeof(VIDEOINFOHEADER2))) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
 				continue;
 			}
