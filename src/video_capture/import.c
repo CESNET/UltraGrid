@@ -429,7 +429,11 @@ vidcap_import_init(char *directory, unsigned int flags)
                                 break;
                         }
                 }
-                assert(desc.tile_count != 0);
+                if (desc.tile_count == 0) {
+                        fprintf(stderr, "Unable to open first file of "
+                                        "the video sequence.\n");
+                        goto error;
+                }
         }
 
         s->frame = vf_alloc_desc(desc);
@@ -458,7 +462,8 @@ vidcap_import_init(char *directory, unsigned int flags)
 	return s;
         
 error:
-        fclose(info);
+        if (info != NULL)
+                fclose(info);
         if (s) {
                 vf_free(s->frame);
                 free(s->directory);
