@@ -1,32 +1,23 @@
+/**
+ * @file   video_capture/deltacast.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_capture/deltacast.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2013 CESNET, z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,8 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -210,6 +201,8 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                 tok = strtok_r(init_fmt, ":", &save_ptr);
                 if(!tok)
                 {
+                        fprintf(stderr, "Wrong configuration: "
+                                        "missing device index.\n");
                         usage();
                         goto error;
                 }
@@ -226,11 +219,17 @@ vidcap_deltacast_init(char *init_fmt, unsigned int flags)
                                 else if(strcmp(tok, "v210") == 0)
                                         s->frame->color_spec = v210;
                                 else {
+                                        fprintf(stderr, "Wrong "
+                                        "codec entered.\n");
                                         usage();
                                         goto error;
                                 }
 
                         } else {
+                                fprintf(stderr, "If you specify "
+                                                "video mode you have "
+                                                "to specify also "
+                                                "the codec.\n");
                                 usage();
                                 goto error;
                         }
