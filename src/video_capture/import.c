@@ -1053,10 +1053,21 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                         }
 
                         s->boss_waiting = true;
-                        /// @todo repair this
-                        struct timespec timeout = { .tv_sec = (long) (1/s->frame->fps),
-                                .tv_nsec = (long) (1/s->frame->fps * 1000 * 1000 * 1000) % (1000 * 1000 * 1000)};
-                        pthread_cond_timedwait(&s->boss_cv, &s->lock, &timeout);
+                        struct timespec ts;
+                        struct timeval  tp;
+
+                        // get time for timeout
+                        gettimeofday(&tp, NULL);
+
+                        /* Convert from timeval to timespec */
+                        ts.tv_sec  = tp.tv_sec;
+                        ts.tv_nsec = tp.tv_usec * 1000;
+                        ts.tv_nsec += 2 * 1/s->frame->fps * 1000 * 1000 * 1000;
+                        // make it correct
+                        ts.tv_sec += ts.tv_nsec / 1000000000;
+                        ts.tv_nsec = ts.tv_nsec % 1000000000;
+
+                        pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                         s->boss_waiting = false;
                 }
  
