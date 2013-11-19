@@ -167,6 +167,9 @@ struct vidcap_import_state {
         int count;
 
         char *to_be_freeed;
+
+        bool finished;
+        bool loop;
 };
 
 #ifdef WIN32
@@ -278,8 +281,6 @@ void *
 vidcap_import_init(const struct vidcap_params *params)
 {
 	struct vidcap_import_state *s;
-        const char *directory = vidcap_params_get_fmt(params);
-
 	printf("vidcap_import_init\n");
 
         s = (struct vidcap_import_state *) calloc(1, sizeof(struct vidcap_import_state));
@@ -290,6 +291,13 @@ vidcap_import_init(const struct vidcap_params *params)
 
         s->boss_waiting = false;
         s->worker_waiting = false;
+
+        char *tmp = strdup(vidcap_params_get_fmt(params));
+        char *save_ptr;
+        const char *directory = strtok_r(tmp, ":", &save_ptr);
+        char *suffix = strtok_r(NULL, ":", &save_ptr);
+        if (suffix && strcmp(suffix, "loop") == 0)
+                s->loop = true;
 
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
@@ -434,10 +442,8 @@ free_state:
         return NULL;
 }
 
-static void vidcap_import_finish(void *state)
+static void exit_reading_threads(struct vidcap_import_state *s)
 {
-	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
-
         struct message *msg = malloc(sizeof(struct message));
 
         msg->type = FINALIZE;
@@ -476,6 +482,13 @@ static void vidcap_import_finish(void *state)
 
                 pthread_join(s->audio_state.thread_id, NULL);
         }
+}
+
+static void vidcap_import_finish(void *state)
+{
+	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
+
+        exit_reading_threads(s);
 
 #ifndef WIN32
         exit_control = true;
@@ -888,6 +901,9 @@ static void * reading_thread(void *args)
                         while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count || paused)
                                        && s->message_queue.len == 0) {
                                 s->worker_waiting = true;
+                                if (index >= s->count) {
+                                        s->finished = true;
+                                }
                                 pthread_cond_wait(&s->worker_cv, &s->lock);
                                 s->worker_waiting = false;
                         }
@@ -996,6 +1012,25 @@ exited:
         return NULL;
 }
 
+static void reset_import(struct vidcap_import_state *s)
+{
+        exit_reading_threads(s);
+
+        s->finished = false;
+
+        if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
+                fprintf(stderr, "Unable to create thread.\n");
+                /// @todo what to do here
+                abort();
+        }
+        if (s->audio_state.has_audio) {
+                if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
+                        fprintf(stderr, "Unable to create thread.\n");
+                        abort();
+                }
+        }
+}
+
 struct video_frame *
 vidcap_import_grab(void *state, struct audio_frame **audio)
 {
@@ -1011,7 +1046,14 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         pthread_mutex_lock(&s->lock);
         {
                 if(s->queue_len == 0) {
+
+                        if (s->finished == true && s->loop) {
+                                pthread_mutex_unlock(&s->lock);
+                                reset_import(s);
+                        }
+
                         s->boss_waiting = true;
+                        /// @todo repair this
                         struct timespec timeout = { .tv_sec = (long) (1/s->frame->fps),
                                 .tv_nsec = (long) (1/s->frame->fps * 1000 * 1000 * 1000) % (1000 * 1000 * 1000)};
                         pthread_cond_timedwait(&s->boss_cv, &s->lock, &timeout);
