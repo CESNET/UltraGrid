@@ -1655,7 +1655,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 
                 // hereafter, display framebuffer can be used, so we
                 // check if we got it
-                if (decoder->frame == NULL) {
+                if (decoder->frame == NULL && contained_pt == PT_VIDEO) {
                         return FALSE;
                 }
 
