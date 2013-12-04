@@ -60,6 +60,7 @@
 #include "audio/audio.h"
 #include "audio/wav_reader.h"
 #include "utils/ring_buffer.h"
+#include "utils/worker.h"
 #include "video_export.h"
 #include "video_capture/import.h"
 //#include "audio/audio.h"
@@ -80,6 +81,8 @@
 #define VIDCAP_IMPORT_ID 0x76FA7F6D
 
 #define PIPE "/tmp/ultragrid_import.fifo"
+
+#define MAX_NUMBER_WORKERS 100
 
 struct processed_entry;
 
@@ -170,6 +173,7 @@ struct vidcap_import_state {
 
         bool finished;
         bool loop;
+        int video_reading_threads_count;
 };
 
 #ifdef WIN32
@@ -292,12 +296,27 @@ vidcap_import_init(const struct vidcap_params *params)
         s->boss_waiting = false;
         s->worker_waiting = false;
 
+        s->video_reading_threads_count = 1; // default is single threaded
+
         char *tmp = strdup(vidcap_params_get_fmt(params));
         char *save_ptr;
         const char *directory = strtok_r(tmp, ":", &save_ptr);
-        char *suffix = strtok_r(NULL, ":", &save_ptr);
-        if (suffix && strcmp(suffix, "loop") == 0)
-                s->loop = true;
+        char *suffix;
+        while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
+                if (strcmp(suffix, "loop") == 0) {
+                        s->loop = true;
+                } else if (strncmp(suffix, "mt_reading=",
+                                        strlen("mt_reading=")) == 0) {
+                        s->video_reading_threads_count = atoi(suffix +
+                                        strlen("mt_reading="));
+                        assert(s->video_reading_threads_count <=
+                                        MAX_NUMBER_WORKERS);
+                } else {
+                        fprintf(stderr, "[Playback] Unrecognized"
+                                        " option %s.\n", suffix);
+                        return NULL;
+                }
+        }
 
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
@@ -885,17 +904,61 @@ exited:
         return NULL;
 }
 
+struct video_reader_data {
+        char file_name[512];
+        struct processed_entry *entry;
+};
+
+static void *video_reader_callback(void *arg)
+{
+        struct video_reader_data *data =
+                (struct video_reader_data *) arg;
+
+
+        struct stat sb;
+        if (stat(data->file_name, &sb)) {
+                perror("stat");
+                return NULL;
+        }
+
+        int fd = open(data->file_name, O_RDONLY|O_DIRECT);
+        if(fd == -1) {
+                perror("open");
+                return NULL;;
+        }
+
+        data->entry = malloc(sizeof(struct processed_entry));
+        assert(data->entry != NULL);
+        data->entry->data_len = sb.st_size;
+        posix_memalign((void **) &data->entry->data,
+                        512, data->entry->data_len);
+        data->entry->next = NULL;
+        assert(data->entry->data != NULL);
+
+        ssize_t bytes = 0;
+        do {
+                ssize_t res = read(fd, data->entry->data + bytes,
+                                data->entry->data_len - bytes);
+                if (res <= 0) {
+                        perror("read");
+                        return NULL;
+                }
+                bytes += res;
+        } while (bytes < data->entry->data_len);
+        close(fd);
+
+        return data;
+}
+
 static void * reading_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
         int index = 0;
-        char name[512];
 
         bool paused = false;
 
         ///while(index < s->count && !s->finish_threads) {
         while(1) {
-                struct processed_entry *new_entry = NULL;
                 pthread_mutex_lock(&s->lock);
                 {
                         while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count || paused)
@@ -950,65 +1013,56 @@ static void * reading_thread(void *args)
                 }
                 pthread_mutex_unlock(&s->lock);
 
+                /// @todo are these checks necessary?
                 if(index < 0) {
                         index = 0;
                 }
-
-                if(index >= s->count) {
+                if(index > s->count) {
                         fprintf(stderr, "Warning: Index exceeds available frame count!\n");
-                        index = s->count - 1;
+                        index = s->count;
                 }
 
-                snprintf(name, sizeof(name), "%s/%08d.%s", s->directory, index,
-                                get_codec_file_extension(s->frame->color_spec));
+                struct video_reader_data data_reader[MAX_NUMBER_WORKERS];
+                task_result_handle_t task_handle[MAX_NUMBER_WORKERS];
 
-                struct stat sb;
-                if (stat(name, &sb)) {
-                        perror("stat");
-                        goto next;
-                } 
-                int fd = open(name, O_RDONLY|O_DIRECT);
-                if(fd == -1) {
-                        perror("open");
-                        goto next;
+                int number_workers = s->video_reading_threads_count;
+                if (index + number_workers >= s->count) {
+                        number_workers = s->count - index;
                 }
-                new_entry = malloc(sizeof(struct processed_entry));
-                assert(new_entry != NULL);
-                new_entry->data_len = sb.st_size;
-                posix_memalign((void **) &new_entry->data,
-                                512, new_entry->data_len);
-                new_entry->next = NULL;
-                assert(new_entry->data != NULL);
+                // run workers
+                for (int i = 0; i < number_workers; ++i) {
+                        struct video_reader_data *data =
+                                &data_reader[i];
+                        snprintf(data->file_name, sizeof(data->file_name),
+                                        "%s/%08d.%s", s->directory, index + i,
+                                        get_codec_file_extension(s->frame->color_spec));
+                        data->entry = NULL;
+                        task_handle[i] = task_run_async(video_reader_callback, data);
+                }
 
-                ssize_t bytes = 0;
-                do {
-                        ssize_t res = read(fd, new_entry->data + bytes,
-                                        new_entry->data_len - bytes);
-                        if (res <= 0) {
-                                perror("read");
-                                break;
+                // wait for workers to finish
+                for (int i = 0; i < number_workers; ++i) {
+                        struct video_reader_data *data =
+                                (struct video_reader_data *)
+                                wait_task(task_handle[i]);
+                        if (!data || data->entry == NULL)
+                                continue;
+                        pthread_mutex_lock(&s->lock);
+                        {
+                                if(s->head) {
+                                        s->tail->next = data->entry;
+                                        s->tail = data->entry;
+                                } else {
+                                        s->head = s->tail = data->entry;
+                                }
+                                s->queue_len += 1;
+
+                                if(s->boss_waiting)
+                                        pthread_cond_signal(&s->boss_cv);
                         }
-                        bytes += res;
-                } while (bytes < new_entry->data_len);
-                close(fd);
-
-                pthread_mutex_lock(&s->lock);
-                {
-                        if(s->head) {
-                                s->tail->next = new_entry;
-                                s->tail = new_entry;
-                        } else {
-                                s->head = s->tail = new_entry;
-                        }
-                        s->queue_len += 1;
-
-                        if(s->boss_waiting)
-                                pthread_cond_signal(&s->boss_cv);
+                        pthread_mutex_unlock(&s->lock);
                 }
-                pthread_mutex_unlock(&s->lock);
-
-next:
-                index++;
+                index += number_workers;
 end_loop:
                 ;
         }
