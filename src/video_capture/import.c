@@ -967,24 +967,30 @@ static void * reading_thread(void *args)
                         perror("stat");
                         goto next;
                 } 
-                FILE *file = fopen(name, "rb");
-                if(!file) {
-                        perror("fopen");
+                int fd = open(name, O_RDONLY|O_DIRECT);
+                if(fd == -1) {
+                        perror("open");
                         goto next;
                 }
                 new_entry = malloc(sizeof(struct processed_entry));
                 assert(new_entry != NULL);
                 new_entry->data_len = sb.st_size;
-                new_entry->data = malloc(new_entry->data_len);
+                posix_memalign((void **) &new_entry->data,
+                                512, new_entry->data_len);
                 new_entry->next = NULL;
                 assert(new_entry->data != NULL);
 
-                size_t res = fread(new_entry->data, new_entry->data_len, 1, file);
-                fclose(file);
-                if(res != 1) {
-                        perror("fread");
-                        goto next;
-                }
+                ssize_t bytes = 0;
+                do {
+                        ssize_t res = read(fd, new_entry->data + bytes,
+                                        new_entry->data_len - bytes);
+                        if (res <= 0) {
+                                perror("read");
+                                break;
+                        }
+                        bytes += res;
+                } while (bytes < new_entry->data_len);
+                close(fd);
 
                 pthread_mutex_lock(&s->lock);
                 {
