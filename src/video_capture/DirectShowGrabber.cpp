@@ -18,6 +18,7 @@
 
 #include <tchar.h>
 #include <DShow.h>
+#include <Dvdmedia.h>
 #include <Qedit.h>
 #include <OleAuto.h>
 //#include <Streams.h>
