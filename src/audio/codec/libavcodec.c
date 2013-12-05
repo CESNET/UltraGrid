@@ -227,7 +227,9 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         }
 
         s->codec_ctx->channels = 1;
+#if LIBAVCODEC_VERSION_MAJOR >= 55
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
+#endif
 
         pthread_mutex_lock(s->libav_global_lock);
         /* open it */
