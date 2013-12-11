@@ -106,8 +106,8 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
 	destinationAddr.s_addr = destinationAddress;
 	
 	//Destinations* destinations;
-	
-	destination = new Destinations(destinationAddr, clientRTPPort, clientRTCPPort);
+	if(destination == NULL)	destination = new Destinations(destinationAddr, clientRTPPort, clientRTCPPort);
+	else printf("\n[RTSP Server] no more connections accepted...\n");
 	//fDestinationsHashTable->Add((char const*)clientSessionId, destinations);
 }
 
@@ -121,45 +121,67 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
 						ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
 						void* serverRequestAlternativeByteHandlerClientData) {
 
-	Destinations* dst = destination;
-		//(Destinations*)(fDestinationsHashTable->Lookup((char const*)clientSessionId));
-	if (dst == NULL){
+	if (destination == NULL){
+	    printf("\n[RTSP Server] no more connections accepted...\n");
 		return;
 	} else {
-	    //        participant_data_t *participant;
-	    //        participant = init_participant(clientSessionId, OUTPUT, inet_ntoa(dst->addr), ntohs(dst->rtpPort.num()));
-	    //        add_participant_stream(fStream, participant);
 	    char path[1024];
 	    memset(path, 0, sizeof(path));
 	    enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
 	    append_message_path(path, sizeof(path), path_sender);
 
-
+	    //CHANGE DST ADDRESS
+	    printf("[RTSP Server] change dst address to %s\n",inet_ntoa(destination->addr));
 	    struct msg_sender *msg1 =
 	        (struct msg_sender *)
 	        new_message(sizeof(struct msg_sender));
 
-	    strncpy(msg1->receiver, inet_ntoa(dst->addr)/*suffix(message, "receiver ")*/, sizeof(msg1->receiver) - 1);
+	    strncpy(msg1->receiver, inet_ntoa(destination->addr), sizeof(msg1->receiver) - 1);
 	    msg1->type = SENDER_MSG_CHANGE_RECEIVER;
 	    send_message(fmod, path, (struct message *) msg1);
 
-
+	    //CHANGE DST PORT
+        printf("[RTSP Server] change dst port to %d\n", destination->rtpPort.num());
 	    struct msg_sender *msg2 =
 	        (struct msg_sender *)
 	        new_message(sizeof(struct msg_sender));
 
-	    msg2->port = dst->rtpPort.num();//atoi(suffix(message, "sender-port "));
+	    msg2->port = destination->rtpPort.num();
 	    msg2->type = SENDER_MSG_CHANGE_PORT;
 	    send_message(fmod, path, (struct message *) msg2);
 	}
 }
 
 void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId, void*& streamToken){
-    Destinations* dst = destination;
-        //(Destinations*)(fDestinationsHashTable->Lookup((char const*)clientSessionId));
-    if (dst == NULL){
+    if (destination == NULL){
+        printf("\n[RTSP Server] no more connections accepted...\n");
         return;
     } else {
-        //remove_participant(fStream->plist, clientSessionId);
+        char path[1024];
+        memset(path, 0, sizeof(path));
+        enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+        append_message_path(path, sizeof(path), path_sender);
+
+        //CHANGE DST ADDRESS
+        printf("[RTSP Server] change dst address to %s\n",
+            "127.0.0.1");
+        struct msg_sender *msg1 = (struct msg_sender *) new_message(
+            sizeof(struct msg_sender));
+
+        strncpy(msg1->receiver, "127.0.0.1",
+            sizeof(msg1->receiver) - 1);
+        msg1->type = SENDER_MSG_CHANGE_RECEIVER;
+        send_message(fmod, path, (struct message *) msg1);
+
+        //CHANGE DST PORT
+        printf("[RTSP Server] change dst port to %d\n", 23456);
+        struct msg_sender *msg2 = (struct msg_sender *) new_message(
+            sizeof(struct msg_sender));
+
+        msg2->port = 23456;
+        msg2->type = SENDER_MSG_CHANGE_PORT;
+        send_message(fmod, path, (struct message *) msg2);
+
+        destination = NULL;
     }
 }

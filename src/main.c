@@ -548,6 +548,12 @@ struct rtp **change_tx_port(struct state_uv *uv, int tx_port)
 {
         destroy_rtp_devices(uv->network_devices);
         uv->send_port_number = tx_port;
+
+        printf("\n[main] changing tx params:\n");
+        printf("[main] tx address: %s\n",uv->requested_receiver);
+        printf("[main] rx port: %d\n", uv->recv_port_number);
+        printf("[main] tx port: %d\n\n", uv->send_port_number);
+
         uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
                         uv->send_port_number, uv->participants, uv->ipv6,
                         uv->requested_mcast_if);
@@ -1566,8 +1572,10 @@ int main(int argc, char *argv[])
 
 //#ifdef HAVE_RTSP_SERVER
         if (uv->rxtx->protocol == H264_STD){
-            rtsp_server = init_rtsp_server(0, uv->root_module); //port, root_module
-            if(c_start_server(rtsp_server)==0) printf("[RTSP Server] server started!\n");
+            //struct control_state *ctrl = (struct control_state *)control;
+            //struct module *ctrl_mod = get_module(get_root_module(uv->root_module), "control");
+            rtsp_server = init_rtsp_server(0, &root_mod); //port, root_module
+            if(c_start_server(rtsp_server)==0) printf("\n[RTSP Server] server listening...\n");
         }
 //#endif
 
@@ -1622,6 +1630,8 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params);
                 vidcap_params = next;
         }
+
+        if(rtsp_server) c_stop_server(rtsp_server);
 
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);
