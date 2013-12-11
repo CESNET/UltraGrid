@@ -121,7 +121,7 @@ static void sender_process_external_message(struct sender_data *data, struct msg
         int ret;
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
-                        assert(data->rxtx_protocol == ULTRAGRID_RTP);
+                        assert(data->rxtx_protocol == ULTRAGRID_RTP || data->rxtx_protocol == H264_STD);
                         assert(((struct ultragrid_rtp_state *) data->tx_module_state)->connections_count == 1);
                         ret = rtp_change_dest(((struct ultragrid_rtp_state *)
                                                 data->tx_module_state)->network_devices[0],

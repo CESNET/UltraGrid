@@ -896,6 +896,7 @@ int main(int argc, char *argv[])
         char *sage_opts = NULL;
         int control_port = CONTROL_DEFAULT_PORT;
         struct control_state *control = NULL;
+        rtsp_serv_t* rtsp_server = NULL;
 
         int bitrate = 0;
 
@@ -1565,7 +1566,8 @@ int main(int argc, char *argv[])
 
 //#ifdef HAVE_RTSP_SERVER
         if (uv->rxtx->protocol == H264_STD){
-            init_rtsp_server(0, control); //port, root_module
+            rtsp_server = init_rtsp_server(0, uv->root_module); //port, root_module
+            if(c_start_server(rtsp_server)==0) printf("[RTSP Server] server started!\n");
         }
 //#endif
 

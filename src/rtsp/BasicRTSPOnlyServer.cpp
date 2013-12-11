@@ -54,6 +54,7 @@ int BasicRTSPOnlyServer::init_server() {
         fPort = 8554;
     }
   
+    printf("RTSP Server port = %d",fPort);
     rtspServer = RTSPServer::createNew(*env, fPort, authDB);
     if (rtspServer == NULL) {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
@@ -74,8 +75,6 @@ int BasicRTSPOnlyServer::init_server() {
 
     return 0;
 }
-
-
 
 void *BasicRTSPOnlyServer::start_server(void *args){
     char* watch = (char*) args;
