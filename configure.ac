@@ -1278,6 +1278,60 @@ AC_SUBST(RTSP_OBJ)
 
 
 # -------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+# RTSP server stuff
+# -------------------------------------------------------------------------------------------------
+RTSP_SERVER_INC=
+RTSP_SERVER_LIB=
+RTSP_SERVER_OBJ=
+rtsp_server=no
+livemedia=no
+
+
+AC_ARG_ENABLE(rtsp_server,
+      AS_HELP_STRING([--disable-rtsp-server], [disable RTSP server support(default is auto)]),
+    [rtsp_server_req=$enableval],
+    [rtsp_server_req=auto]
+    )
+
+case $host in
+    *-linux-*)
+		#PKG_CHECK_MODULES([LIVE], [Live555], FOUND_LIVE_H=yes, FOUND_LIVE_H=no)
+		#AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
+		AC_CHECK_HEADERS([liveMedia/liveMedia.hh], [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found."])
+
+		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
+		then
+			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
+	        SAVED_CFLAGS=$CFLAGS
+	        CFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
+	        SAVED_CXXFLAGS=$CFLAGS
+	        CXXFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
+			RTSP_SERVER_INC=
+			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
+			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"
+                        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/rtsp_server.so.$video_capture_abi_version")
+                        LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
+                        LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
+                        rtsp_server=yes
+                        livemedia=yes
+		fi
+    ;;
+esac
+
+if test $rtsp_server_req = yes -a $rtsp_server = no; then
+        AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
+fi
+
+LIB_MODULES="$LIB_MODULES $RTSP_SERVER_LIB"
+
+AC_SUBST(RTSP_SERVER_INC)
+AC_SUBST(RTSP_SERVER_LIB)
+AC_SUBST(RTSP_SERVER_OBJ)
+
+
+
+# -------------------------------------------------------------------------------------------------
 # Testcard stuff
 # -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
@@ -2686,6 +2740,7 @@ RESULT=\
   OpenSSL-libcrypto ........... $crypto
   Library glib ................ $glib
   Library curl ................ $curl
+  Library live555 ............. $livemedia
 
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
@@ -2699,7 +2754,8 @@ RESULT=\
   SDL ......................... $sdl
   Screen Capture .............. $screen_cap
   V4L2 ........................ $v4l2
-  RTSP Capture ................ $rtsp
+  RTSP Capturer Client ........ $rtsp
+  RTSP Server ................. $rtsp_server
   SW Video Mix ................ $swmix
 
   Portaudio ................... $portaudio

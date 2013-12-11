@@ -95,6 +95,7 @@
 #include "audio/audio.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
+#include "rtsp/c_basicRTSPOnlyServer.h"
 
 #if defined DEBUG && defined HAVE_LINUX
 #include <mcheck.h>
@@ -1561,6 +1562,12 @@ int main(int argc, char *argv[])
 
         // should be started after requested modules are able to respond after start
         control_start(control);
+
+//#ifdef HAVE_RTSP_SERVER
+        if (uv->rxtx->protocol == H264_STD){
+            init_rtsp_server(0, control); //port, root_module
+        }
+//#endif
 
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
