@@ -4,9 +4,9 @@
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
 BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod){
-//    if(transmitter == NULL){
-//        exit(1);
-//    }
+    if(mod == NULL){
+        exit(1);
+    }
     
     this->fPort = port;
     //this->fTransmitter = transmitter;
@@ -34,7 +34,7 @@ BasicRTSPOnlyServer::getInstance(){
 
 int BasicRTSPOnlyServer::init_server() {
     
-    if (env != NULL || rtspServer != NULL){// || fTransmitter == NULL){
+    if (env != NULL || rtspServer != NULL || mod == NULL){
         exit(1);
     }
     
@@ -83,11 +83,16 @@ void *BasicRTSPOnlyServer::start_server(void *args){
 	if (instance == NULL || instance->env == NULL || instance->rtspServer == NULL){
 		return NULL;
 	}
+
+    printf("\n[RTSP Server] starting server thread....");
+
 	instance->env->taskScheduler().doEventLoop(watch); 
-    
+
+    printf("\n[RTSP Server] stopping server thread....");
+
     Medium::close(instance->rtspServer);
     delete &instance->env->taskScheduler();
     instance->env->reclaim();
-	
+
 	return NULL;
 }

@@ -1631,8 +1631,11 @@ cleanup:
                 vidcap_params = next;
         }
 
-        if(rtsp_server) c_stop_server(rtsp_server);
-
+        //if(rtsp_server) c_stop_server(rtsp_server);
+//        if(rtsp_server){
+//            printf("\n[RTSP Server- main.c] c_stopping server....");
+//            c_stop_server(rtsp_server);
+//        }
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);
         free(uv);
