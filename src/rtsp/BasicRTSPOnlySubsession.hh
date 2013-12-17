@@ -93,7 +93,6 @@ protected:
 protected:
 	
 	char* fSDPLines;
-	//HashTable* fDestinationsHashTable;
 	Destinations* destination;
 	
 private:
@@ -103,7 +102,6 @@ private:
 	Boolean fReuseFirstSource;
 	void* fLastStreamToken;
 	char fCNAME[100];
-	//stream_data_t *fStream;
 	struct module *fmod;
 };
 

@@ -78,7 +78,6 @@
 #include "sender.h"
 #include "stats.h"
 #include "utils/wait_obj.h"
-#include "utils/sdp.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -250,7 +249,7 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
-        printf("\t--h264                 \t\tsend h264 stream following the h264 rtp standard\n");
+        printf("\t--h264                 \t\tRTSP server: dynamically serving H264 RTP standard transport\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
@@ -548,12 +547,6 @@ struct rtp **change_tx_port(struct state_uv *uv, int tx_port)
 {
         destroy_rtp_devices(uv->network_devices);
         uv->send_port_number = tx_port;
-
-        printf("\n[main] changing tx params:\n");
-        printf("[main] tx address: %s\n",uv->requested_receiver);
-        printf("[main] rx port: %d\n", uv->recv_port_number);
-        printf("[main] tx port: %d\n\n", uv->send_port_number);
-
         uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
                         uv->send_port_number, uv->participants, uv->ipv6,
                         uv->requested_mcast_if);
@@ -1412,11 +1405,10 @@ int main(int argc, char *argv[])
                         /* only count how many connections has initialize_network opened */
                         for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
-                                h264_rtp.sdp = new_sdp(std_H264,uv->send_port_number);
-                                if(h264_rtp.sdp!= NULL && get_sdp(h264_rtp.sdp)){
-                                    debug_msg("[SDP] File ug_h264_std.sdp created\n");
-                                }else
-                                    debug_msg("[SDP] File creation failed\n");
+                        //#ifdef HAVE_RTSP_SERVER
+                                rtsp_server = init_rtsp_server(0, &root_mod); //port, root_module
+                                c_start_server(rtsp_server);
+                        //#endif
                         }
                 }
 
@@ -1570,15 +1562,6 @@ int main(int argc, char *argv[])
         // should be started after requested modules are able to respond after start
         control_start(control);
 
-//#ifdef HAVE_RTSP_SERVER
-        if (uv->rxtx->protocol == H264_STD){
-            //struct control_state *ctrl = (struct control_state *)control;
-            //struct module *ctrl_mod = get_module(get_root_module(uv->root_module), "control");
-            rtsp_server = init_rtsp_server(0, &root_mod); //port, root_module
-            if(c_start_server(rtsp_server)==0) printf("\n[RTSP Server] server listening...\n");
-        }
-//#endif
-
         if (strcmp("none", uv->requested_display) != 0)
                 display_run(uv->display_device);
 
@@ -1631,11 +1614,8 @@ cleanup:
                 vidcap_params = next;
         }
 
-        //if(rtsp_server) c_stop_server(rtsp_server);
-//        if(rtsp_server){
-//            printf("\n[RTSP Server- main.c] c_stopping server....");
-//            c_stop_server(rtsp_server);
-//        }
+        if(rtsp_server) c_stop_server(rtsp_server);
+
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);
         free(uv);

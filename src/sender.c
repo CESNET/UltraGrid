@@ -125,12 +125,10 @@ static void sender_process_external_message(struct sender_data *data, struct msg
                         assert(((struct ultragrid_rtp_state *) data->tx_module_state)->connections_count == 1);
 
                         if(data->rxtx_protocol == ULTRAGRID_RTP){
-                            printf("\n[SENDER.C  ULTRAGRID_RTP] processing external message --> SENDER MSG CHANGE RECEIVER: %s", msg->receiver);
                             ret = rtp_change_dest(((struct ultragrid_rtp_state *)
                                                                             data->tx_module_state)->network_devices[0],
                                                                     msg->receiver);
                         }else if(data->rxtx_protocol == H264_STD){
-                            printf("\n[SENDER.C  H264_STD] processing external message --> SENDER MSG CHANGE RECEIVER: %s", msg->receiver);
                             ret = rtp_change_dest(
                                     ((struct h264_rtp_state *) data->tx_module_state)->network_devices[0],
                                     msg->receiver);
@@ -142,9 +140,6 @@ static void sender_process_external_message(struct sender_data *data, struct msg
                         }
                         break;
                 case SENDER_MSG_CHANGE_PORT:
-
-                        printf("\n[SENDER.C] processing external message --> SENDER_MSG_CHANGE_PORT: %d", msg->port);
-
                         ((struct ultragrid_rtp_state *)
                          data->tx_module_state)->network_devices
                                 = change_tx_port(data->uv, msg->port);

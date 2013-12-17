@@ -15,10 +15,9 @@ int c_start_server(rtsp_serv_t* server){
     return ret;
 }
 
-rtsp_serv_t *init_rtsp_server(uint port, struct module *mod){//, transmitter_t *transmitter){
+rtsp_serv_t *init_rtsp_server(uint port, struct module *mod){
     rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
     server->port = port;
-    //server->transmitter = transmitter;
     server->mod = mod;
     server->watch = 0;
     server->run = FALSE;

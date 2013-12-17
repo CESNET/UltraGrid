@@ -30,8 +30,6 @@ private:
     struct module *mod;
     RTSPServer* rtspServer;
     UsageEnvironment* env;
-
 };
-
 
 #endif

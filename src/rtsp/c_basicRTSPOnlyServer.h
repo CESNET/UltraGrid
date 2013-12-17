@@ -14,14 +14,9 @@ extern "C" {
 
 #include <pthread.h>
 #include <semaphore.h>
-//#include "video.h"
 #include "control_socket.h"
-
 #include "module.h"
-
 #include "debug.h"
-
-//#include "transmitter.h"
 
 #ifdef __cplusplus
 }
@@ -36,8 +31,6 @@ extern "C" {
 
 EXTERNC typedef struct rtsp_serv {
 	uint port;
-	//transmitter_t* transmitter;
-	//struct control_state *ug_control;
 	struct module *mod;
 	pthread_t server_th;
     uint8_t watch;
@@ -48,7 +41,7 @@ EXTERNC int c_start_server(rtsp_serv_t* server);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(uint port, struct module *mod);//, transmitter_t *transmitter);
+EXTERNC rtsp_serv_t* init_rtsp_server(uint port, struct module *mod);
 
 #undef EXTERNC
 
