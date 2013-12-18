@@ -299,7 +299,7 @@ void show_help(struct vidcap_dshow_state *s) {
 	if (!common_init(s)) return;
 
 	HRESULT res;
-	int n = 1;
+	int n = 0;
 	// Enumerate all capture devices
 	while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
                 n++;
