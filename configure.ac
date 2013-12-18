@@ -1296,9 +1296,8 @@ AC_ARG_ENABLE(rtsp_server,
 
 case $host in
     *-linux-*)
-		#PKG_CHECK_MODULES([LIVE], [Live555], FOUND_LIVE_H=yes, FOUND_LIVE_H=no)
-		#AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
-		AC_CHECK_HEADERS([liveMedia/liveMedia.hh], [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found."])
+
+		AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"])
 
 		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
 		then
