@@ -249,7 +249,7 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
-        printf("\t--h264                 \t\tRTSP server: dynamically serving H264 RTP standard transport\n");
+        printf("\t--rtsp-server                 \t\tRTSP server: dynamically serving H264 RTP standard transport\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
@@ -941,7 +941,7 @@ int main(int argc, char *argv[])
                 {"compress", required_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"sage", optional_argument, 0, 'S'},
-                {"h264", no_argument, 0, 'H'},
+                {"rtsp-server", no_argument, 0, 'H'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
