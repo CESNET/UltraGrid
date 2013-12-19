@@ -1,7 +1,7 @@
+#include "rtsp/BasicRTSPOnlySubsession.hh"
 #include <BasicUsageEnvironment.hh>
 #include <RTSPServer.hh>
 #include <GroupsockHelper.hh>
-#include "rtsp/BasicRTSPOnlySubsession.hh"
 
 #include "messaging.h"
 
@@ -22,7 +22,7 @@ BasicRTSPOnlySubsession
     destination = NULL;
     gethostname(fCNAME, sizeof fCNAME);
 	this->fmod = mod;
-	fCNAME[sizeof fCNAME-1] = '\0'; // just in case
+	fCNAME[sizeof fCNAME-1] = '\0';
 }
 
 BasicRTSPOnlySubsession::~BasicRTSPOnlySubsession() {

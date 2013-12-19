@@ -1,5 +1,3 @@
-
-
 #ifndef _BASIC_RTSP_ONLY_SERVER_HH
 #define _BASIC_RTSP_ONLY_SERVER_HH
 

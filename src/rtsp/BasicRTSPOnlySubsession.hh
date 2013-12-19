@@ -9,16 +9,7 @@
 extern "C" {
 #endif
 
-//#include "c_basicRTSPOnlyServer.h"
-//#include "transmitter.h"
-//#include "participants.h"
-//#include <semaphore.h>
-//#include "config_unix.h"
-//#include "video.h"
 #include "module.h"
-
-//#include "debug.h"
-
 #include "control_socket.h"
 
 #ifdef __cplusplus

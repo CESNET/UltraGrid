@@ -1,5 +1,4 @@
 #include "rtsp/c_basicRTSPOnlyServer.h"
-
 #include "rtsp/BasicRTSPOnlyServer.hh"
 
 int c_start_server(rtsp_serv_t* server){
@@ -30,11 +29,3 @@ void c_stop_server(rtsp_serv_t* server){
         pthread_join(server->server_th, NULL);
     }
 }
-
-//int c_update_server(rtsp_serv_t* server){
-//    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::getInstance();
-//    if (srv == NULL){
-//        exit(1);
-//    }
-//    return srv->update_server();
-//}
