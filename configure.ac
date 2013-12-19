@@ -1250,8 +1250,8 @@ case $host in
 			AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
 	        SAVED_CFLAGS=$CFLAGS
 	        CFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
-	        SAVED_CXXFLAGS=$CFLAGS
-	        CXXFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"	        
+	        SAVED_CXXFLAGS=$CXXFLAGS
+	        CXXFLAGS="$CXXFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"	        
 			RTSP_INC=
 			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
 			RTSP_OBJ="src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
@@ -1304,8 +1304,8 @@ case $host in
 			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
 	        SAVED_CFLAGS=$CFLAGS
 	        CFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
-	        SAVED_CXXFLAGS=$CFLAGS
-	        CXXFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
+	        SAVED_CXXFLAGS=$CXXFLAGS
+	        CXXFLAGS="$CXXFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
 			RTSP_SERVER_INC=
 			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
 			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"
