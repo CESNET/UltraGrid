@@ -1405,10 +1405,10 @@ int main(int argc, char *argv[])
                         /* only count how many connections has initialize_network opened */
                         for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
-                        //#ifdef HAVE_RTSP_SERVER
+                        #ifdef HAVE_RTSP_SERVER
                                 rtsp_server = init_rtsp_server(0, &root_mod); //port, root_module
                                 c_start_server(rtsp_server);
-                        //#endif
+                        #endif
                         }
                 }
 
@@ -1613,9 +1613,9 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params);
                 vidcap_params = next;
         }
-
+#ifdef HAVE_RTSP_SERVER
         if(rtsp_server) c_stop_server(rtsp_server);
-
+#endif
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);
         free(uv);
