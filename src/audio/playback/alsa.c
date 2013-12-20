@@ -71,7 +71,7 @@
 #include "debug.h"
 
 #define BUFFER_MIN 41
-#define BUFFER_MAX 100
+#define BUFFER_MAX 200
 
 struct state_alsa_playback {
         snd_pcm_t *handle;
