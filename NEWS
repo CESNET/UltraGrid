@@ -1,4 +1,4 @@
-next
+1.2
 =====
 * screen capture performance updates
 * screen capture - added cursor capture (X11)
@@ -17,6 +17,13 @@ next
 * RTDXT compress now runs on Intel graphics cards (Linux)
 * OpenGL - key shortcuts for screenshot and pause
 * added audio compression
+* added CUDA RGB(A)->UYVY transformation, JPEG->DXT1/5 transcoder
+* added CUDA DXT compression
+* support for DELTACAST DVI/HDMI cards
+* GLSL stuff (eg. RTDXT) now runs on Mac and Windows
+* added video capture filters - blanking (anonymization) and frame
+  dropping
+
 
 1.1
 =====
