@@ -78,7 +78,6 @@
 #include "sender.h"
 #include "stats.h"
 #include "utils/wait_obj.h"
-#include "utils/sdp.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
@@ -96,6 +95,7 @@
 #include "audio/audio_capture.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
+#include "rtsp/c_basicRTSPOnlyServer.h"
 
 #if defined DEBUG && defined HAVE_LINUX
 #include <mcheck.h>
@@ -250,7 +250,7 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
-        printf("\t--h264                 \t\tsend h264 stream following the h264 rtp standard\n");
+        printf("\t--rtsp-server                 \t\tRTSP server: dynamically serving H264 RTP standard transport\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
@@ -899,6 +899,7 @@ int main(int argc, char *argv[])
         char *sage_opts = NULL;
         int control_port = CONTROL_DEFAULT_PORT;
         struct control_state *control = NULL;
+        rtsp_serv_t* rtsp_server = NULL;
 
         int bitrate = 0;
 
@@ -943,7 +944,7 @@ int main(int argc, char *argv[])
                 {"compress", required_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"sage", optional_argument, 0, 'S'},
-                {"h264", no_argument, 0, 'H'},
+                {"rtsp-server", no_argument, 0, 'H'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
@@ -1422,11 +1423,10 @@ int main(int argc, char *argv[])
                         /* only count how many connections has initialize_network opened */
                         for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
-                                h264_rtp.sdp = new_sdp(std_H264,uv->send_port_number);
-                                if(h264_rtp.sdp!= NULL && get_sdp(h264_rtp.sdp)){
-                                    debug_msg("[SDP] File ug_h264_std.sdp created\n");
-                                }else
-                                    debug_msg("[SDP] File creation failed\n");
+                        #ifdef HAVE_RTSP_SERVER
+                                rtsp_server = init_rtsp_server(0, &root_mod); //port, root_module
+                                c_start_server(rtsp_server);
+                        #endif
                         }
                 }
 
@@ -1631,7 +1631,9 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
-
+#ifdef HAVE_RTSP_SERVER
+        if(rtsp_server) c_stop_server(rtsp_server);
+#endif
         module_done(&root_mod);
         pthread_mutex_destroy(&uv->init_lock);
         free(uv);

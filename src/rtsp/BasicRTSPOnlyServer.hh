@@ -1,7 +1,7 @@
 /*
- * AUTHOR:   David Cassany   <david.cassany@i2cat.net>,
- *           Ignacio Contreras <ignacio.contreras@i2cat.net>,
- *           Gerard Castillo <gerard.castillo@i2cat.net>
+ * FILE:    BasicRTSPOnlyServer.hh
+ * AUTHORS: David Cassany    <david.cassany@i2cat.net>
+ *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
@@ -19,8 +19,9 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      This product includes software developed by the Fundació i2CAT,
+ *      Internet I Innovació Digital a Catalunya. This product also includes
+ *      software developed by CESNET z.s.p.o.
  *
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
@@ -41,18 +42,36 @@
  *
  */
 
-#ifndef _RTP_DEC_H264_H
-#define _RTP_DEC_H264_H
+#ifndef _BASIC_RTSP_ONLY_SERVER_HH
+#define _BASIC_RTSP_ONLY_SERVER_HH
 
-struct std_frame_received {
-    uint32_t buffer_len; //[MAX_SUBSTREAMS];
-    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
-    char *frame_buffer;    //[MAX_SUBSTREAMS];
-    uint8_t bframe;
-    uint8_t iframe;
+#include <RTSPServer.hh>
+#include <BasicUsageEnvironment.hh>
+#include "module.h"
+
+
+
+class BasicRTSPOnlyServer {
+private:
+    BasicRTSPOnlyServer(int port, struct module *mod);
+    
+public:
+    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod);
+    static BasicRTSPOnlyServer* getInstance();
+    
+    int init_server();
+
+    static void *start_server(void *args);
+    
+    int update_server();
+    
+private:
+    
+    static BasicRTSPOnlyServer* srvInstance;
+    int fPort;
+    struct module *mod;
+    RTSPServer* rtspServer;
+    UsageEnvironment* env;
 };
-
-int
-decode_frame_h264(struct coded_data *cdata, void *rx_data);
 
 #endif

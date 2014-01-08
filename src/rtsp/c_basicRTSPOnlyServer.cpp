@@ -1,7 +1,7 @@
 /*
- * AUTHOR:   David Cassany   <david.cassany@i2cat.net>,
- *           Ignacio Contreras <ignacio.contreras@i2cat.net>,
- *           Gerard Castillo <gerard.castillo@i2cat.net>
+ * FILE:    c_basicRTSPOnlyServer.cpp
+ * AUTHORS: David Cassany    <david.cassany@i2cat.net>
+ *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
@@ -19,8 +19,9 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute.
+ *      This product includes software developed by the Fundació i2CAT,
+ *      Internet I Innovació Digital a Catalunya. This product also includes
+ *      software developed by CESNET z.s.p.o.
  *
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
@@ -40,19 +41,34 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#include "rtsp/c_basicRTSPOnlyServer.h"
+#include "rtsp/BasicRTSPOnlyServer.hh"
 
-#ifndef _RTP_DEC_H264_H
-#define _RTP_DEC_H264_H
+int c_start_server(rtsp_serv_t* server){
+    int ret;
+    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod);
+    srv->init_server();
+    ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
+    if (ret == 0){
+        server->run = TRUE;
+    } else {
+        server->run = FALSE;
+    }
+    return ret;
+}
 
-struct std_frame_received {
-    uint32_t buffer_len; //[MAX_SUBSTREAMS];
-    //uint32_t buffer_num;//[MAX_SUBSTREAMS];
-    char *frame_buffer;    //[MAX_SUBSTREAMS];
-    uint8_t bframe;
-    uint8_t iframe;
-};
+rtsp_serv_t *init_rtsp_server(uint port, struct module *mod){
+    rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
+    server->port = port;
+    server->mod = mod;
+    server->watch = 0;
+    server->run = FALSE;
+    return server;
+}
 
-int
-decode_frame_h264(struct coded_data *cdata, void *rx_data);
-
-#endif
+void c_stop_server(rtsp_serv_t* server){
+    server->watch = 1;
+    if (server->run){
+        pthread_join(server->server_th, NULL);
+    }
+}

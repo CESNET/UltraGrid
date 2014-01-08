@@ -121,11 +121,19 @@ static void sender_process_external_message(struct sender_data *data, struct msg
         int ret;
         switch(msg->type) {
                 case SENDER_MSG_CHANGE_RECEIVER:
-                        assert(data->rxtx_protocol == ULTRAGRID_RTP);
+                        assert(data->rxtx_protocol == ULTRAGRID_RTP || data->rxtx_protocol == H264_STD);
                         assert(((struct ultragrid_rtp_state *) data->tx_module_state)->connections_count == 1);
-                        ret = rtp_change_dest(((struct ultragrid_rtp_state *)
-                                                data->tx_module_state)->network_devices[0],
-                                        msg->receiver);
+
+                        if(data->rxtx_protocol == ULTRAGRID_RTP){
+                            ret = rtp_change_dest(((struct ultragrid_rtp_state *)
+                                                                            data->tx_module_state)->network_devices[0],
+                                                                    msg->receiver);
+                        }else if(data->rxtx_protocol == H264_STD){
+                            ret = rtp_change_dest(
+                                    ((struct h264_rtp_state *) data->tx_module_state)->network_devices[0],
+                                    msg->receiver);
+                        }
+
                         if(ret == FALSE) {
                                 fprintf(stderr, "Changing receiver to: %s failed!\n",
                                                 msg->receiver);
@@ -300,7 +308,7 @@ static void *sender_thread(void *arg) {
                         tx_frame->dispose(tx_frame);
                 }
 
-                if (data->rxtx_protocol == ULTRAGRID_RTP) {
+                if (data->rxtx_protocol == ULTRAGRID_RTP || data->rxtx_protocol == H264_STD) {
                         struct ultragrid_rtp_state *rtp_state = data->tx_module_state;
                         stats_update_int(stat_data_sent,
                                         rtp_get_bytes_sent(rtp_state->network_devices[0]));

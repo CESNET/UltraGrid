@@ -1,6 +1,7 @@
 /*
- * FILE:    sdp.h
- * AUTHORS: Gerard Castillo  <gerard.castillo@i2cat.net>
+ * FILE:    c_basicRTSPOnlyServer.h
+ * AUTHORS: David Cassany    <david.cassany@i2cat.net>
+ *          Gerard Castillo  <gerard.castillo@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
@@ -18,10 +19,12 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *
- *      This product includes software developed by CESNET z.s.p.o.
+ *      This product includes software developed by the Fundació i2CAT,
+ *      Internet I Innovació Digital a Catalunya. This product also includes
+ *      software developed by CESNET z.s.p.o.
  *
- * 4. Neither the name of the CESNET nor the names of its contributors may be
- *    used to endorse or promote products derived from this software without
+ * 4. Neither the name of the University nor of the Institute may be used
+ *    to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
@@ -38,79 +41,50 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef __sdp_h
-#define __sdp_h
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
+#ifndef C_BASIC_RTSP_ONLY_SERVER_H
+#define C_BASIC_RTSP_ONLY_SERVER_H
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MAX_STREAMS 2
-#define strLength 2048
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif // HAVE_CONFIG_H
 
-enum rtp_standard {
-        std_H264,
-        std_PCM
-};
-
-struct sdp {
-    enum rtp_standard std_rtp;
-    int port;
-    char *version;
-    char *origin;
-    char *session_name;
-    char *connection;
-    char *times;
-    struct stream_info *stream[MAX_STREAMS];
-    int stream_count; //between 1 and MAX_STREAMS
-};
-
-struct stream_info {
-    char *media_info;
-    char *rtpmap;
-    char *fmtp;
-};
-
-/*
- * External API
- */
-struct sdp *new_sdp(enum rtp_standard std, int port);
-bool get_sdp(struct sdp *sdp);
-
-void set_version(struct sdp *sdp);
-void get_version(struct sdp *sdp);
-
-void set_origin(struct sdp *sdp);
-void get_origin(struct sdp *sdp);
-
-void set_session_name(struct sdp *sdp);
-void get_session_name(struct sdp *sdp);
-
-void set_connection(struct sdp *sdp);
-void get_connection(struct sdp *sdp);
-
-void set_times(struct sdp *sdp);
-void get_times(struct sdp *sdp);
-
-void set_stream(struct sdp *sdp);
-void get_stream(struct sdp *sdp, int index);
-
-/*
- * Internal API
- */
-bool new_stream(struct sdp *sdp);
-char *set_stream_media_info(struct sdp *sdp, int index);
-char *set_stream_rtpmap(struct sdp *sdp, int index);
-void clean_sdp(struct sdp *sdp);
+#include <pthread.h>
+#include <semaphore.h>
+#include "control_socket.h"
+#include "module.h"
+#include "debug.h"
 
 #ifdef __cplusplus
 }
 #endif
 
+
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else
+#define EXTERNC
 #endif
+
+EXTERNC typedef struct rtsp_serv {
+	uint port;
+	struct module *mod;
+	pthread_t server_th;
+    uint8_t watch;
+    uint8_t run;
+} rtsp_serv_t;
+
+EXTERNC int c_start_server(rtsp_serv_t* server);
+
+EXTERNC void c_stop_server(rtsp_serv_t* server);
+
+EXTERNC rtsp_serv_t* init_rtsp_server(uint port, struct module *mod);
+
+#undef EXTERNC
+

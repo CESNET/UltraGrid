@@ -76,8 +76,5 @@ struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type 
 
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 
-void rtpenc_h264_stats_print(void);
-
-
 #endif // TRANSMIT_H_
 
