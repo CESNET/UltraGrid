@@ -52,7 +52,6 @@
 #define PT_ENCRYPT_AUDIO 25
 #define PT_H264 96
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
-
 /*
  * Video payload
  *
