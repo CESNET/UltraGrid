@@ -1588,7 +1588,6 @@ cleanup:
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-                ;
         if (uv->mode & MODE_SENDER
                         && tx_thread_started)
                 pthread_join(tx_thread_id, NULL);

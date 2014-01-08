@@ -261,9 +261,6 @@ static void h264_rtp_done(void *state)
         if (data->tx) {
                 module_done(CAST_MODULE(data->tx));
         }
-        if (data->network_devices) {
-                destroy_rtp_devices(data->network_devices);
-        }
 }
 
 static void *sender_thread(void *arg) {
