@@ -105,6 +105,11 @@ enum fec_scheme_t {
 #define RTPENC_H264_MAX_NALS 1024*2*2
 #define RTPENC_H264_PT 96
 
+// Mulaw audio memory reservation
+#define BUFFER_MTU_SIZE 1500
+static char *data_buffer_mulaw;
+static int buffer_mulaw_init = 0;
+
 struct rtp_nal_t {
     uint8_t *data;
     int size;
@@ -151,6 +156,14 @@ struct tx {
 
         struct openssl_encrypt *encryption;
 };
+
+// Mulaw audio memory reservation
+static void init_tx_mulaw_buffer() {
+    if (!buffer_mulaw_init) {
+        data_buffer_mulaw = malloc(BUFFER_MTU_SIZE);
+        buffer_mulaw_init = 1;
+    }
+}
 
 static bool fec_is_ldgm(struct tx *tx)
 {
@@ -762,6 +775,77 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
         platform_spin_unlock(&tx->spin);
 }
 
+/*
+ * audio_tx_send_mulaw - Send interleaved channels from the audio_frame2 at 1 bps,
+ *                       as the mulaw standard.
+ */
+void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
+{
+    int pt;
+    uint32_t timestamp;
+
+    platform_spin_lock(&tx->spin);
+
+    // Configure the right Payload type,
+    // 8000 Hz, 1 channel is the ITU-T G.711 standard
+    // More channels or Hz goes to DynRTP-Type97
+    //printf("\n[TX SEND MULAW] chcount = %d and sample rate = %d\n", buffer->ch_count, buffer->sample_rate);
+    if (buffer->ch_count == 1 || buffer->sample_rate == 8000) {
+        buffer->ch_count = 1;
+        pt = PT_ITU_T_G711_PCMU;
+    } else {
+        pt = PT_DynRTP_Type97;
+    }
+
+    // The sizes for the different audio_frame2 channels must be the same.
+    for (int i = 1 ; i < buffer->ch_count ; i++) assert(buffer->data_len[0] == buffer->data_len[i]);
+
+    int data_len = buffer->data_len[0] * buffer->ch_count;  /* Number of samples to send (bps=1)*/
+    int data_remainig = data_len;
+    int payload_size = tx->mtu - 40;                        /* Max size of an RTP payload field */
+    int packets = data_len / payload_size;
+    if (data_len % payload_size != 0) packets++;            /* Number of RTP packets needed */
+
+    init_tx_mulaw_buffer();
+    char *curr_sample = data_buffer_mulaw;
+
+    // For each interval that fits in an RTP payload field.
+    for (int p = 0 ; p < packets ; p++) {
+
+        int samples_per_packet;
+        int data_to_send;
+        if (data_remainig >= payload_size) {
+            samples_per_packet = payload_size / buffer->ch_count;
+            data_to_send = payload_size;
+        }
+        else {
+            samples_per_packet = data_remainig / buffer->ch_count;
+            data_to_send = data_remainig;
+        }
+
+        // Interleave the samples
+        for (int ch_sample = 0 ; ch_sample < samples_per_packet ; ch_sample++){
+            for (int ch = 0 ; ch < buffer->ch_count ; ch++) {
+                memcpy(curr_sample, (char *)(buffer->data[ch] + ch_sample), sizeof(uint8_t));
+                curr_sample += sizeof(uint8_t);
+                data_remainig--;
+            }
+        }
+
+        // Update first sample timestamp
+        timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/buffer->ch_count)));
+
+        // Send the packet
+        rtp_send_data(rtp_session, timestamp, pt, 0, 0,        /* contributing sources */
+                0,        /* contributing sources length */
+                data_buffer_mulaw, data_to_send,
+                0, 0, 0);
+    }
+
+    tx->buffer ++;
+
+    platform_spin_unlock(&tx->spin);
+}
 
 static uint8_t *rtpenc_h264_find_startcode_internal(uint8_t *start,
         uint8_t *end);

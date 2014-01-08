@@ -44,12 +44,15 @@
  * Packet formats are described in papers referenced here:<br/>
  * https://www.sitola.cz/igrid/index.php/Developer_Documentation#Packet_formats
  */
+#define PT_ITU_T_G711_PCMU  00 /* mU-law mono */
 #define PT_VIDEO        20
 #define PT_AUDIO        21
 #define PT_VIDEO_LDGM   22
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
 #define PT_H264 96
+#define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
+
 /*
  * Video payload
  *

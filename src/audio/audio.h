@@ -123,7 +123,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *jack_cfg, char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_iface, audio_codec_t audio_codec,
-                int resample_to);
+                int resample_to, bool isStd);
 void audio_finish(struct state_audio *s);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);

@@ -182,7 +182,7 @@ static struct audio_codec_state *audio_codec_init_real(audio_codec_t audio_codec
 
         struct audio_codec_state *s = (struct audio_codec_state *) malloc(sizeof(struct audio_codec_state));
 
-        s->state = calloc(1, sizeof(void**));;
+        s->state = calloc(1, sizeof(void**));
         s->state[0] = state;
         s->state_count = 1;
         s->index = index;

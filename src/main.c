@@ -886,6 +886,7 @@ int main(int argc, char *argv[])
         char *requested_audio_fec = strdup(DEFAULT_AUDIO_FEC);
         char *audio_channel_map = NULL;
         char *audio_scale = "mixauto";
+        bool isStd = FALSE;
 
         bool echo_cancellation = false;
 
@@ -1302,12 +1303,17 @@ int main(int argc, char *argv[])
         if(!audio_host) {
                 audio_host = uv->requested_receiver;
         }
+#ifdef HAVE_RTSP_SERVER
+        if((audio_send != NULL || audio_recv != NULL) && uv->rxtx->protocol == H264_STD){
+            isStd = TRUE;
+        }
+#endif
         uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
                         jack_cfg, requested_audio_fec, uv->requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, uv->ipv6, uv->requested_mcast_if,
-                        audio_codec, compressed_audio_sample_rate);
+                        audio_codec, compressed_audio_sample_rate, isStd);
         free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;

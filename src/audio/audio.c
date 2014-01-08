@@ -99,7 +99,8 @@ struct audio_device_t {
 
 enum audio_transport_device {
         NET_NATIVE,
-        NET_JACK
+        NET_JACK,
+        NET_STANDARD
 };
 
 struct state_audio {
@@ -186,7 +187,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *jack_cfg, char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if, audio_codec_t audio_codec,
-                int resample_to)
+                int resample_to, bool isStd)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -356,7 +357,9 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         
         s->sender = NET_NATIVE;
         s->receiver = NET_NATIVE;
-        
+        if(isStd && strcmp(recv_cfg, "none") != 0) s->receiver = NET_STANDARD;
+        if(isStd && strcmp(send_cfg, "none") != 0) s->sender = NET_STANDARD;
+
 #ifdef HAVE_JACK_TRANS
         s->jack_connection = jack_start(jack_cfg);
         if(s->jack_connection) {
@@ -521,7 +524,12 @@ static void *audio_receiver_thread(void *arg)
                                 cp = pdb_iter_next(&it);
                         }
                         pdb_iter_done(&it);
-                } else { /* NET_JACK */
+                }else if(s->receiver == NET_STANDARD){
+                //TODO receive mulaw standard RTP (decode frame mulaw callback)
+
+
+
+                }else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
                         jack_receive(s->jack_connection, &pbuf_data);
                         audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
@@ -646,6 +654,21 @@ static void *audio_sender_thread(void *arg)
                                                 uncompressed = NULL;
                                         }
                                 }
+                        }else if(s->sender == NET_STANDARD){
+                        //TODO audio_tx_send_mulaw
+                            // RESAMPLE
+                            resample(&resample_state, buffer);
+                            // COMPRESS
+                            audio_frame_to_audio_frame2(buffer_new, &resample_state.resampled);
+                            free(resample_state.resampled.data);
+                            if(buffer_new) {
+                                audio_frame2 *uncompressed = buffer_new;
+                                audio_frame2 *compressed = NULL;
+                                while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
+                                    audio_tx_send_mulaw(s->tx_session, s->audio_network_device, compressed);
+                                    uncompressed = NULL;
+                                }
+                            }
                         }
 #ifdef HAVE_JACK_TRANS
                         else
