@@ -246,8 +246,7 @@ public:
 
 /* DeckLink SDK objects */
 
-void
-print_output_modes (IDeckLink* deckLink);
+static void print_input_modes (IDeckLink* deckLink);
 static int blackmagic_api_version_check(STRING *current_version);
 
 HRESULT	
@@ -442,8 +441,8 @@ decklink_help()
 		// Increment the total number of DeckLink cards found
 		numDevices++;
 	
-		// ** List the video output display modes supported by the card
-		print_output_modes(deckLink);
+		// ** List the video input display modes supported by the card
+		print_input_modes(deckLink);
 
                 IDeckLinkAttributes *deckLinkAttributes;
 
@@ -1395,28 +1394,30 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
 /* function from DeckLink SDK sample DeviceList */
 
-void
-print_output_modes (IDeckLink* deckLink)
+static void print_input_modes (IDeckLink* deckLink)
 {
-	IDeckLinkOutput*			deckLinkOutput = NULL;
+	IDeckLinkInput*			deckLinkInput = NULL;
 	IDeckLinkDisplayModeIterator*		displayModeIterator = NULL;
 	IDeckLinkDisplayMode*			displayMode = NULL;
 	HRESULT					result;	
 	int 					displayModeNumber = 0;
 	
 	// Query the DeckLink for its configuration interface
-	result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
+	result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", (int) result);
+		fprintf(stderr, "Could not obtain the IDeckLinkInput interface - result = %08x\n", (int) result);
+                if (result == E_NOINTERFACE) {
+                        printf("Device doesn't support video capture.\n");
+                }
 		goto bail;
 	}
 	
-	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
-	result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
+	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
+	result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", (int) result);
+		fprintf(stderr, "Could not obtain the video input display mode iterator - result = %08x\n", (int) result);
 		goto bail;
 	}
 	
@@ -1473,8 +1474,8 @@ bail:
 	if (displayModeIterator != NULL)
 		displayModeIterator->Release();
 	
-	if (deckLinkOutput != NULL)
-		deckLinkOutput->Release();
+	if (deckLinkInput != NULL)
+		deckLinkInput->Release();
 }
 
 #endif /* HAVE_DECKLINK */
