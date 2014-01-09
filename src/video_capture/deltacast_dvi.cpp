@@ -86,6 +86,7 @@ extern "C" {
 struct vidcap_deltacast_dvi_state {
         struct video_frame *frame;
         struct tile        *tile;
+        ULONG             BoardType;
         HANDLE            BoardHandle, StreamHandle;
         HANDLE            SlotHandle;
 
@@ -142,6 +143,7 @@ static void usage(void)
                                 case VHD_BOARDTYPE_CODEC : printf("CODEC board type"); break;
                                 case VHD_BOARDTYPE_3G :    printf("3G board type"); break;
                                 case VHD_BOARDTYPE_3GKEY : printf("3G key board type"); break;
+                                case VHD_BOARDTYPE_HDMI  : printf("HDMI board type"); break;
                                 default :                  printf("Unknown board type"); break;
                         }
                         printf("\n");
@@ -351,6 +353,7 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 else
                         printf("ERROR : Cannot detect incoming refresh rate from RX0. "
                                         "Result = 0x%08X\n", Result);
+
                 if(Result == VHDERR_NOERROR)
                         printf("\nIncoming graphic resolution : %ux%u @%uHz (%s) %s link\n", Width, Height,RefreshRate, Interlaced_B?"Interlaced":"Progressive",Dual_B?"Dual":"Single");
                 else
@@ -376,6 +379,8 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
         }
         else if(DviMode == VHD_DVI_MODE_HDMI || DviMode == VHD_DVI_MODE_ANALOG_COMPONENT_VIDEO)
         {
+                VHD_HDMI_CS       InputCS;
+                ULONG             PxlClk = 0;
                 /* Get auto-detected resolution */
                 Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_WIDTH,&Width);
                 if(Result == VHDERR_NOERROR)
@@ -393,6 +398,24 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 else
                         printf("ERROR : Cannot detect if incoming stream from RX0 is "
                                         "interlaced or progressive. Result = 0x%08X\n", Result);
+
+                if (Result == VHDERR_NOERROR) {
+                        Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE,&RefreshRate);
+                        if(s->BoardType == VHD_BOARDTYPE_HDMI)
+                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_INPUT_CS,(ULONG*)&InputCS);
+                        else
+                                printf("ERROR : Cannot detect incoming color space from RX0. Result = 0x%08X (%s)\n", Result,
+                                                GetErrorDescription(Result));
+                }
+
+                if (Result == VHDERR_NOERROR) {
+                        if (s->BoardType == VHD_BOARDTYPE_HDMI)
+                                Result = VHD_GetStreamProperty(s->StreamHandle,VHD_DVI_SP_PIXEL_CLOCK,&PxlClk);
+                        else
+                                printf("ERROR : Cannot detect incoming pixel clock from RX0. Result = 0x%08X (%s)\n", Result,
+                                                GetErrorDescription(Result));
+                }
+
                 if(Result == VHDERR_NOERROR)
                         printf("\nIncoming graphic resolution : %ux%u @%uHz (%s)\n", Width, Height, RefreshRate, Interlaced_B?"Interlaced":"Progressive");
                 else
@@ -413,6 +436,10 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_ACTIVE_HEIGHT,Height);
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_INTERLACED,Interlaced_B);
                 VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_REFRESH_RATE, RefreshRate);
+                if (s->BoardType == VHD_BOARDTYPE_HDMI) {
+                        VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_INPUT_CS, InputCS);
+                        VHD_SetStreamProperty(s->StreamHandle,VHD_DVI_SP_PIXEL_CLOCK, PxlClk);
+                }
         }
 
         Result = VHD_StartStream(s->StreamHandle);
@@ -441,7 +468,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 {
 	struct vidcap_deltacast_dvi_state *s;
         ULONG Width = 0, Height = 0, RefreshRate = 0;
-        ULONG             Result = VHDERR_NOERROR,DllVersion,NbBoards,BoardType;
+        ULONG             Result = VHDERR_NOERROR,DllVersion,NbBoards;
         ULONG             BrdId = 0;
         ULONG             Packing;
         int               edid = -1;
@@ -467,7 +494,9 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 
         s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
 
-        char *init_fmt = strdup(vidcap_params_get_fmt(params));
+        char *init_fmt = NULL;
+        if (vidcap_params_get_fmt(params) != NULL)
+                init_fmt = strdup(vidcap_params_get_fmt(params));
         if(init_fmt && strcmp(init_fmt, "help") == 0) {
                 usage();
                 return &vidcap_init_noerr;
@@ -557,9 +586,9 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot open DELTA board %u handle. Result = 0x%08X\n",BrdId,Result);
                 goto error;
         }
-        VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_BOARD_TYPE, &BoardType);
-        if(BoardType!=VHD_BOARDTYPE_DVI) {
-                fprintf(stderr, "[DELTACAST] ERROR : The selected board is not an DVI one\n");
+        VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_BOARD_TYPE, &s->BoardType);
+        if (s->BoardType != VHD_BOARDTYPE_DVI && s->BoardType != VHD_BOARDTYPE_HDMI) {
+                fprintf(stderr, "[DELTACAST] ERROR : The selected board is not an DVI or HDMI one\n");
                 goto bad_channel;
         }
         
@@ -580,7 +609,8 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                         fprintf(stderr, "[DELTACAST] Bad channel index!\n");
                         goto no_stream;
         }
-        Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId, VHD_DVI_STPROC_DEFAULT,
+        Result = VHD_OpenStreamHandle(s->BoardHandle, ChannelId,
+                        s->BoardType == VHD_BOARDTYPE_HDMI ? VHD_DVI_STPROC_JOINED : VHD_DVI_STPROC_DEFAULT,
                         NULL, &s->StreamHandle, NULL);
         if (Result != VHDERR_NOERROR)
         {
@@ -607,11 +637,12 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 
         Result = VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_BUFFER_PACKING,
                         Packing);
-
         if(Result != VHDERR_NOERROR) {
                 fprintf(stderr, "Unable to set packing format.\n");
                 goto no_format;
         }
+        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,
+                        VHD_TRANSFER_SLAVED);
 
         if(have_preset) {
                 DviMode = VHD_DVI_MODE_DVI_A;

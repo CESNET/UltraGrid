@@ -103,13 +103,25 @@ enum audio_transport_device {
         NET_STANDARD
 };
 
+struct audio_network_parameters {
+        char *addr;
+        int recv_port;
+        int send_port;
+        struct pdb *participants;
+        bool use_ipv6;
+        char *mcast_if;
+};
+
 struct state_audio {
         struct module mod;
         struct state_audio_capture *audio_capture_device;
         struct state_audio_playback *audio_playback_device;
 
+        struct module audio_sender_module;
+
         struct audio_codec_state *audio_coder;
         
+        struct audio_network_parameters audio_network_parameters;
         struct rtp *audio_network_device;
         struct pdb *audio_participants;
         void *jack_connection;
@@ -143,9 +155,7 @@ typedef void (*audio_device_help_t)(void);
 
 static void *audio_sender_thread(void *arg);
 static void *audio_receiver_thread(void *arg);
-static struct rtp *initialize_audio_network(char *addr, int recv_port,
-                int send_port, struct pdb *participants, bool use_ipv6,
-                const char *mcast_if);
+static struct rtp *initialize_audio_network(struct audio_network_parameters *params);
 
 static void audio_channel_map_usage(void);
 static void audio_scale_usage(void);
@@ -231,6 +241,13 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         module_init_default(&s->mod);
         s->mod.priv_data = s;
         s->mod.cls = MODULE_CLASS_AUDIO;
+        module_register(&s->mod, parent);
+
+        module_init_default(&s->audio_sender_module);
+        s->audio_sender_module.cls = MODULE_CLASS_SENDER;
+        s->audio_sender_module.priv_data = s;
+        module_register(&s->audio_sender_module, &s->mod);
+
 
         s->audio_participants = NULL;
         s->audio_channel_map = audio_channel_map;
@@ -279,9 +296,17 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         tmp = strdup(addrs);
         s->audio_participants = pdb_init();
         addr = strtok_r(tmp, ",", &unused);
-        if ((s->audio_network_device =
-             initialize_audio_network(addr, recv_port, send_port,
-                                      s->audio_participants, use_ipv6, mcast_if))
+
+        s->audio_network_parameters.addr = strdup(addr);
+        s->audio_network_parameters.recv_port = recv_port;
+        s->audio_network_parameters.send_port = send_port;
+        s->audio_network_parameters.participants = s->audio_participants;
+        s->audio_network_parameters.use_ipv6 = use_ipv6;
+        s->audio_network_parameters.mcast_if = mcast_if
+                ? strdup(mcast_if) : NULL;
+
+        if ((s->audio_network_device = initialize_audio_network(
+                                        &s->audio_network_parameters))
                         == NULL) {
                 printf("Unable to open audio network\n");
                 goto error;
@@ -376,8 +401,6 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         }
 #endif
 
-        module_register(&s->mod, parent);
-
         return s;
 
 error:
@@ -415,6 +438,7 @@ void audio_done(struct state_audio *s)
                 audio_playback_done(s->audio_playback_device);
                 audio_capture_done(s->audio_capture_device);
                 module_done(CAST_MODULE(s->tx_session));
+                module_done(CAST_MODULE(&s->audio_sender_module));
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
                 if(s->audio_participants) {
@@ -432,22 +456,26 @@ void audio_done(struct state_audio *s)
                 audio_export_destroy(s->exporter);
                 module_done(&s->mod);
                 free(s->requested_encryption);
+
+                free(s->audio_network_parameters.addr);
+                free(s->audio_network_parameters.mcast_if);
+
                 free(s);
         }
 }
 
-static struct rtp *initialize_audio_network(char *addr, int recv_port,
-                int send_port, struct pdb *participants, bool use_ipv6,
-                const char *mcast_if)       // GiX
+static struct rtp *initialize_audio_network(struct audio_network_parameters *params)
 {
         struct rtp *r;
         double rtcp_bw = 1024 * 512;    // FIXME:  something about 5% for rtcp is said in rfc
 
-        r = rtp_init_if(addr, mcast_if, recv_port, send_port, 255, rtcp_bw,
-                        FALSE, rtp_recv_callback, (void *)participants,
-                        use_ipv6);
+        r = rtp_init_if(params->addr, params->mcast_if, params->recv_port,
+                        params->send_port, 255, rtcp_bw,
+                        FALSE, rtp_recv_callback,
+                        (void *) params->participants,
+                        params->use_ipv6);
         if (r != NULL) {
-                pdb_add(participants, rtp_my_ssrc(r));
+                pdb_add(params->participants, rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);
                 rtp_set_sdes(r, rtp_my_ssrc(r), RTCP_SDES_TOOL,
                              PACKAGE_STRING, strlen(PACKAGE_VERSION));
@@ -615,6 +643,32 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
         }
 }
 
+static void audio_sender_process_message(struct state_audio *s, struct msg_sender *msg)
+{
+        int ret;
+        switch (msg->type) {
+                case SENDER_MSG_CHANGE_RECEIVER:
+                        ret = rtp_change_dest(s->audio_network_device,
+                                        msg->receiver);
+
+                        if (ret == FALSE) {
+                                fprintf(stderr, "Changing audio receiver to: %s failed!\n",
+                                                msg->receiver);
+                        }
+                        break;
+                case SENDER_MSG_CHANGE_PORT:
+                        rtp_done(s->audio_network_device);
+                        s->audio_network_parameters.send_port = msg->port;
+                        s->audio_network_device = initialize_audio_network(
+                                        &s->audio_network_parameters);
+                        break;
+                case SENDER_MSG_PAUSE:
+                case SENDER_MSG_PLAY:
+                        fprintf(stderr, "Not implemented!\n");
+                        abort();
+        }
+}
+
 static void *audio_sender_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
@@ -630,6 +684,12 @@ static void *audio_sender_thread(void *arg)
         
         printf("Audio sending started.\n");
         while (!should_exit_audio) {
+                struct message *msg;
+                while((msg= check_message(&s->audio_sender_module))) {
+                        audio_sender_process_message(s, (struct msg_sender *) msg);
+                        free_message(msg);
+                }
+
                 buffer = audio_capture_read(s->audio_capture_device);
                 if(buffer) {
                         audio_export(s->exporter, buffer);
@@ -688,7 +748,7 @@ static void *audio_sender_thread(void *arg)
 
 void audio_sdi_send(struct state_audio *s, struct audio_frame *frame) {
         void *sdi_capture;
-        if(!audio_capture_get_vidcap_flags(s->audio_capture_device))
+        if(!audio_capture_get_vidcap_flags(audio_capture_get_driver_name(s->audio_capture_device)))
                 return;
         
         sdi_capture = audio_capture_get_state_pointer(s->audio_capture_device);
@@ -716,11 +776,6 @@ void audio_register_reconfigure_callback(struct state_audio *s, int (*callback)(
         
         sdi_playback = audio_playback_get_state_pointer(s->audio_playback_device);
         sdi_register_reconfigure_callback(sdi_playback, callback, udata);
-}
-
-unsigned int audio_get_vidcap_flags(struct state_audio *s)
-{
-        return audio_capture_get_vidcap_flags(s->audio_capture_device);
 }
 
 unsigned int audio_get_display_flags(struct state_audio *s)

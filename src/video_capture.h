@@ -117,16 +117,18 @@ struct vidcap_params;
 
 struct vidcap_params *vidcap_params_allocate(void);
 struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
+struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
+void                  vidcap_params_free_struct(struct vidcap_params *params);
 struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *params);
-void                  vidcap_params_assign_device(struct vidcap_params *params, const char *config);
-void                  vidcap_params_assign_capture_filter(struct vidcap_params *params,
-                const char *req_capture_filter);
+struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *params, int index);
 const char           *vidcap_params_get_driver(const struct vidcap_params *params);
 unsigned int          vidcap_params_get_flags(const struct vidcap_params *params);
 const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
 const char           *vidcap_params_get_name(const struct vidcap_params *params);
-struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
-void                  vidcap_params_free_struct(struct vidcap_params *params);
+void                  vidcap_params_set_device(struct vidcap_params *params, const char *config);
+void                  vidcap_params_set_capture_filter(struct vidcap_params *params,
+                const char *req_capture_filter);
+void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
 /// @}
 
 int			 vidcap_init_devices(void);

@@ -270,92 +270,14 @@ static int udp_addr_valid4(const char *dst)
         return FALSE;
 }
 
-static int udp_init4_tx(socket_udp *s, const char *addr, const char *iface,
-                             uint16_t tx_port, int udpbufsize, unsigned int ifindex)
-{
-        if (!resolve_address(s, addr)) {
-                socket_error("Can't resolve IP address for %s", addr);
-                free(s);
-                return 1;
-        }
-        if (iface != NULL) {
-#ifdef HAVE_IF_NAMETOINDEX
-                if ((ifindex = if_nametoindex(iface)) == 0) {
-                        debug_msg("Illegal interface specification\n");
-                        free(s);
-                        return 1;
-                }
-#else
-		fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
-#endif
-        } else {
-                ifindex = 0;
-        }
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
-             sizeof(udpbufsize)) != 0) {
-                debug_msg("WARNING: Unable to increase UDP sendbuffer\n");
-        }
-        
-        if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
-#ifndef WIN32
-                char loop = 1;
-#endif
-                struct ip_mreq imr;
-
-                imr.imr_multiaddr.s_addr = s->addr4.s_addr;
-                imr.imr_interface.s_addr = ifindex;
-
-                if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
-                     sizeof(struct ip_mreq)) != 0) {
-                        socket_error("setsockopt IP_ADD_MEMBERSHIP");
-                        return 1;
-                }
-#ifndef WIN32
-                if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
-                     sizeof(loop)) != 0) {
-                        socket_error("setsockopt IP_MULTICAST_LOOP");
-                        return 1;
-                }
-#endif
-                if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&s->ttl,
-                     sizeof(s->ttl)) != 0) {
-                        socket_error("setsockopt IP_MULTICAST_TTL");
-                        return 1;
-                }
-                if (SETSOCKOPT
-                    (s->fd, IPPROTO_IP, IP_MULTICAST_IF,
-                     (char *)&ifindex, sizeof(ifindex)) != 0) {
-                        socket_error("setsockopt IP_MULTICAST_IF");
-                        return 1;
-                }
-        }
-        s->addr = strdup(addr);
-	return 0;
-}
-
-static int udp_init4_rx(socket_udp *s, uint16_t rx_port, 
-			int udpbufsize, struct sockaddr_in s_in)
-{
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_RCVBUF, (char *)&udpbufsize,
-             sizeof(udpbufsize)) != 0) {
-                debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
-        }
-        s_in.sin_family = AF_INET;
-        s_in.sin_addr.s_addr = INADDR_ANY;
-        s_in.sin_port = htons(rx_port);
-        if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
-                socket_error("bind");
-                return -1;
-        }
-        
-        return 0;
-}
-
+/**
+ * @param addr    address to send to.
+ * @param iface   interface to be used for multicast send. If NULL, default is used.
+ * @param rx_port src port to bind to. Can be 0. In this case it will be bound to arbitrary free
+ *                port. This is for cases we don't want receive anything.
+ * @param tx_port TX port to send to.
+ * @param ttl     TTL
+ */
 static socket_udp *udp_init4(const char *addr, const char *iface,
                              uint16_t rx_port, uint16_t tx_port, int ttl)
 {
@@ -370,7 +292,24 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         s->tx_port = tx_port;
         s->ttl = ttl;
 
-
+        if (!resolve_address(s, addr)) {
+                socket_error("Can't resolve IP address for %s", addr);
+                free(s);
+                return NULL;
+        }
+        if (iface != NULL) {
+#ifdef HAVE_IF_NAMETOINDEX
+                if ((ifindex = if_nametoindex(iface)) == 0) {
+                        debug_msg("Illegal interface specification\n");
+                        free(s);
+                        return NULL;
+                }
+#else
+                fprintf(stderr, "Cannot set interface name, if_nametoindex not supported.\n");
+#endif
+        } else {
+                ifindex = 0;
+        }
         s->fd = socket(AF_INET, SOCK_DGRAM, 0);
 #ifdef WIN32
         if (s->fd == INVALID_SOCKET) {
@@ -380,34 +319,66 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
                 socket_error("Unable to initialize socket");
                 return NULL;
         }
-
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_SNDBUF, (char *)&udpbufsize,
+             sizeof(udpbufsize)) != 0) {
+                debug_msg("WARNING: Unable to increase UDP sendbuffer\n");
+        }
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_RCVBUF, (char *)&udpbufsize,
+             sizeof(udpbufsize)) != 0) {
+                debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
+        }
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEADDR");
                 return NULL;
         }
-#ifdef SO_REUSEPORT
-        if (SETSOCKOPT
-            (s->fd, SOL_SOCKET, SO_REUSEPORT, (char *)&reuse,
-             sizeof(reuse)) != 0) {
-                socket_error("setsockopt SO_REUSEPORT");
+        s_in.sin_family = AF_INET;
+        s_in.sin_addr.s_addr = INADDR_ANY;
+        s_in.sin_port = htons(rx_port);
+        if (bind(s->fd, (struct sockaddr *)&s_in, sizeof(s_in)) != 0) {
+                socket_error("bind");
                 return NULL;
         }
+        if (IN_MULTICAST(ntohl(s->addr4.s_addr))) {
+#ifndef WIN32
+                char loop = 1;
 #endif
+                struct ip_mreq imr;
 
-        if (rx_port == 0)
-	  debug_msg("No valid receive port, no receive session defined");
-	else
-	  if (udp_init4_rx(s, rx_port, udpbufsize, s_in) != 0)
-	    return NULL;
-	
-	if (addr == NULL && tx_port == 0)
-	  debug_msg("No valid transmit port, no transmit session defined");
-	else
-	  if (udp_init4_tx(s, addr, iface, tx_port, udpbufsize, ifindex) != 0)
-	    return NULL;
+                imr.imr_multiaddr.s_addr = s->addr4.s_addr;
+                imr.imr_interface.s_addr = ifindex;
 
+                if (SETSOCKOPT
+                    (s->fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&imr,
+                     sizeof(struct ip_mreq)) != 0) {
+                        socket_error("setsockopt IP_ADD_MEMBERSHIP");
+                        return NULL;
+                }
+#ifndef WIN32
+                if (SETSOCKOPT
+                    (s->fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop,
+                     sizeof(loop)) != 0) {
+                        socket_error("setsockopt IP_MULTICAST_LOOP");
+                        return NULL;
+                }
+#endif
+                if (SETSOCKOPT
+                    (s->fd, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&s->ttl,
+                     sizeof(s->ttl)) != 0) {
+                        socket_error("setsockopt IP_MULTICAST_TTL");
+                        return NULL;
+                }
+                if (SETSOCKOPT
+                    (s->fd, IPPROTO_IP, IP_MULTICAST_IF,
+                     (char *)&ifindex, sizeof(ifindex)) != 0) {
+                        socket_error("setsockopt IP_MULTICAST_IF");
+                        return NULL;
+                }
+        }
+        s->addr = strdup(addr);
         return s;
 }
 
@@ -913,13 +884,14 @@ int udp_addr_valid(const char *addr)
 
 /**
  * udp_init:
- * @addr: character string containing an IPv4 or IPv6 network address.
- * @rx_port: receive port.
- * @tx_port: transmit port.
- * @ttl: time-to-live value for transmitted packets.
- *
  * Creates a session for sending and receiving UDP datagrams over IP
  * networks. 
+ *
+ * @param addr    character string containing an IPv4 or IPv6 network address.
+ *                If set to NULL, localhost is assumed.
+ * @param rx_port receive port.
+ * @param tx_port transmit port.
+ * @param ttl     time-to-live value for transmitted packets.
  *
  * Returns: a pointer to a valid socket_udp structure on success, NULL otherwise.
  **/
@@ -931,24 +903,29 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
 
 /**
  * udp_init_if:
- * @addr: character string containing an IPv4 or IPv6 network address.
- * @iface: character string containing an interface name.
- * @rx_port: receive port.
- * @tx_port: transmit port.
- * @ttl: time-to-live value for transmitted packets.
- *
  * Creates a session for sending and receiving UDP datagrams over IP
  * networks.  The session uses @iface as the interface to send and
  * receive datagrams on.
- * 
- * Return value: a pointer to a socket_udp structure on success, NULL otherwise.
+ *
+ * @param addr    character string containing an IPv4 or IPv6 network address.
+ *                If set to NULL, localhost is assumed.
+ * @param iface   character string containing an interface name. If NULL, default is used.
+ * @param rx_port receive port.
+ * @param tx_port transmit port.
+ * @param ttl     time-to-live value for transmitted packets.
+ *
+ * @returns a pointer to a socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
                         uint16_t tx_port, int ttl, bool use_ipv6)
 {
         socket_udp *res;
+
+        if (addr == NULL) {
+                addr = "localhost";
+        }
 	
-	if ((addr == NULL || strchr(addr, ':') == NULL) && !use_ipv6) {
+	if (strchr(addr, ':') == NULL && !use_ipv6) {
 		res = udp_init4(addr, iface, rx_port, tx_port, ttl);
 	} else {
 		res = udp_init6(addr, iface, rx_port, tx_port, ttl);

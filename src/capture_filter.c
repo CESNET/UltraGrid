@@ -108,7 +108,7 @@ static int create_filter(struct capture_filter *s, char *cfg)
         if(i == sizeof(capture_filters) / sizeof(struct capture_filter_info *)) {
                 fprintf(stderr, "Unable to find capture filter: %s\n",
                                 filter_name);
-                return false;
+                return -1;
         }
         return 0;
 }

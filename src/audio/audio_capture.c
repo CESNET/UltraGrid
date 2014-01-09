@@ -355,20 +355,58 @@ struct audio_frame * audio_capture_read(struct state_audio_capture *s)
         }
 }
 
-unsigned int audio_capture_get_vidcap_flags(struct state_audio_capture *s)
+/**
+ * @returns vidcap flags if audio should be taken from video
+ * capture device.
+ */
+unsigned int audio_capture_get_vidcap_flags(const char *const_device_name)
 {
-        if(!s) 
-                return 0u;
+        char *tmp = strdup(const_device_name);
+        char *save_ptr = NULL;
+        char *device_name = strtok_r(tmp, ":", &save_ptr);
+        unsigned int ret;
 
-        if(strcasecmp(available_audio_capture[s->index]->name, "embedded") == 0) {
-                return VIDCAP_FLAG_AUDIO_EMBEDDED;
-        } else if(strcasecmp(available_audio_capture[s->index]->name, "AESEBU") == 0) {
-                return VIDCAP_FLAG_AUDIO_AESEBU;
-        } else if(strcasecmp(available_audio_capture[s->index]->name, "analog") == 0) {
-                return VIDCAP_FLAG_AUDIO_ANALOG;
+        if(strcasecmp(device_name, "embedded") == 0) {
+                ret = VIDCAP_FLAG_AUDIO_EMBEDDED;
+        } else if(strcasecmp(device_name, "AESEBU") == 0) {
+                ret = VIDCAP_FLAG_AUDIO_AESEBU;
+        } else if(strcasecmp(device_name, "analog") == 0) {
+                ret = VIDCAP_FLAG_AUDIO_ANALOG;
         } else {
-                return 0u;
+                ret = 0u;
         }
+
+        free(tmp);
+        return ret;
+}
+
+/**
+ * @returns optional index to video capture device to which
+ * should be audio flags passed.
+ * @see audio_capture_get_vidcap_flags
+ */
+unsigned int audio_capture_get_vidcap_index(const char *const_device_name)
+{
+        char *tmp = strdup(const_device_name);
+        char *save_ptr = NULL;
+        unsigned int ret;
+
+        strtok_r(tmp, ":", &save_ptr);
+        char *vidcap_index_str = strtok_r(NULL, ":", &save_ptr);
+
+        if (vidcap_index_str == NULL) {
+                ret = 0;
+        } else {
+                ret = atoi(vidcap_index_str);
+        }
+
+        free(tmp);
+        return ret;
+}
+
+const char *audio_capture_get_driver_name(struct state_audio_capture * s)
+{
+        return available_audio_capture[s->index]->name;
 }
 
 void *audio_capture_get_state_pointer(struct state_audio_capture *s)

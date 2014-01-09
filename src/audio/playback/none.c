@@ -81,14 +81,6 @@ void * audio_play_none_init(char *cfg)
         return s;
 }
 
-struct audio_frame *audio_play_none_get_frame(void *state)
-{
-        struct state_audio_playback_none *s = 
-                (struct state_audio_playback_none *) state;
-        assert(s->magic == AUDIO_PLAYBACK_NONE_MAGIC);
-        return NULL;
-}
-
 void audio_play_none_put_frame(void *state, struct audio_frame *frame)
 {
         UNUSED(frame);

@@ -683,7 +683,8 @@ static void *master_worker(void *arg)
                                         s->audio_device_index = i;
                                 }
 
-                                if(field == 1 && s->audio_device_index == i) {
+                                if ((s->frame->interlacing != INTERLACED_MERGED || field == 1)
+							&& s->audio_device_index == i) {
                                         s->audio.bps = s->slaves[i].audio_frame.bps;
                                         s->audio.ch_count = s->slaves[i].audio_frame.ch_count;
                                         s->audio.sample_rate = s->slaves[i].audio_frame.sample_rate;
@@ -825,6 +826,11 @@ static void *slave_worker(void *arg)
                 frame = vidcap_grab(device, &audio);
                 if(frame) {
                         struct video_frame *frame_copy = vf_get_copy(frame);
+                        if (frame_copy->interlacing == INTERLACED_MERGED) {
+                                vc_deinterlace((unsigned char *) frame_copy->tiles[0].data,
+                                                vc_get_linesize(frame_copy->tiles[0].width, frame_copy->color_spec),
+                                                frame_copy->tiles[0].height);
+                        }
                         pthread_mutex_lock(&s->lock);
                         if(s->captured_frame) {
                                 vf_free(s->captured_frame);

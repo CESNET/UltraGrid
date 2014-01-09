@@ -75,7 +75,8 @@
 #include "video_capture/linsys.h"
 #include "video_capture/null.h"
 #include "video_capture/quicktime.h"
-#include "video_capture/screen.h"
+#include "video_capture/screen_osx.h"
+#include "video_capture/screen_x11.h"
 #include "video_capture/swmix.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
@@ -217,10 +218,17 @@ struct vidcap_device_api vidcap_device_table[] = {
          /* The screen capture card */
          0,
          "screen",
-         MK_NAME(vidcap_screen_probe),
-         MK_NAME(vidcap_screen_init),
-         MK_NAME(vidcap_screen_done),
-         MK_NAME(vidcap_screen_grab),
+#ifdef HAVE_LINUX
+         MK_NAME(vidcap_screen_x11_probe),
+         MK_NAME(vidcap_screen_x11_init),
+         MK_NAME(vidcap_screen_x11_done),
+         MK_NAME(vidcap_screen_x11_grab),
+#else
+         MK_NAME(vidcap_screen_osx_probe),
+         MK_NAME(vidcap_screen_osx_init),
+         MK_NAME(vidcap_screen_osx_done),
+         MK_NAME(vidcap_screen_osx_grab),
+#endif // ! defined HAVE_LINUX
          NULL
         },
 #endif /* HAVE_SCREEN */
@@ -573,6 +581,25 @@ struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *curr)
 }
 
 /**
+ * @brier Returns n-th item in @ref vidcap_params list.
+ */
+struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *curr, int index)
+{
+        struct vidcap_params *ret = curr;
+        for (int i = 0; i < index; i++) {
+                ret = ret->next;
+                if (ret == NULL) {
+                        return NULL;
+                }
+        }
+        if (ret->driver == NULL) {
+                // this is just the stopper of the list...
+                return NULL;
+        }
+        return ret;
+}
+
+/**
  * This function does 2 things:
  * * checks whether @ref vidcap_params::name is not an alias
  * * tries to find capture filter for @ref vidcap_params::name if not given
@@ -617,7 +644,7 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
  * Fills the structure with device config string in format either driver[:params] or
  * alias.
  */
-void vidcap_params_assign_device(struct vidcap_params *params, const char *config)
+void vidcap_params_set_device(struct vidcap_params *params, const char *config)
 {
         params->name = strdup(config);
 
@@ -631,10 +658,15 @@ void vidcap_params_assign_device(struct vidcap_params *params, const char *confi
         }
 }
 
-void vidcap_params_assign_capture_filter(struct vidcap_params *params,
+void vidcap_params_set_capture_filter(struct vidcap_params *params,
                 const char *req_capture_filter)
 {
         params->requested_capture_filter = strdup(req_capture_filter);
+}
+
+void vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags)
+{
+        params->flags = flags;
 }
 
 const char *vidcap_params_get_driver(const struct vidcap_params *params)
@@ -676,6 +708,8 @@ struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params)
                         strdup(params->requested_capture_filter);
         if (params->name)
                 ret->name = strdup(params->name);
+        if (params->flags)
+                ret->flags = params->flags;
 
         ret->next = NULL; // there is high probability that the pointer will be invalid
 

@@ -912,7 +912,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
                         decoder->displayed, decoder->dropped, decoder->corrupted);
 
-        delete decoder;
+        free(decoder);
 }
 
 /**
@@ -1651,6 +1651,12 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                          * each thread *MUST* wait here if this condition is true
                          */
                         check_for_mode_change(decoder, video_header);
+                }
+
+                // hereafter, display framebuffer can be used, so we
+                // check if we got it
+                if (decoder->frame == NULL && contained_pt == PT_VIDEO) {
+                        return FALSE;
                 }
 
                 pc_insert(pckt_list[substream], data_pos, len);

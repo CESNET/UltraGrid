@@ -50,7 +50,6 @@ struct audio_frame;
 
 void audio_play_ca_help(const char *driver_name);
 void * audio_play_ca_init(char *cfg);
-struct audio_frame *audio_play_ca_get_frame(void *state);
 void audio_play_ca_put_frame(void *state, struct audio_frame *frame);
 void audio_play_ca_done(void *state);
 int audio_play_ca_reconfigure (void *state, int quant_samples, int channels,

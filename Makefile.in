@@ -5,9 +5,9 @@ CXX           = @CXX@
 QMAKE         = @QMAKE@
 LINKER        = @LINKER@
 COMMON_FLAGS  = -g @DEFS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wall -Wextra -Wpointer-arith -msse2
-CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS)
-CPPFLAGS      = @CPPFLAGS@
-CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS)
+CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
+CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
+CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
@@ -416,7 +416,7 @@ clean:
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
-	-rm -rf bin/import_control_keyboard
+	-rm -rf bin/import_control_keyboard src/import_control_keyboard.o
 	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
