@@ -11,6 +11,7 @@
  *         David Cassany    <david.cassany@i2cat.net>
  *         Ignacio Contreras <ignacio.contreras@i2cat.net>
  *         Gerard Castillo  <gerard.castillo@i2cat.net>
+ *         Jordi "Txor" Casas Ríos <txorlings@gmail.com>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2002 University of Southern California
