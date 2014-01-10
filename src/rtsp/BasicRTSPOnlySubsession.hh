@@ -65,78 +65,81 @@ extern "C" {
 
 class Destinations {
 public:
-  Destinations(struct in_addr const& destAddr,
-               Port const& rtpDestPort,
-               Port const& rtcpDestPort)
-    : isTCP(False), addr(destAddr), rtpPort(rtpDestPort), rtcpPort(rtcpDestPort) {
-  }
-  Destinations(int tcpSockNum, unsigned char rtpChanId, unsigned char rtcpChanId)
+    Destinations(struct in_addr const& destAddr,
+        Port const& rtpDestPort,
+        Port const& rtcpDestPort)
+: isTCP(False), addr(destAddr), rtpPort(rtpDestPort), rtcpPort(rtcpDestPort) {
+    }
+    Destinations(int tcpSockNum, unsigned char rtpChanId, unsigned char rtcpChanId)
     : isTCP(True), rtpPort(0) /*dummy*/, rtcpPort(0) /*dummy*/,
       tcpSocketNum(tcpSockNum), rtpChannelId(rtpChanId), rtcpChannelId(rtcpChanId) {
-  }
+    }
 
 public:
-  Boolean isTCP;
-  struct in_addr addr;
-  Port rtpPort;
-  Port rtcpPort;
-  int tcpSocketNum;
-  unsigned char rtpChannelId, rtcpChannelId;
+    Boolean isTCP;
+    struct in_addr addr;
+    Port rtpPort;
+    Port rtcpPort;
+    int tcpSocketNum;
+    unsigned char rtpChannelId, rtcpChannelId;
 };
 
 class BasicRTSPOnlySubsession: public ServerMediaSubsession {
-	
+
 public:
-	static BasicRTSPOnlySubsession*
-		createNew(UsageEnvironment& env,
-			Boolean reuseFirstSource,
-			struct module *mod);
+    static BasicRTSPOnlySubsession*
+    createNew(UsageEnvironment& env,
+        Boolean reuseFirstSource,
+        struct module *mod,
+        uint8_t avType);
 
 protected:
-	
-	BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-	    struct module *mod);
-	
-	virtual ~BasicRTSPOnlySubsession();	
-	
-	virtual char const* sdpLines();
-	
-	virtual void getStreamParameters(unsigned clientSessionId,
-								  netAddressBits clientAddress,
-								  Port const& clientRTPPort,
-								  Port const& clientRTCPPort,
-								  int tcpSocketNum,
-								  unsigned char rtpChannelId,
-								  unsigned char rtcpChannelId,
-								  netAddressBits& destinationAddress,
-								  u_int8_t& destinationTTL,
-								  Boolean& isMulticast,
-								  Port& serverRTPPort,
-								  Port& serverRTCPPort,
-								  void*& streamToken);
-	
-	virtual void startStream(unsigned clientSessionId, void* streamToken,
-								  TaskFunc* rtcpRRHandler, void* rtcpRRHandlerClientData,
-								  unsigned short& rtpSeqNum,
-								  unsigned& rtpTimestamp, 
-								  ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
-								  void* serverRequestAlternativeByteHandlerClientData);
-	
-	virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
+
+    BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
+        struct module *mod, uint8_t avType);
+
+    virtual ~BasicRTSPOnlySubsession();
+
+    virtual char const* sdpLines();
+
+    virtual void getStreamParameters(unsigned clientSessionId,
+        netAddressBits clientAddress,
+        Port const& clientRTPPort,
+        Port const& clientRTCPPort,
+        int tcpSocketNum,
+        unsigned char rtpChannelId,
+        unsigned char rtcpChannelId,
+        netAddressBits& destinationAddress,
+        u_int8_t& destinationTTL,
+        Boolean& isMulticast,
+        Port& serverRTPPort,
+        Port& serverRTCPPort,
+        void*& streamToken);
+
+    virtual void startStream(unsigned clientSessionId, void* streamToken,
+        TaskFunc* rtcpRRHandler, void* rtcpRRHandlerClientData,
+        unsigned short& rtpSeqNum,
+        unsigned& rtpTimestamp,
+        ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
+        void* serverRequestAlternativeByteHandlerClientData);
+
+    virtual void deleteStream(unsigned clientSessionId, void*& streamToken);
 
 protected:
-	
-	char* fSDPLines;
-	Destinations* destination;
-	
+
+    char* fSDPLines;
+    Destinations* Vdestination;
+    Destinations* Adestination;
+
 private:
-	
-	void setSDPLines();
-	
-	Boolean fReuseFirstSource;
-	void* fLastStreamToken;
-	char fCNAME[100];
-	struct module *fmod;
+
+    void setSDPLines();
+
+    Boolean fReuseFirstSource;
+    void* fLastStreamToken;
+    char fCNAME[100];
+    struct module *fmod;
+    uint8_t avType;
 };
 
 

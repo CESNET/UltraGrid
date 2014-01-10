@@ -46,7 +46,7 @@
 
 int c_start_server(rtsp_serv_t* server){
     int ret;
-    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod);
+    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType);
     srv->init_server();
     ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
     if (ret == 0){
@@ -57,12 +57,13 @@ int c_start_server(rtsp_serv_t* server){
     return ret;
 }
 
-rtsp_serv_t *init_rtsp_server(uint port, struct module *mod){
+rtsp_serv_t *init_rtsp_server(uint port, struct module *mod, uint8_t avType){
     rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
     server->port = port;
     server->mod = mod;
     server->watch = 0;
     server->run = FALSE;
+    server->avType = avType;
     return server;
 }
 

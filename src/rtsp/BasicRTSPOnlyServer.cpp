@@ -48,23 +48,24 @@
 
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
-BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod){
+BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, uint8_t avType){
     if(mod == NULL){
         exit(1);
     }
     this->fPort = port;
     this->mod = mod;
+    this->avType = avType;
     this->rtspServer = NULL;
     this->env = NULL;
     this->srvInstance = this;
 }
 
 BasicRTSPOnlyServer* 
-BasicRTSPOnlyServer::initInstance(int port, struct module *mod){
+BasicRTSPOnlyServer::initInstance(int port, struct module *mod, uint8_t avType){
     if (srvInstance != NULL){
         return srvInstance;
     }
-    return new BasicRTSPOnlyServer(port, mod);
+    return new BasicRTSPOnlyServer(port, mod, avType);
 }
 
 BasicRTSPOnlyServer* 
@@ -77,10 +78,10 @@ BasicRTSPOnlyServer::getInstance(){
 
 int BasicRTSPOnlyServer::init_server() {
     
-    if (env != NULL || rtspServer != NULL || mod == NULL){
+    if (env != NULL || rtspServer != NULL || mod == NULL || (avType > 2 && avType < 0)){
         exit(1);
     }
-    
+
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
 
@@ -104,11 +105,18 @@ int BasicRTSPOnlyServer::init_server() {
     }
     ServerMediaSession* sms;
                sms = ServerMediaSession::createNew(*env, "ultragrid",
-                   "ultragrid",
-                   "ultragrid");
+                   "UltraGrid RTSP server enabling standard transport",
+                   "UltraGrid RTSP server");
 
-               sms->addSubsession(BasicRTSPOnlySubsession
-                  ::createNew(*env, True, mod));
+               if(avType == 0){
+                   sms->addSubsession(BasicRTSPOnlySubsession
+                                     ::createNew(*env, True, mod, 2));
+                   sms->addSubsession(BasicRTSPOnlySubsession
+                                     ::createNew(*env, True, mod, 1));
+               }else sms->addSubsession(BasicRTSPOnlySubsession
+                  ::createNew(*env, True, mod, avType));
+
+
                rtspServer->addServerMediaSession(sms);
 
                char* url = rtspServer->rtspURL(sms);

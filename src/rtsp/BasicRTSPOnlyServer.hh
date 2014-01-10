@@ -53,23 +53,24 @@
 
 class BasicRTSPOnlyServer {
 private:
-    BasicRTSPOnlyServer(int port, struct module *mod);
-    
+    BasicRTSPOnlyServer(int port, struct module *mod, uint8_t avType);
+
 public:
-    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod);
+    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, uint8_t avType);
     static BasicRTSPOnlyServer* getInstance();
-    
+
     int init_server();
 
     static void *start_server(void *args);
-    
+
     int update_server();
-    
+
 private:
-    
+
     static BasicRTSPOnlyServer* srvInstance;
     int fPort;
     struct module *mod;
+    uint8_t avType;
     RTSPServer* rtspServer;
     UsageEnvironment* env;
 };

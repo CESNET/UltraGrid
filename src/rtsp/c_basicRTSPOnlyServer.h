@@ -73,18 +73,19 @@ extern "C" {
 #endif
 
 EXTERNC typedef struct rtsp_serv {
-	uint port;
-	struct module *mod;
-	pthread_t server_th;
+    uint port;
+    struct module *mod;
+    pthread_t server_th;
     uint8_t watch;
     uint8_t run;
+    uint8_t avType;
 } rtsp_serv_t;
 
 EXTERNC int c_start_server(rtsp_serv_t* server);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(uint port, struct module *mod);
+EXTERNC rtsp_serv_t* init_rtsp_server(uint port, struct module *mod, uint8_t avType);
 
 #undef EXTERNC
 

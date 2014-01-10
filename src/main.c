@@ -1308,6 +1308,7 @@ int main(int argc, char *argv[])
         }
 #ifdef HAVE_RTSP_SERVER
         if((audio_send != NULL || audio_recv != NULL) && uv->rxtx->protocol == H264_STD){
+            //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             isStd = TRUE;
         }
 #endif
@@ -1430,7 +1431,11 @@ int main(int argc, char *argv[])
                         for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
                         #ifdef HAVE_RTSP_SERVER
-                                rtsp_server = init_rtsp_server(0, &root_mod); //port, root_module
+                                uint8_t avType;
+                                if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
+                                else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
+                                else avType = 1; //VStream
+                                rtsp_server = init_rtsp_server(0, &root_mod, avType); //port, root_module, avType
                                 c_start_server(rtsp_server);
                         #endif
                         }
