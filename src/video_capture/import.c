@@ -173,6 +173,7 @@ struct vidcap_import_state {
 
         bool finished;
         bool loop;
+        bool o_direct;
         int video_reading_threads_count;
 };
 
@@ -301,6 +302,11 @@ vidcap_import_init(const struct vidcap_params *params)
         char *tmp = strdup(vidcap_params_get_fmt(params));
         char *save_ptr;
         const char *directory = strtok_r(tmp, ":", &save_ptr);
+        if (strcmp(directory, "help") == 0) {
+                fprintf(stderr, "Import usage:\n"
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:<o_direct>}");
+                return NULL;
+        }
         char *suffix;
         while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
                 if (strcmp(suffix, "loop") == 0) {
@@ -311,6 +317,8 @@ vidcap_import_init(const struct vidcap_params *params)
                                         strlen("mt_reading="));
                         assert(s->video_reading_threads_count <=
                                         MAX_NUMBER_WORKERS);
+                } else if (strcmp(suffix, "o_direct") == 0) {
+                        s->o_direct = true;
                 } else {
                         fprintf(stderr, "[Playback] Unrecognized"
                                         " option %s.\n", suffix);
@@ -522,7 +530,7 @@ static int flush_processed(struct processed_entry *list)
         struct processed_entry *current = list;
 
         while(current != NULL) {
-                free(current->data);
+                aligned_free(current->data);
                 struct processed_entry *tmp = current;
                 free(tmp);
                 frames_deleted++;
@@ -541,7 +549,7 @@ void vidcap_import_done(void *state)
 
         flush_processed(s->head);
 
-        free(s->to_be_freeed);
+        aligned_free(s->to_be_freeed);
         vf_free(s->frame);
 
         pthread_mutex_destroy(&s->lock);
@@ -907,7 +915,10 @@ exited:
 struct video_reader_data {
         char file_name[512];
         struct processed_entry *entry;
+        bool o_direct;
 };
+
+#define ALIGN 512
 
 static void *video_reader_callback(void *arg)
 {
@@ -921,7 +932,13 @@ static void *video_reader_callback(void *arg)
                 return NULL;
         }
 
-        int fd = open(data->file_name, O_RDONLY|O_DIRECT);
+        int flags = O_RDONLY;
+        if (data->o_direct) {
+#ifdef HAVE_LINUX
+                flags |= O_DIRECT;
+#endif
+        }
+        int fd = open(data->file_name, flags);
         if(fd == -1) {
                 perror("open");
                 return NULL;;
@@ -930,15 +947,19 @@ static void *video_reader_callback(void *arg)
         data->entry = malloc(sizeof(struct processed_entry));
         assert(data->entry != NULL);
         data->entry->data_len = sb.st_size;
-        posix_memalign((void **) &data->entry->data,
-                        512, data->entry->data_len);
+        const int aligned_data_len = (data->entry->data_len + ALIGN - 1)
+                        / ALIGN * ALIGN;
+        // alignment needed when using O_DIRECT flag
+        data->entry->data = (char *)
+                aligned_malloc(aligned_data_len, ALIGN);
         data->entry->next = NULL;
         assert(data->entry->data != NULL);
 
         ssize_t bytes = 0;
         do {
                 ssize_t res = read(fd, data->entry->data + bytes,
-                                data->entry->data_len - bytes);
+                                (data->entry->data_len - bytes + ALIGN - 1)
+                                / ALIGN * ALIGN);
                 if (res <= 0) {
                         perror("read");
                         return NULL;
@@ -1033,6 +1054,7 @@ static void * reading_thread(void *args)
                 for (int i = 0; i < number_workers; ++i) {
                         struct video_reader_data *data =
                                 &data_reader[i];
+                        data->o_direct = s->o_direct;
                         snprintf(data->file_name, sizeof(data->file_name),
                                         "%s/%08d.%s", s->directory, index + i,
                                         get_codec_file_extension(s->frame->color_spec));
@@ -1100,7 +1122,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         struct processed_entry *current = NULL;
 
         // free old data
-        free(s->to_be_freeed);
+        aligned_free(s->to_be_freeed);
         s->to_be_freeed = NULL;
 
         pthread_mutex_lock(&s->lock);
