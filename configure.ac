@@ -1297,7 +1297,7 @@ AC_ARG_ENABLE(rtsp_server,
 case $host in
     *-linux-*)
 
-		AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"])
+		AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
 
 		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
 		then

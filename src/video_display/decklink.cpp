@@ -107,7 +107,7 @@ enum link {
 };
 
 // defined int video_capture/decklink.cpp
-void print_output_modes(IDeckLink *);
+static void print_output_modes(IDeckLink *);
 static int blackmagic_api_version_check(STRING *current_version);
 
 
@@ -1405,3 +1405,88 @@ HRESULT DeckLink3DFrame::GetFrameForRightEye(IDeckLinkVideoFrame ** frame)
         rightEye->AddRef();
         return S_OK;
 }
+
+/* function from DeckLink SDK sample DeviceList */
+
+static void print_output_modes (IDeckLink* deckLink)
+{
+        IDeckLinkOutput*                        deckLinkOutput = NULL;
+        IDeckLinkDisplayModeIterator*           displayModeIterator = NULL;
+        IDeckLinkDisplayMode*                   displayMode = NULL;
+        HRESULT                                 result;
+        int                                     displayModeNumber = 0;
+
+        // Query the DeckLink for its configuration interface
+        result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
+        if (result != S_OK)
+        {
+                fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", (int) result);
+                if (result == E_NOINTERFACE) {
+                        printf("Device doesn't support video playback.\n");
+                }
+                goto bail;
+        }
+
+        // Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
+        result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
+        if (result != S_OK)
+        {
+                fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", (int) result);
+                goto bail;
+        }
+
+        // List all supported output display modes
+        printf("display modes:\n");
+        while (displayModeIterator->Next(&displayMode) == S_OK)
+        {
+                STRING                  displayModeString = NULL;
+                const char *displayModeCString;
+
+                result = displayMode->GetName((STRING *) &displayModeString);
+#ifdef HAVE_MACOSX
+                displayModeCString = (char *) malloc(128);
+                CFStringGetCString(displayModeString, (char *) displayModeCString, 128, kCFStringEncodingMacRoman);
+#elif defined WIN32
+                displayModeCString = (char *) malloc(128);
+                wcstombs((char *) displayModeCString, displayModeString, 128);
+#else
+                displayModeCString = displayModeString;
+#endif
+
+                if (result == S_OK)
+                {
+                        int                             modeWidth;
+                        int                             modeHeight;
+                        BMDDisplayModeFlags             flags;
+                        BMDTimeValue    frameRateDuration;
+                        BMDTimeScale    frameRateScale;
+
+                        // Obtain the display mode's properties
+                        flags = displayMode->GetFlags();
+                        modeWidth = displayMode->GetWidth();
+                        modeHeight = displayMode->GetHeight();
+                        displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
+                        printf("%d.) %-20s \t %d x %d \t %2.2f FPS%s\n",displayModeNumber, displayModeCString,
+                                        modeWidth, modeHeight, (float) ((double)frameRateScale / (double)frameRateDuration),
+                                        (flags & bmdDisplayModeSupports3D ? "\t (supports 3D)" : ""));
+#ifdef HAVE_MACOSX
+                        CFRelease(displayModeString);
+#endif
+                        free((void *)displayModeCString);
+                }
+
+                // Release the IDeckLinkDisplayMode object to prevent a leak
+                displayMode->Release();
+
+                displayModeNumber++;
+        }
+
+bail:
+        // Ensure that the interfaces we obtained are released to prevent a memory leak
+        if (displayModeIterator != NULL)
+                displayModeIterator->Release();
+
+        if (deckLinkOutput != NULL)
+                deckLinkOutput->Release();
+}
+

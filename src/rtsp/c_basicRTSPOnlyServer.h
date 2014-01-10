@@ -73,9 +73,9 @@ extern "C" {
 #endif
 
 EXTERNC typedef struct rtsp_serv {
-    uint port;
-    struct module *mod;
-    pthread_t server_th;
+	unsigned int port;
+	struct module *mod;
+	pthread_t server_th;
     uint8_t watch;
     uint8_t run;
     uint8_t avType;

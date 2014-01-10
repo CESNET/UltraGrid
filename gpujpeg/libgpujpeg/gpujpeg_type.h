@@ -32,6 +32,12 @@
 
 #include <stdint.h>
 
+#ifndef _MSC_VER
+#define ATTRIBUTE_UNUSED __attribute__((unused))
+#else
+#define ATTRIBUTE_UNUSED
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -199,7 +205,7 @@ enum gpujpeg_marker_code {
 };
 
 static const char* 
-gpujpeg_marker_name(enum gpujpeg_marker_code code) __attribute__((unused));
+gpujpeg_marker_name(enum gpujpeg_marker_code code) ATTRIBUTE_UNUSED;
 
 /**
  * Get marker name from code
