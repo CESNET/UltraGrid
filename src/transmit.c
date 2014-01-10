@@ -791,7 +791,7 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     // 8000 Hz, 1 channel is the ITU-T G.711 standard
     // More channels or Hz goes to DynRTP-Type97
 
-//TODO CHECK ACTUAL CHCOUNT //buffer->ch_count = 1;
+//TODO CHECK ACTUAL CHCOUNT IN ORDER TO PROPERLY CREATE PAYLOAD TYPE
     if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
         pt = PT_ITU_T_G711_PCMU;
     } else {
@@ -827,7 +827,7 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
         // Interleave the samples
         for (int ch_sample = 0 ; ch_sample < samples_per_packet ; ch_sample++){
             for (int ch = 0 ; ch < buffer->ch_count ; ch++) {
- //TODO               if(buffer->data[ch]!=NULL){
+ //TODO to be checked prepiously -> if(buffer->data[ch]!=NULL){
                     memcpy(curr_sample, (char *)(buffer->data[ch] + ch_sample), sizeof(uint8_t));
                     curr_sample += sizeof(uint8_t);
                     data_remainig--;

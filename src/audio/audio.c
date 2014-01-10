@@ -725,6 +725,7 @@ static void *audio_sender_thread(void *arg)
                                 audio_frame2 *uncompressed = buffer_new;
                                 audio_frame2 *compressed = NULL;
                                 while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
+                                    //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
                                     audio_tx_send_mulaw(s->tx_session, s->audio_network_device, compressed);
                                     uncompressed = NULL;
                                 }
