@@ -614,6 +614,8 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
         struct config_file *conf =
                 config_file_open(default_config_file(buf,
                                         sizeof(buf)));
+        if (conf == NULL)
+                return false;
         real_capture = config_file_get_alias(conf, "capture", params->name);
         if (!real_capture) {
                 ret = false;

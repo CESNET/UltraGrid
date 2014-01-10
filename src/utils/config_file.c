@@ -97,8 +97,15 @@ char *default_config_file(char *buf, int buf_len)
  */
 struct config_file *config_file_open(const char *name)
 {
+        if (name == NULL) {
+                return NULL;
+        }
+        FILE *f = fopen(name, "r");
+        if (f == NULL) {
+                return NULL;
+        }
         struct config_file *s = (struct config_file *) calloc(1, sizeof(struct config_file));
-        s->f = fopen(name, "r");
+        s->f = f;
         s->tmp_buffer = (char **) malloc(s->tmp_buffer_count * sizeof(char *));
         s->tmp_list_buffer = (char ****) malloc(s->tmp_list_buffer_count *
                         sizeof(char ***));
