@@ -254,7 +254,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         /* the codec gives us the frame size, in samples,
          * we calculate the size of the samples buffer in bytes */
         int buffer_size = av_samples_get_buffer_size(NULL, channels, s->codec_ctx->frame_size,
-                        s->codec_ctx->sample_fmt, 0);
+                        s->codec_ctx->sample_fmt, 1);
 
         s->samples = av_malloc(buffer_size);
         if (!s->samples) {
@@ -264,7 +264,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         }
         /* setup the data pointers in the AVFrame */
         int ret = avcodec_fill_audio_frame(s->av_frame, channels, s->codec_ctx->sample_fmt,
-                        (const uint8_t*)s->samples, buffer_size, 0);
+                        (const uint8_t*)s->samples, buffer_size, 1);
         if (ret < 0) {
                 fprintf(stderr, "could not setup audio frame\n");
                 return false;
