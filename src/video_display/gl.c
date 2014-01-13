@@ -88,6 +88,7 @@
 #include "video.h"
 #include "video_display.h"
 #include "video_display/gl.h"
+#include "video_display/splashscreen.h"
 #include "tv.h"
 
 #define MAGIC_GL	DISPLAY_GL_ID
@@ -235,6 +236,31 @@ static void gl_show_help(void) {
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
 }
 
+static void gl_load_splashscreen(struct state_gl *s)
+{
+        s->tile->width = 512;
+        s->tile->height = 512;
+        s->aspect = 1.0;
+        s->frame->color_spec = RGBA;
+        gl_reconfigure_screen(s);
+
+        for (int i = 0; i < 2; ++i) {
+                for (unsigned int y = 0; y < splash_height; ++y) {
+                        char *line = s->buffers[i];
+                        line += vc_get_linesize(s->tile->width,
+                                        s->frame->color_spec) *
+                                (((s->tile->height - splash_height) / 2) + y);
+                        line += vc_get_linesize(
+                                        (s->tile->width - splash_width)/2,
+                                        s->frame->color_spec);
+                        for (unsigned int x = 0; x < splash_width; ++x) {
+                                HEADER_PIXEL(splash_data,line);
+                                line += 4;
+                        }
+                }
+        }
+}
+
 void * display_gl_init(char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl        *s;
@@ -332,7 +358,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(WIN_NAME);
         glutSetCursor(GLUT_CURSOR_NONE);
-        glutHideWindow();
+        //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
 	glutDisplayFunc(glutSwapBuffers);
 #ifdef HAVE_MACOSX
@@ -392,6 +418,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
           perror("Unable to create display thread\n");
           return NULL;
           }*/
+
+        gl_load_splashscreen(s);
 
         return (void*)s;
 
@@ -615,29 +643,8 @@ void gl_reconfigure_screen(struct state_gl *s)
         gl_check_error();
 }
 
-static void glut_idle_callback(void)
+static void gl_render(struct state_gl *s)
 {
-        struct state_gl *s = gl;
-        struct timeval tv;
-        double seconds;
-
-        pthread_mutex_lock(&s->lock);
-        if(!s->new_frame) {
-                pthread_mutex_unlock(&s->lock);
-                return;
-        }
-        s->new_frame = 0;
-
-        if (s->needs_reconfigure) {
-                /* there has been scheduled request for win reconfiguration */
-                gl_reconfigure_screen(s);
-                s->needs_reconfigure = FALSE;
-                pthread_cond_signal(&s->reconf_cv);
-                pthread_mutex_unlock(&s->lock);
-                return; /* return after reconfiguration */
-        }
-        pthread_mutex_unlock(&s->lock);
-
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
         if(s->deinterlace && (s->frame->color_spec == RGBA || s->frame->color_spec == UYVY))
@@ -646,9 +653,6 @@ static void glut_idle_callback(void)
                                 s->tile->height);
 
         gl_check_error();
-
-        if(s->paused)
-                goto processed;
 
         switch(s->frame->color_spec) {
                 case DXT1:
@@ -695,6 +699,37 @@ static void glut_idle_callback(void)
         }
 
         gl_check_error();
+}
+
+static void glut_idle_callback(void)
+{
+        struct state_gl *s = gl;
+        struct timeval tv;
+        double seconds;
+
+        pthread_mutex_lock(&s->lock);
+        if(!s->new_frame) {
+                pthread_mutex_unlock(&s->lock);
+                return;
+        }
+        s->new_frame = 0;
+
+        if (s->needs_reconfigure) {
+                /* there has been scheduled request for win reconfiguration */
+                gl_reconfigure_screen(s);
+                s->needs_reconfigure = FALSE;
+                pthread_cond_signal(&s->reconf_cv);
+                pthread_mutex_unlock(&s->lock);
+                return; /* return after reconfiguration */
+        }
+        pthread_mutex_unlock(&s->lock);
+
+        if(s->paused)
+                goto processed;
+
+        gl_render(s);
+        gl_draw(s->aspect);
+        glutPostRedisplay();
 
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
@@ -707,9 +742,6 @@ static void glut_idle_callback(void)
                 s->frames = 0;
                 s->tv = tv;
         }
-
-        gl_draw(s->aspect);
-        glutPostRedisplay();
 
 processed:
         pthread_mutex_lock(&s->lock);
@@ -799,6 +831,11 @@ static void gl_resize(int width,int height)
         glMatrixMode( GL_MODELVIEW );
 
         glLoadIdentity( );
+
+        // redraw last frame
+        gl_render(gl);
+        gl_draw(gl->aspect);
+        glutPostRedisplay();
 }
 
 static void gl_bind_texture(void *arg)
