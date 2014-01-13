@@ -181,6 +181,7 @@ struct state_gl {
         struct tile     *tile;
         char            *buffers[2];
         volatile int              image_display;
+        struct video_desc new_desc;
         volatile unsigned    needs_reconfigure:1;
         pthread_mutex_t lock;
         pthread_cond_t  reconf_cv;
@@ -238,10 +239,12 @@ static void gl_show_help(void) {
 
 static void gl_load_splashscreen(struct state_gl *s)
 {
-        s->tile->width = 512;
-        s->tile->height = 512;
-        s->aspect = 1.0;
-        s->frame->color_spec = RGBA;
+        s->new_desc.width = 512;
+        s->new_desc.height = 512;
+        s->new_desc.color_spec = RGBA;
+        s->new_desc.interlacing = PROGRESSIVE;
+        s->new_desc.fps = 1;
+
         gl_reconfigure_screen(s);
 
         for (int i = 0; i < 2; ++i) {
@@ -445,11 +448,7 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
                         desc.color_spec == DXT1_YUV ||
                         desc.color_spec == DXT5);
 
-        s->tile->width = desc.width;
-        s->tile->height = desc.height;
-        s->frame->fps = desc.fps;
-        s->frame->interlacing = desc.interlacing;
-        s->frame->color_spec = desc.color_spec;
+        s->new_desc = desc;
 
         pthread_mutex_lock(&s->lock);
         s->needs_reconfigure = TRUE;
@@ -547,6 +546,12 @@ static void screenshot(struct state_gl *s)
 void gl_reconfigure_screen(struct state_gl *s)
 {
         assert(s->magic == MAGIC_GL);
+
+        s->tile->width = s->new_desc.width;
+        s->tile->height = s->new_desc.height;
+        s->frame->fps = s->new_desc.fps;
+        s->frame->interlacing = s->new_desc.interlacing;
+        s->frame->color_spec = s->new_desc.color_spec;
 
         free(s->buffers[0]);
         free(s->buffers[1]);
