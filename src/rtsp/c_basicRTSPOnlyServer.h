@@ -85,7 +85,7 @@ EXTERNC int c_start_server(rtsp_serv_t* server);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(uint port, struct module *mod, uint8_t avType);
+EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, uint8_t avType);
 
 #undef EXTERNC
 
