@@ -77,7 +77,7 @@ struct state_win32_gl_context
 static HWND CreateWnd (int width, int height);
 static BOOL SetGLFormat(HDC hdc);
 static void PrintError(DWORD err);
-static void create_and_register_windows_class(void);
+static bool create_and_register_windows_class(void);
 
 static void PrintError(DWORD err)
 {
@@ -126,7 +126,7 @@ static BOOL SetGLFormat(HDC hdc)
        return SetPixelFormat(hdc, indexPixelFormat, &pfd);// number of available formats
 }
 
-static void create_and_register_windows_class(void)
+static bool create_and_register_windows_class(void)
 {
         WNDCLASSEX ex;
 
@@ -144,7 +144,11 @@ static void create_and_register_windows_class(void)
         ex.hIconSm = NULL;
 
         ATOM res = RegisterClassEx(&ex);
-        assert(res != 0);
+        if (res == 0) {
+                PrintError(GetLastError());
+                return false;
+        }
+        return true;
 }
 
 static HWND CreateWnd (int width, int height)
@@ -182,13 +186,16 @@ void *win32_context_init(win32_opengl_version_t version)
 {
         struct state_win32_gl_context *context;
 
+        if (!create_and_register_windows_class()) {
+                fprintf(stderr, "Unable to regiseter new window class.\n");
+                return NULL;
+        }
+
         context = malloc(sizeof(struct state_win32_gl_context));
         if(!context) {
                 fprintf(stderr, "Unable to allocate memory.\n");
                 return NULL;
         }
-
-        create_and_register_windows_class();
 
         context->win = CreateWnd(512, 512);
         assert(context->win != NULL);
