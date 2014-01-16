@@ -564,4 +564,108 @@ cleanup:
 
         return ret;
 }
+/*
+ * Second version that uses external audio configuration,
+ * now it uses a struct state_audio_decoder instead an audio_frame2.
+ * It does multi-channel handling.
+ */
+int decode_audio_frame_mulaw(struct coded_data *cdata, void *data)
+{
+    struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;
+    struct state_audio_decoder *audio = s->decoder;
+
+    //struct state_audio_decoder *audio = (struct state_audio_decoder *)data;
+
+    if(!cdata) return false;
+
+    // Reconfiguration.
+    if (audio->received_frame->bps != audio->saved_desc.bps ||
+            audio->received_frame->sample_rate != audio->saved_desc.sample_rate ||
+            audio->received_frame->ch_count != audio->saved_desc.ch_count ||
+            audio->received_frame->codec != audio->saved_desc.codec)
+    {
+        audio_frame2_allocate(audio->received_frame, audio->saved_desc.ch_count, audio->saved_desc.sample_rate * audio->saved_desc.bps);
+        audio->received_frame->bps = audio->saved_desc.bps;
+        audio->received_frame->sample_rate = audio->saved_desc.sample_rate;
+        audio->received_frame->ch_count = audio->saved_desc.ch_count;
+        audio->received_frame->codec = audio->saved_desc.codec;
+    }
+
+    // Initial setup
+    for (int ch = 0 ; ch < audio->received_frame->ch_count ; ch ++) {
+        audio->received_frame->data_len[ch] = 0;
+    }
+
+    // Check-if-there-is-only-one-channel optimization.
+    if (audio->received_frame->ch_count == 1) {
+        char *to = audio->received_frame->data[0];
+
+        while (cdata != NULL) {
+            // Get the data to copy into the received_frame.
+            char *from = cdata->data->data;
+
+            // See if the data fits.
+            if (cdata->data->data_len <= (int)(audio->received_frame->max_size - audio->received_frame->data_len[0])) {
+                // Copy the data
+                memcpy(to, from, cdata->data->data_len);
+                // Update the pointer and the counter.
+                to += cdata->data->data_len;
+                audio->received_frame->data_len[0] += cdata->data->data_len;
+            } else {
+                // Filled it out, exit now.
+                return true;
+            }
+
+            cdata = cdata->nxt;
+        }
+    } else { // Multi-channel case.
+
+        /*
+         * Unoptimized version of the multi-channel handling.
+         * TODO: Optimize it! It's a matrix transpose.
+         *       Take a look at http://stackoverflow.com/questions/1777901/array-interleaving-problem
+         */
+
+        char *to;
+        int bytes_copied = 0;
+
+        while (cdata != NULL) {
+            // Check that the amount of data on cdata->data->data is congruent with 0 modulus audio->received_frame->ch_count.
+            if (cdata->data->data_len % audio->received_frame->ch_count != 0) {
+                // printf something?
+                return false;
+            }
+
+            // If there is space on the current audio_frame2 buffer.
+            if ((cdata->data->data_len / audio->received_frame->ch_count) <= (int)(audio->received_frame->max_size - bytes_copied)) {
+                char *from = cdata->data->data;
+
+                // For each group of samples.
+                for (int g = 0 ; g < (cdata->data->data_len / audio->received_frame->ch_count) ; g++) {
+                    // Iterate throught each channel.
+                    for (int ch = 0 ; ch < audio->received_frame->ch_count ; ch ++) {
+                        // Copy the current sample from the RTP packet to the audio_frame2.
+                        to = audio->received_frame->data[ch];
+                        to += bytes_copied;
+
+                        memcpy(to, from, audio->received_frame->bps);
+
+                        from += audio->received_frame->bps;
+                        audio->received_frame->data_len[ch] += audio->received_frame->bps;
+                    }
+
+                    bytes_copied += audio->received_frame->bps;
+                }
+            } else {
+                // Filled audio_frame2 out, exit now.
+                return true;
+            }
+
+            cdata = cdata->nxt;
+        }
+
+    }
+
+    return true;
+}
 
