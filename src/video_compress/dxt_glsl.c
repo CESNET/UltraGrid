@@ -253,7 +253,7 @@ void * dxt_glsl_compress_init(char * opts)
                 return &compress_init_noerr;
         }
         
-        if(opts) {
+        if (opts && strlen(opts) != 0) {
                 if(strcasecmp(opts, "DXT5") == 0) {
                         s->color_spec = DXT5;
                 } else if(strcasecmp(opts, "DXT1") == 0) {
