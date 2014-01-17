@@ -67,6 +67,8 @@
 
 #define WNDCLASSNAME "GLClass"
 
+pthread_once_t register_windows_class_once = PTHREAD_ONCE_INIT;
+
 struct state_win32_gl_context
 {
         HWND win;
@@ -77,7 +79,7 @@ struct state_win32_gl_context
 static HWND CreateWnd (int width, int height);
 static BOOL SetGLFormat(HDC hdc);
 static void PrintError(DWORD err);
-static bool create_and_register_windows_class(void);
+static void create_and_register_windows_class(void);
 
 static void PrintError(DWORD err)
 {
@@ -126,7 +128,7 @@ static BOOL SetGLFormat(HDC hdc)
        return SetPixelFormat(hdc, indexPixelFormat, &pfd);// number of available formats
 }
 
-static bool create_and_register_windows_class(void)
+static void create_and_register_windows_class(void)
 {
         WNDCLASSEX ex;
 
@@ -146,9 +148,8 @@ static bool create_and_register_windows_class(void)
         ATOM res = RegisterClassEx(&ex);
         if (res == 0) {
                 PrintError(GetLastError());
-                return false;
+                abort();
         }
-        return true;
 }
 
 static HWND CreateWnd (int width, int height)
@@ -186,16 +187,14 @@ void *win32_context_init(win32_opengl_version_t version)
 {
         struct state_win32_gl_context *context;
 
-        if (!create_and_register_windows_class()) {
-                fprintf(stderr, "Unable to regiseter new window class.\n");
-                return NULL;
-        }
-
         context = malloc(sizeof(struct state_win32_gl_context));
         if(!context) {
                 fprintf(stderr, "Unable to allocate memory.\n");
                 return NULL;
         }
+
+        pthread_once(&register_windows_class_once,
+                        create_and_register_windows_class);
 
         context->win = CreateWnd(512, 512);
         assert(context->win != NULL);
