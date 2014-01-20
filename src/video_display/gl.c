@@ -200,6 +200,7 @@ struct state_gl {
 
         bool            sync_on_vblank;
         bool            paused;
+        bool            show_cursor;
 
         bool should_exit_main_loop;
 };
@@ -230,11 +231,12 @@ void NSApplicationLoad(void);
  */
 static void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single]* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single|:cursor]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
+        printf("\t\tcursor\t\tshow visible cursor\n");
 }
 
 static void gl_load_splashscreen(struct state_gl *s)
@@ -317,6 +319,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
                                 s->double_buf = FALSE;
                         } else if(!strcasecmp(tok, "novsync")) {
                                 s->sync_on_vblank = false;
+                        } else if (!strcasecmp(tok, "cursor")) {
+                                s->show_cursor = true;
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
                         }
@@ -360,7 +364,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 #endif
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(WIN_NAME);
-        glutSetCursor(GLUT_CURSOR_NONE);
+        glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
         //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
 	glutDisplayFunc(glutSwapBuffers);
@@ -786,6 +790,10 @@ static void glut_key_callback(unsigned char key, int x, int y)
                         break;
                 case 's':
                         screenshot(gl);
+                        break;
+                case 'm':
+                        gl->show_cursor = !gl->show_cursor;
+                        glutSetCursor(gl->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
                         break;
         }
 }
