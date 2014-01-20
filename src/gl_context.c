@@ -19,6 +19,16 @@
 
 #include "gl_context.h"
 
+/**
+ * @brief initializes specified OpenGL context
+ *
+ * @note
+ * After this call, context is current for calling thread.
+ *
+ * @param[out] context newly created context
+ * @param      which   OpenGL version specifier
+ * @return     info if context creation succeeded or failed
+ */
 bool init_gl_context(struct gl_context *context, int which) {
         context->context = NULL;
 #ifdef HAVE_LINUX
