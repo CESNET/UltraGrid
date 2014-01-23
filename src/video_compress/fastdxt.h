@@ -53,8 +53,8 @@ extern "C" {
 #endif // __cplusplus
 
 struct module      *fastdxt_init(struct module *parent, const struct video_compress_params *params);
-struct tile        *fastdxt_compress_tile(struct module *mod, struct tile * tx,
-                struct video_desc *desc, int buffer_index);
+struct video_frame * fastdxt_compress_tile(struct module *mod, struct video_frame *tx,
+                int tile_idx, int buffer_idx);
 
 #ifdef __cplusplus
 }

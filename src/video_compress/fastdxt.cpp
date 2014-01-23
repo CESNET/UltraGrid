@@ -249,7 +249,7 @@ static int reconfigure_compress(struct state_video_compress_fastdxt *compress, i
         return TRUE;
 }
 
-struct module *fastdxt_init(struct module *parent, struct video_compress_params *params)
+struct module *fastdxt_init(struct module *parent, const struct video_compress_params *params)
 {
         /* This function does the following:
          * 1. Allocate memory for buffers 
@@ -267,7 +267,8 @@ struct module *fastdxt_init(struct module *parent, struct video_compress_params 
                 return &compress_init_noerr;
         }
 
-        compress = calloc(1, sizeof(struct state_video_compress_fastdxt));
+        compress = (struct state_video_compress_fastdxt *)
+                calloc(1, sizeof(struct state_video_compress_fastdxt));
         /* initial values */
         compress->num_threads = 0;
         if(num_threads_str == NULL || num_threads_str[0] == '\0')
@@ -323,7 +324,8 @@ struct module *fastdxt_init(struct module *parent, struct video_compress_params 
         return &compress->module_data;
 }
 
-struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct video_desc *desc, int buffer_idx)
+struct video_frame * fastdxt_compress_tile(struct module *mod, struct video_frame *tx,
+                int tile_idx, int buffer_idx)
 {
         /* This thread will be called from main.c and handle the compress_threads */
         struct state_video_compress_fastdxt *compress =
@@ -333,22 +335,24 @@ struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct 
         struct video_frame *out = compress->out[buffer_idx];
         struct tile *out_tile = &out->tiles[0];
 
-        assert(tx->width % 4 == 0);
+        assert(tx->tiles[tile_idx].width % 4 == 0);
         
         pthread_mutex_lock(&(compress->lock));
 
-        if(tx->width != out_tile->width ||
-                        tx->height != out_tile->height ||
-                        desc->interlacing != compress->interlacing_source ||
-                        desc->color_spec != compress->tx_color_spec)
+        if(tx->tiles[tile_idx].width != out_tile->width ||
+                        tx->tiles[tile_idx].height != out_tile->height ||
+                        tx->interlacing != compress->interlacing_source ||
+                        tx->color_spec != compress->tx_color_spec)
         {
                 int ret;
-                ret = reconfigure_compress(compress, tx->width, tx->height, desc->color_spec, desc->interlacing, desc->fps);
+                ret = reconfigure_compress(compress, tx->tiles[tile_idx].width,
+                                tx->tiles[tile_idx].height,
+                                tx->color_spec, tx->interlacing, tx->fps);
                 if(!ret)
                         return NULL;
         }
 
-        line1 = tx->data;
+        line1 = (unsigned char *) tx->tiles[tile_idx].data;
         line2 = compress->output_data;
 
         for (x = 0; x < out_tile->height; ++x) {
@@ -359,12 +363,12 @@ struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct 
                 line2 += compress->encoder_input_linesize;
         }
 
-        if(desc->interlacing != INTERLACED_MERGED && desc->interlacing != PROGRESSIVE) {
+        if(tx->interlacing != INTERLACED_MERGED && tx->interlacing != PROGRESSIVE) {
                 fprintf(stderr, "Unsupported interlacing format.\n");
                 exit_uv(1);
         }
 
-        if(desc->interlacing == INTERLACED_MERGED) {
+        if(tx->interlacing == INTERLACED_MERGED) {
                 vc_deinterlace(compress->output_data, compress->encoder_input_linesize,
                                 out_tile->height);
         }
@@ -379,12 +383,11 @@ struct tile * fastdxt_compress_tile(struct module *mod, struct tile *tx, struct 
                 platform_sem_wait(&compress->thread_done[x]);
         }
 
-        out_tile->data_len = tx->width * compress->dxt_height / 2;
+        out_tile->data_len = tx->tiles[tile_idx].width * compress->dxt_height / 2;
         
         pthread_mutex_unlock(&(compress->lock));
 
-        desc->color_spec = out->color_spec;
-        return &out->tiles[0];
+        return out;
 }
 
 static void *compress_thread(void *args)
