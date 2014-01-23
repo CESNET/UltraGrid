@@ -67,6 +67,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "module.h"
+#include "utils/video_frame_pool.h" // auto_video_frame_disposer
 #include "video.h"
 #include "video_compress.h"
 #include "libdxt.h"
@@ -324,35 +325,36 @@ struct module *fastdxt_init(struct module *parent, const struct video_compress_p
         return &compress->module_data;
 }
 
-struct video_frame * fastdxt_compress_tile(struct module *mod, struct video_frame *tx,
-                int tile_idx, int buffer_idx)
+struct video_frame * fastdxt_compress_tile(struct module *mod, struct video_frame *tx)
 {
+        auto_video_frame_disposer tx_disposer(tx);
+
         /* This thread will be called from main.c and handle the compress_threads */
         struct state_video_compress_fastdxt *compress =
                 (struct state_video_compress_fastdxt *) mod->priv_data;
         unsigned int x;
         unsigned char *line1, *line2;
-        struct video_frame *out = compress->out[buffer_idx];
+        struct video_frame *out = compress->out[compress->buffer_idx];
         struct tile *out_tile = &out->tiles[0];
 
-        assert(tx->tiles[tile_idx].width % 4 == 0);
+        assert(tx->tiles[0].width % 4 == 0);
         
         pthread_mutex_lock(&(compress->lock));
 
-        if(tx->tiles[tile_idx].width != out_tile->width ||
-                        tx->tiles[tile_idx].height != out_tile->height ||
+        if(tx->tiles[0].width != out_tile->width ||
+                        tx->tiles[0].height != out_tile->height ||
                         tx->interlacing != compress->interlacing_source ||
                         tx->color_spec != compress->tx_color_spec)
         {
                 int ret;
-                ret = reconfigure_compress(compress, tx->tiles[tile_idx].width,
-                                tx->tiles[tile_idx].height,
+                ret = reconfigure_compress(compress, tx->tiles[0].width,
+                                tx->tiles[0].height,
                                 tx->color_spec, tx->interlacing, tx->fps);
                 if(!ret)
                         return NULL;
         }
 
-        line1 = (unsigned char *) tx->tiles[tile_idx].data;
+        line1 = (unsigned char *) tx->tiles[0].data;
         line2 = compress->output_data;
 
         for (x = 0; x < out_tile->height; ++x) {
@@ -373,8 +375,6 @@ struct video_frame * fastdxt_compress_tile(struct module *mod, struct video_fram
                                 out_tile->height);
         }
 
-        compress->buffer_idx = buffer_idx;
-
         for (x = 0; x < (unsigned int) compress->num_threads; x++) {
                 platform_sem_post(&compress->thread_compress[x]);
         }
@@ -383,9 +383,14 @@ struct video_frame * fastdxt_compress_tile(struct module *mod, struct video_fram
                 platform_sem_wait(&compress->thread_done[x]);
         }
 
-        out_tile->data_len = tx->tiles[tile_idx].width * compress->dxt_height / 2;
+        out_tile->data_len = tx->tiles[0].width * compress->dxt_height / 2;
         
         pthread_mutex_unlock(&(compress->lock));
+
+        /// @todo
+        /// This is dirty, we don't know if we can write alternate buffer yet.
+        /// But it is in most cases so.
+        compress->buffer_idx = (compress->buffer_idx + 1) % 2;
 
         return out;
 }

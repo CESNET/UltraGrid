@@ -88,9 +88,8 @@ struct module * none_compress_init(struct module *parent, const struct video_com
         return &s->module_data;
 }
 
-struct video_frame * none_compress(struct module *mod, struct video_frame * tx, int buffer_idx)
+struct video_frame * none_compress(struct module *mod, struct video_frame * tx)
 {
-        UNUSED(buffer_idx);
         struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
 
         assert(s->magic == MAGIC);

@@ -45,8 +45,13 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <vector>
+
 #include "messaging.h"
 #include "module.h"
+#include "utils/message_queue.h"
+#include "utils/vf_split.h"
+#include "utils/worker.h"
 #include "video.h"
 #include "video_compress.h"
 #include "video_compress/cuda_dxt.h"
@@ -57,8 +62,8 @@
 #include "video_compress/none.h"
 #include "video_compress/uyvy.h"
 #include "lib_common.h"
-#include "utils/message_queue.h"
-#include "utils/worker.h"
+
+using std::vector;
 
 namespace {
 /* *_str are symbol names inside library */
@@ -102,14 +107,7 @@ struct compress_state_real {
         unsigned int        state_count;            ///< count of compress states (equal to tiles' count)
         char                compress_options[1024]; ///< compress options (for reconfiguration)
 
-        struct video_frame *out_frame[2];           /**< @brief allocated output frame.
-                                                     * This member is only used if the compress driver
-                                                     * uses tile API. In this case returned tiles are
-                                                     * arranged to frame.
-                                                     * @see compress_t */
         message_queue      *queue;
-
-        int                 buffer_index;
 };
 
 struct msg_frame : public msg {
@@ -139,7 +137,7 @@ struct module compress_init_noerr;
 
 static void init_compressions(void);
 static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
-                int buffer_index, struct module *parent);
+                struct module *parent);
 static int compress_init_real(struct module *parent, const char *config_string,
                 struct compress_state_real **state);
 static void compress_done_real(struct compress_state_real *s);
@@ -416,8 +414,8 @@ static int compress_init_real(struct module *parent, const char *config_string,
         s->queue = new message_queue(1);
 
         s->state_count = 1;
-        int i;
-        for(i = 0; i < compress_modules_count; ++i) {
+
+        for (int i = 0; i < compress_modules_count; ++i) {
                 if(strncasecmp(config_string, available_compress_modules[i]->name,
                                 strlen(available_compress_modules[i]->name)) == 0) {
                         s->handle = available_compress_modules[i];
@@ -450,9 +448,6 @@ static int compress_init_real(struct module *parent, const char *config_string,
                         free(s);
                         return 1;
                 }
-                for(int i = 0; i < 2; ++i) {
-                        s->out_frame[i] = vf_alloc(1);
-                }
         } else {
                 return -1;
         }
@@ -480,9 +475,6 @@ const char *get_compress_name(compress_state_proxy *proxy)
  *
  * @param proxy        compress state
  * @param frame        uncompressed frame to be compressed
- * @param buffer_index 0 or 1 - driver should have 2 output buffers, filling the selected one.
- *                     Returned video frame should stay valid until requesting compress with the
- *                     same index.
  * @return             compressed frame, may be NULL if compression failed
  */
 void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
@@ -504,17 +496,17 @@ void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
 
         struct video_frame *sync_api_frame;
         if(s->handle->compress_frame_func) {
-                sync_api_frame = s->handle->compress_frame_func(s->state[0], frame, s->buffer_index);
+                sync_api_frame = s->handle->compress_frame_func(s->state[0], frame);
         } else if(s->handle->compress_tile_func) {
-                sync_api_frame = compress_frame_tiles(s, frame, s->buffer_index, &proxy->mod);
+                sync_api_frame = compress_frame_tiles(s, frame, &proxy->mod);
         } else {
                 sync_api_frame = NULL;
         }
 
-        s->buffer_index = (s->buffer_index + 1) % 2;
-        // returned frame is different, so we may dispose the previous one
-        if (sync_api_frame != frame) {
-                frame->dispose(frame);
+        // NULL has special meaning - it is poisoned pill so we must
+        // prevent passing it further
+        if (sync_api_frame == NULL) {
+                return;
         }
 
         msg_frame *frame_msg;
@@ -537,8 +529,6 @@ void compress_frame(compress_state_proxy *proxy, struct video_frame *frame)
 struct compress_worker_data {
         struct module *state;      ///< compress driver status
         struct video_frame *frame; ///< uncompressed tile to be compressed
-        int tile_idx;              ///< tile to be compressed
-        int buffer_index;          ///< buffer index @see compress_frame
 
         compress_tile_t callback;  ///< tile compress callback
         void *ret;                 ///< OUT - returned compressed tile, NULL if failed
@@ -552,27 +542,9 @@ struct compress_worker_data {
 static void *compress_tile_callback(void *arg) {
         struct compress_worker_data *s = (struct compress_worker_data *) arg;
 
-        s->ret = s->callback(s->state, s->frame, s->tile_idx, s->buffer_index);
+        s->ret = s->callback(s->state, s->frame);
 
         return s;
-}
-
-/**
- * Writes given video desc to video frame metadata without changing anything else.
- * @param buf  video frame to be written to
- * @param desc video description
- */
-static void vf_write_desc(struct video_frame *buf, struct video_desc desc)
-{
-        assert(desc.tile_count == buf->tile_count);
-
-        buf->color_spec = desc.color_spec;
-        buf->fps = desc.fps;
-        buf->interlacing = desc.interlacing;
-        for(unsigned int i = 0; i < buf->tile_count; ++i) {
-                buf->tiles[0].width = desc.width;
-                buf->tiles[0].height = desc.height;
-        }
 }
 
 /**
@@ -580,14 +552,11 @@ static void vf_write_desc(struct video_frame *buf, struct video_desc desc)
  *
  * @param[in]     s             compress state
  * @param[in]     frame         uncompressed frame
- * @param         buffer_index  0 or 1 - driver should have 2 output buffers, filling the selected one.
- *                Returned video frame should stay valid until requesting compress with the
- *                same index.
  * @param         parent        parent module (for the case when there is a need to reconfigure)
  * @return                      compressed video frame, may be NULL if compression failed
  */
-static struct video_frame *compress_frame_tiles(struct compress_state_real *s, struct video_frame *frame,
-                int buffer_index, struct module *parent)
+static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
+                struct video_frame *frame, struct module *parent)
 {
         struct video_compress_params params;
         memset(&params, 0, sizeof(params));
@@ -601,48 +570,46 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s, s
                                 return NULL;
                         }
                 }
-                for(int i = 0; i < 2; ++i) {
-                        vf_free(s->out_frame[i]);
-                        s->out_frame[i] = vf_alloc(frame->tile_count);
-                }
                 s->state_count = frame->tile_count;
         }
 
         task_result_handle_t task_handle[frame->tile_count];
 
+        vector<struct video_frame *> separate_tiles = vf_separate_tiles(frame);
+
         struct compress_worker_data data_tile[frame->tile_count];
         for(unsigned int i = 0; i < frame->tile_count; ++i) {
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
-                data->frame = frame;
-                data->tile_idx = i;
-                data->buffer_index = buffer_index;;
+                data->frame = separate_tiles[i];
                 data->callback = s->handle->compress_tile_func;
 
                 task_handle[i] = task_run_async(compress_tile_callback, data);
         }
 
+        vector<struct video_frame *> compressed_tiles(frame->tile_count, 0);
+
+        bool failed = false;
         for(unsigned int i = 0; i < frame->tile_count; ++i) {
                 struct compress_worker_data *data = (struct compress_worker_data *)
                         wait_task(task_handle[i]);
 
                 if(!data->ret) {
-                        return NULL;
+                        failed = true;
                 }
 
-                if(i == 0) { // update metadata from first tile
-                        struct video_desc desc =
-                                video_desc_from_frame((struct video_frame *) data->ret);
-                        desc.tile_count = frame->tile_count;
-                        vf_write_desc(s->out_frame[buffer_index], desc);
-                }
-
-                memcpy(&s->out_frame[buffer_index]->tiles[i],
-                                &((struct video_frame *) data->ret)->tiles[0],
-                                sizeof(struct tile));
+                compressed_tiles[i] = (struct video_frame *) data->ret;
         }
 
-        return s->out_frame[buffer_index];
+        if (failed) {
+                for(unsigned int i = 0; i < frame->tile_count; ++i) {
+                        if (compressed_tiles[i] && compressed_tiles[i]->dispose)
+                                compressed_tiles[i]->dispose(compressed_tiles[i]);
+                }
+                return NULL;
+        }
+
+        return vf_merge_tiles(compressed_tiles);
 }
 /**
  * @}

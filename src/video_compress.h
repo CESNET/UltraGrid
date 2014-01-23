@@ -81,8 +81,7 @@ typedef struct module *(*compress_init_t)(struct module *parent,
  *                     same index.
  * @return             compressed frame, may be NULL if compression failed
  */
-typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct video_frame *frame,
-                int buffer_index);
+typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct video_frame *frame);
 /**
  * @brief Compresses tile of a video frame
  * 
@@ -94,8 +93,7 @@ typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct v
  *                same index.
  * @return                      compressed frame with one tile, may be NULL if compression failed
  */
-typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame,
-                int tile_index, int buffer_index);
+typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame);
 /**
  * @brief Gets back tile/frame from driver
  *

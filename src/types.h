@@ -141,10 +141,15 @@ struct video_frame {
          * @note
          * Currently, this is only used in sending workflow, not the receiving one!
          * Can be called from arbitrary thread.
+         * @note
+         * Can be changed only by frame originator.
          */
         void               (*dispose)(struct video_frame *);
         /**
          * Additional data needed to dispose the frame
+         *
+         * @note
+         * Can be changed only by frame originator.
         */
         void                *dispose_udata;
         /**

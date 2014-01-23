@@ -69,7 +69,7 @@
 #include "sender.h"
 #include "stats.h"
 #include "transmit.h"
-#include "vf_split.h"
+#include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
 #include "video_display.h"
