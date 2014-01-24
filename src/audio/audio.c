@@ -424,12 +424,9 @@ void audio_join(struct state_audio *s) {
         }
 }
         
-void audio_finish(struct state_audio *s)
+void audio_finish()
 {
         should_exit_audio = true;
-        if(s) {
-                audio_capture_finish(s->audio_capture_device);
-        }
 }
 
 void audio_done(struct state_audio *s)

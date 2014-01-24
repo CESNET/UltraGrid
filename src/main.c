@@ -224,7 +224,7 @@ void exit_uv(int status) {
 
         should_exit_sender = true;
         should_exit_receiver = true;
-        audio_finish(uv_state->audio);
+        audio_finish();
 }
 
 static void usage(void)

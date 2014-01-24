@@ -60,14 +60,11 @@
 #define FRAME_NETWORK 0
 #define FRAME_CAPTURE 1
 
-#define POISONED_PILL -1
-
 struct state_sdi_capture {
         struct audio_frame audio_frame[2];
         pthread_mutex_t lock;
         pthread_cond_t  audio_frame_ready_cv;
 };
-
 
 void * sdi_capture_init(char *cfg)
 {
@@ -92,14 +89,28 @@ void * sdi_capture_init(char *cfg)
 struct audio_frame * sdi_read(void *state)
 {
         struct state_sdi_capture *s;
+        int             rc = 0;
+        struct timespec ts;
+        struct timeval  tp;
+
         
         s = (struct state_sdi_capture *) state;
+
+        gettimeofday(&tp, NULL);
+        ts.tv_sec  = tp.tv_sec;
+        ts.tv_nsec = tp.tv_usec * 1000;
+        ts.tv_nsec += 100 * 1000 * 1000;
+        // make it correct
+        ts.tv_sec += ts.tv_nsec / 1000000000;
+        ts.tv_nsec = ts.tv_nsec % 1000000000;
+
+
         pthread_mutex_lock(&s->lock);
-        while(s->audio_frame[FRAME_CAPTURE].data_len == 0) {
-                pthread_cond_wait(&s->audio_frame_ready_cv, &s->lock);
+        while (rc == 0 && s->audio_frame[FRAME_CAPTURE].data_len == 0) {
+                rc = pthread_cond_timedwait(&s->audio_frame_ready_cv, &s->lock, &ts);
         }
 
-        if(s->audio_frame[FRAME_CAPTURE].data_len == POISONED_PILL) {
+        if (rc != 0) {
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
         }
@@ -114,17 +125,6 @@ struct audio_frame * sdi_read(void *state)
         pthread_mutex_unlock(&s->lock);
 
         return &s->audio_frame[FRAME_NETWORK];
-}
-
-void sdi_capture_finish(void *state)
-{
-        struct state_sdi_capture *s;
-        
-        s = (struct state_sdi_capture *) state;
-        pthread_mutex_lock(&s->lock);
-        s->audio_frame[FRAME_CAPTURE].data_len = POISONED_PILL;
-        pthread_cond_signal(&s->audio_frame_ready_cv);
-        pthread_mutex_unlock(&s->lock);
 }
 
 void sdi_capture_done(void *state)
@@ -161,10 +161,6 @@ void sdi_capture_new_incoming_frame(void *state, struct audio_frame *frame)
          * perhaps drop it and report error
          */
         pthread_mutex_lock(&s->lock);
-        if(s->audio_frame[FRAME_CAPTURE].data_len == POISONED_PILL) {
-                pthread_mutex_unlock(&s->lock);
-                return;
-        }
 
         if(
                         s->audio_frame[FRAME_CAPTURE].bps != frame->bps ||
