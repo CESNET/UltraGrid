@@ -264,6 +264,7 @@ static void gl_load_splashscreen(struct state_gl *s)
         gl_reconfigure_screen(s);
 
         for (int i = 0; i < 2; ++i) {
+                memset(s->buffers[i], 0, s->tile->data_len);
                 for (unsigned int y = 0; y < splash_height; ++y) {
                         char *line = s->buffers[i];
                         line += vc_get_linesize(s->tile->width,
