@@ -121,14 +121,6 @@ rtsp_teardown(CURL *curl, const char *uri);
 static void
 get_sdp_filename(const char *url, char *sdp_filename);
 
-/* scan sdp file for media control attribute */
-static void
-get_media_control_attribute(const char *sdp_filename, char *control);
-
-/* scan sdp file for incoming codec */
-static char *
-set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state);
-
 static int
 get_nals(const char *sdp_filename, char *nals);
 
@@ -280,50 +272,49 @@ vidcap_rtsp_thread(void *arg) {
     gettimeofday(&s->vrtsp_state->prev_time, NULL);
 
     while (!s->should_exit) {
-//        gettimeofday(&s->curr_time, NULL);
-//        s->timestamp = tv_diff(s->curr_time, s->start_time) * 90000;
-//
-//        rtsp_keepalive(s);
-//
-//        rtp_update(s->device, s->curr_time);
-//        //TODO no need of rtcp communication between ug and rtsp server?
-//        //rtp_send_ctrl(s->device, s->timestamp, 0, s->curr_time);
-//
-//        s->timeout.tv_sec = 0;
-//        s->timeout.tv_usec = 10000;
-//
-//        if (!rtp_recv_r(s->device, &s->timeout, s->timestamp)) {
-//            pdb_iter_t it;
-//            s->cp = pdb_iter_init(s->participants, &it);
-//
-//            while (s->cp != NULL) {
-//                if (pthread_mutex_trylock(&s->lock) == 0) {
-//                    {
-//                        if(s->grab){
-//
-//                            while (s->new_frame && !s->should_exit) {
-//                                s->worker_waiting = true;
-//                                pthread_cond_wait(&s->worker_cv, &s->lock);
-//                                s->worker_waiting = false;
-//                            }
-//
-//                            if (pbuf_decode(s->cp->playout_buffer, s->curr_time,
-//                                decode_frame_h264, s->rx_data))
-//                            {
-//                                s->new_frame = true;
-//                            }
-//                            if (s->boss_waiting)
-//                                pthread_cond_signal(&s->boss_cv);
-//                        }
-//                    }
-//                    pthread_mutex_unlock(&s->lock);
-//                }
-//                pbuf_remove(s->cp->playout_buffer, s->curr_time);
-//                s->cp = pdb_iter_next(&it);
-//            }
-//
-//            pdb_iter_done(&it);
-//        }
+        gettimeofday(&s->vrtsp_state->curr_time, NULL);
+        s->vrtsp_state->timestamp = tv_diff(s->vrtsp_state->curr_time, s->vrtsp_state->start_time) * 90000;
+
+        rtsp_keepalive(s);
+
+        rtp_update(s->vrtsp_state->device, s->vrtsp_state->curr_time);
+        //TODO no need of rtcp communication between ug and rtsp server?
+        //rtp_send_ctrl(s->device, s->timestamp, 0, s->curr_time);
+
+        s->vrtsp_state->timeout.tv_sec = 0;
+        s->vrtsp_state->timeout.tv_usec = 10000;
+
+        if (!rtp_recv_r(s->vrtsp_state->device, &s->vrtsp_state->timeout, s->vrtsp_state->timestamp)) {
+            pdb_iter_t it;
+            s->vrtsp_state->cp = pdb_iter_init(s->vrtsp_state->participants, &it);
+
+            while (s->vrtsp_state->cp != NULL) {
+                if (pthread_mutex_trylock(&s->vrtsp_state->lock) == 0) {
+                    {
+                        if(s->vrtsp_state->grab){
+
+                            while (s->vrtsp_state->new_frame && !s->should_exit) {
+                                s->vrtsp_state->worker_waiting = true;
+                                pthread_cond_wait(&s->vrtsp_state->worker_cv, &s->vrtsp_state->lock);
+                                s->vrtsp_state->worker_waiting = false;
+                            }
+                            if (pbuf_decode(s->vrtsp_state->cp->playout_buffer, s->vrtsp_state->curr_time,
+                                decode_frame_h264, s->vrtsp_state->rx_data))
+                            {
+                                s->vrtsp_state->new_frame = true;
+                            }
+                            if (s->vrtsp_state->boss_waiting)
+                                pthread_cond_signal(&s->vrtsp_state->boss_cv);
+                        }
+                    }
+                    pthread_mutex_unlock(&s->vrtsp_state->lock);
+                }
+                pbuf_remove(s->vrtsp_state->cp->playout_buffer, s->vrtsp_state->curr_time);
+                s->vrtsp_state->cp = pdb_iter_next(&it);
+            }
+
+            pdb_iter_done(&it);
+        }
     }
     return NULL;
 }
@@ -335,61 +326,61 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
 
     *audio = NULL;
 
-//    if(pthread_mutex_trylock(&s->lock)==0){
-//        {
-//            s->grab = true;
-//
-//            while (!s->new_frame) {
-//                s->boss_waiting = true;
-//                pthread_cond_wait(&s->boss_cv, &s->lock);
-//                s->boss_waiting = false;
-//            }
-//
-//            gettimeofday(&s->curr_time, NULL);
-//            s->frame->h264_iframe = s->rx_data->iframe;
-//            s->frame->h264_iframe = s->rx_data->iframe;
-//            s->frame->tiles[0].data_len = s->rx_data->buffer_len;
-//            memcpy(s->data + s->nals_size, s->rx_data->frame_buffer,
-//                s->rx_data->buffer_len);
-//            memcpy(s->frame->tiles[0].data, s->data,
-//                s->rx_data->buffer_len + s->nals_size);
-//            s->frame->tiles[0].data_len += s->nals_size;
-//
-//            if (s->decompress) {
-//                decompress_frame(s->sd, (unsigned char *) s->out_frame,
-//                    (unsigned char *) s->frame->tiles[0].data,
-//                    s->rx_data->buffer_len + s->nals_size, 0);
-//                s->frame->tiles[0].data = s->out_frame;               //TODO memcpy?
-//                s->frame->tiles[0].data_len = vc_get_linesize(s->des.width, UYVY)
-//                        * s->des.height;                           //TODO reconfigurable?
-//            }
-//            s->new_frame = false;
-//
-//            if (s->worker_waiting) {
-//                pthread_cond_signal(&s->worker_cv);
-//            }
-//        }
-//        pthread_mutex_unlock(&s->lock);
-//
-//        gettimeofday(&s->t, NULL);
-//        double seconds = tv_diff(s->t, s->t0);
-//        if (seconds >= 5) {
-//            float fps = s->frames / seconds;
-//            fprintf(stderr, "[rtsp capture] %d frames in %g seconds = %g FPS\n",
-//                s->frames, seconds, fps);
-//            s->t0 = s->t;
-//            s->frames = 0;
-//            //TODO: Threshold of ¿1fps? in order to update fps parameter. Now a higher fps is fixed to 30fps...
-//            //if (fps > s->fps + 1 || fps < s->fps - 1) {
-//            //      debug_msg(
-//            //          "\n[rtsp] updating fps from rtsp server stream... now = %f , before = %f\n",fps,s->fps);
-//            //      s->frame->fps = fps;
-//            //      s->fps = fps;
-//            //  }
-//        }
-//        s->frames++;
-//        s->grab = false;
-//    }
+    if(pthread_mutex_trylock(&s->vrtsp_state->lock)==0){
+        {
+            s->vrtsp_state->grab = true;
+
+            while (!s->vrtsp_state->new_frame) {
+                s->vrtsp_state->boss_waiting = true;
+                pthread_cond_wait(&s->vrtsp_state->boss_cv, &s->vrtsp_state->lock);
+                s->vrtsp_state->boss_waiting = false;
+            }
+
+            gettimeofday(&s->vrtsp_state->curr_time, NULL);
+            s->vrtsp_state->frame->h264_iframe = s->vrtsp_state->rx_data->iframe;
+            s->vrtsp_state->frame->h264_iframe = s->vrtsp_state->rx_data->iframe;
+            s->vrtsp_state->frame->tiles[0].data_len = s->vrtsp_state->rx_data->buffer_len;
+            memcpy(s->vrtsp_state->data + s->vrtsp_state->nals_size, s->vrtsp_state->rx_data->frame_buffer,
+                s->vrtsp_state->rx_data->buffer_len);
+            memcpy(s->vrtsp_state->frame->tiles[0].data, s->vrtsp_state->data,
+                s->vrtsp_state->rx_data->buffer_len + s->vrtsp_state->nals_size);
+            s->vrtsp_state->frame->tiles[0].data_len += s->vrtsp_state->nals_size;
+
+            if (s->vrtsp_state->decompress) {
+                decompress_frame(s->vrtsp_state->sd, (unsigned char *) s->vrtsp_state->out_frame,
+                    (unsigned char *) s->vrtsp_state->frame->tiles[0].data,
+                    s->vrtsp_state->rx_data->buffer_len + s->vrtsp_state->nals_size, 0);
+                s->vrtsp_state->frame->tiles[0].data = s->vrtsp_state->out_frame;               //TODO memcpy?
+                s->vrtsp_state->frame->tiles[0].data_len = vc_get_linesize(s->vrtsp_state->des.width, UYVY)
+                        * s->vrtsp_state->des.height;                           //TODO reconfigurable?
+            }
+            s->vrtsp_state->new_frame = false;
+
+            if (s->vrtsp_state->worker_waiting) {
+                pthread_cond_signal(&s->vrtsp_state->worker_cv);
+            }
+        }
+        pthread_mutex_unlock(&s->vrtsp_state->lock);
+
+        gettimeofday(&s->vrtsp_state->t, NULL);
+        double seconds = tv_diff(s->vrtsp_state->t, s->vrtsp_state->t0);
+        if (seconds >= 5) {
+            float fps = s->vrtsp_state->frames / seconds;
+            fprintf(stderr, "[rtsp capture] %d frames in %g seconds = %g FPS\n",
+                s->vrtsp_state->frames, seconds, fps);
+            s->vrtsp_state->t0 = s->vrtsp_state->t;
+            s->vrtsp_state->frames = 0;
+            //TODO: Threshold of ¿1fps? in order to update fps parameter. Now a higher fps is fixed to 30fps...
+            //if (fps > s->fps + 1 || fps < s->fps - 1) {
+            //      debug_msg(
+            //          "\n[rtsp] updating fps from rtsp server stream... now = %f , before = %f\n",fps,s->fps);
+            //      s->frame->fps = fps;
+            //      s->fps = fps;
+            //  }
+        }
+        s->vrtsp_state->frames++;
+        s->vrtsp_state->grab = false;
+    }
 
     return s->vrtsp_state->frame;
 }
@@ -509,8 +500,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
                                 else if (strcmp(tmp, "false") == 0)
                                     s->vrtsp_state->decompress = false;
                                 else {
-                                    printf(
-                                        "\n[rtsp] Wrong format for boolean decompress flag! \n");
+                                    printf("\n[rtsp] Wrong format for boolean decompress flag! \n");
                                     show_help();
                                     exit(0);
                                 }
@@ -586,35 +576,32 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
 
     s->should_exit = false;
 
-    s->vrtsp_state->nals_size = init_rtsp(s->uri, s->vrtsp_state->port, s, s->vrtsp_state->nals);
+    s->vrtsp_state->device = rtp_init_if(NULL, s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
+        0, rtp_recv_callback, (void *) s->vrtsp_state->participants, 0);
 
+    if (s->vrtsp_state->device != NULL) {
+        if (!rtp_set_option(s->vrtsp_state->device, RTP_OPT_WEAK_VALIDATION, 1)) {
+            debug_msg("[rtsp] RTP INIT - set option\n");
+            return NULL;
+        }
+        if (!rtp_set_sdes(s->vrtsp_state->device, rtp_my_ssrc(s->vrtsp_state->device),
+            RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING))) {
+            debug_msg("[rtsp] RTP INIT - set sdes\n");
+            return NULL;
+        }
 
-//    s->device = rtp_init_if(NULL, s->mcast_if, s->port, 0, s->ttl, s->rtcp_bw,
-//        0, rtp_recv_callback, (void *) s->participants, 0);
-//
-//    if (s->device != NULL) {
-//        if (!rtp_set_option(s->device, RTP_OPT_WEAK_VALIDATION, 1)) {
-//            debug_msg("[rtsp] RTP INIT - set option\n");
-//            return NULL;
-//        }
-//        if (!rtp_set_sdes(s->device, rtp_my_ssrc(s->device),
-//            RTCP_SDES_TOOL, PACKAGE_STRING, strlen(PACKAGE_STRING))) {
-//            debug_msg("[rtsp] RTP INIT - set sdes\n");
-//            return NULL;
-//        }
-//
-//        int ret = rtp_set_recv_buf(s->device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
-//        if (!ret) {
-//            debug_msg("[rtsp] RTP INIT - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
-//            return NULL;
-//        }
-//
-//        if (!rtp_set_send_buf(s->device, 1024 * 56)) {
-//            debug_msg("[rtsp] RTP INIT - set send buf\n");
-//            return NULL;
-//        }
-//        ret=pdb_add(s->participants, rtp_my_ssrc(s->device));
-//    }
+        int ret = rtp_set_recv_buf(s->vrtsp_state->device, INITIAL_VIDEO_RECV_BUFFER_SIZE);
+        if (!ret) {
+            debug_msg("[rtsp] RTP INIT - set recv buf \nset command: sudo sysctl -w net.core.rmem_max=9123840\n");
+            return NULL;
+        }
+
+        if (!rtp_set_send_buf(s->vrtsp_state->device, 1024 * 56)) {
+            debug_msg("[rtsp] RTP INIT - set send buf\n");
+            return NULL;
+        }
+        ret=pdb_add(s->vrtsp_state->participants, rtp_my_ssrc(s->vrtsp_state->device));
+    }
 
     debug_msg("[rtsp] rtp receiver init done\n");
 
@@ -625,11 +612,14 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->vrtsp_state->boss_waiting = false;
     s->vrtsp_state->worker_waiting = false;
 
+    s->vrtsp_state->nals_size = init_rtsp(s->uri, s->vrtsp_state->port, s, s->vrtsp_state->nals);
 
     if (s->vrtsp_state->nals_size >= 0)
         memcpy(s->vrtsp_state->data, s->vrtsp_state->nals, s->vrtsp_state->nals_size);
-    else
+    else{
+        printf("\n[rtsp] something went wrong with the sdp parser...\n");
         return NULL;
+    }
 
     if (s->vrtsp_state->decompress) {
         if (init_decompressor(s->vrtsp_state) == 0)
@@ -706,48 +696,23 @@ init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals) {
             printf("sdp_file: %s\n", sdp_filename);
             /* request session description and write response to sdp file */
             rtsp_describe(curl, uri, sdp_filename);
-//            printf("sdp_file name: %s\n", sdp_filename);
 
             setup_codecs_and_controls_from_sdp(sdp_filename, s);
             if (s->vrtsp_state->codec == "H264"){
+                s->vrtsp_state->frame->color_spec = H264;
                 sprintf(uri, "%s/%s", url, s->vrtsp_state->control);
-                printf("\n V URI = %s\n",uri);
+                debug_msg("\n V URI = %s\n",uri);
                 rtsp_setup(curl, uri, Vtransport);
-                //rtsp_play(curl, uri, range);
                 sprintf(uri, "%s", url);
             }
             if (s->artsp_state->codec == "PCMU"){
                 sprintf(uri, "%s/%s", url, s->artsp_state->control);
-                printf("\n A URI = %s\n",uri);
+                debug_msg("\n A URI = %s\n",uri);
                 rtsp_setup(curl, uri, Atransport);
-                //rtsp_play(curl, uri, range);
                 sprintf(uri, "%s", url);
             }
-            if (s->artsp_state->codec == "" && s->vrtsp_state->codec == ""){
-                return -1;
-            }else rtsp_play(curl, uri, range);
-
-
-//            /* set incoming media codec attribute from sdp file */
-//            //FIND VIDEO TRACK (NOW ONLY H264 IS ACCEPTED)
-//            char * codec1 = set_codec_attribute_from_incoming_media(sdp_filename, s); //AQUÍ ACTIVAR VIDEO H264 SI EXISTEIX I/O AUDIO ULAW SI EXISTEIX
-//            if (codec1 == NULL)
-//                return -1;
-//            else {            /* get media control attribute from sdp file */
-//                get_media_control_attribute(sdp_filename, control);
-//                printf("\nmedia control attribute: %s\n\n", control);
-//                /* setup media stream */
-//                sprintf(uri, "%s/%s", url, control);
-//                printf("setup: %s\n", uri);
-//                rtsp_setup(curl, uri, Vtransport);
-//
-//                //         exit(0);
-//                /* start playing media stream */
-//                sprintf(uri, "%s", url);
-//
-//
-//            }
-//            rtsp_play(curl, uri, range);
+            if (s->artsp_state->codec == "" && s->vrtsp_state->codec == "") return -1;
+            else rtsp_play(curl, uri, range);
 
             /* get start nal size attribute from sdp file */
             len_nals = get_nals(sdp_filename, nals);
@@ -810,8 +775,8 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
         tmpBuff = strstr(line, "track");
         if(tmpBuff!=NULL){
             //printf("track = %s\n",tmpBuff);
-            strncpy(tracks[countT],tmpBuff,strlen(tmpBuff));
-            tracks[countT][strlen(tmpBuff)] = '\0';
+            strncpy(tracks[countT],tmpBuff,strlen(tmpBuff)-2);
+            tracks[countT][strlen(tmpBuff)-2] = '\0';
             countT++;
         }
         tmpBuff='\0';
@@ -836,13 +801,14 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
 
         if(countT > 1 && countC > 1) break;
     }
-    printf("\nTRACK = %s FOR CODEC = %s",tracks[0],codecs[0]);
-    printf("\nTRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
+    debug_msg("\nTRACK = %s FOR CODEC = %s",tracks[0],codecs[0]);
+    debug_msg("\nTRACK = %s FOR CODEC = %s\n",tracks[1],codecs[1]);
 
     for(int p=0;p<2;p++){
         if(strncmp(codecs[p],"H264",4)==0){
                 rtspState->vrtsp_state->codec = "H264";
                 rtspState->vrtsp_state->control = tracks[p];
+
         }if(strncmp(codecs[p],"PCMU",4)==0){
             rtspState->artsp_state->codec = "PCMU";
             rtspState->artsp_state->control = tracks[p];
@@ -874,27 +840,27 @@ void newLine(const char* buffer, int* i, char* line){
  */
 static int
 init_decompressor(void *state) {
-    struct rtsp_state *sr;
-    sr = (struct rtsp_state *) state;
+    struct video_rtsp_state *sr;
+    sr = (struct video_rtsp_state *) state;
 
-    sr->vrtsp_state->sd = (struct state_decompress *) calloc(2,
+    sr->sd = (struct state_decompress *) calloc(2,
         sizeof(struct state_decompress *));
     initialize_video_decompress();
 
     if (decompress_is_available(LIBAVCODEC_MAGIC)) {
-        sr->vrtsp_state->sd = decompress_init(LIBAVCODEC_MAGIC);
+        sr->sd = decompress_init(LIBAVCODEC_MAGIC);
 
-        sr->vrtsp_state->des.width = sr->vrtsp_state->width;
-        sr->vrtsp_state->des.height = sr->vrtsp_state->height;
-        sr->vrtsp_state->des.color_spec = sr->vrtsp_state->frame->color_spec;
-        sr->vrtsp_state->des.tile_count = 0;
-        sr->vrtsp_state->des.interlacing = PROGRESSIVE;
+        sr->des.width = sr->width;
+        sr->des.height = sr->height;
+        sr->des.color_spec = sr->frame->color_spec;
+        sr->des.tile_count = 0;
+        sr->des.interlacing = PROGRESSIVE;
 
-        decompress_reconfigure(sr->vrtsp_state->sd, sr->vrtsp_state->des, 16, 8, 0,
-            vc_get_linesize(sr->vrtsp_state->des.width, UYVY), UYVY);
+        decompress_reconfigure(sr->sd, sr->des, 16, 8, 0,
+            vc_get_linesize(sr->des.width, UYVY), UYVY);
     } else
         return 0;
-    sr->vrtsp_state->out_frame = malloc(sr->vrtsp_state->width * sr->vrtsp_state->height * 4);
+    sr->out_frame = malloc(sr->width * sr->height * 4);
     return 1;
 }
 
@@ -1019,126 +985,6 @@ get_sdp_filename(const char *url, char *sdp_filename) {
             sprintf(sdp_filename, "%s.sdp", s);
         }
     }
-}
-
-/**
- * scan sdp file for media control attribute
- */
-static void
-check_and_set_media_control_attribute(const char *sdp_filename, void *state) {
-    struct rtsp_state *rtspState;
-    rtspState = (struct rtsp_state *) state;
-
-    int max_len = 1256;
-    char *s = malloc(max_len);
-
-    char *track = malloc(max_len);
-    char *track_ant = malloc(max_len);
-    printf("\n\n");
-    FILE *sdp_fp = fopen(sdp_filename, "rt");
-    //control[0] = '\0';
-    if (sdp_fp != NULL) {
-        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-            printf("\nSDP: %s\n",s);
-            sscanf(s, " a = control: %s", track_ant);
-            if (strcmp(track_ant, "") != 0) {
-                track = strstr(track_ant, "track");
-                if (track != NULL)
-                    break;
-            }
-        }
-        printf("\n\n");
-        fclose(sdp_fp);
-    }
-    free(s);
-    memcpy(rtspState->vrtsp_state->control, track, strlen(track));
-}
-
-static void
-get_media_control_attribute(const char *sdp_filename, char *control) {
-    int max_len = 1256;
-    char *s = malloc(max_len);
-
-    char *track = malloc(max_len);
-    char *track_ant = malloc(max_len);
-    printf("\n\n");
-    FILE *sdp_fp = fopen(sdp_filename, "rt");
-    //control[0] = '\0';
-    if (sdp_fp != NULL) {
-        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-            printf("\nSDP: %s\n",s);
-            sscanf(s, " a = control: %s", track_ant);
-            if (strcmp(track_ant, "") != 0) {
-                track = strstr(track_ant, "track");
-                if (track != NULL)
-                    break;
-            }
-        }
-        printf("\n\n");
-        fclose(sdp_fp);
-    }
-    free(s);
-    memcpy(control, track, strlen(track));
-}
-
-/**
- * scan sdp file for incoming codec and set it
- */
-static char *
-set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state) {
-    struct rtsp_state *sr;
-    sr = (struct rtsp_state *) state;
-
-    int max_len = 1256;
-    char *pt = malloc(4 * sizeof(char *));
-    char *codec = malloc(32 * sizeof(char *));
-    char *s = malloc(max_len);
-    FILE *sdp_fp = fopen(sdp_filename, "rt");
-
-    if (sdp_fp != NULL) {
-        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-            sscanf(s, " m = video 0 RTP/AVP %s", pt);
-        }
-        fclose(sdp_fp);
-    }
-    free(s);
-
-    s = malloc(max_len);
-    sdp_fp = fopen(sdp_filename, "rt");
-
-    if (sdp_fp != NULL) {
-        while (fgets(s, max_len - 2, sdp_fp) != NULL) {
-            sscanf(s, " a=rtpmap:96 %s", codec);
-        }
-        fclose(sdp_fp);
-    }
-    free(s);
-
-    char *save_ptr = NULL;
-    char *tmp;
-    tmp = strtok_r(codec, "/", &save_ptr);
-    if (!tmp) {
-        fprintf(stderr, "[rtsp] no codec atribute found into sdp file...\n");
-        return NULL;
-    }
-
-    printf("\n\nCODEC = %s\n\n",tmp);
-
-    sprintf((char *) sr->vrtsp_state->in_codec, "%s", tmp);
-
-    if (memcmp(sr->vrtsp_state->in_codec, "H264", 4) == 0){
-        sr->vrtsp_state->frame->color_spec = H264;
-        return "H264";
-    }
-    else if (memcmp(sr->vrtsp_state->in_codec, "VP8", 3) == 0){
-        sr->vrtsp_state->frame->color_spec = VP8;
-        return "VP8";
-    }
-    else{
-        sr->vrtsp_state->frame->color_spec = RGBA;
-        return "RGBA";
-    }
-    return NULL;
 }
 
 struct vidcap_type *
