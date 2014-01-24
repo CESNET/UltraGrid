@@ -571,6 +571,8 @@ static void *decompress_thread(void *args) {
                                                 tile = vf_get_tile(output, x);
                                                 out = tile->data;
                                         }
+                                        if(!msg->decompress_buffer[pos])
+                                                continue;
                                         decompress_frame(decoder->decompress_state[pos],
                                                         (unsigned char *) out,
                                                         (unsigned char *) msg->decompress_buffer[pos],
