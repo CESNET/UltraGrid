@@ -1695,64 +1695,6 @@ AC_SUBST(SCREEN_CAP_INC)
 AC_SUBST(SCREEN_CAP_LIB)
 AC_SUBST(SCREEN_CAP_OBJ)
 
-
-# -------------------------------------------------------------------------------------------------
-# FastDXT stuff
-fastdxt=no
-fastdxt_req=no
-FASTDXT_OBJ=
-
-AC_ARG_ENABLE(fastdxt,
-	[  --enable-fastdxt        enable FastDXT (default is off)],
-	[fastdxt_req=$enableval])
-
-FASTDXT_PATH=
-AC_ARG_WITH(fastdxt,
-            AS_HELP_STRING([--with-fastdxt], [spedcify location of FastDXT]),
-            [FASTDXT_PATH=$withval
-            ])
-
-FASTDXT_INC=$FASTDXT_PATH
-
-if test $fastdxt_req = yes -a $gpl = no; then
-        AC_MSG_ERROR([FastDXT is GPL and --enable-gpl is not specified.])
-fi
-
-FOUND_FASTDXT_H=no
-
-if test ! -z $FASTDXT_PATH; then
-        AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
-        #AC_LANG_PUSH(C++)
-        #AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
-        #AC_LANG_POP(C++)
-fi
-
-if test $fastdxt_req = yes -a $FOUND_FASTDXT_H = yes
-then
-	FASTDXT_INC=-I${FASTDXT_INC}
-	FASTDXT_LIB=""
-	FASTDXT_OBJ="$FASTDXT_OBJ src/video_compress/fastdxt.o ${FASTDXT_PATH}/libdxt.a"
-        AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
-        AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
-        LIB_TARGETS="$LIB_TARGETS $FASTDXT_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $FASTDXT_OBJ"
-        fastdxt=yes
-else
-	FASTDXT_INC=
-	FASTDXT_LIB=
-fi
-
-if test $fastdxt_req = yes -a $fastdxt = no; then
-        AC_MSG_ERROR([FastDXT not found]);
-fi
-
-LIB_MODULES="$LIB_MODULES $FASTDXT_LIB"
-
-AC_SUBST(FASTDXT_PATH)
-AC_SUBST(FASTDXT_INC)
-AC_SUBST(FASTDXT_LIB)
-AC_SUBST(FASTDXT_OBJ)
-
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
 # -------------------------------------------------------------------------------------------------
@@ -2717,7 +2659,6 @@ RESULT=\
   JACK  ....................... $jack
   JACK transport .............. $jack_trans
 
-  FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg
   JPEG to DXT ................. $jpeg_to_dxt

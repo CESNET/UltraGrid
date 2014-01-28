@@ -56,7 +56,6 @@
 #include "video_compress.h"
 #include "video_compress/cuda_dxt.h"
 #include "video_compress/dxt_glsl.h"
-#include "video_compress/fastdxt.h"
 #include "video_compress/libavcodec.h"
 #include "video_compress/jpeg.h"
 #include "video_compress/none.h"
@@ -148,17 +147,6 @@ static void compress_done(struct module *mod);
  * @copydetails decoders
  */
 struct compress_t compress_modules[] = {
-#if defined HAVE_FASTDXT || defined BUILD_LIBRARIES
-        {
-                "FastDXT",
-                "fastdxt",
-                MK_NAME(fastdxt_init),
-                MK_NAME(NULL),
-                MK_NAME(fastdxt_compress_tile),
-                MK_NAME(NULL),
-                NULL
-        },
-#endif
 #if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
         {
                 "RTDXT",

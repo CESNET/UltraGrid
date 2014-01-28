@@ -12,7 +12,7 @@ NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
-INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @RTSP_INC@ @RTSP_SERVER_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
+INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @RTSP_SERVER_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
 		@BLUEFISH444_INC@ @NCURSES_CFLAGS@
 DECKLINK_PATH = @DECKLINK_PATH@
@@ -352,9 +352,6 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-@FASTDXT_PATH@/libdxt.a:
-	make -j -C @FASTDXT_PATH@/ lib
-
 gui/QT/uv-qt:
 	cd gui/QT; $(QMAKE) ; make -j; cd -
 
@@ -417,12 +414,10 @@ clean:
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
 	-rm -rf bin/import_control_keyboard src/import_control_keyboard.o
-	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
-	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ distclean
 
 etags:
 	etags src/*.[ch] src/*/*.[ch]
@@ -477,7 +472,6 @@ deltacast: @DELTACAST_DISP_LIB_TARGET@ @DELTACAST_CAP_LIB_TARGET@
 dvs: @DVS_CAP_LIB_TARGET@ @DVS_DISP_LIB_TARGET@
 screen: @SCREEN_CAP_LIB_TARGET@
 sage: @SAGE_LIB_TARGET@
-fastdxt: @FASTDXT_LIB_TARGET@
 rtdxt: @RTDXT_COMPRESS_LIB_TARGET@ @RTDXT_DECOMPRESS_LIB_TARGET@
 uyvy: @UYVY_COMPRESS_LIB_TARGET@
 jpeg: @JPEG_DECOMPRESS_LIB_TARGET@ @JPEG_COMPRESS_LIB_TARGET@
@@ -557,10 +551,6 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 @SAGE_LIB_TARGET@: @SAGE_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sage.so.@video_display_abi_version@ $^ @SAGE_LIB@ -o $@
-
-@FASTDXT_LIB_TARGET@: @FASTDXT_OBJ@
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_fastdxt.so.@video_compress_abi_version@ $^ @FASTDXT_LIB@ -o $@
 
 @RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
