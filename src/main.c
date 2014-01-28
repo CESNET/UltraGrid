@@ -1612,10 +1612,6 @@ cleanup:
                 audio_done(uv->audio);
         if (uv->rxtx_state)
                 uv->rxtx->done(uv->rxtx_state);
-        if(uv->capture_device)
-                vidcap_done(uv->capture_device);
-        if(uv->display_device)
-                display_done(uv->display_device);
         if (uv->network_devices) {
                 destroy_rtp_devices(uv->network_devices);
         }
@@ -1631,6 +1627,11 @@ cleanup:
                 pdb_iter_done(&it);
                 pdb_destroy(&uv->participants);
         }
+
+        if (uv->capture_device)
+                vidcap_done(uv->capture_device);
+        if (uv->display_device)
+                display_done(uv->display_device);
 
         video_export_destroy(uv->video_exporter);
 
