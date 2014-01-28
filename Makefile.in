@@ -13,7 +13,7 @@ LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
 INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @RTSP_INC@ @RTSP_SERVER_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @LINSYS_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
+                @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
 		@BLUEFISH444_INC@ @NCURSES_CFLAGS@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = @TARGET@
@@ -525,10 +525,6 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 @DECKLINK_DISP_LIB_TARGET@: src/video_capture/decklink.o @DECKLINK_COMMON@ @DECKLINK_DISP_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $^ @DECKLINK_LIB@ -o $@
-
-@LINSYS_LIB_TARGET@: @LINSYS_OBJ@
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_linsys.so.@video_display_abi_version@ $^ -o $@
 
 @BLUEFISH444_CAP_LIB_TARGET@: @BLUEFISH444_CAP_OBJ@
 	mkdir -p lib/ultragrid

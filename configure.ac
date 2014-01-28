@@ -735,54 +735,6 @@ AC_SUBST(DECKLINK_DISP_OBJ)
 AC_SUBST(DECKLINK_SOUND_PLAY_OBJ)
 
 # -------------------------------------------------------------------------------------------------
-# HD-SDI Master Quad stuff
-
-LINSYS_PATH=
-LINSYS_OBJ=
-LINSYS_INC=
-linsys=no
-
-AC_ARG_ENABLE(linsys,
-              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
-              [linsys_req=$enableval],
-              [linsys_req=auto]
-              )
-
-case $host in
-    *-linux-*)
-        LINSYS_PATH=Linsys
-
-        LINSYS_INC=${LINSYS_PATH}/include
-
-        AC_CHECK_FILE(${LINSYS_INC}/master.h, FOUND_LINSYS_MASTER_H=yes, FOUND_LINSYS_MASTER_H=no)
-        AC_CHECK_FILE(${LINSYS_INC}/sdi.h, FOUND_LINSYS_SDI_H=yes, FOUND_LINSYS_SDI_H=no)
-
-        if test $linsys_req != no -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
-        then
-            LINSYS_INC="-I$LINSYS_INC -I$LINSYS_PATH/Examples"
-            LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
-            AC_DEFINE([HAVE_LINSYS], [1], [Build with Linsys support])
-            AC_SUBST(LINSYS_LIB_TARGET, "lib/ultragrid/vidcap_linsys.so.$video_capture_abi_version")
-            LIB_TARGETS="$LIB_TARGETS $LINSYS_LIB_TARGET"
-            LIB_OBJS="$LIB_OBJS $LINSYS_OBJ"
-            linsys=yes
-        else
-            LINSYS_PATH=
-            LINSYS_INC=
-            LINSYS_OBJ=
-        fi
-    ;;
-esac
-
-if test $linsys_req = yes -a $linsys = no; then
-        AC_MSG_ERROR([Linsys not found]);
-fi
-
-AC_SUBST(LINSYS_PATH)
-AC_SUBST(LINSYS_INC)
-AC_SUBST(LINSYS_OBJ)
-
-# -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
 # -------------------------------------------------------------------------------------------------
 BLUEFISH444_PATH=
@@ -2749,7 +2701,6 @@ RESULT=\
   DirectShow .................. $dshow
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
-  Linsys capture .............. $linsys
   OpenGL ...................... $gl
   Quicktime ................... $quicktime
   SAGE ........................ $sage
