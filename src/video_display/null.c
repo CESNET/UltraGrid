@@ -47,6 +47,7 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/null.h"
 
@@ -72,11 +73,6 @@ void *display_null_init(char *fmt, unsigned int flags)
 void display_null_run(void *arg)
 {
         UNUSED(arg);
-}
-
-void display_null_finish(void *state)
-{
-        UNUSED(state);
 }
 
 void display_null_done(void *state)

@@ -1,5 +1,5 @@
 /*
- * FILE:    video_decompress/dxt_glsl.c
+ * FILE:    vo_postprocess/3d-interlaced.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -55,7 +55,7 @@
 #include <stdlib.h>
 
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess/3d-interlaced.h"
 

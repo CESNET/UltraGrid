@@ -5,7 +5,6 @@ AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_MACRO_DIR([m4])
-LT_INIT
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
 
@@ -161,7 +160,12 @@ then
         CFLAGS="$CFLAGS -fPIC"
         CXXFLAGS="$CXXFLAGS -fPIC"
         NVCCFLAGS="$NVCCFLAGS -Xcompiler -fPIC"
+        CU_SUFFIX="cu.o"
+else
+        NVCCFLAGS="-m32"
+        CU_SUFFIX="cu.lib"
 fi
+AC_SUBST(NVCCFLAGS)
 
 AH_BOTTOM([
 /*
@@ -205,6 +209,8 @@ fi
 # Licensing
 # -------------------------------------------------------------------------------------------------
 # default UltraGrid license
+license="BSD License"
+
 gpl=no
 AC_ARG_ENABLE(gpl,
               AS_HELP_STRING([--enable-gpl], [allow use of GPL code, ]
@@ -239,6 +245,31 @@ AC_DEFUN([DEFINE_GL], [
           fi
           AC_SUBST(GL_COMMON_OBJ)
           ])
+
+AC_DEFUN([CUDA_MESSAGE], [
+          if test -z "$cuda_msg_defined"; then
+                  POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in sort of CUDA code.\nIn order to use use it compression and \
+decompression, you will need to have CUDA libraries visible to your OS.\n\
+If not done so, you can accomplish this by adding line:\n\
+        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
+to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
+        exec bash\n***\n"
+                  cuda_msg_defined=yes
+          fi
+        ])
+
+AC_DEFUN([DEFINE_CUDA], [
+          if test -z "$cuda_var_defined"; then
+                  AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
+                  CUDA_COMMON_OBJ=src/cuda_wrapper.$CU_SUFFIX
+                  if test $system = Windows; then
+                          DLL_LIBS="$DLL_LIBS src/cuda_wrapper.cu.dll"
+                  fi
+                  AC_SUBST(CUDA_COMMON_OBJ)
+                  cuda_var_defined=yes
+          fi
+        ])
+AC_SUBST(DLL_LIBS)
 
 AC_MSG_CHECKING([if_nametoindex])
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -384,32 +415,27 @@ fi
 # Dynamic libraries stuff
 #
 build_libraries=no
-AC_ARG_ENABLE(dlsym, AS_HELP_STRING([--enable-dlsym], [build modules as libraries (default is off)]),
+AC_ARG_ENABLE(plugins, AS_HELP_STRING([--enable-plugins], [build modules as libraries (default is off)]),
 	[build_libraries=$enableval])
 
 if test "$build_libraries" = yes
 then
         if test "$system" = "Linux"
         then
-                LIBS+=' -ldl'
+                LIBS="$LIBS -ldl"
+                LDFLAGS="$LDFLAGS -rdynamic -ldl"
         else
-                AC_MSG_WARN([*** Building libraries is not supported with Mac OS X])
+                AC_MSG_WARN([*** Building libraries is not supported with other system than Linux])
                 build_libraries=no
         fi
         AC_DEFINE([BUILD_LIBRARIES], [1], [Build drivers as a standalone libraries])
 fi
 
-common_lib_abi_version=1
-AC_DEFINE_UNQUOTED([COMMON_LIB_ABI_VERSION], $common_lib_abi_version, [Specifies ABI version for shared objects])
-AC_SUBST(common_lib_abi_version)
-AC_SUBST(COMMON_LIB_TARGET, "lib/ultragrid/ug_lib_common.so.$common_lib_abi_version")
-LIB_TARGETS="$LIB_TARGETS $COMMON_LIB_TARGET"
-
-video_display_abi_version=5
-video_capture_abi_version=2
-video_compress_abi_version=2
+video_display_abi_version=6
+video_capture_abi_version=3
+video_compress_abi_version=3
 video_decompress_abi_version=3
-audio_capture_abi_version=3
+audio_capture_abi_version=4
 audio_playback_abi_version=4
 audio_codec_abi_version=1
 vo_pp_abi_version=3
@@ -433,7 +459,7 @@ AC_SUBST(vo_pp_abi_version)
 # ------------------------------------------------------------------------------------------------
 # environment variables
 #
-AC_ARG_VAR([CUDA_DIRECTORY], [Directory of your Nvidia toolkit instalation.])
+AC_ARG_VAR([CUDA_PATH], [Directory of your Nvidia toolkit instalation.])
 AC_ARG_VAR([SAGE_DIRECTORY], [Directory of your SAGE installation.])
 AC_ARG_VAR([DVS_DIRECTORY], [Path to DVS installation.])
 AC_ARG_VAR([DELTACAST_DIRECTORY], [Placement of VideoMasterHD directory (Deltacast).])
@@ -685,7 +711,6 @@ then
         DECKLINK_COMMON="src/video_capture/DeckLinkAPIDispatch.o"
     fi
     AC_DEFINE([HAVE_DECKLINK], [1], [Build with DeckLink support])
-    LINKER=$CXX
     AC_SUBST(DECKLINK_CAP_LIB_TARGET, "lib/ultragrid/vidcap_decklink.so.$video_capture_abi_version")
     AC_SUBST(DECKLINK_DISP_LIB_TARGET, "lib/ultragrid/display_decklink.so.$video_display_abi_version")
     AC_SUBST(DECKLINK_SOUND_PLAY_LIB_TARGET, "lib/ultragrid/aplay_decklink.so.$audio_playback_abi_version")
@@ -713,54 +738,6 @@ AC_SUBST(DECKLINK_LIB)
 AC_SUBST(DECKLINK_CAP_OBJ)
 AC_SUBST(DECKLINK_DISP_OBJ)
 AC_SUBST(DECKLINK_SOUND_PLAY_OBJ)
-
-# -------------------------------------------------------------------------------------------------
-# HD-SDI Master Quad stuff
-
-LINSYS_PATH=
-LINSYS_OBJ=
-LINSYS_INC=
-linsys=no
-
-AC_ARG_ENABLE(linsys,
-              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
-              [linsys_req=$enableval],
-              [linsys_req=auto]
-              )
-
-case $host in
-    *-linux-*)
-        LINSYS_PATH=Linsys
-
-        LINSYS_INC=${LINSYS_PATH}/include
-
-        AC_CHECK_FILE(${LINSYS_INC}/master.h, FOUND_LINSYS_MASTER_H=yes, FOUND_LINSYS_MASTER_H=no)
-        AC_CHECK_FILE(${LINSYS_INC}/sdi.h, FOUND_LINSYS_SDI_H=yes, FOUND_LINSYS_SDI_H=no)
-
-        if test $linsys_req != no -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
-        then
-            LINSYS_INC="-I$LINSYS_INC -I$LINSYS_PATH/Examples"
-            LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
-            AC_DEFINE([HAVE_LINSYS], [1], [Build with Linsys support])
-            AC_SUBST(LINSYS_LIB_TARGET, "lib/ultragrid/vidcap_linsys.so.$video_capture_abi_version")
-            LIB_TARGETS="$LIB_TARGETS $LINSYS_LIB_TARGET"
-            LIB_OBJS="$LIB_OBJS $LINSYS_OBJ"
-            linsys=yes
-        else
-            LINSYS_PATH=
-            LINSYS_INC=
-            LINSYS_OBJ=
-        fi
-    ;;
-esac
-
-if test $linsys_req = yes -a $linsys = no; then
-        AC_MSG_ERROR([Linsys not found]);
-fi
-
-AC_SUBST(LINSYS_PATH)
-AC_SUBST(LINSYS_INC)
-AC_SUBST(LINSYS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
@@ -864,7 +841,7 @@ fi
 
 
 
-if test $BLUE_H = yes -a $BLUE_L = yes
+if test $BLUE_H = yes -a $BLUE_L = yes -a $bluefish444_req != no
 then
         BLUEFISH444_CAP_OBJ="src/video_capture/bluefish444.o"
         BLUEFISH444_DISP_OBJ="src/video_display/bluefish444.o"
@@ -1045,7 +1022,7 @@ case $host_os in
 		AC_CHECK_HEADERS([QuickTime/QuickTime.h], [FOUND_QUICKTIME_H=yes], [echo "QuickTime headers not found."])
 		AC_CHECK_HEADERS([Carbon/Carbon.h], [FOUND_CARBON_H=yes], [echo "Carbon headers not found."])
 
-		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_QUICKTIME_H = yes
+		if test $quicktime_req != no -a $FOUND_QUICKTIME_H = yes -a $FOUND_CARBON_H = yes
 		then
 			QUICKTIME_INC=
 			QUICKTIME_LIB="-framework QuickTime -framework Carbon -framework AppKit -framework CoreAudio -framework AudioUnit"
@@ -1205,8 +1182,114 @@ AC_SUBST(SDL_OBJ)
 AC_SUBST(SDL_LIBS)
 
 # -------------------------------------------------------------------------------------------------
-# Testcard stuff
+# RTSP capture stuff
+# -------------------------------------------------------------------------------------------------
+RTSP_INC=
+RTSP_LIB=
+RTSP_OBJ=
+rtsp=no
+curl=no
+glib=no
 
+AC_ARG_ENABLE(rtsp,
+      AS_HELP_STRING([--disable-rtsp], [disable RTSP support(default is auto)]),
+    [rtsp_req=$enableval],
+    [rtsp_req=auto]
+    )
+
+case $host in
+    *-linux-*)
+		PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.24.1], FOUND_GLIB_H=yes, FOUND_GLIB_H=no)
+		PKG_CHECK_MODULES([CURL], [libcurl], FOUND_CURL_H=yes, FOUND_CURL_H=no)
+
+		if test $rtsp_req != no -a $FOUND_CURL_H = yes -a $FOUND_GLIB_H = yes  
+		then
+			AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
+	        SAVED_CFLAGS=$CFLAGS
+	        CFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
+	        SAVED_CXXFLAGS=$CXXFLAGS
+	        CXXFLAGS="$CXXFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"	        
+			RTSP_INC=
+			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
+			RTSP_OBJ="src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+                        AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
+                        LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
+                        LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
+                        rtsp=yes
+                        curl=yes
+                        glib=yes
+		fi
+    ;;
+esac
+
+if test $rtsp_req = yes -a $rtsp = no; then
+        AC_MSG_ERROR([rtsp not found, check curl or glib dependencies...]);
+fi
+
+LIB_MODULES="$LIB_MODULES $RTSP_LIB"
+
+AC_SUBST(RTSP_INC)
+AC_SUBST(RTSP_LIB)
+AC_SUBST(RTSP_OBJ)
+
+
+
+# -------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------
+# RTSP server stuff
+# -------------------------------------------------------------------------------------------------
+RTSP_SERVER_INC=
+RTSP_SERVER_LIB=
+RTSP_SERVER_OBJ=
+rtsp_server=no
+livemedia=no
+
+
+AC_ARG_ENABLE(rtsp_server,
+      AS_HELP_STRING([--disable-rtsp-server], [disable RTSP server support(default is auto)]),
+    [rtsp_server_req=$enableval],
+    [rtsp_server_req=auto]
+    )
+
+case $host in
+    *-linux-*)
+
+		AC_CHECK_FILE(/usr/include/liveMedia/liveMedia.hh, [FOUND_LIVE_H=yes], [echo "liveMedia (live555 library) headers not found; may apt-get install liblivemedia-dev"; FOUND_LIVE_H=no])
+
+		if test $rtsp_server_req != no -a $FOUND_LIVE_H = yes 
+		then
+			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
+	        SAVED_CFLAGS=$CFLAGS
+	        CFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
+	        SAVED_CXXFLAGS=$CXXFLAGS
+	        CXXFLAGS="$CXXFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
+			RTSP_SERVER_INC=
+			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
+			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"
+                        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/rtsp_server.so.$video_capture_abi_version")
+                        LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
+                        LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
+                        rtsp_server=yes
+                        livemedia=yes
+		fi
+    ;;
+esac
+
+if test $rtsp_server_req = yes -a $rtsp_server = no; then
+        AC_MSG_ERROR([rtsp server not found, check live555 -livemedia lib- dependencies...]);
+fi
+
+LIB_MODULES="$LIB_MODULES $RTSP_SERVER_LIB"
+
+AC_SUBST(RTSP_SERVER_INC)
+AC_SUBST(RTSP_SERVER_LIB)
+AC_SUBST(RTSP_SERVER_OBJ)
+
+
+
+# -------------------------------------------------------------------------------------------------
+# Testcard stuff
+# -------------------------------------------------------------------------------------------------
 AC_ARG_ENABLE(testcard-extras,
       AS_HELP_STRING([--enable-testcard-extras], [enable testcard addons - audio and testcard2 (default is disabled)]),
     [testcard_extras_req=$enableval],
@@ -1230,23 +1313,23 @@ then
         LIBS=$SAVED_LIBS
         if test "$ac_cv_lib_SDL_mixer_Mix_PlayMusic" = yes
         then
-                TESTCARD_LIB="-lSDL -lSDL_mixer $X11_LIB"
+                TESTCARD2_LIB="-lSDL_mixer"
         fi
 
         TESTCARD2_OBJ=
-        TESTCARD2_LIB=
         if test $sdl = yes
         then
                 TESTCARD2_OBJ="src/video_capture/testcard2.o"
-                TESTCARD2_LIB=$SDL_LIB
+                TESTCARD2_LIB="$TESTCARD2_LIB $SDL_LIB $X11_LIB"
                 SAVED_LIBS=$LIBS
                 AC_CHECK_LIB(SDL_ttf, TTF_Init)
                 LIBS=$SAVED_LIBS
                 if test "$ac_cv_lib_SDL_ttf_TTF_Init" = yes
                 then
                         TESTCARD2_LIB="$TESTCARD2_LIB -lSDL_ttf"
+                        AC_DEFINE([HAVE_LIBSDL_TTF], [1], [Build testcard2 with TTF support])
                 fi
-                AC_DEFINE([HAVE_TESTCARD], [1], [Build with testcard2 capture])
+                AC_DEFINE([HAVE_TESTCARD2], [1], [Build with testcard2 capture])
                 AC_SUBST(TESTCARD2_LIB_TARGET, "lib/ultragrid/vidcap_testcard2.so.$video_capture_abi_version")
                 LIB_TARGETS="$LIB_TARGETS $TESTCARD2_LIB_TARGET"
                 LIB_OBJS="$LIB_OBJS $TESTCARD2_OBJ"
@@ -1595,9 +1678,14 @@ esac
 
 if test $screen_cap = yes
 then
-        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen_capture])
+        AC_DEFINE([HAVE_SCREEN_CAP], [1], [Build with screen capture])
         AC_SUBST(SCREEN_CAP_LIB_TARGET, "lib/ultragrid/vidcap_screen.so.$video_capture_abi_version")
-        SCREEN_CAP_OBJ="src/video_capture/screen.o"
+        if test $system = MacOSX; then
+                SCREEN_CAP_OBJ="src/video_capture/screen_osx.o"
+        else if test $system = Linux; then
+                SCREEN_CAP_OBJ="src/video_capture/screen_x11.o"
+        fi
+        fi
         LIB_TARGETS="$LIB_TARGETS $SCREEN_CAP_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $SCREEN_CAP_OBJ"
 fi
@@ -1611,65 +1699,6 @@ LIB_MODULES="$LIB_MODULES $SCREEN_CAP_LIB"
 AC_SUBST(SCREEN_CAP_INC)
 AC_SUBST(SCREEN_CAP_LIB)
 AC_SUBST(SCREEN_CAP_OBJ)
-
-
-# -------------------------------------------------------------------------------------------------
-# FastDXT stuff
-fastdxt=no
-fastdxt_req=no
-FASTDXT_OBJ=
-
-AC_ARG_ENABLE(fastdxt,
-	[  --enable-fastdxt        enable FastDXT (default is off)],
-	[fastdxt_req=$enableval])
-
-FASTDXT_PATH=
-AC_ARG_WITH(fastdxt,
-            AS_HELP_STRING([--with-fastdxt], [spedcify location of FastDXT]),
-            [FASTDXT_PATH=$withval
-            ])
-
-FASTDXT_INC=$FASTDXT_PATH
-
-if test $fastdxt_req = yes -a $gpl = no; then
-        AC_MSG_ERROR([FastDXT is GPL and --enable-gpl is not specified.])
-fi
-
-FOUND_FASTDXT_H=no
-
-if test ! -z $FASTDXT_PATH; then
-        AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
-        #AC_LANG_PUSH(C++)
-        #AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
-        #AC_LANG_POP(C++)
-fi
-
-if test $fastdxt_req = yes -a $FOUND_FASTDXT_H = yes
-then
-	FASTDXT_INC=-I${FASTDXT_INC}
-	FASTDXT_LIB=""
-	FASTDXT_OBJ="$FASTDXT_OBJ src/video_compress/fastdxt.o ${FASTDXT_PATH}/libdxt.a"
-        AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
-	LINKER=$CXX
-        AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
-        LIB_TARGETS="$LIB_TARGETS $FASTDXT_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $FASTDXT_OBJ"
-        fastdxt=yes
-else
-	FASTDXT_INC=
-	FASTDXT_LIB=
-fi
-
-if test $fastdxt_req = yes -a $fastdxt = no; then
-        AC_MSG_ERROR([FastDXT not found]);
-fi
-
-LIB_MODULES="$LIB_MODULES $FASTDXT_LIB"
-
-AC_SUBST(FASTDXT_PATH)
-AC_SUBST(FASTDXT_INC)
-AC_SUBST(FASTDXT_LIB)
-AC_SUBST(FASTDXT_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
@@ -1777,10 +1806,8 @@ AC_SUBST(UYVY_LIB)
 CUDA_INC=
 CUDA_LIB=
 NVCC=
-NVCCFLAGS=
 CUDA_LIB_PATH=
 FOUND_CUDA=no
-HAVE_CUDA=no
 CUDA_PATH=$CUDA_DIRECTORY
 
 AC_ARG_WITH(cuda,
@@ -1792,18 +1819,12 @@ SAVED_LIBS=$LIBS
 LIBS="$LIBS -lcudart"
 if test -z "$CUDA_PATH"
 then
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
-                           ]],
-                           [[int devices_count;
-                            cudaGetDeviceCount(&devices_count);
-                            ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
         AC_CHECK_PROG([NVCC], [nvcc], [nvcc],
                       [])
 fi
 
-if test $FOUND_CUDA = no -o -z "$NVCC"
+if test -z "$NVCC"
 then
-        FOUND_CUDA=no
         NVCC=
         if test -z "$CUDA_PATH"; then
                 CUDA_PATH=/usr/local/cuda
@@ -1816,11 +1837,6 @@ then
         else
                 LIBS="$LIBS -L$CUDA_PATH/lib"
         fi
-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <cuda_runtime_api.h>
-                           ]],
-                           [[int devices_count;
-                            cudaGetDeviceCount(&devices_count);
-                            ]])],FOUND_CUDA=yes,FOUND_CUDA=no)
         CFLAGS=$SAVED_CFLAGS
         AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
                       [],
@@ -1829,9 +1845,17 @@ fi
 
 LIBS=$SAVED_LIBS
 
-if test -n "$NVCC" -a $FOUND_CUDA = yes
+if test -n "$NVCC"
 then
-        HAVE_CUDA=yes
+        if test $system = Windows; then
+                AC_CHECK_PROG([CL], [cl], [cl],
+                              [])
+                if test -n $CL; then
+                        FOUND_CUDA=yes
+                fi
+        else
+                FOUND_CUDA=yes
+        fi
 	AC_MSG_CHECKING([CUDA Toolkit version - major])
         nvcc_major=`$NVCC --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_major)
@@ -1854,10 +1878,8 @@ then
         CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
 fi
 
-AC_SUBST(HAVE_CUDA)
 AC_SUBST(NVCC)
 AC_SUBST(FOUND_CUDA)
-AC_SUBST(NVCCFLAGS)
 AC_SUBST(CUDA_PATH)
 AC_SUBST(CUDA_LIB)
 AC_SUBST(CUDA_INC)
@@ -1871,10 +1893,9 @@ JPEG_INC=
 JPEG_LIB=
 
 jpeg=no
-jpeg_static=no
 
 AC_ARG_ENABLE(jpeg,
-      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto if GPUJPEG library in system)]),
+      AS_HELP_STRING([--disable-jpeg], [disable JPEG compression (auto)]),
 	[jpeg_req=$enableval],
         [jpeg_req=auto])
 
@@ -1889,64 +1910,34 @@ CFLAGS=$SAVED_CFLAGS
 CXXFLAGS=$SAVED_CXXFLAGS
 CPPFLAGS=$SAVED_CPPFLAGS
 
-if test $HAVE_CUDA = yes
+if test $system = Windows
 then
-        if test \( $nvcc_major -gt 4 \) -o \( $nvcc_major -eq 4 -a $nvcc_minor -ge 1 \) -o $version_check = no
-        then
-                jpeg_cuda_version_ok=yes
-        else
-                AC_MSG_WARN([*** CUDA Toolkit older than 4.1 detected. Please install at least v4.1 to use JPEG.])
-                HM_VERSION_WARNING
-        fi
-
-        if test $version_check = no -o \
-                \( $system = Linux -o $os_version_major -ge 10 \) # Linux or Mac at least Snow Leopard
-        then
-                jpeg_os_version_ok=yes
-        else
-                AC_MSG_WARN([*** Detected unsupported OS version for CUDA.])
-                HM_VERSION_WARNING
-        fi
+        JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release"
+        DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
 fi
 
 SAVED_LIBS=$LIBS
-AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create], [
-    jpeg_static=no
-], [
-    jpeg_static=yes
-], "$CUDA_LIB")
-
+LIBS="$LIBS $JPEG_LIB"
+AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
 LIBS=$SAVED_LIBS
 
-if test \( "$jpeg_req" = yes -o \( "$jpeg_req" = auto -a $jpeg_static = no \) \) -a \
-        $HAVE_CUDA = yes -a "$jpeg_cuda_version_ok" = yes -a \
-        "$jpeg_os_version_ok" = yes
+if test "$jpeg_req" != no -a \
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
 then
         jpeg=yes
 
-        JPEG_LIB=" $CUDA_LIB"
-        JPEG_INC=" $CUDA_INC"
+        JPEG_INC="$JPEG_INC -Igpujpeg"
         JPEG_COMMON_OBJ="src/video_compress/jpeg.o"
-        if test $jpeg_static = yes; then
-                JPEG_COMMON_OBJ="$JPEG_COMMON_OBJ gpujpeg/.libs/libgpujpeg.a"
-                JPEG_INC="$JPEG_INC -Igpujpeg"
-        else
-                JPEG_LIB="$JPEG_LIB -lgpujpeg"
-        fi
+        JPEG_LIB="$JPEG_LIB -lgpujpeg"
         JPEG_DECOMPRESS_OBJ="src/video_decompress/jpeg.o "
-        LINKER=$CXX
-        AC_DEFINE([HAVE_CUDA], [1], [CUDA is present on the system])
         AC_DEFINE([HAVE_JPEG], [1], [Build with JPEG support])
         AC_SUBST(JPEG_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_jpeg.so.$video_compress_abi_version")
         AC_SUBST(JPEG_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $JPEG_COMPRESS_LIB_TARGET $JPEG_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $JPEG_DECOMPRESS_OBJ $JPEG_COMMON_OBJ"
-        POST_COMPILE_MSG="$POST_COMPILE_MSG\n***\nYou have compiled in JPEG support.\nIn order to use use JPEG compression and \
-decompression, you will need to have CUDA libraries visible to your OS.\n\
-If not done so, you can accomplish this by adding line:\n\
-        export LD_LIBRARY_PATH=$CUDA_LIB_PATH:\\\$\$LD_LIBRARY_PATH\n\
-to your .bashrc file (in home directory). To take effect immediatelly, you will need to enter:\n\
-        exec bash\n***\n"
+        CUDA_MESSAGE
 fi
 
 if test $jpeg_req = yes -a $jpeg = no; then
@@ -1962,14 +1953,93 @@ AC_SUBST(JPEG_INC)
 AC_SUBST(JPEG_LIB)
 
 # -------------------------------------------------------------------------------------------------
+# CUDA DXT
+# -------------------------------------------------------------------------------------------------
+CUDA_DXT_OBJ=
+CUDA_DXT_INC=
+CUDA_DXT_LIB=
+
+cuda_dxt=no
+
+AC_DEFUN([ADD_CUDA_DXT_OBJ], [
+          if test -z "$included_shared_cuda_dxt_cu"; then
+                  LIB_OBJS="$LIB_OBJS cuda_dxt/cuda_dxt.$CU_SUFFIX"
+                  if test $system = Windows; then
+                          DLL_LIBS="$DLL_LIBS cuda_dxt/cuda_dxt.cu.dll"
+                  fi
+                  included_shared_cuda_dxt_cu=yes
+          fi
+        ])
+
+AC_ARG_ENABLE(cuda-dxt,
+      AS_HELP_STRING([--disable-cuda-dxt], [disable CUDA DXT compression (auto)]),
+	[cuda_dxt_req=$enableval],
+        [cuda_dxt_req=auto])
+
+LIBS=$SAVED_LIBS
+
+if test "$cuda_dxt_req" != no -a $FOUND_CUDA = yes
+then
+        cuda_dxt=yes
+
+        CUDA_DXT_LIB=" $CUDA_LIB"
+        CUDA_DXT_INC=$CUDA_INC
+        CUDA_DXT_OBJ="src/video_compress/cuda_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
+        AC_DEFINE([HAVE_CUDA_DXT], [1], [Build with CUDA DXT support])
+        AC_SUBST(CUDA_DXT_COMPRESS_LIB_TARGET, "lib/ultragrid/vcompress_cuda_dxt.so.$video_compress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $CUDA_DXT_COMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS src/video_compress/cuda_dxt.o"
+        ADD_CUDA_DXT_OBJ
+        DEFINE_CUDA
+        CUDA_MESSAGE
+fi
+
+if test $cuda_dxt_req = yes -a $cuda_dxt = no; then
+        AC_MSG_ERROR([CUDA DXT not found]);
+fi
+
+LIB_MODULES="$LIB_MODULES $CUDA_DXT_LIB"
+
+AC_SUBST(CUDA_DXT_OBJ)
+AC_SUBST(CUDA_DXT_INC)
+AC_SUBST(CUDA_DXT_LIB)
+
+# -------------------------------------------------------------------------------------------------
 # JPEG to DXT plugin
 # -------------------------------------------------------------------------------------------------
-if test $jpeg = yes -a \
-        "$build_libraries" = no # only supported in a "bundle" build
+jpeg_to_dxt=no
+AC_ARG_ENABLE(jpeg_to_dxt,
+              AS_HELP_STRING([--disable-jpeg-to-dxt], [disable JPEG to DXT transcoder (default is auto)]),
+              [jpeg_to_dxt_req=$enableval],
+              [jpeg_to_dxt_req=auto])
+
+if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
+        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
 then
-        LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.cu.o"
+        jpeg_to_dxt=yes
+        JPEG_TO_DXT_INC=" $CUDA_INC"
+        JPEG_TO_DXT_LIB=" $CUDA_LIB -lgpujpeg"
+        JPEG_TO_DXT_OBJ="src/video_decompress/jpeg_to_dxt.o cuda_dxt/cuda_dxt.$CU_SUFFIX"
+        AC_SUBST(JPEG_TO_DXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_jpeg_to_dxt.so.$video_decompress_abi_version")
+        LIB_TARGETS="$LIB_TARGETS $JPEG_TO_DXT_DECOMPRESS_LIB_TARGET"
+        LIB_OBJS="$LIB_OBJS src/video_decompress/jpeg_to_dxt.o"
         AC_DEFINE([HAVE_JPEG_TO_DXT], [1], [Build with JPEG to DXT transcode support])
+        ADD_CUDA_DXT_OBJ
+        DEFINE_CUDA
+        CUDA_MESSAGE
 fi
+
+if test $jpeg_to_dxt = no -a $jpeg_to_dxt_req = yes
+then
+        AC_MSG_ERROR([JPEG to DXT transcoder not found])
+fi
+
+AC_SUBST(JPEG_TO_DXT_OBJ)
+AC_SUBST(JPEG_TO_DXT_INC)
+AC_SUBST(JPEG_TO_DXT_LIB)
+
+LIB_MODULES="$LIB_MODULES $JPEG_TO_DXT_LIB"
 
 # -------------------------------------------------------------------------------------------------
 # SAGE stuff
@@ -1992,12 +2062,7 @@ AC_ARG_ENABLE(sage-native-dxt5ycocg,
 if test -n "$SAGE_DIRECTORY"
 then
         SAGE_INC=$SAGE_DIRECTORY/include
-        if test -d "$SAGE_CIRECTORY/lib64"
-        then
-                SAGE_LIB="$SAGE_DIRECTORY/lib64"
-        else
-                SAGE_LIB="$SAGE_DIRECTORY/lib"
-        fi
+        SAGE_LIB=$SAGE_DIRECTORY/lib
 else
         SAGE_INC=sage3.0/include
         SAGE_LIB=sage3.0/lib
@@ -2020,10 +2085,10 @@ if test $sage_req != no -a $FOUND_SAGE_L = yes -a $FOUND_SAGE_H = yes
 then
     SAGE_INC=-I${SAGE_INC}
     SAGE_LIB=-"L${SAGE_LIB} -lsail -lquanta"
-    SAGE_OBJ="src/video_display/sage.o src/video_display/sage_wrapper.o"
+    SAGE_OBJ="src/video_display/sage.o"
     AC_DEFINE([HAVE_SAGE], [1], [Build with SAGE support])
-    LINKER=$CXX
     AC_SUBST(SAGE_LIB_TARGET, "lib/ultragrid/display_sage.so.$video_display_abi_version")
+    CXXFLAGS="$CXXFLAGS -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV"
     LIB_TARGETS="$LIB_TARGETS $SAGE_LIB_TARGET"
     LIB_OBJS="$LIB_OBJS $SAGE_OBJ"
     sage=yes
@@ -2496,12 +2561,10 @@ fi
 # -------------------------------------------------------------------------------------------------
 
 # this is only needed when passing to "clean" make target
-if test "$build_libraries" = yes
+if test "$build_libraries" != yes
 then
-        LIB_SUPPORT_OBJ="src/lib_common.o"
-else
         LIBS="$LIBS $LIB_MODULES"
-        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ"
+        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
         HEADERS="$HEADERS $LIB_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
@@ -2535,15 +2598,30 @@ fi
 AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
 
 # -------------------------------------------------------------------------------------------------
-# Run subsequent configure scripts
+# OpenSSL-libcrypto
 # -------------------------------------------------------------------------------------------------
-if test $jpeg = yes -a $jpeg_static = yes
-then
-        AC_MSG_NOTICE(
-[
-Configuring JPEG
-])
-        /bin/sh -c "cd gpujpeg; ./configure --with-cuda=$CUDA_PATH"
+crypto=no
+crypto_req=auto
+AC_ARG_ENABLE(openssl,
+      AS_HELP_STRING([--disable-openssl], [disable OpenSSL support(default is auto)]),
+    [crypto_req=$enableval],
+    [crypto_req=auto]
+    )
+
+PKG_CHECK_MODULES([CRYPTO], [libcrypto], [crypto=yes], [crypto=no])
+
+if test $crypto_req != no -a $crypto = yes; then
+        AC_DEFINE([HAVE_CRYPTO], [1], [Build with OpenSSL support])
+        CFLAGS="$CFLAGS $CRYPTO_CFLAGS"
+        CXXFLAGS="$CXXFLAGS $CRYPTO_CFLAGS"
+        CPPFLAGS="$CPPFLAGS $CRYPTO_CFLAGS"
+        LIBS="$LIBS $CRYPTO_LIBS"
+else
+        crypto=no
+fi
+
+if test $crypto_req = yes -a $crypto = no; then
+        AC_MSG_ERROR([OpenSSL not found]);
 fi
 
 LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
@@ -2560,19 +2638,24 @@ RESULT=\
   Standalone modules .......... $build_libraries
   License ..................... $license
   iHDTV support ............... $ihdtv
+  OpenSSL-libcrypto ........... $crypto
+  Library glib ................ $glib
+  Library curl ................ $curl
+  Library live555 ............. $livemedia
 
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
   DirectShow .................. $dshow
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
-  Linsys capture .............. $linsys
   OpenGL ...................... $gl
   Quicktime ................... $quicktime
   SAGE ........................ $sage
   SDL ......................... $sdl
   Screen Capture .............. $screen_cap
   V4L2 ........................ $v4l2
+  RTSP Capturer Client ........ $rtsp
+  RTSP Server ................. $rtsp_server
   SW Video Mix ................ $swmix
 
   Portaudio ................... $portaudio
@@ -2581,9 +2664,10 @@ RESULT=\
   JACK  ....................... $jack
   JACK transport .............. $jack_trans
 
-  FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
-  JPEG ........................ $jpeg (static: $jpeg_static)
+  JPEG ........................ $jpeg
+  JPEG to DXT ................. $jpeg_to_dxt
+  CUDA DXT .................... $cuda_dxt
   UYVY dummy compression ...... $uyvy
   Libavcodec .................. $libavcodec
 

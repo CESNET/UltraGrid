@@ -42,13 +42,7 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
 
 struct state_audio_capture;
 struct audio_frame;
@@ -67,9 +61,9 @@ struct audio_frame         *audio_capture_read(struct state_audio_capture * stat
 void                        audio_capture_finish(struct state_audio_capture * state);
 void                        audio_capture_done(struct state_audio_capture * state);
 
-/**
- * @return flags to be passed to video capture driver */
-unsigned int                audio_capture_get_vidcap_flags(struct state_audio_capture *s);
+unsigned int                audio_capture_get_vidcap_flags(const char *device_name);
+unsigned int                audio_capture_get_vidcap_index(const char *device_name);
+const char                 *audio_capture_get_driver_name(struct state_audio_capture * state);
 /**
  * returns directly state of audio capture device. Little bit silly, but it is needed for
  * SDI (embedded sound).

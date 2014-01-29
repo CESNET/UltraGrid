@@ -47,6 +47,8 @@
 
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
+
 #include "debug.h"
 #include "video_decompress/null.h"
 #include <stdlib.h>

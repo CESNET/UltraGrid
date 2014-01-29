@@ -1,8 +1,6 @@
 /*
- * FILE:    swmix.c
- * AUTHOR:  Martin Pulec     <pulec@cesnet.cz>
- *
- * Copyright (c) 2012 CESNET z.s.p.o.
+ * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -15,12 +13,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *
- *      This product includes software developed by CESNET z.s.p.o.
- *
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -36,8 +29,20 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+/**
+ * @file   video_capture/swmix.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ *
+ * @brief SW video mix is a virtual video mixer.
+ *
+ * @todo
+ * Reenable configuration file position matching.
+ *
+ * @todo
+ * Refactor to use also different scalers than OpenGL (eg. libswscale)
+ */
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -47,7 +52,8 @@
 #include "debug.h"
 #include "gl_context.h"
 #include "host.h"
-#include "video_codec.h"
+#include "utils/config_file.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
@@ -59,9 +65,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "video_display.h"
-#include "video.h"
-
 #define MAX_AUDIO_LEN (1024*1024)
 
 using namespace std;
@@ -70,10 +73,6 @@ typedef enum {
         BICUBIC,
         BILINEAR
 } interpolation_t;
-
-extern void (*vidcap_finish_extrn)(struct vidcap*);
-extern void (*vidcap_done_extrn)(struct vidcap*);
-extern struct video_frame *(*vidcap_grab_extrn)(struct vidcap *state, struct audio_frame **audio);
 
 /*
  * Bicubic interpolation taken from:
@@ -173,12 +172,10 @@ static void show_help(void);
 static void *master_worker(void *arg);
 static void *slave_worker(void *arg);
 static char *get_config_name(void);
-static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
-                FILE **config_file, unsigned int flags);
-static bool get_slave_param_from_file(FILE* config, char *slave_name, int *x, int *y,
+static bool get_slave_param_from_file(FILE* config, const char *slave_name, int *x, int *y,
                                         int *width, int *height);
 static bool get_device_config_from_file(FILE* config_file, char *slave_name,
-                char *device_name_config);
+                char *device_name_config) __attribute__((unused));
 
 static char *get_config_name()
 {
@@ -197,16 +194,12 @@ static void show_help()
 {
         printf("SW Mix capture\n");
         printf("Usage\n");
-        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]]#<dev1_config>#"
-                        "<dev2_config>[#....]\n");
+        printf("\t-t swmix:<width>:<height>:<fps>[:<codec>[:interpolation=<i_type>[,<algo>]]] "
+                        "-t <dev1_config> -t <dev2_config>\n");
         printf("\tor\n");
-        printf("\t-t swmix:file#<dev1_name>[@<dev1_config>]#"
-                        "<dev2_name>[@<dev2_config>][#....]\n");
-        printf("\t\twhere <devn_config> is a complete configuration string of device\n"
-                        "\t\t\tinvolved in an SW mix device, if not set, must be filled in\n"
-                        "\t\t\tthe config file (last item)\n");
-        printf("\t\t<devn_name> is an input name (to be matched against config file %s)\n",
-                        get_config_name());
+        printf("\t-t swmix:file -t <dev1_config> -t <dev2_config> ...\n");
+        printf("\t\twhere <devn_config> is a configuration string of device as usual -\n"
+                        "\t\t\tdevice config string or alias from UG config file");
         printf("\t\t<width> widht of resulting video\n");
         printf("\t\t<height> height of resulting video\n");
         printf("\t\t<fps> FPS of resulting video, may be eg. 25 or 50i\n");
@@ -214,22 +207,23 @@ static void show_help()
                         "RGB or UYVY (optional, default RGBA)\n");
         printf("\t\t<i_type> can be one of 'bilinear' or 'bicubic' (default)\n");
         printf("\t\t\t<algo> bicubic interpolation algorithm: CatMullRom, BSpline (default) or Triangular\n");
+        printf("\n");
+        printf("\t\tIn first variant, individual inputs are arranged automatically.\n");
+        printf("\t\tWith the second variant, you provide overall layout and layout for \n"
+                        "\t\tindividual inputs in SW mix config file (%s).\n", get_config_name());
 }
 
 struct state_slave {
         pthread_t           thread_id;
         bool                should_exit;
         pthread_mutex_t     lock;
-        char               *name;
-        char               *device_vendor;
-        char               *device_cfg;
-        unsigned int        vidcap_flags;
+        struct vidcap_params *device_params;
 
         struct video_frame *captured_frame;
         struct video_frame *done_frame;
 
-        bool                capture_audio;
         struct audio_frame  audio_frame;
+        bool                audio_captured;
 };
 
 struct vidcap_swmix_state {
@@ -249,6 +243,7 @@ struct vidcap_swmix_state {
         char               *completed_audio_buffer;
         int                 completed_audio_buffer_len;
         struct audio_frame  audio;
+        int                 audio_device_index; ///< index of video device from which to take audio
         queue<char *>       free_buffer_queue;
         pthread_cond_t      free_buffer_queue_not_empty_cv;
 
@@ -290,10 +285,13 @@ struct slave_data {
         struct video_desc   saved_desc;
         float               posX[4];
         float               posY[4];
-        GLuint              texture[2]; // original, RGB(A)
+        GLuint              texture[2]; // RGB(A), (UYVY)
         GLuint              fbo; // RGB(A)
         double              x, y, width, height; // in 1x1 unit space
         double              fb_aspect;
+
+        decoder_t           decoder;
+        codec_t             decoder_from, decoder_to;
 };
 
 static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
@@ -328,10 +326,11 @@ static struct slave_data *init_slave_data(vidcap_swmix_state *s, FILE *config) {
                         slaves_data[i].y = (i / (int) m) * slaves_data[i].height;
                 } else {
                         int x, y, width, height;
-                        if(!get_slave_param_from_file(config, s->slaves[i].name,
+                        if(!get_slave_param_from_file(config,
+                                                vidcap_params_get_name(s->slaves[i].device_params),
                                         &x, &y, &width, &height)) {
-                                fprintf(stderr, "Cannot find config for device "
-                                                "\"%s\"\n", s->slaves[i].name);
+                                fprintf(stderr, "Cannot find config for device \"%s\"\n",
+                                                vidcap_params_get_name(s->slaves[i].device_params));
                                 free(slaves_data);
                                 return NULL;
                         }
@@ -361,6 +360,7 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
 {
         glBindTexture(GL_TEXTURE_2D, s->texture[0]);
         switch (desc.color_spec) {
+                case UYVY:
                 case RGBA:
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
                                         0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -373,10 +373,6 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
                         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, desc.width, desc.height,
                                         0, GL_BGR, GL_UNSIGNED_BYTE, NULL);
                         break;
-                case UYVY:
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width / 2, desc.height,
-                                        0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-                        break;
                 default:
                         fprintf(stderr, "SW mix: Unsupported color spec.\n");
                         exit_uv(1);
@@ -384,7 +380,7 @@ static void reconfigure_slave_rendering(struct slave_data *s, struct video_desc 
 
         if(desc.color_spec == UYVY) {
                 glBindTexture(GL_TEXTURE_2D, s->texture[1]);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width, desc.height,
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, desc.width / 2, desc.height,
                                 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         }
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -474,6 +470,137 @@ void main() {
         gl_Position = ftransform();
 });
 
+static void check_for_slave_format_change(struct slave_data *s)
+{
+        struct video_desc desc = video_desc_from_frame(s->current_frame);
+
+        if(!video_desc_eq(desc, s->saved_desc)) {
+                codec_t in_codec = s->current_frame->color_spec;
+                codec_t out_codec = in_codec;
+                codec_t natively_supported[] = { RGB, BGR, RGBA, UYVY, VIDEO_CODEC_NONE };
+
+                // prepare decoder
+                if (!codec_is_in_set(desc.color_spec, natively_supported)) {
+                        int j = 0;
+                        while (natively_supported[j] != VIDEO_CODEC_NONE) {
+                                if ((s->decoder = get_decoder_from_to(out_codec, natively_supported[j], false))) {
+                                        s->decoder_from = desc.color_spec;
+                                        desc.color_spec = s->decoder_to = natively_supported[j];
+                                        break;
+                                }
+                                j++;
+                        }
+                }
+
+                reconfigure_slave_rendering(s, desc);
+                desc.color_spec = s->decoder_from;
+                s->saved_desc = desc;
+        }
+}
+
+static void load_texture(struct slave_data *s, GLuint from_uyvy)
+{
+        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+        int width = s->current_frame->tiles[0].width;
+        GLenum format;
+
+        codec_t in_codec = s->current_frame->color_spec;
+        codec_t out_codec = in_codec;
+        codec_t natively_supported[] = { RGB, BGR, RGBA, UYVY, VIDEO_CODEC_NONE };
+        decoder_t decoder = NULL;
+        if (!codec_is_in_set(out_codec, natively_supported)) {
+                if (s->decoder_from == in_codec) {
+                        out_codec = s->decoder_to;
+                        decoder = s->decoder;
+                }
+        }
+
+        switch (out_codec) {
+                case UYVY:
+                        width /= 2;
+                        format = GL_RGBA;
+                        break;
+                case RGB:
+                        format = GL_RGB;
+                        break;
+                case BGR:
+                        format = GL_BGR;
+                        break;
+                case RGBA:
+                        format = GL_RGBA;
+                        break;
+                default:
+                        error_msg("Unexpected color space %s!",
+                                        get_codec_name(out_codec));
+                        abort();
+        }
+        int src_height = s->current_frame->tiles[0].height;
+        int src_width = s->current_frame->tiles[0].width;
+        unsigned char *data = (unsigned char *) s->current_frame->tiles[0].data;
+        unsigned char *tmp = NULL, *in_gl_buffer = data;
+        if (decoder) {
+                tmp = in_gl_buffer = (unsigned char *) malloc(src_height *
+                                vc_get_linesize(src_width, out_codec));
+                for (int i = 0; i < src_height; ++i) {
+                        decoder(tmp + i * vc_get_linesize(src_width, out_codec),
+                                        data + i * vc_get_linesize(src_width, in_codec),
+                                        vc_get_linesize(src_width, out_codec), 0, 8, 16);
+                }
+        }
+
+        if(out_codec == UYVY) {
+                glBindTexture(GL_TEXTURE_2D, s->texture[1]);
+        } else {
+                glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+        }
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
+                        width, src_height, format, GL_UNSIGNED_BYTE, in_gl_buffer);
+        free(tmp);
+
+        if(out_codec == UYVY) {
+                glUseProgram(from_uyvy);
+                glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
+                glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
+                                (GLfloat) s->current_frame->tiles[0].width);
+
+                glBindFramebuffer(GL_FRAMEBUFFER, s->fbo);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
+                                GL_TEXTURE_2D, s->texture[0], 0);
+
+                glViewport(0, 0, s->current_frame->tiles[0].width,
+                                s->current_frame->tiles[0].height);
+                glBegin(GL_QUADS);
+                glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
+                glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
+                glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
+                glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
+                glEnd();
+                glUseProgram(0);
+        }
+}
+
+static void render_slave(struct slave_data *s, interpolation_t interpolation, GLuint bicubic_program)
+{
+        if(interpolation == BICUBIC) {
+                glUniform1f(glGetUniformLocation(bicubic_program, "fWidth"),
+                                (GLfloat) s->current_frame->tiles[0].width);
+                glUniform1f(glGetUniformLocation(bicubic_program, "fHeight"),
+                                (GLfloat) s->current_frame->tiles[0].height);
+        }
+        glBindTexture(GL_TEXTURE_2D, s->texture[0]);
+
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0, 0.0); glVertex2f(s->posX[0],
+                        s->posY[0]);
+        glTexCoord2f(1.0, 0.0); glVertex2f(s->posX[1],
+                        s->posY[1]);
+        glTexCoord2f(1.0, 1.0); glVertex2f(s->posX[2],
+                        s->posY[2]);
+        glTexCoord2f(0.0, 1.0); glVertex2f(s->posX[3],
+                        s->posY[3]);
+        glEnd();
+}
+
 static void *master_worker(void *arg)
 {
         struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) arg;
@@ -522,7 +649,7 @@ static void *master_worker(void *arg)
                 // "capture" frames
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         pthread_mutex_lock(&s->slaves[i].lock);
-                        vf_free_data(s->slaves[i].done_frame);
+                        vf_free(s->slaves[i].done_frame);
                         s->slaves[i].done_frame = s->slaves_data[i].current_frame;
                         s->slaves_data[i].current_frame = NULL;
                         if(s->slaves[i].captured_frame) {
@@ -540,11 +667,7 @@ static void *master_worker(void *arg)
                 // check for mode change
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                struct video_desc desc = video_desc_from_frame(s->slaves_data[i].current_frame);
-                                if(!video_desc_eq(desc, s->slaves_data[i].saved_desc)) {
-                                        reconfigure_slave_rendering(&s->slaves_data[i], desc);
-                                        s->slaves_data[i].saved_desc = desc;
-                                }
+                                check_for_slave_format_change(&s->slaves_data[i]);
                         }
                 }
 
@@ -554,7 +677,14 @@ static void *master_worker(void *arg)
                 // load data
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                if(field == 1 && s->slaves[i].capture_audio) {
+                                if(s->slaves[i].audio_captured && s->audio_device_index == -1) {
+                                        fprintf(stderr, "[swmix] Locking device #%d as an audio source.\n",
+                                                        i);
+                                        s->audio_device_index = i;
+                                }
+
+                                if ((s->frame->interlacing != INTERLACED_MERGED || field == 1)
+							&& s->audio_device_index == i) {
                                         s->audio.bps = s->slaves[i].audio_frame.bps;
                                         s->audio.ch_count = s->slaves[i].audio_frame.ch_count;
                                         s->audio.sample_rate = s->slaves[i].audio_frame.sample_rate;
@@ -566,53 +696,9 @@ static void *master_worker(void *arg)
                                                 s->slaves[i].audio_frame.data_len = 0;
                                         }
                                 }
-                                glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[0]);
-                                int width = s->slaves_data[i].current_frame->tiles[0].width;
-                                GLenum format;
-                                switch(s->slaves_data[i].current_frame->color_spec) {
-                                        case UYVY:
-                                                width /= 2;
-                                                format = GL_RGBA;
-                                                break;
-                                        case RGB:
-                                                format = GL_RGB;
-                                                break;
-                                        case BGR:
-                                                format = GL_BGR;
-                                                break;
-                                        case RGBA:
-                                                format = GL_RGBA;
-                                                break;
-                                        default:
-                                                error_msg("Unexpected color space!");
-                                                abort();
-                                }
-                                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0,
-                                                width,
-                                                s->slaves_data[i].current_frame->tiles[0].height,
-                                                format, GL_UNSIGNED_BYTE,
-                                                s->slaves_data[i].current_frame->tiles[0].data);
 
-                                if(s->slaves_data[i].current_frame->color_spec == UYVY) {
-                                        glUseProgram(from_uyvy);
-                                        glUniform1i(glGetUniformLocation(from_uyvy, "image"), 0);
-                                        glUniform1f(glGetUniformLocation(from_uyvy, "imageWidth"),
-                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
+                                load_texture(&s->slaves_data[i], from_uyvy);
 
-                                        glBindFramebuffer(GL_FRAMEBUFFER, s->slaves_data[i].fbo);
-                                        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0_EXT,
-                                                        GL_TEXTURE_2D, s->slaves_data[i].texture[1], 0);
-
-                                        glViewport(0, 0, s->slaves_data[i].current_frame->tiles[0].width,
-                                                        s->slaves_data[i].current_frame->tiles[0].height);
-                                        glBegin(GL_QUADS);
-                                        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0);
-                                        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0);
-                                        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0);
-                                        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0);
-                                        glEnd();
-                                        glUseProgram(0);
-                                }
                         }
                 }
 
@@ -632,28 +718,7 @@ static void *master_worker(void *arg)
 
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         if(s->slaves_data[i].current_frame) {
-                                if(s->interpolation == BICUBIC) {
-                                        glUniform1f(glGetUniformLocation(s->bicubic_program, "fWidth"),
-                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].width);
-                                        glUniform1f(glGetUniformLocation(s->bicubic_program, "fHeight"),
-                                                        (GLfloat) s->slaves_data[i].current_frame->tiles[0].height);
-                                }
-                                if(s->slaves_data[i].current_frame->color_spec == UYVY) {
-                                        glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[1]);
-                                } else {
-                                        glBindTexture(GL_TEXTURE_2D, s->slaves_data[i].texture[0]);
-                                }
-
-                                glBegin(GL_QUADS);
-                                glTexCoord2f(0.0, 0.0); glVertex2f(s->slaves_data[i].posX[0],
-                                                s->slaves_data[i].posY[0]);
-                                glTexCoord2f(1.0, 0.0); glVertex2f(s->slaves_data[i].posX[1],
-                                                s->slaves_data[i].posY[1]);
-                                glTexCoord2f(1.0, 1.0); glVertex2f(s->slaves_data[i].posX[2],
-                                                s->slaves_data[i].posY[2]);
-                                glTexCoord2f(0.0, 1.0); glVertex2f(s->slaves_data[i].posX[3],
-                                                s->slaves_data[i].posY[3]);
-                                glEnd();
+                                render_slave(&s->slaves_data[i], s->interpolation, s->bicubic_program);
                         }
                 }
                 glUseProgram(0);
@@ -682,7 +747,6 @@ static void *master_worker(void *arg)
                 }
 
                 char *read_buf;
-                double wait_sec;
                 if(s->frame->interlacing == PROGRESSIVE) {
                         read_buf = current_buffer;
                 } else {
@@ -696,10 +760,9 @@ static void *master_worker(void *arg)
                 glBindTexture(GL_TEXTURE_2D, 0);
 
                 if(s->frame->interlacing == INTERLACED_MERGED) {
-                        wait_sec = 1.0 / s->frame->fps / 2;
                         int linesize =
                                 vc_get_linesize(s->frame->tiles[0].width, s->frame->color_spec);
-                        for(int i = field; i < s->frame->tiles[0].height; i += 2) {
+                        for(unsigned int i = field; i < s->frame->tiles[0].height; i += 2) {
                                 memcpy(current_buffer + i * linesize, tmp_buffer + i * linesize,
                                                 linesize);
                         }
@@ -747,10 +810,12 @@ static void *slave_worker(void *arg)
 
         struct vidcap *device;
         int ret =
-                initialize_video_capture(s->device_vendor, s->device_cfg, s->vidcap_flags, &device);
+                initialize_video_capture(NULL, s->device_params, &device);
         if(ret != 0) {
                 fprintf(stderr, "[swmix] Unable to initialize device %s (%s:%s).\n",
-                                s->name, s->device_vendor, s->device_cfg);
+                                vidcap_params_get_name(s->device_params),
+                                vidcap_params_get_driver(s->device_params),
+                                vidcap_params_get_fmt(s->device_params));
                 return NULL;
         }
 
@@ -758,17 +823,23 @@ static void *slave_worker(void *arg)
                 struct video_frame *frame;
                 struct audio_frame *audio;
 
-                frame = vidcap_grab_extrn(device, &audio);
+                frame = vidcap_grab(device, &audio);
                 if(frame) {
                         struct video_frame *frame_copy = vf_get_copy(frame);
+                        if (frame_copy->interlacing == INTERLACED_MERGED) {
+                                vc_deinterlace((unsigned char *) frame_copy->tiles[0].data,
+                                                vc_get_linesize(frame_copy->tiles[0].width, frame_copy->color_spec),
+                                                frame_copy->tiles[0].height);
+                        }
                         pthread_mutex_lock(&s->lock);
                         if(s->captured_frame) {
-                                vf_free_data(s->captured_frame);
+                                vf_free(s->captured_frame);
                         }
                         s->captured_frame = frame_copy;
-                        if(s->capture_audio && audio) {
+                        if(audio) {
+                                s->audio_captured = true;
                                 int len = audio->data_len;
-                                if(len + s->audio_frame.data_len > s->audio_frame.max_size) {
+                                if(len + s->audio_frame.data_len > (int) s->audio_frame.max_size) {
                                         len = s->audio_frame.max_size - s->audio_frame.data_len;
                                         fprintf(stderr, "[SW Mix] Audio buffer overflow!\n");
                                 }
@@ -783,13 +854,12 @@ static void *slave_worker(void *arg)
                 }
         }
 
-        vidcap_finish_extrn(device);
-        vidcap_done_extrn(device);
+        vidcap_done(device);
 
         return NULL;
 }
 
-static bool get_slave_param_from_file(FILE* config_file, char *slave_name, int *x, int *y,
+static bool get_slave_param_from_file(FILE* config_file, const char *slave_name, int *x, int *y,
                                         int *width, int *height)
 {
         char *ret;
@@ -851,7 +921,6 @@ static int parse_config_string(const char *fmt, unsigned int *width,
         *interl = PROGRESSIVE;
 
         tmp = parse_string = strdup(fmt);
-        if(strchr(parse_string, '#')) *strchr(parse_string, '#') = '\0';
         while((item = strtok_r(tmp, ":", &save_ptr))) {
                 bool found = false;
                 switch (token_nr) {
@@ -909,12 +978,9 @@ static int parse_config_string(const char *fmt, unsigned int *width,
 }
 
 static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *fmt,
-                FILE **config_file, interpolation_t *interpolation, unsigned int vidcap_flags)
+                FILE **config_file, interpolation_t *interpolation,
+                const struct vidcap_params *params)
 {
-        char *save_ptr = NULL;
-        char *item;
-        char *parse_string;
-        char *tmp;
         *config_file = NULL;
         int ret;
 
@@ -959,85 +1025,35 @@ static bool parse(struct vidcap_swmix_state *s, struct video_desc *desc, char *f
                 return false;
         }
 
-        s->devices_cnt = -1;
-        tmp = parse_string = strdup(fmt);
-        while(strtok_r(tmp, "#", &save_ptr)) {
-                s->devices_cnt++;
-                tmp = NULL;
+        s->devices_cnt = 0;
+        const struct vidcap_params *tmp = params;
+        while((tmp = vidcap_params_get_next(tmp))) {
+                if (vidcap_params_get_driver(tmp) != NULL)
+                        s->devices_cnt++;
+                else
+                        break;
         }
-        free(parse_string);
 
         s->slaves = (struct state_slave *) calloc(s->devices_cnt, sizeof(struct state_slave));
-        int i = 0;
-        parse_string = strdup(fmt);
-        strtok_r(parse_string, "#", &save_ptr); // drop first part
-        while((item = strtok_r(NULL, "#", &save_ptr))) {
-                char *copy = strdup(item);
-                char *device;
-                char *config = copy;
-                char *device_cfg = NULL;
-                char *name = NULL;
 
-                if(i == 0) {
-                        s->slaves[i].capture_audio = true;
-                        s->slaves[i].audio_frame.max_size = MAX_AUDIO_LEN;
-                        s->slaves[i].audio_frame.data = (char *)
-                                malloc(s->slaves[i].audio_frame.max_size);
-                        s->slaves[i].audio_frame.data_len = 0;
-                        s->slaves[i].vidcap_flags = vidcap_flags;
-                } else {
-                        s->slaves[i].capture_audio = false;
-                        s->slaves[i].vidcap_flags = 0;
-                }
-
-                if(s->use_config_file == true) {
-                        // we have device name and configuration
-                        if(strchr(config, '@')) {
-                                char *delim = strchr(config, '@');
-                                *delim = '\0';
-                                config = delim + 1;
-                                name = config;
-                        } else { // we have only device name and configuration in config file
-                                copy = (char *) realloc(copy, strlen(copy) + 128 + 2);
-                                config = copy + strlen(copy) + 1;
-                                name = copy;
-                                if(!get_device_config_from_file(*config_file, name,
-                                                        config)) {
-                                        fprintf(stderr, "Unable to get configuration for slave '%s' "
-                                                        "from config file.\n", name);
-                                        return false;
-                                }
-                        }
-                }
-                device = config;
-		if(strchr(config, ':')) {
-			char *delim = strchr(config, ':');
-			*delim = '\0';
-			device_cfg = delim + 1;
-		}
-
-                s->slaves[i].device_vendor = strdup(device);
-                if(device_cfg) {
-                        s->slaves[i].device_cfg = strdup(device_cfg);
-                } else {
-                        s->slaves[i].device_cfg = NULL;
-                }
-                if(name) {
-                        s->slaves[i].name = strdup(name);
-                } else {
-                        s->slaves[i].name = NULL;
-                }
-
-                free(copy);
-                ++i;
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                s->slaves[i].audio_frame.max_size = MAX_AUDIO_LEN;
+                s->slaves[i].audio_frame.data = (char *)
+                        malloc(s->slaves[i].audio_frame.max_size);
+                s->slaves[i].audio_frame.data_len = 0;
         }
-        free(parse_string);
+
+        tmp = params;
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                tmp = vidcap_params_get_next(tmp);
+                s->slaves[i].device_params = vidcap_params_copy(tmp);
+        }
 
         return true;
 }
 
 void *
-vidcap_swmix_init(char *init_fmt, unsigned int flags)
+vidcap_swmix_init(const struct vidcap_params *params)
 {
 	struct vidcap_swmix_state *s;
         struct video_desc desc;
@@ -1056,10 +1072,12 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
 
         s->frames = 0;
         s->slaves = NULL;
+        s->audio_device_index = -1;
         s->bicubic_algo = strdup("BSpline");
         gettimeofday(&s->t0, NULL);
 
-        if(!init_fmt || strcmp(init_fmt, "help") == 0) {
+        if(!vidcap_params_get_fmt(params) ||
+                        strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
@@ -1071,9 +1089,11 @@ vidcap_swmix_init(char *init_fmt, unsigned int flags)
         s->interpolation = BICUBIC;
         FILE *config_file = NULL;
 
-        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, flags)) {
+        char *init_fmt = strdup(vidcap_params_get_fmt(params));
+        if(!parse(s, &desc, init_fmt, &config_file, &s->interpolation, params)) {
                 goto error;
         }
+        free(init_fmt);
 
         s->frame = vf_alloc_desc(desc);
 
@@ -1168,13 +1188,6 @@ error:
 }
 
 void
-vidcap_swmix_finish(void *state)
-{
-	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
-
-}
-
-void
 vidcap_swmix_done(void *state)
 {
 	struct vidcap_swmix_state *s = (struct vidcap_swmix_state *) state;
@@ -1214,11 +1227,10 @@ vidcap_swmix_done(void *state)
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 pthread_mutex_destroy(&s->slaves[i].lock);
-                vf_free_data(s->slaves[i].captured_frame);
-                vf_free_data(s->slaves[i].done_frame);
-                free(s->slaves[i].device_cfg);
-                free(s->slaves[i].device_vendor);
-                free(s->slaves[i].name);
+                vf_free(s->slaves[i].captured_frame);
+                vf_free(s->slaves[i].done_frame);
+                free(s->slaves[i].audio_frame.data);
+                vidcap_params_free_struct(s->slaves[i].device_params);
         }
         free(s->slaves);
 

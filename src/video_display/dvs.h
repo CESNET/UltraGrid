@@ -39,12 +39,12 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include <video_display.h>
 
 #define DISPLAY_DVS_ID	0x74ac3e0f
 
 struct audio_frame;
-struct state_decoder;
+struct video_desc;
+struct video_frame;
 
 typedef struct {
         int mode;
@@ -60,7 +60,6 @@ display_type_t      *display_dvs_probe(void);
 
 void                *display_dvs_init(char *fmt, unsigned int flags);
 void                 display_dvs_run(void *state);
-void                 display_dvs_finish(void *state);
 void                 display_dvs_done(void *state);
 struct video_frame  *display_dvs_getf(void *state);
 int                  display_dvs_putf(void *state, struct video_frame *frame,

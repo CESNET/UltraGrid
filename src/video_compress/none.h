@@ -1,14 +1,16 @@
+/**
+ * @file   none.h
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ */
 /*
- * FILE:    none.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -45,14 +47,18 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
+struct module;
 struct video_frame;
+struct video_compress_params;
 
-void               *none_compress_init(char * opts);
-struct video_frame *none_compress(void *args, struct video_frame * tx, int buffer_index);
-void                none_compress_done(void *args);
+struct module      *none_compress_init(struct module *parent, const struct video_compress_params *params);
+struct video_frame *none_compress(struct module *mod, struct video_frame * tx);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
+

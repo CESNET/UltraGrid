@@ -46,17 +46,20 @@
  *
  */
 
-#include <video_codec.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define DISPLAY_SAGE_ID	0xba370a2f
 
 struct audio_frame;
+struct video_desc;
+struct video_frame;
 
 display_type_t		*display_sage_probe(void);
 void 			*display_sage_init(char *fmt, unsigned int flags);
 void 			 display_sage_run(void *state);
 void 			 display_sage_done(void *state);
-void 			 display_sage_finish(void *state);
 struct video_frame	*display_sage_getf(void *state);
 int  			 display_sage_putf(void *state, struct video_frame *frame,
                 int nonblock);
@@ -68,4 +71,8 @@ int			 display_sage_handle_events(void);
 void                     display_sage_put_audio_frame(void *state, struct audio_frame *frame);
 int                      display_sage_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+#ifdef __cplusplus
+}
+#endif
 

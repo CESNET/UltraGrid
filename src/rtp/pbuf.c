@@ -66,7 +66,6 @@
 #include "rtp/rtp_callback.h"
 #include "rtp/ptime.h"
 #include "rtp/pbuf.h"
-#include "rtp/decoders.h"
 
 #define PBUF_MAGIC	0xcafebabe
 
@@ -345,6 +344,14 @@ static int frame_complete(struct pbuf_node *frame)
         return (frame->mbit == 1);
 }
 
+int pbuf_is_empty(struct pbuf *playout_buf)
+{
+        if (playout_buf->frst == NULL)
+                return TRUE;
+        else
+                return FALSE;
+}
+
 int
 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data)
@@ -352,9 +359,6 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         /* Find the first complete frame that has reached it's playout */
         /* time, and decode it into the framebuffer. Mark the frame as */
         /* decoded, but otherwise leave it in the playout buffer.      */
-#ifdef WIN32
-        UNUSED(curr_time);
-#endif
         struct pbuf_node *curr;
 
         pbuf_validate(playout_buf);
@@ -362,10 +366,8 @@ pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         curr = playout_buf->frst;
         while (curr != NULL) {
                 if (!curr->decoded 
-#ifndef WIN32
-				&& tv_gt(curr_time, curr->playout_time)
-#endif
-		   ) {
+                                && tv_gt(curr_time, curr->playout_time)
+                   ) {
                         if (frame_complete(curr)) {
                                 int ret = decode_func(curr->cdata, data);
                                 curr->decoded = 1;

@@ -52,7 +52,7 @@
 
 #include "debug.h"
 #include "host.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
@@ -60,6 +60,7 @@
 #include "audio/audio.h"
 #include "audio/wav_reader.h"
 #include "utils/ring_buffer.h"
+#include "utils/worker.h"
 #include "video_export.h"
 #include "video_capture/import.h"
 //#include "audio/audio.h"
@@ -80,6 +81,8 @@
 #define VIDCAP_IMPORT_ID 0x76FA7F6D
 
 #define PIPE "/tmp/ultragrid_import.fifo"
+
+#define MAX_NUMBER_WORKERS 100
 
 struct processed_entry;
 struct tile_data {
@@ -170,6 +173,11 @@ struct vidcap_import_state {
         int count;
 
         struct processed_entry *to_be_freeed;
+
+        bool finished;
+        bool loop;
+        bool o_direct;
+        int video_reading_threads_count;
 };
 
 #ifdef WIN32
@@ -278,17 +286,12 @@ error_opening:
 }
 
 void *
-vidcap_import_init(char *directory, unsigned int flags)
+vidcap_import_init(const struct vidcap_params *params)
 {
 	struct vidcap_import_state *s = NULL;
         FILE *info = NULL; // metadata file
 
 	printf("vidcap_import_init\n");
-
-        if (!directory) {
-                fprintf(stderr, "Missing directory name!\n");
-                return NULL;
-        }
 
         s = (struct vidcap_import_state *) calloc(1, sizeof(struct vidcap_import_state));
         s->head = s->tail = NULL;
@@ -298,6 +301,35 @@ vidcap_import_init(char *directory, unsigned int flags)
 
         s->boss_waiting = false;
         s->worker_waiting = false;
+
+        s->video_reading_threads_count = 1; // default is single threaded
+
+        char *tmp = strdup(vidcap_params_get_fmt(params));
+        char *save_ptr;
+        const char *directory = strtok_r(tmp, ":", &save_ptr);
+        if (strcmp(directory, "help") == 0) {
+                fprintf(stderr, "Import usage:\n"
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:<o_direct>}");
+                return NULL;
+        }
+        char *suffix;
+        while ((suffix = strtok_r(NULL, ":", &save_ptr)) != NULL) {
+                if (strcmp(suffix, "loop") == 0) {
+                        s->loop = true;
+                } else if (strncmp(suffix, "mt_reading=",
+                                        strlen("mt_reading=")) == 0) {
+                        s->video_reading_threads_count = atoi(suffix +
+                                        strlen("mt_reading="));
+                        assert(s->video_reading_threads_count <=
+                                        MAX_NUMBER_WORKERS);
+                } else if (strcmp(suffix, "o_direct") == 0) {
+                        s->o_direct = true;
+                } else {
+                        fprintf(stderr, "[Playback] Unrecognized"
+                                        " option %s.\n", suffix);
+                        return NULL;
+                }
+        }
 
         message_queue_clear(&s->message_queue);
         message_queue_clear(&s->audio_state.message_queue);
@@ -312,7 +344,7 @@ vidcap_import_init(char *directory, unsigned int flags)
         assert(audio_filename != NULL);
         strcpy(audio_filename, directory);
         strcat(audio_filename, "/sound.wav");
-        if((flags & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
+        if((vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) && init_audio(s, audio_filename)) {
                 s->audio_state.has_audio = true;
                 if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
                         fprintf(stderr, "Unable to create thread.\n");
@@ -472,11 +504,8 @@ error:
         return NULL;
 }
 
-void
-vidcap_import_finish(void *state)
+static void exit_reading_threads(struct vidcap_import_state *s)
 {
-	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
-
         struct message *msg = malloc(sizeof(struct message));
 
         msg->type = FINALIZE;
@@ -529,10 +558,23 @@ static void free_entry(struct processed_entry *entry)
                 return;
         }
         for (int i = 0; i < entry->count; ++i) {
-                free(entry->tiles[i].data);
+                aligned_free(entry->tiles[i].data);
         }
 
         free(entry);
+}
+
+static void vidcap_import_finish(void *state)
+{
+        struct vidcap_import_state *s = (struct vidcap_import_state *) state;
+
+        exit_reading_threads(s);
+
+#ifndef WIN32
+        exit_control = true;
+
+        pthread_join(s->control_thread_id, NULL);
+#endif
 }
 
 static int flush_processed(struct processed_entry *list)
@@ -550,11 +592,12 @@ static int flush_processed(struct processed_entry *list)
         return frames_deleted;
 }
 
-void
-vidcap_import_done(void *state)
+void vidcap_import_done(void *state)
 {
 	struct vidcap_import_state *s = (struct vidcap_import_state *) state;
 	assert(s != NULL);
+
+        vidcap_import_finish(state);
 
         flush_processed(s->head);
 
@@ -921,22 +964,98 @@ exited:
         return NULL;
 }
 
+struct video_reader_data {
+        char file_name_prefix[512];
+        char file_name_suffix[512];
+        unsigned int tile_count;
+        struct processed_entry *entry;
+        bool o_direct;
+};
+
+#define ALIGN 512
+
+static void *video_reader_callback(void *arg)
+{
+        struct video_reader_data *data =
+                (struct video_reader_data *) arg;
+       
+        data->entry = calloc(1, sizeof(struct processed_entry) + data->tile_count * sizeof(struct tile_data));
+        assert(data->entry != NULL);
+        data->entry->next = NULL;
+        data->entry->count = data->tile_count;
+
+        for (unsigned int i = 0; i < data->tile_count; i++) {
+                char name[1024];
+                char tile_idx[3] = "";
+                if (data->tile_count > 1) {
+                        sprintf(tile_idx, "_%d", i);
+	        }
+                snprintf(name, sizeof(name), "%s%s.%s",
+                                data->file_name_prefix, tile_idx,
+                                data->file_name_suffix);
+
+                struct stat sb;
+                if (stat(name, &sb)) {
+                        perror("stat");
+                        free_entry(data->entry);
+                        return NULL;
+                }
+
+                int flags = O_RDONLY;
+                if (data->o_direct) {
+#ifdef HAVE_LINUX
+                        flags |= O_DIRECT;
+#endif
+                }
+                int fd = open(name, flags);
+                if(fd == -1) {
+                        perror("open");
+                        return NULL;
+                }
+
+                data->entry->tiles[i].data_len = sb.st_size;
+                const int aligned_data_len = (data->entry->tiles[i].data_len + ALIGN - 1)
+                        / ALIGN * ALIGN;
+                // alignment needed when using O_DIRECT flag
+                data->entry->tiles[i].data = (char *)
+                        aligned_malloc(aligned_data_len, ALIGN);
+                assert(data->entry->tiles[i].data != NULL);
+
+                ssize_t bytes = 0;
+                do {
+                        ssize_t res = read(fd, data->entry->tiles[i].data + bytes,
+                                        (data->entry->tiles[i].data_len - bytes + ALIGN - 1)
+                                        / ALIGN * ALIGN);
+                        if (res <= 0) {
+                                perror("read");
+                                return NULL;
+                        }
+                        bytes += res;
+                } while (bytes < data->entry->tiles[i].data_len);
+
+                close(fd);
+        }
+
+        return data;
+}
+
 static void * reading_thread(void *args)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) args;
         int index = 0;
-        char name[512];
 
         bool paused = false;
 
         ///while(index < s->count && !s->finish_threads) {
         while(1) {
-                struct processed_entry *new_entry = NULL;
                 pthread_mutex_lock(&s->lock);
                 {
                         while((s->queue_len >= BUFFER_LEN_MAX - 1 || index >= s->count || paused)
                                        && s->message_queue.len == 0) {
                                 s->worker_waiting = true;
+                                if (index >= s->count) {
+                                        s->finished = true;
+                                }
                                 pthread_cond_wait(&s->worker_cv, &s->lock);
                                 s->worker_waiting = false;
                         }
@@ -983,6 +1102,7 @@ static void * reading_thread(void *args)
                 }
                 pthread_mutex_unlock(&s->lock);
 
+                /// @todo are these checks necessary?
                 if(index < 0) {
                         index = 0;
                 }
@@ -992,64 +1112,51 @@ static void * reading_thread(void *args)
                         index = s->count - 1;
                 }
 
-                new_entry = calloc(1, sizeof(struct processed_entry) + s->frame->tile_count * sizeof(struct tile_data));
-                assert(new_entry != NULL);
-                new_entry->next = NULL;
-                new_entry->count = s->frame->tile_count;
+                struct video_reader_data data_reader[MAX_NUMBER_WORKERS];
+                task_result_handle_t task_handle[MAX_NUMBER_WORKERS];
 
-                for (unsigned int i = 0; i < s->frame->tile_count; i++) {
-                        char tile_idx[3] = "";
-                        if (s->frame->tile_count > 1) {
-                                sprintf(tile_idx, "_%d", i);
-                        }
-                        snprintf(name, sizeof(name), "%s/%08d%s.%s",
-                                        s->directory, index + 1, tile_idx,
-                                        get_codec_file_extension(s->frame->color_spec));
-
-                        struct stat sb;
-                        if (stat(name, &sb)) {
-                                perror("stat");
-                                free_entry(new_entry);
-                                goto next;
-                        }
-                        FILE *file = fopen(name, "rb");
-                        if(!file) {
-                                perror("fopen");
-                                free_entry(new_entry);
-                                goto next;
-                        }
-
-                        new_entry->tiles[i].data_len = sb.st_size;
-                        new_entry->tiles[i].data = malloc(sb.st_size);
-                        assert(new_entry->tiles[i].data != NULL);
-
-                        size_t res = fread(new_entry->tiles[i].data,
-                                        sb.st_size, 1, file);
-                        fclose(file);
-                        if(res != 1) {
-                                perror("fread");
-                                free_entry(new_entry);
-                                goto next;
-                        }
+                int number_workers = s->video_reading_threads_count;
+                if (index + number_workers >= s->count) {
+                        number_workers = s->count - index;
+                }
+                // run workers
+                for (int i = 0; i < number_workers; ++i) {
+                        struct video_reader_data *data =
+                                &data_reader[i];
+                        data->o_direct = s->o_direct;
+                        data->tile_count = s->frame->tile_count;
+                        snprintf(data->file_name_prefix, sizeof(data->file_name_prefix),
+                                        "%s/%08d", s->directory, index + i);
+                        strncpy(data->file_name_suffix,
+                                        get_codec_file_extension(s->frame->color_spec),
+                                        sizeof(data->file_name_suffix));
+                        data->entry = NULL;
+                        task_handle[i] = task_run_async(video_reader_callback, data);
                 }
 
-                pthread_mutex_lock(&s->lock);
-                {
-                        if(s->head) {
-                                s->tail->next = new_entry;
-                                s->tail = new_entry;
-                        } else {
-                                s->head = s->tail = new_entry;
+                // wait for workers to finish
+                for (int i = 0; i < number_workers; ++i) {
+                        struct video_reader_data *data =
+                                (struct video_reader_data *)
+                                wait_task(task_handle[i]);
+                        if (!data || data->entry == NULL)
+                                continue;
+                        pthread_mutex_lock(&s->lock);
+                        {
+                                if(s->head) {
+                                        s->tail->next = data->entry;
+                                        s->tail = data->entry;
+                                } else {
+                                        s->head = s->tail = data->entry;
+                                }
+                                s->queue_len += 1;
+
+                                if(s->boss_waiting)
+                                        pthread_cond_signal(&s->boss_cv);
                         }
-                        s->queue_len += 1;
-
-                        if(s->boss_waiting)
-                                pthread_cond_signal(&s->boss_cv);
+                        pthread_mutex_unlock(&s->lock);
                 }
-                pthread_mutex_unlock(&s->lock);
-
-next:
-                index++;
+                index += number_workers;
 end_loop:
                 ;
         }
@@ -1057,6 +1164,25 @@ end_loop:
 exited:
 
         return NULL;
+}
+
+static void reset_import(struct vidcap_import_state *s)
+{
+        exit_reading_threads(s);
+
+        s->finished = false;
+
+        if(pthread_create(&s->thread_id, NULL, reading_thread, (void *) s) != 0) {
+                fprintf(stderr, "Unable to create thread.\n");
+                /// @todo what to do here
+                abort();
+        }
+        if (s->audio_state.has_audio) {
+                if(pthread_create(&s->audio_state.thread_id, NULL, audio_reading_thread, (void *) s) != 0) {
+                        fprintf(stderr, "Unable to create thread.\n");
+                        abort();
+                }
+        }
 }
 
 struct video_frame *
@@ -1074,10 +1200,27 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         pthread_mutex_lock(&s->lock);
         {
                 if(s->queue_len == 0) {
+                        if (s->finished == true && s->loop) {
+                                pthread_mutex_unlock(&s->lock);
+                                reset_import(s);
+                        }
+
                         s->boss_waiting = true;
-                        struct timespec timeout = { .tv_sec = (long) (1/s->frame->fps),
-                                .tv_nsec = (long) (1/s->frame->fps * 1000 * 1000 * 1000) % (1000 * 1000 * 1000)};
-                        pthread_cond_timedwait(&s->boss_cv, &s->lock, &timeout);
+                        struct timespec ts;
+                        struct timeval  tp;
+
+                        // get time for timeout
+                        gettimeofday(&tp, NULL);
+
+                        /* Convert from timeval to timespec */
+                        ts.tv_sec  = tp.tv_sec;
+                        ts.tv_nsec = tp.tv_usec * 1000;
+                        ts.tv_nsec += 2 * 1/s->frame->fps * 1000 * 1000 * 1000;
+                        // make it correct
+                        ts.tv_sec += ts.tv_nsec / 1000000000;
+                        ts.tv_nsec = ts.tv_nsec % 1000000000;
+
+                        pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                         s->boss_waiting = false;
                 }
  

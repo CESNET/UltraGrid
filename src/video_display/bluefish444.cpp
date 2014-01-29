@@ -56,6 +56,7 @@
 #include "config_win32.h"
 #endif
 
+#include "video_display.h"
 #include "video_display/bluefish444.h"
 
 #include <iomanip>
@@ -73,7 +74,6 @@
 #include "tv.h"
 #include "utils/ring_buffer.h"
 #include "video.h"
-#include "video_codec.h"
 #include "video_display.h"
 
 #define BLUEFISH444_MAGIC DISPLAY_BLUEFISH444_ID
@@ -129,7 +129,6 @@ struct display_bluefish444_state {
         private:
                 uint32_t            m_magic;
 
-                struct timeval      m_tv;
                 struct video_frame *m_frame;
 
                 int                 m_deviceId;
@@ -169,15 +168,15 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
                 int deviceId) throw(runtime_error) :
         m_magic(BLUEFISH444_MAGIC),
         m_frame(NULL),
+        m_deviceId(deviceId),
+        m_AttachedDevicesCount(0),
         m_GoldenSize(0),
-        m_pPlayingBuffer(NULL),
         m_LastFieldCount(0),
+        m_pPlayingBuffer(NULL),
 #ifdef HAVE_BLUE_AUDIO
         m_AudioRingBuffer(ring_buffer_init(48000*4*16*8)),
 #endif
-        m_PlayAudio(false),
-        m_AttachedDevicesCount(0),
-        m_deviceId(deviceId)
+        m_PlayAudio(false)
 {
         int iDevices = 0;
         uint32_t val32;
@@ -232,6 +231,7 @@ display_bluefish444_state::display_bluefish444_state(unsigned int flags,
 
 display_bluefish444_state::~display_bluefish444_state() throw()
 {
+        assert(m_magic == BLUEFISH444_MAGIC);
         // Kill thread
         pthread_mutex_lock(&m_lock);
         m_ReadyFrameQueue.push(NULL);
@@ -312,8 +312,6 @@ void *display_bluefish444_state::playback_loop() throw()
 
                 for(int i = 0; i < m_AttachedDevicesCount; ++i) {
                         unsigned char *videoBuffer;
-                        int size;
-                        int offset;
 #ifdef WIN32
                         OVERLAPPED *OverlapCh = &Overlapped[i];
 #else
@@ -343,6 +341,8 @@ void *display_bluefish444_state::playback_loop() throw()
                                 ResetEvent(Overlapped[i].hEvent);
                         }
                 }
+#else
+                UNUSED(WaitResult);
 #endif
 
 #ifdef HAVE_BLUE_AUDIO
@@ -370,6 +370,9 @@ void *display_bluefish444_state::playback_loop() throw()
                                         case 3:
                                                 nSampleType = AUDIO_CHANNEL_24BIT;
                                                 break;
+                                        default:
+                                                fprintf(stderr, "[Blue] Unhandled audio sample type!\n");
+                                                abort();
                                 }
 
                                 if(NumberAudioChannels > 0)
@@ -513,6 +516,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 isTiled4K = true;
         } else {
                 is4K = false;
+                isTiled4K = false;
         }
 
         m_TileCount = desc.tile_count;
@@ -548,8 +552,8 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         VideoMode = m_InvalidVideoModeFlag;
 
         for(int i = 0; i < bluefish_frame_modes_count; ++i) {
-                if(bluefish_frame_modes[i].width == tile_width &&
-                                bluefish_frame_modes[i].height == tile_height &&
+                if((int) bluefish_frame_modes[i].width == tile_width &&
+                                (int) bluefish_frame_modes[i].height == tile_height &&
                                 fabs(bluefish_frame_modes[i].fps - desc.fps) < 0.01 &&
                                 bluefish_frame_modes[i].interlacing == desc.interlacing)
                 {
@@ -622,7 +626,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
                 bfcSetCardProperty32(m_pSDK[0], MR2_ROUTING, val32);
 
                 val32 = blue_emb_audio_group1_enable | blue_emb_audio_enable | blue_enable_hanc_timestamp_pkt;
-                int err = bfcSetCardProperty32(m_pSDK[0], EMBEDDED_AUDIO_OUTPUT, val32);
+                bfcSetCardProperty32(m_pSDK[0], EMBEDDED_AUDIO_OUTPUT, val32);
         }
 
         //Set the required video mode
@@ -672,7 +676,7 @@ void display_bluefish444_state::reconfigure(struct video_desc desc)
         }
 
         m_frame = vf_alloc_desc(desc);
-        for(int i = 0; i < desc.tile_count; ++i) {
+        for(unsigned int i = 0; i < desc.tile_count; ++i) {
                 m_frame->tiles[i].data_len = BytesPerFrame;
         }
 
@@ -714,14 +718,17 @@ struct video_frame *display_bluefish444_state::getf() throw()
 
 void display_bluefish444_state::putf(struct video_frame *frame) throw (runtime_error, logic_error)
 {
-        if(!frame || frame->tiles[0].data !=
+        if (!frame)
+                return;
+
+        if (frame->tiles[0].data !=
                         (char *) m_pTmpFrame->pVideoBuffer[0]) {
                 throw invalid_argument("Invalid frame supplied!");
         }
 
         pthread_mutex_lock(&m_lock);
         for(int i = 0; i < m_TileCount; ++i) {
-                m_pTmpFrame->pVideoBuffer[i] = (unsigned int *) m_frame->tiles[i].data;
+                m_pTmpFrame->pVideoBuffer[i] = (unsigned int *)(void *) m_frame->tiles[i].data;
         }
         m_ReadyFrameQueue.push(m_pTmpFrame);
         pthread_cond_signal(&m_WorkerCv);
@@ -846,7 +853,7 @@ void *display_bluefish444_init(char *fmt, unsigned int flags)
                 }
         }
 
-        void *state;
+        void *state = NULL;
 
         try {
                 state = new display_bluefish444_state(flags, deviceId);
@@ -913,11 +920,6 @@ void display_bluefish444_run(void *state)
         UNUSED(state);
 }
 
-void display_bluefish444_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void display_bluefish444_done(void *state)
 {
         display_bluefish444_state *s =
@@ -941,8 +943,10 @@ display_type_t *display_bluefish444_probe(void)
 
 int display_bluefish444_get_property(void *state, int property, void *val, size_t *len)
 {
+        UNUSED(state);
         codec_t codecs[] = { UYVY };
         interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
+        int rgb_shift[] = {0, 8, 16};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -954,17 +958,12 @@ int display_bluefish444_get_property(void *state, int property, void *val, size_
                         
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;

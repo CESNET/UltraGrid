@@ -56,45 +56,53 @@
 
 #include "debug.h"
 #include "host.h"
-#include "video_codec.h"
+#include "module.h"
 #include "video_compress.h"
+#include "video_frame.h"
 
 
 #define MAGIC 0x45bb3321
 
+static void none_compress_done(struct module *mod);
 
-struct none_video_compress {
+struct state_video_compress_none {
+        struct module module_data;
+
         uint32_t magic;
 };
 
-void * none_compress_init(char * opts)
+struct module * none_compress_init(struct module *parent, const struct video_compress_params *params)
 {
-        UNUSED(opts);
+        UNUSED(params);
 
-        struct none_video_compress *s;
+        struct state_video_compress_none *s;
         
-        s = (struct none_video_compress *) malloc(sizeof(struct none_video_compress));
+        s = (struct state_video_compress_none *) malloc(sizeof(struct state_video_compress_none));
         s->magic = MAGIC;
+        module_init_default(&s->module_data);
+        s->module_data.cls = MODULE_CLASS_DATA;
+        s->module_data.priv_data = s;
+        s->module_data.deleter = none_compress_done;
+        module_register(&s->module_data, parent);
 
-        return s;
+        return &s->module_data;
 }
 
-struct video_frame * none_compress(void *arg, struct video_frame * tx, int buffer_idx)
+struct video_frame * none_compress(struct module *mod, struct video_frame * tx)
 {
-        UNUSED(buffer_idx);
-        struct none_video_compress *s = (struct none_video_compress *) arg;
+        struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
 
         assert(s->magic == MAGIC);
 
         return tx;
 }
 
-void none_compress_done(void *arg)
+static void none_compress_done(struct module *mod)
 {
-        struct none_video_compress *s = (struct none_video_compress *) arg;
+        struct state_video_compress_none *s = (struct state_video_compress_none *) mod->priv_data;
 
         assert(s->magic == MAGIC);
 
-        free(arg);
+        free(s);
 }
 

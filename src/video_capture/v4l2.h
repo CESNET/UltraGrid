@@ -51,14 +51,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "video.h"
-#include "video_capture.h"
-#include "audio/audio.h"
-
 #define VIDCAP_V4L2_ID 0x668E0787
 
+struct audio_frame;
+struct vidcap_type;
+struct video_frame;
+
 struct vidcap_type      *vidcap_v4l2_probe(void);
-void                    *vidcap_v4l2_init(char *fmt, unsigned int flags);
-void                     vidcap_v4l2_finish(void *state);
+void                    *vidcap_v4l2_init(const struct vidcap_params *params);
 void                     vidcap_v4l2_done(void *state);
 struct video_frame      *vidcap_v4l2_grab(void *state, struct audio_frame **audio);
+

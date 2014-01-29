@@ -13,12 +13,15 @@
  *           Jiri Matela      <matela@ics.muni.cz>
  *           Dalibor Matura   <255899@mail.muni.cz>
  *           Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *           David Cassany   <david.cassany@i2cat.net>
+ *           Gerard Castillo <gerard.castillo@i2cat.net>
  *
  * The routines in this file implement the Real-time Transport Protocol,
  * RTP, as specified in RFC1889 with current updates under discussion in
  * the IETF audio/video transport working group. Portions of the code are
  * derived from the algorithms published in that specification.
  *
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
@@ -285,6 +288,7 @@ struct rtp {
         uint16_t rtp_seq;
         uint32_t rtp_pcount;
         uint32_t rtp_bcount;
+        uint64_t rtp_bytes_sent;
         int tfrc_on;            /* indicates TFRC congestion control */
         /* tfrc sender variables */
         uint32_t cmp_rtt;       /* rtt as computed by the sender */
@@ -1046,7 +1050,7 @@ struct rtp *rtp_init(const char *addr,
  * Returns: An opaque session identifier to be used in future calls to
  * the RTP library functions, or NULL on failure.
  */
-struct rtp *rtp_init_if(const char *addr, char *iface,
+struct rtp *rtp_init_if(const char *addr, const char *iface,
                         uint16_t rx_port, uint16_t tx_port,
                         int ttl, double rtcp_bw,
                         int tfrc_on, rtp_callback callback, uint8_t * userdata,
@@ -1075,14 +1079,19 @@ struct rtp *rtp_init_if(const char *addr, char *iface,
         session->magic = 0xfeedface;
         session->opt = (options *) malloc(sizeof(options));
         session->userdata = userdata;
-        session->addr = strdup(addr);
+	if (addr != NULL) {
+		session->addr = strdup(addr);
+	} else {
+		session->addr = NULL;
+	}
         session->rx_port = rx_port;
         session->tx_port = tx_port;
         session->ttl = min(ttl, 127);
         session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6);
+
         session->rtcp_socket =
             udp_init_if(addr, iface, (uint16_t) (rx_port + (rx_port ? 1 : 0)),
-                        (uint16_t) (tx_port + 1), ttl, use_ipv6);
+                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, use_ipv6);
 
         init_opt(session);
 
@@ -1116,6 +1125,7 @@ struct rtp *rtp_init_if(const char *addr, char *iface,
         session->mhdr = NULL;
         session->tfrc_on = tfrc_on;
         session->rtp_bcount = 0;
+        session->rtp_bytes_sent = 0;
         gettimeofday(&(session->last_update), NULL);
         gettimeofday(&(session->last_rtcp_send_time), NULL);
         gettimeofday(&(session->next_rtcp_send_time), NULL);
@@ -1413,7 +1423,7 @@ int rtp_recv_push_data(struct rtp *session,
         return buflen;
 }
 
-static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
+static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
 {
         int buflen;
         rtp_packet *packet = NULL;
@@ -1429,6 +1439,8 @@ static void rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
                      RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
 
         rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
+
+        return buflen;
 }
 
 static void rtp_process_data(struct rtp *session, uint32_t curr_rtp_ts,
@@ -2230,6 +2242,7 @@ int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_t
  * @param sessions null-terminated list of rtp sessions.
  * @param timeout timeout
  * @param cur_rtp_ts list null-terminated of timestamps for each session
+ * @returns received bytes
  */
 int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
@@ -2244,9 +2257,10 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
                 udp_fd_set_r((*current)->rtcp_socket, &fd);
         }
         if (udp_select_r(timeout, &fd) > 0) {
+                int received_bytes = 0;
                 for(current = sessions; *current != NULL; ++current) {
                         if (udp_fd_isset_r((*current)->rtp_socket, &fd)) {
-                                rtp_recv_data(*current, curr_rtp_ts);
+                                received_bytes = rtp_recv_data(*current, curr_rtp_ts);
                         }
                         if (udp_fd_isset_r((*current)->rtcp_socket, &fd)) {
                                 uint8_t buffer[RTP_MAX_PACKET_LEN];
@@ -2259,10 +2273,10 @@ int rtp_recv_poll_r(struct rtp **sessions, struct timeval *timeout, uint32_t cur
                         }
                         check_database(*current);
                 }
-                return TRUE;
+                return received_bytes;
         }
         //check_database(session);
-        return FALSE;
+        return 0;
 }
 
 /**
@@ -2720,6 +2734,7 @@ rtp_send_data_hdr(struct rtp *session,
         session->we_sent = TRUE;
         session->rtp_pcount += 1;
         session->rtp_bcount += buffer_len;
+        session->rtp_bytes_sent += buffer_len + data_len;
         gettimeofday(&session->last_rtp_send_time, NULL);
 
         check_database(session);
@@ -3805,5 +3820,65 @@ int rtp_set_send_buf(struct rtp *session, int bufsize)
 void rtp_flush_recv_buf(struct rtp *session)
 {
         udp_flush_recv_buf(session->rtp_socket);
+}
+
+/**
+ * rtp_change_dest:
+ * Changes RTP destination address.
+ * There must be only one sending thread.
+ * @session: The RTP Session.
+ * @addr: New Receiver Address.
+ * Returns TRUE if ok, FALSE if not
+ */
+int rtp_change_dest(struct rtp *session, const char *addr)
+{
+        return udp_change_dest(session->rtp_socket, addr);
+}
+
+uint64_t rtp_get_bytes_sent(struct rtp *session)
+{
+        return session->rtp_bytes_sent;
+}
+
+int rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc)
+{
+        int h;
+        source *s;
+
+        for (h = 0; h < RTP_DB_SIZE; h++) {
+                for (s = session->db[h]; s != NULL; s = s->next) {
+                        check_source(s);
+                        if (s->ssrc == ssrc) {
+                                /* Much of this is taken from A.3 of draft-ietf-avt-rtp-new-01.txt */
+                                int extended_max = s->cycles + s->max_seq;
+                                int expected = extended_max - s->base_seq + 1;
+                                int lost = expected - s->received;
+                                int expected_interval =
+                                    expected - s->expected_prior;
+                                int received_interval =
+                                    s->received - s->received_prior;
+                                int lost_interval =
+                                    expected_interval - received_interval;
+                                int fraction;
+                                uint32_t lsr;
+                                uint32_t dlsr;
+
+                                //printf("lost_interval %d\n", lost_interval);
+                                s->expected_prior = expected;
+                                s->received_prior = s->received;
+                                if (expected_interval == 0
+                                    || lost_interval <= 0) {
+                                        fraction = 0;
+                                } else {
+                                        fraction =
+                                            (lost_interval << 8) /
+                                            expected_interval;
+                                }
+
+                                return fraction;
+                        }
+                }
+        }
+        return 0;
 }
 

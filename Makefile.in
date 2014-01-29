@@ -5,15 +5,16 @@ CC            = @CC@
 CXX           = @CXX@
 QMAKE         = @QMAKE@
 LINKER        = @LINKER@
-CFLAGS        = -g @DEFS@ @CFLAGS@ @X_CFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -msse2
-CPPFLAGS      = @CPPFLAGS@
-CXXFLAGS      = -g @DEFS@ @CXXFLAGS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wno-multichar -Wno-deprecated -msse2
+COMMON_FLAGS  = -g @DEFS@ -DPATH_PREFIX=@prefix@ -DLIB_DIR=@libdir@ -Wall -Wextra -Wpointer-arith -msse2
+CFLAGS        = @CFLAGS@ @X_CFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
+CPPFLAGS      = @CPPFLAGS@ -D_GNU_SOURCE
+CXXFLAGS      = @CXXFLAGS@ $(COMMON_FLAGS) -D_GNU_SOURCE
 NVCCFLAGS     = @NVCCFLAGS@
 LDFLAGS      =  @LDFLAGS@
 LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
-INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @FASTDXT_INC@ @QUICKTIME_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
-                @GL_INC@ @SAGE_INC@ @LINSYS_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
+INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @RTSP_SERVER_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
+                @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
 		@BLUEFISH444_INC@ @NCURSES_CFLAGS@
 DECKLINK_PATH = @DECKLINK_PATH@
 TARGET        = @TARGET@
@@ -25,6 +26,7 @@ NVCC	      = @NVCC@
 DOCS 	      = README REPORTING-BUGS
 
 GUI_TARGET    = @GUI_TARGET@
+REFLECTOR_TARGET = bin/hd-rum-transcode
 
 PREFIX = @prefix@
 prefix = $(PREFIX)
@@ -41,24 +43,25 @@ HEADERS	      = @HEADERS@
 
 OBJS	      = @OBJS@ \
 	        src/bitstream.o \
+		src/control_socket.o \
 		src/debug.o \
 		src/host.o \
+		src/messaging.o \
 		src/perf.o \
 		src/ntp.o \
 		src/pdb.o \
-		src/tile.o \
 		src/tv.o \
 		src/transmit.o \
 		src/tfrc.o \
 		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
-		src/rtp/decoders.o \
 		src/rtp/audio_decoders.o \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
-		src/rtp/ll.o \
+		src/rtp/pc.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
+		src/rtp/video_decoders.o \
 		src/audio/audio.o \
 		src/audio/audio_capture.o \
 		src/audio/audio_playback.o \
@@ -79,26 +82,42 @@ OBJS	      = @OBJS@ \
 		src/capture_filter.o \
 		src/capture_filter/blank.o \
 		src/capture_filter/every.o \
+		src/capture_filter/logo.o \
+		src/capture_filter/none.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
 		src/compat/inet_ntop.o \
 		src/compat/inet_pton.o \
 		src/compat/platform_semaphore.o \
+		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
 		src/compat/usleep.o \
+		src/crypto/crc_32.o \
 		src/crypto/crypt_aes.o \
 		src/crypto/crypt_aes_impl.o \
 		src/crypto/crypt_des.o \
 		src/crypto/md5.o \
+		src/crypto/openssl_encrypt.o \
+		src/crypto/openssl_decrypt.o \
 		src/crypto/random.o \
+		src/ihdtv.o \
 		src/ihdtv/ihdtv.o \
+		src/module.o \
+		src/stats.o \
+		src/utils/config_file.o \
 		src/utils/fs_lock.o \
 		src/utils/list.o \
+		src/lib_common.o \
+		src/utils/message_queue.o \
 		src/utils/packet_counter.o \
 		src/utils/resource_manager.o \
 		src/utils/ring_buffer.o \
+		src/utils/timed_message.o \
+		src/utils/vf_split.o \
+		src/utils/wait_obj.o \
 		src/utils/worker.o \
 		src/video.o \
+		src/video_frame.o \
 		src/video_codec.o \
 		src/video_capture.o \
 		src/video_capture/aggregate.o \
@@ -122,42 +141,29 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/tanner.o \
 		ldgm-coding/matrix-gen/matrix-generator.o \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
-		@LIB_SUPPORT_OBJ@ \
 
-HD_RUM_TRANSLATOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
+ULTRAGRID_OBJS = src/main.o src/sender.o \
+
+REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
-LIB_COMMON = \
-		src/audio/utils.o \
-		src/compat/platform_semaphore.o \
-		src/crypto/random.o \
-		src/debug.o \
-		src/tile.o \
-		src/tv.o \
-		src/utils/fs_lock.o \
-		src/utils/list.o \
-		src/utils/ring_buffer.o \
-		src/utils/worker.o \
-		src/video.o \
-		src/video_codec.o \
-
-
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard bin/hd-rum-transcode modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
-$(TARGET): $(OBJS) src/main.o $(HEADERS)
+$(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(HEADERS)
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
+	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
+	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 bin/import_control_keyboard: src/import_control_keyboard.o
 	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
-bin/hd-rum-transcode: $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
+$(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(REFLECTOR_OBJS)
 	@if [ ! -d bin ]; then mkdir bin; fi
-	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSLATOR_OBJS) $(LIBS) -o bin/hd-rum-transcode
+	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
 .c.o:
 	$(CC) $(CFLAGS) $(INC) -c $< -o $@
@@ -170,7 +176,9 @@ bin/hd-rum-transcode: $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
 
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu
-	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+	$(NVCC) $(NVCCFLAGS) $(INC) -c $< -o $@
+%.cu.lib: %.cu
+	$(NVCC) $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
 src/audio/resample.o:
 	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
@@ -205,9 +213,6 @@ src/video_capture/DeckLinkAPIDispatch.o: $(DECKLINK_PATH)/DeckLinkAPIDispatch.cp
 
 src/video_capture/DeckLinkAPI_i.o: $(DECKLINK_PATH)/DeckLinkAPI_i.c
 	$(CC) $(CFLAGS) -c $(INC) -o src/video_capture/DeckLinkAPI_i.o $(DECKLINK_PATH)/DeckLinkAPI_i.c
-
-src/video_display/sage_wrapper.o: src/video_display/sage_wrapper.cxx
-	$(CXX) $(CXXFLAGS) -c $(INC) -DQUANTA_USE_PTHREADS -DQUANTA_THREAD_SAFE -DGLSL_YUV -o src/video_display/sage_wrapper.o src/video_display/sage_wrapper.cxx
 
 dxt_compress/dxt_encoder.o: dxt_compress/dxt_encoder.c dxt_compress/dxt_glsl.h
 	$(CC) $(CFLAGS) $(INC) $(DXT_GLSL_CFLAGS) $< -c -o $@
@@ -348,13 +353,6 @@ dxt_compress/dxt_glsl.h:dxt_compress/compress_vp.glsl \
 	#cat dxt_compress/rgba_to_yuv422_vp.glsl | sed 's/\(.*\)/    \"\1\\n\"/' >> $@
 	#echo ";" >> $@
 
-
-gpujpeg/.libs/libgpujpeg.a:
-	make -j -C gpujpeg/ static
-
-@FASTDXT_PATH@/libdxt.a:
-	make -j -C @FASTDXT_PATH@/ lib
-
 gui/QT/uv-qt:
 	cd gui/QT; $(QMAKE) ; make -j; cd -
 
@@ -409,22 +407,18 @@ ag_plugin/uvReceiverService.zip: $(AG_PLUGIN_RX_SCRIPTS) $(TARGET)
 
 # -------------------------------------------------------------------------------------------------
 clean:
-	-rm -f $(OBJS) $(HEADERS) src/main.o $(TARGET) src/version.h
+	-rm -f $(OBJS) $(HEADERS) $(ULTRAGRID_OBJS) $(TARGET) src/version.h
 	-rm -f $(TEST_OBJS) test/run_tests
 	-rm -f ag_plugin/uvReceiverService.zip ag_plugin/uvSenderService.zip
 	-rm -rf $(BUNDLE)
 	-rm -rf $(PERF) src/uv_perf.o
-	-rm -rf $(HD_RUM_TRANSCODE_OBJS)
-	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@
-	-rm -rf bin/import_control_keyboard
-	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ clean
-	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ clean
+	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
+	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
+	-rm -rf bin/import_control_keyboard src/import_control_keyboard.o
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean
 	-rm -f Makefile config.status config.cache config.log src/config.h tags
-	[ ! -f gpujpeg/Makefile ] || make -C gpujpeg/ distclean
-	[ -z "@FASTDXT_PATH@" ] || make -C @FASTDXT_PATH@/ distclean
 
 etags:
 	etags src/*.[ch] src/*/*.[ch]
@@ -469,10 +463,6 @@ osx-gui-dmg: bundle
 perf: src/tv.o src/crypto/random.o
 	$(CC) $(CFLAGS) -DPERF src/uv_perf.c src/crypto/random.o src/tv.o -o $(PERF)
 
-@COMMON_LIB_TARGET@: $(LIB_COMMON)
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,ug_lib_common.so.@lib_common_abi_version@ $(LIB_COMMON) -o $@
-
 sdl: @SDL_LIB_TARGET@
 gl: @GL_LIB_TARGET@
 testcard: @TESTCARD_LIB_TARGET@
@@ -483,7 +473,6 @@ deltacast: @DELTACAST_DISP_LIB_TARGET@ @DELTACAST_CAP_LIB_TARGET@
 dvs: @DVS_CAP_LIB_TARGET@ @DVS_DISP_LIB_TARGET@
 screen: @SCREEN_CAP_LIB_TARGET@
 sage: @SAGE_LIB_TARGET@
-fastdxt: @FASTDXT_LIB_TARGET@
 rtdxt: @RTDXT_COMPRESS_LIB_TARGET@ @RTDXT_DECOMPRESS_LIB_TARGET@
 uyvy: @UYVY_COMPRESS_LIB_TARGET@
 jpeg: @JPEG_DECOMPRESS_LIB_TARGET@ @JPEG_COMPRESS_LIB_TARGET@
@@ -492,6 +481,8 @@ portaudio: @PORTAUDIO_PLAY_LIB_TARGET@ @PORTAUDIO_CAP_LIB_TARGET@
 jack: @JACK_CAP_LIB_TARGET@ @JACK_PLAY_LIB_TARGET@
 scale: @SCALE_LIB_TARGET@
 libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ @LIBAVCODEC_AUDIO_CODEC_LIB_TARGET@
+rtsp: @RTSP_LIB_TARGET@
+rtsp_server: @RTSP_SERVER_LIB_TARGET@
 
 @SDL_LIB_TARGET@: @SDL_OBJ@ @X_OBJ@
 	mkdir -p lib/ultragrid
@@ -501,6 +492,14 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_gl.so.@video_display_abi_version@ $^ @GL_LIB@ -o $@
 
+@RTSP_LIB_TARGET@: @RTSP_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIB@ -o $@
+	
+@RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp_server.so.@video_capture_abi_version@ $^ @RTSP_SERVER_LIB@ -o $@
+	
 @TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
@@ -520,10 +519,6 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 @DECKLINK_DISP_LIB_TARGET@: src/video_capture/decklink.o @DECKLINK_COMMON@ @DECKLINK_DISP_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_decklink.so.@video_display_abi_version@ $^ @DECKLINK_LIB@ -o $@
-
-@LINSYS_LIB_TARGET@: @LINSYS_OBJ@
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_linsys.so.@video_display_abi_version@ $^ -o $@
 
 @BLUEFISH444_CAP_LIB_TARGET@: @BLUEFISH444_CAP_OBJ@
 	mkdir -p lib/ultragrid
@@ -557,10 +552,6 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,display_sage.so.@video_display_abi_version@ $^ @SAGE_LIB@ -o $@
 
-@FASTDXT_LIB_TARGET@: @FASTDXT_OBJ@
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_fastdxt.so.@video_compress_abi_version@ $^ @FASTDXT_LIB@ -o $@
-
 @RTDXT_COMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_rtdxt.so.@video_compress_abi_version@ @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_COMPRESS_OBJ@ @RTDXT_LIB@ -o $@
@@ -585,6 +576,10 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_jpeg.so.@video_compress_abi_version@ $^ @JPEG_LIB@ -o $@
 
+@CUDA_DXT_COMPRESS_LIB_TARGET@: @CUDA_DXT_OBJ@ @CUDA_COMMON_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vcompress_cuda_dxt.so.@video_compress_abi_version@ $^ @CUDA_DXT_LIB@ -o $@
+
 @RTDXT_DECOMPRESS_LIB_TARGET@: @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_COMMON_HEADERS@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_rtdxt.so.@video_decompress_abi_version@  @GL_COMMON_OBJ@ @X_OBJ@ @RTDXT_COMMON_OBJ@ @RTDXT_DECOMPRESS_OBJ@ @RTDXT_LIB@ -o $@
@@ -592,6 +587,11 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 @JPEG_DECOMPRESS_LIB_TARGET@: @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg.so.@video_decompress_abi_version@ $^ @JPEG_LIB@ -o $@
+
+@JPEG_TO_DXT_DECOMPRESS_LIB_TARGET@: @JPEG_TO_DXT_OBJ@ @JPEG_DECOMPRESS_OBJ@ @JPEG_COMMON_OBJ@ @CUDA_COMMON_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vdecompress_jpeg_to_dxt.so.@video_decompress_abi_version@ $^ @JPEG_TO_DXT_LIB@ -o $@
+
 
 @ALSA_PLAY_LIB_TARGET@: @ALSA_PLAY_OBJ@
 	mkdir -p lib/ultragrid
@@ -632,6 +632,7 @@ libavcodec: @LIBAVCODEC_DECOMPRESS_LIB_TARGET@ @LIBAVCODEC_COMPRESS_LIB_TARGET@ 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)
 	$(INSTALL) -m 755 bin/uv $(DESTDIR)/$(bindir)
+	$(INSTALL) -m 755 $(REFLECTOR_TARGET) $(DESTDIR)/$(bindir)
 	if [ -f "$(GUI_TARGET)" ]; then $(INSTALL) -m 755 $(GUI_TARGET) $(DESTDIR)/$(bindir); fi
 	if [ -n "@LIB_TARGETS@" ]; then\
 		$(INSTALL) -d -m 755 $(DESTDIR)/$(libdir)/ultragrid;\
@@ -642,11 +643,14 @@ install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(docdir)
 	$(INSTALL) -m 644 $(DOCS) $(DESTDIR)/$(docdir)
 	$(CP) @COPYRIGHT@ $(DESTDIR)/$(docdir)/COPYRIGHT
+	if [ -n "@DLL_LIBS@" ]; then  $(INSTALL) -m 644 @DLL_LIBS@ $(DESTDIR)/$(bindir); fi
 
 uninstall:
 	$(RM) $(DESTDIR)/$(bindir)/uv
+	$(RM) $(DESTDIR)/$(bindir)/hd-rum-transcode
 	if [ -n "@LIB_TARGETS@" ]; then for n in @LIB_TARGETS@; do $(RM) $(DESTDIR)/$(libdir)/ultragrid/`basename $$n`; done; fi
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	for n in $(DOCS); do $(RM) $(DESTDIR)/$(docdir)/$$n; done; fi
+	$(RM) $(DESTDIR)/$(docdir)/@COPYRIGHT@
 	$(RM) $(DESTDIR)/$(uv_datadir)/ultragrid-bugreport-collect.sh
 	if [ -f "$(GUI_TARGET)" ]; then $(RM) $(DESTDIR)/$(bindir)/`basename $(GUI_TARGET)`; fi

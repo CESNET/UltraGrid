@@ -53,18 +53,24 @@
 #endif /* HAVE_CONFIG_H */
 
 #include "capture_filter.h"
+#include "module.h"
 #include "utils/list.h"
 #include "video.h"
 
 #include "capture_filter/blank.h"
 #include "capture_filter/every.h"
+#include "capture_filter/logo.h"
+#include "capture_filter/none.h"
 
 static struct capture_filter_info *capture_filters[] = {
         &capture_filter_blank,
-        &capture_filter_every
+        &capture_filter_every,
+        &capture_filter_logo,
+        &capture_filter_none,
 };
 
 struct capture_filter {
+        struct module mod;
         struct simple_linked_list *filters;
 };
 
@@ -73,7 +79,41 @@ struct capture_filter_instance {
         void *state;
 };
 
-int capture_filter_init(const char *cfg, struct capture_filter **state)
+static int create_filter(struct capture_filter *s, char *cfg)
+{
+        unsigned int i;
+        char *options = NULL;
+        char *filter_name = cfg;
+        if(strchr(filter_name, ':')) {
+                options = strchr(filter_name, ':') + 1;
+                *strchr(filter_name, ':') = '\0';
+        }
+        for(i = 0; i < sizeof(capture_filters) / sizeof(struct capture_filter_info *); ++i) {
+                if(strcasecmp(capture_filters[i]->name, filter_name) == 0) {
+                        struct capture_filter_instance *instance =
+                                malloc(sizeof(struct capture_filter_instance));
+                        instance->index = i;
+                        int ret = capture_filters[i]->init(&s->mod, options, &instance->state);
+                        if(ret < 0) {
+                                fprintf(stderr, "Unable to initialize capture filter: %s\n",
+                                                filter_name);
+                        }
+                        if(ret != 0) {
+                                return ret;
+                        }
+                        simple_linked_list_append(s->filters, instance);
+                        break;
+                }
+        }
+        if(i == sizeof(capture_filters) / sizeof(struct capture_filter_info *)) {
+                fprintf(stderr, "Unable to find capture filter: %s\n",
+                                filter_name);
+                return -1;
+        }
+        return 0;
+}
+
+int capture_filter_init(struct module *parent, const char *cfg, struct capture_filter **state)
 {
         struct capture_filter *s = calloc(1, sizeof(struct capture_filter));
         char *item, *save_ptr;
@@ -82,6 +122,10 @@ int capture_filter_init(const char *cfg, struct capture_filter **state)
              *tmp = NULL;
 
         s->filters = simple_linked_list_init();
+
+        module_init_default(&s->mod);
+        s->mod.cls = MODULE_CLASS_FILTER;
+        module_register(&s->mod, parent);
 
         if(cfg) {
                 if(strcasecmp(cfg, "help") == 0) {
@@ -95,35 +139,14 @@ int capture_filter_init(const char *cfg, struct capture_filter **state)
                 filter_list_str = tmp = strdup(cfg);
 
                 while((item = strtok_r(filter_list_str, ",", &save_ptr))) {
-                        unsigned int i;
                         char filter_name[128];
-                        char *options = NULL;
                         strncpy(filter_name, item, sizeof(filter_name));
-                        if(strchr(filter_name, ':')) {
-                                options = strchr(filter_name, ':') + 1;
-                                *strchr(filter_name, ':') = '\0';
-                        }
-                        for(i = 0; i < sizeof(capture_filters) / sizeof(struct capture_filter_info *); ++i) {
-                                if(strcasecmp(capture_filters[i]->name, filter_name) == 0) {
-                                        struct capture_filter_instance *instance =
-                                                malloc(sizeof(struct capture_filter_instance));
-                                        instance->index = i;
-                                        int ret = capture_filters[i]->init(options, &instance->state);
-                                        if(ret < 0) {
-                                                fprintf(stderr, "Unable to initialize capture filter: %s\n",
-                                                                filter_name);
-                                        }
-                                        if(ret != 0) {
-                                                return ret;
-                                        }
-                                        simple_linked_list_append(s->filters, instance);
-                                        break;
-                                }
-                        }
-                        if(i == sizeof(capture_filters) / sizeof(struct capture_filter_info *)) {
-                                fprintf(stderr, "Unable to find capture filter: %s\n",
-                                                filter_name);
-                                return -1;
+
+                        int ret = create_filter(s, filter_name);
+                        if (ret != 0) {
+                                module_done(&s->mod);
+                                free(s);
+                                return ret;
                         }
                         filter_list_str = NULL;
                 }
@@ -148,11 +171,52 @@ void capture_filter_destroy(struct capture_filter *state)
 
         simple_linked_list_destroy(s->filters);
 
+        module_done(&s->mod);
+
         free(state);
+}
+
+static void process_message(struct capture_filter *s, struct msg_universal *msg)
+{
+        if (strncmp("delete ", msg->text, strlen("delete ")) == 0) {
+                int index = atoi(msg->text + strlen("delete "));
+                struct capture_filter_instance *inst =
+                        simple_linked_list_remove_index(s->filters, index);
+                if (!inst) {
+                        fprintf(stderr, "Unable to remove capture filter index %d.\n",
+                                        index);
+                } else {
+                        printf("Capture filter #%d removed successfully.\n", index);
+                        capture_filters[inst->index]->done(inst->state);
+                        free(inst);
+                }
+        } else if (strcmp("flush", msg->text) == 0) {
+                while(simple_linked_list_size(s->filters) > 0) {
+                        struct capture_filter_instance *inst = simple_linked_list_pop(s->filters);
+                        capture_filters[inst->index]->done(inst->state);
+                        free(inst);
+                }
+        } else {
+                char *fmt = strdup(msg->text);
+                if (create_filter(s, fmt) != 0) {
+                        fprintf(stderr, "Cannot create capture filter: %s.\n",
+                                        msg->text);
+                } else {
+                        printf("Capture filter \"%s\" created successfully.\n",
+                                        msg->text);
+                }
+                free(fmt);
+        }
 }
 
 struct video_frame *capture_filter(struct capture_filter *state, struct video_frame *frame) {
         struct capture_filter *s = state;
+
+        struct message *msg;
+        while ((msg = check_message(&s->mod))) {
+                process_message(s, (struct msg_universal *) msg);
+                free_message(msg);
+        }
 
         for(void *it = simple_linked_list_it_init(s->filters);
                         it != NULL;

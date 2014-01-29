@@ -39,7 +39,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include "video_display.h"
 
 #define DISPLAY_DECKLINK_ID	0x415f46d0
 

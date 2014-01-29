@@ -59,35 +59,41 @@
 
 using namespace std;
 
-struct worker;
+struct wp_worker;
 
 struct worker_state_observer {
         virtual ~worker_state_observer() {}
-        virtual void notify(worker *) = 0;
+        virtual void notify(wp_worker *) = 0;
 };
 
-struct task_data {
-        task_data(task_t task, void *data, worker *w) : m_task(task), m_data(data),
-                m_result(0), m_w(w), m_returned(false) {}
+/**
+ * @brief Holds data to be passed to worker.
+ */
+struct wp_task_data {
+        wp_task_data(task_t task, void *data, wp_worker *w) : m_task(task), m_data(data),
+                m_result(0), m_returned(false), m_w(w) {}
         task_t m_task;
         void *m_data;
         void *m_result;
         bool m_returned;
-        struct worker *m_w;
+        struct wp_worker *m_w;
 };
 
-struct worker {
-        worker(worker_state_observer &observer) :
+/**
+ * @brief This class represents a worker that is called from within the pool
+ */
+struct wp_worker {
+        wp_worker(worker_state_observer &observer) :
                 m_state_observer(observer)
         {
                 pthread_mutex_init(&m_lock, NULL);
                 pthread_cond_init(&m_task_ready_cv, NULL);
                 pthread_cond_init(&m_task_completed_cv, NULL);
 
-                pthread_create(&m_thread_id, NULL, worker::enter_loop, this);
+                pthread_create(&m_thread_id, NULL, wp_worker::enter_loop, this);
         }
-        ~worker() {
-                task_data *poisoned = new task_data(NULL, NULL, this);
+        ~wp_worker() {
+                wp_task_data *poisoned = new wp_task_data(NULL, NULL, this);
                 this->push(poisoned);
 
                 pthread_join(m_thread_id, NULL);
@@ -98,10 +104,10 @@ struct worker {
         static void      *enter_loop(void *args);
         void              run();
 
-        void              push(task_data *);
-        void             *pop(task_data *);
+        void              push(wp_task_data *);
+        void             *pop(wp_task_data *);
 
-        queue<task_data*> m_data;
+        queue<wp_task_data*> m_data;
         pthread_mutex_t   m_lock;
         pthread_cond_t    m_task_ready_cv;
         pthread_cond_t    m_task_completed_cv;
@@ -110,16 +116,16 @@ struct worker {
         worker_state_observer &m_state_observer;
 };
 
-void *worker::enter_loop(void *args) {
-        worker *instance = (worker *) args;
+void *wp_worker::enter_loop(void *args) {
+        wp_worker *instance = (wp_worker *) args;
         instance->run();
 
         return NULL;
 }
 
-void worker::run() {
+void wp_worker::run() {
         while(1) {
-                struct task_data *data;
+                struct wp_task_data *data;
                 pthread_mutex_lock(&m_lock);
                 while(m_data.empty()) {
                         pthread_cond_wait(&m_task_ready_cv, &m_lock);
@@ -145,7 +151,7 @@ void worker::run() {
         }
 }
 
-void worker::push(task_data *data) {
+void wp_worker::push(wp_task_data *data) {
         pthread_mutex_lock(&m_lock);
         assert(m_data.size() == 0);
         m_data.push(data);
@@ -153,7 +159,7 @@ void worker::push(task_data *data) {
         pthread_mutex_unlock(&m_lock);
 }
 
-void *worker::pop(task_data *d) {
+void *wp_worker::pop(wp_task_data *d) {
         void *res = NULL;
 
         pthread_mutex_lock(&m_lock);
@@ -167,7 +173,7 @@ void *worker::pop(task_data *d) {
         return res;
 }
 
-static void func_delete(worker *arg) {
+static void func_delete(wp_worker *arg) {
         delete arg;
 }
 
@@ -186,7 +192,7 @@ class worker_pool : public worker_state_observer
                         pthread_mutex_destroy(&m_lock);
                 }
 
-                void notify(worker *w) {
+                void notify(wp_worker *w) {
                         pthread_mutex_lock(&m_lock);
                         m_occupied_workers.erase(w);
                         m_empty_workers.insert(w);
@@ -197,26 +203,26 @@ class worker_pool : public worker_state_observer
                 void *wait_task(task_result_handle_t handle);
 
         private:
-                set<worker*>    m_empty_workers;
-                set<worker*>    m_occupied_workers;
+                set<wp_worker*>    m_empty_workers;
+                set<wp_worker*>    m_occupied_workers;
                 pthread_mutex_t m_lock;
 };
 
 task_result_handle_t worker_pool::run_async(task_t task, void *data)
 {
-        worker *w;
+        wp_worker *w;
         pthread_mutex_lock(&m_lock);
         if(m_empty_workers.empty()) {
-                m_empty_workers.insert(new worker(*this));
+                m_empty_workers.insert(new wp_worker(*this));
         }
-        set<worker*>::iterator it = m_empty_workers.begin();
+        set<wp_worker*>::iterator it = m_empty_workers.begin();
         assert(it != m_empty_workers.end());
         w = *it;
         /// @todo: really weird - it seems like that 'it' instead of 'w' caused some problems
         m_empty_workers.erase(w);
         m_occupied_workers.insert(w);
 
-        task_data *d = new task_data(task, data, w);
+        wp_task_data *d = new wp_task_data(task, data, w);
         w->push(d);
         pthread_mutex_unlock(&m_lock);
 
@@ -225,8 +231,8 @@ task_result_handle_t worker_pool::run_async(task_t task, void *data)
 
 void *worker_pool::wait_task(task_result_handle_t handle)
 {
-        task_data *d = (task_data *) handle;
-        worker *w = d->m_w;
+        wp_task_data *d = (wp_task_data *) handle;
+        wp_worker *w = d->m_w;
         return w->pop(d);
 }
 

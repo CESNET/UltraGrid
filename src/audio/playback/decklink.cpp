@@ -135,15 +135,15 @@ public:
 
 
         // IUnknown needs only a dummy implementation
-        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID iid, LPVOID *ppv)        {return E_NOINTERFACE;}
+        virtual HRESULT STDMETHODCALLTYPE        QueryInterface (REFIID, LPVOID *)        { return E_NOINTERFACE;}
         virtual ULONG STDMETHODCALLTYPE            AddRef ()                                                                       {return 1;}
         virtual ULONG STDMETHODCALLTYPE            Release ()                                                                      {return 1;}
 
-        virtual HRESULT STDMETHODCALLTYPE          ScheduledFrameCompleted (IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) {
-                        s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame,
-                                        s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
-                        s->frames++;
-                        return S_OK;
+        virtual HRESULT STDMETHODCALLTYPE          ScheduledFrameCompleted (IDeckLinkVideoFrame *, BMDOutputFrameCompletionResult) {
+                s->deckLinkOutput->ScheduleVideoFrame(s->deckLinkFrame,
+                                s->frames * s->frameRateDuration, s->frameRateDuration, s->frameRateScale);
+                s->frames++;
+                return S_OK;
         }
         virtual HRESULT STDMETHODCALLTYPE          ScheduledPlaybackHasStopped () { return S_OK; } 
         //virtual HRESULT         RenderAudioSamples (bool preroll);
@@ -160,7 +160,7 @@ static int blackmagic_api_version_check(STRING *current_version)
 #ifdef WIN32
 	result = CoCreateInstance(CLSID_CDeckLinkAPIInformation, NULL, CLSCTX_ALL,
 		IID_IDeckLinkAPIInformation, (void **) &APIInformation);
-	
+        if(FAILED(result))
 #else
         APIInformation = CreateDeckLinkAPIInformationInstance();
         if(APIInformation == NULL)
@@ -169,9 +169,8 @@ static int blackmagic_api_version_check(STRING *current_version)
                 return FALSE;
         }
         int64_t value;
-        HRESULT res;
-        res = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
-        if(res != S_OK) {
+        result = APIInformation->GetInt(BMDDeckLinkAPIVersion, &value);
+        if(result != S_OK) {
                 APIInformation->Release();
                 return FALSE;
         }
@@ -261,7 +260,7 @@ void *decklink_playback_init(char *index_str)
         HRESULT                                         result;
         IDeckLinkConfiguration*         deckLinkConfiguration = NULL;
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
-        BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
+        //BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         int cardIdx = 0;
         int dnum = 0;
 
@@ -373,7 +372,7 @@ void *decklink_playback_init(char *index_str)
 
         IDeckLinkDisplayModeIterator     *displayModeIterator;
         IDeckLinkDisplayMode*             deckLinkDisplayMode;
-        BMDDisplayMode                    displayMode = bmdModeUnknown;
+        //BMDDisplayMode                    displayMode = bmdModeUnknown;
         int width, height;
 
         // Populate the display mode combo with a list of display modes supported by the installed DeckLink card
@@ -383,11 +382,15 @@ void *decklink_playback_init(char *index_str)
                 return NULL;
         }
 
+        // pick first display mode, no matter which it is
         if(displayModeIterator->Next(&deckLinkDisplayMode) == S_OK)
         {
                 width = deckLinkDisplayMode->GetWidth();
                 height = deckLinkDisplayMode->GetHeight();
                 deckLinkDisplayMode->GetFrameRate(&s->frameRateDuration, &s->frameRateScale);
+        } else {
+                fprintf(stderr, "[decklink] Fatal: cannot get any display mode.\n");
+                return NULL;
         }
 
         s->frames = 0;

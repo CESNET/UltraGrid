@@ -62,8 +62,6 @@
 #include <assert.h>
 #include <host.h>
 
-#include <video_codec.h>
-
 #define MAGIC_AGGREGATE DISPLAY_AGGREGATE_ID
 
 struct display_aggregate_state {
@@ -71,6 +69,7 @@ struct display_aggregate_state {
         pthread_t              *threads;
         unsigned int            devices_cnt;
         struct video_frame     *frame;
+        struct video_frame     **dev_frames;
         struct tile            *tile;
 
         /* For debugging... */
@@ -169,6 +168,7 @@ void *display_aggregate_init(char *fmt, unsigned int flags)
         free(parse_string);
 
         s->frame = vf_alloc(s->devices_cnt);
+        s->dev_frames = calloc(s->devices_cnt, sizeof(struct video_frame *));
         s->threads = calloc(s->devices_cnt, sizeof(pthread_t));
 
         return (void *)s;
@@ -201,22 +201,8 @@ void display_aggregate_done(void *state)
         }
                                         
         vf_free(s->frame);
+        free(s->dev_frames);
         free(s);
-}
-
-void display_aggregate_finish(void *state)
-{
-        struct display_aggregate_state *s = (struct display_aggregate_state *) state;
-
-        assert(s != NULL);
-        assert(s->magic == MAGIC_AGGREGATE);
-
-        if (s != NULL) {
-                unsigned int i;
-                for (i = 0; i < s->devices_cnt; ++i) {
-                         display_finish(s->devices[i]);
-                 }
-        }
 }
 
 struct video_frame *display_aggregate_getf(void *state)
@@ -231,6 +217,7 @@ struct video_frame *display_aggregate_getf(void *state)
 
         for(i = 0; i < s->devices_cnt; ++i) {
                 frame = display_get_frame(s->devices[i]);
+                s->dev_frames[i] = frame;
                 vf_get_tile(s->frame, i)->data = frame->tiles[0].data;
                 vf_get_tile(s->frame, i)->data_len = frame->tiles[0].data_len;
         }
@@ -244,9 +231,11 @@ int display_aggregate_putf(void *state, struct video_frame *frame, int nonblock)
         struct display_aggregate_state *s = (struct display_aggregate_state *)state;
 
         assert(s->magic == MAGIC_AGGREGATE);
-        UNUSED(frame);
         for(i = 0; i < s->devices_cnt; ++i) {
-                int ret = display_put_frame(s->devices[i], frame, nonblock);
+                struct video_frame *dev_frame = NULL;
+                if(frame)
+                        dev_frame = s->dev_frames[i];
+                int ret = display_put_frame(s->devices[i], dev_frame, nonblock);
                 if(ret != 0)
                         return ret;
         }
@@ -349,27 +338,28 @@ err_codecs:
                                 return FALSE;
                         }
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                case DISPLAY_PROPERTY_GSHIFT:
-                case DISPLAY_PROPERTY_BSHIFT:
+                case DISPLAY_PROPERTY_RGB_SHIFT:
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         {
                                 int ret;
-                                int first_val;
-                                size_t size;
-                                ret = display_get_property(s->devices[0], property, &first_val, &size);
+                                char first_val[128];
+                                size_t first_size = sizeof(first_val);
+                                ret = display_get_property(s->devices[0], property, &first_val, &first_size);
                                 if(!ret) goto err;
 
                                 for (i = 1; i < s->devices_cnt; ++i) {
-                                        int new_val;
-                                        ret = display_get_property(s->devices[i], property, &new_val, &size);
+                                        char new_val[128];
+                                        size_t new_size = sizeof(new_val);
+                                        ret = display_get_property(s->devices[i], property, &new_val, &new_size);
                                         if(!ret) goto err;
-                                        if(new_val != first_val)
+                                        if(new_size != first_size || memcmp(first_val, new_val, first_size) != 0)
                                                 goto err;
 
                                 }
-                                *len = size;
-                                *(int *) val = first_val;
+                                if (first_size > *len)
+                                        goto err;
+                                *len = first_size;
+                                memcpy(val, first_val, first_size);
                                 return TRUE;
 err:
                                 return FALSE;

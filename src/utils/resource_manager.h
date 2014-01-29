@@ -67,12 +67,16 @@ extern "C" {
  * @param name is used to uniquely (!) identify lock. So when requested from 2 locations
  * lock with same name, the same lock handle will be returned
  */
-extern pthread_mutex_t *(*rm_acquire_shared_lock)(const char *name);
-extern void (*rm_release_shared_lock)(const char *name);
+pthread_mutex_t *rm_acquire_shared_lock(const char *name);
+void rm_release_shared_lock(const char *name);
 
-extern void (*rm_lock)();
-extern void (*rm_unlock)();
-extern void *(*rm_get_shm)(const char *name, int size);
+void rm_lock();
+void rm_unlock();
+void *rm_get_shm(const char *name, int size);
+typedef void *(*singleton_initializer_t)(void *);
+typedef void (*singleton_deleter_t)(void *);
+void *rm_singleton(const char *name, singleton_initializer_t initializer, void *initializer_data,
+                singleton_deleter_t deleter);
 
 #ifdef __cplusplus
 }

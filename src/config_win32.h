@@ -271,5 +271,9 @@ static inline long sysconf_replacement(int name) {
 #define sysconf sysconf_replacement
 #endif
 
+#define SHUT_RD SD_RECEIVE
+#define SHUT_WR SD_SEND
+#define SHUT_RDWR SD_BOTH
+
 #endif 
 #endif

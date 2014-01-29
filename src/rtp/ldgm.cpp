@@ -72,6 +72,7 @@
 #include "ldgm-coding/ldgm-session-cpu.h"
 #include "ldgm-coding/matrix-gen/matrix-generator.h"
 #include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
+#include "rtp/pc.h"
 
 using namespace std;
 
@@ -231,10 +232,8 @@ struct ldgm_state_encoder {
 
         private:
         LDGM_session_cpu coding_session;
-        char *buffer;
         unsigned int k, m, c;
         unsigned int seed;
-        char *left_matrix;
 };
 
 struct ldgm_state_decoder {
@@ -277,10 +276,10 @@ struct ldgm_state_decoder {
                 coding_session.set_pcMatrix(filename);
         }
 
-        void decode(const char *frame, int size, char **out, int *out_size, struct linked_list *ll) {
+        void decode(const char *frame, int size, char **out, int *out_size, struct packet_counter *pc) {
                 char *decoded;
 
-                decoded = coding_session.decode_frame((char *) frame, size, out_size, ll_to_map(ll));
+                decoded = coding_session.decode_frame((char *) frame, size, out_size, pc_to_map(pc));
 
                 *out = decoded;
         }
@@ -298,7 +297,6 @@ struct ldgm_state_decoder {
 
         private:
         LDGM_session_cpu coding_session;
-        char *buffer;
 };
 
 
@@ -400,7 +398,7 @@ void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_e
                 packet_type = JUMBO9000;
         }
 
-        for(int i = 1; i < sizeof(losses) / sizeof(loss_t); ++i) {
+        for(unsigned int i = 1; i < sizeof(losses) / sizeof(loss_t); ++i) {
                 if(max_expected_loss >= losses[i - 1] && max_expected_loss <= losses[i]) {
                         loss = losses[i];
                         break;
@@ -415,7 +413,7 @@ void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_e
 
         printf("LDGM: Choosing maximal loss %2.2f percent.\n", loss);
 
-        for(int i = 0; i < sizeof(suggested_configurations) / sizeof(configuration_t); ++i) {
+        for(unsigned int i = 0; i < sizeof(suggested_configurations) / sizeof(configuration_t); ++i) {
                 if(suggested_configurations[i].packet_type == packet_type &&
                                 suggested_configurations[i].loss == loss) {
                         if(abs(suggested_configurations[i].frame_size - frame_size) < abs(nearest - frame_size)) {
@@ -525,11 +523,12 @@ void * ldgm_decoder_init(unsigned int k, unsigned int m, unsigned int c, unsigne
         return s;
 }
 
-void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, int *len, struct linked_list  *ll)
+void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, int *len,
+                struct packet_counter  *pc)
 {
         struct ldgm_state_decoder *s = (struct ldgm_state_decoder *) state;
 
-        s->decode(in, in_len, out, len, ll);
+        s->decode(in, in_len, out, len, pc);
 }
 
 void ldgm_decoder_decode_map(void *state, const char *in, int in_len, char **out,

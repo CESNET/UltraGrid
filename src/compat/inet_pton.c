@@ -96,7 +96,7 @@ u_char *dst;
                 const char *pch;
 
                 if ((pch = (char *)strchr(digits, ch)) != NULL) {
-                        uint8_t new = *tp * 10 + (pch - digits);
+                        int new = *tp * 10 + (pch - digits);
 
                         if (new > 255)
                                 return (0);

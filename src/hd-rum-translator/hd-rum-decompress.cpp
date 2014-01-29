@@ -13,6 +13,7 @@
 
 extern "C" {
 #include "debug.h"
+#include "rtp/video_decoders.h" // init_decompress()
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "transmit.h"
@@ -69,9 +70,12 @@ struct frame : public message {
         }
 };
 
-struct state_decompress {
+struct state_transcoder_decompress {
         void **output_ports;
         int output_port_count;
+
+        void **output_inact_ports;
+        int output_inact_port_count;
 
         struct rtp *network_device;
 
@@ -93,17 +97,14 @@ struct state_decompress {
  * Prototypes
  */
 static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e);
-static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp);
+static void receive_packet(struct state_transcoder_decompress *s, rtp_packet *pckt_rtp);
 static bool decode_header(uint32_t *hdr, struct packet_desc *desc, int *buffer_len, int *substream);
 static bool decode_video_header(uint32_t *hdr, struct video_desc *desc, int *buffer_len, int *substream);
-static void decode_packet(char *frame_buffer, rtp_packet *pckt_rtp);
 static void *worker(void *arg);
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
-                int prio_min, int prio_max, uint32_t *magic);
 
 void hd_rum_decompress_add_port(void *state, void *recompress_port)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         s->output_port_count += 1;
         s->output_ports = (void **) realloc(s->output_ports,
@@ -112,9 +113,26 @@ void hd_rum_decompress_add_port(void *state, void *recompress_port)
                 recompress_port;
 }
 
+void hd_rum_decompress_add_inactive_port(void *state, void *recompress_port)
+{
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+
+        s->output_inact_port_count += 1;
+        s->output_inact_ports = (void **) realloc(s->output_inact_ports,
+                        s->output_inact_port_count * sizeof(void *));
+        s->output_inact_ports[s->output_inact_port_count - 1] =
+                recompress_port;
+}
+
 ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
+
+        // if there are no active output ports, simply quit
+        if (s->output_port_count == 0) {
+                return 0;
+        }
+
         struct timeval curr_time;
         gettimeofday(&curr_time, NULL);
         uint32_t ts = tv_diff(curr_time, s->start_time) * 90000;
@@ -122,67 +140,11 @@ ssize_t hd_rum_decompress_write(void *state, void *buf, size_t count)
                                           (char *) buf, count, ts);
 }
 
-static int find_best_decompress(codec_t in_codec, codec_t out_codec,
-                int prio_min, int prio_max, uint32_t *magic) {
-        int trans;
-        int best_priority = prio_max + 1;
-        // first pass - find the one with best priority (least)
-        for(trans = 0; trans < decoders_for_codec_count;
-                        ++trans) {
-                if(in_codec == decoders_for_codec[trans].from &&
-                                out_codec == decoders_for_codec[trans].to) {
-                        int priority = decoders_for_codec[trans].priority;
-                        if(priority <= prio_max &&
-                                        priority >= prio_min &&
-                                        priority < best_priority) {
-                                if(decompress_is_available(
-                                                        decoders_for_codec[trans].decompress_index)) {
-                                        best_priority = priority;
-                                        *magic = decoders_for_codec[trans].decompress_index;
-                                }
-                        }
-                }
-        }
-
-        if(best_priority == prio_max + 1)
-                return -1;
-        return best_priority;
-}
-
-struct state_decompress *init_decompress(codec_t src_color_spec, codec_t dst_color_spec) {
-        struct state_decompress *ret = NULL;
-
-        int prio_max = 1000;
-        int prio_min = 0;
-        int prio_cur;
-        uint32_t decompress_magic = 0u;
-
-        while(1) {
-                prio_cur = find_best_decompress(src_color_spec, dst_color_spec,
-                                prio_min, prio_max, &decompress_magic);
-                // if found, init decoder
-                if(prio_cur != -1) {
-                        ret = decompress_init(decompress_magic);
-
-                        if(!ret) {
-                                // failed, try to find another one
-                                fprintf(stderr, "Failed to initialize decompress: %x.\n",
-                                                decompress_magic);
-                                prio_min = prio_cur + 1;
-                                continue;
-                        } else break; // found it
-                } else {
-                        break;
-                }
-        }
-        return ret;
-}
-
 #define MAX_SUBSTREAMS 1024
 
 static void *worker(void *arg)
 {
-        struct state_decompress *s = (struct state_decompress *) arg;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) arg;
         struct video_desc last_desc;
         struct ldgm_desc last_ldgm_desc;
 
@@ -196,7 +158,7 @@ static void *worker(void *arg)
 
         char *compressed_buffers[MAX_SUBSTREAMS];
         int compressed_len[MAX_SUBSTREAMS];
-        int current_idx;
+        int current_idx = 0;
 
         memset(&last_desc, 0, sizeof(last_desc));
         memset(&last_ldgm_desc, 0, sizeof(last_ldgm_desc));
@@ -295,9 +257,10 @@ static void *worker(void *arg)
                         if(is_codec_opaque(video_header.color_spec)) {
                                 if(decompress)
                                         decompress_done(decompress);
-                                decompress = init_decompress(video_header.color_spec,
-                                                uncompressed_desc.color_spec);
-                                if(!decompress) {
+                                int ret;
+                                ret = init_decompress(video_header.color_spec,
+                                                uncompressed_desc.color_spec, &decompress, 1);
+                                if(!ret) {
                                         fprintf(stderr, "Unable to initialize decompress!\n");
                                         abort();
                                 }
@@ -312,7 +275,7 @@ static void *worker(void *arg)
                                         abort();
                                 }
 
-                                int res = 0, ret;
+                                int res = 0;
                                 size_t size = sizeof(res);
                                 ret = decompress_get_property(decompress,
                                                 DECOMPRESS_PROPERTY_ACCEPTS_CORRUPTED_FRAME,
@@ -431,14 +394,14 @@ next_iteration:
 
 void *hd_rum_decompress_init(unsigned short rx_port)
 {
-        struct state_decompress *s;
+        struct state_transcoder_decompress *s;
         int ttl = 255;
         double rtcp_bw = 5 * 1024 * 1024;       /*  FIXME */
         bool use_ipv6 = false;
 
         initialize_video_decompress();
 
-        s = new state_decompress;
+        s = new state_transcoder_decompress;
         s->network_device = rtp_init_if("localhost", (char *) NULL, rx_port, rx_port, ttl,
                         rtcp_bw, FALSE, hd_rum_receive_pkt, (uint8_t *) s,
                         use_ipv6);
@@ -457,6 +420,8 @@ void *hd_rum_decompress_init(unsigned short rx_port)
 
         s->output_port_count = 0;
         s->output_ports = (void **) malloc(0);
+        s->output_inact_port_count = 0;
+        s->output_inact_ports = (void **) malloc(0);
 
         s->last_packet_ts = 0u;
 
@@ -541,7 +506,7 @@ static void decode_packet(rtp_packet *pckt, char *frame_buffer, map<int, int> &p
         packets[data_pos] = len;
 }
 
-static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp)
+static void receive_packet(struct state_transcoder_decompress *s, rtp_packet *pckt_rtp)
 {
         if(pckt_rtp->pt != PT_VIDEO && pckt_rtp->pt != PT_VIDEO_LDGM) {
                 fprintf(stderr, "Other packet types than video are not supported.\n");
@@ -613,9 +578,9 @@ static void receive_packet(struct state_decompress *s, rtp_packet *pckt_rtp)
 
 static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e)
 {
-        rtcp_app *pckt_app = (rtcp_app *) e->data;
         rtp_packet *pckt_rtp = (rtp_packet *) e->data;
-        struct state_decompress *s = (struct state_decompress *)rtp_get_userdata(session);
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *)
+                rtp_get_userdata(session);
 
         switch (e->type) {
         case RX_RTP:
@@ -655,7 +620,7 @@ static void hd_rum_receive_pkt(struct rtp *session, rtp_event *e)
 }
 
 void hd_rum_decompress_done(void *state) {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) state;
 
         pthread_mutex_lock(&s->lock);
         s->received_frame.push(new poisoned_pill);
@@ -669,6 +634,11 @@ void hd_rum_decompress_done(void *state) {
                 recompress_done(s->output_ports[i]);
         }
         free(s->output_ports);
+
+        for(int i = 0; i < s->output_inact_port_count; ++i) {
+                recompress_done(s->output_inact_ports[i]);
+        }
+        free(s->output_inact_ports);
 
         delete s->network_frame;
 

@@ -4,6 +4,10 @@ config.h
 config.h.in
 *.o
 *.lo
+*.txt
+*.mp4
+*.h264
+*.log
 uv
 bin/
 lib/
@@ -26,3 +30,12 @@ ag_plugin
 src/stamp-h1
 .DS_Store
 uv.app/Contents/libs/
+depcomp
+compile
+core
+m4/
+libtool
+ltmain.sh
+mtrace.txt
+.project
+*.sdp

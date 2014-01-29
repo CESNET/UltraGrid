@@ -53,20 +53,23 @@
 extern "C" {
 #endif
 
+struct module;
+
 struct capture_filter_info {
         const char *name;
-        int (*init)(const char *cfg, void **state);
+        int (*init)(struct module *parent, const char *cfg, void **state);
         void (*done)(void *state);
         struct video_frame *(*filter)(void *state, struct video_frame *);
 };
 
 struct capture_filter;
+struct module;
 struct video_frame;
 
 /**
  * @see display_init
  */
-int capture_filter_init(const char *cfg, struct capture_filter **state);
+int capture_filter_init(struct module *parent, const char *cfg, struct capture_filter **state);
 void capture_filter_destroy(struct capture_filter *state);
 struct video_frame *capture_filter(struct capture_filter *state, struct video_frame *frame);
 
@@ -75,3 +78,4 @@ struct video_frame *capture_filter(struct capture_filter *state, struct video_fr
 #endif
 
 #endif /* CAPTURE_FILTER_H_ */
+

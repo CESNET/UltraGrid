@@ -59,7 +59,7 @@
 
 #include <ctype.h>
 
-#include "video_codec.h"
+#include "types.h"
 
 void ihdtv_receive_frames(void);
 

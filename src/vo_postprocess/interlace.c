@@ -52,11 +52,11 @@
 #endif
 #include "debug.h"
 
-#include "video_codec.h"
 #include <pthread.h>
 #include <stdlib.h>
-#include "vo_postprocess/interlace.h"
+#include "video.h"
 #include "video_display.h"
+#include "vo_postprocess/interlace.h"
 
 enum last_frame {
         ODD = 0,
@@ -108,8 +108,8 @@ int interlace_reconfigure(void *state, struct video_desc desc)
 {
         struct state_interlace *s = (struct state_interlace *) state;
 
-        vf_free_data(s->odd);
-        vf_free_data(s->even);
+        vf_free(s->odd);
+        vf_free(s->even);
         s->odd = vf_alloc_desc_data(desc);
         s->even = vf_alloc_desc_data(desc);
 
@@ -144,14 +144,14 @@ bool interlace_postprocess(void *state, struct video_frame *in, struct video_fra
                 return false;
         }
 
+        int linesize = vc_get_linesize(s->odd->tiles[0].width, s->odd->color_spec);
         for(unsigned int tile = 0; tile < out->tile_count; ++tile) {
                 for (unsigned int i = 0; i < out->tiles[0].height; ++i) {
                         memcpy(out->tiles[tile].data + i * req_pitch,
                                         (i % 2 == 0 ?
                                          s->odd->tiles[tile].data :
                                          s->even->tiles[tile].data) 
-                                        + i * s->odd->tiles[tile].linesize,
-                                        s->odd->tiles[tile].linesize);
+                                        + i * linesize, linesize);
                 }
         }
 
@@ -162,8 +162,8 @@ void interlace_done(void *state)
 {
         struct state_interlace *s = (struct state_interlace *) state;
         
-        vf_free_data(s->odd);
-        vf_free_data(s->even);
+        vf_free(s->odd);
+        vf_free(s->even);
 
         free(state);
 }

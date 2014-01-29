@@ -1,5 +1,5 @@
 /*
- * FILE:   testcard.c
+ * FILE:   testcard_common.c
  * AUTHOR: Colin Perkins <csp@csperkins.org
  *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
  *         Martin Benes     <martinbenesh@gmail.com>
@@ -56,10 +56,17 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#include "video.h"
 #include "video_capture/testcard_common.h"
-#include "video_codec.h"
 
-#include <stdlib.h>
+const int rect_colors[] = {
+        0xff0000ff,
+        0xff00ff00,
+        0xffff0000,
+        0xff00ffff,
+        0xffffff00,
+        0xffff00ff
+};
 
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height)
 {

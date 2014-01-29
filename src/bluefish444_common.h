@@ -139,34 +139,37 @@ static const struct bluefish_frame_mode_t bluefish_frame_modes[] = {
 static const int bluefish_frame_modes_count = sizeof(bluefish_frame_modes) /
         sizeof(struct bluefish_frame_mode_t);
 
-static void *page_aligned_alloc(size_t size);
-static void page_aligned_free(void *ptr);
-static uint32_t GetNumberOfAudioSamplesPerFrame(uint32_t VideoMode, uint32_t FrameNumber);
+static void *page_aligned_alloc(size_t size) __attribute__((unused));
+static void page_aligned_free(void *ptr) __attribute__((unused));
+static uint32_t GetNumberOfAudioSamplesPerFrame(uint32_t VideoMode, uint32_t FrameNumber)
+        __attribute__((unused));
 
 #ifdef HAVE_LINUX
 typedef void OVERLAPPED;
 
-static void bfcDestroy(CBLUEVELVET_H pSDK);
-static int bfcQueryCardProperty32(CBLUEVELVET_H pSDK, int property, uint32_t &value);
-static int bfcSetCardProperty32(CBLUEVELVET_H pSDK, int property, uint32_t &value);
-static int bfcEnumerate(CBLUEVELVET_H pSDK, int &iDevices);
-static int bfcAttach(CBLUEVELVET_H pSDK, int &iDeviceId);
-static int bfcDetach(CBLUEVELVET_H pSDK);
-static int bfcVideoCaptureStart(CBLUEVELVET_H pSDK);
-static int bfcVideoCaptureStop(CBLUEVELVET_H pSDK);
-static int bfcVideoPlaybackStart(CBLUEVELVET_H pSDK, int iStep, int iLoop);
-static int bfcVideoPlaybackStop(CBLUEVELVET_H pSDK, int iWait, int iFlush);
-static int bfcWaitVideoInputSync(CBLUEVELVET_H pSDK, unsigned long ulUpdateType, unsigned long& ulFieldCount);
-static int bfcWaitVideoOutputSync(CBLUEVELVET_H pSDK, unsigned long ulUpdateType, unsigned long& ulFieldCount);
-static int bfcQueryCardType(CBLUEVELVET_H pSDK);
+static void bfcDestroy(CBLUEVELVET_H pSDK) __attribute__((unused));
+static int bfcQueryCardProperty32(CBLUEVELVET_H pSDK, int property, uint32_t &value) __attribute__((unused));
+static int bfcSetCardProperty32(CBLUEVELVET_H pSDK, int property, uint32_t &value) __attribute__((unused));
+static int bfcEnumerate(CBLUEVELVET_H pSDK, int &iDevices) __attribute__((unused));
+static int bfcAttach(CBLUEVELVET_H pSDK, int &iDeviceId) __attribute__((unused));
+static int bfcDetach(CBLUEVELVET_H pSDK) __attribute__((unused));
+static int bfcVideoCaptureStart(CBLUEVELVET_H pSDK) __attribute__((unused));
+static int bfcVideoCaptureStop(CBLUEVELVET_H pSDK) __attribute__((unused));
+static int bfcVideoPlaybackStart(CBLUEVELVET_H pSDK, int iStep, int iLoop) __attribute__((unused));
+static int bfcVideoPlaybackStop(CBLUEVELVET_H pSDK, int iWait, int iFlush) __attribute__((unused));
+static int bfcWaitVideoInputSync(CBLUEVELVET_H pSDK, unsigned long ulUpdateType, unsigned long& ulFieldCount)
+        __attribute__((unused));
+static int bfcWaitVideoOutputSync(CBLUEVELVET_H pSDK, unsigned long ulUpdateType, unsigned long& ulFieldCount)
+        __attribute__((unused));
+static int bfcQueryCardType(CBLUEVELVET_H pSDK) __attribute__((unused));
 #ifdef HAVE_BLUE_AUDIO
-static int bfcDecodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, unsigned int* pHancBuffer, struct hanc_decode_struct* pHancDecodeInfo);
-static int bfcEncodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, struct hanc_stream_info_struct* pHancEncodeInfo, void *pAudioBuffer, unsigned int nAudioChannels, unsigned int nAudioSamples, unsigned int nSampleType, unsigned int nAudioFlags);
+static int bfcDecodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, unsigned int* pHancBuffer, struct hanc_decode_struct* pHancDecodeInfo) __attribute__((unused));
+static int bfcEncodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, struct hanc_stream_info_struct* pHancEncodeInfo, void *pAudioBuffer, unsigned int nAudioChannels, unsigned int nAudioSamples, unsigned int nSampleType, unsigned int nAudioFlags) __attribute__((unused));
 #endif
-static int bfcSystemBufferReadAsync(CBLUEVELVET_H pHandle, unsigned char* pPixels, unsigned long ulSize, OVERLAPPED* pOverlap, unsigned long ulBufferID, unsigned long ulOffset=0);
-static int bfcSystemBufferWriteAsync(CBLUEVELVET_H pHandle, unsigned char *pPixels, unsigned long ulSize, OVERLAPPED *pOverlap, unsigned long ulBufferID, unsigned long ulOFfset=0);
-static int bfcRenderBufferUpdate(CBLUEVELVET_H pHandle, unsigned long ulBufferID);
-static int bfcRenderBufferCapture(CBLUEVELVET_H pHandle, unsigned long ulBufferID);
+static int bfcSystemBufferReadAsync(CBLUEVELVET_H pHandle, unsigned char* pPixels, unsigned long ulSize, OVERLAPPED* pOverlap, unsigned long ulBufferID, unsigned long ulOffset=0) __attribute__((unused));
+static int bfcSystemBufferWriteAsync(CBLUEVELVET_H pHandle, unsigned char *pPixels, unsigned long ulSize, OVERLAPPED *pOverlap, unsigned long ulBufferID, unsigned long ulOFfset=0) __attribute__((unused));
+static int bfcRenderBufferUpdate(CBLUEVELVET_H pHandle, unsigned long ulBufferID) __attribute__((unused));
+static int bfcRenderBufferCapture(CBLUEVELVET_H pHandle, unsigned long ulBufferID) __attribute__((unused));
 
 static void bfcDestroy(CBLUEVELVET_H pSDK)
 {
@@ -244,23 +247,23 @@ static int bfcQueryCardType(CBLUEVELVET_H pSDK)
 };
 
 #ifdef HAVE_BLUE_AUDIO
-static int bfcDecodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, unsigned int* pHancBuffer, struct hanc_decode_struct* pHancDecodeInfo)
+static int bfcDecodeHancFrameEx(CBLUEVELVET_H, unsigned int nCardType, unsigned int* pHancBuffer, struct hanc_decode_struct* pHancDecodeInfo)
 {
         return hanc_decoder_ex(nCardType, pHancBuffer, pHancDecodeInfo);
 }
 
-static int bfcEncodeHancFrameEx(CBLUEVELVET_H pHandle, unsigned int nCardType, struct hanc_stream_info_struct* pHancEncodeInfo, void *pAudioBuffer, unsigned int nAudioChannels, unsigned int nAudioSamples, unsigned int nSampleType, unsigned int nAudioFlags)
+static int bfcEncodeHancFrameEx(CBLUEVELVET_H, unsigned int nCardType, struct hanc_stream_info_struct* pHancEncodeInfo, void *pAudioBuffer, unsigned int nAudioChannels, unsigned int nAudioSamples, unsigned int nSampleType, unsigned int nAudioFlags)
 {
         return encode_hanc_frame_ex(nCardType, pHancEncodeInfo, pAudioBuffer, nAudioChannels, nAudioSamples, nSampleType, nAudioFlags);
 }
 #endif // HAVE_BLUE_AUDIO
 
-static int bfcSystemBufferReadAsync(CBLUEVELVET_H pHandle, unsigned char* pPixels, unsigned long ulSize, OVERLAPPED* pOverlap, unsigned long ulBufferID, unsigned long ulOffset)
+static int bfcSystemBufferReadAsync(CBLUEVELVET_H pHandle, unsigned char* pPixels, unsigned long ulSize, OVERLAPPED*, unsigned long ulBufferID, unsigned long ulOffset)
 {
         return pHandle->dma_read((char *) pPixels, ulSize, ulBufferID, ulOffset);
 }
 
-static int bfcSystemBufferWriteAsync(CBLUEVELVET_H pHandle, unsigned char *pPixels, unsigned long ulSize, OVERLAPPED *pOverlap, unsigned long ulBufferID, unsigned long ulOffset)
+static int bfcSystemBufferWriteAsync(CBLUEVELVET_H pHandle, unsigned char *pPixels, unsigned long ulSize, OVERLAPPED *, unsigned long ulBufferID, unsigned long ulOffset)
 {
         return pHandle->dma_write((char *) pPixels, ulSize, ulBufferID, ulOffset);
 }
@@ -299,13 +302,15 @@ static void page_aligned_free(void *ptr)
 static uint32_t GetNumberOfAudioSamplesPerFrame(uint32_t VideoMode, uint32_t FrameNumber)
 {
         uint32_t NTSC_frame_seq[]={       1602,1601,1602,1601,1602};
+        uint32_t p59_frame_seq[]={        801,800,801,801,801,801,800,801,801,801};
+#if 0
+        uint32_t p23_frame_seq[]={        2002,2002,2002,2002};
         uint32_t NTSC_frame_offset[]={0,
                                                                 1602,
                                                                 1602+1601,
                                                                 1602+1601+1602,
                                                                 1602+1601+1602+1601};
 
-        uint32_t p59_frame_seq[]={        801,800,801,801,801,801,800,801,801,801};
         uint32_t p59_frame_offset[]={     0,
                                                                 801,
                                                                 801+800,
@@ -317,11 +322,11 @@ static uint32_t GetNumberOfAudioSamplesPerFrame(uint32_t VideoMode, uint32_t Fra
                                                                 801+800+801+801+801+801+800+801,
                                                                 801+800+801+801+801+801+800+801+801};
 
-        uint32_t p23_frame_seq[]={        2002,2002,2002,2002};
         uint32_t p23_frame_offset[]={     0,
                                                                 2002,
                                                                 2002+2002,
                                                                 2002+2002+2002};
+#endif
 
         switch(VideoMode)
         {

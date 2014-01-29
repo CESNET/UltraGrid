@@ -84,16 +84,17 @@
 #include "compat/platform_semaphore.h"
 #include <unistd.h>
 #include "debug.h"
+#include "host.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/gl.h"
+#include "video_display/splashscreen.h"
 #include "tv.h"
 
 #define MAGIC_GL	DISPLAY_GL_ID
 #define WIN_NAME        "Ultragrid - OpenGL Display"
 
 #define STRINGIFY(A) #A
-
-static volatile bool should_exit_main_loop = false;
 
 // source code for a shader unit (xsedmik)
 static char * yuv422_to_rgb_fp = STRINGIFY(
@@ -156,10 +157,6 @@ void main()
 } // main end
 );
 
-/* defined in main.c */
-extern int uv_argc;
-extern char **uv_argv;
-
 struct state_gl {
         GLuint          PHandle_uyvy, PHandle_dxt, PHandle_dxt5;
 
@@ -184,6 +181,7 @@ struct state_gl {
         struct tile     *tile;
         char            *buffers[2];
         volatile int              image_display;
+        struct video_desc new_desc;
         volatile unsigned    needs_reconfigure:1;
         pthread_mutex_t lock;
         pthread_cond_t  reconf_cv;
@@ -202,6 +200,11 @@ struct state_gl {
 
         bool            sync_on_vblank;
         bool            paused;
+        bool            show_cursor;
+
+        bool should_exit_main_loop;
+
+        double          window_size_factor;
 };
 
 static struct state_gl *gl;
@@ -230,11 +233,52 @@ void NSApplicationLoad(void);
  */
 static void gl_show_help(void) {
         printf("GL options:\n");
-        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single]* | help\n\n");
+        printf("\t-d gl[:d|:fs|:aspect=<v>/<h>|:single|:cursor:|size=X%%]* | help\n\n");
         printf("\t\td\t\tdeinterlace\n");
         printf("\t\tfs\t\tfullscreen\n");
         printf("\t\nnovsync\t\tdo not turn sync on VBlank\n");
         printf("\t\taspect=<w>/<h>\trequested video aspect (eg. 16/9). Leave unset if PAR = 1.\n");
+        printf("\t\tcursor\t\tshow visible cursor\n");
+        printf("\t\tsize\t\tspecifies desired size of window compared "
+                        " to native resolution (in percents)\n");
+
+        printf("\n\nKeyboard shortcuts:\n");
+        printf("\t\t'f'\t\ttoggle fullscreen\n");
+        printf("\t\t'q'\t\tquit\n");
+        printf("\t\t'd'\t\ttoggle deinterlace\n");
+        printf("\t\t' '\t\tpause video\n");
+        printf("\t\t's'\t\tscreenshot\n");
+        printf("\t\t'm'\t\tshow/hide cursor\n");
+        printf("\t\t'+'\t\tmake window smaller by factor 50%%\n");
+        printf("\t\t'-'\t\tmake window twice as bigger\n");
+}
+
+static void gl_load_splashscreen(struct state_gl *s)
+{
+        s->new_desc.width = 512;
+        s->new_desc.height = 512;
+        s->new_desc.color_spec = RGBA;
+        s->new_desc.interlacing = PROGRESSIVE;
+        s->new_desc.fps = 1;
+
+        gl_reconfigure_screen(s);
+
+        for (int i = 0; i < 2; ++i) {
+                memset(s->buffers[i], 0, s->tile->data_len);
+                for (unsigned int y = 0; y < splash_height; ++y) {
+                        char *line = s->buffers[i];
+                        line += vc_get_linesize(s->tile->width,
+                                        s->frame->color_spec) *
+                                (((s->tile->height - splash_height) / 2) + y);
+                        line += vc_get_linesize(
+                                        (s->tile->width - splash_width)/2,
+                                        s->frame->color_spec);
+                        for (unsigned int x = 0; x < splash_width; ++x) {
+                                HEADER_PIXEL(splash_data,line);
+                                line += 4;
+                        }
+                }
+        }
 }
 
 void * display_gl_init(char *fmt, unsigned int flags) {
@@ -265,6 +309,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         s->double_buf = TRUE;
 
         s->sync_on_vblank = true;
+        s->window_size_factor = 1.0;
 
 	// parse parameters
 	if (fmt != NULL) {
@@ -290,6 +335,12 @@ void * display_gl_init(char *fmt, unsigned int flags) {
                                 s->double_buf = FALSE;
                         } else if(!strcasecmp(tok, "novsync")) {
                                 s->sync_on_vblank = false;
+                        } else if (!strcasecmp(tok, "cursor")) {
+                                s->show_cursor = true;
+                        } else if(!strncmp(tok, "size=",
+                                                strlen("size="))) {
+                                s->window_size_factor =
+                                        atof(tok + strlen("size=")) / 100.0;
                         } else {
                                 fprintf(stderr, "[GL] Unknown option: %s\n", tok);
                         }
@@ -333,8 +384,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 #endif
         glutIdleFunc(glut_idle_callback);
 	s->window = glutCreateWindow(WIN_NAME);
-        glutSetCursor(GLUT_CURSOR_NONE);
-        glutHideWindow();
+        glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
+        //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
 	glutDisplayFunc(glutSwapBuffers);
 #ifdef HAVE_MACOSX
@@ -395,6 +446,8 @@ void * display_gl_init(char *fmt, unsigned int flags) {
           return NULL;
           }*/
 
+        gl_load_splashscreen(s);
+
         return (void*)s;
 
 error:
@@ -419,11 +472,7 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
                         desc.color_spec == DXT1_YUV ||
                         desc.color_spec == DXT5);
 
-        s->tile->width = desc.width;
-        s->tile->height = desc.height;
-        s->frame->fps = desc.fps;
-        s->frame->interlacing = desc.interlacing;
-        s->frame->color_spec = desc.color_spec;
+        s->new_desc = desc;
 
         pthread_mutex_lock(&s->lock);
         s->needs_reconfigure = TRUE;
@@ -441,7 +490,10 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
 static void glut_resize_window(struct state_gl *s)
 {
         if (!s->fs) {
-                glutReshapeWindow(s->tile->height * s->aspect, s->tile->height);
+                glutReshapeWindow(s->window_size_factor *
+                                s->tile->height * s->aspect,
+                                s->window_size_factor *
+                                s->tile->height);
         } else {
                 glutFullScreen();
         }
@@ -521,6 +573,12 @@ static void screenshot(struct state_gl *s)
 void gl_reconfigure_screen(struct state_gl *s)
 {
         assert(s->magic == MAGIC_GL);
+
+        s->tile->width = s->new_desc.width;
+        s->tile->height = s->new_desc.height;
+        s->frame->fps = s->new_desc.fps;
+        s->frame->interlacing = s->new_desc.interlacing;
+        s->frame->color_spec = s->new_desc.color_spec;
 
         free(s->buffers[0]);
         free(s->buffers[1]);
@@ -617,29 +675,8 @@ void gl_reconfigure_screen(struct state_gl *s)
         gl_check_error();
 }
 
-static void glut_idle_callback(void)
+static void gl_render(struct state_gl *s)
 {
-        struct state_gl *s = gl;
-        struct timeval tv;
-        double seconds;
-
-        pthread_mutex_lock(&s->lock);
-        if(!s->new_frame) {
-                pthread_mutex_unlock(&s->lock);
-                return;
-        }
-        s->new_frame = 0;
-
-        if (s->needs_reconfigure) {
-                /* there has been scheduled request for win reconfiguration */
-                gl_reconfigure_screen(s);
-                s->needs_reconfigure = FALSE;
-                pthread_cond_signal(&s->reconf_cv);
-                pthread_mutex_unlock(&s->lock);
-                return; /* return after reconfiguration */
-        }
-        pthread_mutex_unlock(&s->lock);
-
         /* for DXT, deinterlacing doesn't make sense since it is
          * always deinterlaced before comrpression */
         if(s->deinterlace && (s->frame->color_spec == RGBA || s->frame->color_spec == UYVY))
@@ -648,9 +685,6 @@ static void glut_idle_callback(void)
                                 s->tile->height);
 
         gl_check_error();
-
-        if(s->paused)
-                goto processed;
 
         switch(s->frame->color_spec) {
                 case DXT1:
@@ -697,6 +731,37 @@ static void glut_idle_callback(void)
         }
 
         gl_check_error();
+}
+
+static void glut_idle_callback(void)
+{
+        struct state_gl *s = gl;
+        struct timeval tv;
+        double seconds;
+
+        pthread_mutex_lock(&s->lock);
+        if(!s->new_frame) {
+                pthread_mutex_unlock(&s->lock);
+                return;
+        }
+        s->new_frame = 0;
+
+        if (s->needs_reconfigure) {
+                /* there has been scheduled request for win reconfiguration */
+                gl_reconfigure_screen(s);
+                s->needs_reconfigure = FALSE;
+                pthread_cond_signal(&s->reconf_cv);
+                pthread_mutex_unlock(&s->lock);
+                return; /* return after reconfiguration */
+        }
+        pthread_mutex_unlock(&s->lock);
+
+        if(s->paused)
+                goto processed;
+
+        gl_render(s);
+        gl_draw(s->aspect);
+        glutPostRedisplay();
 
         /* FPS Data, this is pretty ghetto though.... */
         s->frames++;
@@ -709,9 +774,6 @@ static void glut_idle_callback(void)
                 s->frames = 0;
                 s->tv = tv;
         }
-
-        gl_draw(s->aspect);
-        glutPostRedisplay();
 
 processed:
         pthread_mutex_lock(&s->lock);
@@ -752,15 +814,28 @@ static void glut_key_callback(unsigned char key, int x, int y)
                 case 's':
                         screenshot(gl);
                         break;
+                case 'm':
+                        gl->show_cursor = !gl->show_cursor;
+                        glutSetCursor(gl->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
+                        break;
+                case '+':
+                        gl->window_size_factor *= 2;
+                        glut_resize_window(gl);
+                        break;
+                case '-':
+                        gl->window_size_factor /= 2;
+                        glut_resize_window(gl);
+                        break;
         }
 }
 
 void display_gl_run(void *arg)
 {
-        UNUSED(arg);
+        struct state_gl *s = 
+                (struct state_gl *) arg;
 
 #if defined HAVE_MACOSX || defined FREEGLUT
-        while(!should_exit_main_loop) {
+        while(!s->should_exit_main_loop) {
                 usleep(1000);
                 glut_idle_callback();
 #ifndef HAVE_MACOSX
@@ -800,6 +875,11 @@ static void gl_resize(int width,int height)
         glMatrixMode( GL_MODELVIEW );
 
         glLoadIdentity( );
+
+        // redraw last frame
+        gl_render(gl);
+        gl_draw(gl->aspect);
+        glutPostRedisplay();
 }
 
 static void gl_bind_texture(void *arg)
@@ -888,7 +968,7 @@ static void gl_draw(double ratio)
 
 static void glut_close_callback(void)
 {
-        should_exit_main_loop = true;
+        gl->should_exit_main_loop = true;
         exit_uv(0);
 }
 
@@ -910,6 +990,7 @@ int display_gl_get_property(void *state, int property, void *val, size_t *len)
         UNUSED(state);
         codec_t codecs[] = {UYVY, RGBA, RGB, DXT1, DXT1_YUV, DXT5};
         enum interlacing_t supported_il_modes[] = {PROGRESSIVE, INTERLACED_MERGED, SEGMENTED_FRAME};
+        int rgb_shift[] = {0, 8, 16};
 
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -921,17 +1002,12 @@ int display_gl_get_property(void *state, int property, void *val, size_t *len)
 
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
@@ -973,19 +1049,6 @@ void display_gl_done(void *state)
         free(s);
 }
 
-void display_gl_finish(void *state)
-{
-        struct state_gl *s = (struct state_gl *) state;
-
-        assert(s->magic == MAGIC_GL);
-
-        should_exit_main_loop = true;
-        pthread_mutex_lock(&s->lock);
-        s->processed = true;
-        pthread_cond_signal(&s->processed_cv);
-        pthread_mutex_unlock(&s->lock);
-}
-
 struct video_frame * display_gl_getf(void *state)
 {
         struct state_gl *s = (struct state_gl *) state;
@@ -1006,7 +1069,11 @@ int display_gl_putf(void *state, struct video_frame *frame, int nonblock)
         struct state_gl *s = (struct state_gl *) state;
 
         assert(s->magic == MAGIC_GL);
-        UNUSED(frame);
+
+        if(!frame) {
+                s->should_exit_main_loop = true;
+                return 0;
+        }
 
         pthread_mutex_lock(&s->lock);
         if(s->double_buf) {

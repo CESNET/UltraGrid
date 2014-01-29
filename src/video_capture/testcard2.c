@@ -1,17 +1,13 @@
-/*
- * FILE:   testcard2.c
- * AUTHOR: Colin Perkins <csp@csperkins.org
- *         Alvaro Saurin <saurin@dcs.gla.ac.uk>
- *         Martin Benes     <martinbenesh@gmail.com>
- *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *         Petr Holub       <hopet@ics.muni.cz>
- *         Milos Liska      <xliska@fi.muni.cz>
- *         Jiri Matela      <matela@ics.muni.cz>
- *         Dalibor Matura   <255899@mail.muni.cz>
- *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_capture/testcard2.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2006 University of Glasgow
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @todo
+ * Passing grabbed frames from thread is terribly broken. It needs to be reworked.
+ */
+/*
+ * Copyright (c) 2011-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -19,24 +15,17 @@
  *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by the University of Southern
- *      California Information Sciences Institute. This product also includes
- *      software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the University, Institute, CESNET nor the names of
- *    its contributors may be used to endorse or promote products derived from
- *    this software without specific prior written permission.
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
- * ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+ * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
  * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
  * EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
@@ -47,7 +36,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
 #include "config.h"
@@ -59,10 +47,10 @@
 
 #include "debug.h"
 #include "tv.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
-#include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
+#include "testcard_common.h"
 #include "compat/platform_semaphore.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,8 +68,6 @@
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
                 audio_capture_channels * BUFFER_SEC)
-
-static volatile bool should_exit = false;
 
 void * vidcap_testcard2_thread(void *args);
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
@@ -111,11 +97,9 @@ struct testcard_state2 {
         sem_t semaphore;
         
         pthread_t thread_id;
+
+        volatile bool should_exit;
 };
-
-extern const int rect_colors[];
-
-#define COL_NUM 6
 
 static int configure_audio(struct testcard_state2 *s)
 {
@@ -140,7 +124,7 @@ static int configure_audio(struct testcard_state2 *s)
         return 0;
 }
 
-void *vidcap_testcard2_init(char *fmt, unsigned int flags)
+void *vidcap_testcard2_init(const struct vidcap_params *params)
 {
         struct testcard_state2 *s;
         const char *strip_fmt = NULL;
@@ -148,7 +132,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         unsigned int rect_size = COL_NUM;
         codec_t codec=0;
 
-        if (fmt == NULL || strcmp(fmt, "help") == 0) {
+        if (vidcap_params_get_fmt(params) == NULL || strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 printf("testcard2 options:\n");
                 printf("\t-t testcard2:<width>:<height>:<fps>:<codec>\n");
                 show_codec_help("testcard");
@@ -159,6 +143,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         if (!s)
                 return NULL;
 
+        char *fmt = strdup(vidcap_params_get_fmt(params));
         char *tmp;
 
         s->frame = vf_alloc(1);
@@ -277,7 +262,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         // we cannot generate tiles by now
         UNUSED(strip_fmt);
         
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
@@ -298,7 +283,7 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
 
         s->tile->data_len = s->size;
 
-        if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+        if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
                 s->grab_audio = TRUE;
                 if(configure_audio(s) != 0) {
                         s->grab_audio = FALSE;
@@ -318,18 +303,17 @@ void *vidcap_testcard2_init(char *fmt, unsigned int flags)
         
         pthread_create(&s->thread_id, NULL, vidcap_testcard2_thread, s);
 
-        return s;
-}
+        free(fmt);
 
-void vidcap_testcard2_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
+        return s;
 }
 
 void vidcap_testcard2_done(void *state)
 {
         struct testcard_state2 *s = state;
+
+        s->should_exit = true;
+        pthread_join(s->thread_id, NULL);
 
         free(s->data);
         
@@ -381,7 +365,7 @@ void * vidcap_testcard2_thread(void *arg)
 
 #endif
         
-        while(!should_exit)
+        while(!s->should_exit)
         {
                 SDL_Rect r;
                 copy = SDL_ConvertSurface(s->surface, s->surface->format, SDL_SWSURFACE);

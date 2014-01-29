@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 #define NULL_MAGIC 0x24443b5bu
 

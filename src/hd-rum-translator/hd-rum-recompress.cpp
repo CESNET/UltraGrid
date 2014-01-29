@@ -14,6 +14,8 @@ extern "C" {
 #include "tv.h"
 }
 
+#include "module.h"
+
 #include "video.h"
 #include "video_codec.h"
 #include "video_compress.h"
@@ -38,6 +40,8 @@ struct state_recompress {
         pthread_cond_t  have_frame_cv;
         pthread_cond_t  frame_consumed_cv;
         pthread_t       thread_id;
+
+        struct module   *parent;
 };
 
 /*
@@ -51,14 +55,19 @@ static void *worker(void *arg)
         struct state_recompress *s = (struct state_recompress *) arg;
         struct timeval t0, t;
         int frames = 0;
+        struct module sender_mod;
 
-        int ret = compress_init(s->required_compress, &s->compress);
+        int ret = compress_init(s->parent, s->required_compress, &s->compress);
         if(ret != 0) {
                 fprintf(stderr, "Unable to initialize video compress: %s\n",
                                 s->required_compress);
                 pthread_mutex_unlock(&s->lock);
                 return NULL;
         }
+
+        module_init_default(&sender_mod);
+        sender_mod.cls = MODULE_CLASS_SENDER;
+        module_register(&sender_mod, s->parent);
 
         pthread_mutex_unlock(&s->lock);
 
@@ -78,9 +87,17 @@ static void *worker(void *arg)
                 }
                 pthread_mutex_unlock(&s->lock);
 
+                struct message *msg;
+                while((msg = check_message(&sender_mod))) {
+                        struct msg_sender *data = (struct msg_sender *) msg;
+                        rtp_change_dest(s->network_device,
+                                        data->receiver);
+                        free_message(msg);
+                }
 
+                compress_frame(s->compress, s->frame);
                 struct video_frame *tx_frame =
-                        compress_frame(s->compress, s->frame, 0);
+                        compress_pop(s->compress);
 
                 if(tx_frame) {
                         tx_send(s->tx, tx_frame, s->network_device);
@@ -108,9 +125,11 @@ static void *worker(void *arg)
         }
 
         if(s->compress) {
-                compress_done(s->compress);
+                module_done(CAST_MODULE(s->compress));
                 s->compress = NULL;
         }
+
+        module_done(&sender_mod);
 
         return NULL;
 }
@@ -142,7 +161,8 @@ static struct rtp *initialize_network(const char *host, int rx_port, int tx_port
         return network_device;
 }
 
-void *recompress_init(const char *host, const char *compress, unsigned short rx_port,
+void *recompress_init(struct module *parent,
+                const char *host, const char *compress, unsigned short rx_port,
                 unsigned short tx_port, int mtu, char *fec)
 {
         struct state_recompress *s;
@@ -150,6 +170,8 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
         initialize_video_decompress();
 
         s = (struct state_recompress *) calloc(1, sizeof(struct state_recompress));
+
+        s->parent = parent;
 
         s->network_device = initialize_network(host, rx_port, tx_port, s);
         s->host = host;
@@ -163,7 +185,8 @@ void *recompress_init(const char *host, const char *compress, unsigned short rx_
 
         s->required_compress = strdup(compress);
         s->frame = NULL;
-        s->tx = tx_init(mtu, fec);
+        const char *requested_encryption = NULL;
+        s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec, requested_encryption);
 
         gettimeofday(&s->start_time, NULL);
 
@@ -220,41 +243,8 @@ void recompress_assign_ssrc(void *state, uint32_t ssrc)
 
 static void recompress_rtp_callback(struct rtp *session, rtp_event *e)
 {
-        rtcp_app *pckt_app = (rtcp_app *) e->data;
-        rtp_packet *pckt_rtp = (rtp_packet *) e->data;
-        struct state_recompress *s = (struct state_recompress *)rtp_get_userdata(session);
-
-        switch (e->type) {
-        case RX_RTP:
-                break;
-        case RX_TFRC_RX:
-                /* compute TCP friendly data rate */
-                break;
-        case RX_RTCP_START:
-                break;
-        case RX_RTCP_FINISH:
-                break;
-        case RX_SR:
-                break;
-        case RX_RR:
-                break;
-        case RX_RR_EMPTY:
-                break;
-        case RX_SDES:
-                break;
-        case RX_APP:
-                break;
-        case RX_BYE:
-                break;
-        case SOURCE_DELETED:
-                break;
-        case SOURCE_CREATED:
-                break;
-        case RR_TIMEOUT:
-                break;
-        default:
-                debug_msg("Unknown RTP event (type=%d)\n", e->type);
-        }
+        UNUSED(session);
+        UNUSED(e);
 }
 
 void recompress_done(void *state)
@@ -269,7 +259,7 @@ void recompress_done(void *state)
 
         pthread_join(s->thread_id, NULL);
 
-        tx_done(s->tx);
+        module_done(CAST_MODULE(s->tx));
         rtp_done(s->network_device);
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->have_frame_cv);

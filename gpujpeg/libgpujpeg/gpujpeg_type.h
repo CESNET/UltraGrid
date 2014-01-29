@@ -31,7 +31,12 @@
 #define GPUJPEG_TYPE_H
 
 #include <stdint.h>
-#include <cuda_runtime.h>
+
+#ifndef _MSC_VER
+#define ATTRIBUTE_UNUSED __attribute__((unused))
+#else
+#define ATTRIBUTE_UNUSED
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +76,7 @@ enum gpujpeg_color_space {
  *
  * @param color_space
  */
-static inline __device__ __host__ const char*
+static inline const char*
 gpujpeg_color_space_get_name(enum gpujpeg_color_space color_space)
 {
     switch ( color_space ) {
@@ -198,6 +203,9 @@ enum gpujpeg_marker_code {
   
     GPUJPEG_MARKER_ERROR = 0x100
 };
+
+static const char* 
+gpujpeg_marker_name(enum gpujpeg_marker_code code) ATTRIBUTE_UNUSED;
 
 /**
  * Get marker name from code

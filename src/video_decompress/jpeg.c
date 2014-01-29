@@ -52,12 +52,11 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 #include "host.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_decompress.h"
 
 #include "libgpujpeg/gpujpeg_decoder.h"
 //#include "compat/platform_semaphore.h"
-#include <cuda_runtime.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/jpeg.h"
@@ -66,7 +65,6 @@ struct state_decompress_jpeg {
         struct gpujpeg_decoder *decoder;
 
         struct video_desc desc;
-        int compressed_len;
         int rshift, gshift, bshift;
         int pitch;
         codec_t out_codec;
@@ -83,13 +81,11 @@ static int configure_with(struct state_decompress_jpeg *s, struct video_desc des
                 return FALSE;
         }
         if(s->out_codec == RGB) {
-                s->decoder->coder.param_image.color_space = GPUJPEG_RGB;
-                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_4_4;
-                s->compressed_len = desc.width * desc.height * 2;
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_RGB,
+                                GPUJPEG_4_4_4);
         } else {
-                s->decoder->coder.param_image.color_space = GPUJPEG_YCBCR_BT709;
-                s->decoder->coder.param_image.sampling_factor = GPUJPEG_4_2_2;
-                s->compressed_len = desc.width * desc.height * 3;
+                gpujpeg_decoder_set_output_format(s->decoder, GPUJPEG_YCBCR_BT709,
+                                GPUJPEG_4_2_2);
         }
 
         return TRUE;
@@ -121,7 +117,6 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         struct state_decompress_jpeg *s = (struct state_decompress_jpeg *) state;
-        int ret;
         
         assert(out_codec == RGB || out_codec == UYVY);
 
@@ -131,25 +126,17 @@ int jpeg_decompress_reconfigure(void *state, struct video_desc desc,
                         s->gshift == gshift &&
                         s->bshift == bshift &&
                         video_desc_eq_excl_param(s->desc, desc, PARAM_INTERLACING)) {
-                ret = TRUE;
+                return TRUE;
         } else {
                 s->out_codec = out_codec;
                 s->pitch = pitch;
                 s->rshift = rshift;
                 s->gshift = gshift;
                 s->bshift = bshift;
-                if(!s->decoder) {
-                        ret = configure_with(s, desc);
-                } else {
+                if(s->decoder) {
                         gpujpeg_decoder_destroy(s->decoder);
-                        ret = configure_with(s, desc);
                 }
-        }
-
-        if(ret) {
-                return s->compressed_len;
-        } else {
-                return 0;
+                return configure_with(s, desc);
         }
 }
 
@@ -168,7 +155,7 @@ int jpeg_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 linesize = s->desc.width * 2;
         }
         
-        cudaSetDevice(cuda_devices[0]);
+        gpujpeg_set_device(cuda_devices[0]);
 
         if((s->out_codec != RGB || (s->rshift == 0 && s->gshift == 8 && s->bshift == 16)) &&
                         s->pitch == linesize) {

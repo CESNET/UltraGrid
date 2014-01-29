@@ -43,8 +43,12 @@
  *
  */
 
+#define COL_NUM 6
+const int rect_colors[COL_NUM];
+
 void rgb2yuv422(unsigned char *in, unsigned int width, unsigned int height);
 unsigned char *tov210(unsigned char *in, unsigned int width, unsigned int align_x,
                 unsigned int height, double bpp);
 void toR10k(unsigned char *in, unsigned int width, unsigned int height);
 char * toRGB(unsigned char *in, unsigned int width, unsigned int height);
+

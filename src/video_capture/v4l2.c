@@ -52,6 +52,7 @@
 #include "config_win32.h"
 #endif /* HAVE_CONFIG_H */
 
+#include "video_capture.h"
 #include "video_capture/v4l2.h"
 
 #include <arpa/inet.h> // ntohl
@@ -69,8 +70,6 @@
 #include "host.h"
 #include "tv.h"
 #include "video.h"
-#include "video_capture.h"
-#include "video_codec.h"
 
 
 /* prototypes of functions defined in this module */
@@ -246,7 +245,7 @@ struct vidcap_type * vidcap_v4l2_probe(void)
         return vt;
 }
 
-void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
+void * vidcap_v4l2_init(const struct vidcap_params *params)
 {
         struct vidcap_v4l2_state *s;
         char *dev_name = DEFAULT_DEVICE;
@@ -256,11 +255,9 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
         uint32_t numerator = 0,
                  denominator = 0;
 
-        UNUSED(flags);
-
         printf("vidcap_v4l2_init\n");
 
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
+        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                show_help(); 
                return &vidcap_init_noerr;
         }
@@ -272,7 +269,11 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
                 return NULL;
         }
 
-        if(init_fmt) {
+        char *tmp = NULL;
+
+        if(vidcap_params_get_fmt(params)) {
+                tmp = strdup(vidcap_params_get_fmt(params));
+                char *init_fmt = tmp;
                 char *save_ptr = NULL;
                 char *item;
                 int i = 0;
@@ -319,7 +320,8 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
         s->fd = open(dev_name, O_RDWR);
 
         if(s->fd == -1) {
-                perror("[V4L2] Unable to open input device");
+                fprintf(stderr, "[V4L2] Unable to open input device %s: %s\n",
+                                dev_name, strerror(errno));
                 goto error_fd;
         }
 
@@ -470,6 +472,7 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
                 s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) *
                         s->tile->height;
                 s->tile->data = malloc(s->tile->data_len);
+                s->frame->data_deleter = vf_data_deleter;
                 s->convert = v4lconvert_create(s->fd);
         } else {
                 s->convert = NULL;
@@ -543,6 +546,8 @@ void * vidcap_v4l2_init(char *init_fmt, unsigned int flags)
         gettimeofday(&s->t0, NULL);
         s->frames = 0;
 
+        free(tmp);
+
         return s;
 
 free_frame:
@@ -551,11 +556,6 @@ error_fd:
         close(s->fd);
         free(s);
         return NULL;
-}
-
-void vidcap_v4l2_finish(void *state)
-{
-        UNUSED(state);
 }
 
 void vidcap_v4l2_done(void *state)
@@ -569,10 +569,9 @@ void vidcap_v4l2_done(void *state)
 
         close(s->fd);
 
-        if(!s->conversion_needed) {
-                vf_free(s->frame);
-        } else {
-                vf_free_data(s->frame);
+        vf_free(s->frame);
+
+        if(s->conversion_needed) {
                 v4lconvert_destroy(s->convert);
         }
 

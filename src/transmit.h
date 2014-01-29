@@ -8,7 +8,12 @@
  *         Jiri Matela      <matela@ics.muni.cz>
  *         Dalibor Matura   <255899@mail.muni.cz>
  *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *         David Cassany    <david.cassany@i2cat.net>
+ *         Ignacio Contreras <ignacio.contreras@i2cat.net>
+ *         Gerard Castillo  <gerard.castillo@i2cat.net>
+ *         Jordi "Txor" Casas Ríos <txorlings@gmail.com>
  *
+ * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  * Copyright (c) 2001-2002 University of Southern California
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  *
@@ -49,14 +54,29 @@
  *
  */
 
-#include "audio/audio.h"
+#ifndef TRANSMIT_H_
+#define TRANSMIT_H_
 
+#include "audio/audio.h"
+#include "types.h"
+
+struct module;
+struct rtp;
 struct tx;
 struct video_frame;
 
-struct tx *tx_init(unsigned mtu, char *fec);
-void		 tx_done(struct tx *tx_session);
+struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
+                char *fec, const char *encryption);
 void		 tx_send_tile(struct tx *tx_session, struct video_frame *frame, int pos, struct rtp *rtp_session);
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, audio_frame2 *buffer);
+void             audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer);
+
+
+struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
+                char *fec, const char *encryption);
+
+void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
+
+#endif // TRANSMIT_H_
 

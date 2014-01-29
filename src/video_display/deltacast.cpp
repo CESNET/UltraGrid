@@ -59,8 +59,9 @@ extern "C" {
 #include "config.h"
 #include "config_unix.h"
 #include "config_win32.h"
-#include "video_codec.h"
 #include "tv.h"
+#include "video.h"
+#include "video_display.h"
 #include "video_display/deltacast.h"
 #include "debug.h"
 #include "audio/audio.h"
@@ -167,7 +168,6 @@ display_deltacast_getf(void *state)
 
 int display_deltacast_putf(void *state, struct video_frame *frame, int nonblock)
 {
-        int tmp;
         struct state_deltacast *s = (struct state_deltacast *)state;
         struct timeval tv;
         int i;
@@ -318,7 +318,7 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
                 s->play_audio = FALSE;
         }
         
-        s->BoardHandle = s->BoardHandle = s->SlotHandle = NULL;
+        s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
         s->audio_configured = FALSE;
         pthread_mutex_init(&s->lock, NULL);
 
@@ -392,11 +392,6 @@ void display_deltacast_run(void *state)
         UNUSED(state);
 }
 
-void display_deltacast_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void display_deltacast_done(void *state)
 {
         struct state_deltacast *s = (struct state_deltacast *)state;
@@ -429,8 +424,10 @@ display_type_t *display_deltacast_probe(void)
 
 int display_deltacast_get_property(void *state, int property, void *val, size_t *len)
 {
+        UNUSED(state);
         codec_t codecs[] = {v210, UYVY, RAW};
         interlacing_t supported_il_modes[] = {PROGRESSIVE, UPPER_FIELD_FIRST, SEGMENTED_FRAME};
+        int rgb_shift[] = {0, 8, 16};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -442,17 +439,12 @@ int display_deltacast_get_property(void *state, int property, void *val, size_t 
                         
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;

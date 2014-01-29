@@ -92,7 +92,7 @@ struct state_audio_capture_testcard {
 
         double audio_remained,
                seconds_tone_played;
-        void *audio_tone, *audio_silence;
+        char *audio_tone, *audio_silence;
 
         struct timeval next_audio_time;
 
@@ -145,19 +145,19 @@ void * audio_cap_testcard_init(char *cfg)
                 printf("(channels: %u; bps: %d; sample rate: %d; frames per packet: %d).\n", audio_capture_channels,
                                 AUDIO_BPS, AUDIO_SAMPLE_RATE, CHUNK);
 
-                s->audio_silence = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+                s->audio_silence = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
 
-                s->audio_tone = calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+                s->audio_tone = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
                 if(AUDIO_BPS == 2) {
-                        short int * data = (short int *) s->audio_tone;
+                        short int * data = (short int *)(void *) s->audio_tone;
                         for( i=0; i < (int) (AUDIO_BUFFER_SIZE/sizeof(short)); i+=audio_capture_channels )
                         {
                                 for (int channel = 0; channel < (int) audio_capture_channels; ++channel)
                                         data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * SHRT_MAX * volume;
                         }
                 } else if(AUDIO_BPS == 4) {
-                        int * data = (int *) s->audio_tone;
-                        for( i=0; i < AUDIO_BUFFER_SIZE/sizeof(int); i+=audio_capture_channels )
+                        int * data = (int *)(void *) s->audio_tone;
+                        for( i=0; i < (int) (AUDIO_BUFFER_SIZE/sizeof(int)); i+=audio_capture_channels )
                         {
                                 for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
                                         data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * INT_MAX * volume;
@@ -228,9 +228,9 @@ struct audio_frame *audio_cap_testcard_read(void *state)
         tv_add_usec(&s->next_audio_time, 1000 * 1000 * CHUNK / 48000);
 
         if(s->current_sample == TONE) {
-                s->audio.data = (char* )(s->audio_tone + AUDIO_BPS * s->samples_played * audio_capture_channels); // it is short so _not_ (* 2)
+                s->audio.data = s->audio_tone + AUDIO_BPS * s->samples_played * audio_capture_channels; // it is short so _not_ (* 2)
         } else {
-                s->audio.data = (char *)(s->audio_silence + AUDIO_BPS * s->samples_played * audio_capture_channels);
+                s->audio.data = s->audio_silence + AUDIO_BPS * s->samples_played * audio_capture_channels;
         }
 
         s->samples_played += CHUNK;

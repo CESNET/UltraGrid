@@ -47,7 +47,7 @@
 #define VIDCAP_AGGREGATE_ID 0x34543406
 
 struct vidcap_type      *vidcap_aggregate_probe(void);
-void                    *vidcap_aggregate_init(char *fmt, unsigned int flags);
-void                     vidcap_aggregate_finish(void *state);
+void                    *vidcap_aggregate_init(const struct vidcap_params *params);
 void                     vidcap_aggregate_done(void *state);
 struct video_frame      *vidcap_aggregate_grab(void *state, struct audio_frame **audio);
+

@@ -279,7 +279,8 @@ static struct pdb_e *pdb_create_item(uint32_t ssrc)
                 p->sdes_loc = NULL;
                 p->sdes_tool = NULL;
                 p->sdes_note = NULL;
-                p->video_decoder_state = NULL;
+                p->decoder_state = NULL;
+                p->decoder_state_deleter = NULL;
                 p->pt = 255;
                 p->playout_buffer = pbuf_init();
                 p->tfrc_state = tfrc_init(p->creation_time);

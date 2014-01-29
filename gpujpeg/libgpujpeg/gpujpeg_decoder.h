@@ -30,13 +30,25 @@
 #ifndef GPUJPEG_DECODER_H
 #define GPUJPEG_DECODER_H
 
+#include <stdint.h>
 #include <libgpujpeg/gpujpeg_common.h>
-#include <libgpujpeg/gpujpeg_table.h>
-#include <libgpujpeg/gpujpeg_reader.h>
+#include <libgpujpeg/gpujpeg_type.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#if defined _MSC_VER || defined __MINGW32__
+#ifdef GPUJPEG_EXPORTS
+#define GPUJPEG_API __declspec(dllexport)
+#else
+#define GPUJPEG_API __declspec(dllimport)
+#endif
+#else // other platforms
+#define GPUJPEG_API
+#endif
+
+struct gpujpeg_decoder;
 
 /**
  * Decoder output type
@@ -76,7 +88,7 @@ struct gpujpeg_decoder_output
  * @param output  Decoder output structure
  * @return void
  */
-void
+GPUJPEG_API void
 gpujpeg_decoder_output_set_default(struct gpujpeg_decoder_output* output);
 
 /**
@@ -86,7 +98,7 @@ gpujpeg_decoder_output_set_default(struct gpujpeg_decoder_output* output);
  * @param custom_buffer Custom buffer
  * @return void
  */
-void
+GPUJPEG_API void
 gpujpeg_decoder_output_set_custom(struct gpujpeg_decoder_output* output, uint8_t* custom_buffer);
 
 /**
@@ -95,7 +107,7 @@ gpujpeg_decoder_output_set_custom(struct gpujpeg_decoder_output* output, uint8_t
  * @param output  Decoder output structure
  * @return void
  */
-void
+GPUJPEG_API void
 gpujpeg_decoder_output_set_texture(struct gpujpeg_decoder_output* output, struct gpujpeg_opengl_texture* texture);
 
 /**
@@ -103,38 +115,8 @@ gpujpeg_decoder_output_set_texture(struct gpujpeg_decoder_output* output, struct
  * 
  * @param output  Decoder output structure
  */
-void
+GPUJPEG_API void
 gpujpeg_decoder_output_set_cuda_buffer(struct gpujpeg_decoder_output* output);
-
-/**
- * JPEG decoder structure
- */
-struct gpujpeg_decoder
-{
-    // JPEG coder structure
-    struct gpujpeg_coder coder;
-    
-    // JPEG reader structure
-    struct gpujpeg_reader* reader;
-    
-    // Quantization tables
-    struct gpujpeg_table_quantization table_quantization[GPUJPEG_COMPONENT_TYPE_COUNT];
-    
-    // Huffman coder tables
-    struct gpujpeg_table_huffman_decoder table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
-    // Huffman coder tables in device memory
-    struct gpujpeg_table_huffman_decoder* d_table_huffman[GPUJPEG_COMPONENT_TYPE_COUNT][GPUJPEG_HUFFMAN_TYPE_COUNT];
-    
-    // Current segment count for decoded image
-    int segment_count;
-    
-    // Current data compressed size for decoded image
-    int data_compressed_size;
-
-    // Timers
-    GPUJPEG_CUSTOM_TIMER_DECLARE(def)
-    GPUJPEG_CUSTOM_TIMER_DECLARE(in_gpu)
-};
 
 /**
  * Create JPEG decoder
@@ -143,7 +125,7 @@ struct gpujpeg_decoder
  * @param param_image  Parameters for image data
  * @return decoder structure if succeeds, otherwise NULL
  */
-struct gpujpeg_decoder*
+GPUJPEG_API struct gpujpeg_decoder*
 gpujpeg_decoder_create();
 
 /**
@@ -154,7 +136,7 @@ gpujpeg_decoder_create();
  * @param param_image  Parameters for image data
  * @return 0 if succeeds, otherwise nonzero
  */
-int
+GPUJPEG_API int
 gpujpeg_decoder_init(struct gpujpeg_decoder* decoder, struct gpujpeg_parameters* param, struct gpujpeg_image_parameters* param_image);
 
 /**
@@ -167,7 +149,7 @@ gpujpeg_decoder_init(struct gpujpeg_decoder* decoder, struct gpujpeg_parameters*
  * @param image_decompressed_size  Pointer to variable where decompressed image size will be placed
  * @return 0 if succeeds, otherwise nonzero
  */
-int
+GPUJPEG_API int
 gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int image_size, struct gpujpeg_decoder_output* output);
 
 /**
@@ -176,8 +158,20 @@ gpujpeg_decoder_decode(struct gpujpeg_decoder* decoder, uint8_t* image, int imag
  * @param decoder  Decoder structure
  * @return 0 if succeeds, otherwise nonzero
  */
-int
+GPUJPEG_API int
 gpujpeg_decoder_destroy(struct gpujpeg_decoder* decoder);
+
+/**
+ * Sets output format
+ *
+ * @param decoder         Decoder structure
+ * @param color_space     Requested output color space
+ * @param sampling_factor Requestd color sampling factor
+ */
+GPUJPEG_API void
+gpujpeg_decoder_set_output_format(struct gpujpeg_decoder* decoder,
+                enum gpujpeg_color_space color_space,
+                enum gpujpeg_sampling_factor sampling_factor);
 
 #ifdef __cplusplus
 }

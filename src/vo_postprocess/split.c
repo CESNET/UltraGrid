@@ -52,7 +52,8 @@
 #endif // HAVE_CONFIG_H
 #include "debug.h"
 
-#include "video_codec.h"
+#include "utils/vf_split.h"
+#include "video.h"
 #include "video_display.h" /* DISPLAY_PROPERTY_VIDEO_SEPARATE_FILES */
 #include "vo_postprocess.h" /* VO_PP_DOES_CHANGE_TILING_MODE */
 #include <pthread.h>
@@ -134,8 +135,8 @@ int split_postprocess_reconfigure(void *state, struct video_desc desc)
         in_tile->width = desc.width;
         in_tile->height = desc.height;
 
-        in_tile->linesize = vc_get_linesize(desc.width, desc.color_spec);
-        in_tile->data_len = in_tile->linesize * desc.height;
+        in_tile->data_len = vc_get_linesize(desc.width, desc.color_spec) *
+                desc.height;
         in_tile->data = malloc(in_tile->data_len);
         
         return TRUE;

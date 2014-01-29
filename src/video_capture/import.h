@@ -46,7 +46,7 @@
  */
 
 struct vidcap_type	*vidcap_import_probe(void);
-void                    *vidcap_import_init(char *fmt, unsigned int flags);
-void                     vidcap_import_finish(void *state);
+void                    *vidcap_import_init(const struct vidcap_params *params);
 void                     vidcap_import_done(void *state);
 struct video_frame	*vidcap_import_grab(void *state, struct audio_frame **audio);
+

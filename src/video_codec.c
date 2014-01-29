@@ -1,14 +1,19 @@
-/*
- * FILE:    video_codec.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_codec.c
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @brief This file contains video codec-related functions.
+ *
+ * This file contains video codecs' metadata and helper
+ * functions as well as pixelformat converting functions.
+ */
+/* Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -57,35 +62,49 @@
 #include <string.h>
 #include "video_codec.h"
 
+/**
+ * @brief Creates FourCC word
+ *
+ * The main idea of FourCC is that it can be anytime read by human (by hexa editor, gdb, tcpdump).
+ * Therefore, this is stored as a big endian even on little-endian architectures - first byte
+ * of FourCC is in the memory on the lowest address.
+ */
+#ifdef WORDS_BIGENDIAN
+#define to_fourcc(a,b,c,d)     (((uint32_t)(d)) | ((uint32_t)(c)<<8) | ((uint32_t)(b)<<16) | ((uint32_t)(a)<<24))
+#else
 #define to_fourcc(a,b,c,d)     (((uint32_t)(a)) | ((uint32_t)(b)<<8) | ((uint32_t)(c)<<16) | ((uint32_t)(d)<<24))
+#endif
 
 static int get_halign(codec_t codec);
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines);
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines);
-static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
-                int rshift, int gshift, int bshift, int pix_size);
+static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
+static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) __attribute__((unused));
 
 const struct codec_info_t codec_info[] = {
-        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, FALSE, "rgba"},
-        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, FALSE, "r10k"},
-        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "v210"},
-        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "dvs10"},
-        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 1, 0.5, TRUE, TRUE, FALSE, "dxt1"},
-        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 1, 0.5, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
-        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 1, 1.0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
-        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, TRUE, FALSE, FALSE, "rgb"},
-        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, TRUE, FALSE, FALSE, "dpx"},
-        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, FALSE, TRUE, FALSE, "jpg"},
-        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
-        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, FALSE, TRUE, TRUE, "h264"},
-        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, FALSE, TRUE, FALSE, "jpg"},
-        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, FALSE, TRUE, TRUE, "vp8"},
-        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, TRUE, FALSE, FALSE, "bgr"},
-        {(codec_t) 0, NULL, 0, 0, 0.0, FALSE, FALSE, FALSE, NULL}
+        [VIDEO_CODEC_NONE] = {VIDEO_CODEC_NONE, "(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
+        [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 64, 4, 4, TRUE, FALSE, FALSE, "r10k"},
+        [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 16, FALSE, FALSE, FALSE, "v210"},
+        [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 4, FALSE, FALSE, FALSE, "dvs10"},
+        [DXT1] = {DXT1, "DXT1", to_fourcc('D','X','T','1'), 0, 0.5, 0, TRUE, TRUE, FALSE, "dxt1"},
+        [DXT1_YUV] = {DXT1_YUV, "DXT1 YUV", to_fourcc('D','X','T','Y'), 0, 0.5, 0, FALSE, TRUE, FALSE, "dxt1y"}, /* packet YCbCr inside DXT1 channels */
+        [DXT5] = {DXT5, "DXT5", to_fourcc('D','X','T','5'), 0, 1.0, 0, FALSE, TRUE, FALSE, "yog"},/* DXT5 YCoCg */
+        [RGB] = {RGB, "RGB", to_fourcc('R','G','B','2'), 1, 3.0, 3, TRUE, FALSE, FALSE, "rgb"},
+        [DPX10] = {DPX10, "DPX10", to_fourcc('D','P','1','0'), 1, 4.0, 4, TRUE, FALSE, FALSE, "dpx"},
+        [JPEG] = {JPEG, "JPEG", to_fourcc('J','P','E','G'), 0, 0.0, 0, FALSE, TRUE, FALSE, "jpg"},
+        [RAW] = {RAW, "raw", to_fourcc('r','a','w','s'), 0, 1.0, 0, FALSE, TRUE, FALSE, "raw"}, /* raw SDI */
+        [H264] = {H264, "H.264", to_fourcc('A','V','C','1'), 0, 1.0, 0, FALSE, TRUE, TRUE, "h264"},
+        [MJPG] = {MJPG, "MJPEG", to_fourcc('M','J','P','G'), 0, 1.0, 0, FALSE, TRUE, FALSE, "jpg"},
+        [VP8] = {VP8, "VP8", to_fourcc('V','P','8','0'), 0, 1.0, 0, FALSE, TRUE, TRUE, "vp8"},
+        [BGR] = {BGR, "BGR", to_fourcc('B','G','R','2'), 1, 3.0, 0, TRUE, FALSE, FALSE, "bgr"},
+        {(codec_t) 0, NULL, 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL}
 };
 
 /* take care that UYVY is alias for both 2vuy and dvs8, do not use
@@ -111,11 +130,17 @@ const struct line_decode_from_to line_decoders[] = {
         { (codec_t) 0, (codec_t) 0, NULL }
 };
 
+/**
+ * This struct specifies alias FourCC used for another FourCC
+ */
 struct alternate_fourcc {
         uint32_t alias;
         uint32_t primary_fcc;
 };
 
+/**
+ * This array contains FourCC aliases mapping
+ */
 const struct alternate_fourcc fourcc_aliases[] = {
         // the following two are here because it was sent with wrong endiannes in past
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
@@ -183,6 +208,7 @@ const char * get_codec_name(codec_t codec)
         return 0;
 }
 
+/** @brief Returns FourCC for specified codec. */
 uint32_t get_fcc_from_codec(codec_t codec)
 {
         int i = 0;
@@ -235,6 +261,10 @@ const char *get_codec_file_extension(codec_t codec)
         return 0;
 }
 
+/**
+ * @retval TRUE if codec is compressed
+ * @retval FALSE if codec is pixelformat
+ */
 int is_codec_opaque(codec_t codec)
 {
         int i = 0;
@@ -247,6 +277,12 @@ int is_codec_opaque(codec_t codec)
         return 0;
 }
 
+/**
+ * Returns whether specified codec is an interframe compression.
+ * Not defined for pixelformats
+ * @retval TRUE if compression is interframe
+ * @retval FALSE if compression is not interframe
+ */
 int is_codec_interframe(codec_t codec)
 {
         int i = 0;
@@ -268,15 +304,17 @@ static int get_halign(codec_t codec)
                         return codec_info[i].h_align;
                 i++;
         }
-        return 0;
+       return 0;
 }
 
-int get_haligned(int width_pixels, codec_t codec)
+/** @brief Returns aligned linesize according to pixelformat specification (in pixels) */
+int get_aligned_length(int width_pixels, codec_t codec)
 {
         int h_align = get_halign(codec);
         return ((width_pixels + h_align - 1) / h_align) * h_align;
 }
 
+/** @brief Returns aligned linesize according to pixelformat specification (in bytes) */
 int vc_get_linesize(unsigned int width, codec_t codec)
 {
         if (codec_info[codec].h_align) {
@@ -288,7 +326,27 @@ int vc_get_linesize(unsigned int width, codec_t codec)
         return width * codec_info[codec].bpp;
 }
 
-/* linear blend deinterlace */
+/// @brief returns @ref codec_info_t::block_size
+int get_pf_block_size(codec_t codec)
+{
+        int i = 0;
+        while (codec_info[i].name != NULL) {
+                if (codec == codec_info[i].codec)
+                        return codec_info[i].block_size;
+                i++;
+        }
+       return 0;
+}
+
+/** @brief Deinterlaces framebuffer.
+ *
+ * vc_deinterlace performs linear blend deinterlace on a framebuffer.
+ * @param[in,out] src          framebuffer to be deinterlaced
+ * @param[in]     src_linesize length of a line (bytes)
+ * @param[in]     lines        number of lines
+ * @see vc_deinterlace_aligned
+ * @see vc_deinterlace_unaligned
+ */
 void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
 {
         if(((long int) src & 0x0F) == 0 && src_linesize % 16 == 0) {
@@ -302,6 +360,7 @@ void vc_deinterlace(unsigned char *src, long src_linesize, int lines)
  * Aligned version of deinterlace filter
  *
  * @param src 16-byte aligned buffer
+ * @see vc_deinterlace
  */
 static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int lines)
 {
@@ -348,7 +407,8 @@ static void vc_deinterlace_aligned(unsigned char *src, long src_linesize, int li
 /**
  * Unaligned version of deinterlace filter
  *
- * @param src 16-byte aligned buffer
+ * @param src 4-byte aligned buffer
+ * @see vc_deinterlace
  */
 static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int lines)
 {
@@ -392,8 +452,7 @@ static void vc_deinterlace_unaligned(unsigned char *src, long src_linesize, int 
 }
 
 /**
- * Converts v210 to UYVY
- *
+ * @brief Converts v210 to UYVY
  * @param[out] dst     4-byte aligned output buffer where UYVY will be stored
  * @param[in]  src     4-byte aligned input buffer containing v210 (by definition of v210
  *                     should be even aligned to 16B boundary)
@@ -442,11 +501,8 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
 }
 
 /**
- * Converts from YUYV to UYVY.
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in YUYV
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from YUYV to UYVY.
+ * @copydetails vc_copylinev210
  */
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -495,11 +551,14 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 }
 
 /**
- * Converts from R10k to RGBA
+ * @brief Converts from R10k to RGBA
  *
  * @param[out] dst     4B-aligned buffer that will contain result
  * @param[in]  src     4B-aligned buffer containing pixels in R10k
  * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @param[in]  rshift  destination red shift
+ * @param[in]  gshift  destination green shift
+ * @param[in]  bshift  destination blue shift
  */
 void
 vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshift,
@@ -559,14 +618,8 @@ vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len, int rshif
 }
 
 /**
- * Changes color channels' order in RGBA
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in RGBA
- * @param[in]  dst     length of data that should be writen to dst buffer (in bytes)
- * @param[in]  rshift  destination rshift
- * @param[in]  rshift  destination gshift
- * @param[in]  rshift  destination bshift
+ * @brief Changes color channels' order in RGBA
+ * @copydetails vc_copyliner10k
  */
 void
 vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshift,
@@ -611,11 +664,8 @@ vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len, int rshif
 }
 
 /**
- * Converts from DVS10 to v210
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in DVS10
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from DVS10 to v210
+ * @copydetails vc_copylinev210
  */
 void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -703,11 +753,8 @@ void vc_copylineDVS10(unsigned char *dst, unsigned char *src, int src_len)
 #else
 
 /**
- * Converts from DVS10 to UYVY
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in UYVY
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from DVS10 to UYVY
+ * @copydetails vc_copylinev210
  */
 void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -741,6 +788,10 @@ void vc_copylineDVS10(unsigned char *dst, const unsigned char *src, int dst_len)
 
 #endif                          /* !(HAVE_MACOSX || HAVE_32B_LINUX) */
 
+/**
+ * @brief Changes color order of an RGB
+ * @copydetails vc_copyliner10k
+ */
 void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         register unsigned int r, g, b;
@@ -766,11 +817,8 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
 }
 
 /**
- * Converts from RGBA to RGB
- *
- * @param[out] dst     4B-aligned buffer that will contain result
- * @param[in]  src     4B-aligned buffer containing pixels in RGB
- * @param[in]  dst_len length of data that should be writen to dst buffer (in bytes)
+ * @brief Converts from RGBA to RGB
+ * @copydetails vc_copylinev210
  */
 void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
 {
@@ -790,14 +838,8 @@ void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 }
 
 /**
- * Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
- *
- * @param[out] dst2     4B-aligned buffer that will contain result
- * @param[in]  src2     4B-aligned buffer containing pixels in RGB
- * @param[in]  dst_len  length of data that should be writen to dst buffer (in bytes)
- * @param[in]  rshift   source rshift
- * @param[in]  gshift   source gshift
- * @param[in]  bshift   source bshift
+ * @brief Converts from RGBA to RGB. Channels in RGBA can be differently ordered.
+ * @copydetails vc_copyliner10k
  */
 void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
@@ -827,8 +869,8 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
 }
 
 /**
- * Converts from AGBR to RGB
- *
+ * @brief Converts from AGBR to RGB
+ * @copydetails vc_copylinev210
  * @see vc_copylineRGBAtoRGBwithShift
  * @see vc_copylineRGBAtoRGB
  */
@@ -860,14 +902,8 @@ void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 }
 
 /**
- * Converts RGB to RGBA
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     4B-aligned input buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
- * @param[in]  rshift  RGBA rshift
- * @param[in]  gshift  RGBA gshift
- * @param[in]  bshift  RGBA gshift
+ * @brief Converts RGB to RGBA
+ * @copydetails vc_copyliner10k
  */
 void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
@@ -885,11 +921,13 @@ void vc_copylineRGBtoRGBA(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * @param rshift rshift in bytes
- * @param gshift gshift in bytes
- * @param bshift bshift in bytes
+ * @brief Converts RGB(A) into UYVY
+ *
+ * Uses full scale Rec. 601 YUV (aka JPEG)
+ * @copydetails vc_copyliner10k
+ * @param[in] source pixel size (3 for RGB, 4 for RGBA)
  */
-static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int dst_len,
+static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, int dst_len,
                 int rshift, int gshift, int bshift, int pix_size) {
         register int r, g, b;
         register int y1, y2, u ,v;
@@ -922,8 +960,48 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
 }
 
 /**
- * Converts UYVY to RGB
+ * @brief Converts RGB(A) into UYVY
+ *
  * Uses Rec. 709 with standard SDI ceiling and floor
+ * @copydetails vc_copyliner10k
+ * @param[in] source pixel size (3 for RGB, 4 for RGBA)
+ */
+static void vc_copylineToUYVY709(unsigned char *dst, const unsigned char *src, int dst_len,
+                int rshift, int gshift, int bshift, int pix_size) {
+        register int r, g, b;
+        register int y1, y2, u ,v;
+        register uint32_t *d = (uint32_t *)(void *) dst;
+
+        while(dst_len > 0) {
+                r = *(src + rshift);
+                g = *(src + gshift);
+                b = *(src + bshift);
+                src += pix_size;
+                y1 = 11993 * r + 40239 * g + 4063 * b + (1<<20);
+                u  = -6619 * r -22151 * g + 28770 * b;
+                v  = 28770 * r - 26149 * g - 2621 * b;
+                r = *(src + rshift);
+                g = *(src + gshift);
+                b = *(src + bshift);
+                src += pix_size;
+                y2 = 11993 * r + 40239 * g + 4063 * b + (1<<20);
+                u += -6619 * r -22151 * g + 28770 * b;
+                v += 28770 * r - 26149 * g - 2621 * b;
+                u = u / 2 + (1<<23);
+                v = v / 2 + (1<<23);
+
+                *d++ = (min(max(y2, 0), (1<<24)-1) >> 16) << 24 |
+                        (min(max(v, 0), (1<<24)-1) >> 16) << 16 |
+                        (min(max(y1, 0), (1<<24)-1) >> 16) << 8 |
+                        (min(max(u, 0), (1<<24)-1) >> 16);
+                dst_len -= 4;
+        }
+}
+
+/**
+ * @brief Converts UYVY to RGB.
+ * Uses Rec. 709 with standard SDI ceiling and floor
+ * @copydetails vc_copylinev210
  * @todo make it faster if needed
  */
 void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_len) {
@@ -945,50 +1023,38 @@ void vc_copylineUYVYtoRGB(unsigned char *dst, const unsigned char *src, int dst_
 }
 
 /**
- * Converts RGB to UYVY.
+ * @brief Converts RGB to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineRGBtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 3);
+        vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 3);
 }
 
 /**
- * Converts BGR to UYVY.
+ * @brief Converts BGR to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer in BGR
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineBGRtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        vc_copylineToUYVY(dst, src, dst_len, 2, 1, 0, 3);
+        vc_copylineToUYVY709(dst, src, dst_len, 2, 1, 0, 3);
 }
 
 /**
- * Converts RGBA to UYVY.
+ * @brief Converts RGBA to UYVY.
  * Uses full scale Rec. 601 YUV (aka JPEG)
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     buffer in RGBA
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst_len)
 {
-        vc_copylineToUYVY(dst, src, dst_len, 0, 1, 2, 4);
+        vc_copylineToUYVY709(dst, src, dst_len, 0, 1, 2, 4);
 }
 
 /**
  * Converts BGR to RGB.
- *
- * @param[out] dst     output buffer in RGB
- * @param[in]  src     buffer in BGR
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @copydetails vc_copylinev210
  */
 void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
 {
@@ -1006,14 +1072,8 @@ void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_l
 }
 
 /**
- * Converts DPX10 to RGBA
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     4B-aligned input buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
- * @param[in]  rshift  RGBA rshift
- * @param[in]  gshift  RGBA gshift
- * @param[in]  bshift  RGBA gshift
+ * @brief Converts DPX10 to RGBA
+ * @copydetails vc_copyliner10k
  */
 void
 vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
@@ -1036,11 +1096,8 @@ vc_copylineDPX10toRGBA(unsigned char *dst, const unsigned char *src, int dst_len
 }
 
 /**
- * Converts DPX10 to RGB
- *
- * @param[out] dst     4B-aligned output buffer
- * @param[in]  src     4B-aligned input buffer
- * @param[in]  dst_len number of bytes that should be written to outpu buffer
+ * @brief Converts DPX10 to RGB.
+ * @copydetails vc_copylinev210
  */
 void
 vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
@@ -1083,11 +1140,59 @@ vc_copylineDPX10toRGB(unsigned char *dst, const unsigned char *src, int dst_len)
         }
 }
 
+/**
+ * Returns line decoder for specifiedn input and output codec.
+ */
+decoder_t get_decoder_from_to(codec_t in, codec_t out, bool slow)
+{
+        struct item {
+                decoder_t decoder;
+                codec_t in;
+                codec_t out;
+                bool slow;
+        };
 
+        struct item decoders[] = {
+                { (decoder_t) vc_copylineDVS10,       DVS10, UYVY, false },
+                { (decoder_t) vc_copylinev210,        v210,  UYVY, false },
+                { (decoder_t) vc_copylineYUYV,        YUYV,  UYVY, false },
+                { (decoder_t) vc_copyliner10k,        R10k,  RGBA, false },
+                { vc_copylineRGBA,        RGBA,  RGBA, false },
+                { (decoder_t) vc_copylineDVS10toV210, DVS10, v210, false },
+                { (decoder_t) vc_copylineRGBAtoRGB,   RGBA,  RGB, false },
+                { (decoder_t) vc_copylineRGBtoRGBA,   RGB,   RGBA, false },
+                { (decoder_t) vc_copylineRGBtoUYVY,   RGB,   UYVY, true },
+                { (decoder_t) vc_copylineUYVYtoRGB,   UYVY,  RGB, true },
+                { (decoder_t) vc_copylineBGRtoUYVY,   BGR,   UYVY, true },
+                { (decoder_t) vc_copylineRGBAtoUYVY,  RGBA,  UYVY, true },
+                { (decoder_t) vc_copylineBGRtoRGB,    BGR,   RGB, false },
+                { (decoder_t) vc_copylineDPX10toRGBA, DPX10, RGBA, false },
+                { (decoder_t) vc_copylineDPX10toRGB,  DPX10, RGB, false },
+                { vc_copylineRGB,         RGB,   RGB, false },
+        };
+
+        for (unsigned int i = 0; i < sizeof(decoders)/sizeof(struct item); ++i) {
+                if (decoders[i].in == in && decoders[i].out == out &&
+                                (decoders[i].slow == false || slow == true)) {
+                        return decoders[i].decoder;
+                }
+        }
+
+        if (in == out)
+                return (decoder_t) memcpy;
+
+        return NULL;
+}
+
+/** @brief Returns TRUE if specified pixelformat is some form of RGB (not YUV).
+ *
+ * Unspecified for compressed codecs.
+ * @retval TRUE  if pixelformat is RGB
+ * @retval FALSE if pixelformat is not a RGB */
 int codec_is_a_rgb(codec_t codec)
 {
         int i;
-        
+
         for (i = 0; codec_info[i].name != NULL; i++) {
 		if (codec == codec_info[i].codec) {
 			return codec_info[i].rgb;
@@ -1095,3 +1200,19 @@ int codec_is_a_rgb(codec_t codec)
 	}
         return 0;
 }
+
+/**
+ * Tries to find specified codec in set of video codecs.
+ * The set must by ended by VIDEO_CODEC_NONE.
+ */
+bool codec_is_in_set(codec_t codec, codec_t *set)
+{
+        assert (codec != VIDEO_CODEC_NONE);
+        assert (set != NULL);
+        while (*set != VIDEO_CODEC_NONE) {
+                if (*(set++) == codec)
+                        return true;
+        }
+        return false;
+}
+

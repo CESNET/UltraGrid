@@ -55,15 +55,14 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifdef BUILD_LIBRARIES
+
 #include <glob.h>
 
 #include "debug.h"
+#include "host.h"
 
 #include "lib_common.h"
-
-extern char **uv_argv;
-
-static void *lib_common_handle = NULL;
 
 void open_all(const char *pattern) {
         char path[512];
@@ -130,18 +129,5 @@ void *open_library(const char *name)
         return handle;
 }
 
-void init_lib_common(void)
-{
-        char name[128];
-        snprintf(name, sizeof(name), "ug_lib_common.so.%d", COMMON_LIB_ABI_VERSION);
-
-        lib_common_handle = open_library(name);
-}
-
-void lib_common_done(void)
-{
-        if(lib_common_handle) {
-                dlclose(lib_common_handle);
-        }
-}
+#endif // BUILD_LIBRARIES
 

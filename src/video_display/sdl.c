@@ -58,7 +58,7 @@
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "utils/ring_buffer.h"
-#include "video_codec.h"
+#include "video.h"
 
 #ifdef HAVE_MACOSX
 #include <architecture/i386/io.h>
@@ -120,9 +120,8 @@ struct state_sdl {
 #ifdef HAVE_MACOSX
         void                   *autorelease_pool;
 #endif
+        volatile bool           should_exit;
 };
-
-static volatile bool should_exit = false;
 
 static void toggleFullscreen(struct state_sdl *s);
 static void loadSplashscreen(struct state_sdl *s);
@@ -331,7 +330,7 @@ void display_sdl_run(void *arg)
 
         gettimeofday(&s->tv, NULL);
 
-        while (!should_exit) {
+        while (!s->should_exit) {
                 display_sdl_handle_events(s, 0);
 #ifndef HAVE_MACOSX
                 /* set flag to prevent dangerous actions */
@@ -494,11 +493,6 @@ int display_sdl_reconfigure(void *state, struct video_desc desc)
                 SDL_LockSurface(s->sdl_screen);
 #endif
         }
-
-        if (s->rgb)
-                s->tile->linesize = s->tile->width * 4;
-        else
-                s->tile->linesize = s->tile->width * 2;
 
         s->dst_rect.x = 0;
         s->dst_rect.y = 0;
@@ -664,12 +658,6 @@ void *display_sdl_init(char *fmt, unsigned int flags)
         return (void *)s;
 }
 
-void display_sdl_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
-}
-
 void display_sdl_done(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
@@ -714,8 +702,11 @@ int display_sdl_putf(void *state, struct video_frame *frame, int nonblock)
         struct state_sdl *s = (struct state_sdl *)state;
 
         assert(s->magic == MAGIC_SDL);
-        UNUSED(frame);
         UNUSED(nonblock);
+
+        if(!frame) {
+                s->should_exit = true;
+        }
 
         SDL_mutexP(s->buffer_writable_lock);
         s->buffer_writable = 0;
@@ -748,6 +739,7 @@ int display_sdl_get_property(void *state, int property, void *val, size_t *len)
         struct state_sdl *s = (struct state_sdl *) state;
         
         codec_t codecs[] = {UYVY, RGBA, RGB};
+        int rgb_shift[] = {s->rshift, s->gshift, s->bshift};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -759,17 +751,12 @@ int display_sdl_get_property(void *state, int property, void *val, size_t *len)
                         
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = s->rshift;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = s->gshift;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = s->bshift;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = s->pitch;

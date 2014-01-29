@@ -52,23 +52,17 @@
 #include "config_unix.h"
 #include "config_win32.h"
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 #include "video_capture/null.h"
 
 static int capture_state = 0;
 
-void *vidcap_null_init(char *fmt, unsigned int flags)
+void *vidcap_null_init(const struct vidcap_params *params)
 {
-        UNUSED(fmt);
-        UNUSED(flags);
+        UNUSED(params);
         capture_state = 0;
         return &capture_state;
-}
-
-void vidcap_null_finish(void *state)
-{
-        assert(state == &capture_state);
 }
 
 void vidcap_null_done(void *state)

@@ -89,7 +89,6 @@ typedef void (*audio_device_help_t)(const char *driver_name);
  */
 typedef void * (*audio_init_t)(char *cfg);
 typedef struct audio_frame* (*audio_read_t)(void *state);
-typedef void (*audio_finish_t)(void *state);
 typedef void (*audio_done_t)(void *state);
 
 #ifdef BUILD_LIBRARIES
@@ -107,8 +106,6 @@ struct audio_capture_t {
         const char              *audio_init_str;
         audio_read_t             audio_read;
         const char              *audio_read_str;
-        audio_finish_t           audio_capture_finish;
-        const char              *audio_capture_finish_str;
         audio_done_t             audio_capture_done;
         const char              *audio_capture_done_str;
 
@@ -121,7 +118,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
                 MK_STATIC(sdi_read),
-                MK_STATIC(sdi_capture_finish),
                 MK_STATIC(sdi_capture_done),
                 NULL
         },
@@ -130,7 +126,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
                 MK_STATIC(sdi_read),
-                MK_STATIC(sdi_capture_finish),
                 MK_STATIC(sdi_capture_done),
                 NULL
         },
@@ -139,7 +134,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
                 MK_STATIC(sdi_read),
-                MK_STATIC(sdi_capture_finish),
                 MK_STATIC(sdi_capture_done),
                 NULL
         },
@@ -149,7 +143,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_NAME(audio_cap_alsa_help),
                 MK_NAME(audio_cap_alsa_init),
                 MK_NAME(audio_cap_alsa_read),
-                MK_NAME(audio_cap_alsa_finish),
                 MK_NAME(audio_cap_alsa_done),
                 NULL
         },
@@ -160,7 +153,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_ca_help),
                 MK_STATIC(audio_cap_ca_init),
                 MK_STATIC(audio_cap_ca_read),
-                MK_STATIC(audio_cap_ca_finish),
                 MK_STATIC(audio_cap_ca_done),
                 NULL
         },
@@ -171,7 +163,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_NAME(portaudio_capture_help),
                 MK_NAME(portaudio_capture_init),
                 MK_NAME(portaudio_read),
-                MK_NAME(portaudio_capture_finish),
                 MK_NAME(portaudio_capture_done),
                 NULL
         },
@@ -182,7 +173,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_NAME(audio_cap_jack_help),
                 MK_NAME(audio_cap_jack_init),
                 MK_NAME(audio_cap_jack_read),
-                MK_NAME(audio_cap_jack_finish),
                 MK_NAME(audio_cap_jack_done),
                 NULL
         },
@@ -192,7 +182,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_testcard_help),
                 MK_STATIC(audio_cap_testcard_init),
                 MK_STATIC(audio_cap_testcard_read),
-                MK_STATIC(audio_cap_testcard_finish),
                 MK_STATIC(audio_cap_testcard_done),
                 NULL
         },
@@ -201,7 +190,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_none_help),
                 MK_STATIC(audio_cap_none_init),
                 MK_STATIC(audio_cap_none_read),
-                MK_STATIC(audio_cap_none_finish),
                 MK_STATIC(audio_cap_none_done),
                 NULL
         }
@@ -231,13 +219,11 @@ static int audio_capture_fill_symbols(struct audio_capture_t *device)
                 dlsym(handle, device->audio_init_str);
         device->audio_read = (audio_read_t)
                 dlsym(handle, device->audio_read_str);
-        device->audio_capture_finish = (audio_finish_t)
-                dlsym(handle, device->audio_capture_finish_str);
         device->audio_capture_done = (audio_done_t)
                 dlsym(handle, device->audio_capture_done_str);
 
         if(!device->audio_help || !device->audio_init || !device->audio_read ||
-                        !device->audio_capture_finish || !device->audio_capture_done) {
+                        !device->audio_capture_done) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
                 return FALSE;
         }
@@ -330,13 +316,6 @@ void audio_capture_print_help()
         }
 }
 
-void audio_capture_finish(struct state_audio_capture *s)
-{
-        if(s) {
-                available_audio_capture[s->index]->audio_capture_finish(s->state);
-        }
-}
-
 void audio_capture_done(struct state_audio_capture *s)
 {
         if(s) {
@@ -355,20 +334,58 @@ struct audio_frame * audio_capture_read(struct state_audio_capture *s)
         }
 }
 
-unsigned int audio_capture_get_vidcap_flags(struct state_audio_capture *s)
+/**
+ * @returns vidcap flags if audio should be taken from video
+ * capture device.
+ */
+unsigned int audio_capture_get_vidcap_flags(const char *const_device_name)
 {
-        if(!s) 
-                return 0u;
+        char *tmp = strdup(const_device_name);
+        char *save_ptr = NULL;
+        char *device_name = strtok_r(tmp, ":", &save_ptr);
+        unsigned int ret;
 
-        if(strcasecmp(available_audio_capture[s->index]->name, "embedded") == 0) {
-                return VIDCAP_FLAG_AUDIO_EMBEDDED;
-        } else if(strcasecmp(available_audio_capture[s->index]->name, "AESEBU") == 0) {
-                return VIDCAP_FLAG_AUDIO_AESEBU;
-        } else if(strcasecmp(available_audio_capture[s->index]->name, "analog") == 0) {
-                return VIDCAP_FLAG_AUDIO_ANALOG;
+        if(strcasecmp(device_name, "embedded") == 0) {
+                ret = VIDCAP_FLAG_AUDIO_EMBEDDED;
+        } else if(strcasecmp(device_name, "AESEBU") == 0) {
+                ret = VIDCAP_FLAG_AUDIO_AESEBU;
+        } else if(strcasecmp(device_name, "analog") == 0) {
+                ret = VIDCAP_FLAG_AUDIO_ANALOG;
         } else {
-                return 0u;
+                ret = 0u;
         }
+
+        free(tmp);
+        return ret;
+}
+
+/**
+ * @returns optional index to video capture device to which
+ * should be audio flags passed.
+ * @see audio_capture_get_vidcap_flags
+ */
+unsigned int audio_capture_get_vidcap_index(const char *const_device_name)
+{
+        char *tmp = strdup(const_device_name);
+        char *save_ptr = NULL;
+        unsigned int ret;
+
+        strtok_r(tmp, ":", &save_ptr);
+        char *vidcap_index_str = strtok_r(NULL, ":", &save_ptr);
+
+        if (vidcap_index_str == NULL) {
+                ret = 0;
+        } else {
+                ret = atoi(vidcap_index_str);
+        }
+
+        free(tmp);
+        return ret;
+}
+
+const char *audio_capture_get_driver_name(struct state_audio_capture * s)
+{
+        return available_audio_capture[s->index]->name;
 }
 
 void *audio_capture_get_state_pointer(struct state_audio_capture *s)

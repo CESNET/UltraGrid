@@ -1,32 +1,25 @@
-/*
- * FILE:    dxt_glsl_compress.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_compress/uyvy.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @brief  This is an umbrella header for video functions.
+ */
+/*
+ * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,11 +35,20 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
-struct video_frame;
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
-void                *uyvy_compress_init(char * opts);
-struct video_frame  *uyvy_compress(void *args, struct video_frame * tx, int buffer);
-void                 uyvy_compress_done(void *args);
+struct module;
+struct video_frame;
+struct video_compress_params;
+
+struct module       *uyvy_compress_init(struct module *parent, const struct video_compress_params *params);
+struct video_frame  *uyvy_compress(struct module *mod, struct video_frame * tx);
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
+

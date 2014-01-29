@@ -57,9 +57,9 @@
 #ifdef HAVE_DVS           /* From config.h */
 
 #include "debug.h"
+#include "video.h"
 #include "video_display.h"
 #include "video_display/dvs.h"
-#include "video_codec.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 #include "tv.h"
@@ -288,8 +288,6 @@ const hdsp_mode_table_t hdsp_mode_table[] = {
         {0, 0, 0, 0, 0},
 };
 
-static volatile bool should_exit = false;
-
 struct state_hdsp {
         pthread_t thread_id;
         sv_handle *sv;
@@ -330,6 +328,8 @@ volatile int worker_waiting;
 
         int                     frames;
         struct timeval          t, t0;
+
+        bool should_exit;
 };
 
 static void show_help(void);
@@ -391,7 +391,7 @@ void display_dvs_run(void *arg)
         struct state_hdsp *s = (struct state_hdsp *)arg;
         int res;
 
-        while (!should_exit) {
+        while (1) {
                 pthread_mutex_lock(&s->lock);
 
                 while (s->work_to_do == FALSE) {
@@ -406,9 +406,12 @@ void display_dvs_run(void *arg)
                 if (s->boss_waiting) {
                         pthread_cond_signal(&s->boss_cv);
                 }
-                pthread_mutex_unlock(&s->lock);
-                if(should_exit)
+
+                if(s->should_exit) {
+                        pthread_mutex_unlock(&s->lock);
                         break;
+                }
+                pthread_mutex_unlock(&s->lock);
 
                 /* audio - copy appropriate amount of data from ring buffer */
                 if(s->play_audio) {
@@ -497,8 +500,6 @@ int display_dvs_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
 
-        UNUSED(frame);
-
         assert(s->magic == HDSP_MAGIC);
 
         pthread_mutex_lock(&s->lock);
@@ -512,6 +513,11 @@ int display_dvs_putf(void *state, struct video_frame *frame, int nonblock)
                 s->boss_waiting = TRUE;
                 pthread_cond_wait(&s->boss_cv, &s->lock);
                 s->boss_waiting = FALSE;
+        }
+
+        // pass poisoned pill
+        if(!frame) {
+                s->should_exit = true;
         }
 
         /* ...and give it more to do... */
@@ -625,8 +631,8 @@ int display_dvs_reconfigure(void *state,
                 return FALSE;
         }
 
-        s->tile->linesize = vc_get_linesize(s->tile->width, desc.color_spec);
-        s->tile->data_len = s->tile->linesize * s->tile->height;
+        s->tile->data_len = vc_get_linesize(s->tile->width, desc.color_spec) *
+                s->tile->height;
 
         free(s->bufs[0]);
         free(s->bufs[1]);
@@ -781,21 +787,6 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         return (void *)s;
 }
 
-void display_dvs_finish(void *state)
-{
-        struct state_hdsp *s = (struct state_hdsp *)state;
-
-        should_exit = true;
-
-        pthread_mutex_lock(&s->lock);
-        s->work_to_do = TRUE;
-        if (s->worker_waiting) {
-                pthread_cond_signal(&s->worker_cv);
-        }
-
-        pthread_mutex_unlock(&s->lock);
-}
-
 void display_dvs_done(void *state)
 {
         struct state_hdsp *s = (struct state_hdsp *)state;
@@ -809,6 +800,7 @@ void display_dvs_done(void *state)
 int display_dvs_get_property(void *state, int property, void *val, size_t *len)
 {
         codec_t codecs[] = {DVS10, UYVY, RGBA, RGB};
+        int rgb_shift[] = {0, 8, 16};
 
         UNUSED(state);
         
@@ -822,17 +814,12 @@ int display_dvs_get_property(void *state, int property, void *val, size_t *len)
                         
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;

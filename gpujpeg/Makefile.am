@@ -27,21 +27,21 @@ pkgconfig_DATA = libgpujpeg.pc
 library_include_HEADERS = libgpujpeg/*.h
 nodist_gpujpeg_libinclude_HEADERS = config.h
 
-gpujpeg_SOURCES = src/main.c 
+gpujpeg_SOURCES = src/main.c
 gpujpeg_CFLAGS = -std=c99 @COMMON_CFLAGS@
 gpujpeg_LDADD = libgpujpeg.la
 gpujpeg_LDFLAGS = @GPUJPEG_LDFLAGS@
 
 # gpu jpeg library sources
-libgpujpeg_la_SOURCES = src/gpujpeg_common.c \
-			src/gpujpeg_dct_cpu.c \
-			src/gpujpeg_decoder.c \
-			src/gpujpeg_encoder.c \
-			src/gpujpeg_huffman_cpu_decoder.c \
-			src/gpujpeg_huffman_cpu_encoder.c \
-			src/gpujpeg_reader.c \
-			src/gpujpeg_table.c \
-			src/gpujpeg_writer.c
+libgpujpeg_la_SOURCES = src/gpujpeg_common.cpp \
+			src/gpujpeg_dct_cpu.cpp \
+			src/gpujpeg_decoder.cpp \
+			src/gpujpeg_encoder.cpp \
+			src/gpujpeg_huffman_cpu_decoder.cpp \
+			src/gpujpeg_huffman_cpu_encoder.cpp \
+			src/gpujpeg_reader.cpp \
+			src/gpujpeg_table.cpp \
+			src/gpujpeg_writer.cpp
 
 libgpujpeg_la_DEPENDENCIES = @LIBGPUJPEG_CUDA_OBJS@
 

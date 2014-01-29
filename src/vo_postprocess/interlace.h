@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 void * interlace_init(char *config);
 bool interlace_get_property(void *state, int property, void *val, size_t *len);

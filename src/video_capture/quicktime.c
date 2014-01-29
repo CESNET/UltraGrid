@@ -59,7 +59,7 @@
 #include "video_capture.h"
 #include "video_capture/quicktime.h"
 #include "video_display/quicktime.h"
-#include "video_codec.h"
+#include "video.h"
 #include "audio/audio.h"
 #include <math.h>
 
@@ -946,7 +946,7 @@ struct vidcap_type *vidcap_quicktime_probe(void)
 }
 
 /* Initialize the QuickTime grabbing system */
-void *vidcap_quicktime_init(char *fmt, unsigned int flags)
+void *vidcap_quicktime_init(const struct vidcap_params *params)
 {
         struct qt_grabber_state *s;
 
@@ -966,7 +966,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
                 s->frame->color_spec = 0xffffffff;
 
                 s->grab_audio = FALSE;
-                if(flags & VIDCAP_FLAG_AUDIO_EMBEDDED) {
+                if(vidcap_params_get_flags(params) & VIDCAP_FLAG_AUDIO_EMBEDDED) {
 #ifdef QT_ENABLE_AUDIO
                         s->grab_audio = TRUE;
 #else
@@ -976,7 +976,9 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 #endif
                 }
 
+                char *fmt = strdup(vidcap_params_get_fmt(params));
                 int ret = qt_open_grabber(s, fmt);
+                free(fmt);
 
                 if (ret != 1) {
                         free(s);
@@ -1002,7 +1004,7 @@ void *vidcap_quicktime_init(char *fmt, unsigned int flags)
 }
 
 /* Finalize the grabbing system */
-void vidcap_quicktime_finish(void *state)
+void vidcap_quicktime_done(void *state)
 {
         struct qt_grabber_state *s = (struct qt_grabber_state *)state;
 
@@ -1011,16 +1013,7 @@ void vidcap_quicktime_finish(void *state)
         pthread_mutex_lock(&s->lock);
         s->should_exit = true;
         pthread_mutex_unlock(&s->lock);
-
         pthread_join(s->thread_id, NULL);
-}
-
-/* Finalize the grabbing system */
-void vidcap_quicktime_done(void *state)
-{
-        struct qt_grabber_state *s = (struct qt_grabber_state *)state;
-
-        assert(s != NULL);
 
         if (s != NULL) {
                 assert(s->magic == MAGIC_QT_GRABBER);

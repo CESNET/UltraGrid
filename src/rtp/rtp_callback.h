@@ -40,16 +40,18 @@
  *
  */
 
-#include "host.h"
-
-/*
- * Packet formats:
- * http://www.sitola.cz/files/4K-packet-format.pdf
+/** @page av_pkt_description UltraGrid packet format
+ * Packet formats are described in papers referenced here:<br/>
+ * https://www.sitola.cz/igrid/index.php/Developer_Documentation#Packet_formats
  */
-#define PT_VIDEO 20
-#define PT_AUDIO 21
-#define PT_VIDEO_LDGM 22
-
+#define PT_ITU_T_G711_PCMU  00 /* mU-law mono */
+#define PT_VIDEO        20
+#define PT_AUDIO        21
+#define PT_VIDEO_LDGM   22
+#define PT_ENCRYPT_VIDEO 24
+#define PT_ENCRYPT_AUDIO 25
+#define PT_H264 96
+#define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
  * Video payload
  *
@@ -101,6 +103,8 @@ typedef uint32_t video_payload_hdr_t[6];
  */
 typedef uint32_t audio_payload_hdr_t[5];
 
+typedef uint32_t ldgm_payload_hdr_t;
+
 /*
  * LDGM video payload
  *
@@ -124,8 +128,19 @@ typedef uint32_t audio_payload_hdr_t[5];
  */
 typedef uint32_t ldgm_video_payload_hdr_t[5];
 
+/*
+ * Crypto video payload
+ *
+ * 1st word
+ * bits 0 - 8 crypto type
+ * bits 9 - 31 currently unused
+ */
+#define CRYPTO_TYPE_AES128_CTR 1u
+typedef uint32_t crypto_payload_hdr_t[1];
+
 void rtp_recv_callback(struct rtp *session, rtp_event *e);
 int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
 void process_packet_for_display(char *);
 void call_display_frame(void);
+

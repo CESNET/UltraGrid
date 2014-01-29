@@ -1,32 +1,26 @@
-/*
- * FILE:    video_codec.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_compress.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @ingroup video_compress
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @brief API for video compress drivers.
+ */
+/*
+ * Copyright (c) 2011-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,75 +36,86 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
+/**
+ * @defgroup video_compress Video Compress
+ * @{ */
 #ifndef __video_compress_h
-
 #define __video_compress_h
-#include "video_codec.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct compress_state;
+struct module;
 
-// this is placeholder state, refer to inidividual compressions for example
-extern int compress_init_noerr;
+extern struct module compress_init_noerr;
+
+/** @name API for capture modules
+ * @{ */
+
+struct video_compress_params {
+        const char *cfg;
+};
 
 /**
- * Initializes compression
+ * @brief Initializes video compression
  * 
- * @param cfg command-line argument
- * @return intern state
+ * @param[in] parent parent module
+ * @param[in] cfg    configuration string
+ * @return           driver internal state
  */
-typedef  void *(*compress_init_t)(char *cfg);
-
+typedef struct module *(*compress_init_t)(struct module *parent,
+                const struct video_compress_params *params);
 /**
- * Compresses video frame
+ * @brief Compresses video frame
  * 
- * @param state compressor state
- * @param frame uncompressed frame
- * @return compressed frame
+ * @param state        driver internal state
+ * @param frame        uncompressed frame
+ * @param buffer_index 0 or 1 - driver should have 2 output buffers, filling the selected one.
+ *                     Returned video frame should stay valid until requesting compress with the
+ *                     same index.
+ * @return             compressed frame, may be NULL if compression failed
  */
-typedef  struct video_frame * (*compress_frame_t)(void *state, struct video_frame *frame,
-                int buffer_index);
-
+typedef  struct video_frame * (*compress_frame_t)(struct module *state, struct video_frame *frame);
 /**
- * Compresses tile of a video frame
+ * @brief Compresses tile of a video frame
  * 
- * @param state compressor state
- * @param[in]     tile          uncompressed tile
- * @param[in,out] desc          input and then output video desc
- * @param[in]     buffer_index
- * @return compressed frame
+ * @param[in]     state         driver internal state
+ * @param[in]     in_frame      uncompressed frame
+ * @param[in]     tile_index    index of tile to be compressed
+ * @param         buffer_index  0 or 1 - driver should have 2 output buffers, filling the selected one.
+ *                Returned video frame should stay valid until requesting compress with the
+ *                same index.
+ * @return                      compressed frame with one tile, may be NULL if compression failed
  */
-typedef  struct tile * (*compress_tile_t)(void *state, struct tile *tile,
-                struct video_desc *desc, int buffer_index);
-
-
+typedef  struct video_frame * (*compress_tile_t)(struct module *state, struct video_frame *in_frame);
 /**
- * Cleanup function
+ * @brief Gets back tile/frame from driver
+ *
+ * @param[in]  state         driver internal state
+ * @param[out] desc          output video desc (only for tiles - for frames this is directly in metadata_
+ * @retval   !=NULL          compressed tile/frame
+ * @retval     NULL          signal that queue has finished
  */
-typedef  void (*compress_done_t)(void *);
+typedef  void * (*compress_pop_t)(struct module *state, struct video_desc *desc);
+/// @}
 
 void show_compress_help(void);
-int compress_init(char *config_string, struct compress_state **);
+int compress_init(struct module *parent, const char *config_string, struct compress_state **);
 const char *get_compress_name(struct compress_state *);
 
-int is_compress_none(struct compress_state *);
-
-struct video_frame *compress_frame(struct compress_state *, struct video_frame*, int buffer_index);
-void compress_done(struct compress_state *);
+void compress_frame(struct compress_state *, struct video_frame*);
+struct video_frame *compress_pop(struct compress_state *);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __video_compress_h */
+/** @} */ // end of video_compress
+

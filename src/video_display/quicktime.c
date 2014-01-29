@@ -52,7 +52,7 @@
 #include "debug.h"
 #include "host.h"
 #include "tv.h"
-#include "video_codec.h"
+#include "video.h"
 
 #ifdef HAVE_MACOSX
 #include <Carbon/Carbon.h>
@@ -202,8 +202,6 @@ const quicktime_mode_t quicktime_modes[] = {
         {NULL, NULL, 0, 0, 0, 0},
 };
 
-static volatile bool should_exit = false;
-
 /* for audio see TN2091 (among others) */
 struct state_quicktime {
         ComponentInstance videoDisplayComponentInstance[MAX_DEVICES];
@@ -241,6 +239,8 @@ struct state_quicktime {
         unsigned mode_set_manually:1;
 
         uint32_t magic;
+
+        volatile bool should_exit;
 };
 
 /* Prototyping */
@@ -312,7 +312,8 @@ static void reconf_common(struct state_quicktime *s)
                  * and 48 for v210. hd_size_x=1920 is a multiple of both. TODO: needs 
                  * further investigation for 2K!
                  */
-                (**(ImageDescriptionHandle) imageDesc).width = get_haligned(tile->width, s->frame->color_spec);
+                (**(ImageDescriptionHandle) imageDesc).width = get_aligned_length(tile->width,
+                                s->frame->color_spec);
                 (**(ImageDescriptionHandle) imageDesc).height = tile->height;
         
                 ret = DecompressSequenceBeginS(&(s->seqID[i]), imageDesc, NULL, 
@@ -344,7 +345,7 @@ void display_quicktime_run(void *arg)
 
         gettimeofday(&t0, NULL);
 
-        while (!should_exit) {
+        while (!s->should_exit) {
                 int i;
                 platform_sem_wait((void *) &s->semaphore);
                 int current_index = (s->index_network + 1) % 2;
@@ -401,7 +402,9 @@ int display_quicktime_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
 
-        UNUSED(frame);
+        if(!frame) {
+                s->should_exit = true;
+        }
         UNUSED(nonblock);
         assert(s->magic == MAGIC_QT_DISPLAY);
 
@@ -728,8 +731,8 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
                         tile->width = (**gWorldImgDesc).width;
                         tile->height = (**gWorldImgDesc).height;
 
-                        tile->linesize = vc_get_linesize(tile->width, s->cinfo->codec);
-                        tile->data_len = tile->linesize * tile->height;
+                        tile->data_len = tile->height *
+                                vc_get_linesize(tile->width, s->cinfo->codec);
                         s->buffer[0] = calloc(1, tile->data_len);
                         s->buffer[1] = calloc(1, tile->data_len);
                         tile->data = s->buffer[0];
@@ -828,12 +831,6 @@ audio_error:
         s->play_audio = FALSE;
 }
 
-void display_quicktime_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
-}
-
 void display_quicktime_done(void *state)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
@@ -875,6 +872,7 @@ int display_quicktime_get_property(void *state, int property, void *val, size_t 
 {
         struct state_quicktime *s = (struct state_quicktime *) state;
         codec_t codecs[] = {v210, UYVY, RGBA};
+        int rgb_shift[] = {0, 8, 16};
         
         switch (property) {
                 case DISPLAY_PROPERTY_CODECS:
@@ -886,17 +884,12 @@ int display_quicktime_get_property(void *state, int property, void *val, size_t 
                         
                         *len = sizeof(codecs);
                         break;
-                case DISPLAY_PROPERTY_RSHIFT:
-                        *(int *) val = 0;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_GSHIFT:
-                        *(int *) val = 8;
-                        *len = sizeof(int);
-                        break;
-                case DISPLAY_PROPERTY_BSHIFT:
-                        *(int *) val = 16;
-                        *len = sizeof(int);
+                case DISPLAY_PROPERTY_RGB_SHIFT:
+                        if(sizeof(rgb_shift) > *len) {
+                                return FALSE;
+                        }
+                        memcpy(val, rgb_shift, sizeof(rgb_shift));
+                        *len = sizeof(rgb_shift);
                         break;
                 case DISPLAY_PROPERTY_BUF_PITCH:
                         *(int *) val = PITCH_DEFAULT;
@@ -951,8 +944,8 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 
                 tile->width = tile_width;
                 tile->height = tile_height;
-                tile->linesize = vc_get_linesize(tile_width, desc.color_spec);
-                tile->data_len = tile->linesize * tile->height;
+                tile->data_len = tile->height *
+                        vc_get_linesize(tile_width, desc.color_spec);
                 
                 free(s->buffer[0]);
                 free(s->buffer[1]);

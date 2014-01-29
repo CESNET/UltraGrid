@@ -45,7 +45,7 @@
  *
  */
 
-#include "video_codec.h"
+#include "types.h"
 
 #define LIBAVCODEC_MAGIC 0xff2f1b41u
 

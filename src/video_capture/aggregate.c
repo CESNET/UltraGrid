@@ -1,32 +1,25 @@
-/*
- * FILE:    quad.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_capture/aggregate.c
+ * @author Martin Pulec <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @brief Aggregate video capture driver
+ */
+/*
+ * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,7 +35,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 #include "host.h"
 #include "config.h"
@@ -50,7 +42,7 @@
 #include "config_win32.h"
 
 #include "debug.h"
-#include "video_codec.h"
+#include "video.h"
 #include "video_capture.h"
 
 #include "tv.h"
@@ -61,9 +53,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "video_display.h"
-#include "video.h"
-
 /* prototypes of functions defined in this module */
 static void show_help(void);
 
@@ -71,12 +60,10 @@ static void show_help()
 {
         printf("Aggregate capture\n");
         printf("Usage\n");
-        printf("\t-t aggregate:<dev1_config>#<dev2_config>[#....]\n");
+        printf("\t-t aggregate -t <dev1_config> -t <dev2_config> ....]\n");
         printf("\t\twhere devn_config is a complete configuration string of device involved in an aggregate device\n");
 
 }
-
-
 
 struct vidcap_aggregate_state {
         struct vidcap     **devices;
@@ -86,7 +73,7 @@ struct vidcap_aggregate_state {
         int frames;
         struct       timeval t, t0;
 
-        unsigned int        grab_audio:1; /* wheather we process audio or not */
+        int          audio_source_index;
 };
 
 
@@ -105,13 +92,9 @@ vidcap_aggregate_probe(void)
 }
 
 void *
-vidcap_aggregate_init(char *init_fmt, unsigned int flags)
+vidcap_aggregate_init(const struct vidcap_params *params)
 {
 	struct vidcap_aggregate_state *s;
-        char *save_ptr = NULL;
-        char *item;
-        char *parse_string;
-        char *tmp;
         int i;
 
 	printf("vidcap_aggregate_init\n");
@@ -123,55 +106,39 @@ vidcap_aggregate_init(char *init_fmt, unsigned int flags)
 		return NULL;
 	}
 
+        s->audio_source_index = -1;
         s->frames = 0;
         gettimeofday(&s->t0, NULL);
 
-        if(!init_fmt || strcmp(init_fmt, "help") == 0) {
+        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
 
 
         s->devices_cnt = 0;
-        tmp = parse_string = strdup(init_fmt);
-        while(strtok_r(tmp, "#", &save_ptr)) {
-                s->devices_cnt++;
-                tmp = NULL;
+        const struct vidcap_params *tmp = params;
+        while((tmp = vidcap_params_get_next(tmp))) {
+                if (vidcap_params_get_driver(tmp) != NULL)
+                        s->devices_cnt++;
+                else
+                        break;
         }
-        free(parse_string);
 
-        s->devices = calloc(1, s->devices_cnt * sizeof(struct vidcap *));
+        s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
         i = 0;
-        tmp = parse_string = strdup(init_fmt);
-        while((item = strtok_r(tmp, "#", &save_ptr))) {
-                char *device;
-                char *config = strdup(item);
-                char *device_cfg = NULL;
-                unsigned int dev_flags = 0u;
-                device = config;
-		if(strchr(config, ':')) {
-			char *delim = strchr(config, ':');
-			*delim = '\0';
-			device_cfg = delim + 1;
-		}
+        tmp = params;
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                tmp = vidcap_params_get_next(tmp);
 
-                if(i == 0) {
-                        dev_flags = flags;
-                } else { // do not grab from second and other devices
-                        dev_flags = flags & ~(VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG);
-                }
-
-                int ret = initialize_video_capture(device,
-                                               device_cfg, dev_flags, &s->devices[i]);
-                free(config);
+                int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
                 if(ret != 0) {
-                        fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n", i, device, device_cfg);
+                        fprintf(stderr, "[aggregate] Unable to initialize device %d (%s:%s).\n",
+                                        i, vidcap_params_get_driver(tmp),
+                                        vidcap_params_get_fmt(tmp));
                         goto error;
                 }
-                ++i;
-                tmp = NULL;
         }
-        free(parse_string);
 
         s->frame = vf_alloc(s->devices_cnt);
         
@@ -188,21 +155,6 @@ error:
         }
         free(s);
         return NULL;
-}
-
-void
-vidcap_aggregate_finish(void *state)
-{
-	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
-
-	assert(s != NULL);
-
-	if (s != NULL) {
-                int i;
-		for (i = 0; i < s->devices_cnt; ++i) {
-                         vidcap_finish(s->devices[i]);
-		}
-	}
 }
 
 void
@@ -226,31 +178,33 @@ struct video_frame *
 vidcap_aggregate_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
-        struct audio_frame *audio_frame;
+        struct audio_frame *audio_frame = NULL;
         struct video_frame *frame = NULL;
-        int i;
 
-        while(!frame) {
-                frame = vidcap_grab(s->devices[0], &audio_frame);
-        }
-        s->frame->color_spec = frame->color_spec;
-        s->frame->interlacing = frame->interlacing;
-        s->frame->fps = frame->fps;
-        vf_get_tile(s->frame, 0)->width = vf_get_tile(frame, 0)->width;
-        vf_get_tile(s->frame, 0)->height = vf_get_tile(frame, 0)->height;
-        vf_get_tile(s->frame, 0)->data_len = vf_get_tile(frame, 0)->data_len;
-        vf_get_tile(s->frame, 0)->data = vf_get_tile(frame, 0)->data;
         if(audio_frame) {
                 *audio = audio_frame;
         } else {
                 *audio = NULL;
         }
-        for(i = 1; i < s->devices_cnt; ++i) {
+        for (int i = 0; i < s->devices_cnt; ++i) {
                 frame = NULL;
                 while(!frame) {
                         frame = vidcap_grab(s->devices[i], &audio_frame);
                 }
-                if(frame->color_spec != s->frame->color_spec ||
+                if (i == 0) {
+                        s->frame->color_spec = frame->color_spec;
+                        s->frame->interlacing = frame->interlacing;
+                        s->frame->fps = frame->fps;
+                }
+                if (s->audio_source_index == -1 && audio_frame != NULL) {
+                        fprintf(stderr, "[aggregate] Locking device #%d as an audio source.\n",
+                                        i);
+                        s->audio_source_index = i;
+                }
+                if (s->audio_source_index == i) {
+                        *audio = audio_frame;
+                }
+                if (frame->color_spec != s->frame->color_spec ||
                                 frame->fps != s->frame->fps ||
                                 frame->interlacing != s->frame->interlacing) {
                         fprintf(stderr, "[aggregate] Different format detected: ");

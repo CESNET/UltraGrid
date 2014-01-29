@@ -12,7 +12,6 @@
 #include "tv.h"
 #include "video.h"
 #include "video_capture.h"
-#include "video_codec.h"
 
 #include "DirectShowGrabber.h"
 
@@ -654,7 +653,7 @@ HRESULT GetPinCategory(IPin *pPin, GUID *pPinCategory)
     return hr;
 }
 
-void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
+void * vidcap_dshow_init(const struct vidcap_params *params) {
 	struct vidcap_dshow_state *s;
 	HRESULT res;
 
@@ -667,7 +666,7 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 	InitializeConditionVariable(&s->grabWaitCV);
 	InitializeCriticalSection(&s->returnBufferCS);
 
-	if (init_fmt && strcmp(init_fmt, "help") == 0) {
+	if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 		show_help(s); 
 		cleanup(s);
 		return &vidcap_init_noerr;
@@ -677,8 +676,10 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 		goto error;
 	}
 
-	if (init_fmt != NULL) {
+	if (vidcap_params_get_fmt(params) != NULL) {
+                char *init_fmt = strdup(vidcap_params_get_fmt(params));
 		if (!process_args(s, init_fmt)) goto error;
+                free(init_fmt);
 	}
 
 	// Select video capture device
@@ -1015,10 +1016,6 @@ void * vidcap_dshow_init(char *init_fmt, unsigned int flags) {
 error:
 	cleanup(s);
 	return NULL;
-}
-
-void vidcap_dshow_finish(void *state) {
-	UNUSED(state);
 }
 
 void vidcap_dshow_done(void *state) {

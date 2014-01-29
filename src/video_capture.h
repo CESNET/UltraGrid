@@ -1,14 +1,19 @@
-/*
- * FILE:   video_capture.h
- * AUTHOR: Colin Perkins <csp@csperkins.org>
- *         Martin Benes     <martinbenesh@gmail.com>
- *         Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *         Petr Holub       <hopet@ics.muni.cz>
- *         Milos Liska      <xliska@fi.muni.cz>
- *         Jiri Matela      <matela@ics.muni.cz>
- *         Dalibor Matura   <255899@mail.muni.cz>
- *         Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_capture.h
+ * @author Colin Perkins <csp@csperkins.org>
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
+ * @ingroup vidcap
+ */
+/**
+ * Copyright (c) 2005-2013 CESNET z.s.p.o
  * Copyright (c) 2002 University of Southern California
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,9 +53,32 @@
  *
  */
 
-/*
- * API for probing the valid video capture devices. 
+/**
+ * @defgroup vidcap Video Capture
  *
+ * API for video capture. Normal operation is something like:
+ * @code{.c}
+ * v = vidcap_init(id);
+ * ...
+ * while (!done) {
+ *     ...
+ *     f = vidcap_grab(v, timeout);
+ *     ...use the frame "f"
+ * }
+ * vidcap_done(v);
+ * @endcode
+ *
+ * Where the "id" parameter to vidcap_init() is obtained from
+ * the probing API. The vidcap_grab() function returns a pointer
+ * to the frame, or NULL if no frame is currently available. It
+ * does not block.
+ *
+ * @note
+ * The vidcap_grab() API is currently slightly different - the function does
+ * not take the timeout parameter and may block, but only for a short period
+ * (ideally no longer than 2x frame time)
+ *
+ * @{
  */
 
 #ifndef _VIDEO_CAPTURE_H_
@@ -60,22 +88,48 @@
 extern "C" {
 #endif // __cplusplus
 
-#define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1)
-#define VIDCAP_FLAG_AUDIO_AESEBU (1<<2)
-#define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)
+/** @anchor vidcap_flags
+ * @name Initialization Flags
+ * @{ */
+#define VIDCAP_FLAG_AUDIO_EMBEDDED (1<<1) ///< HD-SDI embedded audio
+#define VIDCAP_FLAG_AUDIO_AESEBU (1<<2)   ///< AES/EBU audio
+#define VIDCAP_FLAG_AUDIO_ANALOG (1<<3)   ///< (balanced) analog audio
+/** @} */
 
-typedef uint32_t	vidcap_id_t;
+typedef uint32_t	vidcap_id_t; ///< driver unique ID
 
 struct audio_frame;
 
+/** Defines video capture device */
 struct vidcap_type {
-	vidcap_id_t		 id;
-	const char		*name;
-	const char		*description;
-	unsigned	 	 width;
-	unsigned	 	 height;
+	vidcap_id_t		 id;          ///< device unique identifier
+	const char		*name;        ///< short name (one word)
+	const char		*description; ///< description of the video device
+	unsigned	 	 width;       ///< @deprecated AFAIK not used any more
+	unsigned	 	 height;      ///< @deprecated no more used
 	//video_colour_mode_t	 colour_mode;
 };
+
+/**
+ * @name Vidcap Parameters Handling Functions
+ * @{ */
+struct vidcap_params;
+
+struct vidcap_params *vidcap_params_allocate(void);
+struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
+struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
+void                  vidcap_params_free_struct(struct vidcap_params *params);
+struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *params);
+struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *params, int index);
+const char           *vidcap_params_get_driver(const struct vidcap_params *params);
+unsigned int          vidcap_params_get_flags(const struct vidcap_params *params);
+const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
+const char           *vidcap_params_get_name(const struct vidcap_params *params);
+void                  vidcap_params_set_device(struct vidcap_params *params, const char *config);
+void                  vidcap_params_set_capture_filter(struct vidcap_params *params,
+                const char *req_capture_filter);
+void                  vidcap_params_set_flags(struct vidcap_params *params, unsigned int flags);
+/// @}
 
 int			 vidcap_init_devices(void);
 void			 vidcap_free_devices(void);
@@ -83,35 +137,12 @@ int			 vidcap_get_device_count(void);
 struct vidcap_type	*vidcap_get_device_details(int index);
 vidcap_id_t 		 vidcap_get_null_device_id(void);
 
-/*
- * API for video capture. Normal operation is something like:
- *
- * 	v = vidcap_init(id);
- *	...
- *	while (!done) {
- *		...
- *		f = vidcap_grab(v, timeout);
- *		...use the frame "f"
- *	}
- *	vidcap_stop(v);
- *
- * Where the "id" parameter to vidcap_init() is obtained from
- * the probing API. The vidcap_grab() function returns a pointer
- * to the frame, or NULL if no frame is currently available. It
- * does not block.
- *
- */
-
+struct module;
 struct vidcap;
 
-/**
- * Semantics is similar to the semantic of display_init
- *
- * @see display_init
- */
-int                      vidcap_init(vidcap_id_t id, char *fmt, unsigned int flags, struct vidcap **);
+int                      vidcap_init(struct module *parent, vidcap_id_t id,
+                const struct vidcap_params *param, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);
-void			 vidcap_finish(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 
 extern int vidcap_init_noerr;
@@ -121,4 +152,7 @@ extern int vidcap_init_noerr;
 #endif // __cplusplus
 
 #endif // _VIDEO_CAPTURE_H_
+/**
+ * @}
+ */
 

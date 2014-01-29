@@ -1,14 +1,18 @@
-/*
- * FILE:    video_decompress.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   video_decompress.c
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * @ingroup video_decompress
+ * @brief video compress functions
+ */
+/*
+ * Copyright (c) 2005-2013 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -44,7 +48,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
@@ -64,9 +67,16 @@
 
 #define DECOMPRESS_MAGIC 0xdff34f21u
 
+/**
+ * @brief This struct describes individual decompress modules
+ *
+ * Initially, in this struct are either callbacks or functions names.
+ * For actual initialization of the callbacks/names, @ref MK_STATIC and @ref MK_NAME
+ * macros should be used. After initialization, callbacks are set.
+ */
 typedef struct {
-        uint32_t magic;
-        char *library_name;
+        uint32_t magic;     ///< unique module identifier
+        char *library_name; ///< If module is dynamically loadable, this is the name of library.
 
         decompress_init_t init;
         const char *init_str;
@@ -79,17 +89,20 @@ typedef struct {
         decompress_done_t done;
         const char *done_str;
 
-        void *handle;
+        void *handle;       ///< for modular build, dynamically loaded library handle
 } decoder_table_t;
 
+/**
+ * This struct represents actual decompress state
+ */
 struct state_decompress {
-        uint32_t magic;
-        decoder_table_t *functions;
-        void *state;
+        uint32_t magic;             ///< selected decoder magic
+        decoder_table_t *functions; ///< pointer to selected decoder functions
+        void *state;                ///< decoder driver state
 };
 
-
 #ifdef BUILD_LIBRARIES
+/** Opens decompress library of given name.  */
 static void *decompress_open_library(const char *vidcap_name)
 {
         char name[128];
@@ -98,6 +111,7 @@ static void *decompress_open_library(const char *vidcap_name)
         return open_library(name);
 }
 
+/** For a given device, load individual functions from library handle (previously opened). */
 static int decompress_fill_symbols(decoder_table_t *device)
 {
         void *handle = device->handle;
@@ -121,7 +135,11 @@ static int decompress_fill_symbols(decoder_table_t *device)
 }
 #endif
 
-
+/**
+ * This array represent list of all known decoders and its capabilities
+ *
+ * The lower priority decoders are selected earlier if present.
+ */
 struct decode_from_to decoders_for_codec[] = {
         { DXT1, RGBA, RTDXT_MAGIC, 500},
         { DXT1_YUV, RGBA, RTDXT_MAGIC, 500 },
@@ -139,8 +157,13 @@ struct decode_from_to decoders_for_codec[] = {
         { VP8, UYVY, LIBAVCODEC_MAGIC, 500 },
         { (codec_t) -1, (codec_t) -1, NULL_MAGIC, 0 }
 };
+/** @brief Length of @ref decoders_for_codec members (items) */
 const int decoders_for_codec_count = (sizeof(decoders_for_codec) / sizeof(struct decode_from_to));
 
+/**
+ * @brief This table contains list of decoders compiled with this UltraGrid version.
+ * If building modular UltraGrid version, hooks for all modules will be created.
+ */
 decoder_table_t decoders[] = {
 #if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
         { RTDXT_MAGIC, "rtdxt", MK_NAME(dxt_glsl_decompress_init), MK_NAME(dxt_glsl_decompress_reconfigure),
@@ -161,21 +184,27 @@ decoder_table_t decoders[] = {
                 MK_NAME(libavcodec_decompress_done),
                 NULL},
 #endif
-#if defined HAVE_TRANSCODE && ! defined BUILD_LIBRARIES
-        { TRANSCODE_MAGIC, "transcode", MK_STATIC(transcode_decompress_init), MK_STATIC(transcode_decompress_reconfigure),
-                MK_STATIC(transcode_decompress), MK_STATIC(transcode_decompress_get_property),
-                MK_STATIC(transcode_decompress_done), NULL},
-#endif // ! defined BUILD_LIBRARIES && defined HAVE_JPEG || defined HAVE_RTDXT
+#if defined HAVE_JPEG_TO_DXT || defined BUILD_LIBRARIES
+        { JPEG_TO_DXT_MAGIC, "jpeg_to_dxt", MK_NAME(jpeg_to_dxt_decompress_init), MK_NAME(jpeg_to_dxt_decompress_reconfigure),
+                MK_NAME(jpeg_to_dxt_decompress), MK_NAME(jpeg_to_dxt_decompress_get_property),
+                MK_NAME(jpeg_to_dxt_decompress_done), NULL},
+#endif
         { NULL_MAGIC, NULL, MK_STATIC(null_decompress_init), MK_STATIC(null_decompress_reconfigure),
                 MK_STATIC(null_decompress), MK_NAME(null_decompress_get_property),
                 MK_STATIC(null_decompress_done), NULL}
 };
 
+/** @brief length of @ref decoders array */
 #define MAX_DECODERS (sizeof(decoders) / sizeof(decoder_table_t))
 
+/** @brief List of available decoders
+ * Initialized with @ref initialize_video_decompress */
 decoder_table_t *available_decoders[MAX_DECODERS];
+/** Count of @ref available_decoders.
+ * Initialized with @ref initialize_video_decompress */
 int available_decoders_count = -1;
 
+/** must be called before initalization of decoders */
 void initialize_video_decompress(void)
 {
         available_decoders_count = 0;
@@ -199,6 +228,14 @@ void initialize_video_decompress(void)
         }
 }
 
+/**
+ * Checks wheather there is decompressor with given magic present and thus can
+ * be initialized with decompress_init
+ *
+ * @see decompress_init
+ * @retval TRUE if decoder is present and can be initialized
+ * @retval FALSE if decoder could not be initialized (not found)
+ */
 int decompress_is_available(unsigned int decoder_index)
 {
         int i;
@@ -212,6 +249,12 @@ int decompress_is_available(unsigned int decoder_index)
         return FALSE;
 }
 
+/**
+ * Initializes decompressor or the given magic
+ *
+ * @retval NULL if initialization failed
+ * @retval not-NULL state of new decompressor
+ */
 struct state_decompress *decompress_init(unsigned int decoder_index)
 {
         int i;
@@ -219,16 +262,21 @@ struct state_decompress *decompress_init(unsigned int decoder_index)
 
         for(i = 0; i < available_decoders_count; ++i) {
                 if(available_decoders[i]->magic == decoder_index) {
-                        s = (struct state_decompress *) malloc(sizeof(struct state_decompress));
+                        s = (struct state_decompress *) calloc(1, sizeof(struct state_decompress));
                         s->magic = DECOMPRESS_MAGIC;
                         s->functions = available_decoders[i];
                         s->state = s->functions->init();
+                        if (s->state == NULL) {
+                                free(s);
+                                return NULL;
+                        }
                         return s;
                 }
         }
         return NULL;
 }
 
+/** @copydoc decompress_reconfigure_t */
 int decompress_reconfigure(struct state_decompress *s, struct video_desc desc, int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
         assert(s->magic == DECOMPRESS_MAGIC);
@@ -236,19 +284,22 @@ int decompress_reconfigure(struct state_decompress *s, struct video_desc desc, i
         return s->functions->reconfigure(s->state, desc, rshift, gshift, bshift, pitch, out_codec);
 }
 
+/** @copydoc decompress_decompress_t */
 int decompress_frame(struct state_decompress *s, unsigned char *dst,
-                unsigned char *buffer, unsigned int src_len, int frame_seq)
+                unsigned char *compressed, unsigned int compressed_len, int frame_seq)
 {
         assert(s->magic == DECOMPRESS_MAGIC);
 
-        return s->functions->decompress(s->state, dst, buffer, src_len, frame_seq);
+        return s->functions->decompress(s->state, dst, compressed, compressed_len, frame_seq);
 }
 
+/** @copydoc decompress_get_property_t */
 int decompress_get_property(struct state_decompress *s, int property, void *val, size_t *len)
 {
         return s->functions->get_property(s->state, property, val, len);
 }
 
+/** @copydoc decompress_done_t */
 void decompress_done(struct state_decompress *s)
 {
         assert(s->magic == DECOMPRESS_MAGIC);

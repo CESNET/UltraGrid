@@ -27,6 +27,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <libgpujpeg/gpujpeg_common_internal.h> // TIMER
+#include <libgpujpeg/gpujpeg_encoder_internal.h> // TIMER
+#include <libgpujpeg/gpujpeg_decoder_internal.h> // TIMER
 #include <libgpujpeg/gpujpeg.h>
 #include <libgpujpeg/gpujpeg_util.h>
 #include <getopt.h>

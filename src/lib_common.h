@@ -55,8 +55,11 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
-#include "debug.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+/** @brief This macro causes that this module will be statically linked with UltraGrid. */
 #define MK_STATIC(A) A, NULL
 #define STRINGIFY(A) #A
 #define TOSTRING(x) STRINGIFY(x)
@@ -64,23 +67,25 @@
 #ifdef BUILD_LIBRARIES
 #include <dlfcn.h>
 #include <libgen.h>
+/** This macro tells that the module may be statically linked as well as
+ * a standalone module. */
 #define MK_NAME(A) NULL, #A
 
 /* defined in video_display.c */
 void *open_library(const char *name);
 void open_all(const char *pattern);
-void init_lib_common(void);
-void lib_common_done(void);
 
 #define NULL_IF_BUILD_LIBRARIES(x) NULL
 
 #else /* BUILD_LIBRARIES */
 
 #define MK_NAME(A) A, NULL
-#define init_lib_common() { }
-#define lib_common_done() { }
 
 #define NULL_IF_BUILD_LIBRARIES(x) x
 
 #endif /* BUILD_LIBRARIES */
+
+#ifdef __cplusplus
+}
+#endif
 

@@ -61,11 +61,8 @@
 #include "host.h"
 #include "tv.h"
 #include "video.h"
-#include "video_codec.h"
 #include "video_capture.h"
 #include "video_capture/bluefish444.h"
-
-#include "video_display/bluefish444.h"
 
 #ifndef UINT
 #define UINT uint32_t
@@ -126,7 +123,7 @@ struct av_frame : public av_frame_base {
                 audio_len(0)
         {
                 video = vf_alloc_desc(desc);
-                for(int i = 0; i < desc.tile_count; ++i) {
+                for(unsigned int i = 0; i < desc.tile_count; ++i) {
                         video->tiles[i].data_len = BytesPerFrame;
                         video->tiles[i].data = (char*)
                                 page_aligned_alloc(GoldenSize);
@@ -140,7 +137,7 @@ struct av_frame : public av_frame_base {
 
         ~av_frame() {
                 page_aligned_free(audio_data);
-                for(int i = 0; i < video->tile_count; ++i) {
+                for(unsigned int i = 0; i < video->tile_count; ++i) {
                         page_aligned_free(video->tiles[i].data);
                 }
                 vf_free(video);
@@ -310,6 +307,8 @@ static void WaitForMajorInterrupt(struct vidcap_bluefish444_state *s)
                         bWaitForField = FALSE;
 
         }while(!((SubFieldIrqs == 0) && !bWaitForField));       //we need to schedule the field capture when SubFieldIrqs is 0
+#else
+        UNUSED(s);
 #endif
 }
 
@@ -331,7 +330,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                         bfcRenderBufferCapture(s->pSDK[i], BlueBuffer_Image_HANC(s->ScheduleID));
                 }
                 s->CapturingID = s->ScheduleID;
-                s->ScheduleID = (++s->ScheduleID%BUFFERS);
+                s->ScheduleID = (s->ScheduleID + 1) % BUFFERS;
                 s->LastFieldCount = FieldCount;
 
                 if(s->SubField) {
@@ -344,7 +343,7 @@ static void SyncForSignal(struct vidcap_bluefish444_state *s)
                 }
                 s->DoneID = s->CapturingID;
                 s->CapturingID = s->ScheduleID;
-                s->ScheduleID = (++s->ScheduleID%BUFFERS);
+                s->ScheduleID = (s->ScheduleID + 1) % BUFFERS;
                 s->LastFieldCount = FieldCount;
         } else {
                 for(int i = 0; i < s->attachedDevices; ++i) {
@@ -456,13 +455,11 @@ static void *worker(void *arg)
         while(!should_exit_worker) {
                 unsigned int val32;
                 UINT SubFieldIrqs = 0;
-                unsigned int FifoSize = 0;
                 uint32_t VideoMode = VID_FMT_INVALID;
-                unsigned int  DroppedFrameCount, NoFilledFrame, audioChannelMask,
+                unsigned int  DroppedFrameCount, NoFilledFrame,
                               frame_timestamp, frame_signal;
                 int BufferId = -1;
-                static  int field1_hanc_buffer_id=-1;
-                int     audioSampleType,audio_samples_per_frame,samples_read,hanc_buffer_id=-1;         // flags required for starting audio capture
+                int     hanc_buffer_id=-1;         // flags required for starting audio capture
 
 #if defined WIN32
                 blue_videoframe_info_ex FrameInfo;
@@ -604,6 +601,7 @@ static void *worker(void *arg)
 
                 if(s->VideoEngine == VIDEO_ENGINE_DUPLEX) {
 #ifdef WIN32
+                        unsigned int FifoSize = 0;
                         if(BLUE_FAIL(bfcGetCaptureVideoFrameInfoEx(s->pSDK[0], &s->OverlapChA, FrameInfo,
                                                         0, &FifoSize))) {
                                 cerr << "Capture frame failed!" << endl;
@@ -668,7 +666,6 @@ static void *worker(void *arg)
                 }
 
                 if(s->grab_audio && hanc_buffer_id != -1) {
-                        samples_read = 0;
                         bfcSystemBufferReadAsync(s->pSDK[0], (unsigned char *) s->hanc_buffer, MAX_HANC_SIZE, NULL, BlueImage_HANC_DMABuffer(BufferId, BLUE_DATA_HANC));
                         s->objHancDecode.audio_pcm_data_ptr = current_frame->audio_data;
                         bfcDecodeHancFrameEx(s->pSDK[0], bfcQueryCardType(s->pSDK[0]), (unsigned int *) s->hanc_buffer,
@@ -689,7 +686,7 @@ static void *worker(void *arg)
 
                                 s->DoneID = s->CapturingID;
                                 s->CapturingID = s->ScheduleID;
-                                s->ScheduleID = (++s->ScheduleID%BUFFERS);
+                                s->ScheduleID = (s->ScheduleID + 1) % BUFFERS;
                         }
                 }
 
@@ -758,7 +755,7 @@ static void parse_fmt(struct vidcap_bluefish444_state *s, char *fmt) {
 }
 
 void *
-vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
+vidcap_bluefish444_init(const struct vidcap_params *params)
 {
 	struct vidcap_bluefish444_state *s;
         ULONG InputChannels[4] = {
@@ -778,7 +775,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
                 EPOCH_DEST_INPUT_MEM_INTERFACE_CHD
         };
 
-        if(init_fmt && strcmp(init_fmt, "help") == 0) {
+        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
                 show_help();
                 return &vidcap_init_noerr;
         }
@@ -799,7 +796,9 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         s->iDeviceId = 1;
         s->is4K = false;
 
-        parse_fmt(s, init_fmt);
+        char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
+        parse_fmt(s, tmp_fmt);
+        free(tmp_fmt);
 
 #ifdef WIN32
         memset(&s->OverlapChA, 0, sizeof(s->OverlapChA));
@@ -908,12 +907,12 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
         s->audio.max_size = 0;
         s->hanc_buffer = NULL;
 #ifdef HAVE_BLUE_AUDIO
-        if(flags) {
+        if(vidcap_params_get_flags(params)) {
                 if(s->SubField) {
                         cerr << "[Blue cap] Unable to grab audio in sub-field mode." << endl;
                         goto error;
                 }
-                bool ret = setup_audio(s, flags);
+                bool ret = setup_audio(s, vidcap_params_get_flags(params));
                 if(ret == false) {
                         cerr << "[Blue cap] Unable to setup audio." << endl;
                         goto error;
@@ -922,7 +921,7 @@ vidcap_bluefish444_init(char *init_fmt, unsigned int flags)
                 }
         }
 #else
-        if(flags) {
+        if(vidcap_params_get_flags(params)) {
                 cerr << "[Blue cap] Unable to capture audio. Support isn't compiled in." << endl;
                 goto error;
         }
@@ -950,14 +949,7 @@ error:
         return NULL;
 }
 
-void
-vidcap_bluefish444_finish(void *state)
-{
-        UNUSED(state);
-}
-
-void
-vidcap_bluefish444_done(void *state)
+void vidcap_bluefish444_done(void *state)
 {
 	struct vidcap_bluefish444_state *s = (struct vidcap_bluefish444_state *) state;
 

@@ -58,8 +58,8 @@ extern "C" {
 #include "tv.h"
 
 #include "debug.h"
+#include "video.h"
 #include "video_capture.h"
-#include "video_codec.h"
 #include "audio/audio.h"
 #include "audio/utils.h"
 
@@ -103,18 +103,6 @@ extern "C" {
 // static int	mode = 6; // for Decklink  6) HD 1080i 59.94; 1920 x 1080; 29.97 FPS 7) HD 1080i 60; 1920 x 1080; 30 FPS
 //static int	connection = 0; // the choice of BMDVideoConnection // It should be 0 .... bmdVideoConnectionSDI
 
-static volatile bool should_exit = false;
-
-struct timeval t, t0;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __cplusplus
-}
-#endif
-
 class VideoDelegate;
 
 struct device_state {
@@ -147,6 +135,8 @@ struct vidcap_decklink_state {
         unsigned int            autodetect_mode:1;
 
         BMDVideoConnection      connection;
+
+        struct timeval          t0;
 };
 
 static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, struct tile *tile, IDeckLinkDisplayMode* displayMode, /* out */ BMDPixelFormat *pf);
@@ -158,7 +148,6 @@ class VideoDelegate : public IDeckLinkInputCallback
 {
 private:
 	int32_t mRefCount;
-	double  lastTime;
 
 public:
         int	newFrameReady;
@@ -184,7 +173,7 @@ public:
                         rightEyeFrame->Release();
 	};
 
-	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) { return E_NOINTERFACE; }
+	virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID *) { return E_NOINTERFACE; }
 	virtual ULONG STDMETHODCALLTYPE AddRef(void)
 	{
 		return mRefCount++;
@@ -217,6 +206,9 @@ public:
                         case bmdDetectedVideoInputRGB444:
                                 codec = RGBA;
                                 break;
+                        default:
+                                fprintf(stderr, "[Decklink] Unhandled color spec!\n");
+                                abort();
                 }
                 int i;
                 for(i=0; codec_info[i].name != NULL; i++) {
@@ -254,8 +246,7 @@ public:
 
 /* DeckLink SDK objects */
 
-void
-print_output_modes (IDeckLink* deckLink);
+static void print_input_modes (IDeckLink* deckLink);
 static int blackmagic_api_version_check(STRING *current_version);
 
 HRESULT	
@@ -450,8 +441,8 @@ decklink_help()
 		// Increment the total number of DeckLink cards found
 		numDevices++;
 	
-		// ** List the video output display modes supported by the card
-		print_output_modes(deckLink);
+		// ** List the video input display modes supported by the card
+		print_input_modes(deckLink);
 
                 IDeckLinkAttributes *deckLinkAttributes;
 
@@ -717,13 +708,12 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                         free((void *)displayModeCString);
         }
 
-        tile->linesize = vc_get_linesize(tile->width, s->frame->color_spec);
-        tile->data_len = tile->linesize * tile->height;
+        tile->data_len =
+                vc_get_linesize(tile->width, s->frame->color_spec) * tile->height;
 
         if(s->stereo) {
                 s->frame->tiles[1].width = s->frame->tiles[0].width;
                 s->frame->tiles[1].height = s->frame->tiles[0].height;
-                s->frame->tiles[1].linesize = s->frame->tiles[0].linesize;
                 s->frame->tiles[1].data_len = s->frame->tiles[0].data_len;
         }
 
@@ -731,7 +721,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
 }
 
 void *
-vidcap_decklink_init(char *fmt, unsigned int flags)
+vidcap_decklink_init(const struct vidcap_params *params)
 {
 	debug_msg("vidcap_decklink_init\n"); /* TOREMOVE */
 
@@ -747,7 +737,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 	IDeckLinkDisplayModeIterator*	displayModeIterator = NULL;
 	IDeckLinkDisplayMode*		displayMode = NULL;
 	IDeckLinkConfiguration*		deckLinkConfiguration = NULL;
-        BMDAudioConnection              audioConnection;
+        BMDAudioConnection              audioConnection = bmdAudioConnectionEmbedded;
 
 #ifdef WIN32
 	// Initialize COM on this thread
@@ -797,7 +787,7 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 		return NULL;
 	}
 
-        gettimeofday(&t0, NULL);
+        gettimeofday(&s->t0, NULL);
 
         s->stereo = FALSE;
         s->use_timecode = FALSE;
@@ -806,7 +796,9 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
         s->flags = 0;
 
 	// SET UP device and mode
-        int ret = settings_init(s, fmt);
+        char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
+        int ret = settings_init(s, tmp_fmt);
+        free(tmp_fmt);
 	if(ret == 0) {
 		free(s);
 		return NULL;
@@ -816,9 +808,9 @@ vidcap_decklink_init(char *fmt, unsigned int flags)
 		return &vidcap_init_noerr;
 	}
 
-        if(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
+        if(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                 s->grab_audio = TRUE;
-                switch(flags & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
+                switch(vidcap_params_get_flags(params) & (VIDCAP_FLAG_AUDIO_EMBEDDED | VIDCAP_FLAG_AUDIO_AESEBU | VIDCAP_FLAG_AUDIO_ANALOG)) {
                         case VIDCAP_FLAG_AUDIO_EMBEDDED:
                                 audioConnection = bmdAudioConnectionEmbedded;
                                 break;
@@ -1139,13 +1131,6 @@ error:
 }
 
 void
-vidcap_decklink_finish(void *state)
-{
-        UNUSED(state);
-        should_exit = true;
-}
-
-void
 vidcap_decklink_done(void *state)
 {
 	debug_msg("vidcap_decklink_done\n"); /* TOREMOVE */
@@ -1254,12 +1239,9 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 	debug_msg("vidcap_decklink_grab\n"); /* TO REMOVE */
 
 	struct vidcap_decklink_state 	*s = (struct vidcap_decklink_state *) state;
-	struct video_frame		*vf;
         int                             tiles_total = 0;
         int                             i;
         bool				frame_ready = true;
-
-	HRESULT	result;
 	
 	int		rc;
 	struct timespec	ts;
@@ -1318,6 +1300,7 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
                         // try to restart stream
                         /*
+                        HRESULT result;
                         debug_msg("Try to restart DeckLink stream!\n");
                         result = s->deckLinkInput->StopStreams();
                         if (result != S_OK)
@@ -1393,12 +1376,13 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
                         *audio = NULL;
                 }
 
+                struct timeval t;
                 gettimeofday(&t, NULL);
-                double seconds = tv_diff(t, t0);	
+                double seconds = tv_diff(t, s->t0);
                 if (seconds >= 5) {
                         float fps  = s->frames / seconds;
                         fprintf(stderr, "[Decklink capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
-                        t0 = t;
+                        s->t0 = t;
                         s->frames = 0;
                 }
 
@@ -1410,28 +1394,30 @@ vidcap_decklink_grab(void *state, struct audio_frame **audio)
 
 /* function from DeckLink SDK sample DeviceList */
 
-void
-print_output_modes (IDeckLink* deckLink)
+static void print_input_modes (IDeckLink* deckLink)
 {
-	IDeckLinkOutput*			deckLinkOutput = NULL;
+	IDeckLinkInput*			deckLinkInput = NULL;
 	IDeckLinkDisplayModeIterator*		displayModeIterator = NULL;
 	IDeckLinkDisplayMode*			displayMode = NULL;
 	HRESULT					result;	
 	int 					displayModeNumber = 0;
 	
 	// Query the DeckLink for its configuration interface
-	result = deckLink->QueryInterface(IID_IDeckLinkOutput, (void**)&deckLinkOutput);
+	result = deckLink->QueryInterface(IID_IDeckLinkInput, (void**)&deckLinkInput);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the IDeckLinkOutput interface - result = %08x\n", (int) result);
+		fprintf(stderr, "Could not obtain the IDeckLinkInput interface - result = %08x\n", (int) result);
+                if (result == E_NOINTERFACE) {
+                        printf("Device doesn't support video capture.\n");
+                }
 		goto bail;
 	}
 	
-	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on output
-	result = deckLinkOutput->GetDisplayModeIterator(&displayModeIterator);
+	// Obtain an IDeckLinkDisplayModeIterator to enumerate the display modes supported on input
+	result = deckLinkInput->GetDisplayModeIterator(&displayModeIterator);
 	if (result != S_OK)
 	{
-		fprintf(stderr, "Could not obtain the video output display mode iterator - result = %08x\n", (int) result);
+		fprintf(stderr, "Could not obtain the video input display mode iterator - result = %08x\n", (int) result);
 		goto bail;
 	}
 	
@@ -1456,7 +1442,6 @@ print_output_modes (IDeckLink* deckLink)
 
 		if (result == S_OK)
 		{
-			char			modeName[64];
 			int				modeWidth;
 			int				modeHeight;
                         BMDDisplayModeFlags             flags;
@@ -1489,8 +1474,8 @@ bail:
 	if (displayModeIterator != NULL)
 		displayModeIterator->Release();
 	
-	if (deckLinkOutput != NULL)
-		deckLinkOutput->Release();
+	if (deckLinkInput != NULL)
+		deckLinkInput->Release();
 }
 
 #endif /* HAVE_DECKLINK */

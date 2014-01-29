@@ -47,13 +47,12 @@
 #ifndef __vo_postprocess_h
 
 #define __vo_postprocess_h
-#include "video_codec.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#include "types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*          property                               type                   default          */
 #define VO_PP_PROPERTY_CODECS                0 /*  codec_t[]          all uncompressed     */
@@ -134,5 +133,9 @@ bool vo_postprocess(struct vo_postprocess_state *, struct video_frame*, struct v
 void vo_postprocess_done(struct vo_postprocess_state *s);
 
 void show_vo_postprocess_help(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __vo_postprocess_h */

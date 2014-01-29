@@ -131,3 +131,31 @@ int tv_gt(struct timeval a, struct timeval b)
         assert(a.tv_sec == b.tv_sec);
         return a.tv_usec > b.tv_usec;
 }
+
+/*
+ * STANDARD TRANSPORT - RTP STANDARD
+ * Calculate initial time on first execution, add per sample time otherwise.
+ */
+uint32_t get_std_audio_local_mediatime(int samples)
+{
+        static uint32_t saved_timestamp;
+        static int first = 0;
+
+        uint32_t curr_timestamp;
+
+        if (first == 0) {
+                struct timeval start_time;
+                gettimeofday(&start_time, NULL);
+                curr_timestamp = start_time.tv_sec +
+                                    (start_time.tv_usec / 1000000.0) +
+                                    lbl_random();
+                first = 1;
+        }
+        else {
+            curr_timestamp = saved_timestamp;
+        }
+
+        saved_timestamp = curr_timestamp + samples;
+
+        return curr_timestamp;
+}

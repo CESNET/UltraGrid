@@ -116,12 +116,15 @@ typedef struct
         audio_codec_t codec;
 } audio_channel;
 
-struct state_audio * audio_cfg_init(char *addrs, int recv_port, int send_port,
+struct module;
+
+struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
-                char *jack_cfg, char *fec_cfg, char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, char *mcast_iface, audio_codec_t audio_codec,
-                int resample_to);
-void audio_finish(struct state_audio *s);
+                char *jack_cfg, char *fec_cfg, const char *encryption,
+                char *audio_channel_map, const char *audio_scale,
+                bool echo_cancellation, bool use_ipv6, const char *mcast_iface, audio_codec_t audio_codec,
+                int resample_to, bool isStd);
+void audio_finish(void);
 void audio_done(struct state_audio *s);
 void audio_join(struct state_audio *s);
 
@@ -137,7 +140,6 @@ struct audio_frame * audio_get_frame(struct state_audio *s);
 int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
                 int sample_rate);
 
-unsigned int audio_get_vidcap_flags(struct state_audio *s);
 unsigned int audio_get_display_flags(struct state_audio *s);
 
 /**

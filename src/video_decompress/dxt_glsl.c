@@ -57,14 +57,14 @@
 #include "dxt_compress/dxt_decoder.h"
 #include "dxt_compress/dxt_util.h"
 //#include "compat/platform_semaphore.h"
-#include "video_codec.h"
+#include "video.h"
 #include <pthread.h>
 #include <stdlib.h>
 #include "video_decompress/dxt_glsl.h"
 
 #include "gl_context.h"
 
-struct state_decompress {
+struct state_decompress_rtdxt {
         struct dxt_decoder *decoder;
 
         struct video_desc desc;
@@ -77,7 +77,7 @@ struct state_decompress {
         struct gl_context context;
 };
 
-static void configure_with(struct state_decompress *decompressor, struct video_desc desc)
+static void configure_with(struct state_decompress_rtdxt *decompressor, struct video_desc desc)
 {
         enum dxt_type type;
 
@@ -114,9 +114,9 @@ static void configure_with(struct state_decompress *decompressor, struct video_d
 
 void * dxt_glsl_decompress_init(void)
 {
-        struct state_decompress *s;
+        struct state_decompress_rtdxt *s;
         
-        s = (struct state_decompress *) malloc(sizeof(struct state_decompress));
+        s = (struct state_decompress_rtdxt *) malloc(sizeof(struct state_decompress_rtdxt));
         s->configured = FALSE;
 
         return s;
@@ -125,7 +125,7 @@ void * dxt_glsl_decompress_init(void)
 int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc, 
                 int rshift, int gshift, int bshift, int pitch, codec_t out_codec)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         
         s->pitch = pitch;
         s->rshift = rshift;
@@ -143,13 +143,13 @@ int dxt_glsl_decompress_reconfigure(void *state, struct video_desc desc,
 
         gl_context_make_current(NULL);
 
-        return s->compressed_len;
+        return TRUE;
 }
 
 int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
                 unsigned int src_len, int frame_seq)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(src_len);
         UNUSED(frame_seq);
 
@@ -200,7 +200,7 @@ int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
 
 int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_t *len)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(s);
         int ret = FALSE;
 
@@ -221,7 +221,7 @@ int dxt_glsl_decompress_get_property(void *state, int property, void *val, size_
 
 void dxt_glsl_decompress_done(void *state)
 {
-        struct state_decompress *s = (struct state_decompress *) state;
+        struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         
         if(s->configured) {
                 gl_context_make_current(&s->context);
@@ -231,3 +231,4 @@ void dxt_glsl_decompress_done(void *state)
         }
         free(s);
 }
+
