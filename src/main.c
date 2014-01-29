@@ -77,6 +77,7 @@
 #include "rtp/pbuf.h"
 #include "sender.h"
 #include "stats.h"
+#include "utils/misc.h"
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
@@ -116,6 +117,7 @@
 /* please see comments before transmit.c:audio_tx_send() */
 /* also note that this actually differs from video */
 #define DEFAULT_AUDIO_FEC       "mult:3"
+#define DEFAULT_BITRATE         (6618ll * 1000 * 1000)
 
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
@@ -284,7 +286,7 @@ static void usage(void)
         printf("\t                         \tdirectly.\n");
         printf("\n");
         printf("\t-l <limit_bitrate> | unlimited\tlimit sending bitrate (aggregate)\n");
-        printf("\t                         \tto limit_bitrate Mb/s\n");
+        printf("\t                         \tto limit_bitrate (with optional k/M/G suffix)\n");
         printf("\n");
         printf("\t--audio-channel-map      <mapping> | help\n");
         printf("\n");
@@ -902,8 +904,6 @@ int main(int argc, char *argv[])
         struct control_state *control = NULL;
         rtsp_serv_t* rtsp_server = NULL;
 
-        int bitrate = 0;
-
         const char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
 
@@ -1121,7 +1121,7 @@ int main(int argc, char *argv[])
                         if(strcmp(optarg, "unlimited") == 0) {
                                 bitrate = -1;
                         } else {
-                                bitrate = atoi(optarg);
+                                bitrate = unit_evaluate(optarg);
                                 if(bitrate <= 0) {
                                         usage();
                                         return EXIT_FAIL_USAGE;
@@ -1441,12 +1441,13 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                        bitrate = 6618;
+                if (bitrate == 0) { // else packet_rate defaults to 13600 or so
+                        bitrate = DEFAULT_BITRATE;
                 }
 
-                if(bitrate != -1) {
-                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+                if (bitrate != -1) { // -1 means unlimited
+                        packet_rate = 1000 * 1000 * 1000 *
+                                uv->requested_mtu * 8 / bitrate;
                 } else {
                         packet_rate = 0;
                 }
@@ -1483,7 +1484,7 @@ int main(int argc, char *argv[])
                 }
 
                 if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                        bitrate = 6618;
+                        bitrate = DEFAULT_BITRATE;
                 }
 
                 if(bitrate != -1) {

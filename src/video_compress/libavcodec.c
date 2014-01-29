@@ -61,6 +61,7 @@
 #include "host.h"
 #include "messaging.h"
 #include "module.h"
+#include "utils/misc.h"
 #include "utils/resource_manager.h"
 #include "utils/worker.h"
 #include "video.h"
@@ -73,6 +74,7 @@ struct setparam_param {
         bool have_preset;
         double fps;
         bool interlaced;
+        bool exact_bitrate;
 };
 
 typedef struct {
@@ -91,17 +93,17 @@ static void libavcodec_vid_enc_frame_dispose(struct video_frame *);
 
 static codec_params_t codec_params[] = {
         [H264] = { AV_CODEC_ID_H264,
-                0.07 * 4 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */,
+                0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */,
                 setparam_h264
         },
         [MJPG] = {
                 AV_CODEC_ID_MJPEG,
-                0.7,
+                0.3,
                 setparam_default
         },
         [VP8] = {
                 AV_CODEC_ID_VP8,
-                0.6,
+                0.2,
                 setparam_vp8
         },
 };
@@ -124,7 +126,7 @@ struct state_video_compress_libav {
         decoder_t           decoder;
 
         codec_t             selected_codec_id;
-        int                 requested_bitrate;
+        int64_t             requested_bitrate;
         // may be 422, 420 or 0 (no subsampling explicitly requested
         int                 requested_subsampling;
         // actual value used
@@ -135,6 +137,8 @@ struct state_video_compress_libav {
 
         platform_spin_t     spin;
         struct video_desc compressed_desc;
+
+        bool exact_bitrate;
 };
 
 static void to_yuv420(AVFrame *out_frame, unsigned char *in_data, int width, int height);
@@ -157,8 +161,11 @@ static void libavcodec_vid_enc_frame_dispose(struct video_frame *frame) {
 static void usage() {
         printf("Libavcodec encoder usage:\n");
         printf("\t-c libavcodec[:codec=<codec_name>][:bitrate=<bits_per_sec>]"
-                        "[:subsampling=<subsampling>][:preset=<preset>]\n");
+                        "[:subsampling=<subsampling>][:preset=<preset>]"
+                        "[:exact_bitrate]\n");
         printf("\t\t<codec_name> may be specified codec name (default MJPEG), supported codecs:\n");
+        printf("\t\texact_bitrate - means that encoder will try to keep bitrate "
+               "\t\t\tas constant as it can\n");
         for(unsigned int i = 0; i < sizeof(codec_params) / sizeof(codec_params_t); ++i) {
                 if(codec_params[i].av_codec != 0) {
                         const char *availability = "not available";
@@ -197,25 +204,7 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                                 }
                         } else if(strncasecmp("bitrate=", item, strlen("bitrate=")) == 0) {
                                 char *bitrate_str = item + strlen("bitrate=");
-                                char *end_ptr;
-                                char unit_prefix_u;
-                                s->requested_bitrate = strtoul(bitrate_str, &end_ptr, 10);
-                                unit_prefix_u = toupper(*end_ptr);
-                                switch(unit_prefix_u) {
-                                        case 'G':
-                                                s->requested_bitrate *= 1000;
-                                        case 'M':
-                                                s->requested_bitrate *= 1000;
-                                        case 'K':
-                                                s->requested_bitrate *= 1000;
-                                                break;
-                                        case '\0':
-                                                break;
-                                        default:
-                                                fprintf(stderr, "[lavc] Error: unknown unit prefix %c.\n",
-                                                                *end_ptr);
-                                                return -1;
-                                }
+                                s->requested_bitrate = unit_evaluate(bitrate_str);
                         } else if(strncasecmp("subsampling=", item, strlen("subsampling=")) == 0) {
                                 char *subsample_str = item + strlen("subsampling=");
                                 s->requested_subsampling = atoi(subsample_str);
@@ -228,6 +217,8 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt) {
                         } else if(strncasecmp("preset=", item, strlen("preset=")) == 0) {
                                 char *preset = item + strlen("preset=");
                                 s->preset = strdup(preset);
+                        } else if (strcasecmp("exact_bitrate", item) == 0) {
+                                s->exact_bitrate = true;
                         } else {
                                 fprintf(stderr, "[lavc] Error: unknown option %s.\n",
                                                 item);
@@ -245,7 +236,7 @@ struct module * libavcodec_compress_init(struct module *parent, const struct vid
         struct state_video_compress_libav *s;
         const char *opts = params->cfg;
 
-        s = (struct state_video_compress_libav *) malloc(sizeof(struct state_video_compress_libav));
+        s = (struct state_video_compress_libav *) calloc(1, sizeof(struct state_video_compress_libav));
         s->lavcd_global_lock = rm_acquire_shared_lock(LAVCD_LOCK_NAME);
 
         /*  register all the codecs (you can also register only the codec
@@ -397,6 +388,29 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                 s->codec_ctx->bit_rate = desc.width * desc.height *
                         avg_bpp * desc.fps;
         }
+
+        if (s->codec_ctx->bit_rate > bitrate * 3 / 4) { // set in main.c
+                fprintf(stderr, "\033[1;31m[lavc] Warning: \033[0;31m");
+                fprintf(stderr, "Requested bitrate exceeds 3/4 of limiting bitrate "
+                                "(commandline -l parameter). Try reducing "
+                                "libavcodec bitrate and/or extending limiting "
+                                "bitrate ('-l %d' or "
+                                "'-c libavcodec:bitrate=%lld).\n",
+                                s->codec_ctx->bit_rate / 3 * 4,
+                                bitrate / 4 * 3
+                                );
+                fprintf(stderr, "\033[0;49m");
+        }
+
+        if (s->codec_ctx->bit_rate > bitrate / 2 && !s->exact_bitrate) { // set in main.c
+                fprintf(stderr, "\033[1;32m[lavc] Warning: \033[0;32m");
+                fprintf(stderr, "Requested bitrate is more than half of "
+                                "limiting bitrate, codec bitrate may exceed "
+                                "specified value by scene changes. Consider "
+                                "supplying 'exact_bitrate' option to libavcodec.\n");
+                fprintf(stderr, "\033[0;49m");
+        }
+
         s->codec_ctx->bit_rate_tolerance = s->codec_ctx->bit_rate / 4;
 
         /* resolution must be a multiple of two */
@@ -449,6 +463,7 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         param.fps = desc.fps;
         param.codec = s->codec;
         param.interlaced = desc.interlacing == INTERLACED_MERGED;
+        param.exact_bitrate = s->exact_bitrate;
 
         codec_params[s->selected_codec_id].set_param(s->codec_ctx, &param);
 
@@ -745,6 +760,12 @@ static void setparam_default(AVCodecContext *codec_ctx, struct setparam_param *p
         }
 }
 
+#define APPEND_PARAM(params, param) \
+        if(strlen(params) > 0) { \
+                strncat(params, ":", sizeof(params) - strlen(params) - 1); \
+        } \
+        strncat(params, param, sizeof(params) - strlen(params) - 1);
+
 static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *param)
 {
         char params[512] = "";
@@ -753,17 +774,20 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                 // ultrafast - --aq-mode 0
                 // This option causes posterization. Enabling it requires some 20% additional
                 // percent of CPU.
-                strncat(params, "no-8x8dct=1:aq-mode=1:b-adapt=0:bframes=0:no-cabac=1:"
+                strncat(params, "no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
                         "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
                         "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0",
                         sizeof(params) - strlen(params) - 1);
         }
 
-        if(param->interlaced) {
-                if(strlen(params) > 0) {
-                        strncat(params, ":", sizeof(params) - strlen(params) - 1);
-                }
-                strncat(params, "tff=1", sizeof(params) - strlen(params) - 1);
+        if (param->exact_bitrate) {
+                APPEND_PARAM(params, "aq_mode=0");
+        } else {
+                APPEND_PARAM(params, "aq_mode=1");
+        }
+
+        if (param->interlaced && !param->exact_bitrate) {
+                APPEND_PARAM(params, "tff=1");
         }
 
         if(strlen(params) > 0) {
@@ -778,7 +802,7 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                         // older version of both
                         // or superfast?? requires + some 70 % CPU but does not cause posterization
                         ret = av_opt_set(codec_ctx->priv_data, "preset", "ultrafast", 0);
-                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected."
+                        fprintf(stderr, "[Lavc] Warning: Old FFMPEG/LibAV detected. "
                                         "Try supplying 'preset=superfast' argument to "
                                         "avoid posterization!\n");
                 }
@@ -789,6 +813,22 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
 
         //av_opt_set(codec_ctx->priv_data, "tune", "fastdecode", 0);
         av_opt_set(codec_ctx->priv_data, "tune", "fastdecode,zerolatency", 0);
+
+        if (param->exact_bitrate) {
+                codec_ctx->rc_max_rate = codec_ctx->bit_rate / 2 * 3;
+                //codec_ctx->rc_min_rate = s->codec_ctx->bit_rate / 4 * 3;
+                codec_ctx->rc_buffer_aggressivity = 1.0;
+                codec_ctx->rc_buffer_size = codec_ctx->rc_max_rate / param->fps;
+                codec_ctx->qcompress = 0.0f;
+                //codec_ctx->qblur = 0.0f;
+                //codec_ctx->rc_min_vbv_overflow_use = 1.0f;
+                //codec_ctx->rc_max_available_vbv_use = 1.0f;
+                codec_ctx->qmin = 0;
+                codec_ctx->qmax = 69;
+                codec_ctx->max_qdiff = 69;
+                codec_ctx->rc_qsquish = 0;
+                //codec_ctx->scenechange_threshold = 100;
+        }
 
 #ifndef DISABLE_H264_INTRA_REFRESH
         codec_ctx->refs = 1;

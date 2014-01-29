@@ -65,6 +65,7 @@ struct vidcap_params;
 extern int uv_argc;
 extern char **uv_argv;
 
+extern long long bitrate;
 extern long packet_rate;
 
 extern volatile bool should_exit_receiver;
