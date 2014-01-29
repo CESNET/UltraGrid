@@ -554,7 +554,7 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
         gettimeofday(&tp, NULL);
         ts.tv_sec = tp.tv_sec;
         ts.tv_nsec = tp.tv_usec * 1000;
-        ts.tv_nsec += 1000 * 1000 * 1000 / s->frame->fps;
+        ts.tv_nsec += 2 * 1000 * 1000 * 1000 / s->frame->fps;
         // make it correct
         ts.tv_sec += ts.tv_nsec / 1000000000;
         ts.tv_nsec = ts.tv_nsec % 1000000000;
