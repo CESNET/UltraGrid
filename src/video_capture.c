@@ -612,6 +612,8 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
                         char *delim = strchr(params->driver, ':');
                         params->fmt = strdup(delim + 1);
                         *delim = '\0';
+                } else {
+                        params->fmt = params->driver + strlen(params->driver); // is '\0'
                 }
                 ret = true;
         }
@@ -643,6 +645,8 @@ void vidcap_params_set_device(struct vidcap_params *params, const char *config)
                         char *delim = strchr(params->driver, ':');
                         *delim = '\0';
                         params->fmt = strdup(delim + 1);
+                } else {
+                        params->fmt = strdup("");
                 }
         }
 }

@@ -307,9 +307,9 @@ vidcap_import_init(const struct vidcap_params *params)
         char *tmp = strdup(vidcap_params_get_fmt(params));
         char *save_ptr;
         const char *directory = strtok_r(tmp, ":", &save_ptr);
-        if (strcmp(directory, "help") == 0) {
+        if (!directory || strcmp(directory, "help") == 0) {
                 fprintf(stderr, "Import usage:\n"
-                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:<o_direct>}");
+                                "\t<directory>{:loop|:mt_reading=<nr_threads>|:o_direct}");
                 return NULL;
         }
         char *suffix;
