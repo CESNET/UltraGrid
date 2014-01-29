@@ -148,14 +148,16 @@ struct dispose_original_frame_udata {
         static void dispose_tile(struct video_frame *frame) {
                 struct dispose_original_frame_udata *inst =
                         (struct dispose_original_frame_udata *) frame->dispose_udata;
-                lock_guard guard(inst->m_lock);
+                pthread_mutex_lock(&inst->m_lock);
                 inst->m_disposed++;
                 if (inst->m_disposed == inst->m_original_frame->tile_count) {
                         if (inst->m_original_frame->dispose) {
                                 inst->m_original_frame->dispose(inst->m_original_frame);
                         }
+                        pthread_mutex_unlock(&inst->m_lock);
                         delete inst;
                 }
+                pthread_mutex_unlock(&inst->m_lock);
         }
 
         pthread_mutex_t m_lock;
