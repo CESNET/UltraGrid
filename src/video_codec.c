@@ -67,9 +67,9 @@ static void vc_copylineToUYVY(unsigned char *dst, const unsigned char *src, int 
 
 const struct codec_info_t codec_info[] = {
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, TRUE, FALSE, FALSE, "rgba"},
-        [UYVY] = {UYVY, "UYVY", to_fourcc('2','v','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('y','u','v','2'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
         [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
-        [Vuy2] = {Vuy2, "2vuy", to_fourcc('2','V','u','y'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
+        [Vuy2] = {Vuy2, "2vuy", to_fourcc('y','u','v','2'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
         [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 1, 2, FALSE, FALSE, FALSE, "yuv"},
         [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 1, 4, TRUE, FALSE, FALSE, "r10k"},
         [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, FALSE, FALSE, FALSE, "v210"},
@@ -124,6 +124,8 @@ const struct alternate_fourcc fourcc_aliases[] = {
         {to_fourcc('U', 'Y', 'V', 'Y'), to_fourcc('2', 'v', 'u', 'y')},
         {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
         {to_fourcc('D', 'V', 'S', '8'), to_fourcc('d', 'v', 's', '8')},
+        {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('y', 'u', 'V', '2')},
+        {to_fourcc('2', 'v', 'u', 'y'), to_fourcc('y', 'u', 'v', '2')},
         {0,0}
 };
 
