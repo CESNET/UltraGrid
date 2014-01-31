@@ -101,6 +101,7 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 	CFLAGS="$CFLAGS -arch i386 -I/opt/local/include"
 	CPPFLAGS="$CPPFLAGS -m32 -I/opt/local/include"
 	CXXFLAGS="$CXXFLAGS -m32 -I/opt/local/include"
+        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include"
 	LDFLAGS="$LDFLAGS -m32 -mmacosx-version-min=10.5"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
