@@ -299,7 +299,10 @@ static void reconf_common(struct state_quicktime *s)
         
                 (**(ImageDescriptionHandle) imageDesc).idSize =
                     sizeof(ImageDescription);
-                (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
+                if (s->cinfo->codec == v210)
+                        (**(ImageDescriptionHandle) imageDesc).cType = 'v210';
+                else
+                        (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
                 /* 
                  * dataSize is specified in bytes and is specified as 
                  * height*width*bytes_per_luma_instant. v210 sets 
