@@ -112,8 +112,6 @@ static int configure_with(struct state_video_compress_rtdxt *s, struct video_fra
                         format = DXT_FORMAT_YUV422;
                         break;
                 case UYVY:
-                case Vuy2:
-                case DVS8:
                         s->decoder = (decoder_t) memcpy;
                         format = DXT_FORMAT_YUV422;
                         break;

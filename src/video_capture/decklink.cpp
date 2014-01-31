@@ -201,7 +201,7 @@ public:
                 pthread_mutex_lock(&(s->lock));
                 switch(flags) {
                         case bmdDetectedVideoInputYCbCr422:
-                                codec = Vuy2;
+                                codec = UYVY;
                                 break;
                         case bmdDetectedVideoInputRGB444:
                                 codec = RGBA;
@@ -486,7 +486,7 @@ decklink_help()
 	} else {
                 printf("\n\n");
                 printf("Available Colorspaces:\n");
-                printf("\t2vuy\n");
+                printf("\tUYVY\n");
                 printf("\tv210\n");
                 printf("\tRGBA\n");
                 printf("\tR10k\n");
@@ -515,7 +515,7 @@ settings_init(void *state, char *fmt)
 
         int i;
         for(i=0; codec_info[i].name != NULL; i++) {
-            if(codec_info[i].codec == Vuy2) {
+            if(codec_info[i].codec == UYVY) {
                 s->c_info = &codec_info[i];
                 break;
             }
@@ -559,7 +559,7 @@ settings_init(void *state, char *fmt)
                         if(!tmp) {
                                 int i;
                                 for(i=0; codec_info[i].name != NULL; i++) {
-                                    if(codec_info[i].codec == Vuy2) {
+                                    if(codec_info[i].codec == UYVY) {
                                         s->c_info = &codec_info[i];
                                         break;
                                     }
@@ -651,7 +651,7 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                   case RGBA:
                         *pf = bmdFormat8BitBGRA;
                         break;
-                  case Vuy2:
+                  case UYVY:
                         *pf = bmdFormat8BitYUV;
                         break;
                   case R10k:
@@ -670,9 +670,6 @@ static HRESULT set_display_mode_properties(struct vidcap_decklink_state *s, stru
                 tile->width = displayMode->GetWidth();
                 tile->height = displayMode->GetHeight();
                 s->frame->color_spec = s->c_info->codec;
-                if(s->frame->color_spec == Vuy2 || s->frame->color_spec == DVS8) {
-                        s->frame->color_spec = UYVY;
-                }
 
                 displayMode->GetFrameRate(&frameRateDuration, &frameRateScale);
                 s->frame->fps = (double)frameRateScale / (double)frameRateDuration;

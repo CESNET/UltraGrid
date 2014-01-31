@@ -425,7 +425,7 @@ void * vidcap_testcard2_thread(void *arg)
                 SDL_FreeSurface(text);
 #endif
                             
-                if (s->frame->color_spec == UYVY || s->frame->color_spec == v210 || s->frame->color_spec == Vuy2) {
+                if (s->frame->color_spec == UYVY || s->frame->color_spec == v210) {
                         rgb2yuv422((unsigned char *) copy->pixels, s->aligned_x,
                                    s->tile->height);
                 }

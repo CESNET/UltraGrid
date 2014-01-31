@@ -336,8 +336,6 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         case DVS10:
                                 s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
                                 break;
-                        case DVS8:
-                        case Vuy2:
                         case UYVY:
                                 s->hd_video_mode |= SV_MODE_COLOR_YUV422;
                                 break;

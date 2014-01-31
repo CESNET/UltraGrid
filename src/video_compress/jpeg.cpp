@@ -127,8 +127,6 @@ static int configure_with(struct state_video_compress_jpeg *s, struct video_fram
                         s->rgb = FALSE;
                         break;
                 case UYVY:
-                case Vuy2:
-                case DVS8:
                         s->decoder = (decoder_t) memcpy;
                         s->rgb = FALSE;
                         break;

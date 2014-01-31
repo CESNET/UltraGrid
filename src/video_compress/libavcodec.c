@@ -421,8 +421,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
         s->codec_ctx->gop_size = 20; /* emit one intra frame every ten frames */
         s->codec_ctx->max_b_frames = 0;
         switch(desc.color_spec) {
-                case Vuy2:
-                case DVS8:
                 case UYVY:
                         s->decoder = (decoder_t) memcpy;
                         break;

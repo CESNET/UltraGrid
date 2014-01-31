@@ -789,12 +789,6 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 return false;
         }
 
-        /* next check if we didn't receive alias for UYVY */
-        for(i = 0; i < (int) decoder->native_count; ++i) {
-                assert(decoder->native_codecs[i] != Vuy2 &&
-                                decoder->native_codecs[i] != DVS8);
-        }
-
         if(decoder->postprocess) {
                 codec_t postprocess_supported_codecs[20];
                 size_t len = sizeof(postprocess_supported_codecs);
@@ -982,17 +976,6 @@ static int find_best_decompress(codec_t in_codec, codec_t out_codec,
 }
 
 /**
- * This helper function removes redundancy in codec_t - triplicity of 8-bit YCbCr.
- */
-static codec_t codec_remove_aliases(codec_t codec)
-{
-        if(codec == DVS8 || codec == Vuy2)
-                return UYVY;
-        else
-                return codec;
-}
-
-/**
  * @brief Finds (best) decompress module for specified compression.
  *
  * If more than one decompress module is available, load the one with highest priority.
@@ -1009,8 +992,6 @@ static codec_t codec_remove_aliases(codec_t codec)
 bool init_decompress(codec_t in_codec, codec_t out_codec,
                 struct state_decompress **state, int state_count)
 {
-        out_codec = codec_remove_aliases(out_codec);
-
         int prio_max = 1000;
         int prio_min = 0;
         int prio_cur;
@@ -1054,7 +1035,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
         /* first check if the codec is natively supported */
         for(native = 0u; native < decoder->native_count; ++native)
         {
-                out_codec = codec_remove_aliases(decoder->native_codecs[native]);
+                out_codec = decoder->native_codecs[native];
                 if(desc.color_spec == out_codec) {
                         if((out_codec == DXT1 || out_codec == DXT1_YUV ||
                                         out_codec == DXT5)
@@ -1076,7 +1057,7 @@ static codec_t choose_codec_and_decoder(struct state_video_decoder *decoder, str
                                 ++trans) {
                 for(native = 0; native < decoder->native_count; ++native)
                 {
-                        out_codec = codec_remove_aliases(decoder->native_codecs[native]);
+                        out_codec = decoder->native_codecs[native];
                         if(desc.color_spec == line_decoders[trans].from &&
                                         out_codec == line_decoders[trans].to) {
 
@@ -1094,7 +1075,7 @@ after_linedecoder_lookup:
         if(*decode_line == NULL) {
                 for(native = 0; native < decoder->native_count; ++native)
                 {
-                        out_codec = codec_remove_aliases(decoder->native_codecs[native]);
+                        out_codec = decoder->native_codecs[native];
                         decoder->decompress_state = (struct state_decompress **)
                                 calloc(decoder->max_substreams, sizeof(struct state_decompress *));
                         if(init_decompress(desc.color_spec, decoder->native_codecs[native],
@@ -1200,8 +1181,6 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
 
         desc.tile_count = get_video_mode_tiles_x(decoder->video_mode)
                         * get_video_mode_tiles_y(decoder->video_mode);
-
-        desc.color_spec = codec_remove_aliases(desc.color_spec);
 
         out_codec = choose_codec_and_decoder(decoder, desc, &decode_line);
         if(out_codec == (codec_t) -1)

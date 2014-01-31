@@ -88,8 +88,6 @@ const struct codec_info_t codec_info[] = {
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
         [UYVY] = {UYVY, "UYVY", to_fourcc('y','u','v','2'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
         [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
-        [Vuy2] = {Vuy2, "2vuy", to_fourcc('y','u','V','2'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
-        [DVS8] = {DVS8, "DVS8", to_fourcc('d','v','s','8'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
         [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 64, 4, 4, TRUE, FALSE, FALSE, "r10k"},
         [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 16, FALSE, FALSE, FALSE, "v210"},
         [DVS10] = {DVS10, "DVS10", to_fourcc('D','S','1','0'), 48, 8.0 / 3.0, 4, FALSE, FALSE, FALSE, "dvs10"},
@@ -107,9 +105,6 @@ const struct codec_info_t codec_info[] = {
         {(codec_t) 0, NULL, 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL}
 };
 
-/* take care that UYVY is alias for both 2vuy and dvs8, do not use
- * the further two and refer only to UYVY!! */
- 
 /* Also note that this is a priority list - is choosen first one that
  * matches input codec and one of the supported output codec, so eg.
  * list 10b->10b earlier to 10b->8b etc. */
@@ -148,9 +143,13 @@ const struct alternate_fourcc fourcc_aliases[] = {
         // following ones are rather for further compatibility (proposed codecs rename)
         {to_fourcc('U', 'Y', 'V', 'Y'), to_fourcc('2', 'v', 'u', 'y')},
         {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
-        {to_fourcc('D', 'V', 'S', '8'), to_fourcc('d', 'v', 's', '8')},
-        {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('y', 'u', 'V', '2')},
+
+        {to_fourcc('D', 'V', 'S', '8'), to_fourcc('y', 'u', 'v', '2')},
+        {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('y', 'u', 'v', '2')},
         {to_fourcc('2', 'v', 'u', 'y'), to_fourcc('y', 'u', 'v', '2')},
+        {to_fourcc('d', 'v', 's', '8'), to_fourcc('y', 'u', 'v', '2')},
+        {to_fourcc('d', 'v', 's', '8'), to_fourcc('y', 'u', 'v', '2')},
+        {to_fourcc('U', 'Y', 'V', 'Y'), to_fourcc('y', 'u', 'v', '2')},
         {0,0}
 };
 
@@ -163,8 +162,6 @@ void show_codec_help(char *module)
         printf("\t\t\t'RGBA' - Red Green Blue Alpha 32bit\n");
         printf("\t\t\t'RGB' - Red Green Blue 24bit\n");
         printf("\t\t\t'UYVY' - YUV 4:2:2\n");
-	printf("\t\t\t'2vuy' - YUV 4:2:2\n");
-        printf("\t\t\t'DVS8' - Centaurus 8bit YUV 4:2:2\n");
 
         printf("\t\t10bits\n");
 	if (strcmp(module, "dvs") != 0) {

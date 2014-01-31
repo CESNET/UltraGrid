@@ -60,8 +60,6 @@ typedef enum {
         RGBA,     ///< RGBA 8-bit
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
-        Vuy2,     ///< YCbCr 422 8-bit (same as UYVY)
-        DVS8,     ///< YCbCr 422 8-bit (same as UYVY)
         R10k,     ///< RGB 10-bit (also know as r210)
         v210,     ///< YCbCr 422 10-bit
         DVS10,    ///< DVS 10-bit format

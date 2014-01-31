@@ -301,6 +301,8 @@ static void reconf_common(struct state_quicktime *s)
                     sizeof(ImageDescription);
                 if (s->cinfo->codec == v210)
                         (**(ImageDescriptionHandle) imageDesc).cType = 'v210';
+                else if (s->cinfo->codec == UYVY)
+                        (**(ImageDescriptionHandle) imageDesc).cType = '2vuy';
                 else
                         (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
                 /* 
@@ -664,6 +666,12 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         EnterMovies();
 
         if(s->mode != 0) {
+                // QT aliases
+                if (strcmp(codec_name, "2vuy") == 0 ||
+                                strcmp(codec_name, "2Vuy") == 0) {
+                        strcpy(codec_name, "UYVY");
+                }
+
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(codec_name, codec_info[i].name) == 0) {
                                 s->cinfo = &codec_info[i];
@@ -925,8 +933,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 }
         }
 	assert(codec_name != NULL);
-        if(desc.color_spec == UYVY || desc.color_spec == DVS8) /* just aliases for 2vuy,
-                                            * but would confuse QT */
+        if(desc.color_spec == UYVY) /* QT name for UYVY */
                 codec_name = "2vuy";
          
         if(s->frame->tiles[0].data != NULL)

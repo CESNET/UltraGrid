@@ -436,7 +436,7 @@ void *vidcap_testcard_init(const struct vidcap_params *params)
                         }
                 }
                 s->data = s->pixmap.data;
-                if (codec == UYVY || codec == v210 || codec == Vuy2) {
+                if (codec == UYVY || codec == v210) {
                         rgb2yuv422((unsigned char *) s->data, aligned_x,
                                    vf_get_tile(s->frame, 0)->height);
                 }
