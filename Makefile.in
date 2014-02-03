@@ -149,21 +149,24 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
+IMPORT_CONTROL_KEYBOARD_OBJS = src/import_control_keyboard.o
+
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
-$(TARGET): $(OBJS) $(ULTRAGRID_OBJS) $(HEADERS)
+bindir:
 	@if [ ! -d bin ]; then mkdir bin; fi
+
+$(TARGET): bindir $(OBJS) $(ULTRAGRID_OBJS) $(HEADERS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
-bin/import_control_keyboard: src/import_control_keyboard.o
-	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
+bin/import_control_keyboard: bindir $(IMPORT_CONTROL_KEYBOARD_OBJS)
+	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
-$(REFLECTOR_TARGET): $(OBJS) $(HEADERS) $(REFLECTOR_OBJS)
-	@if [ ! -d bin ]; then mkdir bin; fi
+$(REFLECTOR_TARGET): bindir $(OBJS) $(HEADERS) $(REFLECTOR_OBJS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
 
 .c.o:
