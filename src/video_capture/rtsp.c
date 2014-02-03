@@ -132,6 +132,8 @@ set_codec_attribute_from_incoming_media(const char *sdp_filename, void *state);
 static int
 get_nals(const char *sdp_filename, char *nals);
 
+void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state);
+
 static int
 init_rtsp(char* rtsp_uri, int rtsp_port, void *state, char* nals);
 
