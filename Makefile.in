@@ -142,20 +142,24 @@ LIB_COMMON = \
 		src/video.o \
 		src/video_codec.o \
 
+IMPORT_CONTROL_KEYBOARD_OBJS = src/import_control_keyboard.o
 
 # -------------------------------------------------------------------------------------------------
 all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard bin/hd-rum-transcode modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
-$(TARGET): $(OBJS) src/main.o $(HEADERS)
+bindir:
+	@if [ ! -d bin ]; then mkdir bin; fi
+
+$(TARGET): bindir $(OBJS) src/main.o $(HEADERS)
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(LDFLAGS) $(OBJS) src/main.o $(LIBS) -o $(TARGET)
 
-bin/import_control_keyboard: src/import_control_keyboard.o
-	$(LINKER) $(LDFLAGS) $< @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
+bin/import_control_keyboard: bindir $(IMPORT_CONTROL_KEYBOARD_OBJS)
+	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
 
-bin/hd-rum-transcode: $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
+bin/hd-rum-transcode: bindir $(OBJS) $(HEADERS) $(HD_RUM_TRANSLATOR_OBJS)
 	@if [ ! -d bin ]; then mkdir bin; fi
 	$(LINKER) $(LDFLAGS) $(OBJS) $(HD_RUM_TRANSLATOR_OBJS) $(LIBS) -o bin/hd-rum-transcode
 
