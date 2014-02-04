@@ -451,7 +451,7 @@ bundle: bundle-nolib
 
 osx-gui-dmg: bundle
 	cd 'gui/UltraGrid GUI'; \
-		xcodebuild -alltargets -arch x86_64 -sdk macosx10.7; \
+		xcodebuild -alltargets -arch x86_64 -sdk @OSX_SDK@; \
 		cp ../../uv.app/Contents/MacOS/uv build/Release/UltraGrid\ GUI.app/Contents/MacOS/; \
 		mkdir build/Release/UltraGrid\ GUI.app/Contents/libs; \
 		cp ../../uv.app/Contents/libs/* build/Release/UltraGrid\ GUI.app/Contents/libs; \

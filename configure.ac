@@ -82,9 +82,6 @@ then
 fi
 
 case "$host" in
-	*darwin9*)
-		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
-	;;
   	x86_64-*-linux-*)
 		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
 	;;
@@ -98,18 +95,11 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-	CFLAGS="$CFLAGS -arch i386 -I/opt/local/include"
-	CPPFLAGS="$CPPFLAGS -m32 -I/opt/local/include"
-	CXXFLAGS="$CXXFLAGS -m32 -I/opt/local/include"
-        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include"
-	LDFLAGS="$LDFLAGS -m32 -mmacosx-version-min=10.5"
-	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
-        OBJS="$OBJS src/utils/autorelease_pool.o"
 else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	LIBS="$LIBS -lsetupapi -lWs2_32 -lIphlpapi"
-        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
+        LDFLAGS="$LDFLAGS -stdlib=libstdc++ -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
@@ -125,6 +115,26 @@ AC_MSG_RESULT($os_version_major);
 AC_MSG_CHECKING([OS kernel version (minor)])
 os_version_minor=`uname -r |cut -d . -f 2`
 AC_MSG_RESULT($os_version_minor);
+
+if test $system = MacOSX
+then
+        COMMON_OSX_FLAGS="-m32 -I/opt/local/include -mmacosx-version-min=10.7"
+        if test $os_version_major = 11
+        then
+                OSX_SDK="macosx10.7"
+        else
+                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libstdc++"
+                OSX_SDK="macosx10.8"
+        fi
+	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
+	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
+	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
+        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include"
+	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS"
+	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
+        OBJS="$OBJS src/utils/autorelease_pool.o"
+fi
+AC_SUBST(OSX_SDK)
 
 AC_DEFINE_UNQUOTED([OS_VERSION_MAJOR], $os_version_major, [OS kernel major version])
 AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor version])
@@ -149,9 +159,9 @@ AC_ARG_ENABLE(depends-version-check,
         [version_check=yes]
         )
 
-if test $system = MacOSX -a \( $os_version_major -lt 10 -o $os_version_major -gt 11 \) -a $version_check = yes
+if test $system = MacOSX -a \( $os_version_major -lt 11 -o $os_version_major -gt 13 \) -a $version_check = yes
 then
-        AC_MSG_WARN([*** Currently only Mac OS X versions 10.6 to 10.7 are supported.])
+        AC_MSG_WARN([*** Currently only Mac OS X versions 10.7 to 10.9 are supported.])
         HM_VERSION_WARNING
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
 fi
