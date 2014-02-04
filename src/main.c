@@ -776,6 +776,9 @@ static void *capture_thread(void *arg)
         sender_data.video_exporter = uv->video_exporter;
         sender_data.compression = compression;
 
+        // The magic here with wait_objs is a workaround until all capture
+        // drivers implement a dispose function. Until that, it is supposed
+        // that every vidcap_grab call invalidates previous captured frame.
         struct wait_obj *wait_obj = wait_obj_init();
 
         if(!sender_init(&sender_data)) {
@@ -787,30 +790,34 @@ static void *capture_thread(void *arg)
 
         pthread_mutex_unlock(&uv->init_lock);
 
+        bool wait_for_cur_uncompressed_frame = false;
+
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 struct audio_frame *audio;
                 struct video_frame *tx_frame = vidcap_grab(uv->capture_device, &audio);
-                void (*old_dispose)(struct video_frame *) = NULL;
-                void *old_udata = NULL;
                 if (tx_frame != NULL) {
                         if(audio) {
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //tx_frame = vf_get_copy(tx_frame);
-                        old_dispose = tx_frame->dispose;
-                        old_udata = tx_frame->dispose_udata;
-                        tx_frame->dispose = uncompressed_frame_dispose;
-                        tx_frame->dispose_udata = wait_obj;
-                        wait_obj_reset(wait_obj);
+                        bool should_wait_for_prev_frame =
+                                wait_for_cur_uncompressed_frame;
+                        if (!tx_frame->dispose) {
+                                tx_frame->dispose = uncompressed_frame_dispose;
+                                tx_frame->dispose_udata = wait_obj;
+                                wait_obj_reset(wait_obj);
+                                wait_for_cur_uncompressed_frame = true;
+                        } else {
+                                wait_for_cur_uncompressed_frame = false;
+                        }
 
                         // Sends frame to compression - this passes it to a sender thread
                         compress_frame(compression, tx_frame);
 
                         // wait to frame is processed - eg by compress or sender (uncompressed video)
-                        wait_obj_wait(wait_obj);
-                        tx_frame->dispose = old_dispose;
-                        tx_frame->dispose_udata = old_udata;
+                        if (should_wait_for_prev_frame)
+                                wait_obj_wait(wait_obj);
                 }
         }
 
