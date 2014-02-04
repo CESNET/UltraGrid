@@ -83,6 +83,8 @@ extern "C" {
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Dvi.h>
 
+#define DEFAULT_BUFFERQUEUE_DEPTH 5
+
 struct vidcap_deltacast_dvi_state {
         ULONG             BoardType;
         HANDLE            BoardHandle, StreamHandle;
@@ -637,6 +639,12 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         }
         VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,
                         VHD_TRANSFER_SLAVED);
+
+        Result = VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFERQUEUE_DEPTH,
+                        DEFAULT_BUFFERQUEUE_DEPTH);
+        if(Result != VHDERR_NOERROR) {
+                fprintf(stderr, "[Delta-dvi] Warning: Unable to set buffer queue length.\n");
+        }
 
         if(have_preset) {
                 DviMode = VHD_DVI_MODE_DVI_A;
