@@ -69,6 +69,7 @@ struct vidcap_aggregate_state {
         struct vidcap     **devices;
         int                 devices_cnt;
 
+        struct video_frame      **captured_frames;
         struct video_frame       *frame; 
         int frames;
         struct       timeval t, t0;
@@ -140,6 +141,8 @@ vidcap_aggregate_init(const struct vidcap_params *params)
                 }
         }
 
+        s->captured_frames = calloc(s->devices_cnt, sizeof(struct video_frame *));
+
         s->frame = vf_alloc(s->devices_cnt);
         
 	return s;
@@ -180,6 +183,10 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
 	struct vidcap_aggregate_state *s = (struct vidcap_aggregate_state *) state;
         struct audio_frame *audio_frame = NULL;
         struct video_frame *frame = NULL;
+
+        for (int i = 0; i < s->devices_cnt; ++i) {
+                VIDEO_FRAME_DISPOSE(s->captured_frames[i]);
+        }
 
         if(audio_frame) {
                 *audio = audio_frame;
@@ -222,6 +229,7 @@ vidcap_aggregate_grab(void *state, struct audio_frame **audio)
                 vf_get_tile(s->frame, i)->height = vf_get_tile(frame, 0)->height;
                 vf_get_tile(s->frame, i)->data_len = vf_get_tile(frame, 0)->data_len;
                 vf_get_tile(s->frame, i)->data = vf_get_tile(frame, 0)->data;
+                s->captured_frames[i] = frame;
         }
         s->frames++;
         gettimeofday(&s->t, NULL);
