@@ -647,15 +647,6 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         if(have_preset) {
                 DviMode = VHD_DVI_MODE_DVI_A;
         } else {
-                /* Read EEDID and check its validity */
-                Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
-                if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
-                {
-                        /* Propose edid preset to user and load */
-                        fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
-                        fprintf(stderr, "Please set it as a command-line option.\n");
-                        goto no_format;
-                }
                 switch(edid)
                 {
                         case 0 : VHD_PresetEEDID(VHD_EEDID_DVID,pEEDIDBuffer,256);
@@ -668,6 +659,15 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                                  VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                                  break;
                         default : break;
+                }
+                /* Read EEDID and check its validity */
+                Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
+                if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
+                {
+                        /* Propose edid preset to user and load */
+                        fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
+                        fprintf(stderr, "Please set it as a command-line option.\n");
+                        goto no_format;
                 }
         }
 
