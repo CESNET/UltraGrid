@@ -591,8 +591,7 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
 
         if (failed) {
                 for(unsigned int i = 0; i < frame->tile_count; ++i) {
-                        if (compressed_tiles[i] && compressed_tiles[i]->dispose)
-                                compressed_tiles[i]->dispose(compressed_tiles[i]);
+                        VIDEO_FRAME_DISPOSE(compressed_tiles[i]);
                 }
                 return NULL;
         }

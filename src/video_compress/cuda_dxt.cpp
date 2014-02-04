@@ -204,8 +204,6 @@ struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_fram
                         s->saved_desc = video_desc_from_frame(tx);
                 } else {
                         fprintf(stderr, "[CUDA DXT] Reconfiguration failed!\n");
-                        if (tx->dispose)
-                                tx->dispose(tx);
                         return NULL;
                 }
         }

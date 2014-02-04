@@ -68,8 +68,7 @@ struct auto_video_frame_disposer {
         }
 
         ~auto_video_frame_disposer() {
-                if (m_frame->dispose)
-                        m_frame->dispose(m_frame);
+                VIDEO_FRAME_DISPOSE(m_frame);
         }
 
         struct video_frame *m_frame;

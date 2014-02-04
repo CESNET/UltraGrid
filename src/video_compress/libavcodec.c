@@ -692,14 +692,12 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 
         platform_spin_unlock(&s->spin);
 
-        if (tx->dispose)
-                tx->dispose(tx);
+        VIDEO_FRAME_DISPOSE(tx);
 
         return out;
 
 error:
-        if (tx->dispose)
-                tx->dispose(tx);
+        VIDEO_FRAME_DISPOSE(tx);
         platform_spin_unlock(&s->spin);
         return NULL;
 }

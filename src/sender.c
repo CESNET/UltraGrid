@@ -301,9 +301,7 @@ static void *sender_thread(void *arg) {
                         data->send_frame(data->tx_module_state, tx_frame);
                 }
 
-                if (tx_frame->dispose) {
-                        tx_frame->dispose(tx_frame);
-                }
+                VIDEO_FRAME_DISPOSE(tx_frame);
 
                 if (data->rxtx_protocol == ULTRAGRID_RTP || data->rxtx_protocol == H264_STD) {
                         struct ultragrid_rtp_state *rtp_state = data->tx_module_state;

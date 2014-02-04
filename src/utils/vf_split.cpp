@@ -151,9 +151,7 @@ struct dispose_original_frame_udata {
                 pthread_mutex_lock(&inst->m_lock);
                 inst->m_disposed++;
                 if (inst->m_disposed == inst->m_original_frame->tile_count) {
-                        if (inst->m_original_frame->dispose) {
-                                inst->m_original_frame->dispose(inst->m_original_frame);
-                        }
+                        VIDEO_FRAME_DISPOSE(inst->m_original_frame);
                         pthread_mutex_unlock(&inst->m_lock);
                         delete inst;
                 }
