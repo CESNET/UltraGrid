@@ -284,9 +284,8 @@ struct state_video_decoder
 
         // for statistics
         /// @{
-        unsigned long int   displayed;
-        unsigned long int   dropped;
-        unsigned long int   corrupted;
+        volatile unsigned long int displayed, dropped, corrupted, missing;
+        long int last_buffer_number;
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
 
@@ -486,8 +485,8 @@ static void *ldgm_thread(void *args) {
                                 }
                         }
                 } else { /* PT_VIDEO */
+                        bool corrupted_frame_counted = false;
                         for(int i = 0; i < (int) decoder->max_substreams; ++i) {
-                                bool corrupted_frame_counted = false;
                                 decompress_msg->buffer_len[i] = data->buffer_len[i];
                                 decompress_msg->decompress_buffer[i] = data->recv_buffers[i];
 
@@ -630,7 +629,8 @@ static void *decompress_thread(void *args) {
                         }
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
-                        if(ret == 0) {
+                        if (ret == 0) {
+                                decoder->displayed++;
                                 decoder->frame =
                                         display_get_frame(decoder->display);
                         } else {
@@ -699,6 +699,7 @@ struct state_video_decoder *video_decoder_init(struct module *parent,
         pthread_cond_init(&s->buffer_swapped_cv, NULL);
 
         s->buffer_swapped = true;
+        s->last_buffer_number = -1;
 
         if (encryption) {
                 if(openssl_decrypt_init(&s->decrypt,
@@ -774,7 +775,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
         assert(display != NULL);
         assert(decoder->display == NULL);
 
-        int ret, i;
+        int ret;
 
         decoder->display = display;
 
@@ -880,6 +881,12 @@ static void cleanup(struct state_video_decoder *decoder)
         }
 }
 
+#define PRINT_STATISTICS fprintf(stderr, "Video decoder statistics: %lu total: %lu displayed / %lu "\
+                                "dropped / %lu corrupted / %lu missing frames.\n",\
+                                decoder->displayed + decoder->dropped + decoder->missing, \
+                                decoder->displayed, decoder->dropped, decoder->corrupted,\
+                                decoder->missing);
+
 /**
  * @brief Destroys decoder created with decoder_init()
  * @param decoder decoder to be destroyed. If NULL, no action is performed.
@@ -905,8 +912,7 @@ void video_decoder_destroy(struct state_video_decoder *decoder)
         free(decoder->native_codecs);
         free(decoder->disp_supported_il);
 
-        fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
-                        decoder->displayed, decoder->dropped, decoder->corrupted);
+        PRINT_STATISTICS
 
         free(decoder);
 }
@@ -1786,17 +1792,19 @@ cleanup:
         }
 
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);
+        pbuf_data->decoded++;
 
-        if(ret) {
-                decoder->displayed++;
-                pbuf_data->decoded++;
-        } else {
-                decoder->dropped++;
+        /// @todo figure out multiple substreams
+        if (decoder->last_buffer_number != -1) {
+                long int missing = buffer_number -
+                        ((decoder->last_buffer_number + 1) & 0x3fffff);
+                missing = (missing + 0x3fffff) % 0x3fffff;
+                decoder->missing += missing;
         }
+        decoder->last_buffer_number = buffer_number;
 
         if(decoder->displayed % 600 == 599) {
-                fprintf(stderr, "Decoder statistics: %lu displayed frames / %lu frames dropped (%lu corrupted)\n",
-                                decoder->displayed, decoder->dropped, decoder->corrupted);
+                PRINT_STATISTICS
         }
 
         return ret;
