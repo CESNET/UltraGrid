@@ -226,6 +226,8 @@ static void sage_rxtx_send(void *state, struct video_frame *tx_frame)
         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                         tx_frame->tiles[0].data_len);
         display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
+
+        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 static void sage_rxtx_done(void *state)
@@ -252,6 +254,8 @@ static void h264_rtp_send(void *state, struct video_frame *tx_frame)
                                         data->network_devices[i]);
                 }
         }
+
+        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 static void h264_rtp_done(void *state)
