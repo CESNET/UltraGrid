@@ -128,7 +128,7 @@ static void sender_process_external_message(struct sender_data *data, struct msg
                             ret = rtp_change_dest(((struct ultragrid_rtp_state *)
                                                                             data->tx_module_state)->network_devices[0],
                                                                     msg->receiver);
-                        }else if(data->rxtx_protocol == H264_STD){
+                        } else { // if(data->rxtx_protocol == H264_STD) {
                             ret = rtp_change_dest(
                                     ((struct h264_rtp_state *) data->tx_module_state)->network_devices[0],
                                     msg->receiver);
