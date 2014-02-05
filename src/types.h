@@ -187,13 +187,17 @@ struct tile {
         unsigned int         offset;
 };
 
-/** Video Mode */
+/** Video Mode
+ *
+ * Video mode metadata are stored in file video.c in @ref video_mode_info.
+ */
 enum video_mode {
         VIDEO_UNKNOWN, ///< unspecified video mode
         VIDEO_NORMAL,  ///< normal video (one tile)
         VIDEO_DUAL,    ///< 1x2 video grid (is this ever used?)
         VIDEO_STEREO,  ///< stereoscopic 3D video (full left and right eye)
         VIDEO_4K,      ///< tiled 4K video
+        VIDEO_3X1,     ///< 3x1 video
 };
 
 enum tx_media_type {

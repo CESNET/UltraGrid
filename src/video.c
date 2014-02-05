@@ -47,6 +47,22 @@
 
 #include "video.h"
 
+typedef struct {
+        const char *name;
+        int x;
+        int y;
+} video_mode_info_t;
+
+const video_mode_info_t video_mode_info[]  = {
+        [VIDEO_UNKNOWN] = { "(unknown)", 0, 0 },
+        [VIDEO_NORMAL] = { "normal", 1, 1 },
+        [VIDEO_DUAL] = { "dual-link", 1, 2 },
+        [VIDEO_STEREO] = { "3D", 2, 1 },
+        [VIDEO_4K] = { "tiled-4k", 2, 2 },
+        [VIDEO_3X1] = { "3x1", 3, 1 },
+};
+const unsigned int video_mode_info_count = sizeof(video_mode_info) / sizeof(video_mode_info_t);
+
 /**
  * This function matches string representation of video mode with its
  * respective enumeration value.
@@ -56,71 +72,58 @@
  */
 enum video_mode get_video_mode_from_str(const char *requested_mode) {
         if(strcasecmp(requested_mode, "help") == 0) {
-                printf("Video mode options\n\n");
-                printf("-M {tiled-4K | 3D | dual-link }\n");
+                printf("Video mode options:\n\t-M {");
+                for (unsigned int i = 1 /* omit unknown */; i < video_mode_info_count;
+                                ++i) {
+                        printf(" %s ", video_mode_info[i].name);
+                        if (i < video_mode_info_count - 1) {
+                                printf("| ");
+                        }
+                }
+                printf("}\n");
                 return VIDEO_UNKNOWN;
-        } else if(strcasecmp(requested_mode, "tiled-4K") == 0) {
-                return VIDEO_4K;
-        } else if(strcasecmp(requested_mode, "3D") == 0) {
-                return VIDEO_STEREO;
-        } else if(strcasecmp(requested_mode, "dual-link") == 0) {
-                return VIDEO_DUAL;
         } else {
+                for (unsigned int i = 0; i < video_mode_info_count;
+                                ++i) {
+                        if (strcasecmp(requested_mode, video_mode_info[i].name) == 0) {
+                                return i;
+                        }
+                }
                 fprintf(stderr, "Unknown video mode (see -M help)\n");
                 return VIDEO_UNKNOWN;
         }
 }
 
-int get_video_mode_tiles_x(enum video_mode video_type)
+int get_video_mode_tiles_x(enum video_mode video_mode)
 {
-        int ret = 0;
-        switch(video_type) {
-                case VIDEO_NORMAL:
-                case VIDEO_DUAL:
-                        ret = 1;
-                        break;
-                case VIDEO_4K:
-                case VIDEO_STEREO:
-                        ret = 2;
-                        break;
-                case VIDEO_UNKNOWN:
-                        abort();
-        }
-        return ret;
+        return video_mode_info[video_mode].x;
 }
 
-int get_video_mode_tiles_y(enum video_mode video_type)
+int get_video_mode_tiles_y(enum video_mode video_mode)
 {
-        int ret = 0;
-        switch(video_type) {
-                case VIDEO_NORMAL:
-                case VIDEO_STEREO:
-                        ret = 1;
-                        break;
-                case VIDEO_4K:
-                case VIDEO_DUAL:
-                        ret = 2;
-                        break;
-                case VIDEO_UNKNOWN:
-                        abort();
-        }
-        return ret;
+        return video_mode_info[video_mode].y;
 }
 
 const char *get_video_mode_description(enum video_mode video_mode)
 {
-        switch (video_mode) {
-                case VIDEO_NORMAL:
-                        return "normal";
-                case VIDEO_STEREO:
-                        return "3D";
-                case VIDEO_4K:
-                        return "tiled 4K";
-                case VIDEO_DUAL:
-                        return "dual-link";
-                case VIDEO_UNKNOWN:
-                        abort();
+        return video_mode_info[video_mode].name;
+}
+
+enum video_mode guess_video_mode(int num_substreams)
+{
+        assert(num_substreams > 0);
+
+        switch (num_substreams) {
+                case 1:
+                        return VIDEO_NORMAL;
+                case 2:
+                        return VIDEO_STEREO;
+                case 3:
+                        return VIDEO_3X1;
+                case 4:
+                        return VIDEO_4K;
+                default:
+                        return VIDEO_UNKNOWN;
         }
-        return NULL;
 }
 

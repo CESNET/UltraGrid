@@ -1591,15 +1591,13 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                                         substream, decoder->max_substreams);
                         // the guess is valid - we start with highest substream number (anytime - since it holds a m-bit)
                         // in next iterations, index is valid
-                        if(substream == 1 || substream == 3) {
+                        enum video_mode video_mode =
+                                guess_video_mode(substream + 1);
+                        if (video_mode != VIDEO_UNKNOWN) {
                                 fprintf(stderr, "[decoder] Guessing mode: ");
-                                if(substream == 1) {
-                                        decoder_set_video_mode(decoder, VIDEO_STEREO);
-                                } else {
-                                        decoder_set_video_mode(decoder, VIDEO_4K);
-                                }
+                                decoder_set_video_mode(decoder, video_mode);
                                 decoder->received_vid_desc.width = 0; // just for sure, that we reconfigure in next iteration
-                                fprintf(stderr, "%s\n", get_video_mode_description(decoder->video_mode));
+                                fprintf(stderr, "%s. Check if it is correct.\n", get_video_mode_description(decoder->video_mode));
                         } else {
                                 exit_uv(1);
                         }
