@@ -86,7 +86,7 @@ static void vc_copylineToUYVY601(unsigned char *dst, const unsigned char *src, i
 const struct codec_info_t codec_info[] = {
         [VIDEO_CODEC_NONE] = {VIDEO_CODEC_NONE, "(none)", 0, 0, 0.0, 0, FALSE, FALSE, FALSE, NULL},
         [RGBA] = {RGBA, "RGBA", to_fourcc('R','G','B','A'), 1, 4.0, 4, TRUE, FALSE, FALSE, "rgba"},
-        [UYVY] = {UYVY, "UYVY", to_fourcc('y','u','v','2'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
+        [UYVY] = {UYVY, "UYVY", to_fourcc('U','Y','V','Y'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
         [YUYV] = {YUYV, "YUYV", to_fourcc('Y','U','Y','V'), 2, 2, 4, FALSE, FALSE, FALSE, "yuv"},
         [R10k] = {R10k, "R10k", to_fourcc('R','1','0','k'), 64, 4, 4, TRUE, FALSE, FALSE, "r10k"},
         [v210] = {v210, "v210", to_fourcc('v','2','1','0'), 48, 8.0 / 3.0, 16, FALSE, FALSE, FALSE, "v210"},
