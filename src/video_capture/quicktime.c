@@ -78,6 +78,8 @@ static struct {
                                                         // but codec with yuv2 FourCC
                                                         // is different (handled specially
                                                         // in this module)
+        {'y' << 24 | 'u' << 16 | 'v' << 8 | '2', UYVY},
+        {'y' << 24 | 'u' << 16 | 'V' << 8 | '2', UYVY},
         {'j' << 24 | 'p' << 16 | 'e' << 8 | 'g', MJPG},
         {'a' << 24 | 'v' << 16 | 'c' << 8 | '1', H264},
         {0, 0xffffffff}
