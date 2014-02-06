@@ -141,15 +141,14 @@ const struct alternate_fourcc fourcc_aliases[] = {
         {to_fourcc('A', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', 'A')},
         {to_fourcc('2', 'B', 'G', 'R'), to_fourcc('R', 'G', 'B', '2')},
         // following ones are rather for further compatibility (proposed codecs rename)
-        {to_fourcc('U', 'Y', 'V', 'Y'), to_fourcc('2', 'v', 'u', 'y')},
         {to_fourcc('M', 'J', 'P', 'G'), to_fourcc('J', 'P', 'E', 'G')},
 
-        {to_fourcc('D', 'V', 'S', '8'), to_fourcc('y', 'u', 'v', '2')},
-        {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('y', 'u', 'v', '2')},
-        {to_fourcc('2', 'v', 'u', 'y'), to_fourcc('y', 'u', 'v', '2')},
-        {to_fourcc('d', 'v', 's', '8'), to_fourcc('y', 'u', 'v', '2')},
-        {to_fourcc('d', 'v', 's', '8'), to_fourcc('y', 'u', 'v', '2')},
-        {to_fourcc('U', 'Y', 'V', 'Y'), to_fourcc('y', 'u', 'v', '2')},
+        {to_fourcc('2', 'V', 'u', 'y'), to_fourcc('U', 'Y', 'V', 'Y')},
+        {to_fourcc('2', 'v', 'u', 'y'), to_fourcc('U', 'Y', 'V', 'Y')},
+        {to_fourcc('d', 'v', 's', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
+        {to_fourcc('D', 'V', 'S', '8'), to_fourcc('U', 'Y', 'V', 'Y')},
+        {to_fourcc('y', 'u', 'v', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
+        {to_fourcc('y', 'u', 'V', '2'), to_fourcc('U', 'Y', 'V', 'Y')},
         {0,0}
 };
 
