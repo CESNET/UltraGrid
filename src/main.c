@@ -790,8 +790,6 @@ static void *capture_thread(void *arg)
 
         pthread_mutex_unlock(&uv->init_lock);
 
-        bool wait_for_cur_uncompressed_frame = false;
-
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 struct audio_frame *audio;
@@ -801,8 +799,7 @@ static void *capture_thread(void *arg)
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //tx_frame = vf_get_copy(tx_frame);
-                        bool should_wait_for_prev_frame =
-                                wait_for_cur_uncompressed_frame;
+                        bool wait_for_cur_uncompressed_frame;
                         if (!tx_frame->dispose) {
                                 tx_frame->dispose = uncompressed_frame_dispose;
                                 tx_frame->dispose_udata = wait_obj;
@@ -815,9 +812,14 @@ static void *capture_thread(void *arg)
                         // Sends frame to compression - this passes it to a sender thread
                         compress_frame(compression, tx_frame);
 
-                        // wait to frame is processed - eg by compress or sender (uncompressed video)
-                        if (should_wait_for_prev_frame)
+                        // wait for frame frame to be processed, eg. by compress
+                        // or sender (uncompressed video). Grab invalidates previous frame
+                        // (if not defined dispose function).
+                        if (wait_for_cur_uncompressed_frame) {
                                 wait_obj_wait(wait_obj);
+                                tx_frame->dispose = NULL;
+                                tx_frame->dispose_udata = NULL;
+                        }
                 }
         }
 
