@@ -150,7 +150,7 @@ struct audio_state {
 struct vidcap_import_state {
         struct audio_frame audio_frame;
         struct audio_state audio_state;
-        struct video_frame *frame;
+        struct video_desc video_desc;
         int frames;
         int frames_prev;
         struct timeval t0;
@@ -171,8 +171,6 @@ struct vidcap_import_state {
 
         struct timeval prev_time;
         int count;
-
-        struct processed_entry *to_be_freeed;
 
         bool finished;
         bool loop;
@@ -338,8 +336,6 @@ vidcap_import_init(const struct vidcap_params *params)
         pthread_cond_init(&s->worker_cv, NULL);
         pthread_cond_init(&s->boss_cv, NULL);
 
-        s->to_be_freeed = NULL;
-
         char *audio_filename = malloc(strlen(directory) + sizeof("/soud.wav") + 1);
         assert(audio_filename != NULL);
         strcpy(audio_filename, directory);
@@ -468,7 +464,7 @@ vidcap_import_init(const struct vidcap_params *params)
                 }
         }
 
-        s->frame = vf_alloc_desc(desc);
+        s->video_desc = desc;
 
         fclose(info);
 
@@ -497,7 +493,6 @@ error:
         if (info != NULL)
                 fclose(info);
         if (s) {
-                vf_free(s->frame);
                 free(s->directory);
                 free(s);
         }
@@ -600,9 +595,6 @@ void vidcap_import_done(void *state)
         vidcap_import_finish(state);
 
         flush_processed(s->head);
-
-        free_entry(s->to_be_freeed);
-        vf_free(s->frame);
 
         pthread_mutex_destroy(&s->lock);
         pthread_cond_destroy(&s->worker_cv);
@@ -725,7 +717,7 @@ static void process_msg(struct vidcap_import_state *s, char *message)
                         data->whence = IMPORT_SEEK_CUR;
                         if(strchr(time_spec, 's') != NULL) {
                                 double val = atof(time_spec);
-                                data->offset = val * s->frame->fps;
+                                data->offset = val * s->video_desc.fps;
                         } else {
                                 data->offset = atoi(time_spec);
                         }
@@ -733,7 +725,7 @@ static void process_msg(struct vidcap_import_state *s, char *message)
                         data->whence = IMPORT_SEEK_SET;
                         if(strchr(time_spec, 's') != NULL) {
                                 double val = atof(time_spec);
-                                data->offset = val * s->frame->fps;
+                                data->offset = val * s->video_desc.fps;
                         } else {
                                 data->offset = atoi(time_spec);
                         }
@@ -1124,11 +1116,11 @@ static void * reading_thread(void *args)
                         struct video_reader_data *data =
                                 &data_reader[i];
                         data->o_direct = s->o_direct;
-                        data->tile_count = s->frame->tile_count;
+                        data->tile_count = s->video_desc.tile_count;
                         snprintf(data->file_name_prefix, sizeof(data->file_name_prefix),
                                         "%s/%08d", s->directory, index + i);
                         strncpy(data->file_name_suffix,
-                                        get_codec_file_extension(s->frame->color_spec),
+                                        get_codec_file_extension(s->video_desc.color_spec),
                                         sizeof(data->file_name_suffix));
                         data->entry = NULL;
                         task_handle[i] = task_run_async(video_reader_callback, data);
@@ -1185,17 +1177,19 @@ static void reset_import(struct vidcap_import_state *s)
         }
 }
 
+static void vidcap_import_dispose_video_frame(struct video_frame *frame) {
+        free_entry(frame->dispose_udata);
+        vf_free(frame);
+}
+
 struct video_frame *
 vidcap_import_grab(void *state, struct audio_frame **audio)
 {
 	struct vidcap_import_state 	*s = (struct vidcap_import_state *) state;
         struct timeval cur_time;
+        struct video_frame *ret;
         
         struct processed_entry *current = NULL;
-
-        // free old data
-        free_entry(s->to_be_freeed);
-        s->to_be_freeed = NULL;
 
         pthread_mutex_lock(&s->lock);
         {
@@ -1215,7 +1209,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                         /* Convert from timeval to timespec */
                         ts.tv_sec  = tp.tv_sec;
                         ts.tv_nsec = tp.tv_usec * 1000;
-                        ts.tv_nsec += 2 * 1/s->frame->fps * 1000 * 1000 * 1000;
+                        ts.tv_nsec += 2 * 1/s->video_desc.fps * 1000 * 1000 * 1000;
                         // make it correct
                         ts.tv_sec += ts.tv_nsec / 1000000000;
                         ts.tv_nsec = ts.tv_nsec % 1000000000;
@@ -1238,13 +1232,14 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
                 if(s->worker_waiting)
                         pthread_cond_signal(&s->worker_cv);
 
-                for (unsigned int i = 0; i < s->frame->tile_count; ++i) {
-                        s->frame->tiles[i].data_len =
+                ret = vf_alloc_desc(s->video_desc);
+                ret->dispose = vidcap_import_dispose_video_frame;
+                ret->dispose_udata = current;
+                for (unsigned int i = 0; i < s->video_desc.tile_count; ++i) {
+                        ret->tiles[i].data_len =
                                 current->tiles[i].data_len;
-                        s->frame->tiles[i].data = current->tiles[i].data;
+                        ret->tiles[i].data = current->tiles[i].data;
                 }
-
-                s->to_be_freeed = current;
         }
         pthread_mutex_unlock(&s->lock);
 
@@ -1252,7 +1247,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
         // audio
         if(s->audio_state.has_audio) {
                 unsigned long long int requested_samples = (unsigned long long int) (s->frames + 1) *
-                        s->audio_frame.sample_rate / s->frame->fps - s->audio_state.played_samples;
+                        s->audio_frame.sample_rate / s->video_desc.fps - s->audio_state.played_samples;
                 if((int) (s->audio_state.played_samples + requested_samples) > s->audio_state.total_samples) {
                         requested_samples = s->audio_state.total_samples - s->audio_state.played_samples;
                 }
@@ -1284,7 +1279,7 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 
 
         gettimeofday(&cur_time, NULL);
-        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->frame->fps) {
+        while(tv_diff_usec(cur_time, s->prev_time) < 1000000.0 / s->video_desc.fps) {
                 gettimeofday(&cur_time, NULL);
         }
         //tv_add_usec(&s->prev_time, 1000000.0 / s->frame->fps);
@@ -1300,6 +1295,6 @@ vidcap_import_grab(void *state, struct audio_frame **audio)
 
         s->frames += 1;
 
-	return s->frame;
+	return ret;
 }
 
