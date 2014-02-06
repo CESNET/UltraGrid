@@ -495,14 +495,14 @@ static void *ldgm_thread(void *args) {
                                                         (unsigned int) data->buffer_num[i],
                                                         data->buffer_len[i],
                                                         (unsigned int) pc_count_bytes(data->pckt_list[i]));
-                                        if(!corrupted_frame_counted) {
-                                                corrupted_frame_counted = true;
-                                                decoder->corrupted++;
-                                        }
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                                 ret = FALSE;
                                                 verbose_msg("dropped.\n");
                                                 goto cleanup;
+                                        } else if (!corrupted_frame_counted) {
+                                                corrupted_frame_counted = true;
+                                                // count it here because decoder accepts corrupted frames
+                                                decoder->corrupted++;
                                         }
                                         verbose_msg("\n");
                                 }
