@@ -167,6 +167,15 @@ vidcap_deltacast_probe(void)
 class delta_init_exception {
 };
 
+#define DELTA_TRY_CMD(cmd, msg) \
+        do {\
+                Result = cmd;\
+                if (Result != VHDERR_NOERROR) {\
+                        fprintf(stderr, "[DELTACAST] " msg " Result = 0x%08X\n", Result);\
+                        throw delta_init_exception();\
+                }\
+        } while(0)
+
 /**
  * Function initialize is intended to be called repeatedly if no signal detected
  * in vidcap_deltacast_init(). This will be tried everytime grab is called and until
@@ -252,10 +261,13 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         }
 
         /* Configure stream */
-        VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_INTERFACE, Interface);
-        VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD, s->VideoStandard);
-        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,VHD_TRANSFER_SLAVED);
-
+        DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_SDI_SP_INTERFACE, Interface),
+                        "Unable to set interface.");
+        DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_SDI_SP_VIDEO_STANDARD, s->VideoStandard),
+                        "Unable to set video standard.");
+        DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_TRANSFER_SCHEME,
+                                VHD_TRANSFER_SLAVED),
+                        "Unable to set transfer scheme.");
 
         if(s->autodetect_format) {
                 Result = VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, &Packing);
