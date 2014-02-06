@@ -81,7 +81,6 @@
 #include "messaging.h"
 #include "perf.h"
 #include "rtp/ldgm.h"
-#include "rtp/pc.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -93,8 +92,10 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#include <map>
 #include <queue>
 
+using std::map;
 using std::queue;
 
 struct state_video_decoder;
@@ -117,6 +118,15 @@ static void *ldgm_thread(void *args);
 static void *decompress_thread(void *args);
 static void cleanup(struct state_video_decoder *decoder);
 static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc);
+
+static int sum_map(map<int, int> const & m) {
+        int ret = 0;
+        for (map<int, int>::const_iterator it = m.begin();
+                        it != m.end(); ++it) {
+                ret += it->second;
+        }
+        return ret;
+}
 
 namespace {
 /**
@@ -162,27 +172,23 @@ struct main_msg;
 
 // message definitions
 typedef char *char_p;
-typedef struct packet_counter *packet_counter_p;
 struct ldgm_msg : public msg {
         ldgm_msg(int count) : substream_count(count) {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
-                pckt_list = new packet_counter_p[count];
+                pckt_list = new map<int, int>[count];
         }
         ~ldgm_msg() {
                 delete buffer_len;
                 delete buffer_num;
                 delete recv_buffers;
-                for(int i = 0; i < substream_count; ++i) {
-                        pc_destroy(pckt_list[i]);
-                }
-                delete pckt_list;
+                delete [] pckt_list;
         }
         int *buffer_len;
         int *buffer_num;
         char **recv_buffers;
-        struct packet_counter **pckt_list;
+        map<int, int> *pckt_list;
         int pt;
         int k, m, c, seed;
         int substream_count;
@@ -368,7 +374,7 @@ static void *ldgm_thread(void *args) {
                                 char *ldgm_out_buffer = NULL;
                                 int ldgm_out_len = 0;
 
-                                ldgm_decoder_decode(fec_state.state, data->recv_buffers[pos],
+                                ldgm_decoder_decode_map(fec_state.state, data->recv_buffers[pos],
                                                 data->buffer_len[pos],
                                                 &ldgm_out_buffer, &ldgm_out_len, data->pckt_list[pos]);
 
@@ -490,11 +496,11 @@ static void *ldgm_thread(void *args) {
                                 decompress_msg->buffer_len[i] = data->buffer_len[i];
                                 decompress_msg->decompress_buffer[i] = data->recv_buffers[i];
 
-                                if (data->buffer_len[i] != (int) pc_count_bytes(data->pckt_list[i])) {
+                                if (data->buffer_len[i] != (int) sum_map(data->pckt_list[i])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u. ", i,
                                                         (unsigned int) data->buffer_num[i],
                                                         data->buffer_len[i],
-                                                        (unsigned int) pc_count_bytes(data->pckt_list[i]));
+                                                        (unsigned int) sum_map(data->pckt_list[i]));
                                         if(decoder->decoder_type == EXTERNAL_DECODER && !decoder->accepts_corrupted_frame) {
                                                 ret = FALSE;
                                                 verbose_msg("dropped.\n");
@@ -1502,15 +1508,15 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         uint32_t substream;
 
         int i;
-        struct packet_counter *pckt_list[decoder->max_substreams];
+        map<int, int> *pckt_list;
         uint32_t buffer_len[decoder->max_substreams];
         uint32_t buffer_num[decoder->max_substreams];
         // the following is just LDGM related optimalization - normally we fill up
         // allocated buffers when we have compressed data. But in case of LDGM, there
         // is just the LDGM buffer present, so we point to it instead to copying
         char *recv_buffers[decoder->max_substreams]; // for FEC or compressed data
+        pckt_list = new map<int, int>[decoder->max_substreams];
         for (i = 0; i < (int) decoder->max_substreams; ++i) {
-                pckt_list[i] = pc_create();
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
                 recv_buffers[i] = NULL;
@@ -1644,7 +1650,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         return FALSE;
                 }
 
-                pc_insert(pckt_list[substream], data_pos, len);
+                pckt_list[substream][data_pos] = len;
 
                 if (contained_pt == PT_VIDEO && decoder->decoder_type == LINE_DECODER) {
                         if(!buffer_swapped) {
@@ -1769,7 +1775,7 @@ next_packet:
         memcpy(ldgm_msg->buffer_len, buffer_len, sizeof(buffer_len));
         memcpy(ldgm_msg->buffer_num, buffer_num, sizeof(buffer_num));
         memcpy(ldgm_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
-        memcpy(ldgm_msg->pckt_list, pckt_list, sizeof(pckt_list));
+        ldgm_msg->pckt_list = pckt_list;
 
         if(decoder->ldgm_queue.size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
@@ -1779,14 +1785,16 @@ cleanup:
         ;
         unsigned int frame_size = 0;
 
-        for(i = 0; i < (int) (sizeof(pckt_list) / sizeof(struct packet_counter *)); ++i) {
-
+        for(i = 0; i < (int) decoder->max_substreams; ++i) {
                 if(ret != TRUE) {
                         free(recv_buffers[i]);
-                        pc_destroy(pckt_list[i]);
                 }
 
                 frame_size += buffer_len[i];
+        }
+
+        if(ret != TRUE) {
+                delete [] pckt_list;
         }
 
         pbuf_data->max_frame_size = max(pbuf_data->max_frame_size, frame_size);

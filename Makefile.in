@@ -58,7 +58,6 @@ OBJS	      = @OBJS@ \
 		src/rtp/audio_decoders.o \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
-		src/rtp/pc.o \
 		src/rtp/rtp.o \
 		src/rtp/rtp_callback.o \
 		src/rtp/video_decoders.o \
