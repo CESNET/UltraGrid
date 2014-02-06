@@ -105,7 +105,7 @@ static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
         int               i;
-        printf("-t deltacast[:<index>[:<mode>:<codec>]]\n");
+        printf("-t deltacast[:board=<index>][:mode=<mode>:codec=<codec>]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
@@ -338,7 +338,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
         s->tile = vf_get_tile(s->frame, 0);
         s->frames = 0;
         s->grab_audio = FALSE;
-        s->autodetect_format = FALSE;
+        s->autodetect_format = TRUE;
         s->frame->color_spec = UYVY;
         s->audio_frame.data = NULL;
 
@@ -354,21 +354,16 @@ vidcap_deltacast_init(const struct vidcap_params *params)
         {
                 char *save_ptr = NULL;
                 char *tok;
+                char *tmp = init_fmt;
 
-                tok = strtok_r(init_fmt, ":", &save_ptr);
-                if(!tok)
-                {
-                        fprintf(stderr, "Wrong configuration: "
-                                        "missing device index.\n");
-                        usage();
-                        goto error;
-                }
-                BrdId = atoi(tok);
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        s->VideoStandard = atoi(tok);
-                        tok = strtok_r(NULL, ":", &save_ptr);
-                        if(tok) {
+                while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                        if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                                BrdId = atoi(tok + strlen("board="));
+                        } else if (strncasecmp(tok, "mode=", strlen("mode=")) == 0) {
+                                s->VideoStandard = atoi(tok + strlen("mode="));
+                                s->autodetect_format = FALSE;
+                        } else if (strncasecmp(tok, "codec=", strlen("codec=")) == 0) {
+                                tok = tok + strlen("codec=");
                                 if(strcasecmp(tok, "raw") == 0)
                                         s->frame->color_spec = RAW;
                                 else if(strcmp(tok, "UYVY") == 0)
@@ -381,24 +376,15 @@ vidcap_deltacast_init(const struct vidcap_params *params)
                                         usage();
                                         goto error;
                                 }
-
                         } else {
-                                fprintf(stderr, "If you specify "
-                                                "video mode you have "
-                                                "to specify also "
-                                                "the codec.\n");
-                                usage();
+                                fprintf(stderr, "[DELTACAST] Wrong config option '%s'!\n", tok);
                                 goto error;
                         }
-                } else {
-                        s->autodetect_format = TRUE;
                 }
-        } else {
-                s->autodetect_format = TRUE;
-                BrdId = 0;
-                printf("[DELTACAST] Automatically choosen device nr. 0\n");
         }
         free(init_fmt);
+
+        printf("[DELTACAST] Selected device %d\n", BrdId);
 
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
