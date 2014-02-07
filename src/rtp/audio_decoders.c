@@ -60,6 +60,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "debug.h"
+#include "host.h"
 #include "perf.h"
 #include "tv.h"
 #include "rtp/rtp.h"
@@ -116,7 +117,7 @@ struct state_audio_decoder {
         struct audio_desc saved_desc;
         uint32_t saved_audio_tag;
 
-        int samples_decoded;
+        audio_frame2 *decoded; // for statistics
 
         struct openssl_decrypt *decrypt;
 };
@@ -190,6 +191,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
         s->audio_decompress = NULL;
 
         s->resampler = resampler_init(48000);
+        s->decoded = audio_frame2_init();
 
         if(encryption) {
 #ifdef HAVE_CRYPTO
@@ -254,7 +256,7 @@ void *audio_decoder_init(char *audio_channel_map, const char *audio_scale, const
                                 if(s->channel_map.map[src] == NULL) {
                                         s->channel_map.map[src] = (int *) malloc(1 * sizeof(int));
                                 } else {
-                                        s->channel_map.map[src] = realloc(s->channel_map.map[src], s->channel_map.sizes[src] * sizeof(int));
+                                        s->channel_map.map[src] = (int *) realloc(s->channel_map.map[src], s->channel_map.sizes[src] * sizeof(int));
                                 }
                                 s->channel_map.map[src][s->channel_map.sizes[src] - 1] = dst;
                         }
@@ -327,6 +329,7 @@ void audio_decoder_destroy(void *state)
         audio_frame2_free(s->received_frame);
         audio_codec_done(s->audio_decompress);
         resampler_done(s->resampler);
+        audio_frame2_free(s->decoded);
 
         openssl_decrypt_destroy(s->decrypt);
 
@@ -342,11 +345,9 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         int output_channels = 0;
         int bps, sample_rate, channel;
         static int prints = 0;
-        int ret = TRUE;
 
         if(!cdata) {
-                ret = FALSE;
-                goto cleanup;
+                return FALSE;
         }
 
         while (cdata != NULL) {
@@ -359,13 +360,13 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                         if(!decoder->decrypt) {
                                 fprintf(stderr, "Receiving encrypted audio data but "
                                                 "no decryption key entered!\n");
-                                ret = false; goto cleanup;
+                                return FALSE;
                         }
                 } else if(pt == PT_AUDIO) {
                         if(decoder->decrypt) {
                                 fprintf(stderr, "Receiving unencrypted audio data "
                                                 "while expecting encrypted.\n");
-                                ret = false; goto cleanup;
+                                return FALSE;
                         }
                 } else {
                         fprintf(stderr, "Unknown audio packet type: %d\n", pt);
@@ -390,8 +391,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                         plaintext
                                         )) == 0) {
                                 fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
-                                ret = false;
-                                goto cleanup;
+                                return FALSE;
                         }
                         data = plaintext;
                 }
@@ -498,8 +498,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
 
         audio_frame2 *decompressed = audio_codec_decompress(decoder->audio_decompress, decoder->received_frame);
         if(!decompressed) {
-                ret = false;
-                goto cleanup;
+                return FALSE;
         }
 
         audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
@@ -532,7 +531,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 }
         }
 
-        decoder->samples_decoded += decompressed->data_len[0] / decompressed->bps;
+        audio_frame2_append(decoder->decoded, resampled);
 
         double seconds;
         struct timeval t;
@@ -540,15 +539,19 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         gettimeofday(&t, 0);
         seconds = tv_diff(t, decoder->t0);
         if(seconds > 5.0) {
+                double rms, peak;
+                rms = calculate_rms(decoder->decoded, &peak);
                 int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
-                fprintf(stderr, "[Audio decoder] Received %u bytes (expected %dB), decoded %d samples in last %f seconds.\n",
+                fprintf(stderr, "[Audio decoder] Received %u bytes (expected %dB), "
+                                "decoded %d samples in last %f seconds.\n"
+                                "Volume %f dB RMS, %f dB peak.\n",
                                 bytes_received,
                                 packet_counter_get_all_bytes(decoder->packet_counter),
-                                decoder->samples_decoded,
-                                seconds);
+                                audio_frame2_get_sample_count(decoder->decoded),
+                                seconds, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
                 decoder->t0 = t;
                 packet_counter_clear(decoder->packet_counter);
-                decoder->samples_decoded = 0;
+                audio_frame2_reset(decoder->decoded);
         }
 
         if(!decoder->fixed_scale) {
@@ -560,8 +563,6 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 }
         }
         
-cleanup:
-
-        return ret;
+        return TRUE;
 }
 

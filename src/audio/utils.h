@@ -58,7 +58,11 @@ extern "C" {
 audio_frame2 *audio_frame2_init(void);
 void audio_frame2_allocate(audio_frame2 *, int nr_channels, int max_size);
 void audio_frame2_free(audio_frame2 *);
+void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src);
 void audio_frame_to_audio_frame2(audio_frame2 *, struct audio_frame *);
+int audio_frame2_get_sample_count(audio_frame2 *frame);
+void audio_frame2_reset(audio_frame2 *frame);
+double calculate_rms(audio_frame2 *frame, double *peak);
 
 bool audio_desc_eq(struct audio_desc, struct audio_desc);
 struct audio_desc audio_desc_from_audio_frame(struct audio_frame *);
