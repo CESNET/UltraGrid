@@ -78,7 +78,7 @@
                    // has to be divisor of AUDIO_SAMLE_RATE
 
 #define FREQUENCY 440
-#define DEFAULT_VOLUME 0.7
+#define DEFAULT_VOLUME 0.3
 
 enum which_sample {
         TONE,
