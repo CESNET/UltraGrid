@@ -402,6 +402,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
                                 fprintf(stderr, "[DELTACAST] Wrong config option '%s'!\n", tok);
                                 goto error;
                         }
+                        tmp = NULL;
                 }
         }
         free(init_fmt);
