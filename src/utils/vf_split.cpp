@@ -154,8 +154,9 @@ struct dispose_original_frame_udata {
                         VIDEO_FRAME_DISPOSE(inst->m_original_frame);
                         pthread_mutex_unlock(&inst->m_lock);
                         delete inst;
+                } else {
+                        pthread_mutex_unlock(&inst->m_lock);
                 }
-                pthread_mutex_unlock(&inst->m_lock);
         }
 
         pthread_mutex_t m_lock;
