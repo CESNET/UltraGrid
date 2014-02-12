@@ -83,14 +83,14 @@
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
 fprintf(stderr, "[rtsp error] curl_easy_setopt(%s, %s, %s) failed: %d\n", #A, #B, #C, res); \
 printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
-exit(0); \
+return NULL; \
 }
 
 #define my_curl_easy_perform(A) \
     if ((res = curl_easy_perform((A))) != CURLE_OK){ \
 fprintf(stderr, "[rtsp error] curl_easy_perform(%s) failed: %d\n", #A, res); \
 printf("[rtsp error] could not configure rtsp capture properly, \n\t\tplease check your parameters. \nExiting...\n\n"); \
-exit(0); \
+return NULL; \
 }
 
 /* send RTSP GET_PARAMETERS request */

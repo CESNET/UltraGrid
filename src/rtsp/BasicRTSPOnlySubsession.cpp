@@ -205,15 +205,13 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
     unsigned& rtpTimestamp,
     ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
     void* serverRequestAlternativeByteHandlerClientData) {
+    struct response *resp = NULL;
 
-    if ((Vdestination == NULL && Adestination == NULL)){
-        return;
-    } else{
-        struct response *resp = NULL;
-        char pathV[1024];
-        char pathA[1024];
+    if (Vdestination != NULL){
 
-        if(avType == 1 && Vdestination != NULL){
+        if(avType == 1){
+            char pathV[1024];
+
             memset(pathV, 0, sizeof(pathV));
             enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
             append_message_path(pathV, sizeof(pathV), path_sender);
@@ -237,7 +235,13 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
             resp = send_message(fmod, pathV, (struct message *) msgV2);
             resp = NULL;
         }
-        if(avType == 2 && Adestination != NULL){
+    }
+
+    if(Adestination != NULL){
+
+        if(avType == 2){
+            char pathA[1024];
+
             struct msg_sender *msg = (struct msg_sender *)
 	                                                        new_message(sizeof(struct msg_sender));
             memset(pathA, 0, sizeof(pathA));
@@ -267,13 +271,11 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
 }
 
 void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId, void*& streamToken){
-    if ((Vdestination == NULL && Adestination == NULL)){
-        return;
+    if (Vdestination == NULL){
+
     } else {
         char pathV[1024];
-        char pathA[1024];
         Vdestination = NULL;
-        Adestination = NULL;
 
         if(avType == 1 || Vdestination != NULL){
             memset(pathV, 0, sizeof(pathV));
@@ -295,6 +297,14 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId, void*& stre
             msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
             send_message(fmod, pathV, (struct message *) msgV2);
         }
+    }
+
+    if(Adestination == NULL){
+
+    } else {
+        char pathA[1024];
+        Adestination = NULL;
+
         if(avType == 2 || Adestination != NULL){
             memset(pathA, 0, sizeof(pathA));
             enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };

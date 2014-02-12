@@ -1280,6 +1280,7 @@ AC_SUBST(RTSP_OBJ)
 # -------------------------------------------------------------------------------------------------
 # -------------------------------------------------------------------------------------------------
 # RTSP server stuff
+# TODO: create pkg-config search path for liblivemedia-dev (create live555.pc file)
 # -------------------------------------------------------------------------------------------------
 RTSP_SERVER_INC=
 RTSP_SERVER_LIB=
@@ -1303,9 +1304,9 @@ case $host in
 		then
 			AC_DEFINE([HAVE_RTSP_SERVER], [1], [RTSP server build with live555 support])
 	        SAVED_CFLAGS=$CFLAGS
-	        CFLAGS="$CFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"
+	        CFLAGS="$CFLAGS -I/usr/local/include/groupsock -I/usr/local/include/liveMedia -I/usr/local/include/BasicUsageEnvironment -I/usr/local/include/UsageEnvironment"
 	        SAVED_CXXFLAGS=$CXXFLAGS
-	        CXXFLAGS="$CXXFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
+	        CXXFLAGS="$CXXFLAGS -I/usr/local/include/groupsock -I/usr/local/include/liveMedia -I/usr/local/include/BasicUsageEnvironment -I/usr/local/include/UsageEnvironment"	        
 			RTSP_SERVER_INC=
 			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
 			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"

@@ -140,9 +140,14 @@ static void sender_process_external_message(struct sender_data *data, struct msg
                         }
                         break;
                 case SENDER_MSG_CHANGE_PORT:
-                        ((struct ultragrid_rtp_state *)
-                         data->tx_module_state)->network_devices
+                        if(data->rxtx_protocol == ULTRAGRID_RTP){
+                            ((struct ultragrid_rtp_state *)data->tx_module_state)->network_devices
                                 = change_tx_port(data->uv, msg->port);
+                        }else if(data->rxtx_protocol == H264_STD){
+                            ((struct h264_rtp_state *)data->tx_module_state)->network_devices
+                                                        = change_tx_port(data->uv, msg->port);
+                        }
+
                         break;
                 case SENDER_MSG_PAUSE:
                         data->priv->paused = true;

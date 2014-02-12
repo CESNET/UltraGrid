@@ -92,6 +92,11 @@ int decode_frame_h264(struct coded_data *cdata, void *rx_data) {
             type = nal & 0x1f;
             nri = nal & 0x60;
 
+            //TODO CHECK WxH! AND REFACTOR TYPE CHECKING
+//            if (type == 7){
+//                fill_coded_frame_from_sps(frame, (unsigned char*) pckt->data, &pckt->data_len);
+//            }
+
             if (type >= 1 && type <= 23) {
                 if (buffers->bframe && !(type == 1 && nri == 0)){
                     buffers->bframe = FALSE;
