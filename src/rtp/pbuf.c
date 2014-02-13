@@ -84,6 +84,7 @@ struct pbuf_node {
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
         uint32_t magic;         /* For debugging                         */
+        bool completed;
 };
 
 struct pbuf {
@@ -215,6 +216,7 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay
         tmp = malloc(sizeof(struct pbuf_node));
         if (tmp != NULL) {
                 tmp->magic = PBUF_MAGIC;
+                tmp->completed = false;
                 tmp->nxt = NULL;
                 tmp->prv = NULL;
                 tmp->decoded = 0;
@@ -301,6 +303,7 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                         tmp = create_new_pnode(pkt, playout_buf->playout_delay,
                                         playout_buf->deletion_delay);
                         playout_buf->last->nxt = tmp;
+                        playout_buf->last->completed = true;
                         tmp->prv = playout_buf->last;
                         playout_buf->last = tmp;
                 } else {
@@ -386,7 +389,7 @@ static int frame_complete(struct pbuf_node *frame)
         /* the packtes of a frame being present - perhaps we should  */
         /* keep a bit vector in pbuf_node? LG.  */
 
-        return (frame->mbit == 1);
+        return (frame->completed == true);
 }
 
 int pbuf_is_empty(struct pbuf *playout_buf)
@@ -448,7 +451,8 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                 UNUSED(curr_time);
                 if (!curr->decoded // && tv_gt(curr_time, curr->playout_time)
                                 ) {
-                        if (frame_complete(curr)) {
+                        //if (frame_complete(curr)) {
+                        if (curr->mbit == 1) {
                                 int ret = decode_func(curr->cdata, data);
                                 curr->decoded = 1;
                                 return ret;
