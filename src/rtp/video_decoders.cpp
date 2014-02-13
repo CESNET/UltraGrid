@@ -291,6 +291,7 @@ struct state_video_decoder
         // for statistics
         /// @{
         volatile unsigned long int displayed, dropped, corrupted, missing;
+        volatile unsigned long int ldgm_ok, ldgm_nok;
         long int last_buffer_number;
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
@@ -378,11 +379,20 @@ static void *ldgm_thread(void *args) {
                                                 data->buffer_len[pos],
                                                 &ldgm_out_buffer, &ldgm_out_len, data->pckt_list[pos]);
 
+                                if (data->buffer_len[pos] != (int) sum_map(data->pckt_list[pos])) {
+                                        verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
+                                                        (unsigned int) data->buffer_num[pos],
+                                                        data->buffer_len[pos],
+                                                        (unsigned int) sum_map(data->pckt_list[pos]));
+                                }
+
                                 if(ldgm_out_len == 0) {
                                         ret = FALSE;
                                         fprintf(stderr, "[decoder] LDGM: unable to reconstruct data.\n");
+                                        decoder->ldgm_nok += 1;
                                         goto cleanup;
                                 }
+                                decoder->ldgm_ok += 1;
 
                                 uint32_t ldgm_pt;
                                 char *ldgm_hdr = ldgm_out_buffer;
@@ -602,7 +612,7 @@ static void *decompress_thread(void *args) {
                         }
 
                         for (i = 1; i < decoder->pp_output_frames_count; ++i) {
-                                display_put_frame(decoder->display, decoder->frame, PUTF_BLOCKING);
+                                display_put_frame(decoder->display, decoder->frame, PUTF_NONBLOCK);
                                 decoder->frame = display_get_frame(decoder->display);
                                 pp_ret = vo_postprocess(decoder->postprocess,
                                                 NULL,
@@ -628,11 +638,7 @@ static void *decompress_thread(void *args) {
                 }
 
                 {
-                        int putf_flags = 0;
-
-                        if(is_codec_interframe(decoder->received_vid_desc.color_spec)) {
-                                putf_flags = PUTF_NONBLOCK;
-                        }
+                        int putf_flags = PUTF_NONBLOCK;
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -888,10 +894,10 @@ static void cleanup(struct state_video_decoder *decoder)
 }
 
 #define PRINT_STATISTICS fprintf(stderr, "Video decoder statistics: %lu total: %lu displayed / %lu "\
-                                "dropped / %lu corrupted / %lu missing frames.\n",\
+                                "dropped / %lu corrupted / %lu missing frames. LDGM OK/NOK: %ld/%ld\n",\
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
-                                decoder->missing);
+                                decoder->missing, decoder->ldgm_ok, decoder->ldgm_nok);
 
 /**
  * @brief Destroys decoder created with decoder_init()
