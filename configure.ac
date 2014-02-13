@@ -1742,7 +1742,7 @@ then
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
-        LIB_HEADERS="$RTDXT_COMMON_HEADERS"
+        LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
         DEFINE_GL
 fi
 
@@ -2576,18 +2576,18 @@ if test "$build_libraries" != yes
 then
         LIBS="$LIBS $LIB_MODULES"
         OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
-        HEADERS="$HEADERS $LIB_HEADERS"
+        HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
-        LIB_HEADERS=
+        LIB_GENERATED_HEADERS=
 fi
 
 AC_SUBST(LIB_SUPPORT_OBJ)
 
 AC_SUBST(LIB_OBJS)
 AC_SUBST(LIB_TARGETS)
-AC_SUBST(HEADERS)
-AC_SUBST(LIB_HEADERS)
+AC_SUBST(GENERATED_HEADERS)
+AC_SUBST(LIB_GENERATED_HEADERS)
 
 # -------------------------------------------------------------------------------------------------
 # Import control - keyboard
