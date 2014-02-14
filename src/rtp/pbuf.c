@@ -389,7 +389,7 @@ static int frame_complete(struct pbuf_node *frame)
         /* the packtes of a frame being present - perhaps we should  */
         /* keep a bit vector in pbuf_node? LG.  */
 
-        return (frame->completed == true);
+        return (frame->mbit == 1 || frame->completed == true);
 }
 
 int pbuf_is_empty(struct pbuf *playout_buf)
@@ -451,8 +451,7 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                 UNUSED(curr_time);
                 if (!curr->decoded // && tv_gt(curr_time, curr->playout_time)
                                 ) {
-                        //if (frame_complete(curr)) {
-                        if (curr->mbit == 1) {
+                        if (frame_complete(curr)) {
                                 int ret = decode_func(curr->cdata, data);
                                 curr->decoded = 1;
                                 return ret;
