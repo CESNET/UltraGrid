@@ -81,6 +81,8 @@ int BasicRTSPOnlyServer::init_server() {
     if (env != NULL || rtspServer != NULL || mod == NULL || (avType > 2 && avType < 0)){
         exit(1);
     }
+    //setting livenessTimeoutTask
+    unsigned reclamationTestSeconds = 25;
 
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
@@ -98,7 +100,7 @@ int BasicRTSPOnlyServer::init_server() {
         fPort = 8554;
     }
 
-    rtspServer = RTSPServer::createNew(*env, fPort, authDB);
+    rtspServer = RTSPServer::createNew(*env, fPort, authDB, reclamationTestSeconds);
     if (rtspServer == NULL) {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
         exit(1);
