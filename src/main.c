@@ -1434,7 +1434,8 @@ int main(int argc, char *argv[])
                                 uint8_t avType;
                                 if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
                                 else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
-                                else avType = 1; //VStream
+                                else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = 1; //VStream
+                                else printf("[RTSP SERVER] no stream type... check capture devices input\n");
                                 rtsp_server = init_rtsp_server(0, &root_mod, avType); //port, root_module, avType
                                 c_start_server(rtsp_server);
                         #endif
