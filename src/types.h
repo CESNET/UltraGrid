@@ -113,6 +113,12 @@ struct video_desc {
         unsigned int         tile_count;
 };
 
+typedef enum h264_frame_type {
+    INTRA,
+    BFRAME,
+    OTHER
+} h264_frame_type_t;
+
 /**
  * @brief Struct video_frame represents a video frame and contains video description.
  */
@@ -156,11 +162,21 @@ struct video_frame {
 
         //standard transport
         uint8_t isStd;
-        //h264_params
-        uint8_t h264_bframe;
-        uint8_t h264_iframe;
-        int h264_width;
-        int h264_height;
+        //H264 Standard transport
+            // Config
+        unsigned int h264_width;
+        unsigned int h264_height;
+        codec_t codec;
+            // Data
+        unsigned char *h264_buffer;
+        unsigned int h264_buffer_len;
+        unsigned int h264_offset_len;
+        unsigned char *h264_offset_buffer;
+            // Stats
+        unsigned int h264_media_time;
+        unsigned int h264_seqno;
+            // Control
+        h264_frame_type_t h264_frame_type;
 };
 
 /**
