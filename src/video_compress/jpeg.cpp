@@ -77,7 +77,7 @@ struct state_video_compress_jpeg {
 static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame);
 static void cleanup_state(struct state_video_compress_jpeg *s);
 static struct response *compress_change_callback(struct module *mod, struct message *msg);
-static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt);
+static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt);
 static void jpeg_compress_done(struct module *mod);
 
 static int configure_with(struct state_video_compress_jpeg *s, struct video_frame *frame)
@@ -231,22 +231,33 @@ static struct response *compress_change_callback(struct module *mod, struct mess
         return ret;
 }
 
-static void parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
+static bool parse_fmt(struct state_video_compress_jpeg *s, char *fmt)
 {
         if(fmt && fmt[0] != '\0') {
                 char *tok, *save_ptr = NULL;
                 gpujpeg_set_default_parameters(&s->encoder_param);
                 tok = strtok_r(fmt, ":", &save_ptr);
                 s->encoder_param.quality = atoi(tok);
+                if (s->encoder_param.quality <= 0 || s->encoder_param.quality > 100) {
+                        fprintf(stderr, "[JPEG] Error: Quality should be in interval (0-100]!\n");
+                        return false;
+                }
+
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {
                         s->restart_interval = atoi(tok);
+                        if (s->restart_interval < 0) {
+                                fprintf(stderr, "[JPEG] Error: Restart interval should be non-negative!\n");
+                                return false;
+                        }
                 }
                 tok = strtok_r(NULL, ":", &save_ptr);
                 if(tok) {
                         fprintf(stderr, "[JPEG] WARNING: Trailing configuration parameters.\n");
                 }
         }
+
+        return true;
 }
 
 struct module * jpeg_compress_init(struct module *parent, const struct video_compress_params *params)
@@ -275,7 +286,9 @@ struct module * jpeg_compress_init(struct module *parent, const struct video_com
 
         if(opts && opts[0] != '\0') {
                 char *fmt = strdup(opts);
-                parse_fmt(s, fmt);
+                if (!parse_fmt(s, fmt)) {
+                        return NULL;
+                }
                 free(fmt);
         } else {
                 printf("[JPEG] setting default encode parameters (quality: %d)\n",
