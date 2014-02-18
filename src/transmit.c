@@ -605,14 +605,6 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
                                   rtp_hdr, rtp_hdr_len,
                                   data, data_len, 0, 0, 0);
-                        if(m && tx->fec_scheme != FEC_NONE) {
-                                int i;
-                                for(i = 0; i < 5; ++i) {
-                                        rtp_send_data_hdr(rtp_session, ts, pt, m, 0, 0,
-                                                  rtp_hdr, rtp_hdr_len,
-                                                  data, data_len, 0, 0, 0);
-                                }
-                        }
                 }
 
                 if(tx->fec_scheme == FEC_MULT) {
