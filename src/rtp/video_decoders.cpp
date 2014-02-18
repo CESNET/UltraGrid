@@ -1757,6 +1757,13 @@ next_packet:
                 cdata = cdata->nxt;
         }
 
+        // hereafter, display framebuffer can be used, so we
+        // check if we got it
+        if (decoder->frame == NULL && contained_pt == PT_VIDEO) {
+                ret = FALSE;
+                goto cleanup;
+        }
+
         if(!pckt) {
                 ret = FALSE;
                 goto cleanup;
