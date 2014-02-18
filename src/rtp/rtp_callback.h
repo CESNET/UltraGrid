@@ -50,6 +50,7 @@
 #define PT_VIDEO_LDGM   22
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
+#define PT_ENCRYPT_VIDEO_LDGM 26
 #define PT_H264 96
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
@@ -102,8 +103,6 @@ typedef uint32_t video_payload_hdr_t[6];
  * bits 0 - 31 AudioTag
  */
 typedef uint32_t audio_payload_hdr_t[5];
-
-typedef uint32_t ldgm_payload_hdr_t;
 
 /*
  * LDGM video payload
