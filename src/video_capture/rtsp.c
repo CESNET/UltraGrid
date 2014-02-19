@@ -315,7 +315,7 @@ vidcap_rtsp_thread(void *arg) {
                             if (pbuf_decode(s->vrtsp_state->cp->playout_buffer, s->vrtsp_state->curr_time,
                                 decode_frame_h264, s->vrtsp_state->frame))
                             {
-                                s->vrtsp_state->new_frame = true;
+                                 s->vrtsp_state->new_frame = true;
                             }
                             if (s->vrtsp_state->boss_waiting)
                                 pthread_cond_signal(&s->vrtsp_state->boss_cv);
@@ -338,6 +338,12 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) state;
 
+
+    //TODO FREEEEEEE
+    char * tmp = malloc(1920*1080*6);
+
+
+
     *audio = NULL;
 
     if(pthread_mutex_trylock(&s->vrtsp_state->lock)==0){
@@ -356,7 +362,20 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             s->vrtsp_state->frame->tiles[0].data = s->vrtsp_state->frame->h264_buffer;
 
             if(s->vrtsp_state->frame->h264_offset_len>0 && s->vrtsp_state->frame->h264_frame_type == INTRA){
-                memcpy(s->vrtsp_state->frame->tiles[0].data, s->vrtsp_state->frame->h264_offset_buffer, s->vrtsp_state->frame->h264_offset_len);
+                if(s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len] == 0 &&
+                    s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len+1] == 0 &&
+                    s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len+2] == 0 &&
+                    s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len+3] == 1 ){
+
+                    memcpy(tmp, s->vrtsp_state->frame->tiles[0].data+4,s->vrtsp_state->frame->tiles[0].data_len-4);
+                    memcpy(tmp, s->vrtsp_state->frame->h264_offset_buffer, s->vrtsp_state->frame->h264_offset_len-4);
+                    s->vrtsp_state->frame->tiles[0].data_len-=4;
+                    memcpy(s->vrtsp_state->frame->tiles[0].data, tmp, s->vrtsp_state->frame->tiles[0].data_len);
+
+                }
+                else{
+                    memcpy(s->vrtsp_state->frame->tiles[0].data, s->vrtsp_state->frame->h264_offset_buffer, s->vrtsp_state->frame->h264_offset_len);
+                }
             }
 
             if (s->vrtsp_state->decompress) {
@@ -383,6 +402,8 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                 pthread_cond_signal(&s->vrtsp_state->worker_cv);
             }
         }
+
+
         pthread_mutex_unlock(&s->vrtsp_state->lock);
 
         gettimeofday(&s->vrtsp_state->t, NULL);

@@ -956,6 +956,7 @@ static void tx_send_base_h264(struct tx *tx, struct tile *tile, struct rtp *rtp_
 
         int fragmentation = 0;
         int nal_max_size = tx->mtu - 40;
+
         if (nal.size > nal_max_size) {
             debug_msg("RTP packet size exceeds the MTU size\n");
             fragmentation = 1;
