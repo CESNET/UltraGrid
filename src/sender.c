@@ -157,19 +157,12 @@ bool sender_init(struct sender_data *data) {
         data->priv = calloc(1, sizeof(struct sender_priv_data));
         pthread_mutex_init(&data->priv->lock, NULL);
 
-        // we lock and thread unlocks after initialized
-        pthread_mutex_lock(&data->priv->lock);
-
         if (pthread_create
                         (&data->priv->thread_id, NULL, sender_thread,
                          (void *) data) != 0) {
                 perror("Unable to create sender thread!\n");
                 return false;
         }
-
-        // this construct forces waiting for thread inititialization
-        pthread_mutex_lock(&data->priv->lock);
-        pthread_mutex_unlock(&data->priv->lock);
 
         return true;
 }
@@ -277,8 +270,6 @@ static void *sender_thread(void *arg) {
         data->priv->mod.cls = MODULE_CLASS_SENDER;
         data->priv->mod.priv_data = data;
         module_register(&data->priv->mod, data->parent);
-
-        pthread_mutex_unlock(&data->priv->lock);
 
         struct module *control_mod = get_module(get_root_module(&data->priv->mod), "control");
         struct stats *stat_data_sent = stats_new_statistics((struct control_state *)

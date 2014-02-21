@@ -180,8 +180,6 @@ struct state_uv {
         const char *requested_encryption;
 
         struct module receiver_mod;
-
-        pthread_mutex_t init_lock;
 };
 
 static int exit_status = EXIT_SUCCESS;
@@ -763,7 +761,6 @@ static void *capture_thread(void *arg)
                 if(ret > 0) {
                         exit_uv(0);
                 }
-                pthread_mutex_unlock(&uv->init_lock);
                 goto compress_done;
         }
 
@@ -783,11 +780,8 @@ static void *capture_thread(void *arg)
         if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
                 exit_uv(1);
-                pthread_mutex_unlock(&uv->init_lock);
                 goto compress_done;
         }
-
-        pthread_mutex_unlock(&uv->init_lock);
 
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
@@ -1575,18 +1569,13 @@ int main(int argc, char *argv[])
         }
 
         if(uv->mode & MODE_SENDER) {
-                pthread_mutex_lock(&uv->init_lock);
                 if (pthread_create
                                 (&tx_thread_id, NULL, capture_thread,
                                  (void *) &root_mod) != 0) {
                         perror("Unable to create capture thread!\n");
-						pthread_mutex_unlock(&uv->init_lock);
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
                 } else {
-                        // wait for sender module initialization
-                        pthread_mutex_lock(&uv->init_lock);
-                        pthread_mutex_unlock(&uv->init_lock);
                         tx_thread_started = true;
                 }
         }
@@ -1655,7 +1644,6 @@ cleanup:
         if(rtsp_server) c_stop_server(rtsp_server);
 #endif
         module_done(&root_mod);
-        pthread_mutex_destroy(&uv->init_lock);
         free(uv);
 
 #if defined DEBUG && defined HAVE_LINUX
