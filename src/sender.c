@@ -283,7 +283,6 @@ static void *sender_thread(void *arg) {
         struct module *control_mod = get_module(get_root_module(&data->priv->mod), "control");
         struct stats *stat_data_sent = stats_new_statistics((struct control_state *)
                         control_mod, "data");
-        unlock_module(control_mod);
 
         while(1) {
                 // process external messages

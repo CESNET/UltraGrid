@@ -66,6 +66,7 @@ void module_init_default(struct module *module_data)
 
         module_data->childs = simple_linked_list_init();
         module_data->msg_queue = simple_linked_list_init();
+        module_data->msg_queue_childs = simple_linked_list_init();
 
         module_data->magic = MODULE_MAGIC;
 }
@@ -76,6 +77,7 @@ void module_register(struct module *module_data, struct module *parent)
                 module_data->parent = parent;
                 pthread_mutex_lock(&module_data->parent->lock);
                 simple_linked_list_append(module_data->parent->childs, module_data);
+                module_check_undelivered_messages(module_data->parent);
                 pthread_mutex_unlock(&module_data->parent->lock);
         }
 }
@@ -118,6 +120,8 @@ void module_done(struct module *module_data)
                 fprintf(stderr, "Warning: Message queue not empty!\n");
         }
         simple_linked_list_destroy(tmp.msg_queue);
+
+        simple_linked_list_destroy(tmp.msg_queue_childs);
 }
 
 const char *module_class_name_pairs[] = {
@@ -197,17 +201,17 @@ struct module *get_module(struct module *root, const char *const_path)
 
         assert(root != NULL);
 
-        pthread_mutex_lock(&receiver->lock);
+        pthread_mutex_lock(&root->lock);
 
         tmp = path = strdup(const_path);
         while ((item = strtok_r(path, ".", &save_ptr))) {
                 struct module *old_receiver = receiver;
-                int index;
-                get_receiver_index(item, &index);
-                receiver = find_child(receiver, item, index);
-                if(!receiver) {
+
+                receiver = get_matching_child(receiver, path);
+
+                if (!receiver) {
                         pthread_mutex_unlock(&old_receiver->lock);
-                        break;
+                        return NULL;
                 }
                 pthread_mutex_lock(&receiver->lock);
                 pthread_mutex_unlock(&old_receiver->lock);
@@ -217,7 +221,33 @@ struct module *get_module(struct module *root, const char *const_path)
         }
         free(tmp);
 
+        pthread_mutex_unlock(&receiver->lock);
+
         return receiver;
+}
+
+struct module *get_matching_child(struct module *node, const char *const_path)
+{
+        struct module *receiver = node;
+        char *path, *tmp;
+        char *item, *save_ptr;
+
+        assert(node != NULL);
+
+        tmp = path = strdup(const_path);
+        if ((item = strtok_r(path, ".", &save_ptr))) {
+                int index;
+                get_receiver_index(item, &index);
+                receiver = find_child(receiver, item, index);
+                if (!receiver) {
+                        free(tmp);
+                        return NULL;
+                }
+                free(tmp);
+                return receiver;
+        }
+
+        return NULL;
 }
 
 void dump_tree(struct module *node, int indent) {
@@ -229,10 +259,5 @@ void dump_tree(struct module *node, int indent) {
                 struct module *child = simple_linked_list_it_next(&it);
                 dump_tree(child, indent + 2);
         }
-}
-
-void unlock_module(struct module *module)
-{
-        pthread_mutex_unlock(&module->lock);
 }
 

@@ -585,7 +585,6 @@ void *ultragrid_rtp_receiver_thread(void *arg)
         fr = 1;
 
         struct module *control_mod = get_module(get_root_module(uv->root_module), "control");
-        unlock_module(control_mod);
         struct stats *stat_loss = stats_new_statistics(
                         (struct control_state *) control_mod,
                         "loss");
