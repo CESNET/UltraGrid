@@ -55,6 +55,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PORT_AUDIO              5006
 
 #define MAX_AUDIO_CHANNELS      8
@@ -142,16 +146,9 @@ int audio_reconfigure(struct state_audio *s, int quant_samples, int channels,
 
 unsigned int audio_get_display_flags(struct state_audio *s);
 
-/**
- * Changes bps for everey sample.
- * 
- * The memory areas shouldn't (supposedly) overlap.
- */
-void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */);
+#ifdef __cplusplus
+}
+#endif
 
-/**
- * Makes n copies of first channel (interleaved).
- */
-void audio_frame_multiply_channel(struct audio_frame *frame, int new_channel_count);
 
 #endif

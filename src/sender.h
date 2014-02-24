@@ -66,6 +66,10 @@
 
 #include "video.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct tx;
 struct rtp;
 struct display;
@@ -127,6 +131,10 @@ struct h264_rtp_state {
 
 bool sender_init(struct sender_data *data);
 void sender_done(struct sender_data *data);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SENDER_H_
 

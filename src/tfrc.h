@@ -43,6 +43,10 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct tfrc;
 
 struct tfrc *tfrc_init(struct timeval curr_time);
@@ -52,4 +56,8 @@ void         tfrc_recv_data      (struct tfrc *state, struct timeval curr_time, 
 void         tfrc_recv_rtt       (struct tfrc *state, struct timeval curr_time, uint32_t rtt);
 double       tfrc_feedback_txrate(struct tfrc *state, struct timeval curr_time);
 int          tfrc_feedback_is_due(struct tfrc *state, struct timeval curr_time);
+
+#ifdef __cplusplus
+}
+#endif
 

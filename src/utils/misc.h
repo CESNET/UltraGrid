@@ -38,7 +38,15 @@
 #ifndef UTILS_MISC_H_
 #define UTILS_MISC_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int64_t unit_evaluate(const char *str);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif// UTILS_MISC_H_
 

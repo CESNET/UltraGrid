@@ -46,6 +46,10 @@
 #include "config_win32.h"
 #endif // HAVE_CONFIG_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define RTP_VERSION 2
 #define RTP_PACKET_HEADER_SIZE	((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
 #define RTP_MAX_PACKET_LEN 9000
@@ -286,4 +290,9 @@ void             rtp_flush_recv_buf(struct rtp *session);
 int              rtp_change_dest(struct rtp *session, const char *addr);
 uint64_t         rtp_get_bytes_sent(struct rtp *session);
 int              rtp_compute_fract_lost(struct rtp *session, uint32_t ssrc);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* __RTP_H__ */

@@ -60,6 +60,10 @@
 #include "audio/audio.h"
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct module;
 struct rtp;
 struct tx;
@@ -77,6 +81,10 @@ struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type 
                 char *fec, const char *encryption);
 
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // TRANSMIT_H_
 

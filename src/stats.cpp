@@ -47,7 +47,7 @@ struct stats {
                 platform_spin_t m_spin;
 };
 
-struct stats *stats_new_statistics(struct control_state *control, char * name)
+struct stats *stats_new_statistics(struct control_state *control, const char * name)
 {
         return new stats(string(name), control);
 }

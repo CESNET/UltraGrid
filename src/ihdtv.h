@@ -62,6 +62,10 @@
 #include "video_capture.h"
 #include "video_display.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct ihdtv_state;
 struct video_frame;
 struct rx_tx;
@@ -70,6 +74,10 @@ extern struct rx_tx ihdtv_rxtx;
 
 struct ihdtv_state *initialize_ihdtv(struct vidcap *capture_device, struct display *display_device,
                 int requested_mtu, int argc, char **argv);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // IHDTV_H_
 

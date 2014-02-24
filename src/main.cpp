@@ -409,7 +409,7 @@ static struct rtp **initialize_network(const char *addrs, int recv_port_base,
 
 		devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
-                                rtp_recv_callback, (void *)participants,
+                                rtp_recv_callback, (uint8_t *)participants,
                                 use_ipv6);
 		if (devices[index] != NULL) {
 			rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
@@ -455,7 +455,7 @@ void destroy_rtp_devices(struct rtp ** network_devices)
 }
 
 static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
-        struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
+        struct vcodec_state *state = (struct vcodec_state *) calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
                 state->decoder = video_decoder_init(&uv->receiver_mod, uv->decoder_mode,
@@ -476,7 +476,7 @@ static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
 }
 
 static void destroy_video_decoder(void *state) {
-        struct vcodec_state *video_decoder_state = state;
+        struct vcodec_state *video_decoder_state = (struct vcodec_state *) state;
 
         if(!video_decoder_state) {
                 return;
@@ -650,7 +650,7 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                 ((struct vcodec_state*) cp->decoder_state)->display = uv->display_device;
                         }
 
-                        struct vcodec_state *vdecoder_state = cp->decoder_state;
+                        struct vcodec_state *vdecoder_state = (struct vcodec_state *) cp->decoder_state;
 
                         /* Decode and render video... */
                         if (pbuf_decode
@@ -749,6 +749,7 @@ static void *capture_thread(void *arg)
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
         struct sender_data sender_data;
+        struct wait_obj *wait_obj;
         memset(&sender_data, 0, sizeof(sender_data));
 
         struct compress_state *compression = NULL;
@@ -772,10 +773,7 @@ static void *capture_thread(void *arg)
         sender_data.video_exporter = uv->video_exporter;
         sender_data.compression = compression;
 
-        // The magic here with wait_objs is a workaround until all capture
-        // drivers implement a dispose function. Until that, it is supposed
-        // that every vidcap_grab call invalidates previous captured frame.
-        struct wait_obj *wait_obj = wait_obj_init();
+        wait_obj = wait_obj_init();
 
         if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
@@ -922,6 +920,7 @@ int main(int argc, char *argv[])
         unsigned display_flags = 0;
         int compressed_audio_sample_rate = 48000;
         int ret;
+        struct vidcap_params *audio_cap_dev;
 
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
@@ -1347,7 +1346,7 @@ int main(int argc, char *argv[])
 
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
-        struct vidcap_params *audio_cap_dev = vidcap_params_get_nth(
+        audio_cap_dev = vidcap_params_get_nth(
                         vidcap_params_head,
                         audio_capture_get_vidcap_index(audio_send));
         if (audio_cap_dev != NULL) {
