@@ -216,7 +216,7 @@ static void *writer(void *arg)
                 return NULL;
             }
             for (i = 0; i < s->host_count; i++) {
-                if(s->replicas[i].sock != -1) {
+                if(s->replicas[i].type == USE_SOCK) {
                     replica_write(&s->replicas[i],
                             s->qhead->buf, s->qhead->size);
                 }
