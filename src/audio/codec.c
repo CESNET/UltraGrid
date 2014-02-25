@@ -114,6 +114,9 @@ struct audio_codec_state {
 };
 
 void list_audio_codecs(void) {
+        printf("Syntax:\n");
+        printf("\t--audio-codec <audio_codec>[:<sampling_rate>]\n");
+        printf("\n");
         printf("Supported audio codecs:\n");
         for(int i = 0; i < audio_codec_info_len; ++i) {
                 if(i != AC_NONE) {
