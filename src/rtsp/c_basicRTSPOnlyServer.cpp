@@ -57,7 +57,7 @@ int c_start_server(rtsp_serv_t* server){
     return ret;
 }
 
-rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, uint8_t avType){
+rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType){
     rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
     server->port = port;
     server->mod = mod;

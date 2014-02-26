@@ -553,10 +553,56 @@ static void *audio_receiver_thread(void *arg)
                         }
                         pdb_iter_done(&it);
                 }else if(s->receiver == NET_STANDARD){
-                //TODO receive mulaw standard RTP (decode frame mulaw callback)
+                //TODO now expecting to receive mulaw standard RTP (decode frame mulaw callback) , next steps, to be dynamic...
+                    gettimeofday(&curr_time, NULL);
+                    ts = tv_diff(curr_time, s->start_time) * 90000;
+                    rtp_update(s->audio_network_device, curr_time);
+                    rtp_send_ctrl(s->audio_network_device, ts, 0, curr_time);
+                    timeout.tv_sec = 0;
+                    timeout.tv_usec = 999999 / 59.94; /* audio goes almost always at the same rate
+                                                                                 as video frames */
+                    rtp_recv_r(s->audio_network_device, &timeout, ts);
+                    pdb_iter_t it;
+                    cp = pdb_iter_init(s->audio_participants, &it);
 
+                    while (cp != NULL) {
+                        if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame_mulaw, &pbuf_data)) {
+                            bool failed = false;
+                            if(s->echo_state) {
+#ifdef HAVE_SPEEX
+echo_play(s->echo_state, &pbuf_data.buffer);
+#endif
+                            }
 
+                            struct audio_desc curr_desc;
+                            curr_desc = audio_desc_from_audio_frame(&pbuf_data.buffer);
 
+                            if(!audio_desc_eq(device_desc, curr_desc)) {
+                                if(audio_reconfigure(s, curr_desc.bps * 8,
+                                    curr_desc.ch_count,
+                                    curr_desc.sample_rate) != TRUE) {
+                                    fprintf(stderr, "Audio reconfiguration failed!");
+                                    failed = true;
+                                }
+                                else {
+                                    fprintf(stderr, "Audio reconfiguration succeeded.");
+                                    device_desc = curr_desc;
+                                    rtp_flush_recv_buf(s->audio_network_device);
+                                }
+                                fprintf(stderr, " (%d channels, %d bps, %d Hz)\n",
+                                    curr_desc.ch_count,
+                                    curr_desc.bps, curr_desc.sample_rate);
+
+                            }
+
+                            if(!failed)
+                                audio_playback_put_frame(s->audio_playback_device, &pbuf_data.buffer);
+                        }
+
+                        pbuf_remove(cp->playout_buffer, curr_time);
+                        cp = pdb_iter_next(&it);
+                    }
+                    pdb_iter_done(&it);
                 }else { /* NET_JACK */
 #ifdef HAVE_JACK_TRANS
                         jack_receive(s->jack_connection, &pbuf_data);

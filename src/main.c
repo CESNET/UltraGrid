@@ -1431,10 +1431,10 @@ int main(int argc, char *argv[])
                         for(item = uv->network_devices; *item != NULL; ++item){
                                 ++uv->connections_count;
                         #ifdef HAVE_RTSP_SERVER
-                                uint8_t avType;
-                                if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
-                                else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
-                                else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = 1; //VStream
+                                rtps_types_t avType;
+                                if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = avStdDyn; //AVStream
+                                else if((strcmp("none",audio_send) != 0)) avType = audioPCMUdyn; //AStream
+                                else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = videoH264; //VStream
                                 else printf("[RTSP SERVER] no stream type... check capture devices input\n");
                                 rtsp_server = init_rtsp_server(0, &root_mod, avType); //port, root_module, avType
                                 c_start_server(rtsp_server);

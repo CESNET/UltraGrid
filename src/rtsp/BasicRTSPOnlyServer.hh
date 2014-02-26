@@ -47,16 +47,17 @@
 
 #include <RTSPServer.hh>
 #include <BasicUsageEnvironment.hh>
+#include "rtsp/rtsp_utils.h"
 #include "module.h"
 
 
 
 class BasicRTSPOnlyServer {
 private:
-    BasicRTSPOnlyServer(int port, struct module *mod, uint8_t avType);
+    BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType);
 
 public:
-    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, uint8_t avType);
+    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, rtps_types_t avType);
     static BasicRTSPOnlyServer* getInstance();
 
     int init_server();
@@ -70,7 +71,7 @@ private:
     static BasicRTSPOnlyServer* srvInstance;
     int fPort;
     struct module *mod;
-    uint8_t avType;
+    rtps_types_t avType;
     RTSPServer* rtspServer;
     UsageEnvironment* env;
 };
