@@ -156,6 +156,7 @@ struct tx {
         platform_spin_t spin;
 
         struct openssl_encrypt *encryption;
+        long packet_rate;
 };
 
 // Mulaw audio memory reservation
@@ -205,7 +206,7 @@ static void tx_update(struct tx *tx, struct tile *tile)
 }
 
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption)
+                char *fec, const char *encryption, long packet_rate)
 {
         struct tx *tx;
 
@@ -241,6 +242,8 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         }
                 }
 
+                tx->packet_rate = packet_rate;
+
                 platform_spin_init(&tx->spin);
 
                 module_register(&tx->mod, parent);
@@ -249,9 +252,9 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 }
 
 struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption)
+                char *fec, const char *encryption, long packet_rate)
 {
-  return tx_init(parent, mtu, media_type, fec, encryption);
+  return tx_init(parent, mtu, media_type, fec, encryption, packet_rate);
 }
 
 static struct response *fec_change_callback(struct module *mod, struct message *msg)
@@ -602,7 +605,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         GET_DELTA;
                         if (delta < 0)
                                 delta += 1000000000L;
-                } while (packet_rate - delta > 0);
+                } while (tx->packet_rate - delta > 0);
 
                 /* when trippling, we need all streams goes to end */
                 if(tx->fec_scheme == FEC_MULT) {
@@ -735,7 +738,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 GET_DELTA;
                                 if (delta < 0)
                                         delta += 1000000000L;
-                        } while (packet_rate - delta > 0);
+                        } while (tx->packet_rate - delta > 0);
 
                         /* when trippling, we need all streams goes to end */
                         if(tx->fec_scheme == FEC_MULT) {

@@ -197,7 +197,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 char *jack_cfg, char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if, audio_codec_t audio_codec,
-                int resample_to, bool isStd)
+                int resample_to, bool isStd, long packet_rate)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -290,7 +290,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption);
+        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;

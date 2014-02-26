@@ -921,6 +921,7 @@ int main(int argc, char *argv[])
         int compressed_audio_sample_rate = 48000;
         int ret;
         struct vidcap_params *audio_cap_dev;
+        long packet_rate;
 
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
@@ -1276,6 +1277,16 @@ int main(int argc, char *argv[])
                 return EXIT_FAIL_USAGE;
         }
 
+        if(bitrate == 0) { // else packet_rate defaults to 13600 or so
+                bitrate = DEFAULT_BITRATE;
+        }
+
+        if(bitrate != -1) {
+                packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+        } else {
+                packet_rate = 0;
+        }
+
         if (argc == 0) {
                 uv->requested_receiver = "localhost";
         } else {
@@ -1318,7 +1329,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, uv->requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, uv->ipv6, uv->requested_mcast_if,
-                        audio_codec, compressed_audio_sample_rate, isStd);
+                        audio_codec, compressed_audio_sample_rate, isStd, packet_rate);
         free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;
@@ -1442,21 +1453,10 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if (bitrate == 0) { // else packet_rate defaults to 13600 or so
-                        bitrate = DEFAULT_BITRATE;
-                }
-
-                if (bitrate != -1) { // -1 means unlimited
-                        packet_rate = 1000 * 1000 * 1000 *
-                                uv->requested_mtu * 8 / bitrate;
-                } else {
-                        packet_rate = 0;
-                }
-
                 if ((h264_rtp.tx = tx_init(&root_mod,
                                                 uv->requested_mtu, TX_MEDIA_VIDEO,
                                                 NULL,
-                                                NULL)) == NULL) {
+                                                NULL, packet_rate)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup;
@@ -1484,20 +1484,10 @@ int main(int argc, char *argv[])
                                 ++uv->connections_count;
                 }
 
-                if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                        bitrate = DEFAULT_BITRATE;
-                }
-
-                if(bitrate != -1) {
-                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
-                } else {
-                        packet_rate = 0;
-                }
-
                 if ((ug_rtp.tx = tx_init(&root_mod,
                                                 uv->requested_mtu, TX_MEDIA_VIDEO,
                                                 requested_video_fec,
-                                                uv->requested_encryption)) == NULL) {
+                                                uv->requested_encryption, packet_rate)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup;
