@@ -258,7 +258,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
 
         s->audio_coder = audio_codec_init(audio_codec, AUDIO_CODER);
         if(!s->audio_coder) {
-                return NULL;
+                goto error;
         }
 
         if(export_dir) {
@@ -276,11 +276,11 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                                 "in UltraGrid.\nPlease write to %s "
                                 "if you wish to use this feature.\n",
                                 PACKAGE_BUGREPORT);
-                return NULL;
+                goto error;
 #else
                 fprintf(stderr, "Speex not compiled in. Could not enable echo cancellation.\n");
                 free(s);
-                return NULL;
+                goto error;
 #endif /* HAVE_SPEEX */
         } else {
                 s->echo_state = NULL;
@@ -414,6 +414,14 @@ error:
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
+
+        if (s->audio_sender_module.cls != 0) {
+                module_done(&s->audio_sender_module);
+        }
+        if (s->mod.cls != 0) {
+                module_done(&s->mod);
+        }
+
         audio_codec_done(s->audio_coder);
         free(s);
         exit_uv(1);
@@ -440,7 +448,7 @@ void audio_done(struct state_audio *s)
                 audio_playback_done(s->audio_playback_device);
                 audio_capture_done(s->audio_capture_device);
                 module_done(CAST_MODULE(s->tx_session));
-                module_done(CAST_MODULE(&s->audio_sender_module));
+                module_done(&s->audio_sender_module);
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
                 if(s->audio_participants) {
