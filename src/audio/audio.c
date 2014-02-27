@@ -596,7 +596,7 @@ struct state_resample {
         SpeexResamplerState *resampler;
         int resample_from, resample_ch_count;
         int resample_to;
-        const int *codec_supported_bytes_per_second;
+        const int *codec_supported_bytes_per_sample;
 };
 
 static void resample(struct state_resample *s, struct audio_frame *buffer);
@@ -619,14 +619,14 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 {
         memcpy(&s->resampled, buffer, sizeof(struct audio_frame));
 
-        if(s->resample_from == s->resample_to && s->codec_supported_bytes_per_second == NULL) {
+        if(s->resample_from == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
                 s->resampled.data = malloc(buffer->data_len);
                 memcpy(s->resampled.data, buffer->data, buffer->data_len);
         } else {
                 /**
                  * @todo 2 is suitable only for Libavcodec
                  */
-                assert(set_contains(s->codec_supported_bytes_per_second, 2));
+                assert(set_contains(s->codec_supported_bytes_per_sample, 2));
                 uint32_t write_frames = 2 * (buffer->data_len / buffer->ch_count / buffer->bps);
                 s->resampled.data = malloc(write_frames * 2 * buffer->ch_count);
                 if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {
@@ -698,7 +698,7 @@ static void *audio_sender_thread(void *arg)
         memset(&resample_state, 0, sizeof(resample_state));
         resample_state.resample_to = s->resample_to;
         resample_state.resample_buffer = malloc(1024 * 1024);
-        resample_state.codec_supported_bytes_per_second =
+        resample_state.codec_supported_bytes_per_sample =
                 audio_codec_get_supported_bps(s->audio_coder);
         
         printf("Audio sending started.\n");
