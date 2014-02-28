@@ -1083,8 +1083,8 @@ int main(int argc, char *argv[])
                                         free(requested_audio_fec);
                                         requested_audio_fec = strdup(optarg + 2);
                                 } else {
-                                        free(requested_audio_fec);
-                                        requested_audio_fec = strdup(optarg + 2);
+                                        free(requested_video_fec);
+                                        requested_video_fec = strdup(optarg + 2);
                                 }
                         } else {
                                 // there should be setting for both audio and video
