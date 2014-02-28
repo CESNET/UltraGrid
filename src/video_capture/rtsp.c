@@ -77,9 +77,9 @@
 #define VERSION_STR  "V1.0"
 
 //TODO set lower initial video recv buffer size (to find the minimal?)
-#define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*1920*1080)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 #define DEFAULT_VIDEO_FRAME_WIDTH 1920
 #define DEFAULT_VIDEO_FRAME_HEIGHT 1080
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*DEFAULT_VIDEO_FRAME_WIDTH*DEFAULT_VIDEO_FRAME_HEIGHT)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C) \
@@ -285,6 +285,7 @@ keep_alive_thread(void *arg){
         rtsp_keepalive_video(s);
     }
 }
+
 int decode_frame_by_pt(struct coded_data *cdata, void *decode_data) {
     rtp_packet *pckt = NULL;
     pckt = cdata->data;
@@ -292,8 +293,6 @@ int decode_frame_by_pt(struct coded_data *cdata, void *decode_data) {
     switch(pckt->pt){
         case PT_H264:
             return decode_frame_h264(cdata,decode_data);
-        case PT_VIDEO:
-            return decode_video_frame(cdata,decode_data);
         default:
             error_msg("Wrong Payload type: %u\n", pckt->pt);
             return FALSE;
