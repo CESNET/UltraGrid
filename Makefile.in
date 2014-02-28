@@ -145,7 +145,10 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/matrix-gen/matrix-generator.o \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 
-ULTRAGRID_OBJS = src/main.o src/sender.o \
+ULTRAGRID_OBJS = src/main.o \
+		 src/video_rxtx.o \
+		 src/video_rxtx/rtp.o \
+		 src/video_rxtx/ultragrid_rtp.o
 
 REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \

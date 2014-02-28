@@ -1,5 +1,5 @@
 /*
- * FILE:    main.c
+ * FILE:    main.cpp
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -71,27 +71,16 @@
 #include "messaging.h"
 #include "module.h"
 #include "perf.h"
-#include "rtp/video_decoders.h"
-#include "rtp/rtp.h"
-#include "rtp/rtp_callback.h"
-#include "rtp/pbuf.h"
-#include "sender.h"
 #include "stats.h"
 #include "utils/misc.h"
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
 #include "video_display.h"
-#include "video_display/sdl.h"
 #include "video_compress.h"
-#include "video_decompress.h"
 #include "video_export.h"
-#include "pdb.h"
-#include "tv.h"
-#include "transmit.h"
-#include "tfrc.h"
+#include "video_rxtx/ultragrid_rtp.h"
 #include "ihdtv.h"
-#include "compat/platform_semaphore.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/codec.h"
@@ -133,53 +122,17 @@
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
 
-#ifdef HAVE_MACOSX
-#define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
-#else
-#define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
-#endif
-
-#define MODE_SENDER   1
-#define MODE_RECEIVER 2
-
 #define MAX_CAPTURE_COUNT 17
 
 struct state_uv {
-        int recv_port_number;
-        int send_port_number;
-        struct rtp **network_devices; // ULTRAGRID_RTP
-        unsigned int connections_count;
-
-        struct rx_tx *rxtx;
-        void *rxtx_state;
-
-        int mode; // MODE_SENDER, MODE_RECEIVER or both
-        
         struct vidcap *capture_device;
-        struct timeval start_time;
-        struct pdb *participants;
-
-        enum video_mode decoder_mode;
-        char *postprocess;
-
-        uint32_t ts;
         struct display *display_device;
-        char *requested_compression;
-        const char *requested_display;
-        const char *requested_receiver;
-        bool ipv6;
-        const char *requested_mcast_if;
-        unsigned requested_mtu;
 
         struct state_audio *audio;
 
-        struct video_export *video_exporter;
-
         struct module *root_module;
 
-        const char *requested_encryption;
-
-        struct module receiver_mod;
+        video_rxtx *video_rxtx;
 };
 
 static int exit_status = EXIT_SUCCESS;
@@ -192,8 +145,6 @@ static struct state_uv *uv_state;
 //
 static void list_video_display_devices(void);
 static void list_video_capture_devices(void);
-static void display_buf_increase_warning(int size);
-static void remove_display_from_decoders(struct state_uv *uv);
 static void init_root_module(struct module *mod, struct state_uv *uv);
 
 static void signal_handler(int signal)
@@ -346,392 +297,6 @@ static void list_video_capture_devices()
         vidcap_free_devices();
 }
 
-static void display_buf_increase_warning(int size)
-{
-        fprintf(stderr, "\n***\n"
-                        "Unable to set buffer size to %d B.\n"
-                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
-                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
-#ifdef HAVE_MACOSX
-                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
-                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
-#else
-                        "\tsysctl -w net.core.rmem_max=%d\n"
-#endif
-                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
-                        "\n***\n\n",
-                        size, size,
-#ifdef HAVE_MACOSX
-                        size * 4,
-#endif /* HAVE_MACOSX */
-                        size);
-
-}
-
-static struct rtp **initialize_network(const char *addrs, int recv_port_base,
-                int send_port_base, struct pdb *participants, bool use_ipv6,
-                const char *mcast_if)
-{
-	struct rtp **devices = NULL;
-        double rtcp_bw = 5 * 1024 * 1024;       /* FIXME */
-	int ttl = 255;
-	char *saveptr = NULL;
-	char *addr;
-	char *tmp;
-	int required_connections, index;
-        int recv_port = recv_port_base;
-        int send_port = send_port_base;
-
-	tmp = strdup(addrs);
-	if(strtok_r(tmp, ",", &saveptr) == NULL) {
-		free(tmp);
-		return NULL;
-	}
-	else required_connections = 1;
-	while(strtok_r(NULL, ",", &saveptr) != NULL)
-		++required_connections;
-
-	free(tmp);
-	tmp = strdup(addrs);
-
-	devices = (struct rtp **)
-		malloc((required_connections + 1) * sizeof(struct rtp *));
-
-	for(index = 0, addr = strtok_r(tmp, ",", &saveptr);
-		index < required_connections;
-		++index, addr = strtok_r(NULL, ",", &saveptr), recv_port += 2, send_port += 2)
-	{
-                /* port + 2 is reserved for audio */
-                if (recv_port == recv_port_base + 2)
-                        recv_port += 2;
-                if (send_port == send_port_base + 2)
-                        send_port += 2;
-
-		devices[index] = rtp_init_if(addr, mcast_if, recv_port,
-                                send_port, ttl, rtcp_bw, FALSE,
-                                rtp_recv_callback, (uint8_t *)participants,
-                                use_ipv6);
-		if (devices[index] != NULL) {
-			rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
-				TRUE);
-			rtp_set_sdes(devices[index], rtp_my_ssrc(devices[index]),
-				RTCP_SDES_TOOL,
-				PACKAGE_STRING, strlen(PACKAGE_STRING));
-
-                        int size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
-                        int ret = rtp_set_recv_buf(devices[index], INITIAL_VIDEO_RECV_BUFFER_SIZE);
-                        if(!ret) {
-                                display_buf_increase_warning(size);
-                        }
-
-                        rtp_set_send_buf(devices[index], 1024 * 56);
-
-			pdb_add(participants, rtp_my_ssrc(devices[index]));
-		}
-		else {
-			int index_nest;
-			for(index_nest = 0; index_nest < index; ++index_nest) {
-				rtp_done(devices[index_nest]);
-			}
-			free(devices);
-			devices = NULL;
-		}
-	}
-	if(devices != NULL) devices[index] = NULL;
-	free(tmp);
-
-        return devices;
-}
-
-void destroy_rtp_devices(struct rtp ** network_devices)
-{
-	struct rtp ** current = network_devices;
-        if(!network_devices)
-                return;
-	while(*current != NULL) {
-		rtp_done(*current++);
-	}
-	free(network_devices);
-}
-
-static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
-        struct vcodec_state *state = (struct vcodec_state *) calloc(1, sizeof(struct vcodec_state));
-
-        if(state) {
-                state->decoder = video_decoder_init(&uv->receiver_mod, uv->decoder_mode,
-                                uv->postprocess, uv->display_device,
-                                uv->requested_encryption);
-
-                if(!state->decoder) {
-                        fprintf(stderr, "Error initializing decoder (incorrect '-M' or '-p' option?).\n");
-                        free(state);
-                        exit_uv(1);
-                        return NULL;
-                } else {
-                        //decoder_register_display(state->decoder, uv->display_device);
-                }
-        }
-
-        return state;
-}
-
-static void destroy_video_decoder(void *state) {
-        struct vcodec_state *video_decoder_state = (struct vcodec_state *) state;
-
-        if(!video_decoder_state) {
-                return;
-        }
-
-        video_decoder_destroy(video_decoder_state->decoder);
-
-        free(video_decoder_state);
-}
-
-/**
- * Removes display from decoders and effectively kills them. They cannot be used
- * until new display assigned.
- */
-static void remove_display_from_decoders(struct state_uv *uv) {
-        if (uv->participants != NULL) {
-                pdb_iter_t it;
-                struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
-                while (cp != NULL) {
-                        if(cp->decoder_state)
-                                video_decoder_remove_display(
-                                                ((struct vcodec_state*) cp->decoder_state)->decoder);
-                        cp = pdb_iter_next(&it);
-                }
-                pdb_iter_done(&it);
-        }
-}
-
-static void receiver_process_messages(struct state_uv *uv, struct module *receiver_mod)
-{
-        struct msg_receiver *msg;
-        while ((msg = (struct msg_receiver *) check_message(receiver_mod))) {
-                switch (msg->type) {
-                case RECEIVER_MSG_CHANGE_RX_PORT:
-                        assert(uv->mode == MODE_RECEIVER); // receiver only
-                        destroy_rtp_devices(uv->network_devices);
-                        uv->recv_port_number = msg->new_rx_port;
-                        uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
-                                        uv->send_port_number, uv->participants, uv->ipv6,
-                                        uv->requested_mcast_if);
-                        if (!uv->network_devices) {
-                                fprintf(stderr, "Changing RX port failed!\n");
-                                abort();
-                        }
-                        break;
-                case RECEIVER_MSG_VIDEO_PROP_CHANGED:
-                        {
-                                pdb_iter_t it;
-                                /// @todo should be set only to relevant participant, not all
-                                struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
-                                while (cp) {
-                                        pbuf_set_playout_delay(cp->playout_buffer,
-                                                        1.0 / msg->new_desc.fps,
-                                                        1.0 / msg->new_desc.fps *
-                                                        (is_codec_interframe(msg->new_desc.color_spec) ? 2.2 : 1.2)
-                                                        );
-
-                                        cp = pdb_iter_next(&it);
-                                }
-                        }
-                        break;
-                }
-
-                free_message((struct message *) msg);
-        }
-}
-
-struct rtp **change_tx_port(struct state_uv *uv, int tx_port)
-{
-        destroy_rtp_devices(uv->network_devices);
-        uv->send_port_number = tx_port;
-        uv->network_devices = initialize_network(uv->requested_receiver, uv->recv_port_number,
-                        uv->send_port_number, uv->participants, uv->ipv6,
-                        uv->requested_mcast_if);
-        if (!uv->network_devices) {
-                fprintf(stderr, "Changing RX port failed!\n");
-                abort();
-        }
-        return uv->network_devices;
-}
-
-void *ultragrid_rtp_receiver_thread(void *arg)
-{
-        struct state_uv *uv = (struct state_uv *)arg;
-
-        struct pdb_e *cp;
-        struct timeval curr_time;
-        int fr;
-        int ret;
-        unsigned int tiles_post = 0;
-        struct timeval last_tile_received = {0, 0};
-        int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
-#ifdef SHARED_DECODER
-        struct vcodec_state *shared_decoder = new_decoder(uv);
-        if(shared_decoder == NULL) {
-                fprintf(stderr, "Unable to create decoder!\n");
-                exit_uv(1);
-                return NULL;
-        }
-#endif // SHARED_DECODER
-
-        initialize_video_decompress();
-
-        fr = 1;
-
-        struct module *control_mod = get_module(get_root_module(uv->root_module), "control");
-        struct stats *stat_loss = stats_new_statistics(
-                        (struct control_state *) control_mod,
-                        "loss");
-        struct stats *stat_received = stats_new_statistics(
-                        (struct control_state *) control_mod,
-                        "received");
-        uint64_t total_received = 0ull;
-
-        while (!should_exit_receiver) {
-                struct timeval timeout;
-                /* Housekeeping and RTCP... */
-                gettimeofday(&curr_time, NULL);
-                uv->ts = tv_diff(curr_time, uv->start_time) * 90000;
-                rtp_update(uv->network_devices[0], curr_time);
-                rtp_send_ctrl(uv->network_devices[0], uv->ts, 0, curr_time);
-
-                /* Receive packets from the network... The timeout is adjusted */
-                /* to match the video capture rate, so the transmitter works.  */
-                if (fr) {
-                        gettimeofday(&curr_time, NULL);
-                        receiver_process_messages(uv, &uv->receiver_mod);
-                        fr = 0;
-                }
-
-                timeout.tv_sec = 0;
-                //timeout.tv_usec = 999999 / 59.94;
-                timeout.tv_usec = 10000;
-                ret = rtp_recv_poll_r(uv->network_devices, &timeout, uv->ts);
-
-                // timeout
-                if (ret == FALSE) {
-                        // processing is needed here in case we are not receiving any data
-                        receiver_process_messages(uv, &uv->receiver_mod);
-                        //printf("Failed to receive data\n");
-                }
-                total_received += ret;
-                stats_update_int(stat_received, total_received);
-
-                /* Decode and render for each participant in the conference... */
-                pdb_iter_t it;
-                cp = pdb_iter_init(uv->participants, &it);
-                while (cp != NULL) {
-                        if (tfrc_feedback_is_due(cp->tfrc_state, curr_time)) {
-                                debug_msg("tfrc rate %f\n",
-                                          tfrc_feedback_txrate(cp->tfrc_state,
-                                                               curr_time));
-                        }
-
-                        if(cp->decoder_state == NULL &&
-                                        !pbuf_is_empty(cp->playout_buffer)) { // the second check is needed because we want to assign display to participant that really sends data
-#ifdef SHARED_DECODER
-                                cp->decoder_state = shared_decoder;
-#else
-                                // we are assigning our display so we make sure it is removed from other dispaly
-                                remove_display_from_decoders(uv);
-                                cp->decoder_state = new_video_decoder(uv);
-                                cp->decoder_state_deleter = destroy_video_decoder;
-#endif // SHARED_DECODER
-                                if(cp->decoder_state == NULL) {
-                                        fprintf(stderr, "Fatal: unable to find decoder state for "
-                                                        "participant %u.\n", cp->ssrc);
-                                        exit_uv(1);
-                                        break;
-                                }
-                                ((struct vcodec_state*) cp->decoder_state)->display = uv->display_device;
-                        }
-
-                        struct vcodec_state *vdecoder_state = (struct vcodec_state *) cp->decoder_state;
-
-                        /* Decode and render video... */
-                        if (pbuf_decode
-                            (cp->playout_buffer, curr_time, decode_video_frame, vdecoder_state)) {
-                                tiles_post++;
-                                /* we have data from all connections we need */
-                                if(tiles_post == uv->connections_count)
-                                {
-                                        tiles_post = 0;
-                                        gettimeofday(&curr_time, NULL);
-                                        fr = 1;
-#if 0
-                                        display_put_frame(uv->display_device,
-                                                          cp->video_decoder_state->frame_buffer);
-                                        cp->video_decoder_state->frame_buffer =
-                                            display_get_frame(uv->display_device);
-#endif
-                                }
-                                last_tile_received = curr_time;
-                                uint32_t sender_ssrc = cp->ssrc;
-                                stats_update_int(stat_loss,
-                                                rtp_compute_fract_lost(uv->network_devices[0],
-                                                        sender_ssrc));
-                        }
-
-                        /* dual-link TIMEOUT - we won't wait for next tiles */
-                        if(tiles_post > 1 && tv_diff(curr_time, last_tile_received) >
-                                        999999 / 59.94 / uv->connections_count) {
-                                tiles_post = 0;
-                                gettimeofday(&curr_time, NULL);
-                                fr = 1;
-#if 0
-                                display_put_frame(uv->display_device,
-                                                cp->video_decoder_state->frame_buffer);
-                                cp->video_decoder_state->frame_buffer =
-                                        display_get_frame(uv->display_device);
-#endif
-                                last_tile_received = curr_time;
-                        }
-
-                        if(vdecoder_state && vdecoder_state->decoded % 100 == 99) {
-                                int new_size = vdecoder_state->max_frame_size * 110ull / 100;
-                                if(new_size > last_buf_size) {
-                                        struct rtp **device = uv->network_devices;
-                                        while(*device) {
-                                                int ret = rtp_set_recv_buf(*device, new_size);
-                                                if(!ret) {
-                                                        display_buf_increase_warning(new_size);
-                                                }
-                                                debug_msg("Recv buffer adjusted to %d\n", new_size);
-                                                device++;
-                                        }
-                                }
-                                last_buf_size = new_size;
-                        }
-
-                        pbuf_remove(cp->playout_buffer, curr_time);
-                        cp = pdb_iter_next(&it);
-                }
-                pdb_iter_done(&it);
-        }
-
-        module_done(&uv->receiver_mod);
-
-#ifdef SHARED_DECODER
-        destroy_decoder(shared_decoder);
-#else
-        /* Because decoders work asynchronously we need to make sure
-         * that display won't be called */
-        remove_display_from_decoders(uv);
-#endif //  SHARED_DECODER
-
-        // pass posioned pill to display
-        display_put_frame(uv->display_device, NULL, PUTF_BLOCKING);
-
-        stats_destroy(stat_loss);
-        stats_destroy(stat_received);
-
-        return 0;
-}
-
 static void uncompressed_frame_dispose(struct video_frame *frame)
 {
         struct wait_obj *wait_obj = (struct wait_obj *) frame->dispose_udata;
@@ -748,38 +313,9 @@ static void *capture_thread(void *arg)
 {
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
-        struct sender_data sender_data;
         struct wait_obj *wait_obj;
-        memset(&sender_data, 0, sizeof(sender_data));
-
-        struct compress_state *compression = NULL;
-        int ret = compress_init(uv_mod, uv->requested_compression, &compression);
-        if(ret != 0) {
-                if(ret < 0) {
-                        fprintf(stderr, "Error initializing compression.\n");
-                        exit_uv(1);
-                }
-                if(ret > 0) {
-                        exit_uv(0);
-                }
-                goto compress_done;
-        }
-
-        sender_data.parent = uv_mod; /// @todo should be compress thread module
-        sender_data.rxtx_protocol = uv->rxtx->protocol;
-        sender_data.tx_module_state = uv->rxtx_state;
-        sender_data.send_frame = uv->rxtx->send;
-        sender_data.uv = uv;
-        sender_data.video_exporter = uv->video_exporter;
-        sender_data.compression = compression;
 
         wait_obj = wait_obj_init();
-
-        if(!sender_init(&sender_data)) {
-                fprintf(stderr, "Error initializing sender.\n");
-                exit_uv(1);
-                goto compress_done;
-        }
 
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
@@ -800,8 +336,7 @@ static void *capture_thread(void *arg)
                                 wait_for_cur_uncompressed_frame = false;
                         }
 
-                        // Sends frame to compression - this passes it to a sender thread
-                        compress_frame(compression, tx_frame);
+                        uv->video_rxtx->send(tx_frame);
 
                         // wait for frame frame to be processed, eg. by compress
                         // or sender (uncompressed video). Grab invalidates previous frame
@@ -814,12 +349,7 @@ static void *capture_thread(void *arg)
                 }
         }
 
-        compress_frame(compression, NULL); // pass poisoned pill (will go through to the sender)
-        sender_done(&sender_data);
         wait_obj_done(wait_obj);
-
-compress_done:
-        module_done(CAST_MODULE(compression));
 
         return NULL;
 }
@@ -891,8 +421,10 @@ int main(int argc, char *argv[])
         char *requested_video_fec = strdup("none");
         char *requested_audio_fec = strdup(DEFAULT_AUDIO_FEC);
         char *audio_channel_map = NULL;
-        char *audio_scale = "mixauto";
+        const char *audio_scale = "mixauto";
         bool isStd = FALSE;
+        int recv_port_number = PORT_BASE;
+        int send_port_number = PORT_BASE;
 
         bool echo_cancellation = false;
 
@@ -906,7 +438,10 @@ int main(int argc, char *argv[])
 
         const char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
+        enum video_mode decoder_mode = VIDEO_NORMAL;
+        const char *requested_compression = "none";
 
+        bool ipv6 = false;
         struct module root_mod;
         struct state_uv *uv;
         int ch;
@@ -914,14 +449,22 @@ int main(int argc, char *argv[])
         audio_codec_t audio_codec = AC_PCM;
 
         pthread_t receiver_thread_id,
-                  tx_thread_id;
+                  capture_thread_id;
 	bool receiver_thread_started = false,
-		  tx_thread_started = false;
+		  capture_thread_started = false;
         unsigned display_flags = 0;
         int compressed_audio_sample_rate = 48000;
         int ret;
         struct vidcap_params *audio_cap_dev;
         long packet_rate;
+        const char *requested_mcast_if = NULL;
+
+        unsigned requested_mtu = 0;
+        const char *postprocess = NULL;
+        const char *requested_display = "none";
+        const char *requested_receiver = "localhost";
+        const char *requested_encryption = NULL;
+        struct video_export *video_exporter = NULL;
 
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
@@ -978,24 +521,12 @@ int main(int argc, char *argv[])
         uv_state = uv;
 
         uv->audio = NULL;
-        uv->ts = 0;
         uv->capture_device = NULL;
         uv->display_device = NULL;
-        uv->requested_display = "none";
-        uv->requested_compression = "none";
-        uv->decoder_mode = VIDEO_NORMAL;
-        uv->postprocess = NULL;
-        uv->requested_mtu = 0;
-        uv->participants = NULL;
-        uv->network_devices = NULL;
-        uv->video_exporter = NULL;
-        uv->recv_port_number =
-                uv->send_port_number =
-                PORT_BASE;
 
         init_root_module(&root_mod, uv);
         uv->root_module = &root_mod;
-        uv->rxtx = &ultragrid_rtp; // default
+        enum rxtx_protocol video_protocol = ULTRAGRID_RTP;
 
         perf_init();
         perf_record(UVP_INIT, 0);
@@ -1009,7 +540,7 @@ int main(int argc, char *argv[])
                                 list_video_display_devices();
                                 return 0;
                         }
-                        uv->requested_display = optarg;
+                        requested_display = optarg;
 			if(strchr(optarg, ':')) {
 				char *delim = strchr(optarg, ':');
 				*delim = '\0';
@@ -1025,16 +556,16 @@ int main(int argc, char *argv[])
                         vidcap_params_tail = vidcap_params_allocate_next(vidcap_params_tail);
                         break;
                 case 'm':
-                        uv->requested_mtu = atoi(optarg);
+                        requested_mtu = atoi(optarg);
                         break;
                 case 'M':
-                        uv->decoder_mode = get_video_mode_from_str(optarg);
-                        if (uv->decoder_mode == VIDEO_UNKNOWN) {
+                        decoder_mode = get_video_mode_from_str(optarg);
+                        if (decoder_mode == VIDEO_UNKNOWN) {
                                 return strcasecmp(optarg, "help") == 0 ? EXIT_SUCCESS : EXIT_FAIL_USAGE;
                         }
                         break;
                 case 'p':
-                        uv->postprocess = optarg;
+                        postprocess = optarg;
                         break;
                 case 'v':
                         printf("%s", PACKAGE_STRING);
@@ -1046,11 +577,11 @@ int main(int argc, char *argv[])
                         printf(AUTOCONF_RESULT);
                         return EXIT_SUCCESS;
                 case 'c':
-                        uv->requested_compression = optarg;
+                        requested_compression = optarg;
                         break;
                 case 'i':
 #ifdef HAVE_IHDTV
-                        uv->rxtx = &ihdtv_rxtx;
+                        video_protocol = IHDTV;
                         printf("setting ihdtv protocol\n");
                         fprintf(stderr, "Warning: iHDTV support may be currently broken.\n"
                                         "Please contact %s if you need this.\n", PACKAGE_BUGREPORT);
@@ -1060,11 +591,11 @@ int main(int argc, char *argv[])
 #endif
                         break;
                 case 'S':
-                        uv->rxtx = &sage_rxtx;
+                        video_protocol = SAGE;
                         sage_opts = optarg;
                         break;
                 case 'H':
-                        uv->rxtx = &h264_rtp;
+                        video_protocol = H264_STD;
                         //h264_opts = optarg;
                         break;
                 case 'r':
@@ -1102,8 +633,8 @@ int main(int argc, char *argv[])
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
                                 char *tok;
-                                uv->recv_port_number = atoi(strtok_r(optarg, ":", &save_ptr));
-                                uv->send_port_number = atoi(strtok_r(NULL, ":", &save_ptr));
+                                recv_port_number = atoi(strtok_r(optarg, ":", &save_ptr));
+                                send_port_number = atoi(strtok_r(NULL, ":", &save_ptr));
                                 if((tok = strtok_r(NULL, ":", &save_ptr))) {
                                         audio_rx_port = atoi(tok);
                                         if((tok = strtok_r(NULL, ":", &save_ptr))) {
@@ -1114,8 +645,8 @@ int main(int argc, char *argv[])
                                         }
                                 }
                         } else {
-                                uv->recv_port_number =
-                                        uv->send_port_number =
+                                recv_port_number =
+                                        send_port_number =
                                         atoi(optarg);
                         }
                         break;
@@ -1131,7 +662,7 @@ int main(int argc, char *argv[])
                         }
                         break;
                 case '6':
-                        uv->ipv6 = true;
+                        ipv6 = true;
                         break;
                 case OPT_AUDIO_CHANNEL_MAP:
                         audio_channel_map = optarg;
@@ -1178,7 +709,7 @@ int main(int argc, char *argv[])
                         return EXIT_FAIL_USAGE;
 #endif // HAVE_CUDA
                 case OPT_MCAST_IF:
-                        uv->requested_mcast_if = optarg;
+                        requested_mcast_if = optarg;
                         break;
                 case 'A':
                         audio_host = optarg;
@@ -1216,7 +747,7 @@ int main(int argc, char *argv[])
                         vidcap_params_set_capture_filter(vidcap_params_tail, optarg);
                         break;
                 case OPT_ENCRYPTION:
-                        uv->requested_encryption = optarg;
+                        requested_encryption = optarg;
                         break;
                 case OPT_CONTROL_PORT:
                         control_port = atoi(optarg);
@@ -1234,9 +765,9 @@ int main(int argc, char *argv[])
         argc -= optind;
         argv += optind;
 
-        if (uv->requested_mtu == 0)     // mtu wasn't specified on the command line
+        if (requested_mtu == 0)     // mtu wasn't specified on the command line
         {
-                uv->requested_mtu = 1500;       // the default value for RTP
+                requested_mtu = 1500;       // the default value for RTP
         }
 
         printf("%s", PACKAGE_STRING);
@@ -1244,21 +775,21 @@ int main(int argc, char *argv[])
         printf(" (rev %s)", GIT_VERSION);
 #endif
         printf("\n");
-        printf("Display device   : %s\n", uv->requested_display);
+        printf("Display device   : %s\n", requested_display);
         printf("Capture device   : %s\n", vidcap_params_get_driver(vidcap_params_head));
         printf("Audio capture    : %s\n", audio_send);
         printf("Audio playback   : %s\n", audio_recv);
-        printf("MTU              : %d B\n", uv->requested_mtu);
-        printf("Video compression: %s\n", uv->requested_compression);
+        printf("MTU              : %d B\n", requested_mtu);
+        printf("Video compression: %s\n", requested_compression);
         printf("Audio codec      : %s\n", get_name_to_audio_codec(audio_codec));
-        printf("Network protocol : %s\n", uv->rxtx->name);
+        printf("Network protocol : %s\n", video_rxtx::get_name(video_protocol));
         printf("Audio FEC        : %s\n", requested_audio_fec);
         printf("Video FEC        : %s\n", requested_video_fec);
         printf("\n");
 
         if(audio_rx_port == -1) {
-                audio_tx_port = uv->send_port_number + 2;
-                audio_rx_port = uv->recv_port_number + 2;
+                audio_tx_port = send_port_number + 2;
+                audio_rx_port = recv_port_number + 2;
         }
 
         if(should_export) {
@@ -1266,15 +797,7 @@ int main(int argc, char *argv[])
                         fprintf(stderr, "Export initialization failed.\n");
                         return EXIT_FAILURE;
                 }
-                uv->video_exporter = video_export_init(export_dir);
-        }
-
-        gettimeofday(&uv->start_time, NULL);
-
-        if(uv->requested_mtu > RTP_MAX_PACKET_LEN) {
-                fprintf(stderr, "Requested MTU exceeds maximal value allowed by RTP library (%d).\n",
-                                RTP_MAX_PACKET_LEN);
-                return EXIT_FAIL_USAGE;
+                video_exporter = video_export_init(export_dir);
         }
 
         if(bitrate == 0) { // else packet_rate defaults to 13600 or so
@@ -1282,15 +805,13 @@ int main(int argc, char *argv[])
         }
 
         if(bitrate != -1) {
-                packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+                packet_rate = 1000 * requested_mtu * 8 / bitrate;
         } else {
                 packet_rate = 0;
         }
 
-        if (argc == 0) {
-                uv->requested_receiver = "localhost";
-        } else {
-                uv->requested_receiver = argv[0];
+        if (argc > 0) {
+                requested_receiver = argv[0];
         }
 
 #ifdef WIN32
@@ -1316,19 +837,19 @@ int main(int argc, char *argv[])
         }
 
         if(!audio_host) {
-                audio_host = uv->requested_receiver;
+                audio_host = requested_receiver;
         }
 #ifdef HAVE_RTSP_SERVER
-        if((audio_send != NULL || audio_recv != NULL) && uv->rxtx->protocol == H264_STD){
+        if((audio_send != NULL || audio_recv != NULL) && video_protocol == H264_STD){
             //TODO: to implement a high level rxtx struct to manage different standards (i.e.:H264_STD, VP8_STD,...)
             isStd = TRUE;
         }
 #endif
         uv->audio = audio_cfg_init (&root_mod, audio_host, audio_rx_port,
                         audio_tx_port, audio_send, audio_recv,
-                        jack_cfg, requested_audio_fec, uv->requested_encryption,
+                        jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
-                        audio_scale, echo_cancellation, uv->ipv6, uv->requested_mcast_if,
+                        audio_scale, echo_cancellation, ipv6, requested_mcast_if,
                         audio_codec, compressed_audio_sample_rate, isStd, packet_rate);
         free(requested_audio_fec);
         if(!uv->audio)
@@ -1336,15 +857,13 @@ int main(int argc, char *argv[])
 
         display_flags |= audio_get_display_flags(uv->audio);
 
-        uv->participants = pdb_init();
-
         // Display initialization should be prior to modules that may use graphic card (eg. GLSL) in order
         // to initalize shared resource (X display) first
         ret =
-             initialize_video_display(uv->requested_display, display_cfg, display_flags, &uv->display_device);
+             initialize_video_display(requested_display, display_cfg, display_flags, &uv->display_device);
         if (ret < 0) {
                 printf("Unable to open display device: %s\n",
-                       uv->requested_display);
+                       requested_display);
                 exit_uv(EXIT_FAIL_DISPLAY);
                 goto cleanup;
         }
@@ -1353,7 +872,7 @@ int main(int argc, char *argv[])
                 goto cleanup;
         }
 
-        printf("Display initialized-%s\n", uv->requested_display);
+        printf("Display initialized-%s\n", requested_display);
 
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
@@ -1403,32 +922,41 @@ int main(int argc, char *argv[])
 #endif /* HAVE_SCHED_SETSCHEDULER */
 #endif /* USE_RT */
 
-        if (strcmp("none", uv->requested_display) != 0) {
-                uv->mode |= MODE_RECEIVER;
+        if (strcmp("none", requested_display) != 0) {
+                rxtx_mode |= MODE_RECEIVER;
         }
         if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
-                uv->mode |= MODE_SENDER;
+                rxtx_mode |= MODE_SENDER;
         }
 
-        struct ultragrid_rtp_state ug_rtp;
-        struct sage_rxtx_state sage_rxtx;
-        struct h264_rtp_state h264_rtp;
+        if(bitrate == 0) { // else packet_rate defaults to 13600 or so
+                bitrate = DEFAULT_BITRATE;
+        }
 
-        if (uv->rxtx->protocol == IHDTV) {
+        if(bitrate != -1) {
+                packet_rate = 1000 * requested_mtu * 8 / bitrate;
+        } else {
+                packet_rate = 0;
+        }
+
+        if (video_protocol == IHDTV) {
                 struct vidcap *capture_device = NULL;
                 struct display *display_device = NULL;
-                if (uv->mode & MODE_SENDER)
+                if (rxtx_mode & MODE_SENDER)
                         capture_device = uv->capture_device;
-                if (uv->mode & MODE_RECEIVER)
+                if (rxtx_mode & MODE_RECEIVER)
                         display_device = uv->display_device;
+                uv->video_rxtx = NULL;
+/*
                 uv->rxtx_state = initialize_ihdtv(capture_device,
                                 display_device, uv->requested_mtu,
                                 argc, argv);
                 if(!uv->rxtx_state) {
                         usage();
                         return EXIT_FAILURE;
-                }
-        }else if (uv->rxtx->protocol == H264_STD) {
+                } */
+        }else if (video_protocol == H264_STD) {
+#if 0
                 if ((uv->network_devices = initialize_network(uv->requested_receiver,
                     uv->recv_port_number, uv->send_port_number, uv->participants,
                     uv->ipv6, uv->requested_mcast_if)) == NULL)
@@ -1467,38 +995,16 @@ int main(int argc, char *argv[])
 
                 uv->rxtx_state = &h264_rtp;
                 free(requested_video_fec);
-        } else if(uv->rxtx->protocol == ULTRAGRID_RTP) {
-                if ((uv->network_devices =
-                                        initialize_network(uv->requested_receiver, uv->recv_port_number,
-                                                uv->send_port_number, uv->participants, uv->ipv6,
-                                                uv->requested_mcast_if))
-                                == NULL) {
-                        printf("Unable to open network\n");
-                        exit_uv(EXIT_FAIL_NETWORK);
-                        goto cleanup;
-                } else {
-                        struct rtp **item;
-                        uv->connections_count = 0;
-                        /* only count how many connections has initialize_network opened */
-                        for(item = uv->network_devices; *item != NULL; ++item)
-                                ++uv->connections_count;
-                }
-
-                if ((ug_rtp.tx = tx_init(&root_mod,
-                                                uv->requested_mtu, TX_MEDIA_VIDEO,
-                                                requested_video_fec,
-                                                uv->requested_encryption, packet_rate)) == NULL) {
-                        printf("Unable to initialize transmitter.\n");
-                        exit_uv(EXIT_FAIL_TRANSMIT);
-                        goto cleanup;
-                }
-
-                ug_rtp.connections_count = uv->connections_count;
-                ug_rtp.network_devices = uv->network_devices;
-
-                uv->rxtx_state = &ug_rtp;
-                free(requested_video_fec);
+#endif
+        } else if (video_protocol == ULTRAGRID_RTP) {
+                uv->video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
+                                requested_compression, requested_encryption,
+                                requested_receiver, recv_port_number,
+                                send_port_number, ipv6,
+                                requested_mcast_if, requested_video_fec, requested_mtu,
+                                packet_rate, decoder_mode, postprocess, uv->display_device);
         } else { // SAGE
+#if 0
                 memset(&sage_rxtx, 0, sizeof(sage_rxtx));
                 sage_receiver = uv->requested_receiver;
                 ret = initialize_video_display("sage",
@@ -1510,45 +1016,19 @@ int main(int argc, char *argv[])
                 }
                 pthread_create(&sage_rxtx.thread_id, NULL, (void * (*)(void *)) display_run,
                                 &sage_rxtx.sage_tx_device);
+#endif
         }
 
-        /* following block only shows help (otherwise initialized in receiver thread */
-        if((uv->postprocess && strstr(uv->postprocess, "help") != NULL)) {
-                struct state_video_decoder *dec = video_decoder_init(NULL, uv->decoder_mode,
-                                uv->postprocess, NULL,
-                                uv->requested_encryption);
-                video_decoder_destroy(dec);
-                exit_uv(EXIT_SUCCESS);
-                goto cleanup;
-        }
-        /* following block only shows help (otherwise initialized in sender thread */
-        if(strstr(uv->requested_compression,"help") != NULL) {
-                struct compress_state *compression;
-                int ret = compress_init(&root_mod, uv->requested_compression, &compression);
-
-                if(ret >= 0) {
-                        if(ret == 0)
-                                module_done(CAST_MODULE(compression));
-                        exit_uv(EXIT_SUCCESS);
-                } else {
-                        exit_uv(EXIT_FAILURE);
-                }
-                goto cleanup;
-        }
-
-        if(uv->mode & MODE_RECEIVER) {
-                if (uv->rxtx->receiver_thread == NULL) {
+        if(rxtx_mode & MODE_RECEIVER) {
+                if (!uv->video_rxtx->supports_receiving()) {
                         fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
                 }
                // init module here so as it is capable of receiving messages
-               module_init_default(&uv->receiver_mod);
-               uv->receiver_mod.cls = MODULE_CLASS_RECEIVER;
-               module_register(&uv->receiver_mod, uv->root_module);
                 if (pthread_create
-                                (&receiver_thread_id, NULL, uv->rxtx->receiver_thread,
-                                 (void *)uv) != 0) {
+                                (&receiver_thread_id, NULL, video_rxtx::receiver_thread,
+                                 (void *) uv->video_rxtx) != 0) {
                         perror("Unable to create display thread!\n");
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
@@ -1557,15 +1037,15 @@ int main(int argc, char *argv[])
                 }
         }
 
-        if(uv->mode & MODE_SENDER) {
+        if(rxtx_mode & MODE_SENDER) {
                 if (pthread_create
-                                (&tx_thread_id, NULL, capture_thread,
+                                (&capture_thread_id, NULL, capture_thread,
                                  (void *) &root_mod) != 0) {
                         perror("Unable to create capture thread!\n");
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
                 } else {
-                        tx_thread_started = true;
+                        capture_thread_started = true;
                 }
         }
 
@@ -1578,51 +1058,35 @@ int main(int argc, char *argv[])
         // should be started after requested modules are able to respond after start
         control_start(control);
 
-        if (strcmp("none", uv->requested_display) != 0)
+        if (strcmp("none", requested_display) != 0)
                 display_run(uv->display_device);
 
 cleanup:
-        if (strcmp("none", uv->requested_display) != 0 &&
+        if (strcmp("none", requested_display) != 0 &&
                         receiver_thread_started)
                 pthread_join(receiver_thread_id, NULL);
 
-        if (uv->mode & MODE_SENDER
-                        && tx_thread_started)
-                pthread_join(tx_thread_id, NULL);
+        if (rxtx_mode & MODE_SENDER
+                        && capture_thread_started)
+                pthread_join(capture_thread_id, NULL);
 
         /* also wait for audio threads */
         audio_join(uv->audio);
 
-        control_done(control);
-
         if(uv->audio)
                 audio_done(uv->audio);
-        if (uv->rxtx_state)
-                uv->rxtx->done(uv->rxtx_state);
-        if (uv->network_devices) {
-                destroy_rtp_devices(uv->network_devices);
-        }
-        if (uv->participants != NULL) {
-                pdb_iter_t it;
-                struct pdb_e *cp = pdb_iter_init(uv->participants, &it);
-                while (cp != NULL) {
-                        struct pdb_e *item = NULL;
-                        pdb_remove(uv->participants, cp->ssrc, &item);
-                        cp = pdb_iter_next(&it);
-                        free(item);
-                }
-                pdb_iter_done(&it);
-                pdb_destroy(&uv->participants);
-        }
+        delete uv->video_rxtx;
 
         if (uv->capture_device)
                 vidcap_done(uv->capture_device);
         if (uv->display_device)
                 display_done(uv->display_device);
 
-        video_export_destroy(uv->video_exporter);
+        video_export_destroy(video_exporter);
 
         free(export_dir);
+
+        control_done(control);
 
         while  (vidcap_params_head) {
                 struct vidcap_params *next = vidcap_params_get_next(vidcap_params_head);

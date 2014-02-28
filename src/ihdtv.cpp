@@ -61,9 +61,9 @@
 #include "host.h"
 #include "ihdtv.h"
 #include "ihdtv/ihdtv.h"
-#include "sender.h"
 #include "video_display.h"
 #include "video_capture.h"
+#include "video_rxtx.h"
 
 struct ihdtv_state {
 #ifdef HAVE_IHDTV
@@ -212,7 +212,7 @@ struct ihdtv_state *initialize_ihdtv(struct vidcap *capture_device, struct displ
 
 static void ihdtv_done(void *state)
 {
-        struct ihdtv_state *s = state;
+        struct ihdtv_state *s = (struct ihdtv_state *) state;
         if(!s)
                 return;
         free(s);

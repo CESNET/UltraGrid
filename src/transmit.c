@@ -206,7 +206,7 @@ static void tx_update(struct tx *tx, struct tile *tile)
 }
 
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption, long packet_rate)
+                const char *fec, const char *encryption, long packet_rate)
 {
         struct tx *tx;
 
@@ -252,7 +252,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 }
 
 struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption, long packet_rate)
+                const char *fec, const char *encryption, long packet_rate)
 {
   return tx_init(parent, mtu, media_type, fec, encryption, packet_rate);
 }

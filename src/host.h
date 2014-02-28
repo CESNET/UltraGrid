@@ -57,6 +57,13 @@
 extern "C" {
 #endif
 
+#ifdef HAVE_MACOSX
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
+#else
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
+#endif
+
+struct pdb;
 struct rtp;
 struct state_uv;
 struct video_frame;
@@ -92,6 +99,10 @@ extern const char *sage_receiver;
 
 extern bool verbose;
 
+#define MODE_SENDER   1
+#define MODE_RECEIVER 2
+extern int rxtx_mode;
+
 // for aggregate.c
 struct vidcap;
 struct display;
@@ -104,9 +115,15 @@ int initialize_video_capture(struct module *parent,
                 const struct vidcap_params *params,
                 struct vidcap **);
 
+struct rtp **initialize_network(const char *addrs, int recv_port_base,
+                int send_port_base, struct pdb *participants, bool use_ipv6,
+                const char *mcast_if);
+
 void *ultragrid_rtp_receiver_thread(void *arg);
 void destroy_rtp_devices(struct rtp ** network_devices);
 struct rtp **change_tx_port(struct state_uv *, int port);
+void display_buf_increase_warning(int size);
+
 
 // if not NULL, data should be exported
 extern char *export_dir;
