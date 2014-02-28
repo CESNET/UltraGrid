@@ -272,7 +272,11 @@ rtsp_keepalive_video(void *state) {
     struct timeval now;
     gettimeofday(&now, NULL);
     if (tv_diff(now, s->vrtsp_state->prev_time) >= 20) {
-        rtsp_get_parameters(s->curl, s->uri);
+        if(rtsp_get_parameters(s->curl, s->uri)==0){
+            s->should_exit = TRUE;
+            vidcap_rtsp_done(s);
+            exit(0);
+        }
         gettimeofday(&s->vrtsp_state->prev_time, NULL);
     }
 }
@@ -465,6 +469,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->artsp_state->control = "";
     s->artsp_state->control = "";
 
+    int len = -1;
     char *save_ptr = NULL;
     s->avType = none;  //-1 none, 0 a&v, 1 v, 2 a
 
@@ -596,11 +601,12 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     if (uri_tmp2 != NULL)
         free(uri_tmp2);
 
-    s->vrtsp_state->frame->h264_offset_len = init_rtsp(s->uri, s->vrtsp_state->port, s, s->vrtsp_state->frame->h264_offset_buffer);
+    len = init_rtsp(s->uri, s->vrtsp_state->port, s, s->vrtsp_state->frame->h264_offset_buffer);
 
-    if(s->vrtsp_state->frame->h264_offset_len<0){
+    if(len < 0){
         return NULL;
-        //TODO CLEAN UP MALLOCS...
+    }else{
+        s->vrtsp_state->frame->h264_offset_len = len;
     }
 
     s->vrtsp_state->frame->h264_buffer = malloc(4 * s->vrtsp_state->frame->h264_width * s->vrtsp_state->frame->h264_height);
@@ -1101,7 +1107,7 @@ void
 vidcap_rtsp_done(void *state) {
     struct rtsp_state *s = state;
 
-    s->should_exit = true;
+    s->should_exit = TRUE;
     pthread_join(s->vrtsp_state->vrtsp_thread_id, NULL);
     pthread_join(s->keep_alive_rtsp_thread_id, NULL);
 
