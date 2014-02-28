@@ -68,13 +68,13 @@
 
 #define AUDIO_CAPTURE_TESTCARD_MAGIC 0xf4b3c9c9u
 
-#define AUDIO_SAMPLE_RATE 48000
+#define AUDIO_SAMPLE_RATE 48000ll
 #define AUDIO_BPS 2
 #define BUFFER_SEC 1
 #define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
-                (int) audio_capture_channels * BUFFER_SEC)
+                (long long) audio_capture_channels * BUFFER_SEC)
 
-#define CHUNK 1920 // 1 video frame time @25 fps
+#define CHUNK (AUDIO_SAMPLE_RATE/25) // 1 video frame time @25 fps
                    // has to be divisor of AUDIO_SAMLE_RATE
 
 #define FREQUENCY 440
@@ -142,7 +142,7 @@ void * audio_cap_testcard_init(char *cfg)
 
         if(!wav_file) {
                 printf(MODULE_NAME "Generating %d sec tone (%d Hz) / %d sec silence ", BUFFER_SEC, FREQUENCY, BUFFER_SEC);
-                printf("(channels: %u; bps: %d; sample rate: %d; frames per packet: %d).\n", audio_capture_channels,
+                printf("(channels: %u; bps: %d; sample rate: %lld; frames per packet: %lld).\n", audio_capture_channels,
                                 AUDIO_BPS, AUDIO_SAMPLE_RATE, CHUNK);
 
                 s->audio_silence = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
@@ -219,13 +219,13 @@ struct audio_frame *audio_cap_testcard_read(void *state)
                 usleep(tv_diff_usec(s->next_audio_time, curr_time));
         } else {
                 // we missed more than 2 "frame times", in that case, just drop the packages
-                if (tv_diff_usec(curr_time, s->next_audio_time) > 2 * (1000 * 1000 * CHUNK / 48000)) {
+                if (tv_diff_usec(curr_time, s->next_audio_time) > 2 * (1000 * 1000 * CHUNK / AUDIO_SAMPLE_RATE)) {
                         s->next_audio_time = curr_time;
                         fprintf(stderr, MODULE_NAME "Warning: skipping some samples (late grab call).\n");
                 }
         }
 
-        tv_add_usec(&s->next_audio_time, 1000 * 1000 * CHUNK / 48000);
+        tv_add_usec(&s->next_audio_time, 1000 * 1000 * CHUNK / AUDIO_SAMPLE_RATE);
 
         if(s->current_sample == TONE) {
                 s->audio.data = s->audio_tone + AUDIO_BPS * s->samples_played * audio_capture_channels; // it is short so _not_ (* 2)

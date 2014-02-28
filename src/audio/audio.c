@@ -619,7 +619,8 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 {
         memcpy(&s->resampled, buffer, sizeof(struct audio_frame));
 
-        if(s->resample_from == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
+        if(buffer->sample_rate == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
+                memcpy(&s->resampled, buffer, sizeof(s->resampled));
                 s->resampled.data = malloc(buffer->data_len);
                 memcpy(s->resampled.data, buffer->data, buffer->data_len);
         } else {
@@ -627,7 +628,8 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
                  * @todo 2 is suitable only for Libavcodec
                  */
                 assert(set_contains(s->codec_supported_bytes_per_sample, 2));
-                uint32_t write_frames = 2 * (buffer->data_len / buffer->ch_count / buffer->bps);
+                // expect that we may got as much as 12-times more data (eg 8 kHz to 96 kHz
+                uint32_t write_frames = 12 * (buffer->data_len / buffer->ch_count / buffer->bps);
                 s->resampled.data = malloc(write_frames * 2 * buffer->ch_count);
                 if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {
                         s->resample_from = buffer->sample_rate;
@@ -654,8 +656,11 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
                 }
 
                 uint32_t in_frames = data_len /  buffer->ch_count / 2;
+                uint32_t in_frames_orig = in_frames;
                 speex_resampler_process_interleaved_int(s->resampler, (spx_int16_t *)(void *) in_buf, &in_frames,
                                 (spx_int16_t *)(void *) s->resampled.data, &write_frames);
+                assert (in_frames == in_frames_orig);
+
                 s->resampled.data_len = write_frames * 2 /* bps */ * buffer->ch_count;
                 s->resampled.sample_rate = s->resample_to;
                 s->resampled.bps = 2;

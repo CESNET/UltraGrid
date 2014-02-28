@@ -287,7 +287,8 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
         }
         for(int i = 0; i < frame->ch_count; ++i) {
                 if(s->out->data_len[i] != s->out->data_len[0]) {
-                        fprintf(stderr, "[Audio decompress] Inequal channel lenghth detected!\n");
+                        fprintf(stderr, "[Audio decompress] Inequal channel lenghth detected (%d vs %d)!\n",
+                                        s->out->data_len[0], s->out->data_len[i]);
                         return NULL;
                 }
         }
