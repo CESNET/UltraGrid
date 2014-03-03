@@ -99,7 +99,7 @@ else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	LIBS="$LIBS -lsetupapi -lWs2_32 -lIphlpapi"
-        LDFLAGS="$LDFLAGS -stdlib=libstdc++ -static-libgcc -static-libstdc++"
+        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
