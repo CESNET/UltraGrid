@@ -57,7 +57,7 @@ struct deltacast_frame_mode_t {
         unsigned int     height;
         double           fps;
         enum interlacing_t interlacing;
-        unsigned long int interface;
+        unsigned long int iface;
 };
 
 extern const struct deltacast_frame_mode_t deltacast_frame_modes[];

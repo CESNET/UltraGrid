@@ -139,7 +139,7 @@ static void usage(void)
         {
                 printf("\t%d: %s", deltacast_frame_modes[i].mode,
                                 deltacast_frame_modes[i].name);
-                if (deltacast_frame_modes[i].interface != VHD_INTERFACE_AUTO)
+                if (deltacast_frame_modes[i].iface != VHD_INTERFACE_AUTO)
                         printf("\t\t(no autodetection)");
                 printf("\n");
         }
@@ -249,7 +249,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                         s->frame->interlacing = deltacast_frame_modes[i].interlacing;
                         s->tile->width = deltacast_frame_modes[i].width;
                         s->tile->height = deltacast_frame_modes[i].height;
-                        Interface = deltacast_frame_modes[i].interface;
+                        Interface = deltacast_frame_modes[i].iface;
                         printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n", deltacast_frame_modes[i].name, s->tile->width, s->tile->height,
                                         (double) s->frame->fps, get_interlacing_description(s->frame->interlacing));
                         break;
