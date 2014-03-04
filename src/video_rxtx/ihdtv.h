@@ -1,5 +1,5 @@
 /*
- * FILE:    ihdtv.h
+ * FILE:    video_rxtx/ihdtv.h
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -9,6 +9,7 @@
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ *          Martin Pulec     <pulec@cesnet.cz>
  *
  * Copyright (c) 2005-2010 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
@@ -50,34 +51,42 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#ifndef IHDTV_H_
-#define IHDTV_H_
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif
+#ifndef VIDEO_RXTX_IHDTV_H_
+#define VIDEO_RXTX_IHDTV_H_
 
 #include "video_capture.h"
 #include "video_display.h"
+#include "video_rxtx.h"
 
-#ifdef __cplusplus
-extern "C" {
+#ifdef HAVE_IHDTV
+#include "ihdtv/ihdtv.h"
 #endif
 
-struct ihdtv_state;
 struct video_frame;
-struct rx_tx;
+struct display;
 
-extern struct rx_tx ihdtv_rxtx;
-
-struct ihdtv_state *initialize_ihdtv(struct vidcap *capture_device, struct display *display_device,
-                int requested_mtu, int argc, char **argv);
-
-#ifdef __cplusplus
-}
+class ihdtv_video_rxtx: public video_rxtx {
+public:
+        ihdtv_video_rxtx(struct module *parent, struct video_export *video_exporter,
+                        const char *requested_compression,
+                        struct vidcap *capture_device, struct display *display_device,
+                        int requested_mtu, int argc, char **argv);
+        ~ihdtv_video_rxtx();
+private:
+        void send_frame(struct video_frame *);
+        static void *receiver_thread(void *arg) {
+                ihdtv_video_rxtx *s = static_cast<ihdtv_video_rxtx *>(arg);
+                return s->receiver_loop();
+        }
+        void *(*get_receiver_thread())(void *arg) {
+                return receiver_thread;
+        }
+        void *receiver_loop();
+#ifdef HAVE_IHDTV
+        ihdtv_connection m_tx_connection, m_rx_connection;
+        struct display *m_display_device;
 #endif
+};
 
 #endif // IHDTV_H_
 

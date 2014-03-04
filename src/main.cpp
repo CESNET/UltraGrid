@@ -12,9 +12,10 @@
  *          David Cassany    <david.cassany@i2cat.net>
  *          Ignacio Contreras <ignacio.contreras@i2cat.net>
  *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2005-2014 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
@@ -80,7 +81,7 @@
 #include "video_compress.h"
 #include "video_export.h"
 #include "video_rxtx/ultragrid_rtp.h"
-#include "ihdtv.h"
+#include "video_rxtx/ihdtv.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/codec.h"
@@ -946,15 +947,10 @@ int main(int argc, char *argv[])
                         capture_device = uv->capture_device;
                 if (rxtx_mode & MODE_RECEIVER)
                         display_device = uv->display_device;
-                uv->video_rxtx = NULL;
-/*
-                uv->rxtx_state = initialize_ihdtv(capture_device,
-                                display_device, uv->requested_mtu,
+                uv->video_rxtx = new ihdtv_video_rxtx(&root_mod, video_exporter,
+                                requested_compression, capture_device,
+                                display_device, requested_mtu,
                                 argc, argv);
-                if(!uv->rxtx_state) {
-                        usage();
-                        return EXIT_FAILURE;
-                } */
         }else if (video_protocol == H264_STD) {
 #if 0
                 if ((uv->network_devices = initialize_network(uv->requested_receiver,

@@ -49,7 +49,6 @@
 #include <stdexcept>
 
 #include "host.h"
-#include "ihdtv.h"
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
@@ -67,6 +66,7 @@
 #include "video_display.h"
 #include "video_export.h"
 #include "video_rxtx.h"
+#include "video_rxtx/ihdtv.h"
 #include "video_rxtx/rtp.h"
 #include "video_rxtx/ultragrid_rtp.h"
 
@@ -137,6 +137,10 @@ const char *video_rxtx::get_name(enum rxtx_protocol proto) {
         switch (proto) {
         case ULTRAGRID_RTP:
                 return "UltraGrid RTP";
+        case IHDTV:
+                return "iHDTV";
+        default:
+                return NULL;
         }
 }
 
