@@ -80,8 +80,9 @@
 #include "video_display.h"
 #include "video_compress.h"
 #include "video_export.h"
-#include "video_rxtx/ultragrid_rtp.h"
 #include "video_rxtx/ihdtv.h"
+#include "video_rxtx/sage.h"
+#include "video_rxtx/ultragrid_rtp.h"
 #include "audio/audio.h"
 #include "audio/audio_capture.h"
 #include "audio/codec.h"
@@ -1000,19 +1001,9 @@ int main(int argc, char *argv[])
                                 requested_mcast_if, requested_video_fec, requested_mtu,
                                 packet_rate, decoder_mode, postprocess, uv->display_device);
         } else { // SAGE
-#if 0
-                memset(&sage_rxtx, 0, sizeof(sage_rxtx));
-                sage_receiver = uv->requested_receiver;
-                ret = initialize_video_display("sage",
-                                sage_opts, 0, &sage_rxtx.sage_tx_device);
-                if(ret != 0) {
-                        fprintf(stderr, "Unable to initialize SAGE TX.\n");
-                        exit_uv(EXIT_FAIL_NETWORK);
-                        goto cleanup;
-                }
-                pthread_create(&sage_rxtx.thread_id, NULL, (void * (*)(void *)) display_run,
-                                &sage_rxtx.sage_tx_device);
-#endif
+                uv->video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
+                                requested_compression, requested_receiver, sage_opts);
+
         }
 
         if(rxtx_mode & MODE_RECEIVER) {

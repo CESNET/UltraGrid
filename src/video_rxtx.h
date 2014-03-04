@@ -61,15 +61,7 @@ struct rx_tx {
         void *(*receiver_thread)(void *);
 };
 
-extern struct rx_tx ultragrid_rtp;
-extern struct rx_tx sage_rxtx;
 extern struct rx_tx h264_rtp;
-
-struct sage_rxtx_state {
-        struct video_desc saved_vid_desc;
-        struct display *sage_tx_device;
-        pthread_t thread_id;
-};
 
 struct h264_rtp_state {
         int connections_count;

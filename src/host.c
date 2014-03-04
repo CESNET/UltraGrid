@@ -78,8 +78,8 @@ int initialize_video_capture(struct module *parent,
 }
 
 int initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags,
-                                                struct display **out)
+                const char *fmt, unsigned int flags,
+                struct display **out)
 {
         display_type_t *dt;
         display_id_t id = 0;

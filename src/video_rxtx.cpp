@@ -68,22 +68,13 @@
 #include "video_rxtx.h"
 #include "video_rxtx/ihdtv.h"
 #include "video_rxtx/rtp.h"
+#include "video_rxtx/sage.h"
 #include "video_rxtx/ultragrid_rtp.h"
 
 using namespace std;
 
-static void sage_rxtx_send(void *state, struct video_frame *tx_frame);
-static void sage_rxtx_done(void *state);
 static void h264_rtp_send(void *state, struct video_frame *tx_frame);
 static void h264_rtp_done(void *state);
-
-struct rx_tx sage_rxtx = {
-        SAGE,
-        "SAGE",
-        sage_rxtx_send,
-        sage_rxtx_done,
-        NULL
-};
 
 struct rx_tx h264_rtp = {
         H264_STD,
@@ -139,39 +130,11 @@ const char *video_rxtx::get_name(enum rxtx_protocol proto) {
                 return "UltraGrid RTP";
         case IHDTV:
                 return "iHDTV";
+        case SAGE:
+                return "SAGE";
         default:
                 return NULL;
         }
-}
-
-static void sage_rxtx_send(void *state, struct video_frame *tx_frame)
-{
-        struct sage_rxtx_state *data = (struct sage_rxtx_state *) state;
-
-        if(!video_desc_eq(data->saved_vid_desc,
-                                video_desc_from_frame(tx_frame))) {
-                display_reconfigure(data->sage_tx_device,
-                                video_desc_from_frame(tx_frame));
-                data->saved_vid_desc = video_desc_from_frame(tx_frame);
-        }
-        struct video_frame *frame =
-                display_get_frame(data->sage_tx_device);
-        memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
-                        tx_frame->tiles[0].data_len);
-        display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
-
-        VIDEO_FRAME_DISPOSE(tx_frame);
-}
-
-static void sage_rxtx_done(void *state)
-{
-        struct sage_rxtx_state *data = (struct sage_rxtx_state *) state;
-
-        // poisoned pill to exit thread
-        display_put_frame(data->sage_tx_device, NULL, PUTF_NONBLOCK);
-        pthread_join(data->thread_id, NULL);
-
-        display_done(data->sage_tx_device);
 }
 
 static void h264_rtp_send(void *state, struct video_frame *tx_frame)

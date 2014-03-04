@@ -108,7 +108,7 @@ struct vidcap;
 struct display;
 struct module;
 int initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags,
+                                                const char *fmt, unsigned int flags,
                                                 struct display **);
 
 int initialize_video_capture(struct module *parent,
