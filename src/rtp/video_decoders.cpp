@@ -177,12 +177,12 @@ struct ldgm_msg : public msg {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
-                pckt_list = new map<int, int>[count];
+                pckt_list = 0;
         }
         ~ldgm_msg() {
-                delete buffer_len;
-                delete buffer_num;
-                delete recv_buffers;
+                delete [] buffer_len;
+                delete [] buffer_num;
+                delete [] recv_buffers;
                 delete [] pckt_list;
         }
         int *buffer_len;
@@ -204,10 +204,10 @@ struct decompress_msg : public msg {
                 buffer_num = new int[count];
         }
         ~decompress_msg() {
-                delete decompress_buffer;
-                delete fec_buffers;
-                delete buffer_len;
-                delete buffer_num;
+                delete [] decompress_buffer;
+                delete [] fec_buffers;
+                delete [] buffer_len;
+                delete [] buffer_num;
         }
         char **decompress_buffer;
         int *buffer_len;
