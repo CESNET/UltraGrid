@@ -420,8 +420,8 @@ int main(int argc, char *argv[])
         const char *audio_recv = "none";
         const char *audio_send = "none";
         char *jack_cfg = NULL;
-        char *requested_video_fec = strdup("none");
-        char *requested_audio_fec = strdup(DEFAULT_AUDIO_FEC);
+        const char *requested_video_fec = "none";
+        const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
         bool isStd = FALSE;
@@ -612,19 +612,16 @@ int main(int argc, char *argv[])
                         if(strlen(optarg) > 2 && optarg[1] == ':' &&
                                         (toupper(optarg[0]) == 'A' || toupper(optarg[0]) == 'V')) {
                                 if(toupper(optarg[0]) == 'A') {
-                                        free(requested_audio_fec);
-                                        requested_audio_fec = strdup(optarg + 2);
+                                        requested_audio_fec = optarg + 2;
                                 } else {
-                                        free(requested_video_fec);
-                                        requested_video_fec = strdup(optarg + 2);
+                                        requested_video_fec = optarg + 2;
                                 }
                         } else {
                                 // there should be setting for both audio and video
                                 // but we conservativelly expect that the user wants
                                 // only vieo and let audio default until explicitly
                                 // stated otehrwise
-                                free(requested_video_fec);
-                                requested_video_fec = strdup(optarg);
+                                requested_video_fec = optarg;
                         }
                         break;
 		case 'h':
@@ -852,7 +849,6 @@ int main(int argc, char *argv[])
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
                         audio_codec, compressed_audio_sample_rate, isStd, packet_rate);
-        free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;
 
@@ -962,8 +958,6 @@ int main(int argc, char *argv[])
                                 requested_receiver, recv_port_number, send_port_number,
                                 ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
                                 packet_rate, avType);
-
-                free(requested_video_fec);
         } else if (video_protocol == ULTRAGRID_RTP) {
                 uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
                                 requested_compression, requested_encryption,

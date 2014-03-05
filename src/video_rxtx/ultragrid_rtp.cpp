@@ -191,7 +191,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         struct timeval curr_time;
         int fr;
         int ret;
-        unsigned int tiles_post = 0;
+        int tiles_post = 0;
         struct timeval last_tile_received = {0, 0};
         int last_buf_size = INITIAL_VIDEO_RECV_BUFFER_SIZE;
 #ifdef SHARED_DECODER

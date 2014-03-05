@@ -124,7 +124,7 @@ struct module;
 
 struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
-                char *jack_cfg, char *fec_cfg, const char *encryption,
+                char *jack_cfg, const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_iface, audio_codec_t audio_codec,
                 int resample_to, bool isStd, long packet_rate);

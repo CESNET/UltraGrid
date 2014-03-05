@@ -40,6 +40,14 @@
 
 #include "video_rxtx.h"
 
+#ifdef HAVE_MACOSX
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
+#else
+#define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
+#endif
+
+struct rtp;
+
 class rtp_video_rxtx : public video_rxtx {
         friend class video_rxtx;
 public:
@@ -49,6 +57,13 @@ public:
                         bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
                         long packet_rate);
         virtual ~rtp_video_rxtx();
+
+        static struct rtp **initialize_network(const char *addrs, int recv_port_base,
+                        int send_port_base, struct pdb *participants, bool use_ipv6,
+                        const char *mcast_if);
+        static void destroy_rtp_devices(struct rtp ** network_devices);
+        static void display_buf_increase_warning(int size);
+
 protected:
         int m_connections_count;
         struct rtp **m_network_devices; // ULTRAGRID_RTP
