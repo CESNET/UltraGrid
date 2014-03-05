@@ -338,8 +338,6 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 pdb_iter_done(&it);
         }
 
-        module_done(&m_receiver_mod);
-
 #ifdef SHARED_DECODER
         destroy_decoder(shared_decoder);
 #else

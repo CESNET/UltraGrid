@@ -146,6 +146,7 @@ OBJS	      = @OBJS@ \
 
 ULTRAGRID_OBJS = src/main.o \
 		 src/video_rxtx.o \
+		 src/video_rxtx/h264_rtp.o \
 		 src/video_rxtx/ihdtv.o \
 		 src/video_rxtx/rtp.o \
 		 src/video_rxtx/sage.o \

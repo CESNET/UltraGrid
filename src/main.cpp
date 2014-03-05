@@ -80,6 +80,7 @@
 #include "video_display.h"
 #include "video_compress.h"
 #include "video_export.h"
+#include "video_rxtx/h264_rtp.h"
 #include "video_rxtx/ihdtv.h"
 #include "video_rxtx/sage.h"
 #include "video_rxtx/ultragrid_rtp.h"
@@ -87,7 +88,6 @@
 #include "audio/audio_capture.h"
 #include "audio/codec.h"
 #include "audio/utils.h"
-#include "rtsp/c_basicRTSPOnlyServer.h"
 
 #if defined DEBUG && defined HAVE_LINUX
 #include <mcheck.h>
@@ -134,7 +134,7 @@ struct state_uv {
 
         struct module *root_module;
 
-        video_rxtx *video_rxtx;
+        video_rxtx *state_video_rxtx;
 };
 
 static int exit_status = EXIT_SUCCESS;
@@ -338,7 +338,7 @@ static void *capture_thread(void *arg)
                                 wait_for_cur_uncompressed_frame = false;
                         }
 
-                        uv->video_rxtx->send(tx_frame);
+                        uv->state_video_rxtx->send(tx_frame);
 
                         // wait for frame frame to be processed, eg. by compress
                         // or sender (uncompressed video). Grab invalidates previous frame
@@ -436,7 +436,6 @@ int main(int argc, char *argv[])
         char *sage_opts = NULL;
         int control_port = CONTROL_DEFAULT_PORT;
         struct control_state *control = NULL;
-        rtsp_serv_t* rtsp_server = NULL;
 
         const char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
@@ -948,66 +947,38 @@ int main(int argc, char *argv[])
                         capture_device = uv->capture_device;
                 if (rxtx_mode & MODE_RECEIVER)
                         display_device = uv->display_device;
-                uv->video_rxtx = new ihdtv_video_rxtx(&root_mod, video_exporter,
+                uv->state_video_rxtx = new ihdtv_video_rxtx(&root_mod, video_exporter,
                                 requested_compression, capture_device,
                                 display_device, requested_mtu,
                                 argc, argv);
         }else if (video_protocol == H264_STD) {
-#if 0
-                if ((uv->network_devices = initialize_network(uv->requested_receiver,
-                    uv->recv_port_number, uv->send_port_number, uv->participants,
-                    uv->ipv6, uv->requested_mcast_if)) == NULL)
-                {
-                        printf("Unable to open network\n");
-                        exit_uv(EXIT_FAIL_NETWORK);
-                        goto cleanup;
-                } else {
-                        struct rtp **item;
-                        uv->connections_count = 0;
-                        /* only count how many connections has initialize_network opened */
-                        for(item = uv->network_devices; *item != NULL; ++item){
-                                ++uv->connections_count;
-                        #ifdef HAVE_RTSP_SERVER
-                                uint8_t avType;
-                                if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
-                                else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
-                                else avType = 1; //VStream
-                                rtsp_server = init_rtsp_server(0, &root_mod, avType); //port, root_module, avType
-                                c_start_server(rtsp_server);
-                        #endif
-                        }
-                }
+                uint8_t avType;
+                if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
+                else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
+                else avType = 1; //VStream
 
-                if ((h264_rtp.tx = tx_init(&root_mod,
-                                                uv->requested_mtu, TX_MEDIA_VIDEO,
-                                                NULL,
-                                                NULL, packet_rate)) == NULL) {
-                        printf("Unable to initialize transmitter.\n");
-                        exit_uv(EXIT_FAIL_TRANSMIT);
-                        goto cleanup;
-                }
+                uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
+                                requested_compression, requested_encryption,
+                                requested_receiver, recv_port_number, send_port_number,
+                                ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
+                                packet_rate, avType);
 
-                h264_rtp.connections_count = uv->connections_count;
-                h264_rtp.network_devices = uv->network_devices;
-
-                uv->rxtx_state = &h264_rtp;
                 free(requested_video_fec);
-#endif
         } else if (video_protocol == ULTRAGRID_RTP) {
-                uv->video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
+                uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
                                 requested_compression, requested_encryption,
                                 requested_receiver, recv_port_number,
                                 send_port_number, ipv6,
                                 requested_mcast_if, requested_video_fec, requested_mtu,
                                 packet_rate, decoder_mode, postprocess, uv->display_device);
         } else { // SAGE
-                uv->video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
+                uv->state_video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
                                 requested_compression, requested_receiver, sage_opts);
 
         }
 
         if(rxtx_mode & MODE_RECEIVER) {
-                if (!uv->video_rxtx->supports_receiving()) {
+                if (!uv->state_video_rxtx->supports_receiving()) {
                         fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
@@ -1015,7 +986,7 @@ int main(int argc, char *argv[])
                // init module here so as it is capable of receiving messages
                 if (pthread_create
                                 (&receiver_thread_id, NULL, video_rxtx::receiver_thread,
-                                 (void *) uv->video_rxtx) != 0) {
+                                 (void *) uv->state_video_rxtx) != 0) {
                         perror("Unable to create display thread!\n");
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
@@ -1062,7 +1033,7 @@ cleanup:
 
         if(uv->audio)
                 audio_done(uv->audio);
-        delete uv->video_rxtx;
+        delete uv->state_video_rxtx;
 
         if (uv->capture_device)
                 vidcap_done(uv->capture_device);
@@ -1080,9 +1051,7 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
-#ifdef HAVE_RTSP_SERVER
-        if(rtsp_server) c_stop_server(rtsp_server);
-#endif
+
         module_done(&root_mod);
         free(uv);
 

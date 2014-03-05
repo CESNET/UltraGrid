@@ -73,17 +73,6 @@
 
 using namespace std;
 
-static void h264_rtp_send(void *state, struct video_frame *tx_frame);
-static void h264_rtp_done(void *state);
-
-struct rx_tx h264_rtp = {
-        H264_STD,
-        "H264 standard",
-        h264_rtp_send,
-        h264_rtp_done,
-        NULL //TODO: h264_rtp_receiver_thread
-};
-
 video_rxtx::video_rxtx(struct module *parent, struct video_export *video_exporter,
                 const char *requested_compression): m_paused(false), m_compression(NULL),
                 m_video_exporter(video_exporter) {
@@ -121,6 +110,7 @@ video_rxtx::~video_rxtx() {
 
         module_done(CAST_MODULE(m_compression));
 
+        module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
 }
 
@@ -132,34 +122,10 @@ const char *video_rxtx::get_name(enum rxtx_protocol proto) {
                 return "iHDTV";
         case SAGE:
                 return "SAGE";
+        case H264_STD:
+                return "H264 standard";
         default:
                 return NULL;
-        }
-}
-
-static void h264_rtp_send(void *state, struct video_frame *tx_frame)
-{
-        struct h264_rtp_state *data = (struct h264_rtp_state *) state;
-
-        if(data->connections_count == 1) { /* normal/default case - only one connection */
-            tx_send_h264(data->tx, tx_frame, data->network_devices[0]);
-        } else {
-            //TODO to be tested, the idea is to reply per destiny
-                for (int i = 0; i < data->connections_count; ++i) {
-                    tx_send_h264(data->tx, tx_frame,
-                                        data->network_devices[i]);
-                }
-        }
-
-        VIDEO_FRAME_DISPOSE(tx_frame);
-}
-
-static void h264_rtp_done(void *state)
-{
-        struct h264_rtp_state *data = (struct h264_rtp_state *) state;
-
-        if (data->tx) {
-                module_done(CAST_MODULE(data->tx));
         }
 }
 
