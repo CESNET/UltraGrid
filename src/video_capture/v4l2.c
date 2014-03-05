@@ -248,7 +248,7 @@ struct vidcap_type * vidcap_v4l2_probe(void)
 void * vidcap_v4l2_init(const struct vidcap_params *params)
 {
         struct vidcap_v4l2_state *s;
-        char *dev_name = DEFAULT_DEVICE;
+        const char *dev_name = DEFAULT_DEVICE;
         uint32_t pixelformat = 0;
         uint32_t width = 0,
                  height = 0;
@@ -263,7 +263,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
         }
 
 
-        s = (struct vidcap_v4l2_state *) malloc(sizeof(struct vidcap_v4l2_state));
+        s = (struct vidcap_v4l2_state *) calloc(1, sizeof(struct vidcap_v4l2_state));
         if(s == NULL) {
                 printf("Unable to allocate v4l2 capture state\n");
                 return NULL;
@@ -589,6 +589,7 @@ struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
         };
 
         struct v4l2_buffer buf;
+        memset(&buf, 0, sizeof(buf));
         buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         buf.memory = V4L2_MEMORY_MMAP;
 
