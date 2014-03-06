@@ -56,7 +56,6 @@ extern "C" {
 #endif // HAVE_CONFIG_H
 
 #include <pthread.h>
-#include <semaphore.h>
 #include "control_socket.h"
 #include "module.h"
 #include "debug.h"

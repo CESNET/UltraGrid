@@ -60,13 +60,17 @@
 #include "audio/audio.h"
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct module;
 struct rtp;
 struct tx;
 struct video_frame;
 
 struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption);
+                char *fec, const char *encryption, long packet_rate);
 void		 tx_send_tile(struct tx *tx_session, struct video_frame *frame, int pos, struct rtp *rtp_session);
 void             tx_send(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
 void             audio_tx_send(struct tx *tx_session, struct rtp *rtp_session, audio_frame2 *buffer);
@@ -74,9 +78,13 @@ void             audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, aud
 
 
 struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
-                char *fec, const char *encryption);
+                char *fec, const char *encryption, long packet_rate);
 
 void tx_send_h264(struct tx *tx_session, struct video_frame *frame, struct rtp *rtp_session);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // TRANSMIT_H_
 

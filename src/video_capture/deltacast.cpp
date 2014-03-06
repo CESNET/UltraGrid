@@ -1,32 +1,23 @@
+/**
+ * @file   video_capture/deltacast.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    video_capture/deltacast.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2011-2013 CESNET, z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,8 +33,8 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -114,7 +105,7 @@ static void usage(void)
 {
         ULONG             Result,DllVersion,NbBoards;
         int               i;
-        printf("-t deltacast[:<index>[:<mode>:<codec>]]\n");
+        printf("\t-t deltacast[:board=<index>][:mode=<mode>][:codec=<codec>]\n");
         Result = VHD_GetApiInfo(&DllVersion,&NbBoards);
         if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "[DELTACAST] ERROR : Cannot query VideoMasterHD"
@@ -126,6 +117,9 @@ static void usage(void)
                 fprintf(stderr, "[DELTACAST] No DELTA board detected, exiting...\n");
                 return;
         }
+
+        printf("\nDefault board is 0. If mode is omitted, it will be autodetected "
+                        "(except of UHD modes). Default codec is UYVY.\n");
         
         printf("\nAvailable cards:\n");
         /* Query DELTA boards information */
@@ -143,8 +137,11 @@ static void usage(void)
         printf("\nAvailable modes:\n");
         for (i = 0; i < deltacast_frame_modes_count; ++i)
         {
-                printf("\t%d: %s\n", deltacast_frame_modes[i].mode,
+                printf("\t%d: %s", deltacast_frame_modes[i].mode,
                                 deltacast_frame_modes[i].name);
+                if (deltacast_frame_modes[i].interface != VHD_INTERFACE_AUTO)
+                        printf("\t\t(no autodetection)");
+                printf("\n");
         }
         
         printf("\nAvailable codecs:\n");
@@ -170,6 +167,15 @@ vidcap_deltacast_probe(void)
 class delta_init_exception {
 };
 
+#define DELTA_TRY_CMD(cmd, msg) \
+        do {\
+                Result = cmd;\
+                if (Result != VHDERR_NOERROR) {\
+                        fprintf(stderr, "[DELTACAST] " msg " Result = 0x%08X\n", Result);\
+                        throw delta_init_exception();\
+                }\
+        } while(0)
+
 /**
  * Function initialize is intended to be called repeatedly if no signal detected
  * in vidcap_deltacast_init(). This will be tried everytime grab is called and until
@@ -181,6 +187,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
         ULONG             Packing;
         ULONG             Status = 0;
         int               i;
+        ULONG             Interface;
 
         /* Wait for channel locked */
         Result = VHD_GetBoardProperty(s->BoardHandle, VHD_CORE_BP_RX0_STATUS, &Status);
@@ -235,10 +242,6 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 }
         }
 
-        /* Configure stream */
-        VHD_SetStreamProperty(s->StreamHandle,VHD_SDI_SP_VIDEO_STANDARD, s->VideoStandard);
-        VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,VHD_TRANSFER_SLAVED);
-
         for (i = 0; i < deltacast_frame_modes_count; ++i)
         {
                 if(s->VideoStandard == (ULONG) deltacast_frame_modes[i].mode) {
@@ -246,6 +249,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                         s->frame->interlacing = deltacast_frame_modes[i].interlacing;
                         s->tile->width = deltacast_frame_modes[i].width;
                         s->tile->height = deltacast_frame_modes[i].height;
+                        Interface = deltacast_frame_modes[i].interface;
                         printf("[DELTACAST] %s mode selected. %dx%d @ %2.2f %s\n", deltacast_frame_modes[i].name, s->tile->width, s->tile->height,
                                         (double) s->frame->fps, get_interlacing_description(s->frame->interlacing));
                         break;
@@ -255,6 +259,15 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                 fprintf(stderr, "[DELTACAST] Failed to obtain information about video format %d.\n", s->VideoStandard);
                 throw delta_init_exception();
         }
+
+        /* Configure stream */
+        DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_SDI_SP_INTERFACE, Interface),
+                        "Unable to set interface.");
+        DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_SDI_SP_VIDEO_STANDARD, s->VideoStandard),
+                        "Unable to set video standard.");
+        DELTA_TRY_CMD(VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_TRANSFER_SCHEME,
+                                VHD_TRANSFER_SLAVED),
+                        "Unable to set transfer scheme.");
 
         if(s->autodetect_format) {
                 Result = VHD_GetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFER_PACKING, &Packing);
@@ -271,7 +284,7 @@ static bool wait_for_channel(struct vidcap_deltacast_state *s)
                         throw delta_init_exception();
                 }
         }
-        if(s->frame->color_spec == v210)
+        if(s->frame->color_spec == v210 || s->frame->color_spec == RAW)
                 Packing = VHD_BUFPACK_VIDEO_YUV422_10;
         if(s->frame->color_spec == UYVY)
                 Packing = VHD_BUFPACK_VIDEO_YUV422_8;
@@ -347,7 +360,7 @@ vidcap_deltacast_init(const struct vidcap_params *params)
         s->tile = vf_get_tile(s->frame, 0);
         s->frames = 0;
         s->grab_audio = FALSE;
-        s->autodetect_format = FALSE;
+        s->autodetect_format = TRUE;
         s->frame->color_spec = UYVY;
         s->audio_frame.data = NULL;
 
@@ -363,19 +376,16 @@ vidcap_deltacast_init(const struct vidcap_params *params)
         {
                 char *save_ptr = NULL;
                 char *tok;
+                char *tmp = init_fmt;
 
-                tok = strtok_r(init_fmt, ":", &save_ptr);
-                if(!tok)
-                {
-                        usage();
-                        goto error;
-                }
-                BrdId = atoi(tok);
-                tok = strtok_r(NULL, ":", &save_ptr);
-                if(tok) {
-                        s->VideoStandard = atoi(tok);
-                        tok = strtok_r(NULL, ":", &save_ptr);
-                        if(tok) {
+                while ((tok = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                        if (strncasecmp(tok, "board=", strlen("board=")) == 0) {
+                                BrdId = atoi(tok + strlen("board="));
+                        } else if (strncasecmp(tok, "mode=", strlen("mode=")) == 0) {
+                                s->VideoStandard = atoi(tok + strlen("mode="));
+                                s->autodetect_format = FALSE;
+                        } else if (strncasecmp(tok, "codec=", strlen("codec=")) == 0) {
+                                tok = tok + strlen("codec=");
                                 if(strcasecmp(tok, "raw") == 0)
                                         s->frame->color_spec = RAW;
                                 else if(strcmp(tok, "UYVY") == 0)
@@ -383,23 +393,21 @@ vidcap_deltacast_init(const struct vidcap_params *params)
                                 else if(strcmp(tok, "v210") == 0)
                                         s->frame->color_spec = v210;
                                 else {
+                                        fprintf(stderr, "Wrong "
+                                        "codec entered.\n");
                                         usage();
                                         goto error;
                                 }
-
                         } else {
-                                usage();
+                                fprintf(stderr, "[DELTACAST] Wrong config option '%s'!\n", tok);
                                 goto error;
                         }
-                } else {
-                        s->autodetect_format = TRUE;
+                        tmp = NULL;
                 }
-        } else {
-                s->autodetect_format = TRUE;
-                BrdId = 0;
-                printf("[DELTACAST] Automatically choosen device nr. 0\n");
         }
         free(init_fmt);
+
+        printf("[DELTACAST] Selected device %d\n", BrdId);
 
         if(s->autodetect_format) {
                 printf("DELTACAST] We will try to autodetect incoming video format.\n");
@@ -438,6 +446,9 @@ vidcap_deltacast_init(const struct vidcap_params *params)
 
         /* Disable RX0-TX0 by-pass relay loopthrough */
         VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,FALSE);
+        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_1,FALSE);
+        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_2,FALSE);
+        VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_3,FALSE);
 
         s->initialize_flags = vidcap_params_get_flags(params);
         printf("\nWaiting for channel locked...\n");

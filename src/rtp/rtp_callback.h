@@ -40,6 +40,10 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** @page av_pkt_description UltraGrid packet format
  * Packet formats are described in papers referenced here:<br/>
  * https://www.sitola.cz/igrid/index.php/Developer_Documentation#Packet_formats
@@ -50,6 +54,7 @@
 #define PT_VIDEO_LDGM   22
 #define PT_ENCRYPT_VIDEO 24
 #define PT_ENCRYPT_AUDIO 25
+#define PT_ENCRYPT_VIDEO_LDGM 26
 #define PT_H264 96
 #define PT_DynRTP_Type97    97 /* mU-law stereo amongst others */
 /*
@@ -103,8 +108,6 @@ typedef uint32_t video_payload_hdr_t[6];
  */
 typedef uint32_t audio_payload_hdr_t[5];
 
-typedef uint32_t ldgm_payload_hdr_t;
-
 /*
  * LDGM video payload
  *
@@ -143,4 +146,8 @@ int handle_with_buffer(struct rtp *session,rtp_event *e);
 int check_for_frame_completion(struct rtp *);
 void process_packet_for_display(char *);
 void call_display_frame(void);
+
+#ifdef __cplusplus
+}
+#endif
 

@@ -74,10 +74,9 @@ static struct {
         uint32_t qt_fourcc;
         codec_t ug_codec;
 } codec_mapping[] = {
-        {'2' << 24 | 'v' << 16 | 'u' << 8 | 'y', Vuy2}, // would map to UYVY otherwise
-                                                        // but codec with yuv2 FourCC
-                                                        // is different (handled specially
-                                                        // in this module)
+        {'2' << 24 | 'v' << 16 | 'u' << 8 | 'y', UYVY},
+        {'y' << 24 | 'u' << 16 | 'v' << 8 | '2', UYVY},
+        {'y' << 24 | 'u' << 16 | 'V' << 8 | '2', UYVY},
         {'j' << 24 | 'p' << 16 | 'e' << 8 | 'g', MJPG},
         {'a' << 24 | 'v' << 16 | 'c' << 8 | '1', H264},
         {0, 0xffffffff}
@@ -130,6 +129,8 @@ struct qt_grabber_state {
         pthread_cond_t boss_cv;
 
 	volatile bool should_exit;
+
+        bool translate_yuv2;
 };
 
 void * vidcap_quicktime_thread(void *state);
@@ -821,6 +822,11 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         }
 
         s->frame->color_spec = get_color_spec(pixfmt);
+        // thiw is a workaround - codec identified by exactly this FourCC seems to have
+        // different semantics than ordinary UYVY
+        if (pixfmt == ('2' | 'v' << 8 | 'u' << 16 | 'y' << 24)) {
+                s->translate_yuv2 = true;
+        }
 
         if (s->frame->color_spec == 0xffffffff) {
                 fprintf(stderr, "[QuickTime] Cannot find UltraGrid codec matching: %c%c%c%c!\n",
@@ -1111,7 +1117,7 @@ struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audi
 
         // Mac 10.7 seems to change semantics for codec identified with 'yuv2' FourCC,
         // which is mapped to our UYVY. This simply makes it correct.
-        if(s->frame->color_spec == UYVY) {
+        if (s->translate_yuv2) {
                 for(int i = 0; i < s->frame->tiles->data_len; i += 4) {
                         int a = s->frame->tiles[0].data[i];
                         int b = s->frame->tiles[0].data[i + 1];

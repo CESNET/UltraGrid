@@ -96,10 +96,16 @@ struct msg_universal {
         char text[8192];
 };
 
+struct pair_msg_path {
+        char path[8192];
+        struct message *msg;
+};
+
 struct response *new_response(int status, char *optional_message);
 
 typedef struct response *(*msg_callback_t)(struct module *mod, struct message *msg);
 
+void module_check_undelivered_messages(struct module *);
 struct response *send_message(struct module *, const char *path, struct message *msg);
 struct response *send_message_to_receiver(struct module *, struct message *msg);
 struct message *new_message(size_t length);

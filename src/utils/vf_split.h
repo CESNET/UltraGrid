@@ -1,8 +1,6 @@
 /**
- * @file   video_compress/fastdxt.h
+ * @file   src/utils/vs_split.h
  * @author Martin Pulec     <pulec@cesnet.cz>
- *
- * @brief  This is an umbrella header for video functions.
  */
 /*
  * Copyright (c) 2011-2013 CESNET z.s.p.o.
@@ -37,26 +35,52 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
+#ifndef VF_SPLIT_H_
+#define VF_SPLIT_H_
 
-struct module;
-struct tile;
-struct video_desc;
-struct video_compress_params;
+struct video_frame;
 
 #ifdef __cplusplus
 extern "C" {
-#endif // __cplusplus
+#endif
 
-struct module      *fastdxt_init(struct module *parent, const struct video_compress_params *params);
-struct tile        *fastdxt_compress_tile(struct module *mod, struct tile * tx,
-                struct video_desc *desc, int buffer_index);
+/**
+ * vf_split splits the frame into multiple tiles.
+ * Caller is responsible for allocating memory for all of these: out (to hold
+ * all elements), out elements and theirs data member to hold tile data.
+ *
+ * width must be divisible by x_count && heigth by y_count (!)
+ *
+ * @param out          output video frames array
+ *                     the resulting matrix will be stored row-dominant
+ * @param src          source video frame
+ * @param x_count      number of columns
+ * @param y_count      number of rows
+ * @param preallocate  used for preallocating buffers because determining right
+ *                     size can be cumbersome. Anyway only .data are allocated.
+ *
+ * @deprecated this function should not be used
+ */
+void vf_split(struct video_frame *out, struct video_frame *src,
+              unsigned int x_count, unsigned int y_count, int preallocate);
+
+/**
+ * @deprecated this function should not be used
+ */
+void vf_split_horizontal(struct video_frame *out, struct video_frame *src,
+              unsigned int y_count);
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#include <vector>
+
+std::vector<struct video_frame *> vf_separate_tiles(struct video_frame *frame);
+struct video_frame * vf_merge_tiles(std::vector<struct video_frame *> const & tiles);
+
 #endif // __cplusplus
+
+#endif // VF_SPLIT_H_
 

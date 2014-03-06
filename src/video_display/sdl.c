@@ -398,10 +398,10 @@ void display_sdl_run(void *arg)
 static void show_help(void)
 {
         printf("SDL options:\n");
-        printf("\t-d sdl[:fs][:d] | help\n");
+        printf("\t-d sdl[:fs|:d]* | help\n");
         printf("\tfs - fullscreen\n");
         printf("\td - deinterlace\n");
-        printf("\tf filename - read frame content from the filename\n");
+        //printf("\t<f> - read frame content from the filename\n");
         show_codec_help("sdl");
 }
 
@@ -572,15 +572,14 @@ void *display_sdl_init(char *fmt, unsigned int flags)
                 char *tmp = strdup(fmt);
                 char *ptr = tmp;
                 char *tok;
+                char *save_ptr = NULL;
                 
-                while((tok = strtok(ptr, ":")))
+                while((tok = strtok_r(ptr, ":", &save_ptr)))
                 {
-                        if (strcmp(fmt, "fs") == 0) {
+                        if (strcmp(tok, "fs") == 0) {
                                 s->fs = 1;
-                                fmt = NULL;
                         } else if (strcmp(fmt, "d") == 0) {
                                 s->deinterlace = 1;
-                                fmt = NULL;
                         }
                         ptr = NULL;
                 }

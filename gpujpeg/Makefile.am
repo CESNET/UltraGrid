@@ -8,7 +8,7 @@ SUBDIRS = . # test/memcheck test/opengl_interop
 CUDA_INSTALL_PATH=@CUDA_INSTALL_PATH@
 NVCC=${CUDA_INSTALL_PATH}/bin/nvcc
 
-NVCC_CFLAGS= -Xcompiler -fPIC -Xcompiler '@COMMON_CFLAGS@' \
+NVCC_CFLAGS= -Xcompiler -fPIC -Xcompiler '@COMMON_FLAGS@' \
 	-gencode arch=compute_20,code=sm_20 \
 	-gencode arch=compute_11,code=sm_11 \
 	-gencode arch=compute_10,code=sm_10 \
@@ -28,7 +28,7 @@ library_include_HEADERS = libgpujpeg/*.h
 nodist_gpujpeg_libinclude_HEADERS = config.h
 
 gpujpeg_SOURCES = src/main.c
-gpujpeg_CFLAGS = -std=c99 @COMMON_CFLAGS@
+gpujpeg_CFLAGS = -std=c99 @COMMON_FLAGS@
 gpujpeg_LDADD = libgpujpeg.la
 gpujpeg_LDFLAGS = @GPUJPEG_LDFLAGS@
 
@@ -47,7 +47,8 @@ libgpujpeg_la_DEPENDENCIES = @LIBGPUJPEG_CUDA_OBJS@
 
 libgpujpeg_la_LIBADD = $(libgpujpeg_la_DEPENDENCIES)
 libgpujpeg_la_LDFLAGS = -export-dynamic -version-info $(GPUJPEG_LIBRARY_VERSION) @GPUJPEG_LDFLAGS@ @GPUJPEG_LIBS@
-libgpujpeg_la_CFLAGS = -std=c99 -fPIC @COMMON_CFLAGS@
+libgpujpeg_la_CFLAGS = -std=c99 -fPIC @COMMON_FLAGS@
+libgpujpeg_la_CXXFLAGS = -fPIC @COMMON_FLAGS@
 #libgpujpeg_la_LINK = g++ -fPIC
 
 check-TESTS: tests

@@ -48,8 +48,7 @@ struct video_compress_params;
 
 struct module *cuda_dxt_compress_init(struct module *parent,
                 const struct video_compress_params *parms);
-struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx,
-                int tile_idx, int buffer);
+struct video_frame *cuda_dxt_compress_tile(struct module *mod, struct video_frame *tx);
 
 #ifdef __cplusplus
 }

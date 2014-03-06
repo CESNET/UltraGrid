@@ -27,6 +27,10 @@
 #ifndef DXT_ENCODER_H
 #define DXT_ENCODER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "dxt_common.h"
 
 /**
@@ -96,5 +100,9 @@ dxt_encoder_buffer_free(unsigned char* image_compressed);
  */
 int
 dxt_encoder_destroy(struct dxt_encoder* encoder);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // DXT_ENCODER_H

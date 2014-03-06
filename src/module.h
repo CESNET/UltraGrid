@@ -102,6 +102,8 @@ struct module {
         msg_callback_t msg_callback;
         struct simple_linked_list *msg_queue;
 
+        struct simple_linked_list *msg_queue_childs; ///< messages for childern that were not delivered
+
         void *priv_data;
 };
 
@@ -111,20 +113,21 @@ void module_done(struct module *module_data);
 const char *module_class_name(enum module_class cls);
 void append_message_path(char *buf, int buflen, enum module_class modules[]);
 /**
- * IMPORTANT: returned module will be locked on return and needs to be unlocked by caller
- * when it is done!
- *
  * @retval NULL if not found
  * @retval non-NULL pointer to the module
  */
 struct module *get_module(struct module *root, const char *path);
+
 /**
- * @see get_module
- * Caller of get_module should call this when done with module
+ * IMPORTANT: module given as parameter should be locked within the calling thread.
+ *
+ * @retval NULL if not found
+ * @retval non-NULL pointer to the module
  */
-void unlock_module(struct module *module);
+struct module *get_matching_child(struct module *node, const char *path);
+
 /**
- * Returns pointer to root module. It WON'T be locked.
+ * Returns pointer to root module.
  *
  * @retval root module
  */

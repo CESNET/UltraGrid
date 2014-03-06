@@ -21,6 +21,7 @@
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "module.h"
 #include "stats.h"
+#include "utils/misc.h"
 #include "tv.h"
 
 #define EXIT_FAIL_USAGE 1
@@ -216,7 +217,7 @@ static void *writer(void *arg)
                 return NULL;
             }
             for (i = 0; i < s->host_count; i++) {
-                if(s->replicas[i].sock != -1) {
+                if(s->replicas[i].type == USE_SOCK) {
                     replica_write(&s->replicas[i],
                             s->qhead->buf, s->qhead->size);
                 }
@@ -253,6 +254,7 @@ static void usage(const char *progname) {
         printf("\tand hostX_options may be:\n"
                 "\t\t-c <compression> - compression\n"
                 "\t\t-m <mtu> - MTU size. Will be used only with compression.\n"
+                "\t\t-l <limiting_bitrate> - bitrate to be shaped to\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
               );
 }
@@ -262,6 +264,7 @@ struct host_opts {
     int mtu;
     char *compression;
     char *fec;
+    int64_t packet_rate;
 };
 
 static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
@@ -317,9 +320,25 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
                 case 'f':
                     (*host_opts)[host_idx].fec = argv[i + 1];
                     break;
+                case 'l':
+                    if (strcmp(argv[i + 1], "unlimited") == 0) {
+                        (*host_opts)[host_idx].packet_rate = 0;
+                    } else {
+                        (*host_opts)[host_idx].packet_rate = unit_evaluate(argv[i + 1]);
+                    }
+                    break;
                 default:
                     fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
                     exit(EXIT_FAIL_USAGE);
+            }
+            // make it correct
+            if ((*host_opts)[host_idx].packet_rate != 0) {
+                int mtu = (*host_opts)[host_idx].mtu;
+                if (mtu == 0) {
+                    mtu = 1500;
+                }
+                (*host_opts)[host_idx].packet_rate = 1000ull *
+                    mtu * 8 / (*host_opts)[host_idx].packet_rate;
             }
             i += 1;
         } else {
@@ -470,6 +489,8 @@ int main(int argc, char **argv)
         module_init_default(&state.replicas[i].mod);
         state.replicas[i].mod.cls = MODULE_CLASS_PORT;
 
+                    fprintf(stderr, "%d %s\n", hosts[i].packet_rate, hosts[i].addr);
+
         if(hosts[i].compression == NULL) {
             state.replicas[i].type = USE_SOCK;
             int mtu = 1500;
@@ -477,7 +498,7 @@ int main(int argc, char **argv)
             char *fec = NULL;
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, compress,
-                    0, port, mtu, fec);
+                    0, port, mtu, fec, hosts[i].packet_rate);
             hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
         } else {
             state.replicas[i].type = RECOMPRESS;
@@ -488,7 +509,7 @@ int main(int argc, char **argv)
 
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, hosts[i].compression,
-                    0, port, mtu, hosts[i].fec);
+                    0, port, mtu, hosts[i].fec, hosts[i].packet_rate);
             if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);

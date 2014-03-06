@@ -14,7 +14,7 @@
  *
  * Copyright (c) 2003-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -69,6 +69,8 @@
 
 #define PBUF_MAGIC	0xcafebabe
 
+#define STATS_INTERVAL 1000
+
 extern long frame_begin[2];
 
 struct pbuf_node {
@@ -82,6 +84,7 @@ struct pbuf_node {
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
         uint32_t magic;         /* For debugging                         */
+        bool completed;
 };
 
 struct pbuf {
@@ -89,6 +92,15 @@ struct pbuf {
         struct pbuf_node *last;
         double playout_delay;
         double deletion_delay;
+
+        // for statistics
+        /// @todo figure out packet duplication
+        int pkt_count[2]; // first buffer is for last_rtp_seq + STATS_INTERVAL
+                          // second for last_rtp_seq + 2 * STATS_INTERVAL
+        int last_rtp_seq;
+        int should_arrived;
+        int cumulative_count;
+        uint32_t last_display_ts;
 };
 
 static void free_cdata(struct coded_data *head);
@@ -151,7 +163,7 @@ struct pbuf *pbuf_init(void)
 {
         struct pbuf *playout_buf = NULL;
 
-        playout_buf = malloc(sizeof(struct pbuf));
+        playout_buf = calloc(1, sizeof(struct pbuf));
         if (playout_buf != NULL) {
                 playout_buf->frst = NULL;
                 playout_buf->last = NULL;
@@ -234,6 +246,7 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay
         tmp = malloc(sizeof(struct pbuf_node));
         if (tmp != NULL) {
                 tmp->magic = PBUF_MAGIC;
+                tmp->completed = false;
                 tmp->nxt = NULL;
                 tmp->prv = NULL;
                 tmp->decoded = 0;
@@ -268,6 +281,41 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         struct pbuf_node *curr;
 
         pbuf_validate(playout_buf);
+
+        // collect statistics
+        if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16)) %
+                                (1<<16)) < STATS_INTERVAL * 2) {
+
+                if ((((int) pkt->seq - playout_buf->last_rtp_seq + (1<<16))
+                                        % (1<<16)) < STATS_INTERVAL) {
+                        playout_buf->pkt_count[0] += 1;
+                } else {
+                        playout_buf->pkt_count[1] += 1;
+                }
+        } else {
+                playout_buf->cumulative_count += playout_buf->pkt_count[0];
+                playout_buf->should_arrived += STATS_INTERVAL;
+                playout_buf->last_rtp_seq = (playout_buf->last_rtp_seq +
+                                STATS_INTERVAL) % (1<<16);
+                playout_buf->pkt_count[0] = playout_buf->pkt_count[1];
+                playout_buf->pkt_count[1] = 1;
+        }
+
+        // print statistics after 5 seconds
+        if ((pkt->ts - playout_buf->last_display_ts) > 90000 * 5 &&
+                        playout_buf->should_arrived > 0) {
+                // print stats
+                printf("SSRC %08x: %d packets expected, %d was received "
+                                "successfully (%f%%).\n",
+                                pkt->ssrc,
+                                playout_buf->should_arrived,
+                                playout_buf->cumulative_count,
+                                (double) playout_buf->cumulative_count /
+                                playout_buf->should_arrived * 100.0);
+                playout_buf->should_arrived =
+                        playout_buf->cumulative_count = 0;
+                playout_buf->last_display_ts = pkt->ts;
+        }
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
                 /* playout buffer is empty - add new frame */
@@ -382,7 +430,7 @@ static int frame_complete(struct pbuf_node *frame)
         /* the packtes of a frame being present - perhaps we should  */
         /* keep a bit vector in pbuf_node? LG.  */
 
-        return (frame->mbit == 1);
+        return (frame->mbit == 1 || frame->completed == true);
 }
 
 int pbuf_is_empty(struct pbuf *playout_buf)

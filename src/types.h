@@ -60,8 +60,6 @@ typedef enum {
         RGBA,     ///< RGBA 8-bit
         UYVY,     ///< YCbCr 422 8-bit - Cb Y0 Cr Y1
         YUYV,     ///< YCbCr 422 8-bit - Y0 Cb Y1 Cr
-        Vuy2,     ///< YCbCr 422 8-bit (same as UYVY)
-        DVS8,     ///< YCbCr 422 8-bit (same as UYVY)
         R10k,     ///< RGB 10-bit (also know as r210)
         v210,     ///< YCbCr 422 10-bit
         DVS10,    ///< DVS 10-bit format
@@ -147,10 +145,15 @@ struct video_frame {
          * @note
          * Currently, this is only used in sending workflow, not the receiving one!
          * Can be called from arbitrary thread.
+         * @note
+         * Can be changed only by frame originator.
          */
         void               (*dispose)(struct video_frame *);
         /**
          * Additional data needed to dispose the frame
+         *
+         * @note
+         * Can be changed only by frame originator.
         */
         void                *dispose_udata;
         /**
@@ -200,13 +203,17 @@ struct tile {
         unsigned int         offset;
 };
 
-/** Video Mode */
+/** Video Mode
+ *
+ * Video mode metadata are stored in file video.c in @ref video_mode_info.
+ */
 enum video_mode {
         VIDEO_UNKNOWN, ///< unspecified video mode
         VIDEO_NORMAL,  ///< normal video (one tile)
         VIDEO_DUAL,    ///< 1x2 video grid (is this ever used?)
         VIDEO_STEREO,  ///< stereoscopic 3D video (full left and right eye)
         VIDEO_4K,      ///< tiled 4K video
+        VIDEO_3X1,     ///< 3x1 video
 };
 
 enum tx_media_type {

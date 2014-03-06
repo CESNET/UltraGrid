@@ -82,7 +82,7 @@ static void configure_with(struct state_decompress_rtdxt *decompressor, struct v
         enum dxt_type type;
 
         if(!init_gl_context(&decompressor->context, GL_CONTEXT_ANY)) {
-                fprintf(stderr, "[RTDXT decompress] Failed to create GL context.");
+                fprintf(stderr, "[RTDXT decompress] Failed to create GL context.\n");
                 exit_uv(128);
                 decompressor->compressed_len = 0;
                 return;
@@ -152,6 +152,11 @@ int dxt_glsl_decompress(void *state, unsigned char *dst, unsigned char *buffer,
         struct state_decompress_rtdxt *s = (struct state_decompress_rtdxt *) state;
         UNUSED(src_len);
         UNUSED(frame_seq);
+
+        if (!s->configured) {
+                fprintf(stderr, "DXT decoder not configured!\n");
+                return FALSE;
+        }
 
         gl_context_make_current(&s->context);
         

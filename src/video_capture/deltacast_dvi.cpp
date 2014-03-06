@@ -83,18 +83,18 @@ extern "C" {
 #include <VideoMasterHD_Core.h>
 #include <VideoMasterHD_Dvi.h>
 
+#define DEFAULT_BUFFERQUEUE_DEPTH 5
+
 struct vidcap_deltacast_dvi_state {
-        struct video_frame *frame;
-        struct tile        *tile;
         ULONG             BoardType;
         HANDLE            BoardHandle, StreamHandle;
-        HANDLE            SlotHandle;
 
         struct       timeval t, t0;
         int          frames;
 
         codec_t      codec;
         bool         configured;
+        struct video_desc desc;
 };
 
 #define EEDDIDOK 0
@@ -449,16 +449,12 @@ static bool wait_for_channel_locked(struct vidcap_deltacast_dvi_state *s, bool h
                 return false;
         }
 
-        struct video_desc desc;
-        desc.color_spec = s->codec;
-        desc.width = Width;
-        desc.height = Height;
-        desc.fps = RefreshRate;
-        desc.interlacing = Interlaced_B ? INTERLACED_MERGED : PROGRESSIVE;
-        desc.tile_count = 1;
-
-        s->frame = vf_alloc_desc(desc);
-        s->tile = vf_get_tile(s->frame, 0);
+        s->desc.color_spec = s->codec;
+        s->desc.width = Width;
+        s->desc.height = Height;
+        s->desc.fps = RefreshRate;
+        s->desc.interlacing = Interlaced_B ? INTERLACED_MERGED : PROGRESSIVE;
+        s->desc.tile_count = 1;
 
         return true;
 }
@@ -492,7 +488,7 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
 		return NULL;
 	}
 
-        s->BoardHandle = s->StreamHandle = s->SlotHandle = NULL;
+        s->BoardHandle = s->StreamHandle = NULL;
 
         char *init_fmt = NULL;
         if (vidcap_params_get_fmt(params) != NULL)
@@ -644,18 +640,15 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
         VHD_SetStreamProperty(s->StreamHandle,VHD_CORE_SP_TRANSFER_SCHEME,
                         VHD_TRANSFER_SLAVED);
 
+        Result = VHD_SetStreamProperty(s->StreamHandle, VHD_CORE_SP_BUFFERQUEUE_DEPTH,
+                        DEFAULT_BUFFERQUEUE_DEPTH);
+        if(Result != VHDERR_NOERROR) {
+                fprintf(stderr, "[Delta-dvi] Warning: Unable to set buffer queue length.\n");
+        }
+
         if(have_preset) {
                 DviMode = VHD_DVI_MODE_DVI_A;
         } else {
-                /* Read EEDID and check its validity */
-                Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
-                if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
-                {
-                        /* Propose edid preset to user and load */
-                        fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
-                        fprintf(stderr, "Please set it as a command-line option.\n");
-                        goto no_format;
-                }
                 switch(edid)
                 {
                         case 0 : VHD_PresetEEDID(VHD_EEDID_DVID,pEEDIDBuffer,256);
@@ -668,6 +661,15 @@ vidcap_deltacast_dvi_init(const struct vidcap_params *params)
                                  VHD_LoadEEDID(s->StreamHandle,pEEDIDBuffer,256);
                                  break;
                         default : break;
+                }
+                /* Read EEDID and check its validity */
+                Result = VHD_ReadEEDID(s->BoardHandle,VHD_ST_RX0,pEEDIDBuffer,&pEEDIDBufferSize);
+                if(Result == VHDERR_NOTIMPLEMENTED || CheckEEDID(pEEDIDBuffer) == BADEEDID)
+                {
+                        /* Propose edid preset to user and load */
+                        fprintf(stderr, "\nNo valid EEDID detected or DELTA-dvi board V1.\n");
+                        fprintf(stderr, "Please set it as a command-line option.\n");
+                        goto no_format;
                 }
         }
 
@@ -705,16 +707,19 @@ vidcap_deltacast_dvi_done(void *state)
 
 	assert(s != NULL);
         
-        if(s->SlotHandle)
-                VHD_UnlockSlotHandle(s->SlotHandle);
         VHD_StopStream(s->StreamHandle);
         VHD_CloseStreamHandle(s->StreamHandle);
         /* Re-establish RX0-TX0 by-pass relay loopthrough */
         VHD_SetBoardProperty(s->BoardHandle,VHD_CORE_BP_BYPASS_RELAY_0,TRUE);
         VHD_CloseBoardHandle(s->BoardHandle);
         
-        vf_free(s->frame);
         free(s);
+}
+
+static void vidcap_deltacast_dvi_dispose(struct video_frame *f)
+{
+       VHD_UnlockSlotHandle((HANDLE) f->dispose_udata);
+       vf_free(f);
 }
 
 struct video_frame *
@@ -725,6 +730,7 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         ULONG             /*SlotsCount, SlotsDropped,*/BufferSize;
         ULONG             Result;
         BYTE             *pBuffer=NULL;
+        HANDLE            SlotHandle;
 
         if(!s->configured) {
                 s->configured = wait_for_channel_locked(s, false, NB_VHD_DVI_MODES, 0, 0, 0);
@@ -734,10 +740,8 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         }
 
         *audio = NULL;
-        /* Unlock slot */
-        if(s->SlotHandle)
-                VHD_UnlockSlotHandle(s->SlotHandle);
-        Result = VHD_LockSlotHandle(s->StreamHandle,&s->SlotHandle);
+
+        Result = VHD_LockSlotHandle(s->StreamHandle, &SlotHandle);
         if (Result != VHDERR_NOERROR) {
                 if (Result != VHDERR_TIMEOUT) {
                         fprintf(stderr, "ERROR : Cannot lock slot on RX0 stream. Result = 0x%08X\n",Result);
@@ -748,19 +752,22 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
                 return NULL;
         }
 
-         Result = VHD_GetSlotBuffer(s->SlotHandle, VHD_DVI_BT_VIDEO, &pBuffer, &BufferSize);
+         Result = VHD_GetSlotBuffer(SlotHandle, VHD_DVI_BT_VIDEO, &pBuffer, &BufferSize);
          
          if (Result != VHDERR_NOERROR) {
                 fprintf(stderr, "\nERROR : Cannot get slot buffer. Result = 0x%08X\n",Result);
                 return NULL;
          }
 
-         if(s->frame->color_spec == RGBA) {
+         if(s->desc.color_spec == RGBA) {
                  vc_copylineRGBA(pBuffer, pBuffer, BufferSize, 16, 8, 0);
          }
          
-         s->tile->data = (char*) pBuffer;
-         s->tile->data_len = BufferSize;
+	 struct video_frame *out = vf_alloc_desc(s->desc);
+         out->tiles[0].data = (char*) pBuffer;
+         out->tiles[0].data_len = BufferSize;
+         out->dispose_udata = SlotHandle;
+         out->dispose = vidcap_deltacast_dvi_dispose;
 
          /* Print some statistics */
          /*VHD_GetStreamProperty(s->StreamHandle,VHD_CORE_SP_SLOTS_COUNT,&SlotsCount);
@@ -776,6 +783,6 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         }
         s->frames++;
         
-	return s->frame;
+	return out;
 }
 

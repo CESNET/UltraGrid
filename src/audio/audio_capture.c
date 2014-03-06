@@ -89,7 +89,6 @@ typedef void (*audio_device_help_t)(const char *driver_name);
  */
 typedef void * (*audio_init_t)(char *cfg);
 typedef struct audio_frame* (*audio_read_t)(void *state);
-typedef void (*audio_finish_t)(void *state);
 typedef void (*audio_done_t)(void *state);
 
 #ifdef BUILD_LIBRARIES
@@ -107,8 +106,6 @@ struct audio_capture_t {
         const char              *audio_init_str;
         audio_read_t             audio_read;
         const char              *audio_read_str;
-        audio_finish_t           audio_capture_finish;
-        const char              *audio_capture_finish_str;
         audio_done_t             audio_capture_done;
         const char              *audio_capture_done_str;
 
@@ -121,7 +118,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
                 MK_STATIC(sdi_read),
-                MK_STATIC(sdi_capture_finish),
                 MK_STATIC(sdi_capture_done),
                 NULL
         },
@@ -130,7 +126,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
                 MK_STATIC(sdi_read),
-                MK_STATIC(sdi_capture_finish),
                 MK_STATIC(sdi_capture_done),
                 NULL
         },
@@ -139,7 +134,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(sdi_capture_help),
                 MK_STATIC(sdi_capture_init),
                 MK_STATIC(sdi_read),
-                MK_STATIC(sdi_capture_finish),
                 MK_STATIC(sdi_capture_done),
                 NULL
         },
@@ -149,7 +143,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_NAME(audio_cap_alsa_help),
                 MK_NAME(audio_cap_alsa_init),
                 MK_NAME(audio_cap_alsa_read),
-                MK_NAME(audio_cap_alsa_finish),
                 MK_NAME(audio_cap_alsa_done),
                 NULL
         },
@@ -160,7 +153,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_ca_help),
                 MK_STATIC(audio_cap_ca_init),
                 MK_STATIC(audio_cap_ca_read),
-                MK_STATIC(audio_cap_ca_finish),
                 MK_STATIC(audio_cap_ca_done),
                 NULL
         },
@@ -171,7 +163,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_NAME(portaudio_capture_help),
                 MK_NAME(portaudio_capture_init),
                 MK_NAME(portaudio_read),
-                MK_NAME(portaudio_capture_finish),
                 MK_NAME(portaudio_capture_done),
                 NULL
         },
@@ -182,7 +173,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_NAME(audio_cap_jack_help),
                 MK_NAME(audio_cap_jack_init),
                 MK_NAME(audio_cap_jack_read),
-                MK_NAME(audio_cap_jack_finish),
                 MK_NAME(audio_cap_jack_done),
                 NULL
         },
@@ -192,7 +182,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_testcard_help),
                 MK_STATIC(audio_cap_testcard_init),
                 MK_STATIC(audio_cap_testcard_read),
-                MK_STATIC(audio_cap_testcard_finish),
                 MK_STATIC(audio_cap_testcard_done),
                 NULL
         },
@@ -201,7 +190,6 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_none_help),
                 MK_STATIC(audio_cap_none_init),
                 MK_STATIC(audio_cap_none_read),
-                MK_STATIC(audio_cap_none_finish),
                 MK_STATIC(audio_cap_none_done),
                 NULL
         }
@@ -231,13 +219,11 @@ static int audio_capture_fill_symbols(struct audio_capture_t *device)
                 dlsym(handle, device->audio_init_str);
         device->audio_read = (audio_read_t)
                 dlsym(handle, device->audio_read_str);
-        device->audio_capture_finish = (audio_finish_t)
-                dlsym(handle, device->audio_capture_finish_str);
         device->audio_capture_done = (audio_done_t)
                 dlsym(handle, device->audio_capture_done_str);
 
         if(!device->audio_help || !device->audio_init || !device->audio_read ||
-                        !device->audio_capture_finish || !device->audio_capture_done) {
+                        !device->audio_capture_done) {
                 fprintf(stderr, "Library %s opening error: %s \n", device->library_name, dlerror());
                 return FALSE;
         }
@@ -327,13 +313,6 @@ void audio_capture_print_help()
         for (i = 0; i < available_audio_capture_count; ++i) {
                 available_audio_capture[i]->audio_help(available_audio_capture[i]->name);
                 printf("\n");
-        }
-}
-
-void audio_capture_finish(struct state_audio_capture *s)
-{
-        if(s) {
-                available_audio_capture[s->index]->audio_capture_finish(s->state);
         }
 }
 

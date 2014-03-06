@@ -58,21 +58,22 @@ audio_frame2 *resampler_resample(struct resampler *s, audio_frame2 *frame)
                         mux_channel(s->muxed, frame->data[i], frame->bps, frame->data_len[i],
                                         frame->ch_count, i, 1.0);
                 }
-                char *in_buf;
                 int data_len = frame->data_len[0] * frame->ch_count; // uncompressed, so all channels
                                                                      // have the same size
                 if(frame->bps != 2) {
                         change_bps(s->resample_buffer, 2, s->muxed, frame->bps,
                                         data_len);
-                        in_buf = s->resample_buffer;
                         data_len = data_len / frame->bps * 2;
                 } else {
-                        in_buf = s->muxed;
+                        memcpy(s->resample_buffer, s->muxed, data_len);
                 }
 
                 uint32_t in_frames = data_len / frame->ch_count / 2;
-                speex_resampler_process_interleaved_int(s->resampler, (spx_int16_t *)(void *) in_buf, &in_frames,
+                uint32_t in_frames_orig = in_frames;
+                speex_resampler_process_interleaved_int(s->resampler,
+                                (spx_int16_t *)(void *) s->resample_buffer, &in_frames,
                                 (spx_int16_t *)(void *) s->muxed, &write_frames);
+                assert(in_frames_orig == in_frames);
 
                 for(int i = 0; i < frame->ch_count; ++i) {
                         s->resampled->data_len[i] = write_frames * 2 /* bps */;

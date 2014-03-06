@@ -11,8 +11,9 @@
 #include <libavutil/imgutils.h>
 #include <libavutil/mem.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixfmt.h>
 
-#ifndef HAVE_AVCODEC_ENCODE_VIDEO2
+#if !defined(HAVE_AVCODEC_ENCODE_VIDEO2) || (LIBAVCODEC_VERSION_MAJOR < 55)
 #define AV_PIX_FMT_NONE PIX_FMT_NONE
 #define AV_PIX_FMT_YUV420P PIX_FMT_YUV420P
 #define AV_PIX_FMT_YUV422P PIX_FMT_YUV422P

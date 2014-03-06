@@ -17,6 +17,7 @@
 
 #include <tchar.h>
 #include <DShow.h>
+#include <Dvdmedia.h>
 #include <Qedit.h>
 #include <OleAuto.h>
 //#include <Streams.h>
@@ -297,7 +298,7 @@ void show_help(struct vidcap_dshow_state *s) {
 	if (!common_init(s)) return;
 
 	HRESULT res;
-	int n = 1;
+	int n = 0;
 	// Enumerate all capture devices
 	while ((res = s->videoInputEnumerator->Next(1, &s->moniker, NULL)) == S_OK) {
                 n++;
@@ -373,7 +374,9 @@ void show_help(struct vidcap_dshow_state *s) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)) {
+			if ((mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER))
+                                                && (mediaType->formattype != FORMAT_VideoInfo2
+                                                        || mediaType->cbFormat < sizeof(VIDEOINFOHEADER2))) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
 				continue;
 			}
@@ -660,6 +663,9 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 		return NULL;
 	}
 
+	InitializeConditionVariable(&s->grabWaitCV);
+	InitializeCriticalSection(&s->returnBufferCS);
+
 	if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "help") == 0) {
 		show_help(s); 
 		cleanup(s);
@@ -675,8 +681,6 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 		if (!process_args(s, init_fmt)) goto error;
                 free(init_fmt);
 	}
-
-	InitializeConditionVariable(&s->grabWaitCV);
 
 	// Select video capture device
 	if (s->deviceNumber != -1) { // Device was specified by number
@@ -842,7 +846,9 @@ void * vidcap_dshow_init(const struct vidcap_params *params) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Cannot read stream capabilities #%d.\n", i);
 				continue;
 			}
-			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)) {
+			if (mediaType->formattype != FORMAT_VideoInfo || mediaType->cbFormat < sizeof(VIDEOINFOHEADER)
+                                        && (mediaType->formattype != FORMAT_VideoInfo2
+                                                        || mediaType->cbFormat < sizeof(VIDEOINFOHEADER2))) {
 				fprintf(stderr, "[dshow] vidcap_dshow_help: Unsupported format type for capability #%d.\n", i);
 				continue;
 			}

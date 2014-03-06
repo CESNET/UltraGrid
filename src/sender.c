@@ -69,7 +69,7 @@
 #include "sender.h"
 #include "stats.h"
 #include "transmit.h"
-#include "vf_split.h"
+#include "utils/vf_split.h"
 #include "video.h"
 #include "video_compress.h"
 #include "video_display.h"
@@ -128,7 +128,7 @@ static void sender_process_external_message(struct sender_data *data, struct msg
                             ret = rtp_change_dest(((struct ultragrid_rtp_state *)
                                                                             data->tx_module_state)->network_devices[0],
                                                                     msg->receiver);
-                        }else if(data->rxtx_protocol == H264_STD){
+                        } else { // if(data->rxtx_protocol == H264_STD) {
                             ret = rtp_change_dest(
                                     ((struct h264_rtp_state *) data->tx_module_state)->network_devices[0],
                                     msg->receiver);
@@ -162,19 +162,12 @@ bool sender_init(struct sender_data *data) {
         data->priv = calloc(1, sizeof(struct sender_priv_data));
         pthread_mutex_init(&data->priv->lock, NULL);
 
-        // we lock and thread unlocks after initialized
-        pthread_mutex_lock(&data->priv->lock);
-
         if (pthread_create
                         (&data->priv->thread_id, NULL, sender_thread,
                          (void *) data) != 0) {
                 perror("Unable to create sender thread!\n");
                 return false;
         }
-
-        // this construct forces waiting for thread inititialization
-        pthread_mutex_lock(&data->priv->lock);
-        pthread_mutex_unlock(&data->priv->lock);
 
         return true;
 }
@@ -231,6 +224,8 @@ static void sage_rxtx_send(void *state, struct video_frame *tx_frame)
         memcpy(frame->tiles[0].data, tx_frame->tiles[0].data,
                         tx_frame->tiles[0].data_len);
         display_put_frame(data->sage_tx_device, frame, PUTF_NONBLOCK);
+
+        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 static void sage_rxtx_done(void *state)
@@ -257,6 +252,8 @@ static void h264_rtp_send(void *state, struct video_frame *tx_frame)
                                         data->network_devices[i]);
                 }
         }
+
+        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 static void h264_rtp_done(void *state)
@@ -279,12 +276,9 @@ static void *sender_thread(void *arg) {
         data->priv->mod.priv_data = data;
         module_register(&data->priv->mod, data->parent);
 
-        pthread_mutex_unlock(&data->priv->lock);
-
         struct module *control_mod = get_module(get_root_module(&data->priv->mod), "control");
         struct stats *stat_data_sent = stats_new_statistics((struct control_state *)
                         control_mod, "data");
-        unlock_module(control_mod);
 
         while(1) {
                 // process external messages
@@ -306,9 +300,7 @@ static void *sender_thread(void *arg) {
                         data->send_frame(data->tx_module_state, tx_frame);
                 }
 
-                if (tx_frame->dispose) {
-                        tx_frame->dispose(tx_frame);
-                }
+                VIDEO_FRAME_DISPOSE(tx_frame);
 
                 if (data->rxtx_protocol == ULTRAGRID_RTP || data->rxtx_protocol == H264_STD) {
                         struct ultragrid_rtp_state *rtp_state = data->tx_module_state;

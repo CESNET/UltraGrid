@@ -1,32 +1,23 @@
+/**
+ * @file   utils/misc.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    linsys.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2014 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,12 +33,42 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
-#define VIDCAP_LINSYS_ID  0x10203044
 
-struct vidcap_type      *vidcap_linsys_probe(void);
-void                    *vidcap_linsys_init(const struct vidcap_params *params);
-void                     vidcap_linsys_done(void *state);
-struct video_frame      *vidcap_linsys_grab(void *state, struct audio_frame **audio);
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#include "config_unix.h"
+#include "config_win32.h"
+#endif
+
+#include "utils/misc.h"
+
+/**
+ * Converts units in format xy{k,M,G} to integral representation.
+ *
+ * @param   str string to be parsed
+ * @returns     integral representation of the string
+ */
+int64_t unit_evaluate(const char *str) {
+        char *end_ptr;
+        char unit_prefix_u;
+        int64_t ret = strtoul(str, &end_ptr, 10);
+        unit_prefix_u = toupper(*end_ptr);
+        switch(unit_prefix_u) {
+                case 'G':
+                        ret *= 1000;
+                case 'M':
+                        ret *= 1000;
+                case 'K':
+                        ret *= 1000;
+                        break;
+                case '\0':
+                        break;
+                default:
+                        fprintf(stderr, "[lavc] Error: unknown unit prefix %c.\n",
+                                        *end_ptr);
+        }
+
+        return ret;
+}
 

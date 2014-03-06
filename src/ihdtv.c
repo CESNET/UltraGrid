@@ -90,6 +90,7 @@ static void ihdtv_send_frame(void *state, struct video_frame *tx_frame)
 #ifdef HAVE_IHDTV
         struct ihdtv_state *s = state;
         ihdtv_send(&s->tx_connection, tx_frame, 9000000);      // FIXME: fix the use of frame size!!
+        VIDEO_FRAME_DISPOSE(tx_frame);
 #else // IHDTV
         UNUSED(state);
         UNUSED(tx_frame);

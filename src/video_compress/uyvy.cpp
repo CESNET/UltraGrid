@@ -1,32 +1,23 @@
+/**
+ * @file   src/video_compress/uyvy.cpp
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    dxt_glsl_compress.c
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2011 CESNET z.s.p.o.
+ * Copyright (c) 2013-2014 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,7 +33,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,6 +43,7 @@
 #include "debug.h"
 #include "host.h"
 #include "module.h"
+#include "utils/video_frame_pool.h"
 #include "video_compress/uyvy.h"
 #include "compat/platform_semaphore.h"
 #include "video.h"
@@ -67,7 +58,7 @@
 
 #include "gl_context.h"
 
-static const char fp_display_rgba_to_yuv422_legacy[] = 
+static const char fp_display_rgba_to_yuv422_legacy[] =
 "#define GL_legacy 1\n"
     "#if GL_legacy\n"
     "#define TEXCOORD gl_TexCoord[0]\n"
@@ -121,7 +112,6 @@ static const char fp_display_rgba_to_yuv422_legacy[] =
 struct state_video_compress_uyvy {
         struct module module_data;
 
-        struct video_frame *out[2];
         unsigned int configured:1;
         struct video_desc saved_desc;
 
@@ -134,6 +124,8 @@ struct state_video_compress_uyvy {
         GLuint texture;
 
         int gl_format;
+
+        video_frame_pool<default_data_allocator> *pool;
 };
 
 int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame *tx);
@@ -143,9 +135,8 @@ struct module * uyvy_compress_init(struct module *parent, const struct video_com
 {
         UNUSED(params);
         struct state_video_compress_uyvy *s;
-        
+
         s = (struct state_video_compress_uyvy *) malloc(sizeof(struct state_video_compress_uyvy));
-        s->out[0] = s->out[1] = NULL;
 
         if(!init_gl_context(&s->context, GL_CONTEXT_LEGACY))
                 abort();
@@ -161,19 +152,19 @@ struct module * uyvy_compress_init(struct module *parent, const struct video_com
         GLsizei gllen;
 
         PHandle = glCreateProgram();
-        
+
         FProgram = (const GLchar *) fp_display_rgba_to_yuv422_legacy;
         /* Set up program objects. */
         s->program_rgba_to_yuv422 = glCreateProgram();
         FSHandle=glCreateShader(GL_FRAGMENT_SHADER);
-        
+
         /* Compile Shader */
         len = strlen(FProgram);
         glShaderSource(FSHandle, 1, &FProgram, &len);
         glCompileShader(FSHandle);
-        
+
         /* Print compile log */
-        log = calloc(32768,sizeof(char));
+        log = (char *) calloc(32768,sizeof(char));
         glGetShaderInfoLog(FSHandle, 32768, &gllen, log);
         printf("Compile Log: %s\n", log);
 #if 0
@@ -188,7 +179,7 @@ struct module * uyvy_compress_init(struct module *parent, const struct video_com
 #endif
         glAttachShader(PHandle, FSHandle);
         glLinkProgram(PHandle);
-        
+
         /* Print link log. */
         memset(log, 0, 32768);
         glGetInfoLogARB(PHandle,32768,NULL,log);
@@ -204,6 +195,8 @@ struct module * uyvy_compress_init(struct module *parent, const struct video_com
         s->configured = FALSE;
 
         gl_context_make_current(NULL);
+
+        s->pool = new video_frame_pool<default_data_allocator>();
 
         module_init_default(&s->module_data);
         s->module_data.cls = MODULE_CLASS_DATA;
@@ -228,19 +221,11 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
                         return FALSE;
         }
 
-        for(int i = 0; i < 2; ++i) {
-                s->out[i] = vf_alloc(1);
-                s->out[i]->color_spec = UYVY;
-                s->out[i]->interlacing = tx->interlacing;
-                s->out[i]->fps = tx->fps;
-                s->out[i]->data_deleter = vf_data_deleter;
-
-                struct tile *tile = &s->out[i]->tiles[0];
-                tile->width = tx->tiles[0].width;
-                tile->height = tx->tiles[0].height;
-                tile->data_len = 2 * tile->width * tile->height; /* UYVY */
-                tile->data = malloc(tile->data_len);
-        }
+        struct video_desc compressed_desc;
+        compressed_desc = video_desc_from_frame(tx);
+        compressed_desc.color_spec = UYVY;
+        s->pool->reconfigure(compressed_desc, 2 * compressed_desc.width *
+                        compressed_desc.height /* UYVY */);
 
         glUseProgram(s->program_rgba_to_yuv422);
         glUniform1f(glGetUniformLocation(s->program_rgba_to_yuv422, "imageWidth"),
@@ -249,21 +234,21 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
 
         glGenFramebuffers(1, &s->fbo);
 
-        glGenTextures(1, &s->texture_rgba); 
-        glBindTexture(GL_TEXTURE_2D, s->texture_rgba); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+        glGenTextures(1, &s->texture_rgba);
+        glBindTexture(GL_TEXTURE_2D, s->texture_rgba);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0 , s->gl_format, tx->tiles[0].width, tx->tiles[0].height, 0, s->gl_format, GL_UNSIGNED_BYTE, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , s->gl_format, tx->tiles[0].width, tx->tiles[0].height, 0, s->gl_format, GL_UNSIGNED_BYTE, 0);
 
-        glGenTextures(1, &s->texture); 
-        glBindTexture(GL_TEXTURE_2D, s->texture); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
+        glGenTextures(1, &s->texture);
+        glBindTexture(GL_TEXTURE_2D, s->texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA, tx->tiles[0].width / 2, tx->tiles[0].height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0); 
+        glTexImage2D(GL_TEXTURE_2D, 0 , GL_RGBA, tx->tiles[0].width / 2, tx->tiles[0].height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
         glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -284,10 +269,11 @@ int uyvy_configure_with(struct state_video_compress_uyvy *s, struct video_frame 
         return true;
 }
 
-struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx, int buffer)
+struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx)
 {
+        auto_video_frame_disposer tx_disposer(tx);
+
         struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
-        assert (buffer == 0 || buffer == 1);
 
         gl_context_make_current(&s->context);
 
@@ -300,7 +286,8 @@ struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx, 
 
         assert(video_desc_eq(video_desc_from_frame(tx), s->saved_desc));
 
-        struct tile *tile = &s->out[buffer]->tiles[0];
+        struct video_frame *out = s->pool->get_frame();
+        struct tile *tile = &out->tiles[0];
 
         glBindTexture(GL_TEXTURE_2D, s->texture_rgba);
         glTexSubImage2D(GL_TEXTURE_2D,
@@ -337,20 +324,19 @@ struct video_frame * uyvy_compress(struct module *mod, struct video_frame * tx, 
 
         gl_context_make_current(NULL);
 
-        return s->out[buffer];
+        return out;
 }
 
 static void uyvy_compress_done(struct module *mod)
 {
         struct state_video_compress_uyvy *s = (struct state_video_compress_uyvy *) mod->priv_data;
 
-        for (int i = 0; i < 2; ++i) {
-                vf_free(s->out[i]);
-        }
         glDeleteFramebuffers(1, &s->fbo);
         glDeleteTextures(1, &s->texture_rgba);
         glDeleteTextures(1, &s->texture);
         destroy_gl_context(&s->context);
+
+        delete s->pool;
 
         free(s);
 }

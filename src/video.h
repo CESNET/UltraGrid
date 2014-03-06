@@ -68,6 +68,19 @@ int get_video_mode_tiles_y(enum video_mode mode);
  */
 const char *get_video_mode_description(enum video_mode mode);
 
+/**
+ * @brief Tries to guess video mode from number of substreams.
+ *
+ * @note
+ * The guessed video mode may not be correct (some modes may have the same
+ * number of substreams).
+ *
+ * @param   num_substreams number of received substreams
+ * @returns                guessed video mode
+ * @retval VIDEO_UNKNOWN   if the mode was not guessed.
+ */
+enum video_mode guess_video_mode(int num_substreams);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

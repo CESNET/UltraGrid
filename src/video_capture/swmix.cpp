@@ -649,7 +649,7 @@ static void *master_worker(void *arg)
                 // "capture" frames
                 for(int i = 0; i < s->devices_cnt; ++i) {
                         pthread_mutex_lock(&s->slaves[i].lock);
-                        vf_free(s->slaves[i].done_frame);
+                        VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
                         s->slaves[i].done_frame = s->slaves_data[i].current_frame;
                         s->slaves_data[i].current_frame = NULL;
                         if(s->slaves[i].captured_frame) {
@@ -824,18 +824,24 @@ static void *slave_worker(void *arg)
                 struct audio_frame *audio;
 
                 frame = vidcap_grab(device, &audio);
-                if(frame) {
-                        struct video_frame *frame_copy = vf_get_copy(frame);
-                        if (frame_copy->interlacing == INTERLACED_MERGED) {
-                                vc_deinterlace((unsigned char *) frame_copy->tiles[0].data,
-                                                vc_get_linesize(frame_copy->tiles[0].width, frame_copy->color_spec),
-                                                frame_copy->tiles[0].height);
+                if (frame) {
+                        struct video_frame *frame_local;
+                        if (frame->dispose) {
+                                frame_local = frame;
+                        } else {
+                                frame_local = vf_get_copy(frame);
+                                frame_local->dispose = vf_free;
+                                frame_local->dispose_udata = NULL; // not needed
+                        }
+                        if (frame_local->interlacing == INTERLACED_MERGED) {
+                                vc_deinterlace((unsigned char *) frame_local->tiles[0].data,
+                                                vc_get_linesize(frame_local->tiles[0].width, frame_local->color_spec),
+                                                frame_local->tiles[0].height);
                         }
                         pthread_mutex_lock(&s->lock);
-                        if(s->captured_frame) {
-                                vf_free(s->captured_frame);
-                        }
-                        s->captured_frame = frame_copy;
+                        // video frame was not processed, simply replace it
+                        VIDEO_FRAME_DISPOSE(s->captured_frame);
+                        s->captured_frame = frame_local;
                         if(audio) {
                                 s->audio_captured = true;
                                 int len = audio->data_len;
@@ -1227,8 +1233,8 @@ vidcap_swmix_done(void *state)
 
         for (int i = 0; i < s->devices_cnt; ++i) {
                 pthread_mutex_destroy(&s->slaves[i].lock);
-                vf_free(s->slaves[i].captured_frame);
-                vf_free(s->slaves[i].done_frame);
+                VIDEO_FRAME_DISPOSE(s->slaves[i].captured_frame);
+                VIDEO_FRAME_DISPOSE(s->slaves[i].done_frame);
                 free(s->slaves[i].audio_frame.data);
                 vidcap_params_free_struct(s->slaves[i].device_params);
         }

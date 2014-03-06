@@ -227,9 +227,10 @@ struct state_quicktime {
 
         struct video_frame *frame;
         char *buffer[2];
-        volatile bool buffer_processed[2];
-        volatile bool index_accepted;
-        volatile int index_network;
+        int index_network;
+        bool work_to_do;
+        pthread_cond_t boss_cv, worker_cv;
+        pthread_mutex_t lock;
 
         struct audio_frame audio;
         int audio_packet_size;
@@ -240,7 +241,7 @@ struct state_quicktime {
 
         uint32_t magic;
 
-        volatile bool should_exit;
+        bool should_exit;
 };
 
 /* Prototyping */
@@ -299,7 +300,12 @@ static void reconf_common(struct state_quicktime *s)
         
                 (**(ImageDescriptionHandle) imageDesc).idSize =
                     sizeof(ImageDescription);
-                (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
+                if (s->cinfo->codec == v210)
+                        (**(ImageDescriptionHandle) imageDesc).cType = 'v210';
+                else if (s->cinfo->codec == UYVY)
+                        (**(ImageDescriptionHandle) imageDesc).cType = '2vuy';
+                else
+                        (**(ImageDescriptionHandle) imageDesc).cType = s->cinfo->fcc;
                 /* 
                  * dataSize is specified in bytes and is specified as 
                  * height*width*bytes_per_luma_instant. v210 sets 
@@ -345,15 +351,24 @@ void display_quicktime_run(void *arg)
 
         gettimeofday(&t0, NULL);
 
-        while (!s->should_exit) {
-                int i;
-                platform_sem_wait((void *) &s->semaphore);
+        while (1) {
+                pthread_mutex_lock(&s->lock);
+                while (s->work_to_do == false) {
+                        pthread_cond_wait(&s->worker_cv, &s->lock);
+                }
                 int current_index = (s->index_network + 1) % 2;
-                s->index_accepted = true;
+                s->work_to_do = false;
+                pthread_cond_signal(&s->boss_cv);
+                if (s->should_exit) {
+                        pthread_mutex_unlock(&s->lock);
+                        break;
+                }
+                pthread_mutex_unlock(&s->lock);
 
                 assert(s->devices_cnt == 1);
                 struct tile *tile = vf_get_tile(s->frame, 0);
 
+                int i = 0;
                 ret = DecompressSequenceFrameWhen(s->seqID[i], s->buffer[current_index],
                                 tile->data_len,
                                 /* If you set asyncCompletionProc to -1,
@@ -368,8 +383,6 @@ void display_quicktime_run(void *arg)
                                         "Failed DecompressSequenceFrameWhen: %d\n",
                                         ret);
                 }
-
-                s->buffer_processed[current_index] = true;
 
                 frames++;
                 gettimeofday(&t, NULL);
@@ -391,9 +404,13 @@ display_quicktime_getf(void *state)
         struct state_quicktime *s = (struct state_quicktime *)state;
         assert(s->magic == MAGIC_QT_DISPLAY);
 
-        while(!s->buffer_processed[s->index_network])
-                ;
-        s->buffer_processed[s->index_network] = false;
+        pthread_mutex_lock(&s->lock);
+        while (s->work_to_do) {
+                pthread_cond_wait(&s->boss_cv, &s->lock);
+        }
+        s->index_network = (s->index_network + 1) % 2;
+        s->frame->tiles[0].data = s->buffer[s->index_network];
+        pthread_mutex_unlock(&s->lock);
 
         return &s->frame[0];
 }
@@ -401,22 +418,17 @@ display_quicktime_getf(void *state)
 int display_quicktime_putf(void *state, struct video_frame *frame, int nonblock)
 {
         struct state_quicktime *s = (struct state_quicktime *)state;
-
-        if(!frame) {
-                s->should_exit = true;
-        }
-        UNUSED(nonblock);
         assert(s->magic == MAGIC_QT_DISPLAY);
 
-        s->index_network = (s->index_network + 1) % 2;
-        s->frame->tiles[0].data = s->buffer[s->index_network];
+        UNUSED(nonblock);
 
-        s->index_accepted = false;
-        /* ...and signal the worker */
-        platform_sem_post((void *) &s->semaphore);
-
-        while(!s->index_accepted)
-                ;
+        pthread_mutex_lock(&s->lock);
+        if (!frame) {
+                s->should_exit = true;
+        }
+        s->work_to_do = true;
+        pthread_cond_signal(&s->worker_cv);
+        pthread_mutex_unlock(&s->lock);
 
         return 0;
 }
@@ -588,10 +600,12 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         s = (struct state_quicktime *)calloc(1, sizeof(struct state_quicktime));
         s->magic = MAGIC_QT_DISPLAY;
 
+        pthread_mutex_init(&s->lock, NULL);
+        pthread_cond_init(&s->boss_cv, NULL);
+        pthread_cond_init(&s->worker_cv, NULL);
+
         s->buffer[0] = s->buffer[1] = NULL;
         s->index_network = 0;
-        s->index_accepted = false;
-        s->buffer_processed[0] = s->buffer_processed[1] = true;
 
         if (fmt != NULL) {
                 if (strcmp(fmt, "help") == 0) {
@@ -661,6 +675,12 @@ void *display_quicktime_init(char *fmt, unsigned int flags)
         EnterMovies();
 
         if(s->mode != 0) {
+                // QT aliases
+                if (strcmp(codec_name, "2vuy") == 0 ||
+                                strcmp(codec_name, "2Vuy") == 0) {
+                        strcpy(codec_name, "UYVY");
+                }
+
                 for (i = 0; codec_info[i].name != NULL; i++) {
                         if (strcmp(codec_name, codec_info[i].name) == 0) {
                                 s->cinfo = &codec_info[i];
@@ -853,6 +873,12 @@ void display_quicktime_done(void *state)
         
                 DisposeGWorld(s->gworld[i]);
         }
+
+        pthread_mutex_destroy(&s->lock);
+        pthread_cond_destroy(&s->boss_cv);
+        pthread_cond_destroy(&s->worker_cv);
+
+        free(s);
 }
 
 display_type_t *display_quicktime_probe(void)
@@ -922,8 +948,7 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 }
         }
 	assert(codec_name != NULL);
-        if(desc.color_spec == UYVY || desc.color_spec == DVS8) /* just aliases for 2vuy,
-                                            * but would confuse QT */
+        if(desc.color_spec == UYVY) /* QT name for UYVY */
                 codec_name = "2vuy";
          
         if(s->frame->tiles[0].data != NULL)
@@ -953,8 +978,6 @@ int display_quicktime_reconfigure(void *state, struct video_desc desc)
                 s->buffer[0] = calloc(1, tile->data_len);
                 s->buffer[1] = calloc(1, tile->data_len);
                 tile->data = s->buffer[0];
-                s->index_accepted = false;
-                s->buffer_processed[0] = s->buffer_processed[1] = true;
                 
                 s->videoDisplayComponentInstance[i] = OpenComponent((Component) s->device[i]);
                 
@@ -1166,8 +1189,8 @@ static OSStatus theRenderProc(void *inRefCon,
         if(to_end > write_bytes)
                 to_end = write_bytes;
 
-        memcpy(ioData->mBuffers[0].mData, s->audio_data + s->audio_start, to_end);
-        memcpy(ioData->mBuffers[0].mData + to_end, s->audio_data, write_bytes - to_end);
+        memcpy(ioData->mBuffers[0].mData, (char *) s->audio_data + s->audio_start, to_end);
+        memcpy((char *) ioData->mBuffers[0].mData + to_end, s->audio_data, write_bytes - to_end);
         ioData->mBuffers[0].mDataByteSize = write_bytes;
         s->audio_start = (s->audio_start + write_bytes) % s->max_audio_data_len;
 

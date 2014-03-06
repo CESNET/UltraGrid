@@ -239,10 +239,10 @@ void video_export(struct video_export *s, struct video_frame *frame)
                 entry->next = NULL;
 
                 if(frame->tile_count == 1) {
-                        snprintf(entry->filename, 512, "%s/%08d.%s", s->path, s->total, get_codec_file_extension(frame->color_spec));
+                        snprintf(entry->filename, 512, "%s/%08d.%s", s->path, s->total + 1, get_codec_file_extension(frame->color_spec));
                 } else {
                         // add also tile index
-                        snprintf(entry->filename, 512, "%s/%08d_%d.%s", s->path, s->total, i, get_codec_file_extension(frame->color_spec));
+                        snprintf(entry->filename, 512, "%s/%08d_%d.%s", s->path, s->total + 1, i, get_codec_file_extension(frame->color_spec));
                 }
                 memcpy(entry->data, frame->tiles[i].data, entry->data_len);
 

@@ -1,9 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([UltraGrid], [1.1], [ultragrid-dev@cesnet.cz])
+AC_INIT([UltraGrid], [1.2], [ultragrid-dev@cesnet.cz])
 AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
-AC_CONFIG_SRCDIR([src/main.c])
+AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
@@ -82,9 +82,6 @@ then
 fi
 
 case "$host" in
-	*darwin9*)
-		AC_DEFINE([HAVE_MACOSX_LEOPARD], [1], [This is Mac X OS Leopard])
-	;;
   	x86_64-*-linux-*)
 		AC_DEFINE([HAVE_64B_LINUX], [1], [We have 64-bit Linux])
 	;;
@@ -98,17 +95,11 @@ AC_MSG_CHECKING([OS family])
 if expr "$host_os" : ".*darwin.*" > /dev/null; then
         system=MacOSX
 	AC_DEFINE([HAVE_MACOSX], [1], [This is Mac X OS])
-	CFLAGS="$CFLAGS -arch i386 -I/opt/local/include"
-	CPPFLAGS="$CPPFLAGS -m32 -I/opt/local/include"
-	CXXFLAGS="$CXXFLAGS -m32 -I/opt/local/include"
-	LDFLAGS="$LDFLAGS -m32 -mmacosx-version-min=10.5"
-	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
-        OBJS="$OBJS src/utils/autorelease_pool.o"
 else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	LIBS="$LIBS -lsetupapi -lWs2_32 -lIphlpapi"
-        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
+        LDFLAGS="$LDFLAGS -stdlib=libstdc++ -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
@@ -124,6 +115,26 @@ AC_MSG_RESULT($os_version_major);
 AC_MSG_CHECKING([OS kernel version (minor)])
 os_version_minor=`uname -r |cut -d . -f 2`
 AC_MSG_RESULT($os_version_minor);
+
+if test $system = MacOSX
+then
+        COMMON_OSX_FLAGS="-m32 -I/opt/local/include -mmacosx-version-min=10.7"
+        if test $os_version_major = 11
+        then
+                OSX_SDK="macosx10.7"
+        else
+                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libstdc++"
+                OSX_SDK="macosx10.8"
+        fi
+	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
+	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
+	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
+        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include"
+	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS"
+	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
+        OBJS="$OBJS src/utils/autorelease_pool.o"
+fi
+AC_SUBST(OSX_SDK)
 
 AC_DEFINE_UNQUOTED([OS_VERSION_MAJOR], $os_version_major, [OS kernel major version])
 AC_DEFINE_UNQUOTED([OS_VERSION_MINOR], $os_version_minor, [OS kernel minor version])
@@ -148,9 +159,9 @@ AC_ARG_ENABLE(depends-version-check,
         [version_check=yes]
         )
 
-if test $system = MacOSX -a \( $os_version_major -lt 10 -o $os_version_major -gt 11 \) -a $version_check = yes
+if test $system = MacOSX -a \( $os_version_major -lt 11 -o $os_version_major -gt 13 \) -a $version_check = yes
 then
-        AC_MSG_WARN([*** Currently only Mac OS X versions 10.6 to 10.7 are supported.])
+        AC_MSG_WARN([*** Currently only Mac OS X versions 10.7 to 10.9 are supported.])
         HM_VERSION_WARNING
         AC_MSG_ERROR([Exiting due to unsatisfied dependency.])
 fi
@@ -218,10 +229,15 @@ AC_ARG_ENABLE(gpl,
 	[gpl=$enableval])
 if test $gpl = yes
 then
-          AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
-          license=unredistributeable
+        AC_DEFINE([HAVE_GPL], 1, [We can link with GPL software])
+        license="GPLv2"
+        COPYRIGHT="COPYRIGHT.GPL-2"
+else
+        license="BSD License"
+        COPYRIGHT="COPYRIGHT.BSD"
 fi
 
+AC_SUBST(COPYRIGHT)
 
 # -------------------------------------------------------------------------------------------------
 # Additional macros
@@ -428,9 +444,9 @@ fi
 
 video_display_abi_version=6
 video_capture_abi_version=3
-video_compress_abi_version=2
+video_compress_abi_version=3
 video_decompress_abi_version=3
-audio_capture_abi_version=3
+audio_capture_abi_version=4
 audio_playback_abi_version=4
 audio_codec_abi_version=1
 vo_pp_abi_version=3
@@ -733,54 +749,6 @@ AC_SUBST(DECKLINK_LIB)
 AC_SUBST(DECKLINK_CAP_OBJ)
 AC_SUBST(DECKLINK_DISP_OBJ)
 AC_SUBST(DECKLINK_SOUND_PLAY_OBJ)
-
-# -------------------------------------------------------------------------------------------------
-# HD-SDI Master Quad stuff
-
-LINSYS_PATH=
-LINSYS_OBJ=
-LINSYS_INC=
-linsys=no
-
-AC_ARG_ENABLE(linsys,
-              AS_HELP_STRING([--disable-linsys], [disable Linsys (default is auto)]),
-              [linsys_req=$enableval],
-              [linsys_req=auto]
-              )
-
-case $host in
-    *-linux-*)
-        LINSYS_PATH=Linsys
-
-        LINSYS_INC=${LINSYS_PATH}/include
-
-        AC_CHECK_FILE(${LINSYS_INC}/master.h, FOUND_LINSYS_MASTER_H=yes, FOUND_LINSYS_MASTER_H=no)
-        AC_CHECK_FILE(${LINSYS_INC}/sdi.h, FOUND_LINSYS_SDI_H=yes, FOUND_LINSYS_SDI_H=no)
-
-        if test $linsys_req != no -a $FOUND_LINSYS_MASTER_H = yes -a $FOUND_LINSYS_SDI_H = yes
-        then
-            LINSYS_INC="-I$LINSYS_INC -I$LINSYS_PATH/Examples"
-            LINSYS_OBJ="$LINSYS_PATH/Examples/util.o src/video_capture/linsys.o"
-            AC_DEFINE([HAVE_LINSYS], [1], [Build with Linsys support])
-            AC_SUBST(LINSYS_LIB_TARGET, "lib/ultragrid/vidcap_linsys.so.$video_capture_abi_version")
-            LIB_TARGETS="$LIB_TARGETS $LINSYS_LIB_TARGET"
-            LIB_OBJS="$LIB_OBJS $LINSYS_OBJ"
-            linsys=yes
-        else
-            LINSYS_PATH=
-            LINSYS_INC=
-            LINSYS_OBJ=
-        fi
-    ;;
-esac
-
-if test $linsys_req = yes -a $linsys = no; then
-        AC_MSG_ERROR([Linsys not found]);
-fi
-
-AC_SUBST(LINSYS_PATH)
-AC_SUBST(LINSYS_INC)
-AC_SUBST(LINSYS_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # Bluefish444 stuff
@@ -1744,64 +1712,6 @@ AC_SUBST(SCREEN_CAP_INC)
 AC_SUBST(SCREEN_CAP_LIB)
 AC_SUBST(SCREEN_CAP_OBJ)
 
-
-# -------------------------------------------------------------------------------------------------
-# FastDXT stuff
-fastdxt=no
-fastdxt_req=no
-FASTDXT_OBJ=
-
-AC_ARG_ENABLE(fastdxt,
-	[  --enable-fastdxt        enable FastDXT (default is off)],
-	[fastdxt_req=$enableval])
-
-FASTDXT_PATH=
-AC_ARG_WITH(fastdxt,
-            AS_HELP_STRING([--with-fastdxt], [spedcify location of FastDXT]),
-            [FASTDXT_PATH=$withval
-            ])
-
-FASTDXT_INC=$FASTDXT_PATH
-
-if test $fastdxt_req = yes -a $gpl = no; then
-        AC_MSG_ERROR([FastDXT is GPL and --enable-gpl is not specified.])
-fi
-
-FOUND_FASTDXT_H=no
-
-if test ! -z $FASTDXT_PATH; then
-        AC_CHECK_HEADER(${FASTDXT_INC}/libdxt.h, FOUND_FASTDXT_H=yes, FOUND_FASTDXT_H=no)
-        #AC_LANG_PUSH(C++)
-        #AC_CHECK_LIB(dxt, DirectDXT1, FOUND_FASTDXT_L=yes, FOUND_FASTDXT_L=no, -I${FASTDXT_INC} -L${FASTDXT_PATH})
-        #AC_LANG_POP(C++)
-fi
-
-if test $fastdxt_req = yes -a $FOUND_FASTDXT_H = yes
-then
-	FASTDXT_INC=-I${FASTDXT_INC}
-	FASTDXT_LIB=""
-	FASTDXT_OBJ="$FASTDXT_OBJ src/video_compress/fastdxt.o ${FASTDXT_PATH}/libdxt.a"
-        AC_DEFINE([HAVE_FASTDXT], [1], [Build with support for FastDXT])
-        AC_SUBST(FASTDXT_LIB_TARGET, "lib/ultragrid/vcompress_fastdxt.so.$video_compress_abi_version")
-        LIB_TARGETS="$LIB_TARGETS $FASTDXT_LIB_TARGET"
-        LIB_OBJS="$LIB_OBJS $FASTDXT_OBJ"
-        fastdxt=yes
-else
-	FASTDXT_INC=
-	FASTDXT_LIB=
-fi
-
-if test $fastdxt_req = yes -a $fastdxt = no; then
-        AC_MSG_ERROR([FastDXT not found]);
-fi
-
-LIB_MODULES="$LIB_MODULES $FASTDXT_LIB"
-
-AC_SUBST(FASTDXT_PATH)
-AC_SUBST(FASTDXT_INC)
-AC_SUBST(FASTDXT_LIB)
-AC_SUBST(FASTDXT_OBJ)
-
 # -------------------------------------------------------------------------------------------------
 # GLSL DXT
 # -------------------------------------------------------------------------------------------------
@@ -1833,7 +1743,7 @@ then
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
-        LIB_HEADERS="$RTDXT_COMMON_HEADERS"
+        LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
         DEFINE_GL
 fi
 
@@ -2667,18 +2577,18 @@ if test "$build_libraries" != yes
 then
         LIBS="$LIBS $LIB_MODULES"
         OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
-        HEADERS="$HEADERS $LIB_HEADERS"
+        HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
-        LIB_HEADERS=
+        LIB_GENERATED_HEADERS=
 fi
 
 AC_SUBST(LIB_SUPPORT_OBJ)
 
 AC_SUBST(LIB_OBJS)
 AC_SUBST(LIB_TARGETS)
-AC_SUBST(HEADERS)
-AC_SUBST(LIB_HEADERS)
+AC_SUBST(GENERATED_HEADERS)
+AC_SUBST(LIB_GENERATED_HEADERS)
 
 # -------------------------------------------------------------------------------------------------
 # Import control - keyboard
@@ -2750,7 +2660,6 @@ RESULT=\
   DirectShow .................. $dshow
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
-  Linsys capture .............. $linsys
   OpenGL ...................... $gl
   Quicktime ................... $quicktime
   SAGE ........................ $sage
@@ -2767,7 +2676,6 @@ RESULT=\
   JACK  ....................... $jack
   JACK transport .............. $jack_trans
 
-  FastDXT ..................... $fastdxt
   Realtime DXT (OpenGL) ....... $rtdxt
   JPEG ........................ $jpeg
   JPEG to DXT ................. $jpeg_to_dxt

@@ -290,7 +290,8 @@ void display_sage_done(void *state)
         pthread_cond_destroy(&s->buffer_writable_cond);
         pthread_mutex_destroy(&s->buffer_writable_lock);
         vf_free(s->frame);
-        s->sage_state->shutdown();
+        if (s->sage_state)
+                s->sage_state->shutdown();
         //delete s->sage_state;
         free(s);
 }

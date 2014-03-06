@@ -94,6 +94,88 @@ void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
         }
 }
 
+void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src)
+{
+        dest->bps = src->bps;
+        int new_max_size = dest->max_size;
+        for (int i = 0; i < src->ch_count; ++i) {
+                if (src->data_len[i] + dest->data_len[i] > new_max_size)
+                        new_max_size = src->data_len[i] + dest->data_len[i];
+        }
+
+        if (new_max_size > (int) dest->max_size) {
+                //reallocate
+                dest->max_size = new_max_size;
+                dest->ch_count = src->ch_count;
+                for (int i = 0; i < src->ch_count; ++i) {
+                        dest->data[i] = realloc(dest->data[i], new_max_size);
+                }
+        }
+
+        for (int i = 0; i < src->ch_count; ++i) {
+                memcpy(dest->data[i] + dest->data_len[i], src->data[i],
+                                src->data_len[i]);
+                dest->data_len[i] += src->data_len[i];
+        }
+}
+
+int audio_frame2_get_sample_count(audio_frame2 *frame)
+{
+        return frame->data_len[0] / frame->bps;
+}
+
+void audio_frame2_reset(audio_frame2 *frame)
+{
+        for (int i = 0; i < frame->ch_count; ++i) {
+                frame->data_len[i] = 0;
+        }
+}
+
+static double get_normalized(char *in, int bps) {
+        int64_t sample = 0;
+        bool negative = false;
+
+        for (int j = 0; j < bps; ++j) {
+                sample = (sample | (((uint8_t)in[j]) << (8ull * j)));
+        }
+        if ((int8_t)(in[bps - 1] < 0))
+                negative = true;
+        if (negative) {
+                for (int i = bps; i < 8; ++i) {
+                        sample = (sample |  (255ull << (8ull * i)));
+                }
+        }
+        return (double) sample / ((1 << (bps * 8 - 1)));
+}
+
+double calculate_rms(audio_frame2 *frame, double *peak)
+{
+        double sum = 0;
+        *peak = 0;
+        int sample_count = frame->data_len[0] / frame->bps;
+        for (int i = 0; i < frame->data_len[0]; i += frame->bps) {
+                double val = get_normalized(&frame->data[0][i], frame->bps);
+                sum += val;
+                if (fabs(val) > *peak) {
+                        *peak = fabs(val);
+                }
+        }
+
+        double average = sum / sample_count;
+
+        double sumMeanSquare = 0.0;
+
+        for (int i = 0; i < frame->data_len[0]; i += frame->bps) {
+                sumMeanSquare += pow(get_normalized(&frame->data[0][i], frame->bps)
+                                - average, 2.0);
+        }
+
+        double averageMeanSquare = sumMeanSquare / sample_count;
+        double rootMeanSquare = sqrt(averageMeanSquare);
+
+        return rootMeanSquare;
+}
+
 void audio_frame_to_audio_frame2(audio_frame2 *frame, struct audio_frame *old)
 {
         if(old->ch_count > frame->ch_count || old->data_len / old->ch_count > (int) frame->max_size) {

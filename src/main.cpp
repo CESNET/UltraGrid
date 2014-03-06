@@ -77,6 +77,7 @@
 #include "rtp/pbuf.h"
 #include "sender.h"
 #include "stats.h"
+#include "utils/misc.h"
 #include "utils/wait_obj.h"
 #include "video.h"
 #include "video_capture.h"
@@ -116,6 +117,7 @@
 /* please see comments before transmit.c:audio_tx_send() */
 /* also note that this actually differs from video */
 #define DEFAULT_AUDIO_FEC       "mult:3"
+#define DEFAULT_BITRATE         (6618ll * 1000 * 1000)
 
 #define OPT_AUDIO_CHANNEL_MAP (('a' << 8) | 'm')
 #define OPT_AUDIO_CAPTURE_CHANNELS (('a' << 8) | 'c')
@@ -178,8 +180,6 @@ struct state_uv {
         const char *requested_encryption;
 
         struct module receiver_mod;
-
-        pthread_mutex_t init_lock;
 };
 
 static int exit_status = EXIT_SUCCESS;
@@ -224,7 +224,7 @@ void exit_uv(int status) {
 
         should_exit_sender = true;
         should_exit_receiver = true;
-        audio_finish(uv_state->audio);
+        audio_finish();
 }
 
 static void usage(void)
@@ -284,7 +284,7 @@ static void usage(void)
         printf("\t                         \tdirectly.\n");
         printf("\n");
         printf("\t-l <limit_bitrate> | unlimited\tlimit sending bitrate (aggregate)\n");
-        printf("\t                         \tto limit_bitrate Mb/s\n");
+        printf("\t                         \tto limit_bitrate (with optional k/M/G suffix)\n");
         printf("\n");
         printf("\t--audio-channel-map      <mapping> | help\n");
         printf("\n");
@@ -297,9 +297,9 @@ static void usage(void)
         printf("\n");
         printf("\t--cuda-device <index>|help\tuse specified CUDA device\n");
         printf("\n");
-        printf("\t--import <directory>     \timport previous session from directory\n");
+        printf("\t--playback <directory>   \treplays captured recorded\n");
         printf("\n");
-        printf("\t--export[=<directory>]   \texport captured (and compressed) data\n");
+        printf("\t--record[=<directory>]   \trecord captured audio and video\n");
         printf("\n");
         printf("\t-A <address>             \taudio destination address\n");
         printf("\t                         \tIf not specified, will use same as for video\n");
@@ -409,7 +409,7 @@ static struct rtp **initialize_network(const char *addrs, int recv_port_base,
 
 		devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
-                                rtp_recv_callback, (void *)participants,
+                                rtp_recv_callback, (uint8_t *)participants,
                                 use_ipv6);
 		if (devices[index] != NULL) {
 			rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
@@ -455,7 +455,7 @@ void destroy_rtp_devices(struct rtp ** network_devices)
 }
 
 static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
-        struct vcodec_state *state = calloc(1, sizeof(struct vcodec_state));
+        struct vcodec_state *state = (struct vcodec_state *) calloc(1, sizeof(struct vcodec_state));
 
         if(state) {
                 state->decoder = video_decoder_init(&uv->receiver_mod, uv->decoder_mode,
@@ -476,7 +476,7 @@ static struct vcodec_state *new_video_decoder(struct state_uv *uv) {
 }
 
 static void destroy_video_decoder(void *state) {
-        struct vcodec_state *video_decoder_state = state;
+        struct vcodec_state *video_decoder_state = (struct vcodec_state *) state;
 
         if(!video_decoder_state) {
                 return;
@@ -583,7 +583,6 @@ void *ultragrid_rtp_receiver_thread(void *arg)
         fr = 1;
 
         struct module *control_mod = get_module(get_root_module(uv->root_module), "control");
-        unlock_module(control_mod);
         struct stats *stat_loss = stats_new_statistics(
                         (struct control_state *) control_mod,
                         "loss");
@@ -651,7 +650,7 @@ void *ultragrid_rtp_receiver_thread(void *arg)
                                 ((struct vcodec_state*) cp->decoder_state)->display = uv->display_device;
                         }
 
-                        struct vcodec_state *vdecoder_state = cp->decoder_state;
+                        struct vcodec_state *vdecoder_state = (struct vcodec_state *) cp->decoder_state;
 
                         /* Decode and render video... */
                         if (pbuf_decode
@@ -750,6 +749,7 @@ static void *capture_thread(void *arg)
         struct module *uv_mod = (struct module *)arg;
         struct state_uv *uv = (struct state_uv *) uv_mod->priv_data;
         struct sender_data sender_data;
+        struct wait_obj *wait_obj;
         memset(&sender_data, 0, sizeof(sender_data));
 
         struct compress_state *compression = NULL;
@@ -762,7 +762,6 @@ static void *capture_thread(void *arg)
                 if(ret > 0) {
                         exit_uv(0);
                 }
-                pthread_mutex_unlock(&uv->init_lock);
                 goto compress_done;
         }
 
@@ -774,41 +773,44 @@ static void *capture_thread(void *arg)
         sender_data.video_exporter = uv->video_exporter;
         sender_data.compression = compression;
 
-        struct wait_obj *wait_obj = wait_obj_init();
+        wait_obj = wait_obj_init();
 
         if(!sender_init(&sender_data)) {
                 fprintf(stderr, "Error initializing sender.\n");
                 exit_uv(1);
-                pthread_mutex_unlock(&uv->init_lock);
                 goto compress_done;
         }
-
-        pthread_mutex_unlock(&uv->init_lock);
 
         while (!should_exit_sender) {
                 /* Capture and transmit video... */
                 struct audio_frame *audio;
                 struct video_frame *tx_frame = vidcap_grab(uv->capture_device, &audio);
-                void (*old_dispose)(struct video_frame *) = NULL;
-                void *old_udata = NULL;
                 if (tx_frame != NULL) {
                         if(audio) {
                                 audio_sdi_send(uv->audio, audio);
                         }
                         //tx_frame = vf_get_copy(tx_frame);
-                        old_dispose = tx_frame->dispose;
-                        old_udata = tx_frame->dispose_udata;
-                        tx_frame->dispose = uncompressed_frame_dispose;
-                        tx_frame->dispose_udata = wait_obj;
-                        wait_obj_reset(wait_obj);
+                        bool wait_for_cur_uncompressed_frame;
+                        if (!tx_frame->dispose) {
+                                tx_frame->dispose = uncompressed_frame_dispose;
+                                tx_frame->dispose_udata = wait_obj;
+                                wait_obj_reset(wait_obj);
+                                wait_for_cur_uncompressed_frame = true;
+                        } else {
+                                wait_for_cur_uncompressed_frame = false;
+                        }
 
                         // Sends frame to compression - this passes it to a sender thread
                         compress_frame(compression, tx_frame);
 
-                        // wait to frame is processed - eg by compress or sender (uncompressed video)
-                        wait_obj_wait(wait_obj);
-                        tx_frame->dispose = old_dispose;
-                        tx_frame->dispose_udata = old_udata;
+                        // wait for frame frame to be processed, eg. by compress
+                        // or sender (uncompressed video). Grab invalidates previous frame
+                        // (if not defined dispose function).
+                        if (wait_for_cur_uncompressed_frame) {
+                                wait_obj_wait(wait_obj);
+                                tx_frame->dispose = NULL;
+                                tx_frame->dispose_udata = NULL;
+                        }
                 }
         }
 
@@ -902,8 +904,6 @@ int main(int argc, char *argv[])
         struct control_state *control = NULL;
         rtsp_serv_t* rtsp_server = NULL;
 
-        int bitrate = 0;
-
         const char *audio_host = NULL;
         int audio_rx_port = -1, audio_tx_port = -1;
 
@@ -920,6 +920,8 @@ int main(int argc, char *argv[])
         unsigned display_flags = 0;
         int compressed_audio_sample_rate = 48000;
         int ret;
+        struct vidcap_params *audio_cap_dev;
+        long packet_rate;
 
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
@@ -959,8 +961,8 @@ int main(int argc, char *argv[])
                 {"echo-cancellation", no_argument, 0, OPT_ECHO_CANCELLATION},
                 {"cuda-device", required_argument, 0, OPT_CUDA_DEVICE},
                 {"mcast-if", required_argument, 0, OPT_MCAST_IF},
-                {"export", optional_argument, 0, OPT_EXPORT},
-                {"import", required_argument, 0, OPT_IMPORT},
+                {"record", optional_argument, 0, OPT_EXPORT},
+                {"playback", required_argument, 0, OPT_IMPORT},
                 {"audio-host", required_argument, 0, 'A'},
                 {"audio-codec", required_argument, 0, OPT_AUDIO_CODEC},
                 {"capture-filter", required_argument, 0, OPT_CAPTURE_FILTER},
@@ -1081,8 +1083,8 @@ int main(int argc, char *argv[])
                                         free(requested_audio_fec);
                                         requested_audio_fec = strdup(optarg + 2);
                                 } else {
-                                        free(requested_audio_fec);
-                                        requested_audio_fec = strdup(optarg + 2);
+                                        free(requested_video_fec);
+                                        requested_video_fec = strdup(optarg + 2);
                                 }
                         } else {
                                 // there should be setting for both audio and video
@@ -1121,7 +1123,7 @@ int main(int argc, char *argv[])
                         if(strcmp(optarg, "unlimited") == 0) {
                                 bitrate = -1;
                         } else {
-                                bitrate = atoi(optarg);
+                                bitrate = unit_evaluate(optarg);
                                 if(bitrate <= 0) {
                                         usage();
                                         return EXIT_FAIL_USAGE;
@@ -1275,6 +1277,16 @@ int main(int argc, char *argv[])
                 return EXIT_FAIL_USAGE;
         }
 
+        if(bitrate == 0) { // else packet_rate defaults to 13600 or so
+                bitrate = DEFAULT_BITRATE;
+        }
+
+        if(bitrate != -1) {
+                packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
+        } else {
+                packet_rate = 0;
+        }
+
         if (argc == 0) {
                 uv->requested_receiver = "localhost";
         } else {
@@ -1317,7 +1329,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, uv->requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, uv->ipv6, uv->requested_mcast_if,
-                        audio_codec, compressed_audio_sample_rate, isStd);
+                        audio_codec, compressed_audio_sample_rate, isStd, packet_rate);
         free(requested_audio_fec);
         if(!uv->audio)
                 goto cleanup;
@@ -1345,7 +1357,7 @@ int main(int argc, char *argv[])
 
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
-        struct vidcap_params *audio_cap_dev = vidcap_params_get_nth(
+        audio_cap_dev = vidcap_params_get_nth(
                         vidcap_params_head,
                         audio_capture_get_vidcap_index(audio_send));
         if (audio_cap_dev != NULL) {
@@ -1442,20 +1454,10 @@ int main(int argc, char *argv[])
                         }
                 }
 
-                if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                        bitrate = 6618;
-                }
-
-                if(bitrate != -1) {
-                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
-                } else {
-                        packet_rate = 0;
-                }
-
                 if ((h264_rtp.tx = tx_init(&root_mod,
                                                 uv->requested_mtu, TX_MEDIA_VIDEO,
                                                 NULL,
-                                                NULL)) == NULL) {
+                                                NULL, packet_rate)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup;
@@ -1483,20 +1485,10 @@ int main(int argc, char *argv[])
                                 ++uv->connections_count;
                 }
 
-                if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                        bitrate = 6618;
-                }
-
-                if(bitrate != -1) {
-                        packet_rate = 1000 * uv->requested_mtu * 8 / bitrate;
-                } else {
-                        packet_rate = 0;
-                }
-
                 if ((ug_rtp.tx = tx_init(&root_mod,
                                                 uv->requested_mtu, TX_MEDIA_VIDEO,
                                                 requested_video_fec,
-                                                uv->requested_encryption)) == NULL) {
+                                                uv->requested_encryption, packet_rate)) == NULL) {
                         printf("Unable to initialize transmitter.\n");
                         exit_uv(EXIT_FAIL_TRANSMIT);
                         goto cleanup;
@@ -1567,18 +1559,13 @@ int main(int argc, char *argv[])
         }
 
         if(uv->mode & MODE_SENDER) {
-                pthread_mutex_lock(&uv->init_lock);
                 if (pthread_create
                                 (&tx_thread_id, NULL, capture_thread,
                                  (void *) &root_mod) != 0) {
                         perror("Unable to create capture thread!\n");
-						pthread_mutex_unlock(&uv->init_lock);
                         exit_uv(EXIT_FAILURE);
                         goto cleanup;
                 } else {
-                        // wait for sender module initialization
-                        pthread_mutex_lock(&uv->init_lock);
-                        pthread_mutex_unlock(&uv->init_lock);
                         tx_thread_started = true;
                 }
         }
@@ -1613,10 +1600,6 @@ cleanup:
                 audio_done(uv->audio);
         if (uv->rxtx_state)
                 uv->rxtx->done(uv->rxtx_state);
-        if(uv->capture_device)
-                vidcap_done(uv->capture_device);
-        if(uv->display_device)
-                display_done(uv->display_device);
         if (uv->network_devices) {
                 destroy_rtp_devices(uv->network_devices);
         }
@@ -1633,6 +1616,11 @@ cleanup:
                 pdb_destroy(&uv->participants);
         }
 
+        if (uv->capture_device)
+                vidcap_done(uv->capture_device);
+        if (uv->display_device)
+                display_done(uv->display_device);
+
         video_export_destroy(uv->video_exporter);
 
         free(export_dir);
@@ -1646,7 +1634,6 @@ cleanup:
         if(rtsp_server) c_stop_server(rtsp_server);
 #endif
         module_done(&root_mod);
-        pthread_mutex_destroy(&uv->init_lock);
         free(uv);
 
 #if defined DEBUG && defined HAVE_LINUX

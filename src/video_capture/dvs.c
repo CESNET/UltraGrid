@@ -78,6 +78,8 @@ struct vidcap_dvs_state {
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
         pthread_cond_t worker_cv;
+        int boss_waiting;
+        int worker_waiting;
         int work_to_do;
         char *bufs[2];
         char *audio_bufs[2];
@@ -193,7 +195,7 @@ static void show_help(void)
                 return;
         }
 	while (res == SV_OK) {
-                printf("\tCard %s - supported modes:\n\n", name);
+                printf("\tCard \"%s\" - supported modes:\n\n", name);
                 for(i=0; hdsp_mode_table[i].width !=0; i++) {
                         int res;
                         sv_query(sv, SV_QUERY_MODE_AVAILABLE, hdsp_mode_table[i].mode, & res);
@@ -293,7 +295,6 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         }
                         if (s->frame->color_spec == (codec_t) 0xffffffff) {
                                 fprintf(stderr, "dvs: unknown codec: %s\n", tmp);
-                                free(tmp);
                                 return 0;
                         }
 
@@ -335,8 +336,6 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                         case DVS10:
                                 s->hd_video_mode |= SV_MODE_COLOR_YUV422 | SV_MODE_NBIT_10BDVS;
                                 break;
-                        case DVS8:
-                        case Vuy2:
                         case UYVY:
                                 s->hd_video_mode |= SV_MODE_COLOR_YUV422;
                                 break;
@@ -505,7 +504,7 @@ void *vidcap_dvs_init(const struct vidcap_params *params)
                 return NULL;
         }
 
-        printf("Testcard capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->color_spec));
+        printf("DVS capture set to %dx%d, bpp %f\n", s->tile->width, s->tile->height, get_bpp(s->frame->color_spec));
 
         debug_msg("DVS capture device enabled\n");
         return s;
@@ -545,14 +544,15 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
 {
         struct vidcap_dvs_state *s =
             (struct vidcap_dvs_state *)state;
-        int rc;
         struct timespec ts;
         struct timeval  tp;
+        int rc = 0;
 
+        // get time for timeout
         gettimeofday(&tp, NULL);
         ts.tv_sec = tp.tv_sec;
         ts.tv_nsec = tp.tv_usec * 1000;
-        ts.tv_nsec += 1000 * 1000 * 1000 / s->frame->fps;
+        ts.tv_nsec += 2 * 1000 * 1000 * 1000 / s->frame->fps;
         // make it correct
         ts.tv_sec += ts.tv_nsec / 1000000000;
         ts.tv_nsec = ts.tv_nsec % 1000000000;
@@ -560,7 +560,7 @@ struct video_frame *vidcap_dvs_grab(void *state, struct audio_frame **audio)
         pthread_mutex_lock(&(s->lock));
 
         /* Wait for the worker to finish... */
-        while (s->work_to_do) {
+        while (s->work_to_do && rc != ETIMEDOUT) {
                 rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
         }
 

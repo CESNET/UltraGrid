@@ -48,8 +48,6 @@ struct ldgm_desc {
         unsigned int seed;
 };
 
-struct packet_counter;
-
 /* 
  * @param packet_size - approximate size of packet payload
  * @param frame_size - approximate size of whole protected frame
@@ -66,8 +64,6 @@ void ldgm_encoder_free_buffer(void *state, char *buffer);
 void ldgm_encoder_destroy(void *state);
 
 void * ldgm_decoder_init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
-void ldgm_decoder_decode(void *state, const char *in, int in_len, char **out, int *len,
-                struct packet_counter *pc);
 void ldgm_decoder_destroy(void *state);
 
 #ifdef __cplusplus

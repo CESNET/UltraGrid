@@ -1,13 +1,9 @@
 /**
- * @file    rtp/pc.h
- * @author  Martin Pulec <pulec@cesnet.cz>
- *
- * This file defines a simple linked list implementation designed to count
- * arrived packets. It stores pairs (offset, length) and provides statistics
- * from them.
+ * @file   utils/misc.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
  */
 /*
- * Copyright (c) 2012-2013 CESNET z.s.p.o.
+ * Copyright (c) 2014 CESNET z.s.p.o.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,26 +35,18 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PC_H_
-#define PC_H_
+#ifndef UTILS_MISC_H_
+#define UTILS_MISC_H_
 
 #ifdef __cplusplus
 extern "C" {
-#endif /* __cplusplus */
+#endif
 
-struct packet_counter  *pc_create(void);
-void pc_insert(struct packet_counter *pc, int offset, int len);
-void pc_destroy(struct packet_counter *pc);
-unsigned int pc_count (struct packet_counter *pc);
-unsigned int pc_count_bytes (struct packet_counter *pc);
+int64_t unit_evaluate(const char *str);
 
 #ifdef __cplusplus
 }
-#endif /* __cplusplus */
+#endif
 
-#ifdef __cplusplus
-#include <map>
-std::map<int, int> pc_to_map(struct packet_counter *);
-#endif /* __cplusplus */
+#endif// UTILS_MISC_H_
 
-#endif /* PC_H_ */
