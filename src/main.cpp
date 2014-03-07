@@ -1188,7 +1188,7 @@ int main(int argc, char *argv[])
                         export_opts = optarg;
                         break;
                 case OPT_IMPORT:
-                        audio_send = strdup("embedded");
+                        audio_send = "embedded";
                         {
                                 char dev_string[1024];
                                 snprintf(dev_string, sizeof(dev_string), "import:%s", optarg);
