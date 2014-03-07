@@ -93,7 +93,8 @@ static void libavcodec_vid_enc_frame_dispose(struct video_frame *);
 
 static codec_params_t codec_params[] = {
         [H264] = { AV_CODEC_ID_H264,
-                0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */,
+                0.07 * 2 /* for H.264: 1 - low motion, 2 - medium motion, 4 - high motion */
+                * 2, // take into consideration that our H.264 is less effective due to specific preset/tune
                 setparam_h264
         },
         [MJPG] = {
