@@ -182,9 +182,9 @@ $(REFLECTOR_TARGET): bindir $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu $(ALL_INCLUDES)
-	$(NVCC) $(NVCCFLAGS) $(INC) -c $< -o $@
+	"$(NVCC)" $(NVCCFLAGS) $(INC) -c $< -o $@
 %.cu.lib: %.cu $(ALL_INCLUDES)
-	$(NVCC) $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
+	"$(NVCC)" $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
 src/audio/resample.o:
 	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@
