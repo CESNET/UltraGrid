@@ -148,13 +148,21 @@ static double get_normalized(char *in, int bps) {
         return (double) sample / ((1 << (bps * 8 - 1)));
 }
 
-double calculate_rms(audio_frame2 *frame, double *peak)
+/**
+ * @brief Calculates mean and peak RMS from audio samples
+ *
+ * @param[in]  frame   audio frame
+ * @param[in]  channel channel index to calculate RMS to
+ * @param[out] peak    peak RMS
+ * @returns            mean RMS
+ */
+double calculate_rms(audio_frame2 *frame, int channel, double *peak)
 {
         double sum = 0;
         *peak = 0;
-        int sample_count = frame->data_len[0] / frame->bps;
-        for (int i = 0; i < frame->data_len[0]; i += frame->bps) {
-                double val = get_normalized(&frame->data[0][i], frame->bps);
+        int sample_count = frame->data_len[channel] / frame->bps;
+        for (int i = 0; i < frame->data_len[channel]; i += frame->bps) {
+                double val = get_normalized(&frame->data[channel][i], frame->bps);
                 sum += val;
                 if (fabs(val) > *peak) {
                         *peak = fabs(val);
@@ -165,8 +173,8 @@ double calculate_rms(audio_frame2 *frame, double *peak)
 
         double sumMeanSquare = 0.0;
 
-        for (int i = 0; i < frame->data_len[0]; i += frame->bps) {
-                sumMeanSquare += pow(get_normalized(&frame->data[0][i], frame->bps)
+        for (int i = 0; i < frame->data_len[channel]; i += frame->bps) {
+                sumMeanSquare += pow(get_normalized(&frame->data[channel][i], frame->bps)
                                 - average, 2.0);
         }
 

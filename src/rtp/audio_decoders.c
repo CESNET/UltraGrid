@@ -539,16 +539,19 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         gettimeofday(&t, 0);
         seconds = tv_diff(t, decoder->t0);
         if(seconds > 5.0) {
-                double rms, peak;
-                rms = calculate_rms(decoder->decoded, &peak);
                 int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
                 fprintf(stderr, "[Audio decoder] Received %u bytes (expected %dB), "
-                                "decoded %d samples in last %f seconds.\n"
-                                "Volume %f dB RMS, %f dB peak.\n",
+                                "decoded %d samples in last %f seconds.\n",
                                 bytes_received,
                                 packet_counter_get_all_bytes(decoder->packet_counter),
                                 audio_frame2_get_sample_count(decoder->decoded),
-                                seconds, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+                                seconds);
+                for (int i = 0; i < decoder->decoded->ch_count; ++i) {
+                        double rms, peak;
+                        rms = calculate_rms(decoder->decoded, i, &peak);
+                        fprintf(stderr, "Channel %d - volume: %f dB RMS, %f dB peak.\n",
+                                        i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+                }
                 decoder->t0 = t;
                 packet_counter_clear(decoder->packet_counter);
                 audio_frame2_reset(decoder->decoded);
