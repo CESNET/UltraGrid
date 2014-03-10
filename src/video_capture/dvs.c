@@ -61,6 +61,7 @@
 #include "debug.h"
 #include "video.h"
 #include "video_capture.h"
+#include "video_display.h"
 #include "video_capture/dvs.h"
 #include "video_display/dvs.h"
 #include "tv.h"
