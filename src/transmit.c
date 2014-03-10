@@ -465,6 +465,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         int hdrs_len = 40 + (sizeof(video_payload_hdr_t)); // for computing max payload size
         char *data_to_send;
         int data_to_send_len;
+        unsigned int ldgm_symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -558,6 +559,22 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 rtp_hdr = (char *) ldgm_hdr;
                 rtp_hdr_len = sizeof(ldgm_video_payload_hdr_t);
+
+                ldgm_symbol_size = (4 + ldgm_payload_hdr_len + tile->data_len +
+                                ldgm_encoder_get_k(tx->fec_state) - 1) / ldgm_encoder_get_k(tx->fec_state);
+
+                static bool status_printed = false;
+                if (!status_printed) {
+                        if (ldgm_symbol_size > tx->mtu - hdrs_len) {
+                                fprintf(stderr, "Warning: LDGM symbol size exceeds payload size! "
+                                                "LDGM symbol size: %d\n", ldgm_symbol_size);
+                        } else {
+                                printf("LDGM symbol size: %d, symbols per packet: %d, payload size: %d\n",
+                                                ldgm_symbol_size, (tx->mtu - hdrs_len) / ldgm_symbol_size,
+                                                (tx->mtu - hdrs_len) / ldgm_symbol_size * ldgm_symbol_size);
+                        }
+                        status_printed = true;
+                }
         } else if(!tx->encryption) {
                 rtp_hdr = (char *) video_hdr;
                 rtp_hdr_len = sizeof(video_payload_hdr_t);
@@ -571,6 +588,8 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 hdr_offset = video_hdr + 1;
         }
 
+        int ldgm_symbol_offset = 0;
+
         do {
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
@@ -582,7 +601,21 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 data = data_to_send + pos;
                 data_len = tx->mtu - hdrs_len;
-                data_len = (data_len / 48) * 48;
+                if(fec_is_ldgm(tx)) {
+                        if (ldgm_symbol_size <= tx->mtu - hdrs_len) {
+                                data_len = data_len / ldgm_symbol_size * ldgm_symbol_size;
+                        } else {
+                                if (ldgm_symbol_size - ldgm_symbol_offset <= tx->mtu - hdrs_len) {
+                                        data_len = ldgm_symbol_size - ldgm_symbol_offset;
+                                        ldgm_symbol_offset = 0;
+                                } else {
+                                        ldgm_symbol_offset += data_len;
+                                }
+                        }
+                } else {
+                        data_len = (data_len / 48) * 48;
+                }
+
                 if (pos + data_len >= (unsigned int) data_to_send_len) {
                         if (send_m) {
                                 m = 1;
