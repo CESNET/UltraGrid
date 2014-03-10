@@ -1048,6 +1048,10 @@ cleanup:
                 vidcap_params_head = next;
         }
 
+#ifdef HAVE_RTSP_SERVER
+        if(rtsp_server) c_stop_server(rtsp_server);
+#endif
+
         module_done(&root_mod);
         free(uv);
 
