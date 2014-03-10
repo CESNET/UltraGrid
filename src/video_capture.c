@@ -81,6 +81,7 @@
 #include "video_capture/testcard2.h"
 #include "video_capture/v4l2.h"
 #include "video_capture/rtsp.h"
+#include "video_capture/muxer.h"
 
 #define VIDCAP_MAGIC	0x76ae98f0
 
@@ -296,6 +297,16 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_NAME(vidcap_testcard_init),
          MK_NAME(vidcap_testcard_done),
          MK_NAME(vidcap_testcard_grab),
+         NULL
+        },
+        {
+         /* Mixer of many vid cap devices */
+         0,
+         "muxer",
+         MK_NAME(vidcap_muxer_probe),
+         MK_NAME(vidcap_muxer_init),
+         MK_NAME(vidcap_muxer_done),
+         MK_NAME(vidcap_muxer_grab),
          NULL
         },
 #if defined HAVE_TESTCARD2 || defined BUILD_LIBRARIES

@@ -81,6 +81,7 @@
 #define DEFAULT_VIDEO_FRAME_HEIGHT 1080
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((0.1*DEFAULT_VIDEO_FRAME_WIDTH*DEFAULT_VIDEO_FRAME_HEIGHT)*110/100) //command line net.core setup: sysctl -w net.core.rmem_max=9123840
 
+
 /* error handling macros */
 #define my_curl_easy_setopt(A, B, C) \
     if ((res = curl_easy_setopt((A), (B), (C))) != CURLE_OK){ \
@@ -192,6 +193,7 @@ struct video_rtsp_state {
     uint32_t timestamp;
 
     pthread_t vrtsp_thread_id; //the worker_id
+
     pthread_mutex_t lock;
     pthread_cond_t worker_cv;
     volatile bool worker_waiting;
@@ -424,7 +426,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
                 pthread_cond_signal(&s->vrtsp_state->worker_cv);
             }
         }
-
 
         pthread_mutex_unlock(&s->vrtsp_state->lock);
 

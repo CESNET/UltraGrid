@@ -59,7 +59,9 @@ static const uint8_t start_sequence[] = { 0, 0, 0, 1 };
 int fill_coded_frame_from_sps(struct video_frame *rx_data, unsigned char *data, int data_len);
 
 int decode_frame_h264(struct coded_data *cdata, void *decode_data) {
+
     rtp_packet *pckt = NULL;
+    int substream = 0;
     struct coded_data *orig = cdata;
 
     uint8_t nal;
