@@ -81,8 +81,9 @@ int BasicRTSPOnlyServer::init_server() {
     if (env != NULL || rtspServer != NULL || mod == NULL || (avType >= NUM_RTSP_FORMATS && avType < 0)){
         exit(1);
     }
+
     //setting livenessTimeoutTask
-    unsigned reclamationTestSeconds = 25;
+    unsigned reclamationTestSeconds = 5;
 
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);

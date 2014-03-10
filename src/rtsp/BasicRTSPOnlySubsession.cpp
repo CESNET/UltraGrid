@@ -240,8 +240,6 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
         if(avType == audioPCMUdyn || avType == avStdDyn){
             char pathA[1024];
 
-            struct msg_sender *msg = (struct msg_sender *)
-	                                                        new_message(sizeof(struct msg_sender));
             memset(pathA, 0, sizeof(pathA));
             enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
             append_message_path(pathA, sizeof(pathA), path_sender);

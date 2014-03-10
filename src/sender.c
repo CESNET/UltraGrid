@@ -253,7 +253,7 @@ static void h264_rtp_send(void *state, struct video_frame *tx_frame)
                 }
         }
 
-        VIDEO_FRAME_DISPOSE(tx_frame);
+        //VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 static void h264_rtp_done(void *state)
