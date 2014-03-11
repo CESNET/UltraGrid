@@ -49,8 +49,6 @@
 #include "video_rxtx/h264_rtp.h"
 #include "video.h"
 
-using namespace std;
-
 h264_rtp_video_rxtx::h264_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
                 const char *requested_compression, const char *requested_encryption,
                 const char *receiver, int rx_port, int tx_port,
@@ -77,6 +75,7 @@ void h264_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
                                         m_network_devices[i]);
                 }
         }
+        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 h264_rtp_video_rxtx::~h264_rtp_video_rxtx()

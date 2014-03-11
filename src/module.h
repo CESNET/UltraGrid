@@ -133,6 +133,8 @@ struct module *get_matching_child(struct module *node, const char *path);
  */
 struct module *get_root_module(struct module *node);
 
+struct module *get_parent_module(struct module *node);
+
 void dump_tree(struct module *root, int indent);
 
 #define CAST_MODULE(x) ((struct module *) x)

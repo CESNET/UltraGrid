@@ -43,7 +43,8 @@ enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
         SENDER_MSG_CHANGE_PORT,
         SENDER_MSG_PLAY,
-        SENDER_MSG_PAUSE
+        SENDER_MSG_PAUSE,
+        SENDER_MSG_CHANGE_LDGM,
 };
 
 struct msg_sender {
@@ -52,6 +53,7 @@ struct msg_sender {
         union {
                 int port;
                 char receiver[128];
+                char ldgm_cfg[1024];
         };
 };
 

@@ -27,7 +27,7 @@ struct response *send_message(struct module *root, const char *const_path, struc
         while ((item = strtok_r(path, ".", &save_ptr))) {
                 struct module *old_receiver = receiver;
 
-                receiver = get_matching_child(receiver, path);
+                receiver = get_matching_child(receiver, item);
 
                 if (!receiver) {
                         printf("Receiver %s not yet exists. Message will be delivered "

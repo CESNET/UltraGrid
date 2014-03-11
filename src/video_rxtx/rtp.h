@@ -74,6 +74,7 @@ protected:
         int              m_send_port_number;
         bool             m_ipv6;
         const char      *m_requested_mcast_if;
+        void            *m_ldgm_state;
 private:
         void process_message(struct msg_sender *);
         void change_tx_port(int tx_port);

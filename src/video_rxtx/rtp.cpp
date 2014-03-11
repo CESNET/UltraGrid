@@ -55,6 +55,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
+#include "rtp/ldgm.h"
 #include "rtp/rtp.h"
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
@@ -96,6 +97,38 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
                 case SENDER_MSG_PLAY:
                         m_paused = false;
                         break;
+                case SENDER_MSG_CHANGE_LDGM:
+                        {
+                                if (m_ldgm_state) {
+                                        ldgm_encoder_destroy(m_ldgm_state);
+                                }
+                                if (strncmp(msg->ldgm_cfg, "percents ", strlen("percents ")) == 0) {
+                                        int mtu_len, data_len;
+                                        double loss_pct;
+                                        char *ptr = msg->ldgm_cfg + strlen("percents ");
+                                        char *save_ptr, *item;
+                                        item = strtok_r(ptr, " ", &save_ptr);
+                                        assert (item != NULL);
+                                        mtu_len = atoi(item);
+                                        item = strtok_r(NULL, " ", &save_ptr);
+                                        assert (item != NULL);
+                                        data_len = atoi(item);
+                                        item = strtok_r(NULL, " ", &save_ptr);
+                                        assert (item != NULL);
+                                        loss_pct = atof(item);
+                                        m_ldgm_state = ldgm_encoder_init_with_param(mtu_len, data_len,
+                                                        loss_pct);
+                                } else if (strncmp(msg->ldgm_cfg, "cfg ", strlen("cfg ")) == 0) {
+                                        m_ldgm_state = ldgm_encoder_init_with_cfg(msg->ldgm_cfg + strlen("cfg "));
+                                } else {
+                                        abort();
+                                }
+                                if (!m_ldgm_state) {
+                                        fprintf(stderr, "Unable to initalize LDGM!\n");
+                                        exit_uv(1);
+                                }
+                        }
+                        break;
         }
 }
 
@@ -105,7 +138,8 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
                 const char *receiver, int rx_port, int tx_port,
                 bool use_ipv6, const char *mcast_if, const char *requested_video_fec,
                 int requested_mtu, long packet_rate) :
-        video_rxtx(parent, video_exporter, requested_compression)
+        video_rxtx(parent, video_exporter, requested_compression),
+        m_ldgm_state(NULL)
 {
         if(requested_mtu > RTP_MAX_PACKET_LEN) {
                 ostringstream oss;
@@ -158,6 +192,10 @@ rtp_video_rxtx::~rtp_video_rxtx()
                 }
                 pdb_iter_done(&it);
                 pdb_destroy(&m_participants);
+        }
+
+        if (m_ldgm_state) {
+                ldgm_encoder_destroy(m_ldgm_state);
         }
 }
 

@@ -53,7 +53,9 @@
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
+#include "rtp/ldgm.h"
 #include "rtp/rtp.h"
+#include "rtp/rtp_callback.h"
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
 #include "tfrc.h"
@@ -73,6 +75,12 @@ using namespace std;
 
 void ultragrid_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
 {
+        if (m_ldgm_state) {
+                struct video_frame *old_frame = tx_frame;
+                tx_frame = ldgm_encoder_encode_frame(m_ldgm_state, tx_frame);
+                VIDEO_FRAME_DISPOSE(old_frame);
+        }
+
         if (m_connections_count == 1) { /* normal case - only one connection */
                 tx_send(m_tx, tx_frame,
                                 m_network_devices[0]);
@@ -89,6 +97,8 @@ void ultragrid_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
 
                 vf_free(split_frames);
         }
+
+        VIDEO_FRAME_DISPOSE(tx_frame);
 }
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()

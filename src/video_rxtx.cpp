@@ -166,8 +166,6 @@ void *video_rxtx::sender_loop() {
                         send_frame(tx_frame);
                 }
 
-                VIDEO_FRAME_DISPOSE(tx_frame);
-
                 if (dynamic_cast<rtp_video_rxtx *>(this)) {
                         rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);
                         stats_update_int(stat_data_sent,
