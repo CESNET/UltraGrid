@@ -177,12 +177,12 @@ struct ldgm_msg : public msg {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
-                pckt_list = new map<int, int>[count];
+                pckt_list = 0;
         }
         ~ldgm_msg() {
-                delete buffer_len;
-                delete buffer_num;
-                delete recv_buffers;
+                delete [] buffer_len;
+                delete [] buffer_num;
+                delete [] recv_buffers;
                 delete [] pckt_list;
         }
         int *buffer_len;
@@ -204,10 +204,10 @@ struct decompress_msg : public msg {
                 buffer_num = new int[count];
         }
         ~decompress_msg() {
-                delete decompress_buffer;
-                delete fec_buffers;
-                delete buffer_len;
-                delete buffer_num;
+                delete [] decompress_buffer;
+                delete [] fec_buffers;
+                delete [] buffer_len;
+                delete [] buffer_num;
         }
         char **decompress_buffer;
         int *buffer_len;
@@ -1458,17 +1458,18 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         struct tile *tile = NULL;
         uint32_t tmp;
         uint32_t substream;
+        int max_substreams = decoder->max_substreams;
 
         int i;
         map<int, int> *pckt_list;
-        uint32_t buffer_len[decoder->max_substreams];
-        uint32_t buffer_num[decoder->max_substreams];
+        uint32_t buffer_len[max_substreams];
+        uint32_t buffer_num[max_substreams];
         // the following is just LDGM related optimalization - normally we fill up
         // allocated buffers when we have compressed data. But in case of LDGM, there
         // is just the LDGM buffer present, so we point to it instead to copying
-        char *recv_buffers[decoder->max_substreams]; // for FEC or compressed data
-        pckt_list = new map<int, int>[decoder->max_substreams];
-        for (i = 0; i < (int) decoder->max_substreams; ++i) {
+        char *recv_buffers[max_substreams]; // for FEC or compressed data
+        pckt_list = new map<int, int>[max_substreams];
+        for (i = 0; i < (int) max_substreams; ++i) {
                 buffer_len[i] = 0;
                 buffer_num[i] = 0;
                 recv_buffers[i] = NULL;
@@ -1557,9 +1558,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         goto cleanup;
                 }
 
-                if(substream >= decoder->max_substreams) {
+                if(substream >= max_substreams) {
                         fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n",
-                                        substream, decoder->max_substreams);
+                                        substream, max_substreams);
                         // the guess is valid - we start with highest substream number (anytime - since it holds a m-bit)
                         // in next iterations, index is valid
                         enum video_mode video_mode =
@@ -1736,7 +1737,7 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        ldgm_msg = new struct ldgm_msg(decoder->max_substreams);
+        ldgm_msg = new struct ldgm_msg(max_substreams);
         ldgm_msg->k = k;
         ldgm_msg->m = m;
         ldgm_msg->c = c;
@@ -1756,7 +1757,7 @@ cleanup:
         ;
         unsigned int frame_size = 0;
 
-        for(i = 0; i < (int) decoder->max_substreams; ++i) {
+        for(i = 0; i < (int) max_substreams; ++i) {
                 if(ret != TRUE) {
                         free(recv_buffers[i]);
                 }
