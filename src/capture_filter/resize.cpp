@@ -133,7 +133,7 @@ static void done(void *state)
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
     struct state_resize *s = (state_resize*) state;
-    int i, j;
+    unsigned int i;
     int res = 0;
     assert(in->tile_count <= MAX_TILES);
     memcpy(s->frame, in, sizeof(struct video_frame));
@@ -160,10 +160,10 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 }
 
 struct capture_filter_info capture_filter_resize = {
-    .name = "resize",
-    .init = init,
-    .done = done,
-    .filter = filter,
+    "resize",
+    init,
+    done,
+    filter,
 };
 
 #ifdef __cplusplus
