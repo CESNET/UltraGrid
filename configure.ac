@@ -1297,6 +1297,55 @@ AC_SUBST(RTSP_SERVER_INC)
 AC_SUBST(RTSP_SERVER_LIB)
 AC_SUBST(RTSP_SERVER_OBJ)
 
+# -------------------------------------------------------------------------------------------------
+# OpenCV stuff
+# -------------------------------------------------------------------------------------------------
+OPENCV_INC=
+OPENCV_LIB=
+OPENCV_OBJ=
+opencv=no
+
+AC_ARG_ENABLE(opencv,
+      AS_HELP_STRING([--disable-opencv], [disable OpenCV support (default is auto) - resize capture filter dependency]),
+    [opencv_req=$enableval],
+    [opencv_req=auto]
+    )
+
+case $host in
+    *-linux-*)
+		PKG_CHECK_MODULES([OPENCV], [opencv], FOUND_OPENCV_H=yes, FOUND_OPENCV_H=no)
+
+		if test $opencv_req != no -a $FOUND_OPENCV_H = yes  
+		then
+			AC_DEFINE([HAVE_OPENCV], [1], [OpenCV support - resize capture filter dependency])
+	        SAVED_CFLAGS=$CFLAGS
+	        CFLAGS="$CFLAGS ${OPENCV_CFLAGS}"
+	        SAVED_CXXFLAGS=$CXXFLAGS
+	        CXXFLAGS="$CXXFLAGS ${OPENCV_CFLAGS}"	        
+			OPENCV_INC=
+			OPENCV_LIB="${OPENCV_LIBS}"
+			OPENCV_OBJ="src/capture_filter/resize.o src/capture_filter/resize_utils.o"
+                        AC_SUBST(OPENCV_LIB_TARGET, "lib/ultragrid/vidcapfilter_opencv.so.$video_capture_abi_version")
+                        LIB_TARGETS="$LIB_TARGETS $OPENCV_LIB_TARGET"
+                        LIB_OBJS="$LIB_OBJS $OPENCV_OBJ"
+                        opencv=yes
+		fi
+    ;;
+esac
+
+if test $opencv_req = yes -a $opencv = no; then
+        AC_MSG_ERROR([OpenCV not found, may install OpenCV...?]);
+fi
+
+LIB_MODULES="$LIB_MODULES $OPENCV_LIB"
+
+AC_SUBST(OPENCV_INC)
+AC_SUBST(OPENCV_LIB)
+AC_SUBST(OPENCV_OBJ)
+
+
+
+# -------------------------------------------------------------------------------------------------
 
 
 # -------------------------------------------------------------------------------------------------
@@ -2634,6 +2683,7 @@ RESULT=\
   DELTACAST ................... $deltacast
   DVS ......................... $dvs
   OpenGL ...................... $gl
+  OpenCV ...................... $opencv
   Quicktime ................... $quicktime
   SAGE ........................ $sage
   SDL ......................... $sdl

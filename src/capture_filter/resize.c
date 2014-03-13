@@ -55,8 +55,7 @@
 #include "video.h"
 #include "video_codec.h"
 
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/core/core.hpp>
+#include "capture_filter/resize_utils.h"
 
 #define MAX_TILES 16
 
@@ -65,15 +64,6 @@ struct module;
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
-//int resize(char *data, unsigned int data_len, struct opencv_tile_struct *opencv);
-//int reconfigure_opencv_tile_struct(struct opencv_tile_struct *opencv, unsigned int width, unsigned int height, int num, int denom);
-
-struct opencv_tile_struct {
-    int width;
-    int height;
-    float scale_factor;
-    Mat in, out;
-};
 
 struct state_resize {
     int num;
@@ -136,37 +126,7 @@ static void done(void *state)
     free(state);
 }
 
-int resize(char *indata, char *outdata, unsigned int *data_len, struct opencv_tile_struct *opencv){
-    int res = 0;
 
-    if (indata == NULL || outdata == NULL || data_lent == NULL || opencv == NULL) {
-        return 1;
-    }
-
-    opencv->in.data = indata;
-    opencv->out.data = outdata;
-
-    cvtColor(opencv->in, opencv->out, CV_YUV2RGB_UYVY);
-    resize(out, out, Size(0,0), opencv->scale_factor, opencv->scale_factor, INTER_LINEAR);
-
-    *data_len = out.step * out.rows * sizeof(char);
-
-    return res;
-}
-
-int reconfigure_opencv_tile_struct(struct opencv_tile_struct *opencv,unsigned int width, unsigned int height, float sc_fact){
-    int res = 0;
-
-    if (opencv == NULL || width == 0 || height == 0 || scale_factor == 0) {
-        return 1;
-    }
-
-    opencv->in = Mat.create(height, width, CV_8UC2);
-    opencv->width = width;
-    opencv->height = height;
-
-    return 0;
-}
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
@@ -181,7 +141,10 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         for(i=0; i<s->frame->tile_count;i++){
             res = reconfigure_opencv_tile_struct(s->opencv[i], s->frame->tiles[i].width, s->frame->tiles[i].height, s->num, s->denom);
             if(res!=0){
-                //TODO ERROR!!!
+                printf("\n[RESIZE ERROR] error reconfiguring structs...\n");
+                printf("\t\t No scale factor applied at all. Bypassing original frame.\n");
+                s->reinit = 1;
+                return in;
             }
         }
         s->reinit = 1;
