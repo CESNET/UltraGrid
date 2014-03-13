@@ -55,19 +55,29 @@
 #include "video.h"
 #include "video_codec.h"
 
-#define MAX_TILES 1
+#define MAX_TILES 16
 
 struct module;
 
 static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
-int resize(char *data, unsigned int data_len, int numerator, int denominator);
+//int resize(char *data, unsigned int data_len, struct opencv_tile_struct *opencv);
+//int reconfigure_opencv_tile_struct(struct opencv_tile_struct *opencv, unsigned int width, unsigned int height, int num, int denom);
+
+struct opencv_tile_struct {
+    int width;
+    int height;
+
+
+};
 
 struct state_resize {
     int num;
     int denom;
+    int reinit;
     struct video_frame *frame;
+    struct opencv_tile_struct **opencv;
 };
 
 static void usage() {
@@ -105,9 +115,11 @@ static int init(struct module *parent, const char *cfg, void **state)
     }
 
     struct state_resize *s = calloc(1, sizeof(struct state_resize));
+    s->reinit = 0;
     s->num = n;
     s->denom = denom;
     s->frame = vf_alloc(MAX_TILES);
+    s->opencv = calloc(MAX_TILES, sizeof(struct opencv_tile_struct*));
 
     *state = s;
     return 0;
@@ -121,7 +133,7 @@ static void done(void *state)
     free(state);
 }
 
-int resize(char *data, unsigned int data_len, int numerator, int denominator){
+int resize(char *data, unsigned int data_len, struct opencv_tile_struct *opencv){
     int res = 0;
 
     //TODO RESIZE METHOD HERE!!!
@@ -129,18 +141,36 @@ int resize(char *data, unsigned int data_len, int numerator, int denominator){
     return res;
 }
 
+int reconfigure_opencv_tile_struct(struct opencv_tile_struct *opencv,unsigned int width, unsigned int height, int num, int denom){
+    int res = 0;
+
+    //TODO DALE VUEY
+
+    return 0;
+}
+
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
     struct state_resize *s = state;
-    int i;
+    int i, j;
     int res = 0;
     assert(in->tile_count <= MAX_TILES);
     memcpy(s->frame, in, sizeof(struct video_frame));
     memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
 
+    if(s->reinit == 0){
+        for(i=0; i<s->frame->tile_count;i++){
+            res = reconfigure_opencv_tile_struct(s->opencv[i], s->frame->tiles[i].width, s->frame->tiles[i].height, s->num, s->denom);
+            if(res!=0){
+                //TODO ERROR!!!
+            }
+        }
+        s->reinit = 1;
+    }
+
     for(i=0; i<s->frame->tile_count;i++){
 
-        res = resize(s->frame->tiles[i].data, s->frame->tiles[i].data_len, s->num, s->denom);
+        res = resize(s->frame->tiles[i].data, s->frame->tiles[i].data_len, s->opencv[i]);
 
         if(res!=0){
             printf("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
@@ -153,6 +183,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         s->frame->tiles[i].height *= s->num;
         s->frame->tiles[i].height /= s->denom;
     }
+
 
     return s->frame;
 }
