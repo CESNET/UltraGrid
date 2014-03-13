@@ -62,6 +62,7 @@ typedef void *task_result_handle_t;
 typedef void *(*task_t)(void *);
 
 task_result_handle_t task_run_async(task_t task, void *data);
+void task_run_async_detached(task_t task, void *data);
 void *wait_task(task_result_handle_t handle);
 
 
