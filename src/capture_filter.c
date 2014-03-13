@@ -61,11 +61,13 @@
 #include "capture_filter/every.h"
 #include "capture_filter/logo.h"
 #include "capture_filter/none.h"
+#include "capture_filter/resize.h"
 #include "video_capture/muxer.h"
 
 
 static struct capture_filter_info *capture_filters[] = {
         &capture_filter_blank,
+        &capture_filter_resize,
         &capture_filter_every,
         &capture_filter_logo,
         &capture_filter_none,
