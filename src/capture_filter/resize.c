@@ -133,7 +133,7 @@ static void done(void *state)
     free(state);
 }
 
-int resize(char *data, unsigned int data_len, struct opencv_tile_struct *opencv){
+int resize(char *indata, char *outdata, unsigned int data_len, struct opencv_tile_struct *opencv){
     int res = 0;
 
     //TODO RESIZE METHOD HERE!!!
@@ -170,7 +170,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     for(i=0; i<s->frame->tile_count;i++){
 
-        res = resize(s->frame->tiles[i].data, s->frame->tiles[i].data_len, s->opencv[i]);
+        res = resize(in->tiles[i].data, s->frame->tiles[i].data, s->frame->tiles[i].data_len, s->opencv[i]);
 
         if(res!=0){
             printf("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
