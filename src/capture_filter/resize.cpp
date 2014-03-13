@@ -90,7 +90,7 @@ static int init(struct module *parent, const char *cfg, void **state)
 
     int n;
     int denom = 1;;
-    if(cfg) {reconfigure_opencv_tile_struct
+    if(cfg) {
         if(strcasecmp(cfg, "help") == 0) {
             usage();
             return 1;
@@ -110,12 +110,11 @@ static int init(struct module *parent, const char *cfg, void **state)
         return -1;
     }
 
-    struct state_resize *s = calloc(1, sizeof(struct state_resize));
+    struct state_resize *s = (state_resize*) calloc(1, sizeof(struct state_resize));
     s->reinit = 0;
     s->num = n;
     s->denom = denom;
     s->frame = vf_alloc(MAX_TILES);
-    s->opencv = calloc(MAX_TILES, sizeof(struct opencv_tile_struct*));
 
     *state = s;
     return 0;
@@ -123,7 +122,7 @@ static int init(struct module *parent, const char *cfg, void **state)
 
 static void done(void *state)
 {
-    struct state_resize *s = state;
+    struct state_resize *s = (state_resize*) state;
 
     vf_free(s->frame);
     free(state);
@@ -133,7 +132,7 @@ static void done(void *state)
 
 static struct video_frame *filter(void *state, struct video_frame *in)
 {
-    struct state_resize *s = state;
+    struct state_resize *s = (state_resize*) state;
     int i, j;
     int res = 0;
     assert(in->tile_count <= MAX_TILES);
@@ -142,7 +141,7 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     for(i=0; i<s->frame->tile_count;i++){
 
-        res = resize_frame(in->tiles[i].data, s->frame->tiles[i].data, s->frame->tiles[i].data_len, s->frame->tiles[i].width, s->frame->tiles[i].height, (double)s->num/s->denom);
+        res = resize_frame(in->tiles[i].data, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->frame->tiles[i].width, s->frame->tiles[i].height, (double)s->num/s->denom);
 
         if(res!=0){
             printf("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
