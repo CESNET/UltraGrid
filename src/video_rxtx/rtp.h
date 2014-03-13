@@ -40,6 +40,8 @@
 
 #include "video_rxtx.h"
 
+#include <mutex>
+
 #ifdef HAVE_MACOSX
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  5944320
 #else
@@ -61,12 +63,13 @@ public:
         static struct rtp **initialize_network(const char *addrs, int recv_port_base,
                         int send_port_base, struct pdb *participants, bool use_ipv6,
                         const char *mcast_if);
-        static void destroy_rtp_devices(struct rtp ** network_devices);
+        void destroy_rtp_devices(struct rtp ** network_devices);
         static void display_buf_increase_warning(int size);
 
 protected:
         int m_connections_count;
         struct rtp **m_network_devices; // ULTRAGRID_RTP
+        std::mutex m_network_devices_lock;
         struct tx *m_tx;
         struct pdb *m_participants;
         const char      *m_requested_receiver;

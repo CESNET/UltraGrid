@@ -181,6 +181,10 @@ rtp_video_rxtx::~rtp_video_rxtx()
                 module_done(CAST_MODULE(m_tx));
         }
 
+        m_network_devices_lock.lock();
+        destroy_rtp_devices(m_network_devices);
+        m_network_devices_lock.unlock();
+
         if (m_participants != NULL) {
                 pdb_iter_t it;
                 struct pdb_e *cp = pdb_iter_init(m_participants, &it);
@@ -201,6 +205,8 @@ rtp_video_rxtx::~rtp_video_rxtx()
 
 void rtp_video_rxtx::change_tx_port(int tx_port)
 {
+        lock_guard<mutex> lock(m_network_devices_lock);
+
         destroy_rtp_devices(m_network_devices);
         m_send_port_number = tx_port;
         m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number,
