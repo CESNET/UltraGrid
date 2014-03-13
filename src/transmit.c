@@ -466,6 +466,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int mult_index = 0;
         int mult_first_sent = 0;
         int hdrs_len = 40; // for computing max payload size
+        unsigned int ldgm_symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -520,6 +521,24 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 }
         }
 
+        if (frame->is_ldgm) {
+                ldgm_symbol_size = (4 + sizeof(ldgm_video_payload_hdr_t) + tile->data_len +
+                                frame->ldgm_params.k - 1) / frame->ldgm_params.k;
+
+                static bool status_printed = false;
+                if (!status_printed) {
+                        if (ldgm_symbol_size > tx->mtu - hdrs_len) {
+                                fprintf(stderr, "Warning: LDGM symbol size exceeds payload size! "
+                                                "LDGM symbol size: %d\n", ldgm_symbol_size);
+                        } else {
+                                printf("LDGM symbol size: %d, symbols per packet: %d, payload size: %d\n",
+                                                ldgm_symbol_size, (tx->mtu - hdrs_len) / ldgm_symbol_size,
+                                                (tx->mtu - hdrs_len) / ldgm_symbol_size * ldgm_symbol_size);
+                        }
+                        status_printed = true;
+                }
+        }
+
         format_video_header(frame, substream, tx->buffer, video_hdr);
 
         if (frame->is_ldgm) {
@@ -535,6 +554,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 ldgm_hdr[4] = htonl(frame->ldgm_params.seed);
         }
 
+        int ldgm_symbol_offset = 0;
+
         do {
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
@@ -546,7 +567,20 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                 data = tile->data + pos;
                 data_len = tx->mtu - hdrs_len;
-                data_len = (data_len / 48) * 48;
+                if (frame->is_ldgm) {
+                        if (ldgm_symbol_size <= tx->mtu - hdrs_len) {
+                                data_len = data_len / ldgm_symbol_size * ldgm_symbol_size;
+                        } else {
+                                if (ldgm_symbol_size - ldgm_symbol_offset <= tx->mtu - hdrs_len) {
+                                        data_len = ldgm_symbol_size - ldgm_symbol_offset;
+                                        ldgm_symbol_offset = 0;
+                                } else {
+                                        ldgm_symbol_offset += data_len;
+                                }
+                        }
+                } else {
+                        data_len = (data_len / 48) * 48;
+                }
                 if (pos + data_len >= (unsigned int) tile->data_len) {
                         if (send_m) {
                                 m = 1;
