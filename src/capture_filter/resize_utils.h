@@ -10,22 +10,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-    struct opencv_tile_struct {
-        int width;
-        int height;
-        float scale_factor;
-        Mat in, out;
-    };
-
-    int resize(char *indata, char *outdata, unsigned int *data_len, struct opencv_tile_struct *opencv);
-    int reconfigure_opencv_tile_struct(struct opencv_tile_struct *opencv,unsigned int width, unsigned int height, float sc_fact);
-
-#ifdef __cplusplus
-}
-#endif
+int resize_frame(char *indata, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor);
 
 #endif// RESIZE_UTILS_H_
