@@ -111,7 +111,7 @@ static int init(struct module *parent, const char *cfg, void **state)
     }
 
     struct state_resize *s = (state_resize*) calloc(1, sizeof(struct state_resize));
-    s->reinit = 0;
+    s->reinit = 1;
     s->num = n;
     s->denom = denom;
     s->frame = vf_alloc(MAX_TILES);
@@ -147,12 +147,19 @@ static struct video_frame *filter(void *state, struct video_frame *in)
             printf("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
             printf("\t\t No scale factor applied at all. Bypassing original frame.\n");
             return in;
+        }else{
+            s->frame->color_spec = RGB;
+            s->frame->codec = RGB;
         }
 
-        s->frame->tiles[i].width *= s->num;
-        s->frame->tiles[i].width /= s->denom;
-        s->frame->tiles[i].height *= s->num;
-        s->frame->tiles[i].height /= s->denom;
+
+        if(s->reinit==1){
+            s->frame->tiles[i].width *= s->num;
+            s->frame->tiles[i].width /= s->denom;
+            s->frame->tiles[i].height *= s->num;
+            s->frame->tiles[i].height /= s->denom;
+            s->reinit = 0;
+        }
     }
 
 
