@@ -89,6 +89,9 @@
 #include "audio/codec.h"
 #include "audio/utils.h"
 
+#include <iostream>
+#include <string>
+
 #if defined DEBUG && defined HAVE_LINUX
 #include <mcheck.h>
 #endif
@@ -125,6 +128,8 @@
 #define OPT_VERBOSE (('V' << 8) | 'E')
 
 #define MAX_CAPTURE_COUNT 17
+
+using namespace std;
 
 struct state_uv {
         struct vidcap *capture_device;
@@ -936,82 +941,89 @@ int main(int argc, char *argv[])
                 packet_rate = 0;
         }
 
-        if (video_protocol == IHDTV) {
-                struct vidcap *capture_device = NULL;
-                struct display *display_device = NULL;
-                if (rxtx_mode & MODE_SENDER)
-                        capture_device = uv->capture_device;
-                if (rxtx_mode & MODE_RECEIVER)
-                        display_device = uv->display_device;
-                uv->state_video_rxtx = new ihdtv_video_rxtx(&root_mod, video_exporter,
-                                requested_compression, capture_device,
-                                display_device, requested_mtu,
-                                argc, argv);
-        }else if (video_protocol == H264_STD) {
-                uint8_t avType;
-                if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
-                else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
-                else avType = 1; //VStream
+        try {
+                if (video_protocol == IHDTV) {
+                        struct vidcap *capture_device = NULL;
+                        struct display *display_device = NULL;
+                        if (rxtx_mode & MODE_SENDER)
+                                capture_device = uv->capture_device;
+                        if (rxtx_mode & MODE_RECEIVER)
+                                display_device = uv->display_device;
+                        uv->state_video_rxtx = new ihdtv_video_rxtx(&root_mod, video_exporter,
+                                        requested_compression, capture_device,
+                                        display_device, requested_mtu,
+                                        argc, argv);
+                }else if (video_protocol == H264_STD) {
+                        uint8_t avType;
+                        if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
+                        else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
+                        else avType = 1; //VStream
 
-                uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
-                                requested_compression, requested_encryption,
-                                requested_receiver, recv_port_number, send_port_number,
-                                ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
-                                packet_rate, avType);
-        } else if (video_protocol == ULTRAGRID_RTP) {
-                uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
-                                requested_compression, requested_encryption,
-                                requested_receiver, recv_port_number,
-                                send_port_number, ipv6,
-                                requested_mcast_if, requested_video_fec, requested_mtu,
-                                packet_rate, decoder_mode, postprocess, uv->display_device);
-        } else { // SAGE
-                uv->state_video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
-                                requested_compression, requested_receiver, sage_opts);
+                        uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
+                                        requested_compression, requested_encryption,
+                                        requested_receiver, recv_port_number, send_port_number,
+                                        ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
+                                        packet_rate, avType);
+                } else if (video_protocol == ULTRAGRID_RTP) {
+                        uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
+                                        requested_compression, requested_encryption,
+                                        requested_receiver, recv_port_number,
+                                        send_port_number, ipv6,
+                                        requested_mcast_if, requested_video_fec, requested_mtu,
+                                        packet_rate, decoder_mode, postprocess, uv->display_device);
+                } else { // SAGE
+                        uv->state_video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
+                                        requested_compression, requested_receiver, sage_opts);
 
-        }
-
-        if(rxtx_mode & MODE_RECEIVER) {
-                if (!uv->state_video_rxtx->supports_receiving()) {
-                        fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
-                        exit_uv(EXIT_FAILURE);
-                        goto cleanup;
                 }
-               // init module here so as it is capable of receiving messages
-                if (pthread_create
-                                (&receiver_thread_id, NULL, video_rxtx::receiver_thread,
-                                 (void *) uv->state_video_rxtx) != 0) {
-                        perror("Unable to create display thread!\n");
-                        exit_uv(EXIT_FAILURE);
-                        goto cleanup;
-                } else {
-                        receiver_thread_started = true;
-                }
-        }
 
-        if(rxtx_mode & MODE_SENDER) {
-                if (pthread_create
-                                (&capture_thread_id, NULL, capture_thread,
-                                 (void *) &root_mod) != 0) {
-                        perror("Unable to create capture thread!\n");
-                        exit_uv(EXIT_FAILURE);
-                        goto cleanup;
-                } else {
-                        capture_thread_started = true;
+                if(rxtx_mode & MODE_RECEIVER) {
+                        if (!uv->state_video_rxtx->supports_receiving()) {
+                                fprintf(stderr, "Selected RX/TX mode doesn't support receiving.\n");
+                                exit_uv(EXIT_FAILURE);
+                                goto cleanup;
+                        }
+                        // init module here so as it is capable of receiving messages
+                        if (pthread_create
+                                        (&receiver_thread_id, NULL, video_rxtx::receiver_thread,
+                                         (void *) uv->state_video_rxtx) != 0) {
+                                perror("Unable to create display thread!\n");
+                                exit_uv(EXIT_FAILURE);
+                                goto cleanup;
+                        } else {
+                                receiver_thread_started = true;
+                        }
                 }
-        }
 
-        if(audio_get_display_flags(uv->audio)) {
-                audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
-                audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int,
+                if(rxtx_mode & MODE_SENDER) {
+                        if (pthread_create
+                                        (&capture_thread_id, NULL, capture_thread,
+                                         (void *) &root_mod) != 0) {
+                                perror("Unable to create capture thread!\n");
+                                exit_uv(EXIT_FAILURE);
+                                goto cleanup;
+                        } else {
+                                capture_thread_started = true;
+                        }
+                }
+
+                if(audio_get_display_flags(uv->audio)) {
+                        audio_register_put_callback(uv->audio, (void (*)(void *, struct audio_frame *)) display_put_audio_frame, uv->display_device);
+                        audio_register_reconfigure_callback(uv->audio, (int (*)(void *, int, int,
                                                         int)) display_reconfigure_audio, uv->display_device);
+                }
+
+                // should be started after requested modules are able to respond after start
+                control_start(control);
+
+                if (strcmp("none", requested_display) != 0)
+                        display_run(uv->display_device);
+        } catch (string const &str) {
+                cerr << str << endl;
+                exit_status = EXIT_FAILURE;
+        } catch (int i) {
+                exit_status = i;
         }
-
-        // should be started after requested modules are able to respond after start
-        control_start(control);
-
-        if (strcmp("none", requested_display) != 0)
-                display_run(uv->display_device);
 
 cleanup:
         if (strcmp("none", requested_display) != 0 &&

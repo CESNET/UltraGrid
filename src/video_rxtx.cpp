@@ -85,22 +85,35 @@ video_rxtx::video_rxtx(struct module *parent, struct video_export *video_exporte
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
         module_register(&m_receiver_mod, parent);
 
-        int ret = compress_init(&m_sender_mod, requested_compression, &m_compression);
-        if(ret != 0) {
-                if(ret < 0) {
-                        throw string("Error initializing compression.");
-                }
-                if(ret > 0) {
-                        throw string("Error initializing compression.");
-                }
-        }
+        m_compression = nullptr;
 
-        pthread_mutex_init(&m_lock, NULL);
+        try {
+                int ret = compress_init(&m_sender_mod, requested_compression, &m_compression);
+                if(ret != 0) {
+                        if(ret < 0) {
+                                throw string("Error initializing compression.");
+                        }
+                        if(ret > 0) {
+                                throw EXIT_SUCCESS;
+                        }
+                }
 
-        if (pthread_create
-                        (&m_thread_id, NULL, video_rxtx::sender_thread,
-                         (void *) this) != 0) {
-                throw string("Unable to create sender thread!\n");
+                pthread_mutex_init(&m_lock, NULL);
+
+                if (pthread_create
+                                (&m_thread_id, NULL, video_rxtx::sender_thread,
+                                 (void *) this) != 0) {
+                        throw string("Unable to create sender thread!\n");
+                }
+        } catch (...) {
+                if (m_compression) {
+                        module_done(CAST_MODULE(m_compression));
+                }
+
+                module_done(&m_receiver_mod);
+                module_done(&m_sender_mod);
+
+                throw;
         }
 }
 

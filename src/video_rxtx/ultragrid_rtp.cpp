@@ -86,6 +86,12 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(struct module *parent, struct
                         receiver, rx_port, tx_port,
                         use_ipv6, mcast_if, requested_video_fec, mtu, packet_rate)
 {
+        if((postprocess && strstr(postprocess, "help") != NULL)) {
+                struct state_video_decoder *dec = video_decoder_init(NULL, VIDEO_NORMAL, postprocess, NULL, NULL);
+                video_decoder_destroy(dec);
+                throw EXIT_SUCCESS;
+        }
+
         gettimeofday(&m_start_time, NULL);
         m_decoder_mode = decoder_mode;
         m_postprocess = postprocess;
