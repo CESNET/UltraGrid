@@ -222,7 +222,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 tx->last_frame_fragment_id = -1;
                 if (fec) {
                         if(!set_fec(tx, fec)) {
-                                free(tx);
+                                module_done(&tx->mod);
                                 return NULL;
                         }
                 }
@@ -230,6 +230,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         if(openssl_encrypt_init(&tx->encryption,
                                                 encryption, MODE_AES128_CTR) != 0) {
                                 fprintf(stderr, "Unable to initialize encryption\n");
+                                module_done(&tx->mod);
                                 return NULL;
                         }
                 }

@@ -173,6 +173,10 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
                                         requested_encryption, packet_rate)) == NULL) {
                 throw string("Unable to initialize transmitter");
         }
+
+        // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
+        // immediatelly. The encoder is actually created by a message.
+        check_sender_messages();
 }
 
 rtp_video_rxtx::~rtp_video_rxtx()

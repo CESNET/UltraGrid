@@ -150,6 +150,15 @@ void *video_rxtx::sender_thread(void *args) {
         return static_cast<video_rxtx *>(args)->sender_loop();
 }
 
+void video_rxtx::check_sender_messages() {
+        // process external messages
+        struct message *msg_external;
+        while((msg_external = check_message(&m_sender_mod))) {
+                process_message((struct msg_sender *) msg_external);
+                free_message(msg_external);
+        }
+}
+
 void *video_rxtx::sender_loop() {
         struct video_desc saved_vid_desc;
 
@@ -160,12 +169,7 @@ void *video_rxtx::sender_loop() {
                         control_mod, "data");
 
         while(1) {
-                // process external messages
-                struct message *msg_external;
-                while((msg_external = check_message(&m_sender_mod))) {
-                        process_message((struct msg_sender *) msg_external);
-                        free_message(msg_external);
-                }
+                check_sender_messages();
 
                 struct video_frame *tx_frame = NULL;
 

@@ -134,6 +134,8 @@ int capture_filter_init(struct module *parent, const char *cfg, struct capture_f
                                         i < sizeof(capture_filters) / sizeof(struct capture_filter_info *); ++i) {
                                 printf("\t%s\n", capture_filters[i]->name);
                         }
+                        module_done(&s->mod);
+                        free(s);
                         return 1;
                 }
                 filter_list_str = tmp = strdup(cfg);
