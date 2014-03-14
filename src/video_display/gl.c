@@ -379,7 +379,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         NSApplicationLoad();
 #endif
 
-#ifdef HAVE_LINUX
+#ifdef FREEGLUT
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 #endif
         glutIdleFunc(glut_idle_callback);
@@ -390,7 +390,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 	glutDisplayFunc(glutSwapBuffers);
 #ifdef HAVE_MACOSX
         glutWMCloseFunc(glut_close_callback);
-#elif HAVE_LINUX
+#elif FREEGLUT
         glutCloseFunc(glut_close_callback);
 #endif
 	glutReshapeFunc(gl_resize);
