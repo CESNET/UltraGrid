@@ -73,6 +73,11 @@
 #include "ldgm-coding/matrix-gen/matrix-generator.h"
 #include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
 
+#include "rtp/rtp.h"
+#include "rtp/rtp_callback.h"
+#include "transmit.h"
+#include "video.h"
+
 using namespace std;
 
 typedef enum {
@@ -205,6 +210,8 @@ struct ldgm_state_encoder {
                                 frame, size, out_size);
                 return output;
         }
+
+        struct video_frame *encode(struct video_frame *tx_frame);
 
         void freeBuffer(char *buffer) {
                 coding_session.free_out_buf(buffer);
@@ -480,6 +487,49 @@ void ldgm_encoder_encode(void *state, const char *hdr, int hdr_len, const char *
 
         *out = output_buffer;
 }
+
+static void dispose_buffer(struct video_frame *frame)
+{
+        for (unsigned int i = 0; i < frame->tile_count; ++i) {
+                static_cast<ldgm_state_encoder *>(frame->dispose_udata)->freeBuffer(frame->tiles[i].data);
+        }
+        vf_free(frame);
+}
+
+struct video_frame *ldgm_state_encoder::encode(struct video_frame *tx_frame)
+{
+        struct video_frame *out = vf_alloc_desc(video_desc_from_frame(tx_frame));
+
+        for (unsigned int i = 0; i < tx_frame->tile_count; ++i) {
+                video_payload_hdr_t video_hdr;
+                format_video_header(tx_frame, i, 0, video_hdr);
+
+                int out_size;
+                char *output = coding_session.encode_hdr_frame((char *) video_hdr, sizeof(video_hdr),
+                                tx_frame->tiles[i].data, tx_frame->tiles[i].data_len, &out_size);
+
+                out->tiles[i].data = output;
+                out->tiles[i].data_len = out_size;
+        }
+
+        out->is_ldgm = true;
+        out->ldgm_params.k = k;
+        out->ldgm_params.m = m;
+        out->ldgm_params.c = c;
+        out->ldgm_params.seed = seed;
+        out->dispose = dispose_buffer;
+        out->dispose_udata = this;
+
+        return out;
+}
+
+struct video_frame *ldgm_encoder_encode_frame(void *state, struct video_frame *tx_frame)
+{
+        struct ldgm_state_encoder *s = (struct ldgm_state_encoder *) state;
+
+        return s->encode(tx_frame);
+}
+
 
 void ldgm_encoder_free_buffer(void *state, char *buffer)
 {

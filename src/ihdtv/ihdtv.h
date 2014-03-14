@@ -61,6 +61,10 @@
 
 #include "types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void ihdtv_receive_frames(void);
 
 typedef struct {
@@ -119,6 +123,10 @@ ihdtv_receive(ihdtv_connection *rx_connection, char *buffer, unsigned long buffe
 
 int
 ihdtv_send(ihdtv_connection *tx_connection, struct video_frame *tx_frame, unsigned long buffer_length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

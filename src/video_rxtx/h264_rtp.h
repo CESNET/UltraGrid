@@ -1,32 +1,27 @@
+/**
+ * @file   video_rxtx/h264_rtp.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ * @author David Cassany    <david.cassany@i2cat.net>
+ * @author Ignacio Contreras <ignacio.contreras@i2cat.net>
+ * @author Gerard Castillo  <gerard.castillo@i2cat.net>
+ */
 /*
- * FILE:    utils/resource_manager.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2013-2014 Fundació i2CAT, Internet I Innovació Digital a Catalunya
+ * Copyright (c) 2013-2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,33 +37,30 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
- 
-#ifndef WORKER_H_
-#define WORKER_H
+#ifndef VIDEO_RXTX_H264_RTP_H_
+#define VIDEO_RXTX_H264_RTP_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "rtsp/c_basicRTSPOnlyServer.h"
+#include "video_rxtx.h"
+#include "video_rxtx/rtp.h"
 
-typedef void *task_result_handle_t;
-typedef void *(*task_t)(void *);
+class h264_rtp_video_rxtx : public rtp_video_rxtx {
+public:
+        h264_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
+                        const char *requested_compression, const char *requested_encryption,
+                        const char *receiver, int rx_port, int tx_port,
+                        bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
+                        long packet_rate, uint8_t avType);
+        virtual ~h264_rtp_video_rxtx();
+private:
+        virtual void send_frame(struct video_frame *);
+        virtual void *(*get_receiver_thread())(void *arg) {
+                return NULL;
+        }
+        rtsp_serv_t *m_rtsp_server;
+};
 
-task_result_handle_t task_run_async(task_t task, void *data);
-void task_run_async_detached(task_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* WORKER_H_ */
+#endif // VIDEO_RXTX_H264_RTP_H_
 

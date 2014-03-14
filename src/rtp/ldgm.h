@@ -43,10 +43,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-struct ldgm_desc {
-        unsigned int k, m, c;
-        unsigned int seed;
-};
+struct video_frame;
 
 /* 
  * @param packet_size - approximate size of packet payload
@@ -65,6 +62,7 @@ void ldgm_encoder_destroy(void *state);
 
 void * ldgm_decoder_init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
 void ldgm_decoder_destroy(void *state);
+struct video_frame *ldgm_encoder_encode_frame(void *state, struct video_frame *tx_frame);
 
 #ifdef __cplusplus
 }

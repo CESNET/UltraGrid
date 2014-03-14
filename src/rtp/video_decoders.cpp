@@ -92,6 +92,7 @@
 #include "video_display.h"
 #include "vo_postprocess.h"
 
+#include <future>
 #include <map>
 #include <queue>
 
@@ -298,6 +299,9 @@ struct state_video_decoder
         message_queue       msg_queue;
 
         struct openssl_decrypt      *decrypt; ///< decrypt state
+
+        std::future<bool> reconfiguration_future;
+        bool             reconfiguration_in_progress;
 };
 
 /**
@@ -1354,6 +1358,15 @@ static bool reconfigure_decoder(struct state_video_decoder *decoder,
                 }
         }
 
+        // Pass metadata to receiver thread (it can tweak parameters)
+        struct msg_receiver *msg = (struct msg_receiver *)
+                new_message(sizeof(struct msg_receiver));
+        msg->type = RECEIVER_MSG_VIDEO_PROP_CHANGED;
+        msg->new_desc = decoder->received_vid_desc;
+        struct response *resp =
+                send_message_to_receiver(decoder->parent, (struct message *) msg);
+        resp->deleter(resp);
+
         return true;
 }
 
@@ -1385,8 +1398,6 @@ static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
 static int reconfigure_if_needed(struct state_video_decoder *decoder,
                 struct video_desc network_desc)
 {
-        int ret = FALSE;
-
         if (!video_desc_eq_excl_param(decoder->received_vid_desc, network_desc, PARAM_TILE_COUNT)) {
                 printf("New incoming video format detected: %dx%d @%.2f%s, codec %s\n",
                                 network_desc.width, network_desc.height, network_desc.fps,
@@ -1394,24 +1405,13 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
                                 get_codec_name(network_desc.color_spec));
                 decoder->received_vid_desc = network_desc;
 
-                if (reconfigure_decoder(decoder, decoder->received_vid_desc)) {
-                        decoder->frame = display_get_frame(decoder->display);
-                        ret = TRUE;
-                } else {
-                        decoder->frame = NULL;
-                        ret = FALSE;
-                }
+                decoder->reconfiguration_in_progress = true;
+                decoder->reconfiguration_future = std::async(std::launch::async,
+                                [&decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 
-                // Pass metadata to receiver thread (it can tweak parameters)
-                struct msg_receiver *msg = (struct msg_receiver *)
-                        new_message(sizeof(struct msg_receiver));
-                msg->type = RECEIVER_MSG_VIDEO_PROP_CHANGED;
-                msg->new_desc = decoder->received_vid_desc;
-                struct response *resp =
-                        send_message_to_receiver(decoder->parent, (struct message *) msg);
-                resp->deleter(resp);
+                return TRUE;
         }
-        return ret;
+        return FALSE;
 }
 /**
  * Checks if network format has changed.
@@ -1485,11 +1485,40 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
         int k = 0, m = 0, c = 0, seed = 0; // LDGM
         int buffer_number, buffer_length;
 
+        // check if we are not in the middle of reconfiguration
+        if (decoder->reconfiguration_in_progress) {
+#if defined __GNUC__ && __GNUC__ == 4 && __GNUC_MINOR__ == 6
+                bool status =
+#else
+                std::future_status status =
+#endif
+                        decoder->reconfiguration_future.wait_until(std::chrono::system_clock::now());
+#if defined __GNUC__ && __GNUC__ == 4 && __GNUC_MINOR__ == 6
+                if (status) {
+#else
+                if (status == std::future_status::ready) {
+#endif
+                        bool ret = decoder->reconfiguration_future.get();
+                        if (ret) {
+                                decoder->frame = display_get_frame(decoder->display);
+                        } else {
+                                fprintf(stderr, "Decoder reconfiguration failed!!!\n");
+                                decoder->frame = NULL;
+                        }
+                        decoder->reconfiguration_in_progress = false;
+                } else {
+                        // skip the frame if we are not yet reconfigured
+                        return FALSE;
+                }
+        }
+
         main_msg *msg;
         while ((msg = dynamic_cast<main_msg *>(decoder->msg_queue.pop(true /* nonblock */)))) {
                 if (dynamic_cast<main_msg_reconfigure *>(msg)) {
                         main_msg_reconfigure *msg_reconf = dynamic_cast<main_msg_reconfigure *>(msg);
-                        reconfigure_if_needed(decoder, msg_reconf->desc);
+                        if (reconfigure_if_needed(decoder, msg_reconf->desc)) {
+                                return FALSE;
+                        }
                 }
                 delete msg;
         }
@@ -1558,7 +1587,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         goto cleanup;
                 }
 
-                if(substream >= max_substreams) {
+                if ((int) substream >= max_substreams) {
                         fprintf(stderr, "[decoder] received substream ID %d. Expecting at most %d substreams. Did you set -M option?\n",
                                         substream, max_substreams);
                         // the guess is valid - we start with highest substream number (anytime - since it holds a m-bit)
@@ -1607,7 +1636,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         /* Critical section
                          * each thread *MUST* wait here if this condition is true
                          */
-                        check_for_mode_change(decoder, hdr);
+                        if (check_for_mode_change(decoder, hdr)) {
+                                return FALSE;
+                        }
 
                         // hereafter, display framebuffer can be used, so we
                         // check if we got it

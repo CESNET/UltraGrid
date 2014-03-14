@@ -172,6 +172,12 @@ struct module *get_root_module(struct module *node)
         return node;
 }
 
+struct module *get_parent_module(struct module *node)
+{
+        return node->parent;
+}
+
+
 static struct module *find_child(struct module *node, const char *node_name, int index)
 {
         for(void *it = simple_linked_list_it_init(node->childs); it != NULL; ) {

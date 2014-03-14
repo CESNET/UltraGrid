@@ -70,13 +70,14 @@ struct worker_state_observer {
  * @brief Holds data to be passed to worker.
  */
 struct wp_task_data {
-        wp_task_data(task_t task, void *data, wp_worker *w) : m_task(task), m_data(data),
-                m_result(0), m_returned(false), m_w(w) {}
+        wp_task_data(task_t task, void *data, wp_worker *w, bool detached) : m_task(task), m_data(data),
+                m_result(0), m_returned(false), m_w(w), m_detached(detached) {}
         task_t m_task;
         void *m_data;
         void *m_result;
         bool m_returned;
         struct wp_worker *m_w;
+        bool m_detached;
 };
 
 /**
@@ -93,7 +94,7 @@ struct wp_worker {
                 pthread_create(&m_thread_id, NULL, wp_worker::enter_loop, this);
         }
         ~wp_worker() {
-                wp_task_data *poisoned = new wp_task_data(NULL, NULL, this);
+                wp_task_data *poisoned = new wp_task_data(NULL, NULL, this, false);
                 this->push(poisoned);
 
                 pthread_join(m_thread_id, NULL);
@@ -147,6 +148,9 @@ void wp_worker::run() {
                 data->m_returned = true;
                 pthread_cond_signal(&m_task_completed_cv);
                 m_state_observer.notify(this);
+                if (data->m_detached) {
+                        delete data;
+                }
                 pthread_mutex_unlock(&m_lock);
         }
 }
@@ -199,7 +203,7 @@ class worker_pool : public worker_state_observer
                         pthread_mutex_unlock(&m_lock);
                 }
 
-                task_result_handle_t run_async(task_t task, void *data);
+                task_result_handle_t run_async(task_t task, void *data, bool detached);
                 void *wait_task(task_result_handle_t handle);
 
         private:
@@ -208,7 +212,7 @@ class worker_pool : public worker_state_observer
                 pthread_mutex_t m_lock;
 };
 
-task_result_handle_t worker_pool::run_async(task_t task, void *data)
+task_result_handle_t worker_pool::run_async(task_t task, void *data, bool detached)
 {
         wp_worker *w;
         pthread_mutex_lock(&m_lock);
@@ -222,7 +226,7 @@ task_result_handle_t worker_pool::run_async(task_t task, void *data)
         m_empty_workers.erase(w);
         m_occupied_workers.insert(w);
 
-        wp_task_data *d = new wp_task_data(task, data, w);
+        wp_task_data *d = new wp_task_data(task, data, w, detached);
         w->push(d);
         pthread_mutex_unlock(&m_lock);
 
@@ -238,9 +242,30 @@ void *worker_pool::wait_task(task_result_handle_t handle)
 
 static class worker_pool instance;
 
+/**
+ * @brief Runs task asynchronously.
+ *
+ * @param   task callback to be run
+ * @param   data additional data to be passed to the callback
+ * @returns      handle to the task
+ *
+ * @note
+ * If you use this call wait_task() must be run.
+ */
 task_result_handle_t task_run_async(task_t task, void *data)
 {
-        return instance.run_async(task, data);
+        return instance.run_async(task, data, false);
+}
+
+/**
+ * @brief Runs task asynchronously in a detached state
+ *
+ * @param   task callback to be run
+ * @param   data additional data to be passed to the callback
+ */
+void task_run_async_detached(task_t task, void *data)
+{
+        instance.run_async(task, data, true);
 }
 
 void *wait_task(task_result_handle_t handle)
