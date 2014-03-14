@@ -7,8 +7,8 @@
 #include "config_win32.h"
 #endif
 
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/core/core.hpp>
+#include <opencv/cv.hpp>
+#include <opencv/cv.h>
 
 int resize_frame(char *indata, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor);
 

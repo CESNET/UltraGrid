@@ -10,11 +10,13 @@ int resize_frame(char *indata, char *outdata, unsigned int *data_len, unsigned i
         return 1;
     }
 
-    in = Mat.create(height, width, CV_8UC2);
-    in.data = indata;
-    out.data = outdata;
+    in.create(height, width, CV_8UC2);
+    in.data = (uchar*)indata;
+    out.data = (uchar*)outdata;
 
-    cvtColor(in, out, CV_YUV2RGB_UYVY);
+    printf("\nRESIZING!!!\n");
+
+    cvtColor(in, out, CV_YUV2RGB_Y422);
     resize(out, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
 
     *data_len = out.step * out.rows * sizeof(char);
