@@ -148,8 +148,8 @@ static struct video_frame *filter(void *state, struct video_frame *in)
             printf("\t\t No scale factor applied at all. Bypassing original frame.\n");
             return in;
         }else{
-            s->frame->color_spec = RGB;
-            s->frame->codec = RGB;
+            //s->frame->color_spec = RGB;
+            //s->frame->codec = RGB;
         }
 
 
