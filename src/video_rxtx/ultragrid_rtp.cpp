@@ -125,9 +125,9 @@ void ultragrid_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
 
         auto data = new pair<ultragrid_rtp_video_rxtx *, struct video_frame *>(this, tx_frame);
 
-        m_async_sending_lock.lock();
+        unique_lock<mutex> lk(m_async_sending_lock);
+        m_async_sending_cv.wait(lk, [this]{return !m_async_sending;});
         m_async_sending = true;
-        m_async_sending_lock.unlock();
         task_run_async_detached(ultragrid_rtp_video_rxtx::send_frame_async_callback,
                         (void *) data);
 }
