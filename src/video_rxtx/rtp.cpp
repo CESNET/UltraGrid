@@ -141,7 +141,7 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
         video_rxtx(parent, video_exporter, requested_compression),
         m_ldgm_state(NULL)
 {
-        if(requested_mtu > RTP_MAX_PACKET_LEN) {
+        if(requested_mtu > RTP_MAX_MTU) {
                 ostringstream oss;
                 oss << "Requested MTU exceeds maximal value allowed by RTP library (" <<
                         RTP_MAX_PACKET_LEN << ").";

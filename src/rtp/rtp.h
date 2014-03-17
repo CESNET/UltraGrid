@@ -51,8 +51,9 @@ extern "C" {
 #endif
 
 #define RTP_VERSION 2
-#define RTP_PACKET_HEADER_SIZE	((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
-#define RTP_MAX_PACKET_LEN 9000
+#define RTP_PACKET_HEADER_SIZE ((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
+#define RTP_MAX_MTU 9000
+#define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE)
 
 #if !defined(WORDS_BIGENDIAN) && !defined(WORDS_SMALLENDIAN)
 #error RTP library requires WORDS_BIGENDIAN or WORDS_SMALLENDIAN to be defined.
