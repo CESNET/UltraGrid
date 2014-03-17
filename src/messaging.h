@@ -43,7 +43,8 @@ enum msg_sender_type {
         SENDER_MSG_CHANGE_RECEIVER,
         SENDER_MSG_CHANGE_PORT,
         SENDER_MSG_PLAY,
-        SENDER_MSG_PAUSE
+        SENDER_MSG_PAUSE,
+        SENDER_MSG_CHANGE_LDGM,
 };
 
 struct msg_sender {
@@ -52,6 +53,7 @@ struct msg_sender {
         union {
                 int port;
                 char receiver[128];
+                char ldgm_cfg[1024];
         };
 };
 
@@ -96,10 +98,16 @@ struct msg_universal {
         char text[8192];
 };
 
+struct pair_msg_path {
+        char path[8192];
+        struct message *msg;
+};
+
 struct response *new_response(int status, char *optional_message);
 
 typedef struct response *(*msg_callback_t)(struct module *mod, struct message *msg);
 
+void module_check_undelivered_messages(struct module *);
 struct response *send_message(struct module *, const char *path, struct message *msg);
 struct response *send_message_to_receiver(struct module *, struct message *msg);
 struct message *new_message(size_t length);

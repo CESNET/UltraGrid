@@ -194,10 +194,10 @@ static void audio_scale_usage(void)
  */
 struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, int recv_port, int send_port,
                 const char *send_cfg, const char *recv_cfg,
-                char *jack_cfg, char *fec_cfg, const char *encryption,
+                char *jack_cfg, const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
                 bool echo_cancellation, bool use_ipv6, const char *mcast_if, audio_codec_t audio_codec,
-                int resample_to, bool isStd)
+                int resample_to, bool isStd, long packet_rate)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
@@ -258,7 +258,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
 
         s->audio_coder = audio_codec_init(audio_codec, AUDIO_CODER);
         if(!s->audio_coder) {
-                return NULL;
+                goto error;
         }
 
         if(export_dir) {
@@ -276,11 +276,11 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                                 "in UltraGrid.\nPlease write to %s "
                                 "if you wish to use this feature.\n",
                                 PACKAGE_BUGREPORT);
-                return NULL;
+                goto error;
 #else
                 fprintf(stderr, "Speex not compiled in. Could not enable echo cancellation.\n");
                 free(s);
-                return NULL;
+                goto error;
 #endif /* HAVE_SPEEX */
         } else {
                 s->echo_state = NULL;
@@ -290,7 +290,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 s->requested_encryption = strdup(encryption);
         }
         
-        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption);
+        s->tx_session = tx_init(&s->mod, 1500, TX_MEDIA_AUDIO, fec_cfg, encryption, packet_rate);
         if(!s->tx_session) {
                 fprintf(stderr, "Unable to initialize audio transmit.\n");
                 goto error;
@@ -414,6 +414,14 @@ error:
         if(s->audio_participants) {
                 pdb_destroy(&s->audio_participants);
         }
+
+        if (s->audio_sender_module.cls != 0) {
+                module_done(&s->audio_sender_module);
+        }
+        if (s->mod.cls != 0) {
+                module_done(&s->mod);
+        }
+
         audio_codec_done(s->audio_coder);
         free(s);
         exit_uv(1);
@@ -440,7 +448,7 @@ void audio_done(struct state_audio *s)
                 audio_playback_done(s->audio_playback_device);
                 audio_capture_done(s->audio_capture_device);
                 module_done(CAST_MODULE(s->tx_session));
-                module_done(CAST_MODULE(&s->audio_sender_module));
+                module_done(&s->audio_sender_module);
                 if(s->audio_network_device)
                         rtp_done(s->audio_network_device);
                 if(s->audio_participants) {
@@ -588,7 +596,7 @@ struct state_resample {
         SpeexResamplerState *resampler;
         int resample_from, resample_ch_count;
         int resample_to;
-        const int *codec_supported_bytes_per_second;
+        const int *codec_supported_bytes_per_sample;
 };
 
 static void resample(struct state_resample *s, struct audio_frame *buffer);
@@ -611,15 +619,17 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
 {
         memcpy(&s->resampled, buffer, sizeof(struct audio_frame));
 
-        if(s->resample_from == s->resample_to && s->codec_supported_bytes_per_second == NULL) {
+        if(buffer->sample_rate == s->resample_to && s->codec_supported_bytes_per_sample == NULL) {
+                memcpy(&s->resampled, buffer, sizeof(s->resampled));
                 s->resampled.data = malloc(buffer->data_len);
                 memcpy(s->resampled.data, buffer->data, buffer->data_len);
         } else {
                 /**
                  * @todo 2 is suitable only for Libavcodec
                  */
-                assert(set_contains(s->codec_supported_bytes_per_second, 2));
-                uint32_t write_frames = 2 * (buffer->data_len / buffer->ch_count / buffer->bps);
+                assert(set_contains(s->codec_supported_bytes_per_sample, 2));
+                // expect that we may got as much as 12-times more data (eg 8 kHz to 96 kHz
+                uint32_t write_frames = 12 * (buffer->data_len / buffer->ch_count / buffer->bps);
                 s->resampled.data = malloc(write_frames * 2 * buffer->ch_count);
                 if(s->resample_from != buffer->sample_rate || s->resample_ch_count != buffer->ch_count) {
                         s->resample_from = buffer->sample_rate;
@@ -646,8 +656,11 @@ static void resample(struct state_resample *s, struct audio_frame *buffer)
                 }
 
                 uint32_t in_frames = data_len /  buffer->ch_count / 2;
+                uint32_t in_frames_orig = in_frames;
                 speex_resampler_process_interleaved_int(s->resampler, (spx_int16_t *)(void *) in_buf, &in_frames,
                                 (spx_int16_t *)(void *) s->resampled.data, &write_frames);
+                assert (in_frames == in_frames_orig);
+
                 s->resampled.data_len = write_frames * 2 /* bps */ * buffer->ch_count;
                 s->resampled.sample_rate = s->resample_to;
                 s->resampled.bps = 2;
@@ -690,7 +703,7 @@ static void *audio_sender_thread(void *arg)
         memset(&resample_state, 0, sizeof(resample_state));
         resample_state.resample_to = s->resample_to;
         resample_state.resample_buffer = malloc(1024 * 1024);
-        resample_state.codec_supported_bytes_per_second =
+        resample_state.codec_supported_bytes_per_sample =
                 audio_codec_get_supported_bps(s->audio_coder);
         
         printf("Audio sending started.\n");

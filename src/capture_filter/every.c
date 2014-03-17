@@ -123,7 +123,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         struct state_every *s = state;
 
         assert(in->tile_count <= MAX_TILES);
+        struct tile *tiles = s->frame->tiles;
         memcpy(s->frame, in, sizeof(struct video_frame));
+        s->frame->tiles = tiles;
         memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
         s->frame->fps /= (double) s->num / s->denom;
 

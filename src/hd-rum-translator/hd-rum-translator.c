@@ -21,6 +21,7 @@
 #include "hd-rum-translator/hd-rum-decompress.h"
 #include "module.h"
 #include "stats.h"
+#include "utils/misc.h"
 #include "tv.h"
 
 #define EXIT_FAIL_USAGE 1
@@ -102,7 +103,7 @@ static void signal_handler(int signal)
 
 static ssize_t replica_write(struct replica *s, void *buf, size_t count)
 {
-        return write(s->sock, buf, count);
+        return send(s->sock, buf, count, 0);
 }
 
 static void replica_done(struct replica *s)
@@ -216,7 +217,7 @@ static void *writer(void *arg)
                 return NULL;
             }
             for (i = 0; i < s->host_count; i++) {
-                if(s->replicas[i].sock != -1) {
+                if(s->replicas[i].type == USE_SOCK) {
                     replica_write(&s->replicas[i],
                             s->qhead->buf, s->qhead->size);
                 }
@@ -253,6 +254,7 @@ static void usage(const char *progname) {
         printf("\tand hostX_options may be:\n"
                 "\t\t-c <compression> - compression\n"
                 "\t\t-m <mtu> - MTU size. Will be used only with compression.\n"
+                "\t\t-l <limiting_bitrate> - bitrate to be shaped to\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
               );
 }
@@ -262,6 +264,7 @@ struct host_opts {
     int mtu;
     char *compression;
     char *fec;
+    int64_t packet_rate;
 };
 
 static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *port,
@@ -317,9 +320,25 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
                 case 'f':
                     (*host_opts)[host_idx].fec = argv[i + 1];
                     break;
+                case 'l':
+                    if (strcmp(argv[i + 1], "unlimited") == 0) {
+                        (*host_opts)[host_idx].packet_rate = 0;
+                    } else {
+                        (*host_opts)[host_idx].packet_rate = unit_evaluate(argv[i + 1]);
+                    }
+                    break;
                 default:
                     fprintf(stderr, "Error: invalild option '%s'\n", argv[i]);
                     exit(EXIT_FAIL_USAGE);
+            }
+            // make it correct
+            if ((*host_opts)[host_idx].packet_rate != 0) {
+                int mtu = (*host_opts)[host_idx].mtu;
+                if (mtu == 0) {
+                    mtu = 1500;
+                }
+                (*host_opts)[host_idx].packet_rate = 1000ull *
+                    mtu * 8 / (*host_opts)[host_idx].packet_rate;
             }
             i += 1;
         } else {
@@ -353,7 +372,6 @@ static void hd_rum_translator_state_destroy(struct hd_rum_translator_state *s)
     module_done(&s->mod);
 }
 
-#ifndef WIN32
 int main(int argc, char **argv)
 {
     struct hd_rum_translator_state state;
@@ -371,6 +389,21 @@ int main(int argc, char **argv)
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     struct control_state *control_state = NULL;
+#ifdef WIN32
+    WSADATA wsaData;
+
+    err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if(err != 0) {
+        fprintf(stderr, "WSAStartup failed with error %d.", err);
+        return EXIT_FAILURE;
+    }
+    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+        fprintf(stderr, "Counld not found usable version of Winsock.\n");
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+#endif
 
     if (argc < 4) {
         usage(argv[0]);
@@ -381,17 +414,12 @@ int main(int argc, char **argv)
 
     main_thread_id = pthread_self();
 
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = signal_handler;
-    sigemptyset(&sa.sa_mask);
-
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
 #ifndef WIN32
-    sigaction(SIGHUP, &sa, NULL);
+    signal(SIGHUP, signal_handler);
 #endif
-    sigaction(SIGABRT, &sa, NULL);
+    signal(SIGABRT, signal_handler);
 
     parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
 
@@ -477,7 +505,7 @@ int main(int argc, char **argv)
             char *fec = NULL;
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, compress,
-                    0, port, mtu, fec);
+                    0, port, mtu, fec, hosts[i].packet_rate);
             hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
         } else {
             state.replicas[i].type = RECOMPRESS;
@@ -488,7 +516,7 @@ int main(int argc, char **argv)
 
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, hosts[i].compression,
-                    0, port, mtu, hosts[i].fec);
+                    0, port, mtu, hosts[i].fec, hosts[i].packet_rate);
             if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
@@ -528,7 +556,7 @@ int main(int argc, char **argv)
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead
-               && (state.qtail->size = read(sock_in, state.qtail->buf, SIZE)) > 0
+               && (state.qtail->size = recv(sock_in, state.qtail->buf, SIZE, 0)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
 
@@ -595,17 +623,13 @@ int main(int argc, char **argv)
 
     hd_rum_translator_state_destroy(&state);
 
+#ifdef WIN32
+    WSACleanup();
+#endif
+
     printf("Exit\n");
 
     return 0;
 }
-#else // WIN32
-#include <stdio.h>
-int main()
-{
-    fprintf(stderr, "Reflector is currently not supported under MSW\n");
-    return 1;
-}
-#endif
 
 /* vim: set sw=4 expandtab : */

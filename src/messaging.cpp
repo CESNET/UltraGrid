@@ -13,17 +13,42 @@
 struct response *send_message(struct module *root, const char *const_path, struct message *msg)
 {
         char buf[1024];
-        struct module *receiver = get_module(root, const_path);
         /**
          * @invariant
          * either receiver is NULL or receiver->lock is locked (exactly once)
          */
+        char *path, *tmp;
+        char *item, *save_ptr;
+        tmp = path = strdup(const_path);
+        struct module *receiver = root;
 
-        if(receiver == NULL) {
-                fprintf(stderr, "%s not found:\n", const_path);
-                dump_tree(root, 0);
-                snprintf(buf, sizeof(buf), "(path: %s)", const_path);
-                return new_response(RESPONSE_NOT_FOUND, strdup(buf));
+        pthread_mutex_lock(&receiver->lock);
+
+        while ((item = strtok_r(path, ".", &save_ptr))) {
+                struct module *old_receiver = receiver;
+
+                receiver = get_matching_child(receiver, item);
+
+                if (!receiver) {
+                        printf("Receiver %s not yet exists. Message will be delivered "
+                                        "when it's created.\n", const_path);
+                        //dump_tree(root, 0);
+                        
+                        struct pair_msg_path *saved_message = (struct pair_msg_path *)
+                                malloc(sizeof(struct pair_msg_path));
+                        saved_message->msg = msg;
+                        memset(saved_message->path, 0, sizeof(saved_message->path));
+                        strncpy(saved_message->path, const_path + (item - tmp), sizeof(saved_message->path));
+
+                        simple_linked_list_append(old_receiver->msg_queue_childs, saved_message);
+                        pthread_mutex_unlock(&old_receiver->lock);
+
+                        return new_response(RESPONSE_ACCEPTED, NULL);
+                }
+                pthread_mutex_lock(&receiver->lock);
+                pthread_mutex_unlock(&old_receiver->lock);
+
+                path = NULL;
         }
 
         lock_guard guard(receiver->lock, lock_guard_retain_ownership_t());
@@ -39,6 +64,23 @@ struct response *send_message(struct module *root, const char *const_path, struc
                 return resp;
         } else {
                 return new_response(RESPONSE_INT_SERV_ERR, strdup("(empty response)"));
+        }
+}
+
+void module_check_undelivered_messages(struct module *node)
+{
+        lock_guard guard(node->lock);
+
+        for(void *it = simple_linked_list_it_init(node->msg_queue_childs); it != NULL; ) {
+                struct pair_msg_path *msg = (struct pair_msg_path *) simple_linked_list_it_next(&it);
+                struct module *receiver = get_matching_child(node, msg->path);
+                if (receiver) {
+                        send_message_to_receiver(receiver, msg->msg);
+                        simple_linked_list_remove(node->msg_queue_childs, msg);
+                        free(msg);
+                        // reinit iterator
+                        it = simple_linked_list_it_init(node->msg_queue_childs);
+                }
         }
 }
 

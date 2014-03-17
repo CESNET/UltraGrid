@@ -51,6 +51,10 @@
  * $Date: 2009/12/11 15:29:39 $
  *
  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
  
 /*
  * A participant database entry. This holds (pointers to) all the
@@ -99,4 +103,8 @@ typedef void *pdb_iter_t;
 struct pdb_e        *pdb_iter_init(struct pdb *db, pdb_iter_t *it);
 struct pdb_e        *pdb_iter_next(pdb_iter_t *it);
 void                 pdb_iter_done(pdb_iter_t *it);
+
+#ifdef __cplusplus
+}
+#endif
 

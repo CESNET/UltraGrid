@@ -1,14 +1,18 @@
-/*
- * FILE:    host.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+/**
+ * @file   host.h
+ * @author Martin Benes     <martinbenesh@gmail.com>
+ * @author Lukas Hejtmanek  <xhejtman@ics.muni.cz>
+ * @author Petr Holub       <hopet@ics.muni.cz>
+ * @author Milos Liska      <xliska@fi.muni.cz>
+ * @author Jiri Matela      <matela@ics.muni.cz>
+ * @author Dalibor Matura   <255899@mail.muni.cz>
+ * @author Ian Wesley-Smith <iwsmith@cct.lsu.edu>
+ * @author Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * This file contains common (global) variables and functions.
+ */
+/*
+ * Copyright (c) 2005-2014 CESNET z.s.p.o.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
@@ -57,8 +61,6 @@
 extern "C" {
 #endif
 
-struct rtp;
-struct state_uv;
 struct video_frame;
 struct vidcap_params;
 
@@ -92,21 +94,21 @@ extern const char *sage_receiver;
 
 extern bool verbose;
 
+#define MODE_SENDER   1
+#define MODE_RECEIVER 2
+extern int rxtx_mode;
+
 // for aggregate.c
 struct vidcap;
 struct display;
 struct module;
 int initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags,
+                                                const char *fmt, unsigned int flags,
                                                 struct display **);
 
 int initialize_video_capture(struct module *parent,
                 const struct vidcap_params *params,
                 struct vidcap **);
-
-void *ultragrid_rtp_receiver_thread(void *arg);
-void destroy_rtp_devices(struct rtp ** network_devices);
-struct rtp **change_tx_port(struct state_uv *, int port);
 
 // if not NULL, data should be exported
 extern char *export_dir;

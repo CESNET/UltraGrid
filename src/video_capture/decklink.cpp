@@ -394,7 +394,7 @@ decklink_help()
 
 	printf("\nDecklink options:\n");
 	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode][:connection=<input>]]\n");
-	printf("\t\t(You can ommit device index, mode and color space provided that your cards supports format autodetection.)\n");
+	printf("\t\t(You can omit device index, mode and color space provided that your cards supports format autodetection.)\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 #ifdef WIN32
@@ -892,6 +892,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
 #ifdef HAVE_MACOSX
                                 deviceNameCString = (char *) malloc(128);
                                 CFStringGetCString(deviceNameString, (char *) deviceNameCString, 128, kCFStringEncodingMacRoman);
+
 #elif defined WIN32
                                 deviceNameCString = (char *) malloc(128);
 				wcstombs((char *) deviceNameCString, deviceNameString, 128);

@@ -1,5 +1,5 @@
 /*
- * FILE:    main.c
+ * FILE:    video_rxtx/sage.h
  * AUTHORS: Colin Perkins    <csp@csperkins.org>
  *          Ladan Gharai     <ladan@isi.edu>
  *          Martin Benes     <martinbenesh@gmail.com>
@@ -9,37 +9,34 @@
  *          Jiri Matela      <matela@ics.muni.cz>
  *          Dalibor Matura   <255899@mail.muni.cz>
  *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *          David Cassany    <david.cassany@i2cat.net>
- *          Ignacio Contreras <ignacio.contreras@i2cat.net>
- *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ *          Martin Pulec     <pulec@cesnet.cz>
  *
- * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2005-2014 CESNET z.s.p.o.
  * Copyright (c) 2001-2004 University of Southern California
  * Copyright (c) 2003-2004 University of Glasgow
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- * 
+ *
  *      This product includes software developed by the University of Southern
  *      California Information Sciences Institute. This product also includes
  *      software developed by CESNET z.s.p.o.
- * 
+ *
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
  *    specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -54,79 +51,32 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+#ifndef VIDEO_RXTX_SAGE_H_
+#define VIDEO_RXTX_SAGE_H_
 
-#ifndef SENDER_H_
-#define SENDER_H_
+#include "types.h"
+#include "video_capture.h"
+#include "video_display.h"
+#include "video_rxtx.h"
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
-
-#include "video.h"
-
-struct tx;
-struct rtp;
+struct video_frame;
 struct display;
-struct ihdtv_state;
-struct module;
-struct received_message;
-struct response;
-struct sender_msg;
-struct sender_priv_data;
-struct video_compress;
 
-enum rxtx_protocol {
-        ULTRAGRID_RTP,
-        IHDTV,
-        SAGE,
-        H264_STD
+class sage_video_rxtx: public video_rxtx {
+public:
+        sage_video_rxtx(struct module *parent, struct video_export *video_exporter,
+                        const char *requested_compression,
+                        const char *requested_receiver, const char *sage_opts);
+        ~sage_video_rxtx();
+private:
+        void send_frame(struct video_frame *);
+        void *(*get_receiver_thread())(void *arg) {
+                return NULL;
+        }
+        struct video_desc     m_saved_video_desc;
+        struct display       *m_sage_tx_device;
+        pthread_t             m_thread_id;
 };
 
-struct rx_tx {
-        enum rxtx_protocol protocol;
-        const char *name;
-        void (*send)(void *, struct video_frame *);
-        void (*done)(void *);
-        void *(*receiver_thread)(void *);
-};
-
-struct sender_data {
-        struct module *parent;
-        enum rxtx_protocol rxtx_protocol;
-        void (*send_frame)(void *state, struct video_frame *);
-        void *tx_module_state;
-        struct state_uv *uv;
-        struct sender_priv_data *priv;
-        struct video_export *video_exporter;
-        struct compress_state *compression;
-};
-
-extern struct rx_tx ultragrid_rtp;
-extern struct rx_tx sage_rxtx;
-extern struct rx_tx h264_rtp;
-
-struct ultragrid_rtp_state {
-        int connections_count;
-        struct rtp **network_devices; // ULTRAGRID_RTP
-        struct tx *tx;
-};
-
-struct sage_rxtx_state {
-        struct video_desc saved_vid_desc;
-        struct display *sage_tx_device;
-        pthread_t thread_id;
-};
-
-struct h264_rtp_state {
-        int connections_count;
-        struct rtp **network_devices;
-        struct tx *tx;
-};
-
-bool sender_init(struct sender_data *data);
-void sender_done(struct sender_data *data);
-
-#endif // SENDER_H_
+#endif // VIDEO_RXTX_SAGE_H_
 

@@ -163,7 +163,7 @@ static struct rtp *initialize_network(const char *host, int rx_port, int tx_port
 
 void *recompress_init(struct module *parent,
                 const char *host, const char *compress, unsigned short rx_port,
-                unsigned short tx_port, int mtu, char *fec)
+                unsigned short tx_port, int mtu, char *fec, long packet_rate)
 {
         struct state_recompress *s;
 
@@ -186,7 +186,7 @@ void *recompress_init(struct module *parent,
         s->required_compress = strdup(compress);
         s->frame = NULL;
         const char *requested_encryption = NULL;
-        s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec, requested_encryption);
+        s->tx = tx_init(s->parent, mtu, TX_MEDIA_VIDEO, fec, requested_encryption, packet_rate);
 
         gettimeofday(&s->start_time, NULL);
 

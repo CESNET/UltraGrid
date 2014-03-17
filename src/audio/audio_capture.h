@@ -44,6 +44,10 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct state_audio_capture;
 struct audio_frame;
 
@@ -69,5 +73,10 @@ const char                 *audio_capture_get_driver_name(struct state_audio_cap
  * SDI (embedded sound).
  */
 void                       *audio_capture_get_state_pointer(struct state_audio_capture *s);
+
+#ifdef __cplusplus
+}
+#endif
+
 /* vim: set expandtab: sw=4 */
 

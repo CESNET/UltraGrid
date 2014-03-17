@@ -93,6 +93,7 @@ void * audio_cap_alsa_init(char *cfg)
         unsigned int val;
         int dir;
         char *name = "default";
+        int format;
 
         s = malloc(sizeof(struct state_alsa_capture));
 
@@ -136,9 +137,24 @@ void * audio_cap_alsa_init(char *cfg)
                 goto error;
         }
 
+        switch (s->frame.bps) {
+                case 4:
+                        format = SND_PCM_FORMAT_S32_LE;
+                        break;
+                case 3:
+                        format = SND_PCM_FORMAT_S24_3LE;
+                        break;
+                case 2:
+                        format = SND_PCM_FORMAT_S16_LE;
+                        break;
+                default:
+                        fprintf(stderr, "[ALSA] %d bits per second are not supported by UG.\n",
+                                        s->frame.bps * 8);
+                        abort();
+        }
         /* Signed 16-bit little-endian format */
         rc = snd_pcm_hw_params_set_format(s->handle, params,
-                SND_PCM_FORMAT_S16_LE);
+                format);
         if (rc < 0) {
                 fprintf(stderr, MOD_NAME "unable to set capture format: %s\n",
                         snd_strerror(rc));

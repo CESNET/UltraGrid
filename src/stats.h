@@ -14,7 +14,7 @@ extern "C" {
 struct control_state;
 struct stats;
 
-struct stats *stats_new_statistics(struct control_state *control, char * name);
+struct stats *stats_new_statistics(struct control_state *control, const char * name);
 void stats_update_int(struct stats *, int64_t);
 void stats_format(struct stats *s, char *buffer, int buffer_len);
 void stats_destroy(struct stats *);

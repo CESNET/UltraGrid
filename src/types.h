@@ -111,6 +111,11 @@ struct video_desc {
         unsigned int         tile_count;
 };
 
+struct ldgm_desc {
+        unsigned int k, m, c;
+        unsigned int seed;
+};
+
 /**
  * @brief Struct video_frame represents a video frame and contains video description.
  */
@@ -164,6 +169,9 @@ struct video_frame {
         uint8_t h264_iframe;
         int h264_width;
         int h264_height;
+
+        bool is_ldgm;
+        struct ldgm_desc ldgm_params;
 };
 
 /**

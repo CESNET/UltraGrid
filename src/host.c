@@ -14,14 +14,15 @@
 #include "video_display.h"
 
 #include "utils/resource_manager.h"
-#include "rtp/video_decoders.h"
+#include "pdb.h"
 #include "rtp/rtp.h"
+#include "rtp/rtp_callback.h"
+#include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
 
-long packet_rate;
 long long bitrate = 0;
 unsigned int cuda_device = 0;
-unsigned int audio_capture_channels = 2;
+unsigned int audio_capture_channels = 1;
 
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
@@ -37,6 +38,8 @@ const char *sage_receiver = NULL;
 volatile bool should_exit_receiver = false;
 
 bool verbose = false;
+
+int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
 
 int initialize_video_capture(struct module *parent,
                 const struct vidcap_params *params,
@@ -75,8 +78,8 @@ int initialize_video_capture(struct module *parent,
 }
 
 int initialize_video_display(const char *requested_display,
-                                                char *fmt, unsigned int flags,
-                                                struct display **out)
+                const char *fmt, unsigned int flags,
+                struct display **out)
 {
         display_type_t *dt;
         display_id_t id = 0;
@@ -111,5 +114,27 @@ int initialize_video_display(const char *requested_display,
         display_free_devices();
 
         return display_init(id, fmt, flags, out);
+}
+
+void display_buf_increase_warning(int size)
+{
+        fprintf(stderr, "\n***\n"
+                        "Unable to set buffer size to %d B.\n"
+                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
+                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
+#ifdef HAVE_MACOSX
+                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
+                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
+#else
+                        "\tsysctl -w net.core.rmem_max=%d\n"
+#endif
+                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
+                        "\n***\n\n",
+                        size, size,
+#ifdef HAVE_MACOSX
+                        size * 4,
+#endif /* HAVE_MACOSX */
+                        size);
+
 }
 

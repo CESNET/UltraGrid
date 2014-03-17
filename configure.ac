@@ -3,7 +3,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT([UltraGrid], [1.2], [ultragrid-dev@cesnet.cz])
 AM_INIT_AUTOMAKE([1.10])
 AC_PREREQ(2.61)
-AC_CONFIG_SRCDIR([src/main.c])
+AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_MACRO_DIR([m4])
 
 PARENT=`echo $PWD | sed -e 's%/[[^/]]*$%%'`
@@ -99,7 +99,7 @@ else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
 	LIBS="$LIBS -lsetupapi -lWs2_32 -lIphlpapi"
-        LDFLAGS="$LDFLAGS -stdlib=libstdc++ -static-libgcc -static-libstdc++"
+        LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
 else
         system=Linux
 	LDFLAGS="$LDFLAGS -Wl,--dynamic-list-data"
@@ -1742,7 +1742,7 @@ then
         AC_SUBST(RTDXT_DECOMPRESS_LIB_TARGET, "lib/ultragrid/vdecompress_rtdxt.so.$video_decompress_abi_version")
         LIB_TARGETS="$LIB_TARGETS $RTDXT_COMPRESS_LIB_TARGET $RTDXT_DECOMPRESS_LIB_TARGET"
         LIB_OBJS="$LIB_OBJS $RTDXT_COMMON_OBJ $RTDXT_COMPRESS_OBJ $RTDXT_DECOMPRESS_OBJ"
-        LIB_HEADERS="$RTDXT_COMMON_HEADERS"
+        LIB_GENERATED_HEADERS="$RTDXT_COMMON_HEADERS"
         DEFINE_GL
 fi
 
@@ -1826,38 +1826,14 @@ AC_ARG_WITH(cuda,
             [CUDA_PATH=$withval
             ])
 
-SAVED_LIBS=$LIBS
-LIBS="$LIBS -lcudart"
-if test -z "$CUDA_PATH"
-then
-        AC_CHECK_PROG([NVCC], [nvcc], [nvcc],
-                      [])
-fi
-
-if test -z "$NVCC"
-then
-        NVCC=
-        if test -z "$CUDA_PATH"; then
-                CUDA_PATH=/usr/local/cuda
-        fi
-        SAVED_CFLAGS=$CFLAGS
-        CFLAGS="$CFLAGS -I$CUDA_PATH/include/"
-        if test $WORD_LEN -eq 64 -a $system = Linux
-        then
-                LIBS="$LIBS -L$CUDA_PATH/lib64"
-        else
-                LIBS="$LIBS -L$CUDA_PATH/lib"
-        fi
-        CFLAGS=$SAVED_CFLAGS
-        AC_CHECK_PROG([NVCC], [nvcc], [$CUDA_PATH/bin/nvcc],
-                      [],
-                      [$CUDA_PATH/bin])
-fi
-
-LIBS=$SAVED_LIBS
+AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
+        [$PATH_SEPARATOR/opt/cuda/bin$PATH_SEPARATOR/usr/local/cuda/bin])
 
 if test -n "$NVCC"
 then
+        CUDA_PATH=`dirname $NVCC`
+        CUDA_PATH=`dirname $CUDA_PATH`
+
         if test $system = Windows; then
                 AC_CHECK_PROG([CL], [cl], [cl],
                               [])
@@ -1874,11 +1850,8 @@ then
         nvcc_minor=`$NVCC --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
-        if test -n "$CUDA_PATH"; then
-                CUDA_INC=-I$CUDA_PATH/include
-        else
-                CUDA_INC=
-        fi
+        CUDA_INC=-I$CUDA_PATH/include
+
         if test $ac_cv_sizeof_int_p -eq 8 -a $system = Linux
         then
                 CUDA_LIB_PATH="$CUDA_PATH/lib64"
@@ -2576,18 +2549,18 @@ if test "$build_libraries" != yes
 then
         LIBS="$LIBS $LIB_MODULES"
         OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
-        HEADERS="$HEADERS $LIB_HEADERS"
+        HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
         LIB_OBJS=
         LIB_TARGETS=
-        LIB_HEADERS=
+        LIB_GENERATED_HEADERS=
 fi
 
 AC_SUBST(LIB_SUPPORT_OBJ)
 
 AC_SUBST(LIB_OBJS)
 AC_SUBST(LIB_TARGETS)
-AC_SUBST(HEADERS)
-AC_SUBST(LIB_HEADERS)
+AC_SUBST(GENERATED_HEADERS)
+AC_SUBST(LIB_GENERATED_HEADERS)
 
 # -------------------------------------------------------------------------------------------------
 # Import control - keyboard

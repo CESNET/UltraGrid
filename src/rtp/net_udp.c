@@ -329,12 +329,22 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
              sizeof(udpbufsize)) != 0) {
                 debug_msg("WARNING: Unable to increase UDP recvbuffer\n");
         }
+#if 0
+#ifdef SO_REUSEPORT
+        if (SETSOCKOPT
+            (s->fd, SOL_SOCKET, SO_REUSEPORT, (int *)&reuse,
+             sizeof(reuse)) != 0) {
+                socket_error("setsockopt SO_REUSEPORT");
+                return NULL;
+        }
+#endif
         if (SETSOCKOPT
             (s->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&reuse,
              sizeof(reuse)) != 0) {
                 socket_error("setsockopt SO_REUSEADDR");
                 return NULL;
         }
+#endif
         s_in.sin_family = AF_INET;
         s_in.sin_addr.s_addr = INADDR_ANY;
         s_in.sin_port = htons(rx_port);
