@@ -196,10 +196,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 struct pdb_e *cp = pdb_iter_init(m_participants, &it);
                                 while (cp) {
                                         pbuf_set_playout_delay(cp->playout_buffer,
-                                                        1.0 / msg->new_desc.fps,
-                                                        1.0 / msg->new_desc.fps *
-                                                        (is_codec_interframe(msg->new_desc.color_spec) ? 2.2 : 1.2)
-                                                        );
+                                                        1.0 / msg->new_desc.fps);
 
                                         cp = pdb_iter_next(&it);
                                 }

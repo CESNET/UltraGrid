@@ -117,8 +117,7 @@ int 	 	 pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
                              decode_frame_t decode_func, void *data);
                              //struct video_frame *framebuffer, int i, struct state_decoder *decoder);
 void		 pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time);
-void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay,
-                double deletion_delay);
+void		 pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay);
 
 #ifdef __cplusplus
 }
