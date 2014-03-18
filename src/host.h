@@ -94,6 +94,8 @@ extern const char *sage_receiver;
 
 extern bool verbose;
 
+extern bool ldgm_device_gpu;
+
 #define MODE_SENDER   1
 #define MODE_RECEIVER 2
 extern int rxtx_mode;

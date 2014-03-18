@@ -39,6 +39,8 @@ volatile bool should_exit_receiver = false;
 
 bool verbose = false;
 
+bool ldgm_device_gpu = false;
+
 int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
 
 int initialize_video_capture(struct module *parent,
