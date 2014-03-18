@@ -77,11 +77,11 @@ struct state_resize {
 };
 
 static void usage() {
-    printf("\nUp/Downscaling by scale factor:\n\n");
+    printf("\nDownscaling by scale factor:\n\n");
     printf("resize usage:\n");
     printf("\tresize:numerator[/denominator]\n\n");
-    printf("Downscaling example: resize:2 - downscale input frame size by scale factor of 2\n");
-    printf("Upscaling example: resize:1/2 - upscale input frame size by scale factor of 2\n");
+    printf("Downscaling example: resize:1/2 - downscale input frame size by scale factor of 2\n");
+    //printf("Upscaling example: resize:2 - upscale input frame size by scale factor of 2\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -106,6 +106,11 @@ static int init(struct module *parent, const char *cfg, void **state)
 
     if(n <= 0 || denom <= 0){
         printf("\n[RESIZE ERROR] numerator and denominator resize factors must be greater than zero!\n");
+        usage();
+        return -1;
+    }
+    if(n/denom > 1.0){
+        printf("\n[RESIZE ERROR] numerator and denominator resize factors must be lower than 1 (only downscaling is supported)\n");
         usage();
         return -1;
     }
@@ -140,6 +145,13 @@ static struct video_frame *filter(void *state, struct video_frame *in)
     memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
 
     for(i=0; i<s->frame->tile_count;i++){
+        if(s->reinit==1){
+            s->frame->tiles[i].width *= s->num;
+            s->frame->tiles[i].width /= s->denom;
+            s->frame->tiles[i].height *= s->num;
+            s->frame->tiles[i].height /= s->denom;
+            s->reinit = 0;
+        }
 
         res = resize_frame(in->tiles[i].data, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->frame->tiles[i].width, s->frame->tiles[i].height, (double)s->num/s->denom);
 
@@ -150,15 +162,6 @@ static struct video_frame *filter(void *state, struct video_frame *in)
         }else{
             //s->frame->color_spec = RGB;
             //s->frame->codec = RGB;
-        }
-
-
-        if(s->reinit==1){
-            s->frame->tiles[i].width *= s->num;
-            s->frame->tiles[i].width /= s->denom;
-            s->frame->tiles[i].height *= s->num;
-            s->frame->tiles[i].height /= s->denom;
-            s->reinit = 0;
         }
     }
 

@@ -22,16 +22,16 @@ int resize_frame(char *indata, char *outdata, unsigned int *data_len, unsigned i
 
     *data_len = out.step * out.rows * sizeof(char);
 
-    //MODUL DE CAPTURA AUDIO A FITXER PER COMPROVACIONS EN TX
-            //CAPTURA FRAMES ABANS DE DESCODIFICAR PER COMPROVAR RECEPCIÓ.
-            if(F_save==NULL){
-                    printf("recording resized...\n");
-                    F_save=fopen("rgb.raw", "wb");
-            }
-
-            //fwrite(tx_frame->audio_data,tx_frame->audio_data_len,1,F_audio_tx_embed_BM);
-            fwrite(outdata,*data_len,1,F_save);
-    //FI CAPTURA
+//    //MODUL DE CAPTURA AUDIO A FITXER PER COMPROVACIONS EN TX
+//            //CAPTURA FRAMES ABANS DE DESCODIFICAR PER COMPROVAR RECEPCIÓ.
+//            if(F_save==NULL){
+//                    printf("recording resized...\n");
+//                    F_save=fopen("rgb.raw", "wb");
+//            }
+//
+//            //fwrite(tx_frame->audio_data,tx_frame->audio_data_len,1,F_audio_tx_embed_BM);
+//            fwrite(outdata,*data_len,1,F_save);
+//    //FI CAPTURA
 
     return res;
 }
