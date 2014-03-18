@@ -505,6 +505,7 @@ struct video_frame *ldgm_state_encoder::encode(struct video_frame *tx_frame)
         out->ldgm_params.m = m_m;
         out->ldgm_params.c = m_c;
         out->ldgm_params.seed = m_seed;
+        out->ldgm_params.symbol_size = m_coding_session->get_packet_size();
         out->dispose = ldgm_encoder_dispose_buffer;
         out->dispose_udata = this;
 
