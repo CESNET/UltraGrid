@@ -467,7 +467,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int mult_index = 0;
         int mult_first_sent = 0;
         int hdrs_len = 40; // for computing max payload size
-        unsigned int ldgm_symbol_size;
+        unsigned int ldgm_symbol_size = frame->ldgm_params.symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -523,9 +523,6 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         }
 
         if (frame->is_ldgm) {
-                ldgm_symbol_size = (4 + sizeof(ldgm_video_payload_hdr_t) + tile->data_len +
-                                frame->ldgm_params.k - 1) / frame->ldgm_params.k;
-
                 static bool status_printed = false;
                 if (!status_printed) {
                         if (ldgm_symbol_size > tx->mtu - hdrs_len) {

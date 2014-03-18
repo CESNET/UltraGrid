@@ -66,10 +66,13 @@
 
 #include <limits>
 
+#include "host.h"
+
 #include "ldgm.h"
 
 #include "ldgm-coding/ldgm-session.h"
 #include "ldgm-coding/ldgm-session-cpu.h"
+#include "ldgm-coding/ldgm-session-gpu.h"
 #include "ldgm-coding/matrix-gen/matrix-generator.h"
 #include "ldgm-coding/matrix-gen/ldpc-matrix.h" // LDGM_MAX_K
 
@@ -160,17 +163,24 @@ static bool file_exists(char *filename)
         return true;
 }
 
-struct ldgm_state_encoder {
-        ldgm_state_encoder(unsigned int k_, unsigned int m_, unsigned int c_) :
-                k(k_),
-                m(m_),
-                c(c_)
+struct ldgm_state {
+        ldgm_state(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
         {
-                seed = SEED;
-                coding_session.set_params(k, m, c);
+                if (ldgm_device_gpu) {
+                        throw string("GPU is not yet supported");
+                        // TODO: uncomment this
+                        //m_coding_session = new LDGM_session_gpu();
+                } else {
+                        m_coding_session = new LDGM_session_cpu();
+                }
+
+                m_coding_session->set_params(k, m, c);
 
                 char filename[512];
                 char path[256];
+
+                int res;
+
 #ifdef WIN32
 		TCHAR tmpPath[MAX_PATH];
 		UINT ret = GetTempPath(MAX_PATH, tmpPath);
@@ -182,8 +192,6 @@ struct ldgm_state_encoder {
 #else
                 snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
 #endif
-
-                int res;
 
                 res = platform_mkdir(path);
                 if(res != 0) {
@@ -202,11 +210,32 @@ struct ldgm_state_encoder {
                         }
                 }
 
-                coding_session.set_pcMatrix(filename);
+                m_coding_session->set_pcMatrix(filename);
+        }
+
+        virtual ~ldgm_state() {
+                delete m_coding_session;
+        }
+
+protected:
+        LDGM_session *m_coding_session;
+};
+
+struct ldgm_state_encoder : private ldgm_state {
+        ldgm_state_encoder(unsigned int k, unsigned int m, unsigned int c) :
+                ldgm_state(k, m, c, SEED),
+                m_k(k),
+                m_m(m),
+                m_c(c),
+                m_seed(SEED)
+        {
+        }
+
+        virtual ~ldgm_state_encoder() {
         }
 
         char * encode(char *hdr, int hdr_len, char *frame, int size, int *out_size) {
-                char *output = coding_session.encode_hdr_frame(hdr, hdr_len,
+                char *output = m_coding_session->encode_hdr_frame(hdr, hdr_len,
                                 frame, size, out_size);
                 return output;
         }
@@ -214,87 +243,44 @@ struct ldgm_state_encoder {
         struct video_frame *encode(struct video_frame *tx_frame);
 
         void freeBuffer(char *buffer) {
-                coding_session.free_out_buf(buffer);
-        }
-
-        virtual ~ldgm_state_encoder() {
+                m_coding_session->free_out_buf(buffer);
         }
 
         unsigned int get_k() {
-                return k;
+                return m_k;
         }
 
         unsigned int get_m() {
-                return m;
+                return m_m;
         }
 
         unsigned int get_c() {
-                return c;
+                return m_c;
         }
 
         unsigned int get_seed() {
-                return seed;
+                return m_seed;
         }
 
-        private:
-        LDGM_session_cpu coding_session;
-        unsigned int k, m, c;
-        unsigned int seed;
+protected:
+        unsigned int m_k, m_m, m_c;
+        unsigned int m_seed;
 };
 
-struct ldgm_state_decoder {
-        ldgm_state_decoder(unsigned int k, unsigned int m, unsigned int c, unsigned int seed) {
-                coding_session.set_params(k, m, c);
-                char filename[512];
-                char path[256];
-
-                int res;
-
-#ifdef WIN32
-		TCHAR tmpPath[MAX_PATH];
-		UINT ret = GetTempPath(MAX_PATH, tmpPath);
-		if(ret == 0 || ret > MAX_PATH) {
-			fprintf(stderr, "Unable to get temporary directory name.\n");
-			throw 1;
-		}
-                snprintf(path, 256, "%s\\ultragrid\\", tmpPath);
-#else
-                snprintf(path, 256, "/var/tmp/ultragrid-%d/", (int) getuid());
-#endif
-
-                res = platform_mkdir(path);
-                if(res != 0) {
-                        if(errno != EEXIST) {
-                                perror("mkdir");
-                                fprintf(stderr, "[LDGM] Unable to create data directory.\n");
-                                throw 1;
-                        }
-                }
-                snprintf(filename, 512, "%s/ldgm_matrix-%u-%u-%u-%u.bin", path, k, m, c, seed);
-                if(!file_exists(filename)) {
-                        int ret = generate_ldgm_matrix(filename, k, m, c, seed);
-                        if(ret != 0) {
-                                fprintf(stderr, "[LDGM] Unable to initialize LDGM matrix.\n");
-                                throw 1;
-                        }
-                }
-
-                coding_session.set_pcMatrix(filename);
+struct ldgm_state_decoder: private ldgm_state {
+        ldgm_state_decoder(unsigned int k, unsigned int m, unsigned int c, unsigned int seed)
+                : ldgm_state(k, m, c, seed)
+        {
         }
 
         void decode(const char *frame, int size, char **out, int *out_size, const map<int, int> &packets) {
                 char *decoded;
-
-                decoded = coding_session.decode_frame((char *) frame, size, out_size, packets);
-
+                decoded = m_coding_session->decode_frame((char *) frame, size, out_size, packets);
                 *out = decoded;
         }
 
         virtual ~ldgm_state_decoder() {
         }
-
-        private:
-        LDGM_session_cpu coding_session;
 };
 
 
@@ -369,6 +355,8 @@ void *ldgm_encoder_init_with_cfg(char *cfg)
 
         try {
                 s = new ldgm_state_encoder(k, m, c);
+        } catch(string &s) {
+                cerr << s << endl;
         } catch(...) {
         }
 
@@ -488,7 +476,7 @@ void ldgm_encoder_encode(void *state, const char *hdr, int hdr_len, const char *
         *out = output_buffer;
 }
 
-static void dispose_buffer(struct video_frame *frame)
+static void ldgm_encoder_dispose_buffer(struct video_frame *frame)
 {
         for (unsigned int i = 0; i < frame->tile_count; ++i) {
                 static_cast<ldgm_state_encoder *>(frame->dispose_udata)->freeBuffer(frame->tiles[i].data);
@@ -505,7 +493,7 @@ struct video_frame *ldgm_state_encoder::encode(struct video_frame *tx_frame)
                 format_video_header(tx_frame, i, 0, video_hdr);
 
                 int out_size;
-                char *output = coding_session.encode_hdr_frame((char *) video_hdr, sizeof(video_hdr),
+                char *output = m_coding_session->encode_hdr_frame((char *) video_hdr, sizeof(video_hdr),
                                 tx_frame->tiles[i].data, tx_frame->tiles[i].data_len, &out_size);
 
                 out->tiles[i].data = output;
@@ -513,11 +501,12 @@ struct video_frame *ldgm_state_encoder::encode(struct video_frame *tx_frame)
         }
 
         out->is_ldgm = true;
-        out->ldgm_params.k = k;
-        out->ldgm_params.m = m;
-        out->ldgm_params.c = c;
-        out->ldgm_params.seed = seed;
-        out->dispose = dispose_buffer;
+        out->ldgm_params.k = m_k;
+        out->ldgm_params.m = m_m;
+        out->ldgm_params.c = m_c;
+        out->ldgm_params.seed = m_seed;
+        out->ldgm_params.symbol_size = m_coding_session->get_packet_size();
+        out->dispose = ldgm_encoder_dispose_buffer;
         out->dispose_udata = this;
 
         return out;
@@ -558,6 +547,8 @@ void * ldgm_decoder_init(unsigned int k, unsigned int m, unsigned int c, unsigne
        
         try {
                 s = new ldgm_state_decoder(k, m, c, seed);
+        } catch(string &s) {
+                cerr << s << endl;
         } catch (...) {
         }
 

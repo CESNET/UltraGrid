@@ -114,6 +114,7 @@ struct video_desc {
 struct ldgm_desc {
         unsigned int k, m, c;
         unsigned int seed;
+        unsigned int symbol_size;
 };
 
 /**

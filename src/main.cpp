@@ -126,6 +126,7 @@
 #define OPT_ENCRYPTION (('E' << 8) | 'N')
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
+#define OPT_LDGM_DEVICE (('L' << 8) | 'D')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -233,6 +234,8 @@ static void usage(void)
                "\t                         \t\"mult:<nr>\",\n");
         printf("\t                         \t\"ldgm:<max_expected_loss>%%\" or\n");
         printf("\t                         \t\"ldgm:<k>:<m>:<c>\"\n");
+        printf("\n");
+        printf("\t--ldgm-device {GPU|CPU}  \tdevice to be used to compute LDGM\n");
         printf("\n");
         printf("\t-P <port> | <video_rx>:<video_tx>[:<audio_rx>:<audio_tx>]\n");
         printf("\t                         \t<port> is base port number, also 3 subsequent\n");
@@ -518,6 +521,7 @@ int main(int argc, char *argv[])
                 {"control-port", required_argument, 0, OPT_CONTROL_PORT},
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {"verbose", no_argument, 0, OPT_VERBOSE},
+                {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -757,6 +761,13 @@ int main(int argc, char *argv[])
                         break;
                 case OPT_VERBOSE:
                         verbose = true;
+                        break;
+                case OPT_LDGM_DEVICE:
+                        if (strcasecmp(optarg, "GPU") == 0) {
+                                ldgm_device_gpu = true;
+                        } else {
+                                ldgm_device_gpu = false;
+                        }
                         break;
                 case '?':
                 default:
