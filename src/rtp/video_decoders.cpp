@@ -568,7 +568,7 @@ static void *decompress_thread(void *args) {
                         }
 
                         for (i = 1; i < decoder->pp_output_frames_count; ++i) {
-                                display_put_frame(decoder->display, decoder->frame, PUTF_NONBLOCK);
+                                display_put_frame(decoder->display, decoder->frame, PUTF_BLOCKING);
                                 decoder->frame = display_get_frame(decoder->display);
                                 pp_ret = vo_postprocess(decoder->postprocess,
                                                 NULL,
@@ -594,7 +594,12 @@ static void *decompress_thread(void *args) {
                 }
 
                 {
-                        int putf_flags = PUTF_NONBLOCK;
+                        int putf_flags = 0;
+
+                        if(is_codec_interframe(decoder->received_vid_desc.color_spec)) {
+                                putf_flags = PUTF_NONBLOCK;
+                        }
+
                         int ret = display_put_frame(decoder->display,
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
@@ -850,10 +855,13 @@ static void cleanup(struct state_video_decoder *decoder)
 }
 
 #define PRINT_STATISTICS fprintf(stderr, "Video decoder statistics: %lu total: %lu displayed / %lu "\
-                                "dropped / %lu corrupted / %lu missing frames. LDGM OK/NOK: %ld/%ld\n",\
+                                "dropped / %lu corrupted / %lu missing frames.",\
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
-                                decoder->missing, decoder->ldgm_ok, decoder->ldgm_nok);
+                                decoder->missing); \
+                         if (decoder->ldgm_ok + decoder->ldgm_nok > 0) fprintf(stderr, " LDGM OK/NOK: %ld/%ld", \
+                         decoder->ldgm_ok, decoder->ldgm_nok); \
+                         fprintf(stderr, "\n");
 
 /**
  * @brief Destroys decoder created with decoder_init()
