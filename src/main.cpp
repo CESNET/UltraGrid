@@ -819,7 +819,7 @@ int main(int argc, char *argv[])
         }
 
         if(bitrate != -1) {
-                packet_rate = 1000 * requested_mtu * 8 / bitrate;
+                packet_rate = 1000ll * 1000 * 1000 * requested_mtu * 8 / bitrate;
         } else {
                 packet_rate = 0;
         }
@@ -940,16 +940,6 @@ int main(int argc, char *argv[])
         }
         if (strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0) {
                 rxtx_mode |= MODE_SENDER;
-        }
-
-        if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                bitrate = DEFAULT_BITRATE;
-        }
-
-        if(bitrate != -1) {
-                packet_rate = 1000 * requested_mtu * 8 / bitrate;
-        } else {
-                packet_rate = 0;
         }
 
         try {

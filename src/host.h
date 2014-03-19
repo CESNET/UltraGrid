@@ -68,7 +68,7 @@ extern int uv_argc;
 extern char **uv_argv;
 
 extern long long bitrate;
-extern long packet_rate;
+extern long packet_rate; // gives interval between individual packets (in ns)
 
 extern volatile bool should_exit_receiver;
 
