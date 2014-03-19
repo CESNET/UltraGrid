@@ -220,7 +220,7 @@ static void glut_idle_callback(void);
 static void glut_key_callback(unsigned char key, int x, int y);
 static void glut_close_callback(void);
 static void glut_resize_window(struct state_gl *s);
-static void display_gl_enable_sync_on_vblank(void);
+static void display_gl_set_sync_on_vblank(int value);
 static void screenshot(struct state_gl *s);
 
 #ifdef HAVE_MACOSX
@@ -503,9 +503,9 @@ static void glut_resize_window(struct state_gl *s)
  * Please note, that setting the value of 0 to GLX function is invalid according to
  * documentation. However. reportedly NVidia driver does unset VSync.
  */
-static void display_gl_enable_sync_on_vblank() {
+static void display_gl_set_sync_on_vblank(int value) {
 #ifdef HAVE_MACOSX
-        int swap_interval = 1;
+        int swap_interval = value;
         CGLContextObj cgl_context = CGLGetCurrentContext();
         CGLSetParameter(cgl_context, kCGLCPSwapInterval, &swap_interval);
 #elif HAVE_LINUX
@@ -520,7 +520,7 @@ static void display_gl_enable_sync_on_vblank() {
                 glXGetProcAddressARB( (const GLubyte *) "glXSwapIntervalSGI");
 
         if(glXSwapIntervalSGIProc) {
-                glXSwapIntervalSGIProc(1);
+                glXSwapIntervalSGIProc(value);
         } else {
                 fprintf(stderr, "[GL display] GLX_SGI_swap_control is presumably not supported. Unable to set sync-on-VBlank.\n");
         }
@@ -669,9 +669,7 @@ void gl_reconfigure_screen(struct state_gl *s)
 
         gl_check_error();
 
-        if(s->sync_on_vblank) {
-                display_gl_enable_sync_on_vblank();
-        }
+        display_gl_set_sync_on_vblank(s->sync_on_vblank ? 1 : 0);
         gl_check_error();
 }
 
