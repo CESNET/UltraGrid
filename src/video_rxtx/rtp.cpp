@@ -299,7 +299,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                                 display_buf_increase_warning(size);
                         }
 
-                        rtp_set_send_buf(devices[index], 1024 * 56);
+                        rtp_set_send_buf(devices[index], INITIAL_VIDEO_SEND_BUFFER_SIZE);
 
                         pdb_add(participants, rtp_my_ssrc(devices[index]));
                 }

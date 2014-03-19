@@ -48,6 +48,8 @@
 #define INITIAL_VIDEO_RECV_BUFFER_SIZE  ((4*1920*1080)*110/100)
 #endif
 
+#define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
+
 struct rtp;
 
 class rtp_video_rxtx : public video_rxtx {
