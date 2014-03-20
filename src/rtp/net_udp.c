@@ -55,12 +55,16 @@
 #include "compat/inet_ntop.h"
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
+#include "rtp.h"
 
 #ifdef NEED_ADDRINFO_H
 #include "addrinfo.h"
 #endif
 
+#define MAX_UDP_READER_QUEUE_LEN 10
+
 static int resolve_address(socket_udp *s, const char *addr);
+static void *udp_reader(void *arg);
 
 #define IPv4	4
 #define IPv6	6
@@ -104,6 +108,12 @@ struct ip_mreq {
 #define INADDR_NONE 0xffffffff
 #endif
 
+struct item {
+    struct item *next;
+    long size;
+    uint8_t *buf;
+};
+
 struct _socket_udp {
         int mode;               /* IPv4 or IPv6 */
         char *addr;
@@ -116,7 +126,18 @@ struct _socket_udp {
         struct in6_addr addr6;
         struct sockaddr_in6 sock6;
 #endif                          /* HAVE_IPv6 */
+        bool multithreaded;
+
+        // for multithreaded processing
+        pthread_t thread_id;
+        struct item *queue_head;
+        struct item *queue_tail;
+        int queue_len;
+        pthread_mutex_t lock;
+        pthread_cond_t boss_cv;
+        pthread_cond_t reader_cv;
 };
+
 
 #ifdef WIN32
 /* Want to use both Winsock 1 and 2 socket options, but since
@@ -285,7 +306,7 @@ static socket_udp *udp_init4(const char *addr, const char *iface,
         int udpbufsize = 16 * 1024 * 1024;
         struct sockaddr_in s_in;
         unsigned int ifindex;
-        socket_udp *s = (socket_udp *) malloc(sizeof(socket_udp));
+        socket_udp *s = (socket_udp *) calloc(1, sizeof(socket_udp));
         s->mode = IPv4;
         s->addr = NULL;
         s->rx_port = rx_port;
@@ -906,9 +927,9 @@ int udp_addr_valid(const char *addr)
  * Returns: a pointer to a valid socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
-                     int ttl, bool use_ipv6)
+                     int ttl, bool use_ipv6, bool multithreaded)
 {
-        return udp_init_if(addr, NULL, rx_port, tx_port, ttl, use_ipv6);
+        return udp_init_if(addr, NULL, rx_port, tx_port, ttl, use_ipv6, multithreaded);
 }
 
 /**
@@ -927,7 +948,7 @@ socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port,
  * @returns a pointer to a socket_udp structure on success, NULL otherwise.
  **/
 socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
-                        uint16_t tx_port, int ttl, bool use_ipv6)
+                        uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded)
 {
         socket_udp *res;
 
@@ -940,6 +961,16 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
 	} else {
 		res = udp_init6(addr, iface, rx_port, tx_port, ttl);
 	}
+
+        if (res) {
+                res->multithreaded = multithreaded;
+                if (multithreaded) {
+                        pthread_mutex_init(&res->lock, NULL);
+                        pthread_cond_init(&res->boss_cv, NULL);
+                        pthread_cond_init(&res->reader_cv, NULL);
+                        pthread_create(&res->thread_id, NULL, udp_reader, res);
+                }
+        }
 	
         return res;
 }
@@ -974,6 +1005,22 @@ void udp_fd_zero_r(struct udp_fd_r *fd_struct)
  **/
 void udp_exit(socket_udp * s)
 {
+        if (s->multithreaded) {
+                pthread_cancel(s->thread_id);
+                pthread_join(s->thread_id, NULL);
+                pthread_cond_destroy(&s->reader_cv);
+                pthread_cond_destroy(&s->boss_cv);
+                pthread_mutex_destroy(&s->lock);
+                struct item *i = s->queue_head;
+                while (i != NULL) {
+                        struct item *tmp = i;
+                        i = i->next;
+                        free(tmp->buf);
+                        free(tmp);
+
+                }
+        }
+
         switch (s->mode) {
         case IPv4:
                 udp_exit4(s);
@@ -1026,6 +1073,39 @@ int udp_sendv(socket_udp * s, struct iovec *vector, int count)
         return -1;
 }
 
+static void *udp_reader(void *arg)
+{
+        socket_udp *s = (socket_udp *) arg;
+
+        while (1) {
+                struct item *i = (struct item *) malloc(sizeof(struct item));
+                uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
+                uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+                i->buf = packet;
+
+                i->size = recvfrom(s->fd, buffer,
+                                RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
+                                0, 0, 0);
+                i->next = NULL;
+
+                pthread_mutex_lock(&s->lock);
+                while (s->queue_len > MAX_UDP_READER_QUEUE_LEN) {
+                        pthread_cond_wait(&s->reader_cv, &s->lock);
+                }
+                if (s->queue_head == NULL) {
+                        s->queue_head = s->queue_tail = i;
+                } else {
+                        s->queue_tail->next = i;
+                        s->queue_tail = s->queue_tail->next;
+                }
+                s->queue_len += 1;
+                pthread_cond_signal(&s->boss_cv);
+                pthread_mutex_unlock(&s->lock);
+        }
+
+        return NULL;
+}
+
 static int udp_do_recv(socket_udp * s, char *buffer, int buflen, int flags)
 {
         /* Reads data into the buffer, returning the number of bytes read.   */
@@ -1063,6 +1143,35 @@ int udp_peek(socket_udp * s, char *buffer, int buflen)
         return udp_do_recv(s, buffer, buflen, MSG_PEEK);
 }
 
+bool udp_not_empty(socket_udp * s, struct timeval *timeout)
+{
+        bool ret, rc = 0;
+        struct timespec ts;
+
+        if (timeout) {
+                struct timeval tp;
+                // get time for timeout
+                gettimeofday(&tp, NULL);
+
+                /* Convert from timeval to timespec */
+                ts.tv_sec  = tp.tv_sec + timeout->tv_sec;
+                ts.tv_nsec = (tp.tv_usec + timeout->tv_usec) * 1000;
+                // make it correct
+                ts.tv_sec += ts.tv_nsec / 1000000000;
+                ts.tv_nsec = ts.tv_nsec % 1000000000;
+        }
+
+        pthread_mutex_lock(&s->lock);
+        if (timeout) {
+                while (rc == 0 && s->queue_head == NULL) {
+                        rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
+                }
+        }
+        ret = (s->queue_head != NULL);
+        pthread_mutex_unlock(&s->lock);
+        return ret;
+}
+
 /**
  * udp_recv:
  * @s: UDP session.
@@ -1080,6 +1189,28 @@ int udp_recv(socket_udp * s, char *buffer, int buflen)
         /* Note: since we don't care about the source address of the packet  */
         /* we receive, this function becomes protocol independent.           */
         return udp_do_recv(s, buffer, buflen, 0);
+}
+
+int udp_recv_data(socket_udp * s, char **buffer)
+{
+        struct item *i;
+        int ret;
+        pthread_mutex_lock(&s->lock);
+
+        i = s->queue_head;
+        s->queue_head = s->queue_head->next;
+        if (s->queue_head == NULL) {
+                s->queue_tail = NULL;
+        }
+        s->queue_len -= 1;
+        pthread_cond_signal(&s->reader_cv);
+
+        pthread_mutex_unlock(&s->lock);
+
+        *buffer = i->buf;
+        ret = i->size;
+        free(i);
+        return ret;
 }
 
 #ifndef WIN32

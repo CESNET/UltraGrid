@@ -285,7 +285,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                 devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
                                 rtp_recv_callback, (uint8_t *)participants,
-                                use_ipv6);
+                                use_ipv6, true);
                 if (devices[index] != NULL) {
                         rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
                                 TRUE);

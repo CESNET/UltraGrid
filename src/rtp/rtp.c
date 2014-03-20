@@ -313,6 +313,7 @@ struct rtp {
         } crypto_state;
         rtp_callback callback;
         struct msghdr *mhdr;
+        bool multithreaded;
         uint32_t magic;         /* For debugging...  */
 };
 
@@ -1021,10 +1022,10 @@ struct rtp *rtp_init(const char *addr,
                      uint16_t rx_port, uint16_t tx_port,
                      int ttl, double rtcp_bw,
                      int tfrc_on, rtp_callback callback, uint8_t * userdata,
-                     bool use_ipv6)
+                     bool use_ipv6, bool multithreaded)
 {
         return rtp_init_if(addr, NULL, rx_port, tx_port, ttl, rtcp_bw, tfrc_on,
-                           callback, userdata, use_ipv6);
+                           callback, userdata, use_ipv6, multithreaded);
 }
 
 /**
@@ -1054,7 +1055,7 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
                         uint16_t rx_port, uint16_t tx_port,
                         int ttl, double rtcp_bw,
                         int tfrc_on, rtp_callback callback, uint8_t * userdata,
-                        bool use_ipv6)
+                        bool use_ipv6, bool multithreaded)
 {
         struct rtp *session;
         int i, j;
@@ -1087,11 +1088,12 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         session->rx_port = rx_port;
         session->tx_port = tx_port;
         session->ttl = min(ttl, 127);
-        session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6);
+        session->multithreaded = multithreaded;
+        session->rtp_socket = udp_init_if(addr, iface, rx_port, tx_port, ttl, use_ipv6, multithreaded);
 
         session->rtcp_socket =
             udp_init_if(addr, iface, (uint16_t) (rx_port + (rx_port ? 1 : 0)),
-                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, use_ipv6);
+                        (uint16_t) (tx_port + (tx_port ? 1 : 0)), ttl, use_ipv6, false);
 
         init_opt(session);
 
@@ -1429,14 +1431,20 @@ static int rtp_recv_data(struct rtp *session, uint32_t curr_rtp_ts)
         rtp_packet *packet = NULL;
         uint8_t *buffer = NULL;
 
-        if (!session->opt->reuse_bufs || (packet == NULL)) {
-                packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN);
-                buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-        }
+        if (session->multithreaded) {
+                buflen =
+                        udp_recv_data(session->rtp_socket, (char **) &packet);
 
-        buflen =
-            udp_recv(session->rtp_socket, (char *)buffer,
-                     RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
+                buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+        } else {
+                if (!session->opt->reuse_bufs || (packet == NULL)) {
+                        packet = (rtp_packet *) malloc(RTP_MAX_PACKET_LEN);
+                        buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
+                }
+                buflen =
+                        udp_recv(session->rtp_socket, (char *)buffer,
+                                        RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE);
+        }
 
         rtp_process_data(session, curr_rtp_ts, buffer, packet, buflen);
 
@@ -2203,31 +2211,67 @@ int rtp_recv(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 }
 
 /**
- * reentrant variant of the above
+ * @brief  Receive RTP packets and dispatch them.
+ * 
+ * Reentrant variant of rtp_recv()
+ *
+ * Currently, this function is the only one of rtp_recv family egliable for multithreaded
+ * receiving.
+ *
+ * @param session     the session pointer (returned by rtp_init())
+ * @param timeout     the amount of time that rtcp_recv() is allowed to block
+ * @param curr_rtp_ts the current time expressed in units of the media
+ * timestamp.
+ *
+ * @retval TRUE       if data received
+ * @retval FALSE      if the timeout occurred
  */
 int rtp_recv_r(struct rtp *session, struct timeval *timeout, uint32_t curr_rtp_ts)
 {
         struct udp_fd_r fd;
         
         check_database(session);
-        udp_fd_zero_r(&fd);
-        udp_fd_set_r(session->rtp_socket, &fd);
-        udp_fd_set_r(session->rtcp_socket, &fd);
-        if (udp_select_r(timeout, &fd) > 0) {
-                if (udp_fd_isset_r(session->rtp_socket, &fd)) {
+        if (session->multithreaded) {
+                int ret = FALSE;
+                if (udp_not_empty(session->rtp_socket, timeout)) {
                         rtp_recv_data(session, curr_rtp_ts);
+                        ret = TRUE;
                 }
-                if (udp_fd_isset_r(session->rtcp_socket, &fd)) {
+                udp_fd_zero_r(&fd);
+                udp_fd_set_r(session->rtcp_socket, &fd);
+                struct timeval no_wait_tv = { .tv_sec = 0, .tv_usec = 0 };
+
+                if (udp_select_r(&no_wait_tv, &fd) > 0) {
                         uint8_t buffer[RTP_MAX_PACKET_LEN];
                         int buflen;
                         buflen =
-                            udp_recv(session->rtcp_socket, (char *)buffer,
-                                     RTP_MAX_PACKET_LEN);
+                                udp_recv(session->rtcp_socket, (char *)buffer,
+                                                RTP_MAX_PACKET_LEN);
                         ntp64_time(&tmp_sec, &tmp_frac);
                         rtp_process_ctrl(session, buffer, buflen);
+                        ret = TRUE;
                 }
-                check_database(session);
-                return TRUE;
+                return ret;
+        } else {
+                udp_fd_zero_r(&fd);
+                udp_fd_set_r(session->rtp_socket, &fd);
+                udp_fd_set_r(session->rtcp_socket, &fd);
+                if (udp_select_r(timeout, &fd) > 0) {
+                        if (udp_fd_isset_r(session->rtp_socket, &fd)) {
+                                rtp_recv_data(session, curr_rtp_ts);
+                        }
+                        if (udp_fd_isset_r(session->rtcp_socket, &fd)) {
+                                uint8_t buffer[RTP_MAX_PACKET_LEN];
+                                int buflen;
+                                buflen =
+                                        udp_recv(session->rtcp_socket, (char *)buffer,
+                                                        RTP_MAX_PACKET_LEN);
+                                ntp64_time(&tmp_sec, &tmp_frac);
+                                rtp_process_ctrl(session, buffer, buflen);
+                        }
+                        check_database(session);
+                        return TRUE;
+                }
         }
         check_database(session);
         return FALSE;

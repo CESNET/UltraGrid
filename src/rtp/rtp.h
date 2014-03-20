@@ -223,14 +223,14 @@ rtp_t		rtp_init(const char *addr,
 			 int tfrc_on,
 			 rtp_callback callback,
 			 uint8_t *userdata,
-                         bool use_ipv6);
+                         bool use_ipv6, bool multithreaded);
 rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    uint16_t rx_port, uint16_t tx_port, 
 			    int ttl, double rtcp_bw, 
 			    int tfrc_on,
 			    rtp_callback callback,
 			    uint8_t *userdata,
-                            bool use_ipv6);
+                            bool use_ipv6, bool multithreaded);
 
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);

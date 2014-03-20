@@ -404,7 +404,7 @@ void *hd_rum_decompress_init(unsigned short rx_port)
         s = new state_transcoder_decompress;
         s->network_device = rtp_init_if("localhost", (char *) NULL, rx_port, rx_port, ttl,
                         rtcp_bw, FALSE, hd_rum_receive_pkt, (uint8_t *) s,
-                        use_ipv6);
+                        use_ipv6, false);
         s->my_last_ssrc = -1;
         if(!s->network_device) {
                 fprintf(stderr, "Unable to initialize RTP.\n");

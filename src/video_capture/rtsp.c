@@ -538,7 +538,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->should_exit = false;
 
     s->device = rtp_init_if(NULL, s->mcast_if, s->port, 0, s->ttl, s->rtcp_bw,
-        0, rtp_recv_callback, (void *) s->participants, 0);
+        0, rtp_recv_callback, (void *) s->participants, 0, false);
 
     if (s->device != NULL) {
         if (!rtp_set_option(s->device, RTP_OPT_WEAK_VALIDATION, 1)) {
