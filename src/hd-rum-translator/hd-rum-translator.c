@@ -81,14 +81,12 @@ static volatile int should_exit = false;
 /*
  * this is currently only placeholder to substitute UG default
  */
-static void _exit_uv(int status);
-static void _exit_uv(int status) {
+void exit_uv(int status) {
     UNUSED(status);
     should_exit = true;
     if(!pthread_equal(pthread_self(), main_thread_id))
             pthread_kill(main_thread_id, SIGTERM);
 }
-void (*exit_uv)(int status) = _exit_uv;
 
 static void signal_handler(int signal)
 {
@@ -414,12 +412,21 @@ int main(int argc, char **argv)
 
     main_thread_id = pthread_self();
 
+#ifndef WIN32
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGHUP, &sa, NULL);
+    sigaction(SIGABRT, &sa, NULL);
+#else
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
-#ifndef WIN32
-    signal(SIGHUP, signal_handler);
-#endif
     signal(SIGABRT, signal_handler);
+#endif
 
     parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
 
