@@ -53,6 +53,7 @@
 #include "memory.h"
 #include "compat/inet_pton.h"
 #include "compat/inet_ntop.h"
+#include "compat/platform_semaphore.h"
 #include "compat/vsnprintf.h"
 #include "net_udp.h"
 #include "rtp.h"
@@ -130,9 +131,9 @@ struct _socket_udp {
 
         // for multithreaded processing
         pthread_t thread_id;
+        struct item queue[MAX_UDP_READER_QUEUE_LEN];
         struct item *queue_head;
         struct item *queue_tail;
-        int queue_len;
         pthread_mutex_t lock;
         pthread_cond_t boss_cv;
         pthread_cond_t reader_cv;
@@ -965,6 +966,11 @@ socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port,
         if (res) {
                 res->multithreaded = multithreaded;
                 if (multithreaded) {
+                        for (int i = 0; i < MAX_UDP_READER_QUEUE_LEN; i++)
+                                res->queue[i].next = res->queue + i + 1;
+                        res->queue[MAX_UDP_READER_QUEUE_LEN - 1].next = res->queue;
+                        res->queue_head = res->queue_tail = res->queue;
+
                         pthread_mutex_init(&res->lock, NULL);
                         pthread_cond_init(&res->boss_cv, NULL);
                         pthread_cond_init(&res->reader_cv, NULL);
@@ -1011,13 +1017,9 @@ void udp_exit(socket_udp * s)
                 pthread_cond_destroy(&s->reader_cv);
                 pthread_cond_destroy(&s->boss_cv);
                 pthread_mutex_destroy(&s->lock);
-                struct item *i = s->queue_head;
-                while (i != NULL) {
-                        struct item *tmp = i;
-                        i = i->next;
-                        free(tmp->buf);
-                        free(tmp);
-
+                while (s->queue_tail != s->queue_head) {
+                        free(s->queue_tail->buf);
+                        s->queue_tail = s->queue_tail->next;
                 }
         }
 
@@ -1078,27 +1080,22 @@ static void *udp_reader(void *arg)
         socket_udp *s = (socket_udp *) arg;
 
         while (1) {
-                struct item *i = (struct item *) malloc(sizeof(struct item));
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
-                i->buf = packet;
 
-                i->size = recvfrom(s->fd, buffer,
+                int size = recvfrom(s->fd, buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
-                i->next = NULL;
 
                 pthread_mutex_lock(&s->lock);
-                while (s->queue_len > MAX_UDP_READER_QUEUE_LEN) {
+                while (s->queue_head->next == s->queue_tail) {
                         pthread_cond_wait(&s->reader_cv, &s->lock);
                 }
-                if (s->queue_head == NULL) {
-                        s->queue_head = s->queue_tail = i;
-                } else {
-                        s->queue_tail->next = i;
-                        s->queue_tail = s->queue_tail->next;
-                }
-                s->queue_len += 1;
+
+                s->queue_head->size = size;
+                s->queue_head->buf = packet;
+                s->queue_head = s->queue_head->next;
+
                 pthread_cond_signal(&s->boss_cv);
                 pthread_mutex_unlock(&s->lock);
         }
@@ -1163,11 +1160,11 @@ bool udp_not_empty(socket_udp * s, struct timeval *timeout)
 
         pthread_mutex_lock(&s->lock);
         if (timeout) {
-                while (rc == 0 && s->queue_head == NULL) {
+                while (rc == 0 && s->queue_head == s->queue_tail) {
                         rc = pthread_cond_timedwait(&s->boss_cv, &s->lock, &ts);
                 }
         }
-        ret = (s->queue_head != NULL);
+        ret = (s->queue_head != s->queue_tail);
         pthread_mutex_unlock(&s->lock);
         return ret;
 }
@@ -1193,23 +1190,17 @@ int udp_recv(socket_udp * s, char *buffer, int buflen)
 
 int udp_recv_data(socket_udp * s, char **buffer)
 {
-        struct item *i;
         int ret;
         pthread_mutex_lock(&s->lock);
 
-        i = s->queue_head;
-        s->queue_head = s->queue_head->next;
-        if (s->queue_head == NULL) {
-                s->queue_tail = NULL;
-        }
-        s->queue_len -= 1;
+        *buffer = (char *) s->queue_tail->buf;
+        ret = s->queue_tail->size;
+        s->queue_tail->buf = NULL;
+        s->queue_tail = s->queue_tail->next;
         pthread_cond_signal(&s->reader_cv);
 
         pthread_mutex_unlock(&s->lock);
 
-        *buffer = i->buf;
-        ret = i->size;
-        free(i);
         return ret;
 }
 
