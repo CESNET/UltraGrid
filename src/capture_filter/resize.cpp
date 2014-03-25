@@ -63,6 +63,9 @@ extern "C" {
 
 #define MAX_TILES 16
 
+//FILE *F_save=NULL;
+
+
 struct module;
 
 static int init(struct module *parent, const char *cfg, void **state);
@@ -71,6 +74,8 @@ static struct video_frame *filter(void *state, struct video_frame *in);
 
 struct state_resize {
     int num;
+    int orig_width;
+    int orig_height;
     int denom;
     int reinit;
     struct video_frame *frame;
@@ -146,25 +151,38 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 
     for(i=0; i<s->frame->tile_count;i++){
         if(s->reinit==1){
+            s->orig_width = s->frame->tiles[i].width;
+            s->orig_height = s->frame->tiles[i].height;
             s->frame->tiles[i].width *= s->num;
             s->frame->tiles[i].width /= s->denom;
             s->frame->tiles[i].height *= s->num;
             s->frame->tiles[i].height /= s->denom;
+            s->frame->color_spec = RGB;
             s->reinit = 0;
         }
 
-        res = resize_frame(in->tiles[i].data, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->frame->tiles[i].width, s->frame->tiles[i].height, (double)s->num/s->denom);
+        res = resize_frame(in->tiles[i].data, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->orig_width, s->orig_height, (double)s->num/s->denom);
 
         if(res!=0){
             printf("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
             printf("\t\t No scale factor applied at all. Bypassing original frame.\n");
             return in;
         }else{
-            //s->frame->color_spec = RGB;
-            //s->frame->codec = RGB;
+            s->frame->color_spec = RGB;
+            s->frame->codec = RGB;
         }
     }
 
+    //    //MODUL DE CAPTURA AUDIO A FITXER PER COMPROVACIONS EN TX
+//                //CAPTURA FRAMES ABANS DE DESCODIFICAR PER COMPROVAR RECEPCIÓ.
+//                if(F_save==NULL){
+//                        printf("recording resized...\n");
+//                        F_save=fopen("rgb.raw", "wb");
+//                }
+//
+//                //fwrite(tx_frame->audio_data,tx_frame->audio_data_len,1,F_audio_tx_embed_BM);
+//                fwrite(s->frame->tiles[0].data, s->frame->tiles[0].data_len,1,F_save);
+    //    //FI CAPTURA
 
     return s->frame;
 }
