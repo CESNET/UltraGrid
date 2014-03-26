@@ -70,6 +70,7 @@
 #include "audio/utils.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
+#include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "tv.h"
@@ -79,12 +80,6 @@
 #include "compat/platform_spin.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
-
-enum fec_scheme_t {
-        FEC_NONE,
-        FEC_MULT,
-        FEC_LDGM
-};
 
 #define FEC_MAX_MULT 10
 
@@ -145,7 +140,7 @@ struct tx {
         int32_t avg_len;
         int32_t avg_len_last;
 
-        enum fec_scheme_t fec_scheme;
+        enum fec_type fec_scheme;
         int mult_count;
 
         int last_fragment;
@@ -171,23 +166,23 @@ static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
         }
         
         uint64_t tmp_avg = tx->avg_len * tx->sent_frames + frame->tiles[substream].data_len *
-                (frame->is_ldgm ?
-                 (double) frame->ldgm_params.k / (frame->ldgm_params.k + frame->ldgm_params.m) :
+                (frame->fec_params.type != FEC_NONE ?
+                 (double) frame->fec_params.k / (frame->fec_params.k + frame->fec_params.m) :
                  1);
         tx->sent_frames++;
         tx->avg_len = tmp_avg / tx->sent_frames;
         if(tx->sent_frames >= 100) {
                 if(tx->fec_scheme == FEC_LDGM && tx->max_loss > 0.0) {
                         if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
-                                int data_len = tx->mtu -  (40 + (sizeof(ldgm_video_payload_hdr_t)));
+                                int data_len = tx->mtu -  (40 + (sizeof(fec_video_payload_hdr_t)));
                                 data_len = (data_len / 48) * 48;
                                 //void *fec_state_old = tx->fec_state;
 
                                 struct msg_sender *msg = (struct msg_sender *)
                                         new_message(sizeof(struct msg_sender));
-                                snprintf(msg->ldgm_cfg, sizeof(msg->ldgm_cfg), "percents %d %d %f",
+                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM percents %d %d %f",
                                                 data_len, tx->avg_len, tx->max_loss);
-                                msg->type = SENDER_MSG_CHANGE_LDGM;
+                                msg->type = SENDER_MSG_CHANGE_FEC;
                                 send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
                                 tx->avg_len_last = tx->avg_len;
                         }
@@ -298,9 +293,9 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
                                 struct msg_sender *msg = (struct msg_sender *)
                                         new_message(sizeof(struct msg_sender));
-                                snprintf(msg->ldgm_cfg, sizeof(msg->ldgm_cfg), "cfg %s",
+                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
                                                 fec_cfg ? fec_cfg : "");
-                                msg->type = SENDER_MSG_CHANGE_LDGM;
+                                msg->type = SENDER_MSG_CHANGE_FEC;
                                 send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
@@ -450,7 +445,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int rtp_hdr_len;
         uint32_t tmp_hdr[100];
         uint32_t *video_hdr;
-        uint32_t *ldgm_hdr;
+        uint32_t *fec_hdr;
         int pt;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
@@ -467,7 +462,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         int mult_index = 0;
         int mult_first_sent = 0;
         int hdrs_len = 40; // for computing max payload size
-        unsigned int ldgm_symbol_size = frame->ldgm_params.symbol_size;
+        unsigned int fec_symbol_size = frame->fec_params.symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
@@ -490,13 +485,13 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t *encryption_hdr;
                 rtp_hdr_len = sizeof(crypto_payload_hdr_t);
 
-                if (frame->is_ldgm) {
+                if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
-                        ldgm_hdr = rtp_hdr;
-                        encryption_hdr = rtp_hdr + sizeof(ldgm_video_payload_hdr_t)/sizeof(uint32_t);
-                        rtp_hdr_len += sizeof(ldgm_video_payload_hdr_t);
-                        pt = PT_ENCRYPT_VIDEO_LDGM;
-                        hdrs_len += (sizeof(ldgm_video_payload_hdr_t));
+                        fec_hdr = rtp_hdr;
+                        encryption_hdr = rtp_hdr + sizeof(fec_video_payload_hdr_t)/sizeof(uint32_t);
+                        rtp_hdr_len += sizeof(fec_video_payload_hdr_t);
+                        pt = fec_pt_from_fec_type(frame->fec_params.type, true);
+                        hdrs_len += (sizeof(fec_video_payload_hdr_t));
                 } else {
                         video_hdr = rtp_hdr;
                         encryption_hdr = rtp_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
@@ -508,12 +503,12 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
                 hdrs_len += sizeof(crypto_payload_hdr_t) + openssl_get_overhead(tx->encryption);
         } else {
-                if (frame->is_ldgm) {
+                if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
-                        ldgm_hdr = rtp_hdr;
-                        rtp_hdr_len = sizeof(ldgm_video_payload_hdr_t);
-                        pt = PT_VIDEO_LDGM;
-                        hdrs_len += (sizeof(ldgm_video_payload_hdr_t));
+                        fec_hdr = rtp_hdr;
+                        rtp_hdr_len = sizeof(fec_video_payload_hdr_t);
+                        pt = fec_pt_from_fec_type(frame->fec_params.type, false);
+                        hdrs_len += (sizeof(fec_video_payload_hdr_t));
                 } else {
                         video_hdr = rtp_hdr;
                         rtp_hdr_len = sizeof(video_payload_hdr_t);
@@ -522,16 +517,16 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 }
         }
 
-        if (frame->is_ldgm) {
+        if (frame->fec_params.type != FEC_NONE) {
                 static bool status_printed = false;
                 if (!status_printed) {
-                        if (ldgm_symbol_size > tx->mtu - hdrs_len) {
-                                fprintf(stderr, "Warning: LDGM symbol size exceeds payload size! "
-                                                "LDGM symbol size: %d\n", ldgm_symbol_size);
+                        if (fec_symbol_size > tx->mtu - hdrs_len) {
+                                fprintf(stderr, "Warning: FEC symbol size exceeds payload size! "
+                                                "FEC symbol size: %d\n", fec_symbol_size);
                         } else {
-                                printf("LDGM symbol size: %d, symbols per packet: %d, payload size: %d\n",
-                                                ldgm_symbol_size, (tx->mtu - hdrs_len) / ldgm_symbol_size,
-                                                (tx->mtu - hdrs_len) / ldgm_symbol_size * ldgm_symbol_size);
+                                printf("FEC symbol size: %d, symbols per packet: %d, payload size: %d\n",
+                                                fec_symbol_size, (tx->mtu - hdrs_len) / fec_symbol_size,
+                                                (tx->mtu - hdrs_len) / fec_symbol_size * fec_symbol_size);
                         }
                         status_printed = true;
                 }
@@ -539,20 +534,20 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         format_video_header(frame, substream, tx->buffer, video_hdr);
 
-        if (frame->is_ldgm) {
+        if (frame->fec_params.type != FEC_NONE) {
                 tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
-                ldgm_hdr[0] = htonl(tmp);
-                ldgm_hdr[2] = htonl(tile->data_len);
-                ldgm_hdr[3] = htonl(
-                                frame->ldgm_params.k << 19 |
-                                frame->ldgm_params.m << 6 |
-                                frame->ldgm_params.c);
-                ldgm_hdr[4] = htonl(frame->ldgm_params.seed);
+                fec_hdr[0] = htonl(tmp);
+                fec_hdr[2] = htonl(tile->data_len);
+                fec_hdr[3] = htonl(
+                                frame->fec_params.k << 19 |
+                                frame->fec_params.m << 6 |
+                                frame->fec_params.c);
+                fec_hdr[4] = htonl(frame->fec_params.seed);
         }
 
-        int ldgm_symbol_offset = 0;
+        int fec_symbol_offset = 0;
 
         do {
                 if(tx->fec_scheme == FEC_MULT) {
@@ -565,15 +560,15 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
                 data = tile->data + pos;
                 data_len = tx->mtu - hdrs_len;
-                if (frame->is_ldgm) {
-                        if (ldgm_symbol_size <= tx->mtu - hdrs_len) {
-                                data_len = data_len / ldgm_symbol_size * ldgm_symbol_size;
+                if (frame->fec_params.type != FEC_NONE) {
+                        if (fec_symbol_size <= tx->mtu - hdrs_len) {
+                                data_len = data_len / fec_symbol_size * fec_symbol_size;
                         } else {
-                                if (ldgm_symbol_size - ldgm_symbol_offset <= tx->mtu - hdrs_len) {
-                                        data_len = ldgm_symbol_size - ldgm_symbol_offset;
-                                        ldgm_symbol_offset = 0;
+                                if (fec_symbol_size - fec_symbol_offset <= tx->mtu - hdrs_len) {
+                                        data_len = fec_symbol_size - fec_symbol_offset;
+                                        fec_symbol_offset = 0;
                                 } else {
-                                        ldgm_symbol_offset += data_len;
+                                        fec_symbol_offset += data_len;
                                 }
                         }
                 } else {
@@ -594,7 +589,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                                 data_len = openssl_encrypt(tx->encryption,
                                                 data, data_len,
                                                 (char *) rtp_hdr,
-                                                frame->is_ldgm ? sizeof(ldgm_video_payload_hdr_t) :
+                                                frame->fec_params.type != FEC_NONE ? sizeof(fec_video_payload_hdr_t) :
                                                 sizeof(video_payload_hdr_t),
                                                 encrypted_data);
                                 data = encrypted_data;

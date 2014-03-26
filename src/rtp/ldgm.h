@@ -39,39 +39,31 @@
 
 #define LDGM_MAXIMAL_SIZE_RATIO 1
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
+#include <map>
 
+#include "fec.h"
+
+#define DEFAULT_LDGM_SEED 1
+
+class LDGM_session;
 struct video_frame;
 
-/* 
- * @param packet_size - approximate size of packet payload
- * @param frame_size - approximate size of whole protected frame
- */ 
-void *ldgm_encoder_init_with_cfg(char *cfg);
-void *ldgm_encoder_init_with_param(int packet_size, int frame_size, double max_expected_loss);
-unsigned int ldgm_encoder_get_k(void *state);
-unsigned int ldgm_encoder_get_m(void *state);
-unsigned int ldgm_encoder_get_c(void *state);
-unsigned int ldgm_encoder_get_seed(void *state);
-void ldgm_encoder_encode(void *state, const char *hdr, int hdr_len,
-                const char *body, int body_len, char **out, int *len);
-void ldgm_encoder_free_buffer(void *state, char *buffer);
-void ldgm_encoder_destroy(void *state);
-
-void * ldgm_decoder_init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
-void ldgm_decoder_destroy(void *state);
-struct video_frame *ldgm_encoder_encode_frame(void *state, struct video_frame *tx_frame);
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
-
-#ifdef __cplusplus
-#include <map>
-void ldgm_decoder_decode_map(void *state, const char *in, int in_len, char **out, int *len,
+struct ldgm : public fec{
+        ldgm(unsigned int k, unsigned int m, unsigned int c, unsigned int seed);
+        ldgm(int packet_size, int frame_size, double max_expected_loss);
+        ldgm(const char *cfg);
+        virtual ~ldgm();
+        struct video_frame *encode(struct video_frame *);
+        void decode(const char *in, int in_len, char **out, int *len,
                 const std::map<int, int> &);
-#endif
+        void freeBuffer(char *buffer);
+
+private:
+        void init(unsigned int k, unsigned int m, unsigned int c, unsigned int seed = DEFAULT_LDGM_SEED);
+
+        LDGM_session *m_coding_session;
+        unsigned int m_k, m_m, m_c;
+        unsigned int m_seed;
+};
 
 #endif /* __LDGM_H__ */

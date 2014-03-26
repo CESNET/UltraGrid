@@ -51,6 +51,7 @@
 #define INITIAL_VIDEO_SEND_BUFFER_SIZE  (1024*1024)
 
 struct rtp;
+struct fec;
 
 class rtp_video_rxtx : public video_rxtx {
         friend class video_rxtx;
@@ -79,7 +80,7 @@ protected:
         int              m_send_port_number;
         bool             m_ipv6;
         const char      *m_requested_mcast_if;
-        void            *m_ldgm_state;
+        fec             *m_fec_state;
 private:
         void process_message(struct msg_sender *);
         void change_tx_port(int tx_port);

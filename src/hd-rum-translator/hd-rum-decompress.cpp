@@ -47,7 +47,7 @@ struct packet_desc {
         int pt;
         union {
                 struct video_desc video;
-                struct ldgm_desc ldgm;
+                struct fec_desc fec;
 
         };
 };
@@ -146,7 +146,7 @@ static void *worker(void *arg)
 {
         struct state_transcoder_decompress *s = (struct state_transcoder_decompress *) arg;
         struct video_desc last_desc;
-        struct ldgm_desc last_ldgm_desc;
+        struct fec_desc last_fec_desc;
 
         struct state_decompress *decompress = NULL;
         struct video_frame *uncompressed_frame[2] = { NULL, NULL };
@@ -154,14 +154,14 @@ static void *worker(void *arg)
         char **tmp_buffers[2] =  { (char **) malloc(tmp_buffers_count * sizeof(char *)),
                 (char **) malloc(tmp_buffers_count * sizeof(char *)) };
         bool decompress_accepts_corrupted_frame = false;
-        void *ldgm_state = NULL;
+        fec *fec_state = NULL;
 
         char *compressed_buffers[MAX_SUBSTREAMS];
         int compressed_len[MAX_SUBSTREAMS];
         int current_idx = 0;
 
         memset(&last_desc, 0, sizeof(last_desc));
-        memset(&last_ldgm_desc, 0, sizeof(last_ldgm_desc));
+        memset(&last_fec_desc, 0, sizeof(last_fec_desc));
 
         struct video_desc video_header;
 
@@ -188,23 +188,23 @@ static void *worker(void *arg)
                 pthread_mutex_unlock(&s->lock);
 
                 if(current_frame->packet_desc.pt == PT_VIDEO_LDGM) {
-                        unsigned int k = current_frame->packet_desc.ldgm.k;
-                        unsigned int m = current_frame->packet_desc.ldgm.m;
-                        unsigned int c = current_frame->packet_desc.ldgm.c;
-                        unsigned int seed = current_frame->packet_desc.ldgm.seed;
-                        if(last_ldgm_desc.k != k ||
-                                        last_ldgm_desc.m != m ||
-                                        last_ldgm_desc.c != c ||
-                                        last_ldgm_desc.seed != seed) {
-                                ldgm_decoder_destroy(ldgm_state);
-                                ldgm_state = ldgm_decoder_init(k, m, c, seed);
-                                last_ldgm_desc = current_frame->packet_desc.ldgm;
+                        unsigned int k = current_frame->packet_desc.fec.k;
+                        unsigned int m = current_frame->packet_desc.fec.m;
+                        unsigned int c = current_frame->packet_desc.fec.c;
+                        unsigned int seed = current_frame->packet_desc.fec.seed;
+                        if(last_fec_desc.k != k ||
+                                        last_fec_desc.m != m ||
+                                        last_fec_desc.c != c ||
+                                        last_fec_desc.seed != seed) {
+                                delete fec_state;
+                                fec_state = new ldgm(k, m, c, seed);
+                                last_fec_desc = current_frame->packet_desc.fec;
                         }
 
                         for(int i = 0; i < current_frame->tile_count; ++i) {
                                 compressed_len[i] = 0;
                                 char *data = current_frame->substreams[i].data;
-                                ldgm_decoder_decode_map(ldgm_state, data,
+                                fec_state->decode(data,
                                                 current_frame->substreams[i].data_len,
                                                 &compressed_buffers[i], &compressed_len[i],
                                                 current_frame->packets[i]);
@@ -482,10 +482,10 @@ static bool decode_header(uint32_t *hdr, struct packet_desc *desc, int *buffer_l
                 *buffer_len = ntohl(hdr[2]);
 
                 tmp = ntohl(hdr[3]);
-                desc->ldgm.k = tmp >> 19;
-                desc->ldgm.m = 0x1fff & (tmp >> 6);
-                desc->ldgm.c = 0x3f & tmp;
-                desc->ldgm.seed = ntohl(hdr[4]);
+                desc->fec.k = tmp >> 19;
+                desc->fec.m = 0x1fff & (tmp >> 6);
+                desc->fec.c = 0x3f & tmp;
+                desc->fec.seed = ntohl(hdr[4]);
 
                 return true;
         }
@@ -497,7 +497,7 @@ static void decode_packet(rtp_packet *pckt, char *frame_buffer, map<int, int> &p
         if(pckt->pt == PT_VIDEO) {
                 hdr_len = sizeof(video_payload_hdr_t);
         } else {
-                hdr_len = sizeof(ldgm_video_payload_hdr_t);
+                hdr_len = sizeof(fec_video_payload_hdr_t);
         }
         int len = pckt->data_len - hdr_len;
         char *data = (char *) pckt->data + hdr_len;

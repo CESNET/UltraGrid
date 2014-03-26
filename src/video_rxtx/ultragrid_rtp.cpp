@@ -117,9 +117,9 @@ void *(*ultragrid_rtp_video_rxtx::get_receiver_thread())(void *arg) {
 
 void ultragrid_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
 {
-        if (m_ldgm_state) {
+        if (m_fec_state) {
                 struct video_frame *old_frame = tx_frame;
-                tx_frame = ldgm_encoder_encode_frame(m_ldgm_state, tx_frame);
+                tx_frame = m_fec_state->encode(tx_frame);
                 VIDEO_FRAME_DISPOSE(old_frame);
         }
 

@@ -46,24 +46,24 @@
  *
  * Normal workflow through threads is following:
  * 1. decode data from in context of receiving thread with function decode_frame(),
- *    it will decode it to framebuffer, passes it to LDGM thread
- * 2. ldgm_thread() passes frame to decompress thread
+ *    it will decode it to framebuffer, passes it to FEC thread
+ * 2. fec_thread() passes frame to decompress thread
  * 3. thread running decompress_thread(), displays the frame
  *
- * ### Uncompressed video (without LDGM) ###
+ * ### Uncompressed video (without FEC) ###
  * In step one, the decoder is a linedecoder and framebuffer is the display framebuffer
  *
  * ### Compressed video ###
  * Data is saved to decompress buffer. The decompression itself is done by decompress_thread().
  *
- * ### LDGM video ###
- * Data is saved to LDGM buffer. Decoded with ldgm_thread().
+ * ### video with FEC ###
+ * Data is saved to FEC buffer. Decoded with fec_thread().
  *
- * ### Encrypted video (without LDGM) ###
+ * ### Encrypted video (without FEC) ###
  * Prior to decoding, packet is decompressed.
  *
- * ### Encrypted video (with LDGM) ###
- * After LDGM decoding, the whole block is decompressed.
+ * ### Encrypted video (with FEC) ###
+ * After FEC decoding, the whole block is decompressed.
  *
  * @todo
  * This code is very very messy, it needs to be rewritten.
@@ -80,7 +80,7 @@
 #include "host.h"
 #include "messaging.h"
 #include "perf.h"
-#include "rtp/ldgm.h"
+#include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "rtp/pbuf.h"
@@ -93,6 +93,7 @@
 #include "vo_postprocess.h"
 
 #include <future>
+#include <iostream>
 #include <map>
 #include <queue>
 
@@ -115,7 +116,7 @@ static void restrict_returned_codecs(codec_t *display_codecs,
                 int pp_codecs_count);
 static int check_for_mode_change(struct state_video_decoder *decoder, uint32_t *hdr);
 static void wait_for_framebuffer_swap(struct state_video_decoder *decoder);
-static void *ldgm_thread(void *args);
+static void *fec_thread(void *args);
 static void *decompress_thread(void *args);
 static void cleanup(struct state_video_decoder *decoder);
 static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc);
@@ -154,33 +155,19 @@ struct line_decoder {
         unsigned int         src_linesize; ///< source linesize
 };
 
-/**
- * @brief LDGM FEC metadata
- */
-struct fec {
-        fec() : k(0), m(0), c(0), seed(0), state(0) {}
-        fec(int _k, int _m, int _c, int _seed, void *_state)
-                : k(_k), m(_m), c(_c), seed(_seed), state(_state) {}
-        int               k;     ///< LDGM matrix width
-        int               m;     ///< LDGM matrix height
-        int               c;     ///< number of ones per column
-        int               seed;  ///< LDGM PRNG seed
-        void             *state; ///< LDGM state
-};
-
 struct decompress_msg;
 struct main_msg;
 
 // message definitions
 typedef char *char_p;
-struct ldgm_msg : public msg {
-        ldgm_msg(int count) : substream_count(count) {
+struct fec_msg : public msg {
+        fec_msg(int count) : substream_count(count) {
                 buffer_len = new int[count];
                 buffer_num = new int[count];
                 recv_buffers = new char_p[count];
                 pckt_list = 0;
         }
-        ~ldgm_msg() {
+        ~fec_msg() {
                 delete [] buffer_len;
                 delete [] buffer_num;
                 delete [] recv_buffers;
@@ -190,8 +177,7 @@ struct ldgm_msg : public msg {
         int *buffer_num;
         char **recv_buffers;
         map<int, int> *pckt_list;
-        int pt;
-        int k, m, c, seed;
+        fec_desc fec_description;
         int substream_count;
         bool poisoned;
 };
@@ -233,14 +219,14 @@ struct main_msg_reconfigure : public main_msg {
 struct state_video_decoder
 {
         state_video_decoder() :
-                decompress_queue(1), ldgm_queue(1)
+                decompress_queue(1), fec_queue(1)
         {}
         virtual ~state_video_decoder() {}
 
         struct module *parent;
 
         pthread_t decompress_thread_id,
-                  ldgm_thread_id;
+                  fec_thread_id;
         struct video_desc received_vid_desc; ///< description of the network video
         struct video_desc display_desc;      ///< description of the mode that display is currently configured to
 
@@ -284,7 +270,7 @@ struct state_video_decoder
         int pp_output_frames_count;
         /// @}
 
-        message_queue     ldgm_queue;
+        message_queue     fec_queue;
 
         enum video_mode   video_mode;  ///< video mode set for this decoder
         unsigned          merged_fb:1; ///< flag if the display device driver requires tiled video or not
@@ -292,7 +278,7 @@ struct state_video_decoder
         // for statistics
         /// @{
         volatile unsigned long int displayed, dropped, corrupted, missing;
-        volatile unsigned long int ldgm_ok, ldgm_nok;
+        volatile unsigned long int fec_ok, fec_nok;
         long int last_buffer_number;
         /// @}
         timed_message       slow_msg; ///< shows warning ony in certain interval
@@ -326,15 +312,16 @@ static void wait_for_framebuffer_swap(struct state_video_decoder *decoder) {
         "while expecting encrypted.\n"
 #define ERROR_GOTO_CLEANUP ret = FALSE; goto cleanup;
 
-static void *ldgm_thread(void *args) {
+static void *fec_thread(void *args) {
         struct state_video_decoder *decoder =
                 (struct state_video_decoder *) args;
 
-        struct fec fec_state;
+        fec *fec_state = NULL;
+        struct fec_desc desc(FEC_NONE);
 
         while(1) {
-                struct ldgm_msg *data = NULL;
-                data = dynamic_cast<ldgm_msg *>(decoder->ldgm_queue.pop());
+                struct fec_msg *data = NULL;
+                data = dynamic_cast<fec_msg *>(decoder->fec_queue.pop());
 
                 if(data->poisoned) {
                         decompress_msg *msg = new decompress_msg(0);
@@ -351,19 +338,16 @@ static void *ldgm_thread(void *args) {
                 memcpy(decompress_msg->buffer_num, data->buffer_num, data->substream_count * sizeof(int));
                 memcpy(decompress_msg->fec_buffers, data->recv_buffers, data->substream_count * sizeof(char *));
 
-                if (data->pt == PT_VIDEO_LDGM) {
-                        if(!fec_state.state || fec_state.k != data->k ||
-                                        fec_state.m != data->m ||
-                                        fec_state.c != data->c ||
-                                        fec_state.seed != data->seed
+                if (data->fec_description.type != FEC_NONE) {
+                        if(!fec_state || desc.k != data->fec_description.k ||
+                                        desc.m != data->fec_description.m ||
+                                        desc.c != data->fec_description.c ||
+                                        desc.seed != data->fec_description.seed
                           ) {
-                                if(fec_state.state) {
-                                        ldgm_decoder_destroy(fec_state.state);
-                                }
-                                fec_state = fec(data->k, data->m, data->c, data->seed,
-                                                ldgm_decoder_init(data->k, data->m, data->c,
-                                                        data->seed));
-                                if(fec_state.state == NULL) {
+                                delete fec_state;
+                                desc = data->fec_description;
+                                fec_state = fec::create_from_desc(desc);
+                                if(fec_state == NULL) {
                                         fprintf(stderr, "[decoder] Unable to initialize LDGM.\n");
                                         exit_uv(1);
                                         goto cleanup;
@@ -371,16 +355,16 @@ static void *ldgm_thread(void *args) {
                         }
                 }
 
-                if (data->pt == PT_VIDEO_LDGM) {
+                if (data->fec_description.type != FEC_NONE) {
                         int pos;
                         for (pos = 0; pos < get_video_mode_tiles_x(decoder->video_mode)
                                         * get_video_mode_tiles_y(decoder->video_mode); ++pos) {
-                                char *ldgm_out_buffer = NULL;
-                                int ldgm_out_len = 0;
+                                char *fec_out_buffer = NULL;
+                                int fec_out_len = 0;
 
-                                ldgm_decoder_decode_map(fec_state.state, data->recv_buffers[pos],
+                                fec_state->decode(data->recv_buffers[pos],
                                                 data->buffer_len[pos],
-                                                &ldgm_out_buffer, &ldgm_out_len, data->pckt_list[pos]);
+                                                &fec_out_buffer, &fec_out_len, data->pckt_list[pos]);
 
                                 if (data->buffer_len[pos] != (int) sum_map(data->pckt_list[pos])) {
                                         verbose_msg("Frame incomplete - substream %d, buffer %d: expected %u bytes, got %u.\n", pos,
@@ -389,19 +373,19 @@ static void *ldgm_thread(void *args) {
                                                         (unsigned int) sum_map(data->pckt_list[pos]));
                                 }
 
-                                if(ldgm_out_len == 0) {
+                                if(fec_out_len == 0) {
                                         ret = FALSE;
-                                        fprintf(stderr, "[decoder] LDGM: unable to reconstruct data.\n");
-                                        decoder->ldgm_nok += 1;
+                                        fprintf(stderr, "[decoder] FEC: unable to reconstruct data.\n");
+                                        decoder->fec_nok += 1;
                                         goto cleanup;
                                 }
-                                decoder->ldgm_ok += 1;
+                                decoder->fec_ok += 1;
 
                                 video_payload_hdr_t video_hdr;
-                                memcpy(&video_hdr, ldgm_out_buffer,
+                                memcpy(&video_hdr, fec_out_buffer,
                                                 sizeof(video_payload_hdr_t));
-                                ldgm_out_buffer += sizeof(video_payload_hdr_t);
-                                ldgm_out_len -= sizeof(video_payload_hdr_t);
+                                fec_out_buffer += sizeof(video_payload_hdr_t);
+                                fec_out_len -= sizeof(video_payload_hdr_t);
 
                                 struct video_desc network_desc;
                                 parse_video_hdr(video_hdr, &network_desc);
@@ -417,8 +401,8 @@ static void *ldgm_thread(void *args) {
                                 }
 
                                 if(decoder->decoder_type == EXTERNAL_DECODER) {
-                                        decompress_msg->buffer_len[pos] = ldgm_out_len;
-                                        decompress_msg->decompress_buffer[pos] = ldgm_out_buffer;
+                                        decompress_msg->buffer_len[pos] = fec_out_len;
+                                        decompress_msg->decompress_buffer[pos] = fec_out_buffer;
                                 } else { // linedecoder
                                         wait_for_framebuffer_swap(decoder);
 
@@ -443,9 +427,9 @@ static void *ldgm_thread(void *args) {
                                                 &decoder->line_decoder[pos];
 
                                         int data_pos = 0;
-                                        char *src = ldgm_out_buffer;
+                                        char *src = fec_out_buffer;
                                         char *dst = tile->data + line_decoder->base_offset;
-                                        while(data_pos < (int) ldgm_out_len) {
+                                        while(data_pos < (int) fec_out_len) {
                                                 line_decoder->decode_line((unsigned char*)dst, (unsigned char *) src, line_decoder->src_linesize,
                                                                 line_decoder->shifts[0],
                                                                 line_decoder->shifts[1],
@@ -499,8 +483,7 @@ cleanup:
                 delete data;
         }
 
-        if(fec_state.state)
-                ldgm_decoder_destroy(fec_state.state);
+        delete fec_state;
 
         return NULL;
 }
@@ -801,7 +784,7 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
                 return false;
         }
 
-        if(pthread_create(&decoder->ldgm_thread_id, NULL, ldgm_thread,
+        if(pthread_create(&decoder->fec_thread_id, NULL, fec_thread,
                                 decoder) != 0) {
                 perror("Unable to create thread");
                 return false;
@@ -821,11 +804,11 @@ bool video_decoder_register_display(struct state_video_decoder *decoder, struct 
 void video_decoder_remove_display(struct state_video_decoder *decoder)
 {
         if(decoder->display) {
-                ldgm_msg *msg = new ldgm_msg(0);
+                fec_msg *msg = new fec_msg(0);
                 msg->poisoned = true;
-                decoder->ldgm_queue.push(msg);
+                decoder->fec_queue.push(msg);
 
-                pthread_join(decoder->ldgm_thread_id, NULL);
+                pthread_join(decoder->fec_thread_id, NULL);
                 pthread_join(decoder->decompress_thread_id, NULL);
 
                 if (decoder->frame)
@@ -859,8 +842,8 @@ static void cleanup(struct state_video_decoder *decoder)
                                 decoder->displayed + decoder->dropped + decoder->missing, \
                                 decoder->displayed, decoder->dropped, decoder->corrupted,\
                                 decoder->missing); \
-                         if (decoder->ldgm_ok + decoder->ldgm_nok > 0) fprintf(stderr, " LDGM OK/NOK: %ld/%ld", \
-                         decoder->ldgm_ok, decoder->ldgm_nok); \
+                         if (decoder->fec_ok + decoder->fec_nok > 0) fprintf(stderr, " LDGM OK/NOK: %ld/%ld", \
+                         decoder->fec_ok, decoder->fec_nok); \
                          fprintf(stderr, "\n");
 
 /**
@@ -1539,7 +1522,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
 
         int pt;
         bool buffer_swapped = false;
-        struct ldgm_msg *ldgm_msg = NULL;
+        struct fec_msg *fec_msg = NULL;
 
         while (cdata != NULL) {
                 uint32_t *hdr;
@@ -1579,8 +1562,8 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         data = (char *) hdr + sizeof(video_payload_hdr_t);
                         break;
                 case PT_VIDEO_LDGM:
-                        len = pckt->data_len - sizeof(ldgm_video_payload_hdr_t);
-                        data = (char *) hdr + sizeof(ldgm_video_payload_hdr_t);
+                        len = pckt->data_len - sizeof(fec_video_payload_hdr_t);
+                        data = (char *) hdr + sizeof(fec_video_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO:
                         len = pckt->data_len - sizeof(video_payload_hdr_t)
@@ -1589,9 +1572,9 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                                 + sizeof(crypto_payload_hdr_t);
                         break;
                 case PT_ENCRYPT_VIDEO_LDGM:
-                        len = pckt->data_len - sizeof(ldgm_video_payload_hdr_t)
+                        len = pckt->data_len - sizeof(fec_video_payload_hdr_t)
                                 - sizeof(crypto_payload_hdr_t);
-                        data = (char *) hdr + sizeof(ldgm_video_payload_hdr_t)
+                        data = (char *) hdr + sizeof(fec_video_payload_hdr_t)
                                 + sizeof(crypto_payload_hdr_t);
                         break;
                 default:
@@ -1636,7 +1619,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                         if((data_len = openssl_decrypt(decoder->decrypt,
                                         data, len,
                                         (char *) hdr, pt == PT_ENCRYPT_VIDEO ?
-                                        sizeof(video_payload_hdr_t) : sizeof(ldgm_video_payload_hdr_t),
+                                        sizeof(video_payload_hdr_t) : sizeof(fec_video_payload_hdr_t),
                                         plaintext)) == 0) {
                                 fprintf(stderr, "Warning: Packet dropped AES - wrong CRC!\n");
                                 goto next_packet;
@@ -1782,22 +1765,18 @@ next_packet:
         assert(ret == TRUE);
 
         // format message
-        ldgm_msg = new struct ldgm_msg(max_substreams);
-        ldgm_msg->k = k;
-        ldgm_msg->m = m;
-        ldgm_msg->c = c;
-        ldgm_msg->seed = seed;
-        ldgm_msg->pt = (pt == PT_VIDEO || pt == PT_ENCRYPT_VIDEO) ? PT_VIDEO : PT_VIDEO_LDGM;
-        ldgm_msg->poisoned = false;
-        memcpy(ldgm_msg->buffer_len, buffer_len, sizeof(buffer_len));
-        memcpy(ldgm_msg->buffer_num, buffer_num, sizeof(buffer_num));
-        memcpy(ldgm_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
-        ldgm_msg->pckt_list = pckt_list;
+        fec_msg = new struct fec_msg(max_substreams);
+        fec_msg->fec_description = fec_desc(fec::fec_type_from_pt(pt), k, m, c, seed);
+        fec_msg->poisoned = false;
+        memcpy(fec_msg->buffer_len, buffer_len, sizeof(buffer_len));
+        memcpy(fec_msg->buffer_num, buffer_num, sizeof(buffer_num));
+        memcpy(fec_msg->recv_buffers, recv_buffers, sizeof(recv_buffers));
+        fec_msg->pckt_list = pckt_list;
 
-        if(decoder->ldgm_queue.size() > 0) {
+        if(decoder->fec_queue.size() > 0) {
                 decoder->slow_msg.print("Your computer may be too SLOW to play this !!!");
         }
-        decoder->ldgm_queue.push(ldgm_msg);
+        decoder->fec_queue.push(fec_msg);
 cleanup:
         ;
         unsigned int frame_size = 0;

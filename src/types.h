@@ -111,10 +111,24 @@ struct video_desc {
         unsigned int         tile_count;
 };
 
-struct ldgm_desc {
+enum fec_type {
+        FEC_NONE = 0,
+        FEC_MULT = 1,
+        FEC_LDGM = 2,
+};
+
+struct fec_desc {
+        enum fec_type type;
         unsigned int k, m, c;
         unsigned int seed;
         unsigned int symbol_size;
+#ifdef __cplusplus
+        fec_desc() = default;
+        fec_desc(enum fec_type type_, unsigned int k_ = 0, unsigned int m_ = 0,
+                        unsigned int c_ = 0,
+                        unsigned int seed_ = 0,
+                        unsigned int ss_ = 0) : type(type_), k(k_), m(m_), c(c_), seed(seed_), symbol_size(ss_) {}
+#endif
 };
 
 /**
@@ -171,8 +185,7 @@ struct video_frame {
         int h264_width;
         int h264_height;
 
-        bool is_ldgm;
-        struct ldgm_desc ldgm_params;
+        struct fec_desc fec_params;
 };
 
 /**

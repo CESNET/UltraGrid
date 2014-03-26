@@ -56,6 +56,7 @@ OBJS	      = @OBJS@ \
 		src/tv.o \
 		src/transmit.o \
 		src/tfrc.o \
+		src/rtp/fec.o \
 		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
 		src/rtp/audio_decoders.o \
