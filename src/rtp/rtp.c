@@ -1062,15 +1062,15 @@ struct rtp *rtp_init_if(const char *addr, const char *iface,
         char *cname;
 
         if (ttl < 0) {
-                debug_msg("ttl must be greater than zero\n");
+                fprintf(stderr, "ttl must be greater than zero\n");
                 return NULL;
         }
         if (rx_port % 2) {
-                debug_msg("rx_port must be even\n");
+                fprintf(stderr, "rx_port must be even\n");
                 return NULL;
         }
         if (tx_port % 2) {
-                debug_msg("tx_port must be even\n");
+                fprintf(stderr, "tx_port must be even\n");
                 return NULL;
         }
 
