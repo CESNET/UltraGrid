@@ -102,6 +102,11 @@ ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(struct module *parent, struct
 
 ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
 {
+}
+
+void ultragrid_rtp_video_rxtx::join()
+{
+        video_rxtx::join();
         unique_lock<mutex> lk(m_async_sending_lock);
         m_async_sending_cv.wait(lk, [this]{return !m_async_sending;});
 }

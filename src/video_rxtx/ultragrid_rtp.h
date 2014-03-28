@@ -53,6 +53,7 @@ public:
                         long packet_rate, enum video_mode decoder_mode, const char *postprocess,
                         struct display *display_device);
         virtual ~ultragrid_rtp_video_rxtx();
+        virtual void join();
 private:
         static void *receiver_thread(void *arg);
         virtual void send_frame(struct video_frame *);

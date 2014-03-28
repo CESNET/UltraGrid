@@ -1037,6 +1037,8 @@ cleanup:
 
         /* also wait for audio threads */
         audio_join(uv->audio);
+        if (uv->state_video_rxtx)
+                uv->state_video_rxtx->join();
 
         if(uv->audio)
                 audio_done(uv->audio);

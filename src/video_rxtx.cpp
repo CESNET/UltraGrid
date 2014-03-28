@@ -118,13 +118,15 @@ video_rxtx::video_rxtx(struct module *parent, struct video_export *video_exporte
 }
 
 video_rxtx::~video_rxtx() {
-        send(NULL); // pass poisoned pill
-        pthread_join(m_thread_id, NULL);
-
         module_done(CAST_MODULE(m_compression));
 
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
+}
+
+void video_rxtx::join() {
+        send(NULL); // pass poisoned pill
+        pthread_join(m_thread_id, NULL);
 }
 
 const char *video_rxtx::get_name(enum rxtx_protocol proto) {
