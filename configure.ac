@@ -1898,17 +1898,24 @@ if test $system = Windows
 then
         JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release"
         DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $JPEG_LIB"
+        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+        AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
+        LIBS=$SAVED_LIBS
+        if test "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+                "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        then
+                found_libgpujpeg=yes
+        else
+                found_libgpujpeg=no
+        fi
+else
+        PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
 fi
 
-SAVED_LIBS=$LIBS
-LIBS="$LIBS $JPEG_LIB"
-AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
-AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
-LIBS=$SAVED_LIBS
-
 if test "$jpeg_req" != no -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
-        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        "$found_gpujpeg" = yes
 then
         jpeg=yes
 
@@ -1998,8 +2005,7 @@ AC_ARG_ENABLE(jpeg_to_dxt,
               [jpeg_to_dxt_req=auto])
 
 if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
-        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        "$found_gpujpeg" = yes
 then
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
