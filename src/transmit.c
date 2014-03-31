@@ -837,10 +837,10 @@ int rtpenc_h264_parse_nal_units(uint8_t *buf_in, int size,
 static uint8_t *rtpenc_h264_find_startcode_internal(uint8_t *start,
         uint8_t *end)
 {
-    uint8_t *p = start;
-    uint8_t *pend = end; // - 3; // XXX: w/o -3, p[1] and p[2] may fail.
+    //uint8_t *p = start;
+    //uint8_t *pend = end; // - 3; // XXX: w/o -3, p[1] and p[2] may fail.
 
-    for (p = start; p < pend; p++) {
+    for (uint8_t *p = start; p < end; p++) {
         if (p[0] == 0 && p[1] == 0 && p[2] == 1) {
             return p;
         }
@@ -885,13 +885,14 @@ int rtpenc_h264_parse_nal_units(uint8_t *buf_in, int size,
         }
         int nal_size = nal_end - nal_start;
 
-        size += nal_size;
+        if(nal_size > 4){
+            size += nal_size;
+            nals[(*nnals)].data = nal_start;
+            nals[(*nnals)].size = nal_size;
+            (*nnals)++;
 
-        nals[(*nnals)].data = nal_start;
-        nals[(*nnals)].size = nal_size;
-        (*nnals)++;
-
-        nal_start = nal_end;
+            nal_start = nal_end;
+    	}else nal_start += 3;
     }
     return size;
 }
@@ -1022,7 +1023,6 @@ static void tx_send_base_h264(struct tx *tx, struct tile *tile, struct rtp *rtp_
             }
         }
         else {
-
             uint8_t frag_header[2];
             int frag_header_size = 2;
 

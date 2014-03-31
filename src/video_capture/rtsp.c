@@ -386,20 +386,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
             s->vrtsp_state->frame->tiles[0].data = s->vrtsp_state->frame->h264_buffer;
 
             if(s->vrtsp_state->frame->h264_offset_len>0 && s->vrtsp_state->frame->h264_frame_type == INTRA){
-                if(s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len] == 0 &&
-                    s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len+1] == 0 &&
-                    s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len+2] == 0 &&
-                    s->vrtsp_state->frame->tiles[0].data[s->vrtsp_state->frame->h264_offset_len+3] == 1 ){
-
-                    memcpy(tmp, s->vrtsp_state->frame->tiles[0].data+4,s->vrtsp_state->frame->tiles[0].data_len-4);
-                    memcpy(tmp, s->vrtsp_state->frame->h264_offset_buffer, s->vrtsp_state->frame->h264_offset_len-4);
-                    s->vrtsp_state->frame->tiles[0].data_len-=4;
-                    memcpy(s->vrtsp_state->frame->tiles[0].data, tmp, s->vrtsp_state->frame->tiles[0].data_len);
-
-                }
-                else{
                     memcpy(s->vrtsp_state->frame->tiles[0].data, s->vrtsp_state->frame->h264_offset_buffer, s->vrtsp_state->frame->h264_offset_len);
-                }
             }
 
             if (s->vrtsp_state->decompress) {
