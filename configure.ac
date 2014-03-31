@@ -123,7 +123,7 @@ then
         then
                 OSX_SDK="macosx10.7"
         else
-                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libstdc++"
+                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libc++"
                 OSX_SDK="macosx10.8"
         fi
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
