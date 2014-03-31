@@ -1404,7 +1404,7 @@ static int reconfigure_if_needed(struct state_video_decoder *decoder,
 
                 decoder->reconfiguration_in_progress = true;
                 decoder->reconfiguration_future = std::async(std::launch::async,
-                                [&decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
+                                [decoder](){ return reconfigure_decoder(decoder, decoder->received_vid_desc); });
 
                 return TRUE;
         }
