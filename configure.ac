@@ -2049,6 +2049,10 @@ AC_ARG_ENABLE(sage-native-dxt5ycocg,
 	[native_ycocg=$enableval],
         [native_ycocg=no])
 
+AC_ARG_WITH(sage,
+	[  --with-sage=DIR         specify location of SAGE],
+	[SAGE_DIRECTORY=$withval])
+
 if test -n "$SAGE_DIRECTORY"
 then
         SAGE_INC=$SAGE_DIRECTORY/include
@@ -2062,11 +2066,6 @@ if test $native_ycocg = yes
 then
         AC_DEFINE([SAGE_NATIVE_DXT5YCOCG], [1], [Assume that SAGE supports native DXT5 YCoCg])
 fi
-
-AC_ARG_WITH(sage,
-	[  --with-sage=DIR         specify location of SAGE],
-	[SAGE_INC=$withval/include
-	 SAGE_LIB=$withval/lib])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})
