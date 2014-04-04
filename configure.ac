@@ -356,8 +356,6 @@ AC_CHECK_LIB(rt, timer_create)
 
 AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
 AC_CHECK_LIB(ieee, main, [MATHLIBS="-lieee $MATHLIBS"])
-AC_CHECK_FUNCS(inet_ntop)
-AC_CHECK_FUNCS(inet_pton)
 AC_SUBST(MATHLIBS)
 
 # -------------------------------------------------------------------------------------------------
@@ -1831,23 +1829,23 @@ AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
 
 if test -n "$NVCC"
 then
-        CUDA_PATH=`dirname $NVCC`
-        CUDA_PATH=`dirname $CUDA_PATH`
+        CUDA_PATH=`dirname "$NVCC"`
+        CUDA_PATH=`dirname "$CUDA_PATH"`
 
         if test $system = Windows; then
                 AC_CHECK_PROG([CL], [cl], [cl],
                               [])
-                if test -n $CL; then
+                if test -n "$CL"; then
                         FOUND_CUDA=yes
                 fi
         else
                 FOUND_CUDA=yes
         fi
 	AC_MSG_CHECKING([CUDA Toolkit version - major])
-        nvcc_major=`$NVCC --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_major)
 	AC_MSG_CHECKING([CUDA Toolkit version - minor])
-        nvcc_minor=`$NVCC --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
         CUDA_INC=-I$CUDA_PATH/include
@@ -1859,7 +1857,7 @@ then
                 CUDA_LIB_PATH="$CUDA_PATH/lib"
         fi
 
-        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
+        CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
 fi
 
 AC_SUBST(NVCC)

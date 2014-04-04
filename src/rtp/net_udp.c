@@ -51,8 +51,6 @@
 #include "config_win32.h"
 #include "debug.h"
 #include "memory.h"
-#include "compat/inet_pton.h"
-#include "compat/inet_ntop.h"
 #include "compat/platform_semaphore.h"
 #include "compat/vsnprintf.h"
 #include "net_udp.h"

@@ -90,8 +90,6 @@ OBJS	      = @OBJS@ \
 		src/capture_filter/scale.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
-		src/compat/inet_ntop.o \
-		src/compat/inet_pton.o \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
