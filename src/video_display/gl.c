@@ -540,7 +540,7 @@ static void screenshot(struct state_gl *s)
                                         s->buffers[s->image_display], len);
                 } else if (s->frame->color_spec == RGBA) {
                         vc_copylineRGBAtoRGB(data, (const unsigned char *)
-                                        s->buffers[s->image_display], len);
+                                        s->buffers[s->image_display], len, 0, 8, 16);
                 }
         }
 

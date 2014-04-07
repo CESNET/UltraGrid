@@ -377,7 +377,7 @@ struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_frame **au
          * opposite case.
          */
         vc_copylineABGRtoRGB((unsigned char *) s->tile->data,
-                        (unsigned char *) &item->data->data[0], s->tile->data_len);
+                        (unsigned char *) &item->data->data[0], s->tile->data_len, 0, 8, 16);
 
         XDestroyImage(item->data);
         free(item);
