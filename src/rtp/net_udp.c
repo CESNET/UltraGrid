@@ -1011,6 +1011,9 @@ void udp_exit(socket_udp * s)
 {
         if (s->multithreaded) {
                 pthread_cancel(s->thread_id);
+#ifdef WIN32
+                closesocket(s->fd);
+#endif
                 pthread_join(s->thread_id, NULL);
                 pthread_cond_destroy(&s->reader_cv);
                 pthread_cond_destroy(&s->boss_cv);
@@ -1077,13 +1080,17 @@ static void *udp_reader(void *arg)
 {
         socket_udp *s = (socket_udp *) arg;
 
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
         while (1) {
                 uint8_t *packet = (uint8_t *) malloc(RTP_MAX_PACKET_LEN);
                 uint8_t *buffer = ((uint8_t *) packet) + RTP_PACKET_HEADER_SIZE;
 
+                pthread_testcancel();
                 int size = recvfrom(s->fd, buffer,
                                 RTP_MAX_PACKET_LEN - RTP_PACKET_HEADER_SIZE,
                                 0, 0, 0);
+                pthread_testcancel();
 
                 pthread_mutex_lock(&s->lock);
                 while (s->queue_head->next == s->queue_tail) {

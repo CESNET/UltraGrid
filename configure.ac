@@ -1904,9 +1904,9 @@ then
         if test "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
                 "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
         then
-                found_libgpujpeg=yes
+                found_gpujpeg=yes
         else
-                found_libgpujpeg=no
+                found_gpujpeg=no
         fi
 else
         PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
