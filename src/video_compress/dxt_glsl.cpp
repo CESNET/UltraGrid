@@ -205,6 +205,15 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
         struct state_video_compress_rtdxt *s;
         const char *opts = params->cfg;
 
+        if(strcmp(opts, "help") == 0) {
+                printf("DXT GLSL comperssion usage:\n");
+                printf("\t-c RTDXT:DXT1\n");
+                printf("\t\tcompress with DXT1\n");
+                printf("\t-c RTDXT:DXT5\n");
+                printf("\t\tcompress with DXT5 YCoCg\n");
+                return &compress_init_noerr;
+        }
+
         s = (struct state_video_compress_rtdxt *) calloc(1, sizeof(struct state_video_compress_rtdxt));
 
         s->decoded = NULL;
@@ -214,15 +223,6 @@ struct module *dxt_glsl_compress_init(struct module *parent, const struct video_
         if(!init_gl_context(&s->gl_context, GL_CONTEXT_ANY)) {
                 fprintf(stderr, "[RTDXT] Error initializing GL context");
                 return NULL;
-        }
-
-        if(strcmp(opts, "help") == 0) {
-                printf("DXT GLSL comperssion usage:\n");
-                printf("\t-c RTDXT:DXT1\n");
-                printf("\t\tcompress with DXT1\n");
-                printf("\t-c RTDXT:DXT5\n");
-                printf("\t\tcompress with DXT5 YCoCg\n");
-                return &compress_init_noerr;
         }
 
         if (strcasecmp(opts, "DXT5") == 0) {
