@@ -490,7 +490,7 @@ int main(int argc, char **argv)
     }
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(port + 2);
+    state.decompress = hd_rum_decompress_init();
     if(!state.decompress) {
         return EXIT_INIT_PORT;
     }
