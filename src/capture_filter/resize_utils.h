@@ -9,7 +9,9 @@
 
 #include <opencv/cv.hpp>
 #include <opencv/cv.h>
+#include "types.h"
 
-int resize_frame(char *indata, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor);
+
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor);
 
 #endif// RESIZE_UTILS_H_

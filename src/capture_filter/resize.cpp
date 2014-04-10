@@ -63,9 +63,6 @@ extern "C" {
 
 #define MAX_TILES 16
 
-//FILE *F_save=NULL;
-
-
 struct module;
 
 static int init(struct module *parent, const char *cfg, void **state);
@@ -84,9 +81,8 @@ struct state_resize {
 static void usage() {
     printf("\nDownscaling by scale factor:\n\n");
     printf("resize usage:\n");
-    printf("\tresize:numerator[/denominator]\n\n");
+    printf("\tresize:numerator/denominator\n\n");
     printf("Downscaling example: resize:1/2 - downscale input frame size by scale factor of 2\n");
-    //printf("Upscaling example: resize:2 - upscale input frame size by scale factor of 2\n");
 }
 
 static int init(struct module *parent, const char *cfg, void **state)
@@ -124,7 +120,6 @@ static int init(struct module *parent, const char *cfg, void **state)
     s->reinit = 1;
     s->num = n;
     s->denom = denom;
-    s->frame = vf_alloc(MAX_TILES);
 
     *state = s;
     return 0;
@@ -146,8 +141,11 @@ static struct video_frame *filter(void *state, struct video_frame *in)
     unsigned int i;
     int res = 0;
     assert(in->tile_count <= MAX_TILES);
-    memcpy(s->frame, in, sizeof(struct video_frame));
-    memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
+
+    if(s->reinit==1){
+    	struct video_desc desc = video_desc_from_frame(in);
+    	s->frame = vf_alloc_desc_data(desc);
+    }
 
     for(i=0; i<s->frame->tile_count;i++){
         if(s->reinit==1){
@@ -161,28 +159,17 @@ static struct video_frame *filter(void *state, struct video_frame *in)
             s->reinit = 0;
         }
 
-        res = resize_frame(in->tiles[i].data, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->orig_width, s->orig_height, (double)s->num/s->denom);
+        res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->orig_width, s->orig_height, (double)s->num/s->denom);
 
         if(res!=0){
-            printf("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
-            printf("\t\t No scale factor applied at all. Bypassing original frame.\n");
-            return in;
+            error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
+            error_msg("\t\t No scale factor applied at all. No frame returns...\n");
+            return NULL;
         }else{
             s->frame->color_spec = RGB;
             s->frame->codec = RGB;
         }
     }
-
-    //    //MODUL DE CAPTURA AUDIO A FITXER PER COMPROVACIONS EN TX
-//                //CAPTURA FRAMES ABANS DE DESCODIFICAR PER COMPROVAR RECEPCIÓ.
-//                if(F_save==NULL){
-//                        printf("recording resized...\n");
-//                        F_save=fopen("rgb.raw", "wb");
-//                }
-//
-//                //fwrite(tx_frame->audio_data,tx_frame->audio_data_len,1,F_audio_tx_embed_BM);
-//                fwrite(s->frame->tiles[0].data, s->frame->tiles[0].data_len,1,F_save);
-    //    //FI CAPTURA
 
     return s->frame;
 }
