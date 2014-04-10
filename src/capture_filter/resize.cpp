@@ -1,5 +1,5 @@
 /*
- * FILE:    capture_filter/resize.c
+ * FILE:    capture_filter/resize.cpp
  * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
  *          Marc Palau          <marc.palau@i2cat.net>
  *
@@ -74,6 +74,7 @@ struct state_resize {
     int orig_width;
     int orig_height;
     int denom;
+    double scale_factor;
     int reinit;
     struct video_frame *frame;
 };
@@ -157,11 +158,12 @@ static struct video_frame *filter(void *state, struct video_frame *in)
             s->frame->tiles[i].height *= s->num;
             s->frame->tiles[i].height /= s->denom;
             s->frame->color_spec = RGB;
+            s->scale_factor = (double)s->num/s->denom;
             s->reinit = 0;
         	if(i==0) printf("[resize filter] resizing from %dx%d to %dx%d\n", in->tiles[i].width, in->tiles[i].height, s->frame->tiles[i].width, s->frame->tiles[i].height);
         }
 
-        res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->orig_width, s->orig_height, (double)s->num/s->denom);
+        res = resize_frame(in->tiles[i].data, in->color_spec, s->frame->tiles[i].data, &s->frame->tiles[i].data_len, s->orig_width, s->orig_height, s->scale_factor);
 
         if(res!=0){
             error_msg("\n[RESIZE ERROR] Unable to resize with scale factor configured [%d/%d] in tile number %d\n", s->num, s->denom, i);
