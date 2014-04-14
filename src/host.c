@@ -22,7 +22,7 @@
 
 long long bitrate = 0;
 unsigned int cuda_device = 0;
-unsigned int audio_capture_channels = 2;
+unsigned int audio_capture_channels = 1;
 
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
@@ -38,6 +38,8 @@ const char *sage_receiver = NULL;
 volatile bool should_exit_receiver = false;
 
 bool verbose = false;
+
+bool ldgm_device_gpu = false;
 
 int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
 

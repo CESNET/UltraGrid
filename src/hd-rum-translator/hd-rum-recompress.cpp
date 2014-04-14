@@ -142,7 +142,7 @@ static struct rtp *initialize_network(const char *host, int rx_port, int tx_port
 
         struct rtp *network_device = rtp_init(host, rx_port, tx_port, ttl,
                         rtcp_bw, FALSE, recompress_rtp_callback, (uint8_t *) udata,
-                        use_ipv6);
+                        use_ipv6, false);
         if(network_device) {
                 if(ssrc != -1) {
                         int ret = rtp_set_my_ssrc(network_device, ssrc);

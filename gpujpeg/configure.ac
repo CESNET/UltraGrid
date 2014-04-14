@@ -1,5 +1,5 @@
 AC_PREREQ([2.65])
-AC_INIT([libgpujpeg], [0.0.1], [martin.srom@mail.muni.cz], [libgpujpeg], [https://sourceforge.net/p/gpujpeg/])
+AC_INIT([libgpujpeg], [0.0.2], [martin.srom@mail.muni.cz], [libgpujpeg], [https://sourceforge.net/p/gpujpeg/])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_AUX_DIR([.])

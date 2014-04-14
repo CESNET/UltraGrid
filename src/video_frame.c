@@ -90,6 +90,7 @@ struct video_frame * vf_alloc_desc(struct video_desc desc)
                 memset(&buf->tiles[i], 0, sizeof(buf->tiles[i]));
                 buf->tiles[i].width = desc.width;
                 buf->tiles[i].height = desc.height;
+                buf->tiles[i].data_len = vc_get_linesize(desc.width, desc.color_spec) * desc.height;
         }
 
         return buf;

@@ -362,12 +362,6 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
     struct rtsp_state *s;
     s = (struct rtsp_state *) state;
 
-
-    //TODO FREEEEEEE
-    char * tmp = malloc(1920*1080*6);
-
-
-
     *audio = NULL;
 
     if(pthread_mutex_trylock(&s->vrtsp_state->lock)==0){
@@ -619,7 +613,7 @@ vidcap_rtsp_init(const struct vidcap_params *params) {
     s->should_exit = FALSE;
 
     s->vrtsp_state->device = rtp_init_if(NULL, s->vrtsp_state->mcast_if, s->vrtsp_state->port, 0, s->vrtsp_state->ttl, s->vrtsp_state->rtcp_bw,
-        0, rtp_recv_callback, (void *) s->vrtsp_state->participants, 0);
+        0, rtp_recv_callback, (void *) s->vrtsp_state->participants, false, true);
 
     if (s->vrtsp_state->device != NULL) {
         if (!rtp_set_option(s->vrtsp_state->device, RTP_OPT_WEAK_VALIDATION, 1)) {

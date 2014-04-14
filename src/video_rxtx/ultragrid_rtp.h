@@ -41,6 +41,9 @@
 #include "video_rxtx.h"
 #include "video_rxtx/rtp.h"
 
+#include <condition_variable>
+#include <mutex>
+
 class ultragrid_rtp_video_rxtx : public rtp_video_rxtx {
 public:
         ultragrid_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
@@ -48,29 +51,16 @@ public:
                         const char *receiver, int rx_port, int tx_port,
                         bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
                         long packet_rate, enum video_mode decoder_mode, const char *postprocess,
-                        struct display *display_device) :
-                rtp_video_rxtx(parent, video_exporter, requested_compression, requested_encryption,
-                                receiver, rx_port, tx_port,
-                                use_ipv6, mcast_if, requested_video_fec, mtu, packet_rate)
-        {
-                gettimeofday(&m_start_time, NULL);
-                m_decoder_mode = decoder_mode;
-                m_postprocess = postprocess;
-                m_display_device = display_device;
-                m_requested_encryption = requested_encryption;
-        }
+                        struct display *display_device);
         virtual ~ultragrid_rtp_video_rxtx();
-        static void *receiver_thread(void *arg) {
-                ultragrid_rtp_video_rxtx *s = static_cast<ultragrid_rtp_video_rxtx *>(arg);
-                return s->receiver_loop();
-        }
-        void *receiver_loop();
-protected:
-        virtual void send_frame(struct video_frame *);
+        virtual void join();
 private:
-        virtual void *(*get_receiver_thread())(void *arg) {
-                return receiver_thread;
-        }
+        static void *receiver_thread(void *arg);
+        virtual void send_frame(struct video_frame *);
+        void *receiver_loop();
+        static void *send_frame_async_callback(void *arg);
+        virtual void send_frame_async(struct video_frame *);
+        virtual void *(*get_receiver_thread())(void *arg);
 
         void receiver_process_messages();
         void remove_display_from_decoders();
@@ -83,6 +73,14 @@ private:
         const char      *m_postprocess;
         struct display  *m_display_device;
         const char      *m_requested_encryption;
+
+        /**
+         * This variables serve as a notification when asynchronous sending exits
+         * @{ */
+        bool             m_async_sending;
+        std::condition_variable m_async_sending_cv;
+        std::mutex       m_async_sending_lock;
+        /// @}
 };
 
 #endif // VIDEO_RXTX_ULTRAGRID_RTP_H_

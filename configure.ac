@@ -47,7 +47,7 @@ AC_CHECK_HEADERS(stropts.h sys/filio.h sys/wait.h)
 POST_COMPILE_MSG=""
 CFLAGS="$CFLAGS -I."
 CPPFLAGS="$CPPFLAGS -I."
-CXXLAGS="$CXXLAGS -I."
+CXXFLAGS="$CXXFLAGS -I. -D__STRICT_ANSI__ -std=c++0x"
 LIB_MODULES=
 AC_SUBST(LIBS)
 AC_SUBST(OBJS)
@@ -123,7 +123,7 @@ then
         then
                 OSX_SDK="macosx10.7"
         else
-                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libstdc++"
+                COMMON_OSX_FLAGS="$COMMON_OSX_FLAGS -stdlib=libc++"
                 OSX_SDK="macosx10.8"
         fi
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
@@ -356,8 +356,6 @@ AC_CHECK_LIB(rt, timer_create)
 
 AC_CHECK_FUNC(sin, MATHLIBS="", MATHLIBS="-lm")
 AC_CHECK_LIB(ieee, main, [MATHLIBS="-lieee $MATHLIBS"])
-AC_CHECK_FUNCS(inet_ntop)
-AC_CHECK_FUNCS(inet_pton)
 AC_SUBST(MATHLIBS)
 
 # -------------------------------------------------------------------------------------------------
@@ -1832,23 +1830,23 @@ AC_PATH_PROG(NVCC, nvcc, [], [$PATH$PATH_SEPARATOR$CUDA_PATH/bin]dnl
 
 if test -n "$NVCC"
 then
-        CUDA_PATH=`dirname $NVCC`
-        CUDA_PATH=`dirname $CUDA_PATH`
+        CUDA_PATH=`dirname "$NVCC"`
+        CUDA_PATH=`dirname "$CUDA_PATH"`
 
         if test $system = Windows; then
                 AC_CHECK_PROG([CL], [cl], [cl],
                               [])
-                if test -n $CL; then
+                if test -n "$CL"; then
                         FOUND_CUDA=yes
                 fi
         else
                 FOUND_CUDA=yes
         fi
 	AC_MSG_CHECKING([CUDA Toolkit version - major])
-        nvcc_major=`$NVCC --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+        nvcc_major=`"$NVCC" --version |grep release|sed  's/^.*release \(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_major)
 	AC_MSG_CHECKING([CUDA Toolkit version - minor])
-        nvcc_minor=`$NVCC --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
+        nvcc_minor=`"$NVCC" --version |grep release|sed  's/^.*release @<:@0-9@:>@@<:@0-9@:>@*\.\(@<:@0-9@:>@@<:@0-9@:>@*\).*$/\1/'`
 	AC_MSG_RESULT($nvcc_minor)
 
         CUDA_INC=-I$CUDA_PATH/include
@@ -1860,7 +1858,7 @@ then
                 CUDA_LIB_PATH="$CUDA_PATH/lib"
         fi
 
-        CUDA_LIB="-L$CUDA_LIB_PATH -lcudart"
+        CUDA_LIB="-L\"$CUDA_LIB_PATH\" -lcudart"
 fi
 
 AC_SUBST(NVCC)
@@ -1899,17 +1897,24 @@ if test $system = Windows
 then
         JPEG_LIB="$JPEG_LIB -Lgpujpeg/Release"
         DLL_LIBS="$DLL_LIBS gpujpeg/Release/gpujpeg.dll"
+        SAVED_LIBS=$LIBS
+        LIBS="$LIBS $JPEG_LIB"
+        AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
+        AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
+        LIBS=$SAVED_LIBS
+        if test "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
+                "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        then
+                found_gpujpeg=yes
+        else
+                found_gpujpeg=no
+        fi
+else
+        PKG_CHECK_MODULES([LIBGPUJPEG], [libgpujpeg >= 0.0.2 ], [found_gpujpeg=yes], [found_gpujpeg=no])
 fi
 
-SAVED_LIBS=$LIBS
-LIBS="$LIBS $JPEG_LIB"
-AC_CHECK_LIB([gpujpeg], [gpujpeg_encoder_create])
-AC_CHECK_HEADER([libgpujpeg/gpujpeg_decoder.h])
-LIBS=$SAVED_LIBS
-
 if test "$jpeg_req" != no -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
-        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        "$found_gpujpeg" = yes
 then
         jpeg=yes
 
@@ -1999,8 +2004,7 @@ AC_ARG_ENABLE(jpeg_to_dxt,
               [jpeg_to_dxt_req=auto])
 
 if test $jpeg_to_dxt_req != no -a $FOUND_CUDA = yes -a \
-        "$ac_cv_lib_gpujpeg_gpujpeg_encoder_create" = yes -a \
-        "$ac_cv_header_libgpujpeg_gpujpeg_decoder_h" = yes
+        "$found_gpujpeg" = yes
 then
         jpeg_to_dxt=yes
         JPEG_TO_DXT_INC=" $CUDA_INC"
@@ -2044,6 +2048,10 @@ AC_ARG_ENABLE(sage-native-dxt5ycocg,
 	[native_ycocg=$enableval],
         [native_ycocg=no])
 
+AC_ARG_WITH(sage,
+	[  --with-sage=DIR         specify location of SAGE],
+	[SAGE_DIRECTORY=$withval])
+
 if test -n "$SAGE_DIRECTORY"
 then
         SAGE_INC=$SAGE_DIRECTORY/include
@@ -2057,11 +2065,6 @@ if test $native_ycocg = yes
 then
         AC_DEFINE([SAGE_NATIVE_DXT5YCOCG], [1], [Assume that SAGE supports native DXT5 YCoCg])
 fi
-
-AC_ARG_WITH(sage,
-	[  --with-sage=DIR         specify location of SAGE],
-	[SAGE_INC=$withval/include
-	 SAGE_LIB=$withval/lib])
 
 AC_CHECK_FILE(${SAGE_INC}/sail.h, FOUND_SAGE_H=yes, FOUND_SAGE_H=no)
 AC_CHECK_LIB(sail, main, FOUND_SAGE_L=yes, FOUND_SAGE_L=no, -lquanta -I${SAGE_INC} -L${SAGE_LIB})

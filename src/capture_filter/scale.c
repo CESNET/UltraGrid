@@ -1,5 +1,5 @@
 /*
- * FILE:    capture_filter/every.c
+ * FILE:    capture_filter/scale.c
  * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
  *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
  *          Petr Holub       <hopet@ics.muni.cz>
@@ -58,8 +58,7 @@
 
 #include "video.h"
 #include "video_codec.h"
-
-#define MAX_TILES 16
+#include "utils/video_frame_pool.h"
 
 struct module;
 
@@ -67,44 +66,23 @@ static int init(struct module *parent, const char *cfg, void **state);
 static void done(void *state);
 static struct video_frame *filter(void *state, struct video_frame *in);
 
-struct state_every {
-        int num;
-        int denom;
-        int current;
+struct state_scale {
         struct video_frame *frame;
 };
 
-static void usage() {
-        printf("Passes only every n-th frame:\n\n");
-        printf("every usage:\n");
-        printf("\tevery:numerator[/denominator]\n\n");
-        printf("Example: every:2 - every second frame will be dropped\n");
-}
-
 static int init(struct module *parent, const char *cfg, void **state)
 {
-        UNUSED(parent);
+        struct video_desc desc;
 
-        int n;
-        int denom = 1;;
-        if(cfg) {
-                if(strcasecmp(cfg, "help") == 0) {
-                        usage();
-                        return 1;
-                }
-                n = atoi(cfg);
-                if(strchr(cfg, '/')) {
-                        denom = atoi(strchr(cfg, '/') + 1);
-                }
-        } else {
-                usage();
-                return -1;
-        }
-
-        struct state_every *s = calloc(1, sizeof(struct state_every));
-        s->num = n;
-        s->denom = denom;
-        s->frame = vf_alloc(MAX_TILES);
+        struct state_scale *s = (struct state_scale *) calloc(1, sizeof(struct state_scale));
+        desc.width = 3840;
+        desc.height = 2160;
+        desc.color_spec = UYVY;
+        desc.fps = 25;
+        desc.interlacing = PROGRESSIVE;
+        desc.tile_count = 1;
+        s->frame = vf_alloc_desc(desc);
+        s->frame->tiles[0].data = (char *) malloc(s->frame->tiles[0].data_len);
 
         *state = s;
         return 0;
@@ -112,34 +90,36 @@ static int init(struct module *parent, const char *cfg, void **state)
 
 static void done(void *state)
 {
-        struct state_every *s = state;
+        struct state_scale *s = (struct state_scale *) state;
 
         vf_free(s->frame);
         free(state);
 }
 
-static struct video_frame *filter(void *state, struct video_frame *in)
+static struct video_frame *filter(void *state, struct video_frame *in_frame)
 {
-        struct state_every *s = state;
+        struct state_scale *s = (struct state_scale *) state;
 
-        assert(in->tile_count <= MAX_TILES);
-        struct tile *tiles = s->frame->tiles;
-        memcpy(s->frame, in, sizeof(struct video_frame));
-        s->frame->tiles = tiles;
-        memcpy(s->frame->tiles, in->tiles, in->tile_count * sizeof(struct tile));
-        s->frame->fps /= (double) s->num / s->denom;
-
-        if(s->current < s->denom) {
-                s->current++;
-                return s->frame;
-        } else {
-                s->current = (s->current + 1) % s->num;
-                return NULL;
+        uint32_t *in = (uint32_t *) in_frame->tiles[0].data;
+        uint32_t *out1 = (uint32_t *) s->frame->tiles[0].data;
+        uint32_t *out2 = (uint32_t *) (s->frame->tiles[0].data +
+                vc_get_linesize(3840, in_frame->color_spec));
+        for (int y = 0; y < 2160; y += 2) {
+                for (int x = 0; x < 3840; x += sizeof(uint32_t)) {
+                        *out1++ = *out2++ = *in;
+                        *out1++ = *out2++ = *in++;
+                }
+                out1 += vc_get_linesize(3840, in_frame->color_spec) / sizeof(uint32_t);
+                out2 += vc_get_linesize(3840, in_frame->color_spec) / sizeof(uint32_t);
         }
+        
+        VIDEO_FRAME_DISPOSE(in_frame);
+
+        return s->frame;
 }
 
-struct capture_filter_info capture_filter_every = {
-        .name = "every",
+struct capture_filter_info capture_filter_scale = {
+        .name = "scale",
         .init = init,
         .done = done,
         .filter = filter,

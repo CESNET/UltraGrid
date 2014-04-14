@@ -85,33 +85,48 @@ video_rxtx::video_rxtx(struct module *parent, struct video_export *video_exporte
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
         module_register(&m_receiver_mod, parent);
 
-        int ret = compress_init(&m_sender_mod, requested_compression, &m_compression);
-        if(ret != 0) {
-                if(ret < 0) {
-                        throw string("Error initializing compression.");
-                }
-                if(ret > 0) {
-                        throw string("Error initializing compression.");
-                }
-        }
+        m_compression = nullptr;
 
-        pthread_mutex_init(&m_lock, NULL);
+        try {
+                int ret = compress_init(&m_sender_mod, requested_compression, &m_compression);
+                if(ret != 0) {
+                        if(ret < 0) {
+                                throw string("Error initializing compression.");
+                        }
+                        if(ret > 0) {
+                                throw EXIT_SUCCESS;
+                        }
+                }
 
-        if (pthread_create
-                        (&m_thread_id, NULL, video_rxtx::sender_thread,
-                         (void *) this) != 0) {
-                throw string("Unable to create sender thread!\n");
+                pthread_mutex_init(&m_lock, NULL);
+
+                if (pthread_create
+                                (&m_thread_id, NULL, video_rxtx::sender_thread,
+                                 (void *) this) != 0) {
+                        throw string("Unable to create sender thread!\n");
+                }
+        } catch (...) {
+                if (m_compression) {
+                        module_done(CAST_MODULE(m_compression));
+                }
+
+                module_done(&m_receiver_mod);
+                module_done(&m_sender_mod);
+
+                throw;
         }
 }
 
 video_rxtx::~video_rxtx() {
-        send(NULL); // pass poisoned pill
-        pthread_join(m_thread_id, NULL);
-
         module_done(CAST_MODULE(m_compression));
 
         module_done(&m_receiver_mod);
         module_done(&m_sender_mod);
+}
+
+void video_rxtx::join() {
+        send(NULL); // pass poisoned pill
+        pthread_join(m_thread_id, NULL);
 }
 
 const char *video_rxtx::get_name(enum rxtx_protocol proto) {
@@ -137,6 +152,15 @@ void *video_rxtx::sender_thread(void *args) {
         return static_cast<video_rxtx *>(args)->sender_loop();
 }
 
+void video_rxtx::check_sender_messages() {
+        // process external messages
+        struct message *msg_external;
+        while((msg_external = check_message(&m_sender_mod))) {
+                process_message((struct msg_sender *) msg_external);
+                free_message(msg_external);
+        }
+}
+
 void *video_rxtx::sender_loop() {
         struct video_desc saved_vid_desc;
 
@@ -147,12 +171,7 @@ void *video_rxtx::sender_loop() {
                         control_mod, "data");
 
         while(1) {
-                // process external messages
-                struct message *msg_external;
-                while((msg_external = check_message(&m_sender_mod))) {
-                        process_message((struct msg_sender *) msg_external);
-                        free_message(msg_external);
-                }
+                check_sender_messages();
 
                 struct video_frame *tx_frame = NULL;
 
@@ -165,8 +184,6 @@ void *video_rxtx::sender_loop() {
                 if (!m_paused) {
                         send_frame(tx_frame);
                 }
-
-                VIDEO_FRAME_DISPOSE(tx_frame);
 
                 if (dynamic_cast<rtp_video_rxtx *>(this)) {
                         rtp_video_rxtx *rtp_rxtx = dynamic_cast<rtp_video_rxtx *>(this);

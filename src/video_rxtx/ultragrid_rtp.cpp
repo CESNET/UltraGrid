@@ -53,7 +53,9 @@
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
+#include "rtp/ldgm.h"
 #include "rtp/rtp.h"
+#include "rtp/rtp_callback.h"
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
 #include "tfrc.h"
@@ -68,11 +70,87 @@
 #include "video_export.h"
 #include "video_rxtx.h"
 #include "video_rxtx/ultragrid_rtp.h"
+#include "utils/worker.h"
+
+#include <utility>
 
 using namespace std;
 
+ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
+                const char *requested_compression, const char *requested_encryption,
+                const char *receiver, int rx_port, int tx_port,
+                bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
+                long packet_rate, enum video_mode decoder_mode, const char *postprocess,
+                struct display *display_device) :
+        rtp_video_rxtx(parent, video_exporter, requested_compression, requested_encryption,
+                        receiver, rx_port, tx_port,
+                        use_ipv6, mcast_if, requested_video_fec, mtu, packet_rate)
+{
+        if((postprocess && strstr(postprocess, "help") != NULL)) {
+                struct state_video_decoder *dec = video_decoder_init(NULL, VIDEO_NORMAL, postprocess, NULL, NULL);
+                video_decoder_destroy(dec);
+                throw EXIT_SUCCESS;
+        }
+
+        gettimeofday(&m_start_time, NULL);
+        m_decoder_mode = decoder_mode;
+        m_postprocess = postprocess;
+        m_display_device = display_device;
+        m_requested_encryption = requested_encryption;
+        m_async_sending = false;
+}
+
+ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
+{
+}
+
+void ultragrid_rtp_video_rxtx::join()
+{
+        video_rxtx::join();
+        unique_lock<mutex> lk(m_async_sending_lock);
+        m_async_sending_cv.wait(lk, [this]{return !m_async_sending;});
+}
+
+void *ultragrid_rtp_video_rxtx::receiver_thread(void *arg) {
+        ultragrid_rtp_video_rxtx *s = static_cast<ultragrid_rtp_video_rxtx *>(arg);
+        return s->receiver_loop();
+}
+
+void *(*ultragrid_rtp_video_rxtx::get_receiver_thread())(void *arg) {
+        return receiver_thread;
+}
+
 void ultragrid_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
 {
+        if (m_fec_state) {
+                struct video_frame *old_frame = tx_frame;
+                tx_frame = m_fec_state->encode(tx_frame);
+                VIDEO_FRAME_DISPOSE(old_frame);
+        }
+
+        auto data = new pair<ultragrid_rtp_video_rxtx *, struct video_frame *>(this, tx_frame);
+
+        unique_lock<mutex> lk(m_async_sending_lock);
+        m_async_sending_cv.wait(lk, [this]{return !m_async_sending;});
+        m_async_sending = true;
+        task_run_async_detached(ultragrid_rtp_video_rxtx::send_frame_async_callback,
+                        (void *) data);
+}
+
+void *ultragrid_rtp_video_rxtx::send_frame_async_callback(void *arg) {
+        auto data = (pair<ultragrid_rtp_video_rxtx *, struct video_frame *> *) arg;
+
+        data->first->send_frame_async(data->second);
+        delete data;
+
+        return NULL;
+}
+
+
+void ultragrid_rtp_video_rxtx::send_frame_async(struct video_frame *tx_frame)
+{
+        lock_guard<mutex> lock(m_network_devices_lock);
+
         if (m_connections_count == 1) { /* normal case - only one connection */
                 tx_send(m_tx, tx_frame,
                                 m_network_devices[0]);
@@ -89,16 +167,21 @@ void ultragrid_rtp_video_rxtx::send_frame(struct video_frame *tx_frame)
 
                 vf_free(split_frames);
         }
-}
 
-ultragrid_rtp_video_rxtx::~ultragrid_rtp_video_rxtx()
-{
+        VIDEO_FRAME_DISPOSE(tx_frame);
+
+        m_async_sending_lock.lock();
+        m_async_sending = false;
+        m_async_sending_cv.notify_all();
+        m_async_sending_lock.unlock();
 }
 
 void ultragrid_rtp_video_rxtx::receiver_process_messages()
 {
         struct msg_receiver *msg;
         while ((msg = (struct msg_receiver *) check_message(&m_receiver_mod))) {
+                lock_guard<mutex> lock(m_network_devices_lock);
+
                 switch (msg->type) {
                 case RECEIVER_MSG_CHANGE_RX_PORT:
                         assert(rxtx_mode == MODE_RECEIVER); // receiver only
@@ -118,10 +201,7 @@ void ultragrid_rtp_video_rxtx::receiver_process_messages()
                                 struct pdb_e *cp = pdb_iter_init(m_participants, &it);
                                 while (cp) {
                                         pbuf_set_playout_delay(cp->playout_buffer,
-                                                        1.0 / msg->new_desc.fps,
-                                                        1.0 / msg->new_desc.fps *
-                                                        (is_codec_interframe(msg->new_desc.color_spec) ? 2.2 : 1.2)
-                                                        );
+                                                        1.0 / msg->new_desc.fps);
 
                                         cp = pdb_iter_next(&it);
                                 }
@@ -235,7 +315,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
                 timeout.tv_usec = 10000;
-                ret = rtp_recv_poll_r(m_network_devices, &timeout, ts);
+                ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
 
                 // timeout
                 if (ret == FALSE) {

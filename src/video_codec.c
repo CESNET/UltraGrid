@@ -818,8 +818,10 @@ void vc_copylineRGB(unsigned char *dst, const unsigned char *src, int dst_len, i
  * @brief Converts from RGBA to RGB
  * @copydetails vc_copylinev210
  */
-void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
+void vc_copylineRGBAtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
+        assert(rshift == 0 && gshift == 8 && bshift == 16);
+
 	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
@@ -872,8 +874,10 @@ void vc_copylineRGBAtoRGBwithShift(unsigned char *dst2, const unsigned char *src
  * @see vc_copylineRGBAtoRGBwithShift
  * @see vc_copylineRGBAtoRGB
  */
-void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len)
+void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int dst_len, int rshift, int gshift, int bshift)
 {
+        assert(rshift == 0 && gshift == 8 && bshift == 16);
+
 	register const uint32_t * src = (const uint32_t *)(const void *) src2;
 	register uint32_t * dst = (uint32_t *)(void *) dst2;
         while(dst_len > 0) {
@@ -1054,18 +1058,25 @@ void vc_copylineRGBAtoUYVY(unsigned char *dst, const unsigned char *src, int dst
  * Converts BGR to RGB.
  * @copydetails vc_copylinev210
  */
-void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len)
+void vc_copylineBGRtoRGB(unsigned char *dst, const unsigned char *src, int dst_len, int rshift, int gshift, int bshift)
 {
         register int r, g, b;
 
-        while(dst_len > 0) {
-                b = *src++;
-                g = *src++;
-                r = *src++;
-                *dst++ = r;
-                *dst++ = g;
-                *dst++ = b;
-                dst_len -= 3;
+        assert((rshift == 0 && gshift == 8 && bshift == 16) ||
+                        (rshift == 16 && gshift == 8 && bshift == 0));
+
+        if (rshift == 16 && gshift == 8 && bshift == 0) {
+                memcpy(dst, src, dst_len);
+        } else {
+                while(dst_len > 0) {
+                        b = *src++;
+                        g = *src++;
+                        r = *src++;
+                        *dst++ = r;
+                        *dst++ = g;
+                        *dst++ = b;
+                        dst_len -= 3;
+                }
         }
 }
 

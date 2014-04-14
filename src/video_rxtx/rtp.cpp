@@ -55,6 +55,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
+#include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
@@ -96,6 +97,16 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
                 case SENDER_MSG_PLAY:
                         m_paused = false;
                         break;
+                case SENDER_MSG_CHANGE_FEC:
+                        {
+                                delete m_fec_state;
+                                m_fec_state = fec::create_from_config(msg->fec_cfg);
+                                if (!m_fec_state) {
+                                        fprintf(stderr, "Unable to initalize LDGM!\n");
+                                        exit_uv(1);
+                                }
+                        }
+                        break;
         }
 }
 
@@ -105,9 +116,10 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
                 const char *receiver, int rx_port, int tx_port,
                 bool use_ipv6, const char *mcast_if, const char *requested_video_fec,
                 int requested_mtu, long packet_rate) :
-        video_rxtx(parent, video_exporter, requested_compression)
+        video_rxtx(parent, video_exporter, requested_compression),
+        m_fec_state(NULL)
 {
-        if(requested_mtu > RTP_MAX_PACKET_LEN) {
+        if(requested_mtu > RTP_MAX_MTU) {
                 ostringstream oss;
                 oss << "Requested MTU exceeds maximal value allowed by RTP library (" <<
                         RTP_MAX_PACKET_LEN << ").";
@@ -139,6 +151,10 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
                                         requested_encryption, packet_rate)) == NULL) {
                 throw string("Unable to initialize transmitter");
         }
+
+        // The idea of doing that is to display help on '-f ldgm:help' even if UG would exit
+        // immediatelly. The encoder is actually created by a message.
+        check_sender_messages();
 }
 
 rtp_video_rxtx::~rtp_video_rxtx()
@@ -146,6 +162,10 @@ rtp_video_rxtx::~rtp_video_rxtx()
         if (m_tx) {
                 module_done(CAST_MODULE(m_tx));
         }
+
+        m_network_devices_lock.lock();
+        destroy_rtp_devices(m_network_devices);
+        m_network_devices_lock.unlock();
 
         if (m_participants != NULL) {
                 pdb_iter_t it;
@@ -159,10 +179,14 @@ rtp_video_rxtx::~rtp_video_rxtx()
                 pdb_iter_done(&it);
                 pdb_destroy(&m_participants);
         }
+
+        delete m_fec_state;
 }
 
 void rtp_video_rxtx::change_tx_port(int tx_port)
 {
+        lock_guard<mutex> lock(m_network_devices_lock);
+
         destroy_rtp_devices(m_network_devices);
         m_send_port_number = tx_port;
         m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number,
@@ -237,7 +261,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                 devices[index] = rtp_init_if(addr, mcast_if, recv_port,
                                 send_port, ttl, rtcp_bw, FALSE,
                                 rtp_recv_callback, (uint8_t *)participants,
-                                use_ipv6);
+                                use_ipv6, true);
                 if (devices[index] != NULL) {
                         rtp_set_option(devices[index], RTP_OPT_WEAK_VALIDATION,
                                 TRUE);
@@ -251,7 +275,7 @@ struct rtp **rtp_video_rxtx::initialize_network(const char *addrs, int recv_port
                                 display_buf_increase_warning(size);
                         }
 
-                        rtp_set_send_buf(devices[index], 1024 * 56);
+                        rtp_set_send_buf(devices[index], INITIAL_VIDEO_SEND_BUFFER_SIZE);
 
                         pdb_add(participants, rtp_my_ssrc(devices[index]));
                 }

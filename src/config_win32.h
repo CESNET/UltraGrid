@@ -251,8 +251,6 @@ void ShowMessage(int level, char *msg);
 // MinGW-w64 defines some broken macro for strtok_r in pthread.h
 #undef strtok_r
 
-#include "compat/inet_ntop.h"
-#include "compat/inet_pton.h"
 #include "compat/gettimeofday.h"
 #define gettimeofday gettimeofday_replacement
 
@@ -274,6 +272,9 @@ static inline long sysconf_replacement(int name) {
 #define SHUT_RD SD_RECEIVE
 #define SHUT_WR SD_SEND
 #define SHUT_RDWR SD_BOTH
+
+#define inet_pton InetPtonA
+#define inet_ntop InetNtopA
 
 #endif 
 #endif

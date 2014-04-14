@@ -81,14 +81,12 @@ static volatile int should_exit = false;
 /*
  * this is currently only placeholder to substitute UG default
  */
-static void _exit_uv(int status);
-static void _exit_uv(int status) {
+void exit_uv(int status) {
     UNUSED(status);
     should_exit = true;
     if(!pthread_equal(pthread_self(), main_thread_id))
             pthread_kill(main_thread_id, SIGTERM);
 }
-void (*exit_uv)(int status) = _exit_uv;
 
 static void signal_handler(int signal)
 {
@@ -103,7 +101,7 @@ static void signal_handler(int signal)
 
 static ssize_t replica_write(struct replica *s, void *buf, size_t count)
 {
-        return write(s->sock, buf, count);
+        return send(s->sock, buf, count, 0);
 }
 
 static void replica_done(struct replica *s)
@@ -372,7 +370,6 @@ static void hd_rum_translator_state_destroy(struct hd_rum_translator_state *s)
     module_done(&s->mod);
 }
 
-#ifndef WIN32
 int main(int argc, char **argv)
 {
     struct hd_rum_translator_state state;
@@ -390,6 +387,21 @@ int main(int argc, char **argv)
     int host_count;
     int control_port = CONTROL_DEFAULT_PORT;
     struct control_state *control_state = NULL;
+#ifdef WIN32
+    WSADATA wsaData;
+
+    err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if(err != 0) {
+        fprintf(stderr, "WSAStartup failed with error %d.", err);
+        return EXIT_FAILURE;
+    }
+    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+        fprintf(stderr, "Counld not found usable version of Winsock.\n");
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
+
+#endif
 
     if (argc < 4) {
         usage(argv[0]);
@@ -400,6 +412,7 @@ int main(int argc, char **argv)
 
     main_thread_id = pthread_self();
 
+#ifndef WIN32
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = signal_handler;
@@ -407,10 +420,13 @@ int main(int argc, char **argv)
 
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
-#ifndef WIN32
     sigaction(SIGHUP, &sa, NULL);
-#endif
     sigaction(SIGABRT, &sa, NULL);
+#else
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+    signal(SIGABRT, signal_handler);
+#endif
 
     parse_fmt(argc, argv, &bufsize_str, &port, &hosts, &host_count, &control_port);
 
@@ -489,8 +505,6 @@ int main(int argc, char **argv)
         module_init_default(&state.replicas[i].mod);
         state.replicas[i].mod.cls = MODULE_CLASS_PORT;
 
-                    fprintf(stderr, "%d %s\n", hosts[i].packet_rate, hosts[i].addr);
-
         if(hosts[i].compression == NULL) {
             state.replicas[i].type = USE_SOCK;
             int mtu = 1500;
@@ -549,7 +563,7 @@ int main(int argc, char **argv)
     /* main loop */
     while (!should_exit) {
         while (state.qtail->next != state.qhead
-               && (state.qtail->size = read(sock_in, state.qtail->buf, SIZE)) > 0
+               && (state.qtail->size = recv(sock_in, state.qtail->buf, SIZE, 0)) > 0
                && !should_exit) {
             received_data += state.qtail->size;
 
@@ -616,17 +630,13 @@ int main(int argc, char **argv)
 
     hd_rum_translator_state_destroy(&state);
 
+#ifdef WIN32
+    WSACleanup();
+#endif
+
     printf("Exit\n");
 
     return 0;
 }
-#else // WIN32
-#include <stdio.h>
-int main()
-{
-    fprintf(stderr, "Reflector is currently not supported under MSW\n");
-    return 1;
-}
-#endif
 
 /* vim: set sw=4 expandtab : */

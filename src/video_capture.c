@@ -613,7 +613,7 @@ static bool vidcap_dispatch_alias(struct vidcap_params *params)
                         params->fmt = strdup(delim + 1);
                         *delim = '\0';
                 } else {
-                        params->fmt = params->driver + strlen(params->driver); // is '\0'
+                        params->fmt = strdup("");
                 }
                 ret = true;
         }

@@ -51,8 +51,9 @@ extern "C" {
 #endif
 
 #define RTP_VERSION 2
-#define RTP_PACKET_HEADER_SIZE	((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
-#define RTP_MAX_PACKET_LEN 9000
+#define RTP_PACKET_HEADER_SIZE ((sizeof(char *) * 2) + sizeof(uint32_t *) + (2 * sizeof(int)))
+#define RTP_MAX_MTU 9000
+#define RTP_MAX_PACKET_LEN (RTP_MAX_MTU+RTP_PACKET_HEADER_SIZE)
 
 #if !defined(WORDS_BIGENDIAN) && !defined(WORDS_SMALLENDIAN)
 #error RTP library requires WORDS_BIGENDIAN or WORDS_SMALLENDIAN to be defined.
@@ -222,14 +223,14 @@ rtp_t		rtp_init(const char *addr,
 			 int tfrc_on,
 			 rtp_callback callback,
 			 uint8_t *userdata,
-                         bool use_ipv6);
+                         bool use_ipv6, bool multithreaded);
 rtp_t		rtp_init_if(const char *addr, const char *iface,
 			    uint16_t rx_port, uint16_t tx_port, 
 			    int ttl, double rtcp_bw, 
 			    int tfrc_on,
 			    rtp_callback callback,
 			    uint8_t *userdata,
-                            bool use_ipv6);
+                            bool use_ipv6, bool multithreaded);
 
 void		 rtp_send_bye(struct rtp *session);
 void		 rtp_done(struct rtp *session);

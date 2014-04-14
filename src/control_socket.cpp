@@ -151,7 +151,7 @@ static fd_t create_internal_port(int *port)
         s_in.sin6_family = AF_INET6;
         s_in.sin6_addr = in6addr_any;
         s_in.sin6_port = htons(0);
-        assert(bind(sock, (const struct sockaddr *) &s_in,
+        assert(::bind(sock, (const struct sockaddr *) &s_in,
                         sizeof(s_in)) == 0);
         assert(listen(sock, 10) == 0);
         socklen_t len = sizeof(s_in);

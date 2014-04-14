@@ -38,7 +38,7 @@ class LDGM_session : public Coding_session
     public:
 	/* ====================  LIFECYCLE     ======================================= */
 	LDGM_session ();                               /* constructor **/
-	~LDGM_session ();                              /* destructor **/
+	virtual ~LDGM_session ();                      /* destructor **/
 
 	/* ====================  ACCESSORS     ======================================= */
 	/**
@@ -90,6 +90,9 @@ class LDGM_session : public Coding_session
 		param_m = m;
 		row_weight = rw;
 	    }
+
+        virtual void
+            free_out_buf (char *buf) = 0;
 		    
 
     protected:

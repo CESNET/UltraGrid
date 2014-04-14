@@ -1,32 +1,23 @@
+/**
+ * @file   fec.h
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    utils/resource_manager.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2014 CESNET z.s.p.o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of the CESNET nor the names of its contributors may be
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
  *    used to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
@@ -42,33 +33,39 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#include "config_unix.h"
-#include "config_win32.h"
-#endif // HAVE_CONFIG_H
- 
-#ifndef WORKER_H_
-#define WORKER_H
+#ifndef FEC_H_
+#define FEC_H_
+
+#include "types.h"
+
+#ifdef __cplusplus
+#include <map>
+
+struct video_frame;
+
+struct fec {
+        virtual struct video_frame *encode(struct video_frame *) = 0;
+        virtual void decode(const char *in, int in_len, char **out, int *len,
+                        const std::map<int, int> &) = 0;
+        virtual ~fec() {}
+
+        static fec *create_from_config(const char *str);
+        static fec *create_from_desc(struct fec_desc);
+        static int pt_from_fec_type(enum fec_type type, bool encrypted) throw();
+        static enum fec_type fec_type_from_pt(int pt) throw();
+};
+#endif // __cplusplus
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef void *task_result_handle_t;
-typedef void *(*task_t)(void *);
-
-task_result_handle_t task_run_async(task_t task, void *data);
-void task_run_async_detached(task_t task, void *data);
-void *wait_task(task_result_handle_t handle);
-
-
+int fec_pt_from_fec_type(enum fec_type type, bool encrypted);
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* WORKER_H_ */
+
+#endif // FEC_H_
 

@@ -52,8 +52,8 @@ extern "C" {
 #endif
 
 int         udp_addr_valid(const char *addr);
-socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6);
-socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6);
+socket_udp *udp_init(const char *addr, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded);
+socket_udp *udp_init_if(const char *addr, const char *iface, uint16_t rx_port, uint16_t tx_port, int ttl, bool use_ipv6, bool multithreaded);
 void        udp_exit(socket_udp *s);
 
 int         udp_peek(socket_udp *s, char *buffer, int buflen);
@@ -91,6 +91,8 @@ int         udp_fd_isset_r(socket_udp *s, struct udp_fd_r *);
 
 int         udp_change_dest(socket_udp *s, const char *addr);
 
+int         udp_recv_data(socket_udp * s, char **buffer);
+bool        udp_not_empty(socket_udp *s, struct timeval *timeout);
 
 /*************************************************************************************************/
 #if defined(__cplusplus)

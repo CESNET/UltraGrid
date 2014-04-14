@@ -56,6 +56,7 @@ OBJS	      = @OBJS@ \
 		src/tv.o \
 		src/transmit.o \
 		src/tfrc.o \
+		src/rtp/fec.o \
 		src/rtp/ldgm.o \
 		src/rtp/pbuf.o \
 		src/rtp/audio_decoders.o \
@@ -86,10 +87,9 @@ OBJS	      = @OBJS@ \
 		src/capture_filter/every.o \
 		src/capture_filter/logo.o \
 		src/capture_filter/none.o \
+		src/capture_filter/scale.o \
 		src/compat/drand48.o \
 		src/compat/gettimeofday.o \
-		src/compat/inet_ntop.o \
-		src/compat/inet_pton.o \
 		src/compat/platform_semaphore.o \
 		src/compat/platform_spin.o \
 		src/compat/platform_time.o \
@@ -187,9 +187,9 @@ $(REFLECTOR_TARGET): bindir $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 
 # Pattern rule for compiling CUDA files
 %.cu.o: %.cu $(ALL_INCLUDES)
-	$(NVCC) $(NVCCFLAGS) $(INC) -c $< -o $@
+	"$(NVCC)" $(NVCCFLAGS) $(INC) -c $< -o $@
 %.cu.lib: %.cu $(ALL_INCLUDES)
-	$(NVCC) $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
+	"$(NVCC)" $(NVCCFLAGS) -DEXPORT_DLL_SYMBOLS $(INC) --shared $< -o $<.dll
 
 src/audio/resample.o:
 	$(CC) $(CFLAGS) $(INC) -DEXPORT="" -DRANDOM_PREFIX=speex -DFLOATING_POINT -DOUTSIDE_SPEEX -I. -I speex-1.2rc1/include/speex -Iinclude -fvisibility=hidden  -c speex-1.2rc1/libspeex/resample.c  -fPIC -DPIC -o $@

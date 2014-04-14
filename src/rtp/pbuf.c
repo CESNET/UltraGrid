@@ -51,9 +51,6 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $Revision: 1.7 $
- * $Date: 2010/02/05 14:06:17 $
- *
  */
 
 #include "config.h"
@@ -71,15 +68,12 @@
 
 #define STATS_INTERVAL 1000
 
-extern long frame_begin[2];
-
 struct pbuf_node {
         struct pbuf_node *nxt;
         struct pbuf_node *prv;
         uint32_t rtp_timestamp; /* RTP timestamp for the frame           */
         struct timeval arrival_time;    /* Arrival time of first packet in frame */
         struct timeval playout_time;    /* Playout time for the frame            */
-        struct timeval deletion_time;   /* Time after which will be frame deleted (no matter if decoded or not) */
         struct coded_data *cdata;       /*                                       */
         int decoded;            /* Non-zero if we've decoded this frame  */
         int mbit;               /* determines if mbit of frame had been seen */
@@ -91,7 +85,6 @@ struct pbuf {
         struct pbuf_node *frst;
         struct pbuf_node *last;
         double playout_delay;
-        double deletion_delay;
 
         // for statistics
         /// @todo figure out packet duplication
@@ -104,6 +97,8 @@ struct pbuf {
 };
 
 static void free_cdata(struct coded_data *head);
+static int frame_complete(struct pbuf_node *frame);
+
 /*********************************************************************************/
 
 static void pbuf_validate(struct pbuf *playout_buf)
@@ -170,8 +165,7 @@ struct pbuf *pbuf_init(void)
                 /* Playout delay... should really be adaptive, based on the */
                 /* jitter, but we use a (conservative) fixed 32ms delay for */
                 /* now (2 video frames at 60fps).                           */
-                playout_buf->deletion_delay =
-                        playout_buf->playout_delay = 0.032;
+                playout_buf->playout_delay = 0.032;
         } else {
                 debug_msg("Failed to allocate memory for playout buffer\n");
         }
@@ -236,8 +230,7 @@ static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
     }
 }
 
-static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay,
-                double deletion_delay)
+static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay)
 {
         struct pbuf_node *tmp;
 
@@ -254,9 +247,7 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay
                 tmp->mbit = pkt->m;
                 gettimeofday(&(tmp->arrival_time), NULL);
                 gettimeofday(&(tmp->playout_time), NULL);
-                tmp->deletion_time = tmp->playout_time;
                 tv_add(&(tmp->playout_time), playout_delay);
-                tv_add(&(tmp->deletion_time), deletion_delay);
 
                 tmp->cdata = malloc(sizeof(struct coded_data));
                 if (tmp->cdata != NULL) {
@@ -319,15 +310,14 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
 
         if (playout_buf->frst == NULL && playout_buf->last == NULL) {
                 /* playout buffer is empty - add new frame */
-                playout_buf->frst = create_new_pnode(pkt, playout_buf->playout_delay,
-                                playout_buf->deletion_delay);
+                playout_buf->frst = create_new_pnode(pkt, playout_buf->playout_delay);
                 playout_buf->last = playout_buf->frst;
                 return;
         }
 
         if (playout_buf->last->rtp_timestamp < pkt->ts) {
             /* Packet belongs to a new frame... */
-            tmp = create_new_pnode(pkt, playout_buf->playout_delay, playout_buf->deletion_delay);
+            tmp = create_new_pnode(pkt, playout_buf->playout_delay);
             playout_buf->last->nxt = tmp;
             tmp->prv = playout_buf->last;
             playout_buf->last = tmp;
@@ -343,13 +333,13 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 add_coded_unit(curr, pkt);
             } else if (curr->rtp_timestamp < pkt->ts){
                 /* Packet belongs to a new previous frame */
-                tmp = create_new_pnode(pkt, playout_buf->playout_delay,playout_buf->deletion_delay);
+                tmp = create_new_pnode(pkt, playout_buf->playout_delay);
                 tmp->nxt = curr->nxt;
                 tmp->prv = curr;
                 curr->nxt->prv = tmp;
                 curr->nxt = tmp;
             } else if (curr == playout_buf->frst) {
-                tmp = create_new_pnode(pkt, playout_buf->playout_delay,playout_buf->deletion_delay);
+                tmp = create_new_pnode(pkt, playout_buf->playout_delay);
                 tmp->nxt = playout_buf->frst;
                 curr->prv = tmp;
                 playout_buf->frst = tmp;
@@ -391,7 +381,7 @@ void pbuf_remove(struct pbuf *playout_buf, struct timeval curr_time)
         curr = playout_buf->frst;
         while (curr != NULL) {
                 temp = curr->nxt;
-                if (tv_gt(curr_time, curr->deletion_time)) {
+                if (tv_gt(curr_time, curr->playout_time) && frame_complete(curr)) {
                         if (curr == playout_buf->frst) {
                                 playout_buf->frst = curr->nxt;
                         }
@@ -503,9 +493,8 @@ audio_pbuf_decode(struct pbuf *playout_buf, struct timeval curr_time,
         return 0;
 }
 
-void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay, double deletion_delay)
+void pbuf_set_playout_delay(struct pbuf *playout_buf, double playout_delay)
 {
         playout_buf->playout_delay = playout_delay;
-        playout_buf->deletion_delay = deletion_delay;
 }
 

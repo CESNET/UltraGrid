@@ -83,7 +83,9 @@ public:
         bool supports_receiving() {
                 return get_receiver_thread() != NULL;
         }
+        virtual void join();
 protected:
+        void check_sender_messages();
         bool m_paused;
         struct module m_sender_mod;
         struct module m_receiver_mod;

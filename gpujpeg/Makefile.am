@@ -1,4 +1,4 @@
-AUTOMAKE_OPTIONS = subdir-objects no-dependencies
+AUTOMAKE_OPTIONS = subdir-objects
 
 ACLOCAL_AMFLAGS=-I m4
 CLEANFILES=

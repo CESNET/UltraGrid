@@ -70,7 +70,7 @@
 #include "audio/utils.h"
 #include "crypto/openssl_encrypt.h"
 #include "module.h"
-#include "rtp/ldgm.h"
+#include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
 #include "tv.h"
@@ -80,12 +80,6 @@
 #include "compat/platform_spin.h"
 
 #define TRANSMIT_MAGIC	0xe80ab15f
-
-enum fec_scheme_t {
-        FEC_NONE,
-        FEC_MULT,
-        FEC_LDGM
-};
 
 #define FEC_MAX_MULT 10
 
@@ -116,15 +110,14 @@ struct rtp_nal_t {
     int size;
 };
 
-static bool fec_is_ldgm(struct tx *tx);
-static void tx_update(struct tx *tx, struct tile *tile);
+static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
 static void tx_done(struct module *tx);
+static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double input_fps);
 
 static void
-tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
+tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
-                codec_t color_spec, double input_fps,
-                enum interlacing_t interlacing, unsigned int substream,
+                unsigned int substream,
                 int fragment_offset);
 
 
@@ -147,8 +140,7 @@ struct tx {
         int32_t avg_len;
         int32_t avg_len_last;
 
-        enum fec_scheme_t fec_scheme;
-        void *fec_state;
+        enum fec_type fec_scheme;
         int mult_count;
 
         int last_fragment;
@@ -167,37 +159,32 @@ static void init_tx_mulaw_buffer() {
     }
 }
 
-static bool fec_is_ldgm(struct tx *tx)
+static void tx_update(struct tx *tx, struct video_frame *frame, int substream)
 {
-        return tx->fec_scheme == FEC_LDGM && tx->fec_state;
-}
-
-static void tx_update(struct tx *tx, struct tile *tile)
-{
-        if(!tile) {
+        if(!frame) {
                 return;
         }
         
-        uint64_t tmp_avg = tx->avg_len * tx->sent_frames + tile->data_len;
+        uint64_t tmp_avg = tx->avg_len * tx->sent_frames + frame->tiles[substream].data_len *
+                (frame->fec_params.type != FEC_NONE ?
+                 (double) frame->fec_params.k / (frame->fec_params.k + frame->fec_params.m) :
+                 1);
         tx->sent_frames++;
         tx->avg_len = tmp_avg / tx->sent_frames;
         if(tx->sent_frames >= 100) {
                 if(tx->fec_scheme == FEC_LDGM && tx->max_loss > 0.0) {
                         if(abs(tx->avg_len_last - tx->avg_len) > tx->avg_len / 3) {
-                                int data_len = tx->mtu -  (40 + (sizeof(ldgm_video_payload_hdr_t)));
+                                int data_len = tx->mtu -  (40 + (sizeof(fec_video_payload_hdr_t)));
                                 data_len = (data_len / 48) * 48;
-                                void *fec_state_old = tx->fec_state;
-                                tx->fec_state = ldgm_encoder_init_with_param(data_len, tx->avg_len, tx->max_loss);
-                                if(tx->fec_state != NULL) {
-                                        tx->avg_len_last = tx->avg_len;
-                                        ldgm_encoder_destroy(fec_state_old);
-                                } else {
-                                        tx->fec_state = fec_state_old;
-                                        if(!tx->fec_state) {
-                                                fprintf(stderr, "Unable to initialize FEC.\n");
-                                                exit_uv(1);
-					}
-                                }
+                                //void *fec_state_old = tx->fec_state;
+
+                                struct msg_sender *msg = (struct msg_sender *)
+                                        new_message(sizeof(struct msg_sender));
+                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM percents %d %d %f",
+                                                data_len, tx->avg_len, tx->max_loss);
+                                msg->type = SENDER_MSG_CHANGE_FEC;
+                                send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
+                                tx->avg_len_last = tx->avg_len;
                         }
                 }
                 tx->avg_len = 0;
@@ -217,12 +204,12 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 tx->mod.msg_callback = fec_change_callback;
                 tx->mod.priv_data = tx;
                 tx->mod.deleter = tx_done;
+                module_register(&tx->mod, parent);
 
                 tx->magic = TRANSMIT_MAGIC;
                 tx->media_type = media_type;
                 tx->mult_count = 0;
                 tx->max_loss = 0.0;
-                tx->fec_state = NULL;
                 tx->mtu = mtu;
                 tx->buffer = lrand48() & 0x3fffff;
                 tx->avg_len = tx->avg_len_last = tx->sent_frames = 0u;
@@ -230,7 +217,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 tx->last_frame_fragment_id = -1;
                 if (fec) {
                         if(!set_fec(tx, fec)) {
-                                free(tx);
+                                module_done(&tx->mod);
                                 return NULL;
                         }
                 }
@@ -238,6 +225,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         if(openssl_encrypt_init(&tx->encryption,
                                                 encryption, MODE_AES128_CTR) != 0) {
                                 fprintf(stderr, "Unable to initialize encryption\n");
+                                module_done(&tx->mod);
                                 return NULL;
                         }
                 }
@@ -245,8 +233,6 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 tx->packet_rate = packet_rate;
 
                 platform_spin_init(&tx->spin);
-
-                module_register(&tx->mod, parent);
         }
         return tx;
 }
@@ -268,13 +254,9 @@ static struct response *fec_change_callback(struct module *mod, struct message *
                 return NULL;
 
         platform_spin_lock(&tx->spin);
-        void *old_fec_state = tx->fec_state;
-        tx->fec_state = NULL;
         if(set_fec(tx, data->fec)) {
-                ldgm_encoder_destroy(old_fec_state);
                 response = new_response(RESPONSE_OK, NULL);
         } else {
-                tx->fec_state = old_fec_state;
                 response = new_response(RESPONSE_BAD_REQUEST, NULL);
         }
         platform_spin_unlock(&tx->spin);
@@ -309,11 +291,12 @@ static bool set_fec(struct tx *tx, const char *fec_const)
                         ret = false;
                 } else {
                         if(!fec_cfg || (strlen(fec_cfg) > 0 && strchr(fec_cfg, '%') == NULL)) {
-                                tx->fec_state = ldgm_encoder_init_with_cfg(fec_cfg);
-                                if(tx->fec_state == NULL) {
-                                        fprintf(stderr, "Unable to initialize LDGM.\n");
-                                        ret = false;
-                                }
+                                struct msg_sender *msg = (struct msg_sender *)
+                                        new_message(sizeof(struct msg_sender));
+                                snprintf(msg->fec_cfg, sizeof(msg->fec_cfg), "LDGM cfg %s",
+                                                fec_cfg ? fec_cfg : "");
+                                msg->type = SENDER_MSG_CHANGE_FEC;
+                                send_message_to_receiver(get_parent_module(&tx->mod), (struct message *) msg);
                         } else { // delay creation until we have avarage frame size
                                 tx->max_loss = atof(fec_cfg);
                         }
@@ -332,7 +315,6 @@ static void tx_done(struct module *mod)
 {
         struct tx *tx = (struct tx *) mod->priv_data;
         assert(tx->magic == TRANSMIT_MAGIC);
-        ldgm_encoder_destroy(tx->fec_state);
         platform_spin_destroy(&tx->spin);
         free(tx);
 }
@@ -372,14 +354,27 @@ tx_send(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
                 if(frame->fragment)
                         fragment_offset = vf_get_tile(frame, i)->offset;
 
-                tx_send_base(tx, vf_get_tile(frame, i), rtp_session, ts, last,
-                                frame->color_spec, frame->fps, frame->interlacing,
+                tx_send_base(tx, frame, rtp_session, ts, last,
                                 i, fragment_offset);
                 tx->buffer ++;
         }
         platform_spin_unlock(&tx->spin);
 }
 
+void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx, uint32_t *video_hdr)
+{
+        uint32_t tmp;
+
+        video_hdr[3] = htonl(frame->tiles[tile_idx].width << 16 | frame->tiles[tile_idx].height);
+        video_hdr[4] = get_fourcc(frame->color_spec);
+        video_hdr[2] = htonl(frame->tiles[tile_idx].data_len);
+        tmp = tile_idx << 22;
+        tmp |= 0x3fffff & buffer_idx;
+        video_hdr[0] = htonl(tmp);
+
+        /* word 6 */
+        video_hdr[5] = format_interl_fps_hdr_row(frame->interlacing, frame->fps);
+}
 
 void
 tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
@@ -391,7 +386,7 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
 
         assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
         assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
-        
+
         platform_spin_lock(&tx->spin);
 
         tile = vf_get_tile(frame, pos);
@@ -407,7 +402,7 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
                 last = TRUE;
         if(frame->fragment)
                 fragment_offset = vf_get_tile(frame, pos)->offset;
-        tx_send_base(tx, tile, rtp_session, ts, last, frame->color_spec, frame->fps, frame->interlacing, pos,
+        tx_send_base(tx, frame, rtp_session, ts, last, pos,
                         fragment_offset);
         tx->buffer ++;
 
@@ -436,23 +431,21 @@ static uint32_t format_interl_fps_hdr_row(enum interlacing_t interlacing, double
 }
 
 static void
-tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
+tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                 uint32_t ts, int send_m,
-                codec_t color_spec, double fps,
-                enum interlacing_t interlacing, unsigned int substream,
+                unsigned int substream,
                 int fragment_offset)
 {
+        struct tile *tile = &frame->tiles[substream];
+
         int m, data_len;
         // see definition in rtp_callback.h
 
         uint32_t rtp_hdr[100];
         int rtp_hdr_len;
         uint32_t tmp_hdr[100];
-        ///uint32_t *ldgm_payload_hdr = hdr_data;
         uint32_t *video_hdr;
-        uint32_t *ldgm_hdr;
-        //uint32_t *ldgm_hdr = video_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
-        //uint32_t *encryption_hdr;
+        uint32_t *fec_hdr;
         int pt;            /* A value specified in our packet format */
         char *data;
         unsigned int pos;
@@ -469,17 +462,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
         int mult_index = 0;
         int mult_first_sent = 0;
         int hdrs_len = 40; // for computing max payload size
-        char *data_to_send;
-        int data_to_send_len;
+        unsigned int fec_symbol_size = frame->fec_params.symbol_size;
 
         assert(tx->magic == TRANSMIT_MAGIC);
 
-        tx_update(tx, tile);
+        tx_update(tx, frame, substream);
 
         perf_record(UVP_SEND, ts);
-
-        data_to_send = tile->data;
-        data_to_send_len = tile->data_len;
 
         if(tx->fec_scheme == FEC_MULT) {
                 int i;
@@ -496,13 +485,13 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 uint32_t *encryption_hdr;
                 rtp_hdr_len = sizeof(crypto_payload_hdr_t);
 
-                if (fec_is_ldgm(tx)) {
+                if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
-                        ldgm_hdr = rtp_hdr;
-                        encryption_hdr = rtp_hdr + sizeof(ldgm_video_payload_hdr_t)/sizeof(uint32_t);
-                        rtp_hdr_len += sizeof(ldgm_video_payload_hdr_t);
-                        pt = PT_ENCRYPT_VIDEO_LDGM;
-                        hdrs_len += (sizeof(ldgm_video_payload_hdr_t));
+                        fec_hdr = rtp_hdr;
+                        encryption_hdr = rtp_hdr + sizeof(fec_video_payload_hdr_t)/sizeof(uint32_t);
+                        rtp_hdr_len += sizeof(fec_video_payload_hdr_t);
+                        pt = fec_pt_from_fec_type(frame->fec_params.type, true);
+                        hdrs_len += (sizeof(fec_video_payload_hdr_t));
                 } else {
                         video_hdr = rtp_hdr;
                         encryption_hdr = rtp_hdr + sizeof(video_payload_hdr_t)/sizeof(uint32_t);
@@ -514,12 +503,12 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 encryption_hdr[0] = htonl(CRYPTO_TYPE_AES128_CTR << 24);
                 hdrs_len += sizeof(crypto_payload_hdr_t) + openssl_get_overhead(tx->encryption);
         } else {
-                if (fec_is_ldgm(tx)) {
+                if (frame->fec_params.type != FEC_NONE) {
                         video_hdr = tmp_hdr;
-                        ldgm_hdr = rtp_hdr;
-                        rtp_hdr_len = sizeof(ldgm_video_payload_hdr_t);
-                        pt = PT_VIDEO_LDGM;
-                        hdrs_len += (sizeof(ldgm_video_payload_hdr_t));
+                        fec_hdr = rtp_hdr;
+                        rtp_hdr_len = sizeof(fec_video_payload_hdr_t);
+                        pt = fec_pt_from_fec_type(frame->fec_params.type, false);
+                        hdrs_len += (sizeof(fec_video_payload_hdr_t));
                 } else {
                         video_hdr = rtp_hdr;
                         rtp_hdr_len = sizeof(video_payload_hdr_t);
@@ -528,32 +517,37 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                 }
         }
 
-        video_hdr[3] = htonl(tile->width << 16 | tile->height);
-        video_hdr[4] = get_fourcc(color_spec);
-        video_hdr[2] = htonl(data_to_send_len);
-        tmp = substream << 22;
-        tmp |= 0x3fffff & tx->buffer;
-        video_hdr[0] = htonl(tmp);
+        if (frame->fec_params.type != FEC_NONE) {
+                static bool status_printed = false;
+                if (!status_printed) {
+                        if (fec_symbol_size > tx->mtu - hdrs_len) {
+                                fprintf(stderr, "Warning: FEC symbol size exceeds payload size! "
+                                                "FEC symbol size: %d\n", fec_symbol_size);
+                        } else {
+                                printf("FEC symbol size: %d, symbols per packet: %d, payload size: %d\n",
+                                                fec_symbol_size, (tx->mtu - hdrs_len) / fec_symbol_size,
+                                                (tx->mtu - hdrs_len) / fec_symbol_size * fec_symbol_size);
+                        }
+                        status_printed = true;
+                }
+        }
 
-        /* word 6 */
-        video_hdr[5] = format_interl_fps_hdr_row(interlacing, fps);
+        format_video_header(frame, substream, tx->buffer, video_hdr);
 
-        if (fec_is_ldgm(tx)) {
-                ldgm_encoder_encode(tx->fec_state, (char *) video_hdr,
-                                sizeof(video_payload_hdr_t),
-                                tile->data, tile->data_len, &data_to_send, &data_to_send_len);
-
+        if (frame->fec_params.type != FEC_NONE) {
                 tmp = substream << 22;
                 tmp |= 0x3fffff & tx->buffer;
                 // see definition in rtp_callback.h
-                ldgm_hdr[0] = htonl(tmp);
-                ldgm_hdr[2] = htonl(data_to_send_len);
-                ldgm_hdr[3] = htonl(
-                                (ldgm_encoder_get_k(tx->fec_state)) << 19 |
-                                (ldgm_encoder_get_m(tx->fec_state)) << 6 |
-                                ldgm_encoder_get_c(tx->fec_state));
-                ldgm_hdr[4] = htonl(ldgm_encoder_get_seed(tx->fec_state));
+                fec_hdr[0] = htonl(tmp);
+                fec_hdr[2] = htonl(tile->data_len);
+                fec_hdr[3] = htonl(
+                                frame->fec_params.k << 19 |
+                                frame->fec_params.m << 6 |
+                                frame->fec_params.c);
+                fec_hdr[4] = htonl(frame->fec_params.seed);
         }
+
+        int fec_symbol_offset = 0;
 
         do {
                 if(tx->fec_scheme == FEC_MULT) {
@@ -564,14 +558,27 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
 
                 rtp_hdr[1] = htonl(offset);
 
-                data = data_to_send + pos;
+                data = tile->data + pos;
                 data_len = tx->mtu - hdrs_len;
-                data_len = (data_len / 48) * 48;
-                if (pos + data_len >= (unsigned int) data_to_send_len) {
+                if (frame->fec_params.type != FEC_NONE) {
+                        if (fec_symbol_size <= tx->mtu - hdrs_len) {
+                                data_len = data_len / fec_symbol_size * fec_symbol_size;
+                        } else {
+                                if (fec_symbol_size - fec_symbol_offset <= tx->mtu - hdrs_len) {
+                                        data_len = fec_symbol_size - fec_symbol_offset;
+                                        fec_symbol_offset = 0;
+                                } else {
+                                        fec_symbol_offset += data_len;
+                                }
+                        }
+                } else {
+                        data_len = (data_len / 48) * 48;
+                }
+                if (pos + data_len >= (unsigned int) tile->data_len) {
                         if (send_m) {
                                 m = 1;
                         }
-                        data_len = data_to_send_len - pos;
+                        data_len = tile->data_len - pos;
                 }
                 pos += data_len;
                 GET_STARTTIME;
@@ -582,7 +589,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                                 data_len = openssl_encrypt(tx->encryption,
                                                 data, data_len,
                                                 (char *) rtp_hdr,
-                                                fec_is_ldgm(tx) ? sizeof(ldgm_video_payload_hdr_t) :
+                                                frame->fec_params.type != FEC_NONE ? sizeof(fec_video_payload_hdr_t) :
                                                 sizeof(video_payload_hdr_t),
                                                 encrypted_data);
                                 data = encrypted_data;
@@ -612,11 +619,7 @@ tx_send_base(struct tx *tx, struct tile *tile, struct rtp *rtp_session,
                         pos = mult_pos[tx->mult_count - 1];
                 }
 
-        } while (pos < (unsigned int) data_to_send_len);
-
-        if(fec_is_ldgm(tx)) {
-               ldgm_encoder_free_buffer(tx->fec_state, data_to_send);
-        }
+        } while (pos < (unsigned int) tile->data_len);
 }
 
 /* 
@@ -910,7 +913,7 @@ static void tx_send_base_h264(struct tx *tx, struct tile *tile, struct rtp *rtp_
     UNUSED(fragment_offset);
 
     assert(tx->magic == TRANSMIT_MAGIC);
-        tx_update(tx, tile);
+        //tx_update(tx, tile);
 
     uint8_t *data = (uint8_t *) tile->data;
     int data_len = tile->data_len;

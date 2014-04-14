@@ -483,7 +483,7 @@ static struct rtp *initialize_audio_network(struct audio_network_parameters *par
                         params->send_port, 255, rtcp_bw,
                         FALSE, rtp_recv_callback,
                         (void *) params->participants,
-                        params->use_ipv6);
+                        params->use_ipv6, false);
         if (r != NULL) {
                 pdb_add(params->participants, rtp_my_ssrc(r));
                 rtp_set_option(r, RTP_OPT_WEAK_VALIDATION, TRUE);

@@ -117,6 +117,26 @@ typedef enum h264_frame_type {
     OTHER
 } h264_frame_type_t;
 
+enum fec_type {
+        FEC_NONE = 0,
+        FEC_MULT = 1,
+        FEC_LDGM = 2,
+};
+
+struct fec_desc {
+        enum fec_type type;
+        unsigned int k, m, c;
+        unsigned int seed;
+        unsigned int symbol_size;
+#ifdef __cplusplus
+        fec_desc() = default;
+        fec_desc(enum fec_type type_, unsigned int k_ = 0, unsigned int m_ = 0,
+                        unsigned int c_ = 0,
+                        unsigned int seed_ = 0,
+                        unsigned int ss_ = 0) : type(type_), k(k_), m(m_), c(c_), seed(seed_), symbol_size(ss_) {}
+#endif
+};
+
 /**
  * @brief Struct video_frame represents a video frame and contains video description.
  */
@@ -180,6 +200,8 @@ struct video_frame {
         unsigned int h264_seqno;
             // Control
         h264_frame_type_t h264_frame_type;
+
+        struct fec_desc fec_params;
 };
 
 /**

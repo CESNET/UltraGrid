@@ -202,6 +202,9 @@ static bool cleanup(struct vidcap_dshow_state *s) {
 	if (yuv_clamp != NULL) free(yuv_clamp);
 
 	DeleteCriticalSection(&s->returnBufferCS);
+
+	free(s);
+
 	return true;
 }
 
@@ -1026,10 +1029,7 @@ void vidcap_dshow_done(void *state) {
 		fprintf(stderr, "[dshow] vidcap_dshow_init: Failed to stop filter graph.\n");
 	}
 
-	vf_free(s->frame);
-
 	cleanup(s);
-	free(s);
 }
 
 static inline void convert_yuv_rgb(BYTE y, BYTE u, BYTE v, BYTE *dst) {
