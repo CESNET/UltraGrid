@@ -196,13 +196,15 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, const char *mcast_if, audio_codec_t audio_codec,
-                int resample_to, bool isStd, long packet_rate)
+                bool echo_cancellation, bool use_ipv6, const char *mcast_if,
+                const char *audio_codec_cfg,
+                bool isStd, long packet_rate)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
         UNUSED(unused);
         char *addr;
+        int resample_to = get_audio_codec_sample_rate(audio_codec_cfg);
         
         audio_capture_init_devices();
         audio_playback_init_devices();
@@ -256,7 +258,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = resample_to;
 
-        s->audio_coder = audio_codec_init(audio_codec, AUDIO_CODER);
+        s->audio_coder = audio_codec_init_cfg(audio_codec_cfg, AUDIO_CODER);
         if(!s->audio_coder) {
                 goto error;
         }

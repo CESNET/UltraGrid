@@ -480,32 +480,3 @@ void audio_channel_mux(audio_frame2 *frame, int index, audio_channel *channel)
         frame->sample_rate = channel->sample_rate;
 }
 
-audio_codec_t get_audio_codec_to_name(const char *codec) {
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(strcasecmp(audio_codec_info[i].name, codec) == 0) {
-                        return i;
-                }
-        }
-        return AC_NONE;
-}
-
-const char *get_name_to_audio_codec(audio_codec_t codec)
-{
-        return audio_codec_info[codec].name;
-}
-
-uint32_t get_audio_tag(audio_codec_t codec)
-{
-        return audio_codec_info[codec].tag;
-}
-
-audio_codec_t get_audio_codec_to_tag(uint32_t tag)
-{
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(audio_codec_info[i].tag == tag) {
-                        return i;
-                }
-        }
-        return AC_NONE;
-}
-

@@ -79,7 +79,7 @@
 #endif
 
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction,
-                bool try_init);
+                bool try_init, int bitrate);
 static audio_channel *libavcodec_compress(void *, audio_channel *);
 static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
@@ -124,6 +124,8 @@ struct libavcodec_codec_state {
 
         void               *samples;
         int                 change_bps_to;
+
+        int                 bitrate;
 };
 
 /**
@@ -135,7 +137,8 @@ struct libavcodec_codec_state {
  * @retval NULL if initialization failed
  * @retval !=NULL codec state
  */
-static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init)
+static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
+                int bitrate)
 {
         int codec_id = 0;
         
@@ -175,6 +178,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 }
                 return NULL;
         }
+
+        s->bitrate = bitrate;
 
         s->samples = NULL;
 
@@ -219,7 +224,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         pthread_mutex_unlock(s->libav_global_lock);
 
         /*  put sample parameters */
-        s->codec_ctx->bit_rate = 64000;
+        s->codec_ctx->bit_rate = s->bitrate;
         s->codec_ctx->sample_rate = desc.sample_rate;
         s->change_bps_to = 0;
         switch(desc.bps) {

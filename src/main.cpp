@@ -456,14 +456,13 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
 
-        audio_codec_t audio_codec = AC_PCM;
+        const char *audio_codec = "PCM";
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
 	bool receiver_thread_started = false,
 		  capture_thread_started = false;
         unsigned display_flags = 0;
-        int compressed_audio_sample_rate = 48000;
         int ret;
         struct vidcap_params *audio_cap_dev;
         long packet_rate;
@@ -740,12 +739,8 @@ int main(int argc, char *argv[])
                                 list_audio_codecs();
                                 return EXIT_SUCCESS;
                         }
-                        if(strchr(optarg, ':')) {
-                                compressed_audio_sample_rate = atoi(strchr(optarg, ':')+1);
-                                *strchr(optarg, ':') = '\0';
-                        }
-                        audio_codec = get_audio_codec_to_name(optarg);
-                        if(audio_codec == AC_NONE) {
+                        audio_codec = optarg;
+                        if(get_audio_codec(optarg) == AC_NONE) {
                                 fprintf(stderr, "Unknown audio codec entered: \"%s\"\n",
                                                 optarg);
                                 return EXIT_FAIL_USAGE;
@@ -796,7 +791,7 @@ int main(int argc, char *argv[])
         printf("Audio playback   : %s\n", audio_recv);
         printf("MTU              : %d B\n", requested_mtu);
         printf("Video compression: %s\n", requested_compression);
-        printf("Audio codec      : %s\n", get_name_to_audio_codec(audio_codec));
+        printf("Audio codec      : %s\n", get_name_to_audio_codec(get_audio_codec(audio_codec)));
         printf("Network protocol : %s\n", video_rxtx::get_name(video_protocol));
         printf("Audio FEC        : %s\n", requested_audio_fec);
         printf("Video FEC        : %s\n", requested_video_fec);
@@ -865,7 +860,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, compressed_audio_sample_rate, isStd, packet_rate);
+                        audio_codec, isStd, packet_rate);
         if(!uv->audio)
                 goto cleanup;
 
