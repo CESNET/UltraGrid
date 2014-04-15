@@ -489,13 +489,15 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
 
 static void glut_resize_window(struct state_gl *s)
 {
-        if (!s->fs) {
+        if (s->fs) {
+                glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH),
+                               glutGet(GLUT_SCREEN_HEIGHT));
+                glutFullScreen();
+        } else {
                 glutReshapeWindow(s->window_size_factor *
                                 s->tile->height * s->aspect,
                                 s->window_size_factor *
                                 s->tile->height);
-        } else {
-                glutFullScreen();
         }
 }
 
