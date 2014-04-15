@@ -785,7 +785,6 @@ static void *audio_sender_thread(void *arg)
                                         }
                                 }
                         }else if(s->sender == NET_STANDARD){
-                        //TODO audio_tx_send_mulaw
                             // RESAMPLE
                             resample(&resample_state, buffer);
                             // COMPRESS

@@ -154,7 +154,7 @@ struct tx {
 // Mulaw audio memory reservation
 static void init_tx_mulaw_buffer() {
     if (!buffer_mulaw_init) {
-        data_buffer_mulaw = malloc(BUFFER_MTU_SIZE);
+        data_buffer_mulaw = malloc(BUFFER_MTU_SIZE*20);
         buffer_mulaw_init = 1;
     }
 }
