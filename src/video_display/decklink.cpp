@@ -1159,6 +1159,7 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
                 tmp_frame.max_size = sampleFrameCount * s->output_audio_channel_count
                                 * frame->bps;
                 tmp_frame.data = (char *) malloc(tmp_frame.max_size);
+                memcpy(tmp_frame.data, frame->data, frame->data_len);
                 
                 audio_frame_multiply_channel(&tmp_frame,
                                 s->output_audio_channel_count);
