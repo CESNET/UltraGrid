@@ -434,6 +434,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                         sample_rate, input_channels, input_channels == 1 ? "": "s",  bps * 8,
                                         get_name_to_audio_codec(get_audio_codec_to_tag(audio_tag)));
 
+                        audio_frame2_reset(decoder->decoded);
 
                         s->buffer.bps = device_bps;
                         s->buffer.ch_count = output_channels;

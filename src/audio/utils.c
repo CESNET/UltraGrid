@@ -80,14 +80,10 @@ void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
 {
         assert(nr_channels <= MAX_AUDIO_CHANNELS);
 
+        audio_frame2_reset(frame);
+
         frame->max_size = max_size;
         frame->ch_count = nr_channels;
-
-        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
-                free(frame->data[i]);
-                frame->data[i] = NULL;
-                frame->data_len[i] = 0;
-        }
 
         for(int i = 0; i < nr_channels; ++i) {
                 frame->data[i] = malloc(max_size);
@@ -96,6 +92,7 @@ void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
 
 void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src)
 {
+        assert(src->ch_count == dest->ch_count || dest->ch_count == 0);
         dest->bps = src->bps;
         int new_max_size = dest->max_size;
         for (int i = 0; i < src->ch_count; ++i) {
@@ -126,9 +123,13 @@ int audio_frame2_get_sample_count(audio_frame2 *frame)
 
 void audio_frame2_reset(audio_frame2 *frame)
 {
-        for (int i = 0; i < frame->ch_count; ++i) {
+        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
                 frame->data_len[i] = 0;
+                free(frame->data[i]);
+                frame->data[i] = NULL;
         }
+        frame->max_size = 0;
+        frame->ch_count = 0;
 }
 
 static double get_normalized(char *in, int bps) {
