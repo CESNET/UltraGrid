@@ -761,6 +761,9 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
  * audio_tx_send_mulaw - Send interleaved channels from the audio_frame2 at 1 bps,
  *                       as the mulaw standard.
  */
+FILE *F_send=NULL;
+FILE *F_send2=NULL;
+
 void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
 {
     int pt;
@@ -782,48 +785,48 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     // The sizes for the different audio_frame2 channels must be the same.
     for (int i = 1 ; i < buffer->ch_count ; i++) assert(buffer->data_len[0] == buffer->data_len[i]);
 
-    int data_len = buffer->data_len[0] * buffer->ch_count;  /* Number of samples to send (bps=1)*/
+    int data_len = buffer->data_len[0] * buffer->ch_count * buffer->bps;  	/* Number of samples to send 		*/
     int data_remainig = data_len;
-    int payload_size = tx->mtu - 40;                        /* Max size of an RTP payload field */
-    int packets = data_len / payload_size;
-    if (data_len % payload_size != 0) packets++;            /* Number of RTP packets needed */
+    int payload_size = tx->mtu - 40;                        				/* Max size of an RTP payload field */
 
     init_tx_mulaw_buffer();
     char *curr_sample = data_buffer_mulaw;
+    int pointer = 0;
 
-    // For each interval that fits in an RTP payload field.
-    for (int p = 0 ; p < packets ; p++) {
+    int ch, pos = 0, count = 0, pointerToSend = 0;
 
-        int samples_per_packet;
-        int data_to_send;
-        if (data_remainig >= payload_size) {
-            samples_per_packet = payload_size / buffer->ch_count;
-            data_to_send = payload_size;
-        }
-        else {
-            samples_per_packet = data_remainig / buffer->ch_count;
-            data_to_send = data_remainig;
-        }
+    do{
+    	for(ch = 0; ch < buffer->ch_count; ch++){
+    		memcpy(curr_sample, buffer->data[ch] + pos, buffer->bps * sizeof(char));
+    		curr_sample += buffer->bps * sizeof(char);
+    		count+=buffer->bps * sizeof(char);
+    		data_remainig--;
+    	}
+    	pos += buffer->bps * sizeof(char);
 
-        // Interleave the samples
-        for (int ch_sample = 0 ; ch_sample < samples_per_packet ; ch_sample++){
-            for (int ch = 0 ; ch < buffer->ch_count ; ch++) {
- //TODO to be checked prepiously -> if(buffer->data[ch]!=NULL){
-                    memcpy(curr_sample, (char *)(buffer->data[ch] + ch_sample), sizeof(uint8_t));
-                    curr_sample += sizeof(uint8_t);
-                    data_remainig--;
- //               }
-            }
-        }
+    	if((pos * buffer->ch_count) % payload_size == 0){
+    	        // Update first sample timestamp
+     	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
 
-        // Update first sample timestamp
-        timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/buffer->ch_count)));
+      	      	// Send the packet
+      	      	rtp_send_data(rtp_session, timestamp, pt, 0, 0,     /* contributing sources 		*/
+     	              0,        									/* contributing sources length 	*/
+      	              data_buffer_mulaw + pointerToSend, payload_size,
+      	              0, 0, 0);
+    	}
+    	pointerToSend += count;
 
-        // Send the packet
-        rtp_send_data(rtp_session, timestamp, pt, 0, 0,        /* contributing sources */
-                0,        /* contributing sources length */
-                data_buffer_mulaw, data_to_send,
-                0, 0, 0);
+    }while(count < data_len);
+
+    if(pos % payload_size != 0){
+            // Update first sample timestamp
+	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
+
+          	// Send the packet
+         	rtp_send_data(rtp_session, timestamp, pt, 0, 0,        /* contributing sources */
+                  0,        /* contributing sources length */
+                  data_buffer_mulaw+pointerToSend-(pos % payload_size) , pos % payload_size,
+                  0, 0, 0);
     }
 
     tx->buffer ++;
