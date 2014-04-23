@@ -392,7 +392,7 @@ next_iteration:
         return NULL;
 }
 
-void *hd_rum_decompress_init(unsigned short rx_port)
+void *hd_rum_decompress_init()
 {
         struct state_transcoder_decompress *s;
         int ttl = 255;
@@ -402,7 +402,7 @@ void *hd_rum_decompress_init(unsigned short rx_port)
         initialize_video_decompress();
 
         s = new state_transcoder_decompress;
-        s->network_device = rtp_init_if("localhost", (char *) NULL, rx_port, rx_port, ttl,
+        s->network_device = rtp_init_if("localhost", (char *) NULL, 0, 0, ttl,
                         rtcp_bw, FALSE, hd_rum_receive_pkt, (uint8_t *) s,
                         use_ipv6, false);
         s->my_last_ssrc = -1;

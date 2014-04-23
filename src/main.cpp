@@ -249,7 +249,8 @@ static void usage(void)
         printf("\n");
         printf("\t--audio-channel-map      <mapping> | help\n");
         printf("\n");
-        printf("\t--audio-scale            <factor> | <method> | help\n");
+        printf("\t--audio-scale <factor> | <method> | help\n");
+        printf("\t                         \tscales received audio\n");
         printf("\n");
         printf("\t--audio-capture-channels <count> number of input channels that will\n");
         printf("\t                                 be captured (default 2).\n");

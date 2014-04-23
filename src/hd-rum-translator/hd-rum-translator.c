@@ -250,8 +250,10 @@ static void usage(const char *progname) {
         printf("\twhere global_opts may be:\n"
                 "\t\t--control-port <port_number> - control port to connect to\n");
         printf("\tand hostX_options may be:\n"
+                "\t\t-P <port> - TX port to be used\n"
                 "\t\t-c <compression> - compression\n"
-                "\t\t-m <mtu> - MTU size. Will be used only with compression.\n"
+                "\t\tFollowing options will be used only if '-c' parameter is set:\n"
+                "\t\t-m <mtu> - MTU size\n"
                 "\t\t-l <limiting_bitrate> - bitrate to be shaped to\n"
                 "\t\t-f <fec> - FEC that will be used for transmission.\n"
               );
@@ -259,6 +261,7 @@ static void usage(const char *progname) {
 
 struct host_opts {
     char *addr;
+    int port;
     int mtu;
     char *compression;
     char *fec;
@@ -309,6 +312,9 @@ static void parse_fmt(int argc, char **argv, char **bufsize, unsigned short *por
     for(int i = 1; i < argc; ++i) {
         if (argv[i][0] == '-') {
             switch(argv[i][1]) {
+                case 'P':
+                    (*host_opts)[host_idx].port = atoi(argv[i + 1]);
+                    break;
                 case 'm':
                     (*host_opts)[host_idx].mtu = atoi(argv[i + 1]);
                     break;
@@ -490,40 +496,44 @@ int main(int argc, char **argv)
     }
 
     // we need only one shared receiver decompressor for all recompressing streams
-    state.decompress = hd_rum_decompress_init(port + 2);
+    state.decompress = hd_rum_decompress_init();
     if(!state.decompress) {
         return EXIT_INIT_PORT;
     }
 
     state.host_count = host_count;
     for (i = 0; i < host_count; i++) {
+        int mtu = 1500;
+        if(hosts[i].mtu) {
+            mtu = hosts[i].mtu;
+        }
+        int tx_port = port;
+        if(hosts[i].port) {
+            tx_port = hosts[i].port;
+        }
+
         state.replicas[i].magic = REPLICA_MAGIC;
         state.replicas[i].host = hosts[i].addr;
         state.replicas[i].port = port;
-        state.replicas[i].sock = output_socket(port, hosts[i].addr,
+        state.replicas[i].sock = output_socket(tx_port, hosts[i].addr,
                 bufsize);
         module_init_default(&state.replicas[i].mod);
         state.replicas[i].mod.cls = MODULE_CLASS_PORT;
 
         if(hosts[i].compression == NULL) {
             state.replicas[i].type = USE_SOCK;
-            int mtu = 1500;
             char compress[] = "none";
             char *fec = NULL;
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, compress,
-                    0, port, mtu, fec, hosts[i].packet_rate);
+                    0, tx_port, mtu, fec, hosts[i].packet_rate);
             hd_rum_decompress_add_inactive_port(state.decompress, state.replicas[i].recompress);
         } else {
             state.replicas[i].type = RECOMPRESS;
-            int mtu = 1500;
-            if(hosts[i].mtu) {
-                mtu = hosts[i].mtu;
-            }
 
             state.replicas[i].recompress = recompress_init(&state.replicas[i].mod,
                     hosts[i].addr, hosts[i].compression,
-                    0, port, mtu, hosts[i].fec, hosts[i].packet_rate);
+                    0, tx_port, mtu, hosts[i].fec, hosts[i].packet_rate);
             if(state.replicas[i].recompress == 0) {
                 fprintf(stderr, "Initializing output port '%s' failed!\n",
                         hosts[i].addr);
