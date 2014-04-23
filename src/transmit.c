@@ -761,6 +761,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
  */
 void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
 {
+    assert(buffer->codec == AC_MULAW);
+
     int pt;
     uint32_t timestamp;
 
