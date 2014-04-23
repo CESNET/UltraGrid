@@ -379,7 +379,6 @@ void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx
 void
 tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
 {
-        struct tile *tile;
         int last = FALSE;
         uint32_t ts = 0;
         int fragment_offset = 0;
@@ -389,7 +388,6 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
 
         platform_spin_lock(&tx->spin);
 
-        tile = vf_get_tile(frame, pos);
         ts = get_local_mediatime();
         if(frame->fragment &&
                         tx->last_frame_fragment_id == frame->frame_fragment_id) {
@@ -761,9 +759,6 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
  * audio_tx_send_mulaw - Send interleaved channels from the audio_frame2 at 1 bps,
  *                       as the mulaw standard.
  */
-FILE *F_send=NULL;
-FILE *F_send2=NULL;
-
 void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
 {
     int pt;
@@ -775,7 +770,6 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     // 8000 Hz, 1 channel is the ITU-T G.711 standard
     // More channels or Hz goes to DynRTP-Type97
 
-//TODO CHECK ACTUAL CHCOUNT IN ORDER TO PROPERLY CREATE PAYLOAD TYPE
     if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
         pt = PT_ITU_T_G711_PCMU;
     } else {
@@ -785,13 +779,12 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     // The sizes for the different audio_frame2 channels must be the same.
     for (int i = 1 ; i < buffer->ch_count ; i++) assert(buffer->data_len[0] == buffer->data_len[i]);
 
-    int data_len = buffer->data_len[0] * buffer->ch_count * buffer->bps;  	/* Number of samples to send 		*/
+    int data_len = buffer->data_len[0] * buffer->ch_count;  	/* Number of samples to send 			*/
     int data_remainig = data_len;
-    int payload_size = tx->mtu - 40;                        				/* Max size of an RTP payload field */
+    int payload_size = tx->mtu - 40;                        	/* Max size of an RTP payload field 	*/
 
     init_tx_mulaw_buffer();
     char *curr_sample = data_buffer_mulaw;
-    int pointer = 0;
 
     int ch, pos = 0, count = 0, pointerToSend = 0;
 
@@ -807,28 +800,24 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     	if((pos * buffer->ch_count) % payload_size == 0){
     	        // Update first sample timestamp
      	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
-
       	      	// Send the packet
-      	      	rtp_send_data(rtp_session, timestamp, pt, 0, 0,     /* contributing sources 		*/
-     	              0,        									/* contributing sources length 	*/
+      	      	rtp_send_data(rtp_session, timestamp, pt, 0, 0,  	/* contributing sources 		*/
+     	              0,        				    				/* contributing sources length 	*/
       	              data_buffer_mulaw + pointerToSend, payload_size,
       	              0, 0, 0);
+      	    	pointerToSend += payload_size;
     	}
-    	pointerToSend += count;
-
     }while(count < data_len);
 
-    if(pos % payload_size != 0){
-            // Update first sample timestamp
+    if((pos * buffer->ch_count) % payload_size != 0){
+            	// Update first sample timestamp
 	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
-
           	// Send the packet
-         	rtp_send_data(rtp_session, timestamp, pt, 0, 0,        /* contributing sources */
-                  0,        /* contributing sources length */
-                  data_buffer_mulaw+pointerToSend-(pos % payload_size) , pos % payload_size,
-                  0, 0, 0);
+         	rtp_send_data(rtp_session, timestamp, pt, 0, 0,        	/* contributing sources 		*/
+                  	0,     											/* contributing sources length 	*/
+                  	data_buffer_mulaw + pointerToSend , (pos * buffer->ch_count) % payload_size,
+                  	0, 0, 0);
     }
-
     tx->buffer ++;
 
     platform_spin_unlock(&tx->spin);
