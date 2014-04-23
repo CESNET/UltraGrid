@@ -96,14 +96,14 @@
 #include <mcheck.h>
 #endif
 
-#define EXIT_FAIL_USAGE		1
-#define EXIT_FAIL_UI   		2
-#define EXIT_FAIL_DISPLAY	3
-#define EXIT_FAIL_CAPTURE	4
-#define EXIT_FAIL_NETWORK	5
-#define EXIT_FAIL_TRANSMIT	6
-#define EXIT_FAIL_COMPRESS	7
-#define EXIT_FAIL_DECODER	8
+#define EXIT_FAIL_USAGE     1
+#define EXIT_FAIL_UI        2
+#define EXIT_FAIL_DISPLAY   3
+#define EXIT_FAIL_CAPTURE   4
+#define EXIT_FAIL_NETWORK   5
+#define EXIT_FAIL_TRANSMIT  6
+#define EXIT_FAIL_COMPRESS  7
+#define EXIT_FAIL_DECODER   8
 
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
@@ -460,8 +460,8 @@ int main(int argc, char *argv[])
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
-	bool receiver_thread_started = false,
-		  capture_thread_started = false;
+    bool receiver_thread_started = false,
+          capture_thread_started = false;
         unsigned display_flags = 0;
         int compressed_audio_sample_rate = 48000;
         int ret;
@@ -552,11 +552,11 @@ int main(int argc, char *argv[])
                                 return 0;
                         }
                         requested_display = optarg;
-			if(strchr(optarg, ':')) {
-				char *delim = strchr(optarg, ':');
-				*delim = '\0';
-				display_cfg = delim + 1;
-			}
+            if(strchr(optarg, ':')) {
+                char *delim = strchr(optarg, ':');
+                *delim = '\0';
+                display_cfg = delim + 1;
+            }
                         break;
                 case 't':
                         if (!strcmp(optarg, "help")) {
@@ -634,9 +634,9 @@ int main(int argc, char *argv[])
                                 requested_video_fec = optarg;
                         }
                         break;
-		case 'h':
-			usage();
-			return 0;
+        case 'h':
+            usage();
+            return 0;
                 case 'P':
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
@@ -830,17 +830,17 @@ int main(int argc, char *argv[])
         }
 
 #ifdef WIN32
-	WSADATA wsaData;
-	int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if(err != 0) {
-		fprintf(stderr, "WSAStartup failed with error %d.", err);
-		return EXIT_FAILURE;
-	}
-	if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-		fprintf(stderr, "Counld not found usable version of Winsock.\n");
-		WSACleanup();
-		return EXIT_FAILURE;
-	}
+    WSADATA wsaData;
+    int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if(err != 0) {
+        fprintf(stderr, "WSAStartup failed with error %d.", err);
+        return EXIT_FAILURE;
+    }
+    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+        fprintf(stderr, "Counld not found usable version of Winsock.\n");
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
 #endif
 
         if(control_init(control_port, &control, &root_mod) != 0) {
@@ -1074,7 +1074,7 @@ cleanup:
 #endif
 
 #ifdef WIN32
-	WSACleanup();
+    WSACleanup();
 #endif
 
         printf("Exit\n");
