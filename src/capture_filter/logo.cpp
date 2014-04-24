@@ -228,9 +228,9 @@ static struct video_frame *filter(void *state, struct video_frame *in)
 }
 
 struct capture_filter_info capture_filter_logo = {
-        .name = "logo",
-        .init = init,
-        .done = done,
-        .filter = filter,
+        "logo",
+        init,
+        done,
+        filter,
 };
 
