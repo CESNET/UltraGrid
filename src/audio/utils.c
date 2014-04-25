@@ -252,19 +252,15 @@ static inline int32_t format_from_in_bps(const char * in, int bps) {
 }
 
 static inline void format_to_out_bps(char *out, int bps, int32_t out_value) {
-        uint32_t mask;
-        if(bps == sizeof(uint32_t)) {
-                mask = 0xffffffffu - 1;
-        } else {
-                mask = ((1 << (bps * 8)) - 1);
+        uint32_t mask = ((1ll << (bps * 8)) - 1);
+
+        // clamp
+        if(out_value > (1ll << (bps * 8 - 1)) -1) {
+                out_value = (1ll << (bps * 8 - 1)) -1;
         }
 
-        if(out_value > (1 << (bps * 8 - 1)) -1) {
-                out_value = (1 << (bps * 8 - 1)) -1;
-        }
-
-        if(out_value < -(1 << (bps * 8 - 1))) {
-                out_value = -(1 << (bps * 8 - 1));
+        if(out_value < -(1ll << (bps * 8 - 1))) {
+                out_value = -(1ll << (bps * 8 - 1));
         }
 
         uint32_t out_value_formatted = (1 * (0x1 & (out_value >> 31))) << (bps * 8 - 1) | (out_value & mask);
