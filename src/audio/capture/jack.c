@@ -203,8 +203,6 @@ void * audio_cap_jack_init(char *cfg)
 
         s->data = ring_buffer_init(s->frame.max_size);
         
-        free(ports);
-
         if(jack_set_sample_rate_callback(s->client, jack_samplerate_changed_callback, (void *) s)) {
                 fprintf(stderr, "[JACK capture] Registring callback problem.\n");
                 goto release_client;
@@ -233,6 +231,8 @@ void * audio_cap_jack_init(char *cfg)
                         }
                 }
         }
+
+        free(ports);
 
         return s;
 
