@@ -158,9 +158,10 @@ REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-translator.o
 
 IMPORT_CONTROL_KEYBOARD_OBJS = src/import_control_keyboard.o
+SWITCHER_CONTROL_KEYBOARD_OBJS = src/switcher_control_keyboard.o
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard $(REFLECTOR_TARGET) modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard bin/switcher_control_keyboard $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
@@ -172,7 +173,10 @@ $(TARGET): bindir $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
 bin/import_control_keyboard: bindir $(IMPORT_CONTROL_KEYBOARD_OBJS)
-	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @IMPORT_CONTROL_KEYBOARD_LIBS@ -o $@
+	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @NCURSES_LIBS@ -o $@
+
+bin/switcher_control_keyboard: bindir $(SWITCHER_CONTROL_KEYBOARD_OBJS)
+	$(LINKER) $(LDFLAGS) $(SWITCHER_CONTROL_KEYBOARD_OBJS) @NCURSES_LIBS@ -o $@ -pthread
 
 $(REFLECTOR_TARGET): bindir $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@

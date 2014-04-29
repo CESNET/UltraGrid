@@ -2578,11 +2578,10 @@ if test $system = Linux -o $system = MacOSX; then
 
         if test $FOUND_NCURSES = yes; then
                 AC_DEFINE([HAVE_NCURSES], [1], [Build with ncurses support])
-                IMPORT_CONTROL_KEYBOARD_LIBS="$NCURSES_LIBS"
         fi
 fi
 
-AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
+AC_SUBST(NCURSES_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # OpenSSL-libcrypto
