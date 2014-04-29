@@ -57,8 +57,6 @@
 
 #include <pthread.h>
 
-#include <OpenGL/OpenGL.h>
-#include <OpenGL/gl.h>
 #include <Carbon/Carbon.h>
 
 /* prototypes of functions defined in this module */
