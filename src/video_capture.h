@@ -110,6 +110,8 @@ struct vidcap_type {
 	//video_colour_mode_t	 colour_mode;
 };
 
+struct module;
+
 /**
  * @name Vidcap Parameters Handling Functions
  * @{ */
@@ -125,6 +127,7 @@ const char           *vidcap_params_get_driver(const struct vidcap_params *param
 unsigned int          vidcap_params_get_flags(const struct vidcap_params *params);
 const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
 const char           *vidcap_params_get_name(const struct vidcap_params *params);
+struct module        *vidcap_params_get_parent(const struct vidcap_params *params);
 void                  vidcap_params_set_device(struct vidcap_params *params, const char *config);
 void                  vidcap_params_set_capture_filter(struct vidcap_params *params,
                 const char *req_capture_filter);
@@ -141,7 +144,7 @@ struct module;
 struct vidcap;
 
 int                      vidcap_init(struct module *parent, vidcap_id_t id,
-                const struct vidcap_params *param, struct vidcap **);
+                struct vidcap_params *param, struct vidcap **);
 void			 vidcap_done(struct vidcap *state);
 struct video_frame	*vidcap_grab(struct vidcap *state, struct audio_frame **audio);
 
