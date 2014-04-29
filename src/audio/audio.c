@@ -144,6 +144,8 @@ struct state_audio {
         int  resample_to;
 
         char *requested_encryption;
+
+        volatile bool paused;
 };
 
 /** 
@@ -689,9 +691,15 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
                                         &s->audio_network_parameters);
                         break;
                 case SENDER_MSG_PAUSE:
+                        s->paused = true;
+                        break;
                 case SENDER_MSG_PLAY:
+                        s->paused = false;
+                        break;
+                case SENDER_MSG_CHANGE_FEC:
                         fprintf(stderr, "Not implemented!\n");
                         abort();
+
         }
 }
 
@@ -725,6 +733,9 @@ static void *audio_sender_thread(void *arg)
                                 if(!buffer)
                                         continue;
 #endif
+                        }
+                        if (s->paused) {
+                                continue;
                         }
                         if(s->sender == NET_NATIVE) {
                                 // RESAMPLE
