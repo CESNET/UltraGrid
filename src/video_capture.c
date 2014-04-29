@@ -77,6 +77,7 @@
 #include "video_capture/screen_osx.h"
 #include "video_capture/screen_x11.h"
 #include "video_capture/swmix.h"
+#include "video_capture/switcher.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
 #include "video_capture/v4l2.h"
@@ -164,6 +165,15 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_import_init),
          MK_STATIC(vidcap_import_done),
          MK_STATIC(vidcap_import_grab),
+         NULL
+        },
+        {
+         0,
+         NULL,
+         MK_STATIC(vidcap_switcher_probe),
+         MK_STATIC(vidcap_switcher_init),
+         MK_STATIC(vidcap_switcher_done),
+         MK_STATIC(vidcap_switcher_grab),
          NULL
         },
 #if defined HAVE_RTSP
