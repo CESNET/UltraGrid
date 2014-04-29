@@ -349,7 +349,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                 char *compress = suffix(message, "compress ");
 
                 if(prefix_matches(compress, "param ")) {
-                        compress = suffix(compress, " param");
+                        compress = suffix(compress, "param ");
                         msg->what = CHANGE_PARAMS;
                 } else {
                         msg->what = CHANGE_COMPRESS;
@@ -357,7 +357,7 @@ static int process_msg(struct control_state *s, fd_t client_fd, char *message)
                 strncpy(msg->config_string, compress, sizeof(msg->config_string) - 1);
 
                 if(!resp) {
-                        enum module_class path_compress[] = { MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE };
+                        enum module_class path_compress[] = { MODULE_CLASS_SENDER, MODULE_CLASS_COMPRESS, MODULE_CLASS_NONE };
                         append_message_path(path, sizeof(path), path_compress);
                         resp = send_message(s->root_module, path, (struct message *) msg);
                 }
