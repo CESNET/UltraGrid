@@ -81,15 +81,13 @@ void print_fps(int fd, struct v4l2_frmivalenum *param);
 #define BUF_COUNT 2
 
 struct vidcap_v4l2_state {
-        struct video_frame *frame;
-        struct tile *tile;
+        struct video_desc desc;
 
         int fd;
         struct {
                 void *start;
                 size_t length;
         } buffers[BUF_COUNT];
-        struct v4l2_buffer v4l2_dequeued_buffer;
 
         bool conversion_needed;
         struct v4lconvert_data *convert;
@@ -316,7 +314,6 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 }
         }
 
-        s->frame = NULL;
         s->fd = open(dev_name, O_RDWR);
 
         if(s->fd == -1) {
@@ -410,49 +407,48 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 goto error_fd;
         }
 
-        s->frame = vf_alloc(1);
-        s->tile = vf_get_tile(s->frame, 0);
+        s->desc.tile_count = 1;
 
         s->conversion_needed = false;
 
         switch(fmt.fmt.pix.pixelformat) {
                 case V4L2_PIX_FMT_YUYV:
-                        s->frame->color_spec = YUYV;
+                        s->desc.color_spec = YUYV;
                         break;
                 case V4L2_PIX_FMT_UYVY:
-                        s->frame->color_spec = UYVY;
+                        s->desc.color_spec = UYVY;
                         break;
                 case V4L2_PIX_FMT_RGB24:
-                        s->frame->color_spec = RGB;
+                        s->desc.color_spec = RGB;
                         break;
                 case V4L2_PIX_FMT_RGB32:
-                        s->frame->color_spec = RGBA;
+                        s->desc.color_spec = RGBA;
                         break;
                 case V4L2_PIX_FMT_MJPEG:
-                        s->frame->color_spec = MJPG;
+                        s->desc.color_spec = MJPG;
                         break;
                 case V4L2_PIX_FMT_H264:
-                        s->frame->color_spec = H264;
+                        s->desc.color_spec = H264;
                         break;
                 default:
                         s->conversion_needed = true;
                         s->dst_fmt.fmt.pix.pixelformat =  V4L2_PIX_FMT_RGB24;
-                        s->frame->color_spec = RGB;
+                        s->desc.color_spec = RGB;
                         break;
         }
 
         switch(fmt.fmt.pix.field) {
                 case V4L2_FIELD_NONE:
-                        s->frame->interlacing = PROGRESSIVE;
+                        s->desc.interlacing = PROGRESSIVE;
                         break;
                 case V4L2_FIELD_TOP:
-                        s->frame->interlacing = UPPER_FIELD_FIRST;
+                        s->desc.interlacing = UPPER_FIELD_FIRST;
                         break;
                 case V4L2_FIELD_BOTTOM:
-                        s->frame->interlacing = LOWER_FIELD_FIRST;
+                        s->desc.interlacing = LOWER_FIELD_FIRST;
                         break;
                 case V4L2_FIELD_INTERLACED:
-                        s->frame->interlacing = INTERLACED_MERGED;
+                        s->desc.interlacing = INTERLACED_MERGED;
                         break;
                 case V4L2_FIELD_SEQ_TB:
                 case V4L2_FIELD_SEQ_BT:
@@ -461,18 +457,14 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 case V4L2_FIELD_INTERLACED_BT:
                 default:
                         fprintf(stderr, "[V4L2] Unsupported interlacing format reported from driver.\n");
-                        goto free_frame;
+                        goto error_fd;
         }
-        s->frame->fps = (double) stream_params.parm.capture.timeperframe.denominator /
+        s->desc.fps = (double) stream_params.parm.capture.timeperframe.denominator /
                 stream_params.parm.capture.timeperframe.numerator;
-        s->tile->width = fmt.fmt.pix.width;
-        s->tile->height = fmt.fmt.pix.height;
+        s->desc.width = fmt.fmt.pix.width;
+        s->desc.height = fmt.fmt.pix.height;
 
         if(s->conversion_needed) {
-                s->tile->data_len = vc_get_linesize(s->tile->width, s->frame->color_spec) *
-                        s->tile->height;
-                s->tile->data = malloc(s->tile->data_len);
-                s->frame->data_deleter = vf_data_deleter;
                 s->convert = v4lconvert_create(s->fd);
         } else {
                 s->convert = NULL;
@@ -490,14 +482,14 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                         printf("Video capturing or mmap-streaming is not supported\n");
                 else
                         perror("VIDIOC_REQBUFS");
-                goto free_frame;
+                goto error_fd;
 
         }
 
         if (reqbuf.count < 2) {
                 /* You may need to free the buffers here. */
                 printf("Not enough buffer memory\n");
-                goto free_frame;
+                goto error_fd;
         }
 
         for (unsigned int i = 0; i < reqbuf.count; i++) {
@@ -509,7 +501,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
                 if (-1 == ioctl (s->fd, VIDIOC_QUERYBUF, &buf)) {
                         perror("VIDIOC_QUERYBUF");
-                        goto free_frame;
+                        goto error_fd;
                 }
 
                 s->buffers[i].length = buf.length; /* remember for munmap() */
@@ -523,24 +515,20 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                         /* If you do not exit here you should unmap() and free()
                            the buffers mapped so far. */
                         perror("mmap");
-                        goto free_frame;
+                        goto error_fd;
                 }
 
                 buf.flags = 0;
 
-                if (i < reqbuf.count - 1) {
-                        if(ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
-                                perror("Unable to enqueue buffer");
-                                goto free_frame;
-                        }
-                } else {
-                        memcpy(&s->v4l2_dequeued_buffer, &buf, sizeof(buf));
+                if(ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
+                        perror("Unable to enqueue buffer");
+                        goto error_fd;
                 }
         }
 
         if(ioctl(s->fd, VIDIOC_STREAMON, &reqbuf.type) != 0) {
                 perror("Unable to start stream");
-                goto free_frame;
+                goto error_fd;
         };
 
         gettimeofday(&s->t0, NULL);
@@ -550,8 +538,6 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
 
         return s;
 
-free_frame:
-        vf_free(s->frame);
 error_fd:
         close(s->fd);
         free(s);
@@ -569,8 +555,6 @@ void vidcap_v4l2_done(void *state)
 
         close(s->fd);
 
-        vf_free(s->frame);
-
         if(s->conversion_needed) {
                 v4lconvert_destroy(s->convert);
         }
@@ -578,15 +562,32 @@ void vidcap_v4l2_done(void *state)
         free(s);
 }
 
+struct v4l2_dispose_deq_buffer_data {
+        int fd;
+        struct v4l2_buffer buf;
+};
+
+static void vidcap_v4l2_dispose_video_frame(struct video_frame *frame) {
+        struct v4l2_dispose_deq_buffer_data *data =
+                (struct v4l2_dispose_deq_buffer_data *) frame->dispose_udata;
+        if (data) {
+                if (ioctl(data->fd, VIDIOC_QBUF, &data->buf) != 0) {
+                        perror("Unable to enqueue buffer");
+                };
+                free(data);
+        } else {
+                free(frame->tiles[0].data);
+        }
+
+        vf_free(frame);
+}
+
 struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
 {
         struct vidcap_v4l2_state *s = (struct vidcap_v4l2_state *) state;
+        struct video_frame *out;
 
         *audio = NULL;
-
-        if (ioctl(s->fd, VIDIOC_QBUF, &s->v4l2_dequeued_buffer) != 0) {
-                perror("Unable to enqueue buffer");
-        };
 
         struct v4l2_buffer buf;
         memset(&buf, 0, sizeof(buf));
@@ -595,27 +596,42 @@ struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
 
         if(ioctl(s->fd, VIDIOC_DQBUF, &buf) != 0) {
                 perror("Unable to dequeue buffer");
+                return NULL;
         };
 
-        memcpy(&s->v4l2_dequeued_buffer, &buf, sizeof(buf));
+        out = vf_alloc_desc(s->desc);
+        out->dispose = vidcap_v4l2_dispose_video_frame;
 
         if(!s->conversion_needed) {
-                s->tile->data = s->buffers[buf.index].start;
-                s->tile->data_len = buf.bytesused;
+                struct v4l2_dispose_deq_buffer_data *frame_data =
+                        malloc(sizeof(struct v4l2_dispose_deq_buffer_data));
+                frame_data->fd = s->fd;
+                memcpy(&frame_data->buf, &buf, sizeof(buf));
+                out->tiles[0].data = s->buffers[frame_data->buf.index].start;
+                out->tiles[0].data_len = frame_data->buf.bytesused;
+                out->dispose_udata = frame_data;
         } else {
+                out->dispose_udata = NULL;
+                out->tiles[0].data = (char *) malloc(out->tiles[0].data_len);
                 int ret = v4lconvert_convert(s->convert,
                                 &s->src_fmt,  /*  in */
                                 &s->dst_fmt, /*  in */
                                 s->buffers[buf.index].start,
                                 buf.bytesused,
-                                (unsigned char *) s->tile->data, 
-                                s->tile->data_len);
+                                (unsigned char *) out->tiles[0].data,
+                                out->tiles[0].data_len);
+
+                // we do not need the driver buffer any more
+                if (ioctl(s->fd, VIDIOC_QBUF, &buf) != 0) {
+                        perror("Unable to enqueue buffer");
+                };
+
                 if(ret == -1) {
                         fprintf(stderr, "Error converting video.\n");
                         return NULL;
                 }
 
-                s->tile->data_len = ret;
+                out->tiles[0].data_len = ret;
         }
 
         s->frames++;
@@ -631,6 +647,6 @@ struct video_frame * vidcap_v4l2_grab(void *state, struct audio_frame **audio)
         }
 
 
-        return s->frame;
+        return out;
 }
 
