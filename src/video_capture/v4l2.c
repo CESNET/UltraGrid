@@ -78,7 +78,8 @@ void print_fps(int fd, struct v4l2_frmivalenum *param);
 
 #define DEFAULT_DEVICE "/dev/video0"
 
-#define BUF_COUNT 2
+#define DEFAULT_BUF_COUNT 2
+#define MAX_BUF_COUNT 30
 
 struct vidcap_v4l2_state {
         struct video_desc desc;
@@ -87,7 +88,7 @@ struct vidcap_v4l2_state {
         struct {
                 void *start;
                 size_t length;
-        } buffers[BUF_COUNT];
+        } buffers[MAX_BUF_COUNT];
 
         bool conversion_needed;
         struct v4lconvert_data *convert;
@@ -133,9 +134,10 @@ static void show_help()
 {
         printf("V4L2 capture\n");
         printf("Usage\n");
-        printf("\t-t v4l2[:<dev>[:<pixel_fmt>:[<width>:<height>[:<tpf>]]]]\n");
+        printf("\t-t v4l2[:dev=<dev>][:fmt=<pixel_fmt>][:size=<width>x<height>][:tpf=<tpf>][:buffers=<bufcnt>]\n");
         printf("\t\tuse device <dev> for grab (default: %s)\n", DEFAULT_DEVICE);
         printf("\t\t<tpf> - time per frame in format <numerator>/<denominator>\n");
+        printf("\t\t<bufcnt> - number of capture buffers to be used (default: %d)\n", DEFAULT_BUF_COUNT);
 
         for (int i = 0; i < 64; ++i) {
                 char name[32];
@@ -252,6 +254,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                  height = 0;
         uint32_t numerator = 0,
                  denominator = 0;
+        int buffer_count = DEFAULT_BUF_COUNT;
 
         printf("vidcap_v4l2_init\n");
 
@@ -274,43 +277,44 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 char *init_fmt = tmp;
                 char *save_ptr = NULL;
                 char *item;
-                int i = 0;
                 while((item = strtok_r(init_fmt, ":", &save_ptr))) {
-                        int len;
-                        switch (i) {
-                                case 0:
-                                        dev_name = item;
-                                        break;
-                                case 1:
-                                        {
+                        if (strncmp(item, "dev=",
+                                        strlen("dev=")) == 0) {
+                                dev_name = item + strlen("dev=");
+                        } else if (strncmp(item, "fmt=",
+                                        strlen("fmt=")) == 0) {
+                                                char *fmt = item + strlen("fmt=");
                                                 union {
                                                         uint32_t fourcc;
                                                         char str[4];
                                                 } str_to_uint;
-                                                len = 4;
-                                                if(strlen(item) < 4) len = strlen(item);
+                                                int len = 4;
+                                                if(strlen(fmt) < 4) len = strlen(fmt);
                                                 memset(str_to_uint.str, 0, 4);
-                                                memcpy(str_to_uint.str, item, len);
+                                                memcpy(str_to_uint.str, fmt, len);
                                                 pixelformat = str_to_uint.fourcc;
-                                        }
-                                        break;
-                                case 2:
-                                        width = atoi(item);
-                                        break;
-                                case 3:
-                                        height = atoi(item);
-                                        break;
-                                case 4:
+                        } else if (strncmp(item, "size=",
+                                        strlen("size=")) == 0) {
+                                if(strchr(item, 'x')) {
+                                        width = atoi(item + strlen("size="));
+                                        height = atoi(strchr(item, 'x') + 1);
+                                }
+                        } else if (strncmp(item, "tpf=",
+                                        strlen("tpf=")) == 0) {
                                         if(strchr(item, '/')) {
-                                                numerator = atoi(item);
+                                                numerator = atoi(item + strlen("tpf="));
                                                 denominator = atoi(strchr(item, '/') + 1);
                                         }
-
-                                        break;
-
+                        } else if (strncmp(item, "buffers=",
+                                        strlen("buffers=")) == 0) {
+                                buffer_count = atoi(item + strlen("buffers="));
+                                assert (buffer_count <= MAX_BUF_COUNT);
+                        } else {
+                                fprintf(stderr, "[V4L2] Invalid configuration argument: %s\n",
+                                                item);
+                                return NULL;
                         }
                         init_fmt = NULL;
-                        ++i;
                 }
         }
 
@@ -365,30 +369,31 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
                 goto error_fd;
         }
 
-        if(pixelformat) {
+        if (pixelformat) {
                 fmt.fmt.pix.pixelformat = pixelformat;
+        }
 
-                if(width != 0 && height != 0) {
-                        fmt.fmt.pix.width = width;
-                        fmt.fmt.pix.height = height;
-                }
-                fmt.fmt.pix.field = V4L2_FIELD_ANY;
-                fmt.fmt.pix.bytesperline = 0;
+        if(width != 0 && height != 0) {
+                fmt.fmt.pix.width = width;
+                fmt.fmt.pix.height = height;
+        }
 
-                if(ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
-                        perror("[V4L2] Unable to set video formant");
+        fmt.fmt.pix.field = V4L2_FIELD_ANY;
+        fmt.fmt.pix.bytesperline = 0;
+
+        if(ioctl(s->fd, VIDIOC_S_FMT, &fmt) != 0) {
+                perror("[V4L2] Unable to set video formant");
+                goto error_fd;
+        }
+
+        if(numerator != 0 && denominator != 0) {
+                stream_params.parm.capture.timeperframe.numerator = numerator;
+                stream_params.parm.capture.timeperframe.denominator = denominator;
+
+                if(ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
+                        perror("[V4L2] Unable to set stream params");
+
                         goto error_fd;
-                }
-
-                if(numerator != 0 && denominator != 0) {
-                        stream_params.parm.capture.timeperframe.numerator = numerator;
-                        stream_params.parm.capture.timeperframe.denominator = denominator;
-
-                        if(ioctl(s->fd, VIDIOC_S_PARM, &stream_params) != 0) {
-                                perror("[V4L2] Unable to set stream params");
-
-                                goto error_fd;
-                        }
                 }
         }
 
@@ -475,7 +480,7 @@ void * vidcap_v4l2_init(const struct vidcap_params *params)
         memset(&reqbuf, 0, sizeof(reqbuf));
         reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         reqbuf.memory = V4L2_MEMORY_MMAP;
-        reqbuf.count = BUF_COUNT;
+        reqbuf.count = buffer_count;
 
         if (ioctl (s->fd, VIDIOC_REQBUFS, &reqbuf) != 0) {
                 if (errno == EINVAL)
