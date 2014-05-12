@@ -797,7 +797,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
     if(fp == 0){
         printf("unable to open asset %s", sdp_filename);
         fclose(fp);
-        return -1;
+        return;
     }
     fseek(fp, 0, SEEK_END);
     unsigned long fileSize = ftell(fp);
@@ -808,7 +808,7 @@ void setup_codecs_and_controls_from_sdp(const char *sdp_filename, void *state) {
 
     if(readResult != fileSize){
         printf("something bad happens, read result != file size");
-        return -1;
+        return;
     }
     buffer[fileSize] = '\0';
 

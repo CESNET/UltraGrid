@@ -174,60 +174,60 @@ struct pbuf *pbuf_init(void)
 
 static void add_coded_unit(struct pbuf_node *node, rtp_packet * pkt)
 {
-    /* Add "pkt" to the frame represented by "node". The "node" has    */
-    /* previously been created, and has some coded data already...     */
+        /* Add "pkt" to the frame represented by "node". The "node" has    */
+        /* previously been created, and has some coded data already...     */
 
-    /* New arrivals are added at the head of the list, which is stored */
-    /* in descending order of packets as they arrive (NOT necessarily  */
-    /* descending sequence number order, as the network might reorder) */
+        /* New arrivals are added at the head of the list, which is stored */
+        /* in descending order of packets as they arrive (NOT necessarily  */
+        /* descending sequence number order, as the network might reorder) */
 
-    struct coded_data *tmp, *curr, *prv;
+        struct coded_data *tmp, *curr, *prv;
 
-    assert(node->rtp_timestamp == pkt->ts);
-    assert(node->cdata != NULL);
+        assert(node->rtp_timestamp == pkt->ts);
+        assert(node->cdata != NULL);
 
-    tmp = malloc(sizeof(struct coded_data));
-    if (tmp == NULL) {
-        /* this is bad, out of memory, drop the packet... */
-        free(pkt);
-        return;
-    }
-
-    tmp->seqno = pkt->seq;
-    tmp->data = pkt;
-    node->mbit |= pkt->m;
-    if((int16_t)(tmp->seqno - node->cdata->seqno) > 0){
-        tmp->prv = NULL;
-        tmp->nxt = node->cdata;
-        node->cdata->prv = tmp;
-        node->cdata = tmp;
-    } else {
-        curr = node->cdata;
-        if (curr == NULL){
-             /* this is bad, out of memory, drop the packet... */
-            free(pkt);
-            free_cdata(tmp);
-        } else {
-            while (curr != NULL &&  ((int16_t)(tmp->seqno - curr->seqno) < 0)){
-                prv = curr;
-                curr = curr->nxt;
-            }
-            if (curr == NULL) {
-                tmp->nxt = NULL;
-                tmp->prv = prv;
-                prv->nxt = tmp;
-            }else if ((int16_t)(tmp->seqno - curr->seqno) > 0){
-                tmp->nxt = curr;
-                tmp->prv = curr->prv;
-                tmp->prv->nxt = tmp;
-                curr->prv = tmp;
-            } else {
-                /* this is bad, something went terribly wrong... */
+        tmp = malloc(sizeof(struct coded_data));
+        if (tmp == NULL) {
+                /* this is bad, out of memory, drop the packet... */
                 free(pkt);
-                free_cdata(tmp);
-            }
+                return;
         }
-    }
+
+        tmp->seqno = pkt->seq;
+        tmp->data = pkt;
+        node->mbit |= pkt->m;
+        if((int16_t)(tmp->seqno - node->cdata->seqno) > 0){
+                tmp->prv = NULL;
+                tmp->nxt = node->cdata;
+                node->cdata->prv = tmp;
+                node->cdata = tmp;
+        } else {
+                curr = node->cdata;
+                if (curr == NULL){
+                        /* this is bad, out of memory, drop the packet... */
+                        free(pkt);
+                        free_cdata(tmp);
+                } else {
+                        while (curr != NULL &&  ((int16_t)(tmp->seqno - curr->seqno) < 0)){
+                                prv = curr;
+                                curr = curr->nxt;
+                        }
+                        if (curr == NULL) {
+                                tmp->nxt = NULL;
+                                tmp->prv = prv;
+                                prv->nxt = tmp;
+                        }else if ((int16_t)(tmp->seqno - curr->seqno) > 0){
+                                tmp->nxt = curr;
+                                tmp->prv = curr->prv;
+                                tmp->prv->nxt = tmp;
+                                curr->prv = tmp;
+                        } else {
+                                /* this is bad, something went terribly wrong... */
+                                free(pkt);
+                                free_cdata(tmp);
+                        }
+                }
+        }
 }
 
 static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay)
@@ -316,42 +316,43 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
         }
 
         if (playout_buf->last->rtp_timestamp < pkt->ts) {
-            /* Packet belongs to a new frame... */
-            tmp = create_new_pnode(pkt, playout_buf->playout_delay);
-            playout_buf->last->nxt = tmp;
-            tmp->prv = playout_buf->last;
-            playout_buf->last = tmp;
+                /* Packet belongs to a new frame... */
+                tmp = create_new_pnode(pkt, playout_buf->playout_delay);
+                playout_buf->last->nxt = tmp;
+                playout_buf->last->completed = true;
+                tmp->prv = playout_buf->last;
+                playout_buf->last = tmp;
         } else {
-            /* Packet belongs to a previous frame... */
-            curr = playout_buf->last;
-            while(curr != playout_buf->frst && curr->rtp_timestamp > pkt->ts){
-                curr = curr->prv;
-            }
-
-            if (curr->rtp_timestamp == pkt->ts) {
-                /* Packet belongs to a previous existing frame... */
-                add_coded_unit(curr, pkt);
-            } else if (curr->rtp_timestamp < pkt->ts){
-                /* Packet belongs to a new previous frame */
-                tmp = create_new_pnode(pkt, playout_buf->playout_delay);
-                tmp->nxt = curr->nxt;
-                tmp->prv = curr;
-                curr->nxt->prv = tmp;
-                curr->nxt = tmp;
-            } else if (curr == playout_buf->frst) {
-                tmp = create_new_pnode(pkt, playout_buf->playout_delay);
-                tmp->nxt = playout_buf->frst;
-                curr->prv = tmp;
-                playout_buf->frst = tmp;
-
-            } else {
-
-                if (pkt->m) {
-                    debug_msg
-                        ("Oops... dropped packet with M bit set\n");
+                /* Packet belongs to a previous frame... */
+                curr = playout_buf->last;
+                while(curr != playout_buf->frst && curr->rtp_timestamp > pkt->ts){
+                        curr = curr->prv;
                 }
-                free(pkt);
-            }
+
+                if (curr->rtp_timestamp == pkt->ts) {
+                        /* Packet belongs to a previous existing frame... */
+                        add_coded_unit(curr, pkt);
+                } else if (curr->rtp_timestamp < pkt->ts){
+                        /* Packet belongs to a new previous frame */
+                        tmp = create_new_pnode(pkt, playout_buf->playout_delay);
+                        tmp->nxt = curr->nxt;
+                        tmp->prv = curr;
+                        curr->nxt->prv = tmp;
+                        curr->nxt = tmp;
+                } else if (curr == playout_buf->frst) {
+                        tmp = create_new_pnode(pkt, playout_buf->playout_delay);
+                        tmp->nxt = playout_buf->frst;
+                        curr->prv = tmp;
+                        playout_buf->frst = tmp;
+
+                } else {
+
+                        if (pkt->m) {
+                                debug_msg
+                                        ("Oops... dropped packet with M bit set\n");
+                        }
+                        free(pkt);
+                }
         }
         pbuf_validate(playout_buf);
 }
