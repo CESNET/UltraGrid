@@ -53,7 +53,7 @@ h264_rtp_video_rxtx::h264_rtp_video_rxtx(struct module *parent, struct video_exp
                 const char *requested_compression, const char *requested_encryption,
                 const char *receiver, int rx_port, int tx_port,
                 bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
-                long packet_rate, uint8_t avType) :
+                long packet_rate, rtps_types_t avType) :
         rtp_video_rxtx(parent, video_exporter, requested_compression, requested_encryption,
                         receiver, rx_port, tx_port,
                         use_ipv6, mcast_if, requested_video_fec, mtu, packet_rate)

@@ -48,7 +48,7 @@
 
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
-BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, uint8_t avType){
+BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType){
     if(mod == NULL){
         exit(1);
     }
@@ -61,7 +61,7 @@ BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, uint8_t a
 }
 
 BasicRTSPOnlyServer* 
-BasicRTSPOnlyServer::initInstance(int port, struct module *mod, uint8_t avType){
+BasicRTSPOnlyServer::initInstance(int port, struct module *mod, rtps_types_t avType){
     if (srvInstance != NULL){
         return srvInstance;
     }
@@ -78,9 +78,12 @@ BasicRTSPOnlyServer::getInstance(){
 
 int BasicRTSPOnlyServer::init_server() {
     
-    if (env != NULL || rtspServer != NULL || mod == NULL || (avType > 2 && avType < 0)){
+    if (env != NULL || rtspServer != NULL || mod == NULL || (avType >= NUM_RTSP_FORMATS && avType < 0)){
         exit(1);
     }
+
+    //setting livenessTimeoutTask
+    unsigned reclamationTestSeconds = 35;
 
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
@@ -98,7 +101,7 @@ int BasicRTSPOnlyServer::init_server() {
         fPort = 8554;
     }
 
-    rtspServer = RTSPServer::createNew(*env, fPort, authDB);
+    rtspServer = RTSPServer::createNew(*env, fPort, authDB, reclamationTestSeconds);
     if (rtspServer == NULL) {
         *env << "Failed to create RTSP server: " << env->getResultMsg() << "\n";
         exit(1);
@@ -108,11 +111,16 @@ int BasicRTSPOnlyServer::init_server() {
                    "UltraGrid RTSP server enabling standard transport",
                    "UltraGrid RTSP server");
 
-               if(avType == 0){
+               if(avType == avStdDyn){
+                                  sms->addSubsession(BasicRTSPOnlySubsession
+                                                    ::createNew(*env, True, mod, audioPCMUdyn));
+                                  sms->addSubsession(BasicRTSPOnlySubsession
+                                                    ::createNew(*env, True, mod, videoH264));
+               }else if(avType == avStd){
                    sms->addSubsession(BasicRTSPOnlySubsession
-                                     ::createNew(*env, True, mod, 2));
+                                     ::createNew(*env, True, mod, audioPCMUstd));
                    sms->addSubsession(BasicRTSPOnlySubsession
-                                     ::createNew(*env, True, mod, 1));
+                                     ::createNew(*env, True, mod, videoH264));
                }else sms->addSubsession(BasicRTSPOnlySubsession
                   ::createNew(*env, True, mod, avType));
 

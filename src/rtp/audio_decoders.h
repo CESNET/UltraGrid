@@ -54,6 +54,7 @@
 struct coded_data;
 
 int decode_audio_frame(struct coded_data *cdata, void *data);
+int decode_audio_frame_mulaw(struct coded_data *cdata, void *data);
 void *audio_decoder_init(char *audio_channel_map, const char *audio_scale,
                 const char *encryption);
 void audio_decoder_destroy(void *state);

@@ -62,9 +62,15 @@
 #include "capture_filter/logo.h"
 #include "capture_filter/none.h"
 #include "capture_filter/scale.h"
+#ifdef HAVE_OPENCV
+#include "capture_filter/resize.h"
+#endif
 
 static struct capture_filter_info *capture_filters[] = {
         &capture_filter_blank,
+#ifdef HAVE_OPENCV
+        &capture_filter_resize,
+#endif
         &capture_filter_every,
         &capture_filter_logo,
         &capture_filter_none,

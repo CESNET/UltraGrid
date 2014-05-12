@@ -52,6 +52,7 @@
 extern "C" {
 #endif
 
+#include "rtsp/rtsp_utils.h"
 #include "module.h"
 #include "control_socket.h"
 
@@ -91,12 +92,12 @@ public:
     createNew(UsageEnvironment& env,
         Boolean reuseFirstSource,
         struct module *mod,
-        uint8_t avType);
+        rtps_types_t avType);
 
 protected:
 
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-        struct module *mod, uint8_t avType);
+        struct module *mod, rtps_types_t avType);
 
     virtual ~BasicRTSPOnlySubsession();
 
@@ -139,7 +140,7 @@ private:
     void* fLastStreamToken;
     char fCNAME[100];
     struct module *fmod;
-    uint8_t avType;
+    rtps_types_t avType;
 };
 
 

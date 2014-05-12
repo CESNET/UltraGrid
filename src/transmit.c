@@ -154,7 +154,7 @@ struct tx {
 // Mulaw audio memory reservation
 static void init_tx_mulaw_buffer() {
     if (!buffer_mulaw_init) {
-        data_buffer_mulaw = malloc(BUFFER_MTU_SIZE);
+        data_buffer_mulaw = malloc(BUFFER_MTU_SIZE*20);
         buffer_mulaw_init = 1;
     }
 }
@@ -379,7 +379,6 @@ void format_video_header(struct video_frame *frame, int tile_idx, int buffer_idx
 void
 tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_session)
 {
-        struct tile *tile;
         int last = FALSE;
         uint32_t ts = 0;
         int fragment_offset = 0;
@@ -389,7 +388,6 @@ tx_send_tile(struct tx *tx, struct video_frame *frame, int pos, struct rtp *rtp_
 
         platform_spin_lock(&tx->spin);
 
-        tile = vf_get_tile(frame, pos);
         ts = get_local_mediatime();
         if(frame->fragment &&
                         tx->last_frame_fragment_id == frame->frame_fragment_id) {
@@ -763,6 +761,8 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
  */
 void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
 {
+    assert(buffer->codec == AC_MULAW);
+
     int pt;
     uint32_t timestamp;
 
@@ -772,7 +772,6 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     // 8000 Hz, 1 channel is the ITU-T G.711 standard
     // More channels or Hz goes to DynRTP-Type97
 
-//TODO CHECK ACTUAL CHCOUNT IN ORDER TO PROPERLY CREATE PAYLOAD TYPE
     if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
         pt = PT_ITU_T_G711_PCMU;
     } else {
@@ -782,50 +781,45 @@ void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * 
     // The sizes for the different audio_frame2 channels must be the same.
     for (int i = 1 ; i < buffer->ch_count ; i++) assert(buffer->data_len[0] == buffer->data_len[i]);
 
-    int data_len = buffer->data_len[0] * buffer->ch_count;  /* Number of samples to send (bps=1)*/
+    int data_len = buffer->data_len[0] * buffer->ch_count;  	/* Number of samples to send 			*/
     int data_remainig = data_len;
-    int payload_size = tx->mtu - 40;                        /* Max size of an RTP payload field */
-    int packets = data_len / payload_size;
-    if (data_len % payload_size != 0) packets++;            /* Number of RTP packets needed */
+    int payload_size = tx->mtu - 40;                        	/* Max size of an RTP payload field 	*/
 
     init_tx_mulaw_buffer();
     char *curr_sample = data_buffer_mulaw;
 
-    // For each interval that fits in an RTP payload field.
-    for (int p = 0 ; p < packets ; p++) {
+    int ch, pos = 0, count = 0, pointerToSend = 0;
 
-        int samples_per_packet;
-        int data_to_send;
-        if (data_remainig >= payload_size) {
-            samples_per_packet = payload_size / buffer->ch_count;
-            data_to_send = payload_size;
-        }
-        else {
-            samples_per_packet = data_remainig / buffer->ch_count;
-            data_to_send = data_remainig;
-        }
+    do{
+    	for(ch = 0; ch < buffer->ch_count; ch++){
+    		memcpy(curr_sample, buffer->data[ch] + pos, buffer->bps * sizeof(char));
+    		curr_sample += buffer->bps * sizeof(char);
+    		count+=buffer->bps * sizeof(char);
+    		data_remainig--;
+    	}
+    	pos += buffer->bps * sizeof(char);
 
-        // Interleave the samples
-        for (int ch_sample = 0 ; ch_sample < samples_per_packet ; ch_sample++){
-            for (int ch = 0 ; ch < buffer->ch_count ; ch++) {
- //TODO to be checked prepiously -> if(buffer->data[ch]!=NULL){
-                    memcpy(curr_sample, (char *)(buffer->data[ch] + ch_sample), sizeof(uint8_t));
-                    curr_sample += sizeof(uint8_t);
-                    data_remainig--;
- //               }
-            }
-        }
+    	if((pos * buffer->ch_count) % payload_size == 0){
+    	        // Update first sample timestamp
+     	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
+      	      	// Send the packet
+      	      	rtp_send_data(rtp_session, timestamp, pt, 0, 0,  	/* contributing sources 		*/
+     	              0,        				    				/* contributing sources length 	*/
+      	              data_buffer_mulaw + pointerToSend, payload_size,
+      	              0, 0, 0);
+      	    	pointerToSend += payload_size;
+    	}
+    }while(count < data_len);
 
-        // Update first sample timestamp
-        timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/buffer->ch_count)));
-
-        // Send the packet
-        rtp_send_data(rtp_session, timestamp, pt, 0, 0,        /* contributing sources */
-                0,        /* contributing sources length */
-                data_buffer_mulaw, data_to_send,
-                0, 0, 0);
+    if((pos * buffer->ch_count) % payload_size != 0){
+            	// Update first sample timestamp
+	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
+          	// Send the packet
+         	rtp_send_data(rtp_session, timestamp, pt, 0, 0,        	/* contributing sources 		*/
+                  	0,     											/* contributing sources length 	*/
+                  	data_buffer_mulaw + pointerToSend , (pos * buffer->ch_count) % payload_size,
+                  	0, 0, 0);
     }
-
     tx->buffer ++;
 
     platform_spin_unlock(&tx->spin);
@@ -840,10 +834,10 @@ int rtpenc_h264_parse_nal_units(uint8_t *buf_in, int size,
 static uint8_t *rtpenc_h264_find_startcode_internal(uint8_t *start,
         uint8_t *end)
 {
-    uint8_t *p = start;
-    uint8_t *pend = end; // - 3; // XXX: w/o -3, p[1] and p[2] may fail.
+    //uint8_t *p = start;
+    //uint8_t *pend = end; // - 3; // XXX: w/o -3, p[1] and p[2] may fail.
 
-    for (p = start; p < pend; p++) {
+    for (uint8_t *p = start; p < end; p++) {
         if (p[0] == 0 && p[1] == 0 && p[2] == 1) {
             return p;
         }
@@ -888,13 +882,14 @@ int rtpenc_h264_parse_nal_units(uint8_t *buf_in, int size,
         }
         int nal_size = nal_end - nal_start;
 
-        size += nal_size;
+        if(nal_size > 4){
+            size += nal_size;
+            nals[(*nnals)].data = nal_start;
+            nals[(*nnals)].size = nal_size;
+            (*nnals)++;
 
-        nals[(*nnals)].data = nal_start;
-        nals[(*nnals)].size = nal_size;
-        (*nnals)++;
-
-        nal_start = nal_end;
+            nal_start = nal_end;
+    	}else nal_start += 3;
     }
     return size;
 }
@@ -937,6 +932,7 @@ static void tx_send_base_h264(struct tx *tx, struct tile *tile, struct rtp *rtp_
 
         int fragmentation = 0;
         int nal_max_size = tx->mtu - 40;
+
         if (nal.size > nal_max_size) {
             debug_msg("RTP packet size exceeds the MTU size\n");
             fragmentation = 1;
@@ -1024,7 +1020,6 @@ static void tx_send_base_h264(struct tx *tx, struct tile *tile, struct rtp *rtp_
             }
         }
         else {
-
             uint8_t frag_header[2];
             int frag_header_size = 2;
 

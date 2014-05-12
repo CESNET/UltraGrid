@@ -59,6 +59,7 @@ extern "C" {
 #include "control_socket.h"
 #include "module.h"
 #include "debug.h"
+#include "rtsp/rtsp_utils.h"
 
 #ifdef __cplusplus
 }
@@ -77,14 +78,14 @@ EXTERNC typedef struct rtsp_serv {
 	pthread_t server_th;
     uint8_t watch;
     uint8_t run;
-    uint8_t avType;
+    rtps_types_t avType;
 } rtsp_serv_t;
 
 EXTERNC int c_start_server(rtsp_serv_t* server);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, uint8_t avType);
+EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType);
 
 #undef EXTERNC
 

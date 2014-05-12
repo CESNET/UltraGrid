@@ -52,14 +52,14 @@
 BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
     Boolean reuseFirstSource,
-    struct module *mod, uint8_t avType){
+    struct module *mod, rtps_types_t avType){
     return new BasicRTSPOnlySubsession(env, reuseFirstSource, mod, avType);
 }
 
 BasicRTSPOnlySubsession
 ::BasicRTSPOnlySubsession(UsageEnvironment& env,
     Boolean reuseFirstSource,
-    struct module *mod, uint8_t avType)
+    struct module *mod, rtps_types_t avType)
 : ServerMediaSubsession(env),
   fSDPLines(NULL),
   fReuseFirstSource(reuseFirstSource), fLastStreamToken(NULL) {
@@ -89,7 +89,7 @@ void BasicRTSPOnlySubsession
 ::setSDPLines() {
     //TODO: should be more dynamic
     //VStream
-    if(avType == 1){
+    if(avType == videoH264 || avType == avStdDyn || avType == avStd){
         unsigned estBitrate = 5000;
         char const* mediaType = "video";
         uint8_t rtpPayloadType = 96;
@@ -123,7 +123,7 @@ void BasicRTSPOnlySubsession
         fSDPLines = sdpLines;
     }
     //AStream
-    if(avType == 2){
+    if(avType == audioPCMUdyn || avType == avStdDyn){
         unsigned estBitrate = 384;
         char const* mediaType = "audio";
         uint8_t rtpPayloadType = 97;
@@ -172,7 +172,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
     Port& serverRTCPPort,
     void*& streamToken) {
 
-    if(Vdestination == NULL && avType == 1){
+    if(Vdestination == NULL && (avType == videoH264 || avType == avStdDyn || avType == avStd)){
         if (fSDPLines == NULL){
             setSDPLines();
         }
@@ -183,7 +183,7 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
         destinationAddr.s_addr = destinationAddress;
         Vdestination = new Destinations(destinationAddr, clientRTPPort,clientRTCPPort);
     }
-    if(Adestination == NULL && avType == 2){
+    if(Adestination == NULL && (avType == audioPCMUdyn || avType == avStdDyn)){
         if (fSDPLines == NULL){
             setSDPLines();
         }
@@ -205,15 +205,12 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
     unsigned& rtpTimestamp,
     ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
     void* serverRequestAlternativeByteHandlerClientData) {
+    struct response *resp = NULL;
 
-    if ((Vdestination == NULL && Adestination == NULL)){
-        return;
-    } else{
-        struct response *resp = NULL;
-        char pathV[1024];
-        char pathA[1024];
+    if (Vdestination != NULL){
+        if(avType == videoH264 || avType == avStdDyn || avType == avStd){
+            char pathV[1024];
 
-        if(avType == 1 && Vdestination != NULL){
             memset(pathV, 0, sizeof(pathV));
             enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
             append_message_path(pathV, sizeof(pathV), path_sender);
@@ -237,9 +234,12 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
             resp = send_message(fmod, pathV, (struct message *) msgV2);
             resp = NULL;
         }
-        if(avType == 2 && Adestination != NULL){
-            struct msg_sender *msg = (struct msg_sender *)
-	                                                        new_message(sizeof(struct msg_sender));
+    }
+
+    if(Adestination != NULL){
+        if(avType == audioPCMUdyn || avType == avStdDyn){
+            char pathA[1024];
+
             memset(pathA, 0, sizeof(pathA));
             enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
             append_message_path(pathA, sizeof(pathA), path_sender);
@@ -267,15 +267,10 @@ void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
 }
 
 void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId, void*& streamToken){
-    if ((Vdestination == NULL && Adestination == NULL)){
-        return;
-    } else {
-        char pathV[1024];
-        char pathA[1024];
-        Vdestination = NULL;
-        Adestination = NULL;
-
-        if(avType == 1 || Vdestination != NULL){
+    if (Vdestination != NULL){
+        if(avType == videoH264 || avType == avStdDyn || avType == avStd){
+            char pathV[1024];
+            Vdestination = NULL;
             memset(pathV, 0, sizeof(pathV));
             enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
             append_message_path(pathV, sizeof(pathV), path_sender);
@@ -295,7 +290,12 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId, void*& stre
             msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
             send_message(fmod, pathV, (struct message *) msgV2);
         }
-        if(avType == 2 || Adestination != NULL){
+    }
+
+    if(Adestination != NULL){
+        if(avType == audioPCMUdyn || avType == avStdDyn){
+            char pathA[1024];
+            Adestination = NULL;
             memset(pathA, 0, sizeof(pathA));
             enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
             append_message_path(pathA, sizeof(pathA), path_sender);

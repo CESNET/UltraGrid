@@ -96,14 +96,14 @@
 #include <mcheck.h>
 #endif
 
-#define EXIT_FAIL_USAGE		1
-#define EXIT_FAIL_UI   		2
-#define EXIT_FAIL_DISPLAY	3
-#define EXIT_FAIL_CAPTURE	4
-#define EXIT_FAIL_NETWORK	5
-#define EXIT_FAIL_TRANSMIT	6
-#define EXIT_FAIL_COMPRESS	7
-#define EXIT_FAIL_DECODER	8
+#define EXIT_FAIL_USAGE     1
+#define EXIT_FAIL_UI        2
+#define EXIT_FAIL_DISPLAY   3
+#define EXIT_FAIL_CAPTURE   4
+#define EXIT_FAIL_NETWORK   5
+#define EXIT_FAIL_TRANSMIT  6
+#define EXIT_FAIL_COMPRESS  7
+#define EXIT_FAIL_DECODER   8
 
 #define PORT_BASE               5004
 #define PORT_AUDIO              5006
@@ -433,6 +433,7 @@ int main(int argc, char *argv[])
         const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
+        rtsp_serv_t* rtsp_server = NULL;
         bool isStd = FALSE;
         int recv_port_number = PORT_BASE;
         int send_port_number = PORT_BASE;
@@ -460,8 +461,8 @@ int main(int argc, char *argv[])
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
-	bool receiver_thread_started = false,
-		  capture_thread_started = false;
+    bool receiver_thread_started = false,
+          capture_thread_started = false;
         unsigned display_flags = 0;
         int ret;
         struct vidcap_params *audio_cap_dev;
@@ -551,11 +552,11 @@ int main(int argc, char *argv[])
                                 return 0;
                         }
                         requested_display = optarg;
-			if(strchr(optarg, ':')) {
-				char *delim = strchr(optarg, ':');
-				*delim = '\0';
-				display_cfg = delim + 1;
-			}
+            if(strchr(optarg, ':')) {
+                char *delim = strchr(optarg, ':');
+                *delim = '\0';
+                display_cfg = delim + 1;
+            }
                         break;
                 case 't':
                         if (!strcmp(optarg, "help")) {
@@ -633,9 +634,9 @@ int main(int argc, char *argv[])
                                 requested_video_fec = optarg;
                         }
                         break;
-		case 'h':
-			usage();
-			return 0;
+        case 'h':
+            usage();
+            return 0;
                 case 'P':
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
@@ -825,17 +826,17 @@ int main(int argc, char *argv[])
         }
 
 #ifdef WIN32
-	WSADATA wsaData;
-	int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	if(err != 0) {
-		fprintf(stderr, "WSAStartup failed with error %d.", err);
-		return EXIT_FAILURE;
-	}
-	if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-		fprintf(stderr, "Counld not found usable version of Winsock.\n");
-		WSACleanup();
-		return EXIT_FAILURE;
-	}
+    WSADATA wsaData;
+    int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if(err != 0) {
+        fprintf(stderr, "WSAStartup failed with error %d.", err);
+        return EXIT_FAILURE;
+    }
+    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+        fprintf(stderr, "Counld not found usable version of Winsock.\n");
+        WSACleanup();
+        return EXIT_FAILURE;
+    }
 #endif
 
         if(control_init(control_port, &control, &root_mod) != 0) {
@@ -951,10 +952,11 @@ int main(int argc, char *argv[])
                                         display_device, requested_mtu,
                                         argc, argv);
                 }else if (video_protocol == H264_STD) {
-                        uint8_t avType;
-                        if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = 0; //AVStream
-                        else if((strcmp("none",audio_send) != 0)) avType = 2; //AStream
-                        else avType = 1; //VStream
+                		rtps_types_t avType;
+                		if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = avStdDyn; //AVStream
+                		else if((strcmp("none",audio_send) != 0)) avType = audioPCMUdyn; //AStream
+                        else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = videoH264; //VStream
+           	            else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
 
                         uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
                                         requested_compression, requested_encryption,
@@ -971,7 +973,6 @@ int main(int argc, char *argv[])
                 } else { // SAGE
                         uv->state_video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
                                         requested_compression, requested_receiver, sage_opts);
-
                 }
 
                 if(rxtx_mode & MODE_RECEIVER) {
@@ -1057,6 +1058,10 @@ cleanup:
                 vidcap_params_head = next;
         }
 
+#ifdef HAVE_RTSP_SERVER
+        if(rtsp_server) c_stop_server(rtsp_server);
+#endif
+
         module_done(&root_mod);
         free(uv);
 
@@ -1065,7 +1070,7 @@ cleanup:
 #endif
 
 #ifdef WIN32
-	WSACleanup();
+    WSACleanup();
 #endif
 
         printf("Exit\n");

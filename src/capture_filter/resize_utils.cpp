@@ -1,7 +1,7 @@
 /*
- * FILE:    c_basicRTSPOnlyServer.cpp
- * AUTHORS: David Cassany    <david.cassany@i2cat.net>
- *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ * FILE:    capture_filter/resize_utils.cpp
+ * AUTHORS: Gerard Castillo     <gerard.castillo@i2cat.net>
+ *          Marc Palau          <marc.palau@i2cat.net>
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
@@ -41,35 +41,37 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include "rtsp/c_basicRTSPOnlyServer.h"
-#include "rtsp/BasicRTSPOnlyServer.hh"
 
-int c_start_server(rtsp_serv_t* server){
-    int ret;
-    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType);
-    srv->init_server();
-    ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
-    if (ret == 0){
-        server->run = TRUE;
-    } else {
-        server->run = FALSE;
+#include "capture_filter/resize_utils.h"
+
+using namespace cv;
+
+int resize_frame(char *indata, codec_t in_color, char *outdata, unsigned int *data_len, unsigned int width, unsigned int height, double scale_factor){
+    assert(in_color == UYVY || in_color == RGB);
+
+    int res = 0;
+    Mat out, in, rgb;
+
+    if (indata == NULL || outdata == NULL || data_len == NULL) {
+        return 1;
     }
-    return ret;
-}
 
-rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType){
-    rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
-    server->port = port;
-    server->mod = mod;
-    server->watch = 0;
-    server->run = FALSE;
-    server->avType = avType;
-    return server;
-}
-
-void c_stop_server(rtsp_serv_t* server){
-    server->watch = 1;
-    if (server->run){
-        pthread_join(server->server_th, NULL);
+    switch(in_color){
+		case UYVY:
+			in.create(height, width, CV_8UC2);
+		    in.data = (uchar*)indata;
+			cvtColor(in, rgb, CV_YUV2RGB_UYVY);
+			resize(rgb, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
+			break;
+		case RGB:
+			in.create(height, width, CV_8UC3);
+		    in.data = (uchar*)indata;
+			resize(in, out, Size(0,0), scale_factor, scale_factor, INTER_LINEAR);
+			break;
     }
+
+    *data_len = out.step * out.rows * sizeof(char);
+    memcpy(outdata,out.data,*data_len);
+
+    return res;
 }
