@@ -2498,7 +2498,6 @@ then
         SAVED_LIBS=$LIBS
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # append libavutil
         LIBS="$LIBS $LIBAVCODEC_LIBS"
-        AC_CHECK_FUNCS(avcodec_encode_video2)
         LIBS=$SAVED_LIBS
 else
         LIBAVCODEC_LIBS=
