@@ -168,10 +168,11 @@ static void loadSplashscreen(struct state_sdl *s) {
 #endif
 
 	// load splash data
+        const char *data = splash_data;
 	for (y_coord = 0; y_coord < splash_height; y_coord++) {
 		for (x_coord = 0; x_coord < splash_width; x_coord++) {
 
-			HEADER_PIXEL(splash_data,pixel);
+			HEADER_PIXEL(data,pixel);
 			Uint32 color = SDL_MapRGB(image->format, pixel[0], pixel[1], pixel[2]);
 
 			switch(image->format->BytesPerPixel) {

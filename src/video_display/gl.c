@@ -264,6 +264,7 @@ static void gl_load_splashscreen(struct state_gl *s)
         gl_reconfigure_screen(s);
 
         for (int i = 0; i < 2; ++i) {
+                const char *data = splash_data;
                 memset(s->buffers[i], 0, s->tile->data_len);
                 for (unsigned int y = 0; y < splash_height; ++y) {
                         char *line = s->buffers[i];
@@ -274,7 +275,7 @@ static void gl_load_splashscreen(struct state_gl *s)
                                         (s->tile->width - splash_width)/2,
                                         s->frame->color_spec);
                         for (unsigned int x = 0; x < splash_width; ++x) {
-                                HEADER_PIXEL(splash_data,line);
+                                HEADER_PIXEL(data,line);
                                 line += 4;
                         }
                 }
