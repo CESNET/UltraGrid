@@ -269,7 +269,6 @@ static struct pbuf_node *create_new_pnode(rtp_packet * pkt, double playout_delay
 void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
 {
         struct pbuf_node *tmp;
-        struct pbuf_node *curr;
 
         pbuf_validate(playout_buf);
 
@@ -315,43 +314,46 @@ void pbuf_insert(struct pbuf *playout_buf, rtp_packet * pkt)
                 return;
         }
 
-        if (playout_buf->last->rtp_timestamp < pkt->ts) {
-                /* Packet belongs to a new frame... */
-                tmp = create_new_pnode(pkt, playout_buf->playout_delay);
-                playout_buf->last->nxt = tmp;
-                playout_buf->last->completed = true;
-                tmp->prv = playout_buf->last;
-                playout_buf->last = tmp;
+        if (playout_buf->last->rtp_timestamp == pkt->ts) {
+                /* Packet belongs to last frame in playout_buf this is the */
+                /* most likely scenario - although...                      */
+                add_coded_unit(playout_buf->last, pkt);
         } else {
-                /* Packet belongs to a previous frame... */
-                curr = playout_buf->last;
-                while(curr != playout_buf->frst && curr->rtp_timestamp > pkt->ts){
-                        curr = curr->prv;
-                }
-
-                if (curr->rtp_timestamp == pkt->ts) {
-                        /* Packet belongs to a previous existing frame... */
-                        add_coded_unit(curr, pkt);
-                } else if (curr->rtp_timestamp < pkt->ts){
-                        /* Packet belongs to a new previous frame */
+                if (playout_buf->last->rtp_timestamp < pkt->ts) {
+                        /* Packet belongs to a new frame... */
                         tmp = create_new_pnode(pkt, playout_buf->playout_delay);
-                        tmp->nxt = curr->nxt;
-                        tmp->prv = curr;
-                        curr->nxt->prv = tmp;
-                        curr->nxt = tmp;
-                } else if (curr == playout_buf->frst) {
-                        tmp = create_new_pnode(pkt, playout_buf->playout_delay);
-                        tmp->nxt = playout_buf->frst;
-                        curr->prv = tmp;
-                        playout_buf->frst = tmp;
-
+                        playout_buf->last->nxt = tmp;
+                        playout_buf->last->completed = true;
+                        tmp->prv = playout_buf->last;
+                        playout_buf->last = tmp;
                 } else {
-
-                        if (pkt->m) {
+                        bool discard_pkt = false;
+                        /* Packet belongs to a previous frame... */
+                        if (playout_buf->frst->rtp_timestamp > pkt->ts) {
+                                debug_msg("A very old packet - discarded\n");
+                                discard_pkt = true;
+                        } else {
                                 debug_msg
-                                        ("Oops... dropped packet with M bit set\n");
+                                    ("A packet for a previous frame, but might still be useful\n");
+                                struct pbuf_node *curr = playout_buf->last;
+                                while(curr != playout_buf->frst && curr->rtp_timestamp > pkt->ts){
+                                        curr = curr->prv;
+                                }
+                                if (curr->rtp_timestamp == pkt->ts) {
+                                        /* Packet belongs to a previous existing frame... */
+                                        add_coded_unit(curr, pkt);
+                                } else {
+                                        /* Packet belongs to a frame that is not present */
+                                        discard_pkt = true;
+                                }
                         }
-                        free(pkt);
+                        if (pkt->m && discard_pkt) {
+                                debug_msg
+                                    ("Oops... dropped packet with M bit set\n");
+                        }
+                        if (discard_pkt) {
+                                free(pkt);
+                        }
                 }
         }
         pbuf_validate(playout_buf);
