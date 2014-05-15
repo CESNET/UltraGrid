@@ -161,7 +161,7 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         rc = snd_pcm_hw_params_set_rate_resample(s->handle,
                         params, val);
         if(rc < 0) {
-                fprintf(stderr, "[ALSA play.] Warnings: Unable to set resampling: %s\n",
+                fprintf(stderr, "[ALSA play.] Warning: Unable to set resampling: %s\n",
                         snd_strerror(rc));
         }
 
@@ -177,17 +177,18 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                 return FALSE;
         }
 
-        /* Set period size to 1 frame. */
+        /* Set period to its minimal size.
+         * Do not use snd_pcm_hw_params_set_period_size_near,
+         * since it allows to set also unsupported value without notifying.
+         * See also http://www.alsa-project.org/main/index.php/FramesPeriods */
         frames = 1;
         dir = 1;
-        rc = snd_pcm_hw_params_set_period_size_near(s->handle,
+        rc = snd_pcm_hw_params_set_period_time_min(s->handle,
                         params, &frames, &dir);
         if (rc < 0) {
-                fprintf(stderr, "cannot set period time: %s\n",
+                fprintf(stderr, "[ALSA play.] Warning: cannot set period time: %s\n",
                         snd_strerror(rc));
-                return FALSE;
         }
-
 
         val = BUFFER_MIN * 1000;
         dir = 1;
