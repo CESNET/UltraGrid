@@ -473,7 +473,11 @@ int display_sdl_reconfigure(void *state, struct video_desc desc)
 			x_res_y);
                 return FALSE;
 	}
-	SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
+        if (window_title) {
+                SDL_WM_SetCaption(window_title, window_title);
+        } else {
+                SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
+        }
 
 	SDL_ShowCursor(SDL_DISABLE);
 

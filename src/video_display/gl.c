@@ -91,8 +91,8 @@
 #include "video_display/splashscreen.h"
 #include "tv.h"
 
-#define MAGIC_GL	DISPLAY_GL_ID
-#define WIN_NAME        "Ultragrid - OpenGL Display"
+#define MAGIC_GL         DISPLAY_GL_ID
+#define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
 #define STRINGIFY(A) #A
 
@@ -384,7 +384,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 #endif
         glutIdleFunc(glut_idle_callback);
-	s->window = glutCreateWindow(WIN_NAME);
+	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
         glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
         //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);

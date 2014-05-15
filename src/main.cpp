@@ -127,6 +127,7 @@
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_LDGM_DEVICE (('L' << 8) | 'D')
+#define OPT_WINDOW_TITLE (('W' << 8) | 'T')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -522,6 +523,7 @@ int main(int argc, char *argv[])
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
+                {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -764,6 +766,9 @@ int main(int argc, char *argv[])
                         } else {
                                 ldgm_device_gpu = false;
                         }
+                        break;
+                case OPT_WINDOW_TITLE:
+                        window_title = optarg;
                         break;
                 case '?':
                 default:
