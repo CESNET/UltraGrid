@@ -107,17 +107,17 @@ struct state_audio_decoder {
         unsigned int channel_remapping:1;
         struct channel_map channel_map;
 
-        struct scale_data *scale;
+        struct scale_data *scale; ///< contains scaling metadata if we want to perform audio scaling
         bool fixed_scale;
 
-        audio_frame2 *received_frame;
+        audio_frame2 *received_frame; ///< auxiliary buffer that holds undecoded audio frame data from network
         struct audio_codec_state *audio_decompress;
         struct resampler *resampler;
 
         struct audio_desc saved_desc;
         uint32_t saved_audio_tag;
 
-        audio_frame2 *decoded; // for statistics
+        audio_frame2 *decoded; ///< buffer that keeps audio samples from last 5 seconds (for statistics)
 
         struct openssl_decrypt *decrypt;
 };
@@ -504,21 +504,21 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
 
         audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
 
-        s->buffer.data_len = resampled->data_len[0] * output_channels;
-        if((int) s->buffer.max_size < s->buffer.data_len) {
-                free(s->buffer.data);
-                s->buffer.max_size = s->buffer.data_len;
-                s->buffer.data = (char *) malloc(s->buffer.max_size);
+        size_t new_data_len = s->buffer.data_len + resampled->data_len[0] * output_channels;
+        if((int) s->buffer.max_size < new_data_len) {
+                s->buffer.max_size = new_data_len;
+                s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
         }
 
-        memset(s->buffer.data, 0, s->buffer.data_len);
+        memset(s->buffer.data + s->buffer.data_len, 0, new_data_len - s->buffer.data_len);
 
         // there is a mapping for channel
         for(int channel = 0; channel < resampled->ch_count; ++channel) {
                 if(decoder->channel_remapping) {
                         if(channel < decoder->channel_map.size) {
                                 for(int i = 0; i < decoder->channel_map.sizes[channel]; ++i) {
-                                        mux_and_mix_channel(s->buffer.data, resampled->data[channel],
+                                        mux_and_mix_channel(s->buffer.data + s->buffer.data_len,
+                                                        resampled->data[channel],
                                                         resampled->bps, resampled->data_len[channel],
                                                         output_channels, decoder->channel_map.map[channel][i],
                                                         decoder->scale[decoder->fixed_scale ? 0 :
@@ -526,11 +526,13 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                                 }
                         }
                 } else {
-                        mux_and_mix_channel(s->buffer.data, resampled->data[channel], resampled->bps,
+                        mux_and_mix_channel(s->buffer.data + s->buffer.data_len, resampled->data[channel],
+                                        resampled->bps,
                                         resampled->data_len[channel], output_channels, channel,
                                         decoder->scale[decoder->fixed_scale ? 0 : input_channels].scale);
                 }
         }
+        s->buffer.data_len = new_data_len;
 
         audio_frame2_append(decoder->decoded, resampled);
 

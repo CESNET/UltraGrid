@@ -518,6 +518,8 @@ static void *audio_receiver_thread(void *arg)
         while (!should_exit_audio) {
                 bool decoded = false;
 
+                pbuf_data.buffer.data_len = 0;
+
                 if(s->receiver == NET_NATIVE) {
                         gettimeofday(&curr_time, NULL);
                         ts = tv_diff(curr_time, s->start_time) * 90000;
@@ -531,7 +533,10 @@ static void *audio_receiver_thread(void *arg)
                         cp = pdb_iter_init(s->audio_participants, &it);
                 
                         while (cp != NULL) {
-                                if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
+                                // We iterate in loop since there can be more than one frmae present in
+                                // the playout buffer and it would be discarded by following pbuf_remove()
+                                // call.
+                                while (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
                                         decoded = true;
                                 }
 
@@ -556,7 +561,8 @@ static void *audio_receiver_thread(void *arg)
                     cp = pdb_iter_init(s->audio_participants, &it);
 
                     while (cp != NULL) {
-                        if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame_mulaw, &pbuf_data)) {
+                        // should be perhaps run iteratively? similarly to NET_NATIVE
+                        if (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame_mulaw, &pbuf_data)) {
                             bool failed = false;
                             if(s->echo_state) {
 #ifdef HAVE_SPEEX
