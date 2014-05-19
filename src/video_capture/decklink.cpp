@@ -135,6 +135,7 @@ struct vidcap_decklink_state {
         unsigned int            autodetect_mode:1;
 
         BMDVideoConnection      connection;
+        int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
 
         struct timeval          t0;
 };
@@ -393,7 +394,7 @@ decklink_help()
 	HRESULT				result;
 
 	printf("\nDecklink options:\n");
-	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode][:connection=<input>]]\n");
+	printf("\t-t decklink[:<device_index(indices)>[:<mode>:<colorspace>[:3D][:timecode][:connection=<input>]][:audioConsumerLevels={true|false}]\\n");
 	printf("\t\t(You can omit device index, mode and color space provided that your cards supports format autodetection.)\n");
 	
 	// Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
@@ -502,6 +503,11 @@ decklink_help()
         printf("timecode\n");
         printf("\tTry to synchronize inputs based on timecode (for multiple inputs, eg. tiled 4K)\n");
 
+        printf("audioConsumerLevels\n");
+        printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
+        printf("\tIf set false the selected analog input gain levels are used.\n");
+
+	printf("\n");
 
 	return 1;
 }
@@ -599,6 +605,14 @@ settings_init(void *state, char *fmt)
                                         else {
                                                 fprintf(stderr, "[DeckLink] Unrecognized connection %s.\n", connection);
                                                 return 0;
+                                        }
+                                } else if(strncasecmp(tmp, "audioConsumerLevels=",
+                                                        strlen("audioConsumerLevels=")) == 0) {
+                                        char *levels = tmp + strlen("audioConsumerLevels=");
+                                        if (strcasecmp(levels, "false") == 0) {
+                                                s->audio_consumer_levels = 0;
+                                        } else {
+                                                s->audio_consumer_levels = 1;
                                         }
                                 } else {
                                         fprintf(stderr, "[DeckLink] Warning, unrecognized trailing options in init string: %s", tmp);
@@ -791,6 +805,7 @@ vidcap_decklink_init(const struct vidcap_params *params)
         s->autodetect_mode = FALSE;
         s->connection = (BMDVideoConnection) 0;
         s->flags = 0;
+        s->audio_consumer_levels = -1;
 
 	// SET UP device and mode
         char *tmp_fmt = strdup(vidcap_params_get_fmt(params));
@@ -1038,6 +1053,13 @@ vidcap_decklink_init(const struct vidcap_params *params)
                                                         fprintf(stderr, "[DeckLink] Decklink cannot grab %d audio channels. "
                                                                         "Only 1, 2, 8 or 16 are poosible.", audio_capture_channels);
                                                         goto error;
+                                                }
+                                                if (s->audio_consumer_levels != -1) {
+                                                        result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
+                                                                        s->audio_consumer_levels == 1 ? true : false);
+                                                        if(result != S_OK) {
+                                                                fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
+                                                        }
                                                 }
                                                 deckLinkInput->EnableAudioInput(
                                                         bmdAudioSampleRate48kHz,
