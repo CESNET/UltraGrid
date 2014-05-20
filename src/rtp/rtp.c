@@ -3879,6 +3879,19 @@ int rtp_change_dest(struct rtp *session, const char *addr)
         return udp_change_dest(session->rtp_socket, addr);
 }
 
+/**
+ * rtcp_change_dest:
+ * Changes RTCP destination address.
+ * There must be only one sending thread.
+ * @session: The RTCP Session.
+ * @addr: New Receiver Address.
+ * Returns TRUE if ok, FALSE if not
+ */
+int rtcp_change_dest(struct rtp *session, const char *addr)
+{
+        return udp_change_dest(session->rtcp_socket, addr);
+}
+
 uint64_t rtp_get_bytes_sent(struct rtp *session)
 {
         return session->rtp_bytes_sent;

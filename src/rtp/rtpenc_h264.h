@@ -1,7 +1,7 @@
 /*
- * FILE:    BasicRTSPOnlyServer.hh
- * AUTHORS: David Cassany    <david.cassany@i2cat.net>
- *          Gerard Castillo  <gerard.castillo@i2cat.net>
+ * AUTHOR:  Gerard Castillo <gerard.castillo@i2cat.net>,
+ * 			David Cassany   <david.cassany@i2cat.net>
+ *
  *
  * Copyright (c) 2005-2010 Fundació i2CAT, Internet I Innovació Digital a Catalunya
  *
@@ -19,9 +19,8 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *
- *      This product includes software developed by the Fundació i2CAT,
- *      Internet I Innovació Digital a Catalunya. This product also includes
- *      software developed by CESNET z.s.p.o.
+ *      This product includes software developed by the University of Southern
+ *      California Information Sciences Institute.
  *
  * 4. Neither the name of the University nor of the Institute may be used
  *    to endorse or promote products derived from this software without
@@ -42,44 +41,35 @@
  *
  */
 
-#ifndef _BASIC_RTSP_ONLY_SERVER_HH
-#define _BASIC_RTSP_ONLY_SERVER_HH
+#ifndef _RTP_ENC_H264_H
+#define _RTP_ENC_H264_H
 
-#include <RTSPServer.hh>
-#include <BasicUsageEnvironment.hh>
-#include "rtsp/rtsp_utils.h"
-#include "audio/audio.h"
-#include "module.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#define RTPENC_H264_PT 96
 
-
-class BasicRTSPOnlyServer {
-private:
-    BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
-
-public:
-    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
-    static BasicRTSPOnlyServer* getInstance();
-
-    int init_server();
-
-    static void *start_server(void *args);
-
-    int update_server();
-
-private:
-
-    static BasicRTSPOnlyServer* srvInstance;
-    int fPort;
-    struct module *mod;
-    rtps_types_t avType;
-    audio_codec_t audio_codec;
-    int audio_sample_rate;
-    int audio_channels;
-    int audio_bps;
-    int rtp_port; //server rtp port
-    RTSPServer* rtspServer;
-    UsageEnvironment* env;
+struct rtpenc_h264_state {
+	bool haveSeenFirstStartCode;
+	u_int8_t firstByteOfNALUnit;
+	unsigned char* startOfFrame;
+	unsigned char* to;
+	unsigned char* from;
+	unsigned maxPacketSize;
+	unsigned curNALOffset;
+	bool lastNALUnitFragment;
+	unsigned curParserIndex; // <= inputFrameSize
+	unsigned curParserIndexOffset;
+	unsigned inputFrameSize;
+	bool haveSeenEOF;
 };
+
+struct rtpenc_h264_state * rtpenc_h264_init_state();
+unsigned rtpenc_h264_frame_parse(struct rtpenc_h264_state *rtpench264state, uint8_t *buf_in, int size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

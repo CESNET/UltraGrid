@@ -46,7 +46,7 @@
 
 int c_start_server(rtsp_serv_t* server){
     int ret;
-    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType);
+    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType, server->audio_codec, server->audio_sample_rate, server->audio_channels, server->audio_bps, server->rtp_port);
     srv->init_server();
     ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
     if (ret == 0){
@@ -57,13 +57,18 @@ int c_start_server(rtsp_serv_t* server){
     return ret;
 }
 
-rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType){
+rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port){
     rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
     server->port = port;
     server->mod = mod;
     server->watch = 0;
     server->run = FALSE;
     server->avType = avType;
+    server->audio_codec = audio_codec;
+    server->audio_sample_rate = audio_sample_rate;
+    server->audio_channels = audio_channels;
+    server->audio_bps = audio_bps;
+    server->rtp_port = rtp_port;
     return server;
 }
 
@@ -72,4 +77,34 @@ void c_stop_server(rtsp_serv_t* server){
     if (server->run){
         pthread_join(server->server_th, NULL);
     }
+}
+
+int get_rtsp_server_port(char *config){
+	int port;
+    char *tok;
+	char *save_ptr = NULL;
+	if(strcmp((strtok_r(config, ":", &save_ptr)),"port") == 0){
+		if ((tok = strtok_r(NULL, ":", &save_ptr))) {
+			port = atoi(tok);
+			if (!(port >= 0 && port <= 65535)) {
+				printf("\n[RTSP SERVER] ERROR - please, enter a valid port number.\n");
+				rtps_server_usage();
+				return -1;
+			} else return port;
+		} else {
+			printf("\n[RTSP SERVER] ERROR - please, enter a port number.\n");
+			rtps_server_usage();
+			return -1;
+		}
+	} else {
+		printf("\n[RTSP SERVER] ERROR - please, check usage.\n");
+		rtps_server_usage();
+		return -1;
+	}
+}
+
+void rtps_server_usage(){
+	printf("\n[RTSP SERVER] usage:\n");
+	printf("\t--rtsp-server[=port:number]\n");
+	printf("\t\tdefault rtsp server port number: 8554\n\n");
 }

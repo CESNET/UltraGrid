@@ -3,13 +3,9 @@
 
 typedef enum {
     none,
-    avStd,
-    avStdDyn,
-    avUG,
-    videoH264,
-    videoUG,
-    audioPCMUstd,
-    audioPCMUdyn,
+    av,
+    video,
+    audio,
     NUM_RTSP_FORMATS
 }rtps_types_t;
 

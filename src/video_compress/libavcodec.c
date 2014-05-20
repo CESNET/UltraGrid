@@ -773,7 +773,7 @@ static void setparam_h264(AVCodecContext *codec_ctx, struct setparam_param *para
                 // percent of CPU.
                 strncat(params, "no-8x8dct=1:b-adapt=0:bframes=0:no-cabac=1:"
                         "no-deblock=1:no-mbtree=1:me=dia:no-mixed-refs=1:partitions=none:"
-                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0:slice-max-size=50000",
+                        "rc-lookahead=0:ref=1:scenecut=0:subme=0:trellis=0",
                         sizeof(params) - strlen(params) - 1);
         }
 

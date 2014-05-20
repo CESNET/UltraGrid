@@ -735,6 +735,13 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
                                 fprintf(stderr, "Changing audio receiver to: %s failed!\n",
                                                 msg->receiver);
                         }
+
+                        if (rtcp_change_dest(s->audio_network_device,
+                       				msg->receiver) == FALSE){
+                        		fprintf(stderr, "Changing rtcp audio receiver to: %s failed!\n",
+                        	                    msg->receiver);
+                        }
+
                         break;
                 case SENDER_MSG_CHANGE_PORT:
                         rtp_done(s->audio_network_device);
@@ -814,7 +821,7 @@ static void *audio_sender_thread(void *arg)
                                 audio_frame2 *compressed = NULL;
                                 while((compressed = audio_codec_compress(s->audio_coder, uncompressed))) {
                                     //TODO to be dynamic as a function of the selected codec, now only accepting mulaw without checking errors
-                                    audio_tx_send_mulaw(s->tx_session, s->audio_network_device, compressed);
+                                    audio_tx_send_standard(s->tx_session, s->audio_network_device, compressed);
                                     uncompressed = NULL;
                                 }
                             }

@@ -53,6 +53,7 @@ extern "C" {
 #endif
 
 #include "rtsp/rtsp_utils.h"
+#include "audio/audio.h"
 #include "module.h"
 #include "control_socket.h"
 
@@ -92,12 +93,12 @@ public:
     createNew(UsageEnvironment& env,
         Boolean reuseFirstSource,
         struct module *mod,
-        rtps_types_t avType);
+        rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
 
 protected:
 
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-        struct module *mod, rtps_types_t avType);
+        struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
 
     virtual ~BasicRTSPOnlySubsession();
 
@@ -141,6 +142,11 @@ private:
     char fCNAME[100];
     struct module *fmod;
     rtps_types_t avType;
+    audio_codec_t audio_codec;
+    int audio_sample_rate;
+    int audio_channels;
+    int audio_bps;
+    int rtp_port; //server rtp port
 };
 
 

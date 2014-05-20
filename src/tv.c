@@ -134,28 +134,61 @@ int tv_gt(struct timeval a, struct timeval b)
 
 /*
  * STANDARD TRANSPORT - RTP STANDARD
- * Calculate initial time on first execution, add per sample time otherwise.
+ * Calculate initial time on first execution, add per 'sample' time otherwise.
  */
-uint32_t get_std_audio_local_mediatime(int samples)
+
+//shared struct for audio and video streams (sync.)
+typedef struct {
+	bool init;
+	uint32_t random_startime_offset;
+	struct timeval vtime;
+	struct timeval atime;
+	struct timeval start_time;
+} std_time_struct;
+
+std_time_struct start_time = { true, 0, 0 };
+
+uint32_t get_std_audio_local_mediatime(double samples)
 {
-        static uint32_t saved_timestamp;
-        static int first = 0;
+        if (start_time.init) {
+			gettimeofday(&start_time.start_time, NULL);
+			start_time.atime = start_time.start_time;
+			start_time.vtime = start_time.start_time;
+			start_time.random_startime_offset = lbl_random();
+            tv_add_usec(&start_time.vtime, start_time.random_startime_offset);
+            tv_add_usec(&start_time.atime, start_time.random_startime_offset);
 
-        uint32_t curr_timestamp;
-
-        if (first == 0) {
-                struct timeval start_time;
-                gettimeofday(&start_time, NULL);
-                curr_timestamp = start_time.tv_sec +
-                                    (start_time.tv_usec / 1000000.0) +
-                                    lbl_random();
-                first = 1;
+        	start_time.init = false;
         }
         else {
-            curr_timestamp = saved_timestamp;
+            tv_add(&start_time.atime, samples);
         }
 
-        saved_timestamp = curr_timestamp + samples;
+        return (double)start_time.atime.tv_sec + (((double)start_time.atime.tv_usec) / 1000000.0);
+}
 
-        return curr_timestamp;
+uint32_t get_std_video_local_mediatime(double framerate)
+{
+	    double vrate = 90000; //default and standard video sample rate (Hz)
+	    double nextFraction;
+        unsigned nextSecsIncrement;
+
+        if (start_time.init) {
+			gettimeofday(&start_time.start_time, NULL);
+			start_time.atime = start_time.start_time;
+			start_time.vtime = start_time.start_time;
+			start_time.random_startime_offset = lbl_random();
+            tv_add_usec(&start_time.vtime, start_time.random_startime_offset);
+            tv_add_usec(&start_time.atime, start_time.random_startime_offset);
+
+        	start_time.init = false;
+        }
+        else {
+			nextFraction = ( start_time.vtime.tv_usec / 1000000.0 ) + ( 1 / framerate );
+			nextSecsIncrement = (long) nextFraction;
+			start_time.vtime.tv_sec += (long) nextSecsIncrement;
+			start_time.vtime.tv_usec = (long) ((nextFraction - nextSecsIncrement) * 1000000);
+        }
+
+        return ((double)start_time.vtime.tv_sec + (((double)start_time.vtime.tv_usec) / 1000000.0)) * vrate;
 }

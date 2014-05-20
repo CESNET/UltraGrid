@@ -52,7 +52,7 @@ public:
                         const char *requested_compression, const char *requested_encryption,
                         const char *receiver, int rx_port, int tx_port,
                         bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
-                        long packet_rate, rtps_types_t avType);
+                        long packet_rate, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtsp_port);
         virtual ~h264_rtp_video_rxtx();
 private:
         virtual void send_frame(struct video_frame *);
