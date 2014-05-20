@@ -423,27 +423,33 @@ void decklink_put_frame(void *state, struct audio_frame *frame)
 #else
         unsigned int sampleFramesWritten;
 #endif
+        char *data = frame->data;
+        // tmp_frame is used if we need to perform 1->2 channel multiplication
+        struct audio_frame tmp_frame;
+        tmp_frame.data = NULL;
 
-        /* we got probably count that cannot be played directly (probably 1) */
+        /* we got probably channel count that cannot be played directly (probably 1) */
         if(s->output_audio_channel_count != s->audio_desc.ch_count) {
-                assert(s->audio_desc.ch_count == 1); /* only reasonable value so far */
-                if (sampleFrameCount * s->output_audio_channel_count 
-                                * frame->bps > frame->max_size) {
-                        fprintf(stderr, "[decklink] audio buffer overflow!\n");
-                        sampleFrameCount = frame->max_size / 
-                                        (s->output_audio_channel_count * frame->bps);
-                        frame->data_len = sampleFrameCount *
-                                        (frame->ch_count * frame->bps);
-                }
+                assert(s->audio_desc.ch_count == 1); /* only supported value so far */
+                memcpy(&tmp_frame, frame, sizeof(tmp_frame));
+                // allocate enough space to hold resulting data
+                tmp_frame.max_size = sampleFrameCount * s->output_audio_channel_count
+                        * frame->bps;
+                tmp_frame.data = (char *) malloc(tmp_frame.max_size);
+                memcpy(tmp_frame.data, frame->data, frame->data_len);
                 
-                audio_frame_multiply_channel(frame,
+                audio_frame_multiply_channel(&tmp_frame,
                                 s->output_audio_channel_count);
+
+                data = tmp_frame.data;
         }
         
-	s->deckLinkOutput->ScheduleAudioSamples (frame->data, sampleFrameCount, 0, 		
+	s->deckLinkOutput->ScheduleAudioSamples (data, sampleFrameCount, 0,
                 0, &sampleFramesWritten);
         if(sampleFramesWritten != sampleFrameCount)
                 fprintf(stderr, "[decklink] audio buffer underflow!\n");
+
+        free(tmp_frame.data);
 
 }
 
