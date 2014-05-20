@@ -69,7 +69,7 @@
 #define MAX_PORTS 64
 
 struct state_jack_playback {
-        const char *jack_ports_pattern;
+        char *jack_ports_pattern;
         int jack_sample_rate;
         jack_client_t *client;
         jack_port_t *output_port[MAX_PORTS];
@@ -78,6 +78,7 @@ struct state_jack_playback {
         float *converted;
 #ifdef HAVE_SPEEX
         float *converted_resampled;
+        size_t converted_resampled_size;
         SpeexResamplerState *resampler; 
 #endif
 
@@ -190,7 +191,7 @@ void * audio_play_jack_init(char *cfg)
 
         s = calloc(1, sizeof(struct state_jack_playback));
 
-        s->jack_ports_pattern = cfg;
+        s->jack_ports_pattern = strdup(cfg);
 
         if(!s) {
                 fprintf(stderr, "[JACK playback] Unable to allocate memory.\n");
@@ -287,7 +288,8 @@ int audio_play_jack_reconfigure(void *state, int quant_samples, int channels,
         if(s->resampler) {
                 speex_resampler_destroy(s->resampler);
         }
-        s->converted_resampled = (float *) malloc(sizeof(float) * s->jack_sample_rate);
+        s->converted_resampled_size = sizeof(float) * s->jack_sample_rate;
+        s->converted_resampled = (float *) malloc(s->converted_resampled_size);
 
         {
                 int err;
@@ -337,7 +339,7 @@ void audio_play_jack_put_frame(void *state, struct audio_frame *frame)
                 int2float((char *) s->converted, (char *) s->converted, converted_size);
 #ifdef HAVE_SPEEX
                 spx_uint32_t in_len = channel_size / frame->bps;
-                spx_uint32_t out_len;
+                spx_uint32_t out_len = s->converted_resampled_size;
                 speex_resampler_process_float(s->resampler, 
                                            i, 
                                            s->converted, 
@@ -364,6 +366,7 @@ void audio_play_jack_done(void *state)
 #endif
         free(s->channel);
         free(s->converted);
+        free(s->jack_ports_pattern);
         for(i = 0; i < MAX_PORTS; ++i) {
                 ring_buffer_destroy(s->data[i]);
         }

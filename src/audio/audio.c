@@ -144,6 +144,8 @@ struct state_audio {
         int  resample_to;
 
         char *requested_encryption;
+
+        volatile bool paused;
 };
 
 /** 
@@ -196,13 +198,15 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
                 const char *send_cfg, const char *recv_cfg,
                 char *jack_cfg, const char *fec_cfg, const char *encryption,
                 char *audio_channel_map, const char *audio_scale,
-                bool echo_cancellation, bool use_ipv6, const char *mcast_if, audio_codec_t audio_codec,
-                int resample_to, bool isStd, long packet_rate)
+                bool echo_cancellation, bool use_ipv6, const char *mcast_if,
+                const char *audio_codec_cfg,
+                bool isStd, long packet_rate)
 {
         struct state_audio *s = NULL;
         char *tmp, *unused = NULL;
         UNUSED(unused);
         char *addr;
+        int resample_to = get_audio_codec_sample_rate(audio_codec_cfg);
         
         audio_capture_init_devices();
         audio_playback_init_devices();
@@ -256,7 +260,7 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         s->audio_sender_thread_started = s->audio_receiver_thread_started = false;
         s->resample_to = resample_to;
 
-        s->audio_coder = audio_codec_init(audio_codec, AUDIO_CODER);
+        s->audio_coder = audio_codec_init_cfg(audio_codec_cfg, AUDIO_CODER);
         if(!s->audio_coder) {
                 goto error;
         }
@@ -514,6 +518,8 @@ static void *audio_receiver_thread(void *arg)
         while (!should_exit_audio) {
                 bool decoded = false;
 
+                pbuf_data.buffer.data_len = 0;
+
                 if(s->receiver == NET_NATIVE) {
                         gettimeofday(&curr_time, NULL);
                         ts = tv_diff(curr_time, s->start_time) * 90000;
@@ -527,7 +533,10 @@ static void *audio_receiver_thread(void *arg)
                         cp = pdb_iter_init(s->audio_participants, &it);
                 
                         while (cp != NULL) {
-                                if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
+                                // We iterate in loop since there can be more than one frmae present in
+                                // the playout buffer and it would be discarded by following pbuf_remove()
+                                // call.
+                                while (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame, &pbuf_data)) {
                                         decoded = true;
                                 }
 
@@ -552,7 +561,8 @@ static void *audio_receiver_thread(void *arg)
                     cp = pdb_iter_init(s->audio_participants, &it);
 
                     while (cp != NULL) {
-                        if (audio_pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame_mulaw, &pbuf_data)) {
+                        // should be perhaps run iteratively? similarly to NET_NATIVE
+                        if (pbuf_decode(cp->playout_buffer, curr_time, decode_audio_frame_mulaw, &pbuf_data)) {
                             bool failed = false;
                             if(s->echo_state) {
 #ifdef HAVE_SPEEX
@@ -733,9 +743,15 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
                                         &s->audio_network_parameters);
                         break;
                 case SENDER_MSG_PAUSE:
+                        s->paused = true;
+                        break;
                 case SENDER_MSG_PLAY:
+                        s->paused = false;
+                        break;
+                case SENDER_MSG_CHANGE_FEC:
                         fprintf(stderr, "Not implemented!\n");
                         abort();
+
         }
 }
 
@@ -769,6 +785,9 @@ static void *audio_sender_thread(void *arg)
                                 if(!buffer)
                                         continue;
 #endif
+                        }
+                        if (s->paused) {
+                                continue;
                         }
                         if(s->sender == NET_NATIVE) {
                                 // RESAMPLE

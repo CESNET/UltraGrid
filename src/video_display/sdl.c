@@ -168,10 +168,11 @@ static void loadSplashscreen(struct state_sdl *s) {
 #endif
 
 	// load splash data
+        const char *data = splash_data;
 	for (y_coord = 0; y_coord < splash_height; y_coord++) {
 		for (x_coord = 0; x_coord < splash_width; x_coord++) {
 
-			HEADER_PIXEL(splash_data,pixel);
+			HEADER_PIXEL(data,pixel);
 			Uint32 color = SDL_MapRGB(image->format, pixel[0], pixel[1], pixel[2]);
 
 			switch(image->format->BytesPerPixel) {
@@ -472,7 +473,11 @@ int display_sdl_reconfigure(void *state, struct video_desc desc)
 			x_res_y);
                 return FALSE;
 	}
-	SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
+        if (window_title) {
+                SDL_WM_SetCaption(window_title, window_title);
+        } else {
+                SDL_WM_SetCaption("Ultragrid - SDL Display", "Ultragrid");
+        }
 
 	SDL_ShowCursor(SDL_DISABLE);
 

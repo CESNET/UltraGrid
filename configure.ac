@@ -2548,7 +2548,6 @@ then
         SAVED_LIBS=$LIBS
         LIBAVCODEC_LIBS="$LIBAVCODEC_LIBS $LIBAVUTIL_LIBS" # append libavutil
         LIBS="$LIBS $LIBAVCODEC_LIBS"
-        AC_CHECK_FUNCS(avcodec_encode_video2)
         LIBS=$SAVED_LIBS
 else
         LIBAVCODEC_LIBS=
@@ -2628,11 +2627,10 @@ if test $system = Linux -o $system = MacOSX; then
 
         if test $FOUND_NCURSES = yes; then
                 AC_DEFINE([HAVE_NCURSES], [1], [Build with ncurses support])
-                IMPORT_CONTROL_KEYBOARD_LIBS="$NCURSES_LIBS"
         fi
 fi
 
-AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
+AC_SUBST(NCURSES_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # OpenSSL-libcrypto

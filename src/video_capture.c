@@ -77,6 +77,7 @@
 #include "video_capture/screen_osx.h"
 #include "video_capture/screen_x11.h"
 #include "video_capture/swmix.h"
+#include "video_capture/switcher.h"
 #include "video_capture/testcard.h"
 #include "video_capture/testcard2.h"
 #include "video_capture/v4l2.h"
@@ -103,6 +104,7 @@ struct vidcap_params {
         char  *name;   ///< input name (capture alias in config file or complete config if not alias)
         struct vidcap_params *next; /**< Pointer to next vidcap params. Used by aggregate capture drivers.
                                      *   Last device in list has @ref driver set to NULL. */
+        struct module *parent;
 };
 
 /// @brief This struct represents video capture state.
@@ -163,6 +165,15 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_import_init),
          MK_STATIC(vidcap_import_done),
          MK_STATIC(vidcap_import_grab),
+         NULL
+        },
+        {
+         0,
+         NULL,
+         MK_STATIC(vidcap_switcher_probe),
+         MK_STATIC(vidcap_switcher_init),
+         MK_STATIC(vidcap_switcher_done),
+         MK_STATIC(vidcap_switcher_grab),
          NULL
         },
 #if defined HAVE_RTSP
@@ -457,7 +468,7 @@ vidcap_id_t vidcap_get_null_device_id(void)
  * @retval <0   if initialization failed
  * @retval >0   if initialization was successful but no state was returned (eg. only having shown help).
  */
-int vidcap_init(struct module *parent, vidcap_id_t id, const struct vidcap_params *param,
+int vidcap_init(struct module *parent, vidcap_id_t id, struct vidcap_params *param,
                 struct vidcap **state)
 {
         unsigned int i;
@@ -467,23 +478,27 @@ int vidcap_init(struct module *parent, vidcap_id_t id, const struct vidcap_param
                         struct vidcap *d =
                             (struct vidcap *)malloc(sizeof(struct vidcap));
                         d->magic = VIDCAP_MAGIC;
+
+                        module_init_default(&d->mod);
+                        d->mod.cls = MODULE_CLASS_CAPTURE;
+                        module_register(&d->mod, parent);
+
+                        param->parent = &d->mod;
                         d->state = vidcap_device_table[i].func_init(param);
                         d->index = i;
                         if (d->state == NULL) {
                                 debug_msg
                                     ("Unable to start video capture device 0x%08lx\n",
                                      id);
+                                module_done(&d->mod);
                                 free(d);
                                 return -1;
                         }
                         if(d->state == &vidcap_init_noerr) {
+                                module_done(&d->mod);
                                 free(d);
                                 return 1;
                         }
-
-                        module_init_default(&d->mod);
-                        d->mod.cls = MODULE_CLASS_CAPTURE;
-                        module_register(&d->mod, parent);
 
                         int ret = capture_filter_init(&d->mod, param->requested_capture_filter,
                                         &d->capture_filter);
@@ -680,6 +695,11 @@ unsigned int vidcap_params_get_flags(const struct vidcap_params *params)
 const char *vidcap_params_get_name(const struct vidcap_params *params)
 {
         return params->name;
+}
+
+struct module *vidcap_params_get_parent(const struct vidcap_params *params)
+{
+        return params->parent;
 }
 
 /**

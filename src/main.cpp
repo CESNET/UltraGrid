@@ -127,6 +127,7 @@
 #define OPT_CONTROL_PORT (('C' << 8) | 'P')
 #define OPT_VERBOSE (('V' << 8) | 'E')
 #define OPT_LDGM_DEVICE (('L' << 8) | 'D')
+#define OPT_WINDOW_TITLE (('W' << 8) | 'T')
 
 #define MAX_CAPTURE_COUNT 17
 
@@ -433,7 +434,6 @@ int main(int argc, char *argv[])
         const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
-        rtsp_serv_t* rtsp_server = NULL;
         bool isStd = FALSE;
         int recv_port_number = PORT_BASE;
         int send_port_number = PORT_BASE;
@@ -457,14 +457,13 @@ int main(int argc, char *argv[])
         struct state_uv *uv;
         int ch;
 
-        audio_codec_t audio_codec = AC_PCM;
+        const char *audio_codec = "PCM";
 
         pthread_t receiver_thread_id,
                   capture_thread_id;
-    bool receiver_thread_started = false,
-          capture_thread_started = false;
+        bool receiver_thread_started = false,
+             capture_thread_started = false;
         unsigned display_flags = 0;
-        int compressed_audio_sample_rate = 48000;
         int ret;
         struct vidcap_params *audio_cap_dev;
         long packet_rate;
@@ -524,6 +523,7 @@ int main(int argc, char *argv[])
                 {"encryption", required_argument, 0, OPT_ENCRYPTION},
                 {"verbose", no_argument, 0, OPT_VERBOSE},
                 {"ldgm-device", required_argument, 0, OPT_LDGM_DEVICE},
+                {"window-title", required_argument, 0, OPT_WINDOW_TITLE},
                 {0, 0, 0, 0}
         };
         int option_index = 0;
@@ -553,11 +553,11 @@ int main(int argc, char *argv[])
                                 return 0;
                         }
                         requested_display = optarg;
-            if(strchr(optarg, ':')) {
-                char *delim = strchr(optarg, ':');
-                *delim = '\0';
-                display_cfg = delim + 1;
-            }
+                        if(strchr(optarg, ':')) {
+                                char *delim = strchr(optarg, ':');
+                                *delim = '\0';
+                                display_cfg = delim + 1;
+                        }
                         break;
                 case 't':
                         if (!strcmp(optarg, "help")) {
@@ -635,9 +635,9 @@ int main(int argc, char *argv[])
                                 requested_video_fec = optarg;
                         }
                         break;
-        case 'h':
-            usage();
-            return 0;
+                case 'h':
+                        usage();
+                        return 0;
                 case 'P':
                         if(strchr(optarg, ':')) {
                                 char *save_ptr = NULL;
@@ -741,12 +741,8 @@ int main(int argc, char *argv[])
                                 list_audio_codecs();
                                 return EXIT_SUCCESS;
                         }
-                        if(strchr(optarg, ':')) {
-                                compressed_audio_sample_rate = atoi(strchr(optarg, ':')+1);
-                                *strchr(optarg, ':') = '\0';
-                        }
-                        audio_codec = get_audio_codec_to_name(optarg);
-                        if(audio_codec == AC_NONE) {
+                        audio_codec = optarg;
+                        if(get_audio_codec(optarg) == AC_NONE) {
                                 fprintf(stderr, "Unknown audio codec entered: \"%s\"\n",
                                                 optarg);
                                 return EXIT_FAIL_USAGE;
@@ -770,6 +766,9 @@ int main(int argc, char *argv[])
                         } else {
                                 ldgm_device_gpu = false;
                         }
+                        break;
+                case OPT_WINDOW_TITLE:
+                        window_title = optarg;
                         break;
                 case '?':
                 default:
@@ -797,7 +796,7 @@ int main(int argc, char *argv[])
         printf("Audio playback   : %s\n", audio_recv);
         printf("MTU              : %d B\n", requested_mtu);
         printf("Video compression: %s\n", requested_compression);
-        printf("Audio codec      : %s\n", get_name_to_audio_codec(audio_codec));
+        printf("Audio codec      : %s\n", get_name_to_audio_codec(get_audio_codec(audio_codec)));
         printf("Network protocol : %s\n", video_rxtx::get_name(video_protocol));
         printf("Audio FEC        : %s\n", requested_audio_fec);
         printf("Video FEC        : %s\n", requested_video_fec);
@@ -831,17 +830,17 @@ int main(int argc, char *argv[])
         }
 
 #ifdef WIN32
-    WSADATA wsaData;
-    int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if(err != 0) {
-        fprintf(stderr, "WSAStartup failed with error %d.", err);
-        return EXIT_FAILURE;
-    }
-    if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
-        fprintf(stderr, "Counld not found usable version of Winsock.\n");
-        WSACleanup();
-        return EXIT_FAILURE;
-    }
+        WSADATA wsaData;
+        int err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if(err != 0) {
+                fprintf(stderr, "WSAStartup failed with error %d.", err);
+                return EXIT_FAILURE;
+        }
+        if(LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                WSACleanup();
+                return EXIT_FAILURE;
+        }
 #endif
 
         if(control_init(control_port, &control, &root_mod) != 0) {
@@ -866,7 +865,7 @@ int main(int argc, char *argv[])
                         jack_cfg, requested_audio_fec, requested_encryption,
                         audio_channel_map,
                         audio_scale, echo_cancellation, ipv6, requested_mcast_if,
-                        audio_codec, compressed_audio_sample_rate, isStd, packet_rate);
+                        audio_codec, isStd, packet_rate);
         if(!uv->audio)
                 goto cleanup;
 
@@ -957,11 +956,14 @@ int main(int argc, char *argv[])
                                         display_device, requested_mtu,
                                         argc, argv);
                 }else if (video_protocol == H264_STD) {
-                		rtps_types_t avType;
-                		if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = avStdDyn; //AVStream
-                		else if((strcmp("none",audio_send) != 0)) avType = audioPCMUdyn; //AStream
+                        rtps_types_t avType;
+                        if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = avStdDyn; //AVStream
+                        else if((strcmp("none",audio_send) != 0)) avType = audioPCMUdyn; //AStream
                         else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = videoH264; //VStream
-           	            else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                        else {
+                                printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                                return EXIT_FAIL_USAGE;
+                        }
 
                         uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
                                         requested_compression, requested_encryption,
@@ -1062,10 +1064,6 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
-
-#ifdef HAVE_RTSP_SERVER
-        if(rtsp_server) c_stop_server(rtsp_server);
-#endif
 
         module_done(&root_mod);
         free(uv);

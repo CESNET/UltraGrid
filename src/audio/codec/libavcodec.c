@@ -55,7 +55,7 @@
 #include "audio/codec/libavcodec.h"
 
 #include <libavcodec/avcodec.h>
-#if LIBAVCODEC_VERSION_MAJOR >= 55
+#if LIBAVCODEC_VERSION_MAJOR >= 54
 #include <libavutil/channel_layout.h>
 #endif
 #include <libavutil/mem.h>
@@ -68,7 +68,7 @@
 
 #define MAGIC 0xb135ca11
 
-#ifndef HAVE_AVCODEC_ENCODE_VIDEO2
+#if LIBAVCODEC_VERSION_MAJOR < 54
 #define AV_CODEC_ID_PCM_ALAW CODEC_ID_PCM_ALAW
 #define AV_CODEC_ID_PCM_MULAW CODEC_ID_PCM_MULAW
 #define AV_CODEC_ID_ADPCM_IMA_WAV CODEC_ID_ADPCM_IMA_WAV
@@ -79,7 +79,7 @@
 #endif
 
 static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction,
-                bool try_init);
+                bool try_init, int bitrate);
 static audio_channel *libavcodec_compress(void *, audio_channel *);
 static audio_channel *libavcodec_decompress(void *, audio_channel *);
 static void libavcodec_done(void *);
@@ -101,7 +101,7 @@ static const audio_codec_t_to_codec_id_mapping_t mapping[] =
         [AC_MULAW] = { .codec_id = AV_CODEC_ID_PCM_MULAW },
         [AC_ADPCM_IMA_WAV] = { .codec_id = AV_CODEC_ID_ADPCM_IMA_WAV },
         [AC_SPEEX] = { .codec_id = AV_CODEC_ID_SPEEX },
-#if LIBAVCODEC_VERSION_MAJOR >= 55
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         [AC_OPUS] = { .codec_id = AV_CODEC_ID_OPUS },
 #endif
         [AC_G722] = { .codec_id = AV_CODEC_ID_ADPCM_G722 },
@@ -124,6 +124,8 @@ struct libavcodec_codec_state {
 
         void               *samples;
         int                 change_bps_to;
+
+        int                 bitrate;
 };
 
 /**
@@ -135,7 +137,8 @@ struct libavcodec_codec_state {
  * @retval NULL if initialization failed
  * @retval !=NULL codec state
  */
-static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init)
+static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
+                int bitrate)
 {
         int codec_id = 0;
         
@@ -175,6 +178,8 @@ static void *libavcodec_init(audio_codec_t audio_codec, audio_codec_direction_t 
                 }
                 return NULL;
         }
+
+        s->bitrate = bitrate;
 
         s->samples = NULL;
 
@@ -219,7 +224,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         pthread_mutex_unlock(s->libav_global_lock);
 
         /*  put sample parameters */
-        s->codec_ctx->bit_rate = 64000;
+        s->codec_ctx->bit_rate = s->bitrate;
         s->codec_ctx->sample_rate = desc.sample_rate;
         s->change_bps_to = 0;
         switch(desc.bps) {
@@ -242,7 +247,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
         }
 
         s->codec_ctx->channels = 1;
-#if LIBAVCODEC_VERSION_MAJOR >= 55
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         s->codec_ctx->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
 
@@ -261,7 +266,7 @@ static bool reinitialize_coder(struct libavcodec_codec_state *s, struct audio_de
 
         s->av_frame->nb_samples     = s->codec_ctx->frame_size;
         s->av_frame->format         = s->codec_ctx->sample_fmt;
-#if LIBAVCODEC_VERSION_MAJOR >= 55
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         s->av_frame->channel_layout = AV_CH_LAYOUT_MONO;
 #endif
 
@@ -455,7 +460,7 @@ static void libavcodec_done(void *state)
         free(s->tmp.data);
         av_free_packet(&s->pkt);
         av_freep(&s->samples);
-#if LIBAVCODEC_VERSION_MAJOR >= 55
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         avcodec_free_frame(&s->av_frame);
 #else
         av_free(s->av_frame);

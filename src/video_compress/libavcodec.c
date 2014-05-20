@@ -149,13 +149,13 @@ static int parse_fmt(struct state_video_compress_libav *s, char *fmt);
 static void cleanup(struct state_video_compress_libav *s);
 
 static void libavcodec_vid_enc_frame_dispose(struct video_frame *frame) {
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         AVPacket *pkt = (AVPacket *) frame->dispose_udata;
         av_free_packet(pkt);
         free(pkt);
 #else
         free(frame->tiles[0].data);
-#endif // HAVE_AVCODEC_ENCODE_VIDEO2
+#endif // LIBAVCODEC_VERSION_MAJOR >= 54
         vf_free(frame);
 }
 
@@ -583,7 +583,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
         struct state_video_compress_libav *s = (struct state_video_compress_libav *) mod->priv_data;
         static int frame_seq = 0;
         int ret;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         int got_output;
 #endif
         unsigned char *decoded;
@@ -601,7 +601,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 
         struct video_frame *out = vf_alloc_desc(s->compressed_desc);
         out->dispose = libavcodec_vid_enc_frame_dispose;
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         AVPacket *pkt = (AVPacket *) malloc(sizeof(AVPacket));
         av_init_packet(pkt);
         pkt->data = NULL;
@@ -610,7 +610,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
 #else
         out->tiles[0].data = malloc(s->compressed_desc.width *
                         s->compressed_desc.height * 4);
-#endif // HAVE_AVCODEC_ENCODE_VIDEO2
+#endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
 
         s->in_frame->pts = frame_seq++;
@@ -657,7 +657,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
                 }
         }
 
-#ifdef HAVE_AVCODEC_ENCODE_VIDEO2
+#if LIBAVCODEC_VERSION_MAJOR >= 54
         /* encode the image */
         ret = avcodec_encode_video2(s->codec_ctx, pkt,
                         s->in_frame, &got_output);
@@ -689,7 +689,7 @@ struct video_frame *libavcodec_compress_tile(struct module *mod, struct video_fr
         } else {
                 goto error;
         }
-#endif // HAVE_AVCODEC_ENCODE_VIDEO2
+#endif // LIBAVCODEC_VERSION_MAJOR >= 54
 
         platform_spin_unlock(&s->spin);
 

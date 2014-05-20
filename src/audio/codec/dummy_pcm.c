@@ -60,7 +60,8 @@
 
 #define MAGIC 0x552bca11
 
-static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init);
+static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
+                int bitrate);
 static audio_channel *dummy_pcm_compress(void *, audio_channel *);
 static audio_channel *dummy_pcm_decompress(void *, audio_channel *);
 static void dummy_pcm_done(void *);
@@ -69,10 +70,12 @@ struct dummy_pcm_codec_state {
         uint32_t magic;
 };
 
-static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init)
+static void *dummy_pcm_init(audio_codec_t audio_codec, audio_codec_direction_t direction, bool try_init,
+                int bitrate)
 {
         UNUSED(direction);
         UNUSED(try_init);
+        UNUSED(bitrate);
         assert(audio_codec == AC_PCM);
         struct dummy_pcm_codec_state *s = malloc(sizeof(struct dummy_pcm_codec_state));
         s->magic = MAGIC;

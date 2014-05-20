@@ -91,8 +91,8 @@
 #include "video_display/splashscreen.h"
 #include "tv.h"
 
-#define MAGIC_GL	DISPLAY_GL_ID
-#define WIN_NAME        "Ultragrid - OpenGL Display"
+#define MAGIC_GL         DISPLAY_GL_ID
+#define DEFAULT_WIN_NAME "Ultragrid - OpenGL Display"
 
 #define STRINGIFY(A) #A
 
@@ -264,6 +264,7 @@ static void gl_load_splashscreen(struct state_gl *s)
         gl_reconfigure_screen(s);
 
         for (int i = 0; i < 2; ++i) {
+                const char *data = splash_data;
                 memset(s->buffers[i], 0, s->tile->data_len);
                 for (unsigned int y = 0; y < splash_height; ++y) {
                         char *line = s->buffers[i];
@@ -274,7 +275,7 @@ static void gl_load_splashscreen(struct state_gl *s)
                                         (s->tile->width - splash_width)/2,
                                         s->frame->color_spec);
                         for (unsigned int x = 0; x < splash_width; ++x) {
-                                HEADER_PIXEL(splash_data,line);
+                                HEADER_PIXEL(data,line);
                                 line += 4;
                         }
                 }
@@ -383,7 +384,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
 #endif
         glutIdleFunc(glut_idle_callback);
-	s->window = glutCreateWindow(WIN_NAME);
+	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
         glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
         //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
@@ -489,13 +490,15 @@ int display_gl_reconfigure(void *state, struct video_desc desc)
 
 static void glut_resize_window(struct state_gl *s)
 {
-        if (!s->fs) {
+        if (s->fs) {
+                glutReshapeWindow(glutGet(GLUT_SCREEN_WIDTH),
+                               glutGet(GLUT_SCREEN_HEIGHT));
+                glutFullScreen();
+        } else {
                 glutReshapeWindow(s->window_size_factor *
                                 s->tile->height * s->aspect,
                                 s->window_size_factor *
                                 s->tile->height);
-        } else {
-                glutFullScreen();
         }
 }
 
@@ -877,7 +880,7 @@ static void gl_resize(int width,int height)
         // redraw last frame
         gl_render(gl);
         gl_draw(gl->aspect);
-        glutPostRedisplay();
+        glutSwapBuffers();
 }
 
 static void gl_bind_texture(void *arg)

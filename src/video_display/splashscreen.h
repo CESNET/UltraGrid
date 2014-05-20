@@ -1,7 +1,7 @@
 /*  GIMP header image file format (RGB)  */
 
-static unsigned int splash_width = 339;
-static unsigned int splash_height = 195;
+static const unsigned int splash_width = 339;
+static const unsigned int splash_height = 195;
 
 /*  Call this macro repeatedly.  After each use, the pixel data can be extracted  */
 
@@ -11,7 +11,7 @@ pixel[1] = ((((data[1] - 33) & 0xF) << 4) | ((data[2] - 33) >> 2)); \
 pixel[2] = ((((data[2] - 33) & 0x3) << 6) | ((data[3] - 33))); \
 data += 4; \
 }
-static char *splash_data =
+static const char * const splash_data =
 	"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 	"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 	"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"

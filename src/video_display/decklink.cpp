@@ -280,8 +280,8 @@ static void show_help(void)
         HRESULT                         result;
 
         printf("Decklink (output) options:\n");
-        printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]][:fast]\n");
-        printf("\t\tcoma-separated numbers of output devices\n");
+        printf("\t-d decklink:<device_number(s)>[:timecode][:3G|:dual-link][:3D[:HDMI3DPacking=<packing>]][:fast][:audioConsumerLevels={true|false}]\n");
+        printf("\t\t<device_number(s)> is coma-separated indices of output devices\n");
         // Create an IDeckLinkIterator object to enumerate all DeckLink cards in the system
 #ifdef WIN32
         result = CoCreateInstance(CLSID_CDeckLinkIterator, NULL, CLSCTX_ALL,
@@ -351,6 +351,8 @@ static void show_help(void)
         printf("\n");
 
         printf("Fast mode has lower latency at the expense of incorrect displaying (frame rewriting).\n");
+        printf("\n");
+        printf("audioConsumerLevels if set to true sets audio analog level to maximum attenuation on audio output.\n");
         printf("\n");
 }
 
@@ -734,6 +736,7 @@ void *display_decklink_init(char *fmt, unsigned int flags)
         // for Decklink Studio which has switchable XLR - analog 3 and 4 or AES/EBU 3,4 and 5,6
         BMDAudioOutputAnalogAESSwitch audioConnection = (BMDAudioOutputAnalogAESSwitch) 0;
         BMDVideo3DPackingFormat HDMI3DPacking = (BMDVideo3DPackingFormat) 0;
+        int audio_consumer_levels = -1;
 
 
 #ifdef WIN32
@@ -835,6 +838,12 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                                 }
                         } else if(strcasecmp(ptr, "fast") == 0) {
                                 s->fast = true;
+                        } else if(strncasecmp(ptr, "audioConsumerLevels=", strlen("audioConsumerLevels=")) == 0) {
+                                if (strcasecmp(ptr + strlen("audioConsumerLevels="), "false") == 0) {
+                                        audio_consumer_levels = 0;
+                                } else {
+                                        audio_consumer_levels = 1;
+                                }
                         } else {
                                 fprintf(stderr, "[DeckLink] Warning: unknown options in config string.\n");
                         }
@@ -986,15 +995,23 @@ void *display_decklink_init(char *fmt, unsigned int flags)
                           * .... one exception is a card that has switchable cables between AES/EBU and analog. (But this applies only for channels 3 and above.)
                          */
                         if (audioConnection != 0) { // not embedded 
-                                HRESULT res = deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
+                                result = deckLinkConfiguration->SetInt(bmdDeckLinkConfigAudioOutputAESAnalogSwitch,
                                                 audioConnection);
-                                if(res == S_OK) { // has switchable channels
+                                if(result == S_OK) { // has switchable channels
                                         printf("[Decklink playback] Card with switchable audio channels detected. Switched to correct format.\n");
-                                } else if(res == E_NOTIMPL) {
+                                } else if(result == E_NOTIMPL) {
                                         // normal case - without switchable channels
                                 } else {
                                         fprintf(stderr, "[Decklink playback] Unable to switch audio output for channels 3 or above although \n"
                                                         "card shall support it. Check if it is ok. Continuing anyway.\n");
+                                }
+                        }
+
+                        if (audio_consumer_levels != -1) {
+                                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
+                                                audio_consumer_levels == 1 ? true : false);
+                                if(result != S_OK) {
+                                        fprintf(stderr, "[DeckLink display] Unable set output audio consumer levels.\n");
                                 }
                         }
                 }
@@ -1159,6 +1176,7 @@ void display_decklink_put_audio_frame(void *state, struct audio_frame *frame)
                 tmp_frame.max_size = sampleFrameCount * s->output_audio_channel_count
                                 * frame->bps;
                 tmp_frame.data = (char *) malloc(tmp_frame.max_size);
+                memcpy(tmp_frame.data, frame->data, frame->data_len);
                 
                 audio_frame_multiply_channel(&tmp_frame,
                                 s->output_audio_channel_count);

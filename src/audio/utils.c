@@ -80,14 +80,10 @@ void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
 {
         assert(nr_channels <= MAX_AUDIO_CHANNELS);
 
+        audio_frame2_reset(frame);
+
         frame->max_size = max_size;
         frame->ch_count = nr_channels;
-
-        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
-                free(frame->data[i]);
-                frame->data[i] = NULL;
-                frame->data_len[i] = 0;
-        }
 
         for(int i = 0; i < nr_channels; ++i) {
                 frame->data[i] = malloc(max_size);
@@ -96,6 +92,7 @@ void audio_frame2_allocate(audio_frame2 *frame, int nr_channels, int max_size)
 
 void audio_frame2_append(audio_frame2 *dest, audio_frame2 *src)
 {
+        assert(src->ch_count == dest->ch_count || dest->ch_count == 0);
         dest->bps = src->bps;
         int new_max_size = dest->max_size;
         for (int i = 0; i < src->ch_count; ++i) {
@@ -126,9 +123,13 @@ int audio_frame2_get_sample_count(audio_frame2 *frame)
 
 void audio_frame2_reset(audio_frame2 *frame)
 {
-        for (int i = 0; i < frame->ch_count; ++i) {
+        for(int i = 0; i < MAX_AUDIO_CHANNELS; ++i) {
                 frame->data_len[i] = 0;
+                free(frame->data[i]);
+                frame->data[i] = NULL;
         }
+        frame->max_size = 0;
+        frame->ch_count = 0;
 }
 
 static double get_normalized(char *in, int bps) {
@@ -251,19 +252,15 @@ static inline int32_t format_from_in_bps(const char * in, int bps) {
 }
 
 static inline void format_to_out_bps(char *out, int bps, int32_t out_value) {
-        uint32_t mask;
-        if(bps == sizeof(uint32_t)) {
-                mask = 0xffffffffu - 1;
-        } else {
-                mask = ((1 << (bps * 8)) - 1);
+        uint32_t mask = ((1ll << (bps * 8)) - 1);
+
+        // clamp
+        if(out_value > (1ll << (bps * 8 - 1)) -1) {
+                out_value = (1ll << (bps * 8 - 1)) -1;
         }
 
-        if(out_value > (1 << (bps * 8 - 1)) -1) {
-                out_value = (1 << (bps * 8 - 1)) -1;
-        }
-
-        if(out_value < -(1 << (bps * 8 - 1))) {
-                out_value = -(1 << (bps * 8 - 1));
+        if(out_value < -(1ll << (bps * 8 - 1))) {
+                out_value = -(1ll << (bps * 8 - 1));
         }
 
         uint32_t out_value_formatted = (1 * (0x1 & (out_value >> 31))) << (bps * 8 - 1) | (out_value & mask);
@@ -478,34 +475,5 @@ void audio_channel_mux(audio_frame2 *frame, int index, audio_channel *channel)
         frame->codec = channel->codec;
         frame->bps = channel->bps;
         frame->sample_rate = channel->sample_rate;
-}
-
-audio_codec_t get_audio_codec_to_name(const char *codec) {
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(strcasecmp(audio_codec_info[i].name, codec) == 0) {
-                        return i;
-                }
-        }
-        return AC_NONE;
-}
-
-const char *get_name_to_audio_codec(audio_codec_t codec)
-{
-        return audio_codec_info[codec].name;
-}
-
-uint32_t get_audio_tag(audio_codec_t codec)
-{
-        return audio_codec_info[codec].tag;
-}
-
-audio_codec_t get_audio_codec_to_tag(uint32_t tag)
-{
-        for(int i = 0; i < audio_codec_info_len; ++i) {
-                if(audio_codec_info[i].tag == tag) {
-                        return i;
-                }
-        }
-        return AC_NONE;
 }
 

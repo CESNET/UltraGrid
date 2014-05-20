@@ -96,6 +96,8 @@ extern bool verbose;
 
 extern bool ldgm_device_gpu;
 
+extern const char *window_title;
+
 #define MODE_SENDER   1
 #define MODE_RECEIVER 2
 extern int rxtx_mode;

@@ -183,6 +183,8 @@ void *video_rxtx::sender_loop() {
 
                 if (!m_paused) {
                         send_frame(tx_frame);
+                } else {
+                        VIDEO_FRAME_DISPOSE(tx_frame);
                 }
 
                 if (dynamic_cast<rtp_video_rxtx *>(this)) {
