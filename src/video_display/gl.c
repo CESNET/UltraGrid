@@ -880,7 +880,7 @@ static void gl_resize(int width,int height)
         // redraw last frame
         gl_render(gl);
         gl_draw(gl->aspect);
-        glutPostRedisplay();
+        glutSwapBuffers();
 }
 
 static void gl_bind_texture(void *arg)
