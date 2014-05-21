@@ -1,35 +1,26 @@
+/**
+ * @file   audio/capture/testcard.c
+ * @author Martin Pulec     <pulec@cesnet.cz>
+ */
 /*
- * FILE:    audio/capture/testcard.h
- * AUTHORS: Martin Benes     <martinbenesh@gmail.com>
- *          Lukas Hejtmanek  <xhejtman@ics.muni.cz>
- *          Petr Holub       <hopet@ics.muni.cz>
- *          Milos Liska      <xliska@fi.muni.cz>
- *          Jiri Matela      <matela@ics.muni.cz>
- *          Dalibor Matura   <255899@mail.muni.cz>
- *          Ian Wesley-Smith <iwsmith@cct.lsu.edu>
- *
- * Copyright (c) 2005-2010 CESNET z.s.p.o.
+ * Copyright (c) 2014 CESNET, z. s. p. o.
+ * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, is permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 
- *      This product includes software developed by CESNET z.s.p.o.
- * 
- * 4. Neither the name of CESNET nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without specific
- *    prior written permission.
- * 
+ *
+ * 3. Neither the name of CESNET nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
  * BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -42,15 +33,13 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  */
 
 #define MODULE_NAME "[Audio testcard] "
 
-#include "audio/capture/testcard.h" 
+#include "audio/capture/testcard.h"
 
-#include "audio/audio.h" 
+#include "audio/audio.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -71,20 +60,12 @@
 
 #define AUDIO_SAMPLE_RATE 48000ll
 #define AUDIO_BPS 2
-#define BUFFER_SEC 1
-#define AUDIO_BUFFER_SIZE (AUDIO_SAMPLE_RATE * AUDIO_BPS * \
-                (long long) audio_capture_channels * BUFFER_SEC)
 
 #define CHUNK (AUDIO_SAMPLE_RATE/25) // 1 video frame time @25 fps
                    // has to be divisor of AUDIO_SAMLE_RATE
 
 #define FREQUENCY 1000
-#define DEFAULT_VOLUME 0.17804
-
-enum which_sample {
-        TONE,
-        SILENCE
-};
+#define DEFAULT_VOLUME -18.0
 
 struct state_audio_capture_testcard {
         uint32_t magic;
@@ -93,12 +74,13 @@ struct state_audio_capture_testcard {
 
         double audio_remained,
                seconds_tone_played;
-        char *audio_tone, *audio_silence;
+        char *audio_samples;
 
         struct timeval next_audio_time;
 
-        enum which_sample current_sample;
         int samples_played;
+
+        int total_samples;
 };
 
 void audio_cap_testcard_help(const char *driver_name)
@@ -107,10 +89,48 @@ void audio_cap_testcard_help(const char *driver_name)
         printf("\ttestcard : Testing sound signal (sine at 440 Hz)\n");
 }
 
+/**
+ * Generates line-up EBU tone according to https://tech.ebu.ch/docs/tech/tech3304.pdf
+ */
+static char *get_ebu_signal(int sample_rate, int bps, int channels, int frequency, double volume, int *total_samples) {
+                *total_samples = (3 + channels + 1 + 3) * sample_rate;
+                char *ret = (char *) calloc(1, *total_samples * channels * bps);
+                double scale = pow(10.0, volume/20.0) * sqrt(2.0);
+
+                char* data = ret;
+                for (int i=0; i < (int) sample_rate * 3; i += 1)
+                {
+                        for (int channel = 0; channel < channels; ++channel) {
+                                int64_t val = sin( ((double)(i)/((double)sample_rate / frequency)) * M_PI * 2. ) * ((1ll<<(bps*8)) / 2 - 1) * scale;
+                                format_to_out_bps(data + i * bps * channels + bps * channel,
+                                                bps, val);
+                        }
+                }
+                data += sample_rate * 3 * bps * channels;
+
+                for (int channel = 0; channel < channels; ++channel) {
+                        memset(data, 0, sample_rate * bps * channels);
+                        data += sample_rate * bps * channels / 2;
+                        for (int i=0; i < (int) sample_rate / 2; i += 1)
+                        {
+                                int64_t val = sin( ((double)(i)/((double)sample_rate / frequency)) * M_PI * 2. ) * ((1ll<<(bps*8)) / 2 - 1) * scale;
+                                format_to_out_bps(data + i * bps * channels + bps * channel,
+                                                bps, val);
+                        }
+                        data += sample_rate * bps * channels / 2;
+                }
+
+                memset(data, 0, sample_rate * bps * channels);
+                data += sample_rate * bps * channels;
+
+                memcpy(data, ret, sample_rate * 3 * bps * channels);
+
+                return ret;
+}
+
 void * audio_cap_testcard_init(char *cfg)
 {
         struct state_audio_capture_testcard *s;
-        int i;
         char *wav_file = NULL;
         char *item, *save_ptr;
 
@@ -120,7 +140,7 @@ void * audio_cap_testcard_init(char *cfg)
                 printf("Available testcard capture:\n");
                 audio_cap_testcard_help(NULL);
                 printf("\toptions\n\t\ttestcard[:volume=<vol>][:file=<wav>]\n");
-                printf("\t\t\t<vol> is a float between 0 and 1\n");
+                printf("\t\t\t<vol> is a volume in dBFS (default %.2f dBFS)\n", DEFAULT_VOLUME);
                 printf("\t\t\t<wav> is a wav file to be played\n");
                 return &audio_init_state_ok;
         }
@@ -142,28 +162,22 @@ void * audio_cap_testcard_init(char *cfg)
         s->magic = AUDIO_CAPTURE_TESTCARD_MAGIC;
 
         if(!wav_file) {
-                printf(MODULE_NAME "Generating %d sec tone (%d Hz) / %d sec silence ", BUFFER_SEC, FREQUENCY, BUFFER_SEC);
+                printf(MODULE_NAME "Generating %d Hz (%.2f RMS dBFS) EBU tone ", FREQUENCY,
+                                volume);
                 printf("(channels: %u; bps: %d; sample rate: %lld; frames per packet: %lld).\n", audio_capture_channels,
                                 AUDIO_BPS, AUDIO_SAMPLE_RATE, CHUNK);
 
-                s->audio_silence = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
+                s->audio_samples = get_ebu_signal(AUDIO_SAMPLE_RATE, AUDIO_BPS, audio_capture_channels,
+                                FREQUENCY, volume, &s->total_samples);
 
-                s->audio_tone = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-
-                char* data = s->audio_tone;
-                for( i=0; i < (int) AUDIO_BUFFER_SIZE; i+=audio_capture_channels*AUDIO_BPS )
-                {
-                        for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
-                                int64_t val = sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE * AUDIO_BPS/ FREQUENCY)) * M_PI * 2. ) * ((1ll<<(AUDIO_BPS*8)) / 2 - 1) * volume;
-                                format_to_out_bps(data + i + AUDIO_BPS * channel,
-                                                AUDIO_BPS, val);
-                        }
-                }
+                s->audio_samples = realloc(s->audio_samples, (s->total_samples *
+                                audio_capture_channels * AUDIO_BPS) + CHUNK - 1);
+                memcpy(s->audio_samples + s->total_samples * AUDIO_BPS * audio_capture_channels,
+                                s->audio_samples, CHUNK - 1);
 
                 s->audio.bps = AUDIO_BPS;
                 s->audio.ch_count = audio_capture_channels;
                 s->audio.sample_rate = AUDIO_SAMPLE_RATE;
-                s->audio.max_size = AUDIO_BUFFER_SIZE;
         } else {
                 FILE *wav = fopen(wav_file, "r");
                 if(!wav) {
@@ -179,22 +193,24 @@ void * audio_cap_testcard_init(char *cfg)
                 s->audio.bps = metadata.bits_per_sample / 8;
                 s->audio.ch_count = metadata.ch_count;
                 s->audio.sample_rate = metadata.sample_rate;
-                s->audio.max_size = metadata.data_size;
+                s->audio.max_size = metadata.data_size + (CHUNK - 1) * metadata.ch_count *
+                        (metadata.bits_per_sample / 8);
 
-                s->audio_silence = calloc(1, s->audio.max_size);
-                s->audio_tone = calloc(1, s->audio.max_size);
-                int bytes = fread(s->audio_silence, 1, s->audio.max_size, wav);
+                s->total_samples = metadata.data_size /  metadata.ch_count / metadata.bits_per_sample / 8;
+
+                s->audio_samples = calloc(1, s->audio.max_size);
+                int bytes = fread(s->audio_samples, 1, s->audio.max_size, wav);
                 if(bytes != (int) s->audio.max_size) {
                         s->audio.max_size = bytes;
                         fprintf(stderr, "Warning: premature end of WAV file!\n");
                 }
-                memcpy(s->audio_tone, s->audio_silence, s->audio.max_size);
+                memcpy(s->audio_samples + metadata.data_size, s->audio_samples, s->audio.max_size -
+                                metadata.data_size);
                 fclose(wav);
         }
 
         s->audio.data_len = CHUNK * s->audio.bps * s->audio.ch_count;
 
-        s->current_sample = SILENCE;
         s->samples_played = 0;
 
         gettimeofday(&s->next_audio_time, NULL);
@@ -222,20 +238,12 @@ struct audio_frame *audio_cap_testcard_read(void *state)
 
         tv_add_usec(&s->next_audio_time, 1000 * 1000 * CHUNK / AUDIO_SAMPLE_RATE);
 
-        if(s->current_sample == TONE) {
-                s->audio.data = s->audio_tone + AUDIO_BPS * s->samples_played * audio_capture_channels; // it is short so _not_ (* 2)
-        } else {
-                s->audio.data = s->audio_silence + AUDIO_BPS * s->samples_played * audio_capture_channels;
-        }
+        s->audio.data = s->audio_samples + AUDIO_BPS * s->samples_played * audio_capture_channels;
 
         s->samples_played += CHUNK;
-        if((unsigned) s->samples_played >= s->audio.max_size / s->audio.bps / s->audio.ch_count) {
-                s->samples_played = 0;
-                if(s->current_sample == TONE) {
-                        s->current_sample = SILENCE;
-                } else {
-                        s->current_sample = TONE;
-                }
+
+        if (s->samples_played >= s->total_samples) {
+                s->samples_played = s->total_samples - s->samples_played;
         }
 
         return &s->audio;
@@ -252,8 +260,7 @@ void audio_cap_testcard_done(void *state)
 
         assert(s->magic == AUDIO_CAPTURE_TESTCARD_MAGIC);
 
-        free(s->audio_silence);
-        free(s->audio_tone);
+        free(s->audio_samples);
 
         free(s);
 }
