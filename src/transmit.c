@@ -962,7 +962,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 
 	platform_spin_lock(&tx->spin);
 
-	ts = get_std_video_local_mediatime(frame->fps);
+	ts = get_std_video_local_mediatime();
 
 	gettimeofday(&curr_time, NULL);
 	rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR

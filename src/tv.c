@@ -136,35 +136,34 @@ int tv_gt(struct timeval a, struct timeval b)
  * STANDARD TRANSPORT - RTP STANDARD
  * Calculate initial time on first execution, add per 'sample' time otherwise.
  */
-
-//shared struct for audio and video streams (sync.)
-typedef struct {
+typedef struct { //shared struct for audio and video streams (sync.)
 	bool init;
 	uint32_t random_startime_offset;
 	struct timeval vtime;
+	double vfps;
 	struct timeval atime;
 	struct timeval start_time;
 } std_time_struct;
 
-std_time_struct start_time = { true, 0, 0 };
+std_time_struct standard_time = { true, 0, 0, 25, 0, 0 };
 
 uint32_t get_std_audio_local_mediatime(double samples)
 {
-        if (start_time.init) {
-			gettimeofday(&start_time.start_time, NULL);
-			start_time.atime = start_time.start_time;
-			start_time.vtime = start_time.start_time;
-			start_time.random_startime_offset = lbl_random();
-            tv_add_usec(&start_time.vtime, start_time.random_startime_offset);
-            tv_add_usec(&start_time.atime, start_time.random_startime_offset);
+        if (standard_time.init) {
+			gettimeofday(&standard_time.start_time, NULL);
+			standard_time.atime = standard_time.start_time;
+			standard_time.vtime = standard_time.start_time;
+			standard_time.random_startime_offset = lbl_random();
+            tv_add_usec(&standard_time.vtime, standard_time.random_startime_offset);
+            tv_add_usec(&standard_time.atime, standard_time.random_startime_offset);
 
-        	start_time.init = false;
+        	standard_time.init = false;
         }
         else {
-            tv_add(&start_time.atime, samples);
+            tv_add(&standard_time.atime, samples);
         }
 
-        return (double)start_time.atime.tv_sec + (((double)start_time.atime.tv_usec) / 1000000.0);
+        return (double)standard_time.atime.tv_sec + (((double)standard_time.atime.tv_usec) / 1000000.0);
 }
 
 uint32_t get_std_video_local_mediatime()
@@ -175,25 +174,25 @@ uint32_t get_std_video_local_mediatime()
         static struct timeval t0;
         struct timeval tcurr;
 
-        if (start_time.init) {
-			gettimeofday(&start_time.start_time, NULL);
+        if (standard_time.init) {
+			gettimeofday(&standard_time.start_time, NULL);
 			gettimeofday(&t0, NULL);
-			start_time.atime = start_time.start_time;
-			start_time.vtime = start_time.start_time;
-			start_time.random_startime_offset = lbl_random();
-            tv_add_usec(&start_time.vtime, start_time.random_startime_offset);
-            tv_add_usec(&start_time.atime, start_time.random_startime_offset);
+			standard_time.atime = standard_time.start_time;
+			standard_time.vtime = standard_time.start_time;
+			standard_time.random_startime_offset = lbl_random();
+            tv_add_usec(&standard_time.vtime, standard_time.random_startime_offset);
+            tv_add_usec(&standard_time.atime, standard_time.random_startime_offset);
 
-        	start_time.init = false;
+        	standard_time.init = false;
         }
         else {
 			gettimeofday(&tcurr, NULL);
-			nextFraction = ( start_time.vtime.tv_usec / 1000000.0 ) + ( tv_diff(tcurr,t0));
+			nextFraction = ( standard_time.vtime.tv_usec / 1000000.0 ) + ( tv_diff(tcurr,t0));
 			nextSecsIncrement = (long) nextFraction;
-			start_time.vtime.tv_sec += (long) nextSecsIncrement;
-			start_time.vtime.tv_usec = (long) ((nextFraction - nextSecsIncrement) * 1000000);
+			standard_time.vtime.tv_sec += (long) nextSecsIncrement;
+			standard_time.vtime.tv_usec = (long) ((nextFraction - nextSecsIncrement) * 1000000);
 			t0 = tcurr;
         }
 
-        return ((double)start_time.vtime.tv_sec + (((double)start_time.vtime.tv_usec) / 1000000.0)) * vrate;
+        return ((double)standard_time.vtime.tv_sec + (((double)standard_time.vtime.tv_usec) / 1000000.0)) * vrate;
 }
