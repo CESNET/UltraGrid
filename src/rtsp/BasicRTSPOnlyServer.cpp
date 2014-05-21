@@ -88,7 +88,7 @@ int BasicRTSPOnlyServer::init_server() {
     }
 
     //setting livenessTimeoutTask
-    unsigned reclamationTestSeconds = 35;
+    unsigned reclamationTestSeconds = 60;
 
     TaskScheduler* scheduler = BasicTaskScheduler::createNew();
     env = BasicUsageEnvironment::createNew(*scheduler);
