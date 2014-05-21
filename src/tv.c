@@ -167,14 +167,17 @@ uint32_t get_std_audio_local_mediatime(double samples)
         return (double)start_time.atime.tv_sec + (((double)start_time.atime.tv_usec) / 1000000.0);
 }
 
-uint32_t get_std_video_local_mediatime(double framerate)
+uint32_t get_std_video_local_mediatime()
 {
 	    double vrate = 90000; //default and standard video sample rate (Hz)
 	    double nextFraction;
         unsigned nextSecsIncrement;
+        static struct timeval t0;
+        struct timeval tcurr;
 
         if (start_time.init) {
 			gettimeofday(&start_time.start_time, NULL);
+			gettimeofday(&t0, NULL);
 			start_time.atime = start_time.start_time;
 			start_time.vtime = start_time.start_time;
 			start_time.random_startime_offset = lbl_random();
@@ -184,10 +187,12 @@ uint32_t get_std_video_local_mediatime(double framerate)
         	start_time.init = false;
         }
         else {
-			nextFraction = ( start_time.vtime.tv_usec / 1000000.0 ) + ( 1 / framerate );
+			gettimeofday(&tcurr, NULL);
+			nextFraction = ( start_time.vtime.tv_usec / 1000000.0 ) + ( tv_diff(tcurr,t0));
 			nextSecsIncrement = (long) nextFraction;
 			start_time.vtime.tv_sec += (long) nextSecsIncrement;
 			start_time.vtime.tv_usec = (long) ((nextFraction - nextSecsIncrement) * 1000000);
+			t0 = tcurr;
         }
 
         return ((double)start_time.vtime.tv_sec + (((double)start_time.vtime.tv_usec) / 1000000.0)) * vrate;
