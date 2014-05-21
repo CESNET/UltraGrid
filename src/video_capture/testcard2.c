@@ -473,6 +473,7 @@ next_frame:
                 double seconds = tv_diff(curr_time, s->t0);
                 if (seconds >= 5) {
                         float fps = (s->count - stat_count_prev) / seconds;
+                        set_standard_transmission_frame_rate(fps);
                         fprintf(stderr, "[testcard2] %d frames in %g seconds = %g FPS\n",
                                 (s->count - stat_count_prev), seconds, fps);
                         s->t0 = curr_time;

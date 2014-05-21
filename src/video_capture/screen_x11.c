@@ -396,6 +396,7 @@ struct video_frame * vidcap_screen_x11_grab(void *state, struct audio_frame **au
         double seconds = tv_diff(s->t, s->t0);        
         if (seconds >= 5) {
                 float fps  = s->frames / seconds;
+                set_standard_transmission_frame_rate(fps);
                 fprintf(stderr, "[screen capture] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                 s->t0 = s->t;
                 s->frames = 0;

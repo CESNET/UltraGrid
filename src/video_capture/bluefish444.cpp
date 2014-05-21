@@ -699,6 +699,7 @@ static void *worker(void *arg)
                         double seconds = tv_diff(t, s->t0);
                         if (seconds >= 5) {
                                 float fps  = s->frames / seconds;
+                                set_standard_transmission_frame_rate(fps);
                                 fprintf(stderr, "[Blue cap] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
                                 s->t0 = t;
                                 s->frames = 0;

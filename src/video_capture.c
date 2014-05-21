@@ -63,6 +63,7 @@
 #include "module.h"
 #include "utils/config_file.h"
 #include "video.h"
+#include "tv.h"
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
@@ -745,5 +746,15 @@ void vidcap_params_free_struct(struct vidcap_params *buf)
         free(buf->name);
 
         free(buf);
+}
+
+
+/**
+ * Standard transmission util: set current fps to standard transmission struct in order to get correct timestamp calculus
+ */
+extern std_time_struct standard_time;
+
+void set_standard_transmission_frame_rate(double framerate){
+	standard_time.vfps = framerate;
 }
 

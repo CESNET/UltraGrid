@@ -777,6 +777,7 @@ vidcap_deltacast_dvi_grab(void *state, struct audio_frame **audio)
         double seconds = tv_diff(s->t, s->t0);    
         if (seconds >= 5) {
             float fps  = s->frames / seconds;
+            set_standard_transmission_frame_rate(fps);
             fprintf(stderr, "[DELTACAST cap.] %d frames in %g seconds = %g FPS\n", s->frames, seconds, fps);
             s->t0 = s->t;
             s->frames = 0;

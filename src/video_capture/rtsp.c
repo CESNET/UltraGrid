@@ -414,6 +414,7 @@ vidcap_rtsp_grab(void *state, struct audio_frame **audio) {
         double seconds = tv_diff(s->vrtsp_state->t, s->vrtsp_state->t0);
         if (seconds >= 5) {
             float fps = s->vrtsp_state->frames / seconds;
+            set_standard_transmission_frame_rate(fps);
             fprintf(stderr, "[rtsp capture] %d frames in %g seconds = %g FPS\n",
                 s->vrtsp_state->frames, seconds, fps);
             s->vrtsp_state->t0 = s->vrtsp_state->t;

@@ -48,6 +48,15 @@
 extern "C" {
 #endif
 
+typedef struct { //shared struct for audio and video streams (sync.)
+	bool init;
+	uint32_t random_startime_offset;
+	struct timeval vtime;
+	double vfps;
+	struct timeval atime;
+	struct timeval start_time;
+} std_time_struct;
+
 uint32_t get_local_mediatime(void);
 double   tv_diff(struct timeval curr_time, struct timeval prev_time);
 uint32_t tv_diff_usec(struct timeval curr_time, struct timeval prev_time);
