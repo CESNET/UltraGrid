@@ -57,6 +57,7 @@
 #include "config_unix.h"
 #endif
 
+#include "audio/utils.h"
 #include "audio/wav_reader.h"
 #include "debug.h"
 #include "host.h"
@@ -148,22 +149,16 @@ void * audio_cap_testcard_init(char *cfg)
                 s->audio_silence = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
 
                 s->audio_tone = (char *) calloc(1, AUDIO_BUFFER_SIZE /* 1 sec */);
-                if(AUDIO_BPS == 2) {
-                        short int * data = (short int *)(void *) s->audio_tone;
-                        for( i=0; i < (int) (AUDIO_BUFFER_SIZE/sizeof(short)); i+=audio_capture_channels )
-                        {
-                                for (int channel = 0; channel < (int) audio_capture_channels; ++channel)
-                                        data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * SHRT_MAX * volume;
+
+                char* data = s->audio_tone;
+                for( i=0; i < (int) AUDIO_BUFFER_SIZE; i+=audio_capture_channels*AUDIO_BPS )
+                {
+                        for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
+                                int64_t val = sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE * AUDIO_BPS/ FREQUENCY)) * M_PI * 2. ) * ((1ll<<(AUDIO_BPS*8)) / 2 - 1) * volume;
+                                format_to_out_bps(data + i + AUDIO_BPS * channel,
+                                                AUDIO_BPS, val);
                         }
-                } else if(AUDIO_BPS == 4) {
-                        int * data = (int *)(void *) s->audio_tone;
-                        for( i=0; i < (int) (AUDIO_BUFFER_SIZE/sizeof(int)); i+=audio_capture_channels )
-                        {
-                                for (int channel = 0; channel < (int) audio_capture_channels; ++channel) {
-                                        data[i + channel] = (float) sin( ((double)(i/audio_capture_channels)/((double)AUDIO_SAMPLE_RATE / FREQUENCY)) * M_PI * 2. ) * INT_MAX * volume;
-                                }
-                        }
-                } else abort(); // unsupported
+                }
 
                 s->audio.bps = AUDIO_BPS;
                 s->audio.ch_count = audio_capture_channels;

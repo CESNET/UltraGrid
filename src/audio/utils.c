@@ -67,9 +67,6 @@
 #error "This code will not run with a big-endian machine. Please report a bug to " PACKAGE_BUGREPORT " if you reach here."
 #endif // WORDS_BIGENDIAN
 
-static inline int32_t format_from_in_bps(const char *in, int bps);
-static inline void format_to_out_bps(char *out, int bps, int32_t out_value);
-
 audio_frame2 *audio_frame2_init()
 {
         audio_frame2 *ret = (audio_frame2 *) calloc(1, sizeof(audio_frame2));
@@ -238,34 +235,6 @@ struct audio_desc audio_desc_from_audio_channel(audio_channel *channel) {
                 .ch_count = 1,
                 .codec = channel->codec
         };
-}
-
-static inline int32_t format_from_in_bps(const char * in, int bps) {
-        int32_t in_value = 0;
-        memcpy(&in_value, in, bps);
-
-        if(in_value >> (bps * 8 - 1) && bps != 4) { //negative
-                in_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
-        }
-
-        return in_value;
-}
-
-static inline void format_to_out_bps(char *out, int bps, int32_t out_value) {
-        uint32_t mask = ((1ll << (bps * 8)) - 1);
-
-        // clamp
-        if(out_value > (1ll << (bps * 8 - 1)) -1) {
-                out_value = (1ll << (bps * 8 - 1)) -1;
-        }
-
-        if(out_value < -(1ll << (bps * 8 - 1))) {
-                out_value = -(1ll << (bps * 8 - 1));
-        }
-
-        uint32_t out_value_formatted = (1 * (0x1 & (out_value >> 31))) << (bps * 8 - 1) | (out_value & mask);
-
-        memcpy(out, &out_value_formatted, bps);
 }
 
 void change_bps(char *out, int out_bps, const char *in, int in_bps, int in_len /* bytes */)
