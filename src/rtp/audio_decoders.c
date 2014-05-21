@@ -350,6 +350,12 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 return FALSE;
         }
 
+        if (!cdata->data->m) {
+                // skip frame without m-bit, we cannot determine number of channels
+                // (it is maximal substream number + 1 in packet with m-bit)
+                return FALSE;
+        }
+
         while (cdata != NULL) {
                 char *data;
                 // for definition see rtp_callbacks.h
@@ -505,7 +511,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         audio_frame2 *resampled = resampler_resample(decoder->resampler, decompressed);
 
         size_t new_data_len = s->buffer.data_len + resampled->data_len[0] * output_channels;
-        if((int) s->buffer.max_size < new_data_len) {
+        if(s->buffer.max_size < new_data_len) {
                 s->buffer.max_size = new_data_len;
                 s->buffer.data = (char *) realloc(s->buffer.data, new_data_len);
         }
@@ -543,7 +549,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
         seconds = tv_diff(t, decoder->t0);
         if(seconds > 5.0) {
                 int bytes_received = packet_counter_get_total_bytes(decoder->packet_counter);
-                fprintf(stderr, "[Audio decoder] Received %u bytes (expected %dB), "
+                fprintf(stderr, "[Audio decoder] Received %u bytes (expected %d B), "
                                 "decoded %d samples in last %f seconds.\n",
                                 bytes_received,
                                 packet_counter_get_all_bytes(decoder->packet_counter),
@@ -552,7 +558,7 @@ int decode_audio_frame(struct coded_data *cdata, void *data)
                 for (int i = 0; i < decoder->decoded->ch_count; ++i) {
                         double rms, peak;
                         rms = calculate_rms(decoder->decoded, i, &peak);
-                        fprintf(stderr, "Channel %d - volume: %f dB RMS, %f dB peak.\n",
+                        fprintf(stderr, "Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
                                         i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
                 }
                 decoder->t0 = t;
