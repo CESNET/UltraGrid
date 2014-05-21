@@ -77,8 +77,8 @@
 #define CHUNK (AUDIO_SAMPLE_RATE/25) // 1 video frame time @25 fps
                    // has to be divisor of AUDIO_SAMLE_RATE
 
-#define FREQUENCY 440
-#define DEFAULT_VOLUME 0.3
+#define FREQUENCY 1000
+#define DEFAULT_VOLUME 0.17804
 
 enum which_sample {
         TONE,
