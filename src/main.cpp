@@ -759,6 +759,7 @@ int main(int argc, char *argv[])
                                                 optarg);
                                 return EXIT_FAIL_USAGE;
                         }
+                        compressed_audio_sample_rate = get_audio_codec_sample_rate(audio_codec);
                         break;
                 case OPT_CAPTURE_FILTER:
                         vidcap_params_set_capture_filter(vidcap_params_tail, optarg);
