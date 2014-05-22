@@ -143,7 +143,9 @@ struct tx {
         struct openssl_encrypt *encryption;
         long packet_rate;
 		
-		struct rtpenc_h264_state *rtpenc_h264_state;
+#ifdef HAVE_RTSP
+        struct rtpenc_h264_state *rtpenc_h264_state;
+#endif
 };
 
 // Mulaw audio memory reservation
@@ -225,11 +227,13 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         }
                 }
 
-				tx->packet_rate = packet_rate;
-				tx->rtpenc_h264_state = rtpenc_h264_init_state();
-		
-				platform_spin_init(&tx->spin);
-		}
+                tx->packet_rate = packet_rate;
+#ifdef HAVE_RTSP
+                tx->rtpenc_h264_state = rtpenc_h264_init_state();
+#endif
+
+                platform_spin_init(&tx->spin);
+        }
 		return tx;
 }
 
@@ -843,6 +847,7 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
 	UNUSED(send_m);
 	assert(tx->magic == TRANSMIT_MAGIC);
 
+#ifdef HAVE_RTSP
 	struct tile *tile = &frame->tiles[substream];
 
 	char pt = RTPENC_H264_PT;
@@ -945,6 +950,12 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
 			return;
 		}
 	}
+#else
+       UNUSED(frame);
+       UNUSED(rtp_session);
+       UNUSED(substream);
+       UNUSED(ts);
+#endif
 }
 
 /*
@@ -952,11 +963,11 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
  */
 void tx_send_h264(struct tx *tx, struct video_frame *frame,
 		struct rtp *rtp_session) {
-	unsigned int i;
 	struct timeval curr_time;
 	static uint32_t ts_prev = 0;
 	uint32_t ts = 0;
 
+        assert(frame->tile_count = 1); // std transmit doesn't handle more than one tile
 	assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
 	assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
 
@@ -969,7 +980,7 @@ void tx_send_h264(struct tx *tx, struct video_frame *frame,
 	ts_prev = ts;
 
 	tx_send_base_h264(tx, frame, rtp_session, ts, 0,
-			frame->color_spec, frame->fps, frame->interlacing, i,
+			frame->color_spec, frame->fps, frame->interlacing, 0,
 			0);
 
 	platform_spin_unlock(&tx->spin);

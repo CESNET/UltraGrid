@@ -614,12 +614,16 @@ int main(int argc, char *argv[])
                         if (optarg == NULL) {
                         	rtsp_port = 0;
                         } else {
-							if (!strcmp(optarg, "help")) {
-									rtps_server_usage();
-									return 0;
-							}
-                        	rtsp_port = get_rtsp_server_port(optarg);
-                        	if (rtsp_port == -1) return 0;
+                                if (!strcmp(optarg, "help")) {
+#ifdef HEAVE_RTSP
+                                        rtps_server_usage();
+#endif
+                                        return 0;
+                                }
+#ifdef HEAVE_RTSP
+                                rtsp_port = get_rtsp_server_port(optarg);
+#endif
+                                if (rtsp_port == -1) return 0;
                         }
                         break;
                 case 'r':
