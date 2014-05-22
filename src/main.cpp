@@ -210,7 +210,7 @@ static void usage(void)
         printf("\n");
         printf("\t-c <cfg>                 \tcompress video (see '-c help')\n");
         printf("\n");
-        printf("\t--rtsp-server                 \t\tRTSP server: dynamically serving H264 RTP standard transport\n");
+        printf("\t--rtsp-server            \tRTSP server: dynamically serving H264 RTP standard transport (use '--rtps-server=help' to see usage)\n");
         printf("\n");
         printf("\t-i|--sage[=<opts>]       \tiHDTV compatibility mode / SAGE TX\n");
         printf("\n");
@@ -434,6 +434,8 @@ int main(int argc, char *argv[])
         const char *requested_audio_fec = DEFAULT_AUDIO_FEC;
         char *audio_channel_map = NULL;
         const char *audio_scale = "mixauto";
+        rtsp_serv_t* rtsp_server = NULL;
+        int rtsp_port = 0;
         bool isStd = FALSE;
         int recv_port_number = PORT_BASE;
         int send_port_number = PORT_BASE;
@@ -464,6 +466,7 @@ int main(int argc, char *argv[])
         bool receiver_thread_started = false,
              capture_thread_started = false;
         unsigned display_flags = 0;
+        int compressed_audio_sample_rate = 48000;
         int ret;
         struct vidcap_params *audio_cap_dev;
         long packet_rate;
@@ -500,7 +503,7 @@ int main(int argc, char *argv[])
                 {"compress", required_argument, 0, 'c'},
                 {"ihdtv", no_argument, 0, 'i'},
                 {"sage", optional_argument, 0, 'S'},
-                {"rtsp-server", no_argument, 0, 'H'},
+                {"rtsp-server", optional_argument, 0, 'H'},
                 {"receive", required_argument, 0, 'r'},
                 {"send", required_argument, 0, 's'},
                 {"help", no_argument, 0, 'h'},
@@ -608,7 +611,16 @@ int main(int argc, char *argv[])
                         break;
                 case 'H':
                         video_protocol = H264_STD;
-                        //h264_opts = optarg;
+                        if (optarg == NULL) {
+                        	rtsp_port = 0;
+                        } else {
+							if (!strcmp(optarg, "help")) {
+									rtps_server_usage();
+									return 0;
+							}
+                        	rtsp_port = get_rtsp_server_port(optarg);
+                        	if (rtsp_port == -1) return 0;
+                        }
                         break;
                 case 'r':
                         audio_recv = optarg;                       
@@ -747,6 +759,7 @@ int main(int argc, char *argv[])
                                                 optarg);
                                 return EXIT_FAIL_USAGE;
                         }
+                        compressed_audio_sample_rate = get_audio_codec_sample_rate(audio_codec);
                         break;
                 case OPT_CAPTURE_FILTER:
                         vidcap_params_set_capture_filter(vidcap_params_tail, optarg);
@@ -956,20 +969,17 @@ int main(int argc, char *argv[])
                                         display_device, requested_mtu,
                                         argc, argv);
                 }else if (video_protocol == H264_STD) {
-                        rtps_types_t avType;
-                        if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = avStdDyn; //AVStream
-                        else if((strcmp("none",audio_send) != 0)) avType = audioPCMUdyn; //AStream
-                        else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = videoH264; //VStream
-                        else {
-                                printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
-                                return EXIT_FAIL_USAGE;
-                        }
+                		rtps_types_t avType;
+                		if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
+                		else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
+                        else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = video; //VStream
+           	            else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
 
                         uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
                                         requested_compression, requested_encryption,
                                         requested_receiver, recv_port_number, send_port_number,
                                         ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
-                                        packet_rate, avType);
+                                        packet_rate, avType, get_audio_codec(audio_codec), compressed_audio_sample_rate, audio_capture_channels, 2 /*bps*/, rtsp_port);
                 } else if (video_protocol == ULTRAGRID_RTP) {
                         uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
                                         requested_compression, requested_encryption,
@@ -1064,6 +1074,10 @@ cleanup:
                 vidcap_params_free_struct(vidcap_params_head);
                 vidcap_params_head = next;
         }
+
+#ifdef HAVE_RTSP_SERVER
+        if(rtsp_server) c_stop_server(rtsp_server);
+#endif
 
         module_done(&root_mod);
         free(uv);

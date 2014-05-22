@@ -87,6 +87,12 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
                                 fprintf(stderr, "Changing receiver to: %s failed!\n",
                                                 msg->receiver);
                         }
+
+                        if (rtcp_change_dest(m_network_devices[0],
+                       				msg->receiver) == FALSE){
+                        		fprintf(stderr, "Changing rtcp receiver to: %s failed!\n",
+                        	                    msg->receiver);
+                        }
                         break;
                 case SENDER_MSG_CHANGE_PORT:
                         change_tx_port(msg->port);

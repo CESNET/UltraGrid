@@ -51,269 +51,283 @@
 
 BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
-    Boolean reuseFirstSource,
-    struct module *mod, rtps_types_t avType){
-    return new BasicRTSPOnlySubsession(env, reuseFirstSource, mod, avType);
+		Boolean reuseFirstSource, struct module *mod, rtps_types_t avType,
+		audio_codec_t audio_codec, int audio_sample_rate, int audio_channels,
+		int audio_bps, int rtp_port) {
+	return new BasicRTSPOnlySubsession(env, reuseFirstSource, mod, avType,
+			audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port);
 }
 
-BasicRTSPOnlySubsession
-::BasicRTSPOnlySubsession(UsageEnvironment& env,
-    Boolean reuseFirstSource,
-    struct module *mod, rtps_types_t avType)
-: ServerMediaSubsession(env),
-  fSDPLines(NULL),
-  fReuseFirstSource(reuseFirstSource), fLastStreamToken(NULL) {
-    Vdestination = NULL;
-    Adestination = NULL;
-    gethostname(fCNAME, sizeof fCNAME);
-    this->fmod = mod;
-    this->avType = avType;
-    fCNAME[sizeof fCNAME-1] = '\0';
+BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
+		Boolean reuseFirstSource, struct module *mod, rtps_types_t avType,
+		audio_codec_t audio_codec, int audio_sample_rate, int audio_channels,
+		int audio_bps, int rtp_port) :
+		ServerMediaSubsession(env), fSDPLines(NULL), fReuseFirstSource(
+				reuseFirstSource), fLastStreamToken(NULL) {
+	Vdestination = NULL;
+	Adestination = NULL;
+	gethostname(fCNAME, sizeof fCNAME);
+	this->fmod = mod;
+	this->avType = avType;
+	this->audio_codec = audio_codec;
+	this->audio_sample_rate = audio_sample_rate;
+	this->audio_channels = audio_channels;
+	this->audio_bps = audio_bps;
+	this->rtp_port = rtp_port;
+	fCNAME[sizeof fCNAME - 1] = '\0';
 }
 
 BasicRTSPOnlySubsession::~BasicRTSPOnlySubsession() {
-    delete[] fSDPLines;
-    delete Adestination;
-    delete Vdestination;
+	delete[] fSDPLines;
+	delete Adestination;
+	delete Vdestination;
 }
 
 char const* BasicRTSPOnlySubsession::sdpLines() {
-    if (fSDPLines == NULL){
-        setSDPLines();
-    }
-    if(Adestination != NULL || Vdestination != NULL) return NULL;
-    return fSDPLines;
+	if (fSDPLines == NULL) {
+		setSDPLines();
+	}
+	if (Adestination != NULL || Vdestination != NULL)
+		return NULL;
+	return fSDPLines;
 }
 
-void BasicRTSPOnlySubsession
-::setSDPLines() {
-    //TODO: should be more dynamic
-    //VStream
-    if(avType == videoH264 || avType == avStdDyn || avType == avStd){
-        unsigned estBitrate = 5000;
-        char const* mediaType = "video";
-        uint8_t rtpPayloadType = 96;
-        AddressString ipAddressStr(fServerAddressForSDP);
-        char* rtpmapLine = strdup("a=rtpmap:96 H264/90000\n");
-        char const* auxSDPLine = "";
+void BasicRTSPOnlySubsession::setSDPLines() {
+	//TODO: should be more dynamic
+	//VStream
+	if (avType == video || avType == av) {
+		unsigned estBitrate = 5000;
+		char const* mediaType = "video";
+		uint8_t rtpPayloadType = 96;
+		AddressString ipAddressStr(fServerAddressForSDP);
+		char* rtpmapLine = strdup("a=rtpmap:96 H264/90000\n");
+		char const* auxSDPLine = "";
 
-        char const* const sdpFmt =
-            "m=%s %u RTP/AVP %u\r\n"
-            "c=IN IP4 %s\r\n"
-            "b=AS:%u\r\n"
-            "%s"
-            "a=control:%s\r\n";
-        unsigned sdpFmtSize = strlen(sdpFmt)
-		                        + strlen(mediaType) + 5 /* max short len */ + 3 /* max char len */
-		                        + strlen(ipAddressStr.val())
-		                        + 20 /* max int len */
-		                        + strlen(rtpmapLine)
-		                        + strlen(trackId());
-        char* sdpLines = new char[sdpFmtSize];
+		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
+				"c=IN IP4 %s\r\n"
+				"b=AS:%u\r\n"
+				"%s"
+				"a=control:%s\r\n";
+		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
+				+ 3 /* max char len */
+				+ strlen(ipAddressStr.val()) + 20 /* max int len */
+				+ strlen(rtpmapLine) + strlen(trackId());
+		char* sdpLines = new char[sdpFmtSize];
 
-        sprintf(sdpLines, sdpFmt,
-            mediaType, // m= <media>
-            fPortNumForSDP, // m= <port>
-            rtpPayloadType, // m= <fmt list>
-            ipAddressStr.val(), // c= address
-            estBitrate, // b=AS:<bandwidth>
-            rtpmapLine, // a=rtpmap:... (if present)
-            trackId()); // a=control:<track-id>
+		sprintf(sdpLines, sdpFmt, mediaType, // m= <media>
+				fPortNumForSDP, // m= <port>
+				rtpPayloadType, // m= <fmt list>
+				ipAddressStr.val(), // c= address
+				estBitrate, // b=AS:<bandwidth>
+				rtpmapLine, // a=rtpmap:... (if present)
+				trackId()); // a=control:<track-id>
 
-        fSDPLines = sdpLines;
-    }
-    //AStream
-    if(avType == audioPCMUdyn || avType == avStdDyn){
-        unsigned estBitrate = 384;
-        char const* mediaType = "audio";
-        uint8_t rtpPayloadType = 97;
-        AddressString ipAddressStr(fServerAddressForSDP);
-        char* rtpmapLine = strdup("a=rtpmap:97 PCMU/48000/2\n");
-        char const* auxSDPLine = "";
+		fSDPLines = sdpLines;
+	}
+	//AStream
+	if (avType == audio || avType == av) {
+		unsigned estBitrate = 384;
+		char const* mediaType = "audio";
+		AddressString ipAddressStr(fServerAddressForSDP);
+		uint8_t rtpPayloadType;
 
-        char const* const sdpFmt =
-            "m=%s %u RTP/AVP %u\r\n"
-            "c=IN IP4 %s\r\n"
-            "b=AS:%u\r\n"
-            "%s"
-            "a=control:%s\r\n";
-        unsigned sdpFmtSize = strlen(sdpFmt)
-                                + strlen(mediaType) + 5 /* max short len */ + 3 /* max char len */
-                                + strlen(ipAddressStr.val())
-                                + 20 /* max int len */
-                                + strlen(rtpmapLine)
-                                + strlen(trackId());
-        char* sdpLines = new char[sdpFmtSize];
+		if (audio_sample_rate == 8000 && audio_channels == 1) { //NOW NOT COMPUTING 1 BPS BECAUSE RESAMPLER FORCES TO 2 BPS...
+			if (audio_codec == AC_MULAW)
+				rtpPayloadType = 0;
+			if (audio_codec == AC_ALAW)
+				rtpPayloadType = 8;
+		} else {
+			rtpPayloadType = 97;
+		}
 
-        sprintf(sdpLines, sdpFmt,
-            mediaType, // m= <media>
-            fPortNumForSDP, // m= <port>
-            rtpPayloadType, // m= <fmt list>
-            ipAddressStr.val(), // c= address
-            estBitrate, // b=AS:<bandwidth>
-            rtpmapLine, // a=rtpmap:... (if present)
-            trackId()); // a=control:<track-id>
+		char* rtpmapLine = strdup("a=rtpmap:97 PCMU/48000/2\n"); //only to alloc max possible size
+		char const* auxSDPLine = "";
 
-        fSDPLines = sdpLines;
-    }
+		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
+				"c=IN IP4 %s\r\n"
+				"b=AS:%u\r\n"
+				"a=rtpmap:%u %s/%d/%d\r\n"
+				"a=control:%s\r\n";
+		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
+				+ 3 /* max char len */
+				+ strlen(ipAddressStr.val()) + 20 /* max int len */
+				+ strlen(rtpmapLine) + strlen(trackId());
+		char* sdpLines = new char[sdpFmtSize];
+
+		sprintf(sdpLines, sdpFmt,
+				mediaType, // m= <media>
+				fPortNumForSDP, // m= <port>
+				rtpPayloadType, // m= <fmt list>
+				ipAddressStr.val(), // c= address
+				estBitrate, // b=AS:<bandwidth>
+				//rtpmapLine, // a=rtpmap:... (if present)
+				rtpPayloadType,
+				audio_codec == AC_MULAW ? "PCMU" : "PCMA",
+				audio_sample_rate,
+				audio_channels,
+				trackId()); // a=control:<track-id>
+
+		fSDPLines = sdpLines;
+	}
 }
 
 void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
-    netAddressBits clientAddress,
-    Port const& clientRTPPort,
-    Port const& clientRTCPPort,
-    int tcpSocketNum,
-    unsigned char rtpChannelId,
-    unsigned char rtcpChannelId,
-    netAddressBits& destinationAddress,
-    u_int8_t& /*destinationTTL*/,
-    Boolean& isMulticast,
-    Port& serverRTPPort,
-    Port& serverRTCPPort,
-    void*& streamToken) {
+		netAddressBits clientAddress, Port const& clientRTPPort,
+		Port const& clientRTCPPort, int tcpSocketNum,
+		unsigned char rtpChannelId, unsigned char rtcpChannelId,
+		netAddressBits& destinationAddress, u_int8_t& /*destinationTTL*/,
+		Boolean& isMulticast, Port& serverRTPPort, Port& serverRTCPPort,
+		void*& streamToken) {
 
-    if(Vdestination == NULL && (avType == videoH264 || avType == avStdDyn || avType == avStd)){
-        if (fSDPLines == NULL){
-            setSDPLines();
-        }
-        if (destinationAddress == 0) {
-            destinationAddress = clientAddress;
-        }
-        struct in_addr destinationAddr;
-        destinationAddr.s_addr = destinationAddress;
-        Vdestination = new Destinations(destinationAddr, clientRTPPort,clientRTCPPort);
-    }
-    if(Adestination == NULL && (avType == audioPCMUdyn || avType == avStdDyn)){
-        if (fSDPLines == NULL){
-            setSDPLines();
-        }
-        if (destinationAddress == 0) {
-            destinationAddress = clientAddress;
-        }
-        struct in_addr destinationAddr;
-        destinationAddr.s_addr = destinationAddress;
-        Adestination = new Destinations(destinationAddr, clientRTPPort,clientRTCPPort);
-    }
+	Port rtp(rtp_port);
+	serverRTPPort = rtp;
+	Port rtcp(rtp_port + 1);
+	serverRTCPPort = rtcp;
+
+	if (Vdestination == NULL && (avType == video || avType == av)) {
+		if (fSDPLines == NULL) {
+			setSDPLines();
+		}
+		if (destinationAddress == 0) {
+			destinationAddress = clientAddress;
+		}
+		struct in_addr destinationAddr;
+		destinationAddr.s_addr = destinationAddress;
+		Vdestination = new Destinations(destinationAddr, clientRTPPort,
+				clientRTCPPort);
+	}
+	if (Adestination == NULL && (avType == audio || avType == av)) {
+		if (fSDPLines == NULL) {
+			setSDPLines();
+		}
+		if (destinationAddress == 0) {
+			destinationAddress = clientAddress;
+		}
+		struct in_addr destinationAddr;
+		destinationAddr.s_addr = destinationAddress;
+		Adestination = new Destinations(destinationAddr, clientRTPPort,
+				clientRTCPPort);
+	}
 }
-
 
 void BasicRTSPOnlySubsession::startStream(unsigned clientSessionId,
-    void* streamToken,
-    TaskFunc* rtcpRRHandler,
-    void* rtcpRRHandlerClientData,
-    unsigned short& rtpSeqNum,
-    unsigned& rtpTimestamp,
-    ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
-    void* serverRequestAlternativeByteHandlerClientData) {
-    struct response *resp = NULL;
+		void* streamToken, TaskFunc* rtcpRRHandler,
+		void* rtcpRRHandlerClientData, unsigned short& rtpSeqNum,
+		unsigned& rtpTimestamp,
+		ServerRequestAlternativeByteHandler* serverRequestAlternativeByteHandler,
+		void* serverRequestAlternativeByteHandlerClientData) {
+	struct response *resp = NULL;
 
-    if (Vdestination != NULL){
-        if(avType == videoH264 || avType == avStdDyn || avType == avStd){
-            char pathV[1024];
+	if (Vdestination != NULL) {
+		if (avType == video || avType == av) {
+			char pathV[1024];
 
-            memset(pathV, 0, sizeof(pathV));
-            enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-            append_message_path(pathV, sizeof(pathV), path_sender);
+			memset(pathV, 0, sizeof(pathV));
+			enum module_class path_sender[] = { MODULE_CLASS_SENDER,
+					MODULE_CLASS_NONE };
+			append_message_path(pathV, sizeof(pathV), path_sender);
 
-            //CHANGE DST PORT
-            struct msg_sender *msgV1 =
-                (struct msg_sender *)
-                new_message(sizeof(struct msg_sender));
-            msgV1->port =  ntohs(Vdestination->rtpPort.num());
-            msgV1->type = SENDER_MSG_CHANGE_PORT;
-            resp = send_message(fmod, pathV, (struct message *) msgV1);
-            resp = NULL;
+			//CHANGE DST PORT
+			struct msg_sender *msgV1 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			msgV1->port = ntohs(Vdestination->rtpPort.num());
+			msgV1->type = SENDER_MSG_CHANGE_PORT;
+			resp = send_message(fmod, pathV, (struct message *) msgV1);
+			resp = NULL;
 
-            //CHANGE DST ADDRESS
-            struct msg_sender *msgV2 =
-                (struct msg_sender *)
-                new_message(sizeof(struct msg_sender));
-            strncpy(msgV2->receiver, inet_ntoa(Vdestination->addr), sizeof(msgV2->receiver) - 1);
-            msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
+			//CHANGE DST ADDRESS
+			struct msg_sender *msgV2 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			strncpy(msgV2->receiver, inet_ntoa(Vdestination->addr),
+					sizeof(msgV2->receiver) - 1);
+			msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
 
-            resp = send_message(fmod, pathV, (struct message *) msgV2);
-            resp = NULL;
-        }
-    }
+			resp = send_message(fmod, pathV, (struct message *) msgV2);
+			resp = NULL;
+		}
+	}
 
-    if(Adestination != NULL){
-        if(avType == audioPCMUdyn || avType == avStdDyn){
-            char pathA[1024];
+	if (Adestination != NULL) {
+		if (avType == audio || avType == av) {
+			char pathA[1024];
 
-            memset(pathA, 0, sizeof(pathA));
-            enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-            append_message_path(pathA, sizeof(pathA), path_sender);
+			memset(pathA, 0, sizeof(pathA));
+			enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
+					MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+			append_message_path(pathA, sizeof(pathA), path_sender);
 
-            //CHANGE DST PORT
-            struct msg_sender *msgA1 =
-                (struct msg_sender *)
-                new_message(sizeof(struct msg_sender));
-            msgA1->port =  ntohs(Adestination->rtpPort.num());
-            msgA1->type = SENDER_MSG_CHANGE_PORT;
-            resp = send_message(fmod, pathA, (struct message *) msgA1);
-            resp = NULL;
+			//CHANGE DST PORT
+			struct msg_sender *msgA1 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			msgA1->port = ntohs(Adestination->rtpPort.num());
+			msgA1->type = SENDER_MSG_CHANGE_PORT;
+			resp = send_message(fmod, pathA, (struct message *) msgA1);
+			resp = NULL;
 
-            //CHANGE DST ADDRESS
-            struct msg_sender *msgA2 =
-                (struct msg_sender *)
-                new_message(sizeof(struct msg_sender));
-            strncpy(msgA2->receiver, inet_ntoa(Adestination->addr), sizeof(msgA2->receiver) - 1);
-            msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
+			//CHANGE DST ADDRESS
+			struct msg_sender *msgA2 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			strncpy(msgA2->receiver, inet_ntoa(Adestination->addr),
+					sizeof(msgA2->receiver) - 1);
+			msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
 
-            resp = send_message(fmod, pathA, (struct message *) msgA2);
-            resp = NULL;
-        }
-    }
+			resp = send_message(fmod, pathA, (struct message *) msgA2);
+			resp = NULL;
+		}
+	}
 }
 
-void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId, void*& streamToken){
-    if (Vdestination != NULL){
-        if(avType == videoH264 || avType == avStdDyn || avType == avStd){
-            char pathV[1024];
-            Vdestination = NULL;
-            memset(pathV, 0, sizeof(pathV));
-            enum module_class path_sender[] = { MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-            append_message_path(pathV, sizeof(pathV), path_sender);
+void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
+		void*& streamToken) {
+	if (Vdestination != NULL) {
+		if (avType == video || avType == av) {
+			char pathV[1024];
+			Vdestination = NULL;
+			memset(pathV, 0, sizeof(pathV));
+			enum module_class path_sender[] = { MODULE_CLASS_SENDER,
+					MODULE_CLASS_NONE };
+			append_message_path(pathV, sizeof(pathV), path_sender);
 
-            //CHANGE DST PORT
-            struct msg_sender *msgV1 = (struct msg_sender *) new_message(
-                sizeof(struct msg_sender));
-            msgV1->port = 5004;
-            msgV1->type = SENDER_MSG_CHANGE_PORT;
-            send_message(fmod, pathV, (struct message *) msgV1);
+			//CHANGE DST PORT
+			struct msg_sender *msgV1 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			msgV1->port = rtp_port;
+			msgV1->type = SENDER_MSG_CHANGE_PORT;
+			send_message(fmod, pathV, (struct message *) msgV1);
 
-            //CHANGE DST ADDRESS
-            struct msg_sender *msgV2 = (struct msg_sender *) new_message(
-                sizeof(struct msg_sender));
-            strncpy(msgV2->receiver, "127.0.0.1",
-                sizeof(msgV2->receiver) - 1);
-            msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
-            send_message(fmod, pathV, (struct message *) msgV2);
-        }
-    }
+			//CHANGE DST ADDRESS
+			struct msg_sender *msgV2 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			strncpy(msgV2->receiver, "127.0.0.1", sizeof(msgV2->receiver) - 1);
+			msgV2->type = SENDER_MSG_CHANGE_RECEIVER;
+			send_message(fmod, pathV, (struct message *) msgV2);
+		}
+	}
 
-    if(Adestination != NULL){
-        if(avType == audioPCMUdyn || avType == avStdDyn){
-            char pathA[1024];
-            Adestination = NULL;
-            memset(pathA, 0, sizeof(pathA));
-            enum module_class path_sender[] = { MODULE_CLASS_AUDIO, MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
-            append_message_path(pathA, sizeof(pathA), path_sender);
+	if (Adestination != NULL) {
+		if (avType == audio || avType == av) {
+			char pathA[1024];
+			Adestination = NULL;
+			memset(pathA, 0, sizeof(pathA));
+			enum module_class path_sender[] = { MODULE_CLASS_AUDIO,
+					MODULE_CLASS_SENDER, MODULE_CLASS_NONE };
+			append_message_path(pathA, sizeof(pathA), path_sender);
 
-            //CHANGE DST PORT
-            struct msg_sender *msgA1 = (struct msg_sender *) new_message(
-                sizeof(struct msg_sender));
-            msgA1->port = 5006;
-            msgA1->type = SENDER_MSG_CHANGE_PORT;
-            send_message(fmod, pathA, (struct message *) msgA1);
+			//CHANGE DST PORT
+			struct msg_sender *msgA1 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
 
-            //CHANGE DST ADDRESS
-            struct msg_sender *msgA2 = (struct msg_sender *) new_message(
-                sizeof(struct msg_sender));
-            strncpy(msgA2->receiver, "127.0.0.1",
-                sizeof(msgA2->receiver) - 1);
-            msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
-            send_message(fmod, pathA, (struct message *) msgA2);
-        }
-    }
+			//TODO: GET AUDIO PORT SET (NOT A COMMON CASE WHEN RTSP IS ENABLED: DEFAULT -> vport + 2)
+			msgA1->port = rtp_port + 2;
+			msgA1->type = SENDER_MSG_CHANGE_PORT;
+			send_message(fmod, pathA, (struct message *) msgA1);
+
+			//CHANGE DST ADDRESS
+			struct msg_sender *msgA2 = (struct msg_sender *) new_message(
+					sizeof(struct msg_sender));
+			strncpy(msgA2->receiver, "127.0.0.1", sizeof(msgA2->receiver) - 1);
+			msgA2->type = SENDER_MSG_CHANGE_RECEIVER;
+			send_message(fmod, pathA, (struct message *) msgA2);
+		}
+	}
 }

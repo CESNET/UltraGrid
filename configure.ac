@@ -1220,7 +1220,7 @@ case $host in
 	        CXXFLAGS="$CXXFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"	        
 			RTSP_INC=
 			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
-			RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+			RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o src/rtp/rtpenc_h264.o"
                         AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
@@ -2630,7 +2630,7 @@ if test $system = Linux -o $system = MacOSX; then
         fi
 fi
 
-AC_SUBST(NCURSES_LIBS)
+AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # OpenSSL-libcrypto

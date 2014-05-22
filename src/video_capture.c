@@ -746,4 +746,3 @@ void vidcap_params_free_struct(struct vidcap_params *buf)
 
         free(buf);
 }
-

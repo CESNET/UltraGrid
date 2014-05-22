@@ -73,6 +73,7 @@
 #include "rtp/fec.h"
 #include "rtp/rtp.h"
 #include "rtp/rtp_callback.h"
+#include "rtp/rtpenc_h264.h"
 #include "tv.h"
 #include "transmit.h"
 #include "video.h"
@@ -97,18 +98,10 @@
 #define GET_DELTA delta = (long)((double)(stop.QuadPart - start.QuadPart) * 1000 * 1000 * 1000 / freq.QuadPart);
 #endif
 
-#define RTPENC_H264_MAX_NALS 1024*2*2
-#define RTPENC_H264_PT 96
-
 // Mulaw audio memory reservation
 #define BUFFER_MTU_SIZE 1500
 static char *data_buffer_mulaw;
 static int buffer_mulaw_init = 0;
-
-struct rtp_nal_t {
-    uint8_t *data;
-    int size;
-};
 
 static void tx_update(struct tx *tx, struct video_frame *frame, int substream);
 static void tx_done(struct module *tx);
@@ -149,6 +142,8 @@ struct tx {
 
         struct openssl_encrypt *encryption;
         long packet_rate;
+		
+		struct rtpenc_h264_state *rtpenc_h264_state;
 };
 
 // Mulaw audio memory reservation
@@ -230,11 +225,12 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                         }
                 }
 
-                tx->packet_rate = packet_rate;
-
-                platform_spin_init(&tx->spin);
-        }
-        return tx;
+				tx->packet_rate = packet_rate;
+				tx->rtpenc_h264_state = rtpenc_h264_init_state();
+		
+				platform_spin_init(&tx->spin);
+		}
+		return tx;
 }
 
 struct tx *tx_init_h264(struct module *parent, unsigned mtu, enum tx_media_type media_type,
@@ -756,370 +752,225 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
 }
 
 /*
- * audio_tx_send_mulaw - Send interleaved channels from the audio_frame2 at 1 bps,
- *                       as the mulaw standard.
+ * audio_tx_send_standard - Send interleaved channels from the audio_frame2,
+ *                       	as the mulaw and A-law standards (dynamic or std PT).
  */
-void audio_tx_send_mulaw(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer)
-{
-    assert(buffer->codec == AC_MULAW);
+void audio_tx_send_standard(struct tx* tx, struct rtp *rtp_session,
+		audio_frame2 * buffer) {
+	//TODO to be more abstract in order to accept A-law too and other supported standards with such implementation
+	assert(buffer->codec == AC_MULAW || buffer->codec == AC_ALAW);
 
-    int pt;
-    uint32_t timestamp;
+	int pt;
+	uint32_t ts;
+	static uint32_t ts_prev = 0;
+	struct timeval curr_time;
+	platform_spin_lock(&tx->spin);
 
-    platform_spin_lock(&tx->spin);
+	// Configure the right Payload type,
+	// 8000 Hz, 1 channel and 2 bps is the ITU-T G.711 standard (should be 1 bps...)
+	// Other channels or Hz goes to DynRTP-Type97
+	if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
+		if (buffer->codec == AC_MULAW)
+			pt = PT_ITU_T_G711_PCMU;
+		if (buffer->codec == AC_ALAW)
+			pt = PT_ITU_T_G711_PCMA;
+	} else {
+		pt = PT_DynRTP_Type97;
+	}
 
-    // Configure the right Payload type,
-    // 8000 Hz, 1 channel is the ITU-T G.711 standard
-    // More channels or Hz goes to DynRTP-Type97
+	// The sizes for the different audio_frame2 channels must be the same.
+	for (int i = 1; i < buffer->ch_count; i++)
+		assert(buffer->data_len[0] == buffer->data_len[i]);
 
-    if (buffer->ch_count == 1 && buffer->sample_rate == 8000) {
-        pt = PT_ITU_T_G711_PCMU;
-    } else {
-        pt = PT_DynRTP_Type97;
-    }
+	int data_len = buffer->data_len[0] * buffer->ch_count; 	/* Number of samples to send 			*/
+	int payload_size = tx->mtu - 40; 						/* Max size of an RTP payload field 	*/
 
-    // The sizes for the different audio_frame2 channels must be the same.
-    for (int i = 1 ; i < buffer->ch_count ; i++) assert(buffer->data_len[0] == buffer->data_len[i]);
+	init_tx_mulaw_buffer();
+	char *curr_sample = data_buffer_mulaw;
+	int ch, pos = 0, count = 0, pointerToSend = 0;
 
-    int data_len = buffer->data_len[0] * buffer->ch_count;  	/* Number of samples to send 			*/
-    int data_remainig = data_len;
-    int payload_size = tx->mtu - 40;                        	/* Max size of an RTP payload field 	*/
+	do {
+		for (ch = 0; ch < buffer->ch_count; ch++) {
+			memcpy(curr_sample, buffer->data[ch] + pos,
+					buffer->bps * sizeof(char));
+			curr_sample += buffer->bps * sizeof(char);
+			count += buffer->bps * sizeof(char);
+		}
+		pos += buffer->bps * sizeof(char);
 
-    init_tx_mulaw_buffer();
-    char *curr_sample = data_buffer_mulaw;
+		if ((pos * buffer->ch_count) % payload_size == 0) {
+			// Update first sample timestamp
+			ts =	get_std_audio_local_mediatime((double)payload_size / (double)buffer->ch_count);
+			gettimeofday(&curr_time, NULL);
+			rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
+			ts_prev = ts;
+			// Send the packet
+			rtp_send_data(rtp_session, ts, pt, 0, 0, /* contributing sources 		*/
+			0, 												/* contributing sources length 	*/
+			data_buffer_mulaw + pointerToSend, payload_size, 0, 0, 0);
+			pointerToSend += payload_size;
+		}
+	} while (count < data_len);
 
-    int ch, pos = 0, count = 0, pointerToSend = 0;
+	if ((pos * buffer->ch_count) % payload_size != 0) {
+		// Update first sample timestamp
+		ts =	get_std_audio_local_mediatime((double)((pos * buffer->ch_count) % payload_size) / (double)buffer->ch_count);
+		gettimeofday(&curr_time, NULL);
+		rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
+		ts_prev = ts;
+		// Send the packet
+		rtp_send_data(rtp_session, ts, pt, 0, 0, 	/* contributing sources 		*/
+		0, 													/* contributing sources length 	*/
+		data_buffer_mulaw + pointerToSend,
+				(pos * buffer->ch_count) % payload_size, 0, 0, 0);
+	}
 
-    do{
-    	for(ch = 0; ch < buffer->ch_count; ch++){
-    		memcpy(curr_sample, buffer->data[ch] + pos, buffer->bps * sizeof(char));
-    		curr_sample += buffer->bps * sizeof(char);
-    		count+=buffer->bps * sizeof(char);
-    		data_remainig--;
-    	}
-    	pos += buffer->bps * sizeof(char);
-
-    	if((pos * buffer->ch_count) % payload_size == 0){
-    	        // Update first sample timestamp
-     	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
-      	      	// Send the packet
-      	      	rtp_send_data(rtp_session, timestamp, pt, 0, 0,  	/* contributing sources 		*/
-     	              0,        				    				/* contributing sources length 	*/
-      	              data_buffer_mulaw + pointerToSend, payload_size,
-      	              0, 0, 0);
-      	    	pointerToSend += payload_size;
-    	}
-    }while(count < data_len);
-
-    if((pos * buffer->ch_count) % payload_size != 0){
-            	// Update first sample timestamp
-	       	timestamp = get_std_audio_local_mediatime((buffer->data_len[0] - (data_remainig/(buffer->bps * buffer->ch_count))));
-          	// Send the packet
-         	rtp_send_data(rtp_session, timestamp, pt, 0, 0,        	/* contributing sources 		*/
-                  	0,     											/* contributing sources length 	*/
-                  	data_buffer_mulaw + pointerToSend , (pos * buffer->ch_count) % payload_size,
-                  	0, 0, 0);
-    }
-    tx->buffer ++;
-
-    platform_spin_unlock(&tx->spin);
+	platform_spin_unlock(&tx->spin);
 }
 
-static uint8_t *rtpenc_h264_find_startcode_internal(uint8_t *start,
-        uint8_t *end);
-uint8_t *rtpenc_h264_find_startcode(uint8_t *p, uint8_t *end);
-int rtpenc_h264_parse_nal_units(uint8_t *buf_in, int size,
-        struct rtp_nal_t *nals, int *nnals);
+/**
+ *  H.264 standard transmission
+ */
+static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
+		struct rtp *rtp_session, uint32_t ts, int send_m, codec_t color_spec,
+		double input_fps, enum interlacing_t interlacing,
+		unsigned int substream, int fragment_offset) {
 
-static uint8_t *rtpenc_h264_find_startcode_internal(uint8_t *start,
-        uint8_t *end)
-{
-    //uint8_t *p = start;
-    //uint8_t *pend = end; // - 3; // XXX: w/o -3, p[1] and p[2] may fail.
+	UNUSED(color_spec);
+	UNUSED(input_fps);
+	UNUSED(interlacing);
+	UNUSED(fragment_offset);
+	UNUSED(send_m);
+	assert(tx->magic == TRANSMIT_MAGIC);
 
-    for (uint8_t *p = start; p < end; p++) {
-        if (p[0] == 0 && p[1] == 0 && p[2] == 1) {
-            return p;
-        }
-    }
+	struct tile *tile = &frame->tiles[substream];
 
-    return (uint8_t *) NULL;
-}
+	char pt = RTPENC_H264_PT;
+	unsigned char hdr[2];
+	int cc = 0;
+	uint32_t csrc = 0;
+	int m = 0;
+	char *extn = 0;
+	uint16_t extn_len = 0;
+	uint16_t extn_type = 0;
+	unsigned nalsize = 0;
+	uint8_t *data = (uint8_t *) tile->data;
+	int data_len = tile->data_len;
+	tx->rtpenc_h264_state->maxPacketSize = tx->mtu - 40;
+	tx->rtpenc_h264_state->haveSeenEOF = false;
+	tx->rtpenc_h264_state->haveSeenFirstStartCode = false;
 
-uint8_t *rtpenc_h264_find_startcode(uint8_t *p, uint8_t *end)
-{
-    uint8_t *out = rtpenc_h264_find_startcode_internal(p, end);
-    if (out != NULL) {
-        if (p < out && out < end && !out[-1]) {
-            out--;
-        }
-    } else {
-        debug_msg("No NAL start code found\n"); // It's not an error per se.
-    }
-    return out;
-}
+	while ((nalsize = rtpenc_h264_frame_parse(tx->rtpenc_h264_state, data, data_len)) > 0) {
 
-int rtpenc_h264_parse_nal_units(uint8_t *buf_in, int size,
-                                struct rtp_nal_t *nals, int *nnals)
-{
-    uint8_t *p = buf_in;
-    uint8_t *end = p + size;
-    uint8_t *nal_start;
-    uint8_t *nal_end = NULL;
+		tx->rtpenc_h264_state->curNALOffset = 0;
+		tx->rtpenc_h264_state->lastNALUnitFragment = false; // by default
 
-    size = 0;
-    *nnals = 0;
-    // TODO: control error
-    nal_start = rtpenc_h264_find_startcode(p, end);
-    for (;;) {
-        if (nal_start == end || nal_start == NULL) {
-            break;
-        }
+		while(!tx->rtpenc_h264_state->lastNALUnitFragment){
+			// We have NAL unit data in the buffer.  There are three cases to consider:
+			// 1. There is a new NAL unit in the buffer, and it's small enough to deliver
+			//    to the RTP sink (as is).
+			// 2. There is a new NAL unit in the buffer, but it's too large to deliver to
+			//    the RTP sink in its entirety.  Deliver the first fragment of this data,
+			//    as a FU packet, with one extra preceding header byte (for the "FU header").
+			// 3. There is a NAL unit in the buffer, and we've already delivered some
+			//    fragment(s) of this.  Deliver the next fragment of this data,
+			//    as a FU packet, with two (H.264) extra preceding header bytes
+			//    (for the "NAL header" and the "FU header").
+			if (tx->rtpenc_h264_state->curNALOffset == 0) { // case 1 or 2
+				if (nalsize	<= tx->rtpenc_h264_state->maxPacketSize) { // case 1
 
-        nal_end = rtpenc_h264_find_startcode(nal_start + 3, end);
-        if (nal_end == NULL) {
-            nal_end = end;
-        }
-        int nal_size = nal_end - nal_start;
+					if (tx->rtpenc_h264_state->haveSeenEOF) m = 1;
+					if (rtp_send_data(rtp_session, ts, pt, m, cc, &csrc,
+							(char *) tx->rtpenc_h264_state->from, nalsize,
+							extn, extn_len, extn_type) < 0) {
+						error_msg("There was a problem sending the RTP packet\n");
+					}
+					tx->rtpenc_h264_state->lastNALUnitFragment = true;
+				} else { // case 2
+					// We need to send the NAL unit data as FU packets.  Deliver the first
+					// packet now.  Note that we add "NAL header" and "FU header" bytes to the front
+					// of the packet (overwriting the existing "NAL header").
+					hdr[0] = (tx->rtpenc_h264_state->firstByteOfNALUnit & 0xE0) | 28; //FU indicator
+					hdr[1] = 0x80 | (tx->rtpenc_h264_state->firstByteOfNALUnit & 0x1F); // FU header (with S bit)
 
-        if(nal_size > 4){
-            size += nal_size;
-            nals[(*nnals)].data = nal_start;
-            nals[(*nnals)].size = nal_size;
-            (*nnals)++;
+					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
+									(char *) hdr, 2,
+									(char *) tx->rtpenc_h264_state->from + 1, tx->rtpenc_h264_state->maxPacketSize - 2,
+									extn, extn_len, extn_type) < 0) {
+										error_msg("There was a problem sending the RTP packet\n");
+					}
+					tx->rtpenc_h264_state->curNALOffset += tx->rtpenc_h264_state->maxPacketSize - 1;
+					tx->rtpenc_h264_state->lastNALUnitFragment = false;
+					nalsize -= tx->rtpenc_h264_state->maxPacketSize - 1;
+				}
+			} else { // case 3
+				// We are sending this NAL unit data as FU packets.  We've already sent the
+				// first packet (fragment).  Now, send the next fragment.  Note that we add
+				// "NAL header" and "FU header" bytes to the front.  (We reuse these bytes that
+				// we already sent for the first fragment, but clear the S bit, and add the E
+				// bit if this is the last fragment.)
+				hdr[1] = hdr[1] & ~0x80;// FU header (no S bit)
 
-            nal_start = nal_end;
-    	}else nal_start += 3;
-    }
-    return size;
-}
+				if (nalsize + 1 > tx->rtpenc_h264_state->maxPacketSize) {
+					// We can't send all of the remaining data this time:
+					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
+							(char *) hdr, 2,
+							(char *) tx->rtpenc_h264_state->from + tx->rtpenc_h264_state->curNALOffset,
+							tx->rtpenc_h264_state->maxPacketSize - 2, extn, extn_len,
+							extn_type) < 0) {
+								error_msg("There was a problem sending the RTP packet\n");
+					}
+					tx->rtpenc_h264_state->curNALOffset += tx->rtpenc_h264_state->maxPacketSize - 2;
+					tx->rtpenc_h264_state->lastNALUnitFragment = false;
+					nalsize -= tx->rtpenc_h264_state->maxPacketSize - 2;
 
-static void tx_send_base_h264(struct tx *tx, struct tile *tile, struct rtp *rtp_session, uint32_t ts,
-        int send_m, codec_t color_spec, double input_fps,
-        enum interlacing_t interlacing, unsigned int substream,
-        int fragment_offset)
-{
+				} else {
+					// This is the last fragment:
+					if (tx->rtpenc_h264_state->haveSeenEOF) m = 1;
 
-    UNUSED(color_spec);
-    UNUSED(input_fps);
-    UNUSED(interlacing);
-    UNUSED(substream);
-    UNUSED(fragment_offset);
+					hdr[1] |= 0x40;// set the E bit in the FU header
 
-    assert(tx->magic == TRANSMIT_MAGIC);
-        //tx_update(tx, tile);
+					if (rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
+									(char *) hdr, 2,
+									(char *) tx->rtpenc_h264_state->from + tx->rtpenc_h264_state->curNALOffset,
+									nalsize, extn, extn_len, extn_type) < 0) {
+										error_msg("There was a problem sending the RTP packet\n");
+					}
+					tx->rtpenc_h264_state->lastNALUnitFragment = true;
+				}
+			}
+		}
 
-    uint8_t *data = (uint8_t *) tile->data;
-    int data_len = tile->data_len;
-
-    struct rtp_nal_t nals[RTPENC_H264_MAX_NALS];
-    int nnals = 0;
-    rtpenc_h264_parse_nal_units(data, data_len, nals, &nnals);
-
-    debug_msg("%d NAL units found in buffer\n", nnals);
-
-    char pt = RTPENC_H264_PT;
-    int cc = 0;
-    uint32_t csrc = 0;
-
-    char *extn = 0;
-    uint16_t extn_len = 0;
-    uint16_t extn_type = 0;
-
-    int i;
-    for (i = 0; i < nnals; i++) {
-        struct rtp_nal_t nal = nals[i];
-
-        int fragmentation = 0;
-        int nal_max_size = tx->mtu - 40;
-
-        if (nal.size > nal_max_size) {
-            debug_msg("RTP packet size exceeds the MTU size\n");
-            fragmentation = 1;
-        }
-
-        uint8_t *nal_header = nal.data;
-
-        // skip startcode
-        int startcode_size = 0;
-        uint8_t *p = nal_header;
-        while ((*(p++)) == (uint8_t)0) {
-            startcode_size++;
-        }
-        startcode_size++;
-
-        nal_header += startcode_size;
-        int nal_header_size = 1;
-
-        uint8_t *nal_payload = nal.data + nal_header_size + startcode_size; // nal.data + nal_header_size;
-        int nal_payload_size = nal.size - (int)(nal_header_size + startcode_size); //nal.size - nal_header_size;
-
-        const char type = (char) (*nal_header & 0x1f);
-        const char nri = (char) ((*nal_header & 0x60) >> 5);
-
-        debug_msg("NAL recv | %d bytes | header: %d %d %d %d %d %d %d %d | type: %d | NRI: %d\n",
-                nal_header_size + nal_payload_size,
-                ((*nal_header) & 0x80) >> 7, ((*nal_header) & 0x40) >> 6,
-                ((*nal_header) & 0x20) >> 5, ((*nal_header) & 0x10) >> 4,
-                ((*nal_header) & 0x08) >> 3, ((*nal_header) & 0x04) >> 2,
-                ((*nal_header) & 0x02) >> 1, ((*nal_header) & 0x01),
-                (int)(*nal_header & 0x1f), (int)((*nal_header & 0x60) >> 5));
-
-        char info_type;
-        if (type >= 1 && type <= 23) {
-            info_type = 1;
-        } else {
-            info_type = type;
-        }
-
-        switch (info_type) {
-        case 0:
-        case 1:
-            debug_msg("Unfragmented or reconstructed NAL type\n");
-            break;
-        default:
-            error_msg("Non expected NAL type %d\n", (int)info_type);
-            return; // TODO maybe just warn and don't fail?
-            break;
-        }
-
-        int m = 0;
-        if (!fragmentation) {
-
-            if (i == nnals - 1) {
-                m = send_m;
-                debug_msg("NAL with M bit\n");
-            }
-
-            int err = rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
-                        (char *)nal_header, nal_header_size,
-                        (char *)nal_payload, nal_payload_size, extn, extn_len,
-                        extn_type);
-
-            /*unsigned char *dst = (unsigned char *)(nal.data);
-            unsigned char *end = (unsigned char *)(nal.data + nal.size);
-            debug_msg("\n\nFirst four bytes: %02x %02x %02x %02x\n", dst[0], dst[1], dst[2], dst[3]);
-            debug_msg("Last four bytes: %02x %02x %02x %02x\n",
-                    end[-4],
-                    end[-3],
-                    end[-2],
-                    end[-1]);
-            debug_msg("NAL size: %d\n\n", nal.size); // - startcode_size); */
-
-            if (err < 0) {
-                error_msg("There was a problem sending the RTP packet\n");
-            }
-            else {
-                debug_msg("NAL sent | %d bytes | header: %d %d %d %d %d %d %d %d | type: %d | NRI: %d\n",
-                        nal_payload_size + nal_header_size,
-                        ((*nal_header) & 0x80) >> 7, ((*nal_header) & 0x40) >> 6,
-                        ((*nal_header) & 0x20) >> 5, ((*nal_header) & 0x10) >> 4,
-                        ((*nal_header) & 0x08) >> 3, ((*nal_header) & 0x04) >> 2,
-                        ((*nal_header) & 0x02) >> 1, ((*nal_header) & 0x01),
-                        (int)(*nal_header & 0x1f), (int)((*nal_header & 0x60) >> 5));
-            }
-        }
-        else {
-            uint8_t frag_header[2];
-            int frag_header_size = 2;
-
-            frag_header[0] = 28 | (nri << 5); // fu_indicator, new type, same nri
-            frag_header[1] = type | (1 << 7);// start, initial fu_header
-
-            uint8_t *frag_payload = nal_payload;
-            int frag_payload_size = nal_max_size - frag_header_size;
-
-            int remaining_payload_size = nal_payload_size;
-
-            while (remaining_payload_size + 2 > nal_max_size) {
-
-                debug_msg("NAL 1st 6 payload bytes: %x %x %x %x %x %x\n",
-                        (unsigned char)frag_payload[0], (unsigned char)frag_payload[1],
-                        (unsigned char)frag_payload[2], (unsigned char)frag_payload[3],
-                        (unsigned char)frag_payload[4], (unsigned char)frag_payload[5]);
-
-                int err = rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
-                            (char *)frag_header, frag_header_size,
-                            (char *)frag_payload, frag_payload_size, extn, extn_len,
-                            extn_type);
-                if (err < 0) {
-                    error_msg("There was a problem sending the RTP packet\n");
-                }
-                else {
-                    debug_msg("NAL fragment send | %d bytes | flag %d\n", frag_payload_size + frag_header_size, (int)((frag_header[1] & 0xE0) >> 5)); //flag: 0 -> O , 2 -> E , 4 -> S , other -> !
-                }
-
-                remaining_payload_size -= frag_payload_size;
-                frag_payload += frag_payload_size;
-
-                frag_header[1] = type;
-            }
-
-            if (i == nnals - 1) {
-                m = send_m;
-                debug_msg("NAL fragment (E) with M bit\n");
-            }
-
-            frag_header[1] = type | (1 << 6); // end
-
-            debug_msg("NAL 1st 6 payload bytes: %x %x %x %x %x %x\n",
-                                    (unsigned char)frag_payload[0], (unsigned char)frag_payload[1],
-                                    (unsigned char)frag_payload[2], (unsigned char)frag_payload[3],
-                                    (unsigned char)frag_payload[4], (unsigned char)frag_payload[5]);
-
-            int err = rtp_send_data_hdr(rtp_session, ts, pt, m, cc, &csrc,
-                    (char *)frag_header, frag_header_size,
-                    (char *)frag_payload, remaining_payload_size, extn, extn_len,
-                    extn_type);
-            if (err < 0) {
-                error_msg("There was a problem sending the RTP packet\n");
-            }
-            else {
-                debug_msg("NAL fragment send | %d bytes | flag %d\n", remaining_payload_size + frag_header_size, (int)((frag_header[1] & 0xE0) >> 5)); //flag: 0 -> O , 2 -> E , 4 -> S , other -> !
-            }
-        }
-    }
+		if (tx->rtpenc_h264_state->haveSeenEOF){
+			return;
+		}
+	}
 }
 
 /*
  * sends one or more frames (tiles) with same TS in one RTP stream. Only one m-bit is set.
  */
-void
-tx_send_h264(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session)
-{
-        unsigned int i;
-        uint32_t ts = 0;
+void tx_send_h264(struct tx *tx, struct video_frame *frame,
+		struct rtp *rtp_session) {
+	unsigned int i;
+	struct timeval curr_time;
+	static uint32_t ts_prev = 0;
+	uint32_t ts = 0;
 
-        assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
-        assert(!frame->fragment || frame->tile_count); // multiple tile are not currently supported for fragmented send
+	assert(!frame->fragment || tx->fec_scheme == FEC_NONE); // currently no support for FEC with fragments
+	assert(!frame->fragment || frame->tile_count); // multiple tiles are not currently supported for fragmented send
 
-        platform_spin_lock(&tx->spin);
+	platform_spin_lock(&tx->spin);
 
-        ts = get_local_mediatime();
-        if(frame->fragment &&
-                        tx->last_frame_fragment_id == frame->frame_fragment_id) {
-                ts = tx->last_ts;
-        } else {
-                tx->last_frame_fragment_id = frame->frame_fragment_id;
-                tx->last_ts = ts;
-        }
+	ts = get_std_video_local_mediatime();
 
-        for(i = 0; i < frame->tile_count; ++i)
-        {
-                int last = FALSE;
-                int fragment_offset = 0;
+	gettimeofday(&curr_time, NULL);
+	rtp_send_ctrl(rtp_session, ts_prev, 0, curr_time); //send RTCP SR
+	ts_prev = ts;
 
-                if (i == frame->tile_count - 1) {
-                        if(!frame->fragment || frame->last_fragment)
-                                last = TRUE;
-                }
-                if(frame->fragment)
-                        fragment_offset = vf_get_tile(frame, i)->offset;
+	tx_send_base_h264(tx, frame, rtp_session, ts, 0,
+			frame->color_spec, frame->fps, frame->interlacing, i,
+			0);
 
-                tx_send_base_h264(tx, vf_get_tile(frame, i), rtp_session, ts, last,
-                                frame->color_spec, frame->fps, frame->interlacing,
-                                i, fragment_offset);
-                tx->buffer ++;
-        }
-        platform_spin_unlock(&tx->spin);
+	platform_spin_unlock(&tx->spin);
 }
