@@ -98,7 +98,8 @@ if expr "$host_os" : ".*darwin.*" > /dev/null; then
 else if expr "$host_os" : ".*mingw32.*" > /dev/null; then
         system=Windows
 	AC_DEFINE([WIN32], [1], [This is an Windows OS])
-	LIBS="$LIBS -lsetupapi -lWs2_32 -lIphlpapi"
+	NET_LIBS="-lsetupapi -lWs2_32 -lIphlpapi"
+	LIBS="$LIBS $NET_LIBS"
         LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++"
 else
         system=Linux
@@ -106,6 +107,8 @@ else
 	AC_DEFINE([HAVE_LINUX], [1], [This is Linux])
 fi
 fi
+
+AC_SUBST(NET_LIBS)
 
 AC_MSG_RESULT($system);
 
@@ -144,14 +147,6 @@ LINKER=$CXX
 AC_SUBST(LINKER)
 AC_SUBST(LDFLAGS)
 AC_SUBST(CXXFLAGS)
-
-if test $system = Windows
-then
-        TARGET="bin/uv.exe"
-else
-        TARGET="bin/uv"
-fi
-AC_SUBST(TARGET)
 
 AC_ARG_ENABLE(depends-version-check,
         AS_HELP_STRING([--disable-depends-version-check], [Disable libraries version check]),
@@ -2593,44 +2588,30 @@ then
 fi
 
 # -------------------------------------------------------------------------------------------------
-# We need to add libraries then
-# -------------------------------------------------------------------------------------------------
-
-# this is only needed when passing to "clean" make target
-if test "$build_libraries" != yes
-then
-        LIBS="$LIBS $LIB_MODULES"
-        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
-        HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
-        LIB_OBJS=
-        LIB_TARGETS=
-        LIB_GENERATED_HEADERS=
-fi
-
-AC_SUBST(LIB_SUPPORT_OBJ)
-
-AC_SUBST(LIB_OBJS)
-AC_SUBST(LIB_TARGETS)
-AC_SUBST(GENERATED_HEADERS)
-AC_SUBST(LIB_GENERATED_HEADERS)
-
-# -------------------------------------------------------------------------------------------------
 # Import control - keyboard
 # -------------------------------------------------------------------------------------------------
-FOUND_NCURSES=no
+FOUND_CURSES=no
 
 if test $system = Linux -o $system = MacOSX; then
-        PKG_CHECK_MODULES([NCURSES], [ncursesw], [FOUND_NCURSES=yes], [FOUND_NCURSES=no])
-        if test $FOUND_NCURSES = no; then
-                PKG_CHECK_MODULES([NCURSES], [ncurses], [FOUND_NCURSES=yes], [FOUND_NCURSES=no])
+        PKG_CHECK_MODULES([CURSES], [ncursesw], [FOUND_CURSES=yes], [FOUND_CURSES=no])
+        if test $FOUND_CURSES = no; then
+                PKG_CHECK_MODULES([CURSES], [ncurses], [FOUND_CURSES=yes], [FOUND_CURSES=no])
         fi
-
-        if test $FOUND_NCURSES = yes; then
-                AC_DEFINE([HAVE_NCURSES], [1], [Build with ncurses support])
+else # Windows
+        AC_CHECK_HEADER(curses.h)
+        AC_CHECK_LIB(pdcurses, initscr)
+        if test $ac_cv_lib_pdcurses_initscr = yes -a \
+                $ac_cv_header_curses_h = yes; then
+                FOUND_CURSES=yes
+                CURSES_LIBS="-lpdcurses"
         fi
 fi
 
-AC_SUBST(IMPORT_CONTROL_KEYBOARD_LIBS)
+if test $FOUND_CURSES = yes; then
+        AC_DEFINE([HAVE_CURSES], [1], [Build with curses support])
+fi
+
+AC_SUBST(CURSES_LIBS)
 
 # -------------------------------------------------------------------------------------------------
 # OpenSSL-libcrypto
@@ -2659,7 +2640,25 @@ if test $crypto_req = yes -a $crypto = no; then
         AC_MSG_ERROR([OpenSSL not found]);
 fi
 
-LIB_MODULES="$LIB_MODULES $V4L2_LIBS"
+# -------------------------------------------------------------------------------------------------
+# We need to add libraries then
+# -------------------------------------------------------------------------------------------------
+
+# this is only needed when passing to "clean" make target
+if test "$build_libraries" != yes
+then
+        LIBS="$LIBS $LIB_MODULES"
+        OBJS="$OBJS $LIB_OBJS $GL_COMMON_OBJ $X_OBJ $CUDA_COMMON_OBJ"
+        HEADERS="$HEADERS $LIB_GENERATED_HEADERS"
+        LIB_OBJS=
+        LIB_TARGETS=
+        LIB_GENERATED_HEADERS=
+fi
+
+AC_SUBST(LIB_OBJS)
+AC_SUBST(LIB_TARGETS)
+AC_SUBST(GENERATED_HEADERS)
+AC_SUBST(LIB_GENERATED_HEADERS)
 
 # -------------------------------------------------------------------------------------------------
 # Finally, substitute things into the Makefile and config.h

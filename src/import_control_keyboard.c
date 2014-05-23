@@ -5,7 +5,7 @@
 #endif // HAVE_CONFIG_H
 
 
-#ifdef HAVE_NCURSES
+#ifdef HAVE_CURSES
 
 #include <curses.h>
 
@@ -32,19 +32,35 @@ void sig_handler(int signal) {
 
 int main(int argc, char *argv[])
 {
+        int err;
         if(argc != 3) {
                 usage(argv[0]);
                 return EXIT_FAILURE;
         }
 
         signal(SIGINT, sig_handler);
+#ifndef WIN32
         signal(SIGPIPE, sig_handler);
+#endif
+
+#ifdef WIN32
+        WSADATA wsaData;
+        err = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (err != 0) {
+                fprintf(stderr, "WSAStartup failed with error %d.", err);
+                return EXIT_FAILURE;
+        }
+        if (LOBYTE(wsaData.wVersion) != 2 || HIBYTE(wsaData.wVersion) != 2) {
+                fprintf(stderr, "Counld not found usable version of Winsock.\n");
+                WSACleanup();
+                return EXIT_FAILURE;
+        }
+#endif
 
         const char *hostname = argv[1];
         uint16_t port = atoi(argv[2]);
 
         struct addrinfo hints, *res, *res0;
-        int err;
 
         memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_UNSPEC;
@@ -123,7 +139,7 @@ int main(int argc, char *argv[])
                         printw("Sent message: \"%s\"\n", message);
                         ssize_t total_written = 0;
                         do {
-                                ssize_t ret = write(fd, message, strlen(message)+1 - total_written);
+                                ssize_t ret = send(fd, message, strlen(message)+1 - total_written, 0);
                                 if(ret <= 0) {
                                         perror("Error sending command");
                                         goto finish;
@@ -137,12 +153,16 @@ finish:
         close(fd);
         endwin();
 
+#ifdef WIN32
+        WSACleanup();
+#endif
+
         return EXIT_SUCCESS;
 }
 
-#else // ! HAVE_NCURSES
+#else // ! HAVE_CURSES
 #include <stdio.h>
-int main () { fprintf(stderr, "Recompile with ncurses support!\n"); return 1; }
+int main () { fprintf(stderr, "Recompile with curses support!\n"); return 1; }
 
-#endif // HAVE_NCURSES
+#endif // HAVE_CURSES
 

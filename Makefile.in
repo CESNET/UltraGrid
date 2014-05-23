@@ -15,9 +15,12 @@ LIBS         += @LIBS@ @JACK_TRANS_LIB@ @MATHLIBS@ @COREAUDIO_LIB@ \
 		-lm -pthread
 INC           = -I. -Isrc -Itest @DVS_INC@ @DELTACAST_INC@ @QUICKTIME_INC@ @RTSP_INC@ @RTSP_SERVER_INC@ @DECKLINK_INC@ @PORTAUDIO_INC@ \
                 @GL_INC@ @SAGE_INC@ @JACK_TRANS_INC@ @JPEG_INC@ @COREAUDIO_INC@ @SPEEX_INC@ \
-		@BLUEFISH444_INC@ @NCURSES_CFLAGS@
+		@BLUEFISH444_INC@ @CURSES_CFLAGS@
 DECKLINK_PATH = @DECKLINK_PATH@
-TARGET        = @TARGET@
+EXEEXT        = @EXEEXT@
+TARGET        = bin/uv$(EXEEXT)
+IMPORT_C_TARGET = bin/import_control_keyboard$(EXEEXT)
+SWITCHER_TARGET = bin/switcher_control_keyboard$(EXEEXT)
 PERF          = bin/uv_perf
 BUNDLE        = uv.app
 DXT_GLSL_CFLAGS = @DXT_GLSL_CFLAGS@
@@ -26,7 +29,7 @@ NVCC	      = @NVCC@
 DOCS 	      = README REPORTING-BUGS
 
 GUI_TARGET    = @GUI_TARGET@
-REFLECTOR_TARGET = bin/hd-rum-transcode
+REFLECTOR_TARGET = bin/hd-rum-transcode$(EXEEXT)
 
 PREFIX = @prefix@
 prefix = $(PREFIX)
@@ -161,7 +164,7 @@ IMPORT_CONTROL_KEYBOARD_OBJS = src/import_control_keyboard.o
 SWITCHER_CONTROL_KEYBOARD_OBJS = src/switcher_control_keyboard.o
 
 # -------------------------------------------------------------------------------------------------
-all: $(TARGET) $(GUI_TARGET) bin/import_control_keyboard bin/switcher_control_keyboard $(REFLECTOR_TARGET) modules ag-plugins configure-messages
+all: $(TARGET) $(GUI_TARGET) $(IMPORT_C_TARGET) $(SWITCHER_TARGET) $(REFLECTOR_TARGET) modules ag-plugins configure-messages
 
 modules: @LIB_TARGETS@
 
@@ -172,11 +175,11 @@ $(TARGET): bindir $(OBJS) $(ULTRAGRID_OBJS) $(GENERATED_HEADERS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(ULTRAGRID_OBJS) $(LIBS) -o $(TARGET)
 	if [ -n "@DLL_LIBS@" ]; then $(INSTALL) -m 644 @DLL_LIBS@ bin; fi
 
-bin/import_control_keyboard: bindir $(IMPORT_CONTROL_KEYBOARD_OBJS)
-	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @NCURSES_LIBS@ -o $@
+$(IMPORT_C_TARGET): bindir $(IMPORT_CONTROL_KEYBOARD_OBJS)
+	$(LINKER) $(LDFLAGS) $(IMPORT_CONTROL_KEYBOARD_OBJS) @CURSES_LIBS@ @NET_LIBS@ -o $@
 
-bin/switcher_control_keyboard: bindir $(SWITCHER_CONTROL_KEYBOARD_OBJS)
-	$(LINKER) $(LDFLAGS) $(SWITCHER_CONTROL_KEYBOARD_OBJS) @NCURSES_LIBS@ -o $@ -pthread
+$(SWITCHER_TARGET): bindir $(SWITCHER_CONTROL_KEYBOARD_OBJS)
+	$(LINKER) $(LDFLAGS) $(SWITCHER_CONTROL_KEYBOARD_OBJS) @CURSES_LIBS@ @NET_LIBS@ -o $@ -pthread
 
 $(REFLECTOR_TARGET): bindir $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 	$(LINKER) $(LDFLAGS) $(OBJS) $(REFLECTOR_OBJS) $(LIBS) -o $@
@@ -430,7 +433,7 @@ clean:
 	-rm -rf $(PERF) src/uv_perf.o
 	-rm -rf $(REFLECTOR_TARGET) $(REFLECTOR_OBJS)
 	-rm -rf @LIB_OBJS@ @LIB_TARGETS@ @LIB_GENERATED_HEADERS@ @X_OBJ@ @GL_COMMON_OBJ@ @CUDA_COMMON_OBJ@
-	-rm -rf bin/import_control_keyboard src/import_control_keyboard.o
+	-rm -rf $(IMPORT_C_TARGET) $(SWITCHER_TARGET)
 	if [ -f "gui/QT/Makefile" ]; then make -C gui/QT/ clean; fi
 
 distclean: clean

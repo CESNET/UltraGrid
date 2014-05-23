@@ -52,7 +52,7 @@ extern "C" {
 
 struct rtpenc_h264_state {
 	bool haveSeenFirstStartCode;
-	u_int8_t firstByteOfNALUnit;
+	uint8_t firstByteOfNALUnit;
 	unsigned char* startOfFrame;
 	unsigned char* to;
 	unsigned char* from;
