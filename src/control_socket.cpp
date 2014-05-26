@@ -192,11 +192,12 @@ int control_init(int port, struct control_state **state, struct module *root_mod
                  * from both IPv4 and IPv6 hosts. This behavior can be modified
                  * using the IPPROTO_IPV6 level socket option IPV6_V6ONLY if required.*/
                 struct sockaddr_in6 s_in;
+                memset(&s_in, 0, sizeof(s_in));
                 s_in.sin6_family = AF_INET6;
                 s_in.sin6_addr = in6addr_any;
                 s_in.sin6_port = htons(s->network_port);
 
-                bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
+                ::bind(s->socket_fd, (const struct sockaddr *) &s_in, sizeof(s_in));
                 listen(s->socket_fd, MAX_CLIENTS);
         } else {
                 s->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
