@@ -34,7 +34,9 @@ static void *reading_thread(void *arg) {
         UNUSED(arg);
         ssize_t bytes;
         char buf[1024];
+        pthread_testcancel();
         while ((bytes = recv(fd, buf, sizeof(buf), 0)) > 0) {
+                pthread_testcancel();
                 send(1, buf, bytes, 0);
         }
         return NULL;
@@ -156,6 +158,9 @@ int main(int argc, char *argv[])
 
 finish:
         pthread_cancel(reading_thread_id);
+#ifdef WIN32
+        closesocket(fd);
+#endif
         pthread_join(reading_thread_id, NULL);
 
         close(fd);
