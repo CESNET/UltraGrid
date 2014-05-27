@@ -59,8 +59,9 @@ static void show_help()
 {
         printf("switcher capture\n");
         printf("Usage\n");
-        printf("\t-t switcher -t <dev1_config> -t <dev2_config> ....]\n");
-        printf("\t\twhere devn_config is a configuration of device to be switched\n");
+        printf("\t-t switcher[:excl_init] -t <dev1_config> -t <dev2_config> ....]\n");
+        printf("\t\tdevn_config is a configuration of device to be switched\n");
+        printf("\t\texcl_init - devices will be initialized after switching to and deinitialized after switching to another\n");
 
 }
 
@@ -70,6 +71,9 @@ struct vidcap_switcher_state {
         int                 devices_cnt;
 
         int                 selected_device;
+
+        const struct vidcap_params *params;
+        bool                excl_init;
 };
 
 
@@ -101,9 +105,17 @@ vidcap_switcher_init(const struct vidcap_params *params)
 		return NULL;
 	}
 
-        if(vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
-                show_help();
-                return &vidcap_init_noerr;
+        if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
+                if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
+                        show_help();
+                        return &vidcap_init_noerr;
+                } else if (strcmp(vidcap_params_get_fmt(params), "excl_init") == 0) {
+                        s->excl_init = true;
+                } else {
+                        show_help();
+                        fprintf(stderr, "[switcher] Unknown initialization option!\n");
+                        return NULL;
+                }
         }
 
         s->devices_cnt = 0;
@@ -121,14 +133,18 @@ vidcap_switcher_init(const struct vidcap_params *params)
         for (int i = 0; i < s->devices_cnt; ++i) {
                 tmp = vidcap_params_get_next(tmp);
 
-                int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
-                if(ret != 0) {
-                        fprintf(stderr, "[switcher] Unable to initialize device %d (%s:%s).\n",
-                                        i, vidcap_params_get_driver(tmp),
-                                        vidcap_params_get_fmt(tmp));
-                        goto error;
+                if (!s->excl_init || i == s->selected_device) {
+                        int ret = initialize_video_capture(NULL, tmp, &s->devices[i]);
+                        if(ret != 0) {
+                                fprintf(stderr, "[switcher] Unable to initialize device %d (%s:%s).\n",
+                                                i, vidcap_params_get_driver(tmp),
+                                                vidcap_params_get_fmt(tmp));
+                                goto error;
+                        }
                 }
         }
+
+        s->params = params;
 
         module_init_default(&s->mod);
         s->mod.cls = MODULE_CLASS_DATA;
@@ -159,7 +175,9 @@ vidcap_switcher_done(void *state)
 	if (s != NULL) {
                 int i;
 		for (i = 0; i < s->devices_cnt; ++i) {
-                         vidcap_done(s->devices[i]);
+                        if (!s->excl_init || i == s->selected_device) {
+                                vidcap_done(s->devices[i]);
+                        }
 		}
 	}
         module_done(&s->mod);
@@ -177,8 +195,18 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
         while ((msg = check_message(&s->mod))) {
                 struct msg_universal *msg_univ = (struct msg_universal *) msg;
                 int new_selected_device = atoi(msg_univ->text);
+
                 if (new_selected_device >= 0 && new_selected_device < s->devices_cnt)
+                        if (s->excl_init) {
+                                vidcap_done(s->devices[s->selected_device]);
+                                int ret = initialize_video_capture(NULL,
+                                                vidcap_params_get_nth(s->params, new_selected_device + 1),
+                                                &s->devices[new_selected_device]);
+                                assert(ret == 0);
+                        }
+
                         s->selected_device = new_selected_device;
+
                 free_message(msg);
         }
 
