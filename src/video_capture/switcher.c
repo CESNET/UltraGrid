@@ -196,7 +196,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                 struct msg_universal *msg_univ = (struct msg_universal *) msg;
                 int new_selected_device = atoi(msg_univ->text);
 
-                if (new_selected_device >= 0 && new_selected_device < s->devices_cnt)
+                if (new_selected_device >= 0 && new_selected_device < s->devices_cnt){
                         if (s->excl_init) {
                                 vidcap_done(s->devices[s->selected_device]);
                                 int ret = initialize_video_capture(NULL,
@@ -206,7 +206,7 @@ vidcap_switcher_grab(void *state, struct audio_frame **audio)
                         }
 
                         s->selected_device = new_selected_device;
-
+                }
                 free_message(msg);
         }
 
