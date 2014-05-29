@@ -132,7 +132,8 @@
 		string = [[NSString alloc] initWithData: data encoding: NSUTF8StringEncoding];
 		[terminal print: string];
 	}	
-	[outputHandle waitForDataInBackgroundAndNotify];
+        if([controller taskIsRunning])
+                [outputHandle waitForDataInBackgroundAndNotify];
 }
 
 -(void) terminated: (id) sender
