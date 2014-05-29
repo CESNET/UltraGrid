@@ -106,16 +106,25 @@ vidcap_switcher_init(const struct vidcap_params *params)
 	}
 
         if (vidcap_params_get_fmt(params) && strcmp(vidcap_params_get_fmt(params), "") != 0) {
-                if (strcmp(vidcap_params_get_fmt(params), "help") == 0) {
-                        show_help();
-                        return &vidcap_init_noerr;
-                } else if (strcmp(vidcap_params_get_fmt(params), "excl_init") == 0) {
-                        s->excl_init = true;
-                } else {
-                        show_help();
-                        fprintf(stderr, "[switcher] Unknown initialization option!\n");
-                        return NULL;
+                char *cfg = strdup(vidcap_params_get_fmt(params));
+                char *save_ptr, *item;
+                char *tmp = cfg;
+                while ((item = strtok_r(cfg, ":", &save_ptr))) {
+                        if (strcmp(item, "help") == 0) {
+                                show_help();
+                                return &vidcap_init_noerr;
+                        } else if (strcmp(item, "excl_init") == 0) {
+                                s->excl_init = true;
+                        } else if (strncasecmp(item, "select=", strlen("select=")) == 0) {
+                                s->selected_device = atoi(item + strlen("select="));
+                        } else {
+                                show_help();
+                                fprintf(stderr, "[switcher] Unknown initialization option!\n");
+                                return NULL;
+                        }
+                        cfg = NULL;
                 }
+                free(tmp);
         }
 
         s->devices_cnt = 0;
@@ -125,6 +134,11 @@ vidcap_switcher_init(const struct vidcap_params *params)
                         s->devices_cnt++;
                 else
                         break;
+        }
+
+        if (s->selected_device >= s->devices_cnt) {
+                fprintf(stderr, "[switcher] Error: device #%d not available!\n", s->selected_device);
+                goto error;
         }
 
         s->devices = calloc(s->devices_cnt, sizeof(struct vidcap *));
