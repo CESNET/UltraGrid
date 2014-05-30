@@ -72,7 +72,7 @@
 
 static struct {
         uint32_t qt_fourcc;
-        codec_t ug_codec;
+        unsigned long ug_codec;
 } codec_mapping[] = {
         {'2' << 24 | 'v' << 16 | 'u' << 8 | 'y', UYVY},
         {'y' << 24 | 'u' << 16 | 'v' << 8 | '2', UYVY},
@@ -137,8 +137,8 @@ void * vidcap_quicktime_thread(void *state);
 void InitCursor(void);
 void GetPort(GrafPtr *port);
 void SetPort(GrafPtr port);
-static void usage(struct qt_grabber_state *s);
-static codec_t get_color_spec(uint32_t pixfmt);
+static void usage(SeqGrabComponent grabber, SGChannel video_channel, SGChannel audio_channel);
+static unsigned long get_color_spec(uint32_t pixfmt);
 
 /*
  * Sequence grabber data procedure
@@ -191,7 +191,7 @@ qt_data_proc(SGChannel c, Ptr p, long len, long *offset, long chRefCon,
 
         if(c == s->video_channel) {
 		Rect rect;
-		SGGetBufferInfo(s->video_channel, chRefCon, NULL, &rect, s->gworld, NULL);
+		SGGetBufferInfo(s->video_channel, chRefCon, NULL, &rect, &s->gworld, NULL);
                 s->buffer_captured->width = rect.right;
                 s->buffer_captured->height = rect.bottom;
                 switch(writeType) {
@@ -270,7 +270,7 @@ static OSErr MinimalSGSettingsDialog(SeqGrabComponent seqGrab,
 
         numberOfPanels = CountComponents(&cd);
         panelListPtr =
-            (Component *) NewPtr(sizeof(Component) * (numberOfPanels + 1));
+            (Component *)(void *) NewPtr(sizeof(Component) * (numberOfPanels + 1));
 
         cPtr = panelListPtr;
         numberOfPanels = 0;
@@ -397,19 +397,23 @@ delCardIndicesMode(char *str)
         return str;
 }
 
-static void usage(struct qt_grabber_state *s)
+static void usage(SeqGrabComponent grabber, SGChannel video_channel, SGChannel audio_channel)
 {
         SGDeviceInputList inputList;
         SGDeviceList deviceList;
         int i, j;
 
-        printf("\nUsage:\t-t quicktime:<device>:<mode>:<pixel_type>"
+#ifndef QT_ENABLE_AUDIO
+        UNUSED(audio_channel);
+#endif // QT_ENABLE_AUDIO
+
+        printf("\nUsage:\t-t quicktime[:device=<device>[:mode=<mode>]][:codec=<pixel_type>][:width=<w>:height=<h>]"
 #ifdef QT_ENABLE_AUDIO
-                        "[:<audio_device>:<audio_mode>]"
+                        "[:adevice=<audio_device>:amode=<audio_mode>]"
 #endif // QT_ENABLE_AUDIO
                         "\n\n");
         if (SGGetChannelDeviceList
-                        (s->video_channel, sgDeviceListIncludeInputs,
+                        (video_channel, sgDeviceListIncludeInputs,
                          &deviceList) == noErr) {
                 fprintf(stdout, "\nAvailable capture devices:\n");
                 for (i = 0; i < (*deviceList)->count; i++) {
@@ -430,7 +434,7 @@ static void usage(struct qt_grabber_state *s)
                         inputList = deviceEntry->inputs;
                         if (inputList && (*inputList)->count >= 1) {
                                 SGGetChannelDeviceAndInputNames
-                                        (s->video_channel, NULL, NULL,
+                                        (video_channel, NULL, NULL,
                                          &activeInputIndex);
                                 for (j = 0; j < (*inputList)->count;
                                                 j++) {
@@ -447,7 +451,7 @@ static void usage(struct qt_grabber_state *s)
                                 }
                         }
                 }
-                SGDisposeDeviceList(s->grabber, deviceList);
+                SGDisposeDeviceList(grabber, deviceList);
                 CodecNameSpecListPtr list;
                 GetCodecNameList(&list, 1);
                 printf("\nCompression types (only those marked with a '*' are supported by UG):\n");
@@ -474,7 +478,7 @@ static void usage(struct qt_grabber_state *s)
         }
 #ifdef QT_ENABLE_AUDIO
         if (SGGetChannelDeviceList
-                        (s->audio_channel, sgDeviceListIncludeInputs,
+                        (audio_channel, sgDeviceListIncludeInputs,
                          &deviceList) == noErr) {
                 fprintf(stdout, "\nAvailable audio devices:\n");
                 for (i = 0; i < (*deviceList)->count; i++) {
@@ -495,7 +499,7 @@ static void usage(struct qt_grabber_state *s)
                         inputList = deviceEntry->inputs;
                         if (inputList && (*inputList)->count >= 1) {
                                 SGGetChannelDeviceAndInputNames
-                                        (s->video_channel, NULL, NULL,
+                                        (video_channel, NULL, NULL,
                                          &activeInputIndex);
                                 for (j = 0; j < (*inputList)->count;
                                                 j++) {
@@ -512,12 +516,46 @@ static void usage(struct qt_grabber_state *s)
                                 }
                         }
                 }
-                SGDisposeDeviceList(s->grabber, deviceList);
+                SGDisposeDeviceList(grabber, deviceList);
         }
 #endif // QT_ENABLE_AUDIO
 }
 
-static codec_t get_color_spec(uint32_t pixfmt) {
+static bool select_source(SeqGrabComponent grabber, SGChannel video_channel,
+                int *major, int *minor)
+{
+        SGDeviceList deviceList;
+
+        if (*major != -1 && *minor != -1) {
+                return true;
+        }
+
+        if (*major == -1 && *minor != -1) {
+                return false;
+        }
+
+        if (SGGetChannelDeviceList
+                        (video_channel, sgDeviceListIncludeInputs,
+                         &deviceList) == noErr) {
+                if (*major == -1)
+                        *major = (*deviceList)->selectedIndex;
+                SGDisposeDeviceList(grabber, deviceList);
+        } else {
+                return false;
+        }
+
+        short activeInputIndex = 0;
+        SGGetChannelDeviceAndInputNames
+                (video_channel, NULL, NULL,
+                 &activeInputIndex);
+        if (*minor == -1) {
+                *minor = activeInputIndex;
+        }
+
+        return true;
+}
+
+static unsigned long get_color_spec(uint32_t pixfmt) {
         int i;
         // first, try to find explicit mapping to UG color_spec...
         for (i = 0; codec_mapping[i].ug_codec != 0xffffffff; i++) {
@@ -617,7 +655,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         SGDeviceInputList inputList;
         SGDeviceList deviceList;
         if (strcmp(fmt, "help") == 0) {
-                usage(s);
+                usage(s->grabber, s->video_channel, s->audio_channel);
                 return 2;
         }
 
@@ -653,6 +691,8 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         SGStartPreview(s->grabber);
 
         int qt_codec_index = -1;
+        int width = -1,
+            height = -1;
         /* Select the device */
         if (strcmp(fmt, "gui") == 0) {  //Use gui to select input
                 MinimalSGSettingsDialog(s->grabber, s->video_channel, gMonitor);
@@ -664,33 +704,43 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                         return 0;
                 }
 
-                char *tmp;
+                char *tmp, *item, *save_ptr;
+                tmp = fmt;
 
-                tmp = strtok(fmt, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                s->major = atoi(tmp);
-                tmp = strtok(NULL, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                s->minor = atoi(tmp);
-                tmp = strtok(NULL, ":");
-                if (!tmp) {
-                        fprintf(stderr, "Wrong config %s\n", fmt);
-                        return 0;
-                }
-                qt_codec_index = atoi(tmp);
+                s->major = s->minor = -1;
+                s->audio_major = s->audio_minor = -1;
 
-                s->audio_major = -1;
-                s->audio_minor = -1;
-                tmp = strtok(NULL, ":");
-                if(tmp) s->audio_major = atoi(tmp);
-                tmp = strtok(NULL, ":");
-                if(tmp) s->audio_minor = atoi(tmp);
+                while ((item = strtok_r(tmp, ":", &save_ptr)) != NULL) {
+                        if (strncasecmp(item, "device=", strlen("device=")) == 0) {
+                                s->major = atoi(item + strlen("device="));
+                        } else if (strncasecmp(item, "mode=", strlen("mode=")) == 0) {
+                                s->minor = atoi(item + strlen("mode="));
+                        } else if (strncasecmp(item, "codec=", strlen("codec=")) == 0) {
+                                qt_codec_index = atoi(item + strlen("codec="));
+                        } else if (strncasecmp(item, "adevice=", strlen("adevice=")) == 0) {
+                                s->audio_major = atoi(item + strlen("adevice="));
+                        } else if (strncasecmp(item, "amode=", strlen("amode=")) == 0) {
+                                s->audio_minor = atoi(item + strlen("amode="));
+                        } else if (strncasecmp(item, "width=", strlen("width=")) == 0) {
+                                width = atoi(item + strlen("width="));
+                        } else if (strncasecmp(item, "height=", strlen("height=")) == 0) {
+                                height = atoi(item + strlen("height="));
+                        }
+
+                        tmp = NULL;
+                }
+
+                if (!select_source(s->grabber, s->video_channel, &s->major, &s->minor)) {
+                        fprintf(stderr, "[Quicktime disp.] Unable to select device/mode. Please select it "
+                                        "manually!\n");
+                        return 0;
+                }
+
+                if ((width != -1 && height == -1) || (width == -1 && height != -1)) {
+                        fprintf(stderr, "[Quicktime disp.] If setting input size, you must set both dimensions.\n");
+                        return 0;
+                }
+
                 if(s->audio_major == -1 && s->audio_minor == -1)
                         s->grab_audio = FALSE;
 
@@ -788,6 +838,11 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
         printf("Quicktime: Video size: %dx%d\n", s->bounds.right,
                s->bounds.bottom);
 
+        if (width != -1 && height != -1) {
+                s->bounds.right = width;
+                s->bounds.bottom = height;
+        }
+
         if (SGSetChannelBounds(s->video_channel, &(s->bounds)) != noErr) {
                 debug_msg("Unable to set channel bounds\n");
                 return 0;
@@ -804,6 +859,7 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                                  list->list[qt_codec_index].codec, 0,
                                                  0, 0)==0?"OK":"Failed!");
         } else {
+#if 0
                 CompressorComponent  codec;
                 SGGetVideoCompressor(s->video_channel, NULL, &codec, NULL, NULL,
                                      NULL);
@@ -815,24 +871,40 @@ static int qt_open_grabber(struct qt_grabber_state *s, char *fmt)
                                 break;
                         }
                 }
+#endif
+                unsigned long default_fcc = '2vuy';
+                CodecNameSpecListPtr list;
+                GetCodecNameList(&list, 1);
+                for (i = 0; i < list->count; i++) {
+                        if (default_fcc == list->list[i].cType) {
+                                pixfmt = default_fcc;
+                                qt_codec_index = i;
+                                break;
+                        }
+                }
+                printf("Quicktime: SetCompression: %s\n",
+                       (int)SGSetVideoCompressor(s->video_channel, 0,
+                                                 list->list[qt_codec_index].codec, 0,
+                                                 0, 0)==0?"OK":"Failed!");
         }
         if(pixfmt == -1) {
                 fprintf(stderr, "[QuickTime] Unknown pixelformat!\n");
                 goto error;
         }
 
-        s->frame->color_spec = get_color_spec(pixfmt);
+        if (get_color_spec(pixfmt) == 0xffffffff) {
+                fprintf(stderr, "[QuickTime] Cannot find UltraGrid codec matching: %c%c%c%c!\n",
+				pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff, (pixfmt) & 0xff);
+                goto error;
+        }
+
         // thiw is a workaround - codec identified by exactly this FourCC seems to have
         // different semantics than ordinary UYVY
         if (pixfmt == ('2' | 'v' << 8 | 'u' << 16 | 'y' << 24)) {
                 s->translate_yuv2 = true;
         }
 
-        if (s->frame->color_spec == 0xffffffff) {
-                fprintf(stderr, "[QuickTime] Cannot find UltraGrid codec matching: %c%c%c%c!\n",
-				pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff, (pixfmt) & 0xff);
-                goto error;
-        }
+        s->frame->color_spec = get_color_spec(pixfmt);
 
         printf("Quicktime: Selected pixel format: %c%c%c%c\n",
                pixfmt >> 24, (pixfmt >> 16) & 0xff, (pixfmt >> 8) & 0xff,
@@ -1118,7 +1190,7 @@ struct video_frame *vidcap_quicktime_grab(void *state, struct audio_frame **audi
         // Mac 10.7 seems to change semantics for codec identified with 'yuv2' FourCC,
         // which is mapped to our UYVY. This simply makes it correct.
         if (s->translate_yuv2) {
-                for(int i = 0; i < s->frame->tiles->data_len; i += 4) {
+                for (unsigned int i = 0; i < s->frame->tiles->data_len; i += 4) {
                         int a = s->frame->tiles[0].data[i];
                         int b = s->frame->tiles[0].data[i + 1];
                         int c = s->frame->tiles[0].data[i + 2];
