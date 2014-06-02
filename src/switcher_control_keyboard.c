@@ -37,7 +37,7 @@ static void *reading_thread(void *arg) {
         pthread_testcancel();
         while ((bytes = recv(fd, buf, sizeof(buf), 0)) > 0) {
                 pthread_testcancel();
-                send(1, buf, bytes, 0);
+                //write(1, buf, bytes);
         }
         return NULL;
 }
@@ -118,6 +118,8 @@ int main(int argc, char *argv[])
         scrollok(stdscr, TRUE);
 
         pthread_create(&reading_thread_id, NULL, reading_thread, NULL);
+
+        noecho();
 
         while (1) {
                 char message[1024] = { '\0' };
