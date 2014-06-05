@@ -125,6 +125,7 @@ typedef struct {
  * @copydetails decoders
  */
 static display_table_t display_device_table[] = {
+#ifndef UV_IN_YURI
         {
          0,
          NULL,
@@ -276,6 +277,7 @@ static display_table_t display_device_table[] = {
          NULL
          },
 #endif                          /* HAVE_MACOSX */
+#endif
         {
          0,
          NULL,

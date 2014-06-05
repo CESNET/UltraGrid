@@ -468,7 +468,7 @@ int main(int argc, char *argv[])
         unsigned display_flags = 0;
         int compressed_audio_sample_rate = 48000;
         int ret;
-        struct vidcap_params *audio_cap_dev;
+        const struct vidcap_params *audio_cap_dev;
         long packet_rate;
         const char *requested_mcast_if = NULL;
 

@@ -113,6 +113,7 @@ struct audio_playback_t {
 };
 
 static struct audio_playback_t audio_playback_table[] = {
+#ifndef UV_IN_YURI
         { "embedded",
                NULL,
                MK_STATIC(sdi_playback_help),
@@ -194,6 +195,7 @@ static struct audio_playback_t audio_playback_table[] = {
                 MK_NAME(decklink_reconfigure),
                 NULL
         },
+#endif
 #endif
         { "none",
                 NULL,

@@ -148,6 +148,7 @@ struct vidcap_device_api {
 /** @brief This table contains list of video capture devices compiled with this UltraGrid version.
  *  @copydetails decoders */
 struct vidcap_device_api vidcap_device_table[] = {
+#ifndef UV_IN_YURI
         {
          /* The aggregate capture card */
          0,
@@ -333,6 +334,7 @@ struct vidcap_device_api vidcap_device_table[] = {
          NULL
         },
 #endif /* HAVE_V4L2 */
+#endif
         {
          0,
          NULL,
@@ -585,7 +587,7 @@ struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *curr)
 /**
  * @brier Returns n-th item in @ref vidcap_params list.
  */
-struct vidcap_params *vidcap_params_get_nth(const struct vidcap_params *curr, int index)
+const struct vidcap_params *vidcap_params_get_nth(const struct vidcap_params *curr, int index)
 {
         const struct vidcap_params *ret = curr;
         for (int i = 0; i < index; i++) {

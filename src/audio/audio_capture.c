@@ -113,6 +113,7 @@ struct audio_capture_t {
 };
 
 static struct audio_capture_t audio_capture_table[] = {
+#ifndef UV_IN_YURI
         { "embedded",
                 NULL,
                 MK_STATIC(sdi_capture_help),
@@ -185,6 +186,7 @@ static struct audio_capture_t audio_capture_table[] = {
                 MK_STATIC(audio_cap_testcard_done),
                 NULL
         },
+#endif
         { "none",
                 NULL,
                 MK_STATIC(audio_cap_none_help),

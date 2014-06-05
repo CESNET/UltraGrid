@@ -147,6 +147,7 @@ static void compress_done(struct module *mod);
  * @copydetails decoders
  */
 struct compress_t compress_modules[] = {
+#ifndef UV_IN_YURI
 #if defined HAVE_DXT_GLSL || defined BUILD_LIBRARIES
         {
                 "RTDXT",
@@ -201,6 +202,7 @@ struct compress_t compress_modules[] = {
                 MK_NAME(NULL),
                 NULL
         },
+#endif
 #endif
         {
                 "none",
