@@ -66,6 +66,7 @@
 #endif // HAVE_CONFIG_H
 
 #include "audio/audio.h"
+#include "rtp/rtp.h"
 #include "utils/list.h"
 
 #ifdef __cplusplus

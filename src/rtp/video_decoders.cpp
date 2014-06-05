@@ -1372,6 +1372,9 @@ static bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc)
         uint32_t tmp;
         int fps_pt, fpsd, fd, fi;
 
+        tmp = ntohl(hdr[0]);
+        desc->tile_count = (tmp >> 22) + 1; // a bit hacky - assuming this packet is from last substream
+
         desc->width = ntohl(hdr[3]) >> 16;
         desc->height = ntohl(hdr[3]) & 0xffff;
         desc->color_spec = get_codec_from_fcc(hdr[4]);
@@ -1810,5 +1813,73 @@ cleanup:
         }
 
         return ret;
+}
+
+/**
+ * @brief Decodes a participant buffer representing one video frame.
+ * @param cdata        PBUF buffer
+ * @param decoder_data @ref vcodec_state containing decoder state and some additional data
+ * @retval TRUE        if decoding was successful.
+ *                     It stil doesn't mean that the frame will be correctly displayed,
+ *                     decoding may fail in some subsequent (asynchronous) steps.
+ * @retval FALSE       if decoding failed
+ */
+int decode_yuri_frame(struct coded_data *cdata, void *decoder_data)
+{
+        yuri_decoder_data *s = (yuri_decoder_data *) decoder_data;
+        char *received_data = NULL;
+
+        int len;
+        rtp_packet *pckt = NULL;
+        char *data;
+        uint32_t data_pos;
+        uint32_t tmp;
+        uint32_t substream;
+
+        int buffer_number, buffer_length;
+
+        int pt;
+
+        uint32_t *hdr;
+        pckt = cdata->data;
+        hdr = (uint32_t *)(void *) pckt->data;
+        struct video_desc network_desc;
+        parse_video_hdr(hdr, &network_desc);
+
+        buffer_length = ntohl(hdr[2]);
+        s->yuri_frame = s->create_yuri_frame(&network_desc, buffer_length, &received_data, s->log);
+
+        if (!s->yuri_frame) {
+                return FALSE;
+        }
+
+        while (cdata != NULL) {
+                uint32_t *hdr;
+                pckt = cdata->data;
+
+                pt = pckt->pt;
+                hdr = (uint32_t *)(void *) pckt->data;
+                data_pos = ntohl(hdr[1]);
+                tmp = ntohl(hdr[0]);
+                substream = tmp >> 22;
+                buffer_number = tmp & 0x3ffff;
+                buffer_length = ntohl(hdr[2]);
+
+                assert(pt == PT_VIDEO);
+                assert(substream == 0);
+
+                len = pckt->data_len - sizeof(video_payload_hdr_t);
+                data = (char *) hdr + sizeof(video_payload_hdr_t);
+
+                memcpy(received_data + data_pos, (unsigned char*) data, len);
+
+                cdata = cdata->nxt;
+        }
+
+        if(!pckt) {
+                return FALSE;
+        }
+
+        return TRUE;
 }
 
