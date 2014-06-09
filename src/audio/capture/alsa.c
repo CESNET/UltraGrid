@@ -57,6 +57,7 @@
 
 #include "audio/capture/alsa.h" 
 #include "debug.h"
+#include "tv.h"
 #include <stdlib.h>
 #include <string.h>
 /* Use the newer ALSA API */
@@ -73,6 +74,9 @@ struct state_alsa_capture {
 
         snd_pcm_uframes_t frames;
         unsigned int min_device_channels;
+
+        struct timeval start_time;
+        long long int captured_samples;
 };
 
 void audio_cap_alsa_help(const char *driver_name)
@@ -95,8 +99,9 @@ void * audio_cap_alsa_init(char *cfg)
         char *name = "default";
         int format;
 
-        s = malloc(sizeof(struct state_alsa_capture));
+        s = calloc(1, sizeof(struct state_alsa_capture));
 
+        gettimeofday(&s->start_time, NULL);
         s->frame.bps = 2;
         s->frame.sample_rate = 48000;
         s->min_device_channels = s->frame.ch_count = audio_capture_channels;
@@ -266,21 +271,22 @@ struct audio_frame *audio_cap_alsa_read(void *state)
                                 );
                 }
                 s->frame.data_len = rc * s->frame.bps * s->frame.ch_count;
+                s->captured_samples += rc;
                 return &s->frame;
         } else {
                 return NULL;
         }
 }
 
-void audio_cap_alsa_finish(void *state)
-{
-        UNUSED(state);
-}
-
 void audio_cap_alsa_done(void *state)
 {
         struct state_alsa_capture *s = (struct state_alsa_capture *) state;
+        struct timeval t;
 
+        gettimeofday(&t, NULL);
+        printf("[ALSA cap.] Captured %lld samples in %f seconds (%f samples per second).\n",
+                        s->captured_samples, tv_diff(t, s->start_time),
+                        s->captured_samples / tv_diff(t, s->start_time));
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
         free(s->frame.data);
