@@ -46,12 +46,14 @@
  *
  */
 
-#include "audio/audio.h" 
-#include "audio/playback/sdi.h" 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
 #endif
+
+#include "audio/audio.h"
+#include "audio/playback/sdi.h"
 #include "debug.h"
 
 #include <stdlib.h>

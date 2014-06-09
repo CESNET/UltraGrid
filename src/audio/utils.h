@@ -129,33 +129,8 @@ void signed2unsigned(char *out, char *in, int in_len);
 
 struct audio_desc audio_desc_from_frame(struct audio_frame *frame);
 
-static inline int32_t format_from_in_bps(const char * in, int bps) {
-        int32_t in_value = 0;
-        memcpy(&in_value, in, bps);
-
-        if(in_value >> (bps * 8 - 1) && bps != 4) { //negative
-                in_value |= ((1<<(32 - bps * 8)) - 1) << (bps * 8);
-        }
-
-        return in_value;
-}
-
-static inline void format_to_out_bps(char *out, int bps, int32_t out_value) {
-        uint32_t mask = ((1ll << (bps * 8)) - 1);
-
-        // clamp
-        if(out_value > (1ll << (bps * 8 - 1)) -1) {
-                out_value = (1ll << (bps * 8 - 1)) -1;
-        }
-
-        if(out_value < -(1ll << (bps * 8 - 1))) {
-                out_value = -(1ll << (bps * 8 - 1));
-        }
-
-        uint32_t out_value_formatted = (1 * (0x1 & (out_value >> 31))) << (bps * 8 - 1) | (out_value & mask);
-
-        memcpy(out, &out_value_formatted, bps);
-}
+int32_t format_from_in_bps(const char * in, int bps);
+void format_to_out_bps(char *out, int bps, int32_t out_value);
 
 
 #ifdef __cplusplus
