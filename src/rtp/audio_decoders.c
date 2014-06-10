@@ -336,6 +336,18 @@ void audio_decoder_destroy(void *state)
         free(s);
 }
 
+bool parse_audio_hdr(uint32_t *hdr, struct audio_desc *desc)
+{
+        desc->ch_count = ((ntohl(hdr[0]) >> 22) & 0x3ff) + 1;
+        desc->sample_rate = ntohl(hdr[3]) & 0x3fffff;
+        desc->bps = (ntohl(hdr[3]) >> 26) / 8;
+
+        uint32_t audio_tag = ntohl(hdr[4]);
+        desc->codec = get_audio_codec_to_tag(audio_tag);
+
+        return true;
+}
+
 int decode_audio_frame(struct coded_data *cdata, void *data)
 {
         struct pbuf_audio_data *s = (struct pbuf_audio_data *) data;

@@ -63,34 +63,17 @@ struct state_decompress;
 struct tile;
 
 #ifdef __cplusplus
-#include <memory>
-namespace yuri {
-namespace core {
-class Frame;
-typedef std::shared_ptr<Frame> pFrame;
-}
-}
-
-struct yuri_decoder_data {
-        yuri::core::pFrame (*create_yuri_frame)(struct video_desc *desc, size_t data_len, char **data, void *log);
-        void *log;
-        yuri::core::pFrame yuri_frame;
-};
-#endif
-
-#ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
 int decode_video_frame(struct coded_data *received_data, void *decoder_data);
-
-int decode_yuri_frame(struct coded_data *received_data, void *decoder_data);
 
 struct state_video_decoder *video_decoder_init(struct module *parent, enum video_mode,
                 const char *postprocess, struct display *display, const char *encryption);
 void video_decoder_destroy(struct state_video_decoder *decoder);
 bool video_decoder_register_display(struct state_video_decoder *decoder, struct display *display);
 void video_decoder_remove_display(struct state_video_decoder *decoder);
+bool parse_video_hdr(uint32_t *hdr, struct video_desc *desc);
 
 /** @} */ // end of video_rtp_decoder
 

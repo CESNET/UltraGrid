@@ -51,6 +51,8 @@
 #ifndef _AUDIO_UTILS_H_
 #define _AUDIO_UTILS_H_
 
+#include <audio/audio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
