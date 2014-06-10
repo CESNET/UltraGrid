@@ -81,6 +81,11 @@ struct state_alsa_playback {
         unsigned int min_device_channels;
         struct timeval start_time;
         long long int played_samples;
+
+        /* Local configuration with handle_underrun workaround set for PulseAudio
+           ALSA plugin.  Will be NULL if the PA ALSA plugin is not in use or the
+           workaround is not required. */
+        snd_config_t * local_config;
 };
 
 int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
@@ -233,17 +238,18 @@ void audio_play_alsa_help(const char *driver_name)
         while(*hints != NULL) {
                 char *tmp = strdup(*(char **) hints);
                 char *save_ptr = NULL;
-                char *name_part;
-                char *desc;
-                char *desc_short;
-                char *desc_long;
-                char *name;
-
+                char *name_part = NULL;
+                char *desc = NULL;
+                char *desc_short = NULL;
+                char *desc_long = NULL;
+                char *name = NULL;
 
                 name_part = strtok_r(tmp + 4, "|", &save_ptr);
                 desc = strtok_r(NULL, "|", &save_ptr);
-                desc_short = strtok_r(desc + 4, "\n", &save_ptr);
-                desc_long = strtok_r(NULL, "\n", &save_ptr);
+                if (desc) {
+                        desc_short = strtok_r(desc + 4, "\n", &save_ptr);
+                        desc_long = strtok_r(NULL, "\n", &save_ptr);
+                }
 
                 name = malloc(strlen("alsa:") + strlen(name_part) + 1);
                 strcpy(name, "alsa:");
@@ -252,16 +258,92 @@ void audio_play_alsa_help(const char *driver_name)
                 printf("\t%s", name);
                 int i;
 
-                for (i = 0; i < 30 - (int) strlen(name); ++i) putchar(' ');
-                printf(" : %s", desc_short);
-                if(desc_long) {
-                        printf(" - %s", desc_long);
+                if (desc_short) {
+                        for (i = 0; i < 30 - (int) strlen(name); ++i) putchar(' ');
+                        printf(" : %s", desc_short);
+                        if(desc_long) {
+                                printf(" - %s", desc_long);
+                        }
                 }
                 printf("\n");
                 hints++;
                 free(tmp);
                 free(name);
         }
+}
+
+/* Work around PulseAudio ALSA plugin bug where the PA server forces a
+   higher than requested latency, but the plugin does not update its (and
+   ALSA's) internal state to reflect that, leading to an immediate underrun
+   situation.  Inspired by WINE's make_handle_underrun_config.
+   Reference: http://mailman.alsa-project.org/pipermail/alsa-devel/2012-July/053391.html
+              https://github.com/kinetiknz/cubeb/commit/1aa0058d0729eb85505df104cd1ac072432c6d24
+              http://en.it-usenet.org/thread/17996/19923/
+*/
+static snd_config_t *
+init_local_config_with_workaround(char const * pcm_node_name)
+{
+        int r;
+        snd_config_t * lconf;
+        snd_config_t * device_node;
+        snd_config_t * type_node;
+        snd_config_t * node;
+        char const * type_string;
+
+        lconf = NULL;
+
+        if (snd_config == NULL) {
+                snd_config_update();
+        }
+
+        r = snd_config_copy(&lconf, snd_config);
+        assert(r >= 0);
+
+        r = snd_config_search(lconf, pcm_node_name, &device_node);
+        if (r != 0) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        /* Fetch the PCM node's type, and bail out if it's not the PulseAudio plugin. */
+        r = snd_config_search(device_node, "type", &type_node);
+        if (r != 0) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        r = snd_config_get_string(type_node, &type_string);
+        if (r != 0) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        if (strcmp(type_string, "pulse") != 0) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        /* Don't clobber an explicit existing handle_underrun value, set it only
+           if it doesn't already exist. */
+        r = snd_config_search(device_node, "handle_underrun", &node);
+        if (r != -ENOENT) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        r = snd_config_imake_integer(&node, "handle_underrun", 0);
+        if (r != 0) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        r = snd_config_add(device_node, node);
+        if (r != 0) {
+                snd_config_delete(lconf);
+                return NULL;
+        }
+
+        return lconf;
 }
 
 void * audio_play_alsa_init(char *cfg)
@@ -285,9 +367,18 @@ void * audio_play_alsa_init(char *cfg)
         } else {
                 name = "default";
         }
-        rc = snd_pcm_open(&s->handle, name,
-                                            SND_PCM_STREAM_PLAYBACK, 0);
 
+        char device[1024] = "pcm.";
+        strncat(device, name, sizeof(device) - strlen(device) - 1);
+        s->local_config = init_local_config_with_workaround(device);
+
+        if (s->local_config) {
+                rc = snd_pcm_open_lconf(&s->handle, name,
+                                SND_PCM_STREAM_PLAYBACK, 0, s->local_config);
+        } else {
+                rc = snd_pcm_open(&s->handle, name,
+                                SND_PCM_STREAM_PLAYBACK, 0);
+        }
 
         if (rc < 0) {
                     fprintf(stderr, "unable to open pcm device: %s\n",
