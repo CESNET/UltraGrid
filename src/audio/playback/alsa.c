@@ -69,6 +69,7 @@
 #include "audio/utils.h"
 #include "audio/playback/alsa.h" 
 #include "debug.h"
+#include "tv.h"
 
 #define BUFFER_MIN 41
 #define BUFFER_MAX 200
@@ -78,6 +79,8 @@ struct state_alsa_playback {
         struct audio_desc desc;
 
         unsigned int min_device_channels;
+        struct timeval start_time;
+        long long int played_samples;
 };
 
 int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
@@ -89,7 +92,7 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
         unsigned int val;
         int dir;
         int rc;
-        snd_pcm_uframes_t frames;
+        unsigned int frames;
 
         s->desc.bps = quant_samples / 8;
         s->min_device_channels = s->desc.ch_count = channels;
@@ -208,7 +211,6 @@ int audio_play_alsa_reconfigure(void *state, int quant_samples, int channels,
                         snd_strerror(rc));
         }
 
-
         /* Write the parameters to the driver */
         rc = snd_pcm_hw_params(s->handle, params);
         if (rc < 0) {
@@ -269,6 +271,9 @@ void * audio_play_alsa_init(char *cfg)
         char *name;
 
         s = calloc(1, sizeof(struct state_alsa_playback));
+
+        gettimeofday(&s->start_time, NULL);
+
         if(cfg && strlen(cfg) > 0) {
                 if(strcmp(cfg, "help") == 0) {
                         printf("Available ALSA playback devices:\n");
@@ -325,6 +330,8 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
                 copy_channel(tmp_data, frame->data, frame->bps, frame->data_len, s->min_device_channels);
                 data = tmp_data;
         }
+
+        s->played_samples += frame->data_len / frame->bps / frame->ch_count;
     
         rc = snd_pcm_writei(s->handle, data, frames);
         if (rc == -EPIPE) {
@@ -357,6 +364,13 @@ void audio_play_alsa_put_frame(void *state, struct audio_frame *frame)
 void audio_play_alsa_done(void *state)
 {
         struct state_alsa_playback *s = (struct state_alsa_playback *) state;
+
+        struct timeval t;
+
+        gettimeofday(&t, NULL);
+        printf("[ALSA play.] Played %lld samples in %f seconds (%f samples per second).\n",
+                        s->played_samples, tv_diff(t, s->start_time),
+                        s->played_samples / tv_diff(t, s->start_time));
 
         snd_pcm_drain(s->handle);
         snd_pcm_close(s->handle);
