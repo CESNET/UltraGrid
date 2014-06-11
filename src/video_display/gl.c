@@ -285,9 +285,6 @@ static void gl_load_splashscreen(struct state_gl *s)
 void * display_gl_init(char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl        *s;
-#if defined HAVE_LINUX || defined WIN32
-        GLenum err;
-#endif // HAVE_LINUX
         
 	s = (struct state_gl *) calloc(1,sizeof(struct state_gl));
 	s->magic   = MAGIC_GL;
@@ -364,96 +361,7 @@ void * display_gl_init(char *fmt, unsigned int flags) {
 
 	s->new_frame = 0;
 
-        char *tmp, *gl_ver_major;
-        char *save_ptr = NULL;
-
-#ifdef HAVE_LINUX
-        x11_enter_thread();
-#endif
-
-        glutInit(&uv_argc, uv_argv);
-        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
-
-#ifdef HAVE_MACOSX
-        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
-        /* Avoids uncaught exception (1002)  when creating CGSWindow */
-        NSApplicationLoad();
-#endif
-
-#ifdef FREEGLUT
-        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
-#endif
-        glutIdleFunc(glut_idle_callback);
-	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
-        glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
-        //glutHideWindow();
-	glutKeyboardFunc(glut_key_callback);
-	glutDisplayFunc(glutSwapBuffers);
-#ifdef HAVE_MACOSX
-        glutWMCloseFunc(glut_close_callback);
-#elif FREEGLUT
-        glutCloseFunc(glut_close_callback);
-#endif
-	glutReshapeFunc(gl_resize);
-
-        tmp = strdup((const char *)glGetString(GL_VERSION));
-        gl_ver_major = strtok_r(tmp, ".", &save_ptr);
-        if(atoi(gl_ver_major) >= 2) {
-                fprintf(stderr, "OpenGL 2.0 is supported...\n");
-        } else {
-                fprintf(stderr, "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
-                free(tmp);
-                goto error; 
-        }
-        free(tmp);
-
-#if defined HAVE_LINUX || defined WIN32
-        err = glewInit();
-        if (GLEW_OK != err)
-        {
-                /* Problem: glewInit failed, something is seriously wrong. */
-                fprintf(stderr, "GLEW Error: %d\n", err);
-                goto error;
-        }
-#endif /* HAVE_LINUX */
-
-        glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-        glEnable( GL_TEXTURE_2D );
-
-        glGenTextures(1, &s->texture_display);
-        glBindTexture(GL_TEXTURE_2D, s->texture_display);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        glGenTextures(1, &s->texture_uyvy);
-        glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-        s->PHandle_uyvy = glsl_compile_link(vert, yuv422_to_rgb_fp);
-        // Create fbo
-        glGenFramebuffersEXT(1, &s->fbo_id);
-        s->PHandle_dxt = glsl_compile_link(vert, fp_display_dxt1);
-        glUseProgram(s->PHandle_dxt);
-        glUniform1i(glGetUniformLocation(s->PHandle_dxt,"yuvtex"),0);
-        glUseProgram(0);
-        s->PHandle_dxt5 = glsl_compile_link(vert, fp_display_dxt5ycocg);
-        /*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
-          perror("Unable to create display thread\n");
-          return NULL;
-          }*/
-
-        gl_load_splashscreen(s);
-
         return (void*)s;
-
-error:
-        free(s);
-        return NULL;
 }
 
 /*
@@ -599,7 +507,6 @@ void gl_reconfigure_screen(struct state_gl *s)
         s->buffers[0] = (char *) malloc(s->tile->data_len);
         s->buffers[1] = (char *) malloc(s->tile->data_len);
 
-        asm("emms\n");
         if(!s->video_aspect)
                 s->aspect = (double) s->tile->width / s->tile->height;
         else
@@ -830,10 +737,108 @@ static void glut_key_callback(unsigned char key, int x, int y)
         }
 }
 
+static bool display_gl_init_opengl(struct state_gl *s)
+{
+        char *tmp, *gl_ver_major;
+        char *save_ptr = NULL;
+#if defined HAVE_LINUX || defined WIN32
+        GLenum err;
+#endif // HAVE_LINUX
+
+#ifdef HAVE_LINUX
+        x11_enter_thread();
+#endif
+
+        glutInit(&uv_argc, uv_argv);
+        glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
+
+#ifdef HAVE_MACOSX
+        /* Startup function to call when running Cocoa code from a Carbon application. Whatever the fuck that means. */
+        /* Avoids uncaught exception (1002)  when creating CGSWindow */
+        NSApplicationLoad();
+#endif
+
+#ifdef FREEGLUT
+        glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
+#endif
+        glutIdleFunc(glut_idle_callback);
+	s->window = glutCreateWindow(window_title != NULL ? window_title : DEFAULT_WIN_NAME);
+        glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
+        //glutHideWindow();
+	glutKeyboardFunc(glut_key_callback);
+	glutDisplayFunc(glutSwapBuffers);
+#ifdef HAVE_MACOSX
+        glutWMCloseFunc(glut_close_callback);
+#elif FREEGLUT
+        glutCloseFunc(glut_close_callback);
+#endif
+	glutReshapeFunc(gl_resize);
+
+        tmp = strdup((const char *)glGetString(GL_VERSION));
+        gl_ver_major = strtok_r(tmp, ".", &save_ptr);
+        if(atoi(gl_ver_major) >= 2) {
+                fprintf(stderr, "OpenGL 2.0 is supported...\n");
+        } else {
+                fprintf(stderr, "ERROR: OpenGL 2.0 is not supported, try updating your drivers...\n");
+                free(tmp);
+                return false;
+        }
+        free(tmp);
+
+#if defined HAVE_LINUX || defined WIN32
+        err = glewInit();
+        if (GLEW_OK != err)
+        {
+                /* Problem: glewInit failed, something is seriously wrong. */
+                fprintf(stderr, "GLEW Error: %d\n", err);
+                return false;
+        }
+#endif /* HAVE_LINUX */
+
+        glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+        glEnable( GL_TEXTURE_2D );
+
+        glGenTextures(1, &s->texture_display);
+        glBindTexture(GL_TEXTURE_2D, s->texture_display);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glGenTextures(1, &s->texture_uyvy);
+        glBindTexture(GL_TEXTURE_2D, s->texture_uyvy);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        s->PHandle_uyvy = glsl_compile_link(vert, yuv422_to_rgb_fp);
+        // Create fbo
+        glGenFramebuffersEXT(1, &s->fbo_id);
+        s->PHandle_dxt = glsl_compile_link(vert, fp_display_dxt1);
+        glUseProgram(s->PHandle_dxt);
+        glUniform1i(glGetUniformLocation(s->PHandle_dxt,"yuvtex"),0);
+        glUseProgram(0);
+        s->PHandle_dxt5 = glsl_compile_link(vert, fp_display_dxt5ycocg);
+        /*if (pthread_create(&(s->thread_id), NULL, display_thread_gl, (void *) s) != 0) {
+          perror("Unable to create display thread\n");
+          return NULL;
+          }*/
+
+        gl_load_splashscreen(s);
+
+        return true;
+}
+
 void display_gl_run(void *arg)
 {
         struct state_gl *s = 
                 (struct state_gl *) arg;
+
+        if (!display_gl_init_opengl(s)) {
+                exit_uv(1);
+                return;
+        }
 
 #if defined HAVE_MACOSX || defined FREEGLUT
         while(!s->should_exit_main_loop) {
