@@ -49,7 +49,7 @@ const char *window_title = NULL;
 int rxtx_mode; // MODE_SENDER, MODE_RECEIVER or both
 
 int initialize_video_capture(struct module *parent,
-                const struct vidcap_params *params,
+                struct vidcap_params *params,
                 struct vidcap **state)
 {
         struct vidcap_type *vt;

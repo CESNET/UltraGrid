@@ -111,7 +111,7 @@ int initialize_video_display(const char *requested_display,
                                                 struct display **);
 
 int initialize_video_capture(struct module *parent,
-                const struct vidcap_params *params,
+                struct vidcap_params *params,
                 struct vidcap **);
 
 // if not NULL, data should be exported

@@ -587,9 +587,9 @@ struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *curr)
 /**
  * @brier Returns n-th item in @ref vidcap_params list.
  */
-const struct vidcap_params *vidcap_params_get_nth(const struct vidcap_params *curr, int index)
+struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *curr, int index)
 {
-        const struct vidcap_params *ret = curr;
+        struct vidcap_params *ret = curr;
         for (int i = 0; i < index; i++) {
                 ret = ret->next;
                 if (ret == NULL) {

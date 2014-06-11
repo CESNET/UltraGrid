@@ -122,7 +122,7 @@ struct vidcap_params *vidcap_params_allocate_next(struct vidcap_params *params);
 struct vidcap_params *vidcap_params_copy(const struct vidcap_params *params);
 void                  vidcap_params_free_struct(struct vidcap_params *params);
 struct vidcap_params *vidcap_params_get_next(const struct vidcap_params *params);
-const struct vidcap_params *vidcap_params_get_nth(const struct vidcap_params *params, int index);
+struct vidcap_params *vidcap_params_get_nth(struct vidcap_params *params, int index);
 const char           *vidcap_params_get_driver(const struct vidcap_params *params);
 unsigned int          vidcap_params_get_flags(const struct vidcap_params *params);
 const char           *vidcap_params_get_fmt(const struct vidcap_params *params);
