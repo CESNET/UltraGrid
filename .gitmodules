@@ -1,0 +1,3 @@
+[submodule "gpujpeg"]
+	path = gpujpeg
+	url = git://git.code.sf.net/p/gpujpeg/code
