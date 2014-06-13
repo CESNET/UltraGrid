@@ -52,6 +52,10 @@ struct audio_frame;
 struct video_desc;
 struct video_frame;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 display_type_t          *display_gl_probe(void);
 void                    *display_gl_init(char *fmt, unsigned int flags);
 void                     display_gl_run(void *state);
@@ -67,4 +71,8 @@ int                      display_gl_handle_events(void *arg);
 void                    display_gl_put_audio_frame(void *state, struct audio_frame *frame);
 int                     display_gl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+#ifdef __cplusplus
+}
+#endif
 

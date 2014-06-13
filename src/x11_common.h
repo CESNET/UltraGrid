@@ -45,6 +45,10 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void x11_enter_thread(void);
 /**
  * @arg disp (Display *)
@@ -63,4 +67,8 @@ void * x11_acquire_display(void);
  */
 void * x11_get_display(void);
 void x11_release_display(void);
+
+#ifdef __cplusplus
+}
+#endif
 
