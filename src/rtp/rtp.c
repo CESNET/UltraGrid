@@ -82,6 +82,9 @@
 #include "ntp.h"
 #include "rtp.h"
 
+#define max(a, b)      (((a) > (b))? (a): (b))
+#define min(a, b)      (((a) < (b))? (a): (b))
+
 /*
  * Encryption stuff.
  */

@@ -184,9 +184,6 @@ typedef int     fd_t;
 
 #define USERNAMELEN	8
 
-#define max(a, b)	(((a) > (b))? (a): (b))
-#define min(a, b)	(((a) < (b))? (a): (b))
-
 #ifndef HAVE_ALIGNED_ALLOC
 static inline void *aligned_malloc(size_t size, size_t alignment);
 

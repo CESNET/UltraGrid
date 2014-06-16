@@ -83,6 +83,9 @@
 
 #define AUDIO_DECODER_MAGIC 0x12ab332bu
 
+#define max(a, b)      (((a) > (b))? (a): (b))
+#define min(a, b)      (((a) < (b))? (a): (b))
+
 struct scale_data {
         double vol_avg;
         int samples;
