@@ -394,26 +394,6 @@ static void display_gl_set_sync_on_vblank(int value) {
 
 static void screenshot(struct video_frame *frame)
 {
-        unsigned char *data = NULL, *tmp = NULL;
-        struct tile *tile = &frame->tiles[0];
-        int len = tile->width * tile->height * 3;
-        if (frame->color_spec == RGB) {
-                data = (unsigned char *) tile->data;
-        } else {
-                data = tmp = (unsigned char *) malloc(len);
-                if (frame->color_spec == UYVY) {
-                        vc_copylineUYVYtoRGB(data, (const unsigned char *)
-                                        tile->data, len);
-                } else if (frame->color_spec == RGBA) {
-                        vc_copylineRGBAtoRGB(data, (const unsigned char *)
-                                        tile->data, len, 0, 8, 16);
-                }
-        }
-
-        if(!data) {
-                return;
-        }
-
         char name[128];
         time_t t;
         struct tm time_tmp;
@@ -423,13 +403,7 @@ static void screenshot(struct video_frame *frame)
 
         strftime(name, sizeof(name), "screenshot-%a, %d %b %Y %T %z.pnm",
                                                &time_tmp);
-        FILE *out = fopen(name, "w");
-        if(out) {
-                fprintf(out, "P6\n%d %d\n255\n", tile->width, tile->height);
-                fwrite(data, 1, len, out);
-                fclose(out);
-        }
-        free(tmp);
+        save_video_frame_as_pnm(frame, name);
 }
 
 /**

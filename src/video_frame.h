@@ -168,6 +168,8 @@ void il_merged_to_upper(char *dst, char *src, int linesize, int height);
  */
 double compute_fps(int fps, int fpsd, int fd, int fi);
 
+bool save_video_frame_as_pnm(struct video_frame *frame, const char *name);
+
 /** @name Video Flags
  * @deprecated use rather video_frame or video_desc members
  * @{ */
