@@ -52,6 +52,10 @@ struct audio_frame;
 struct video_desc;
 struct video_frame;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 display_type_t *        display_sdl_probe (void);
 void *                  display_sdl_init (char *fmt, unsigned int flags);
 void                    display_sdl_run (void *state);
@@ -66,4 +70,8 @@ int                     display_sdl_get_property(void *state, int property, void
 void                    display_sdl_put_audio_frame(void *state, struct audio_frame *frame);
 int                     display_sdl_reconfigure_audio(void *state, int quant_samples, int channels,
                 int sample_rate);
+
+#ifdef __cplusplus
+}
+#endif
 

@@ -45,5 +45,14 @@
  *
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *autorelease_pool_allocate(void);
 void autorelease_pool_destroy(void *);
+
+#ifdef __cplusplus
+}
+#endif
+
