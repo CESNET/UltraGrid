@@ -97,6 +97,7 @@ struct state_sdl {
         bool                    play_audio;
 
         queue<struct video_frame *> frame_queue;
+        queue<struct video_frame *> free_frame_queue;
         struct video_desc current_desc;
         struct video_desc current_display_desc;
         mutex                   lock;
@@ -275,7 +276,9 @@ void display_sdl_run(void *arg)
                         SDL_DisplayYUVOverlay(s->yuv_image, &(s->dst_rect));
 		}
 
-                vf_free(frame);
+                s->lock.lock();
+                s->free_frame_queue.push(frame);
+                s->lock.unlock();
 
 		s->frames++;
 		gettimeofday(&tv, NULL);
@@ -510,6 +513,12 @@ void display_sdl_done(void *state)
         autorelease_pool_destroy(s->autorelease_pool);
 #endif
 
+        while (s->free_frame_queue.size() > 0) {
+                struct video_frame *buffer = s->free_frame_queue.front();
+                s->free_frame_queue.pop();
+                vf_free(buffer);
+        }
+
         delete s;
 }
 
@@ -517,6 +526,18 @@ struct video_frame *display_sdl_getf(void *state)
 {
         struct state_sdl *s = (struct state_sdl *)state;
         assert(s->magic == MAGIC_SDL);
+
+        lock_guard<mutex> lock(s->lock);
+
+        while (s->free_frame_queue.size() > 0) {
+                struct video_frame *buffer = s->free_frame_queue.front();
+                s->free_frame_queue.pop();
+                if (video_desc_eq(video_desc_from_frame(buffer), s->current_desc)) {
+                        return buffer;
+                } else {
+                        vf_free(buffer);
+                }
+        }
 
         return vf_alloc_desc_data(s->current_desc);
 }
