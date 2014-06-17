@@ -27,7 +27,6 @@ unsigned int audio_capture_channels = 1;
 unsigned int cuda_devices[MAX_CUDA_DEVICES] = { 0 };
 unsigned int cuda_devices_count = 1;
 
-static volatile bool should_exit_audio = false;
 int audio_init_state_ok;
 
 uint32_t RTT = 0;               /*  this is computed by handle_rr in rtp_callback */
@@ -121,27 +120,5 @@ int initialize_video_display(const char *requested_display,
         display_free_devices();
 
         return display_init(id, fmt, flags, out);
-}
-
-void display_buf_increase_warning(int size)
-{
-        fprintf(stderr, "\n***\n"
-                        "Unable to set buffer size to %d B.\n"
-                        "Please set net.core.rmem_max value to %d or greater. (see also\n"
-                        "https://www.sitola.cz/igrid/index.php/Setup_UltraGrid)\n"
-#ifdef HAVE_MACOSX
-                        "\tsysctl -w kern.ipc.maxsockbuf=%d\n"
-                        "\tsysctl -w net.inet.udp.recvspace=%d\n"
-#else
-                        "\tsysctl -w net.core.rmem_max=%d\n"
-#endif
-                        "To make this persistent, add these options (key=value) to /etc/sysctl.conf\n"
-                        "\n***\n\n",
-                        size, size,
-#ifdef HAVE_MACOSX
-                        size * 4,
-#endif /* HAVE_MACOSX */
-                        size);
-
 }
 
