@@ -109,7 +109,7 @@ void display_aggregate_run(void *state)
         }
 }
 
-void *display_aggregate_init(char *fmt, unsigned int flags)
+void *display_aggregate_init(const char *fmt, unsigned int flags)
 {
         struct display_aggregate_state *s;
         char *save_ptr = NULL;

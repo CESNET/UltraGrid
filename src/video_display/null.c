@@ -57,7 +57,7 @@ struct state_null {
         uint32_t magic;
 };
 
-void *display_null_init(char *fmt, unsigned int flags)
+void *display_null_init(const char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
         UNUSED(flags);

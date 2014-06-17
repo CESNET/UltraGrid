@@ -121,7 +121,7 @@ struct display;
 
 extern int display_init_noerr;
 
-int                      display_init(display_id_t id, char *fmt, unsigned int flags, struct display **state);
+int                      display_init(display_id_t id, const char *fmt, unsigned int flags, struct display **state);
 void                     display_run(struct display *d);
 void 	                 display_done(struct display *d);
 struct video_frame      *display_get_frame(struct display *d);

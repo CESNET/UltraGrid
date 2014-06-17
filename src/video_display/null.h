@@ -50,7 +50,7 @@ struct video_desc;
 struct video_frame;
 
 display_type_t		*display_null_probe(void);
-void 			*display_null_init(char *fmt, unsigned int flags);
+void 			*display_null_init(const char *fmt, unsigned int flags);
 void 			 display_null_run(void *state);
 void 			 display_null_done(void *state);
 struct video_frame	*display_null_getf(void *state);

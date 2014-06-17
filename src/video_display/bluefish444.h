@@ -51,7 +51,7 @@ extern "C" {
 #endif
 
 display_type_t      *display_bluefish444_probe(void);
-void                *display_bluefish444_init(char *fmt, unsigned int flags);
+void                *display_bluefish444_init(const char *fmt, unsigned int flags);
 void                 display_bluefish444_run(void *state);
 void                 display_bluefish444_done(void *state);
 struct video_frame  *display_bluefish444_getf(void *state);

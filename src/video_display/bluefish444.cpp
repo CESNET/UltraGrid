@@ -837,7 +837,7 @@ static void show_help(void)
         }
 }
 
-void *display_bluefish444_init(char *fmt, unsigned int flags)
+void *display_bluefish444_init(const char *fmt, unsigned int flags)
 {
         int deviceId = 1;
 

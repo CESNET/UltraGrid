@@ -96,7 +96,7 @@ typedef struct {
         const  char              *library_name; ///< @copydoc decoder_table_t::library_name
         display_type_t         *(*func_probe) (void);
         const char               *func_probe_str;
-        void                   *(*func_init) (char *fmt, unsigned int flags);
+        void                   *(*func_init) (const char *fmt, unsigned int flags);
         const char               *func_init_str;
         void                    (*func_run) (void *state);
         const char               *func_run_str;
@@ -440,7 +440,7 @@ display_id_t display_get_null_device_id(void)
  * @retval   -1  if failed
  * @retval    1  if successfully shown help (no state returned)
  */
-int display_init(display_id_t id, char *fmt, unsigned int flags, struct display **state)
+int display_init(display_id_t id, const char *fmt, unsigned int flags, struct display **state)
 {
         unsigned int i;
 

@@ -340,7 +340,7 @@ error:
 }
 
 
-void *display_deltacast_init(char *fmt, unsigned int flags)
+void *display_deltacast_init(const char *fmt, unsigned int flags)
 {
         struct state_deltacast *s;
         ULONG             Result,DllVersion,NbBoards,ChnType;
@@ -373,16 +373,18 @@ void *display_deltacast_init(char *fmt, unsigned int flags)
         
         if(fmt)
         {
+                char *tmp = strdup(fmt);
                 char *save_ptr = NULL;
                 char *tok;
                 
-                tok = strtok_r(fmt, ":", &save_ptr);
+                tok = strtok_r(tmp, ":", &save_ptr);
                 if(!tok)
                 {
                         show_help();
                         goto error;
                 }
                 BrdId = atoi(tok);
+                free(tmp);
         }
 
         /* Query VideoMasterHD information */

@@ -159,7 +159,7 @@ void display_sage_run(void *arg)
         }
 }
 
-void *display_sage_init(char *fmt, unsigned int flags)
+void *display_sage_init(const char *fmt, unsigned int flags)
 {
         UNUSED(fmt);
         UNUSED(flags);
@@ -182,11 +182,12 @@ void *display_sage_init(char *fmt, unsigned int flags)
                         printf("\t                              Supported options are UYVY, RGBA, RGB or DXT1\n");
                         return &display_init_noerr;
                 } else {
+                        char *tmp = strdup(fmt);
                         char *save_ptr = NULL;
                         char *item;
 
-                        while((item = strtok_r(fmt, ":", &save_ptr))) {
-                                fmt = NULL;
+                        while((item = strtok_r(tmp, ":", &save_ptr))) {
+                                tmp = NULL;
                                 if(strncmp(item, "config=", strlen("config=")) == 0) {
                                         s->confName = item + strlen("config=");
                                 } else if(strncmp(item, "codec=", strlen("codec=")) == 0) {
@@ -221,6 +222,7 @@ void *display_sage_init(char *fmt, unsigned int flags)
                                         return NULL;
                                 }
                         }
+                        free(tmp);
                 }
         }
 

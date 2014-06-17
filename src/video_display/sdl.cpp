@@ -418,7 +418,7 @@ static int display_sdl_reconfigure_real(void *state, struct video_desc desc)
         return TRUE;
 }
 
-void *display_sdl_init(char *fmt, unsigned int flags)
+void *display_sdl_init(const char *fmt, unsigned int flags)
 {
         struct state_sdl *s = new state_sdl;
         int ret;

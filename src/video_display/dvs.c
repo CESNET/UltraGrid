@@ -649,7 +649,7 @@ int display_dvs_reconfigure(void *state,
 }
 
 
-void *display_dvs_init(char *fmt, unsigned int flags)
+void *display_dvs_init(const char *cfg, unsigned int flags)
 {
         struct state_hdsp *s;
         int i;
@@ -665,8 +665,9 @@ void *display_dvs_init(char *fmt, unsigned int flags)
         s->tile = vf_get_tile(s->frame, 0);
 
         gettimeofday(&s->t0, NULL);
-        
-        if (fmt != NULL) {
+
+        if (cfg != NULL) {
+                char *fmt = strdup(cfg);
                 if (strcmp(fmt, "help") == 0) {
 			show_help();
                         return &display_init_noerr;
@@ -713,6 +714,7 @@ void *display_dvs_init(char *fmt, unsigned int flags)
                                 }
                         }
                 }
+                free(fmt);
         }
 
         s->audio.data = NULL;

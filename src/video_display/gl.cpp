@@ -279,7 +279,7 @@ static void gl_load_splashscreen(struct state_gl *s)
         display_gl_putf(s, frame, PUTF_BLOCKING);
 }
 
-void * display_gl_init(char *fmt, unsigned int flags) {
+void * display_gl_init(const char *fmt, unsigned int flags) {
         UNUSED(flags);
 	struct state_gl *s = new state_gl;
         

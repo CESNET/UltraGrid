@@ -725,7 +725,7 @@ static int blackmagic_api_version_check(STRING *current_version)
 }
 
 
-void *display_decklink_init(char *fmt, unsigned int flags)
+void *display_decklink_init(const char *fmt, unsigned int flags)
 {
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
