@@ -121,6 +121,7 @@ struct state_decklink {
         BMDTimeScale        frameRateScale;
 
         int frames;
+        int                     audio_consumer_levels; ///< 0 false, 1 true, -1 default
  };
 
 namespace {
@@ -253,7 +254,7 @@ void decklink_playback_help(const char *driver_name)
         } 
 }
 
-void *decklink_playback_init(char *index_str)
+void *decklink_playback_init(char *cfg)
 {
         struct state_decklink *s;
         IDeckLinkIterator*                              deckLinkIterator;
@@ -306,16 +307,42 @@ void *decklink_playback_init(char *index_str)
 
         s = (struct state_decklink *)calloc(1, sizeof(struct state_decklink));
         s->magic = DECKLINK_MAGIC;
+        s->audio_consumer_levels = -1;
         
-        if(index_str == NULL) {
+        if (cfg == NULL) {
                 cardIdx = 0;
-                fprintf(stderr, "Card number unset, using first found (see -d decklink:help)!\n");
-
-        } else if (strcmp(index_str, "help") == 0) {
+                fprintf(stderr, "Card number unset, using first found (see -r decklink:help)!\n");
+        } else if (strcmp(cfg, "help") == 0) {
+                printf("Available Blackmagic audio playback devices:\n");
                 decklink_playback_help(NULL);
+                printf("Options:\n");
+                printf("\t-r decklink[:<index>][:audioConsumerLevels={true|false}]\n");
+                printf("audioConsumerLevels\n");
+                printf("\tIf set true the analog audio levels are set to maximum gain on audio input.\n");
+                printf("\tIf set false the selected analog input gain levels are used.\n");
                 return NULL;
         } else  {
-                cardIdx = atoi(index_str);
+                char *tmp = strdup(cfg);
+                char *item, *save_ptr;
+                item = strtok_r(tmp, ":", &save_ptr);
+                if (item) {
+                        if(strncasecmp(item, "audioConsumerLevels=",
+                                                strlen("audioConsumerLevels=")) == 0) {
+                                char *levels = item + strlen("audioConsumerLevels=");
+                                if (strcasecmp(levels, "false") == 0) {
+                                        s->audio_consumer_levels = 0;
+                                } else {
+                                        s->audio_consumer_levels = 1;
+                                }
+                                item = strtok_r(NULL, ":", &save_ptr);
+                                if (item) {
+                                        cardIdx = atoi(cfg);
+                                }
+                        } else {
+                                cardIdx = atoi(cfg);
+                        }
+                }
+                free(tmp);
         }
 
         // Initialize the DeckLink API
@@ -368,6 +395,14 @@ void *decklink_playback_init(char *index_str)
         {
                 printf("Could not obtain the IDeckLinkConfiguration interface: %08x\n", (int) result);
                 return NULL;
+        }
+
+        if (s->audio_consumer_levels != -1) {
+                result = deckLinkConfiguration->SetFlag(bmdDeckLinkConfigAnalogAudioConsumerLevels,
+                                s->audio_consumer_levels == 1 ? true : false);
+                        if(result != S_OK) {
+                                fprintf(stderr, "[DeckLink capture] Unable set input audio consumer levels.\n");
+                        }
         }
 
         IDeckLinkDisplayModeIterator     *displayModeIterator;
