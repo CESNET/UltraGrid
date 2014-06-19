@@ -30,13 +30,11 @@ unsigned int cuda_devices_count = 1;
 int audio_init_state_ok;
 
 uint32_t RTT = 0;               /*  this is computed by handle_rr in rtp_callback */
-uint32_t hd_color_spc = 0;
 
 int uv_argc;
 char **uv_argv;
 
 char *export_dir = NULL;
-const char *sage_receiver = NULL;
 volatile bool should_exit_receiver = false;
 
 bool verbose = false;

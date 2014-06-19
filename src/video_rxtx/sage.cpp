@@ -43,6 +43,7 @@
 #endif // HAVE_CONFIG_H
 
 #include <string>
+#include <sstream>
 
 #include "host.h"
 #include "video_display.h"
@@ -56,15 +57,22 @@ sage_video_rxtx::sage_video_rxtx(struct module *parent, struct video_export *vid
                         const char *requested_receiver, const char *sage_opts) :
         video_rxtx(parent, video_exporter, requested_compression)
 {
-                sage_receiver = requested_receiver;
-                int ret = initialize_video_display("sage",
-                                sage_opts, 0, &m_sage_tx_device);
-                if(ret != 0) {
-                        throw string("Unable to initialize SAGE TX.");
-                }
-                pthread_create(&m_thread_id, NULL, (void * (*)(void *)) display_run,
-                                &m_sage_tx_device);
-                memset(&m_saved_video_desc, 0, sizeof(m_saved_video_desc));
+        ostringstream oss;
+
+        if (sage_opts) {
+                oss << sage_opts << ":";
+        }
+
+        oss << "fs=" << requested_receiver;
+        oss << ":tx"; // indicates that we are in tx mode
+        int ret = initialize_video_display("sage",
+                        oss.str().c_str(), 0, &m_sage_tx_device);
+        if(ret != 0) {
+                throw string("Unable to initialize SAGE TX.");
+        }
+        pthread_create(&m_thread_id, NULL, (void * (*)(void *)) display_run,
+                        &m_sage_tx_device);
+        memset(&m_saved_video_desc, 0, sizeof(m_saved_video_desc));
 }
 
 void sage_video_rxtx::send_frame(struct video_frame *tx_frame)

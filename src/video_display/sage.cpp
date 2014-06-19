@@ -105,6 +105,7 @@ struct state_sage {
         struct timeval          t, t0;
 
         volatile bool           should_exit;
+        bool                    is_tx;
 };
 
 /** Prototyping */
@@ -169,7 +170,6 @@ void *display_sage_init(const char *fmt, unsigned int flags)
         assert(s != NULL);
 
         s->confName = NULL;
-        s->fsIP = sage_receiver; // NULL unless in SAGE TX mode
         s->requestedDisplayCodec = (codec_t) -1;
 
         if(fmt) {
@@ -213,6 +213,8 @@ void *display_sage_init(const char *fmt, unsigned int flags)
                                                  fprintf(stderr, "Entered codec is not nativelly supported by SAGE.\n");
                                                  free(s); return NULL;
                                          }
+                                } else if(strcmp(item, "tx") == 0) {
+                                        s->is_tx = true;
                                 } else if(strncmp(item, "fs=", strlen("fs=")) == 0) {
                                         s->fsIP = item + strlen("fs=");
                                 } else {
@@ -226,7 +228,7 @@ void *display_sage_init(const char *fmt, unsigned int flags)
                 }
         }
 
-        if(sage_receiver == NULL) {
+        if (!s->is_tx) {
                 // read config file only if we are in dispaly mode (not sender mode)
                 struct stat sb;
                 if(s->confName) {
