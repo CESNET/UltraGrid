@@ -4,7 +4,13 @@
 
 int main(int argc, char *argv[])
 {
-        assert(argc == 5);
+        if (argc != 5) {
+                fprintf(stderr, "Converts UYVY files to yuv422p format recognized by FFmpeg/libav\n\n");
+                fprintf(stderr, "Usage:\n");
+                fprintf(stderr, "\t%s <in_filename> <out_filename> <width> <height>\n\n", argv[0]);
+                return EXIT_FAILURE;
+        }
+
         char *in_name = argv[1];
         char *out_name = argv[2];
         int width = atoi(argv[3]);
@@ -49,5 +55,7 @@ int main(int argc, char *argv[])
 
         fclose(in);
         fclose(out);
+
+        return EXIT_SUCCESS;
 }
 
