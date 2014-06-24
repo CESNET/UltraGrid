@@ -566,9 +566,11 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
         task_result_handle_t task_handle[frame->tile_count];
 
         vector<struct video_frame *> separate_tiles = vf_separate_tiles(frame);
+        // frame pointer may no longer be valid
+        frame = NULL;
 
-        struct compress_worker_data data_tile[frame->tile_count];
-        for(unsigned int i = 0; i < frame->tile_count; ++i) {
+        struct compress_worker_data data_tile[separate_tiles.size()];
+        for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
                 struct compress_worker_data *data = &data_tile[i];
                 data->state = s->state[i];
                 data->frame = separate_tiles[i];
@@ -577,10 +579,10 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
                 task_handle[i] = task_run_async(compress_tile_callback, data);
         }
 
-        vector<struct video_frame *> compressed_tiles(frame->tile_count, 0);
+        vector<struct video_frame *> compressed_tiles(separate_tiles.size(), nullptr);
 
         bool failed = false;
-        for(unsigned int i = 0; i < frame->tile_count; ++i) {
+        for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
                 struct compress_worker_data *data = (struct compress_worker_data *)
                         wait_task(task_handle[i]);
 
@@ -592,7 +594,7 @@ static struct video_frame *compress_frame_tiles(struct compress_state_real *s,
         }
 
         if (failed) {
-                for(unsigned int i = 0; i < frame->tile_count; ++i) {
+                for(unsigned int i = 0; i < separate_tiles.size(); ++i) {
                         VIDEO_FRAME_DISPOSE(compressed_tiles[i]);
                 }
                 return NULL;
