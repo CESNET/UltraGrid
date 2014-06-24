@@ -956,9 +956,12 @@ void display_gl_done(void *state)
         if(s->window != -1) {
                 glutDestroyWindow(s->window);
         }
-        glDeleteProgram(s->PHandle_uyvy);
-        glDeleteProgram(s->PHandle_dxt);
-        glDeleteProgram(s->PHandle_dxt5);
+        if (s->PHandle_uyvy)
+                glDeleteProgram(s->PHandle_uyvy);
+        if (s->PHandle_dxt)
+                glDeleteProgram(s->PHandle_dxt);
+        if (s->PHandle_dxt5)
+                glDeleteProgram(s->PHandle_dxt5);
 
         while (s->free_frame_queue.size() > 0) {
                 struct video_frame *buffer = s->free_frame_queue.front();
