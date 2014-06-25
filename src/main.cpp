@@ -907,18 +907,20 @@ int main(int argc, char *argv[])
 
         /* Pass embedded/analog/AESEBU flags to selected vidcap
          * device. */
-        audio_cap_dev = vidcap_params_get_nth(
-                        vidcap_params_head,
-                        audio_capture_get_vidcap_index(audio_send));
-        if (audio_cap_dev != NULL) {
-                unsigned int orig_flags =
-                        vidcap_params_get_flags(audio_cap_dev);
-                vidcap_params_set_flags(audio_cap_dev, orig_flags
-                                | audio_capture_get_vidcap_flags(audio_send));
-        } else {
-                fprintf(stderr, "Entered index for non-existing vidcap (audio).");
-                exit_uv(EXIT_FAIL_CAPTURE);
-                goto cleanup;
+        if (audio_capture_get_vidcap_flags(audio_send)) {
+                audio_cap_dev = vidcap_params_get_nth(
+                                vidcap_params_head,
+                                audio_capture_get_vidcap_index(audio_send));
+                if (audio_cap_dev != NULL) {
+                        unsigned int orig_flags =
+                                vidcap_params_get_flags(audio_cap_dev);
+                        vidcap_params_set_flags(audio_cap_dev, orig_flags
+                                        | audio_capture_get_vidcap_flags(audio_send));
+                } else {
+                        fprintf(stderr, "Entered index for non-existing vidcap (audio).\n");
+                        exit_uv(EXIT_FAIL_CAPTURE);
+                        goto cleanup;
+                }
         }
 
         ret = initialize_video_capture(&root_mod, vidcap_params_head, &uv->capture_device);
