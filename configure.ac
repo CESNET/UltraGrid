@@ -132,7 +132,7 @@ then
 	CFLAGS="$CFLAGS $COMMON_OSX_FLAGS"
 	CPPFLAGS="$CPPFLAGS $COMMON_OSX_FLAGS"
 	CXXFLAGS="$CXXFLAGS $COMMON_OSX_FLAGS"
-        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include"
+        NVCCFLAGS="$NVCCFLAGS -m32 -I/opt/local/include -Xcompiler -Wno-error=unused-command-line-argument-hard-error-in-future"
 	LDFLAGS="$LDFLAGS $COMMON_OSX_FLAGS"
 	X_CFLAGS="$X_CFLAGS -I/usr/X11R6/include"
         OBJS="$OBJS src/utils/autorelease_pool.o"
