@@ -681,7 +681,7 @@ static bool display_gl_init_opengl(struct state_gl *s)
         glutSetCursor(s->show_cursor ? GLUT_CURSOR_CROSSHAIR : GLUT_CURSOR_NONE);
         //glutHideWindow();
 	glutKeyboardFunc(glut_key_callback);
-	glutDisplayFunc(glutSwapBuffers);
+	glutDisplayFunc((void (*)())glutSwapBuffers); // cast is needed because glutSwapBuffers is stdcall on MSW
 #ifdef HAVE_MACOSX
         glutWMCloseFunc(glut_close_callback);
 #elif FREEGLUT

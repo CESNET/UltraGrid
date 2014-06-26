@@ -37,14 +37,15 @@
 
 #define MODULE_NAME "[Audio testcard] "
 
-#include "audio/capture/testcard.h"
-
-#include "audio/audio.h"
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #include "config_unix.h"
+#include "config_win32.h"
 #endif
+
+#include "audio/capture/testcard.h"
+
+#include "audio/audio.h"
 
 #include "audio/utils.h"
 #include "audio/wav_reader.h"
