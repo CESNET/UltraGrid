@@ -1049,6 +1049,27 @@ AC_SUBST(QUICKTIME_LIB)
 AC_SUBST(QUICKTIME_OBJ)
 
 # -------------------------------------------------------------------------------------------------
+# AV Foundation capture
+# -------------------------------------------------------------------------------------------------
+
+if test $system = MacOSX
+then
+	AVFOUNDATION_INC=""
+	AVFOUNDATION_LIB="-framework AVFoundation -framework CoreMedia -framework CoreVideo"
+	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
+	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
+	#LIB_TARGETS not needed here since we are not building modules on Mac
+	LIB_OBJS="$LIB_OBJS $AVFOUNDATION_OBJ"
+	avfoundation=yes
+fi
+
+LIB_MODULES="$LIB_MODULES $AVFOUNDATION_LIB"
+
+AC_SUBST(AVFOUNDATION_INC)
+AC_SUBST(AVFOUNDATION_LIB)
+AC_SUBST(AVFOUNDATION_OBJ)
+
+# -------------------------------------------------------------------------------------------------
 # SDL Stuff
 SDL_OBJ=
 SDL_LIBS=
@@ -2677,6 +2698,7 @@ RESULT=\
   Library curl ................ $curl
   Library live555 ............. $livemedia
 
+  AV Foundation ............... $avfoundation
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
   DirectShow .................. $dshow
