@@ -907,6 +907,25 @@ void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
 }
 
 /**
+ * @brief Converts RGBA with different shifts to RGBA
+ */
+void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len,
+                int src_rshift, int src_gshift, int src_bshift)
+{
+	register const uint32_t * in = (const uint32_t *)(const void *) src;
+	register uint32_t * out = (uint32_t *)(void *) dst;
+        while(dst_len > 0) {
+		register uint32_t in_val = *in++;
+
+                *out++ = ((in_val >> src_rshift) & 0xff) |
+                        ((in_val >> src_gshift) & 0xff) << 8 |
+                        ((in_val >> src_bshift) & 0xff) << 16;
+
+                dst_len -= 4;
+        }
+}
+
+/**
  * @brief Converts RGB to RGBA
  * @copydetails vc_copyliner10k
  */
