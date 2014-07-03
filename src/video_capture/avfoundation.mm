@@ -45,6 +45,7 @@
 #include "video_capture/avfoundation.h"
 
 #import <AVFoundation/AVFoundation.h>
+#include <chrono>
 #include <iostream>
 #include <mutex>
 #include <queue>
@@ -61,16 +62,23 @@ std::unordered_map<std::string, NSString *> preset_to_av = {
         { "HD", AVCaptureSessionPreset1280x720 },
 };
 
-std::unordered_map<FourCharCode, codec_t> av_to_uv = {
-        {kCVPixelFormatType_422YpCbCr8_yuvs, UYVY},
-        {kCVPixelFormatType_422YpCbCr8FullRange, UYVY},
-        {kCVPixelFormatType_422YpCbCr8, UYVY},
-        {kCVPixelFormatType_32RGBA, RGBA},
+std::unordered_map<CMPixelFormatType, std::tuple<codec_t, int, int, int>> av_to_uv = {
+        {kCVPixelFormatType_32ARGB, {RGBA, 8, 16, 24}},
+        {kCVPixelFormatType_32BGRA, {RGBA, 16, 8, 0}},
         {kCVPixelFormatType_24RGB, RGB},
+	//kCMPixelFormat_16BE555
+	//kCMPixelFormat_16BE565
+	//kCMPixelFormat_16LE555
+	//kCMPixelFormat_16LE565
+	//kCMPixelFormat_16LE5551
+        {kCVPixelFormatType_422YpCbCr8, UYVY},
+        {kCVPixelFormatType_422YpCbCr8_yuvs, YUYV},
+	//kCMPixelFormat_444YpCbCr8
+	//kCMPixelFormat_4444YpCbCrA8
+	//kCMPixelFormat_422YpCbCr16
         {kCVPixelFormatType_422YpCbCr10, v210},
-        {kCMVideoCodecType_JPEG_OpenDML, MJPG},
-        {kCMVideoCodecType_JPEG, MJPG},
-        {kCMVideoCodecType_H264, H264},
+	//kCMPixelFormat_444YpCbCr10
+	//kCMPixelFormat_8IndexedGray_WhiteIsZero
 };
 
 constexpr int MAX_CAPTURE_QUEUE_SIZE = 2;
@@ -85,6 +93,8 @@ using namespace vidcap_avfoundation;
         AVCaptureSession *m_session;
         mutex m_lock;
         queue<struct video_frame *> m_queue;
+	chrono::steady_clock::time_point m_t0;
+	int m_frames;
 }
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
@@ -125,8 +135,9 @@ fromConnection:(AVCaptureConnection *)connection;
                         CMVideoFormatDescriptionRef formatDesc = [format formatDescription];
                         FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
                         CMVideoDimensions dim = CMVideoFormatDescriptionGetDimensions(formatDesc);
+                        FourCharCode fcc_host = CFSwapInt32BigToHost(fcc);
 
-                        printf("\t%d: %.4s %dx%d", j, (const char *) &fcc, dim.width, dim.height);
+                        printf("\t%d: %.4s %dx%d", j, (const char *) &fcc_host, dim.width, dim.height);
                         if (verbose) {
                                 cout << endl;
                                 int k = 0;
@@ -150,6 +161,9 @@ fromConnection:(AVCaptureConnection *)connection;
 {
         self = [super init];
         bool use_preset = true;
+
+	m_t0 = chrono::steady_clock::now();
+	m_frames = 0;
 
         NSError *error = nil;
 
@@ -202,18 +216,17 @@ fromConnection:(AVCaptureConnection *)connection;
         [output setSampleBufferDelegate:self queue:queue];
         dispatch_release(queue);
 
+        // If you wish to cap the frame rate to a known value, such as 15 fps, set
+        // minFrameDuration.
+
 #if 0
         // TODO: do not do this, AV foundation usually selects better codec than we
         // Specify the pixel format
         output.videoSettings =
                 [NSDictionary dictionaryWithObject:
-                [NSNumber numberWithInt:kCVPixelFormatType_422YpCbCr8]
+                [NSNumber numberWithInt:kCVPixelFormatType_422YpCbCr10]
                 forKey:(id)kCVPixelBufferPixelFormatTypeKey];
 #endif
-
-
-        // If you wish to cap the frame rate to a known value, such as 15 fps, set
-        // minFrameDuration.
 
         if ([params valueForKey:@"mode"]) {
                 use_preset = false;
@@ -255,6 +268,17 @@ fromConnection:(AVCaptureConnection *)connection;
                 } else {
                         NSLog(@"Unable to set mode!");
                 }
+		// try to use native format if possible
+		if (format) {
+			CMVideoFormatDescriptionRef formatDesc = [[m_device activeFormat] formatDescription];
+			FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
+			if (av_to_uv.find(fcc) != av_to_uv.end()) {
+				output.videoSettings =
+					[NSDictionary dictionaryWithObject:
+					[NSNumber numberWithInt:fcc]
+					forKey:(id)kCVPixelBufferPixelFormatTypeKey];
+			}
+		}
         } else {
                 NSString *preset = AVCaptureSessionPresetMedium;
                 if ([params valueForKey:@"preset"]) {
@@ -285,6 +309,8 @@ fromConnection:(AVCaptureConnection *)connection;
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 fromConnection:(AVCaptureConnection *)connection
 {
+#pragma unused (captureOutput)
+#pragma unused (connection)
         lock_guard<mutex> lock(m_lock);
         struct video_frame *frame = [self imageFromSampleBuffer: sampleBuffer];
         if (frame) {
@@ -305,62 +331,70 @@ fromConnection:(AVCaptureConnection *)connection
         [super dealloc];
 }
 
-- (AVFrameRateRange *)frameRateRange
-{
-        AVFrameRateRange *activeFrameRateRange = nil;
-        for (AVFrameRateRange *frameRateRange in [[m_device activeFormat] videoSupportedFrameRateRanges])
-        {
-                if (CMTIME_COMPARE_INLINE([frameRateRange minFrameDuration], ==, [m_device activeVideoMinFrameDuration]))
-                {
-                        activeFrameRateRange = frameRateRange;
-                        break;
-                }
-        }
-
-        return activeFrameRateRange;
-}
-
 // Create a UIImage from sample buffer data
 - (struct video_frame *) imageFromSampleBuffer:(CMSampleBufferRef) sampleBuffer
 {
-        NSLog(@"imageFromSampleBuffer: called");
+        //NSLog(@"imageFromSampleBuffer: called");
+
+	CMBlockBufferRef blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer);
+	CMFormatDescriptionRef videoDesc = CMSampleBufferGetFormatDescription(sampleBuffer);
+	CMVideoDimensions dim = CMVideoFormatDescriptionGetDimensions(videoDesc);
+	CMTime dur = CMSampleBufferGetOutputDuration(sampleBuffer);
+	FourCharCode fcc = CMFormatDescriptionGetMediaSubType(videoDesc);
+
+	auto codec_it = av_to_uv.find(fcc);
+	if (codec_it == av_to_uv.end()) {
+		NSLog(@"Unhandled codec: %.4s!\n", (const char *) &fcc);
+		return NULL;
+	}
+
+	struct video_desc desc;
+	desc.color_spec = get<0>(codec_it->second);
+	desc.width = dim.width;
+	desc.height = dim.height;
+	desc.fps = 1.0 / CMTimeGetSeconds(dur);
+	desc.tile_count = 1;
+	desc.interlacing = PROGRESSIVE;
+
+	struct video_frame *ret = nullptr;
+
         // Get a CMSampleBuffer's Core Video image buffer for the media data
         CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-        [(id) imageBuffer retain];
+	if (imageBuffer) {
+		[(id) imageBuffer retain];
 
-        //CMVideoFormatDescriptionRef formatDesc = [[m_device activeFormat] formatDescription];
-        //FourCharCode fcc = CMFormatDescriptionGetMediaSubType(formatDesc);
-        OSType fcc = CVPixelBufferGetPixelFormatType(imageBuffer);
-        auto codec_it = av_to_uv.find(fcc);
-        if (codec_it == av_to_uv.end()) {
-                NSLog(@"Unhandled codec: %.4s!\n", (const char *) &fcc);
-                [(id) imageBuffer release];
-                return NULL;
-        }
+		ret = vf_alloc_desc(desc);
+		// Lock the base address of the pixel buffer
+		CVPixelBufferLockBaseAddress(imageBuffer, 0);
+		ret->tiles[0].data = (char *) CVPixelBufferGetBaseAddress(imageBuffer);
+		ret->dispose_udata = imageBuffer;
+		ret->dispose = static_cast<void (*)(struct video_frame *)>([](struct video_frame *frame)
+				{
+				CVImageBufferRef imageBuffer = (CVImageBufferRef) frame->dispose_udata;
+				// Unlock the pixel buffer
+				CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+				[(id) imageBuffer release];
+				vf_free(frame);
+				});
 
-        struct video_desc desc;
-        desc.color_spec = codec_it->second;
-        desc.width = CVPixelBufferGetWidth(imageBuffer);
-        desc.height = CVPixelBufferGetHeight(imageBuffer);
-        desc.fps = [[self frameRateRange] maxFrameRate];
-        desc.tile_count = 1;
-        desc.interlacing = PROGRESSIVE;
+	} else {
+		ret = vf_alloc_desc_data(desc);
+		CMBlockBufferCopyDataBytes(blockBuffer, 0, ret->tiles[0].data_len, ret->tiles[0].data);
+		ret->dispose = vf_free;
+	}
 
-        struct video_frame *ret = vf_alloc_desc(desc);
-        // Lock the base address of the pixel buffer
-        CVPixelBufferLockBaseAddress(imageBuffer, 0);
-        ret->tiles[0].data = (char *) CVPixelBufferGetBaseAddress(imageBuffer);
-        ret->dispose_udata = imageBuffer;
-        ret->dispose = static_cast<void (*)(struct video_frame *)>([](struct video_frame *frame)
-                        {
-                        CVImageBufferRef imageBuffer = (CVImageBufferRef) frame->dispose_udata;
-                        // Unlock the pixel buffer
-                        CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
-                        [(id) imageBuffer release];
-                        vf_free(frame);
-                        });
+	if (desc.color_spec == RGBA && (get<1>(codec_it->second) != 0 || get<2>(codec_it->second) != 8 ||
+				get<2>(codec_it->second) != 16)) {
+		int linesize = vc_get_linesize(desc.width, desc.color_spec);
+		for (unsigned int y = 0; y < desc.height; ++y) {
+			vc_copylineToRGBA((unsigned char *) ret->tiles[0].data + y * linesize,
+					(unsigned char *) ret->tiles[0].data + y * linesize,
+					linesize, get<1>(codec_it->second),
+					get<2>(codec_it->second), get<3>(codec_it->second));
+		}
+	}
 
-        return ret;
+	return ret;
 }
 
 - (struct video_frame *) grab
@@ -372,6 +406,18 @@ fromConnection:(AVCaptureConnection *)connection
                 struct video_frame *ret;
                 ret = m_queue.front();
                 m_queue.pop();
+
+		m_frames++;
+
+		chrono::steady_clock::time_point now = chrono::steady_clock::now();
+		double seconds = chrono::duration_cast<chrono::microseconds>(now - m_t0).count() / 1000000.0;
+		if (seconds >= 5) {
+			cout << "[AVfoundation capture] " << m_frames << " frames in "
+				<< seconds << " seconds = " <<  m_frames / seconds << " FPS\n";
+			m_t0 = now;
+			m_frames = 0;
+		}
+
                 return ret;
         }
 }
@@ -436,6 +482,7 @@ void vidcap_avfoundation_done(void *state)
 
 struct video_frame *vidcap_avfoundation_grab(void *state, struct audio_frame **audio)
 {
+	*audio = nullptr;
         return [(vidcap_avfoundation_state *) state grab];
 }
 
