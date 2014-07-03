@@ -202,9 +202,9 @@ then
         AC_MSG_ERROR([Your compiler does not accept C99.])
 fi
 
-AC_CHECK_SIZEOF([int *])
+AC_CHECK_SIZEOF([size_t])
 
-if test $ac_cv_sizeof_int_p -eq 8
+if test $ac_cv_sizeof_size_t -eq 8
 then
         WORD_LEN=64
 else

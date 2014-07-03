@@ -507,6 +507,7 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
  */
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 {
+#if WORD_LEN == 64
         register uint32_t *d;
         register const uint32_t *s;
         const uint32_t * const end = (uint32_t *)(void *) dst + dst_len / 4;
@@ -549,6 +550,20 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 
                 }
         }
+#else
+	char u, y1, v, y2;
+	while (dst_len > 0) {
+		y1 = *src++;
+		u = *src++;
+		y2 = *src++;
+		v = *src++;
+		*dst++ = u;
+		*dst++ = y1;
+		*dst++ = v;
+		*dst++ = y2;
+		dst_len -= 4;
+	}
+#endif
 }
 
 /**
