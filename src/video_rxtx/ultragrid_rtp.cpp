@@ -315,7 +315,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
-                timeout.tv_usec = 10000;
+                timeout.tv_usec = 1000;
                 ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
 
                 // timeout
