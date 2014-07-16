@@ -216,9 +216,6 @@ fromConnection:(AVCaptureConnection *)connection;
         [output setSampleBufferDelegate:self queue:queue];
         dispatch_release(queue);
 
-        // If you wish to cap the frame rate to a known value, such as 15 fps, set
-        // minFrameDuration.
-
 #if 0
         // TODO: do not do this, AV foundation usually selects better codec than we
         // Specify the pixel format
@@ -262,7 +259,7 @@ fromConnection:(AVCaptureConnection *)connection;
                         }
                         if (rate) {
                                 m_device.activeVideoMinFrameDuration = rate.minFrameDuration;
-                                m_device.activeVideoMaxFrameDuration = rate.minFrameDuration;
+                                m_device.activeVideoMaxFrameDuration = rate.maxFrameDuration;
                         }
                         [m_device unlockForConfiguration];
                 } else {
@@ -291,6 +288,13 @@ fromConnection:(AVCaptureConnection *)connection;
                 }
                 m_session.sessionPreset = preset;
         }
+
+	// set device frame rate also to capture output to prevent rate oscilation
+	AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
+	if (conn.isVideoMinFrameDurationSupported)
+		conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
+	if (conn.isVideoMaxFrameDurationSupported)
+		conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
 
         // You must also call lockForConfiguration: before calling the AVCaptureSession method startRunning, or the session's preset will override the selected active format on the capture device.
         //https://developer.apple.com/library/mac/documentation/AVFoundation/Reference/AVCaptureDevice_Class/Reference/Reference.html
