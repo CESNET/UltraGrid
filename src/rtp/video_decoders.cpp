@@ -586,11 +586,10 @@ static void *decompress_thread(void *args) {
                                         decoder->frame, putf_flags);
                         if (ret == 0) {
                                 decoder->displayed++;
-                                decoder->frame =
-                                        display_get_frame(decoder->display);
                         } else {
                                 decoder->dropped++;
                         }
+                        decoder->frame = display_get_frame(decoder->display);
                 }
 
 skip_frame:
