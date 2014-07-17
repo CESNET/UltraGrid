@@ -67,7 +67,6 @@ struct vidcap_params;
 extern int uv_argc;
 extern char **uv_argv;
 
-extern long long bitrate;
 extern long packet_rate; // gives interval between individual packets (in ns)
 
 extern volatile bool should_exit_receiver;
@@ -115,6 +114,9 @@ int initialize_video_capture(struct module *parent,
 // if not NULL, data should be exported
 extern char *export_dir;
 extern char *sage_network_device;
+
+#define RATE_AUTO -1
+#define compute_packet_rate(bitrate, mtu) (1000ll * 1000 * 1000 * mtu * 8 / bitrate)
 
 #ifdef __cplusplus
 }

@@ -245,8 +245,8 @@ static void usage(void)
         printf("\t                         \tYou can also specify all two or four ports\n");
         printf("\t                         \tdirectly.\n");
         printf("\n");
-        printf("\t-l <limit_bitrate> | unlimited\tlimit sending bitrate (aggregate)\n");
-        printf("\t                         \tto limit_bitrate (with optional k/M/G suffix)\n");
+        printf("\t-l <limit_bitrate> | unlimited | auto\tlimit sending bitrate\n");
+        printf("\t                         \tto <limit_bitrate> (with optional k/M/G suffix)\n");
         printf("\n");
         printf("\t--audio-channel-map      <mapping> | help\n");
         printf("\n");
@@ -479,6 +479,8 @@ int main(int argc, char *argv[])
         const char *requested_encryption = NULL;
         struct video_export *video_exporter = NULL;
 
+        int bitrate = RATE_AUTO;
+
 #if defined DEBUG && defined HAVE_LINUX
         mtrace();
 #endif
@@ -677,7 +679,9 @@ int main(int argc, char *argv[])
                         break;
                 case 'l':
                         if(strcmp(optarg, "unlimited") == 0) {
-                                bitrate = -1;
+                                bitrate = 0;
+                        } else if(strcmp(optarg, "auto") == 0) {
+                                bitrate = RATE_AUTO;
                         } else {
                                 bitrate = unit_evaluate(optarg);
                                 if(bitrate <= 0) {
@@ -832,14 +836,10 @@ int main(int argc, char *argv[])
                 video_exporter = video_export_init(export_dir);
         }
 
-        if(bitrate == 0) { // else packet_rate defaults to 13600 or so
-                bitrate = DEFAULT_BITRATE;
-        }
-
-        if(bitrate != -1) {
-                packet_rate = 1000ll * 1000 * 1000 * requested_mtu * 8 / bitrate;
+        if (bitrate != RATE_AUTO && bitrate != 0) {
+                packet_rate = compute_packet_rate(bitrate, requested_mtu);
         } else {
-                packet_rate = 0;
+                packet_rate = bitrate;
         }
 
         if (argc > 0) {
