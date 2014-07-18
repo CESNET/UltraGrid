@@ -551,8 +551,8 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
         if (packet_rate == RATE_AUTO) {
                 double time_for_frame = 1.0 / frame->fps / frame->tile_count;
                 long long req_bitrate = tile->data_len * 8 / time_for_frame * tx->mult_count;
-                // adjust computed value to 9/8
-                req_bitrate = req_bitrate / 8 * 9;
+                // adjust computed value to 4/3
+                req_bitrate = req_bitrate / 3 * 4;
                 packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
         }
 
