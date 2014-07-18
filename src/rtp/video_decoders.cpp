@@ -1534,7 +1534,7 @@ int decode_video_frame(struct coded_data *cdata, void *decoder_data)
                 data_pos = ntohl(hdr[1]);
                 tmp = ntohl(hdr[0]);
                 substream = tmp >> 22;
-                buffer_number = tmp & 0x3ffff;
+                buffer_number = tmp & 0x3fffff;
                 buffer_length = ntohl(hdr[2]);
 
                 if (pt == PT_VIDEO_LDGM || pt == PT_ENCRYPT_VIDEO_LDGM) {
