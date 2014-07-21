@@ -797,8 +797,11 @@ static void gl_resize(int width, int height)
 
         if (gl->current_frame) {
                 // redraw last frame
-                gl_render(gl, gl->current_frame->tiles[0].data);
-                gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2);
+                for (int i = 0; i < 2; ++i) {
+                        gl_render(gl, gl->current_frame->tiles[0].data);
+                        gl_draw(gl->aspect, (gl->dxt_height - gl->current_display_desc.height) / (float) gl->dxt_height * 2);
+                        glutSwapBuffers();
+                }
                 glutPostRedisplay();
         }
 }

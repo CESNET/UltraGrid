@@ -507,6 +507,7 @@ void vc_copylinev210(unsigned char *dst, const unsigned char *src, int dst_len)
  */
 void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 {
+#if WORD_LEN == 64
         register uint32_t *d;
         register const uint32_t *s;
         const uint32_t * const end = (uint32_t *)(void *) dst + dst_len / 4;
@@ -549,6 +550,20 @@ void vc_copylineYUYV(unsigned char *dst, const unsigned char *src, int dst_len)
 
                 }
         }
+#else
+	char u, y1, v, y2;
+	while (dst_len > 0) {
+		y1 = *src++;
+		u = *src++;
+		y2 = *src++;
+		v = *src++;
+		*dst++ = u;
+		*dst++ = y1;
+		*dst++ = v;
+		*dst++ = y2;
+		dst_len -= 4;
+	}
+#endif
 }
 
 /**
@@ -903,6 +918,25 @@ void vc_copylineABGRtoRGB(unsigned char *dst2, const unsigned char *src2, int ds
                         (in3 & 0xff);
 
                 dst_len -= 12;
+        }
+}
+
+/**
+ * @brief Converts RGBA with different shifts to RGBA
+ */
+void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int dst_len,
+                int src_rshift, int src_gshift, int src_bshift)
+{
+	register const uint32_t * in = (const uint32_t *)(const void *) src;
+	register uint32_t * out = (uint32_t *)(void *) dst;
+        while(dst_len > 0) {
+		register uint32_t in_val = *in++;
+
+                *out++ = ((in_val >> src_rshift) & 0xff) |
+                        ((in_val >> src_gshift) & 0xff) << 8 |
+                        ((in_val >> src_bshift) & 0xff) << 16;
+
+                dst_len -= 4;
         }
 }
 

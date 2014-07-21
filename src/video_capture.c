@@ -66,6 +66,7 @@
 #include "video_capture.h"
 #include "video_capture/DirectShowGrabber.h"
 #include "video_capture/aggregate.h"
+#include "video_capture/avfoundation.h"
 #include "video_capture/bluefish444.h"
 #include "video_capture/decklink.h"
 #include "video_capture/deltacast.h"
@@ -159,6 +160,17 @@ struct vidcap_device_api vidcap_device_table[] = {
          MK_STATIC(vidcap_aggregate_grab),
          NULL
         },
+#if defined HAVE_AVFOUNDATION
+        {
+         0,
+         "avfoundation",
+         MK_NAME(vidcap_avfoundation_probe),
+         MK_NAME(vidcap_avfoundation_init),
+         MK_NAME(vidcap_avfoundation_done),
+         MK_NAME(vidcap_avfoundation_grab),
+         NULL
+        },
+#endif
         {
          0,
          NULL,

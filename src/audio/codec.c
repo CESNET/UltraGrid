@@ -280,8 +280,12 @@ audio_frame2 *audio_codec_decompress(struct audio_codec_state *s, audio_frame2 *
                         }
                 }
                 s->state_count = frame->ch_count;
+        }
+
+        if (s->out->ch_count != frame->ch_count) {
                 s->out->ch_count = frame->ch_count;
         }
+
         audio_channel channel;
         int nonzero_channels = 0;
         for(int i = 0; i < frame->ch_count; ++i) {

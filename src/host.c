@@ -20,7 +20,6 @@
 #include "rtp/video_decoders.h"
 #include "rtp/pbuf.h"
 
-long long bitrate = 0;
 unsigned int cuda_device = 0;
 unsigned int audio_capture_channels = 1;
 

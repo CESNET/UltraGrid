@@ -190,6 +190,12 @@ $(REFLECTOR_TARGET): bindir $(OBJS) $(GENERATED_HEADERS) $(REFLECTOR_OBJS)
 %.o: %.cpp $(ALL_INCLUDES)
 	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
+%.o: %.m $(ALL_INCLUDES)
+	$(CXX) $(CFLAGS) $(INC) -c $< -o $@
+
+%.o: %.mm $(ALL_INCLUDES)
+	$(CXX) -x objective-c++ -std=c++11 $(CXXFLAGS) $(INC) -c $< -o $@
+
 # Set suffix for CUDA files
 .SUFFIXES: .cu
 

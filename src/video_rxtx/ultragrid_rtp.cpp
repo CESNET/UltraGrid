@@ -297,6 +297,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         uint64_t total_received = 0ull;
 
         while (!should_exit_receiver) {
+                bool decoded = false;
                 struct timeval timeout;
                 /* Housekeeping and RTCP... */
                 gettimeofday(&curr_time, NULL);
@@ -314,7 +315,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
 
                 timeout.tv_sec = 0;
                 //timeout.tv_usec = 999999 / 59.94;
-                timeout.tv_usec = 10000;
+                timeout.tv_usec = 1000;
                 ret = rtp_recv_r(m_network_devices[0], &timeout, ts);
 
                 // timeout
@@ -367,6 +368,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                         tiles_post = 0;
                                         gettimeofday(&curr_time, NULL);
                                         fr = 1;
+                                        decoded = true;
 #if 0
                                         display_put_frame(uv->display_device,
                                                           cp->video_decoder_state->frame_buffer);
@@ -387,6 +389,7 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
                                 tiles_post = 0;
                                 gettimeofday(&curr_time, NULL);
                                 fr = 1;
+                                decoded = true;
 #if 0
                                 display_put_frame(uv->display_device,
                                                 cp->video_decoder_state->frame_buffer);

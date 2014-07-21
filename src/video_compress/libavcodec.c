@@ -390,28 +390,6 @@ static bool configure_with(struct state_video_compress_libav *s, struct video_de
                         avg_bpp * desc.fps;
         }
 
-        if (s->codec_ctx->bit_rate > bitrate * 3 / 4) { // set in main.c
-                fprintf(stderr, "\033[1;31m[lavc] Warning: \033[0;31m");
-                fprintf(stderr, "Requested bitrate exceeds 3/4 of limiting bitrate "
-                                "(commandline -l parameter). Try reducing "
-                                "libavcodec bitrate and/or extending limiting "
-                                "bitrate ('-l %d' or "
-                                "'-c libavcodec:bitrate=%lld).\n",
-                                s->codec_ctx->bit_rate / 3 * 4,
-                                bitrate / 4 * 3
-                                );
-                fprintf(stderr, "\033[0;49m");
-        }
-
-        if (s->codec_ctx->bit_rate > bitrate / 2 && !s->exact_bitrate) { // set in main.c
-                fprintf(stderr, "\033[1;32m[lavc] Warning: \033[0;32m");
-                fprintf(stderr, "Requested bitrate is more than half of "
-                                "limiting bitrate, codec bitrate may exceed "
-                                "specified value by scene changes. Consider "
-                                "supplying 'exact_bitrate' option to libavcodec.\n");
-                fprintf(stderr, "\033[0;49m");
-        }
-
         s->codec_ctx->bit_rate_tolerance = s->codec_ctx->bit_rate / 4;
 
         /* resolution must be a multiple of two */

@@ -151,7 +151,7 @@ struct tx {
 // Mulaw audio memory reservation
 static void init_tx_mulaw_buffer() {
     if (!buffer_mulaw_init) {
-        data_buffer_mulaw = malloc(BUFFER_MTU_SIZE*20);
+        data_buffer_mulaw = (char *) malloc(BUFFER_MTU_SIZE*20);
         buffer_mulaw_init = 1;
     }
 }
@@ -205,7 +205,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
 
                 tx->magic = TRANSMIT_MAGIC;
                 tx->media_type = media_type;
-                tx->mult_count = 0;
+                tx->mult_count = 1;
                 tx->max_loss = 0.0;
                 tx->mtu = mtu;
                 tx->buffer = lrand48() & 0x3fffff;
@@ -547,6 +547,15 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
 
         int fec_symbol_offset = 0;
 
+        int packet_rate = tx->packet_rate;
+        if (packet_rate == RATE_AUTO) {
+                double time_for_frame = 1.0 / frame->fps / frame->tile_count;
+                long long req_bitrate = tile->data_len * 8 / time_for_frame * tx->mult_count;
+                // adjust computed value to 4/3
+                req_bitrate = req_bitrate / 3 * 4;
+                packet_rate = compute_packet_rate(req_bitrate, tx->mtu);
+        }
+
         do {
                 if(tx->fec_scheme == FEC_MULT) {
                         pos = mult_pos[mult_index];
@@ -610,7 +619,7 @@ tx_send_base(struct tx *tx, struct video_frame *frame, struct rtp *rtp_session,
                         GET_DELTA;
                         if (delta < 0)
                                 delta += 1000000000L;
-                } while (tx->packet_rate - delta > 0);
+                } while (packet_rate - delta > 0);
 
                 /* when trippling, we need all streams goes to end */
                 if(tx->fec_scheme == FEC_MULT) {
@@ -692,6 +701,13 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                 /* fifth word */
                 audio_hdr[4] = htonl(get_audio_tag(buffer->codec));
 
+                int packet_rate = tx->packet_rate;
+                if (packet_rate == RATE_AUTO) {
+                        /// @todo add automatic packet rate management also for audio. We currently don't
+                        /// know actual audio buffer length (if compressed)
+                        packet_rate = 0;
+                }
+
                 do {
                         if(tx->fec_scheme == FEC_MULT) {
                                 pos = mult_pos[mult_index];
@@ -739,7 +755,7 @@ void audio_tx_send(struct tx* tx, struct rtp *rtp_session, audio_frame2 * buffer
                                 GET_DELTA;
                                 if (delta < 0)
                                         delta += 1000000000L;
-                        } while (tx->packet_rate - delta > 0);
+                        } while (packet_rate - delta > 0);
 
                         /* when trippling, we need all streams goes to end */
                         if(tx->fec_scheme == FEC_MULT) {

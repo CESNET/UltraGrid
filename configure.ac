@@ -202,9 +202,9 @@ then
         AC_MSG_ERROR([Your compiler does not accept C99.])
 fi
 
-AC_CHECK_SIZEOF([int *])
+AC_CHECK_SIZEOF([size_t])
 
-if test $ac_cv_sizeof_int_p -eq 8
+if test $ac_cv_sizeof_size_t -eq 8
 then
         WORD_LEN=64
 else
@@ -1047,6 +1047,27 @@ LIB_MODULES="$LIB_MODULES $QUICKTIME_LIB"
 AC_SUBST(QUICKTIME_INC)
 AC_SUBST(QUICKTIME_LIB)
 AC_SUBST(QUICKTIME_OBJ)
+
+# -------------------------------------------------------------------------------------------------
+# AV Foundation capture
+# -------------------------------------------------------------------------------------------------
+
+if test $system = MacOSX
+then
+	AVFOUNDATION_INC=""
+	AVFOUNDATION_LIB="-framework AVFoundation -framework CoreMedia -framework CoreVideo"
+	AC_DEFINE([HAVE_AVFOUNDATION], [1],  [Build with AV Foundation support])
+	AVFOUNDATION_OBJ="src/video_capture/avfoundation.o"
+	#LIB_TARGETS not needed here since we are not building modules on Mac
+	LIB_OBJS="$LIB_OBJS $AVFOUNDATION_OBJ"
+	avfoundation=yes
+fi
+
+LIB_MODULES="$LIB_MODULES $AVFOUNDATION_LIB"
+
+AC_SUBST(AVFOUNDATION_INC)
+AC_SUBST(AVFOUNDATION_LIB)
+AC_SUBST(AVFOUNDATION_OBJ)
 
 # -------------------------------------------------------------------------------------------------
 # SDL Stuff
@@ -2677,6 +2698,7 @@ RESULT=\
   Library curl ................ $curl
   Library live555 ............. $livemedia
 
+  AV Foundation ............... $avfoundation
   Bluefish444 ................. $bluefish444 (audio: $blue_audio)
   DeckLink .................... $decklink
   DirectShow .................. $dshow

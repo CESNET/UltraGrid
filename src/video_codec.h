@@ -126,6 +126,8 @@ void vc_copyliner10k(unsigned char *dst, const unsigned char *src, int len,
                 int rshift, int gshift, int bshift);
 void vc_copylineRGBA(unsigned char *dst, const unsigned char *src, int len,
                 int rshift, int gshift, int bshift);
+void vc_copylineToRGBA(unsigned char *dst, const unsigned char *src, int len,
+                int src_rshift, int src_gshift, int src_bshift);
 void vc_copylineDVS10toV210(unsigned char *dst, const unsigned char *src, int dst_len);
 void vc_copylineRGBAtoRGB(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
 void vc_copylineABGRtoRGB(unsigned char *dst, const unsigned char *src, int len, int rshift, int gshift, int bshift);
