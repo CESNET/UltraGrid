@@ -130,6 +130,9 @@ struct state_audio {
         
         struct timeval start_time;
 
+        struct timeval t0; // for statistics
+        audio_frame2 *captured;
+
         struct tx *tx_session;
         
         pthread_t audio_sender_thread_id,
@@ -301,6 +304,8 @@ struct state_audio * audio_cfg_init(struct module *parent, const char *addrs, in
         }
 
         gettimeofday(&s->start_time, NULL);        
+        gettimeofday(&s->t0, NULL);
+        s->captured = audio_frame2_init();
         
         tmp = strdup(addrs);
         s->audio_participants = pdb_init();
@@ -426,6 +431,8 @@ error:
                 module_done(&s->mod);
         }
 
+        audio_frame2_free(s->captured);
+
         audio_codec_done(s->audio_coder);
         free(s);
         exit_uv(1);
@@ -473,6 +480,8 @@ void audio_done(struct state_audio *s)
 
                 free(s->audio_network_parameters.addr);
                 free(s->audio_network_parameters.mcast_if);
+
+                audio_frame2_free(s->captured);
 
                 free(s);
         }
@@ -762,6 +771,32 @@ static void audio_sender_process_message(struct state_audio *s, struct msg_sende
         }
 }
 
+static void process_statistics(struct state_audio *s, audio_frame2 *buffer)
+{
+        if (s->captured->ch_count != buffer->ch_count) {
+                audio_frame2_reset(s->captured);
+        }
+        audio_frame2_append(s->captured, buffer);
+
+        struct timeval t;
+        double seconds;
+        gettimeofday(&t, 0);
+        seconds = tv_diff(t, s->t0);
+        if (seconds > 5.0) {
+                printf("[Audio sender] Sent %d samples in last %f seconds.\n",
+                                audio_frame2_get_sample_count(s->captured),
+                                seconds);
+                for (int i = 0; i < s->captured->ch_count; ++i) {
+                        double rms, peak;
+                        rms = calculate_rms(s->captured, i, &peak);
+                        printf("[Audio sender] Channel %d - volume: %f dBFS RMS, %f dBFS peak.\n",
+                                        i, 20 * log(rms) / log(10), 20 * log(peak) / log(10));
+                }
+                s->t0 = t;
+                audio_frame2_reset(s->captured);
+        }
+}
+
 static void *audio_sender_thread(void *arg)
 {
         struct state_audio *s = (struct state_audio *) arg;
@@ -801,6 +836,7 @@ static void *audio_sender_thread(void *arg)
                                 resample(&resample_state, buffer);
                                 // COMPRESS
                                 audio_frame_to_audio_frame2(buffer_new, &resample_state.resampled);
+                                process_statistics(s, buffer_new);
                                 free(resample_state.resampled.data);
                                 if(buffer_new) {
                                         audio_frame2 *uncompressed = buffer_new;
