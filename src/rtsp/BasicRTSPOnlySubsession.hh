@@ -93,12 +93,12 @@ public:
     createNew(UsageEnvironment& env,
         Boolean reuseFirstSource,
         struct module *mod,
-        rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
+        rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
 
 protected:
 
     BasicRTSPOnlySubsession(UsageEnvironment& env, Boolean reuseFirstSource,
-        struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
+        struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
 
     virtual ~BasicRTSPOnlySubsession();
 
@@ -147,6 +147,7 @@ private:
     int audio_channels;
     int audio_bps;
     int rtp_port; //server rtp port
+    int rtp_port_audio; //server rtp port
 };
 
 

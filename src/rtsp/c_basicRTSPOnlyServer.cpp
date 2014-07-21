@@ -46,7 +46,7 @@
 
 int c_start_server(rtsp_serv_t* server){
     int ret;
-    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType, server->audio_codec, server->audio_sample_rate, server->audio_channels, server->audio_bps, server->rtp_port);
+    BasicRTSPOnlyServer *srv = BasicRTSPOnlyServer::initInstance(server->port, server->mod, server->avType, server->audio_codec, server->audio_sample_rate, server->audio_channels, server->audio_bps, server->rtp_port, server->rtp_port_audio);
     srv->init_server();
     ret = pthread_create(&server->server_th, NULL, BasicRTSPOnlyServer::start_server, &server->watch);
     if (ret == 0){
@@ -57,7 +57,7 @@ int c_start_server(rtsp_serv_t* server){
     return ret;
 }
 
-rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port){
+rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
     rtsp_serv_t *server = (rtsp_serv_t*) malloc(sizeof(rtsp_serv_t));
     server->port = port;
     server->mod = mod;
@@ -69,6 +69,7 @@ rtsp_serv_t *init_rtsp_server(unsigned int port, struct module *mod, rtps_types_
     server->audio_channels = audio_channels;
     server->audio_bps = audio_bps;
     server->rtp_port = rtp_port;
+    server->rtp_port_audio = rtp_port_audio;
     return server;
 }
 

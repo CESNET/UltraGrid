@@ -50,7 +50,7 @@ class h264_rtp_video_rxtx : public rtp_video_rxtx {
 public:
         h264_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
                         const char *requested_compression, const char *requested_encryption,
-                        const char *receiver, int rx_port, int tx_port,
+                        const char *receiver, int rx_port, int tx_port, int a_rx_port, int a_tx_port,
                         bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
                         long packet_rate, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtsp_port);
         virtual ~h264_rtp_video_rxtx();

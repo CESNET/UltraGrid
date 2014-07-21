@@ -1291,7 +1291,7 @@ case $host in
 	        CXXFLAGS="$CXXFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
 			RTSP_SERVER_INC=
 			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"
+			RTSP_SERVER_OBJ="src/rtp/rtpenc_h264.o src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"
                         AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/rtsp_server.so.$video_capture_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"

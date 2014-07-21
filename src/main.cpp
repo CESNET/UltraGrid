@@ -617,12 +617,12 @@ int main(int argc, char *argv[])
                         	rtsp_port = 0;
                         } else {
                                 if (!strcmp(optarg, "help")) {
-#ifdef HEAVE_RTSP
+#ifdef HAVE_RTSP_SERVER
                                         rtps_server_usage();
 #endif
                                         return 0;
                                 }
-#ifdef HEAVE_RTSP
+#ifdef HAVE_RTSP_SERVER
                                 rtsp_port = get_rtsp_server_port(optarg);
 #endif
                                 if (rtsp_port == -1) return 0;
@@ -983,7 +983,7 @@ int main(int argc, char *argv[])
 
                         uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
                                         requested_compression, requested_encryption,
-                                        requested_receiver, recv_port_number, send_port_number,
+                                        requested_receiver, recv_port_number, send_port_number, audio_rx_port, audio_tx_port,
                                         ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
                                         packet_rate, avType, get_audio_codec(audio_codec), compressed_audio_sample_rate, audio_capture_channels, 2 /*bps*/, rtsp_port);
                 } else if (video_protocol == ULTRAGRID_RTP) {

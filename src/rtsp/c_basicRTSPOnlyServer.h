@@ -85,13 +85,14 @@ EXTERNC typedef struct rtsp_serv {
     int audio_channels;
     int audio_bps;
     int rtp_port;  //server rtp port
+    int rtp_port_audio;
 } rtsp_serv_t;
 
 EXTERNC int c_start_server(rtsp_serv_t* server);
 
 EXTERNC void c_stop_server(rtsp_serv_t* server);
 
-EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
+EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
 
 EXTERNC void rtps_server_usage();
 
