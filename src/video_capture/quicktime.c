@@ -1032,6 +1032,8 @@ void *vidcap_quicktime_init(const struct vidcap_params *params)
         
         s->frame = vf_alloc(1);
         s->tile = vf_get_tile(s->frame, 0);
+
+        fprintf(stderr, "\033[0;31m[QuickTime cap.] \033[1;31mWarning:\033[0;31m This module is deprecated and will be removed in future. Please use AV Foundation module instead (-t avfoundation).\n\033[0;49m");
         
         if (s != NULL) {
                 s->magic = MAGIC_QT_GRABBER;
