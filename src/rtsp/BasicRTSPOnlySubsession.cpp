@@ -53,15 +53,15 @@ BasicRTSPOnlySubsession*
 BasicRTSPOnlySubsession::createNew(UsageEnvironment& env,
 		Boolean reuseFirstSource, struct module *mod, rtps_types_t avType,
 		audio_codec_t audio_codec, int audio_sample_rate, int audio_channels,
-		int audio_bps, int rtp_port) {
+		int audio_bps, int rtp_port, int rtp_port_audio) {
 	return new BasicRTSPOnlySubsession(env, reuseFirstSource, mod, avType,
-			audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port);
+			audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio);
 }
 
 BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 		Boolean reuseFirstSource, struct module *mod, rtps_types_t avType,
 		audio_codec_t audio_codec, int audio_sample_rate, int audio_channels,
-		int audio_bps, int rtp_port) :
+		int audio_bps, int rtp_port, int rtp_port_audio) :
 		ServerMediaSubsession(env), fSDPLines(NULL), fReuseFirstSource(
 				reuseFirstSource), fLastStreamToken(NULL) {
 	Vdestination = NULL;
@@ -74,6 +74,7 @@ BasicRTSPOnlySubsession::BasicRTSPOnlySubsession(UsageEnvironment& env,
 	this->audio_channels = audio_channels;
 	this->audio_bps = audio_bps;
 	this->rtp_port = rtp_port;
+	this->rtp_port_audio = rtp_port_audio;
 	fCNAME[sizeof fCNAME - 1] = '\0';
 }
 
@@ -95,6 +96,8 @@ char const* BasicRTSPOnlySubsession::sdpLines() {
 void BasicRTSPOnlySubsession::setSDPLines() {
 	//TODO: should be more dynamic
 	//VStream
+	printf("set SDP lines - portV = %d - portA = %d\n",rtp_port,rtp_port_audio);
+
 	if (avType == video || avType == av) {
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
@@ -106,6 +109,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
 				"c=IN IP4 %s\r\n"
 				"b=AS:%u\r\n"
+				"a=rtcp:%d\r\n"
 				"%s"
 				"a=control:%s\r\n";
 		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
@@ -115,10 +119,11 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		char* sdpLines = new char[sdpFmtSize];
 
 		sprintf(sdpLines, sdpFmt, mediaType, // m= <media>
-				fPortNumForSDP, // m= <port>
+				rtp_port,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
 				ipAddressStr.val(), // c= address
 				estBitrate, // b=AS:<bandwidth>
+				rtp_port + 1,
 				rtpmapLine, // a=rtpmap:... (if present)
 				trackId()); // a=control:<track-id>
 
@@ -146,6 +151,7 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 		char const* const sdpFmt = "m=%s %u RTP/AVP %u\r\n"
 				"c=IN IP4 %s\r\n"
 				"b=AS:%u\r\n"
+				"a=rtcp:%d\r\n"
 				"a=rtpmap:%u %s/%d/%d\r\n"
 				"a=control:%s\r\n";
 		unsigned sdpFmtSize = strlen(sdpFmt) + strlen(mediaType) + 5 /* max short len */
@@ -156,11 +162,12 @@ void BasicRTSPOnlySubsession::setSDPLines() {
 
 		sprintf(sdpLines, sdpFmt,
 				mediaType, // m= <media>
-				fPortNumForSDP, // m= <port>
+				rtp_port_audio,//fPortNumForSDP, // m= <port>
 				rtpPayloadType, // m= <fmt list>
 				ipAddressStr.val(), // c= address
 				estBitrate, // b=AS:<bandwidth>
 				//rtpmapLine, // a=rtpmap:... (if present)
+				rtp_port_audio + 1,
 				rtpPayloadType,
 				audio_codec == AC_MULAW ? "PCMU" : "PCMA",
 				audio_sample_rate,
@@ -178,13 +185,14 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
 		netAddressBits& destinationAddress, u_int8_t& /*destinationTTL*/,
 		Boolean& isMulticast, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& streamToken) {
-
-	Port rtp(rtp_port);
-	serverRTPPort = rtp;
-	Port rtcp(rtp_port + 1);
-	serverRTCPPort = rtcp;
+	printf("getStreamParameters - port = %d - portA = %d\n",rtp_port,rtp_port_audio);
 
 	if (Vdestination == NULL && (avType == video || avType == av)) {
+		Port rtp(rtp_port);
+		serverRTPPort = rtp;
+		Port rtcp(rtp_port + 1);
+		serverRTCPPort = rtcp;
+
 		if (fSDPLines == NULL) {
 			setSDPLines();
 		}
@@ -197,6 +205,11 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
 				clientRTCPPort);
 	}
 	if (Adestination == NULL && (avType == audio || avType == av)) {
+		Port rtp(rtp_port_audio);
+		serverRTPPort = rtp;
+		Port rtcp(rtp_port_audio + 1);
+		serverRTCPPort = rtcp;
+
 		if (fSDPLines == NULL) {
 			setSDPLines();
 		}
@@ -318,7 +331,7 @@ void BasicRTSPOnlySubsession::deleteStream(unsigned clientSessionId,
 					sizeof(struct msg_sender));
 
 			//TODO: GET AUDIO PORT SET (NOT A COMMON CASE WHEN RTSP IS ENABLED: DEFAULT -> vport + 2)
-			msgA1->port = rtp_port + 2;
+			msgA1->port = rtp_port_audio;
 			msgA1->type = SENDER_MSG_CHANGE_PORT;
 			send_message(fmod, pathA, (struct message *) msgA1);
 

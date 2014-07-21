@@ -55,10 +55,10 @@
 
 class BasicRTSPOnlyServer {
 private:
-    BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
+    BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
 
 public:
-    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port);
+    static BasicRTSPOnlyServer* initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
     static BasicRTSPOnlyServer* getInstance();
 
     int init_server();
@@ -78,6 +78,7 @@ private:
     int audio_channels;
     int audio_bps;
     int rtp_port; //server rtp port
+    int rtp_port_audio; //server rtp port
     RTSPServer* rtspServer;
     UsageEnvironment* env;
 };

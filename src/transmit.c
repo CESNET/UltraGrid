@@ -143,7 +143,7 @@ struct tx {
         struct openssl_encrypt *encryption;
         long packet_rate;
 		
-#ifdef HAVE_RTSP
+#ifdef HAVE_RTSP_SERVER
         struct rtpenc_h264_state *rtpenc_h264_state;
 #endif
 };
@@ -228,7 +228,7 @@ struct tx *tx_init(struct module *parent, unsigned mtu, enum tx_media_type media
                 }
 
                 tx->packet_rate = packet_rate;
-#ifdef HAVE_RTSP
+#ifdef HAVE_RTSP_SERVER
                 tx->rtpenc_h264_state = rtpenc_h264_init_state();
 #endif
 
@@ -847,7 +847,7 @@ static void tx_send_base_h264(struct tx *tx, struct video_frame *frame,
 	UNUSED(send_m);
 	assert(tx->magic == TRANSMIT_MAGIC);
 
-#ifdef HAVE_RTSP
+#ifdef HAVE_RTSP_SERVER
 	struct tile *tile = &frame->tiles[substream];
 
 	char pt = RTPENC_H264_PT;

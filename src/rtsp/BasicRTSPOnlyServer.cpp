@@ -48,7 +48,7 @@
 
 BasicRTSPOnlyServer *BasicRTSPOnlyServer::srvInstance = NULL;
 
-BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port){
+BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
     if(mod == NULL){
         exit(1);
     }
@@ -60,17 +60,18 @@ BasicRTSPOnlyServer::BasicRTSPOnlyServer(int port, struct module *mod, rtps_type
     this->audio_channels = audio_channels;
     this->audio_bps = audio_bps;
     this->rtp_port = rtp_port;
+    this->rtp_port_audio = rtp_port_audio;
     this->rtspServer = NULL;
     this->env = NULL;
     this->srvInstance = this;
 }
 
 BasicRTSPOnlyServer* 
-BasicRTSPOnlyServer::initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port){
+BasicRTSPOnlyServer::initInstance(int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio){
     if (srvInstance != NULL){
         return srvInstance;
     }
-    return new BasicRTSPOnlyServer(port, mod, avType, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port);
+    return new BasicRTSPOnlyServer(port, mod, avType, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio);
 }
 
 BasicRTSPOnlyServer* 
@@ -118,16 +119,16 @@ int BasicRTSPOnlyServer::init_server() {
 
                if(avType == av){
                                   sms->addSubsession(BasicRTSPOnlySubsession
-                                                    ::createNew(*env, True, mod, audio, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port));
+                                                    ::createNew(*env, True, mod, audio, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
                                   sms->addSubsession(BasicRTSPOnlySubsession
-                                                    ::createNew(*env, True, mod, video, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port));
+                                                    ::createNew(*env, True, mod, video, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
                }else if(avType == audio){
                    sms->addSubsession(BasicRTSPOnlySubsession
-                                     	 ::createNew(*env, True, mod, audio, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port));
+                                     	 ::createNew(*env, True, mod, audio, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
 
                }else if(avType == video){
             	   sms->addSubsession(BasicRTSPOnlySubsession
-            			   	   	    	 ::createNew(*env, True, mod, video, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port));
+            			   	   	    	 ::createNew(*env, True, mod, video, audio_codec, audio_sample_rate, audio_channels, audio_bps, rtp_port, rtp_port_audio));
                }else{
             	   *env << "\n[RTSP Server] Error when trying to play stream type: \"" << avType << "\"\n";
             	   exit(1);
