@@ -50,17 +50,16 @@
 #include "video_rxtx/h264_rtp.h"
 #include "video.h"
 
-h264_rtp_video_rxtx::h264_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                const char *requested_compression, const char *requested_encryption,
-                const char *receiver, int rx_port, int tx_port, int a_rx_port, int a_tx_port,
-                bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
-                long packet_rate, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtsp_port) :
-        rtp_video_rxtx(parent, video_exporter, requested_compression, requested_encryption,
-                        receiver, rx_port, tx_port,
-                        use_ipv6, mcast_if, requested_video_fec, mtu, packet_rate)
+h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &params) :
+        rtp_video_rxtx(params)
 {
 #ifdef HAVE_RTSP_SERVER
-        m_rtsp_server = init_rtsp_server(rtsp_port, parent, avType, audio_codec, audio_sample_rate, audio_channels, audio_bps, rx_port, a_rx_port);
+        m_rtsp_server = init_rtsp_server(params.at("rtsp_port").i,
+                        static_cast<struct module *>(params.at("parent").ptr),
+                        static_cast<rtps_types_t>(params.at("avType").l),
+                        static_cast<audio_codec_t>(params.at("audio_codec").l),
+                        params.at("audio_sample_rate").i, params.at("audio_channels").i,
+                        params.at("audio_bps").i, params.at("rx_port").i, params.at("a_rx_port").i);
         c_start_server(m_rtsp_server);
 #endif
 }

@@ -67,10 +67,7 @@ struct display;
 
 class ihdtv_video_rxtx: public video_rxtx {
 public:
-        ihdtv_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                        const char *requested_compression,
-                        struct vidcap *capture_device, struct display *display_device,
-                        int requested_mtu, int argc, char **argv);
+        ihdtv_video_rxtx(std::map<std::string, param_u> const &);
         ~ihdtv_video_rxtx();
 private:
         void send_frame(struct video_frame *);

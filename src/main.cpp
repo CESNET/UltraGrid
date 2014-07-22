@@ -963,39 +963,65 @@ int main(int argc, char *argv[])
         }
 
         try {
-                if (video_protocol == IHDTV) {
-                        struct vidcap *capture_device = NULL;
-                        struct display *display_device = NULL;
-                        if (rxtx_mode & MODE_SENDER)
-                                capture_device = uv->capture_device;
-                        if (rxtx_mode & MODE_RECEIVER)
-                                display_device = uv->display_device;
-                        uv->state_video_rxtx = new ihdtv_video_rxtx(&root_mod, video_exporter,
-                                        requested_compression, capture_device,
-                                        display_device, requested_mtu,
-                                        argc, argv);
-                }else if (video_protocol == H264_STD) {
-                		rtps_types_t avType;
-                		if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
-                		else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
-                        else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = video; //VStream
-           	            else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+                map<string, param_u> params;
 
-                        uv->state_video_rxtx = new h264_rtp_video_rxtx(&root_mod, video_exporter,
-                                        requested_compression, requested_encryption,
-                                        requested_receiver, recv_port_number, send_port_number, audio_rx_port, audio_tx_port,
-                                        ipv6, requested_mcast_if, requested_video_fec, requested_mtu,
-                                        packet_rate, avType, get_audio_codec(audio_codec), compressed_audio_sample_rate, audio_capture_channels, 2 /*bps*/, rtsp_port);
+                // common
+                params["parent"].ptr = &root_mod;
+                params["exporter"].ptr = video_exporter;
+                params["compression"].ptr = (void *) requested_compression;
+
+                // RTSP
+                params["rtsp_port"].i = rtsp_port;
+                params["audio_codec"].l = get_audio_codec(audio_codec);
+                params["audio_sammple_rate"].i = compressed_audio_sample_rate;
+                params["audio_bps"].i = 2;
+
+                // iHDTV
+                params["argc"].i = argc;
+                params["argv"].ptr = argv;
+                params["capture_device"].ptr = NULL;
+                params["display_device"].ptr = NULL;
+                if (rxtx_mode & MODE_SENDER)
+                        params["capture_device"].ptr = uv->capture_device;
+                if (rxtx_mode & MODE_RECEIVER)
+                        params["display_device"].ptr = uv->display_device;
+
+                //RTP
+                params["mtu"].i = requested_mtu;
+                params["receiver"].ptr = (void *) requested_receiver;
+                params["rx_port"].i = recv_port_number;
+                params["tx_port"].i = send_port_number;
+                params["use_ipv6"].b = ipv6;
+                params["mcast_if"].ptr = (void *) requested_mcast_if;
+                params["mtu"].i = requested_mtu;
+                params["fec"].ptr = (void *) requested_video_fec;
+                params["encryption"].ptr = (void *) requested_encryption;
+                params["packet_rate"].i = packet_rate;
+
+                // UltraGrid RTP
+                params["postprocess"].ptr = (void *) postprocess;
+                params["decoder_mode"].l = decoder_mode;
+                params["display_device"].ptr = uv->display_device;
+
+                // SAGE
+                params["sage_opts"].ptr = sage_opts;
+
+                if (video_protocol == IHDTV) {
+                        uv->state_video_rxtx = new ihdtv_video_rxtx(params);
+                }else if (video_protocol == H264_STD) {
+                        rtps_types_t avType;
+                        if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
+                        else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
+                        else if(strcmp("none", vidcap_params_get_driver(vidcap_params_head))) avType = video; //VStream
+                        else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
+
+                        params["avType"].l = avType;
+                        uv->state_video_rxtx = new h264_rtp_video_rxtx(params);
+
                 } else if (video_protocol == ULTRAGRID_RTP) {
-                        uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(&root_mod, video_exporter,
-                                        requested_compression, requested_encryption,
-                                        requested_receiver, recv_port_number,
-                                        send_port_number, ipv6,
-                                        requested_mcast_if, requested_video_fec, requested_mtu,
-                                        packet_rate, decoder_mode, postprocess, uv->display_device);
+                        uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(params);
                 } else { // SAGE
-                        uv->state_video_rxtx = new sage_video_rxtx(&root_mod, video_exporter,
-                                        requested_compression, requested_receiver, sage_opts);
+                        uv->state_video_rxtx = new sage_video_rxtx(params);
                 }
 
                 if(rxtx_mode & MODE_RECEIVER) {

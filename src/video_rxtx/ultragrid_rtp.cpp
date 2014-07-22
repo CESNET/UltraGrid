@@ -76,27 +76,22 @@
 
 using namespace std;
 
-ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                const char *requested_compression, const char *requested_encryption,
-                const char *receiver, int rx_port, int tx_port,
-                bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
-                long packet_rate, enum video_mode decoder_mode, const char *postprocess,
-                struct display *display_device) :
-        rtp_video_rxtx(parent, video_exporter, requested_compression, requested_encryption,
-                        receiver, rx_port, tx_port,
-                        use_ipv6, mcast_if, requested_video_fec, mtu, packet_rate)
+ultragrid_rtp_video_rxtx::ultragrid_rtp_video_rxtx(const map<string, param_u> &params) :
+        rtp_video_rxtx(params)
 {
-        if((postprocess && strstr(postprocess, "help") != NULL)) {
-                struct state_video_decoder *dec = video_decoder_init(NULL, VIDEO_NORMAL, postprocess, NULL, NULL);
+        if ((params.at("postprocess").ptr != NULL &&
+                                strstr((const char *) params.at("postprocess").ptr, "help") != NULL)) {
+                struct state_video_decoder *dec = video_decoder_init(NULL, VIDEO_NORMAL,
+                                (const char *) params.at("postprocess").ptr, NULL, NULL);
                 video_decoder_destroy(dec);
                 throw EXIT_SUCCESS;
         }
 
         gettimeofday(&m_start_time, NULL);
-        m_decoder_mode = decoder_mode;
-        m_postprocess = postprocess;
-        m_display_device = display_device;
-        m_requested_encryption = requested_encryption;
+        m_decoder_mode = (enum video_mode) params.at("decoder_mode").l;
+        m_postprocess = (const char *) params.at("postprocess").ptr;
+        m_display_device = (struct display *) params.at("display_device").ptr;
+        m_requested_encryption = (const char *) params.at("encryption").ptr;
         m_async_sending = false;
 }
 

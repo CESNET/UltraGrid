@@ -120,13 +120,12 @@ static void *ihdtv_sender_thread(void *arg)
 }
 #endif
 
-ihdtv_video_rxtx::ihdtv_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                                        const char *requested_compression,
-                                        struct vidcap *capture_device, struct display *display_device,
-                                        int requested_mtu, int argc, char **argv) :
-        video_rxtx(parent, video_exporter, requested_compression)
+ihdtv_video_rxtx::ihdtv_video_rxtx(map<string, param_u> const &params) :
+        video_rxtx(params)
 {
 #ifdef HAVE_IHDTV
+        int argc = params.at("argc").i;
+        char **argv = (char **) params.at("argv").ptr;
         if ((argc != 0) && (argc != 1) && (argc != 2)) {
                 throw string("Wrong number of parameters");
         }
@@ -134,29 +133,24 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(struct module *parent, struct video_export *v
         printf("Initializing ihdtv protocol\n");
 
         // we cannot act as both together, because parameter parsing would have to be revamped
-        if (capture_device && display_device) {
+        if (params.at("capture_device").ptr && params.at("display_device").ptr) {
                throw string 
                         ("Error: cannot act as both sender and receiver together in ihdtv mode");
         }
 
-        m_display_device = display_device;
+        m_display_device = static_cast<struct display *>(params.at("display_device").ptr);
 
-        if (requested_mtu == 0)     // mtu not specified on command line
-        {
-                requested_mtu = 8112;       // not really a mtu, but a video-data payload per packet
-        }
-
-        if (display_device) {
+        if (m_display_device) {
                 if (ihdtv_init_rx_session
                                 (&m_rx_connection, (argc == 0) ? NULL : argv[0],
                                  (argc ==
                                   0) ? NULL : ((argc == 1) ? argv[0] : argv[1]),
-                                 3000, 3001, requested_mtu) != 0) {
+                                 3000, 3001, params.at("mtu").i) != 0) {
                         throw string("Error initializing receiver session");
                 }
         }
 
-        if (capture_device != 0) {
+        if (static_cast<struct display *>(params.at("capture_device").ptr) != 0) {
                 if (argc == 0) {
                         throw string("Error: specify the destination address");
                 }
@@ -164,19 +158,11 @@ ihdtv_video_rxtx::ihdtv_video_rxtx(struct module *parent, struct video_export *v
                 if (ihdtv_init_tx_session
                                 (&m_tx_connection, argv[0],
                                  (argc == 2) ? argv[1] : argv[0],
-                                 requested_mtu) != 0) {
+                                 params.at("mtu").i) != 0)
                         throw string("Error initializing sender session");
                 }
         }
 #else
-        UNUSED(parent);
-        UNUSED(video_exporter);
-        UNUSED(requested_compression);
-        UNUSED(capture_device);
-        UNUSED(display_device);
-        UNUSED(requested_mtu);
-        UNUSED(argc);
-        UNUSED(argv);
         throw string("Support for iHDTV not compiled in");
 #endif // HAVE_IHDTV
 }

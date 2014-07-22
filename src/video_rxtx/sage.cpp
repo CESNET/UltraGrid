@@ -52,18 +52,16 @@
 
 using namespace std;
 
-sage_video_rxtx::sage_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                        const char *requested_compression,
-                        const char *requested_receiver, const char *sage_opts) :
-        video_rxtx(parent, video_exporter, requested_compression)
+sage_video_rxtx::sage_video_rxtx(map<string, param_u> const &params) :
+        video_rxtx(params)
 {
         ostringstream oss;
 
-        if (sage_opts) {
-                oss << sage_opts << ":";
+        if (params.at("sage_opts").ptr) {
+                oss << static_cast<const char *>(params.at("sage_opts").ptr) << ":";
         }
 
-        oss << "fs=" << requested_receiver;
+        oss << "fs=" << static_cast<const char *>(params.at("receiver").ptr);
         oss << ":tx"; // indicates that we are in tx mode
         int ret = initialize_video_display("sage",
                         oss.str().c_str(), 0, &m_sage_tx_device);

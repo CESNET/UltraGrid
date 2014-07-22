@@ -64,9 +64,7 @@ struct display;
 
 class sage_video_rxtx: public video_rxtx {
 public:
-        sage_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                        const char *requested_compression,
-                        const char *requested_receiver, const char *sage_opts);
+        sage_video_rxtx(std::map<std::string, param_u> const &);
         ~sage_video_rxtx();
 private:
         void send_frame(struct video_frame *);

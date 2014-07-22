@@ -38,6 +38,9 @@
 #ifndef VIDEO_RXTX_H_
 #define VIDEO_RXTX_H_
 
+#include <map>
+#include <string>
+
 #include "module.h"
 
 struct display;
@@ -53,26 +56,23 @@ enum rxtx_protocol {
         H264_STD
 };
 
-struct rx_tx {
-        enum rxtx_protocol protocol;
-        const char *name;
-        void (*send)(void *, struct video_frame *);
-        void (*done)(void *);
-        void *(*receiver_thread)(void *);
+class video_rxtx;
+
+union param_u {
+        void * ptr;
+        int    i;
+        long   l;
+        bool   b;
 };
 
-extern struct rx_tx h264_rtp;
-
-struct h264_rtp_state {
-        int connections_count;
-        struct rtp **network_devices;
-        struct tx *tx;
+struct video_rxtx_info {
+        const char *name;
+        class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
 class video_rxtx {
 public:
-        video_rxtx(struct module *parent, struct video_export *video_exporter,
-                        const char *requested_compression);
+        video_rxtx(std::map<std::string, param_u> const &);
         virtual ~video_rxtx();
         void send(struct video_frame *);
         static const char *get_name(enum rxtx_protocol);

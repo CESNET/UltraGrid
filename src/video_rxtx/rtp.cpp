@@ -116,16 +116,10 @@ void rtp_video_rxtx::process_message(struct msg_sender *msg)
         }
 }
 
-rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
-                struct video_export *video_exporter,
-                const char *requested_compression, const char *requested_encryption,
-                const char *receiver, int rx_port, int tx_port,
-                bool use_ipv6, const char *mcast_if, const char *requested_video_fec,
-                int requested_mtu, long packet_rate) :
-        video_rxtx(parent, video_exporter, requested_compression),
-        m_fec_state(NULL)
+rtp_video_rxtx::rtp_video_rxtx(map<string, param_u> const &params) :
+        video_rxtx(params), m_fec_state(NULL)
 {
-        if(requested_mtu > RTP_MAX_MTU) {
+        if (params.at("mtu").i > RTP_MAX_MTU) {
                 ostringstream oss;
                 oss << "Requested MTU exceeds maximal value allowed by RTP library (" <<
                         RTP_MAX_PACKET_LEN << ").";
@@ -133,14 +127,14 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
         }
 
         m_participants = pdb_init();
-        m_requested_receiver = receiver;
-        m_recv_port_number = rx_port;
-        m_send_port_number = tx_port;
-        m_ipv6 = use_ipv6;
-        m_requested_mcast_if = mcast_if;
+        m_requested_receiver = (const char *) params.at("receiver").ptr;
+        m_recv_port_number = params.at("rx_port").i;
+        m_send_port_number = params.at("tx_port").i;
+        m_ipv6 = params.at("use_ipv6").b;
+        m_requested_mcast_if = (const char *) params.at("mcast_if").ptr;
         
-        if ((m_network_devices = initialize_network(receiver, rx_port, tx_port,
-                                        m_participants, use_ipv6, mcast_if))
+        if ((m_network_devices = initialize_network(m_requested_receiver, m_recv_port_number, m_send_port_number,
+                                        m_participants, m_ipv6, m_requested_mcast_if))
                         == NULL) {
                 throw string("Unable to open network");
         } else {
@@ -152,9 +146,10 @@ rtp_video_rxtx::rtp_video_rxtx(struct module *parent,
         }
 
         if ((m_tx = tx_init(&m_sender_mod,
-                                        requested_mtu, TX_MEDIA_VIDEO,
-                                        requested_video_fec,
-                                        requested_encryption, packet_rate)) == NULL) {
+                                        params.at("mtu").i, TX_MEDIA_VIDEO,
+                                        static_cast<const char *>(params.at("fec").ptr),
+                                        static_cast<const char *>(params.at("encryption").ptr),
+                                        params.at("packet_rate").i)) == NULL) {
                 throw string("Unable to initialize transmitter");
         }
 

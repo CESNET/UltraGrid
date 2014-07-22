@@ -56,11 +56,7 @@ struct fec;
 class rtp_video_rxtx : public video_rxtx {
         friend class video_rxtx;
 public:
-        rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                        const char *requested_compression, const char *requested_encryption,
-                        const char *receiver, int rx_port, int tx_port,
-                        bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
-                        long packet_rate);
+        rtp_video_rxtx(std::map<std::string, param_u> const &params);
         virtual ~rtp_video_rxtx();
 
         static struct rtp **initialize_network(const char *addrs, int recv_port_base,

@@ -73,22 +73,22 @@
 
 using namespace std;
 
-video_rxtx::video_rxtx(struct module *parent, struct video_export *video_exporter,
-                const char *requested_compression): m_paused(false), m_compression(NULL),
-                m_video_exporter(video_exporter) {
+video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false), m_compression(NULL),
+                m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)) {
 
         module_init_default(&m_sender_mod);
         m_sender_mod.cls = MODULE_CLASS_SENDER;
-        module_register(&m_sender_mod, parent);
+        module_register(&m_sender_mod, static_cast<struct module *>(params.at("parent").ptr));
 
         module_init_default(&m_receiver_mod);
         m_receiver_mod.cls = MODULE_CLASS_RECEIVER;
-        module_register(&m_receiver_mod, parent);
+        module_register(&m_receiver_mod, static_cast<struct module *>(params.at("parent").ptr));
 
         m_compression = nullptr;
 
         try {
-                int ret = compress_init(&m_sender_mod, requested_compression, &m_compression);
+                int ret = compress_init(&m_sender_mod, static_cast<const char *>(params.at("compression").ptr),
+                                &m_compression);
                 if(ret != 0) {
                         if(ret < 0) {
                                 throw string("Error initializing compression.");

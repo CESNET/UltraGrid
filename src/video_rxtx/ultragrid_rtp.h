@@ -42,16 +42,13 @@
 #include "video_rxtx/rtp.h"
 
 #include <condition_variable>
+#include <map>
 #include <mutex>
+#include <string>
 
 class ultragrid_rtp_video_rxtx : public rtp_video_rxtx {
 public:
-        ultragrid_rtp_video_rxtx(struct module *parent, struct video_export *video_exporter,
-                        const char *requested_compression, const char *requested_encryption,
-                        const char *receiver, int rx_port, int tx_port,
-                        bool use_ipv6, const char *mcast_if, const char *requested_video_fec, int mtu,
-                        long packet_rate, enum video_mode decoder_mode, const char *postprocess,
-                        struct display *display_device);
+        ultragrid_rtp_video_rxtx(std::map<std::string, param_u> const &);
         virtual ~ultragrid_rtp_video_rxtx();
         virtual void join();
 private:
