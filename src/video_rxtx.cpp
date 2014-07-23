@@ -49,6 +49,7 @@
 #include <stdexcept>
 
 #include "host.h"
+#include "lib_common.h"
 #include "messaging.h"
 #include "module.h"
 #include "pdb.h"
@@ -66,12 +67,50 @@
 #include "video_display.h"
 #include "video_export.h"
 #include "video_rxtx.h"
+#include "video_rxtx/h264_rtp.h"
 #include "video_rxtx/ihdtv.h"
 #include "video_rxtx/rtp.h"
 #include "video_rxtx/sage.h"
 #include "video_rxtx/ultragrid_rtp.h"
 
 using namespace std;
+
+map<enum rxtx_protocol, struct video_rxtx_info> *registred_video_rxtx = nullptr;
+
+/**
+ * The purpose of this initializor instead of ordinary static initialization is that register_video_rxtx()
+ * may be called before static members are initialized (it is __attribute__((constructor)))
+ */
+struct init_registred_video_rxtx {
+        init_registred_video_rxtx()
+        {
+                if (registred_video_rxtx == nullptr) {
+                        registred_video_rxtx = new map<enum rxtx_protocol, struct video_rxtx_info>;
+
+                        *registred_video_rxtx = {{ULTRAGRID_RTP, {"UltraGrid RTP", create_video_rxtx_ultragrid_rtp}},
+                                {IHDTV, {"iHDTV", create_video_rxtx_ihdtv}},
+                                {SAGE, {"SAGE", create_video_rxtx_sage}}
+                                //{H264_STD, {"H264 standard", create_video_rxtx_h264_std}},
+                        };
+                }
+        }
+};
+
+static init_registred_video_rxtx loader;
+
+video_rxtx_loader::video_rxtx_loader() {
+#ifdef BUILD_LIBRARIES
+        char name[128];
+        snprintf(name, sizeof(name), "video_rxtx_*.so.%d", VIDEO_RXTX_ABI_VERSION);
+        open_all(name);
+#endif
+}
+
+void register_video_rxtx(enum rxtx_protocol proto, struct video_rxtx_info info)
+{
+        init_registred_video_rxtx loader;
+        (*registred_video_rxtx)[proto] = info;
+}
 
 video_rxtx::video_rxtx(map<string, param_u> const &params): m_paused(false), m_compression(NULL),
                 m_video_exporter(static_cast<struct video_export *>(params.at("exporter").ptr)) {
@@ -130,17 +169,10 @@ void video_rxtx::join() {
 }
 
 const char *video_rxtx::get_name(enum rxtx_protocol proto) {
-        switch (proto) {
-        case ULTRAGRID_RTP:
-                return "UltraGrid RTP";
-        case IHDTV:
-                return "iHDTV";
-        case SAGE:
-                return "SAGE";
-        case H264_STD:
-                return "H264 standard";
-        default:
-                return NULL;
+        if (registred_video_rxtx->find(proto) != registred_video_rxtx->end()) {
+                return registred_video_rxtx->at(proto).name;
+        } else {
+                return nullptr;
         }
 }
 
@@ -199,5 +231,14 @@ exit:
         stats_destroy(stat_data_sent);
 
         return NULL;
+}
+
+video_rxtx *video_rxtx::create(enum rxtx_protocol proto, std::map<std::string, param_u> const &params)
+{
+        if (registred_video_rxtx->find(proto) != registred_video_rxtx->end()) {
+                return registred_video_rxtx->at(proto).create(params);
+        } else {
+                return nullptr;
+        }
 }
 

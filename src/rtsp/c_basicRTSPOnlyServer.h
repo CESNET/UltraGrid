@@ -94,9 +94,5 @@ EXTERNC void c_stop_server(rtsp_serv_t* server);
 
 EXTERNC rtsp_serv_t* init_rtsp_server(unsigned int port, struct module *mod, rtps_types_t avType, audio_codec_t audio_codec, int audio_sample_rate, int audio_channels, int audio_bps, int rtp_port, int rtp_port_audio);
 
-EXTERNC void rtps_server_usage();
-
-EXTERNC int get_rtsp_server_port(char *config);
-
 #undef EXTERNC
 

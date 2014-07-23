@@ -171,3 +171,8 @@ ihdtv_video_rxtx::~ihdtv_video_rxtx()
 {
 }
 
+video_rxtx *create_video_rxtx_ihdtv(std::map<std::string, param_u> const &params)
+{
+        return new ihdtv_video_rxtx(params);
+}
+

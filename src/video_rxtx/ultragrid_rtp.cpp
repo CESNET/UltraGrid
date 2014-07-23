@@ -433,3 +433,8 @@ void *ultragrid_rtp_video_rxtx::receiver_loop()
         return 0;
 }
 
+video_rxtx *create_video_rxtx_ultragrid_rtp(std::map<std::string, param_u> const &params)
+{
+        return new ultragrid_rtp_video_rxtx(params);
+}
+

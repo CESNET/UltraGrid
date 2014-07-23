@@ -99,4 +99,8 @@ sage_video_rxtx::~sage_video_rxtx()
         display_done(m_sage_tx_device);
 }
 
+video_rxtx *create_video_rxtx_sage(std::map<std::string, param_u> const &params)
+{
+        return new sage_video_rxtx(params);
+}
 

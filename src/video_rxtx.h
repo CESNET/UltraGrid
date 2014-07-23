@@ -70,6 +70,8 @@ struct video_rxtx_info {
         class video_rxtx *(*create)(std::map<std::string, param_u> const &params);
 };
 
+void register_video_rxtx(enum rxtx_protocol, struct video_rxtx_info);
+
 class video_rxtx {
 public:
         video_rxtx(std::map<std::string, param_u> const &);
@@ -84,6 +86,7 @@ public:
                 return get_receiver_thread() != NULL;
         }
         virtual void join();
+        static video_rxtx *create(enum rxtx_protocol proto, std::map<std::string, param_u> const &);
 protected:
         void check_sender_messages();
         bool m_paused;
@@ -102,6 +105,11 @@ private:
         struct video_export *m_video_exporter;
 
         pthread_t m_thread_id;
+};
+
+class video_rxtx_loader {
+public:
+        video_rxtx_loader();
 };
 
 #endif // VIDEO_RXTX_H_

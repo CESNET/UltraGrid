@@ -439,6 +439,7 @@ video_display_abi_version=6
 video_capture_abi_version=3
 video_compress_abi_version=3
 video_decompress_abi_version=3
+video_rxtx_abi_version=1
 audio_capture_abi_version=4
 audio_playback_abi_version=4
 audio_codec_abi_version=1
@@ -447,6 +448,7 @@ AC_DEFINE_UNQUOTED([VIDEO_DISPLAY_ABI_VERSION], $video_display_abi_version, [Spe
 AC_DEFINE_UNQUOTED([VIDEO_CAPTURE_ABI_VERSION], $video_capture_abi_version, [Specifies ABI version for video capture devices])
 AC_DEFINE_UNQUOTED([VIDEO_COMPRESS_ABI_VERSION], $video_compress_abi_version, [Specifies ABI version for video compression])
 AC_DEFINE_UNQUOTED([VIDEO_DECOMPRESS_ABI_VERSION], $video_decompress_abi_version, [Specifies ABI version for video decompression])
+AC_DEFINE_UNQUOTED([VIDEO_RXTX_ABI_VERSION], $video_rxtx_abi_version, [Specifies ABI version for video transmission])
 AC_DEFINE_UNQUOTED([AUDIO_CAPTURE_ABI_VERSION], $audio_capture_abi_version, [Specifies ABI version for audio capture])
 AC_DEFINE_UNQUOTED([AUDIO_PLAYBACK_ABI_VERSION], $audio_playback_abi_version, [Specifies ABI version for audio playback])
 AC_DEFINE_UNQUOTED([AUDIO_CODEC_ABI_VERSION], $audio_codec_abi_version, [Specifies ABI version for audio codec])
@@ -1230,13 +1232,13 @@ case $host in
 		if test $rtsp_req != no -a $FOUND_CURL_H = yes -a $FOUND_GLIB_H = yes  
 		then
 			AC_DEFINE([HAVE_RTSP], [1], [RTSP capture build with curl ang glib support])
-	        SAVED_CFLAGS=$CFLAGS
-	        CFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
-	        SAVED_CXXFLAGS=$CXXFLAGS
-	        CXXFLAGS="$CXXFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"	        
-			RTSP_INC=
-			RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
-			RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
+                        SAVED_CFLAGS=$CFLAGS
+                        CFLAGS="$CFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
+                        SAVED_CXXFLAGS=$CXXFLAGS
+                        CXXFLAGS="$CXXFLAGS ${GLIB_CFLAGS} ${CURL_CFLAGS}"
+                        RTSP_INC=
+                        RTSP_LIB="${GLIB_LIBS} ${CURL_LIBS}"
+                        RTSP_OBJ="src/utils/h264_stream.o src/video_capture/rtsp.o src/rtp/rtpdec_h264.o"
                         AC_SUBST(RTSP_LIB_TARGET, "lib/ultragrid/vidcap_rtsp.so.$video_capture_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_OBJ"
@@ -1291,8 +1293,8 @@ case $host in
 	        CXXFLAGS="$CXXFLAGS -I/usr/include/groupsock -I/usr/include/liveMedia -I/usr/include/BasicUsageEnvironment -I/usr/include/UsageEnvironment"	        
 			RTSP_SERVER_INC=
 			RTSP_SERVER_LIB="-lliveMedia -lBasicUsageEnvironment -lUsageEnvironment -lgroupsock"
-			RTSP_SERVER_OBJ="src/rtp/rtpenc_h264.o src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o"
-                        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/rtsp_server.so.$video_capture_abi_version")
+			RTSP_SERVER_OBJ="src/rtsp/c_basicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlyServer.o src/rtsp/BasicRTSPOnlySubsession.o src/video_rxtx/h264_rtp.o"
+                        AC_SUBST(RTSP_SERVER_LIB_TARGET, "lib/ultragrid/video_rxtx_h264.so.$video_rxtx_abi_version")
                         LIB_TARGETS="$LIB_TARGETS $RTSP_SERVER_LIB_TARGET"
                         LIB_OBJS="$LIB_OBJS $RTSP_SERVER_OBJ"
                         rtsp_server=yes

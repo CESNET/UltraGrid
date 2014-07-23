@@ -72,6 +72,7 @@
 #include "messaging.h"
 #include "module.h"
 #include "perf.h"
+#include "rtsp/rtsp_utils.h"
 #include "stats.h"
 #include "utils/misc.h"
 #include "utils/wait_obj.h"
@@ -494,6 +495,8 @@ int main(int argc, char *argv[])
 
         uv_argc = argc;
         uv_argv = argv;
+
+        video_rxtx_loader loader;
 
         static struct option getopt_options[] = {
                 {"display", required_argument, 0, 'd'},
@@ -970,12 +973,6 @@ int main(int argc, char *argv[])
                 params["exporter"].ptr = video_exporter;
                 params["compression"].ptr = (void *) requested_compression;
 
-                // RTSP
-                params["rtsp_port"].i = rtsp_port;
-                params["audio_codec"].l = get_audio_codec(audio_codec);
-                params["audio_sammple_rate"].i = compressed_audio_sample_rate;
-                params["audio_bps"].i = 2;
-
                 // iHDTV
                 params["argc"].i = argc;
                 params["argv"].ptr = argv;
@@ -1006,9 +1003,15 @@ int main(int argc, char *argv[])
                 // SAGE
                 params["sage_opts"].ptr = sage_opts;
 
-                if (video_protocol == IHDTV) {
-                        uv->state_video_rxtx = new ihdtv_video_rxtx(params);
-                }else if (video_protocol == H264_STD) {
+                // RTSP
+                params["rtsp_port"].i = rtsp_port;
+                params["audio_codec"].l = get_audio_codec(audio_codec);
+                params["audio_sample_rate"].i = compressed_audio_sample_rate;
+                params["audio_channels"].i = audio_capture_channels;
+                params["audio_bps"].i = 2;
+                params["a_rx_port"].i = audio_rx_port;
+
+                if (video_protocol == H264_STD) {
                         rtps_types_t avType;
                         if(strcmp("none", vidcap_params_get_driver(vidcap_params_head)) != 0 && (strcmp("none",audio_send) != 0)) avType = av; //AVStream
                         else if((strcmp("none",audio_send) != 0)) avType = audio; //AStream
@@ -1016,12 +1019,11 @@ int main(int argc, char *argv[])
                         else printf("[RTSP SERVER CHECK] no stream type... check capture devices input...\n");
 
                         params["avType"].l = avType;
-                        uv->state_video_rxtx = new h264_rtp_video_rxtx(params);
+                }
 
-                } else if (video_protocol == ULTRAGRID_RTP) {
-                        uv->state_video_rxtx = new ultragrid_rtp_video_rxtx(params);
-                } else { // SAGE
-                        uv->state_video_rxtx = new sage_video_rxtx(params);
+                uv->state_video_rxtx = video_rxtx::create(video_protocol, params);
+                if (!uv->state_video_rxtx) {
+                        throw string("Requested RX/TX cannot be created (missing library?)");
                 }
 
                 if(rxtx_mode & MODE_RECEIVER) {

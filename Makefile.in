@@ -66,6 +66,7 @@ OBJS	      = @OBJS@ \
 		src/rtp/ptime.o \
 		src/rtp/net_udp.o \
 		src/rtp/rtp.o \
+		src/rtp/rtpenc_h264.o \
 		src/rtp/rtp_callback.o \
 		src/rtp/video_decoders.o \
 		src/audio/audio.o \
@@ -107,6 +108,7 @@ OBJS	      = @OBJS@ \
 		src/crypto/random.o \
 		src/ihdtv/ihdtv.o \
 		src/module.o \
+		src/rtsp/rtsp_utils.o \
 		src/stats.o \
 		src/utils/config_file.o \
 		src/utils/fs_lock.o \
@@ -137,6 +139,11 @@ OBJS	      = @OBJS@ \
 		src/video_display/aggregate.o \
 		src/video_display/null.o \
 		src/video_export.o \
+		src/video_rxtx.o \
+		src/video_rxtx/ihdtv.o \
+		src/video_rxtx/rtp.o \
+		src/video_rxtx/sage.o \
+		src/video_rxtx/ultragrid_rtp.o \
 		src/vo_postprocess.o \
 		src/vo_postprocess/3d-interlaced.o \
 		src/vo_postprocess/interlace.o \
@@ -149,12 +156,6 @@ OBJS	      = @OBJS@ \
 		ldgm-coding/matrix-gen/ldpc-matrix.o \
 
 ULTRAGRID_OBJS = src/main.o \
-		 src/video_rxtx.o \
-		 src/video_rxtx/h264_rtp.o \
-		 src/video_rxtx/ihdtv.o \
-		 src/video_rxtx/rtp.o \
-		 src/video_rxtx/sage.o \
-		 src/video_rxtx/ultragrid_rtp.o \
 
 REFLECTOR_OBJS = src/hd-rum-translator/hd-rum-decompress.o \
 		src/hd-rum-translator/hd-rum-recompress.o \
@@ -521,10 +522,6 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp.so.@video_capture_abi_version@ $^ @RTSP_LIB@ -o $@
 	
-@RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
-	mkdir -p lib/ultragrid
-	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_rtsp_server.so.@video_capture_abi_version@ $^ @RTSP_SERVER_LIB@ -o $@
-	
 @TESTCARD_LIB_TARGET@: @TESTCARD_COMMON@ @TESTCARD_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_testcard.so.@video_capture_abi_version@ $^ @TESTCARD_LIB@ -o $@
@@ -653,6 +650,10 @@ rtsp_server: @RTSP_SERVER_LIB_TARGET@
 @V4L2_LIB_TARGET@: @V4L2_OBJ@
 	mkdir -p lib/ultragrid
 	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,vidcap_v4l2.so.@video_capture_abi_version@ $^ @V4L2_LIBS@ -o $@
+
+@RTSP_SERVER_LIB_TARGET@: @RTSP_SERVER_OBJ@
+	mkdir -p lib/ultragrid
+	$(LINKER) $(LDFLAGS) -shared -Wl,-soname,video_rxtx_h264.so.@video_rxtx_abi_version@ $^ @RTSP_SERVER_LIB@ -o $@
 
 install: all
 	$(INSTALL) -d -m 755 $(DESTDIR)/$(bindir)

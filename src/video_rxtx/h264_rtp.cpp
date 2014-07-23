@@ -50,6 +50,8 @@
 #include "video_rxtx/h264_rtp.h"
 #include "video.h"
 
+using namespace std;
+
 h264_rtp_video_rxtx::h264_rtp_video_rxtx(std::map<std::string, param_u> const &params) :
         rtp_video_rxtx(params)
 {
@@ -83,5 +85,17 @@ h264_rtp_video_rxtx::~h264_rtp_video_rxtx()
 #ifdef HAVE_RTSP_SERVER
         c_stop_server(m_rtsp_server);
 #endif
+}
+
+video_rxtx *create_video_rxtx_h264_std(std::map<std::string, param_u> const &params)
+{
+        return new h264_rtp_video_rxtx(params);
+}
+
+static void init(void)  __attribute__((constructor));
+
+static void init(void)
+{
+        register_video_rxtx(H264_STD, {"H264 standard", create_video_rxtx_h264_std});
 }
 
