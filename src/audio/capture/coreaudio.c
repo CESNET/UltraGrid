@@ -67,6 +67,8 @@
 #include <speex/speex_resampler.h> 
 #endif
 
+#define DISABLE_SPPEX_RESAMPLER 1
+
 struct state_ca_capture {
 #if OS_VERSION_MAJOR <= 9
         ComponentInstance 
@@ -269,9 +271,11 @@ void * audio_cap_ca_init(char *cfg)
         size = sizeof(double);
         ret = AudioDeviceGetProperty(device, 0, 0, kAudioDevicePropertyNominalSampleRate, &size, &rate);
         s->nominal_sample_rate =  rate;
-#ifndef HAVE_SPEEX
+#if !defined HAVE_SPEEX || defined DISABLE_SPPEX_RESAMPLER
         s->frame.sample_rate = rate;
+#if !defined HAVE_SPEEX
         fprintf(stderr, "[CoreAudio] Libspeex support not compiled in, resampling won't work (check manual or wiki how to enable it)!\n");
+#endif
 #else
         s->resampler = NULL;
         s->frame.sample_rate = 48000;
