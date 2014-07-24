@@ -290,13 +290,16 @@ fromConnection:(AVCaptureConnection *)connection;
         }
 
 	// set device frame rate also to capture output to prevent rate oscilation
-	AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
-	//if (conn.isVideoMinFrameDurationSupported)
-		//conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
-	//if (conn.isVideoMaxFrameDurationSupported)
-		//conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
-        output.minFrameDuration = m_device.activeVideoMinFrameDuration;
-        output.maxFrameDuration = m_device.activeVideoMaxFrameDuration;
+        long minorVersion, majorVersion;
+        Gestalt(gestaltSystemVersionMajor, &majorVersion);
+        Gestalt(gestaltSystemVersionMinor, &minorVersion);
+        AVCaptureConnection *conn = [output connectionWithMediaType: AVMediaTypeVideo];
+        if (conn.isVideoMinFrameDurationSupported)
+                conn.videoMinFrameDuration = m_device.activeVideoMinFrameDuration;
+        if (majorVersion > 10 || (majorVersion == 10 && minorVersion >= 9)) {
+                if (conn.isVideoMaxFrameDurationSupported)
+                        conn.videoMaxFrameDuration = m_device.activeVideoMaxFrameDuration;
+        }
 
         // You must also call lockForConfiguration: before calling the AVCaptureSession method startRunning, or the session's preset will override the selected active format on the capture device.
         //https://developer.apple.com/library/mac/documentation/AVFoundation/Reference/AVCaptureDevice_Class/Reference/Reference.html
