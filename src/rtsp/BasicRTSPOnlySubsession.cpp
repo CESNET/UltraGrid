@@ -96,8 +96,6 @@ char const* BasicRTSPOnlySubsession::sdpLines() {
 void BasicRTSPOnlySubsession::setSDPLines() {
 	//TODO: should be more dynamic
 	//VStream
-	printf("set SDP lines - portV = %d - portA = %d\n",rtp_port,rtp_port_audio);
-
 	if (avType == video || avType == av) {
 		unsigned estBitrate = 5000;
 		char const* mediaType = "video";
@@ -185,8 +183,6 @@ void BasicRTSPOnlySubsession::getStreamParameters(unsigned clientSessionId,
 		netAddressBits& destinationAddress, u_int8_t& /*destinationTTL*/,
 		Boolean& isMulticast, Port& serverRTPPort, Port& serverRTCPPort,
 		void*& streamToken) {
-	printf("getStreamParameters - port = %d - portA = %d\n",rtp_port,rtp_port_audio);
-
 	if (Vdestination == NULL && (avType == video || avType == av)) {
 		Port rtp(rtp_port);
 		serverRTPPort = rtp;
